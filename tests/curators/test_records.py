@@ -162,8 +162,23 @@ def test_nextflow_sheet_with_samples(
         ],
     }
 
+    assert nextflow_sheet.schema is not None
     artifact = nextflow_sheet.to_artifact()
+    assert artifact.schema is nextflow_sheet.schema
     assert artifact._state.adding is False
+    assert nextflow_sheet.schema.members.list("name") == [
+        "sample",
+        "fastq_1",
+        "fastq_2",
+        "expected_cells",
+        "seq_center",
+    ]
+    assert artifact.features.slots["columns"].members.list("name") == [
+        "sample",
+        "fastq_1",
+        "fastq_2",
+        "expected_cells",
+    ]
     print(artifact.path.read_text())
     print(artifact.features.describe(return_str=True))
     assert artifact.path.read_text().startswith("""\
@@ -174,11 +189,10 @@ Sample_X,https://raw.githubusercontent.com/nf-core/test-datasets/scrnaseq/testda
         == """\
 Artifact .csv/DataFrame
 └── Dataset features
-    └── columns • 5         [Feature]
+    └── columns • 4         [Feature]
         sample              cat[Record[BioSample]]  Sample_X, Sample_Y
         fastq_1             str
         fastq_2             str
-        expected_cells      int
-        seq_center          str"""
+        expected_cells      int"""
     )
     artifact.delete(permanent=True)

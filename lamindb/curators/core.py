@@ -559,10 +559,13 @@ class DataFrameCurator(Curator):
                 ordered=schema.ordered_set,
                 index=index,
             )
+        # in the DataFrameCatManager, we use the
+        # actual columns of the dataset, not the pandera columns
+        # the pandera columns might have additional optional columns
         self._cat_manager = DataFrameCatManager(
             self._dataset,
             columns_field=parse_cat_dtype(schema.itype, is_itype=True)["field"],
-            columns_names=pandera_columns.keys(),
+            columns_names=self._dataset.columns.tolist(),
             categoricals=categoricals,
             index=schema.index,
             slot=slot,
@@ -1630,6 +1633,7 @@ def annotate_artifact(
     # annotate with inferred schemas aka feature sets
     if artifact.otype == "DataFrame":
         features = cat_vectors["columns"].records
+        print(features)
         if features is not None:
             feature_set = Schema(
                 features=features, coerce_dtype=artifact.schema.coerce_dtype

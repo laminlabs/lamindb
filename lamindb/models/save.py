@@ -139,9 +139,10 @@ def bulk_create(
     for registry, records_list in records_by_orm.items():
         total_records = len(records_list)
         model_name = registry.__name__
-        logger.warning(
-            f"Starting bulk_create for {total_records} {model_name} records in batches of {batch_size}"
-        )
+        if total_records > batch_size:
+            logger.warning(
+                f"Starting bulk_create for {total_records} {model_name} records in batches of {batch_size}"
+            )
 
         # Process records in batches
         for i in range(0, len(records_list), batch_size):
