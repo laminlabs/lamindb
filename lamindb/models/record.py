@@ -222,7 +222,7 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates):
         assert self.is_type, "Only types can be exported as artifacts"  # noqa: S101
         if key is None:
             file_suffix = ".csv"
-            key = f"sheet_exports/{self.uid}{file_suffix}"
+            key = f"sheet_exports/{self.name}{file_suffix}"
         description = f": {self.description}" if self.description is not None else ""
         format: dict[str, Any] = {"suffix": ".csv"} if key.endswith(".csv") else {}
         format["index"] = False
@@ -232,7 +232,7 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates):
         return Artifact.from_df(
             self.to_pandas(),
             key=key,
-            description=f"{self.name}{description}",
+            description=f"Export of sheet {self.uid}{description}",
             schema=self.schema,
             format=format,
             run=run,
