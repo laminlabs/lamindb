@@ -390,7 +390,7 @@ def get_feature_annotate_kwargs(
         annotate_kwargs[f"{link_attr}__feature__name"] = F(
             f"{link_attr}__feature__name"
         )
-        if registry is Artifact or feature_type.startswith("bionty."):
+        if registry is Artifact:
             field_name = (
                 feature_type.split(".")[1] if "." in feature_type else feature_type
             ).lower()

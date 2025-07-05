@@ -22,6 +22,7 @@ from .has_parents import _query_relatives
 from .query_set import reorder_subset_columns_in_df
 from .run import Run, TracksRun, TracksUpdates
 from .sqlrecord import BaseSQLRecord, IsLink, SQLRecord, _get_record_kwargs
+from .transform import Transform
 from .ulabel import ULabel
 
 if TYPE_CHECKING:
@@ -207,24 +208,38 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates):
         """Export all children of a record type recursively to a pandas DataFrame."""
         assert self.is_type, "Only types can be exported as dataframes"  # noqa: S101
         df = self.query_children().df(features="queryset")
+        df.columns.values[0] = "__lamindb_record_uid__"
+        df.columns.values[1] = "__lamindb_record_name__"
         if self.schema is not None:
-            desired_order = self.schema.features.list("name")
-            df = reorder_subset_columns_in_df(df, desired_order, position=0)
-        return df
+            desired_order = self.schema.members.list("name")  # only members is ordered!
+        else:
+            # sort alphabetically for now
+            desired_order = df.columns[2:].tolist()
+            desired_order.sort()
+        df = reorder_subset_columns_in_df(df, desired_order, position=0)  # type: ignore
+        return df.sort_index()  # order by id for now
 
     def to_artifact(self, key: str = None) -> Artifact:
         """Export all children of a record type as a `.csv` artifact."""
+        from lamindb.core._context import context
+
         assert self.is_type, "Only types can be exported as artifacts"  # noqa: S101
         if key is None:
             file_suffix = ".csv"
-            key = f"sheet_exports/{self.uid}{file_suffix}"
+            key = f"sheet_exports/{self.name}{file_suffix}"
         description = f": {self.description}" if self.description is not None else ""
+        format: dict[str, Any] = {"suffix": ".csv"} if key.endswith(".csv") else {}
+        format["index"] = False
+        transform, _ = Transform.objects.get_or_create(key="__lamindb_record_export__")
+        run = Run(transform, initiated_by_run=context.run).save()
+        run.input_records.add(self)
         return Artifact.from_df(
             self.to_pandas(),
             key=key,
-            description=f"{self.name}{description}",
+            description=f"Export of sheet {self.uid}{description}",
             schema=self.schema,
-            format=".csv" if key.endswith(".csv") else None,
+            format=format,
+            run=run,
         ).save()
 
 

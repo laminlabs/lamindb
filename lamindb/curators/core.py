@@ -559,10 +559,15 @@ class DataFrameCurator(Curator):
                 ordered=schema.ordered_set,
                 index=index,
             )
+        # in the DataFrameCatManager, we use the
+        # actual columns of the dataset, not the pandera columns
+        # the pandera columns might have additional optional columns
         self._cat_manager = DataFrameCatManager(
             self._dataset,
             columns_field=parse_cat_dtype(schema.itype, is_itype=True)["field"],
-            columns_names=pandera_columns.keys(),
+            columns_names=self._dataset.columns.tolist()
+            if hasattr(self._dataset, "columns")
+            else list(self._dataset.keys()),
             categoricals=categoricals,
             index=schema.index,
             slot=slot,
@@ -1328,10 +1333,6 @@ class CatVector:
         # add source-validated values to the registry
         self._validated, self._non_validated = self._add_validated()
         self._non_validated, self._synonyms = self._validate(values=self._non_validated)
-
-        # always register new Features if they are columns
-        if self._key == "columns" and self._field == Feature.name:
-            self.add_new()
 
     def standardize(self) -> None:
         """Standardize the vector."""

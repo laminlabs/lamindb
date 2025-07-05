@@ -31,8 +31,8 @@ def highlight_time(iso: str):
 
 
 # Define consistent column widths
-NAME_WIDTH = 25
-TYPE_WIDTH = 25
+NAME_WIDTH = 30
+TYPE_WIDTH = 35  # types can get long, e.g. cat[Record[Treatment]]
 VALUES_WIDTH = 40
 
 

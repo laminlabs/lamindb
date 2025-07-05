@@ -68,15 +68,15 @@ def test_record_example_compound_treatment(
     }
 
     df = sample_sheet1.to_pandas()
-    dictionary = df[["cell_line", "name", "treatment", "preparation_date"]].to_dict(
-        orient="list"
-    )
+    dictionary = df[
+        ["cell_line", "__lamindb_record_name__", "treatment", "preparation_date"]
+    ].to_dict(orient="list")
     assert dictionary == {
         "cell_line": [
             "HEK293T cell",
             "HEK293T cell",
         ],
-        "name": [
+        "__lamindb_record_name__": [
             "sample1",
             "sample2",
         ],
@@ -90,9 +90,35 @@ def test_record_example_compound_treatment(
         ],
     }
 
+    # this sheet does not have a schema!
     artifact = sample_sheet1.to_artifact()
+    assert sample_sheet1.schema.members.list("name") == [
+        "treatment",
+        "cell_line",
+        "preparation_date",
+    ]
+    assert artifact.run.input_records.count() == 1
+    # looks something like this:
+    # treatment,cell_line,preparation_date,__lamindb_record_uid__,__lamindb_record_name__
+    # treatment1,HEK293T cell,2025-06-01 05:00:00,iCwgKgZELoLtIoGy,sample1
+    # treatment2,HEK293T cell,2025-06-01 06:00:00,qvU9m7VF6fSdsqJs,sample2
+    assert artifact.path.read_text().startswith("""\
+treatment,cell_line,preparation_date,__lamindb_record_uid__,__lamindb_record_name__
+treatment1,HEK293T cell,2025-06-01 05:00:00""")
+    assert artifact.key == f"sheet_exports/{sample_sheet1.name}.csv"
+    assert artifact.description.startswith(f"Export of sheet {sample_sheet1.uid}")
     assert artifact._state.adding is False
     assert ln.models.ArtifactRecord.filter(artifact=artifact).count() == 2
+    assert (
+        artifact.features.describe(return_str=True)
+        == """\
+Artifact .csv/DataFrame
+└── Dataset features
+    └── columns • 3         [Feature]
+        cell_line           cat[bionty.CellLine]    HEK293T cell
+        treatment           cat[Record[Treatment]]  treatment1, treatment2
+        preparation_date    datetime"""
+    )
     artifact.delete(permanent=True)
 
 
@@ -106,9 +132,9 @@ def test_nextflow_sheet_with_samples(
 
     df = nextflow_sheet.to_pandas()
 
-    assert df[["expected_cells", "fastq_1", "fastq_2", "sample", "name"]].to_dict(
-        orient="list"
-    ) == {
+    assert df[
+        ["expected_cells", "fastq_1", "fastq_2", "sample", "__lamindb_record_name__"]
+    ].to_dict(orient="list") == {
         "expected_cells": [
             5000,
             5000,
@@ -124,7 +150,7 @@ def test_nextflow_sheet_with_samples(
             "https://raw.githubusercontent.com/nf-core/test-datasets/scrnaseq/testdata/cellranger/Sample_Y_S1_L001_R2_001.fastq.gz",
             "https://raw.githubusercontent.com/nf-core/test-datasets/scrnaseq/testdata/cellranger/Sample_Y_S1_L002_R2_001.fastq.gz",
         ],
-        "name": [
+        "__lamindb_record_name__": [
             None,
             None,
             None,
@@ -136,6 +162,37 @@ def test_nextflow_sheet_with_samples(
         ],
     }
 
+    assert nextflow_sheet.schema is not None
     artifact = nextflow_sheet.to_artifact()
+    assert artifact.schema is nextflow_sheet.schema
     assert artifact._state.adding is False
+    assert nextflow_sheet.schema.members.list("name") == [
+        "sample",
+        "fastq_1",
+        "fastq_2",
+        "expected_cells",
+        "seq_center",
+    ]
+    assert artifact.features.slots["columns"].members.list("name") == [
+        "sample",
+        "fastq_1",
+        "fastq_2",
+        "expected_cells",
+    ]
+    print(artifact.path.read_text())
+    print(artifact.features.describe(return_str=True))
+    assert artifact.path.read_text().startswith("""\
+sample,fastq_1,fastq_2,expected_cells,__lamindb_record_uid__,__lamindb_record_name__
+Sample_X,https://raw.githubusercontent.com/nf-core/test-datasets/scrnaseq/testdata/cellranger/Sample_X_S1_L001_R1_001.fastq.gz,https://raw.githubusercontent.com/nf-core/test-datasets/scrnaseq/testdata/cellranger/Sample_X_S1_L001_R2_001.fastq.gz,5000,""")
+    assert (
+        artifact.features.describe(return_str=True)
+        == """\
+Artifact .csv/DataFrame
+└── Dataset features
+    └── columns • 4         [Feature]
+        sample              cat[Record[BioSample]]  Sample_X, Sample_Y
+        fastq_1             str
+        fastq_2             str
+        expected_cells      int"""
+    )
     artifact.delete(permanent=True)

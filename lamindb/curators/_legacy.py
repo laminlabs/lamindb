@@ -222,6 +222,7 @@ class DataFrameCatManager(CatManager):
                 key="columns",
                 source=self._sources.get("columns"),
             )
+        self._cat_vectors["columns"].add_new()
         for key, field in self._categoricals.items():
             self._cat_vectors[key] = CatVector(
                 values_getter=lambda k=key: self._dataset[

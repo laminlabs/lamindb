@@ -135,20 +135,20 @@ def test_curate_df():
         == """Artifact .h5ad/AnnData
 ├── Dataset features
 │   ├── obs • 4             [Feature]
-│   │   cell_type_by_expe…  cat[bionty.CellT…  B cell, CD8-positive, alpha-beta…
-│   │   cell_type_by_model  cat[bionty.CellT…  B cell, T cell
-│   │   perturbation        cat[ULabel]        DMSO, IFNG
+│   │   cell_type_by_expe…  cat[bionty.CellType]    B cell, CD8-positive, alpha…
+│   │   cell_type_by_model  cat[bionty.CellType]    B cell, T cell
+│   │   perturbation        cat[ULabel]             DMSO, IFNG
 │   │   sample_note         str
-│   └── var.T • 3           [bionty.Gene.ens…
+│   └── var.T • 3           [bionty.Gene.ensembl_…
 │       CD8A                num
 │       CD4                 num
 │       CD14                num
 └── Linked features
-    └── experiment          cat[ULabel]        Experiment 1
-        date_of_study       date               2024-12-01
-        study_metadata      dict               {'detail1': '123', 'detail2': 1}
-        study_note          str                We had a great time performing t…
-        temperature         float              21.6"""
+    └── experiment          cat[ULabel]             Experiment 1
+        date_of_study       date                    2024-12-01
+        study_metadata      dict                    {'detail1': '123', 'detail2…
+        study_note          str                     We had a great time perform…
+        temperature         float                   21.6"""
     )
 
     # labels section
