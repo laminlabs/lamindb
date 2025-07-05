@@ -316,11 +316,11 @@ class Run(SQLRecord):
     _status_code: int = models.SmallIntegerField(default=0, db_index=True)
     """Status code of the run.
 
-    - 0: scheduled
-    - 1: started
-    - 2: errored
-    - 3: aborted
-    - 4: completed
+    - -2: started
+    - -1: scheduled
+    - 0: completed
+    - 1: errored
+    - 2: aborted
     """
 
     @overload
