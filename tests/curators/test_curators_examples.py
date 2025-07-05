@@ -134,8 +134,10 @@ def mudata_papalexi21_subset_schema():
     bt.ExperimentalFactor.filter().delete()
 
 
-def test_dataframe_curator(small_dataset1_schema: ln.Schema, ccaplog):
+def test_dataframe_curator(small_dataset1_schema: ln.Schema):
     """Test DataFrame curator implementation."""
+
+    ln.settings.verbosity = "info"
 
     # invalid simple dtype (float)
     feature_to_fail = ln.Feature(name="treatment_time_h", dtype=float).save()
@@ -149,7 +151,7 @@ def test_dataframe_curator(small_dataset1_schema: ln.Schema, ccaplog):
             feature_to_fail,
         ],
     ).save()
-    df = datasets.small_dataset1(otype="DataFrame")
+    df = datasets.mini_immuno.get_dataset1(otype="DataFrame")
     curator = ln.curators.DataFrameCurator(df, schema)
     with pytest.raises(ln.errors.ValidationError) as error:
         curator.validate()
@@ -162,7 +164,7 @@ def test_dataframe_curator(small_dataset1_schema: ln.Schema, ccaplog):
     feature_to_fail.delete()
 
     # Wrong subtype
-    df = datasets.small_dataset1(otype="DataFrame", with_wrong_subtype=True)
+    df = datasets.mini_immuno.get_dataset1(otype="DataFrame", with_wrong_subtype=True)
     curator = ln.curators.DataFrameCurator(df, small_dataset1_schema)
     with pytest.raises(ln.errors.ValidationError) as error:
         curator.validate()
@@ -174,7 +176,7 @@ def test_dataframe_curator(small_dataset1_schema: ln.Schema, ccaplog):
     )
 
     # Typo
-    df = datasets.small_dataset1(otype="DataFrame", with_typo=True)
+    df = datasets.mini_immuno.get_dataset1(otype="DataFrame", with_typo=True)
     curator = ln.curators.DataFrameCurator(df, small_dataset1_schema)
     with pytest.raises(ln.errors.ValidationError) as error:
         curator.validate()
@@ -191,6 +193,18 @@ def test_dataframe_curator(small_dataset1_schema: ln.Schema, ccaplog):
 
     assert artifact.schema == small_dataset1_schema
     assert artifact.features.slots["columns"].n == 5
+    assert (
+        artifact.features.describe(return_str=True)
+        == """\
+Artifact .parquet/DataFrame
+└── Dataset features
+    └── columns • 5         [Feature]
+        cell_type_by_expe…  cat[bionty.CellType]    B cell, CD8-positive, alpha…
+        cell_type_by_model  cat[bionty.CellType]    B cell, T cell
+        perturbation        cat[ULabel[Perturbati…  DMSO, IFNG
+        sample_label        cat[ULabel]             sample1, sample2, sample3
+        sample_note         str"""
+    )
     assert set(artifact.features.get_values()["sample_label"]) == {
         "sample1",
         "sample2",
