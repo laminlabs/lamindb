@@ -196,7 +196,7 @@ def test_dataframe_curator(small_dataset1_schema: ln.Schema):
     assert (
         artifact.features.describe(return_str=True)
         == """\
-Artifact .parquet/DataFrame
+Artifact .parquet · DataFrame · dataset
 └── Dataset features
     └── columns • 5         [Feature]
         cell_type_by_expe…  cat[bionty.CellType]    B cell, CD8-positive, alpha…
@@ -745,7 +745,7 @@ def test_spatialdata_curator(
     assert artifact.features.get_values()["assay"] == "Visium Spatial Gene Expression"
     assert (
         artifact.features.describe(return_str=True)
-        == """Artifact .zarr/SpatialData
+        == """Artifact .zarr · SpatialData · dataset
 └── Dataset features
     ├── attrs:bio • 2       [Feature]
     │   developmental_sta…  cat[bionty.Developmen…  adult stage

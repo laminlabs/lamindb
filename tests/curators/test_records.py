@@ -112,13 +112,15 @@ treatment1,HEK293T cell,2025-06-01 05:00:00""")
     assert (
         artifact.features.describe(return_str=True)
         == """\
-Artifact .csv/DataFrame
+Artifact .csv · DataFrame · dataset
 └── Dataset features
     └── columns • 3         [Feature]
         cell_line           cat[bionty.CellLine]    HEK293T cell
         treatment           cat[Record[Treatment]]  treatment1, treatment2
         preparation_date    datetime"""
     )
+    # re-run the export which triggers hash lookup, which need to escapte re-validation
+    sample_sheet1.to_artifact()
     artifact.delete(permanent=True)
 
 
@@ -187,7 +189,7 @@ Sample_X,https://raw.githubusercontent.com/nf-core/test-datasets/scrnaseq/testda
     assert (
         artifact.features.describe(return_str=True)
         == """\
-Artifact .csv/DataFrame
+Artifact .csv · DataFrame · dataset
 └── Dataset features
     └── columns • 4         [Feature]
         sample              cat[Record[BioSample]]  Sample_X, Sample_Y
