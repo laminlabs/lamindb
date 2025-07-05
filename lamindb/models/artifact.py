@@ -1749,6 +1749,13 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         if schema is not None:
             from ..curators import DataFrameCurator
 
+            if not artifact._state.adding and artifact.suffix != ".parquet":
+                logger.warning(
+                    f"not re-validating existing artifact as it was stored as {artifact.suffix}, "
+                    "which does not maintain categorical dtype information"
+                )
+                return artifact
+
             curator = DataFrameCurator(artifact, schema)
             curator.validate()
             artifact.schema = schema
