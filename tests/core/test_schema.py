@@ -485,6 +485,72 @@ def test_schemas_anndata():
     schema.delete()
 
 
+def test_schema_already_saved_aux():
+    """When attempting to save a Schema that was already saved before which populated `_aux` fields,
+    we expect the Schema to be returned with the same `_aux` fields.
+
+    Test for https://github.com/laminlabs/lamindb/issues/2887
+    """
+    var_schema = ln.Schema(
+        name="test var",
+        index=ln.Feature(
+            name="var_index",
+            dtype=bt.Gene.ensembl_gene_id,
+            cat_filters={
+                "source": bt.Source.get(
+                    entity="bionty.Gene", currently_used=True, organism="human"
+                )
+            },
+        ).save(),
+        itype=ln.Feature,
+        dtype="DataFrame",
+        minimal_set=True,
+        coerce_dtype=True,
+    ).save()
+
+    schema = ln.Schema(
+        name="AnnData schema",
+        otype="AnnData",
+        minimal_set=True,
+        coerce_dtype=True,
+        slots={"var": var_schema},
+    ).save()
+
+    assert len(schema.slots["var"]._aux["af"].keys()) == 3
+
+    # Attempting to save the same schema again should return the Schema with the same `.aux` fields
+    var_schema_2 = ln.Schema(
+        name="test var",
+        index=ln.Feature(
+            name="var_index",
+            dtype=bt.Gene.ensembl_gene_id,
+            cat_filters={
+                "source": bt.Source.get(
+                    entity="bionty.Gene", currently_used=True, organism="human"
+                )
+            },
+        ).save(),
+        itype=ln.Feature,
+        dtype="DataFrame",
+        minimal_set=True,
+        coerce_dtype=True,
+    ).save()
+
+    schema_2 = ln.Schema(
+        name="AnnData schema",
+        otype="AnnData",
+        minimal_set=True,
+        coerce_dtype=True,
+        slots={"var": var_schema_2},
+    ).save()
+
+    assert len(schema.slots["var"]._aux["af"].keys()) == 3
+    assert schema.slots["var"]._aux == schema_2.slots["var"]._aux
+
+    schema_2.delete()
+    schema.delete()
+
+
 def test_schema_not_saved_describe():
     schema = ln.Schema()
     with pytest.raises(ValueError) as e:
