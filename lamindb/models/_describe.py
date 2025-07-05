@@ -27,7 +27,7 @@ def highlight_time(iso: str):
         # raises ValueError: Invalid isoformat string: '<django.db.models.expressions.DatabaseDefault object at 0x1128ac440>'
         # but can't be caught with `isinstance(iso, DatabaseDefault)` for unkown reasons
         return Text("timestamp of unsaved record not available", style="dim")
-    return Text(res, style="dim")
+    return Text(res)
 
 
 # Define consistent column widths
@@ -97,8 +97,11 @@ def describe_header(self: Artifact | Collection | Run) -> Tree:
     # initialize tree
     suffix = self.suffix if hasattr(self, "suffix") and self.suffix else ""
     accessor = self.otype if hasattr(self, "otype") and self.otype else ""
+    kind = f" · {self.kind}" if hasattr(self, "kind") and self.kind else ""
     suffix_accessor = (
-        f"{suffix}/{accessor}" if suffix and accessor else suffix or accessor or ""
+        f"{suffix} · {accessor}{kind}"
+        if suffix and accessor
+        else suffix or accessor or ""
     )
 
     tree = Tree(
@@ -108,6 +111,20 @@ def describe_header(self: Artifact | Collection | Run) -> Tree:
         guide_style="dim",  # dim the connecting lines
     )
     return tree
+
+
+def format_bytes(bytes_value):
+    """Convert bytes to human readable format."""
+    if bytes_value < 1024:
+        return f"{bytes_value} B"
+    elif bytes_value < 1024**2:
+        return f"{bytes_value / 1024:.1f} KB"
+    elif bytes_value < 1024**3:
+        return f"{bytes_value / (1024**2):.1f} MB"
+    elif bytes_value < 1024**4:
+        return f"{bytes_value / (1024**3):.1f} GB"
+    else:
+        return f"{bytes_value / (1024**4):.1f} TB"
 
 
 def describe_general(self: Artifact | Collection, tree: Tree | None = None) -> Tree:
@@ -120,24 +137,45 @@ def describe_general(self: Artifact | Collection, tree: Tree | None = None) -> T
     # Two column items (short content)
     two_column_items = []
 
-    two_column_items.append(f"uid: '{self.uid}'")
+    two_column_items.append(Text.assemble(("uid: ", "dim"), f"'{self.uid}'"))
     if hasattr(self, "hash") and self.hash:
-        two_column_items.append(f"hash: '{self.hash}'")
+        two_column_items.append(Text.assemble(("hash: ", "dim"), f"'{self.hash}'"))
     if hasattr(self, "size") and self.size:
-        two_column_items.append(f"size: {self.size}")
+        two_column_items.append(
+            Text.assemble(("size: ", "dim"), f"{format_bytes(self.size)}")
+        )
     if hasattr(self, "n_files") and self.n_files:
-        two_column_items.append(f"n_files: {self.n_files}")
+        two_column_items.append(Text.assemble(("n_files: ", "dim"), f"{self.n_files}"))
     if hasattr(self, "n_observations") and self.n_observations:
-        two_column_items.append(f"n_observations: {self.n_observations}")
+        two_column_items.append(
+            Text.assemble(("n_observations: ", "dim"), f"{self.n_observations}")
+        )
     if hasattr(self, "version") and self.version:
-        two_column_items.append(f"version: '{self.version}'")
+        two_column_items.append(
+            Text.assemble(("version: ", "dim"), f"'{self.version}'")
+        )
     if hasattr(self, "space") and self.space.name != "All":
-        two_column_items.append(f"space: '{self.space.name}'")
+        two_column_items.append(
+            Text.assemble(("space: ", "dim"), f"'{self.space.name}'")
+        )
     if hasattr(self, "branch") and self.branch.name != "Main":
-        two_column_items.append(f"branch: '{self.branch.name}'")
+        two_column_items.append(
+            Text.assemble(("branch: ", "dim"), f"'{self.branch.name}'")
+        )
     if hasattr(self, "created_at") and self.created_at:
         two_column_items.append(
-            Text.assemble("created_at: ", highlight_time(str(self.created_at)))
+            Text.assemble(("created_at: ", "dim"), highlight_time(str(self.created_at)))
+        )
+    if hasattr(self, "created_by") and self.created_by:
+        two_column_items.append(
+            Text.assemble(
+                ("created_by: ", "dim"),
+                (
+                    self.created_by.handle
+                    if self.created_by.name is None
+                    else f"{self.created_by.handle} ({self.created_by.name})"
+                ),
+            )
         )
 
     # Add two-column items in pairs
@@ -147,45 +185,35 @@ def describe_general(self: Artifact | Collection, tree: Tree | None = None) -> T
             left_item = two_column_items[i]
             right_item = two_column_items[i + 1]
 
-            # Handle both string and Text objects
-            if isinstance(left_item, str):
-                left_padded = left_item.ljust(35)
-            else:
-                left_padded = left_item
+            # Create padded version by calculating the plain text length
+            left_plain_text = (
+                left_item.plain if hasattr(left_item, "plain") else str(left_item)
+            )
+            padding_needed = max(0, 35 - len(left_plain_text))
+            padding = " " * padding_needed
 
-            general.add(Text.assemble(left_padded, right_item))
+            general.add(Text.assemble(left_item, padding, right_item))
         else:
             # Single item (odd number)
             general.add(two_column_items[i])
 
     # Single column items (long content)
     if hasattr(self, "key") and self.key:
-        general.add(f"key: '{self.key}'")
+        general.add(Text.assemble(("key: ", "dim"), f"'{self.key}'"))
     if hasattr(self, "storage"):
         storage_root = self.storage.root
         general.add(
             Text.assemble(
-                "storage path: ",
-                (storage_root, "dim"),
+                ("storage location / path: ", "dim"),
+                (storage_root, "cyan3"),
                 f"{str(self.path).removeprefix(storage_root)}",
             )
         )
     if hasattr(self, "transform") and self.transform is not None:
         general.add(
-            Text(
-                f"transform: '{self.transform.key}'",
-                style="cyan3",
-            )
-        )
-    if hasattr(self, "created_by") and self.created_by:
-        general.add(
             Text.assemble(
-                "created_by: ",
-                (
-                    self.created_by.handle
-                    if self.created_by.name is None
-                    else f"{self.created_by.handle} ({self.created_by.name})"
-                ),
+                ("transform: ", "dim"),
+                f"'{self.transform.key}'",
             )
         )
 
