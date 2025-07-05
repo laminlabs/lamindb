@@ -137,9 +137,9 @@ def describe_general(self: Artifact | Collection, tree: Tree | None = None) -> T
     # Two column items (short content)
     two_column_items = []
 
-    two_column_items.append(Text.assemble(("uid: ", "dim"), f"'{self.uid}'"))
+    two_column_items.append(Text.assemble(("uid: ", "dim"), f"{self.uid}"))
     if hasattr(self, "hash") and self.hash:
-        two_column_items.append(Text.assemble(("hash: ", "dim"), f"'{self.hash}'"))
+        two_column_items.append(Text.assemble(("hash: ", "dim"), f"{self.hash}"))
     if hasattr(self, "size") and self.size:
         two_column_items.append(
             Text.assemble(("size: ", "dim"), f"{format_bytes(self.size)}")
@@ -151,16 +151,12 @@ def describe_general(self: Artifact | Collection, tree: Tree | None = None) -> T
             Text.assemble(("n_observations: ", "dim"), f"{self.n_observations}")
         )
     if hasattr(self, "version") and self.version:
-        two_column_items.append(
-            Text.assemble(("version: ", "dim"), f"'{self.version}'")
-        )
+        two_column_items.append(Text.assemble(("version: ", "dim"), f"{self.version}"))
     if hasattr(self, "space"):
-        two_column_items.append(
-            Text.assemble(("space: ", "dim"), f"'{self.space.name}'")
-        )
+        two_column_items.append(Text.assemble(("space: ", "dim"), f"{self.space.name}"))
     if hasattr(self, "branch"):
         two_column_items.append(
-            Text.assemble(("branch: ", "dim"), f"'{self.branch.name}'")
+            Text.assemble(("branch: ", "dim"), f"{self.branch.name}")
         )
     if hasattr(self, "created_at") and self.created_at:
         two_column_items.append(
@@ -199,7 +195,7 @@ def describe_general(self: Artifact | Collection, tree: Tree | None = None) -> T
 
     # Single column items (long content)
     if hasattr(self, "key") and self.key:
-        general.add(Text.assemble(("key: ", "dim"), f"'{self.key}'"))
+        general.add(Text.assemble(("key: ", "dim"), f"{self.key}"))
     if hasattr(self, "storage"):
         storage_root = self.storage.root
         general.add(
@@ -209,11 +205,18 @@ def describe_general(self: Artifact | Collection, tree: Tree | None = None) -> T
                 f"{str(self.path).removeprefix(storage_root)}",
             )
         )
+    if hasattr(self, "description") and self.description is not None:
+        general.add(
+            Text.assemble(
+                ("description: ", "dim"),
+                f"{self.description}",
+            )
+        )
     if hasattr(self, "transform") and self.transform is not None:
         general.add(
             Text.assemble(
                 ("transform: ", "dim"),
-                f"'{self.transform.key}'",
+                f"{self.transform.key}",
             )
         )
 
