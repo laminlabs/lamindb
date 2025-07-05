@@ -157,13 +157,13 @@ def populate_nextflow_sheet_with_samples():
     features = ln.Feature.lookup()
     for sample in [sample_x, sample_y]:
         bt.models.RecordOrganism(
-            record=sample, feature=features.species, organism=organism_human
+            record=sample, feature=features.species, value=organism_human
         ).save()
         bt.models.RecordCellType(
-            record=sample, feature=features.cell_type, celltype=celltype_tcell
+            record=sample, feature=features.cell_type, value=celltype_tcell
         ).save()
         bt.models.RecordTissue(
-            record=sample, feature=features.tissue, tissue=tissue_blood
+            record=sample, feature=features.tissue, value=tissue_blood
         ).save()
 
     # Nextflow samplesheet schema
