@@ -43,7 +43,7 @@ def test_store_artifacts_acid():
     artifact = ln.Artifact("mini.csv", description="test")
     artifact._clear_storagekey = "test.csv"
     # errors on check_and_attempt_clearing
-    with pytest.raises(RuntimeError):
+    with pytest.raises(FileNotFoundError):
         artifact.save()
 
     with pytest.raises(RuntimeError) as error:
