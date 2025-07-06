@@ -2732,9 +2732,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             using_key=using_key,
         )
         if exception_upload is not None:
-            raise RuntimeError(exception_upload)
+            raise exception_upload
         if exception_clear is not None:
-            raise RuntimeError(exception_clear)
+            raise exception_clear
         # the saving / upload process has been successfull, just mark it as such
         # maybe some error handling here?
         if flag_complete:
