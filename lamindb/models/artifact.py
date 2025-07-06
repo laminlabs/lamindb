@@ -999,7 +999,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         description: `str | None = None` A description.
         revises: `Artifact | None = None` Previous version of the artifact. Is an alternative way to passing `key` to trigger a new version.
         overwrite_versions: `bool | None = None` Whether to overwrite versions. Defaults to `True` for folders and `False` for files.
-        run: `Run | None = None` The run that creates the artifact.
+        run: `Run | bool | None = None` The run that creates the artifact. If `False`, surpress tracking the run.
+            If `None`, infer the run from the global run context.
 
     Examples:
 
@@ -1338,7 +1339,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         description: str | None = None,
         revises: Artifact | None = None,
         overwrite_versions: bool | None = None,
-        run: Run | None = None,
+        run: Run | False | None = None,
     ): ...
 
     @overload
