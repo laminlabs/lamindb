@@ -587,11 +587,6 @@ class Schema(SQLRecord, CanCurate, TracksRun):
         else:
             validated_kwargs["uid"] = ids.base62_16()
         super().__init__(**validated_kwargs)
-        # manipulating aux fields is easier after calling super().__init__()
-        self.optionals.set(optional_features)
-        self.flexible = flexible
-        if index is not None:
-            self._index_feature_uid = index.uid
 
     def _validate_kwargs_calculate_hash(
         self,
@@ -615,13 +610,16 @@ class Schema(SQLRecord, CanCurate, TracksRun):
     ) -> tuple[list[Feature], dict[str, Any], list[Feature], Registry, bool]:
         optional_features = []
         features_registry: Registry = None
+
         if itype is not None:
             if itype != "Composite":
                 itype = serialize_dtype(itype, is_itype=True)
+
         if index is not None:
             if not isinstance(index, Feature):
                 raise TypeError("index must be a Feature")
             features.insert(0, index)
+
         if features:
             features, configs = get_features_config(features)
             features_registry = validate_features(features)
@@ -649,12 +647,15 @@ class Schema(SQLRecord, CanCurate, TracksRun):
         else:
             dtype = get_type_str(dtype)
         flexible_default = n_features < 0
+
         if flexible is None:
             flexible = flexible_default
+
         if slots:
             itype = "Composite"
             if otype is None:
                 raise InvalidArgument("Please pass otype != None for composite schemas")
+
         if itype is not None and not isinstance(itype, str):
             itype_str = serialize_dtype(itype, is_itype=True)
         else:
@@ -674,8 +675,28 @@ class Schema(SQLRecord, CanCurate, TracksRun):
         }
         n_features_default = -1
         coerce_dtype_default = False
+        aux_dict: dict[str, dict[str, bool | str | list[str]]] = {}
+
+        # TODO: leverage a common abstraction across the properties and this here
+
+        # coerce_dtype (key "0")
         if coerce_dtype:
-            validated_kwargs["_aux"] = {"af": {"0": coerce_dtype}}
+            aux_dict.setdefault("af", {})["0"] = coerce_dtype
+
+        # optional features (key "1")
+        if optional_features:
+            aux_dict.setdefault("af", {})["1"] = [f.uid for f in optional_features]
+
+        # flexible (key "2")
+        if flexible is not None:
+            aux_dict.setdefault("af", {})["2"] = flexible
+
+        # index feature (key "3")
+        if index is not None:
+            aux_dict.setdefault("af", {})["3"] = index.uid
+
+        if aux_dict:
+            validated_kwargs["_aux"] = aux_dict
         if slots:
             list_for_hashing = [component.hash for component in slots.values()]
         else:
@@ -723,9 +744,11 @@ class Schema(SQLRecord, CanCurate, TracksRun):
                         ":".join(sorted(feature_list_for_hashing))
                     )
                 list_for_hashing.append(f"{HASH_CODE['features_hash']}={features_hash}")
+
         self._list_for_hashing = sorted(list_for_hashing)
         schema_hash = hash_string(":".join(self._list_for_hashing))
         validated_kwargs["hash"] = schema_hash
+
         return (
             features,
             validated_kwargs,
