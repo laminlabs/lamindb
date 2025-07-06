@@ -28,6 +28,7 @@ from django.db.models.fields.related import (
     ManyToManyRel,
     ManyToOneRel,
 )
+from django.db.models.functions import Lower
 from lamin_utils import colors, logger
 from lamindb_setup import settings as setup_settings
 from lamindb_setup._connect_instance import (
@@ -937,6 +938,11 @@ class Space(BaseSQLRecord):
     All data in this registry is synchronized from LaminHub so that spaces can be shared and reused across multiple LaminDB instances.
     """
 
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(Lower("name"), name="unique_space_name_lower")
+        ]
+
     id: int = models.SmallAutoField(primary_key=True)
     """Internal id, valid only in one DB instance."""
     name: str = models.CharField(max_length=100, db_index=True)
@@ -998,6 +1004,11 @@ class Branch(BaseSQLRecord):
     # An integer higher than >3 codes a branch that can be used for collaborators to create drafts
     # that can be merged onto the main branch in an experience akin to a Pull Request. The mapping
     # onto a semantic branch name is handled through LaminHub.
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(Lower("name"), name="unique_branch_name_lower")
+        ]
 
     id: int = models.AutoField(primary_key=True)
     """An integer id that's synchronized for a family of coupled database instances.

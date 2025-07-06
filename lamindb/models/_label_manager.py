@@ -33,9 +33,7 @@ if TYPE_CHECKING:
     from lamindb.models import Artifact, Collection, SQLRecord
     from lamindb.models.query_set import QuerySet
 
-# we do not want to show records because this is a breaking change until all instances are migrated
-# TODO: remove records from below once all instances are migrated
-EXCLUDE_LABELS = {"feature_sets", "records"}
+EXCLUDE_LABELS = {"feature_sets"}
 
 
 def _get_labels(

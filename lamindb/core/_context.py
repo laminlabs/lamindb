@@ -32,7 +32,7 @@ from ..models._is_versioned import (
     increment_base62,
 )
 from ._sync_git import get_transform_reference_from_git_repo
-from ._track_environment import track_environment
+from ._track_environment import track_python_environment
 
 if TYPE_CHECKING:
     from lamindb_setup.types import UPathStr
@@ -189,7 +189,7 @@ class LogStreamTracker:
 
     def cleanup(self, signo=None, frame=None):
         try:
-            from lamindb._finish import save_run_logs
+            from .._finish import save_run_logs
 
             if self.original_stdout and not self.is_cleaning_up:
                 self.is_cleaning_up = True
@@ -203,6 +203,10 @@ class LogStreamTracker:
                         )
                     self.log_file.write(signal_msg)
                     self.log_file.flush()
+                    self.run._status_code = 2  # aborted
+                else:
+                    self.run._status_code = 1  # errored
+                self.run.finished_at = datetime.now(timezone.utc)
                 sys.stdout = self.original_stdout
                 sys.stderr = self.original_stderr
                 self.log_file.close()
@@ -240,7 +244,6 @@ class Context:
         self._transform: Transform | None = None
         self._run: Run | None = None
         self._path: Path | None = None
-        """A local path to the script or notebook that's running."""
         self._project: Project | None = None
         self._space: Space | None = None
         self._branch: Branch | None = None
@@ -357,6 +360,10 @@ class Context:
             More examples: :doc:`/track`
         """
         from lamindb.models import Branch, Project, Space
+
+        from .._finish import (
+            save_context_core,
+        )
 
         instance_settings = ln_setup.settings.instance
         # similar logic here: https://github.com/laminlabs/lamindb/pull/2527
@@ -483,6 +490,7 @@ class Context:
             )
             if run is not None:  # loaded latest run
                 run.started_at = datetime.now(timezone.utc)  # update run time
+                run._status_code = -2  # re-started
                 self._logging_message_track += f", re-started Run('{run.uid[:8]}...') at {format_field_value(run.started_at)}"
 
         if run is None:  # create new run
@@ -491,6 +499,7 @@ class Context:
                 params=params,
             )
             run.started_at = datetime.now(timezone.utc)
+            run._status_code = -1  # started
             self._logging_message_track += f", started new Run('{run.uid[:8]}...') at {format_field_value(run.started_at)}"
         # can only determine at ln.finish() if run was consecutive in
         # interactive session, otherwise, is consecutive
@@ -503,7 +512,7 @@ class Context:
                 f"{key}={value}" for key, value in params.items()
             )
         self._run = run
-        track_environment(run)
+        track_python_environment(run)
         if self.project is not None:
             # to update a potential project link
             # is only necessary if transform is loaded rather than newly created
@@ -541,6 +550,8 @@ class Context:
             logger.important_hint(
                 f'recommendation: to identify the {notebook_or_script} across renames, pass the uid: ln{r_or_python}track("{self.transform.uid[:-4]}"{kwargs_str})'
             )
+        if self.transform.type == "script":
+            save_context_core(run=run, transform=self.transform, filepath=self._path)
 
     def _track_source_code(
         self,
@@ -703,6 +714,8 @@ class Context:
                 message = ""
                 found_key = False
                 for aux_transform in transforms:
+                    # check whether the transform key is in the path
+                    # that's not going to be the case for keys that have "/" in them and don't match the folder
                     if aux_transform.key in self._path.as_posix():
                         key = aux_transform.key
                         uid, target_transform, message = self._process_aux_transform(
@@ -718,7 +731,7 @@ class Context:
                             for transform in transforms
                         ]
                     )
-                    message = f"ignoring transform{plural_s} with same filename:\n{transforms_str}"
+                    message = f"ignoring transform{plural_s} with same filename in different folder:\n{transforms_str}"
                 if message != "":
                     logger.important(message)
             self.uid, transform = uid, target_transform
@@ -793,8 +806,9 @@ class Context:
                 and transform.version is not None  # type: ignore
                 and self.version != transform.version  # type: ignore
             ):
-                raise SystemExit(
-                    f"✗ please pass consistent version: ln.context.version = '{transform.version}'"  # type: ignore
+                raise ValueError(
+                    f"Transform is already tagged with version {transform.version}, but you passed {self.version}\n"  # noqa: S608
+                    f"If you want to update the transform version, set it outside ln.track(): transform.version = '{self.version}'; transform.save()"
                 )
             # test whether version was already used for another member of the family
             if self.uid is not None and len(self.uid) == 16:
@@ -903,9 +917,7 @@ class Context:
             `lamin save script.py` or `lamin save notebook.ipynb` → `docs </cli#lamin-save>`__
 
         """
-        from lamindb._finish import (
-            save_context_core,
-        )
+        from .._finish import save_context_core, save_run_logs
 
         if self.run is None:
             raise TrackNotCalled("Please run `ln.track()` before `ln.finish()`")
@@ -918,18 +930,23 @@ class Context:
             self.run.save()
             # nothing else to do
             return None
-        return_code = save_context_core(
-            run=self.run,
-            transform=self.run.transform,
-            filepath=self._path,
-            finished_at=True,
-            ignore_non_consecutive=ignore_non_consecutive,
-            is_retry=self._is_finish_retry,
-            notebook_runner=self._notebook_runner,
-        )
-        if return_code == "retry":
-            self._is_finish_retry = True
-            return None
+        self.run._status_code = 0
+        if self.transform.type == "notebook":
+            return_code = save_context_core(
+                run=self.run,
+                transform=self.run.transform,
+                filepath=self._path,
+                finished_at=True,
+                ignore_non_consecutive=ignore_non_consecutive,
+                is_retry=self._is_finish_retry,
+                notebook_runner=self._notebook_runner,
+            )
+            if return_code == "retry":
+                self._is_finish_retry = True
+                return None
+        else:
+            self.run.finished_at = datetime.now(timezone.utc)
+            save_run_logs(self.run, save_run=True)
         if self.transform.type != "notebook":
             self._stream_tracker.finish()
         # reset the context attributes so that somebody who runs `track()` after finish

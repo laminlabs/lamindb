@@ -139,9 +139,10 @@ def bulk_create(
     for registry, records_list in records_by_orm.items():
         total_records = len(records_list)
         model_name = registry.__name__
-        logger.warning(
-            f"Starting bulk_create for {total_records} {model_name} records in batches of {batch_size}"
-        )
+        if total_records > batch_size:
+            logger.warning(
+                f"Starting bulk_create for {total_records} {model_name} records in batches of {batch_size}"
+            )
 
         # Process records in batches
         for i in range(0, len(records_list), batch_size):
@@ -149,9 +150,10 @@ def bulk_create(
             batch_num = (i // batch_size) + 1
             total_batches = (total_records + batch_size - 1) // batch_size
 
-            logger.info(
-                f"Processing batch {batch_num}/{total_batches} for {model_name}: {len(batch)} records"
-            )
+            if total_records > batch_size:
+                logger.info(
+                    f"Processing batch {batch_num}/{total_batches} for {model_name}: {len(batch)} records"
+                )
             registry.objects.bulk_create(batch, ignore_conflicts=ignore_conflicts)
             # records[:] = created  # In-place list update; does not seem to be necessary
 
@@ -175,9 +177,10 @@ def bulk_update(
     for registry, records_list in records_by_orm.items():
         total_records = len(records_list)
         model_name = registry.__name__
-        logger.warning(
-            f"Starting bulk_update for {total_records} {model_name} records in batches of {batch_size}"
-        )
+        if total_records > batch_size:
+            logger.warning(
+                f"Starting bulk_update for {total_records} {model_name} records in batches of {batch_size}"
+            )
 
         field_names = [
             field.name
@@ -191,9 +194,10 @@ def bulk_update(
             batch_num = (i // batch_size) + 1
             total_batches = (total_records + batch_size - 1) // batch_size
 
-            logger.info(
-                f"Processing batch {batch_num}/{total_batches} for {model_name}: {len(batch)} records"
-            )
+            if total_records > batch_size:
+                logger.info(
+                    f"Processing batch {batch_num}/{total_batches} for {model_name}: {len(batch)} records"
+                )
             registry.objects.bulk_update(batch, field_names)
 
 

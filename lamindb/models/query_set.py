@@ -311,6 +311,7 @@ def get_feature_annotate_kwargs(
         Artifact,
         Feature,
         Record,
+        RecordJson,
     )
 
     if registry not in {Artifact, Record}:
@@ -329,6 +330,12 @@ def get_feature_annotate_kwargs(
             )
             feature_names_for_link_model = links.values_list("feature__name", flat=True)
             feature_names += feature_names_for_link_model
+        if registry is Record:
+            # this request is not strictly necessary, but it makes the resulting reshaped
+            # dataframe consistent
+            feature_names += RecordJson.filter(record_id__in=ids_list).values_list(
+                "feature__name", flat=True
+            )
         features = list(set(feature_names))  # remove duplicates
 
     feature_qs = Feature.filter()
@@ -383,7 +390,7 @@ def get_feature_annotate_kwargs(
         annotate_kwargs[f"{link_attr}__feature__name"] = F(
             f"{link_attr}__feature__name"
         )
-        if registry is Artifact or feature_type.startswith("bionty."):
+        if registry is Artifact:
             field_name = (
                 feature_type.split(".")[1] if "." in feature_type else feature_type
             ).lower()
@@ -453,7 +460,9 @@ def analyze_lookup_cardinality(
     return result
 
 
-def reorder_subset_columns_in_df(df: pd.DataFrame, column_order: list[str], position=3):
+def reorder_subset_columns_in_df(
+    df: pd.DataFrame, column_order: list[str], position=3
+) -> pd.DataFrame:
     valid_columns = [col for col in column_order if col in df.columns]
     all_cols = df.columns.tolist()
     remaining_cols = [col for col in all_cols if col not in valid_columns]
@@ -553,6 +562,20 @@ def reshape_annotate_result(
                 result[feature.name] = result[feature.name].apply(
                     extract_single_element
                 )
+                if feature.dtype.startswith("cat"):
+                    try:
+                        # Try to convert to category - this will fail if complex objects remain
+                        result[feature.name] = result[feature.name].astype("category")
+                    except (TypeError, ValueError):
+                        # If conversion fails, the column still contains complex objects
+                        pass
+                if feature.dtype.startswith("datetime"):
+                    try:
+                        # Try to convert to category - this will fail if complex objects remain
+                        result[feature.name] = pd.to_datetime(result[feature.name])
+                    except (TypeError, ValueError):
+                        # If conversion fails, the column still contains complex objects
+                        pass
 
         # sort columns
         result = reorder_subset_columns_in_df(result, feature_names)

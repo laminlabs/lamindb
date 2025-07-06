@@ -1,7 +1,7 @@
-import bionty as bt
 import lamindb as ln
 import pandas as pd
 from lamindb.examples.fixtures.sheets import (
+    populate_nextflow_sheet_with_samples,  # noqa: F401
     populate_sheets_compound_treatment,  # noqa: F401
 )
 
@@ -67,27 +67,22 @@ def test_record_example_compound_treatment(
         ],
     }
 
-    dictionary = (
-        ln.Record.filter(type=sample_sheet1)
-        .df(features="queryset")[["cell_line", "name", "treatment", "preparation_date"]]
-        .to_dict(orient="list")
-    )
+    df = sample_sheet1.to_pandas()
+    dictionary = df[
+        ["cell_line", "__lamindb_record_name__", "treatment", "preparation_date"]
+    ].to_dict(orient="list")
     assert dictionary == {
         "cell_line": [
             "HEK293T cell",
             "HEK293T cell",
         ],
-        "name": [
+        "__lamindb_record_name__": [
             "sample1",
             "sample2",
         ],
         "preparation_date": [
-            {
-                "2025-06-01T05:00:00Z",
-            },
-            {
-                "2025-06-01T06:00:00Z",
-            },
+            pd.to_datetime("2025-06-01T05:00:00"),
+            pd.to_datetime("2025-06-01T06:00:00"),
         ],
         "treatment": [
             "treatment1",
@@ -95,94 +90,112 @@ def test_record_example_compound_treatment(
         ],
     }
 
-
-def test_record_nextflow_samples():
-    # Biosample schema and type
-    samples_schema = ln.Schema(
-        name="Biosample test schema",
-        features=[
-            ln.Feature(name="species", dtype="cat[bionty.Organism]").save(),
-            ln.Feature(name="cell_type", dtype="cat[bionty.CellType]").save(),
-            ln.Feature(name="tissue", dtype="cat[bionty.Tissue]").save(),
-        ],
-    ).save()
-
-    biosample_type = ln.Record(name="BioSample", is_type=True).save()
-
-    # Biosamples sheet
-    samples_sheet = ln.Record(
-        name="My samples 2025-04", schema=samples_schema, type=biosample_type
-    ).save()
-    sample_x = ln.Record(name="Sample_X", type=samples_sheet).save()
-    sample_y = ln.Record(name="Sample_Y", type=samples_sheet).save()
-
-    organism_human = bt.Organism.from_source(name="human").save()
-    celltype_tcell = bt.CellType.from_source(name="T cell").save()
-    tissue_blood = bt.Tissue.from_source(name="blood").save()
-
-    features = ln.Feature.lookup()
-    for sample in [sample_x, sample_y]:
-        bt.models.RecordOrganism(
-            record=sample, feature=features.species, organism=organism_human
-        ).save()
-        bt.models.RecordCellType(
-            record=sample, feature=features.cell_type, celltype=celltype_tcell
-        ).save()
-        bt.models.RecordTissue(
-            record=sample, feature=features.tissue, tissue=tissue_blood
-        ).save()
-
-    # Nextflow samplesheet schema
-    nextflow_schema = ln.Schema(
-        name="RNA-seq standard",
-        features=[
-            ln.Feature(name="sample", dtype="cat[Record[BioSample]]").save(),
-            ln.Feature(name="fastq_1", dtype=str).save(),
-            ln.Feature(name="fastq_2", dtype=str).save(),
-            ln.Feature(name="expected_cells", dtype=int).save(),
-            ln.Feature(name="seq_center", dtype=str).save(),
-        ],
-    ).save()
-
-    nextflowsample_type = ln.Record(name="NextflowSample", is_type=True).save()
-    nextflow_sheet = ln.Record(
-        schema=nextflow_schema,
-        name="RNA-seq nextflow samplesheet 001",
-        type=nextflowsample_type,
-        is_type=True,
-    ).save()
-
-    df = pd.DataFrame(
-        {
-            "sample": ["Sample_X", "Sample_Y", "Sample_Y"],
-            "fastq_1": [
-                "https://raw.githubusercontent.com/nf-core/test-datasets/scrnaseq/testdata/cellranger/Sample_X_S1_L001_R1_001.fastq.gz",
-                "https://raw.githubusercontent.com/nf-core/test-datasets/scrnaseq/testdata/cellranger/Sample_Y_S1_L001_R1_001.fastq.gz",
-                "https://raw.githubusercontent.com/nf-core/test-datasets/scrnaseq/testdata/cellranger/Sample_Y_S1_L002_R1_001.fastq.gz",
-            ],
-            "fastq_2": [
-                "https://raw.githubusercontent.com/nf-core/test-datasets/scrnaseq/testdata/cellranger/Sample_X_S1_L001_R2_001.fastq.gz",
-                "https://raw.githubusercontent.com/nf-core/test-datasets/scrnaseq/testdata/cellranger/Sample_Y_S1_L001_R2_001.fastq.gz",
-                "https://raw.githubusercontent.com/nf-core/test-datasets/scrnaseq/testdata/cellranger/Sample_Y_S1_L002_R2_001.fastq.gz",
-            ],
-            "expected_cells": [5000, 5000, 5000],
-        }
+    # this sheet does not have a schema!
+    artifact = sample_sheet1.to_artifact()
+    assert sample_sheet1.schema.members.list("name") == [
+        "treatment",
+        "cell_line",
+        "preparation_date",
+    ]
+    assert artifact.run.input_records.count() == 1
+    assert artifact.transform.type == "function"
+    # looks something like this:
+    # treatment,cell_line,preparation_date,__lamindb_record_uid__,__lamindb_record_name__
+    # treatment1,HEK293T cell,2025-06-01 05:00:00,iCwgKgZELoLtIoGy,sample1
+    # treatment2,HEK293T cell,2025-06-01 06:00:00,qvU9m7VF6fSdsqJs,sample2
+    assert artifact.path.read_text().startswith("""\
+treatment,cell_line,preparation_date,__lamindb_record_uid__,__lamindb_record_name__
+treatment1,HEK293T cell,2025-06-01 05:00:00""")
+    assert artifact.key == f"sheet_exports/{sample_sheet1.name}.csv"
+    assert artifact.description.startswith(f"Export of sheet {sample_sheet1.uid}")
+    assert artifact._state.adding is False
+    assert ln.models.ArtifactRecord.filter(artifact=artifact).count() == 2
+    assert (
+        artifact.features.describe(return_str=True)
+        == """\
+Artifact .csv · DataFrame · dataset
+└── Dataset features
+    └── columns • 3         [Feature]
+        cell_line           cat[bionty.CellLine]    HEK293T cell
+        treatment           cat[Record[Treatment]]  treatment1, treatment2
+        preparation_date    datetime"""
     )
+    # re-run the export which triggers hash lookup, which need to escapte re-validation
+    sample_sheet1.to_artifact()
+    artifact.delete(permanent=True)
 
-    features = ln.Feature.lookup()
-    for _, row in df.iterrows():
-        sample = ln.Record(type=nextflow_sheet).save()
-        ln.models.RecordRecord(
-            record=sample,
-            feature=features.sample,
-            value=ln.Record.get(name=row["sample"]),
-        ).save()
-        ln.models.RecordJson(
-            record=sample, feature=features.fastq_1, value=row["fastq_1"]
-        ).save()
-        ln.models.RecordJson(
-            record=sample, feature=features.fastq_2, value=row["fastq_2"]
-        ).save()
-        ln.models.RecordJson(
-            record=sample, feature=features.expected_cells, value=row["expected_cells"]
-        ).save()
+
+def test_nextflow_sheet_with_samples(
+    populate_nextflow_sheet_with_samples: ln.Record,  # noqa: F811
+):
+    """Test the example fixture for nextflow sheet with samples."""
+    # This test is to ensure that the fixture works as expected
+    # and that the data is correctly populated in the database.
+    nextflow_sheet = populate_nextflow_sheet_with_samples
+
+    df = nextflow_sheet.to_pandas()
+
+    assert df[
+        ["expected_cells", "fastq_1", "fastq_2", "sample", "__lamindb_record_name__"]
+    ].to_dict(orient="list") == {
+        "expected_cells": [
+            5000,
+            5000,
+            5000,
+        ],
+        "fastq_1": [
+            "https://raw.githubusercontent.com/nf-core/test-datasets/scrnaseq/testdata/cellranger/Sample_X_S1_L001_R1_001.fastq.gz",
+            "https://raw.githubusercontent.com/nf-core/test-datasets/scrnaseq/testdata/cellranger/Sample_Y_S1_L001_R1_001.fastq.gz",
+            "https://raw.githubusercontent.com/nf-core/test-datasets/scrnaseq/testdata/cellranger/Sample_Y_S1_L002_R1_001.fastq.gz",
+        ],
+        "fastq_2": [
+            "https://raw.githubusercontent.com/nf-core/test-datasets/scrnaseq/testdata/cellranger/Sample_X_S1_L001_R2_001.fastq.gz",
+            "https://raw.githubusercontent.com/nf-core/test-datasets/scrnaseq/testdata/cellranger/Sample_Y_S1_L001_R2_001.fastq.gz",
+            "https://raw.githubusercontent.com/nf-core/test-datasets/scrnaseq/testdata/cellranger/Sample_Y_S1_L002_R2_001.fastq.gz",
+        ],
+        "__lamindb_record_name__": [
+            None,
+            None,
+            None,
+        ],
+        "sample": [
+            "Sample_X",
+            "Sample_Y",
+            "Sample_Y",
+        ],
+    }
+
+    assert nextflow_sheet.schema is not None
+    artifact = nextflow_sheet.to_artifact()
+    assert artifact.schema is nextflow_sheet.schema
+    assert artifact._state.adding is False
+    assert nextflow_sheet.schema.members.list("name") == [
+        "sample",
+        "fastq_1",
+        "fastq_2",
+        "expected_cells",
+        "seq_center",
+    ]
+    assert artifact.features.slots["columns"].members.list("name") == [
+        "sample",
+        "fastq_1",
+        "fastq_2",
+        "expected_cells",
+    ]
+    print(artifact.path.read_text())
+    print(artifact.features.describe(return_str=True))
+    assert artifact.path.read_text().startswith("""\
+sample,fastq_1,fastq_2,expected_cells,__lamindb_record_uid__,__lamindb_record_name__
+Sample_X,https://raw.githubusercontent.com/nf-core/test-datasets/scrnaseq/testdata/cellranger/Sample_X_S1_L001_R1_001.fastq.gz,https://raw.githubusercontent.com/nf-core/test-datasets/scrnaseq/testdata/cellranger/Sample_X_S1_L001_R2_001.fastq.gz,5000,""")
+    assert (
+        artifact.features.describe(return_str=True)
+        == """\
+Artifact .csv · DataFrame · dataset
+└── Dataset features
+    └── columns • 4         [Feature]
+        sample              cat[Record[BioSample]]  Sample_X, Sample_Y
+        fastq_1             str
+        fastq_2             str
+        expected_cells      int"""
+    )
+    artifact.delete(permanent=True)

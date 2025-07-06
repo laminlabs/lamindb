@@ -188,11 +188,11 @@ def test_run_scripts():
     )
     assert result.returncode == 0
     assert (
-        "created Transform('Ro1gl7n8YrdH0001'), started new Run("
+        "created Transform('Ro1gl7n8YrdH0002'), started new Run("
         in result.stdout.decode()
     )
-    assert not ln.Transform.get("Ro1gl7n8YrdH0000").is_latest
-    assert ln.Transform.get("Ro1gl7n8YrdH0001").is_latest
+    assert not ln.Transform.get("Ro1gl7n8YrdH0001").is_latest
+    assert ln.Transform.get("Ro1gl7n8YrdH0002").is_latest
 
     # inconsistent version
     result = subprocess.run(  # noqa: S602
@@ -202,11 +202,11 @@ def test_run_scripts():
     )
     assert result.returncode == 1
     assert (
-        "✗ please pass consistent version: ln.context.version = '2'"
+        "Transform is already tagged with version 2, but you passed 3"
         in result.stderr.decode()
     )
 
-    # multiple folders, no match
+    # multiple folders, do not match the key because of the folder structure
     ln.Transform.filter(key__endswith="script-to-test-versioning.py").update(
         key="teamA/script-to-test-versioning.py"
     )
@@ -219,37 +219,20 @@ def test_run_scripts():
     assert result.returncode == 0
     assert "ignoring transform" in result.stdout.decode()
 
-    # multiple folders, match
-    transform = ln.Transform(
-        description="Dummy title",
-        key="duplicate4/script-to-test-versioning.py",
-        type="script",
-    ).save()
+    transform = ln.Transform.get(key="script-to-test-versioning.py")
+
+    # multiple folders, match the key, also test is finished
     result = subprocess.run(  # noqa: S602
-        f"python {SCRIPTS_DIR / 'duplicate4/script-to-test-versioning.py'}",
+        f"python {SCRIPTS_DIR / 'duplicate5/script-to-test-versioning.py'}",
         shell=True,
         capture_output=True,
     )
-    print(result.stdout.decode())
-    print(result.stderr.decode())
-    assert result.returncode == 0
-    assert f"{transform.stem_uid}" in result.stdout.decode()
-    assert "making new version" not in result.stdout.decode()
-
-    transform.source_code = "dummy"
-    transform.save()
-
-    # multiple folders, match and transform has saved source code
-    result = subprocess.run(  # noqa: S602
-        f"python {SCRIPTS_DIR / 'duplicate4/script-to-test-versioning.py'}",
-        shell=True,
-        capture_output=True,
-    )
-    print(result.stdout.decode())
-    print(result.stderr.decode())
     assert result.returncode == 0
     assert f"{transform.stem_uid}" in result.stdout.decode()
     assert "making new version" in result.stdout.decode()
+
+    transform = ln.Transform.get(key="script-to-test-versioning.py")
+    assert transform.latest_run.finished_at is not None
 
 
 def test_run_external_script():
