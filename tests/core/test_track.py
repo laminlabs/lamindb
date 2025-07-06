@@ -221,7 +221,7 @@ def test_run_scripts():
 
     transform = ln.Transform.get(key="script-to-test-versioning.py")
 
-    # multiple folders, match the key
+    # multiple folders, match the key, also test is finished
     result = subprocess.run(  # noqa: S602
         f"python {SCRIPTS_DIR / 'duplicate5/script-to-test-versioning.py'}",
         shell=True,
@@ -230,6 +230,9 @@ def test_run_scripts():
     assert result.returncode == 0
     assert f"{transform.stem_uid}" in result.stdout.decode()
     assert "making new version" in result.stdout.decode()
+
+    transform = ln.Transform.get(key="script-to-test-versioning.py")
+    assert transform.latest_run.finished_at is not None
 
 
 def test_run_external_script():

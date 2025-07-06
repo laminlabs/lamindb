@@ -945,6 +945,7 @@ class Context:
                 self._is_finish_retry = True
                 return None
         else:
+            self.run.finished_at = datetime.now(timezone.utc)
             save_run_logs(self.run, save_run=True)
         if self.transform.type != "notebook":
             self._stream_tracker.finish()
