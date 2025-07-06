@@ -344,7 +344,6 @@ def save_context_core(
         transform_hash, _ = hash_file(source_code_path)  # ignore hash_type for now
         if transform.hash is not None:
             # check if the hash of the transform source code matches
-            # (for scripts, we already run the same logic in track() - we can deduplicate the call at some point)
             if transform_hash != transform.hash:
                 response = input(
                     f"You are about to overwrite existing source code (hash '{transform.hash}') for Transform('{transform.uid}')."
