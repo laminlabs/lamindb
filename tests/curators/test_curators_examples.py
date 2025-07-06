@@ -438,8 +438,13 @@ def test_anndata_curator_different_components(small_dataset1_schema: ln.Schema):
         if add_comp == "uns":
             assert isinstance(curator.slots["uns"], ln.curators.DataFrameCurator)
 
-        curator = ln.curators.AnnDataCurator(adata, anndata_schema)
-        curator.validate()
+        print("add_comp", add_comp)
+        print("obs_schema", obs_schema)
+        print("obs_schema._index_feature_uid", obs_schema._index_feature_uid)
+        print(
+            "anndata_schema.slots['obs']._index_feature_uid",
+            anndata_schema.slots["obs"]._index_feature_uid,
+        )
 
         artifact = ln.Artifact.from_anndata(
             adata, key="examples/dataset1.h5ad", schema=anndata_schema
