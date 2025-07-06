@@ -30,7 +30,7 @@ def small_dataset1_schema():
 
     # define schema
     schema = ln.Schema(
-        name="small_dataset1_obs_level_metadata",
+        name="small_dataset1_obs_level_metadata_curator_tests",
         features=[
             ln.Feature(name="perturbation", dtype=perturbation).save(),
             ln.Feature(name="sample_note", dtype=str).save(),
