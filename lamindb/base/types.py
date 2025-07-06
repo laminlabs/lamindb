@@ -37,7 +37,7 @@ StrField = Union[str, FieldAttr]  # typing.TypeAlias
 TransformType = Literal[
     "pipeline", "notebook", "upload", "script", "function", "linker"
 ]
-ArtifactKind = Literal["dataset", "model"]
+ArtifactKind = Literal["dataset", "model", "__lamindb_run__"]
 
 # below is used for Feature.dtype and Param.dtype
 Dtype = Literal[

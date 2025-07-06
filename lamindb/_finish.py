@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 import lamindb_setup as ln_setup
 from lamin_utils import logger
 from lamin_utils._logger import LEVEL_TO_COLORS, LEVEL_TO_ICONS, RESET_COLOR
-from lamindb_setup.core.hashing import hash_file
+from lamindb_setup.core.hashing import hash_dir, hash_file
 
 from lamindb.models import Artifact, Run, Transform
 
@@ -361,26 +361,46 @@ def save_context_core(
             transform.source_code = source_code_path.read_text()
             transform.hash = transform_hash
 
-    # track run environment
     if run is not None:
-        env_path = ln_setup.settings.cache_dir / f"run_env_pip_{run.uid}.txt"
-        if env_path.exists():
+        base_path = ln_setup.settings.cache_dir / "environments" / f"run_{run.uid}"
+        paths = [base_path / "run_env_pip.txt", base_path / "r_pak_lockfile.json"]
+        existing_paths = [path for path in paths if path.exists()]
+
+        if existing_paths:
             overwrite_env = True
             if run.environment_id is not None and from_cli:
                 logger.important("run.environment is already saved, ignoring")
                 overwrite_env = False
+
             if overwrite_env:
-                env_hash, _ = hash_file(env_path)
+                # Use directory if multiple files exist, otherwise use the single file
+                artifact_path: Path = (
+                    base_path if len(existing_paths) > 1 else existing_paths[0]
+                )
+
+                # Set description based on what we're saving
+                if len(existing_paths) == 1:
+                    if existing_paths[0].name == "run_env_pip.txt":
+                        description = "requirements.txt"
+                    elif existing_paths[0].name == "r_pak_lockfile.json":
+                        description = "r_pak_lockfile.json"
+                    env_hash, _ = hash_file(artifact_path)
+                else:
+                    description = "environments"
+                    _, env_hash, _, _ = hash_dir(artifact_path)
+
                 artifact = ln.Artifact.objects.filter(hash=env_hash).one_or_none()
                 new_env_artifact = artifact is None
+
                 if new_env_artifact:
-                    artifact = ln.Artifact(  # type: ignore
-                        env_path,
-                        description="requirements.txt",
+                    artifact = ln.Artifact(
+                        artifact_path,
+                        description=description,
                         kind="__lamindb_run__",
                         run=False,
                     )
                     artifact.save(upload=True, print_progress=False)
+
                 run.environment = artifact
                 if new_env_artifact:
                     logger.debug(f"saved run.environment: {run.environment}")

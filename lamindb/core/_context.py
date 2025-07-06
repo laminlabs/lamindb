@@ -32,7 +32,7 @@ from ..models._is_versioned import (
     increment_base62,
 )
 from ._sync_git import get_transform_reference_from_git_repo
-from ._track_environment import track_environment
+from ._track_environment import track_python_environment
 
 if TYPE_CHECKING:
     from lamindb_setup.types import UPathStr
@@ -512,7 +512,7 @@ class Context:
                 f"{key}={value}" for key, value in params.items()
             )
         self._run = run
-        track_environment(run)
+        track_python_environment(run)
         if self.project is not None:
             # to update a potential project link
             # is only necessary if transform is loaded rather than newly created
