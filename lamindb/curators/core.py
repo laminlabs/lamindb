@@ -1405,12 +1405,14 @@ class DataFrameCatManager:
         self._maximal_set = maximal_set
 
         self._cat_vectors["columns"] = CatVector(
-            values_getter=lambda: self._dataset.columns,  # lambda ensures the inplace update
+            values_getter=lambda: self._dataset.keys(),  # lambda ensures the inplace update
             values_setter=lambda new_values: setattr(
                 self._dataset, "columns", pd.Index(new_values)
-            ),
+            )
+            if isinstance(self._dataset, pd.DataFrame)
+            else None,
             field=columns_field,
-            key="columns",
+            key="columns" if isinstance(self._dataset, pd.DataFrame) else "keys",
             source=self._sources.get("columns"),
             cat_manager=self,
             maximal_set=self._maximal_set,
