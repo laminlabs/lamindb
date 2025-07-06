@@ -29,7 +29,7 @@ def extenddefault_values(apps, schema_editor):
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("lamindb", "0114_squashed"),
+        ("lamindb", "0114_alter_run__status_code"),
     ]
 
     operations = [
