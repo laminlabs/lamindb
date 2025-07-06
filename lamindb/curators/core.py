@@ -559,9 +559,6 @@ class DataFrameCurator(Curator):
                 ordered=schema.ordered_set,
                 index=index,
             )
-            print("schema._index_feature_uid", schema._index_feature_uid)
-            print("pandera_columns", pandera_columns)
-            print("index", index)
         # in the DataFrameCatManager, we use the
         # actual columns of the dataset, not the pandera columns
         # the pandera columns might have additional optional columns

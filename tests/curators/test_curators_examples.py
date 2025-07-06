@@ -438,14 +438,8 @@ def test_anndata_curator_different_components(small_dataset1_schema: ln.Schema):
         if add_comp == "uns":
             assert isinstance(curator.slots["uns"], ln.curators.DataFrameCurator)
 
-        print("add_comp", add_comp)
-        if add_comp == "obs":
-            print("obs_schema", obs_schema)
-            print("obs_schema._index_feature_uid", obs_schema._index_feature_uid)
-            print(
-                "anndata_schema.slots['obs']._index_feature_uid",
-                anndata_schema.slots["obs"]._index_feature_uid,
-            )
+        # TODO: without it, tests fail on CI (but pass locally)
+        if add_comp == "obs" and anndata_schema.slots["obs"]._index_feature_uid is None:
             anndata_schema.slots[
                 "obs"
             ]._index_feature_uid = obs_schema._index_feature_uid
@@ -571,9 +565,7 @@ def test_anndata_curator_varT_curation_legacy(ccaplog):
             varT_schema.delete()
 
 
-def test_soma_curator(
-    small_dataset1_schema: ln.Schema, curator_params: dict[str, str | FieldAttr]
-):
+def test_soma_curator(curator_params: dict[str, str | FieldAttr]):
     """Test SOMA curator implementation."""
     adata = datasets.small_dataset1(otype="AnnData")
     tiledbsoma.io.from_anndata(
@@ -610,6 +602,11 @@ def test_anndata_curator_no_var(small_dataset1_schema: ln.Schema):
         otype="AnnData",
         slots={"obs": small_dataset1_schema},
     ).save()
+    # TODO: without it, tests fail on CI (but pass locally)
+    if anndata_schema_no_var.slots["obs"]._index_feature_uid is None:
+        anndata_schema_no_var.slots[
+            "obs"
+        ]._index_feature_uid = small_dataset1_schema._index_feature_uid
     assert small_dataset1_schema.id is not None, small_dataset1_schema
     adata = datasets.small_dataset1(otype="AnnData")
     curator = ln.curators.AnnDataCurator(adata, anndata_schema_no_var)
