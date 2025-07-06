@@ -313,11 +313,12 @@ class Run(SQLRecord):
     """Linked projects."""
     _is_consecutive: bool | None = BooleanField(null=True)
     """Indicates whether code was consecutively executed. Is relevant for notebooks."""
-    _status_code: int = models.SmallIntegerField(default=0, db_index=True)
+    _status_code: int = models.SmallIntegerField(default=None, db_index=True, null=True)
     """Status code of the run.
 
-    - -2: started
-    - -1: scheduled
+    - -3: scheduled
+    - -2: re-started
+    - -1: started
     - 0: completed
     - 1: errored
     - 2: aborted
