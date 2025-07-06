@@ -714,6 +714,8 @@ class Context:
                 message = ""
                 found_key = False
                 for aux_transform in transforms:
+                    # check whether the transform key is in the path
+                    # that's not going to be the case for keys that have "/" in them and don't match the folder
                     if aux_transform.key in self._path.as_posix():
                         key = aux_transform.key
                         uid, target_transform, message = self._process_aux_transform(
@@ -729,7 +731,7 @@ class Context:
                             for transform in transforms
                         ]
                     )
-                    message = f"ignoring transform{plural_s} with same filename:\n{transforms_str}"
+                    message = f"ignoring transform{plural_s} with same filename in different folder:\n{transforms_str}"
                 if message != "":
                     logger.important(message)
             self.uid, transform = uid, target_transform
@@ -939,11 +941,11 @@ class Context:
                 is_retry=self._is_finish_retry,
                 notebook_runner=self._notebook_runner,
             )
+            if return_code == "retry":
+                self._is_finish_retry = True
+                return None
         else:
             save_run_logs(self.run, save_run=True)
-        if return_code == "retry":
-            self._is_finish_retry = True
-            return None
         if self.transform.type != "notebook":
             self._stream_tracker.finish()
         # reset the context attributes so that somebody who runs `track()` after finish

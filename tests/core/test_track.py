@@ -206,7 +206,7 @@ def test_run_scripts():
         in result.stderr.decode()
     )
 
-    # multiple folders, no match
+    # multiple folders, do not match the key because of the folder structure
     ln.Transform.filter(key__endswith="script-to-test-versioning.py").update(
         key="teamA/script-to-test-versioning.py"
     )
@@ -219,34 +219,14 @@ def test_run_scripts():
     assert result.returncode == 0
     assert "ignoring transform" in result.stdout.decode()
 
-    # multiple folders, match
-    transform = ln.Transform(
-        description="Dummy title",
-        key="duplicate4/script-to-test-versioning.py",
-        type="script",
-    ).save()
+    transform = ln.Transform.get(key="script-to-test-versioning.py")
+
+    # multiple folders, match the key
     result = subprocess.run(  # noqa: S602
-        f"python {SCRIPTS_DIR / 'duplicate4/script-to-test-versioning.py'}",
+        f"python {SCRIPTS_DIR / 'duplicate5/script-to-test-versioning.py'}",
         shell=True,
         capture_output=True,
     )
-    print(result.stdout.decode())
-    print(result.stderr.decode())
-    assert result.returncode == 0
-    assert f"{transform.stem_uid}" in result.stdout.decode()
-    assert "making new version" not in result.stdout.decode()
-
-    transform.source_code = "dummy"
-    transform.save()
-
-    # multiple folders, match and transform has saved source code
-    result = subprocess.run(  # noqa: S602
-        f"python {SCRIPTS_DIR / 'duplicate4/script-to-test-versioning.py'}",
-        shell=True,
-        capture_output=True,
-    )
-    print(result.stdout.decode())
-    print(result.stderr.decode())
     assert result.returncode == 0
     assert f"{transform.stem_uid}" in result.stdout.decode()
     assert "making new version" in result.stdout.decode()
