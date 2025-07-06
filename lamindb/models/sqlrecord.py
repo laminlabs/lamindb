@@ -661,12 +661,12 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
     def __init__(self, *args, **kwargs):
         skip_validation = kwargs.pop("_skip_validation", False)
         if not args:
-            if self.__class__.__name__ in {
-                "Artifact",
-                "Collection",
-                "Transform",
-                "Run",
-            }:
+            if (
+                issubclass(self.__class__, SQLRecord)
+                and self.__class__.__name__ != "Storage"
+                # do not save bionty entities in restricted spaces by default
+                and self.__class__.__module__ != "bionty.models"
+            ):
                 from lamindb import context as run_context
 
                 if run_context.space is not None:
