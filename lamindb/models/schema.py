@@ -587,11 +587,6 @@ class Schema(SQLRecord, CanCurate, TracksRun):
         else:
             validated_kwargs["uid"] = ids.base62_16()
         super().__init__(**validated_kwargs)
-        # manipulating aux fields is easier after calling super().__init__()
-        self.optionals.set(optional_features)
-        self.flexible = flexible
-        if index is not None:
-            self._index_feature_uid = index.uid
 
     def _validate_kwargs_calculate_hash(
         self,
@@ -681,6 +676,8 @@ class Schema(SQLRecord, CanCurate, TracksRun):
         n_features_default = -1
         coerce_dtype_default = False
         aux_dict: dict[str, dict[str, bool | str | list[str]]] = {}
+
+        # TODO: leverage a common abstraction across the properties and this here
 
         # coerce_dtype (key "0")
         if coerce_dtype:
