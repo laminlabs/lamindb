@@ -217,7 +217,7 @@ class Migration(migrations.Migration):
                         blank=True,
                         db_default="aaaaaaaaaaaa",
                         db_index=True,
-                        default="aaaaaaaaaaaa",
+                        default="aaaaaaaaaaaaa",
                         editable=False,
                         max_length=12,
                         unique=True,
