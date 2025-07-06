@@ -206,6 +206,7 @@ class LogStreamTracker:
                     self.run._status_code = 2  # aborted
                 else:
                     self.run._status_code = 1  # errored
+                self.run.finished_at = datetime.now(timezone.utc)
                 sys.stdout = self.original_stdout
                 sys.stderr = self.original_stderr
                 self.log_file.close()
