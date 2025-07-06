@@ -1787,7 +1787,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             schema: A schema that defines how to validate & annotate.
 
         See Also:
-
             :meth:`~lamindb.Collection`
                 Track collections.
             :class:`~lamindb.Feature`
@@ -2666,18 +2665,37 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         self._aux = self._aux or {}
         self._aux.setdefault("af", {})["0"] = value
 
-    def save(self, upload: bool | None = None, **kwargs) -> Artifact:
+    def save(
+        self,
+        upload: bool | None = None,
+        transfer: Literal["record", "annotations"] = "record",
+        **kwargs,
+    ) -> Artifact:
         """Save to database & storage.
 
         Args:
             upload: Trigger upload to cloud storage in instances with hybrid storage mode.
+            transfer: In case artifact was queried on a different instance, dictates behavior of transfer.
+                If "record", only the artifact record is transferred to the current instance.
+                If "annotations", also the annotations linked in the source instance are transferred.
 
-        Example::
+        See Also:
+            :doc:`transfer`
 
-            import lamindb as ln
+        Example:
 
-            artifact = ln.Artifact("./myfile.csv", key="myfile.parquet").save()
+            ::
+
+                import lamindb as ln
+
+                artifact = ln.Artifact("./myfile.csv", key="myfile.parquet").save()
         """
+        if transfer not in {"record", "annotations"}:
+            raise ValueError(
+                f"transfer should be either 'record' or 'annotations', not {transfer}"
+            )
+        else:
+            kwargs["transfer"] = transfer
         state_was_adding = self._state.adding
         print_progress = kwargs.pop("print_progress", True)
         store_kwargs = kwargs.pop(

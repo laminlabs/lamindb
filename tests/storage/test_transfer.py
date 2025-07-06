@@ -61,8 +61,9 @@ def test_transfer_from_remote_to_local(ccaplog):
     transform_remote = artifact1.transform
     created_by_remote = artifact1.created_by
     storage_remote = artifact1.storage
+    organism_remote = artifact1.organisms.get(name="human")
 
-    artifact1.save()
+    artifact1.save(transfer="annotations")
     # assert MODULE_WASNT_CONFIGURED_MESSAGE_TEMPLATE.format("wetlab") in ccaplog.text
 
     # check all ids are adjusted
@@ -72,16 +73,29 @@ def test_transfer_from_remote_to_local(ccaplog):
     assert created_by_remote.handle != artifact1.created_by.handle
     assert storage_remote.uid == artifact1.storage.uid
     assert storage_remote.created_at == artifact1.storage.created_at
+    organism = artifact1.organisms.get(name="human")
+    assert organism.created_at != organism_remote.created_at
 
     # now check that this is idempotent and we can run it again
     artifact_repeat = ln.Artifact.using("laminlabs/lamin-dev").get(
         "livFRRpMaOgb3y8U2mK2"
     )
-    artifact_repeat.save()
+    artifact_repeat.save(transfer="annotations")
+
+    # now prepare a new test case
+    # mimic we have an existing feature with a different uid but same name
+    feature = ln.Feature.get(name="organism")
+    feature.uid = "existing"
+    feature.save()
 
     # transfer 2nd artifact
     artifact2 = ln.Artifact.using("laminlabs/lamin-dev").get("qz35YaRk")
-    artifact2.save()
+    artifact2.save(transfer="annotations")
+
+    # check the feature name
+    bt.settings.organism = "mouse"
+    assert artifact2.organisms.get(name="mouse") == bt.settings.organism
+    assert artifact1.features["obs"].get(name="organism").uid == "existing"
 
     # test transfer from an instance with fewer modules (laminlabs/lamin-site-assets)
     artifact3 = ln.Artifact.using("laminlabs/lamin-site-assets").get("lgRNHNtM")
