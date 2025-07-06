@@ -804,8 +804,9 @@ class Context:
                 and transform.version is not None  # type: ignore
                 and self.version != transform.version  # type: ignore
             ):
-                raise SystemExit(
-                    f"✗ please pass consistent version: ln.context.version = '{transform.version}'"  # type: ignore
+                raise ValueError(
+                    f"Transform is already tagged with version {transform.version}, but you passed {self.version}\n"  # noqa: S608
+                    f"If you want to update the transform version, set it outside ln.track(): transform.version = '{self.version}'; transform.save()"
                 )
             # test whether version was already used for another member of the family
             if self.uid is not None and len(self.uid) == 16:

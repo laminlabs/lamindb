@@ -186,15 +186,13 @@ def test_run_scripts():
         shell=True,
         capture_output=True,
     )
-    print(result.stdout.decode())
-    print(result.stderr.decode())
     assert result.returncode == 0
     assert (
-        "created Transform('Ro1gl7n8YrdH0001'), started new Run("
+        "created Transform('Ro1gl7n8YrdH0002'), started new Run("
         in result.stdout.decode()
     )
-    assert not ln.Transform.get("Ro1gl7n8YrdH0000").is_latest
-    assert ln.Transform.get("Ro1gl7n8YrdH0001").is_latest
+    assert not ln.Transform.get("Ro1gl7n8YrdH0001").is_latest
+    assert ln.Transform.get("Ro1gl7n8YrdH0002").is_latest
 
     # inconsistent version
     result = subprocess.run(  # noqa: S602
@@ -204,7 +202,7 @@ def test_run_scripts():
     )
     assert result.returncode == 1
     assert (
-        "✗ please pass consistent version: ln.context.version = '2'"
+        "Transform is already tagged with version 2, but you passed 3"
         in result.stderr.decode()
     )
 
