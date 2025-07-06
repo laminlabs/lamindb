@@ -446,6 +446,9 @@ def test_anndata_curator_different_components(small_dataset1_schema: ln.Schema):
                 "anndata_schema.slots['obs']._index_feature_uid",
                 anndata_schema.slots["obs"]._index_feature_uid,
             )
+            anndata_schema.slots[
+                "obs"
+            ]._index_feature_uid = obs_schema._index_feature_uid
 
         artifact = ln.Artifact.from_anndata(
             adata, key="examples/dataset1.h5ad", schema=anndata_schema
