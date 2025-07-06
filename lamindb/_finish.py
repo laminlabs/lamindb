@@ -241,6 +241,7 @@ def save_context_core(
     transform: Transform,
     filepath: Path,
     finished_at: bool = False,
+    skip_save_report: bool = False,
     ignore_non_consecutive: bool | None = None,
     from_cli: bool = False,
     is_retry: bool = False,
@@ -394,12 +395,8 @@ def save_context_core(
         if update_finished_at:
             run.finished_at = datetime.now(timezone.utc)
 
-    # track logs
-    if run is not None and not from_cli and not is_ipynb and not is_r_notebook:
-        save_run_logs(run)
-
     # track report and set is_consecutive
-    if save_source_code_and_report:
+    if save_source_code_and_report and not skip_save_report:
         if run is not None:
             # do not save a run report if executing through nbconvert
             if report_path is not None and notebook_runner != "nbconvert":
@@ -454,7 +451,7 @@ def save_context_core(
         ln.Transform.get(transform_id_prior_to_save).delete()
 
     # finalize
-    if not from_cli and run is not None:
+    if finished_at and not from_cli and run is not None:
         run_time = run.finished_at - run.started_at
         days = run_time.days
         seconds = run_time.seconds
@@ -480,7 +477,7 @@ def save_context_core(
             logger.important(
                 f"go to: https://lamin.ai/{instance_slug}/transform/{transform.uid}"
             )
-        if not from_cli and save_source_code_and_report:
+        if finished_at and not from_cli and save_source_code_and_report:
             thing = "notebook" if (is_ipynb or is_r_notebook) else "script"
             logger.important(
                 f"to update your {thing} from the CLI, run: lamin save {filepath}"

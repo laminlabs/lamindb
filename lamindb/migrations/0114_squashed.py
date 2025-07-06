@@ -135,6 +135,7 @@ class Migration(migrations.Migration):
         ("lamindb", "0111_remove_record__sort_order"),
         ("lamindb", "0112_alter_recordartifact_feature_and_more"),
         ("lamindb", "0113_lower_case_branch_and_space_names"),
+        ("lamindb", "0114_alter_run__status_code"),
     ]
 
     dependencies = []  # type: ignore
@@ -1300,7 +1301,10 @@ class Migration(migrations.Migration):
                     "end_date",
                     lamindb.base.fields.DateField(blank=True, default=None, null=True),
                 ),
-                ("_status_code", models.SmallIntegerField(db_index=True, default=0)),
+                (
+                    "_status_code",
+                    models.SmallIntegerField(db_index=True, default=None, null=True),
+                ),
                 (
                     "artifacts",
                     models.ManyToManyField(
