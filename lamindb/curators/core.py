@@ -565,9 +565,6 @@ class DataFrameCurator(Curator):
         self._cat_manager = DataFrameCatManager(
             self._dataset,
             columns_field=parse_cat_dtype(schema.itype, is_itype=True)["field"],
-            columns_names=self._dataset.columns.tolist()
-            if hasattr(self._dataset, "columns")
-            else list(self._dataset.keys()),
             categoricals=categoricals,
             index=schema.index,
             slot=slot,
@@ -1384,7 +1381,6 @@ class DataFrameCatManager:
         self,
         df: pd.DataFrame | Artifact,
         columns_field: FieldAttr = Feature.name,
-        columns_names: Iterable[str] | None = None,
         categoricals: list[Feature] | None = None,
         sources: dict[str, SQLRecord] | None = None,
         index: Feature | None = None,
@@ -1408,29 +1404,19 @@ class DataFrameCatManager:
         self._slot = slot
         self._maximal_set = maximal_set
 
-        if columns_names is None:
-            columns_names = []
-        if columns_field == Feature.name:
-            self._cat_vectors["columns"] = CatVector(
-                values_getter=columns_names,
-                field=columns_field,
-                key="columns" if isinstance(self._dataset, pd.DataFrame) else "keys",
-                source=self._sources.get("columns"),
-                cat_manager=self,
-                maximal_set=self._maximal_set,
+        self._cat_vectors["columns"] = CatVector(
+            values_getter=lambda: self._dataset.keys(),  # lambda ensures the inplace update
+            values_setter=lambda new_values: setattr(
+                self._dataset, "columns", pd.Index(new_values)
             )
-        else:
-            self._cat_vectors["columns"] = CatVector(
-                values_getter=lambda: self._dataset.columns,  # lambda ensures the inplace update
-                values_setter=lambda new_values: setattr(
-                    self._dataset, "columns", pd.Index(new_values)
-                ),
-                field=columns_field,
-                key="columns",
-                source=self._sources.get("columns"),
-                cat_manager=self,
-                maximal_set=self._maximal_set,
-            )
+            if isinstance(self._dataset, pd.DataFrame)
+            else None,
+            field=columns_field,
+            key="columns" if isinstance(self._dataset, pd.DataFrame) else "keys",
+            source=self._sources.get("columns"),
+            cat_manager=self,
+            maximal_set=self._maximal_set,
+        )
         for feature in self._categoricals:
             result = parse_dtype(feature.dtype)[
                 0
