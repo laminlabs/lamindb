@@ -777,6 +777,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
         using_key = None
         if "using" in kwargs:
             using_key = kwargs["using"]
+        transfer_config = kwargs.pop("transfer", None)
         db = self._state.db
         pk_on_db = self.pk
         artifacts: list = []
@@ -874,7 +875,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                     for artifact in artifacts:
                         artifact.save()
                     self.artifacts.add(*artifacts)
-            if hasattr(self, "labels"):
+            if hasattr(self, "labels") and transfer_config == "annotations":
                 from copy import copy
 
                 # here we go back to original record on the source database
@@ -885,7 +886,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                 self.labels.add_from(self_on_db, transfer_logs=transfer_logs)
             for k, v in transfer_logs.items():
                 if k != "run" and len(v) > 0:
-                    logger.important(f"{k} records: {', '.join(v)}")
+                    logger.important(f"{k}: {', '.join(v)}")
 
         if self.__class__.__name__ in {
             "Artifact",
