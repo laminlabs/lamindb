@@ -18,7 +18,7 @@ ln.track(space=space_name)
 
 assert ln.context.space.name == space_name
 ulabel = ln.ULabel(name="My test ulabel in test space").save()
-assert ulabel.space.name == "all"  # ulabel should end up in common space
+assert ulabel.space.name == space_name  # ulabel should end up in the restricted space
 ulabel.delete()  # delete silently passes in case another worker deleted the ulabel
 assert (
     ln.context.transform.space.name == space_name
