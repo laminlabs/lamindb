@@ -17,8 +17,8 @@ classifiers = [
 dependencies = [
     # Lamin PINNED packages
     "lamin_utils==0.15.0",
-    "lamin_cli==1.4.2",
-    "lamindb_setup[aws]==1.6.1",
+    "lamin_cli==1.5.0",
+    "lamindb_setup[aws]==1.7.0",
     # others
     "pyyaml",
     "pyarrow",
@@ -40,7 +40,7 @@ Home = "https://github.com/laminlabs/lamindb"
 
 [project.optional-dependencies]
 bionty = [
-    "bionty>=1.5.0",   # do NOT pin, is bounded in bionty
+    "bionty>=1.6.0",   # do NOT pin, is bounded in bionty
 ]
 gcp = [
     "lamindb_setup[gcp]",
