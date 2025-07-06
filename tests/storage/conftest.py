@@ -61,8 +61,9 @@ def delete_test_instance():
     # handle below better in the future
     for path in (
         "s3://lamindb-test/storage/.lamindb",
-        "s3://lamindb-ci/lamindb-unit-tests-cloud/.lamindb",
         "s3://lamindb-test/core/.lamindb",
+        "s3://lamindb-ci/lamindb-unit-tests-cloud/.lamindb",
+        "s3://lamindb-ci/test-settings-switch-storage/.lamindb",
     ):
         upath = ln.UPath(path)
         if upath.exists():
