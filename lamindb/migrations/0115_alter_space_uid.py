@@ -11,19 +11,19 @@ def extenddefault_values(apps, schema_editor):
     Branch = apps.get_model("lamindb", "Branch")
 
     space = Space.objects.get(uid="a")
-    space.uid = "aaaaaaaaaaaa"
+    space.uid = 12 * "a"
     space.save()
 
     trash_branch = Branch.objects.get(uid="t")
-    trash_branch.uid = "tttttttttttt"
+    trash_branch.uid = 12 * "t"
     trash_branch.save()
 
     archive_branch = Branch.objects.get(uid="a")
-    archive_branch.uid = "aaaaaaaaaaaa"
+    archive_branch.uid = 12 * "a"
     archive_branch.save()
 
     main_branch = Branch.objects.get(uid="m")
-    main_branch.uid = "mmmmmmmmmmmm"
+    main_branch.uid = 12 * "m"
     main_branch.save()
 
 
@@ -38,9 +38,9 @@ class Migration(migrations.Migration):
             name="uid",
             field=lamindb.base.fields.CharField(
                 blank=True,
-                db_default="aaaaaaaaaaaa",
+                db_default=12 * "a",
                 db_index=True,
-                default="aaaaaaaaaaaaa",
+                default=12 * "a",
                 editable=False,
                 max_length=12,
                 unique=True,
