@@ -778,7 +778,6 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
         if "using" in kwargs:
             using_key = kwargs["using"]
         db = self._state.db
-        pk_on_db = self.pk
         artifacts: list = []
         if self.__class__.__name__ == "Collection" and self.id is not None:
             # when creating a new collection without being able to access artifacts
@@ -874,18 +873,9 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                     for artifact in artifacts:
                         artifact.save()
                     self.artifacts.add(*artifacts)
-            if hasattr(self, "labels"):
-                from copy import copy
-
-                # here we go back to original record on the source database
-                self_on_db = copy(self)
-                self_on_db._state.db = db
-                self_on_db.pk = pk_on_db  # manually set the primary key
-                self.features._add_from(self_on_db, transfer_logs=transfer_logs)
-                self.labels.add_from(self_on_db, transfer_logs=transfer_logs)
             for k, v in transfer_logs.items():
                 if k != "run" and len(v) > 0:
-                    logger.important(f"{k} records: {', '.join(v)}")
+                    logger.important(f"{k}: {', '.join(v)}")
 
         if self.__class__.__name__ in {
             "Artifact",

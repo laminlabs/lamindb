@@ -4,7 +4,6 @@ import bionty as bt
 import lamindb as ln
 import pytest
 from lamindb.models._django import get_artifact_with_related
-from lamindb_setup.errors import MODULE_WASNT_CONFIGURED_MESSAGE_TEMPLATE
 
 
 def test_transfer_from_remote_to_local(ccaplog):
@@ -19,11 +18,11 @@ def test_transfer_from_remote_to_local(ccaplog):
     # we also made sure that the artifact here has a wetlab label attached
 
     # transfer 1st artifact
-    artifact = ln.Artifact.using("laminlabs/lamin-dev").get("livFRRpMaOgb3y8U2mK2")
+    artifact1 = ln.Artifact.using("laminlabs/lamin-dev").get("livFRRpM")
 
     # test describe postgres
     result = get_artifact_with_related(
-        artifact,
+        artifact1,
         include_m2m=True,
         include_fk=True,
         include_feature_link=True,
@@ -57,25 +56,22 @@ def test_transfer_from_remote_to_local(ccaplog):
         "name": "s3://cellxgene-data-public",
     }
 
-    id_remote = artifact.id
-    run_remote = artifact.run
-    transform_remote = artifact.transform
-    created_by_remote = artifact.created_by
-    storage_remote = artifact.storage
-    organism_remote = artifact.organisms.get(name="human")
+    id_remote = artifact1.id
+    run_remote = artifact1.run
+    transform_remote = artifact1.transform
+    created_by_remote = artifact1.created_by
+    storage_remote = artifact1.storage
 
-    artifact.save()
-    assert MODULE_WASNT_CONFIGURED_MESSAGE_TEMPLATE.format("wetlab") in ccaplog.text
+    artifact1.save()
+    # assert MODULE_WASNT_CONFIGURED_MESSAGE_TEMPLATE.format("wetlab") in ccaplog.text
 
     # check all ids are adjusted
-    assert id_remote != artifact.id
-    assert run_remote != artifact.run
-    assert transform_remote != artifact.transform
-    assert created_by_remote.handle != artifact.created_by.handle
-    assert storage_remote.uid == artifact.storage.uid
-    assert storage_remote.created_at == artifact.storage.created_at
-    organism = artifact.organisms.get(name="human")
-    assert organism.created_at != organism_remote.created_at
+    assert id_remote != artifact1.id
+    assert run_remote != artifact1.run
+    assert transform_remote != artifact1.transform
+    assert created_by_remote.handle != artifact1.created_by.handle
+    assert storage_remote.uid == artifact1.storage.uid
+    assert storage_remote.created_at == artifact1.storage.created_at
 
     # now check that this is idempotent and we can run it again
     artifact_repeat = ln.Artifact.using("laminlabs/lamin-dev").get(
@@ -83,42 +79,19 @@ def test_transfer_from_remote_to_local(ccaplog):
     )
     artifact_repeat.save()
 
-    # now prepare a new test case
-    # mimic we have an existing feature with a different uid but same name
-    feature = ln.Feature.get(name="organism")
-    feature.uid = "existing"
-    feature.save()
-
     # transfer 2nd artifact
-    artifact2 = ln.Artifact.using("laminlabs/lamin-dev").get("qz35YaRk09XtYAyLvjyZ")
+    artifact2 = ln.Artifact.using("laminlabs/lamin-dev").get("qz35YaRk")
     artifact2.save()
 
-    # check the feature name
-    bt.settings.organism = "mouse"
-    assert artifact2.organisms.get(name="mouse") == bt.settings.organism
-    assert artifact.features["obs"].get(name="organism").uid == "existing"
-
-    # test transfer form an instance with fewer modules (laminlabs/lamin-site-assets)
-    artifact3 = ln.Artifact.using("laminlabs/lamin-site-assets").get(
-        "lgRNHNtMxjU0y8nIagt7"
-    )
-    # load saves the artifact to default instance
+    # test transfer from an instance with fewer modules (laminlabs/lamin-site-assets)
+    artifact3 = ln.Artifact.using("laminlabs/lamin-site-assets").get("lgRNHNtM")
+    # test that implicit saving through `load()` works (also occurs for `cache()` or `open()` for run input tracking)
     artifact3.load()
 
-    ln.Artifact.filter().delete(permanent=True, storage=False)
-    ln.Schema.filter().delete()
-    bt.Gene.filter().delete()
-    bt.Organism.filter().delete()
-    ln.ULabel.filter().delete()
-    bt.Disease.filter().delete()
-    bt.CellLine.filter().delete()
-    bt.CellType.filter().delete()
-    bt.Phenotype.filter().delete()
-    bt.Ethnicity.filter().delete()
-    bt.ExperimentalFactor.filter().delete()
-    bt.DevelopmentalStage.filter().delete()
-    bt.Tissue.filter().delete()
-    ln.Feature.filter().delete()
+    # delete with storage=False, because these are all stored in the source instances
+    artifact1.delete(storage=False)
+    artifact2.delete(storage=False)
+    artifact3.delete(storage=False)
 
 
 def test_transfer_into_space():
