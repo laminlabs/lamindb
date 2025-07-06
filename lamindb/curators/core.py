@@ -1053,7 +1053,7 @@ class CatVector:
         # should probably add a setting `at_least_one_validated`
         result = True
         if len(self.values) > 0 and len(self.values) == len(self._non_validated):
-            result = False
+            logger.warning(f"no values were validated for {self._key}!")
         # len(self._non_validated) != 0
         #     if maximal_set is True, return False
         #     if maximal_set is False, return True
