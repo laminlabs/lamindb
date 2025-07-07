@@ -572,10 +572,12 @@ class DataFrameCurator(Curator):
                 ordered=schema.ordered_set,
                 index=index,
             )
+        # in the DataFrameCatManager, we use the
+        # actual columns of the dataset, not the pandera columns
+        # the pandera columns might have additional optional columns
         self._cat_manager = DataFrameCatManager(
             self._dataset,
             columns_field=parse_cat_dtype(schema.itype, is_itype=True)["field"],
-            columns_names=pandera_columns.keys(),
             categoricals=categoricals,
             index=schema.index,
             slot=slot,
@@ -1139,7 +1141,7 @@ class CatVector:
         # should probably add a setting `at_least_one_validated`
         result = True
         if len(self.values) > 0 and len(self.values) == len(self._non_validated):
-            result = False
+            logger.warning(f"no values were validated for {self._key}!")
         # len(self._non_validated) != 0
         #     if maximal_set is True, return False
         #     if maximal_set is False, return True
@@ -1231,9 +1233,11 @@ class CatVector:
         # inspect the default instance and save validated records from public
         if self._subtype_str != "" and "=" not in self._subtype_str:
             related_name = registry._meta.get_field("type").remote_field.related_name
-            self._subtype_query_set = getattr(
-                registry.get(name=self._subtype_str), related_name
-            ).all()
+            type_record = registry.get(name=self._subtype_str)
+            if registry.__name__ == "Record":
+                self._subtype_query_set = type_record.query_children()
+            else:
+                self._subtype_query_set = getattr(type_record, related_name).all()
             values_array = np.array(str_values)
             validated_mask = self._subtype_query_set.validate(  # type: ignore
                 values_array, field=self._field, **filter_kwargs, mute=True
@@ -1415,10 +1419,6 @@ class CatVector:
         self._validated, self._non_validated = self._add_validated()
         self._non_validated, self._synonyms = self._validate(values=self._non_validated)
 
-        # always register new Features if they are columns
-        if self._key == "columns" and self._field == Feature.name:
-            self.add_new()
-
     def standardize(self) -> None:
         """Standardize the vector."""
         registry = self._field.field.model
@@ -1469,7 +1469,6 @@ class DataFrameCatManager:
         self,
         df: pd.DataFrame | Artifact,
         columns_field: FieldAttr = Feature.name,
-        columns_names: Iterable[str] | None = None,
         categoricals: list[Feature] | None = None,
         sources: dict[str, SQLRecord] | None = None,
         index: Feature | None = None,
@@ -1493,29 +1492,19 @@ class DataFrameCatManager:
         self._slot = slot
         self._maximal_set = maximal_set
 
-        if columns_names is None:
-            columns_names = []
-        if columns_field == Feature.name:
-            self._cat_vectors["columns"] = CatVector(
-                values_getter=columns_names,
-                field=columns_field,
-                key="columns" if isinstance(self._dataset, pd.DataFrame) else "keys",
-                source=self._sources.get("columns"),
-                cat_manager=self,
-                maximal_set=self._maximal_set,
+        self._cat_vectors["columns"] = CatVector(
+            values_getter=lambda: self._dataset.keys(),  # lambda ensures the inplace update
+            values_setter=lambda new_values: setattr(
+                self._dataset, "columns", pd.Index(new_values)
             )
-        else:
-            self._cat_vectors["columns"] = CatVector(
-                values_getter=lambda: self._dataset.columns,  # lambda ensures the inplace update
-                values_setter=lambda new_values: setattr(
-                    self._dataset, "columns", pd.Index(new_values)
-                ),
-                field=columns_field,
-                key="columns",
-                source=self._sources.get("columns"),
-                cat_manager=self,
-                maximal_set=self._maximal_set,
-            )
+            if isinstance(self._dataset, pd.DataFrame)
+            else None,
+            field=columns_field,
+            key="columns" if isinstance(self._dataset, pd.DataFrame) else "keys",
+            source=self._sources.get("columns"),
+            cat_manager=self,
+            maximal_set=self._maximal_set,
+        )
         for feature in self._categoricals:
             result = parse_dtype(feature.dtype)[
                 0

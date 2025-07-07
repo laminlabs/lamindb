@@ -282,7 +282,11 @@ def process_data(
         from lamindb import settings
 
         path = settings.cache_dir / f"{provisional_uid}{suffix}"
-        write_to_disk(data, path)
+        if isinstance(format, dict):
+            format.pop("suffix", None)
+        else:
+            format = {}
+        write_to_disk(data, path, **format)
         use_existing_storage_key = False
 
     return memory_rep, path, suffix, storage, use_existing_storage_key
@@ -995,7 +999,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         description: `str | None = None` A description.
         revises: `Artifact | None = None` Previous version of the artifact. Is an alternative way to passing `key` to trigger a new version.
         overwrite_versions: `bool | None = None` Whether to overwrite versions. Defaults to `True` for folders and `False` for files.
-        run: `Run | None = None` The run that creates the artifact.
+        run: `Run | bool | None = None` The run that creates the artifact. If `False`, surpress tracking the run.
+            If `None`, infer the run from the global run context.
 
     Examples:
 
@@ -1310,11 +1315,13 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     _overwrite_versions: bool = BooleanField(default=None)
     # see corresponding property `overwrite_versions`
     projects: Project
-    """Linked projects."""
+    """Annotating projects."""
     references: Reference
-    """Linked references."""
+    """Annotating references."""
     records: Record
-    """Linked records."""
+    """Annotating records."""
+    linked_in_records: Record
+    """Linked in records."""
 
     @overload
     def __init__(
@@ -1332,7 +1339,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         description: str | None = None,
         revises: Artifact | None = None,
         overwrite_versions: bool | None = None,
-        run: Run | None = None,
+        run: Run | False | None = None,
     ): ...
 
     @overload
@@ -1743,6 +1750,13 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         if schema is not None:
             from ..curators import DataFrameCurator
 
+            if not artifact._state.adding and artifact.suffix != ".parquet":
+                logger.warning(
+                    f"not re-validating existing artifact as it was stored as {artifact.suffix}, "
+                    "which does not maintain categorical dtype information"
+                )
+                return artifact
+
             curator = DataFrameCurator(artifact, schema)
             curator.validate()
             artifact.schema = schema
@@ -1773,7 +1787,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             schema: A schema that defines how to validate & annotate.
 
         See Also:
-
             :meth:`~lamindb.Collection`
                 Track collections.
             :class:`~lamindb.Feature`
@@ -2652,18 +2665,37 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         self._aux = self._aux or {}
         self._aux.setdefault("af", {})["0"] = value
 
-    def save(self, upload: bool | None = None, **kwargs) -> Artifact:
+    def save(
+        self,
+        upload: bool | None = None,
+        transfer: Literal["record", "annotations"] = "record",
+        **kwargs,
+    ) -> Artifact:
         """Save to database & storage.
 
         Args:
             upload: Trigger upload to cloud storage in instances with hybrid storage mode.
+            transfer: In case artifact was queried on a different instance, dictates behavior of transfer.
+                If "record", only the artifact record is transferred to the current instance.
+                If "annotations", also the annotations linked in the source instance are transferred.
 
-        Example::
+        See Also:
+            :doc:`transfer`
 
-            import lamindb as ln
+        Example:
 
-            artifact = ln.Artifact("./myfile.csv", key="myfile.parquet").save()
+            ::
+
+                import lamindb as ln
+
+                artifact = ln.Artifact("./myfile.csv", key="myfile.parquet").save()
         """
+        if transfer not in {"record", "annotations"}:
+            raise ValueError(
+                f"transfer should be either 'record' or 'annotations', not {transfer}"
+            )
+        else:
+            kwargs["transfer"] = transfer
         state_was_adding = self._state.adding
         print_progress = kwargs.pop("print_progress", True)
         store_kwargs = kwargs.pop(
@@ -2719,9 +2751,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             using_key=using_key,
         )
         if exception_upload is not None:
-            raise RuntimeError(exception_upload)
+            raise exception_upload
         if exception_clear is not None:
-            raise RuntimeError(exception_clear)
+            raise exception_clear
         # the saving / upload process has been successfull, just mark it as such
         # maybe some error handling here?
         if flag_complete:

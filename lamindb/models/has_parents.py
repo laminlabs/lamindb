@@ -39,15 +39,15 @@ is_run_from_ipython = getattr(builtins, "__IPYTHON__", False)
 # also len of QuerySet can be costly at times
 def _query_relatives(
     records: QuerySet | list[SQLRecord],
-    kind: Literal["parents", "children"],
+    attr: str,
     cls: type[HasParents],
 ) -> QuerySet:
     relatives = cls.objects.none()  # type: ignore
     if len(records) == 0:
         return relatives
     for record in records:
-        relatives = relatives.union(getattr(record, kind).all())
-    relatives = relatives.union(_query_relatives(relatives, kind, cls))
+        relatives = relatives.union(getattr(record, attr).all())
+    relatives = relatives.union(_query_relatives(relatives, attr, cls))
     return relatives
 
 

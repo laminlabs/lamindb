@@ -28,6 +28,7 @@ from django.db.models.fields.related import (
     ManyToManyRel,
     ManyToOneRel,
 )
+from django.db.models.functions import Lower
 from lamin_utils import colors, logger
 from lamindb_setup import settings as setup_settings
 from lamindb_setup._connect_instance import (
@@ -683,43 +684,53 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
     def __init__(self, *args, **kwargs):
         skip_validation = kwargs.pop("_skip_validation", False)
         if not args:
-            if self.__class__.__name__ in {
-                "Artifact",
-                "Collection",
-                "Transform",
-                "Run",
-            }:
+            if (
+                issubclass(self.__class__, SQLRecord)
+                and self.__class__.__name__ != "Storage"
+                # do not save bionty entities in restricted spaces by default
+                and self.__class__.__module__ != "bionty.models"
+            ):
                 from lamindb import context as run_context
 
                 if run_context.space is not None:
+                    current_space = run_context.space
+                elif setup_settings.space is not None:
+                    current_space = setup_settings.space
+
+                if current_space is not None:
                     if "space_id" in kwargs:
                         # space_id takes precedence over space
                         # https://claude.ai/share/f045e5dc-0143-4bc5-b8a4-38309229f75e
                         if kwargs["space_id"] == 1:  # ignore default space
                             kwargs.pop("space_id")
-                            kwargs["space"] = run_context.space
+                            kwargs["space"] = current_space
                     elif "space" in kwargs:
                         if kwargs["space"] is None:
-                            kwargs["space"] = run_context.space
+                            kwargs["space"] = current_space
                     else:
-                        kwargs["space"] = run_context.space
+                        kwargs["space"] = current_space
             if issubclass(
                 self.__class__, SQLRecord
             ) and self.__class__.__name__ not in {"Storage", "Source"}:
                 from lamindb import context as run_context
 
                 if run_context.branch is not None:
+                    current_branch = run_context.branch
+                elif setup_settings.branch is not None:
+                    current_branch = setup_settings.branch
+
+                if current_branch is not None:
                     # branch_id takes precedence over branch
                     # https://claude.ai/share/f045e5dc-0143-4bc5-b8a4-38309229f75e
                     if "branch_id" in kwargs:
                         if kwargs["branch_id"] == 1:  # ignore default branch
                             kwargs.pop("branch_id")
-                            kwargs["branch"] = run_context.branch
+                            kwargs["branch"] = current_branch
                     elif "branch" in kwargs:
                         if kwargs["branch"] is None:
-                            kwargs["branch"] = run_context.branch
+                            kwargs["branch"] = current_branch
                     else:
-                        kwargs["branch"] = run_context.branch
+                        kwargs["branch"] = current_branch
             if skip_validation:
                 super().__init__(**kwargs)
             else:
@@ -799,6 +810,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
         using_key = None
         if "using" in kwargs:
             using_key = kwargs["using"]
+        transfer_config = kwargs.pop("transfer", None)
         db = self._state.db
         pk_on_db = self.pk
         artifacts: list = []
@@ -896,7 +908,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                     for artifact in artifacts:
                         artifact.save()
                     self.artifacts.add(*artifacts)
-            if hasattr(self, "labels"):
+            if hasattr(self, "labels") and transfer_config == "annotations":
                 from copy import copy
 
                 # here we go back to original record on the source database
@@ -907,7 +919,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                 self.labels.add_from(self_on_db, transfer_logs=transfer_logs)
             for k, v in transfer_logs.items():
                 if k != "run" and len(v) > 0:
-                    logger.important(f"{k} records: {', '.join(v)}")
+                    logger.important(f"{k}: {', '.join(v)}")
 
         if self.__class__.__name__ in {
             "Artifact",
@@ -960,6 +972,11 @@ class Space(BaseSQLRecord):
     All data in this registry is synchronized from LaminHub so that spaces can be shared and reused across multiple LaminDB instances.
     """
 
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(Lower("name"), name="unique_space_name_lower")
+        ]
+
     id: int = models.SmallAutoField(primary_key=True)
     """Internal id, valid only in one DB instance."""
     name: str = models.CharField(max_length=100, db_index=True)
@@ -968,8 +985,8 @@ class Space(BaseSQLRecord):
         editable=False,
         unique=True,
         max_length=12,
-        default="A",
-        db_default="A",
+        default="aaaaaaaaaaaaa",
+        db_default="aaaaaaaaaaaa",
         db_index=True,
     )
     """Universal id."""
@@ -1021,6 +1038,11 @@ class Branch(BaseSQLRecord):
     # An integer higher than >3 codes a branch that can be used for collaborators to create drafts
     # that can be merged onto the main branch in an experience akin to a Pull Request. The mapping
     # onto a semantic branch name is handled through LaminHub.
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(Lower("name"), name="unique_branch_name_lower")
+        ]
 
     id: int = models.AutoField(primary_key=True)
     """An integer id that's synchronized for a family of coupled database instances.

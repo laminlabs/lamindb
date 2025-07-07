@@ -477,3 +477,31 @@ def test_cat_filters_multiple_relation_filters(df_disease, disease_ontology_old)
             in str(error)
         )
     schema.delete()
+
+
+def test_curate_columns(df):
+    """Test that columns can be curated."""
+    schema = ln.Schema(
+        name="sample schema",
+        features=[
+            ln.Feature(name="sample_id", dtype="str").save(),
+            ln.Feature(name="sample_name", dtype="str").save(),
+            ln.Feature(name="sample_type", dtype="str").save(),
+        ],
+    ).save()
+
+    # make one column name invalid
+    df.rename(columns={"sample_name": "sample_name_name"}, inplace=True)
+
+    curator = ln.curators.DataFrameCurator(df, schema)
+    try:
+        curator.validate()
+    except ln.errors.ValidationError as error:
+        assert "column 'sample_name' not in dataframe" in str(error)
+
+    # now fix the column
+    df.rename(columns={"sample_name_name": "sample_name"}, inplace=True)
+    curator.validate()
+
+    schema.delete()
+    ln.Feature.filter().delete()

@@ -11,8 +11,11 @@ if TYPE_CHECKING:
     from lamindb.models import Run
 
 
-def track_environment(run: Run) -> None:
-    filepath = ln_setup.settings.cache_dir / f"run_env_pip_{run.uid}.txt"
+def track_python_environment(run: Run) -> None:
+    env_dir = ln_setup.settings.cache_dir / "environments" / f"run_{run.uid}"
+    filepath = env_dir / "run_env_pip.txt"
+    if not env_dir.exists():
+        filepath.parent.mkdir(parents=True)
     # create a requirements.txt
     # we don't create a conda environment.yml mostly for its slowness
     try:
