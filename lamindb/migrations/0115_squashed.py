@@ -136,6 +136,7 @@ class Migration(migrations.Migration):
         ("lamindb", "0112_alter_recordartifact_feature_and_more"),
         ("lamindb", "0113_lower_case_branch_and_space_names"),
         ("lamindb", "0114_alter_run__status_code"),
+        ("lamindb", "0115_alter_space_uid"),
     ]
 
     dependencies = []  # type: ignore
@@ -214,9 +215,9 @@ class Migration(migrations.Migration):
                     "uid",
                     lamindb.base.fields.CharField(
                         blank=True,
-                        db_default="A",
+                        db_default="aaaaaaaaaaaa",
                         db_index=True,
-                        default="A",
+                        default="aaaaaaaaaaaaa",
                         editable=False,
                         max_length=12,
                         unique=True,
