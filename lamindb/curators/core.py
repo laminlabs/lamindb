@@ -1023,6 +1023,7 @@ class CxGCurator(SlotsCurator):
         dataset: AnnData | Artifact,
         schema_version: CELLxGENESchemaVersions,
         *,
+        key_types: Literal["ontology_id", "name"],
         organism: Literal["human", "mouse"] = "human",
         defaults: dict[str, str] = None,
         extra_sources: dict[str, SQLRecord] = None,
@@ -1048,14 +1049,13 @@ class CxGCurator(SlotsCurator):
         # This is useful when other Curators extend the CELLxGENE curator
         if extra_sources:
             sources = sources | extra_sources
-        cxg_schema = _get_cxg_schema(schema_version, sources=sources).save()
+        cxg_schema = _get_cxg_schema(
+            schema_version, key_types=key_types, organism=organism
+        ).save()
         super().__init__(dataset=dataset, schema=cxg_schema)
 
         if not data_is_scversedatastructure(self._dataset, "AnnData"):
             raise InvalidArgument("dataset must be AnnData-like.")
-
-        self.schema_version = schema_version
-        self.schema_reference = f"https://github.com/chanzuckerberg/single-cell-curation/blob/main/schema/{schema_version}/schema.md"
 
         self._slots = {
             slot: DataFrameCurator(

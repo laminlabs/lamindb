@@ -85,11 +85,9 @@ def _restrict_obs_fields(
 
 def _add_defaults_to_obs(obs: pd.DataFrame, defaults: dict[str, str]) -> None:
     """Add default columns and values to obs DataFrame."""
-    added_defaults: dict = {}
     for name, default in defaults.items():
         if name not in obs.columns and f"{name}_ontology_term_id" not in obs.columns:
             obs[name] = default
-            added_defaults[name] = default
             logger.important(
                 f"added default value '{default}' to the adata.obs['{name}']"
             )
@@ -217,12 +215,49 @@ def _init_categoricals_additional_values() -> None:
 
 
 def _get_cxg_schema(
-    schema_version: CELLxGENESchemaVersions, sources: dict[str, SQLRecord]
+    schema_version: CELLxGENESchemaVersions,
+    *,
+    key_types: Literal["ontology_id", "name"],
+    organism: Literal["human", "mouse"] = "human",
 ) -> Schema:
-    """Generates a `~lamindb.Schema` for a specific CELLxGENE schema version."""
+    """Generates a `~lamindb.Schema` for a specific CELLxGENE schema version.
+
+    Args:
+        schema_version: The CELLxGENE Schema version.
+        key_types: Whether to map against `ontology_id` or `name` fields
+        organism: The organism of the Schema.
+    """
     import bionty as bt
 
     categoricals = _get_cxg_categoricals()
+    match key_types:
+        case "ontology_id":
+            categoricals = {
+                k: v
+                for k, v in categoricals.items()
+                if k.endswith("_ontology_term_id") or k == "donor_id"
+            }
+        case "name":
+            categoricals = {
+                k: v
+                for k, v in categoricals.items()
+                if not k.endswith("_ontology_term_id") and k != "donor_id"
+            }
+        case _:
+            raise ValueError(
+                f"Invalid key_types: {key_types}. Must be one of 'ontology_id' or 'name'."
+            )
+
+    if organism not in {"human", "mouse"}:
+        raise ValueError(
+            f"Invalid organism: {organism}. Must be one of 'human' or 'mouse'."
+        )
+
+    sources = _create_sources(
+        categoricals=categoricals,
+        schema_version="5.2.0",
+        organism="human",
+    )
 
     var_schema = Schema(
         name=f"CELLxGENE var of version {schema_version}",
