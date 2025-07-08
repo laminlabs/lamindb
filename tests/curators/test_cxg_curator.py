@@ -1,36 +1,72 @@
+import bionty as bt
 import lamindb as ln
-import numpy as np
+import pytest
 
 
 def test_cxg_curator():
-    schema_version = "5.2.0"
-    adata = ln.core.datasets.small_dataset3_cellxgene()
-    curator = ln.curators._legacy.CellxGeneAnnDataCatManager(
-        adata, schema_version=schema_version
+    ln.examples.cellxgene.save_cxg_defaults()
+
+    schema = ln.examples.cellxgene.get_cxg_schema(
+        schema_version="5.2.0", key_types=["name", "ontology_id"]
     )
+    adata = ln.core.datasets.small_dataset3_cellxgene()
+
+    curator = ln.curators.AnnDataCurator(adata, schema)
+
+    ln.examples.cellxgene.add_cxg_defaults_to_obs(adata)
 
     adata.obs.rename(columns={"donor": "donor_id"}, inplace=True)
-    curator = ln.curators._legacy.CellxGeneAnnDataCatManager(
-        adata,
-        defaults=ln.curators._legacy.CellxGeneAnnDataCatManager.cxg_categoricals_defaults,
-        schema_version=schema_version,
-    )
-    assert not curator.validate()
 
-    adata = adata[:, ~adata.var.index.isin(curator.non_validated["var_index"])]
+    with pytest.raises(ln.errors.ValidationError) as e:
+        curator.validate()
+        assert (
+            "ValidationError: 1 term not validated in feature 'index' in slot 'var': 'invalid_ensembl_id'"
+            in str(e)
+        )
+
+    adata = adata[
+        :, ~adata.var.index.isin(curator.slots["var"].cat.non_validated["index"])
+    ].copy()
+
+    curator = ln.curators.AnnDataCurator(adata, schema)
+
+    with pytest.raises(ln.errors.ValidationError) as e:
+        curator.validate()
+        assert (
+            "ValidationError: 1 term not validated in feature 'tissue' in slot 'obs': 'lungg'"
+            in str(e)
+        )
+
     adata.obs["tissue"] = adata.obs["tissue"].cat.rename_categories({"lungg": "lung"})
-    curator = ln.curators._legacy.CellxGeneAnnDataCatManager(
-        adata, schema_version=schema_version
-    )
+
     assert curator.validate()
 
     artifact = curator.save_artifact(
         key=f"examples/dataset-curated-against-cxg-{curator.schema_version}.h5ad"
     )
-    title = "Cross-tissue immune cell analysis reveals tissue-specific features in humans (for test demo only)"
 
-    adata.obsm["X_umap"] = np.zeros((adata.shape[0], 2))
-    adata_cxg = curator.to_cellxgene_anndata(is_primary_data=True, title=title)
-    assert "cell_type_ontology_term_id" in adata_cxg.obs.columns
-
+    # Clean up
     artifact.delete(permanent=True)
+    bt.Disease.get(uid=bt.Phenotype.get(ontology_id="PATO:0000461").uid).delete()
+    for model, name in zip(
+        [
+            bt.Ethnicity,
+            bt.Ethnicity,
+            bt.DevelopmentalStage,
+            bt.Phenotype,
+            bt.CellType,
+        ],
+        ["na", "unknown", "unknown", "unknown", "unknown"],
+    ):
+        model.get(
+            ontology_id=name, name=name, description="From CellxGene schema."
+        ).delete()
+    for name in ["tissue", "organoid", "cell culture"]:
+        ln.ULabel.get(name=name, description="From CellxGene schema.").delete()
+    ln.ULabel.get(name="TissueType", is_type=True).delete()
+    for name in ["cell", "nucleus", "na"]:
+        ln.ULabel.get(name=name, description="From CellxGene schema.").delete()
+    ln.ULabel.get(
+        name="SuspensionType",
+        is_type=True,
+    ).delete()

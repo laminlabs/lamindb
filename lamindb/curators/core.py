@@ -16,7 +16,7 @@ from __future__ import annotations
 import copy
 import re
 from collections.abc import Iterable
-from typing import TYPE_CHECKING, Any, Callable, Literal
+from typing import TYPE_CHECKING, Any, Callable
 
 import lamindb_setup as ln_setup
 import numpy as np
@@ -26,11 +26,6 @@ from lamin_utils import colors, logger
 from lamindb_setup.core._docs import doc_args
 
 from lamindb.base.types import FieldAttr  # noqa
-from lamindb.curators._cellxgene_schemas import (
-    CELLxGENESchemaVersions,
-    _get_cxg_categoricals,
-    _get_cxg_schema,
-)
 from lamindb.models import (
     Artifact,
     Feature,
@@ -997,81 +992,6 @@ class TiledbsomaExperimentCurator(SlotsCurator):
                 slots=self._slots,
             )
         self._columns_field = self._var_fields
-
-
-class CxGCurator(SlotsCurator):
-    """Curator for `AnnData` objects that should adhere to a specific CELLxGENE Schema version.
-
-    Args:
-        dataset: The AnnData-like object to validate & annotate.
-        schema_version: A CELLxGENE Schema version that defines the validation constraints.
-        organism: The organism of the Schema.
-        defaults: Default values that are set if columns or column values are missing.
-        extra_sources: A dictionary mapping ``.obs.columns`` to Source records.
-            These extra sources are joined with the CELLxGENE fixed sources.
-            Use this parameter when subclassing.
-
-    Example:
-
-        .. literalinclude:: scripts/curate_cxg.py
-            :language: python
-            :caption: curate_cxg.py
-    """
-
-    def __init__(
-        self,
-        dataset: AnnData | Artifact,
-        schema_version: CELLxGENESchemaVersions,
-        *,
-        key_types: Literal["ontology_id", "name"],
-        organism: Literal["human", "mouse"] = "human",
-        defaults: dict[str, str] = None,
-        extra_sources: dict[str, SQLRecord] = None,
-    ) -> None:
-        from ._cellxgene_schemas import (
-            _add_defaults_to_obs,
-            _create_sources,
-            _init_categoricals_additional_values,
-            _restrict_obs_fields,
-        )
-
-        # Add defaults first to ensure that we fetch valid sources
-        if defaults:
-            _add_defaults_to_obs(dataset.obs, defaults)
-
-        # Filter categoricals based on what's present in the dataset
-        present_categoricals = _restrict_obs_fields(
-            dataset.obs, _get_cxg_categoricals()
-        )
-
-        sources = _create_sources(present_categoricals, schema_version, organism)
-        # These sources are not a part of the cellxgene schema but rather passed through.
-        # This is useful when other Curators extend the CELLxGENE curator
-        if extra_sources:
-            sources = sources | extra_sources
-        cxg_schema = _get_cxg_schema(
-            schema_version, key_types=key_types, organism=organism
-        ).save()
-        super().__init__(dataset=dataset, schema=cxg_schema)
-
-        if not data_is_scversedatastructure(self._dataset, "AnnData"):
-            raise InvalidArgument("dataset must be AnnData-like.")
-
-        self._slots = {
-            slot: DataFrameCurator(
-                (
-                    getattr(self._dataset, slot.strip(".T")).T
-                    if slot == "var.T"
-                    else getattr(self._dataset, slot)
-                ),
-                slot_schema,
-                slot=slot,
-            )
-            for slot, slot_schema in cxg_schema.slots.items()
-            if slot in {"obs", "var", "var.T", "uns"}
-        }
-
-        _init_categoricals_additional_values()
 
 
 class CatVector:
