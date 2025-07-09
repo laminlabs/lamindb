@@ -16,31 +16,29 @@ POLARS_SUFFIXES = (".parquet", ".csv", ".ndjson", ".ipc")
 
 
 def _polars_storage_options(storepath: UPath) -> dict[str, str | bool]:
-    polars_storage_options: dict[str, str | bool] = {}
-    s3fs_storage_options = storepath.storage_options
+    storage_options: dict[str, str | bool] = {}
+    s3fs_options = storepath.storage_options
 
-    endpoint_url = s3fs_storage_options.get("endpoint_url", None)
+    endpoint_url = s3fs_options.get("endpoint_url", None)
     if endpoint_url is not None:
-        polars_storage_options["aws_virtual_hosted_style_request"] = False
-        polars_storage_options["aws_endpoint_url"] = endpoint_url
+        storage_options["aws_virtual_hosted_style_request"] = False
+        storage_options["aws_endpoint_url"] = endpoint_url
         if endpoint_url.startswith("http://"):
-            polars_storage_options["aws_allow_http"] = True
+            storage_options["aws_allow_http"] = True
     else:
-        polars_storage_options["aws_region"] = get_storage_region(storepath)
+        storage_options["aws_region"] = get_storage_region(storepath)
 
-    if s3fs_storage_options.get("anon", False):
-        polars_storage_options["aws_skip_signature"] = True
+    if s3fs_options.get("anon", False):
+        storage_options["aws_skip_signature"] = True
     else:
-        if "key" in s3fs_storage_options:
-            polars_storage_options["aws_access_key_id"] = s3fs_storage_options["key"]
-        if "secret" in s3fs_storage_options:
-            polars_storage_options["aws_secret_access_key"] = s3fs_storage_options[
-                "secret"
-            ]
-        if "token" in s3fs_storage_options:
-            polars_storage_options["aws_session_token"] = s3fs_storage_options["token"]
+        if "key" in s3fs_options:
+            storage_options["aws_access_key_id"] = s3fs_options["key"]
+        if "secret" in s3fs_options:
+            storage_options["aws_secret_access_key"] = s3fs_options["secret"]
+        if "token" in s3fs_options:
+            storage_options["aws_session_token"] = s3fs_options["token"]
 
-    return polars_storage_options
+    return storage_options
 
 
 @contextmanager
