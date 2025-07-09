@@ -419,6 +419,12 @@ def test_tiledb_config():
 def test_open_dataframe_artifact():
     previous_storage = ln.setup.settings.storage.root_as_str
     ln.settings.storage = "s3://lamindb-test/storage"
+    # open from managed bucket
+    artifact_remote = ln.Artifact.using("laminlabs/lamin-dev").get(
+        "iw9RRhFApeJVHC1L0001"
+    )
+    with artifact_remote.open(engine="polars") as ldf:
+        assert ldf.collect().shape == (1000, 4)
 
     df = pd.DataFrame({"feat1": [0, 0, 1, 1], "feat2": [6, 7, 8, 9]})
     # check as non-partitioned file
