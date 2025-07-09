@@ -163,6 +163,11 @@ def _open_dataframe(
     engine: Literal["pyarrow", "polars"] = "pyarrow",
     **kwargs,
 ) -> PyArrowDataset | Iterator[PolarsLazyFrame]:
+    if engine not in {"pyarrow", "polars"}:
+        raise ValueError(
+            f"Unknown engine: {engine}. It should be 'pyarrow' or 'polars'."
+        )
+
     df_suffix: str
     if suffix is None:
         df_suffixes = _flat_suffixes(paths)
@@ -175,34 +180,37 @@ def _open_dataframe(
     else:
         df_suffix = suffix
 
-    if engine == "pyarrow":
-        if df_suffix not in PYARROW_SUFFIXES:
-            raise ValueError(
-                f"{df_suffix} files are not supported by pyarrow, "
-                f"they should have one of these formats: {', '.join(PYARROW_SUFFIXES)}."
-            )
-        # this checks that the filesystem is the same for all paths
-        # this is a requirement of pyarrow.dataset.dataset
-        if not isinstance(paths, Path):  # is a list then
-            fs = getattr(paths[0], "fs", None)
-            for path in paths[1:]:
-                # this assumes that the filesystems are cached by fsspec
-                if getattr(path, "fs", None) is not fs:
-                    raise ValueError(
-                        "The collection has artifacts with different filesystems, "
-                        "this is not supported by pyarrow."
-                    )
-        dataframe = _open_pyarrow_dataset(paths, **kwargs)
-    elif engine == "polars":
-        if df_suffix not in POLARS_SUFFIXES:
-            raise ValueError(
-                f"{df_suffix} files are not supported by polars, "
-                f"they should have one of these formats: {', '.join(POLARS_SUFFIXES)}."
-            )
-        dataframe = _open_polars_lazy_df(paths, **kwargs)
-    else:
+    if engine == "pyarrow" and df_suffix not in PYARROW_SUFFIXES:
         raise ValueError(
-            f"Unknown engine: {engine}. It should be 'pyarrow' or 'polars'."
+            f"{df_suffix} files are not supported by pyarrow, "
+            f"they should have one of these formats: {', '.join(PYARROW_SUFFIXES)}."
+        )
+    elif engine == "polars" and df_suffix not in POLARS_SUFFIXES:
+        raise ValueError(
+            f"{df_suffix} files are not supported by polars, "
+            f"they should have one of these formats: {', '.join(POLARS_SUFFIXES)}."
         )
 
-    return dataframe
+    polars_without_fsspec = engine == "polars" and not kwargs.get("use_fsspec", False)
+    if (engine == "pyarrow" or polars_without_fsspec) and not isinstance(paths, Path):
+        # this checks that the filesystem is the same for all paths
+        # this is a requirement of pyarrow.dataset.dataset
+        fs = getattr(paths[0], "fs", None)
+        for path in paths[1:]:
+            # this assumes that the filesystems are cached by fsspec
+            if getattr(path, "fs", None) is not fs:
+                engine_msg = (
+                    "polars without specifying `use_fsspec=True`"
+                    if engine == "polars"
+                    else "pyarrow"
+                )
+                raise ValueError(
+                    "The collection has artifacts with different filesystems, "
+                    f"this is not supported by {engine_msg}."
+                )
+
+    return (
+        _open_pyarrow_dataset(paths, **kwargs)
+        if engine == "pyarrow"
+        else _open_polars_lazy_df(paths, **kwargs)
+    )
