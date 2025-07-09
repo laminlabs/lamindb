@@ -43,6 +43,7 @@ def test_cxg_curator():
 
     # Clean up
     artifact.delete(permanent=True)
+    schema.delete()
     bt.Disease.get(name="normal").delete()
     for model, name in zip(
         [
