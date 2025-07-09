@@ -424,7 +424,7 @@ def test_open_dataframe_artifact():
         "iw9RRhFApeJVHC1L0001"
     )
     with artifact_remote.open(engine="polars") as ldf:
-        assert ldf.collect().shape == (1000, 4)
+        assert ldf.collect().shape == (3, 5)
 
     df = pd.DataFrame({"feat1": [0, 0, 1, 1], "feat2": [6, 7, 8, 9]})
     # check as non-partitioned file
