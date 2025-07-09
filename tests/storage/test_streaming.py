@@ -19,6 +19,7 @@ from lamindb.core.storage._backed_access import (
     _flat_suffixes,
     backed_access,
 )
+from lamindb.core.storage._polars_lazy_df import _polars_storage_options
 from lamindb.core.storage._pyarrow_dataset import _open_pyarrow_dataset
 from lamindb.core.storage._tiledbsoma import (
     _open_tiledbsoma,
@@ -416,9 +417,26 @@ def test_tiledb_config():
     assert tiledb_config["vfs.s3.region"] == ""
 
 
+def test_polars_storage_options():
+    storepath = ln.UPath(
+        "s3://bucket/key?endpoint_url=http://localhost:9000/s3", anon=True
+    )
+    storage_options = _polars_storage_options(storepath)
+    assert storage_options["aws_endpoint_url"] == "http://localhost:9000/s3"
+    assert not storage_options["aws_virtual_hosted_style_request"]
+    assert storage_options["aws_allow_http"]
+    assert storage_options["aws_skip_signature"]
+
+
 def test_open_dataframe_artifact():
     previous_storage = ln.setup.settings.storage.root_as_str
     ln.settings.storage = "s3://lamindb-test/storage"
+    # open from managed bucket
+    artifact_remote = ln.Artifact.using("laminlabs/lamin-dev").get(
+        "iw9RRhFApeJVHC1L0001"
+    )
+    with artifact_remote.open(engine="polars") as ldf:
+        assert ldf.collect().shape == (3, 5)
 
     df = pd.DataFrame({"feat1": [0, 0, 1, 1], "feat2": [6, 7, 8, 9]})
     # check as non-partitioned file
@@ -458,6 +476,8 @@ def test_open_dataframe_artifact():
     # polars
     with artifact_folder.open(engine="polars") as ldf:
         assert ldf.collect().to_pandas().equals(df[["feat2"]])
+    with artifact_folder.open(engine="polars", use_fsspec=True) as ldf:
+        assert ldf.collect().to_pandas().equals(df[["feat2"]])
 
     artifact_file.delete(permanent=True)
     artifact_folder.delete(permanent=True)
@@ -496,6 +516,8 @@ def test_open_dataframe_collection():
     assert collection1.open(engine="pyarrow").to_table().to_pandas().equals(df)
     # polars
     with collection1.open(engine="polars") as ldf:
+        assert ldf.collect().to_pandas().equals(df)
+    with collection1.open(engine="polars", use_fsspec=True) as ldf:
         assert ldf.collect().to_pandas().equals(df)
     # wrong engine
     with pytest.raises(ValueError) as err:
