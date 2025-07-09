@@ -37,11 +37,10 @@ if TYPE_CHECKING:
 
 
 class Storage(SQLRecord, TracksRun, TracksUpdates):
-    """Storage locations of artifacts such as folders and S3 buckets.
+    """Storage locations of artifacts such as local directories or S3 buckets.
 
-    A storage location is either a folder (local or in the cloud) or
+    A storage location is either a directory (local or a folder in the cloud) or
     an entire S3/GCP bucket.
-
     A LaminDB instance can manage and reference multiple storage locations. But any
     storage location is managed by *at most one* LaminDB instance.
 
@@ -52,11 +51,10 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
 
         The :attr:`~lamindb.Storage.instance_uid` field defines the managing LaminDB instance of a
         storage location. Some storage locations may not be managed by any LaminDB
-        instance, in which case the `instance_uid` is `None`. If it matches the
-        :attr:`~lamindb.core.Settings.instance_uid` of the current instance, the storage location
-        is managed by the current instance.
+        instance, in which case the `instance_uid` is `None`.
+        You can access the instance_uid of your current instance through `ln.setup.settings.instance_uid`.
 
-        Here is an example based (`source <https://lamin.ai/laminlabs/lamindata/transform/dPco79GYgzag0000>`__):
+        Here is an example (`source <https://lamin.ai/laminlabs/lamindata/transform/dPco79GYgzag0000>`__).
 
         .. image:: https://lamin-site-assets.s3.amazonaws.com/.lamindb/eHDmIOAxLEoqZ2oK0000.png
            :width: 400px
@@ -75,7 +73,7 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
            :width: 800px
 
     Args:
-        root: `str` The root path of the storage location, e.g., `"./mydir"`, `"s3://my-bucket/myfolder"`, `"gs://my-bucket/myfolder"`, `"/nfs/shared/datasets/genomics"`, `"/weka/shared/models/"`, ...
+        root: `str` The root path of the storage location, e.g., `"./mydir"`, `"s3://my-bucket"`, `"s3://my-bucket/myfolder"`, `"gs://my-bucket/myfolder"`, `"/nfs/shared/datasets/genomics"`, `"/weka/shared/models/"`, ...
         description: `str | None = None` An optional description.
         host: `str | None = None` For a shared local storage location, pass a globally unique host identifier, e.g. `"my-institute-cluster-1"`, `"my-server-abcd"`, ...
             Discuss the naming convention with an admin.
