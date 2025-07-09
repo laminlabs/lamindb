@@ -19,6 +19,7 @@ from lamindb.core.storage._backed_access import (
     _flat_suffixes,
     backed_access,
 )
+from lamindb.core.storage._polars_lazy_df import _polars_storage_options
 from lamindb.core.storage._pyarrow_dataset import _open_pyarrow_dataset
 from lamindb.core.storage._tiledbsoma import (
     _open_tiledbsoma,
@@ -414,6 +415,17 @@ def test_tiledb_config():
     assert tiledb_config["vfs.s3.scheme"] == "http"
     assert tiledb_config["vfs.s3.use_virtual_addressing"] == "false"
     assert tiledb_config["vfs.s3.region"] == ""
+
+
+def test_polars_storage_options():
+    storepath = ln.UPath(
+        "s3://bucket/key?endpoint_url=http://localhost:9000/s3", anon=True
+    )
+    storage_options = _polars_storage_options(storepath)
+    assert storage_options["aws_endpoint_url"] == "http://localhost:9000/s3"
+    assert not storage_options["aws_virtual_hosted_style_request"]
+    assert storage_options["aws_allow_http"]
+    assert storage_options["aws_skip_signature"]
 
 
 def test_open_dataframe_artifact():
