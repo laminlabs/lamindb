@@ -458,6 +458,8 @@ def test_open_dataframe_artifact():
     # polars
     with artifact_folder.open(engine="polars") as ldf:
         assert ldf.collect().to_pandas().equals(df[["feat2"]])
+    with artifact_folder.open(engine="polars", use_fsspec=True) as ldf:
+        assert ldf.collect().to_pandas().equals(df[["feat2"]])
 
     artifact_file.delete(permanent=True)
     artifact_folder.delete(permanent=True)
@@ -496,6 +498,8 @@ def test_open_dataframe_collection():
     assert collection1.open(engine="pyarrow").to_table().to_pandas().equals(df)
     # polars
     with collection1.open(engine="polars") as ldf:
+        assert ldf.collect().to_pandas().equals(df)
+    with collection1.open(engine="polars", use_fsspec=True) as ldf:
         assert ldf.collect().to_pandas().equals(df)
     # wrong engine
     with pytest.raises(ValueError) as err:
