@@ -15,8 +15,6 @@ def test_cxg_curator():
 
     ln.examples.cellxgene.add_cxg_defaults_to_obs(adata)
 
-    adata.obs.rename(columns={"donor": "donor_id"}, inplace=True)
-
     with pytest.raises(ln.errors.ValidationError) as e:
         curator.validate()
         assert (
