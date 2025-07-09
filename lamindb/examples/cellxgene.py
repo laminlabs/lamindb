@@ -144,7 +144,7 @@ def _create_cxg_sources(
 def get_cxg_schema(
     schema_version: CELLxGENESchemaVersions,
     *,
-    field_types: FieldType | Collection[FieldType],
+    field_types: FieldType | Collection[FieldType] = "ontology_id",
     organism: Literal["human", "mouse"] = "human",
 ) -> Schema:
     """Generates a `~lamindb.Schema` for a specific CELLxGENE schema version.
@@ -202,7 +202,7 @@ def get_cxg_schema(
 
     sources = _create_cxg_sources(
         categoricals=categoricals,
-        schema_version="5.2.0",
+        schema_version=schema_version,
         organism=organism,
     )
 

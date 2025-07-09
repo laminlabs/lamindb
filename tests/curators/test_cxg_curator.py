@@ -80,4 +80,10 @@ def test_invalid_field_type():
         ln.examples.cellxgene.get_cxg_schema(
             schema_version="5.3.0", field_types=["ensembl_gene_ids"]
         )
-        assert "Invalid field_types" in str(e)
+    assert "Invalid field_types" in str(e.value)
+
+
+def test_invalid_schema_Version():
+    with pytest.raises(ValueError) as e:
+        ln.examples.cellxgene.get_cxg_schema(schema_version="200.0.0")
+    assert "Invalid schema_version" in str(e.value)
