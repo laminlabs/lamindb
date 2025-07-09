@@ -71,10 +71,11 @@ def _open_polars_lazy_df(
     # assume the filesystem is the same for all
     # it is checked in _open_dataframe
     path0 = path_list[0]
-    if not use_fsspec and path0.protocol == "s3":
-        storage_options = _polars_storage_options(path0)
-    else:
-        storage_options = None
+    storage_options = None
+    if not use_fsspec:
+        storage_options = kwargs.get("storage_options", None)
+        if path0.protocol == "s3" and storage_options is None:
+            storage_options = _polars_storage_options(path0)
 
     open_files = []
 
