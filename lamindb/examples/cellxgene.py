@@ -9,7 +9,7 @@ from lamindb.models import Feature, Schema, SQLRecord, ULabel
 from lamindb.models._from_values import _format_values
 
 CELLxGENESchemaVersions = Literal["4.0.0", "5.0.0", "5.1.0", "5.2.0", "5.3.0"]
-KeyType = Literal["ontology_id", "name"]
+FieldType = Literal["ontology_id", "name"]
 
 
 def add_cxg_defaults_to_obs(adata: AnnData) -> None:
@@ -144,14 +144,14 @@ def _create_cxg_sources(
 def get_cxg_schema(
     schema_version: CELLxGENESchemaVersions,
     *,
-    key_types: KeyType | Collection[KeyType],
+    field_types: FieldType | Collection[FieldType],
     organism: Literal["human", "mouse"] = "human",
 ) -> Schema:
     """Generates a `~lamindb.Schema` for a specific CELLxGENE schema version.
 
     Args:
         schema_version: The CELLxGENE Schema version.
-        key_types: One or several key types to include: 'ontology_id', 'name', or both
+        field_types: One or several of 'ontology_id', 'name'.
         organism: The organism of the Schema.
     """
     import bionty as bt
@@ -178,24 +178,26 @@ def get_cxg_schema(
         "donor_id": str,
     }
 
-    key_types_set = {key_types} if isinstance(key_types, str) else set(key_types)
-    if key_types_set == {"ontology_id"}:
+    field_types_set = (
+        {field_types} if isinstance(field_types, str) else set(field_types)
+    )
+    if field_types_set == {"ontology_id"}:
         categoricals = {
             k: v
             for k, v in categoricals.items()
             if k.endswith("_ontology_term_id") or k == "donor_id"
         }
-    elif key_types_set == {"name"}:
+    elif field_types_set == {"name"}:
         categoricals = {
             k: v
             for k, v in categoricals.items()
             if not k.endswith("_ontology_term_id") and k != "donor_id"
         }
-    elif key_types_set == {"ontology_id", "name"}:
-        pass  # keep all categoricals
+    elif field_types_set == {"name", "ontology_id"}:
+        pass
     else:
         raise ValueError(
-            f"Invalid key_types: {key_types}. Must contain 'ontology_id', 'name', or both."
+            f"Invalid field_types: {field_types}. Must contain 'ontology_id', 'name', or both."
         )
 
     sources = _create_cxg_sources(
