@@ -43,9 +43,12 @@ def test_cxg_curator():
 
     # Clean up
     artifact.delete(permanent=True)
-    for feature in schema.features.all():
-        feature.delete()
+    from lamindb.models.schema import SchemaFeature
+
+    features = [f for sm in schema.slots.values() for f in sm.features.all()]
+    SchemaFeature.filter(feature__in=features).delete()
     schema.delete()
+    [f.delete() for f in features]
 
     bt.Disease.get(name="normal").delete()
     for model, name in zip(
