@@ -207,7 +207,7 @@ def get_cxg_schema(
     )
 
     var_schema = Schema(
-        name=f"CELLxGENE var of version {schema_version}",
+        name=f"var of CELLxGENE version {schema_version}",
         index=Feature(
             name="var_index",
             dtype=bt.Gene.ensembl_gene_id,
@@ -228,7 +228,7 @@ def get_cxg_schema(
     ]
 
     obs_schema = Schema(
-        name=f"CELLxGENE obs of version {schema_version}",
+        name=f"obs of CELLxGENE version {schema_version}",
         features=obs_features,
         otype="DataFrame",
         minimal_set=False,
@@ -236,7 +236,7 @@ def get_cxg_schema(
     ).save()
 
     full_cxg_schema = Schema(
-        name=f"CELLxGENE AnnData schema of version {schema_version}",
+        name=f"AnnData of CELLxGENE version {schema_version}",
         otype="AnnData",
         minimal_set=True,
         coerce_dtype=True,
