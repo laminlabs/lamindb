@@ -37,11 +37,9 @@ def test_cxg_curator():
 
     adata.obs["tissue"] = adata.obs["tissue"].cat.rename_categories({"lungg": "lung"})
 
-    assert curator.validate()
+    curator.validate()
 
-    artifact = curator.save_artifact(
-        key=f"examples/dataset-curated-against-cxg-{curator.schema_version}.h5ad"
-    )
+    artifact = curator.save_artifact(key="examples/dataset-curated-against-cxg.h5ad")
 
     # Clean up
     artifact.delete(permanent=True)
