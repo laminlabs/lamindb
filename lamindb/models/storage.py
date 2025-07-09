@@ -12,7 +12,11 @@ from lamindb_setup.core._hub_core import (
     delete_storage_record,
     get_storage_records_for_instance,
 )
-from lamindb_setup.core._settings_storage import StorageSettings, init_storage
+from lamindb_setup.core._settings_storage import (
+    StorageSettings,
+    get_storage_type,
+    init_storage,
+)
 from lamindb_setup.core.upath import check_storage_is_empty, create_path
 
 from lamindb.base.fields import (
@@ -71,10 +75,10 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
            :width: 800px
 
     Args:
-        root: `str` The root path of the storage location, e.g., `"./myfolder"`, `"s3://my-bucket/myfolder"`, or `"gs://my-bucket/myfolder"`.
-        type: :class:`~lamindb.setup.types.StorageType` The type of storage.
-        description: `str | None = None` A description.
-        region: `str | None = None` Cloud storage region, if applicable. Auto-populated for AWS S3.
+        root: `str` The root path of the storage location, e.g., `"./mydir"`, `"s3://my-bucket/myfolder"`, `"gs://my-bucket/myfolder"`, `"/nfs/shared/datasets/genomics"`, `"/weka/shared/models/"`, ...
+        description: `str | None = None` An optional description.
+        host: `str | None = None` For a shared local storage location, pass a globally unique host identifier, e.g. `"my-institute-cluster-1"`, `"my-server-abcd"`, ...
+            Discuss the naming convention with an admin.
 
     See Also:
         :attr:`lamindb.core.Settings.storage`
@@ -146,7 +150,7 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
     description: str | None = CharField(db_index=True, null=True)
     """A description of what the storage location is used for (optional)."""
     type: StorageType = CharField(max_length=30, db_index=True)
-    """Can be "local" vs. "s3" vs. "gs"."""
+    """Can be "local" vs. "s3" vs. "gs". Is auto-detected from the format of the `root` path."""
     region: str | None = CharField(max_length=64, db_index=True, null=True)
     """Cloud storage region, if applicable."""
     instance_uid: str | None = CharField(max_length=12, db_index=True, null=True)
@@ -158,9 +162,9 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
     def __init__(
         self,
         root: str,
-        type: str,
+        *,
         description: str | None = None,
-        region: str | None = None,
+        host: str | None = None,
     ): ...
 
     @overload
@@ -177,7 +181,23 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
         if len(args) == len(self._meta.concrete_fields):
             super().__init__(*args)
             return None
-        storage_record = Storage.filter(root=kwargs["root"]).one_or_none()
+        if "host" in kwargs:
+            if "type" in kwargs:
+                assert kwargs["type"] == "local", (  # noqa: S101
+                    "type needs to be 'local' if host is set"
+                )
+            else:
+                kwargs["type"] = "local"
+            assert get_storage_type(kwargs["root"]) == "local", (  # noqa: S101
+                "root must be a local path if host is set"
+            )
+            assert "region" not in kwargs, "region must not be set if host is set"  # noqa: S101
+            kwargs["region"] = kwargs["region"].pop("host")
+            storage_record = Storage.filter(
+                root=kwargs["root"], region=kwargs["region"]
+            ).one_or_none()
+        else:
+            storage_record = Storage.filter(root=kwargs["root"]).one_or_none()
         if storage_record is not None:
             from .sqlrecord import init_self_from_db
 
@@ -238,6 +258,18 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
             f"{managed_message} storage location at {kwargs['root']}{is_managed_by_instance}{hub_message}"
         )
         super().__init__(**kwargs)
+
+    @property
+    def host(self) -> str | None:
+        """Host identifier for local storage locations.
+
+        Is `None` for locations with `type != "local"`.
+
+        A globally unique user-defined host identifier (cluster, server, laptop, etc.).
+        """
+        if self.type != "local":
+            return None
+        return self.region
 
     @property
     def path(self) -> Path | UPath:
