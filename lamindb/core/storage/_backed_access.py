@@ -200,13 +200,13 @@ def _open_dataframe(
             # this assumes that the filesystems are cached by fsspec
             if getattr(path, "fs", None) is not fs:
                 engine_msg = (
-                    "polars without specifying `use_fsspec=True`"
+                    "polars engine without passing `use_fsspec=True`"
                     if engine == "polars"
-                    else "pyarrow"
+                    else "pyarrow engine"
                 )
                 raise ValueError(
                     "The collection has artifacts with different filesystems, "
-                    f"this is not supported by {engine_msg}."
+                    f"this is not supported for {engine_msg}."
                 )
 
     return (
