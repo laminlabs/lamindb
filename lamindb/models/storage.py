@@ -196,6 +196,7 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
             kwargs["root"],
             instance_id=setup_settings.instance._id,
             instance_slug=setup_settings.instance.slug,
+            register_hub=True,
             prevent_register_hub=not setup_settings.instance.is_on_hub,
         )
         # ssettings performed validation and normalization of the root path
