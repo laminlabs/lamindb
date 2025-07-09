@@ -87,5 +87,6 @@ def _open_polars_lazy_df(
             open_files, storage_options=storage_options, **kwargs
         )
     finally:
-        for open_file in open_files:
-            open_file.close()
+        if use_fsspec:
+            for open_file in open_files:
+                open_file.close()
