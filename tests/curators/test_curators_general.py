@@ -230,6 +230,18 @@ def test_pandera_dataframe_schema(
     ln.Feature.filter().delete()
 
 
+def test_schema_not_saved(df):
+    """Attempting to validate an unsaved Schema must error."""
+    feature = ln.Feature(name="cell_type", dtype="str").save()
+    schema = ln.Schema(features=[feature])
+
+    with pytest.raises(ValueError) as excinfo:
+        ln.curators.DataFrameCurator(df, schema)
+    assert excinfo.exconly() == (
+        "ValueError: Schema must be saved before curation. Please save it using '.save()'."
+    )
+
+
 def test_schema_optionals():
     schema = ln.Schema(
         name="my-schema",
