@@ -431,11 +431,11 @@ def test_anndata_curator_different_components(small_dataset1_schema: ln.Schema):
         if add_comp == "uns":
             assert isinstance(curator.slots["uns"], ln.curators.DataFrameCurator)
 
-        # TODO: without it, tests fail on CI (but pass locally)
-        if add_comp == "obs" and anndata_schema.slots["obs"]._index_feature_uid is None:
-            anndata_schema.slots[
-                "obs"
-            ]._index_feature_uid = obs_schema._index_feature_uid
+        # # TODO: without it, tests fail on CI (but pass locally)
+        # if add_comp == "obs" and anndata_schema.slots["obs"]._index_feature_uid is None:
+        #     anndata_schema.slots[
+        #         "obs"
+        #     ]._index_feature_uid = obs_schema._index_feature_uid
 
         artifact = ln.Artifact.from_anndata(
             adata, key="examples/dataset1.h5ad", schema=anndata_schema
