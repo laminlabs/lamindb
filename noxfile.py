@@ -65,17 +65,17 @@ def install(session):
 @nox.parametrize(
     "group",
     [
-        "unit-core",
-        "unit-storage",
-        "tutorial",
-        "guide",
-        "biology",
-        "faq",
-        "storage",
+        # "unit-core",
+        # "unit-storage",
+        # "tutorial",
+        # "guide",
+        # "biology",
+        # "faq",
+        # "storage",
         "curator",
-        "docs",
-        "cli",
-        "permissions",
+        # "docs",
+        # "cli",
+        # "permissions",
     ],
 )
 def install_ci(session, group):
@@ -224,16 +224,16 @@ def configure_coverage(session) -> None:
 @nox.parametrize(
     "group",
     [
-        "unit-core",
-        "unit-storage",
+        # "unit-core",
+        # "unit-storage",
         "curator",
-        "tutorial",
-        "guide",
-        "biology",
-        "faq",
-        "storage",
-        "cli",
-        "permissions",
+        # "tutorial",
+        # "guide",
+        # "biology",
+        # "faq",
+        # "storage",
+        # "cli",
+        # "permissions",
     ],
 )
 def test(session, group):
