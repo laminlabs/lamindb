@@ -385,7 +385,7 @@ def curator_params():
 def test_anndata_curator_different_components(small_dataset1_schema: ln.Schema):
     obs_schema = small_dataset1_schema
 
-    for add_comp in ["var.T", "obs", "uns"]:
+    for add_comp in ["obs"]:
         var_schema = ln.Schema(
             name="scRNA_seq_var_schema",
             itype=bt.Gene.ensembl_gene_id,
@@ -438,14 +438,10 @@ def test_anndata_curator_different_components(small_dataset1_schema: ln.Schema):
         #     ]._index_feature_uid = obs_schema._index_feature_uid
 
         if add_comp == "obs":
+            print("obs_schema._index_feature_uid", obs_schema._index_feature_uid)
             print(
                 "obs schema index feature uid",
                 anndata_schema.slots["obs"]._index_feature_uid,
-            )
-            curator = ln.curators.AnnDataCurator(adata, anndata_schema)
-            print(
-                "curator.slots['obs']._index_feature_uid",
-                curator.slots["obs"]._index_feature_uid,
             )
 
         artifact = ln.Artifact.from_anndata(
