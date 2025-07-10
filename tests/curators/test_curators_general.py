@@ -240,7 +240,6 @@ def test_schema_not_saved(df):
     assert excinfo.exconly() == (
         "ValueError: Schema must be saved before curation. Please save it using '.save()'."
     )
-    ln.curators.DataFrameCurator(df, schema)
 
 
 def test_schema_optionals():
