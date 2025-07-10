@@ -520,16 +520,20 @@ def test_curate_columns(df):
 
 
 def test_wrong_datatype(df):
-    schema = ln.Schema(
-        features=[ln.Feature(name="sample_id", dtype=ln.ULabel).save()]
-    ).save()
+    feature = ln.Feature(name="sample_id", dtype=ln.ULabel).save()
+    schema = ln.Schema(features=[feature]).save()
 
     curator = ln.curators.DataFrameCurator(df, schema)
-    with pytest.raises(ln.errors.ValidationError) as e:
+    with pytest.raises(ln.errors.ValidationError) as excinfo:
         curator.validate()
 
-    assert "expected series 'sample_id' to have type category, got object" in str(e)
+    assert "expected series 'sample_id' to have type category, got object" in str(
+        excinfo.value
+    )
     assert (
         "Hint: Consider setting 'coerce_datatypes=True' in your Schema definition to automatically convert types."
-        in str(e)
+        in str(excinfo.value)
     )
+
+    schema.delete()
+    feature.delete()
