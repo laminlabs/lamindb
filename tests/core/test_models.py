@@ -122,3 +122,21 @@ def test_unsaved_relationship_modification_attempts():
 
     new_label.delete()
     af.delete()
+
+
+def test_unsaved_model_different_instance():
+    af = ln.Artifact.using("laminlabs/lamindata").get(
+        key="scrna/micro-macfarland2020.h5ad"
+    )
+
+    new_label = ln.ULabel(name="testlabel").save()
+    with pytest.raises(ValueError) as excinfo:
+        af.ulabels.add(new_label)
+
+    assert (
+        str(excinfo.value)
+        == "Cannot label a record from instance 'laminlabs/lamindata'. "
+        "Please save the record first to your instance using '.save()'."
+    )
+
+    new_label.delete()
