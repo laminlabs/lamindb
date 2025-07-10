@@ -140,4 +140,3 @@ def test_unsaved_model_different_instance():
     )
 
     new_label.delete()
-    af.delete()
