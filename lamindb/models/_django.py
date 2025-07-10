@@ -21,12 +21,10 @@ if TYPE_CHECKING:
 def patch_many_to_many_descriptor() -> None:
     """Patches Django's `ManyToManyDescriptor.__get__` method to suggest better errors when saving relationships of an unsaved model.
 
-    Before this patch: Cryptic errors are raised when relationships of an unsaved
-    record are attempted to be modified.
+    Before this patch: Cryptic errors are raised when relationships of an unsaved record are attempted to be modified.
 
-    After this patch: Attempts to access M2M relationships on unsaved objects
-    will raise ValueError, suggesting explicit .save() of the record to be modified
-    before relationship creation.
+    After this patch: Attempts to access M2M relationships on unsaved objects will raise ValueError,
+    suggesting explicit .save() of the record to be modified before relationship creation.
     """
     from django.db.models.fields.related_descriptors import ManyToManyDescriptor
 
@@ -37,7 +35,28 @@ def patch_many_to_many_descriptor() -> None:
             raise ValueError(
                 f"You are trying to access the many-to-many relationships of an unsaved {instance.__class__.__name__} object. Please save it first using '.save()'."
             )
-        return original_get(self, instance, cls)
+
+        manager = original_get(self, instance, cls)
+        if manager is None or not hasattr(manager, "add"):
+            return manager
+
+        original_manager_add = manager.add
+
+        def patched_manager_add(*objs, **kwargs):
+            try:
+                return original_manager_add(*objs, **kwargs)
+            except ValueError as e:
+                if "Cannot add" in str(e) and "database" in str(e):
+                    source_db = manager.instance._state.db
+
+                    raise ValueError(
+                        f"Cannot label a record from instance '{source_db}'. "
+                        f"Please save the record first to your instance using '.save()'."
+                    ) from None
+                raise
+
+        manager.add = patched_manager_add
+        return manager
 
     ManyToManyDescriptor.__get__ = patched_get
 
