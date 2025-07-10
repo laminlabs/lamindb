@@ -27,7 +27,7 @@ def create_test_instance(pgurl: str):
     ln.settings.storage = (
         "s3://lamindb-ci/test-data"  # register as valid storage location
     )
-    ln.settings.storage = "./default_storage_unit_storage"
+    ln.settings.storage = "./default_storage_unit_storage", "testuser1-laptop"
 
 
 def pytest_sessionstart():
