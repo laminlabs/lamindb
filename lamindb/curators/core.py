@@ -179,6 +179,9 @@ class Curator:
     """
 
     def __init__(self, dataset: Any, schema: Schema | None = None):
+        if not isinstance(schema, Schema):
+            raise InvalidArgument("schema argument must be a Schema record.")
+
         if schema.pk is None:
             raise ValueError(
                 "Schema must be saved before curation. Please save it using '.save()'."
