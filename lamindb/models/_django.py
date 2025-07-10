@@ -37,7 +37,7 @@ def patch_many_to_many_descriptor() -> None:
             )
 
         manager = original_get(self, instance, cls)
-        if manager is None:
+        if manager is None or not hasattr(manager, "add"):
             return manager
 
         original_manager_add = manager.add
