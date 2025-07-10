@@ -51,7 +51,7 @@ def patch_many_to_many_descriptor() -> None:
 
                     raise ValueError(
                         f"Cannot label an object from instance '{source_db}'. "
-                        f"Please save the object first in your instance using '.save()'."
+                        f"Please save the object first to your instance using '.save()'."
                     ) from None
                 raise
 
