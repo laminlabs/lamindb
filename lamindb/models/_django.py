@@ -50,8 +50,8 @@ def patch_many_to_many_descriptor() -> None:
                     source_db = manager.instance._state.db
 
                     raise ValueError(
-                        f"Cannot label an object from instance '{source_db}'. "
-                        f"Please save the object first to your instance using '.save()'."
+                        f"Cannot label an record from instance '{source_db}'. "
+                        f"Please save the record first to your instance using '.save()'."
                     ) from None
                 raise
 

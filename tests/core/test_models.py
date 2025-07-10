@@ -135,8 +135,8 @@ def test_unsaved_model_different_instance():
 
     assert (
         str(excinfo.value)
-        == "Cannot label an object from instance 'laminlabs/lamindata'. "
-        "Please save the object first to your instance using '.save()'."
+        == "Cannot label an record from instance 'laminlabs/lamindata'. "
+        "Please save the record first to your instance using '.save()'."
     )
 
     new_label.delete()
