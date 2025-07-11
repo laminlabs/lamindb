@@ -1634,14 +1634,15 @@ def annotate_artifact(
     if artifact.otype == "DataFrame":
         features = cat_vectors["columns"].records
         if features is not None:
+            index_feature = artifact.schema.index
             feature_set = Schema(
-                features=features,
-                itype=artifact.schmea.itype,
-                coerce_dtype=artifact.schema.coerce_dtype,
+                features=[f for f in features if f != index_feature],
+                itype=artifact.schema.itype,
+                index=index_feature,
                 minimal_set=artifact.schema.minimal_set,
                 maximal_set=artifact.schema.maximal_set,
+                coerce_dtype=artifact.schema.coerce_dtype,
                 ordered_set=artifact.schema.ordered_set,
-                index=artifact.schema.index,
             )
             if (
                 feature_set._state.adding
@@ -1671,9 +1672,7 @@ def annotate_artifact(
                 "field"
             ]
             validating_schema = slot_curator._schema
-            index_feature = Feature.filter(
-                validating_schema._index_feature_uid
-            ).one_or_none()
+            index_feature = validating_schema.index
             feature_set = Schema(
                 features=[f for f in features if f != index_feature],
                 itype=itype,
