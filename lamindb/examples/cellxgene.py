@@ -1,7 +1,6 @@
-from typing import Collection, Literal
+from typing import Collection, Literal, NamedTuple
 
 import pandas as pd
-from anndata import AnnData
 from lamindb_setup.core.upath import UPath
 
 from lamindb.base.types import FieldAttr
@@ -10,26 +9,6 @@ from lamindb.models._from_values import _format_values
 
 CELLxGENESchemaVersions = Literal["4.0.0", "5.0.0", "5.1.0", "5.2.0", "5.3.0"]
 FieldType = Literal["ontology_id", "name"]
-
-
-def add_cxg_defaults_to_obs(adata: AnnData) -> None:
-    """Add missing default columns and values to the `obs` slot."""
-    cxg_categoricals_defaults = {
-        "cell_type": "unknown",
-        "development_stage": "unknown",
-        "disease": "normal",
-        "donor_id": "unknown",
-        "self_reported_ethnicity": "unknown",
-        "sex": "unknown",
-        "suspension_type": "cell",
-        "tissue_type": "tissue",
-    }
-    for name, default in cxg_categoricals_defaults.items():
-        if (
-            name not in adata.obs.columns
-            and f"{name}_ontology_term_id" not in adata.obs.columns
-        ):
-            adata.obs[name] = default
 
 
 def save_cxg_defaults() -> None:
@@ -156,26 +135,34 @@ def get_cxg_schema(
     """
     import bionty as bt
 
-    categoricals = {
-        "assay": bt.ExperimentalFactor.name,
-        "assay_ontology_term_id": bt.ExperimentalFactor.ontology_id,
-        "cell_type": bt.CellType.name,
-        "cell_type_ontology_term_id": bt.CellType.ontology_id,
-        "development_stage": bt.DevelopmentalStage.name,
-        "development_stage_ontology_term_id": bt.DevelopmentalStage.ontology_id,
-        "disease": bt.Disease.name,
-        "disease_ontology_term_id": bt.Disease.ontology_id,
-        "self_reported_ethnicity": bt.Ethnicity.name,
-        "self_reported_ethnicity_ontology_term_id": bt.Ethnicity.ontology_id,
-        "sex": bt.Phenotype.name,
-        "sex_ontology_term_id": bt.Phenotype.ontology_id,
-        "suspension_type": ULabel.name,
-        "tissue": bt.Tissue.name,
-        "tissue_ontology_term_id": bt.Tissue.ontology_id,
-        "tissue_type": ULabel.name,
-        "organism": bt.Organism.name,
-        "organism_ontology_term_id": bt.Organism.ontology_id,
-        "donor_id": str,
+    class CategorySpec(NamedTuple):
+        field: str | FieldAttr
+        default: str | None
+
+    categoricals_to_spec: dict[str, CategorySpec] = {
+        "assay": CategorySpec(bt.ExperimentalFactor.name, None),
+        "assay_ontology_term_id": CategorySpec(bt.ExperimentalFactor.ontology_id, None),
+        "cell_type": CategorySpec(bt.CellType.name, "unknown"),
+        "cell_type_ontology_term_id": CategorySpec(bt.CellType.ontology_id, None),
+        "development_stage": CategorySpec(bt.DevelopmentalStage.name, "unknown"),
+        "development_stage_ontology_term_id": CategorySpec(
+            bt.DevelopmentalStage.ontology_id, None
+        ),
+        "disease": CategorySpec(bt.Disease.name, "normal"),
+        "disease_ontology_term_id": CategorySpec(bt.Disease.ontology_id, None),
+        "self_reported_ethnicity": CategorySpec(bt.Ethnicity.name, "unknown"),
+        "self_reported_ethnicity_ontology_term_id": CategorySpec(
+            bt.Ethnicity.ontology_id, None
+        ),
+        "sex": CategorySpec(bt.Phenotype.name, "unknown"),
+        "sex_ontology_term_id": CategorySpec(bt.Phenotype.ontology_id, None),
+        "suspension_type": CategorySpec(ULabel.name, "cell"),
+        "tissue": CategorySpec(bt.Tissue.name, None),
+        "tissue_ontology_term_id": CategorySpec(bt.Tissue.ontology_id, None),
+        "tissue_type": CategorySpec(ULabel.name, "tissue"),
+        "organism": CategorySpec(bt.Organism.name, None),
+        "organism_ontology_term_id": CategorySpec(bt.Organism.ontology_id, None),
+        "donor_id": CategorySpec(str, "unknown"),
     }
 
     field_types_set = (
@@ -183,18 +170,18 @@ def get_cxg_schema(
     )
     if field_types_set == {"ontology_id"}:
         categoricals = {
-            k: v
-            for k, v in categoricals.items()
+            k: v.field
+            for k, v in categoricals_to_spec.items()
             if k.endswith("_ontology_term_id") or k == "donor_id"
         }
     elif field_types_set == {"name"}:
         categoricals = {
-            k: v
-            for k, v in categoricals.items()
+            k: v.field
+            for k, v in categoricals_to_spec.items()
             if not k.endswith("_ontology_term_id") and k != "donor_id"
         }
     elif field_types_set == {"name", "ontology_id"}:
-        pass
+        categoricals = {k: v.field for k, v in categoricals_to_spec.items()}
     else:
         raise ValueError(
             f"Invalid field_types: {field_types}. Must contain 'ontology_id', 'name', or both."
@@ -221,7 +208,10 @@ def get_cxg_schema(
 
     obs_features = [
         Feature(
-            name=field, dtype=categoricals[field], cat_filters={"source": source}
+            name=field,
+            dtype=categoricals[field],
+            cat_filters={"source": source},
+            default_value=categoricals_to_spec[field].default,
         ).save()
         for field, source in sources.items()
         if field != "var_index"
@@ -231,7 +221,7 @@ def get_cxg_schema(
         name=f"obs of CELLxGENE version {schema_version}",
         features=obs_features,
         otype="DataFrame",
-        minimal_set=False,
+        minimal_set=True,
         coerce_dtype=True,
     ).save()
 

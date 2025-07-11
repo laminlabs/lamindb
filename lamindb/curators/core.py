@@ -1616,6 +1616,7 @@ def annotate_artifact(
             cat_vector._field.field.model == Feature
             or key == "columns"
             or key == "var_index"
+            or cat_vector.records is None
         ):
             continue
         if len(cat_vector.records) > settings.annotation.n_max_records:

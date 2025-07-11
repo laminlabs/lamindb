@@ -12,8 +12,8 @@ def test_cxg_curator():
     adata = ln.core.datasets.small_dataset3_cellxgene()
 
     curator = ln.curators.AnnDataCurator(adata, schema)
-
-    ln.examples.cellxgene.add_cxg_defaults_to_obs(adata)
+    # Ensure that
+    curator.slots["obs"].standardize()
 
     with pytest.raises(ln.errors.ValidationError) as e:
         curator.validate()
