@@ -9,10 +9,10 @@ def test_cxg_curator():
     schema = ln.examples.cellxgene.get_cxg_schema(
         schema_version="5.2.0", field_types=["name", "ontology_id"]
     )
-    adata = ln.core.datasets.small_dataset3_cellxgene()
+    adata = ln.core.datasets.small_dataset3_cellxgene(with_defaults=True)
 
     curator = ln.curators.AnnDataCurator(adata, schema)
-    # Ensure that
+    # Ensure that default values for Features are set
     curator.slots["obs"].standardize()
 
     with pytest.raises(ln.errors.ValidationError) as e:

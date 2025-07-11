@@ -86,16 +86,11 @@ def _create_cxg_sources(
                 name=row.source,
                 version=row.version,
             ).one_or_none()
-            # if the source was not found, we register it from bionty-assets
             if source is None:
                 source = getattr(bt, entity).add_source(
-                    bt.Source.using("laminlabs/bionty-assets")
-                    .get(
-                        entity=f"bionty.{entity}",
-                        version=row.version,
-                        organism=row.organism,
-                    )
-                    .save()
+                    getattr(bt, entity).public().source,
+                    version=row.version,
+                    organism=row.organism,
                 )
             return source
 
