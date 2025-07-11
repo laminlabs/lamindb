@@ -1388,7 +1388,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             default_storage = kwargs.pop("default_storage")
         else:
             if setup_settings.instance.keep_artifacts_local:
-                default_storage = setup_settings.instance.storage_local.record
+                default_storage = setup_settings.instance.local_storage.record
             else:
                 default_storage = setup_settings.instance.storage.record
         using_key = kwargs.pop("using_key", None)

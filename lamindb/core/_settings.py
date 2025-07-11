@@ -198,18 +198,18 @@ class Settings:
         return ln_setup.settings.cache_dir
 
     @property
-    def storage_local(self) -> StorageSettings:
+    def local_storage(self) -> StorageSettings:
         """An additional local default storage (a path to its root).
 
         Is only available if :attr:`~lamindb.setup.core.InstanceSettings.keep_artifacts_local` is enabled.
 
         Guide: :doc:`faq/keep-artifacts-local`
         """
-        return ln_setup.settings.instance.storage_local
+        return ln_setup.settings.instance.local_storage
 
-    @storage_local.setter
-    def storage_local(self, local_root: Path):
-        ln_setup.settings.instance.storage_local = local_root
+    @local_storage.setter
+    def local_storage(self, local_root: Path):
+        ln_setup.settings.instance.local_storage = local_root
 
     @property
     def verbosity(self) -> str:
