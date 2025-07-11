@@ -175,9 +175,18 @@ class Curator:
         - :class:`~lamindb.curators.AnnDataCurator`
         - :class:`~lamindb.curators.MuDataCurator`
         - :class:`~lamindb.curators.SpatialDataCurator`
+        - :class:`~lamindb.curators.TiledbsomaExperimentCurator`
     """
 
     def __init__(self, dataset: Any, schema: Schema | None = None):
+        if not isinstance(schema, Schema):
+            raise InvalidArgument("schema argument must be a Schema record.")
+
+        if schema.pk is None:
+            raise ValueError(
+                "Schema must be saved before curation. Please save it using '.save()'."
+            )
+
         self._artifact: Artifact = None  # pass the dataset as an artifact
         self._dataset: Any = dataset  # pass the dataset as a UPathStr or data object
         if isinstance(self._dataset, Artifact):
@@ -471,6 +480,7 @@ class DataFrameCurator(Curator):
         if schema.flexible:
             features += Feature.filter(name__in=self._dataset.keys()).list()
             feature_ids = {feature.id for feature in features}
+
         if schema.n > 0:
             if schema._index_feature_uid is not None:
                 schema_features = [

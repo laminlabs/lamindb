@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import sys
 from typing import TYPE_CHECKING
 
 import lamindb_setup as ln_setup
@@ -44,6 +45,9 @@ class Settings:
         self._sync_git_repo: str | None = None
 
     def __repr__(self) -> str:  # pragma: no cover
+        if "sphinx" in sys.modules:
+            return object.__repr__(self)
+
         cls_name = colors.green(self.__class__.__name__)
         verbosity_color = colors.yellow if self.verbosity == "warning" else colors.green
         verbosity_str = verbosity_color(self.verbosity)
