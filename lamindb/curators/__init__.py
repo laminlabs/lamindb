@@ -18,10 +18,6 @@ Modules.
 
 """
 
-from ._legacy import (  # backward compat
-    CellxGeneAnnDataCatManager,
-    PertAnnDataCatManager,
-)
 from .core import (
     AnnDataCurator,
     DataFrameCurator,
@@ -31,8 +27,6 @@ from .core import (
 )
 
 __all__ = [
-    "CellxGeneAnnDataCatManager",
-    "PertAnnDataCatManager",
     "AnnDataCurator",
     "DataFrameCurator",
     "MuDataCurator",

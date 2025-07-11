@@ -553,11 +553,15 @@ class DataFrameCurator(Curator):
                     "list[cat["
                 ):
                     # validate categoricals if the column is required or if the column is present
-                    if required or feature.name in self._dataset.keys():
+                    # but exclude the index feature from column categoricals
+                    if (required or feature.name in self._dataset.keys()) and (
+                        schema._index_feature_uid is None
+                        or feature.uid != schema._index_feature_uid
+                    ):
                         categoricals.append(feature)
-            if schema._index_feature_uid is not None:
-                # in almost no case, an index should have a pandas.CategoricalDtype in a DataFrame
-                # so, we're typing it as `str` here
+            # in almost no case, an index should have a pandas.CategoricalDtype in a DataFrame
+            # so, we're typing it as `str` here
+            if schema.index is not None:
                 index = pandera.Index(
                     schema.index.dtype
                     if not schema.index.dtype.startswith("cat")
@@ -565,6 +569,7 @@ class DataFrameCurator(Curator):
                 )
             else:
                 index = None
+
             self._pandera_schema = pandera.DataFrameSchema(
                 pandera_columns,
                 coerce=schema.coerce_dtype,
@@ -1614,6 +1619,7 @@ def annotate_artifact(
             cat_vector._field.field.model == Feature
             or key == "columns"
             or key == "var_index"
+            or cat_vector.records is None
         ):
             continue
         if len(cat_vector.records) > settings.annotation.n_max_records:

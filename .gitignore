@@ -219,4 +219,4 @@ _build
 .vscode
 
 # cxg
-!lamindb/curators/_cellxgene_schemas/schema_versions.csv
+!lamindb/examples/cxg_schema_versions.csv

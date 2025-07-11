@@ -191,7 +191,19 @@ def parse_nested_brackets(dtype_str: str) -> dict[str, str]:
 
     # Find the first opening bracket
     first_bracket = dtype_str.index("[")
-    registry_part = dtype_str[:first_bracket]
+    # Handle case where registry_part contains a field (e.g., "bionty.Gene.ensembl_gene_id[filters]")
+    registry_and_field = dtype_str[:first_bracket]
+    if "." in registry_and_field:
+        parts = registry_and_field.split(".")
+        if len(parts) == 3:
+            registry_part = f"{parts[0]}.{parts[1]}"
+            pre_bracket_field = parts[2]
+        else:
+            registry_part = registry_and_field
+            pre_bracket_field = ""
+    else:
+        registry_part = registry_and_field
+        pre_bracket_field = ""
 
     # Find the matching closing bracket for the first opening bracket
     bracket_count = 0
@@ -217,6 +229,10 @@ def parse_nested_brackets(dtype_str: str) -> dict[str, str]:
     remainder = dtype_str[closing_bracket_pos + 1 :]
     if remainder.startswith("."):
         field_part = remainder[1:]  # Remove the dot
+
+    # Use pre_bracket_field if no post_bracket field
+    if not field_part and pre_bracket_field:
+        field_part = pre_bracket_field
 
     result = {"registry": registry_part, "subtype": subtype_part, "field": field_part}
 
@@ -487,22 +503,21 @@ def process_init_feature_param(args, kwargs, is_param: bool = False):
 class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
     """Variables, such as dataframe columns or run parameters.
 
-    A feature often represents a dimension of a dataset, such as a column in a
-    `DataFrame`. The `Feature` registry organizes metadata of features.
+    A feature often represents a dimension of a dataset, such as a column in a `DataFrame`.
+    The `Feature` registry organizes metadata of features.
 
     The `Feature` registry helps you organize and query datasets based on their
     features and corresponding label annotations. For instance, when working
     with a "T cell" label, it could be measured through different features
     such as `"cell_type_by_expert"` where an expert manually classified the
-    cell, or `"cell_type_by_model"` where a computational model made the
-    classification.
+    cell, or `"cell_type_by_model"` where a computational model made the classification.
 
     The two most important metadata of a feature are its `name` and the `dtype`.
     In addition to typical data types, LaminDB has a `"num"` `dtype` to
     concisely denote the union of all numerical types.
 
     Args:
-        name: `str` Name of the feature, typically.  column name.
+        name: `str` Name of the feature, typically a column name.
         dtype: `Dtype | Registry | list[Registry] | FieldAttr` See :class:`~lamindb.base.types.Dtype`.
             For categorical types, you can define to which registry values are
             restricted, e.g., `ULabel` or `[ULabel, bionty.CellType]`.
@@ -709,8 +724,14 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
         self.coerce_dtype = coerce_dtype
         dtype_str = kwargs.pop("dtype", None)
         if cat_filters:
-            assert "|" not in dtype_str  # noqa: S101
-            assert "]]" not in dtype_str  # noqa: S101
+            if "|" in dtype_str:
+                raise ValidationError(
+                    f"cat_filters are incompatible with union dtypes: '{dtype_str}'"
+                )
+            if "]]" in dtype_str:
+                raise ValidationError(
+                    f"cat_filters are incompatible with nested dtypes: '{dtype_str}'"
+                )
 
             # Validate filter values and SQLRecord attributes
             for filter_key, filter_value in cat_filters.items():
