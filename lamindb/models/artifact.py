@@ -2706,7 +2706,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         if upload and setup_settings.instance.keep_artifacts_local:
             # switch local storage location to cloud
             local_path = self.path
-            self.storage_id = setup_settings.instance.storage.id
+            self.storage_id = setup_settings.instance.storage._id
             self._local_filepath = local_path
             # switch to virtual storage key upon upload
             # the local filepath is already cached at that point

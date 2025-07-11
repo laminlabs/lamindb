@@ -190,7 +190,7 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
                 "root must be a local path if host is set"
             )
             assert "region" not in kwargs, "region must not be set if host is set"  # noqa: S101
-            kwargs["region"] = kwargs["region"].pop("host")
+            kwargs["region"] = kwargs.pop("host")
             storage_record = Storage.filter(
                 root=kwargs["root"], region=kwargs["region"]
             ).one_or_none()
@@ -216,7 +216,7 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
             instance_slug=setup_settings.instance.slug,
             register_hub=setup_settings.instance.is_on_hub,
             prevent_register_hub=not setup_settings.instance.is_on_hub,
-            region=kwargs.get("host", None),
+            region=kwargs.get("region", None),  # host was renamed to region already
         )
         # ssettings performed validation and normalization of the root path
         kwargs["root"] = ssettings.root_as_str  # noqa: S101
