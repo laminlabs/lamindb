@@ -12,7 +12,11 @@ from lamindb_setup.core._hub_core import (
     delete_storage_record,
     get_storage_records_for_instance,
 )
-from lamindb_setup.core._settings_storage import StorageSettings, init_storage
+from lamindb_setup.core._settings_storage import (
+    StorageSettings,
+    get_storage_type,
+    init_storage,
+)
 from lamindb_setup.core.upath import check_storage_is_empty, create_path
 
 from lamindb.base.fields import (
@@ -33,33 +37,31 @@ if TYPE_CHECKING:
 
 
 class Storage(SQLRecord, TracksRun, TracksUpdates):
-    """Storage locations of artifacts such as folders and S3 buckets.
+    """Storage locations of artifacts such as local directories or S3 buckets.
 
-    A storage location is either a folder (local or in the cloud) or
+    A storage location is either a directory (local or a folder in the cloud) or
     an entire S3/GCP bucket.
-
-    A LaminDB instance can manage and reference multiple storage locations. But any
+    A LaminDB instance can manage and read from multiple storage locations. But any
     storage location is managed by *at most one* LaminDB instance.
 
-    .. dropdown:: Managed vs. referenced storage locations
+    .. dropdown:: Managed vs. read-only storage locations
 
         A LaminDB instance can only write artifacts to its managed storage
-        locations and merely reads artifacts from its referenced storage locations.
+        locations.
 
         The :attr:`~lamindb.Storage.instance_uid` field defines the managing LaminDB instance of a
-        storage location. Some storage locations may not be managed by any LaminDB
-        instance, in which case the `instance_uid` is `None`. If it matches the
-        :attr:`~lamindb.core.Settings.instance_uid` of the current instance, the storage location
-        is managed by the current instance.
+        storage location. Some storage locations are not be managed by any LaminDB
+        instance and their `instance_uid` is `None`. You can access the `instance_uid` of your current instance
+        through `ln.setup.settings.instance_uid`.
 
-        Here is an example based (`source <https://lamin.ai/laminlabs/lamindata/transform/dPco79GYgzag0000>`__):
+        Here is an example (`source <https://lamin.ai/laminlabs/lamindata/transform/dPco79GYgzag0000>`__).
 
         .. image:: https://lamin-site-assets.s3.amazonaws.com/.lamindb/eHDmIOAxLEoqZ2oK0000.png
            :width: 400px
 
     .. dropdown:: Managing access to storage locations across instances
 
-        You can low-level manage access through AWS policies that you attach to your S3 bucket
+        You can manage access through AWS policies that you attach to your S3 bucket
         or leverage LaminHub's fine-grained access management.
 
         Head over to `https://lamin.ai/{account}/infrastructure` and you'll see a UI as in the screenshot below.
@@ -70,41 +72,54 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
         .. image:: https://lamin-site-assets.s3.amazonaws.com/.lamindb/ze8hkgVxVptSSZEU0000.png
            :width: 800px
 
+        If you don't want to store data in the cloud, you can use local storage locations: :doc:`faq/keep-artifacts-local`.
+
     Args:
-        root: `str` The root path of the storage location, e.g., `"./myfolder"`, `"s3://my-bucket/myfolder"`, or `"gs://my-bucket/myfolder"`.
-        type: :class:`~lamindb.setup.types.StorageType` The type of storage.
-        description: `str | None = None` A description.
-        region: `str | None = None` Cloud storage region, if applicable. Auto-populated for AWS S3.
+        root: `str` The root path of the storage location, e.g., `"./mydir"`, `"s3://my-bucket"`, `"s3://my-bucket/myfolder"`, `"gs://my-bucket/myfolder"`, `"/nfs/shared/datasets/genomics"`, `"/weka/shared/models/"`, ...
+        description: `str | None = None` An optional description.
+        host: `str | None = None` For a shared local storage location, pass a globally unique host identifier, e.g. `"my-institute-cluster-1"`, `"my-server-abcd"`, ...
+            Discuss the naming convention with an admin.
 
     See Also:
         :attr:`lamindb.core.Settings.storage`
             Current default storage location of your compute session for writing artifacts.
         :attr:`~lamindb.setup.core.StorageSettings`
             Storage settings.
+        :doc:`faq/keep-artifacts-local`
+            Avoid storing artifacts in the cloud, but keep them on local servers.
 
     Examples:
 
         When you create a LaminDB instance, you configure its default storage location via `--storage`::
 
-            lamin init --storage ./myfolder  # or "s3://my-bucket/myfolder" or "gs://my-bucket/myfolder"
+            lamin init --storage ./mydatadir  # or "s3://my-bucket/myfolder", "gs://my-bucket/myfolder", ...
 
-        View the current default storage location in your compute session for writing artifacts::
+        View the current default storage location for writing artifacts::
 
             import lamindb as ln
 
             ln.settings.storage
 
-        Switch to another default storage location for writing artifacts::
+        Create a new cloud storage location::
 
-            ln.settings.storage = "./myfolder2"  # or "s3://my-bucket/my-folder2" or "gs://my-bucket/my-folder2"
+            ln.Storage(root="s3://our-bucket/our-folder").save()
+
+        Create a new local storage location::
+
+            ln.Storage(root="/dir/our-shared-dir", host="our-server-123").save()
+
+        Switch to another storage location::
+
+            ln.settings.storage = "/dir/our-shared-dir"  # or "s3://our-bucket/our-folder", "gs://our-bucket/our-folder", ...
+
+        If you're operating in `keep-artifacts-local` mode (:doc:`faq/keep-artifacts-local`), you can switch among additional local storage locations::
+
+            ln.Storage(root="/dir/our-other-shared-dir", host="our-server-123").save()  # create
+            ln.settings.local_storage = "/dir/our-other-shared-dir"  # switch
 
         View all storage locations used in your LaminDB instance::
 
             ln.Storage.df()
-
-        Create a new storage location::
-
-            ln.Storage(root="./myfolder3").save()
 
     Notes:
 
@@ -146,9 +161,9 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
     description: str | None = CharField(db_index=True, null=True)
     """A description of what the storage location is used for (optional)."""
     type: StorageType = CharField(max_length=30, db_index=True)
-    """Can be "local" vs. "s3" vs. "gs"."""
+    """Can be "local" vs. "s3" vs. "gs". Is auto-detected from the format of the `root` path."""
     region: str | None = CharField(max_length=64, db_index=True, null=True)
-    """Cloud storage region, if applicable."""
+    """Storage region for cloud storage locations. Host identifier for local storage locations."""
     instance_uid: str | None = CharField(max_length=12, db_index=True, null=True)
     """Instance that manages this storage location."""
     artifacts: Artifact
@@ -158,9 +173,9 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
     def __init__(
         self,
         root: str,
-        type: str,
+        *,
         description: str | None = None,
-        region: str | None = None,
+        host: str | None = None,
     ): ...
 
     @overload
@@ -177,7 +192,28 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
         if len(args) == len(self._meta.concrete_fields):
             super().__init__(*args)
             return None
-        storage_record = Storage.filter(root=kwargs["root"]).one_or_none()
+        if args:
+            assert len(args) == 1, (  # noqa: S101
+                "Storage can only be initialized with a single positional argument, the root path."
+            )
+            kwargs["root"] = args[0]
+        if "host" in kwargs:
+            if "type" in kwargs:
+                assert kwargs["type"] == "local", (  # noqa: S101
+                    "type needs to be 'local' if host is set"
+                )
+            else:
+                kwargs["type"] = "local"
+            assert get_storage_type(kwargs["root"]) == "local", (  # noqa: S101
+                "root must be a local path if host is set"
+            )
+            assert "region" not in kwargs, "region must not be set if host is set"  # noqa: S101
+            kwargs["region"] = kwargs.pop("host")
+            storage_record = Storage.filter(
+                root=kwargs["root"], region=kwargs["region"]
+            ).one_or_none()
+        else:
+            storage_record = Storage.filter(root=kwargs["root"]).one_or_none()
         if storage_record is not None:
             from .sqlrecord import init_self_from_db
 
@@ -196,7 +232,9 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
             kwargs["root"],
             instance_id=setup_settings.instance._id,
             instance_slug=setup_settings.instance.slug,
+            register_hub=setup_settings.instance.is_on_hub,
             prevent_register_hub=not setup_settings.instance.is_on_hub,
+            region=kwargs.get("region", None),  # host was renamed to region already
         )
         # ssettings performed validation and normalization of the root path
         kwargs["root"] = ssettings.root_as_str  # noqa: S101
@@ -237,6 +275,18 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
             f"{managed_message} storage location at {kwargs['root']}{is_managed_by_instance}{hub_message}"
         )
         super().__init__(**kwargs)
+
+    @property
+    def host(self) -> str | None:
+        """Host identifier for local storage locations.
+
+        Is `None` for locations with `type != "local"`.
+
+        A globally unique user-defined host identifier (cluster, server, laptop, etc.).
+        """
+        if self.type != "local":
+            return None
+        return self.region
 
     @property
     def path(self) -> Path | UPath:

@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 import lamindb_setup as ln_setup
 from lamin_utils import colors, logger
 from lamindb_setup._set_managed_storage import set_managed_storage
+from lamindb_setup.core import deprecated
 from lamindb_setup.core._settings import settings as setup_settings
 from lamindb_setup.core._settings_instance import sanitize_git_repo_url
 
@@ -185,6 +186,8 @@ class Settings:
     def storage(self, path_kwargs: str | Path | UPath | tuple[str | UPath, Mapping]):
         if isinstance(path_kwargs, tuple):
             path, kwargs = path_kwargs
+            if isinstance(kwargs, str):
+                kwargs = {"host": kwargs}
         else:
             path, kwargs = path_kwargs, {}
         set_managed_storage(path, **kwargs)
@@ -200,18 +203,28 @@ class Settings:
         return ln_setup.settings.cache_dir
 
     @property
-    def storage_local(self) -> StorageSettings:
+    def local_storage(self) -> StorageSettings:
         """An additional local default storage (a path to its root).
 
         Is only available if :attr:`~lamindb.setup.core.InstanceSettings.keep_artifacts_local` is enabled.
 
         Guide: :doc:`faq/keep-artifacts-local`
         """
-        return ln_setup.settings.instance.storage_local
+        return ln_setup.settings.instance.local_storage
+
+    @local_storage.setter
+    def local_storage(self, local_root: Path):
+        ln_setup.settings.instance.local_storage = local_root
+
+    @property
+    @deprecated("local_storage")
+    def storage_local(self) -> StorageSettings:
+        return self.local_storage
 
     @storage_local.setter
-    def storage_local(self, local_root: Path):
-        ln_setup.settings.instance.storage_local = local_root
+    @deprecated("local_storage")
+    def storage_local(self, local_root_host: tuple[Path | str, str]):
+        self.local_storage = local_root_host  # type: ignore
 
     @property
     def verbosity(self) -> str:

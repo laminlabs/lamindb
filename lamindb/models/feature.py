@@ -535,38 +535,32 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
 
         A simple `"str"` feature.::
 
-        ln.Feature(
-            name="sample_note",
-            dtype="str",
-        ).save()
+            ln.Feature(name="sample_note", dtype="str").save()
 
         A dtype `"cat[ULabel]"` can be more easily passed as below.::
 
-        ln.Feature(
-            name="project",
-            dtype=ln.ULabel,
-        ).save()
+            ln.Feature(name="project", dtype=ln.ULabel).save()
 
         A dtype `"cat[ULabel|bionty.CellType]"` can be more easily passed as below.::
 
-        ln.Feature(
-            name="cell_type",
-            dtype=[ln.ULabel, bt.CellType],
-        ).save()
+            ln.Feature(
+                name="cell_type",
+                dtype=[ln.ULabel, bt.CellType],
+            ).save()
 
         A multivalue feature with a list of cell types.::
 
-        ln.Feature(
-            name="cell_types",
-            dtype=list[bt.CellType],  # or list[str] for a list of strings
-        ).save()
+            ln.Feature(
+                name="cell_types",
+                dtype=list[bt.CellType],  # or list[str] for a list of strings
+            ).save()
 
         A path feature.::
 
-        ln.Feature(
-            name="image_path",
-            dtype="path",   # will be validated as `str`
-        ).save()
+            ln.Feature(
+                name="image_path",
+                dtype="path",   # will be validated as `str`
+            ).save()
 
     Hint:
 
