@@ -2332,7 +2332,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         else:
             open_cache = not isinstance(
                 filepath, LocalPathClasses
-            ) and not filepath.synchronize(localpath, just_check=True)
+            ) and not filepath.synchronize_to(localpath, just_check=True)
         if open_cache:
             try:
                 access = backed_access(
