@@ -531,7 +531,7 @@ def test_wrong_datatype(df):
         excinfo.value
     )
     assert (
-        "Hint: Consider setting 'coerce_datatypes=True' in your Schema definition to automatically convert types."
+        "Hint: Consider setting 'coerce_datatype=True' to attempt coercing/converting values during validation to the pre-defined dtype."
         in str(excinfo.value)
     )
 
