@@ -187,6 +187,11 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
         if len(args) == len(self._meta.concrete_fields):
             super().__init__(*args)
             return None
+        if args:
+            assert len(args) == 1, (  # noqa: S101
+                "Storage can only be initialized with a single positional argument, the root path."
+            )
+            kwargs["root"] = args[0]
         if "host" in kwargs:
             if "type" in kwargs:
                 assert kwargs["type"] == "local", (  # noqa: S101
