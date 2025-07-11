@@ -23,13 +23,10 @@ if TYPE_CHECKING:
 
 
 def is_read_only_connection() -> bool:
-    if setup_settings.user.handle == "anonymous":
-        return True
-    else:
-        instance = setup_settings.instance
-        if instance.dialect == "postgresql":
-            db_url = instance.db
-            return "read" in db_url or "public" in db_url
+    instance = setup_settings.instance
+    if instance.dialect == "postgresql":
+        db_url = instance.db
+        return "read" in db_url or "public" in db_url
     return False
 
 
