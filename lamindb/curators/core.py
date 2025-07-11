@@ -1634,9 +1634,16 @@ def annotate_artifact(
     if artifact.otype == "DataFrame":
         features = cat_vectors["columns"].records
         if features is not None:
+            index_feature = artifact.schema.index
             feature_set = Schema(
-                features=features, coerce_dtype=artifact.schema.coerce_dtype
-            )  # TODO: add more defaults from validating schema
+                features=[f for f in features if f != index_feature],
+                itype=artifact.schema.itype,
+                index=index_feature,
+                minimal_set=artifact.schema.minimal_set,
+                maximal_set=artifact.schema.maximal_set,
+                coerce_dtype=artifact.schema.coerce_dtype,
+                ordered_set=artifact.schema.ordered_set,
+            )
             if (
                 feature_set._state.adding
                 and len(features) > settings.annotation.n_max_records
@@ -1664,7 +1671,17 @@ def annotate_artifact(
             itype = parse_cat_dtype(artifact.schema.slots[slot].itype, is_itype=True)[
                 "field"
             ]
-            feature_set = Schema(features=features, itype=itype)
+            validating_schema = slot_curator._schema
+            index_feature = validating_schema.index
+            feature_set = Schema(
+                features=[f for f in features if f != index_feature],
+                itype=itype,
+                index=index_feature,
+                minimal_set=validating_schema.minimal_set,
+                maximal_set=validating_schema.maximal_set,
+                coerce_dtype=validating_schema.coerce_dtype,
+                ordered_set=validating_schema.ordered_set,
+            )
             if (
                 feature_set._state.adding
                 and len(features) > settings.annotation.n_max_records

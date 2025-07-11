@@ -537,3 +537,37 @@ def test_wrong_datatype(df):
 
     schema.delete()
     feature.delete()
+
+
+def test_hash_index_feature(df):
+    df_index = df.set_index("sample_id")
+    schema_index = ln.Schema(
+        name="sample schema with index",
+        features=[
+            ln.Feature(name="sample_name", dtype="str").save(),
+            ln.Feature(name="sample_type", dtype="str").save(),
+        ],
+        index=ln.Feature(name="sample_id", dtype="str").save(),
+    ).save()
+
+    schema = ln.Schema(
+        name="sample schema",
+        features=[
+            ln.Feature(name="sample_id", dtype="str").save(),
+            ln.Feature(name="sample_name", dtype="str").save(),
+            ln.Feature(name="sample_type", dtype="str").save(),
+        ],
+    ).save()
+
+    assert schema_index.hash != schema.hash
+
+    artifact = ln.Artifact.from_df(
+        df_index, key="curated_df.parquet", schema=schema_index
+    ).save()
+    assert artifact.feature_sets.all().one() == schema_index
+
+    # clean up
+    artifact.delete(permanent=True)
+    schema_index.delete()
+    schema.delete()
+    ln.Feature.filter().delete()
