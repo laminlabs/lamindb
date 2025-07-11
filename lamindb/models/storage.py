@@ -41,18 +41,18 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
 
     A storage location is either a directory (local or a folder in the cloud) or
     an entire S3/GCP bucket.
-    A LaminDB instance can manage and reference multiple storage locations. But any
+    A LaminDB instance can manage and read from multiple storage locations. But any
     storage location is managed by *at most one* LaminDB instance.
 
-    .. dropdown:: Managed vs. referenced storage locations
+    .. dropdown:: Managed vs. read-only storage locations
 
         A LaminDB instance can only write artifacts to its managed storage
-        locations and merely reads artifacts from its referenced storage locations.
+        locations.
 
         The :attr:`~lamindb.Storage.instance_uid` field defines the managing LaminDB instance of a
-        storage location. Some storage locations may not be managed by any LaminDB
-        instance, in which case the `instance_uid` is `None`.
-        You can access the instance_uid of your current instance through `ln.setup.settings.instance_uid`.
+        storage location. Some storage locations are not be managed by any LaminDB
+        instance and their `instance_uid` is `None`. You can access the `instance_uid` of your current instance
+        through `ln.setup.settings.instance_uid`.
 
         Here is an example (`source <https://lamin.ai/laminlabs/lamindata/transform/dPco79GYgzag0000>`__).
 
@@ -61,7 +61,7 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
 
     .. dropdown:: Managing access to storage locations across instances
 
-        You can low-level manage access through AWS policies that you attach to your S3 bucket
+        You can manage access through AWS policies that you attach to your S3 bucket
         or leverage LaminHub's fine-grained access management.
 
         Head over to `https://lamin.ai/{account}/infrastructure` and you'll see a UI as in the screenshot below.
@@ -71,6 +71,8 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
 
         .. image:: https://lamin-site-assets.s3.amazonaws.com/.lamindb/ze8hkgVxVptSSZEU0000.png
            :width: 800px
+
+        If you don't want to store data in the cloud, you can use local storage locations: :doc:`keep-artifacts-local`.
 
     Args:
         root: `str` The root path of the storage location, e.g., `"./mydir"`, `"s3://my-bucket"`, `"s3://my-bucket/myfolder"`, `"gs://my-bucket/myfolder"`, `"/nfs/shared/datasets/genomics"`, `"/weka/shared/models/"`, ...
@@ -83,6 +85,8 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
             Current default storage location of your compute session for writing artifacts.
         :attr:`~lamindb.setup.core.StorageSettings`
             Storage settings.
+        :doc:`keep-artifacts-local`
+            Avoid storing artifacts in the cloud, but keep them on local servers.
 
     Examples:
 
