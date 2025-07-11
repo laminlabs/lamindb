@@ -535,7 +535,7 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
 
         A simple `"str"` feature.::
 
-            ln.Feature(name="sample_note", dtype="str").save()
+            ln.Feature(name="sample_note", dtype=str).save()
 
         A dtype `"cat[ULabel]"` can be more easily passed as below.::
 
