@@ -112,6 +112,11 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
 
             ln.settings.storage = "/dir/our-shared-dir"  # or "s3://our-bucket/our-folder", "gs://our-bucket/our-folder", ...
 
+        If you're operating in `keep-artifacts-local` mode (:doc:`faq/keep-artifacts-local`), you can switch among additional local storage locations::
+
+            ln.Storage(root="/dir/our-other-shared-dir", host="our-server-123").save()  # create
+            ln.settings.local_storage = "/dir/our-other-shared-dir"  # switch
+
         View all storage locations used in your LaminDB instance::
 
             ln.Storage.df()
