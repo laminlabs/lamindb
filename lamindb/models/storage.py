@@ -72,7 +72,7 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
         .. image:: https://lamin-site-assets.s3.amazonaws.com/.lamindb/ze8hkgVxVptSSZEU0000.png
            :width: 800px
 
-        If you don't want to store data in the cloud, you can use local storage locations: :doc:`keep-artifacts-local`.
+        If you don't want to store data in the cloud, you can use local storage locations: :doc:`faq/keep-artifacts-local`.
 
     Args:
         root: `str` The root path of the storage location, e.g., `"./mydir"`, `"s3://my-bucket"`, `"s3://my-bucket/myfolder"`, `"gs://my-bucket/myfolder"`, `"/nfs/shared/datasets/genomics"`, `"/weka/shared/models/"`, ...
@@ -85,32 +85,36 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
             Current default storage location of your compute session for writing artifacts.
         :attr:`~lamindb.setup.core.StorageSettings`
             Storage settings.
-        :doc:`keep-artifacts-local`
+        :doc:`faq/keep-artifacts-local`
             Avoid storing artifacts in the cloud, but keep them on local servers.
 
     Examples:
 
         When you create a LaminDB instance, you configure its default storage location via `--storage`::
 
-            lamin init --storage ./myfolder  # or "s3://my-bucket/myfolder" or "gs://my-bucket/myfolder"
+            lamin init --storage ./mydatadir  # or "s3://my-bucket/myfolder", "gs://my-bucket/myfolder", ...
 
-        View the current default storage location in your compute session for writing artifacts::
+        View the current default storage location for writing artifacts::
 
             import lamindb as ln
 
             ln.settings.storage
 
-        Switch to another default storage location for writing artifacts::
+        Create a new cloud storage location::
 
-            ln.settings.storage = "./myfolder2"  # or "s3://my-bucket/my-folder2" or "gs://my-bucket/my-folder2"
+            ln.Storage(root="s3://our-bucket/our-folder").save()
+
+        Create a new local storage location::
+
+            ln.Storage(root="/dir/our-shared-dir", host="our-server-123").save()
+
+        Switch to another storage location::
+
+            ln.settings.storage = "/dir/our-shared-dir"  # or "s3://our-bucket/our-folder", "gs://our-bucket/our-folder", ...
 
         View all storage locations used in your LaminDB instance::
 
             ln.Storage.df()
-
-        Create a new storage location::
-
-            ln.Storage(root="./myfolder3").save()
 
     Notes:
 
@@ -154,7 +158,7 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
     type: StorageType = CharField(max_length=30, db_index=True)
     """Can be "local" vs. "s3" vs. "gs". Is auto-detected from the format of the `root` path."""
     region: str | None = CharField(max_length=64, db_index=True, null=True)
-    """Cloud storage region, if applicable."""
+    """Storage region for cloud storage locations. Host identifier for local storage locations."""
     instance_uid: str | None = CharField(max_length=12, db_index=True, null=True)
     """Instance that manages this storage location."""
     artifacts: Artifact
