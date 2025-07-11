@@ -6,9 +6,9 @@ from typing import TYPE_CHECKING
 
 import lamindb_setup as ln_setup
 from lamin_utils import colors, logger
+from lamindb_setup import settings as setup_settings
 from lamindb_setup._set_managed_storage import set_managed_storage
 from lamindb_setup.core import deprecated
-from lamindb_setup.core._settings import settings as setup_settings
 from lamindb_setup.core._settings_instance import sanitize_git_repo_url
 
 from .subsettings._annotation_settings import AnnotationSettings, annotation_settings
@@ -20,6 +20,18 @@ if TYPE_CHECKING:
 
     from lamindb_setup.core._settings_storage import StorageSettings
     from upath import UPath
+
+
+def is_read_only_connection() -> bool:
+    if setup_settings.user.handle == "anonymous":
+        return True
+    else:
+        instance = setup_settings.instance
+        if instance.dialect == "postgresql":
+            db_url = instance.db
+            return "read" in db_url or "public" in db_url
+    return False
+
 
 VERBOSITY_TO_INT = {
     "error": 0,  # 40

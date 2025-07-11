@@ -17,20 +17,18 @@ from lamin_utils import logger
 from lamindb_setup.core import deprecated
 from lamindb_setup.core.hashing import hash_file
 
-from lamindb.base import ids
-from lamindb.base.ids import base62_12
-from lamindb.models import Run, Transform, format_field_value
-
-from ..core._settings import settings
+from ..base.ids import base62_12
 from ..errors import (
     InvalidArgument,
     TrackNotCalled,
     UpdateContext,
 )
+from ..models import Run, Transform, format_field_value
 from ..models._is_versioned import bump_version as bump_version_function
 from ..models._is_versioned import (
     increment_base62,
 )
+from ._settings import is_read_only_connection, settings
 from ._sync_git import get_transform_reference_from_git_repo
 from ._track_environment import track_python_environment
 
@@ -365,10 +363,8 @@ class Context:
             save_context_core,
         )
 
-        instance_settings = ln_setup.settings.instance
         # similar logic here: https://github.com/laminlabs/lamindb/pull/2527
-        # TODO: refactor upon new access management
-        if instance_settings.dialect == "postgresql" and "read" in instance_settings.db:
+        if is_read_only_connection():
             logger.warning("skipping track(), connected in read-only mode")
             return None
         if project is None:
@@ -856,7 +852,7 @@ class Context:
                 and not transform_was_saved
             ):
                 raise UpdateContext(
-                    f'{transform.created_by.name} ({transform.created_by.handle}) already works on this draft {transform.type}.\n\nPlease create a revision via `ln.track("{uid[:-4]}{increment_base62(uid[-4:])}")` or a new transform with a *different* key and `ln.track("{ids.base62_12()}0000")`.'
+                    f'{transform.created_by.name} ({transform.created_by.handle}) already works on this draft {transform.type}.\n\nPlease create a revision via `ln.track("{uid[:-4]}{increment_base62(uid[-4:])}")` or a new transform with a *different* key and `ln.track("{base62_12()}0000")`.'
                 )
             # check whether transform source code was already saved
             if transform_was_saved:
