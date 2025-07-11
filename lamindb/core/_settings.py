@@ -181,6 +181,8 @@ class Settings:
     def storage(self, path_kwargs: str | Path | UPath | tuple[str | UPath, Mapping]):
         if isinstance(path_kwargs, tuple):
             path, kwargs = path_kwargs
+            if isinstance(kwargs, str):
+                kwargs = {"host": kwargs}
         else:
             path, kwargs = path_kwargs, {}
         set_managed_storage(path, **kwargs)
