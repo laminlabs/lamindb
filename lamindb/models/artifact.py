@@ -1388,7 +1388,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             default_storage = kwargs.pop("default_storage")
         else:
             if setup_settings.instance.keep_artifacts_local:
-                default_storage = setup_settings.instance.storage_local.record
+                default_storage = setup_settings.instance.local_storage.record
             else:
                 default_storage = setup_settings.instance.storage.record
         using_key = kwargs.pop("using_key", None)
@@ -2706,7 +2706,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         if upload and setup_settings.instance.keep_artifacts_local:
             # switch local storage location to cloud
             local_path = self.path
-            self.storage_id = setup_settings.instance.storage.id
+            self.storage_id = setup_settings.instance.storage._id
             self._local_filepath = local_path
             # switch to virtual storage key upon upload
             # the local filepath is already cached at that point
