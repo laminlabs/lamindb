@@ -1681,7 +1681,10 @@ def annotate_artifact(
             )
             if feature_set._state.adding:
                 print(f"annotating slot {slot} with {len(features)} features")
-                print(f"feature_set: {feature_set}, features: {features}")
+                print(
+                    f"feature_set: {feature_set}, features: {[f for f in features if f != index_feature]}"
+                )
+                print(f"index_feature: {index_feature}")
             if (
                 feature_set._state.adding
                 and len(features) > settings.annotation.n_max_records
