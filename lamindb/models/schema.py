@@ -893,9 +893,10 @@ class Schema(SQLRecord, CanCurate, TracksRun):
                 if hasattr(self, "_features")
                 else (self.members.list() if self.members.exists() else [])
             )
+            index_feature = self.index
             _, validated_kwargs, _, _, _ = self._validate_kwargs_calculate_hash(
-                features=features,  # type: ignore
-                index=None,  # need to pass None here as otherwise counting double
+                features=[f for f in features if f != index_feature],  # type: ignore
+                index=index_feature,
                 slots=self.slots,
                 name=self.name,
                 description=self.description,
