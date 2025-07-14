@@ -37,6 +37,7 @@ from lamindb.errors import FieldValidationError, UnknownStorageLocation
 from lamindb.models.query_set import QuerySet
 
 from ..base.users import current_user_id
+from ..core._settings import is_read_only_connection, settings
 from ..core.loaders import load_to_memory
 from ..core.storage import (
     LocalPathClasses,
@@ -279,8 +280,6 @@ def process_data(
 
     # in case we have an in-memory representation, we need to write it to disk
     if memory_rep is not None:
-        from lamindb import settings
-
         path = settings.cache_dir / f"{provisional_uid}{suffix}"
         if isinstance(format, dict):
             format.pop("suffix", None)
@@ -301,8 +300,6 @@ def get_stat_or_artifact(
 ) -> Union[tuple[int, str | None, str | None, int | None, Artifact | None], Artifact]:
     """Retrieves file statistics or an existing artifact based on the path, hash, and key."""
     n_files = None
-    from lamindb import settings
-
     if settings.creation.artifact_skip_size_hash:
         return None, None, None, n_files, None
     stat = path.stat()  # one network request
@@ -407,8 +404,6 @@ def get_artifact_kwargs_from_data(
     skip_check_exists: bool = False,
     overwrite_versions: bool | None = None,
 ):
-    from lamindb import settings
-
     run = get_run(run)
     memory_rep, path, suffix, storage, use_existing_storage_key = process_data(
         provisional_uid,
@@ -635,8 +630,6 @@ def _populate_subsequent_runs_(record: Union[Artifact, Collection], run: Run):
 
 # also see current_run() in core._data
 def get_run(run: Run | None) -> Run | None:
-    from lamindb import settings
-
     from .._tracked import get_current_tracked_run
     from ..core._context import context
 
@@ -645,11 +638,7 @@ def get_run(run: Run | None) -> Run | None:
         if run is None:
             run = context.run
         if run is None and not settings.creation.artifact_silence_missing_run_warning:
-            # here we check that this is not a read-only connection
-            # normally for our connection strings the read-only role name has "read" in it
-            # not absolutely safe but the worst case is that the warning is not shown
-            instance = setup_settings.instance
-            if instance.dialect != "postgresql" or "read" not in instance.db:
+            if not is_read_only_connection():
                 logger.warning(WARNING_RUN_TRANSFORM)
     # suppress run by passing False
     elif not run:
@@ -1568,15 +1557,11 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             artifact.path
             #> PosixPath('/home/runner/work/lamindb/lamindb/docs/guide/mydata/myfile.csv')
         """
-        from lamindb import settings
-
         filepath, _ = filepath_from_artifact(self, using_key=settings._using_key)
         return filepath
 
     @property
     def _cache_path(self) -> UPath:
-        from lamindb import settings
-
         filepath, cache_key = filepath_cache_key_from_artifact(
             self, using_key=settings._using_key
         )
@@ -2061,8 +2046,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             artifacts = ln.Artifact.from_dir(dir_path)
             ln.save(artifacts)
         """
-        from lamindb import settings
-
         folderpath: UPath = create_path(path)  # returns Path for local
         default_storage = settings.storage.record
         using_key = settings._using_key
@@ -2172,8 +2155,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
             However, it will update the suffix if it changes.
         """
-        from lamindb import settings
-
         default_storage = settings.storage.record
         kwargs, privates = get_artifact_kwargs_from_data(
             provisional_uid=self.uid,
@@ -2335,8 +2316,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 "Only a tiledbsoma store can be openened with `mode!='r'`."
             )
 
-        from lamindb import settings
-
         using_key = settings._using_key
         filepath, cache_key = filepath_cache_key_from_artifact(
             self, using_key=using_key
@@ -2441,8 +2420,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             >>> artifact.load()
             PosixPath('/home/runner/work/lamindb/lamindb/docs/guide/mydata/.lamindb/jb7BY5UJoQVGMUOKiLcn.jpg')
         """
-        from lamindb import settings
-
         if self._overwrite_versions and not self.is_latest:
             raise ValueError(INCONSISTENT_STATE_MSG)
 
@@ -2508,8 +2485,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             artifact.cache()
             #> PosixPath('/home/runner/work/Caches/lamindb/lamindb-ci/lndb-storage/pbmc68k.h5ad')
         """
-        from lamindb import settings
-
         if self._overwrite_versions and not self.is_latest:
             raise ValueError(INCONSISTENT_STATE_MSG)
 
@@ -2856,8 +2831,6 @@ def _track_run_input(
     if is_run_input is False:
         return
 
-    from lamindb import settings
-
     from .._tracked import get_current_tracked_run
     from ..core._context import context
     from .collection import Collection
@@ -2915,11 +2888,7 @@ def _track_run_input(
         # we don't have a run record
         if run is None:
             if settings.track_run_inputs:
-                # here we check that this is not a read-only connection
-                # normally for our connection strings the read-only role name has "read" in it
-                # not absolutely safe but the worst case is that the warning is not shown
-                instance = setup_settings.instance
-                if instance.dialect != "postgresql" or "read" not in instance.db:
+                if not is_read_only_connection():
                     logger.warning(WARNING_NO_INPUT)
         # assume we have a run record
         else:
