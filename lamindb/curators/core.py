@@ -1679,6 +1679,9 @@ def annotate_artifact(
                 coerce_dtype=validating_schema.coerce_dtype,
                 ordered_set=validating_schema.ordered_set,
             )
+            if feature_set._state.adding:
+                print(f"annotating slot {slot} with {len(features)} features")
+                print(f"feature_set: {feature_set}, features: {features}")
             if (
                 feature_set._state.adding
                 and len(features) > settings.annotation.n_max_records
