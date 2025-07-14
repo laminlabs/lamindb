@@ -1,11 +1,10 @@
 from typing import Collection, Literal, NamedTuple
 
 import pandas as pd
-from lamindb_setup.core.upath import UPath
-
 from lamindb.base.types import FieldAttr
 from lamindb.models import Feature, Schema, SQLRecord, ULabel
 from lamindb.models._from_values import _format_values
+from lamindb_setup.core.upath import UPath
 
 CELLxGENESchemaVersions = Literal["4.0.0", "5.0.0", "5.1.0", "5.2.0", "5.3.0"]
 FieldType = Literal["ontology_id", "name"]

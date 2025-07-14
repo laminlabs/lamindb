@@ -9,7 +9,8 @@
 
 """
 
-from . import cellxgene, schemas
+from . import schemas
+from .cellxgene import cellxgene
 
 
 def ingest_mini_immuno_datasets():
