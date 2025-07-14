@@ -9,8 +9,7 @@ import pandas as pd
 
 def small_dataset3_cellxgene(
     otype: Literal["DataFrame", "AnnData"] = "AnnData",
-    with_defaults: bool = False,
-    # TODO add with missing cxg columns as parameter
+    with_obs_defaults: bool = False,
 ) -> tuple[pd.DataFrame, dict[str, Any]] | ad.AnnData:
     # TODO: consider other ids for other organisms
     # "ENSMUSG00002076988"
@@ -39,7 +38,7 @@ def small_dataset3_cellxgene(
         return dataset_df
     else:
         adata = ad.AnnData(dataset_df.iloc[:, :3], obs=dataset_df.iloc[:, 3:])
-        if with_defaults:
+        if with_obs_defaults:
             adata.obs["assay"] = "single-cell RNA sequencing"
             adata.obs["development_stage"] = pd.NA
             adata.obs["self_reported_ethnicity"] = pd.NA

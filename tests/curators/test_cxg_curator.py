@@ -9,7 +9,7 @@ def test_cxg_curator():
     schema = ln.examples.cellxgene.get_cxg_schema(
         schema_version="5.2.0", field_types=["name", "ontology_id"]
     )
-    adata = ln.core.datasets.small_dataset3_cellxgene(with_defaults=True)
+    adata = ln.core.datasets.small_dataset3_cellxgene(with_obs_defaults=True)
 
     curator = ln.curators.AnnDataCurator(adata, schema)
     # Ensure that default values for Features are set
@@ -60,6 +60,36 @@ def test_cxg_curator():
     ]:
         for record in entity.filter().all():
             record.delete()
+
+
+def test_missing_obs_cols():
+    schema = ln.examples.cellxgene.get_cxg_schema(
+        schema_version="5.2.0", field_types=["name", "ontology_id"]
+    )
+    adata = ln.core.datasets.small_dataset3_cellxgene(with_obs_defaults=False)
+    adata = adata[:, ~adata.var.index.isin({"invalid_ensembl_id"})].copy()
+
+    curator = ln.curators.AnnDataCurator(adata, schema)
+
+    with pytest.raises(ln.errors.ValidationError) as e:
+        curator.validate()
+
+    expected_missing = [
+        "assay",
+        "cell_type",
+        "development_stage",
+        "disease",
+        "self_reported_ethnicity",
+        "assay_ontology_term_id",
+        "cell_type_ontology_term_id",
+        "development_stage_ontology_term_id",
+        "self_reported_ethnicity_ontology_term_id",
+        "tissue_ontology_term_id",
+        "organism_ontology_term_id",
+        "donor_id",
+    ]
+
+    assert all(col in str(e.value) for col in expected_missing)
 
 
 def test_invalid_field_type():
