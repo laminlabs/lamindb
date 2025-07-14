@@ -3,6 +3,26 @@ import lamindb as ln
 import pytest
 
 
+def clean_up_cxg_schema(schema: ln.Schema):
+    features = [f for sm in schema.slots.values() for f in sm.features.all()]
+    ln.models.SchemaFeature.filter(feature__in=features).delete()
+    schema.delete()
+    [f.delete() for f in features]
+
+    for ulabel in ln.ULabel.filter(is_type=False):
+        ulabel.delete()
+    for entity in [
+        bt.Disease,
+        bt.Ethnicity,
+        bt.DevelopmentalStage,
+        bt.Phenotype,
+        bt.CellType,
+        ln.ULabel,
+    ]:
+        for record in entity.filter().all():
+            record.delete()
+
+
 def test_cxg_curator():
     ln.examples.cellxgene.save_cxg_defaults()
 
@@ -43,23 +63,7 @@ def test_cxg_curator():
 
     # Clean up
     artifact.delete(permanent=True)
-    features = [f for sm in schema.slots.values() for f in sm.features.all()]
-    ln.models.SchemaFeature.filter(feature__in=features).delete()
-    schema.delete()
-    [f.delete() for f in features]
-
-    for ulabel in ln.ULabel.filter(is_type=False):
-        ulabel.delete()
-    for entity in [
-        bt.Disease,
-        bt.Ethnicity,
-        bt.DevelopmentalStage,
-        bt.Phenotype,
-        bt.CellType,
-        ln.ULabel,
-    ]:
-        for record in entity.filter().all():
-            record.delete()
+    clean_up_cxg_schema()
 
 
 def test_missing_obs_cols():
@@ -90,6 +94,8 @@ def test_missing_obs_cols():
     ]
 
     assert all(col in str(e.value) for col in expected_missing)
+
+    clean_up_cxg_schema()
 
 
 def test_invalid_field_type():
