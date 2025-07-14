@@ -49,24 +49,24 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
         A LaminDB instance can only write artifacts to its managed storage
         locations.
 
-        The :attr:`~lamindb.Storage.instance_uid` field defines the managing LaminDB instance of a
-        storage location. Some storage locations are not be managed by any LaminDB
-        instance and their `instance_uid` is `None`. You can access the `instance_uid` of your current instance
-        through `ln.setup.settings.instance_uid`.
+        The :attr:`~lamindb.Storage.instance_uid` field defines the managing LaminDB instance of a storage location.
+        You can access the `instance_uid` of your current instance through `ln.setup.settings.instance_uid`.
 
         Here is an example (`source <https://lamin.ai/laminlabs/lamindata/transform/dPco79GYgzag0000>`__).
 
         .. image:: https://lamin-site-assets.s3.amazonaws.com/.lamindb/eHDmIOAxLEoqZ2oK0000.png
            :width: 400px
 
+        Some public storage locations are not be managed by any LaminDB instance: their `instance_uid` is `None`.
+
     .. dropdown:: Managing access to storage locations across instances
 
         You can manage access through AWS policies that you attach to your S3 bucket
         or leverage LaminHub's fine-grained access management.
 
-        Head over to `https://lamin.ai/{account}/infrastructure` and you'll see a UI as in the screenshot below.
-        By clicking the green button that says "Connect S3 bucket", you enable LaminHub to issue federated S3 tokens
-        for a new S3 bucket so that your collaborators can access data in this bucket based on their permissions in LaminHub.
+        Head over to `https://lamin.ai/{account}/infrastructure`.
+        By clicking the green button that says "Connect S3 bucket", you enable Lamin to issue federated S3 tokens
+        for a bucket so that your collaborators can access data based on their permissions in LaminHub.
         :doc:`docs:access` has more details.
 
         .. image:: https://lamin-site-assets.s3.amazonaws.com/.lamindb/ze8hkgVxVptSSZEU0000.png
@@ -77,8 +77,7 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
     Args:
         root: `str` The root path of the storage location, e.g., `"./mydir"`, `"s3://my-bucket"`, `"s3://my-bucket/myfolder"`, `"gs://my-bucket/myfolder"`, `"/nfs/shared/datasets/genomics"`, `"/weka/shared/models/"`, ...
         description: `str | None = None` An optional description.
-        host: `str | None = None` For a shared local storage location, pass a globally unique host identifier, e.g. `"my-institute-cluster-1"`, `"my-server-abcd"`, ...
-            Discuss the naming convention with an admin.
+        host: `str | None = None` For local storage locations, pass a globally unique host identifier, e.g. `"my-institute-cluster-1"`, `"my-server-abcd"`, ...
 
     See Also:
         :attr:`lamindb.core.Settings.storage`
@@ -86,7 +85,7 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
         :attr:`~lamindb.setup.core.StorageSettings`
             Storage settings.
         :doc:`faq/keep-artifacts-local`
-            Avoid storing artifacts in the cloud, but keep them on local servers.
+            Avoid storing artifacts in the cloud, but keep them on local infrastructure.
 
     Examples:
 
