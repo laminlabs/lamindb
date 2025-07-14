@@ -197,7 +197,6 @@ def get_cxg_schema(
         ).save(),
         itype=Feature,
         dtype="DataFrame",
-        minimal_set=True,
         coerce_dtype=True,
     ).save()
 

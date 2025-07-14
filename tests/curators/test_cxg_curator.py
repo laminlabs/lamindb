@@ -43,36 +43,23 @@ def test_cxg_curator():
 
     # Clean up
     artifact.delete(permanent=True)
-    from lamindb.models.schema import SchemaFeature
-
     features = [f for sm in schema.slots.values() for f in sm.features.all()]
-    SchemaFeature.filter(feature__in=features).delete()
+    ln.models.SchemaFeature.filter(feature__in=features).delete()
     schema.delete()
     [f.delete() for f in features]
 
-    bt.Disease.get(name="normal").delete()
-    for model, name in zip(
-        [
-            bt.Ethnicity,
-            bt.Ethnicity,
-            bt.DevelopmentalStage,
-            bt.Phenotype,
-            bt.CellType,
-        ],
-        ["na", "unknown", "unknown", "unknown", "unknown"],
-    ):
-        model.get(
-            ontology_id=name, name=name, description="From CellxGene schema."
-        ).delete()
-    for name in ["tissue", "organoid", "cell culture"]:
-        ln.ULabel.get(name=name, description="From CellxGene schema.").delete()
-    ln.ULabel.get(name="TissueType", is_type=True).delete()
-    for name in ["cell", "nucleus", "na"]:
-        ln.ULabel.get(name=name, description="From CellxGene schema.").delete()
-    ln.ULabel.get(
-        name="SuspensionType",
-        is_type=True,
-    ).delete()
+    for ulabel in ln.ULabel.filter(is_type=False):
+        ulabel.delete()
+    for entity in [
+        bt.Disease,
+        bt.Ethnicity,
+        bt.DevelopmentalStage,
+        bt.Phenotype,
+        bt.CellType,
+        ln.ULabel,
+    ]:
+        for record in entity.filter().all():
+            record.delete()
 
 
 def test_invalid_field_type():
