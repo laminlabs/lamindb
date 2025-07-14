@@ -1685,6 +1685,9 @@ def annotate_artifact(
                     f"feature_set: {feature_set}, features: {[f for f in features if f != index_feature]}"
                 )
                 print(f"index_feature: {index_feature}")
+                print(f"validating_schema: {validating_schema}")
+                print(f"validating schema features: {validating_schema.features.all()}")
+                print(f"validating schema index: {validating_schema.index}")
             if (
                 feature_set._state.adding
                 and len(features) > settings.annotation.n_max_records
