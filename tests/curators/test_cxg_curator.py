@@ -63,7 +63,7 @@ def test_cxg_curator():
 
     # Clean up
     artifact.delete(permanent=True)
-    clean_up_cxg_schema()
+    clean_up_cxg_schema(schema)
 
 
 def test_missing_obs_cols():
@@ -95,7 +95,7 @@ def test_missing_obs_cols():
 
     assert all(col in str(e.value) for col in expected_missing)
 
-    clean_up_cxg_schema()
+    clean_up_cxg_schema(schema)
 
 
 def test_invalid_field_type():
