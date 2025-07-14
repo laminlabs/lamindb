@@ -713,6 +713,7 @@ class Schema(SQLRecord, CanCurate, TracksRun):
                 "n": "h",
                 "optional": "i",
                 "features_hash": "j",
+                "index": "k",
             }
             # we do not want pure informational annotations like otype, name, type, is_type, otype to be part of the hash
             hash_args = ["dtype", "itype", "minimal_set", "ordered_set", "maximal_set"]
@@ -728,6 +729,8 @@ class Schema(SQLRecord, CanCurate, TracksRun):
                 list_for_hashing.append(f"{HASH_CODE['coerce_dtype']}={coerce_dtype}")
             if n_features != n_features_default:
                 list_for_hashing.append(f"{HASH_CODE['n']}={n_features}")
+            if index is not None:
+                list_for_hashing.append(f"{HASH_CODE['index']}={index.uid}")
             if features:
                 if optional_features:
                     feature_list_for_hashing = [
@@ -892,9 +895,10 @@ class Schema(SQLRecord, CanCurate, TracksRun):
                 if hasattr(self, "_features")
                 else (self.members.list() if self.members.exists() else [])
             )
+            index_feature = self.index
             _, validated_kwargs, _, _, _ = self._validate_kwargs_calculate_hash(
-                features=features,  # type: ignore
-                index=None,  # need to pass None here as otherwise counting double
+                features=[f for f in features if f != index_feature],  # type: ignore
+                index=index_feature,
                 slots=self.slots,
                 name=self.name,
                 description=self.description,
