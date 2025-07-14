@@ -1,5 +1,0 @@
-SdtTBvtRLBdR
-creation info:
-instance_slug=laminlabs/lamin-dev
-instance_id=10075f070b0b48b0900618724fb3be62
-instance_uid=7clAMMtTbqlK
