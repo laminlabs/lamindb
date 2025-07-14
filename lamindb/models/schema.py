@@ -1049,8 +1049,14 @@ class Schema(SQLRecord, CanCurate, TracksRun):
         """
         if self._index_feature_uid is None:
             return None
-        else:
-            return self.features.get(uid=self._index_feature_uid)
+
+        if hasattr(self, "_features"):
+            _, features = self._features
+            for feature in features:
+                if feature.uid == self._index_feature_uid:
+                    return feature
+
+        return self.features.get(uid=self._index_feature_uid)
 
     @index.setter
     def index(self, value: None | Feature) -> None:
