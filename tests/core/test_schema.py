@@ -556,3 +556,15 @@ def test_schema_not_saved_describe():
     with pytest.raises(ValueError) as e:
         schema.describe()
     assert "Schema must be saved before describing" in str(e.value)
+
+
+def test_schema_is_type():
+    Sample = ln.Schema(name="Sample", is_type=True).save()
+    assert Sample.hash is None
+    BioSample = ln.Schema(name="BioSample", is_type=True, type=Sample).save()
+    assert BioSample.hash is None
+    assert BioSample.type == Sample
+    assert BioSample.is_type
+    # clean up
+    BioSample.delete()
+    Sample.delete()
