@@ -1668,14 +1668,11 @@ def annotate_artifact(
             if features is None:
                 logger.warning(f"no features found for slot {slot}")
                 continue
-            itype = parse_cat_dtype(artifact.schema.slots[slot].itype, is_itype=True)[
-                "field"
-            ]
             validating_schema = slot_curator._schema
             index_feature = validating_schema.index
             feature_set = Schema(
                 features=[f for f in features if f != index_feature],
-                itype=itype,
+                itype=validating_schema.itype,
                 index=index_feature,
                 minimal_set=validating_schema.minimal_set,
                 maximal_set=validating_schema.maximal_set,
@@ -1689,6 +1686,9 @@ def annotate_artifact(
                 logger.important(
                     f"not annotating with {len(features)} features for slot {slot} as it exceeds {settings.annotation.n_max_records} (ln.settings.annotation.n_max_records)"
                 )
+                itype = parse_cat_dtype(
+                    artifact.schema.slots[slot].itype, is_itype=True
+                )["field"]
                 feature_set = Schema(itype=itype, n=len(features))
             artifact.feature_sets.add(
                 feature_set.save(), through_defaults={"slot": slot}
