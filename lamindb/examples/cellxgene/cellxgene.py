@@ -87,7 +87,7 @@ def _create_cxg_sources(
             ).one_or_none()
             if source is None:
                 source = getattr(bt, entity).add_source(
-                    getattr(bt, entity).public().source,
+                    source=row.source,
                     version=row.version,
                     organism=row.organism,
                 )
