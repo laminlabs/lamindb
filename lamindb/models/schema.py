@@ -561,17 +561,18 @@ class Schema(SQLRecord, CanCurate, TracksRun):
             coerce_dtype=coerce_dtype,
             n_features=n_features,
         )
-        schema = (
-            Schema.objects.using(using)
-            .filter(hash=validated_kwargs["hash"])
-            .one_or_none()
-        )
-        if schema is not None:
-            logger.important(f"returning existing schema with same hash: {schema}")
-            init_self_from_db(self, schema)
-            update_attributes(self, validated_kwargs)
-            self.optionals.set(optional_features)
-            return None
+        if not is_type:
+            schema = (
+                Schema.objects.using(using)
+                .filter(hash=validated_kwargs["hash"])
+                .one_or_none()
+            )
+            if schema is not None:
+                logger.important(f"returning existing schema with same hash: {schema}")
+                init_self_from_db(self, schema)
+                update_attributes(self, validated_kwargs)
+                self.optionals.set(optional_features)
+                return None
         self._slots: dict[str, Schema] = {}
         if features:
             self._features = (get_related_name(features_registry), features)  # type: ignore
@@ -748,9 +749,12 @@ class Schema(SQLRecord, CanCurate, TracksRun):
                     )
                 list_for_hashing.append(f"{HASH_CODE['features_hash']}={features_hash}")
 
-        self._list_for_hashing = sorted(list_for_hashing)
-        schema_hash = hash_string(":".join(self._list_for_hashing))
-        validated_kwargs["hash"] = schema_hash
+        if is_type:
+            validated_kwargs["hash"] = None
+        else:
+            self._list_for_hashing = sorted(list_for_hashing)
+            schema_hash = hash_string(":".join(self._list_for_hashing))
+            validated_kwargs["hash"] = schema_hash
 
         return (
             features,
@@ -972,7 +976,7 @@ class Schema(SQLRecord, CanCurate, TracksRun):
             # this should return a queryset and not a list...
             # need to fix this
             return self._features[1]
-        if self.itype == "Composite":
+        if self.itype == "Composite" or self.is_type:
             return Feature.objects.none()
         related_name = self._get_related_name()
         if related_name is None:
