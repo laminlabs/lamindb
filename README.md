@@ -38,7 +38,7 @@ lamin connect account/name
 
 <!-- copied from preface.md -->
 
-Create an artifact while tracking a script or notebook run with source code, inputs, outputs, logs, and environment.
+Track a script or notebook run with source code, inputs, outputs, logs, and environment.
 
 <!-- copied from py-quickstart.py -->
 
