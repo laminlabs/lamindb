@@ -17,10 +17,10 @@ Install the `lamindb` Python package:
 pip install 'lamindb[jupyter,bionty]'  # support notebooks & biological ontologies
 ```
 
-Create a local LaminDB instance:
+Create a LaminDB instance:
 
 ```shell
-lamin init --storage ./quickstart-data
+lamin init --storage ./quickstart-data  # or s3://my-bucket, gs://my-bucket
 ```
 
 Or if you have write access to an instance, connect to it:
@@ -44,27 +44,18 @@ ln.Artifact("sample.fastq", key="sample.fastq").save()  # create a versioned art
 ln.finish()  # finish the run, save source code & run report
 ```
 
-Run the code inside a script or notebook, e.g.,
+Running the code inside a script or notebook, e.g., via `python create-fastq.py`, produces the following data lineage:
 
-```shell
-python create-fastq.py
 ```
-
-You can now query the artifact by the filename of the script or notebook:
-
-```python
-import lamindb
-
-ln.Artifact.filter(transform__key="py-quickstart.py").df()
-#>                      uid           key                    hash  run_id
-#> id
-#> 2   4TUnaqJPIJRdsqg60000  sample.fastq  VPvs-qQxRsFFALP6wOgUbg       1
-```
-
-If you call `.describe()` you'll see the artifact comes richly annotated out-of-the-box:
-
-```python
 artifact = ln.Artifact.get(key="sample.fastq")
+artifact.view_lineage()
+```
+
+<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/EkQATsQL5wqC95Wj0000.png" width="250">
+
+This means you'll always know how that artifact was produced, along with other auto-generated metadata:
+
+```python
 artifact.describe()
 #> Artifact .fastq
 #> └── General
@@ -75,6 +66,15 @@ artifact.describe()
 #>    ├── key: sample.fastq
 #>    ├── storage location / path: /Users/falexwolf/repos/lamin-docs/quickstart-data/.lamindb/4TUnaqJPIJRdsqg60000.fastq
 #>    └── transform: py-quickstart.py
+```
+
+It also means you can query the artifact by the filename of the script or notebook:
+
+```python
+ln.Artifact.filter(transform__key="py-quickstart.py").df()
+#>                      uid           key                    hash  run_id
+#> id
+#> 2   4TUnaqJPIJRdsqg60000  sample.fastq  VPvs-qQxRsFFALP6wOgUbg       1
 ```
 
 ## Docs
