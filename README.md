@@ -11,7 +11,7 @@ It lets you track data transformations, curate datasets, manage metadata, and qu
 
 ## Docs
 
-Copy [summary.md](https://docs.lamin.ai/summary.md) into an LLM chat and let AI explain LaminDB or read the [docs](https://docs.lamin.ai).
+Copy [summary.md](https://docs.lamin.ai/summary.md) into an LLM chat and let AI explain or read the [docs](https://docs.lamin.ai).
 
 ## Setup
 
@@ -39,7 +39,7 @@ lamin connect account/name
 
 <!-- copied from preface.md -->
 
-Here's how to create an artifact while tracking source code, environment, logs, inputs, and outputs of a script or notebook.
+Create an artifact while tracking a script or notebook run including: source code, environment, logs, inputs, and outputs.
 
 <!-- copied from py-quickstart.py -->
 
@@ -54,7 +54,7 @@ ln.finish()  # finish the run, save source code & run report
 
 <!-- from here on, slight deviation from preface.md, where all this is treated in the walk through in more depth -->
 
-Running this code inside a script or notebook, e.g., via `python create-fasta.py`, produces the following data lineage.
+Running this code inside a script via `python create-fasta.py` produces the following data lineage.
 
 ```python
 artifact = ln.Artifact.get(key="sample.fasta")
@@ -80,6 +80,6 @@ ln.Artifact.filter(transform__key="create-fasta.py").df()
 #> 2   4TUnaqJPIJRdsqg60000  sample.fasta  VPvs-qQxRsFFALP6wOgUbg       1
 ```
 
-Beyond tracking data lineage, LaminDB enables managing datasets in the context of any metadata.
+Data lineage is just one type of metadata that LaminDB handles so that datasets can effectively be used in analysis and model training through queries, validation, and annotation.
 
-<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/6sofuDVvTANB0f480000.png" width="850">
+<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/6sofuDVvTANB0f480001.png" width="850">
