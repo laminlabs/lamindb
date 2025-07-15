@@ -76,7 +76,7 @@ Conversely, you can query artifacts by the script that created them.
 ln.Artifact.get(transform__key="create-fasta.py")  # query artifact by transform key
 ```
 
-Data lineage is just one type of metadata to help analysis and model training through queries, validation, and annotation. So [here](https://lamin.ai/laminlabs/lamindata/artifact/fgKBV8qdSnbIga0i) is a more comprehensive example.
+Data lineage is just one type of metadata to help analysis and model training through queries, validation, and annotation. Here is a more [comprehensive example](https://lamin.ai/laminlabs/lamindata/artifact/fgKBV8qdSnbIga0i).
 
 <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/6sofuDVvTANB0f480001.png" width="850">
 
