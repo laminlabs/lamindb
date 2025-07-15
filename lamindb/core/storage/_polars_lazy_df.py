@@ -4,7 +4,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from lamindb_setup.core._settings_storage import get_storage_region
+from lamindb_setup.core.upath import get_storage_region
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
