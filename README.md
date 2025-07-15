@@ -71,14 +71,12 @@ artifact.describe()
 
 <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/BOTCBgHDAvwglN3U0001.png" width="850">
 
-And you can query the artifact by how it was created.
+And you can easily query for it.
 
 ```python
 ln.Artifact.get(transform__key="create-fasta.py")
 ```
 
-Data lineage is just one type of metadata to help analysis and model training through queries, validation, and annotation.
+Data lineage is just one type of metadata to help analysis and model training through queries, validation, and annotation. So [here](https://lamin.ai/laminlabs/lamindata/artifact/fgKBV8qdSnbIga0i) is a more comprehensive example.
 
 <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/6sofuDVvTANB0f480001.png" width="850">
-
-[Here](https://lamin.ai/laminlabs/lamindata/artifact/fgKBV8qdSnbIga0i) is how this example was created.
