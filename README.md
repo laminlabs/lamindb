@@ -1,15 +1,16 @@
-[![Stars](https://img.shields.io/github/stars/laminlabs/lamindb?logo=GitHub&color=yellow)](https://github.com/laminlabs/lamindb)
+[![Stars](https://img.shields.io/github/stars/laminlabs/lamindb?logo=GitHub)](https://github.com/laminlabs/lamindb)
 [![codecov](https://codecov.io/gh/laminlabs/lamindb/branch/main/graph/badge.svg?token=VKMRJ7OWR3)](https://codecov.io/gh/laminlabs/lamindb)
+[![Docs](https://img.shields.io/badge/docs-humans-yellow)](https://docs.lamin.ai)
+[![DocsLLMs](https://img.shields.io/badge/docs-LLMs-yellow)](https://docs.lamin.ai/summary.md)
 [![pypi](https://img.shields.io/pypi/v/lamindb?color=blue&label=pypi%20package)](https://pypi.org/project/lamindb)
+[![PyPI Downloads](https://img.shields.io/pepy/dt/lamindb?logo=pypi)](https://pepy.tech/project/lamindb)
 
 # LaminDB - A data framework for biology
 
+<!-- first two sentences sync from preface.md -->
+
 LaminDB is an open-source data framework to enable learning at scale in computational biology.
-It lets you track data transformations, curate datasets, manage metadata, and query a built-in database for biological entities & data structures.
-
-## Docs
-
-Copy [summary.md](https://docs.lamin.ai/summary.md) into an LLM chat and let AI explain LaminDB or read the [docs](https://docs.lamin.ai).
+It lets you track data transformations, validate & annotate datasets, and query a built-in database for biological metadata & data structures.
 
 ## Setup
 
@@ -37,50 +38,48 @@ lamin connect account/name
 
 <!-- copied from preface.md -->
 
-Here's how to create an artifact while tracking source code, run environment, run logs, and inputs and outputs of a script or notebook.
+Track a script or notebook run with source code, inputs, outputs, logs, and environment.
 
 <!-- copied from py-quickstart.py -->
 
 ```python
 import lamindb as ln
 
-ln.track()  # track the run of a script or notebook
+ln.track()  # track a run
 open("sample.fasta", "w").write(">seq1\nACGT\n")
-ln.Artifact("sample.fasta", key="sample.fasta").save()  # create a versioned artifact
-ln.finish()  # finish the run, save source code & run report
+ln.Artifact("sample.fasta", key="sample.fasta").save()  # create an artifact
+ln.finish()  # finish the run
 ```
 
 <!-- from here on, slight deviation from preface.md, where all this is treated in the walk through in more depth -->
 
-Running the code inside a script or notebook, e.g., via `python create-fasta.py`, produces the following data lineage.
+Running this code inside a script via `python create-fasta.py` produces the following data lineage.
 
-```
-artifact = ln.Artifact.get(key="sample.fasta")
+```python
+artifact = ln.Artifact.get(key="sample.fasta")  # query artifact by key
 artifact.view_lineage()
 ```
 
-<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/EkQATsQL5wqC95Wj0001.png" width="250">
+<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/EkQATsQL5wqC95Wj0003.png" width="220">
 
-You'll always know how that artifact was created.
+You'll know how that artifact was created.
 
 ```python
 artifact.describe()
-#> Artifact .fasta
-#> └── General
-#>    ├── uid: 4TUnaqJPIJRdsqg60000          hash: VPvs-qQxRsFFALP6wOgUbg
-#>    ├── size: 16 B                         space: all
-#>    ├── branch: main                       created_at: 2025-07-15 16:06:25
-#>    ├── created_by: falexwolf (Alex Wolf)
-#>    ├── key: sample.fasta
-#>    ├── storage location / path: /Users/falexwolf/repos/lamin-docs/quickstart-data/.lamindb/4TUnaqJPIJRdsqg60000.fasta
-#>    └── transform: py-quickstart.py
 ```
 
-You can query the artifact by the filename of the script or notebook.
+<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/BOTCBgHDAvwglN3U0001.png" width="850">
+
+Conversely, you can query artifacts by the script that created them.
 
 ```python
-ln.Artifact.filter(transform__key="create-fasta.py").df()
-#>                      uid           key                    hash  run_id
-#> id
-#> 2   4TUnaqJPIJRdsqg60000  sample.fasta  VPvs-qQxRsFFALP6wOgUbg       1
+ln.Artifact.get(transform__key="create-fasta.py")  # query artifact by transform key
 ```
+
+Data lineage is just one type of metadata to help analysis and model training through queries, validation, and annotation. Here is a more [comprehensive example](https://lamin.ai/laminlabs/lamindata/artifact/fgKBV8qdSnbIga0i).
+
+<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/6sofuDVvTANB0f480001.png" width="850">
+
+## Docs
+
+Copy [summary.md](https://docs.lamin.ai/summary.md) into an LLM chat and let AI explain or read the [docs](https://docs.lamin.ai).
