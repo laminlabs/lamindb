@@ -3,38 +3,18 @@ import lamindb as ln
 import pytest
 
 
-def clean_up_cxg_schema(schema: ln.Schema):
-    features = [f for sm in schema.slots.values() for f in sm.features.all()]
-    ln.models.SchemaFeature.filter(feature__in=features).delete()
-    schema.delete()
-    [f.delete() for f in features]
-
-    for ulabel in ln.ULabel.filter(is_type=False):
-        ulabel.delete()
-    for entity in [
-        bt.Disease,
-        bt.Ethnicity,
-        bt.DevelopmentalStage,
-        bt.Phenotype,
-        bt.CellType,
-        ln.ULabel,
-    ]:
-        for record in entity.filter().all():
-            record.delete()
-
-
 def test_cxg_curator():
     ln.examples.cellxgene.save_cxg_defaults()
 
     schema = ln.examples.cellxgene.get_cxg_schema(
         schema_version="5.2.0", field_types=["name", "ontology_id"]
     )
-    adata = ln.core.datasets.small_dataset3_cellxgene(with_obs_defaults=True)
 
+    # test invalid var index and typo in obs column
+    adata = ln.core.datasets.small_dataset3_cellxgene(with_obs_defaults=True)
     curator = ln.curators.AnnDataCurator(adata, schema)
     # Ensure that default values for Features are set
     curator.slots["obs"].standardize()
-
     with pytest.raises(ln.errors.ValidationError) as e:
         curator.validate()
         assert (
@@ -42,42 +22,27 @@ def test_cxg_curator():
             in str(e)
         )
 
+    # subset adata to remove invalid var index
     adata = adata[
         :, ~adata.var.index.isin(curator.slots["var"].cat.non_validated["index"])
     ].copy()
-
     curator = ln.curators.AnnDataCurator(adata, schema)
-
     with pytest.raises(ln.errors.ValidationError) as e:
         curator.validate()
         assert (
             "ValidationError: 1 term not validated in feature 'tissue' in slot 'obs': 'lungg'"
             in str(e)
         )
-
+    # fix typo in obs column
     adata.obs["tissue"] = adata.obs["tissue"].cat.rename_categories({"lungg": "lung"})
-
-    curator.validate()
-
     artifact = curator.save_artifact(key="examples/dataset-curated-against-cxg.h5ad")
 
-    # Clean up
-    artifact.delete(permanent=True)
-    clean_up_cxg_schema(schema)
-
-
-def test_missing_obs_cols():
-    schema = ln.examples.cellxgene.get_cxg_schema(
-        schema_version="5.2.0", field_types=["name", "ontology_id"]
-    )
+    # test missing obs columns
     adata = ln.core.datasets.small_dataset3_cellxgene(with_obs_defaults=False)
     adata = adata[:, ~adata.var.index.isin({"invalid_ensembl_id"})].copy()
-
     curator = ln.curators.AnnDataCurator(adata, schema)
-
     with pytest.raises(ln.errors.ValidationError) as e:
         curator.validate()
-
     expected_missing = [
         "assay",
         "cell_type",
@@ -92,10 +57,24 @@ def test_missing_obs_cols():
         "organism_ontology_term_id",
         "donor_id",
     ]
-
     assert all(col in str(e.value) for col in expected_missing)
 
-    clean_up_cxg_schema(schema)
+    # Clean up
+    artifact.delete(permanent=True)
+    ln.models.SchemaComponent.filter().delete()
+    ln.Schema.filter().delete()
+    ln.Feature.filter().delete()
+
+    ln.ULabel.filter(type__isnull=False).update(type=None)
+    for entity in [
+        bt.Disease,
+        bt.Ethnicity,
+        bt.DevelopmentalStage,
+        bt.Phenotype,
+        bt.CellType,
+        ln.ULabel,
+    ]:
+        entity.filter().all().delete()
 
 
 def test_invalid_field_type():
