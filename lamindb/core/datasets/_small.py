@@ -40,10 +40,10 @@ def small_dataset3_cellxgene(
         adata = ad.AnnData(dataset_df.iloc[:, :3], obs=dataset_df.iloc[:, 3:])
         if with_obs_defaults:
             adata.obs["assay"] = "single-cell RNA sequencing"
-            adata.obs["development_stage"] = pd.NA
-            adata.obs["self_reported_ethnicity"] = pd.NA
-            adata.obs["disease"] = pd.NA
-            adata.obs["cell_type"] = pd.NA
+            adata.obs["development_stage"] = np.nan
+            adata.obs["self_reported_ethnicity"] = np.nan
+            adata.obs["disease"] = np.nan
+            adata.obs["cell_type"] = np.nan
         return adata
 
 
