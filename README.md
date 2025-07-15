@@ -61,7 +61,7 @@ artifact = ln.Artifact.get(key="sample.fasta")
 artifact.view_lineage()
 ```
 
-<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/EkQATsQL5wqC95Wj0003.png" width="250">
+<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/EkQATsQL5wqC95Wj0003.png" width="220">
 
 You'll know how that artifact was created.
 
@@ -74,12 +74,11 @@ artifact.describe()
 And you can query the artifact by how it was created.
 
 ```python
-ln.Artifact.filter(transform__key="create-fasta.py").df()
-#>                      uid           key                    hash  run_id
-#> id
-#> 2   4TUnaqJPIJRdsqg60000  sample.fasta  VPvs-qQxRsFFALP6wOgUbg       1
+ln.Artifact.get(transform__key="create-fasta.py")
 ```
 
-Data lineage is just one type of metadata that LaminDB handles so that datasets can effectively be used in analysis and model training through queries, validation, and annotation.
+Data lineage is just one type of metadata to help analysis and model training through queries, validation, and annotation.
 
 <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/6sofuDVvTANB0f480001.png" width="850">
+
+[Here](https://lamin.ai/laminlabs/lamindata/artifact/fgKBV8qdSnbIga0i) is how this example was created.
