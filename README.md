@@ -31,9 +31,9 @@ lamin connect account/name
 
 ## Quickstart
 
-<!-- py-quickstart.py -->
-
 Here's how to create an artifact while tracking source code, run environment, run logs, and inputs and outputs of a script or notebook.
+
+<!-- py-quickstart.py -->
 
 ```python
 import lamindb as ln
@@ -43,6 +43,8 @@ open("sample.fastq", "w").write("@r1\nACGT\n+\nIIII\n")
 ln.Artifact("sample.fastq", key="sample.fastq").save()  # create a versioned artifact
 ln.finish()  # finish the run, save source code & run report
 ```
+
+<!-- from here on, slight deviation from preface.md, where all this is treated in the walk through in more depth -->
 
 Running the code inside a script or notebook, e.g., via `python create-fastq.py`, produces the following data lineage.
 
@@ -71,7 +73,7 @@ artifact.describe()
 It also means you can query the artifact by the filename of the script or notebook.
 
 ```python
-ln.Artifact.filter(transform__key="py-quickstart.py").df()
+ln.Artifact.filter(transform__key="create-fastq.py").df()
 #>                      uid           key                    hash  run_id
 #> id
 #> 2   4TUnaqJPIJRdsqg60000  sample.fastq  VPvs-qQxRsFFALP6wOgUbg       1
@@ -79,4 +81,4 @@ ln.Artifact.filter(transform__key="py-quickstart.py").df()
 
 ## Docs
 
-Either copy [summary.md](https://docs.lamin.ai/summary.md) into an LLM chat and let AI explain LaminDB or read the [docs](https://docs.lamin.ai).
+Copy [summary.md](https://docs.lamin.ai/summary.md) into an LLM chat and let AI explain LaminDB or read the [docs](https://docs.lamin.ai).
