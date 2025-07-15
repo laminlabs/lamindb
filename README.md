@@ -1,6 +1,9 @@
-[![Stars](https://img.shields.io/github/stars/laminlabs/lamindb?logo=GitHub&color=yellow)](https://github.com/laminlabs/lamindb)
+[![Stars](https://img.shields.io/github/stars/laminlabs/lamindb?logo=GitHub)](https://github.com/laminlabs/lamindb)
 [![codecov](https://codecov.io/gh/laminlabs/lamindb/branch/main/graph/badge.svg?token=VKMRJ7OWR3)](https://codecov.io/gh/laminlabs/lamindb)
+[![Docs](https://img.shields.io/badge/docs-humans-yellow)](https://docs.lamin.ai)
+[![DocsLLMs](https://img.shields.io/badge/docs-LLMs-yellow)](https://docs.lamin.ai/summary.md)
 [![pypi](https://img.shields.io/pypi/v/lamindb?color=blue&label=pypi%20package)](https://pypi.org/project/lamindb)
+[![PyPI Downloads](https://img.shields.io/pepy/dt/lamindb?logo=pypi)](https://pepy.tech/project/lamindb)
 
 # LaminDB - A data framework for biology
 
@@ -8,10 +11,6 @@
 
 LaminDB is an open-source data framework to enable learning at scale in computational biology.
 It lets you track data transformations, validate and annotate datasets, and query a built-in database for biological metadata & data structures.
-
-## Docs
-
-Copy [summary.md](https://docs.lamin.ai/summary.md) into an LLM chat and let AI explain or read the [docs](https://docs.lamin.ai).
 
 ## Setup
 
@@ -80,3 +79,7 @@ ln.Artifact.get(transform__key="create-fasta.py")
 Data lineage is just one type of metadata to help analysis and model training through queries, validation, and annotation. So [here](https://lamin.ai/laminlabs/lamindata/artifact/fgKBV8qdSnbIga0i) is a more comprehensive example.
 
 <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/6sofuDVvTANB0f480001.png" width="850">
+
+## Docs
+
+Copy [summary.md](https://docs.lamin.ai/summary.md) into an LLM chat and let AI explain or read the [docs](https://docs.lamin.ai).
