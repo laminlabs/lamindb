@@ -61,7 +61,7 @@ artifact = ln.Artifact.get(key="sample.fasta")
 artifact.view_lineage()
 ```
 
-<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/EkQATsQL5wqC95Wj0001.png" width="250">
+<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/EkQATsQL5wqC95Wj0003.png" width="250">
 
 You'll know how that artifact was created.
 
@@ -69,7 +69,7 @@ You'll know how that artifact was created.
 artifact.describe()
 ```
 
-<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/BOTCBgHDAvwglN3U0000.png" width="850">
+<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/BOTCBgHDAvwglN3U0001.png" width="850">
 
 And you can query the artifact by how it was created.
 
@@ -82,4 +82,4 @@ ln.Artifact.filter(transform__key="create-fasta.py").df()
 
 Beyond tracking data lineage, LaminDB enables managing datasets in the context of any metadata.
 
-<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/6sofuDVvTANB0f480000.png" width="700">
+<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/6sofuDVvTANB0f480000.png" width="850">
