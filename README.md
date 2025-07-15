@@ -44,7 +44,7 @@ ln.Artifact("sample.fastq", key="sample.fastq").save()  # create a versioned art
 ln.finish()  # finish the run, save source code & run report
 ```
 
-Running the code inside a script or notebook, e.g., via `python create-fastq.py`, produces the following data lineage:
+Running the code inside a script or notebook, e.g., via `python create-fastq.py`, produces the following data lineage.
 
 ```
 artifact = ln.Artifact.get(key="sample.fastq")
@@ -53,7 +53,7 @@ artifact.view_lineage()
 
 <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/EkQATsQL5wqC95Wj0000.png" width="250">
 
-This means you'll always know how that artifact was produced, along with other auto-generated metadata:
+This means you'll always know how that artifact was created.
 
 ```python
 artifact.describe()
@@ -68,7 +68,7 @@ artifact.describe()
 #>    └── transform: py-quickstart.py
 ```
 
-It also means you can query the artifact by the filename of the script or notebook:
+It also means you can query the artifact by the filename of the script or notebook.
 
 ```python
 ln.Artifact.filter(transform__key="py-quickstart.py").df()
