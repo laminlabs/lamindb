@@ -7,9 +7,13 @@
 LaminDB is an open-source data framework to enable learning at scale in computational biology.
 It lets you track data transformations, curate datasets, manage metadata, and query a built-in database for biological entities & data structures.
 
+## Docs
+
+Copy [summary.md](https://docs.lamin.ai/summary.md) into an LLM chat and let AI explain LaminDB or read the [docs](https://docs.lamin.ai).
+
 ## Setup
 
-<!-- quick-setup-lamindb.md -->
+<!-- copied from quick-setup-lamindb.md -->
 
 Install the `lamindb` Python package:
 
@@ -31,9 +35,11 @@ lamin connect account/name
 
 ## Quickstart
 
+<!-- copied from preface.md -->
+
 Here's how to create an artifact while tracking source code, run environment, run logs, and inputs and outputs of a script or notebook.
 
-<!-- py-quickstart.py -->
+<!-- copied from py-quickstart.py -->
 
 ```python
 import lamindb as ln
@@ -78,7 +84,3 @@ ln.Artifact.filter(transform__key="create-fastq.py").df()
 #> id
 #> 2   4TUnaqJPIJRdsqg60000  sample.fastq  VPvs-qQxRsFFALP6wOgUbg       1
 ```
-
-## Docs
-
-Copy [summary.md](https://docs.lamin.ai/summary.md) into an LLM chat and let AI explain LaminDB or read the [docs](https://docs.lamin.ai).
