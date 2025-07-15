@@ -1,36 +1,112 @@
+import bionty as bt
 import lamindb as ln
-import numpy as np
+import pytest
+
+
+def clean_up_cxg_schema(schema: ln.Schema):
+    features = [f for sm in schema.slots.values() for f in sm.features.all()]
+    ln.models.SchemaFeature.filter(feature__in=features).delete()
+    schema.delete()
+    [f.delete() for f in features]
+
+    for ulabel in ln.ULabel.filter(is_type=False):
+        ulabel.delete()
+    for entity in [
+        bt.Disease,
+        bt.Ethnicity,
+        bt.DevelopmentalStage,
+        bt.Phenotype,
+        bt.CellType,
+        ln.ULabel,
+    ]:
+        for record in entity.filter().all():
+            record.delete()
 
 
 def test_cxg_curator():
-    schema_version = "5.2.0"
-    adata = ln.core.datasets.small_dataset3_cellxgene()
-    curator = ln.curators._legacy.CellxGeneAnnDataCatManager(
-        adata, schema_version=schema_version
-    )
+    ln.examples.cellxgene.save_cxg_defaults()
 
-    adata.obs.rename(columns={"donor": "donor_id"}, inplace=True)
-    curator = ln.curators._legacy.CellxGeneAnnDataCatManager(
-        adata,
-        defaults=ln.curators._legacy.CellxGeneAnnDataCatManager.cxg_categoricals_defaults,
-        schema_version=schema_version,
+    schema = ln.examples.cellxgene.get_cxg_schema(
+        schema_version="5.2.0", field_types=["name", "ontology_id"]
     )
-    assert not curator.validate()
+    adata = ln.core.datasets.small_dataset3_cellxgene(with_obs_defaults=True)
 
-    adata = adata[:, ~adata.var.index.isin(curator.non_validated["var_index"])]
+    curator = ln.curators.AnnDataCurator(adata, schema)
+    # Ensure that default values for Features are set
+    curator.slots["obs"].standardize()
+
+    with pytest.raises(ln.errors.ValidationError) as e:
+        curator.validate()
+        assert (
+            "ValidationError: 1 term not validated in feature 'index' in slot 'var': 'invalid_ensembl_id'"
+            in str(e)
+        )
+
+    adata = adata[
+        :, ~adata.var.index.isin(curator.slots["var"].cat.non_validated["index"])
+    ].copy()
+
+    curator = ln.curators.AnnDataCurator(adata, schema)
+
+    with pytest.raises(ln.errors.ValidationError) as e:
+        curator.validate()
+        assert (
+            "ValidationError: 1 term not validated in feature 'tissue' in slot 'obs': 'lungg'"
+            in str(e)
+        )
+
     adata.obs["tissue"] = adata.obs["tissue"].cat.rename_categories({"lungg": "lung"})
-    curator = ln.curators._legacy.CellxGeneAnnDataCatManager(
-        adata, schema_version=schema_version
-    )
-    assert curator.validate()
 
-    artifact = curator.save_artifact(
-        key=f"examples/dataset-curated-against-cxg-{curator.schema_version}.h5ad"
-    )
-    title = "Cross-tissue immune cell analysis reveals tissue-specific features in humans (for test demo only)"
+    curator.validate()
 
-    adata.obsm["X_umap"] = np.zeros((adata.shape[0], 2))
-    adata_cxg = curator.to_cellxgene_anndata(is_primary_data=True, title=title)
-    assert "cell_type_ontology_term_id" in adata_cxg.obs.columns
+    artifact = curator.save_artifact(key="examples/dataset-curated-against-cxg.h5ad")
 
+    # Clean up
     artifact.delete(permanent=True)
+    clean_up_cxg_schema(schema)
+
+
+def test_missing_obs_cols():
+    schema = ln.examples.cellxgene.get_cxg_schema(
+        schema_version="5.2.0", field_types=["name", "ontology_id"]
+    )
+    adata = ln.core.datasets.small_dataset3_cellxgene(with_obs_defaults=False)
+    adata = adata[:, ~adata.var.index.isin({"invalid_ensembl_id"})].copy()
+
+    curator = ln.curators.AnnDataCurator(adata, schema)
+
+    with pytest.raises(ln.errors.ValidationError) as e:
+        curator.validate()
+
+    expected_missing = [
+        "assay",
+        "cell_type",
+        "development_stage",
+        "disease",
+        "self_reported_ethnicity",
+        "assay_ontology_term_id",
+        "cell_type_ontology_term_id",
+        "development_stage_ontology_term_id",
+        "self_reported_ethnicity_ontology_term_id",
+        "tissue_ontology_term_id",
+        "organism_ontology_term_id",
+        "donor_id",
+    ]
+
+    assert all(col in str(e.value) for col in expected_missing)
+
+    clean_up_cxg_schema(schema)
+
+
+def test_invalid_field_type():
+    with pytest.raises(ValueError) as e:
+        ln.examples.cellxgene.get_cxg_schema(
+            schema_version="5.3.0", field_types=["ensembl_gene_ids"]
+        )
+    assert "Invalid field_types" in str(e.value)
+
+
+def test_invalid_schema_Version():
+    with pytest.raises(ValueError) as e:
+        ln.examples.cellxgene.get_cxg_schema(schema_version="200.0.0")
+    assert "Invalid schema_version" in str(e.value)

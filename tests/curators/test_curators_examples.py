@@ -438,12 +438,6 @@ def test_anndata_curator_different_components(small_dataset1_schema: ln.Schema):
         if add_comp == "uns":
             assert isinstance(curator.slots["uns"], ln.curators.DataFrameCurator)
 
-        # TODO: without it, tests fail on CI (but pass locally)
-        if add_comp == "obs" and anndata_schema.slots["obs"]._index_feature_uid is None:
-            anndata_schema.slots[
-                "obs"
-            ]._index_feature_uid = obs_schema._index_feature_uid
-
         artifact = ln.Artifact.from_anndata(
             adata, key="examples/dataset1.h5ad", schema=anndata_schema
         )
@@ -602,11 +596,6 @@ def test_anndata_curator_no_var(small_dataset1_schema: ln.Schema):
         otype="AnnData",
         slots={"obs": small_dataset1_schema},
     ).save()
-    # TODO: without it, tests fail on CI (but pass locally)
-    if anndata_schema_no_var.slots["obs"]._index_feature_uid is None:
-        anndata_schema_no_var.slots[
-            "obs"
-        ]._index_feature_uid = small_dataset1_schema._index_feature_uid
     assert small_dataset1_schema.id is not None, small_dataset1_schema
     adata = datasets.small_dataset1(otype="AnnData")
     curator = ln.curators.AnnDataCurator(adata, anndata_schema_no_var)

@@ -553,11 +553,15 @@ class DataFrameCurator(Curator):
                     "list[cat["
                 ):
                     # validate categoricals if the column is required or if the column is present
-                    if required or feature.name in self._dataset.keys():
+                    # but exclude the index feature from column categoricals
+                    if (required or feature.name in self._dataset.keys()) and (
+                        schema._index_feature_uid is None
+                        or feature.uid != schema._index_feature_uid
+                    ):
                         categoricals.append(feature)
-            if schema._index_feature_uid is not None:
-                # in almost no case, an index should have a pandas.CategoricalDtype in a DataFrame
-                # so, we're typing it as `str` here
+            # in almost no case, an index should have a pandas.CategoricalDtype in a DataFrame
+            # so, we're typing it as `str` here
+            if schema.index is not None:
                 index = pandera.Index(
                     schema.index.dtype
                     if not schema.index.dtype.startswith("cat")
@@ -565,6 +569,7 @@ class DataFrameCurator(Curator):
                 )
             else:
                 index = None
+
             self._pandera_schema = pandera.DataFrameSchema(
                 pandera_columns,
                 coerce=schema.coerce_dtype,
@@ -1614,6 +1619,7 @@ def annotate_artifact(
             cat_vector._field.field.model == Feature
             or key == "columns"
             or key == "var_index"
+            or cat_vector.records is None
         ):
             continue
         if len(cat_vector.records) > settings.annotation.n_max_records:
@@ -1634,9 +1640,16 @@ def annotate_artifact(
     if artifact.otype == "DataFrame":
         features = cat_vectors["columns"].records
         if features is not None:
+            index_feature = artifact.schema.index
             feature_set = Schema(
-                features=features, coerce_dtype=artifact.schema.coerce_dtype
-            )  # TODO: add more defaults from validating schema
+                features=[f for f in features if f != index_feature],
+                itype=artifact.schema.itype,
+                index=index_feature,
+                minimal_set=artifact.schema.minimal_set,
+                maximal_set=artifact.schema.maximal_set,
+                coerce_dtype=artifact.schema.coerce_dtype,
+                ordered_set=artifact.schema.ordered_set,
+            )
             if (
                 feature_set._state.adding
                 and len(features) > settings.annotation.n_max_records
@@ -1661,10 +1674,17 @@ def annotate_artifact(
             if features is None:
                 logger.warning(f"no features found for slot {slot}")
                 continue
-            itype = parse_cat_dtype(artifact.schema.slots[slot].itype, is_itype=True)[
-                "field"
-            ]
-            feature_set = Schema(features=features, itype=itype)
+            validating_schema = slot_curator._schema
+            index_feature = validating_schema.index
+            feature_set = Schema(
+                features=[f for f in features if f != index_feature],
+                itype=validating_schema.itype,
+                index=index_feature,
+                minimal_set=validating_schema.minimal_set,
+                maximal_set=validating_schema.maximal_set,
+                coerce_dtype=validating_schema.coerce_dtype,
+                ordered_set=validating_schema.ordered_set,
+            )
             if (
                 feature_set._state.adding
                 and len(features) > settings.annotation.n_max_records
@@ -1672,6 +1692,9 @@ def annotate_artifact(
                 logger.important(
                     f"not annotating with {len(features)} features for slot {slot} as it exceeds {settings.annotation.n_max_records} (ln.settings.annotation.n_max_records)"
                 )
+                itype = parse_cat_dtype(
+                    artifact.schema.slots[slot].itype, is_itype=True
+                )["field"]
                 feature_set = Schema(itype=itype, n=len(features))
             artifact.feature_sets.add(
                 feature_set.save(), through_defaults={"slot": slot}
