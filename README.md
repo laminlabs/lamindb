@@ -48,7 +48,7 @@ import lamindb as ln
 ln.track()  # track a run
 open("sample.fasta", "w").write(">seq1\nACGT\n")
 ln.Artifact("sample.fasta", key="sample.fasta").save()  # create an artifact
-ln.finish()  # finish the run, save source code & run report
+ln.finish()  # finish the run
 ```
 
 <!-- from here on, slight deviation from preface.md, where all this is treated in the walk through in more depth -->
@@ -56,7 +56,7 @@ ln.finish()  # finish the run, save source code & run report
 Running this code inside a script via `python create-fasta.py` produces the following data lineage.
 
 ```python
-artifact = ln.Artifact.get(key="sample.fasta")
+artifact = ln.Artifact.get(key="sample.fasta")  # query artifact by key
 artifact.view_lineage()
 ```
 
@@ -70,10 +70,10 @@ artifact.describe()
 
 <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/BOTCBgHDAvwglN3U0001.png" width="850">
 
-And you can easily query for it.
+Conversely, you can query artifacts by the script that created them.
 
 ```python
-ln.Artifact.get(transform__key="create-fasta.py")
+ln.Artifact.get(transform__key="create-fasta.py")  # query artifact by transform key
 ```
 
 Data lineage is just one type of metadata to help analysis and model training through queries, validation, and annotation. So [here](https://lamin.ai/laminlabs/lamindata/artifact/fgKBV8qdSnbIga0i) is a more comprehensive example.
