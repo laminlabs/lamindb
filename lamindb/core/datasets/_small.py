@@ -23,7 +23,7 @@ def small_dataset3_cellxgene(
         "sex": ["female", "male", "unknown"],
         "sex_ontology_term_id": ["PATO:0000383", "PATO:0000384", "unknown"],
         "tissue": ["lungg", "lungg", "heart"],
-        "donor": ["-1", "1", "2"],
+        "donor_id": ["-1", "1", "2"],
     }
     dataset_df = pd.DataFrame(
         dataset_dict,
