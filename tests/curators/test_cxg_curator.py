@@ -3,16 +3,35 @@ import lamindb as ln
 import pytest
 
 
-def test_cxg_curator():
+@pytest.fixture(scope="module")
+def cxg_schema():
     ln.examples.cellxgene.save_cxg_defaults()
-
     schema = ln.examples.cellxgene.get_cxg_schema(
         schema_version="5.2.0", field_types=["name", "ontology_id"]
     )
 
+    yield schema
+
+    ln.models.SchemaComponent.filter().delete()
+    ln.Schema.filter().delete()
+    ln.Feature.filter().delete()
+
+    ln.ULabel.filter(type__isnull=False).delete()
+    for entity in [
+        bt.Disease,
+        bt.Ethnicity,
+        bt.DevelopmentalStage,
+        bt.Phenotype,
+        bt.CellType,
+        ln.ULabel,
+    ]:
+        entity.filter().all().delete()
+
+
+def test_cxg_curator(cxg_schema):
     # test invalid var index and typo in obs column
     adata = ln.core.datasets.small_dataset3_cellxgene(with_obs_defaults=True)
-    curator = ln.curators.AnnDataCurator(adata, schema)
+    curator = ln.curators.AnnDataCurator(adata, cxg_schema)
     # Ensure that default values for Features are set
     curator.slots["obs"].standardize()
     with pytest.raises(ln.errors.ValidationError) as e:
@@ -26,7 +45,7 @@ def test_cxg_curator():
     adata = adata[
         :, ~adata.var.index.isin(curator.slots["var"].cat.non_validated["index"])
     ].copy()
-    curator = ln.curators.AnnDataCurator(adata, schema)
+    curator = ln.curators.AnnDataCurator(adata, cxg_schema)
     with pytest.raises(ln.errors.ValidationError) as e:
         curator.validate()
         assert (
@@ -40,7 +59,7 @@ def test_cxg_curator():
     # test missing obs columns
     adata = ln.core.datasets.small_dataset3_cellxgene(with_obs_defaults=False)
     adata = adata[:, ~adata.var.index.isin({"invalid_ensembl_id"})].copy()
-    curator = ln.curators.AnnDataCurator(adata, schema)
+    curator = ln.curators.AnnDataCurator(adata, cxg_schema)
     with pytest.raises(ln.errors.ValidationError) as e:
         curator.validate()
     expected_missing = [
@@ -61,20 +80,6 @@ def test_cxg_curator():
 
     # Clean up
     artifact.delete(permanent=True)
-    ln.models.SchemaComponent.filter().delete()
-    ln.Schema.filter().delete()
-    ln.Feature.filter().delete()
-
-    ln.ULabel.filter(type__isnull=False).update(type=None)
-    for entity in [
-        bt.Disease,
-        bt.Ethnicity,
-        bt.DevelopmentalStage,
-        bt.Phenotype,
-        bt.CellType,
-        ln.ULabel,
-    ]:
-        entity.filter().all().delete()
 
 
 def test_invalid_field_type():
