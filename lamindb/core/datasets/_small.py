@@ -61,7 +61,7 @@ def small_dataset3_cellxgene(
         adata.obsm["X_pca"] = np.array(
             [[-1.2, 0.8], [0.5, -0.3], [0.7, -0.5]], dtype="float32"
         )
-        # CELLxGENE requires the `.raw` to be set
+        # CELLxGENE requires the `.raw` slot to be set
         adata.raw = adata.copy()
         adata.raw.var.drop(columns="feature_is_filtered", inplace=True)
         if with_obs_defaults:
