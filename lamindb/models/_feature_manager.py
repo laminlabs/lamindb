@@ -905,7 +905,7 @@ class FeatureManager:
         # figure out which of the values go where
         features_labels = defaultdict(list)
         _feature_values = []
-        not_validated_values = []
+        not_validated_values: dict[str, list[str]] = defaultdict(list)
         for feature in records:
             value = dictionary[feature.name]
             inferred_type, converted_value, _ = infer_feature_type_convert_json(
@@ -959,43 +959,42 @@ class FeatureManager:
                         values = [value]  # type: ignore
                     else:
                         values = value  # type: ignore
-                    if "ULabel" not in feature.dtype:
+                    if feature.dtype == "cat":
                         feature.dtype += "[ULabel]"
                         feature.save()
-                    validated = ULabel.validate(values, field=ULabel.name, mute=True)
+                        result = {
+                            "registry_str": "ULabel",
+                            "registry": ULabel,
+                            "field": ULabel.name,
+                        }
+                    else:
+                        result = parse_dtype(feature.dtype)[0]
+                        print(result["field"])
+                    validated = result["registry"].validate(  # type: ignore
+                        values, field=result["field"], mute=True
+                    )
                     values_array = np.array(values)
                     validated_values = values_array[validated]
                     if validated.sum() != len(values):
-                        not_validated_values += values_array[~validated].tolist()
-                    label_records = ULabel.from_values(
-                        validated_values, field=ULabel.name, mute=True
-                    )  # type: ignore
-                    features_labels["ULabel"] += [
+                        not_validated_values[result["registry_str"]] += values_array[  # type: ignore
+                            ~validated
+                        ].tolist()
+                    label_records = result["registry"].from_values(  # type: ignore
+                        validated_values, field=result["field"], mute=True
+                    )
+                    features_labels[result["registry_str"]] += [  # type: ignore
                         (feature, label_record) for label_record in label_records
                     ]
         if not_validated_values:
-            not_validated_values.sort()
-            hint = f"  ulabels = ln.ULabel.from_values({not_validated_values}, create=True).save()\n"
+            hint = ""
+            for key, values_list in not_validated_values.items():
+                key_str = "ln.ULabel" if key == "ULabel" else key
+                hint += f"  records = {key_str}.from_values({values_list}, create=True).save()\n"
             msg = (
-                f"These values could not be validated: {not_validated_values}\n"
-                f"Here is how to create ulabels for them:\n\n{hint}"
+                f"These values could not be validated: {dict(not_validated_values)}\n"
+                f"Here is how to create records for them:\n\n{hint}"
             )
             raise ValidationError(msg)
-        # TODO: create an explicit version of this
-        # if not is_param:
-        #     # check if _expect_many is false for _all_ records
-        #     if any(record._expect_many for record in records):
-        #         updated_features = []
-        #         for record in records:
-        #             if record._expect_many:
-        #                 record._expect_many = False
-        #                 record.save()
-        #                 updated_features.append(record.name)
-        #         if any(updated_features):
-        #             logger.important(
-        #                 f"changed observational unit to Artifact for features: {', '.join(updated_features)}"
-        #             )
-        # bulk add all links
         if features_labels:
             self._add_label_feature_links(features_labels)
         if _feature_values:
