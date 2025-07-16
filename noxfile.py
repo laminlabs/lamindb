@@ -302,13 +302,14 @@ def clidocs(session):
         helps = _generate_help()
 
         # First, add the main lamin command
-        main_help = helps.get("lamin")
+        main_help = helps.get("main")
         if main_help:
             help_string = main_help["help"].replace("Usage: main", "Usage: lamin")
             help_docstring = main_help["docstring"]
             if help_docstring:
                 page += f"{help_docstring}\n\n"
-            page += f"```text\n{help_string}\n```\n\n"
+            # below is ugly
+            # page += f"```text\n{help_string}\n```\n\n"
 
         # Create a mapping of command names to their full keys in helps
         command_to_key = {}
