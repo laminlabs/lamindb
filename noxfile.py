@@ -298,7 +298,7 @@ def clidocs(session):
         os.environ["NO_RICH"] = "1"
         from lamin_cli.__main__ import COMMAND_GROUPS, _generate_help
 
-        page = "# `CLI`\n\n"
+        page = "# CLI\n\n"
         helps = _generate_help()
 
         # First, add the main lamin command
