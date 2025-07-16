@@ -58,6 +58,12 @@ def small_dataset3_cellxgene(
     else:
         adata = ad.AnnData(X=X, obs=obs_df, var=var_df)
         adata.uns["title"] = "CELLxGENE example"
+        adata.obsm["X_pca"] = np.array(
+            [[-1.2, 0.8], [0.5, -0.3], [0.7, -0.5]], dtype="float32"
+        )
+        # CELLxGENE requires the `.raw` to be set
+        adata.raw = adata.copy()
+        adata.raw.var.drop(columns="feature_is_filtered", inplace=True)
         if with_obs_defaults:
             adata.obs["assay"] = "single-cell RNA sequencing"
         return adata
