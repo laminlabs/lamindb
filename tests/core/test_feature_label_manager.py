@@ -139,7 +139,10 @@ Here is how to create a feature:
 
     # big dictionary of everything
     features = {
-        "experiment": "Experiment 2",
+        "experiment": [  # we're testing iterable annotation here
+            "Experiment 2",
+            "Experiment 1",
+        ],
         "project": "project_1",
         "is_validated": True,
         "cell_type_by_expert": "T Cell",
