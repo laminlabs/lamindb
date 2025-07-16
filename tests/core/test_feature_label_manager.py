@@ -75,9 +75,8 @@ def test_features_add_remove(adata):
     temperature = ln.Feature(name="temperature", dtype="cat").save()
     with pytest.raises(TypeError) as error:
         artifact.features.add_values({"temperature": 27.2})
-    assert (
-        error.exconly()
-        == "TypeError: Value for feature 'temperature' with type 'cat' must be a string or record."
+    assert error.exconly().startswith(
+        "TypeError: Value for feature 'temperature' with dtype 'cat' must be a string or record"
     )
     temperature.dtype = "num"
     temperature.save()

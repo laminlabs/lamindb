@@ -504,6 +504,10 @@ def is_valid_datetime_str(date_string: str) -> bool | str:
         return False
 
 
+def is_iterable_of_sqlrecord(value: Any):
+    return isinstance(value, Iterable) and isinstance(next(iter(value)), SQLRecord)
+
+
 def infer_feature_type_convert_json(
     key: str, value: Any, mute: bool = False, str_as_ulabel: bool = True
 ) -> tuple[str, Any, str]:
@@ -913,15 +917,18 @@ class FeatureManager:
             if feature.dtype == "num":
                 if inferred_type not in {"int", "float"}:
                     raise TypeError(
-                        f"Value for feature '{feature.name}' with type {feature.dtype} must be a number"
+                        f"Value for feature '{feature.name}' with dtype {feature.dtype} must be a number, but is {value} with dtype {inferred_type}"
                     )
             elif feature.dtype.startswith("cat"):
                 if inferred_type != "?":
                     if not (
-                        inferred_type.startswith("cat") or isinstance(value, SQLRecord)
+                        inferred_type.startswith("cat")
+                        or inferred_type == "list[cat ? str]"
+                        or isinstance(value, SQLRecord)
+                        or is_iterable_of_sqlrecord(value)
                     ):
                         raise TypeError(
-                            f"Value for feature '{feature.name}' with type '{feature.dtype}' must be a string or record."
+                            f"Value for feature '{feature.name}' with dtype '{feature.dtype}' must be a string or record, but is {value} with dtype {inferred_type}"
                         )
             elif (feature.dtype == "str" and feature.dtype not in inferred_type) or (
                 feature.dtype != "str" and feature.dtype != inferred_type
@@ -934,10 +941,7 @@ class FeatureManager:
                 feature_value, _ = value_model.get_or_create(**filter_kwargs)
                 _feature_values.append(feature_value)
             else:
-                if isinstance(value, SQLRecord) or (
-                    isinstance(value, Iterable)
-                    and isinstance(next(iter(value)), SQLRecord)
-                ):
+                if isinstance(value, SQLRecord) or is_iterable_of_sqlrecord(value):
                     if isinstance(value, SQLRecord):
                         label_records = [value]
                     else:
