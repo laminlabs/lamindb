@@ -134,6 +134,16 @@ def describe_general(self: Artifact | Collection, tree: Tree | None = None) -> T
     # add general information (order is the same as in API docs)
     general = tree.add(Text("General", style="bold bright_cyan"))
 
+    if hasattr(self, "key") and self.key:
+        general.add(Text.assemble(("key: ", "dim"), (f"{self.key}", "cyan3")))
+    if hasattr(self, "description") and self.description is not None:
+        general.add(
+            Text.assemble(
+                ("description: ", "dim"),
+                f"{self.description}",
+            )
+        )
+
     # Two column items (short content)
     two_column_items = []
 
@@ -144,23 +154,21 @@ def describe_general(self: Artifact | Collection, tree: Tree | None = None) -> T
         two_column_items.append(
             Text.assemble(("size: ", "dim"), f"{format_bytes(self.size)}")
         )
-    if hasattr(self, "n_files") and self.n_files:
-        two_column_items.append(Text.assemble(("n_files: ", "dim"), f"{self.n_files}"))
-    if hasattr(self, "n_observations") and self.n_observations:
-        two_column_items.append(
-            Text.assemble(("n_observations: ", "dim"), f"{self.n_observations}")
-        )
-    if hasattr(self, "version") and self.version:
-        two_column_items.append(Text.assemble(("version: ", "dim"), f"{self.version}"))
+    if hasattr(self, "transform"):
+        if self.transform is not None:
+            two_column_items.append(
+                Text.assemble(
+                    ("transform: ", "dim"),
+                    (f"{self.transform.key}", "cyan3"),
+                )
+            )
+        else:
+            two_column_items.append(Text.assemble(("transform: ", "dim"), "none"))
     if hasattr(self, "space"):
         two_column_items.append(Text.assemble(("space: ", "dim"), f"{self.space.name}"))
     if hasattr(self, "branch"):
         two_column_items.append(
             Text.assemble(("branch: ", "dim"), f"{self.branch.name}")
-        )
-    if hasattr(self, "created_at") and self.created_at:
-        two_column_items.append(
-            Text.assemble(("created_at: ", "dim"), highlight_time(str(self.created_at)))
         )
     if hasattr(self, "created_by") and self.created_by:
         two_column_items.append(
@@ -173,6 +181,18 @@ def describe_general(self: Artifact | Collection, tree: Tree | None = None) -> T
                 ),
             )
         )
+    if hasattr(self, "created_at") and self.created_at:
+        two_column_items.append(
+            Text.assemble(("created_at: ", "dim"), highlight_time(str(self.created_at)))
+        )
+    if hasattr(self, "n_files") and self.n_files:
+        two_column_items.append(Text.assemble(("n_files: ", "dim"), f"{self.n_files}"))
+    if hasattr(self, "n_observations") and self.n_observations:
+        two_column_items.append(
+            Text.assemble(("n_observations: ", "dim"), f"{self.n_observations}")
+        )
+    if hasattr(self, "version") and self.version:
+        two_column_items.append(Text.assemble(("version: ", "dim"), f"{self.version}"))
 
     # Add two-column items in pairs
     for i in range(0, len(two_column_items), 2):
@@ -194,30 +214,13 @@ def describe_general(self: Artifact | Collection, tree: Tree | None = None) -> T
             general.add(two_column_items[i])
 
     # Single column items (long content)
-    if hasattr(self, "key") and self.key:
-        general.add(Text.assemble(("key: ", "dim"), f"{self.key}"))
     if hasattr(self, "storage"):
         storage_root = self.storage.root
         general.add(
             Text.assemble(
-                ("storage location / path: ", "dim"),
+                ("storage path: ", "dim"),
                 (storage_root, "cyan3"),
                 f"{str(self.path).removeprefix(storage_root)}",
             )
         )
-    if hasattr(self, "description") and self.description is not None:
-        general.add(
-            Text.assemble(
-                ("description: ", "dim"),
-                f"{self.description}",
-            )
-        )
-    if hasattr(self, "transform") and self.transform is not None:
-        general.add(
-            Text.assemble(
-                ("transform: ", "dim"),
-                f"{self.transform.key}",
-            )
-        )
-
     return tree
