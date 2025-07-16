@@ -293,22 +293,7 @@ def test(session, group):
 
 
 @nox.session
-def docs(session):
-    # move artifacts into right place
-    for group in ["tutorial", "guide", "biology", "faq", "storage"]:
-        if Path(f"./docs-{group}").exists():
-            if Path(f"./docs/{group}").exists():
-                shutil.rmtree(f"./docs/{group}")
-            Path(f"./docs-{group}").rename(f"./docs/{group}")
-        # move back to root level
-        if group in {"tutorial", "guide", "biology"}:
-            for path in Path(f"./docs/{group}").glob("*"):
-                path.rename(f"./docs/{path.name}")
-    run(
-        session,
-        "lamin init --storage ./docsbuild --modules bionty,wetlab,clinicore",
-    )
-
+def clidocs(session):
     def generate_cli_docs():
         os.environ["NO_RICH"] = "1"
         from lamin_cli.__main__ import _generate_help
@@ -331,5 +316,23 @@ def docs(session):
         Path("./docs/cli.md").write_text(page)
 
     generate_cli_docs()
+
+
+@nox.session
+def docs(session):
+    # move artifacts into right place
+    for group in ["tutorial", "guide", "biology", "faq", "storage"]:
+        if Path(f"./docs-{group}").exists():
+            if Path(f"./docs/{group}").exists():
+                shutil.rmtree(f"./docs/{group}")
+            Path(f"./docs-{group}").rename(f"./docs/{group}")
+        # move back to root level
+        if group in {"tutorial", "guide", "biology"}:
+            for path in Path(f"./docs/{group}").glob("*"):
+                path.rename(f"./docs/{path.name}")
+    run(
+        session,
+        "lamin init --storage ./docsbuild --modules bionty,wetlab,clinicore",
+    )
     build_docs(session, strip_prefix=True, strict=False)
     upload_docs_artifact(aws=True)
