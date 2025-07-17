@@ -195,6 +195,7 @@ def get_cxg_schema(
             cat_filters={"source": sources["var_index"]},
         ).save(),
         itype=Feature,
+        features=[Feature(name="feature_is_filtered", dtype=bool).save()],
         dtype="DataFrame",
         coerce_dtype=True,
     ).save()
@@ -209,6 +210,8 @@ def get_cxg_schema(
         for field, source in sources.items()
         if field != "var_index"
     ]
+    for name in ["is_primary_data", "suspension_type", "tissue_type"]:
+        obs_features.append(Feature(name=name, dtype=ULabel.name).save())
 
     obs_schema = Schema(
         name=f"obs of CELLxGENE version {schema_version}",
