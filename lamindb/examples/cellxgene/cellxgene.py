@@ -13,8 +13,13 @@ FieldType = Literal["ontology_id", "name"]
 def save_cxg_defaults() -> None:
     """Add additional values from CellxGene schema to the instance.
 
-    CELLxGENE schemas use specific (control) values that are not available in the ontologies.
-    Therefore, we save them to the instance.
+    Adds CELLxGENE specific (control) values that are not available in the ontologies:
+
+    - "normal" Disease
+    - "na" Ethnicity
+    -"unknown" entries for DevelopmentalStage, Phenotype, and CellType
+    -"tissue", "organoid", and "cell culture" ULabels (tissue_type)
+    - "cell", "nucleus", "na" ULabels (suspension_type)
     """
     import bionty as bt
 
