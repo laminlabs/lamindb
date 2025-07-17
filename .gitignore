@@ -1,6 +1,7 @@
 __MACOSX/
 
 # LaminDB
+profile_output*
 docs/cli.md
 .coveragerc
 *.db
