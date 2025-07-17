@@ -35,12 +35,11 @@ def save_cxg_defaults() -> None:
     for model, name in zip(
         [
             bt.Ethnicity,
-            bt.Ethnicity,
             bt.DevelopmentalStage,
             bt.Phenotype,
             bt.CellType,
         ],
-        ["na", "unknown", "unknown", "unknown", "unknown"],
+        ["na", "unknown", "unknown", "unknown"],
     ):
         model(ontology_id=name, name=name, description="From CellxGene schema.").save()
 
