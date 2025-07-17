@@ -77,6 +77,10 @@ def get_related_model(model, field_name):
         return f"Error: {str(e)}"
 
 
+from line_profiler import profile
+
+
+@profile
 def get_artifact_with_related(
     artifact: SQLRecord,
     include_fk: bool = False,
@@ -215,10 +219,9 @@ def get_artifact_with_related(
             m2m_records = (
                 getattr(artifact, m2m_name).values_list("id", name_field).distinct()
             )
-            for rec_id, rec_name in m2m_records:
-                if m2m_name not in m2m_data:
-                    m2m_data[m2m_name] = {}
-                m2m_data[m2m_name][rec_id] = rec_name
+            # print(m2m_name, m2m_records)
+            if m2m_records.exists():
+                m2m_data[m2m_name] = dict(m2m_records)
 
     return {
         **{name: artifact_meta[name] for name in ["id", "uid"]},
