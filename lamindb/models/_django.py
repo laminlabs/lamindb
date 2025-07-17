@@ -76,10 +76,6 @@ def get_related_model(model, field_name):
         return f"Error: {str(e)}"
 
 
-from line_profiler import profile
-
-
-@profile
 def get_artifact_with_related(
     artifact: SQLRecord,
     include_fk: bool = False,

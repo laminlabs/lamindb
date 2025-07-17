@@ -708,10 +708,6 @@ def save_schema_links(self: Artifact) -> None:
 #     return ""
 
 
-from line_profiler import profile
-
-
-@profile
 def _describe_postgres(self):  # for Artifact & Collection
     from ._describe import describe_artifact_general, describe_header
     from ._feature_manager import describe_features

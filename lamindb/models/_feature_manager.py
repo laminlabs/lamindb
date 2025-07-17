@@ -287,10 +287,6 @@ def _create_feature_table(
     return table
 
 
-from line_profiler import profile
-
-
-@profile
 def describe_features(
     self: Artifact,
     related_data: dict | None = None,

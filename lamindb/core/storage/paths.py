@@ -65,11 +65,7 @@ def check_path_is_child_of_root(path: UPathStr, root: UPathStr) -> bool:
     return UPath(str(root_upath)) in UPath(str(path_upath)).parents
 
 
-from line_profiler import profile
-
-
 # returns filepath and root of the storage
-@profile
 def attempt_accessing_path(
     artifact: Artifact,
     storage_key: str,
