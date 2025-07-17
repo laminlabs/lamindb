@@ -55,7 +55,7 @@ def test_features_add_remove(adata):
     with pytest.raises(ValidationError) as error:
         artifact.features.add_values({"experiment": "Experiment 1"})
     assert error.exconly().startswith(
-        "lamindb.errors.ValidationError: These values could not be validated: ['Experiment 1']"
+        "lamindb.errors.ValidationError: These values could not be validated:"
     )
     experiment_label = ln.ULabel(name="Experiment 1").save()
     # add the label without the feature first
@@ -75,9 +75,8 @@ def test_features_add_remove(adata):
     temperature = ln.Feature(name="temperature", dtype="cat").save()
     with pytest.raises(TypeError) as error:
         artifact.features.add_values({"temperature": 27.2})
-    assert (
-        error.exconly()
-        == "TypeError: Value for feature 'temperature' with type 'cat' must be a string or record."
+    assert error.exconly().startswith(
+        "TypeError: Value for feature 'temperature' with dtype 'cat' must be a string or record"
     )
     temperature.dtype = "num"
     temperature.save()
@@ -140,10 +139,13 @@ Here is how to create a feature:
 
     # big dictionary of everything
     features = {
-        "experiment": "Experiment 2",
+        "experiment": [  # we're testing iterable annotation here
+            "Experiment 2",
+            "Experiment 1",
+        ],
         "project": "project_1",
         "is_validated": True,
-        "cell_type_by_expert": "T Cell",
+        "cell_type_by_expert": "T cell",
         "temperature": 100.0,
         "donor": "U0123",
     }
@@ -161,25 +163,26 @@ Here is how to create a feature:
   ln.Feature(name='donor', dtype='cat ? str').save()"""
     )
 
-    ln.Feature(name="project", dtype="cat[ULabel]").save()
-    ln.Feature(name="is_validated", dtype="bool").save()
-    ln.Feature(name="cell_type_by_expert", dtype="cat[ULabel]").save()
-    ln.Feature(name="donor", dtype="cat[ULabel]").save()
+    ln.Feature(name="project", dtype=ln.ULabel).save()
+    ln.Feature(name="is_validated", dtype=bool).save()
+    ln.Feature(name="cell_type_by_expert", dtype=bt.CellType).save()
+    ln.Feature(name="donor", dtype=ln.ULabel).save()
 
     with pytest.raises(ValidationError) as error:
         artifact.features.add_values(features)
     assert (
         error.exconly()
         == """\
-lamindb.errors.ValidationError: These values could not be validated: ['Experiment 2', 'T Cell', 'U0123', 'project_1']
-Here is how to create ulabels for them:
+lamindb.errors.ValidationError: These values could not be validated: {'ULabel': ['Experiment 2', 'project_1', 'U0123'], 'bionty.CellType': ['T cell']}
+Here is how to create records for them:
 
-  ulabels = ln.ULabel.from_values(['Experiment 2', 'T Cell', 'U0123', 'project_1'], create=True).save()"""
+  records = ln.ULabel.from_values(['Experiment 2', 'project_1', 'U0123'], create=True).save()
+  records = bionty.CellType.from_values(['T cell'], create=True).save()"""
     )
 
-    ln.ULabel.from_values(
-        ["Experiment 2", "project_1", "T Cell", "U0123"], create=True
-    ).save()
+    ln.ULabel.from_values(["Experiment 2", "project_1", "U0123"], create=True).save()
+    bt.CellType.from_source(name="T cell").save()
+    print("validate", bt.CellType.validate(["T cell"]))
 
     artifact.features.add_values(features)
     assert set(artifact._feature_values.all().values_list("value", flat=True)) == {
@@ -196,7 +199,7 @@ Here is how to create ulabels for them:
         "disease": {"Alzheimer disease", "atopic eczema"},
         "experiment": {"Experiment 1", "Experiment 2"},
         "project": "project_1",
-        "cell_type_by_expert": "T Cell",
+        "cell_type_by_expert": "T cell",
         "donor": "U0123",
         "organism": "mouse",
         "is_validated": True,
@@ -224,7 +227,7 @@ Here is how to create ulabels for them:
     ]
     types = [i.plain for i in tree.children[0].children[0].label.columns[1]._cells]
     assert types == [
-        "cat[ULabel]",
+        "cat[bionty.CellType]",
         "cat[bionty.Disease]",
         "cat[ULabel]",
         "cat[ULabel]",
@@ -236,7 +239,7 @@ Here is how to create ulabels for them:
         "num",
     ]
     assert tree.children[0].children[0].label.columns[2]._cells == [
-        "T Cell",
+        "T cell",
         "Alzheimer disease, atopic eczema",
         "U0123",
         "Experiment 1, Experiment 2",
