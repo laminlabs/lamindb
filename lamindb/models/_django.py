@@ -232,9 +232,6 @@ def get_artifact_with_related(
     related_data["m2m"] = convert_link_data_to_m2m(
         related_data["link"], model=model, m2m_model_map=m2m_model_to_field_map
     )
-
-    print(related_data["fk"])
-
     return {
         **{name: artifact_meta[name] for name in ["id", "uid"]},
         "related_data": related_data,
