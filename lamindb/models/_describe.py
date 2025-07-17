@@ -230,7 +230,7 @@ def describe_artifact_general(
         Text.assemble(
             ("storage path: ", "dim"),
             (storage_root, "cyan3"),
-            f"{storage_key}",
+            f"/{storage_key}",
         )
     )
     return tree
