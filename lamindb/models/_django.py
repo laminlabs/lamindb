@@ -97,9 +97,7 @@ def get_artifact_with_related(
     foreign_key_fields = [
         f.name
         for f in model._meta.fields
-        if f.is_relation
-        and f.related_model.__get_module_name__() in schema_modules
-        and f.name != "branch"  # TODO: re-enable at some point
+        if f.is_relation and f.related_model.__get_module_name__() in schema_modules
     ]
 
     # Create the map that the conversion function will need.
@@ -134,9 +132,16 @@ def get_artifact_with_related(
     if include_fk:
         for fk in foreign_key_fields:
             name_field = get_name_field(get_related_model(model, fk))
-            annotations[f"fkfield_{fk}"] = JSONObject(
-                id=F(f"{fk}__id"), name=F(f"{fk}__{name_field}")
-            )
+            if fk == "run":
+                annotations[f"fkfield_{fk}"] = JSONObject(
+                    id=F(f"{fk}__id"),
+                    name=F(f"{fk}__{name_field}"),
+                    transform_key=F(f"{fk}__transform__key"),
+                )
+            else:
+                annotations[f"fkfield_{fk}"] = JSONObject(
+                    id=F(f"{fk}__id"), name=F(f"{fk}__{name_field}")
+                )
 
     for link in link_tables:
         link_model = getattr(model, link).rel.related_model
@@ -227,6 +232,8 @@ def get_artifact_with_related(
     related_data["m2m"] = convert_link_data_to_m2m(
         related_data["link"], model=model, m2m_model_map=m2m_model_to_field_map
     )
+
+    print(related_data["fk"])
 
     return {
         **{name: artifact_meta[name] for name in ["id", "uid"]},

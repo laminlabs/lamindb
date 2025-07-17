@@ -713,7 +713,7 @@ from line_profiler import profile
 
 @profile
 def _describe_postgres(self):  # for Artifact & Collection
-    from ._describe import describe_general
+    from ._describe import describe_artifact_general, describe_header
     from ._feature_manager import describe_features
 
     model_name = self.__class__.__name__
@@ -733,10 +733,8 @@ def _describe_postgres(self):  # for Artifact & Collection
     else:
         result = get_artifact_with_related(self, include_fk=True, include_m2m=True)
     related_data = result.get("related_data", {})
-    # TODO: fk_data = related_data.get("fk", {})
-
-    tree = describe_general(self)
     if model_name == "Artifact":
+        tree = describe_artifact_general(self, foreign_key_data=related_data["fk"])
         return describe_features(
             self,
             tree=tree,
@@ -744,11 +742,12 @@ def _describe_postgres(self):  # for Artifact & Collection
             with_labels=True,
         )
     else:
+        tree = describe_header(self)
         return tree
 
 
 def _describe_sqlite(self, print_types: bool = False):  # for artifact & collection
-    from ._describe import describe_general
+    from ._describe import describe_artifact_general, describe_header
     from ._feature_manager import describe_features
     from .collection import Collection
 
@@ -784,14 +783,15 @@ def _describe_sqlite(self, print_types: bool = False):  # for artifact & collect
             .prefetch_related(*many_to_many_fields)
             .get(id=self.id)
         )
-    tree = describe_general(self)
     if model_name == "Artifact":
+        tree = describe_artifact_general(self)
         return describe_features(
             self,
             tree=tree,
             with_labels=True,
         )
     else:
+        tree = describe_header(self)
         return tree
 
 
