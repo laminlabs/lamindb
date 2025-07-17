@@ -14,6 +14,7 @@ import pandas as pd
 from anndata import AnnData
 from django.db import connections, models
 from django.db.models import CASCADE, PROTECT, Q
+from django.db.models.functions import Length
 from lamin_utils import colors, logger
 from lamindb_setup import settings as setup_settings
 from lamindb_setup.core._hub_core import select_storage_or_parent
@@ -358,7 +359,7 @@ def check_path_in_existing_storage(
     check_hub_register_storage: bool = False,
     using_key: str | None = None,
 ) -> Storage | None:
-    for storage in Storage.objects.using(using_key).filter().all():
+    for storage in Storage.objects.using(using_key).order_by(Length("root").desc()):
         # if path is part of storage, return it
         if check_path_is_child_of_root(path, root=storage.root):
             return storage
