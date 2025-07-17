@@ -127,6 +127,10 @@ def format_bytes(bytes_value):
         return f"{bytes_value / (1024**4):.1f} TB"
 
 
+from line_profiler import profile
+
+
+@profile
 def describe_general(self: Artifact | Collection, tree: Tree | None = None) -> Tree:
     if tree is None:
         tree = describe_header(self)
@@ -216,11 +220,14 @@ def describe_general(self: Artifact | Collection, tree: Tree | None = None) -> T
     # Single column items (long content)
     if hasattr(self, "storage"):
         storage_root = self.storage.root
+        storage_key = self.key if self.key else self.uid
+        if not self.key and self.overwrite_versions > 0:
+            storage_key = storage_key[:-4]
         general.add(
             Text.assemble(
                 ("storage path: ", "dim"),
                 (storage_root, "cyan3"),
-                f"{str(self.path).removeprefix(storage_root)}",
+                f"{storage_key}",
             )
         )
     return tree
