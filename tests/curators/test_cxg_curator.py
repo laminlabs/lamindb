@@ -30,7 +30,9 @@ def cxg_schema():
 
 def test_cxg_curator(cxg_schema):
     # test invalid var index and typo in obs column
-    adata = ln.core.datasets.small_dataset3_cellxgene(with_obs_defaults=True)
+    adata = ln.core.datasets.small_dataset3_cellxgene(
+        with_obs_defaults=True, with_obs_typo=True
+    )
     curator = ln.curators.AnnDataCurator(adata, cxg_schema)
     # Ensure that default values for Features are set
     curator.slots["obs"].standardize()

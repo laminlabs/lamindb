@@ -10,11 +10,13 @@ import pandas as pd
 def small_dataset3_cellxgene(
     otype: Literal["DataFrame", "AnnData"] = "AnnData",
     with_obs_defaults: bool = False,
+    with_obs_typo: bool = False,
 ) -> tuple[pd.DataFrame, dict[str, Any]] | ad.AnnData:
     # TODO: consider other ids for other organisms
     # "ENSMUSG00002076988"
     var_ids = ["invalid_ensembl_id", "ENSG00000000419", "ENSG00000139618"]
 
+    lung_id = "UBERON:0002048XXX" if with_obs_typo else "UBERON:0002048"
     obs_df = pd.DataFrame(
         {
             "disease_ontology_term_id": [
@@ -25,7 +27,7 @@ def small_dataset3_cellxgene(
             "development_stage_ontology_term_id": ["unknown", "unknown", "unknown"],
             "organism": ["human", "human", "human"],
             "sex_ontology_term_id": ["PATO:0000383", "PATO:0000384", "unknown"],
-            "tissue": ["lungg", "lungg", "heart"],
+            "tissue_ontology_term_id": [lung_id, lung_id, "UBERON:0000948"],
             "cell_type": ["T cell", "B cell", "B cell"],
             "self_reported_ethnicity": ["South Asian", "South Asian", "South Asian"],
             "donor_id": ["-1", "1", "2"],
@@ -50,7 +52,6 @@ def small_dataset3_cellxgene(
         dtype="float32",
     )
 
-    obs_df["tissue"] = obs_df["tissue"].astype("category")
     obs_df["donor_id"] = obs_df["donor_id"].astype("category")
 
     if otype == "DataFrame":
