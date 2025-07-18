@@ -18,8 +18,8 @@ def save_cxg_defaults() -> None:
 
     - "normal" Disease
     - "na" Ethnicity
-    -"unknown" entries for DevelopmentalStage, Phenotype, and CellType
-    -"tissue", "organoid", and "cell culture" ULabels (tissue_type)
+    - "unknown" entries for DevelopmentalStage, Phenotype, and CellType
+    - "tissue", "organoid", and "cell culture" ULabels (tissue_type)
     - "cell", "nucleus", "na" ULabels (suspension_type)
     """
     import bionty as bt
