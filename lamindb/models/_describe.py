@@ -127,16 +127,20 @@ def format_bytes(bytes_value):
         return f"{bytes_value / (1024**4):.1f} TB"
 
 
-def describe_general(self: Artifact | Collection, tree: Tree | None = None) -> Tree:
+def describe_artifact_general(
+    self: Artifact,
+    tree: Tree | None = None,
+    foreign_key_data: dict[str, dict[str, int | str]] | None = None,
+) -> Tree:
     if tree is None:
         tree = describe_header(self)
 
     # add general information (order is the same as in API docs)
     general = tree.add(Text("General", style="bold bright_cyan"))
 
-    if hasattr(self, "key") and self.key:
+    if self.key:
         general.add(Text.assemble(("key: ", "dim"), (f"{self.key}", "cyan3")))
-    if hasattr(self, "description") and self.description is not None:
+    if self.description:
         general.add(
             Text.assemble(
                 ("description: ", "dim"),
@@ -148,50 +152,53 @@ def describe_general(self: Artifact | Collection, tree: Tree | None = None) -> T
     two_column_items = []
 
     two_column_items.append(Text.assemble(("uid: ", "dim"), f"{self.uid}"))
-    if hasattr(self, "hash") and self.hash:
-        two_column_items.append(Text.assemble(("hash: ", "dim"), f"{self.hash}"))
-    if hasattr(self, "size") and self.size:
-        two_column_items.append(
-            Text.assemble(("size: ", "dim"), f"{format_bytes(self.size)}")
+    two_column_items.append(Text.assemble(("hash: ", "dim"), f"{self.hash}"))
+    two_column_items.append(
+        Text.assemble(("size: ", "dim"), f"{format_bytes(self.size)}")
+    )
+    transform_key = (
+        foreign_key_data["run"]["transform_key"]
+        if foreign_key_data
+        else self.transform.key
+        if self.transform
+        else None
+    )
+    two_column_items.append(
+        Text.assemble(
+            ("transform: ", "dim"),
+            (f"{transform_key}", "cyan3"),
         )
-    if hasattr(self, "transform"):
-        if self.transform is not None:
-            two_column_items.append(
-                Text.assemble(
-                    ("transform: ", "dim"),
-                    (f"{self.transform.key}", "cyan3"),
-                )
-            )
-        else:
-            two_column_items.append(Text.assemble(("transform: ", "dim"), "none"))
-    if hasattr(self, "space"):
-        two_column_items.append(Text.assemble(("space: ", "dim"), f"{self.space.name}"))
-    if hasattr(self, "branch"):
-        two_column_items.append(
-            Text.assemble(("branch: ", "dim"), f"{self.branch.name}")
+    )
+    space_name = (
+        foreign_key_data["space"]["name"] if foreign_key_data else self.space.name
+    )
+    two_column_items.append(Text.assemble(("space: ", "dim"), space_name))
+    branch_name = (
+        foreign_key_data["branch"]["name"] if foreign_key_data else self.space.name
+    )
+    two_column_items.append(Text.assemble(("branch: ", "dim"), branch_name))
+    # actually not name field here, but handle
+    created_by_handle = (
+        foreign_key_data["branch"]["name"]
+        if foreign_key_data
+        else self.created_by.handle
+    )
+    two_column_items.append(
+        Text.assemble(
+            ("created_by: ", "dim"),
+            (created_by_handle),
         )
-    if hasattr(self, "created_by") and self.created_by:
-        two_column_items.append(
-            Text.assemble(
-                ("created_by: ", "dim"),
-                (
-                    self.created_by.handle
-                    if self.created_by.name is None
-                    else f"{self.created_by.handle} ({self.created_by.name})"
-                ),
-            )
-        )
-    if hasattr(self, "created_at") and self.created_at:
-        two_column_items.append(
-            Text.assemble(("created_at: ", "dim"), highlight_time(str(self.created_at)))
-        )
-    if hasattr(self, "n_files") and self.n_files:
+    )
+    two_column_items.append(
+        Text.assemble(("created_at: ", "dim"), highlight_time(str(self.created_at)))
+    )
+    if self.n_files:
         two_column_items.append(Text.assemble(("n_files: ", "dim"), f"{self.n_files}"))
-    if hasattr(self, "n_observations") and self.n_observations:
+    if self.n_observations:
         two_column_items.append(
             Text.assemble(("n_observations: ", "dim"), f"{self.n_observations}")
         )
-    if hasattr(self, "version") and self.version:
+    if self.version:
         two_column_items.append(Text.assemble(("version: ", "dim"), f"{self.version}"))
 
     # Add two-column items in pairs
@@ -213,14 +220,17 @@ def describe_general(self: Artifact | Collection, tree: Tree | None = None) -> T
             # Single item (odd number)
             general.add(two_column_items[i])
 
-    # Single column items (long content)
-    if hasattr(self, "storage"):
-        storage_root = self.storage.root
-        general.add(
-            Text.assemble(
-                ("storage path: ", "dim"),
-                (storage_root, "cyan3"),
-                f"{str(self.path).removeprefix(storage_root)}",
-            )
+    storage_root = (
+        foreign_key_data["storage"]["name"] if foreign_key_data else self.storage.root
+    )
+    storage_key = self.key if self.key else self.uid
+    if not self.key and self.overwrite_versions > 0:
+        storage_key = storage_key[:-4]
+    general.add(
+        Text.assemble(
+            ("storage path: ", "dim"),
+            (storage_root, "cyan3"),
+            f"/{storage_key}",
         )
+    )
     return tree

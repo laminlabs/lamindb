@@ -199,14 +199,14 @@ def test_curate_df():
     assert len(labels_node.children[0].label.columns) == 3
     assert len(labels_node.children[0].label.rows) == 2
     assert labels_node.children[0].label.columns[0]._cells == [
-        ".cell_types",
         ".ulabels",
+        ".cell_types",
     ]
-    assert labels_node.children[0].label.columns[1]._cells[0].plain == "bionty.CellType"
-    assert labels_node.children[0].label.columns[1]._cells[1].plain == "ULabel"
+    assert labels_node.children[0].label.columns[1]._cells[0].plain == "ULabel"
+    assert labels_node.children[0].label.columns[1]._cells[1].plain == "bionty.CellType"
     assert labels_node.children[0].label.columns[2]._cells == [
-        "B cell, T cell, CD8-positive, alpha-beta T cell",
         "DMSO, IFNG, Experiment 1",
+        "B cell, T cell, CD8-positive, alpha-beta T cell",
     ]
 
     artifact.delete(permanent=True)

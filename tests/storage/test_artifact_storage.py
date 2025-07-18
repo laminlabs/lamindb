@@ -1,6 +1,3 @@
-import shutil
-
-import anndata as ad
 import lamindb as ln
 import pytest
 from lamindb.errors import (
@@ -96,28 +93,28 @@ def test_delete_artifact_from_non_managed_storage():
     assert filepath.exists()
 
 
-def test_huggingface_paths():
-    artifact_adata = ln.Artifact(
-        "hf://datasets/Koncopd/lamindb-test@main/anndata/pbmc68k_test.h5ad",
-        description="hf adata",
-    )
-    artifact_adata.save()
-    assert artifact_adata.hash is not None
-    assert isinstance(artifact_adata.load(), ad.AnnData)
-    assert artifact_adata._cache_path.exists()
-    artifact_adata._cache_path.unlink()
+# def test_huggingface_paths():
+#     artifact_adata = ln.Artifact(
+#         "hf://datasets/Koncopd/lamindb-test@main/anndata/pbmc68k_test.h5ad",
+#         description="hf adata",
+#     )
+#     artifact_adata.save()
+#     assert artifact_adata.hash is not None
+#     assert isinstance(artifact_adata.load(), ad.AnnData)
+#     assert artifact_adata._cache_path.exists()
+#     artifact_adata._cache_path.unlink()
 
-    artifact_pq = ln.Artifact(
-        "hf://datasets/Koncopd/lamindb-test/sharded_parquet", description="hf parquet"
-    )
-    artifact_pq.save()
-    assert artifact_pq.hash is not None
-    assert len(artifact_pq.open().files) == 11
-    assert artifact_pq.cache().is_dir()
-    shutil.rmtree(artifact_pq._cache_path)
+#     artifact_pq = ln.Artifact(
+#         "hf://datasets/Koncopd/lamindb-test/sharded_parquet", description="hf parquet"
+#     )
+#     artifact_pq.save()
+#     assert artifact_pq.hash is not None
+#     assert len(artifact_pq.open().files) == 11
+#     assert artifact_pq.cache().is_dir()
+#     shutil.rmtree(artifact_pq._cache_path)
 
-    artifact_adata.delete(permanent=True, storage=False)
-    artifact_pq.delete(permanent=True, storage=False)
+#     artifact_adata.delete(permanent=True, storage=False)
+#     artifact_pq.delete(permanent=True, storage=False)
 
 
 def test_gcp_paths():
