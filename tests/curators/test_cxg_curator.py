@@ -5,8 +5,8 @@ import pytest
 
 @pytest.fixture(scope="module")
 def cxg_schema():
-    ln.examples.cellxgene.save_cxg_defaults()
-    schema = ln.examples.cellxgene.get_cxg_schema(
+    ln.examples._cellxgene.save_cxg_defaults()
+    schema = ln.examples._cellxgene.get_cxg_schema(
         schema_version="5.2.0", field_types=["name", "ontology_id"]
     )
 
@@ -88,7 +88,7 @@ def test_cxg_curator(cxg_schema):
 
 def test_invalid_field_type():
     with pytest.raises(ValueError) as e:
-        ln.examples.cellxgene.get_cxg_schema(
+        ln.examples._cellxgene.get_cxg_schema(
             schema_version="5.3.0", field_types=["ensembl_gene_ids"]
         )
     assert "Invalid field_types" in str(e.value)
@@ -96,5 +96,5 @@ def test_invalid_field_type():
 
 def test_invalid_schema_Version():
     with pytest.raises(ValueError) as e:
-        ln.examples.cellxgene.get_cxg_schema(schema_version="200.0.0")
+        ln.examples._cellxgene.get_cxg_schema(schema_version="200.0.0")
     assert "Invalid schema_version" in str(e.value)
