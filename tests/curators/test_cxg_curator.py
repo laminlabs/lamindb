@@ -55,9 +55,9 @@ def test_cxg_curator(cxg_schema):
             in str(e)
         )
     # fix typo in obs column
-    adata.obs["tissue_ontology_term_id"] = adata.obs[
-        "tissue_ontology_term_id"
-    ].cat.rename_categories({"UBERON:0002048XXX": "UBERON:0002048"})
+    adata.obs["tissue_ontology_term_id"] = adata.obs["tissue_ontology_term_id"].replace(
+        {"UBERON:0002048XXX": "UBERON:0002048"}
+    )
     artifact = curator.save_artifact(key="examples/dataset-curated-against-cxg.h5ad")
 
     # test missing obs columns
