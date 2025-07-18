@@ -161,7 +161,7 @@ def describe_artifact_general(
         if foreign_key_data
         else self.transform.key
         if self.transform
-        else "none"
+        else None
     )
     two_column_items.append(
         Text.assemble(
