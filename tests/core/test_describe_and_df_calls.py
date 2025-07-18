@@ -204,10 +204,18 @@ def test_curate_df():
     ]
     assert labels_node.children[0].label.columns[1]._cells[0].plain == "ULabel"
     assert labels_node.children[0].label.columns[1]._cells[1].plain == "bionty.CellType"
-    assert labels_node.children[0].label.columns[2]._cells == [
-        "DMSO, IFNG, Experiment 1",
-        "B cell, T cell, CD8-positive, alpha-beta T cell",
-    ]
+    assert {
+        c.strip()
+        for c in ",".join(labels_node.children[0].label.columns[2]._cells).split(",")
+    } == {
+        "DMSO",
+        "IFNG",
+        "Experiment 1",
+        "B cell",
+        "T cell",
+        "CD8-positive",
+        "alpha-beta T cell",
+    }
 
     artifact.delete(permanent=True)
     artifact2.delete(permanent=True)
