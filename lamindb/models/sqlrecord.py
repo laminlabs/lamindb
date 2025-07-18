@@ -1231,7 +1231,7 @@ def get_name_field(
         # no default name field can be found
         if field is None:
             raise ValueError(
-                "please pass a SQLRecord string field, e.g., `CellType.name`!"
+                f"Do not know which field to use as name file for registry {registry}, please pass field"
             )
         else:
             field = field.name  # type:ignore

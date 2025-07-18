@@ -32,8 +32,8 @@ def test_transfer_from_remote_to_local(ccaplog):
     assert sorted(
         result["related_data"]["link"]["links_ulabel"], key=lambda d: d["id"]
     ) == [
-        {"id": 7, "ulabel": 15, "feature": 1},
-        {"id": 8, "ulabel": 10, "feature": 10},
+        {"id": 7, "ulabel": 15, "feature": 1, "ulabel_display": "donor_24"},
+        {"id": 8, "ulabel": 10, "feature": 10, "ulabel_display": "na"},
     ]
     assert result["related_data"]["schemas"][615][0] == "obs"
     assert result["related_data"]["schemas"][615][1] == {
