@@ -12,7 +12,7 @@ FieldType = Literal["ontology_id", "name"]
 
 
 def save_cxg_defaults() -> None:
-    """Add additional values from CellxGene schema to the instance.
+    """Save default values of the CELLxGENE schema to the instance.
 
     Adds CELLxGENE specific (control) values that are not available in the ontologies:
 
@@ -21,6 +21,7 @@ def save_cxg_defaults() -> None:
     - "unknown" entries for DevelopmentalStage, Phenotype, and CellType
     - "tissue", "organoid", and "cell culture" ULabels (tissue_type)
     - "cell", "nucleus", "na" ULabels (suspension_type)
+
     """
     import bionty as bt
 
@@ -125,7 +126,7 @@ def get_cxg_schema(
     field_types: FieldType | Collection[FieldType] = "ontology_id",
     organism: Literal["human", "mouse"] = "human",
 ) -> Schema:
-    """Generates a `~lamindb.Schema` for a specific CELLxGENE schema version.
+    """Generates a :class:`~lamindb.Schema` for a specific CELLxGENE schema version.
 
     Args:
         schema_version: The CELLxGENE Schema version.
