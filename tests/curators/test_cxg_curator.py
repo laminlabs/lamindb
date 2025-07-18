@@ -51,11 +51,13 @@ def test_cxg_curator(cxg_schema):
     with pytest.raises(ln.errors.ValidationError) as e:
         curator.validate()
         assert (
-            "ValidationError: 1 term not validated in feature 'tissue' in slot 'obs': 'lungg'"
+            "ValidationError: 1 term not validated in feature 'tissue_ontology_term_id' in slot 'obs': 'UBERON:0002048XXX'"
             in str(e)
         )
     # fix typo in obs column
-    adata.obs["tissue"] = adata.obs["tissue"].cat.rename_categories({"lungg": "lung"})
+    adata.obs["tissue_ontology_term_id"] = adata.obs[
+        "tissue_ontology_term_id"
+    ].cat.rename_categories({"UBERON:0002048XXX": "UBERON:0002048"})
     artifact = curator.save_artifact(key="examples/dataset-curated-against-cxg.h5ad")
 
     # test missing obs columns
