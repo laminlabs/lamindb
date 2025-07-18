@@ -1,6 +1,7 @@
 __MACOSX/
 
 # LaminDB
+docs/cli.md
 .coveragerc
 *.db
 *.lndb
