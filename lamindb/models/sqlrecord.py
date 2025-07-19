@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import builtins
 import inspect
+import os
 import re
 import sys
 from collections import defaultdict
@@ -661,53 +662,54 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
     def __init__(self, *args, **kwargs):
         skip_validation = kwargs.pop("_skip_validation", False)
         if not args:
-            if (
-                issubclass(self.__class__, SQLRecord)
-                and self.__class__.__name__ != "Storage"
-                # do not save bionty entities in restricted spaces by default
-                and self.__class__.__module__ != "bionty.models"
-            ):
-                from lamindb import context as run_context
+            if not os.getenv("LAMINDB_MULTI_INSTANCE") == "true":
+                if (
+                    issubclass(self.__class__, SQLRecord)
+                    and self.__class__.__name__ != "Storage"
+                    # do not save bionty entities in restricted spaces by default
+                    and self.__class__.__module__ != "bionty.models"
+                ):
+                    from lamindb import context as run_context
 
-                if run_context.space is not None:
-                    current_space = run_context.space
-                elif setup_settings.space is not None:
-                    current_space = setup_settings.space
+                    if run_context.space is not None:
+                        current_space = run_context.space
+                    elif setup_settings.space is not None:
+                        current_space = setup_settings.space
 
-                if current_space is not None:
-                    if "space_id" in kwargs:
-                        # space_id takes precedence over space
+                    if current_space is not None:
+                        if "space_id" in kwargs:
+                            # space_id takes precedence over space
+                            # https://claude.ai/share/f045e5dc-0143-4bc5-b8a4-38309229f75e
+                            if kwargs["space_id"] == 1:  # ignore default space
+                                kwargs.pop("space_id")
+                                kwargs["space"] = current_space
+                        elif "space" in kwargs:
+                            if kwargs["space"] is None:
+                                kwargs["space"] = current_space
+                        else:
+                            kwargs["space"] = current_space
+                if issubclass(
+                    self.__class__, SQLRecord
+                ) and self.__class__.__name__ not in {"Storage", "Source"}:
+                    from lamindb import context as run_context
+
+                    if run_context.branch is not None:
+                        current_branch = run_context.branch
+                    elif setup_settings.branch is not None:
+                        current_branch = setup_settings.branch
+
+                    if current_branch is not None:
+                        # branch_id takes precedence over branch
                         # https://claude.ai/share/f045e5dc-0143-4bc5-b8a4-38309229f75e
-                        if kwargs["space_id"] == 1:  # ignore default space
-                            kwargs.pop("space_id")
-                            kwargs["space"] = current_space
-                    elif "space" in kwargs:
-                        if kwargs["space"] is None:
-                            kwargs["space"] = current_space
-                    else:
-                        kwargs["space"] = current_space
-            if issubclass(
-                self.__class__, SQLRecord
-            ) and self.__class__.__name__ not in {"Storage", "Source"}:
-                from lamindb import context as run_context
-
-                if run_context.branch is not None:
-                    current_branch = run_context.branch
-                elif setup_settings.branch is not None:
-                    current_branch = setup_settings.branch
-
-                if current_branch is not None:
-                    # branch_id takes precedence over branch
-                    # https://claude.ai/share/f045e5dc-0143-4bc5-b8a4-38309229f75e
-                    if "branch_id" in kwargs:
-                        if kwargs["branch_id"] == 1:  # ignore default branch
-                            kwargs.pop("branch_id")
+                        if "branch_id" in kwargs:
+                            if kwargs["branch_id"] == 1:  # ignore default branch
+                                kwargs.pop("branch_id")
+                                kwargs["branch"] = current_branch
+                        elif "branch" in kwargs:
+                            if kwargs["branch"] is None:
+                                kwargs["branch"] = current_branch
+                        else:
                             kwargs["branch"] = current_branch
-                    elif "branch" in kwargs:
-                        if kwargs["branch"] is None:
-                            kwargs["branch"] = current_branch
-                    else:
-                        kwargs["branch"] = current_branch
             if skip_validation:
                 super().__init__(**kwargs)
             else:

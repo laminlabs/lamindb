@@ -127,6 +127,7 @@ if TYPE_CHECKING:
     from .collection import Collection
     from .project import Project, Reference
     from .record import Record
+    from .sqlrecord import Branch, Space
     from .transform import Transform
 
 
@@ -139,7 +140,7 @@ INCONSISTENT_STATE_MSG = (
 
 def process_pathlike(
     filepath: UPath,
-    default_storage: Storage,
+    storage: Storage,
     using_key: str | None,
     skip_existence_check: bool = False,
 ) -> tuple[Storage, bool]:
@@ -150,9 +151,9 @@ def process_pathlike(
                 raise FileNotFoundError(filepath)
         except PermissionError:
             pass
-    if check_path_is_child_of_root(filepath, default_storage.root):
+    if check_path_is_child_of_root(filepath, storage.root):
         use_existing_storage_key = True
-        return default_storage, use_existing_storage_key
+        return storage, use_existing_storage_key
     else:
         # check whether the path is part of one of the existing
         # already-registered storage locations
@@ -206,12 +207,12 @@ def process_pathlike(
                 use_existing_storage_key = False
                 # if the default storage is local we'll throw an error if the user
                 # doesn't provide a key
-                if default_storage.type == "local":
-                    return default_storage, use_existing_storage_key
+                if storage.type == "local":
+                    return storage, use_existing_storage_key
                 # if the default storage is in the cloud (the file is going to
                 # be uploaded upon saving it), we treat the filepath as a cache
                 else:
-                    return default_storage, use_existing_storage_key
+                    return storage, use_existing_storage_key
 
 
 def process_data(
@@ -219,7 +220,7 @@ def process_data(
     data: UPathStr | pd.DataFrame | AnnData,
     format: str | None,
     key: str | None,
-    default_storage: Storage,
+    storage: Storage,
     using_key: str | None,
     skip_existence_check: bool = False,
     is_replace: bool = False,
@@ -238,9 +239,7 @@ def process_data(
 
     if isinstance(data, (str, Path, UPath)):
         access_token = (
-            default_storage._access_token
-            if hasattr(default_storage, "_access_token")
-            else None
+            storage._access_token if hasattr(storage, "_access_token") else None
         )
         path = create_path(data, access_token=access_token)
         # we don't resolve http links because they can resolve into a different domain
@@ -250,7 +249,7 @@ def process_data(
 
         storage, use_existing_storage_key = process_pathlike(
             path,
-            default_storage=default_storage,
+            storage=storage,
             using_key=using_key,
             skip_existence_check=skip_existence_check,
         )
@@ -262,7 +261,7 @@ def process_data(
         or data_is_scversedatastructure(data, "MuData")
         or data_is_scversedatastructure(data, "SpatialData")
     ):
-        storage = default_storage
+        storage = storage
         memory_rep = data
         suffix = infer_suffix(data, format)
     else:
@@ -399,7 +398,7 @@ def get_artifact_kwargs_from_data(
     format: str | None,
     provisional_uid: str,
     version: str | None,
-    default_storage: Storage,
+    storage: Storage,
     using_key: str | None = None,
     is_replace: bool = False,
     skip_check_exists: bool = False,
@@ -411,7 +410,7 @@ def get_artifact_kwargs_from_data(
         data,
         format,
         key,
-        default_storage,
+        storage,
         using_key,
         skip_check_exists,
         is_replace=is_replace,
@@ -452,7 +451,7 @@ def get_artifact_kwargs_from_data(
                 )
         check_path_in_storage = True
     else:
-        storage = default_storage
+        storage = storage
 
     log_storage_hint(
         check_path_in_storage=check_path_in_storage,
@@ -991,6 +990,10 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         overwrite_versions: `bool | None = None` Whether to overwrite versions. Defaults to `True` for folders and `False` for files.
         run: `Run | bool | None = None` The run that creates the artifact. If `False`, surpress tracking the run.
             If `None`, infer the run from the global run context.
+        branch: `Branch | None = None` The branch of the artifact. If `None`, uses the current branch.
+        space: `Space | None = None` The space of the artifact. If `None`, uses the current space.
+        storage: `Storage | None = None` The storage location for the artifact. If `None`, uses the default storage location.
+            You can see and set the default storage location in :attr:`~lamindb.core.Settings.storage`.
 
     Examples:
 
@@ -1330,6 +1333,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         revises: Artifact | None = None,
         overwrite_versions: bool | None = None,
         run: Run | False | None = None,
+        storage: Storage | None = None,
+        branch: Branch | None = None,
+        space: Space | None = None,
     ): ...
 
     @overload
@@ -1374,13 +1380,12 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         format = kwargs.pop("format", None)
         _is_internal_call = kwargs.pop("_is_internal_call", False)
         skip_check_exists = kwargs.pop("skip_check_exists", False)
-        if "default_storage" in kwargs:
-            default_storage = kwargs.pop("default_storage")
+        if "storage" in kwargs:
+            storage = kwargs.pop("storage")
+        elif setup_settings.instance.keep_artifacts_local:
+            storage = setup_settings.instance.local_storage.record
         else:
-            if setup_settings.instance.keep_artifacts_local:
-                default_storage = setup_settings.instance.local_storage.record
-            else:
-                default_storage = setup_settings.instance.storage.record
+            storage = setup_settings.instance.storage.record
         using_key = kwargs.pop("using_key", None)
         otype = kwargs.pop("otype") if "otype" in kwargs else None
         if isinstance(data, str) and data.startswith("s3:///"):
@@ -1428,7 +1433,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             format=format,
             provisional_uid=provisional_uid,
             version=version,
-            default_storage=default_storage,
+            storage=storage,
             using_key=using_key,
             skip_check_exists=skip_check_exists,
             overwrite_versions=overwrite_versions,
@@ -2048,11 +2053,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             ln.save(artifacts)
         """
         folderpath: UPath = create_path(path)  # returns Path for local
-        default_storage = settings.storage.record
+        storage = settings.storage.record
         using_key = settings._using_key
-        storage, use_existing_storage = process_pathlike(
-            folderpath, default_storage, using_key
-        )
+        storage, use_existing_storage = process_pathlike(folderpath, storage, using_key)
         folder_key_path: PurePath | Path
         if key is None:
             if not use_existing_storage:
@@ -2156,14 +2159,14 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
             However, it will update the suffix if it changes.
         """
-        default_storage = settings.storage.record
+        storage = settings.storage.record
         kwargs, privates = get_artifact_kwargs_from_data(
             provisional_uid=self.uid,
             data=data,
             key=self.key,
             run=run,
             format=format,
-            default_storage=default_storage,
+            storage=storage,
             version=None,
             is_replace=True,
         )
