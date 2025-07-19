@@ -662,7 +662,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
     def __init__(self, *args, **kwargs):
         skip_validation = kwargs.pop("_skip_validation", False)
         if not args:
-            if not os.getenv("MULTI_INSTANCE_MODE") == "true":
+            if not os.getenv("LAMINDB_MULTI_INSTANCE") == "true":
                 if (
                     issubclass(self.__class__, SQLRecord)
                     and self.__class__.__name__ != "Storage"
