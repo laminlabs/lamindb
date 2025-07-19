@@ -30,7 +30,9 @@ def cxg_schema():
 
 def test_cxg_curator(cxg_schema):
     # test invalid var index and typo in obs column
-    adata = ln.core.datasets.small_dataset3_cellxgene(with_obs_defaults=True)
+    adata = ln.core.datasets.small_dataset3_cellxgene(
+        with_obs_defaults=True, with_obs_typo=True
+    )
     curator = ln.curators.AnnDataCurator(adata, cxg_schema)
     # Ensure that default values for Features are set
     curator.slots["obs"].standardize()
@@ -49,11 +51,13 @@ def test_cxg_curator(cxg_schema):
     with pytest.raises(ln.errors.ValidationError) as e:
         curator.validate()
         assert (
-            "ValidationError: 1 term not validated in feature 'tissue' in slot 'obs': 'lungg'"
+            "ValidationError: 1 term not validated in feature 'tissue_ontology_term_id' in slot 'obs': 'UBERON:0002048XXX'"
             in str(e)
         )
     # fix typo in obs column
-    adata.obs["tissue"] = adata.obs["tissue"].cat.rename_categories({"lungg": "lung"})
+    adata.obs["tissue_ontology_term_id"] = adata.obs["tissue_ontology_term_id"].replace(
+        {"UBERON:0002048XXX": "UBERON:0002048"}
+    )
     artifact = curator.save_artifact(key="examples/dataset-curated-against-cxg.h5ad")
 
     # test missing obs columns

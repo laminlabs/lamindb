@@ -1,20 +1,27 @@
 from typing import Collection, Literal, NamedTuple
 
 import pandas as pd
+from lamindb_setup.core.upath import UPath
+
 from lamindb.base.types import FieldAttr
 from lamindb.models import Feature, Schema, SQLRecord, ULabel
 from lamindb.models._from_values import _format_values
-from lamindb_setup.core.upath import UPath
 
 CELLxGENESchemaVersions = Literal["4.0.0", "5.0.0", "5.1.0", "5.2.0", "5.3.0"]
 FieldType = Literal["ontology_id", "name"]
 
 
 def save_cxg_defaults() -> None:
-    """Add additional values from CellxGene schema to the instance.
+    """Save default values of the CELLxGENE schema to the instance.
 
-    CELLxGENE schemas use specific (control) values that are not available in the ontologies.
-    Therefore, we save them to the instance.
+    Adds CELLxGENE specific (control) values that are not available in the ontologies:
+
+    - "normal" Disease
+    - "na" Ethnicity
+    - "unknown" entries for DevelopmentalStage, Phenotype, and CellType
+    - "tissue", "organoid", and "cell culture" ULabels (tissue_type)
+    - "cell", "nucleus", "na" ULabels (suspension_type)
+
     """
     import bionty as bt
 
@@ -35,12 +42,11 @@ def save_cxg_defaults() -> None:
     for model, name in zip(
         [
             bt.Ethnicity,
-            bt.Ethnicity,
             bt.DevelopmentalStage,
             bt.Phenotype,
             bt.CellType,
         ],
-        ["na", "unknown", "unknown", "unknown", "unknown"],
+        ["na", "unknown", "unknown", "unknown"],
     ):
         model(ontology_id=name, name=name, description="From CellxGene schema.").save()
 
@@ -120,7 +126,7 @@ def get_cxg_schema(
     field_types: FieldType | Collection[FieldType] = "ontology_id",
     organism: Literal["human", "mouse"] = "human",
 ) -> Schema:
-    """Generates a `~lamindb.Schema` for a specific CELLxGENE schema version.
+    """Generates a :class:`~lamindb.Schema` for a specific CELLxGENE schema version.
 
     Args:
         schema_version: The CELLxGENE Schema version.
@@ -195,6 +201,7 @@ def get_cxg_schema(
             cat_filters={"source": sources["var_index"]},
         ).save(),
         itype=Feature,
+        features=[Feature(name="feature_is_filtered", dtype=bool).save()],
         dtype="DataFrame",
         coerce_dtype=True,
     ).save()
@@ -209,6 +216,8 @@ def get_cxg_schema(
         for field, source in sources.items()
         if field != "var_index"
     ]
+    for name in ["is_primary_data", "suspension_type", "tissue_type"]:
+        obs_features.append(Feature(name=name, dtype=ULabel.name).save())
 
     obs_schema = Schema(
         name=f"obs of CELLxGENE version {schema_version}",

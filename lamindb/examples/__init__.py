@@ -10,7 +10,7 @@
 """
 
 from . import schemas
-from .cellxgene import cellxgene
+from .cellxgene import _cellxgene
 
 
 def ingest_mini_immuno_datasets():
