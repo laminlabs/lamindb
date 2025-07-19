@@ -693,10 +693,21 @@ class Context:
             source_code_path = ln_setup.settings.cache_dir / self._path.name.replace(
                 ".ipynb", ".py"
             )
-            notebook_to_script(description, self._path, source_code_path)
-            transform_hash, _ = hash_file(source_code_path)
+            if (
+                self._path.exists()
+            ):  # notebook kernel might be running on a different machine
+                notebook_to_script(description, self._path, source_code_path)
+                transform_hash, _ = hash_file(source_code_path)
+            else:
+                logger.debug(
+                    "skipping notebook hash comparison, notebook kernel running on a different machine"
+                )
+                transform_hash = None
         # see whether we find a transform with the exact same hash
-        aux_transform = Transform.filter(hash=transform_hash).one_or_none()
+        if transform_hash is not None:
+            aux_transform = Transform.filter(hash=transform_hash).one_or_none()
+        else:
+            aux_transform = None
         # if the user did not pass a uid and there is no matching aux_transform
         # need to search for the transform based on the filename
         if self.uid is None and aux_transform is None:
