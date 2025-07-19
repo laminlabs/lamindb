@@ -260,9 +260,9 @@ def save_context_core(
     is_r_notebook = filepath.suffix in {".qmd", ".Rmd"}
     source_code_path = filepath
     report_path: Path | None = None
-    save_source_code_and_report = True
+    save_source_code_and_report = filepath.exists()
     if (
-        is_run_from_ipython and notebook_runner != "nbconvert"
+        is_run_from_ipython and notebook_runner != "nbconvert" and filepath.exists()
     ):  # python notebooks in interactive session
         import nbproject
 
@@ -281,7 +281,7 @@ def save_context_core(
                 logger.warning(
                     "the notebook on disk wasn't saved within the last 10 sec"
                 )
-    if is_ipynb:  # could be from CLI outside interactive session
+    if is_ipynb and filepath.exists():  # could be from CLI outside interactive session
         try:
             import jupytext  # noqa: F401
             from nbproject.dev import (
@@ -315,6 +315,8 @@ def save_context_core(
             ".ipynb", ".py"
         )
         notebook_to_script(transform.description, filepath, source_code_path)
+    elif is_ipynb and not filepath.exists():
+        logger.warning("notebook file does not exist in compute environment")
     elif is_r_notebook:
         if filepath.with_suffix(".nb.html").exists():
             report_path = filepath.with_suffix(".nb.html")
@@ -365,6 +367,9 @@ def save_context_core(
         base_path = ln_setup.settings.cache_dir / "environments" / f"run_{run.uid}"
         paths = [base_path / "run_env_pip.txt", base_path / "r_pak_lockfile.json"]
         existing_paths = [path for path in paths if path.exists()]
+        if len(existing_paths) == 2:
+            # let's not store the python environment for an R session for now
+            existing_paths = [base_path / "r_pak_lockfile.json"]
 
         if existing_paths:
             overwrite_env = True

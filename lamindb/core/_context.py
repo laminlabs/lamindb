@@ -322,6 +322,7 @@ class Context:
         params: dict | None = None,
         new_run: bool | None = None,
         path: str | None = None,
+        pypackages: bool | None = None,
     ) -> None:
         """Track a run of your notebook or script.
 
@@ -341,6 +342,7 @@ class Context:
                 (default notebook), if `True`, creates new run (default non-notebook).
             path: Filepath of notebook or script. Only needed if it can't be
                 automatically detected.
+            pypackages: If `True` or `None`, infers Python packages used in a notebook.
 
         Examples:
 
@@ -424,7 +426,9 @@ class Context:
         if transform is None:
             description = None
             if is_run_from_ipython:
-                self._path, description = self._track_notebook(path_str=path)
+                self._path, description = self._track_notebook(
+                    path_str=path, pypackages=pypackages
+                )
                 transform_type = "notebook"
                 transform_ref = None
                 transform_ref_type = None
@@ -587,11 +591,14 @@ class Context:
         self,
         *,
         path_str: str | None,
+        pypackages: bool | None = None,
     ) -> tuple[Path, str | None]:
         if path_str is None:
             path, self._notebook_runner = get_notebook_path()
         else:
             path = Path(path_str)
+        if pypackages is None:
+            pypackages = True
         description = None
         path_str = path.as_posix()
         if path_str.endswith("Untitled.ipynb"):
@@ -612,10 +619,11 @@ class Context:
                 if nbproject_title is not None:
                     description = nbproject_title
 
-                self._logging_message_imports += (
-                    "notebook imports:"
-                    f" {pretty_pypackages(infer_pypackages(nb, pin_versions=True))}"
-                )
+                if pypackages:
+                    self._logging_message_imports += (
+                        "notebook imports:"
+                        f" {pretty_pypackages(infer_pypackages(nb, pin_versions=True))}"
+                    )
             except Exception:
                 logger.debug("reading the notebook file failed")
                 pass
@@ -685,10 +693,21 @@ class Context:
             source_code_path = ln_setup.settings.cache_dir / self._path.name.replace(
                 ".ipynb", ".py"
             )
-            notebook_to_script(description, self._path, source_code_path)
-            transform_hash, _ = hash_file(source_code_path)
+            if (
+                self._path.exists()
+            ):  # notebook kernel might be running on a different machine
+                notebook_to_script(description, self._path, source_code_path)
+                transform_hash, _ = hash_file(source_code_path)
+            else:
+                logger.debug(
+                    "skipping notebook hash comparison, notebook kernel running on a different machine"
+                )
+                transform_hash = None
         # see whether we find a transform with the exact same hash
-        aux_transform = Transform.filter(hash=transform_hash).one_or_none()
+        if transform_hash is not None:
+            aux_transform = Transform.filter(hash=transform_hash).one_or_none()
+        else:
+            aux_transform = None
         # if the user did not pass a uid and there is no matching aux_transform
         # need to search for the transform based on the filename
         if self.uid is None and aux_transform is None:
