@@ -52,7 +52,7 @@ from lamindb_setup.core.upath import (
 )
 
 # how do we properly abstract out the default storage variable?
-# currently, we're only mocking it through `default_storage` as
+# currently, we're only mocking it through `storage` as
 # set in conftest.py
 
 ln.settings.verbosity = "success"
@@ -795,15 +795,15 @@ def test_serialize_paths():
     up_str = "s3://lamindb-ci/test-unknown-storage-in-core-tests/test.csv"
     up_upath = UPath(up_str)
 
-    default_storage = settings._storage_settings.record
+    storage = settings._storage_settings.record
     using_key = None
 
     _, filepath, _, _, _ = process_data(
-        "id", fp_str, None, None, default_storage, using_key, skip_existence_check=True
+        "id", fp_str, None, None, storage, using_key, skip_existence_check=True
     )
     assert isinstance(filepath, LocalPathClasses)
     _, filepath, _, _, _ = process_data(
-        "id", fp_path, None, None, default_storage, using_key, skip_existence_check=True
+        "id", fp_path, None, None, storage, using_key, skip_existence_check=True
     )
     assert isinstance(filepath, LocalPathClasses)
 
@@ -813,7 +813,7 @@ def test_serialize_paths():
             up_str,
             None,
             None,
-            default_storage,
+            storage,
             using_key,
             skip_existence_check=True,
         )
@@ -822,7 +822,7 @@ def test_serialize_paths():
         root="s3://lamindb-ci/test-unknown-storage-in-core-tests"
     ).save()
     _, filepath, _, _, _ = process_data(
-        "id", up_str, None, None, default_storage, using_key, skip_existence_check=True
+        "id", up_str, None, None, storage, using_key, skip_existence_check=True
     )
     assert isinstance(filepath, CloudPath)
     _, filepath, _, _, _ = process_data(
@@ -830,7 +830,7 @@ def test_serialize_paths():
         up_upath,
         None,
         None,
-        default_storage,
+        storage,
         using_key,
         skip_existence_check=True,
     )
