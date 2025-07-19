@@ -127,6 +127,7 @@ if TYPE_CHECKING:
     from .collection import Collection
     from .project import Project, Reference
     from .record import Record
+    from .sqlrecord import Branch, Space
     from .transform import Transform
 
 
@@ -989,6 +990,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         overwrite_versions: `bool | None = None` Whether to overwrite versions. Defaults to `True` for folders and `False` for files.
         run: `Run | bool | None = None` The run that creates the artifact. If `False`, surpress tracking the run.
             If `None`, infer the run from the global run context.
+        branch: `Branch | None = None` The branch of the artifact. If `None`, uses the current branch.
+        space: `Space | None = None` The space of the artifact. If `None`, uses the current space.
         storage: `Storage | None = None` The storage location for the artifact. If `None`, uses the default storage location.
             You can see and set the default storage location in :attr:`~lamindb.core.Settings.storage`.
 
@@ -1330,6 +1333,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         revises: Artifact | None = None,
         overwrite_versions: bool | None = None,
         run: Run | False | None = None,
+        storage: Storage | None = None,
+        branch: Branch | None = None,
+        space: Space | None = None,
     ): ...
 
     @overload
