@@ -321,4 +321,5 @@ class ArtifactRecord(BaseSQLRecord, IsLink):
 
     class Meta:
         # allows linking several records to a single artifact for the same feature because we'll likely need this
+        app_label = "lamindb"
         unique_together = ("artifact", "record", "feature")
