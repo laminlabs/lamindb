@@ -290,6 +290,82 @@ def test(session, group):
 
 
 @nox.session
+def clidocs(session):
+    def generate_cli_docs():
+        os.environ["NO_RICH"] = "1"
+        from lamin_cli.__main__ import COMMAND_GROUPS, _generate_help
+
+        page = "# CLI\n\n"
+        helps = _generate_help()
+
+        # First, add the main lamin command
+        main_help = helps.get("main")
+        if main_help:
+            help_string = main_help["help"].replace("Usage: main", "Usage: lamin")
+            help_docstring = main_help["docstring"]
+            if help_docstring:
+                page += f"{help_docstring}\n\n"
+            # below is ugly
+            # page += f"```text\n{help_string}\n```\n\n"
+
+        # Create a mapping of command names to their full keys in helps
+        command_to_key = {}
+        for name in helps.keys():
+            names = name.split(" ")
+            if len(names) == 2:  # e.g., "lamin connect"
+                command_name = names[1]
+                command_to_key[command_name] = name
+
+        # Group commands by their categories
+        command_groups = COMMAND_GROUPS.get("lamin", [])
+        processed_commands = set()
+
+        for group in command_groups:
+            group_name = group["name"]
+            group_commands = group["commands"]
+
+            page += f"## {group_name}\n\n"
+
+            for command_name in group_commands:
+                if command_name in command_to_key:
+                    full_key = command_to_key[command_name]
+                    help_dict = helps[full_key]
+                    processed_commands.add(command_name)
+
+                    help_string = help_dict["help"].replace(
+                        "Usage: main", "Usage: lamin"
+                    )
+                    help_docstring = help_dict["docstring"]
+
+                    page += f"### lamin {command_name}\n\n"
+                    if help_docstring:
+                        page += f"{help_docstring}\n\n"
+                    page += f"```text\n{help_string}\n```\n\n"
+
+        # Add any remaining commands that aren't in groups
+        remaining_commands = []
+        for command_name, full_key in command_to_key.items():
+            if command_name not in processed_commands:
+                remaining_commands.append((command_name, full_key))
+
+        if remaining_commands:
+            page += "## Other\n\n"
+            for command_name, full_key in remaining_commands:
+                help_dict = helps[full_key]
+                help_string = help_dict["help"].replace("Usage: main", "Usage: lamin")
+                help_docstring = help_dict["docstring"]
+
+                page += f"### lamin {command_name}\n\n"
+                if help_docstring:
+                    page += f"{help_docstring}\n\n"
+                page += f"```text\n{help_string}\n```\n\n"
+
+        Path("./docs/cli.md").write_text(page)
+
+    generate_cli_docs()
+
+
+@nox.session
 def docs(session):
     # move artifacts into right place
     for group in ["tutorial", "guide", "biology", "faq", "storage"]:
@@ -305,28 +381,5 @@ def docs(session):
         session,
         "lamin init --storage ./docsbuild --modules bionty,wetlab,clinicore",
     )
-
-    def generate_cli_docs():
-        os.environ["NO_RICH"] = "1"
-        from lamin_cli.__main__ import _generate_help
-
-        page = "# `CLI`\n\n"
-        helps = _generate_help()
-        for name, help_dict in helps.items():
-            names = name.split(" ")
-            section = ""
-            if len(names) != 1:
-                if len(names) == 2:
-                    separator = "#" * len(names) + " " + " ".join(("lamin", *names[1:]))
-                else:
-                    separator = ""
-                section = "```\n\n" + separator
-
-            help_string = help_dict["help"].replace("Usage: main", "Usage: lamin")
-            help_docstring = help_dict["docstring"]
-            page += f"{section}\n\n{help_docstring}\n\n```text\n{help_string}\n\n"
-        Path("./docs/cli.md").write_text(page)
-
-    generate_cli_docs()
     build_docs(session, strip_prefix=True, strict=False)
     upload_docs_artifact(aws=True)

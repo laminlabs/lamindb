@@ -30,7 +30,7 @@ def small_dataset1_schema():
 
     # define schema
     schema = ln.Schema(
-        name="small_dataset1_obs_level_metadata",
+        name="small_dataset1_obs_level_metadata_curator_tests",
         features=[
             ln.Feature(name="perturbation", dtype=perturbation).save(),
             ln.Feature(name="sample_note", dtype=str).save(),
@@ -134,8 +134,10 @@ def mudata_papalexi21_subset_schema():
     bt.ExperimentalFactor.filter().delete()
 
 
-def test_dataframe_curator(small_dataset1_schema: ln.Schema, ccaplog):
+def test_dataframe_curator(small_dataset1_schema: ln.Schema):
     """Test DataFrame curator implementation."""
+
+    ln.settings.verbosity = "info"
 
     # invalid simple dtype (float)
     feature_to_fail = ln.Feature(name="treatment_time_h", dtype=float).save()
@@ -149,7 +151,7 @@ def test_dataframe_curator(small_dataset1_schema: ln.Schema, ccaplog):
             feature_to_fail,
         ],
     ).save()
-    df = datasets.small_dataset1(otype="DataFrame")
+    df = datasets.mini_immuno.get_dataset1(otype="DataFrame")
     curator = ln.curators.DataFrameCurator(df, schema)
     with pytest.raises(ln.errors.ValidationError) as error:
         curator.validate()
@@ -162,7 +164,7 @@ def test_dataframe_curator(small_dataset1_schema: ln.Schema, ccaplog):
     feature_to_fail.delete()
 
     # Wrong subtype
-    df = datasets.small_dataset1(otype="DataFrame", with_wrong_subtype=True)
+    df = datasets.mini_immuno.get_dataset1(otype="DataFrame", with_wrong_subtype=True)
     curator = ln.curators.DataFrameCurator(df, small_dataset1_schema)
     with pytest.raises(ln.errors.ValidationError) as error:
         curator.validate()
@@ -174,7 +176,7 @@ def test_dataframe_curator(small_dataset1_schema: ln.Schema, ccaplog):
     )
 
     # Typo
-    df = datasets.small_dataset1(otype="DataFrame", with_typo=True)
+    df = datasets.mini_immuno.get_dataset1(otype="DataFrame", with_typo=True)
     curator = ln.curators.DataFrameCurator(df, small_dataset1_schema)
     with pytest.raises(ln.errors.ValidationError) as error:
         curator.validate()
@@ -191,6 +193,18 @@ def test_dataframe_curator(small_dataset1_schema: ln.Schema, ccaplog):
 
     assert artifact.schema == small_dataset1_schema
     assert artifact.features.slots["columns"].n == 5
+    assert (
+        artifact.features.describe(return_str=True)
+        == """\
+Artifact .parquet · DataFrame · dataset
+└── Dataset features
+    └── columns • 5         [Feature]
+        cell_type_by_expe…  cat[bionty.CellType]    B cell, CD8-positive, alpha…
+        cell_type_by_model  cat[bionty.CellType]    B cell, T cell
+        perturbation        cat[ULabel[Perturbati…  DMSO, IFNG
+        sample_label        cat[ULabel]             sample1, sample2, sample3
+        sample_note         str"""
+    )
     assert set(artifact.features.get_values()["sample_label"]) == {
         "sample1",
         "sample2",
@@ -423,6 +437,7 @@ def test_anndata_curator_different_components(small_dataset1_schema: ln.Schema):
             assert isinstance(curator.slots["obs"], ln.curators.DataFrameCurator)
         if add_comp == "uns":
             assert isinstance(curator.slots["uns"], ln.curators.DataFrameCurator)
+
         artifact = ln.Artifact.from_anndata(
             adata, key="examples/dataset1.h5ad", schema=anndata_schema
         )
@@ -544,9 +559,7 @@ def test_anndata_curator_varT_curation_legacy(ccaplog):
             varT_schema.delete()
 
 
-def test_soma_curator(
-    small_dataset1_schema: ln.Schema, curator_params: dict[str, str | FieldAttr]
-):
+def test_soma_curator(curator_params: dict[str, str | FieldAttr]):
     """Test SOMA curator implementation."""
     adata = datasets.small_dataset1(otype="AnnData")
     tiledbsoma.io.from_anndata(
@@ -731,19 +744,19 @@ def test_spatialdata_curator(
     assert artifact.features.get_values()["assay"] == "Visium Spatial Gene Expression"
     assert (
         artifact.features.describe(return_str=True)
-        == """Artifact .zarr/SpatialData
+        == """Artifact .zarr · SpatialData · dataset
 └── Dataset features
     ├── attrs:bio • 2       [Feature]
-    │   developmental_sta…  cat[bionty.Devel…  adult stage
-    │   disease             cat[bionty.Disea…  Alzheimer disease
+    │   developmental_sta…  cat[bionty.Developmen…  adult stage
+    │   disease             cat[bionty.Disease]     Alzheimer disease
     ├── attrs:tech • 1      [Feature]
-    │   assay               cat[bionty.Exper…  Visium Spatial Gene Expression
+    │   assay               cat[bionty.Experiment…  Visium Spatial Gene Express…
     ├── attrs • 2           [Feature]
     │   bio                 dict
     │   tech                dict
     ├── tables:table:obs …  [Feature]
     │   sample_region       str
-    └── tables:table:var.…  [bionty.Gene.ens…
+    └── tables:table:var.…  [bionty.Gene.ensembl_…
         BRCA2               num
         BRAF                num"""
     )

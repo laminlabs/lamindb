@@ -22,7 +22,7 @@ def create_test_instance(pgurl: str):
     ln.settings.storage = (
         "s3://lamindb-ci/test-data"  # register as valid storage location
     )
-    ln.settings.storage = "./default_storage_unit_storage"
+    ln.settings.storage = "./default_storage_unit_storage", "testuser1-laptop"
 
 
 def pytest_sessionstart():
@@ -56,8 +56,9 @@ def delete_test_instance():
     # handle below better in the future
     for path in (
         "s3://lamindb-test/storage/.lamindb",
-        "s3://lamindb-ci/lamindb-unit-tests-cloud/.lamindb",
         "s3://lamindb-test/core/.lamindb",
+        "s3://lamindb-ci/lamindb-unit-tests-cloud/.lamindb",
+        "s3://lamindb-ci/test-settings-switch-storage/.lamindb",
     ):
         upath = ln.UPath(path)
         if upath.exists():

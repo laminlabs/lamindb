@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 import lamindb_setup as ln_setup
 from lamin_utils import logger
 from lamin_utils._logger import LEVEL_TO_COLORS, LEVEL_TO_ICONS, RESET_COLOR
-from lamindb_setup.core.hashing import hash_file
+from lamindb_setup.core.hashing import hash_dir, hash_file
 
 from lamindb.models import Artifact, Run, Transform
 
@@ -241,6 +241,7 @@ def save_context_core(
     transform: Transform,
     filepath: Path,
     finished_at: bool = False,
+    skip_save_report: bool = False,
     ignore_non_consecutive: bool | None = None,
     from_cli: bool = False,
     is_retry: bool = False,
@@ -259,9 +260,9 @@ def save_context_core(
     is_r_notebook = filepath.suffix in {".qmd", ".Rmd"}
     source_code_path = filepath
     report_path: Path | None = None
-    save_source_code_and_report = True
+    save_source_code_and_report = filepath.exists()
     if (
-        is_run_from_ipython and notebook_runner != "nbconvert"
+        is_run_from_ipython and notebook_runner != "nbconvert" and filepath.exists()
     ):  # python notebooks in interactive session
         import nbproject
 
@@ -280,7 +281,7 @@ def save_context_core(
                 logger.warning(
                     "the notebook on disk wasn't saved within the last 10 sec"
                 )
-    if is_ipynb:  # could be from CLI outside interactive session
+    if is_ipynb and filepath.exists():  # could be from CLI outside interactive session
         try:
             import jupytext  # noqa: F401
             from nbproject.dev import (
@@ -314,6 +315,8 @@ def save_context_core(
             ".ipynb", ".py"
         )
         notebook_to_script(transform.description, filepath, source_code_path)
+    elif is_ipynb and not filepath.exists():
+        logger.warning("notebook file does not exist in compute environment")
     elif is_r_notebook:
         if filepath.with_suffix(".nb.html").exists():
             report_path = filepath.with_suffix(".nb.html")
@@ -343,7 +346,6 @@ def save_context_core(
         transform_hash, _ = hash_file(source_code_path)  # ignore hash_type for now
         if transform.hash is not None:
             # check if the hash of the transform source code matches
-            # (for scripts, we already run the same logic in track() - we can deduplicate the call at some point)
             if transform_hash != transform.hash:
                 response = input(
                     f"You are about to overwrite existing source code (hash '{transform.hash}') for Transform('{transform.uid}')."
@@ -361,26 +363,49 @@ def save_context_core(
             transform.source_code = source_code_path.read_text()
             transform.hash = transform_hash
 
-    # track run environment
     if run is not None:
-        env_path = ln_setup.settings.cache_dir / f"run_env_pip_{run.uid}.txt"
-        if env_path.exists():
+        base_path = ln_setup.settings.cache_dir / "environments" / f"run_{run.uid}"
+        paths = [base_path / "run_env_pip.txt", base_path / "r_pak_lockfile.json"]
+        existing_paths = [path for path in paths if path.exists()]
+        if len(existing_paths) == 2:
+            # let's not store the python environment for an R session for now
+            existing_paths = [base_path / "r_pak_lockfile.json"]
+
+        if existing_paths:
             overwrite_env = True
             if run.environment_id is not None and from_cli:
                 logger.important("run.environment is already saved, ignoring")
                 overwrite_env = False
+
             if overwrite_env:
-                env_hash, _ = hash_file(env_path)
+                # Use directory if multiple files exist, otherwise use the single file
+                artifact_path: Path = (
+                    base_path if len(existing_paths) > 1 else existing_paths[0]
+                )
+
+                # Set description based on what we're saving
+                if len(existing_paths) == 1:
+                    if existing_paths[0].name == "run_env_pip.txt":
+                        description = "requirements.txt"
+                    elif existing_paths[0].name == "r_pak_lockfile.json":
+                        description = "r_pak_lockfile.json"
+                    env_hash, _ = hash_file(artifact_path)
+                else:
+                    description = "environments"
+                    _, env_hash, _, _ = hash_dir(artifact_path)
+
                 artifact = ln.Artifact.objects.filter(hash=env_hash).one_or_none()
                 new_env_artifact = artifact is None
+
                 if new_env_artifact:
-                    artifact = ln.Artifact(  # type: ignore
-                        env_path,
-                        description="requirements.txt",
+                    artifact = ln.Artifact(
+                        artifact_path,
+                        description=description,
                         kind="__lamindb_run__",
                         run=False,
                     )
                     artifact.save(upload=True, print_progress=False)
+
                 run.environment = artifact
                 if new_env_artifact:
                     logger.debug(f"saved run.environment: {run.environment}")
@@ -394,12 +419,8 @@ def save_context_core(
         if update_finished_at:
             run.finished_at = datetime.now(timezone.utc)
 
-    # track logs
-    if run is not None and not from_cli and not is_ipynb and not is_r_notebook:
-        save_run_logs(run)
-
     # track report and set is_consecutive
-    if save_source_code_and_report:
+    if save_source_code_and_report and not skip_save_report:
         if run is not None:
             # do not save a run report if executing through nbconvert
             if report_path is not None and notebook_runner != "nbconvert":
@@ -454,7 +475,7 @@ def save_context_core(
         ln.Transform.get(transform_id_prior_to_save).delete()
 
     # finalize
-    if not from_cli and run is not None:
+    if finished_at and not from_cli and run is not None:
         run_time = run.finished_at - run.started_at
         days = run_time.days
         seconds = run_time.seconds
@@ -480,7 +501,7 @@ def save_context_core(
             logger.important(
                 f"go to: https://lamin.ai/{instance_slug}/transform/{transform.uid}"
             )
-        if not from_cli and save_source_code_and_report:
+        if finished_at and not from_cli and save_source_code_and_report:
             thing = "notebook" if (is_ipynb or is_r_notebook) else "script"
             logger.important(
                 f"to update your {thing} from the CLI, run: lamin save {filepath}"

@@ -331,7 +331,9 @@ def _standardize(
             logger.warning(warn_msg)
 
         mapper.update(std_names_bt_mapper)
-        if isinstance(std_names_db, pd.CategoricalDtype):
+        if hasattr(std_names_db, "dtype") and isinstance(
+            std_names_db.dtype, pd.CategoricalDtype
+        ):
             result = std_names_db.cat.rename_categories(std_names_bt_mapper).tolist()
         else:
             result = pd.Series(std_names_db).replace(std_names_bt_mapper).tolist()

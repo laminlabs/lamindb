@@ -175,9 +175,18 @@ class Curator:
         - :class:`~lamindb.curators.AnnDataCurator`
         - :class:`~lamindb.curators.MuDataCurator`
         - :class:`~lamindb.curators.SpatialDataCurator`
+        - :class:`~lamindb.curators.TiledbsomaExperimentCurator`
     """
 
     def __init__(self, dataset: Any, schema: Schema | None = None):
+        if not isinstance(schema, Schema):
+            raise InvalidArgument("schema argument must be a Schema record.")
+
+        if schema.pk is None:
+            raise ValueError(
+                "Schema must be saved before curation. Please save it using '.save()'."
+            )
+
         self._artifact: Artifact = None  # pass the dataset as an artifact
         self._dataset: Any = dataset  # pass the dataset as a UPathStr or data object
         if isinstance(self._dataset, Artifact):
@@ -463,12 +472,15 @@ class DataFrameCurator(Curator):
         slot: str | None = None,
     ) -> None:
         super().__init__(dataset=dataset, schema=schema)
+
         categoricals = []
         features = []
         feature_ids: set[int] = set()
+
         if schema.flexible:
             features += Feature.filter(name__in=self._dataset.keys()).list()
             feature_ids = {feature.id for feature in features}
+
         if schema.n > 0:
             if schema._index_feature_uid is not None:
                 schema_features = [
@@ -488,6 +500,7 @@ class DataFrameCurator(Curator):
                 features.extend(schema_features)
         else:
             assert schema.itype is not None  # noqa: S101
+
         pandera_columns = {}
         if features or schema._index_feature_uid is not None:
             # populate features
@@ -540,11 +553,15 @@ class DataFrameCurator(Curator):
                     "list[cat["
                 ):
                     # validate categoricals if the column is required or if the column is present
-                    if required or feature.name in self._dataset.keys():
+                    # but exclude the index feature from column categoricals
+                    if (required or feature.name in self._dataset.keys()) and (
+                        schema._index_feature_uid is None
+                        or feature.uid != schema._index_feature_uid
+                    ):
                         categoricals.append(feature)
-            if schema._index_feature_uid is not None:
-                # in almost no case, an index should have a pandas.CategoricalDtype in a DataFrame
-                # so, we're typing it as `str` here
+            # in almost no case, an index should have a pandas.CategoricalDtype in a DataFrame
+            # so, we're typing it as `str` here
+            if schema.index is not None:
                 index = pandera.Index(
                     schema.index.dtype
                     if not schema.index.dtype.startswith("cat")
@@ -552,6 +569,7 @@ class DataFrameCurator(Curator):
                 )
             else:
                 index = None
+
             self._pandera_schema = pandera.DataFrameSchema(
                 pandera_columns,
                 coerce=schema.coerce_dtype,
@@ -559,10 +577,12 @@ class DataFrameCurator(Curator):
                 ordered=schema.ordered_set,
                 index=index,
             )
+        # in the DataFrameCatManager, we use the
+        # actual columns of the dataset, not the pandera columns
+        # the pandera columns might have additional optional columns
         self._cat_manager = DataFrameCatManager(
             self._dataset,
             columns_field=parse_cat_dtype(schema.itype, is_itype=True)["field"],
-            columns_names=pandera_columns.keys(),
             categoricals=categoricals,
             index=schema.index,
             slot=slot,
@@ -638,8 +658,11 @@ class DataFrameCurator(Curator):
                 self._cat_manager_validate()
             except (pandera.errors.SchemaError, pandera.errors.SchemaErrors) as err:
                 self._is_validated = False
-                # .exconly() doesn't exist on SchemaError
-                raise ValidationError(str(err)) from err
+                has_dtype_error = "WRONG_DATATYPE" in str(err)
+                error_msg = str(err)
+                if has_dtype_error:
+                    error_msg += "   ▶ Hint: Consider setting 'coerce_datatype=True' to attempt coercing/converting values during validation to the pre-defined dtype."
+                raise ValidationError(error_msg) from err
         else:
             self._cat_manager_validate()
 
@@ -1051,7 +1074,7 @@ class CatVector:
         # should probably add a setting `at_least_one_validated`
         result = True
         if len(self.values) > 0 and len(self.values) == len(self._non_validated):
-            result = False
+            logger.warning(f"no values were validated for {self._key}!")
         # len(self._non_validated) != 0
         #     if maximal_set is True, return False
         #     if maximal_set is False, return True
@@ -1143,9 +1166,11 @@ class CatVector:
         # inspect the default instance and save validated records from public
         if self._subtype_str != "" and "=" not in self._subtype_str:
             related_name = registry._meta.get_field("type").remote_field.related_name
-            self._subtype_query_set = getattr(
-                registry.get(name=self._subtype_str), related_name
-            ).all()
+            type_record = registry.get(name=self._subtype_str)
+            if registry.__name__ == "Record":
+                self._subtype_query_set = type_record.query_children()
+            else:
+                self._subtype_query_set = getattr(type_record, related_name).all()
             values_array = np.array(str_values)
             validated_mask = self._subtype_query_set.validate(  # type: ignore
                 values_array, field=self._field, **filter_kwargs, mute=True
@@ -1327,10 +1352,6 @@ class CatVector:
         self._validated, self._non_validated = self._add_validated()
         self._non_validated, self._synonyms = self._validate(values=self._non_validated)
 
-        # always register new Features if they are columns
-        if self._key == "columns" and self._field == Feature.name:
-            self.add_new()
-
     def standardize(self) -> None:
         """Standardize the vector."""
         registry = self._field.field.model
@@ -1381,7 +1402,6 @@ class DataFrameCatManager:
         self,
         df: pd.DataFrame | Artifact,
         columns_field: FieldAttr = Feature.name,
-        columns_names: Iterable[str] | None = None,
         categoricals: list[Feature] | None = None,
         sources: dict[str, SQLRecord] | None = None,
         index: Feature | None = None,
@@ -1405,29 +1425,19 @@ class DataFrameCatManager:
         self._slot = slot
         self._maximal_set = maximal_set
 
-        if columns_names is None:
-            columns_names = []
-        if columns_field == Feature.name:
-            self._cat_vectors["columns"] = CatVector(
-                values_getter=columns_names,
-                field=columns_field,
-                key="columns" if isinstance(self._dataset, pd.DataFrame) else "keys",
-                source=self._sources.get("columns"),
-                cat_manager=self,
-                maximal_set=self._maximal_set,
+        self._cat_vectors["columns"] = CatVector(
+            values_getter=lambda: self._dataset.keys(),  # lambda ensures the inplace update
+            values_setter=lambda new_values: setattr(
+                self._dataset, "columns", pd.Index(new_values)
             )
-        else:
-            self._cat_vectors["columns"] = CatVector(
-                values_getter=lambda: self._dataset.columns,  # lambda ensures the inplace update
-                values_setter=lambda new_values: setattr(
-                    self._dataset, "columns", pd.Index(new_values)
-                ),
-                field=columns_field,
-                key="columns",
-                source=self._sources.get("columns"),
-                cat_manager=self,
-                maximal_set=self._maximal_set,
-            )
+            if isinstance(self._dataset, pd.DataFrame)
+            else None,
+            field=columns_field,
+            key="columns" if isinstance(self._dataset, pd.DataFrame) else "keys",
+            source=self._sources.get("columns"),
+            cat_manager=self,
+            maximal_set=self._maximal_set,
+        )
         for feature in self._categoricals:
             result = parse_dtype(feature.dtype)[
                 0
@@ -1609,6 +1619,7 @@ def annotate_artifact(
             cat_vector._field.field.model == Feature
             or key == "columns"
             or key == "var_index"
+            or cat_vector.records is None
         ):
             continue
         if len(cat_vector.records) > settings.annotation.n_max_records:
@@ -1629,9 +1640,16 @@ def annotate_artifact(
     if artifact.otype == "DataFrame":
         features = cat_vectors["columns"].records
         if features is not None:
+            index_feature = artifact.schema.index
             feature_set = Schema(
-                features=features, coerce_dtype=artifact.schema.coerce_dtype
-            )  # TODO: add more defaults from validating schema
+                features=[f for f in features if f != index_feature],
+                itype=artifact.schema.itype,
+                index=index_feature,
+                minimal_set=artifact.schema.minimal_set,
+                maximal_set=artifact.schema.maximal_set,
+                coerce_dtype=artifact.schema.coerce_dtype,
+                ordered_set=artifact.schema.ordered_set,
+            )
             if (
                 feature_set._state.adding
                 and len(features) > settings.annotation.n_max_records
@@ -1656,10 +1674,17 @@ def annotate_artifact(
             if features is None:
                 logger.warning(f"no features found for slot {slot}")
                 continue
-            itype = parse_cat_dtype(artifact.schema.slots[slot].itype, is_itype=True)[
-                "field"
-            ]
-            feature_set = Schema(features=features, itype=itype)
+            validating_schema = slot_curator._schema
+            index_feature = validating_schema.index
+            feature_set = Schema(
+                features=[f for f in features if f != index_feature],
+                itype=validating_schema.itype,
+                index=index_feature,
+                minimal_set=validating_schema.minimal_set,
+                maximal_set=validating_schema.maximal_set,
+                coerce_dtype=validating_schema.coerce_dtype,
+                ordered_set=validating_schema.ordered_set,
+            )
             if (
                 feature_set._state.adding
                 and len(features) > settings.annotation.n_max_records
@@ -1667,6 +1692,9 @@ def annotate_artifact(
                 logger.important(
                     f"not annotating with {len(features)} features for slot {slot} as it exceeds {settings.annotation.n_max_records} (ln.settings.annotation.n_max_records)"
                 )
+                itype = parse_cat_dtype(
+                    artifact.schema.slots[slot].itype, is_itype=True
+                )["field"]
                 feature_set = Schema(itype=itype, n=len(features))
             artifact.feature_sets.add(
                 feature_set.save(), through_defaults={"slot": slot}

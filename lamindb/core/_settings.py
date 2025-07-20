@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import os
+import sys
 from typing import TYPE_CHECKING
 
 import lamindb_setup as ln_setup
-from lamin_utils import logger
+from lamin_utils import colors, logger
+from lamindb_setup import settings as setup_settings
 from lamindb_setup._set_managed_storage import set_managed_storage
-from lamindb_setup.core._settings import settings as setup_settings
+from lamindb_setup.core import deprecated
 from lamindb_setup.core._settings_instance import sanitize_git_repo_url
 
 from .subsettings._annotation_settings import AnnotationSettings, annotation_settings
@@ -18,6 +20,15 @@ if TYPE_CHECKING:
 
     from lamindb_setup.core._settings_storage import StorageSettings
     from upath import UPath
+
+
+def is_read_only_connection() -> bool:
+    instance = setup_settings.instance
+    if instance.dialect == "postgresql":
+        db_url = instance.db
+        return "read" in db_url or "public" in db_url
+    return False
+
 
 VERBOSITY_TO_INT = {
     "error": 0,  # 40
@@ -42,6 +53,39 @@ class Settings:
         self._verbosity_int: int = 1  # warning-level logging
         logger.set_verbosity(self._verbosity_int)
         self._sync_git_repo: str | None = None
+
+    def __repr__(self) -> str:  # pragma: no cover
+        if "sphinx" in sys.modules:
+            return object.__repr__(self)
+
+        cls_name = colors.green(self.__class__.__name__)
+        verbosity_color = colors.yellow if self.verbosity == "warning" else colors.green
+        verbosity_str = verbosity_color(self.verbosity)
+
+        storage_root = self._storage_settings.root_as_str
+        storage_str = colors.italic(storage_root)
+
+        instance_str = colors.italic(self.instance_uid)
+        track_color = colors.green if self.track_run_inputs else colors.yellow
+        track_str = track_color(str(self.track_run_inputs))
+
+        lines = [
+            f"{cls_name}",
+            f"  instance: {instance_str}",
+            f"  storage: {storage_str}",
+            f"  verbosity: {verbosity_str}",
+            f"  track_run_inputs: {track_str}",
+        ]
+
+        if self.sync_git_repo:
+            repo_name = (
+                self.sync_git_repo.split("/")[-1]
+                if "/" in self.sync_git_repo
+                else self.sync_git_repo
+            )
+            lines.append(f"  sync_git_repo: {colors.italic(repo_name)}")
+
+        return "\n".join(lines)
 
     @property
     def creation(self) -> CreationSettings:
@@ -151,6 +195,8 @@ class Settings:
     def storage(self, path_kwargs: str | Path | UPath | tuple[str | UPath, Mapping]):
         if isinstance(path_kwargs, tuple):
             path, kwargs = path_kwargs
+            if isinstance(kwargs, str):
+                kwargs = {"host": kwargs}
         else:
             path, kwargs = path_kwargs, {}
         set_managed_storage(path, **kwargs)
@@ -166,18 +212,28 @@ class Settings:
         return ln_setup.settings.cache_dir
 
     @property
-    def storage_local(self) -> StorageSettings:
+    def local_storage(self) -> StorageSettings:
         """An additional local default storage (a path to its root).
 
         Is only available if :attr:`~lamindb.setup.core.InstanceSettings.keep_artifacts_local` is enabled.
 
         Guide: :doc:`faq/keep-artifacts-local`
         """
-        return ln_setup.settings.instance.storage_local
+        return ln_setup.settings.instance.local_storage
+
+    @local_storage.setter
+    def local_storage(self, local_root: Path):
+        ln_setup.settings.instance.local_storage = local_root
+
+    @property
+    @deprecated("local_storage")
+    def storage_local(self) -> StorageSettings:
+        return self.local_storage
 
     @storage_local.setter
-    def storage_local(self, local_root: Path):
-        ln_setup.settings.instance.storage_local = local_root
+    @deprecated("local_storage")
+    def storage_local(self, local_root_host: tuple[Path | str, str]):
+        self.local_storage = local_root_host  # type: ignore
 
     @property
     def verbosity(self) -> str:

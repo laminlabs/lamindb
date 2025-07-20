@@ -5,10 +5,12 @@
 
    ingest_mini_immuno_datasets
    schemas
+   cellxgene
 
 """
 
 from . import schemas
+from .cellxgene import cellxgene
 
 
 def ingest_mini_immuno_datasets():

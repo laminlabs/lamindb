@@ -18,17 +18,25 @@ from ..base.ids import base62_16
 from .artifact import Artifact
 from .can_curate import CanCurate
 from .feature import Feature
+from .has_parents import _query_relatives
+from .query_set import reorder_subset_columns_in_df
 from .run import Run, TracksRun, TracksUpdates
 from .sqlrecord import BaseSQLRecord, IsLink, SQLRecord, _get_record_kwargs
+from .transform import Transform
 from .ulabel import ULabel
 
 if TYPE_CHECKING:
-    from .project import Project
+    import pandas as pd
+
+    from .project import Person, Project, Reference
+    from .query_set import QuerySet
     from .schema import Schema
 
 
 class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates):
-    """Flexible records to register, e.g., samples, donors, cells, compounds, sequences.
+    """Flexible records as you find them in Excel-like sheets.
+
+    Useful register, e.g., samples, donors, cells, compounds, sequences.
 
     This is currently more convenient to use through the UI.
 
@@ -40,12 +48,8 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates):
         description: `str` A description.
 
     See Also:
-        :meth:`~lamindb.Sheet`
-            Sheets to group records.
         :meth:`~lamindb.Feature`
-            Dimensions of measurement.
-        :attr:`~lamindb.Artifact.features`
-            Feature manager for an artifact.
+            Dimensions of measurement (e.g. column of a sheet).
     """
 
     class Meta(SQLRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
@@ -83,8 +87,6 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates):
 
     If `is_type` is `True`, the schema is used to enforce certain features for each records of this type.
     """
-    _sort_order: float | None = models.FloatField(null=True, default=None)
-    """Sort order of the record, used for ordering in the UI."""
     # naming convention in analogy with Schema
     components: Record = models.ManyToManyField(
         "Record", through="RecordRecord", symmetrical=False, related_name="composites"
@@ -94,20 +96,41 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates):
     """Record-like composites of this record."""
     description: str | None = CharField(null=True)
     """A description (optional)."""
-    artifacts: Artifact = models.ManyToManyField(
-        Artifact, through="RecordArtifact", related_name="records"
+    linked_artifacts: Artifact = models.ManyToManyField(
+        Artifact, through="RecordArtifact", related_name="linked_in_records"
     )
     """Linked artifacts."""
-    runs: Run = models.ManyToManyField(Run, through="RecordRun", related_name="records")
+    artifacts: Artifact = models.ManyToManyField(
+        Artifact, through="ArtifactRecord", related_name="records"
+    )
+    """Annotated artifacts."""
+    linked_runs: Run = models.ManyToManyField(
+        Run, through="RecordRun", related_name="records"
+    )
     """Linked runs."""
+    run: Run | None = ForeignKey(
+        Run,
+        PROTECT,
+        related_name="output_records",
+        null=True,
+        default=None,
+        editable=False,
+    )
+    """Run that created the record."""
+    input_of_runs: Run = models.ManyToManyField(Run, related_name="input_records")
+    """Runs that use this record as an input."""
     ulabels: ULabel = models.ManyToManyField(
         ULabel,
         through="RecordULabel",
         related_name="_records",  # in transition period
     )
     """Linked runs."""
-    projects: Project
+    linked_projects: Project
     """Linked projects."""
+    linked_references: Reference
+    """Linked references."""
+    linked_people: Person
+    """Linked people."""
 
     @overload
     def __init__(
@@ -170,20 +193,68 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates):
         )
 
     @property
-    def is_sheet(self) -> bool:
-        """Check if record is a sheet."""
+    def is_form(self) -> bool:
+        """Check if record is a form (a record type with a validating schema)."""
         return self.schema is not None and self.is_type
+
+    def query_children(self) -> QuerySet:
+        """Query all children of a record type recursively.
+
+        While `.records` retrieves the direct children, this method
+        retrieves all descendants of a record type.
+        """
+        return _query_relatives([self], "records", self.__class__)  # type: ignore
+
+    def to_pandas(self) -> pd.DataFrame:
+        """Export all children of a record type recursively to a pandas DataFrame."""
+        assert self.is_type, "Only types can be exported as dataframes"  # noqa: S101
+        df = self.query_children().df(features="queryset")
+        df.columns.values[0] = "__lamindb_record_uid__"
+        df.columns.values[1] = "__lamindb_record_name__"
+        if self.schema is not None:
+            desired_order = self.schema.members.list("name")  # only members is ordered!
+        else:
+            # sort alphabetically for now
+            desired_order = df.columns[2:].tolist()
+            desired_order.sort()
+        df = reorder_subset_columns_in_df(df, desired_order, position=0)  # type: ignore
+        return df.sort_index()  # order by id for now
+
+    def to_artifact(self, key: str = None) -> Artifact:
+        """Export all children of a record type as a `.csv` artifact."""
+        from lamindb.core._context import context
+
+        assert self.is_type, "Only types can be exported as artifacts"  # noqa: S101
+        if key is None:
+            file_suffix = ".csv"
+            key = f"sheet_exports/{self.name}{file_suffix}"
+        description = f": {self.description}" if self.description is not None else ""
+        format: dict[str, Any] = {"suffix": ".csv"} if key.endswith(".csv") else {}
+        format["index"] = False
+        transform, _ = Transform.objects.get_or_create(
+            key="__lamindb_record_export__", type="function"
+        )
+        run = Run(transform, initiated_by_run=context.run).save()
+        run.input_records.add(self)
+        return Artifact.from_df(
+            self.to_pandas(),
+            key=key,
+            description=f"Export of sheet {self.uid}{description}",
+            schema=self.schema,
+            format=format,
+            run=run,
+        ).save()
 
 
 class RecordJson(BaseSQLRecord, IsLink):
     id: int = models.BigAutoField(primary_key=True)
     record: Record = ForeignKey(Record, CASCADE, related_name="values_json")
-    feature: Feature = ForeignKey(Feature, CASCADE, related_name="links_recordjson")
+    feature: Feature = ForeignKey(Feature, PROTECT, related_name="links_recordjson")
     value: Any = JSONField(default=None, db_default=None)
 
     class Meta:
         app_label = "lamindb"
-        unique_together = ("record", "feature")
+        unique_together = ("record", "feature")  # a list is modeled as a list in json
 
 
 class RecordRecord(SQLRecord, IsLink):
@@ -191,47 +262,63 @@ class RecordRecord(SQLRecord, IsLink):
     record: Record = ForeignKey(
         Record, CASCADE, related_name="values_record"
     )  # composite
-    feature: Feature = ForeignKey(Feature, CASCADE, related_name="links_recordrecord")
+    feature: Feature = ForeignKey(Feature, PROTECT, related_name="links_recordrecord")
     value: Record = ForeignKey(
         Record, PROTECT, related_name="links_record"
     )  # component
 
     class Meta:
         app_label = "lamindb"
-        unique_together = ("record", "feature")
+        unique_together = ("record", "feature", "value")
 
 
 class RecordULabel(BaseSQLRecord, IsLink):
     id: int = models.BigAutoField(primary_key=True)
     record: Record = ForeignKey(Record, CASCADE, related_name="values_ulabel")
-    feature: Feature = ForeignKey(Feature, CASCADE, related_name="links_recordulabel")
+    feature: Feature = ForeignKey(Feature, PROTECT, related_name="links_recordulabel")
     value: ULabel = ForeignKey(ULabel, PROTECT, related_name="links_record")
 
     class Meta:
         # allows linking exactly one record to one ulabel per feature, because we likely don't want to have Many
         app_label = "lamindb"
-        unique_together = ("record", "feature")
+        unique_together = ("record", "feature", "value")
 
 
 class RecordRun(BaseSQLRecord, IsLink):
     id: int = models.BigAutoField(primary_key=True)
     record: Record = ForeignKey(Record, CASCADE, related_name="values_run")
-    feature: Feature = ForeignKey(Feature, CASCADE, related_name="links_recordrun")
+    feature: Feature = ForeignKey(Feature, PROTECT, related_name="links_recordrun")
     value: Run = ForeignKey(Run, PROTECT, related_name="links_record")
 
     class Meta:
         # allows linking several records to a single run for the same feature because we'll likely need this
         app_label = "lamindb"
-        unique_together = ("record", "feature")
+        unique_together = ("record", "feature", "value")
 
 
 class RecordArtifact(BaseSQLRecord, IsLink):
     id: int = models.BigAutoField(primary_key=True)
     record: Record = ForeignKey(Record, CASCADE, related_name="values_artifact")
-    feature: Feature = ForeignKey(Feature, CASCADE, related_name="links_recordartifact")
-    value: Artifact = ForeignKey(Artifact, PROTECT, related_name="links_record")
+    feature: Feature = ForeignKey(Feature, PROTECT, related_name="links_recordartifact")
+    value: Artifact = ForeignKey(Artifact, PROTECT, related_name="links_in_record")
 
     class Meta:
         # allows linking several records to a single artifact for the same feature because we'll likely need this
         app_label = "lamindb"
         unique_together = ("record", "feature", "value")
+
+
+# like ArtifactULabel, for annotation
+class ArtifactRecord(BaseSQLRecord, IsLink):
+    id: int = models.BigAutoField(primary_key=True)
+    artifact: Artifact = ForeignKey(Artifact, CASCADE, related_name="links_record")
+    record: Record = ForeignKey(Record, PROTECT, related_name="links_artifact")
+    feature: Feature = ForeignKey(
+        Feature, PROTECT, null=True, related_name="links_artifactrecord"
+    )
+    label_ref_is_name: bool | None = BooleanField(null=True)
+    feature_ref_is_name: bool | None = BooleanField(null=True)
+
+    class Meta:
+        # allows linking several records to a single artifact for the same feature because we'll likely need this
+        unique_together = ("artifact", "record", "feature")

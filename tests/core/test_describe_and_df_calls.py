@@ -94,7 +94,7 @@ def test_curate_df():
         "key": ["examples/dataset2.h5ad", "examples/dataset1.h5ad"],
         "cell_type_by_expert": [np.nan, {"CD8-positive, alpha-beta T cell", "B cell"}],
         "cell_type_by_model": [{"T cell", "B cell"}, {"T cell", "B cell"}],
-        "experiment": ["Experiment 2", "Experiment 1"],
+        "experiment": pd.Categorical(["Experiment 2", "Experiment 1"]),
         "perturbation": [{"IFNG", "DMSO"}, {"IFNG", "DMSO"}],
         "temperature": [22.6, 21.6],
         "study_note": [
@@ -120,35 +120,77 @@ def test_curate_df():
     )  # general, internal features, external features, labels
     general_node = description_tree.children[0]
     assert general_node.label.plain == "General"
-    assert general_node.children[0].label == f".uid = '{artifact.uid}'"
-    assert general_node.children[1].label == ".key = 'examples/dataset1.h5ad'"
-    assert ".size = " in general_node.children[2].label
-    assert ".hash = " in general_node.children[3].label
-    assert general_node.children[4].label.plain == ".n_observations = 3"
-    assert ".path = " in general_node.children[5].label.plain
-    assert ".created_by = " in general_node.children[6].label.plain
-    assert ".created_at = " in general_node.children[7].label.plain
+
+    # The structure is now different due to two-column layout
+    # First few children are two-column pairs, then single-column items
+
+    # Check that uid appears in the first two-column row
+    first_row = general_node.children[0].label.plain
+    assert f"key: {artifact.key}" in first_row
+
+    # Check that hash appears somewhere in the two-column section
+    found_hash = False
+    found_size = False
+    found_n_observations = False
+
+    # Look through the two-column rows for hash, size, and n_observations
+    for child in general_node.children:
+        child_text = child.label.plain
+        if "hash: " in child_text:
+            found_hash = True
+        if "size: " in child_text:
+            found_size = True
+        if "n_observations: 3" in child_text:
+            found_n_observations = True
+
+    assert found_hash, "Hash should be present in the general section"
+    assert found_size, "Size should be present in the general section"
+    assert found_n_observations, (
+        "n_observations should be present in the general section"
+    )
+
+    # Check single-column items (these appear after the two-column items)
+    found_key = False
+    found_path = False
+    found_created_by = False
+    found_created_at = False
+
+    for child in general_node.children:
+        child_text = child.label.plain
+        if "key: examples/dataset1.h5ad" in child_text:
+            found_key = True
+        if "storage path: " in child_text:
+            found_path = True
+        if "created_by: " in child_text:
+            found_created_by = True
+        if "created_at: " in child_text:
+            found_created_at = True
+
+    assert found_key, "Key should be present in the general section"
+    assert found_path, "Storage path should be present in the general section"
+    assert found_created_by, "Created by should be present in the general section"
+    assert found_created_at, "Created at should be present in the general section"
 
     # dataset section
     assert (
         artifact.features.describe(return_str=True)
-        == """Artifact .h5ad/AnnData
+        == """Artifact .h5ad · AnnData · dataset
 ├── Dataset features
 │   ├── obs • 4             [Feature]
-│   │   cell_type_by_expe…  cat[bionty.CellT…  B cell, CD8-positive, alpha-beta…
-│   │   cell_type_by_model  cat[bionty.CellT…  B cell, T cell
-│   │   perturbation        cat[ULabel]        DMSO, IFNG
+│   │   cell_type_by_expe…  cat[bionty.CellType]    B cell, CD8-positive, alpha…
+│   │   cell_type_by_model  cat[bionty.CellType]    B cell, T cell
+│   │   perturbation        cat[ULabel]             DMSO, IFNG
 │   │   sample_note         str
-│   └── var.T • 3           [bionty.Gene.ens…
+│   └── var.T • 3           [bionty.Gene.ensembl_…
 │       CD8A                num
 │       CD4                 num
 │       CD14                num
 └── Linked features
-    └── experiment          cat[ULabel]        Experiment 1
-        date_of_study       date               2024-12-01
-        study_metadata      dict               {'detail1': '123', 'detail2': 1}
-        study_note          str                We had a great time performing t…
-        temperature         float              21.6"""
+    └── experiment          cat[ULabel]             Experiment 1
+        date_of_study       date                    2024-12-01
+        study_metadata      dict                    {'detail1': '123', 'detail2…
+        study_note          str                     We had a great time perform…
+        temperature         float                   21.6"""
     )
 
     # labels section
@@ -157,15 +199,23 @@ def test_curate_df():
     assert len(labels_node.children[0].label.columns) == 3
     assert len(labels_node.children[0].label.rows) == 2
     assert labels_node.children[0].label.columns[0]._cells == [
-        ".cell_types",
         ".ulabels",
+        ".cell_types",
     ]
-    assert labels_node.children[0].label.columns[1]._cells[0].plain == "bionty.CellType"
-    assert labels_node.children[0].label.columns[1]._cells[1].plain == "ULabel"
-    assert labels_node.children[0].label.columns[2]._cells == [
-        "B cell, T cell, CD8-positive, alpha-beta T cell",
-        "DMSO, IFNG, Experiment 1",
-    ]
+    assert labels_node.children[0].label.columns[1]._cells[0].plain == "ULabel"
+    assert labels_node.children[0].label.columns[1]._cells[1].plain == "bionty.CellType"
+    assert {
+        c.strip()
+        for c in ",".join(labels_node.children[0].label.columns[2]._cells).split(",")
+    } == {
+        "DMSO",
+        "IFNG",
+        "Experiment 1",
+        "B cell",
+        "T cell",
+        "CD8-positive",
+        "alpha-beta T cell",
+    }
 
     artifact.delete(permanent=True)
     artifact2.delete(permanent=True)

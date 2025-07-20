@@ -22,6 +22,7 @@ jobs:
           filters: |
             curator:
               - 'lamindb/curators/**'
+              - 'lamindb/examples/cellxgene/**'
               - 'tests/curators/**'
 
       - id: set-matrix
@@ -162,6 +163,7 @@ jobs:
       - run: pip install "laminci@git+https://x-access-token:${{ secrets.LAMIN_BUILD_DOCS }}@github.com/laminlabs/laminci"
       - run: nox -s "install_ci(group='docs')"
       - uses: actions/download-artifact@v4
+      - run: nox -s clidocs
       - run: nox -s docs
       - run: rm -r ./_build/html/.doctrees # do not want to deploy with cloudflare
       - uses: cloudflare/wrangler-action@v3

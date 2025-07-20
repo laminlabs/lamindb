@@ -67,6 +67,10 @@ class Person(SQLRecord, CanCurate, TracksRun, TracksUpdates, ValidateFields):
     """Email of the person."""
     external: bool = BooleanField(default=True, db_index=True)
     """Whether the person is external to the organization."""
+    records: Record = models.ManyToManyField(
+        Record, through="RecordPerson", related_name="linked_people"
+    )
+    """Linked records."""
 
     @overload
     def __init__(
@@ -166,6 +170,10 @@ class Reference(SQLRecord, CanCurate, TracksRun, TracksUpdates, ValidateFields):
         Collection, through="CollectionReference", related_name="references"
     )
     """Collections associated with this reference."""
+    records: Record = models.ManyToManyField(
+        Record, through="RecordReference", related_name="linked_references"
+    )
+    """Linked records."""
 
     @overload
     def __init__(
@@ -282,7 +290,7 @@ class Project(SQLRecord, CanCurate, TracksRun, TracksUpdates, ValidateFields):
     )
     """Linked schemas."""
     records: Record = models.ManyToManyField(
-        Record, through="RecordProject", related_name="projects"
+        Record, through="RecordProject", related_name="linked_projects"
     )
     """Linked records."""
     collections: Collection = models.ManyToManyField(
@@ -421,15 +429,37 @@ class SchemaProject(BaseSQLRecord, IsLink, TracksRun):
         unique_together = ("schema", "project")
 
 
+class RecordPerson(BaseSQLRecord, IsLink):
+    id: int = models.BigAutoField(primary_key=True)
+    record: Record = ForeignKey(Record, CASCADE, related_name="values_person")
+    feature: Feature = ForeignKey(Feature, PROTECT, related_name="links_recordperson")
+    value: Person = ForeignKey(Person, PROTECT, related_name="links_record")
+
+    class Meta:
+        unique_together = ("record", "feature", "value")
+
+
+class RecordReference(BaseSQLRecord, IsLink):
+    id: int = models.BigAutoField(primary_key=True)
+    record: Record = ForeignKey(Record, CASCADE, related_name="values_reference")
+    feature: Feature = ForeignKey(
+        Feature, PROTECT, related_name="links_recordreference"
+    )
+    value: Reference = ForeignKey(Reference, PROTECT, related_name="links_record")
+
+    class Meta:
+        unique_together = ("record", "feature", "value")
+
+
 class RecordProject(BaseSQLRecord, IsLink):
     id: int = models.BigAutoField(primary_key=True)
     record: Record = ForeignKey(Record, CASCADE, related_name="values_project")
-    feature: Feature = ForeignKey(Feature, CASCADE, related_name="links_recordproject")
+    feature: Feature = ForeignKey(Feature, PROTECT, related_name="links_recordproject")
     value: Project = ForeignKey(Project, PROTECT, related_name="links_record")
 
     class Meta:
         app_label = "lamindb"
-        unique_together = ("record", "feature")
+        unique_together = ("record", "feature", "value")
 
 
 class ArtifactReference(BaseSQLRecord, IsLink, TracksRun):

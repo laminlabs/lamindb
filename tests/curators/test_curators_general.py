@@ -230,6 +230,18 @@ def test_pandera_dataframe_schema(
     ln.Feature.filter().delete()
 
 
+def test_schema_not_saved(df):
+    """Attempting to validate an unsaved Schema must error."""
+    feature = ln.Feature(name="cell_type", dtype="str").save()
+    schema = ln.Schema(features=[feature])
+
+    with pytest.raises(ValueError) as excinfo:
+        ln.curators.DataFrameCurator(df, schema)
+    assert excinfo.exconly() == (
+        "ValueError: Schema must be saved before curation. Please save it using '.save()'."
+    )
+
+
 def test_schema_optionals():
     schema = ln.Schema(
         name="my-schema",
@@ -477,3 +489,94 @@ def test_cat_filters_multiple_relation_filters(df_disease, disease_ontology_old)
             in str(error)
         )
     schema.delete()
+
+
+def test_curate_columns(df):
+    """Test that columns can be curated."""
+    schema = ln.Schema(
+        name="sample schema",
+        features=[
+            ln.Feature(name="sample_id", dtype="str").save(),
+            ln.Feature(name="sample_name", dtype="str").save(),
+            ln.Feature(name="sample_type", dtype="str").save(),
+        ],
+    ).save()
+
+    # make one column name invalid
+    df.rename(columns={"sample_name": "sample_name_name"}, inplace=True)
+
+    curator = ln.curators.DataFrameCurator(df, schema)
+    try:
+        curator.validate()
+    except ln.errors.ValidationError as error:
+        assert "column 'sample_name' not in dataframe" in str(error)
+
+    # now fix the column
+    df.rename(columns={"sample_name_name": "sample_name"}, inplace=True)
+    curator.validate()
+
+    schema.delete()
+    ln.Feature.filter().delete()
+
+
+def test_wrong_datatype(df):
+    feature = ln.Feature(name="sample_id", dtype=ln.ULabel).save()
+    schema = ln.Schema(features=[feature]).save()
+
+    curator = ln.curators.DataFrameCurator(df, schema)
+    with pytest.raises(ln.errors.ValidationError) as excinfo:
+        curator.validate()
+
+    assert "expected series 'sample_id' to have type category, got object" in str(
+        excinfo.value
+    )
+    assert (
+        "Hint: Consider setting 'coerce_datatype=True' to attempt coercing/converting values during validation to the pre-defined dtype."
+        in str(excinfo.value)
+    )
+
+    schema.delete()
+    feature.delete()
+
+
+def test_hash_index_feature(df):
+    df_index = df.set_index("sample_id")
+    sample_name = ln.Feature(name="sample_name", dtype="str").save()
+    sample_name.uid = "OpQAD5Ifu89t"
+    sample_name.save()
+    sample_type = ln.Feature(name="sample_type", dtype="str").save()
+    sample_type.uid = "7I4u69RiCAVy"
+    sample_type.save()
+    sample_id = ln.Feature(name="sample_id", dtype="str").save()
+    sample_id.uid = "uValv1YfEQib"
+    sample_id.save()
+    schema_index = ln.Schema(
+        name="sample schema with index",
+        features=[
+            sample_name,
+            sample_type,
+        ],
+        index=sample_id,
+    ).save()
+    assert schema_index.hash == "drtQMP4N4xEebS49DO-9Jw"
+
+    schema = ln.Schema(
+        name="sample schema",
+        features=[
+            sample_id,
+            sample_name,
+            sample_type,
+        ],
+    ).save()
+    assert schema.hash == "Z_dmk1WendD15s2FyBW1HA"
+
+    artifact = ln.Artifact.from_df(
+        df_index, key="curated_df.parquet", schema=schema_index
+    ).save()
+    assert artifact.feature_sets.all().one() == schema_index
+
+    # clean up
+    artifact.delete(permanent=True)
+    schema_index.delete()
+    schema.delete()
+    ln.Feature.filter().delete()

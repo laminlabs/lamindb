@@ -14,6 +14,7 @@ import pandas as pd
 from anndata import AnnData
 from django.db import connections, models
 from django.db.models import CASCADE, PROTECT, Q
+from django.db.models.functions import Length
 from lamin_utils import colors, logger
 from lamindb_setup import settings as setup_settings
 from lamindb_setup.core._hub_core import select_storage_or_parent
@@ -37,6 +38,7 @@ from lamindb.errors import FieldValidationError, UnknownStorageLocation
 from lamindb.models.query_set import QuerySet
 
 from ..base.users import current_user_id
+from ..core._settings import is_read_only_connection, settings
 from ..core.loaders import load_to_memory
 from ..core.storage import (
     LocalPathClasses,
@@ -124,6 +126,8 @@ if TYPE_CHECKING:
     from ._label_manager import LabelManager
     from .collection import Collection
     from .project import Project, Reference
+    from .record import Record
+    from .sqlrecord import Branch, Space
     from .transform import Transform
 
 
@@ -136,7 +140,7 @@ INCONSISTENT_STATE_MSG = (
 
 def process_pathlike(
     filepath: UPath,
-    default_storage: Storage,
+    storage: Storage,
     using_key: str | None,
     skip_existence_check: bool = False,
 ) -> tuple[Storage, bool]:
@@ -147,9 +151,9 @@ def process_pathlike(
                 raise FileNotFoundError(filepath)
         except PermissionError:
             pass
-    if check_path_is_child_of_root(filepath, default_storage.root):
+    if check_path_is_child_of_root(filepath, storage.root):
         use_existing_storage_key = True
-        return default_storage, use_existing_storage_key
+        return storage, use_existing_storage_key
     else:
         # check whether the path is part of one of the existing
         # already-registered storage locations
@@ -203,12 +207,12 @@ def process_pathlike(
                 use_existing_storage_key = False
                 # if the default storage is local we'll throw an error if the user
                 # doesn't provide a key
-                if default_storage.type == "local":
-                    return default_storage, use_existing_storage_key
+                if storage.type == "local":
+                    return storage, use_existing_storage_key
                 # if the default storage is in the cloud (the file is going to
                 # be uploaded upon saving it), we treat the filepath as a cache
                 else:
-                    return default_storage, use_existing_storage_key
+                    return storage, use_existing_storage_key
 
 
 def process_data(
@@ -216,7 +220,7 @@ def process_data(
     data: UPathStr | pd.DataFrame | AnnData,
     format: str | None,
     key: str | None,
-    default_storage: Storage,
+    storage: Storage,
     using_key: str | None,
     skip_existence_check: bool = False,
     is_replace: bool = False,
@@ -235,9 +239,7 @@ def process_data(
 
     if isinstance(data, (str, Path, UPath)):
         access_token = (
-            default_storage._access_token
-            if hasattr(default_storage, "_access_token")
-            else None
+            storage._access_token if hasattr(storage, "_access_token") else None
         )
         path = create_path(data, access_token=access_token)
         # we don't resolve http links because they can resolve into a different domain
@@ -247,7 +249,7 @@ def process_data(
 
         storage, use_existing_storage_key = process_pathlike(
             path,
-            default_storage=default_storage,
+            storage=storage,
             using_key=using_key,
             skip_existence_check=skip_existence_check,
         )
@@ -259,7 +261,7 @@ def process_data(
         or data_is_scversedatastructure(data, "MuData")
         or data_is_scversedatastructure(data, "SpatialData")
     ):
-        storage = default_storage
+        storage = storage
         memory_rep = data
         suffix = infer_suffix(data, format)
     else:
@@ -278,10 +280,12 @@ def process_data(
 
     # in case we have an in-memory representation, we need to write it to disk
     if memory_rep is not None:
-        from lamindb import settings
-
         path = settings.cache_dir / f"{provisional_uid}{suffix}"
-        write_to_disk(data, path)
+        if isinstance(format, dict):
+            format.pop("suffix", None)
+        else:
+            format = {}
+        write_to_disk(data, path, **format)
         use_existing_storage_key = False
 
     return memory_rep, path, suffix, storage, use_existing_storage_key
@@ -296,8 +300,6 @@ def get_stat_or_artifact(
 ) -> Union[tuple[int, str | None, str | None, int | None, Artifact | None], Artifact]:
     """Retrieves file statistics or an existing artifact based on the path, hash, and key."""
     n_files = None
-    from lamindb import settings
-
     if settings.creation.artifact_skip_size_hash:
         return None, None, None, n_files, None
     stat = path.stat()  # one network request
@@ -356,7 +358,7 @@ def check_path_in_existing_storage(
     check_hub_register_storage: bool = False,
     using_key: str | None = None,
 ) -> Storage | None:
-    for storage in Storage.objects.using(using_key).filter().all():
+    for storage in Storage.objects.using(using_key).order_by(Length("root").desc()):
         # if path is part of storage, return it
         if check_path_is_child_of_root(path, root=storage.root):
             return storage
@@ -396,21 +398,19 @@ def get_artifact_kwargs_from_data(
     format: str | None,
     provisional_uid: str,
     version: str | None,
-    default_storage: Storage,
+    storage: Storage,
     using_key: str | None = None,
     is_replace: bool = False,
     skip_check_exists: bool = False,
     overwrite_versions: bool | None = None,
 ):
-    from lamindb import settings
-
     run = get_run(run)
     memory_rep, path, suffix, storage, use_existing_storage_key = process_data(
         provisional_uid,
         data,
         format,
         key,
-        default_storage,
+        storage,
         using_key,
         skip_check_exists,
         is_replace=is_replace,
@@ -451,7 +451,7 @@ def get_artifact_kwargs_from_data(
                 )
         check_path_in_storage = True
     else:
-        storage = default_storage
+        storage = storage
 
     log_storage_hint(
         check_path_in_storage=check_path_in_storage,
@@ -630,8 +630,6 @@ def _populate_subsequent_runs_(record: Union[Artifact, Collection], run: Run):
 
 # also see current_run() in core._data
 def get_run(run: Run | None) -> Run | None:
-    from lamindb import settings
-
     from .._tracked import get_current_tracked_run
     from ..core._context import context
 
@@ -640,11 +638,7 @@ def get_run(run: Run | None) -> Run | None:
         if run is None:
             run = context.run
         if run is None and not settings.creation.artifact_silence_missing_run_warning:
-            # here we check that this is not a read-only connection
-            # normally for our connection strings the read-only role name has "read" in it
-            # not absolutely safe but the worst case is that the warning is not shown
-            instance = setup_settings.instance
-            if instance.dialect != "postgresql" or "read" not in instance.db:
+            if not is_read_only_connection():
                 logger.warning(WARNING_RUN_TRANSFORM)
     # suppress run by passing False
     elif not run:
@@ -715,7 +709,7 @@ def save_schema_links(self: Artifact) -> None:
 
 
 def _describe_postgres(self):  # for Artifact & Collection
-    from ._describe import describe_general
+    from ._describe import describe_artifact_general, describe_header
     from ._feature_manager import describe_features
 
     model_name = self.__class__.__name__
@@ -735,10 +729,8 @@ def _describe_postgres(self):  # for Artifact & Collection
     else:
         result = get_artifact_with_related(self, include_fk=True, include_m2m=True)
     related_data = result.get("related_data", {})
-    # TODO: fk_data = related_data.get("fk", {})
-
-    tree = describe_general(self)
     if model_name == "Artifact":
+        tree = describe_artifact_general(self, foreign_key_data=related_data["fk"])
         return describe_features(
             self,
             tree=tree,
@@ -746,11 +738,12 @@ def _describe_postgres(self):  # for Artifact & Collection
             with_labels=True,
         )
     else:
+        tree = describe_header(self)
         return tree
 
 
 def _describe_sqlite(self, print_types: bool = False):  # for artifact & collection
-    from ._describe import describe_general
+    from ._describe import describe_artifact_general, describe_header
     from ._feature_manager import describe_features
     from .collection import Collection
 
@@ -786,14 +779,15 @@ def _describe_sqlite(self, print_types: bool = False):  # for artifact & collect
             .prefetch_related(*many_to_many_fields)
             .get(id=self.id)
         )
-    tree = describe_general(self)
     if model_name == "Artifact":
+        tree = describe_artifact_general(self)
         return describe_features(
             self,
             tree=tree,
             with_labels=True,
         )
     else:
+        tree = describe_header(self)
         return tree
 
 
@@ -994,7 +988,12 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         description: `str | None = None` A description.
         revises: `Artifact | None = None` Previous version of the artifact. Is an alternative way to passing `key` to trigger a new version.
         overwrite_versions: `bool | None = None` Whether to overwrite versions. Defaults to `True` for folders and `False` for files.
-        run: `Run | None = None` The run that creates the artifact.
+        run: `Run | bool | None = None` The run that creates the artifact. If `False`, surpress tracking the run.
+            If `None`, infer the run from the global run context.
+        branch: `Branch | None = None` The branch of the artifact. If `None`, uses the current branch.
+        space: `Space | None = None` The space of the artifact. If `None`, uses the current space.
+        storage: `Storage | None = None` The storage location for the artifact. If `None`, uses the default storage location.
+            You can see and set the default storage location in :attr:`~lamindb.core.Settings.storage`.
 
     Examples:
 
@@ -1310,9 +1309,13 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     _overwrite_versions: bool = BooleanField(default=None)
     # see corresponding property `overwrite_versions`
     projects: Project
-    """Linked projects."""
+    """Annotating projects."""
     references: Reference
-    """Linked references."""
+    """Annotating references."""
+    records: Record
+    """Annotating records."""
+    linked_in_records: Record
+    """Linked in records."""
 
     @overload
     def __init__(
@@ -1330,7 +1333,10 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         description: str | None = None,
         revises: Artifact | None = None,
         overwrite_versions: bool | None = None,
-        run: Run | None = None,
+        run: Run | False | None = None,
+        storage: Storage | None = None,
+        branch: Branch | None = None,
+        space: Space | None = None,
     ): ...
 
     @overload
@@ -1375,13 +1381,12 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         format = kwargs.pop("format", None)
         _is_internal_call = kwargs.pop("_is_internal_call", False)
         skip_check_exists = kwargs.pop("skip_check_exists", False)
-        if "default_storage" in kwargs:
-            default_storage = kwargs.pop("default_storage")
+        if "storage" in kwargs:
+            storage = kwargs.pop("storage")
+        elif setup_settings.instance.keep_artifacts_local:
+            storage = setup_settings.instance.local_storage.record
         else:
-            if setup_settings.instance.keep_artifacts_local:
-                default_storage = setup_settings.instance.storage_local.record
-            else:
-                default_storage = setup_settings.instance.storage.record
+            storage = setup_settings.instance.storage.record
         using_key = kwargs.pop("using_key", None)
         otype = kwargs.pop("otype") if "otype" in kwargs else None
         if isinstance(data, str) and data.startswith("s3:///"):
@@ -1429,7 +1434,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             format=format,
             provisional_uid=provisional_uid,
             version=version,
-            default_storage=default_storage,
+            storage=storage,
             using_key=using_key,
             skip_check_exists=skip_check_exists,
             overwrite_versions=overwrite_versions,
@@ -1559,15 +1564,11 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             artifact.path
             #> PosixPath('/home/runner/work/lamindb/lamindb/docs/guide/mydata/myfile.csv')
         """
-        from lamindb import settings
-
         filepath, _ = filepath_from_artifact(self, using_key=settings._using_key)
         return filepath
 
     @property
     def _cache_path(self) -> UPath:
-        from lamindb import settings
-
         filepath, cache_key = filepath_cache_key_from_artifact(
             self, using_key=settings._using_key
         )
@@ -1741,6 +1742,13 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         if schema is not None:
             from ..curators import DataFrameCurator
 
+            if not artifact._state.adding and artifact.suffix != ".parquet":
+                logger.warning(
+                    f"not re-validating existing artifact as it was stored as {artifact.suffix}, "
+                    "which does not maintain categorical dtype information"
+                )
+                return artifact
+
             curator = DataFrameCurator(artifact, schema)
             curator.validate()
             artifact.schema = schema
@@ -1771,7 +1779,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             schema: A schema that defines how to validate & annotate.
 
         See Also:
-
             :meth:`~lamindb.Collection`
                 Track collections.
             :class:`~lamindb.Feature`
@@ -2046,14 +2053,10 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             artifacts = ln.Artifact.from_dir(dir_path)
             ln.save(artifacts)
         """
-        from lamindb import settings
-
         folderpath: UPath = create_path(path)  # returns Path for local
-        default_storage = settings.storage.record
+        storage = settings.storage.record
         using_key = settings._using_key
-        storage, use_existing_storage = process_pathlike(
-            folderpath, default_storage, using_key
-        )
+        storage, use_existing_storage = process_pathlike(folderpath, storage, using_key)
         folder_key_path: PurePath | Path
         if key is None:
             if not use_existing_storage:
@@ -2157,16 +2160,14 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
             However, it will update the suffix if it changes.
         """
-        from lamindb import settings
-
-        default_storage = settings.storage.record
+        storage = settings.storage.record
         kwargs, privates = get_artifact_kwargs_from_data(
             provisional_uid=self.uid,
             data=data,
             key=self.key,
             run=run,
             format=format,
-            default_storage=default_storage,
+            storage=storage,
             version=None,
             is_replace=True,
         )
@@ -2320,8 +2321,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 "Only a tiledbsoma store can be openened with `mode!='r'`."
             )
 
-        from lamindb import settings
-
         using_key = settings._using_key
         filepath, cache_key = filepath_cache_key_from_artifact(
             self, using_key=using_key
@@ -2338,7 +2337,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         else:
             open_cache = not isinstance(
                 filepath, LocalPathClasses
-            ) and not filepath.synchronize(localpath, just_check=True)
+            ) and not filepath.synchronize_to(localpath, just_check=True)
         if open_cache:
             try:
                 access = backed_access(
@@ -2426,8 +2425,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             >>> artifact.load()
             PosixPath('/home/runner/work/lamindb/lamindb/docs/guide/mydata/.lamindb/jb7BY5UJoQVGMUOKiLcn.jpg')
         """
-        from lamindb import settings
-
         if self._overwrite_versions and not self.is_latest:
             raise ValueError(INCONSISTENT_STATE_MSG)
 
@@ -2493,8 +2490,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             artifact.cache()
             #> PosixPath('/home/runner/work/Caches/lamindb/lamindb-ci/lndb-storage/pbmc68k.h5ad')
         """
-        from lamindb import settings
-
         if self._overwrite_versions and not self.is_latest:
             raise ValueError(INCONSISTENT_STATE_MSG)
 
@@ -2523,8 +2518,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         If it is a folder artifact with multiple versions, deleting a non-latest version
         will not delete the underlying storage by default (if `storage=True` is not specified).
         Deleting the latest version will delete all the versions for folder artifacts.
-
-        FAQ: :doc:`docs:faq/storage`
 
         Args:
             permanent: Permanently delete the artifact (skip trash).
@@ -2652,18 +2645,37 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         self._aux = self._aux or {}
         self._aux.setdefault("af", {})["0"] = value
 
-    def save(self, upload: bool | None = None, **kwargs) -> Artifact:
+    def save(
+        self,
+        upload: bool | None = None,
+        transfer: Literal["record", "annotations"] = "record",
+        **kwargs,
+    ) -> Artifact:
         """Save to database & storage.
 
         Args:
             upload: Trigger upload to cloud storage in instances with hybrid storage mode.
+            transfer: In case artifact was queried on a different instance, dictates behavior of transfer.
+                If "record", only the artifact record is transferred to the current instance.
+                If "annotations", also the annotations linked in the source instance are transferred.
 
-        Example::
+        See Also:
+            :doc:`transfer`
 
-            import lamindb as ln
+        Example:
 
-            artifact = ln.Artifact("./myfile.csv", key="myfile.parquet").save()
+            ::
+
+                import lamindb as ln
+
+                artifact = ln.Artifact("./myfile.csv", key="myfile.parquet").save()
         """
+        if transfer not in {"record", "annotations"}:
+            raise ValueError(
+                f"transfer should be either 'record' or 'annotations', not {transfer}"
+            )
+        else:
+            kwargs["transfer"] = transfer
         state_was_adding = self._state.adding
         print_progress = kwargs.pop("print_progress", True)
         store_kwargs = kwargs.pop(
@@ -2674,7 +2686,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         if upload and setup_settings.instance.keep_artifacts_local:
             # switch local storage location to cloud
             local_path = self.path
-            self.storage_id = setup_settings.instance.storage.id
+            self.storage_id = setup_settings.instance.storage._id
             self._local_filepath = local_path
             # switch to virtual storage key upon upload
             # the local filepath is already cached at that point
@@ -2719,9 +2731,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             using_key=using_key,
         )
         if exception_upload is not None:
-            raise RuntimeError(exception_upload)
+            raise exception_upload
         if exception_clear is not None:
-            raise RuntimeError(exception_clear)
+            raise exception_clear
         # the saving / upload process has been successfull, just mark it as such
         # maybe some error handling here?
         if flag_complete:
@@ -2825,8 +2837,6 @@ def _track_run_input(
     if is_run_input is False:
         return
 
-    from lamindb import settings
-
     from .._tracked import get_current_tracked_run
     from ..core._context import context
     from .collection import Collection
@@ -2884,11 +2894,7 @@ def _track_run_input(
         # we don't have a run record
         if run is None:
             if settings.track_run_inputs:
-                # here we check that this is not a read-only connection
-                # normally for our connection strings the read-only role name has "read" in it
-                # not absolutely safe but the worst case is that the warning is not shown
-                instance = setup_settings.instance
-                if instance.dialect != "postgresql" or "read" not in instance.db:
+                if not is_read_only_connection():
                     logger.warning(WARNING_NO_INPUT)
         # assume we have a run record
         else:

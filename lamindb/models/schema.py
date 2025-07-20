@@ -119,6 +119,7 @@ def describe_schema(self: Schema) -> Tree:
         tree.add(f".type = '{self.type}'")
     tree.add(f".ordered_set = {self.ordered_set}")
     tree.add(f".maximal_set = {self.maximal_set}")
+    tree.add(f".minimal_set = {self.minimal_set}")
     if hasattr(self, "created_by") and self.created_by:
         tree.add(
             Text.assemble(
@@ -269,7 +270,7 @@ class Schema(SQLRecord, CanCurate, TracksRun):
         type: `Schema | None = None` Type of Schema to group measurements by.
             Define types like `ln.Schema(name="ProteinPanel", is_type=True)`.
         is_type: `bool = False` Whether the Schema is a Type.
-        itype: `str | None = None` The feature identifier type (e.g. :class:`~lamindb.Feature`, :class:`~bionty.Gene`, ...).
+        itype: `str | None = None` Feature identifier type to validate against. Must match registry type of provided features.
         otype: `str | None = None` An object type to define the structure of a composite schema (e.g., DataFrame, AnnData).
         dtype: `str | None = None` The simple type (e.g., "num", "float", "int").
             Defaults to `None` for sets of :class:`~lamindb.Feature` records and to `"num"` (e.g., for sets of :class:`~bionty.Gene`) otherwise.
@@ -389,7 +390,8 @@ class Schema(SQLRecord, CanCurate, TracksRun):
     itype: str | None = CharField(
         max_length=120, db_index=True, null=True, editable=False
     )
-    """A registry that stores feature identifier types used in this schema, e.g., `'Feature'` or `'bionty.Gene'`.
+    """A field of a registry that stores feature identifier types, e.g., `'Feature.name'` or `'bionty.Gene.ensembl_gene_id'`.
+    Defaults to the default name field if a registry is passed (passing `Feature` would result in `Feature.name`).
 
     Depending on `itype`, `.members` stores, e.g., `Feature` or `bionty.Gene` records.
     """
@@ -562,17 +564,18 @@ class Schema(SQLRecord, CanCurate, TracksRun):
             coerce_dtype=coerce_dtype,
             n_features=n_features,
         )
-        schema = (
-            Schema.objects.using(using)
-            .filter(hash=validated_kwargs["hash"])
-            .one_or_none()
-        )
-        if schema is not None:
-            logger.important(f"returning existing schema with same hash: {schema}")
-            init_self_from_db(self, schema)
-            update_attributes(self, validated_kwargs)
-            self.optionals.set(optional_features)
-            return None
+        if not is_type:
+            schema = (
+                Schema.objects.using(using)
+                .filter(hash=validated_kwargs["hash"])
+                .one_or_none()
+            )
+            if schema is not None:
+                logger.important(f"returning existing schema with same hash: {schema}")
+                init_self_from_db(self, schema)
+                update_attributes(self, validated_kwargs)
+                self.optionals.set(optional_features)
+                return None
         self._slots: dict[str, Schema] = {}
         if features:
             self._features = (get_related_name(features_registry), features)  # type: ignore
@@ -588,11 +591,6 @@ class Schema(SQLRecord, CanCurate, TracksRun):
         else:
             validated_kwargs["uid"] = ids.base62_16()
         super().__init__(**validated_kwargs)
-        # manipulating aux fields is easier after calling super().__init__()
-        self.optionals.set(optional_features)
-        self.flexible = flexible
-        if index is not None:
-            self._index_feature_uid = index.uid
 
     def _validate_kwargs_calculate_hash(
         self,
@@ -616,13 +614,16 @@ class Schema(SQLRecord, CanCurate, TracksRun):
     ) -> tuple[list[Feature], dict[str, Any], list[Feature], Registry, bool]:
         optional_features = []
         features_registry: Registry = None
+
         if itype is not None:
             if itype != "Composite":
                 itype = serialize_dtype(itype, is_itype=True)
+
         if index is not None:
             if not isinstance(index, Feature):
                 raise TypeError("index must be a Feature")
             features.insert(0, index)
+
         if features:
             features, configs = get_features_config(features)
             features_registry = validate_features(features)
@@ -650,12 +651,15 @@ class Schema(SQLRecord, CanCurate, TracksRun):
         else:
             dtype = get_type_str(dtype)
         flexible_default = n_features < 0
+
         if flexible is None:
             flexible = flexible_default
+
         if slots:
             itype = "Composite"
             if otype is None:
                 raise InvalidArgument("Please pass otype != None for composite schemas")
+
         if itype is not None and not isinstance(itype, str):
             itype_str = serialize_dtype(itype, is_itype=True)
         else:
@@ -675,8 +679,28 @@ class Schema(SQLRecord, CanCurate, TracksRun):
         }
         n_features_default = -1
         coerce_dtype_default = False
+        aux_dict: dict[str, dict[str, bool | str | list[str]]] = {}
+
+        # TODO: leverage a common abstraction across the properties and this here
+
+        # coerce_dtype (key "0")
         if coerce_dtype:
-            validated_kwargs["_aux"] = {"af": {"0": coerce_dtype}}
+            aux_dict.setdefault("af", {})["0"] = coerce_dtype
+
+        # optional features (key "1")
+        if optional_features:
+            aux_dict.setdefault("af", {})["1"] = [f.uid for f in optional_features]
+
+        # flexible (key "2")
+        if flexible is not None:
+            aux_dict.setdefault("af", {})["2"] = flexible
+
+        # index feature (key "3")
+        if index is not None:
+            aux_dict.setdefault("af", {})["3"] = index.uid
+
+        if aux_dict:
+            validated_kwargs["_aux"] = aux_dict
         if slots:
             list_for_hashing = [component.hash for component in slots.values()]
         else:
@@ -691,6 +715,7 @@ class Schema(SQLRecord, CanCurate, TracksRun):
                 "n": "h",
                 "optional": "i",
                 "features_hash": "j",
+                "index": "k",
             }
             # we do not want pure informational annotations like otype, name, type, is_type, otype to be part of the hash
             hash_args = ["dtype", "itype", "minimal_set", "ordered_set", "maximal_set"]
@@ -706,6 +731,8 @@ class Schema(SQLRecord, CanCurate, TracksRun):
                 list_for_hashing.append(f"{HASH_CODE['coerce_dtype']}={coerce_dtype}")
             if n_features != n_features_default:
                 list_for_hashing.append(f"{HASH_CODE['n']}={n_features}")
+            if index is not None:
+                list_for_hashing.append(f"{HASH_CODE['index']}={index.uid}")
             if features:
                 if optional_features:
                     feature_list_for_hashing = [
@@ -724,9 +751,14 @@ class Schema(SQLRecord, CanCurate, TracksRun):
                         ":".join(sorted(feature_list_for_hashing))
                     )
                 list_for_hashing.append(f"{HASH_CODE['features_hash']}={features_hash}")
-        self._list_for_hashing = sorted(list_for_hashing)
-        schema_hash = hash_string(":".join(self._list_for_hashing))
-        validated_kwargs["hash"] = schema_hash
+
+        if is_type:
+            validated_kwargs["hash"] = None
+        else:
+            self._list_for_hashing = sorted(list_for_hashing)
+            schema_hash = hash_string(":".join(self._list_for_hashing))
+            validated_kwargs["hash"] = schema_hash
+
         return (
             features,
             validated_kwargs,
@@ -868,9 +900,10 @@ class Schema(SQLRecord, CanCurate, TracksRun):
                 if hasattr(self, "_features")
                 else (self.members.list() if self.members.exists() else [])
             )
+            index_feature = self.index
             _, validated_kwargs, _, _, _ = self._validate_kwargs_calculate_hash(
-                features=features,  # type: ignore
-                index=None,  # need to pass None here as otherwise counting double
+                features=[f for f in features if f != index_feature],  # type: ignore
+                index=index_feature,
                 slots=self.slots,
                 name=self.name,
                 description=self.description,
@@ -946,7 +979,7 @@ class Schema(SQLRecord, CanCurate, TracksRun):
             # this should return a queryset and not a list...
             # need to fix this
             return self._features[1]
-        if self.itype == "Composite":
+        if self.itype == "Composite" or self.is_type:
             return Feature.objects.none()
         related_name = self._get_related_name()
         if related_name is None:
@@ -1021,8 +1054,14 @@ class Schema(SQLRecord, CanCurate, TracksRun):
         """
         if self._index_feature_uid is None:
             return None
-        else:
-            return self.features.get(uid=self._index_feature_uid)
+
+        if hasattr(self, "_features"):
+            _, features = self._features
+            for feature in features:
+                if feature.uid == self._index_feature_uid:
+                    return feature
+
+        return self.features.get(uid=self._index_feature_uid)
 
     @index.setter
     def index(self, value: None | Feature) -> None:
@@ -1119,6 +1158,9 @@ class Schema(SQLRecord, CanCurate, TracksRun):
 
     def describe(self, return_str=False) -> None | str:
         """Describe schema."""
+        if self.pk is None:
+            raise ValueError("Schema must be saved before describing")
+
         message = str(self)
         # display slots for composite schemas
         if self.itype == "Composite":
