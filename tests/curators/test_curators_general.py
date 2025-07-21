@@ -580,3 +580,35 @@ def test_hash_index_feature(df):
     schema_index.delete()
     schema.delete()
     ln.Feature.filter().delete()
+
+
+def test_add_new_from_subtype(df):
+    """Test that add_new_from works with subtypes."""
+    sample_type = ln.Record(name="SampleType", is_type=True).save()
+    ln.Record(name="Type A", type=sample_type).save()
+    schema = ln.Schema(
+        name="sample schema",
+        features=[
+            ln.Feature(name="sample_id", dtype="str").save(),
+            ln.Feature(name="sample_name", dtype="str").save(),
+            ln.Feature(name="sample_type", dtype="cat[Record[SampleType]]").save(),
+        ],
+        coerce_dtype=True,
+    ).save()
+
+    curator = ln.curators.DataFrameCurator(df, schema)
+    try:
+        curator.validate()
+    except ln.errors.ValidationError as error:
+        assert "1 term not validated in feature 'sample_type': 'Type B'" in str(error)
+
+    # add new from subtype
+    curator.cat.add_new_from("sample_type")
+    curator.validate()
+    assert sample_type.records.list("name") == ["Type A", "Type B"]
+
+    # clean up
+    schema.delete()
+    ln.Feature.filter().delete()
+    ln.Record.filter().update(type=None)
+    ln.Record.filter().delete()

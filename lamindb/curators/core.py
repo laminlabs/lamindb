@@ -858,9 +858,9 @@ class SpatialDataCurator(SlotsCurator):
 
     Example:
 
-        .. literalinclude:: scripts/curate_mudata.py
+        .. literalinclude:: scripts/curate_spatialdata.py
             :language: python
-            :caption: curate_mudata.py
+            :caption: curate_spatialdata.py
 
     See Also:
         :meth:`~lamindb.Artifact.from_spatialdata`.
@@ -1236,6 +1236,9 @@ class CatVector:
         registry = self._field.field.model
         field_name = self._field.field.name
         non_validated_records: SQLRecordList[Any] = []  # type: ignore
+        type_record = None
+        if self._subtype_str != "" and "=" not in self._subtype_str:
+            type_record = registry.get(name=self._subtype_str)
         if df is not None and registry == Feature:
             nonval_columns = Feature.inspect(df.columns, mute=True).non_validated
             non_validated_records = Feature.from_df(df.loc[:, nonval_columns])
@@ -1252,6 +1255,9 @@ class CatVector:
                 init_kwargs = {field_name: value}
                 if registry == Feature:
                     init_kwargs["dtype"] = "cat" if dtype is None else dtype
+                if type_record is not None:
+                    # if subtype_str is set, we need to set the type for new records
+                    init_kwargs["type"] = type_record
                 non_validated_records.append(registry(**init_kwargs, **create_kwargs))
         if len(non_validated_records) > 0:
             ln_save(non_validated_records)
