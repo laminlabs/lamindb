@@ -28,9 +28,15 @@ class _TablesAccessor:
 
 
 class SpatialDataAccessor:
-    def __init__(self, storage: Group):
+    def __init__(self, storage: Group, name: str):
         self.storage = storage
+        self._name = name
 
     @cached_property
     def tables(self) -> _TablesAccessor:
         return _TablesAccessor(self.storage["tables"])
+
+    def __repr__(self):
+        """Description of the SpatialDataAccessor object."""
+        descr = f"SpatialDataAccessor object\n  constructed for the SpatialData object {self._name}"
+        return descr
