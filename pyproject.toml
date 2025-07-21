@@ -40,7 +40,7 @@ Home = "https://github.com/laminlabs/lamindb"
 
 [project.optional-dependencies]
 bionty = [
-    "bionty>=1.6.0",   # do NOT pin, is bounded in bionty
+    "bionty>=1.6.1rc1",   # do NOT pin, is bounded in bionty
 ]
 gcp = [
     "lamindb_setup[gcp]",
@@ -62,10 +62,7 @@ wetlab = [
     "wetlab>=1.3.1"  # do NOT pin, is bounded in wetlab
 ]
 clinicore = [
-    "clinicore"   # do NOT pin, is bounded in clinicore
-]
-omop = [
-    "omop"
+    "clinicore>=1.2.1"   # do NOT pin, is bounded in clinicore
 ]
 dev = [
     # basic test
