@@ -21,8 +21,9 @@ class _TablesAccessor:
 
     def __repr__(self) -> str:
         """Description of the _TablesAccessor object."""
-        descr = "Accessor for the SpatialData attribute tables"
-        descr += f"\n  with keys: {self.keys()}"
+        descr = (
+            f"Accessor for the SpatialData attribute tables\n  with keys: {self.keys()}"
+        )
         return descr
 
 
