@@ -436,6 +436,7 @@ class RecordPerson(BaseSQLRecord, IsLink):
     value: Person = ForeignKey(Person, PROTECT, related_name="links_record")
 
     class Meta:
+        app_label = "lamindb"
         unique_together = ("record", "feature", "value")
 
 
@@ -448,6 +449,7 @@ class RecordReference(BaseSQLRecord, IsLink):
     value: Reference = ForeignKey(Reference, PROTECT, related_name="links_record")
 
     class Meta:
+        app_label = "lamindb"
         unique_together = ("record", "feature", "value")
 
 
