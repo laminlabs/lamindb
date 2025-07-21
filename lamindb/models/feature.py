@@ -598,6 +598,7 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
 
     class Meta(SQLRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
         abstract = False
+        app_label = "lamindb"
 
     _name_field: str = "name"
     _aux_fields: dict[str, tuple[str, type]] = {
@@ -927,6 +928,7 @@ class FeatureValue(SQLRecord, TracksRun):
     """Value hash."""
 
     class Meta(BaseSQLRecord.Meta, TracksRun.Meta):
+        app_label = "lamindb"
         unique_together = ("feature", "hash")
 
     @classmethod
