@@ -317,10 +317,17 @@ class Transform(SQLRecord, IsVersioned):
 
     def delete(self) -> None:
         """Delete."""
+        from .project import TransformProject
+
         # query all runs and delete their artifacts
         runs = Run.filter(transform=self)
         for run in runs:
             delete_run_artifacts(run)
+        # CASCADE doesn't do the job below because run_id might be protected through run__transform=self
+        # hence, proactively delete the labels
+        qs = TransformProject.filter(transform=self)
+        if qs.exists():
+            qs.delete()
         # at this point, all artifacts have been taken care of
         # we can now leverage CASCADE delete
         super().delete()
