@@ -66,7 +66,7 @@ def test_feature_init():
     feature = ln.Feature(name="feat1", dtype=[ln.ULabel, bt.Gene])
     assert feature.dtype == "cat[ULabel|bionty.Gene]"
 
-    # test dtype with field name before bracket filters (bionty.Gene.ensembl_gene_id[filters])
+    # dtype with field name before bracket filters (bionty.Gene.ensembl_gene_id[filters]) must be valid
     feature = ln.Feature(
         name="gene_feature", dtype="cat[bionty.Gene.ensembl_gene_id[organism='human']]"
     )
