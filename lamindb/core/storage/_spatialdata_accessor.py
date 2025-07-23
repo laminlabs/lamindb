@@ -38,5 +38,9 @@ class SpatialDataAccessor:
 
     def __repr__(self):
         """Description of the SpatialDataAccessor object."""
-        descr = f"SpatialDataAccessor object\n  constructed for the SpatialData object {self._name}"
+        descr = (
+            "SpatialDataAccessor object"
+            f"\n  constructed for the SpatialData object {self._name}"
+            f"\n    with tables: {self.tables.keys()}"
+        )
         return descr
