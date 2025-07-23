@@ -236,9 +236,11 @@ def describe_dataset(
 
     for i in range(0, len(two_column_items), 2):
         if i + 1 < len(two_column_items):
+            # Two items side by side
             left_item = two_column_items[i]
             right_item = two_column_items[i + 1]
 
+            # Create padded version by calculating the plain text length
             left_plain_text = (
                 left_item.plain if hasattr(left_item, "plain") else str(left_item)
             )
@@ -247,8 +249,10 @@ def describe_dataset(
 
             general.add(Text.assemble(left_item, padding, right_item))
         else:
+            # Single item (odd number)
             general.add(two_column_items[i])
 
+    # Should appear at the end so we need another if statement
     if isinstance(obj, Artifact):
         storage_root = (
             foreign_key_data["storage"]["name"]
