@@ -51,7 +51,7 @@ def save(
             unique or another constraint. However, it won't inplace update the id
             fields of records. If you need records with ids, you need to query
             them from the database.
-        batch_size: Number of records to process in each batch. Defaults to 10000.
+        batch_size: Number of records to process in each batch.
             Large batch sizes can improve performance but may lead to memory issues.
 
     Examples:
@@ -71,15 +71,13 @@ def save(
         >>> transform = ln.Transform.get("0Cb86EZj")
         >>> transform.description = "New description"
         >>> transform.save()
-
     """
     from .artifact import Artifact
 
     if isinstance(records, SQLRecord):
         raise ValueError("Please use record.save() if saving a single record.")
 
-    # previously, this was all set based,
-    # but models without primary keys aren't hashable
+    # previously, this was all set based, but models without primary keys aren't hashable
     # we distinguish between artifacts and non-artifacts
     # for artifacts, we want to bulk-upload rather than upload one-by-one
     non_artifacts, artifacts = partition(lambda r: isinstance(r, Artifact), records)
@@ -130,7 +128,7 @@ def bulk_create(
     Args:
         records: Iterable of SQLRecord objects to create
         ignore_conflicts: Whether to ignore conflicts during creation
-        batch_size: Number of records to process in each batch. Defaults to 10000.
+        batch_size: Number of records to process in each batch
     """
     records_by_orm = defaultdict(list)
     for record in records:
@@ -140,7 +138,7 @@ def bulk_create(
         total_records = len(records_list)
         model_name = registry.__name__
         if total_records > batch_size:
-            logger.warning(
+            logger.debug(
                 f"Starting bulk_create for {total_records} {model_name} records in batches of {batch_size}"
             )
 
@@ -151,7 +149,7 @@ def bulk_create(
             total_batches = (total_records + batch_size - 1) // batch_size
 
             if total_records > batch_size:
-                logger.info(
+                logger.debug(
                     f"Processing batch {batch_num}/{total_batches} for {model_name}: {len(batch)} records"
                 )
             registry.objects.bulk_create(batch, ignore_conflicts=ignore_conflicts)
@@ -168,7 +166,7 @@ def bulk_update(
     Args:
         records: Iterable of SQLRecord objects to update
         ignore_conflicts: Whether to ignore conflicts during update (currently unused but kept for consistency)
-        batch_size: Number of records to process in each batch. If None, processes all at once.
+        batch_size: Number of records to process in each batch
     """
     records_by_orm = defaultdict(list)
     for record in records:
@@ -178,7 +176,7 @@ def bulk_update(
         total_records = len(records_list)
         model_name = registry.__name__
         if total_records > batch_size:
-            logger.warning(
+            logger.debug(
                 f"Starting bulk_update for {total_records} {model_name} records in batches of {batch_size}"
             )
 
@@ -195,7 +193,7 @@ def bulk_update(
             total_batches = (total_records + batch_size - 1) // batch_size
 
             if total_records > batch_size:
-                logger.info(
+                logger.debug(
                     f"Processing batch {batch_num}/{total_batches} for {model_name}: {len(batch)} records"
                 )
             registry.objects.bulk_update(batch, field_names)
@@ -245,7 +243,7 @@ def check_and_attempt_upload(
 
 def copy_or_move_to_cache(
     artifact: Artifact, storage_path: UPath, cache_path: UPath | None
-):
+) -> None:
     local_path = artifact._local_filepath
 
     # in-memory cases
