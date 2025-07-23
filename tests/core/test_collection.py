@@ -487,7 +487,7 @@ def test_collection_get_tracking(df):
 
 def test_describe_collection(adata, capsys):
     artifact = ln.Artifact(adata, description="test").save()
-    collection = ln.Collection([artifact], description="test").save()
+    collection = ln.Collection(artifact, key="test").save()
     collection.describe()
     captured = capsys.readouterr()
     assert len(captured.out) > 50
