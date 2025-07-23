@@ -139,9 +139,9 @@ def describe_dataset(
 
     general = tree.add(Text("General", style="bold bright_cyan"))
 
-    if hasattr(obj, "key") and obj.key:
+    if obj.key:
         general.add(Text.assemble(("key: ", "dim"), (f"{obj.key}", "cyan3")))
-    if hasattr(obj, "description") and obj.description:
+    if obj.description:
         general.add(
             Text.assemble(
                 ("description: ", "dim"),
