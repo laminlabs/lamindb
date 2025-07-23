@@ -1382,7 +1382,10 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         skip_check_exists = kwargs.pop("skip_check_exists", False)
         if "storage" in kwargs:
             storage = kwargs.pop("storage")
-        elif setup_settings.instance.keep_artifacts_local:
+        elif (
+            setup_settings.instance.keep_artifacts_local
+            and setup_settings.instance._local_storage is not None
+        ):
             storage = setup_settings.instance.local_storage.record
         else:
             storage = setup_settings.instance.storage.record
