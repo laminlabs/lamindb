@@ -9,6 +9,7 @@ from anndata._io.specs.registry import get_spec
 from ._anndata_accessor import AnnDataAccessor, StorageType, registry
 from ._polars_lazy_df import POLARS_SUFFIXES, _open_polars_lazy_df
 from ._pyarrow_dataset import PYARROW_SUFFIXES, _open_pyarrow_dataset
+from ._spatialdata_accessor import SpatialDataAccessor
 from ._tiledbsoma import _open_tiledbsoma
 from .paths import filepath_from_artifact
 
@@ -80,6 +81,7 @@ def backed_access(
     **kwargs,
 ) -> (
     AnnDataAccessor
+    | SpatialDataAccessor
     | BackedAccessor
     | SOMACollection
     | SOMAExperiment
@@ -110,6 +112,8 @@ def backed_access(
         conn, storage = registry.open("h5py", objectpath, mode=mode, **kwargs)
     elif suffix == ".zarr":
         conn, storage = registry.open("zarr", objectpath, mode=mode, **kwargs)
+        if "spatialdata_attrs" in storage.attrs:
+            return SpatialDataAccessor(storage, name)
     elif len(df_suffixes := _flat_suffixes(objectpath)) == 1 and (
         df_suffix := df_suffixes.pop()
     ) in set(PYARROW_SUFFIXES).union(POLARS_SUFFIXES):
