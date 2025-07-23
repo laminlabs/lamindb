@@ -138,7 +138,7 @@ def bulk_create(
         total_records = len(records_list)
         model_name = registry.__name__
         if total_records > batch_size:
-            logger.debug(
+            logger.warn(
                 f"Starting bulk_create for {total_records} {model_name} records in batches of {batch_size}"
             )
 
@@ -149,7 +149,7 @@ def bulk_create(
             total_batches = (total_records + batch_size - 1) // batch_size
 
             if total_records > batch_size:
-                logger.debug(
+                logger.hint(
                     f"Processing batch {batch_num}/{total_batches} for {model_name}: {len(batch)} records"
                 )
             registry.objects.bulk_create(batch, ignore_conflicts=ignore_conflicts)
@@ -176,7 +176,7 @@ def bulk_update(
         total_records = len(records_list)
         model_name = registry.__name__
         if total_records > batch_size:
-            logger.debug(
+            logger.warn(
                 f"Starting bulk_update for {total_records} {model_name} records in batches of {batch_size}"
             )
 
@@ -193,7 +193,7 @@ def bulk_update(
             total_batches = (total_records + batch_size - 1) // batch_size
 
             if total_records > batch_size:
-                logger.debug(
+                logger.hint(
                     f"Processing batch {batch_num}/{total_batches} for {model_name}: {len(batch)} records"
                 )
             registry.objects.bulk_update(batch, field_names)
