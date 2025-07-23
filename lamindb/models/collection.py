@@ -127,7 +127,7 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     """Versioned collections of artifacts.
 
     Args:
-        artifacts: `Artifact | Sequence[Artifact]` A list of artifacts.
+        artifacts: `Artifact | Sequence[Artifact]` One or several artifacts.
         key: `str` A file-path like key, analogous to the `key` parameter of `Artifact` and `Transform`.
         description: `str | None = None` A description.
         revises: `Collection | None = None` An old version of the collection.
