@@ -860,14 +860,21 @@ def test_load_to_memory(tsv_file, zip_file, fcs_file, yaml_file):
     assert error.exconly() == "TypeError: data has to be a string, Path, UPath"
 
 
-def test_describe_artifact():
+def test_describe_artifact(capsys):
     ln.core.datasets.file_mini_csv()
     artifact = ln.Artifact("mini.csv", description="test")
-    assert len(artifact.describe()) > 0
+    artifact.describe()
+
+    captured = capsys.readouterr()
+    assert len(captured.out) > 50
+    assert "artifact" in captured.out.lower()
 
     # test describing from a remote instance with less modules
     artifact = ln.Artifact.using("laminlabs/lamin-site-assets").first()
-    assert len(artifact.describe()) > 0
+    artifact.describe()
+    captured = capsys.readouterr()
+    assert len(captured.out) > 50
+    assert "artifact" in captured.out.lower()
 
 
 def test_df_suffix(df):

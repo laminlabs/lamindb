@@ -6,7 +6,6 @@ import lamindb as ln
 import numpy as np
 import pandas as pd
 import pytest
-from _dataset_fixtures import get_small_adata  # noqa
 from lamindb.errors import FieldValidationError
 from scipy.sparse import csc_matrix, csr_matrix
 
@@ -486,8 +485,8 @@ def test_collection_get_tracking(df):
     transform.delete()
 
 
-def test_describe_collection():
-    adata = get_small_adata()
+def test_describe_collection(get_small_adata):
+    adata = get_small_adata
     artifact = ln.Artifact(adata, description="test")
     collection = ln.Collection([artifact], description="test")
     assert len(collection.describe()) > 0
