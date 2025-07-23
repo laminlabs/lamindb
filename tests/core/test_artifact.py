@@ -864,7 +864,6 @@ def test_describe_artifact(capsys):
     ln.core.datasets.file_mini_csv()
     artifact = ln.Artifact("mini.csv", description="test")
     artifact.describe()
-
     captured = capsys.readouterr()
     assert len(captured.out) > 50
     assert "artifact" in captured.out.lower()

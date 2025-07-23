@@ -485,12 +485,17 @@ def test_collection_get_tracking(df):
     transform.delete()
 
 
-def test_describe_collection(get_small_adata):
-    adata = get_small_adata
+def test_describe_collection(adata, capsys):
     artifact = ln.Artifact(adata, description="test")
     collection = ln.Collection([artifact], description="test")
-    assert len(collection.describe()) > 0
+    collection.describe()
+    captured = capsys.readouterr()
+    assert len(captured.out) > 50
+    assert "collection" in captured.out.lower()
 
     # test describing from a remote postgres instance with less modules
     collection = ln.Collection.using("laminlabs/cellxgene").first()
-    assert len(collection.describe()) > 0
+    collection.describe()
+    captured = capsys.readouterr()
+    assert len(captured.out) > 50
+    assert "collection" in captured.out.lower()
