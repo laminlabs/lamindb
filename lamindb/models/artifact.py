@@ -117,7 +117,11 @@ if TYPE_CHECKING:
     from tiledbsoma import Measurement as SOMAMeasurement
 
     from lamindb.base.types import StrField
-    from lamindb.core.storage._backed_access import AnnDataAccessor, BackedAccessor
+    from lamindb.core.storage._backed_access import (
+        AnnDataAccessor,
+        BackedAccessor,
+        SpatialDataAccessor,
+    )
     from lamindb.core.types import ScverseDataStructures
 
     from ..base.types import (
@@ -2246,6 +2250,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         **kwargs,
     ) -> (
         AnnDataAccessor
+        | SpatialDataAccessor
         | BackedAccessor
         | SOMACollection
         | SOMAExperiment
