@@ -28,12 +28,18 @@ class _TablesAccessor:
 
 
 class SpatialDataAccessor:
+    """Cloud-backed SpatialData.
+
+    For now only allows to access `tables`.
+    """
+
     def __init__(self, storage: Group, name: str):
         self.storage = storage
         self._name = name
 
     @cached_property
     def tables(self) -> _TablesAccessor:
+        """tables of the underlying SpatialData object."""
         return _TablesAccessor(self.storage["tables"])
 
     def __repr__(self):
