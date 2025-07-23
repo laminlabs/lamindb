@@ -863,11 +863,11 @@ def test_load_to_memory(tsv_file, zip_file, fcs_file, yaml_file):
 def test_describe():
     ln.core.datasets.file_mini_csv()
     artifact = ln.Artifact("mini.csv", description="test")
-    artifact.describe()
+    assert len(artifact.describe()) > 0
 
     # test describing from a remote instance with less modules
     artifact = ln.Artifact.using("laminlabs/lamin-site-assets").filter().first()
-    artifact.describe()
+    assert len(artifact.describe()) > 0
 
 
 def test_df_suffix(df):

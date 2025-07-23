@@ -483,3 +483,14 @@ def test_collection_get_tracking(df):
     collection.delete(permanent=True)
     artifact.delete(permanent=True)
     transform.delete()
+
+
+def test_describe(get_small_adata):
+    adata = get_small_adata
+    artifact = ln.Artifact(adata, description="test")
+    collection = ln.Collection([artifact], description="test")
+    assert len(collection.describe()) > 0
+
+    # test describing from a remote postgres instance with less modules
+    collection = ln.Collection.using("laminlabs/cellxgene").filter().first()
+    assert len(collection.describe()) > 0
