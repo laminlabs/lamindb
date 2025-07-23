@@ -860,13 +860,13 @@ def test_load_to_memory(tsv_file, zip_file, fcs_file, yaml_file):
     assert error.exconly() == "TypeError: data has to be a string, Path, UPath"
 
 
-def test_describe():
+def test_describe_artifact():
     ln.core.datasets.file_mini_csv()
     artifact = ln.Artifact("mini.csv", description="test")
     assert len(artifact.describe()) > 0
 
     # test describing from a remote instance with less modules
-    artifact = ln.Artifact.using("laminlabs/lamin-site-assets").filter().first()
+    artifact = ln.Artifact.using("laminlabs/lamin-site-assets").first()
     assert len(artifact.describe()) > 0
 
 
