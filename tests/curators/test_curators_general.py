@@ -615,8 +615,6 @@ def test_add_new_from_subtype(df):
 
 
 def test_index_feature_exclusion_from_categoricals(df):
-    import lamindb as ln
-
     df_indexed = df.set_index("sample_id")
 
     sample_type_feature = ln.Feature(name="sample_type", dtype="cat[ULabel]").save()
