@@ -138,7 +138,7 @@ def bulk_create(
         total_records = len(records_list)
         model_name = registry.__name__
         if total_records > batch_size:
-            logger.warn(
+            logger.warning(
                 f"Starting bulk_create for {total_records} {model_name} records in batches of {batch_size}"
             )
 
@@ -176,7 +176,7 @@ def bulk_update(
         total_records = len(records_list)
         model_name = registry.__name__
         if total_records > batch_size:
-            logger.warn(
+            logger.warning(
                 f"Starting bulk_update for {total_records} {model_name} records in batches of {batch_size}"
             )
 
