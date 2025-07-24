@@ -117,7 +117,11 @@ if TYPE_CHECKING:
     from tiledbsoma import Measurement as SOMAMeasurement
 
     from lamindb.base.types import StrField
-    from lamindb.core.storage._backed_access import AnnDataAccessor, BackedAccessor
+    from lamindb.core.storage._backed_access import (
+        AnnDataAccessor,
+        BackedAccessor,
+        SpatialDataAccessor,
+    )
     from lamindb.core.types import ScverseDataStructures
 
     from ..base.types import (
@@ -1382,7 +1386,10 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         skip_check_exists = kwargs.pop("skip_check_exists", False)
         if "storage" in kwargs:
             storage = kwargs.pop("storage")
-        elif setup_settings.instance.keep_artifacts_local:
+        elif (
+            setup_settings.instance.keep_artifacts_local
+            and setup_settings.instance._local_storage is not None
+        ):
             storage = setup_settings.instance.local_storage.record
         else:
             storage = setup_settings.instance.storage.record
@@ -2243,6 +2250,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         **kwargs,
     ) -> (
         AnnDataAccessor
+        | SpatialDataAccessor
         | BackedAccessor
         | SOMACollection
         | SOMAExperiment

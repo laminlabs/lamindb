@@ -353,7 +353,16 @@ if ZARR_INSTALLED:
         attrs_keys: dict[str, list] = {}
         obs_var_arrays = []
 
-        for path in paths:
+        prefix = storage.path
+        if prefix == "":
+            paths_iter = (path for path in paths)
+        else:
+            prefix += "/"
+            paths_iter = (
+                path.removeprefix(prefix) for path in paths if path.startswith(prefix)
+            )
+
+        for path in paths_iter:
             if path in (".zattrs", ".zgroup"):
                 continue
             parts = path.split("/")
