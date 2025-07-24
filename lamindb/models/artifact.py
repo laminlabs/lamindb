@@ -67,7 +67,7 @@ from ..errors import IntegrityError, InvalidArgument, ValidationError
 from ..models._is_versioned import (
     create_uid,
 )
-from ._django import get_artifact_with_related
+from ._django import get_artifact_with_related, get_collection_with_related
 from ._feature_manager import (
     FeatureManager,
     filter_base,
@@ -713,7 +713,11 @@ def save_schema_links(self: Artifact) -> None:
 
 
 def _describe_postgres(self):  # for Artifact & Collection
-    from ._describe import describe_artifact_general, describe_header
+    from ._describe import (
+        describe_artifact_general,
+        describe_collection_general,
+        describe_header,
+    )
     from ._feature_manager import describe_features
 
     model_name = self.__class__.__name__
@@ -741,13 +745,23 @@ def _describe_postgres(self):  # for Artifact & Collection
             related_data=related_data,
             with_labels=True,
         )
+    elif model_name == "Collection":
+        result = get_collection_with_related(self, include_fk=True)
+        tree = describe_collection_general(
+            self, foreign_key_data=related_data.get("fk", {})
+        )
+        return tree
     else:
         tree = describe_header(self)
         return tree
 
 
 def _describe_sqlite(self, print_types: bool = False):  # for artifact & collection
-    from ._describe import describe_artifact_general, describe_header
+    from ._describe import (
+        describe_artifact_general,
+        describe_collection_general,
+        describe_header,
+    )
     from ._feature_manager import describe_features
     from .collection import Collection
 
@@ -790,6 +804,9 @@ def _describe_sqlite(self, print_types: bool = False):  # for artifact & collect
             tree=tree,
             with_labels=True,
         )
+    elif model_name == "Collection":
+        tree = describe_collection_general(self)
+        return tree
     else:
         tree = describe_header(self)
         return tree

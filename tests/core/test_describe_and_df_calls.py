@@ -5,7 +5,7 @@ import pandas as pd
 from lamindb.models.artifact import _describe_postgres
 
 
-def check_df_equality(actual_df: pd.DataFrame, expected_df: pd.DataFrame):
+def _check_df_equality(actual_df: pd.DataFrame, expected_df: pd.DataFrame) -> bool:
     """Checks equality between two DataFrames.
 
     Special handling for columns containing sets and NaN values.
@@ -65,7 +65,7 @@ def test_curate_df():
         "feature_sets__name": [{None}, {None}],
     }
     expected_df = pd.DataFrame(expected_data)
-    check_df_equality(df, expected_df)
+    _check_df_equality(df, expected_df)
 
     # Test df with features
     # test that the ulabels filter DOES NOT affect joining the annotations
@@ -108,7 +108,7 @@ def test_curate_df():
         ],
     }
     expected_df = pd.DataFrame(expected_data)
-    check_df_equality(df, expected_df)
+    _check_df_equality(df, expected_df)
 
     # expected output has italicized elements that can't be tested
     # hence testing is restricted to section content, not headings
