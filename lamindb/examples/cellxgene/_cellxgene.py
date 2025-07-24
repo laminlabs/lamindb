@@ -11,12 +11,12 @@ CELLxGENESchemaVersions = Literal["4.0.0", "5.0.0", "5.1.0", "5.2.0", "5.3.0"]
 CELLxGENESupportedOrganisms = Literal[
     "human",
     "mouse",
-    "SARS-COV-2",
-    "synthetic construct",
     "zebra danio",
     "rhesus macaquedomestic pig",
     "chimpanzee",
     "white-tufted-ear marmoset",
+    "sars-2",
+    "synthetic construct",
 ]
 FieldType = Literal["ontology_id", "name"]
 
