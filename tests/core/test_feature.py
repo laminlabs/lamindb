@@ -60,13 +60,14 @@ def test_feature_init():
     assert feat2 == feat2_again
     feat2.delete()
 
-    # categorical dtype with union of registries using string syntax must work
+    # categorical dtype with union of registries using string syntax must be valid
     feature = ln.Feature(name="feat1", dtype="cat[ULabel|bionty.Gene]")
-    # categorical dtype with union of registries using objects must work
+    assert feature.dtype == "cat[ULabel|bionty.Gene]"
+    # categorical dtype with union of registries using objects must be valid
     feature = ln.Feature(name="feat1", dtype=[ln.ULabel, bt.Gene])
     assert feature.dtype == "cat[ULabel|bionty.Gene]"
 
-    # dtype with field name before bracket filters (bionty.Gene.ensembl_gene_id[filters]) must be valid
+    # dtype with field name before bracket filters must be valid
     feature = ln.Feature(
         name="gene_feature", dtype="cat[bionty.Gene.ensembl_gene_id[organism='human']]"
     )
