@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from django.contrib.postgres.aggregates import ArrayAgg
 from django.db import connection
@@ -13,8 +13,7 @@ from ._relations import dict_related_model_to_related_name, get_schema_modules
 from .schema import Schema
 
 if TYPE_CHECKING:
-    from .artifact import Artifact
-    from .sqlrecord import SQLRecord
+    from .artifact import Artifact, Collection
 
 
 def patch_many_to_many_descriptor() -> None:
@@ -32,7 +31,8 @@ def patch_many_to_many_descriptor() -> None:
     def patched_get(self, instance, cls=None):
         if instance is not None and instance.pk is None:
             raise ValueError(
-                f"You are trying to access the many-to-many relationships of an unsaved {instance.__class__.__name__} object. Please save it first using '.save()'."
+                f"You are trying to access the many-to-many relationships of an unsaved {instance.__class__.__name__} object. "
+                f"Please save it first using '.save()'."
             )
 
         manager = original_get(self, instance, cls)
@@ -77,12 +77,12 @@ def get_related_model(model, field_name):
 
 
 def get_artifact_with_related(
-    artifact: SQLRecord,
+    artifact: Artifact,
     include_fk: bool = False,
     include_m2m: bool = False,
     include_feature_link: bool = False,
     include_schema: bool = False,
-) -> dict:
+) -> dict[str, Any]:
     """Fetch an artifact with its related data."""
     from ._label_manager import EXCLUDE_LABELS
     from .can_curate import get_name_field
@@ -230,6 +230,63 @@ def get_artifact_with_related(
     )
     return {
         **{name: artifact_meta[name] for name in ["id", "uid"]},
+        "related_data": related_data,
+    }
+
+
+def get_collection_with_related(
+    collection: Collection,
+    include_fk: bool = False,
+) -> dict[str, Any]:
+    """Fetch a collection with its related data."""
+    from .can_curate import get_name_field
+
+    model = collection.__class__
+    schema_modules = get_schema_modules(collection._state.db)
+
+    foreign_key_fields = [
+        f.name
+        for f in model._meta.fields
+        if f.is_relation and f.related_model.__get_module_name__() in schema_modules
+    ]
+
+    # Clear previous queries
+    connection.queries_log.clear()
+
+    annotations = {}
+
+    if include_fk:
+        for fk in foreign_key_fields:
+            name_field = get_name_field(get_related_model(model, fk))
+            if fk == "run":
+                annotations[f"fkfield_{fk}"] = JSONObject(
+                    id=F(f"{fk}__id"),
+                    name=F(f"{fk}__{name_field}"),
+                    transform_key=F(f"{fk}__transform__key"),
+                )
+            else:
+                annotations[f"fkfield_{fk}"] = JSONObject(
+                    id=F(f"{fk}__id"), name=F(f"{fk}__{name_field}")
+                )
+
+    collection_meta = (
+        model.objects.using(collection._state.db)
+        .filter(uid=collection.uid)
+        .annotate(**annotations)
+        .values(*["id", "uid"], *annotations.keys())
+        .first()
+    )
+
+    if not collection_meta:
+        return None
+
+    related_data: dict = {"fk": {}}
+    for k, v in collection_meta.items():
+        if k.startswith("fkfield_") and v is not None:
+            related_data["fk"][k[8:]] = v
+
+    return {
+        **{name: collection_meta[name] for name in ["id", "uid"]},
         "related_data": related_data,
     }
 

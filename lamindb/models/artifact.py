@@ -67,7 +67,7 @@ from ..errors import IntegrityError, InvalidArgument, ValidationError
 from ..models._is_versioned import (
     create_uid,
 )
-from ._django import get_artifact_with_related
+from ._django import get_artifact_with_related, get_collection_with_related
 from ._feature_manager import (
     FeatureManager,
     filter_base,
@@ -710,7 +710,8 @@ def save_schema_links(self: Artifact) -> None:
 
 def _describe_postgres(self):  # for Artifact & Collection
     from ._describe import (
-        describe_dataset,
+        describe_artifact_general,
+        describe_collection_general,
         describe_header,
     )
     from ._feature_manager import describe_features
@@ -733,7 +734,7 @@ def _describe_postgres(self):  # for Artifact & Collection
         result = get_artifact_with_related(self, include_fk=True, include_m2m=True)
     related_data = result.get("related_data", {})
     if model_name == "Artifact":
-        tree = describe_dataset(self, foreign_key_data=related_data["fk"])
+        tree = describe_artifact_general(self, foreign_key_data=related_data["fk"])
         return describe_features(
             self,
             tree=tree,
@@ -741,8 +742,10 @@ def _describe_postgres(self):  # for Artifact & Collection
             with_labels=True,
         )
     elif model_name == "Collection":
-        result = get_artifact_with_related(self, include_fk=True, include_m2m=True)
-        tree = describe_dataset(self, foreign_key_data=related_data.get("fk", {}))
+        result = get_collection_with_related(self, include_fk=True)
+        tree = describe_collection_general(
+            self, foreign_key_data=related_data.get("fk", {})
+        )
         return tree
     else:
         tree = describe_header(self)
@@ -751,7 +754,8 @@ def _describe_postgres(self):  # for Artifact & Collection
 
 def _describe_sqlite(self, print_types: bool = False):  # for artifact & collection
     from ._describe import (
-        describe_dataset,
+        describe_artifact_general,
+        describe_collection_general,
         describe_header,
     )
     from ._feature_manager import describe_features
@@ -790,14 +794,14 @@ def _describe_sqlite(self, print_types: bool = False):  # for artifact & collect
             .get(id=self.id)
         )
     if model_name == "Artifact":
-        tree = describe_dataset(self)
+        tree = describe_artifact_general(self)
         return describe_features(
             self,
             tree=tree,
             with_labels=True,
         )
     elif model_name == "Collection":
-        tree = describe_dataset(self)
+        tree = describe_collection_general(self)
         return tree
     else:
         tree = describe_header(self)

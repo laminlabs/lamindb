@@ -127,61 +127,161 @@ def format_bytes(bytes_value):
         return f"{bytes_value / (1024**4):.1f} TB"
 
 
-def describe_dataset(
-    obj: Artifact | Collection,
+def describe_artifact_general(
+    self: Artifact,
     tree: Tree | None = None,
     foreign_key_data: dict[str, dict[str, int | str]] | None = None,
 ) -> Tree:
-    from lamindb.models import Artifact
-
     if tree is None:
-        tree = describe_header(obj)
+        tree = describe_header(self)
 
+    # add general information (order is the same as in API docs)
     general = tree.add(Text("General", style="bold bright_cyan"))
 
-    if obj.key:
-        general.add(Text.assemble(("key: ", "dim"), (f"{obj.key}", "cyan3")))
-    if obj.description:
+    if self.key:
+        general.add(Text.assemble(("key: ", "dim"), (f"{self.key}", "cyan3")))
+    if self.description:
         general.add(
             Text.assemble(
                 ("description: ", "dim"),
-                f"{obj.description}",
+                f"{self.description}",
             )
         )
 
+    # Two column items (short content)
     two_column_items = []
-    two_column_items.append(Text.assemble(("uid: ", "dim"), f"{obj.uid}"))
 
-    if isinstance(obj, Artifact):
-        two_column_items.append(Text.assemble(("hash: ", "dim"), f"{obj.hash}"))
-        two_column_items.append(
-            Text.assemble(("size: ", "dim"), f"{format_bytes(obj.size)}")
-        )
-
+    two_column_items.append(Text.assemble(("uid: ", "dim"), f"{self.uid}"))
+    two_column_items.append(Text.assemble(("hash: ", "dim"), f"{self.hash}"))
+    two_column_items.append(
+        Text.assemble(("size: ", "dim"), f"{format_bytes(self.size)}")
+    )
     transform_key = (
         foreign_key_data["run"]["transform_key"]
-        if foreign_key_data and isinstance(obj, Artifact)
-        else foreign_key_data["transform"]["name"]
-        if foreign_key_data and "transform" in foreign_key_data
-        else obj.transform.key
-        if hasattr(obj, "transform") and obj.transform and isinstance(obj, Artifact)
-        else obj.transform.name
-        if hasattr(obj, "transform") and obj.transform
+        if foreign_key_data
+        else self.transform.key
+        if self.transform
         else None
     )
-    if transform_key:
+    two_column_items.append(
+        Text.assemble(
+            ("transform: ", "dim"),
+            (f"{transform_key}", "cyan3"),
+        )
+    )
+    space_name = (
+        foreign_key_data["space"]["name"] if foreign_key_data else self.space.name
+    )
+    two_column_items.append(Text.assemble(("space: ", "dim"), space_name))
+    branch_name = (
+        foreign_key_data["branch"]["name"] if foreign_key_data else self.space.name
+    )
+    two_column_items.append(Text.assemble(("branch: ", "dim"), branch_name))
+    # actually not name field here, but handle
+    created_by_handle = (
+        foreign_key_data["branch"]["name"]
+        if foreign_key_data
+        else self.created_by.handle
+    )
+    two_column_items.append(
+        Text.assemble(
+            ("created_by: ", "dim"),
+            (created_by_handle),
+        )
+    )
+    two_column_items.append(
+        Text.assemble(("created_at: ", "dim"), highlight_time(str(self.created_at)))
+    )
+    if self.n_files:
+        two_column_items.append(Text.assemble(("n_files: ", "dim"), f"{self.n_files}"))
+    if self.n_observations:
+        two_column_items.append(
+            Text.assemble(("n_observations: ", "dim"), f"{self.n_observations}")
+        )
+    if self.version:
+        two_column_items.append(Text.assemble(("version: ", "dim"), f"{self.version}"))
+
+    # Add two-column items in pairs
+    for i in range(0, len(two_column_items), 2):
+        if i + 1 < len(two_column_items):
+            # Two items side by side
+            left_item = two_column_items[i]
+            right_item = two_column_items[i + 1]
+
+            # Create padded version by calculating the plain text length
+            left_plain_text = (
+                left_item.plain if hasattr(left_item, "plain") else str(left_item)
+            )
+            padding_needed = max(0, 35 - len(left_plain_text))
+            padding = " " * padding_needed
+
+            general.add(Text.assemble(left_item, padding, right_item))
+        else:
+            # Single item (odd number)
+            general.add(two_column_items[i])
+
+    storage_root = (
+        foreign_key_data["storage"]["name"] if foreign_key_data else self.storage.root
+    )
+    storage_key = self.key if self.key else self.uid
+    if not self.key and self.overwrite_versions > 0:
+        storage_key = storage_key[:-4]
+    general.add(
+        Text.assemble(
+            ("storage path: ", "dim"),
+            (storage_root, "cyan3"),
+            f"/{storage_key}",
+        )
+    )
+    return tree
+
+
+def describe_collection_general(
+    self: Collection,
+    tree: Tree | None = None,
+    foreign_key_data: dict[str, dict[str, int | str]] | None = None,
+) -> Tree:
+    if tree is None:
+        tree = describe_header(self)
+
+    # add general information (order is the same as in API docs)
+    general = tree.add(Text("General", style="bold bright_cyan"))
+
+    if self.key:
+        general.add(Text.assemble(("key: ", "dim"), (f"{self.key}", "cyan3")))
+    if self.description:
+        general.add(
+            Text.assemble(
+                ("description: ", "dim"),
+                f"{self.description}",
+            )
+        )
+
+    # Two column items (short content)
+    two_column_items = []
+
+    two_column_items.append(Text.assemble(("uid: ", "dim"), f"{self.uid}"))
+
+    transform_name = (
+        foreign_key_data["transform"]["name"]
+        if foreign_key_data and "transform" in foreign_key_data
+        else self.transform.name
+        if self.transform
+        else None
+    )
+    if transform_name:
         two_column_items.append(
             Text.assemble(
                 ("transform: ", "dim"),
-                (f"{transform_key}", "cyan3"),
+                (f"{transform_name}", "cyan3"),
             )
         )
 
     space_name = (
         foreign_key_data["space"]["name"]
         if foreign_key_data and "space" in foreign_key_data
-        else obj.space.name
-        if hasattr(obj, "space") and obj.space
+        else self.space.name
+        if self.space
         else None
     )
     if space_name:
@@ -190,10 +290,8 @@ def describe_dataset(
     branch_name = (
         foreign_key_data["branch"]["name"]
         if foreign_key_data and "branch" in foreign_key_data
-        else getattr(
-            obj.space if isinstance(obj, Artifact) else obj.branch, "name", None
-        )
-        if hasattr(obj, "branch" if hasattr(obj, "branch") else "space")
+        else self.branch.name
+        if self.branch
         else None
     )
     if branch_name:
@@ -202,10 +300,8 @@ def describe_dataset(
     created_by_handle = (
         foreign_key_data["created_by"]["name"]
         if foreign_key_data and "created_by" in foreign_key_data
-        else foreign_key_data["branch"]["name"]
-        if foreign_key_data and isinstance(obj, Artifact)
-        else obj.created_by.handle
-        if hasattr(obj, "created_by") and obj.created_by
+        else self.created_by.handle
+        if self.created_by
         else None
     )
     if created_by_handle:
@@ -216,24 +312,15 @@ def describe_dataset(
             )
         )
 
-    if hasattr(obj, "created_at") and obj.created_at:
+    if self.created_at:
         two_column_items.append(
-            Text.assemble(("created_at: ", "dim"), highlight_time(str(obj.created_at)))
+            Text.assemble(("created_at: ", "dim"), highlight_time(str(self.created_at)))
         )
 
-    if isinstance(obj, Artifact):
-        if obj.n_files:
-            two_column_items.append(
-                Text.assemble(("n_files: ", "dim"), f"{obj.n_files}")
-            )
-        if obj.n_observations:
-            two_column_items.append(
-                Text.assemble(("n_observations: ", "dim"), f"{obj.n_observations}")
-            )
+    if self.version:
+        two_column_items.append(Text.assemble(("version: ", "dim"), f"{self.version}"))
 
-    if hasattr(obj, "version") and obj.version:
-        two_column_items.append(Text.assemble(("version: ", "dim"), f"{obj.version}"))
-
+    # Add two-column items in pairs
     for i in range(0, len(two_column_items), 2):
         if i + 1 < len(two_column_items):
             # Two items side by side
@@ -251,23 +338,5 @@ def describe_dataset(
         else:
             # Single item (odd number)
             general.add(two_column_items[i])
-
-    # Should appear at the end so we need another if statement
-    if isinstance(obj, Artifact):
-        storage_root = (
-            foreign_key_data["storage"]["name"]
-            if foreign_key_data
-            else obj.storage.root
-        )
-        storage_key = obj.key if obj.key else obj.uid
-        if not obj.key and obj.overwrite_versions > 0:
-            storage_key = storage_key[:-4]
-        general.add(
-            Text.assemble(
-                ("storage path: ", "dim"),
-                (storage_root, "cyan3"),
-                f"/{storage_key}",
-            )
-        )
 
     return tree
