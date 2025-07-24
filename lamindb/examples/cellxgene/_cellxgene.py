@@ -8,6 +8,16 @@ from lamindb.models import Feature, Schema, SQLRecord, ULabel
 from lamindb.models._from_values import _format_values
 
 CELLxGENESchemaVersions = Literal["4.0.0", "5.0.0", "5.1.0", "5.2.0", "5.3.0"]
+CELLxGENESupportedOrganisms = Literal[
+    "human",
+    "mouse",
+    "SARS-COV-2",
+    "synthetic construct",
+    "zebra danio",
+    "rhesus macaquedomestic pig",
+    "chimpanzee",
+    "white-tufted-ear marmoset",
+]
 FieldType = Literal["ontology_id", "name"]
 
 
@@ -124,7 +134,7 @@ def get_cxg_schema(
     schema_version: CELLxGENESchemaVersions,
     *,
     field_types: FieldType | Collection[FieldType] = "ontology_id",
-    organism: Literal["human", "mouse"] = "human",
+    organism: CELLxGENESupportedOrganisms = "human",
 ) -> Schema:
     """Generates a :class:`~lamindb.Schema` for a specific CELLxGENE schema version.
 

@@ -212,8 +212,7 @@ def test_backed_zarr_not_adata():
 
 def test_anndata_open_mode():
     fp = ln.core.datasets.anndata_file_pbmc68k_test()
-    artifact = ln.Artifact(fp, key="test_adata.h5ad")
-    artifact.save()
+    artifact = ln.Artifact(fp, key="test_adata.h5ad").save()
 
     with artifact.open(mode="r") as access:
         assert isinstance(access, AnnDataAccessor)
