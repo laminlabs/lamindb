@@ -983,7 +983,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
     Args:
         data: `UPathStr` A path to a local or remote folder or file.
-        kind: `Literal["dataset", "model"] | None = None` Distinguish models from datasets from other files & folders.
+        kind: `Literal["dataset", "model"] | str | None = None` Distinguish models from datasets from other files & folders.
         key: `str | None = None` A path-like key to reference artifact in default storage, e.g., `"myfolder/myfile.fcs"`. Artifacts with the same key form a version family.
         description: `str | None = None` A description.
         revises: `Artifact | None = None` Previous version of the artifact. Is an alternative way to passing `key` to trigger a new version.
@@ -1209,12 +1209,12 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
     This is either a file suffix (`".csv"`, `".h5ad"`, etc.) or the empty string "".
     """
-    kind: ArtifactKind | None = CharField(
+    kind: ArtifactKind | str | None = CharField(
         max_length=20,
         db_index=True,
         null=True,
     )
-    """:class:`~lamindb.base.types.ArtifactKind` (default `None`)."""
+    """:class:`~lamindb.base.types.ArtifactKind` or custom `str` value (default `None`)."""
     otype: str | None = CharField(
         max_length=64, db_index=True, null=True, editable=False
     )
@@ -1327,7 +1327,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         # here; and we might refactor this but we might also keep that internal
         # usage
         data: UPathStr,
-        kind: ArtifactKind | None = None,
+        kind: ArtifactKind | str | None = None,
         key: str | None = None,
         description: str | None = None,
         revises: Artifact | None = None,
