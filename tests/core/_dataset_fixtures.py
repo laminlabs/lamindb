@@ -1,3 +1,5 @@
+import shutil
+
 import anndata as ad
 import lamindb as ln
 import mudata as md
@@ -66,4 +68,5 @@ def get_small_soma_experiment():
 
     exp = tiledbsoma.Experiment.open("test.tiledbsoma")
 
-    return exp
+    yield exp
+    shutil.rmtree("test.tiledbsoma")

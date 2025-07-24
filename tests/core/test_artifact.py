@@ -1,7 +1,6 @@
 """Artifact tests.
 
 Also see `test_artifact_folders.py` for tests of folder-like artifacts.
-
 """
 
 # ruff: noqa: F811
@@ -114,7 +113,9 @@ def yaml_file():
 
 @pytest.fixture(scope="module")
 def fcs_file():
-    return ln.core.datasets.file_fcs_alpert19()
+    fcs_path = ln.core.datasets.file_fcs_alpert19()
+    yield fcs_path
+    fcs_path.unlink()
 
 
 @pytest.fixture(scope="module")
@@ -147,15 +148,13 @@ def test_data_is_anndata_paths():
     assert not data_is_scversedatastructure("s3://somewhere/something.zarr", "AnnData")
 
 
-def test_data_is_anndata_anndatacessor():
-    artifact = ln.Artifact(
-        ln.core.datasets.anndata_file_pbmc68k_test(), key="test_adata.h5ad"
-    ).save()
+def test_data_is_anndata_anndatacessor(get_small_adata):
+    artifact = ln.Artifact(get_small_adata, key="test_adata.h5ad").save()
 
     with artifact.open(mode="r") as access:
         assert data_is_scversedatastructure(access, "AnnData")
 
-    artifact.delete()
+    artifact.delete(permanent=True)
 
 
 def test_data_is_mudata_paths():

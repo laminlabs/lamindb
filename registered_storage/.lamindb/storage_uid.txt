@@ -1,0 +1,5 @@
+SS3lw6RRjV81
+creation info:
+instance_slug=zethson/lamindb-unit-tests-core
+instance_id=c1228009394d5469a129c1bc101f28c8
+instance_uid=65TDRn0hJ7oP
