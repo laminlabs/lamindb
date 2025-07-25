@@ -1,9 +1,14 @@
+# ruff: noqa: F811
+
 import datetime
 from pathlib import Path
 
 import bionty as bt
 import lamindb as ln
 import pytest
+from _dataset_fixtures import (  # noqa
+    get_mini_csv,
+)
 from lamindb.core.datasets import small_dataset1
 from lamindb.errors import DoesNotExist, ValidationError
 from lamindb.models._feature_manager import describe_features
@@ -637,9 +642,8 @@ def test_add_labels_using_anndata(adata):
     ln.ULabel.filter().all().delete()
 
 
-def test_labels_get():
-    ln.core.datasets.file_mini_csv()
-    artifact = ln.Artifact("mini.csv", description="test")
+def test_labels_get(get_mini_csv):
+    artifact = ln.Artifact(get_mini_csv, description="test")
     # feature doesn't exist
     with pytest.raises(TypeError):
         artifact.labels.get("x")
