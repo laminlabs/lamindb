@@ -1,6 +1,7 @@
 from typing import Collection, Literal, NamedTuple
 
 import pandas as pd
+from django.db.models import Q
 from lamindb_setup.core.upath import UPath
 
 from lamindb.base.types import FieldAttr
@@ -164,6 +165,11 @@ def get_cxg_schema(
     """
     import bionty as bt
 
+    if existing_schema := Schema.filter(
+        Q(name__icontains=schema_version) & Q(name__icontains=organism)
+    ).one_or_none():
+        return existing_schema
+
     class CategorySpec(NamedTuple):
         field: str | FieldAttr
         default: str | None
@@ -257,7 +263,7 @@ def get_cxg_schema(
     ).save()
 
     full_cxg_schema = Schema(
-        name=f"AnnData of CELLxGENE version {schema_version}",
+        name=f"AnnData of CELLxGENE version {schema_version} for {organism}",
         otype="AnnData",
         minimal_set=True,
         coerce_dtype=True,
