@@ -93,7 +93,7 @@ def install_ci(session, group):
         run(session, "uv pip install --system spatialdata")
     elif group == "unit-storage":
         extras += "zarr,bionty,gcp"
-        run(session, "uv pip install --system huggingface_hub")
+        run(session, "uv pip install --system huggingface_hub<0.34.0")
         # tiledbsoma dependency, specifying it here explicitly
         # otherwise there are problems with uv resolver
         run(session, "uv pip install --system scanpy")
@@ -101,7 +101,7 @@ def install_ci(session, group):
         run(session, "uv pip install --system polars")
     elif group == "tutorial":
         extras += "jupyter,bionty"
-        run(session, "uv pip install --system huggingface_hub")
+        run(session, "uv pip install --system huggingface_hub<0.34.0")
         run(session, "uv pip install --system polars")
     elif group == "guide":
         extras += "bionty,zarr,jupyter"
