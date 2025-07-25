@@ -28,6 +28,9 @@ def save_vitessce_config(
     If the `VitessceConfig` object references multiple artifacts, automatically
     creates a `Collection` and displays the "Vitessce button" next to it.
 
+    The `VitessceConfig` artifact has `.suffix = ".vitessce.json"` and `.kind = "__lamindb_config__"`,
+    which is by default hidden on the hub UI.
+
     Guide: :doc:`docs:vitessce`.
 
     Args:
@@ -36,13 +39,6 @@ def save_vitessce_config(
             `Collection` in case the `VitessceConfig` object references
             multiple artifacts.
         description: A description for the `VitessceConfig` object.
-
-    .. versionchanged:: 0.76.12
-        Now assumes `vitessce-python >= 3.4.0`, which allows passing artifacts within `VitessceConfig`.
-    .. versionchanged:: 0.75.1
-        Now displays the "Vitessce button" on the hub next to the dataset. It additionally keeps displaying it next to the configuration file.
-    .. versionchanged:: 0.70.2
-        No longer saves the dataset. It only saves the `VitessceConfig` object.
     """
     # can only import here because vitessce is not a dependency
     from vitessce import VitessceConfig
@@ -80,7 +76,11 @@ def save_vitessce_config(
     with open(config_file_local_path, "w") as file:
         json.dump(vc_dict, file)
     vitessce_config_artifact = Artifact(
-        config_file_local_path, key=key, description=description, run=run
+        config_file_local_path,
+        key=key,
+        description=description,
+        run=run,
+        kind="__lamindb_config__",
     ).save()
     slug = ln_setup.settings.instance.slug
     logger.important(
