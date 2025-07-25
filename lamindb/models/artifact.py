@@ -1116,11 +1116,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             # folders
             # the conditional composite constraint allows duplicating files in different parts of the
             # file hierarchy, but errors if the same file is to be registered with the same key
-            # or if the key is not populated
             models.UniqueConstraint(
                 fields=["storage", "key", "hash"],
                 name="unique_artifact_storage_key_hash",
-                condition=Q(key__isnull=False),
             ),
         ]
 
