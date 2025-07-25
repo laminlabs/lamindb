@@ -549,6 +549,8 @@ def test_open_dataframe_collection():
     artifact3.delete(permanent=True)
     artifact4.delete(permanent=True, storage=False)
 
+    Path("mini.csv").unlink(missing_ok=True)
+
     ln.settings.storage = "s3://lamindb-test/storage"
 
 

@@ -1,4 +1,6 @@
 import shutil
+from pathlib import Path
+from typing import Generator
 
 import anndata as ad
 import lamindb as ln
@@ -67,6 +69,14 @@ def get_small_soma_experiment():
     tiledbsoma.io.from_anndata("test.tiledbsoma", adata, measurement_name="RNA")
 
     exp = tiledbsoma.Experiment.open("test.tiledbsoma")
-
     yield exp
+
     shutil.rmtree("test.tiledbsoma")
+
+
+@pytest.fixture(scope="session")
+def get_mini_csv() -> Generator[Path, None, None]:
+    csv_path = ln.core.datasets.file_mini_csv()
+    yield csv_path
+
+    Path("mini.csv").unlink(missing_ok=True)

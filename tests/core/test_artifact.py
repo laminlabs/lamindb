@@ -20,6 +20,7 @@ import pandas as pd
 import pytest
 import yaml  # type: ignore
 from _dataset_fixtures import (  # noqa
+    get_mini_csv,
     get_small_adata,
     get_small_mdata,
     get_small_sdata,
@@ -870,9 +871,8 @@ def test_load_to_memory(tsv_file, zip_file, fcs_file, yaml_file):
     assert error.exconly() == "TypeError: data has to be a string, Path, UPath"
 
 
-def test_describe_artifact(capsys):
-    ln.core.datasets.file_mini_csv()
-    artifact = ln.Artifact("mini.csv", description="test")
+def test_describe_artifact(get_mini_csv, capsys):
+    artifact = ln.Artifact(get_mini_csv, description="test")
     artifact.describe()
     captured = capsys.readouterr()
     assert len(captured.out) > 50
