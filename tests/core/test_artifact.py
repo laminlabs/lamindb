@@ -1,7 +1,6 @@
 """Artifact tests.
 
 Also see `test_artifact_folders.py` for tests of folder-like artifacts.
-
 """
 
 # ruff: noqa: F811
@@ -21,6 +20,7 @@ import pandas as pd
 import pytest
 import yaml  # type: ignore
 from _dataset_fixtures import (  # noqa
+    get_mini_csv,
     get_small_adata,
     get_small_mdata,
     get_small_sdata,
@@ -114,7 +114,9 @@ def yaml_file():
 
 @pytest.fixture(scope="module")
 def fcs_file():
-    return ln.core.datasets.file_fcs_alpert19()
+    fcs_path = ln.core.datasets.file_fcs_alpert19()
+    yield fcs_path
+    fcs_path.unlink()
 
 
 @pytest.fixture(scope="module")
@@ -145,6 +147,15 @@ def test_data_is_anndata_paths():
         "s3://somewhere/something.anndata.zarr", "AnnData"
     )
     assert not data_is_scversedatastructure("s3://somewhere/something.zarr", "AnnData")
+
+
+def test_data_is_anndata_anndatacessor(get_small_adata):
+    artifact = ln.Artifact(get_small_adata, key="test_adata.h5ad").save()
+
+    with artifact.open(mode="r") as access:
+        assert data_is_scversedatastructure(access, "AnnData")
+
+    artifact.delete(permanent=True)
 
 
 def test_data_is_mudata_paths():
@@ -836,6 +847,7 @@ def test_serialize_paths():
     )
     assert isinstance(filepath, CloudPath)
     storage.delete()
+    Path("pbmc68k_test.h5ad").unlink(missing_ok=True)
 
 
 def test_load_to_memory(tsv_file, zip_file, fcs_file, yaml_file):
@@ -860,9 +872,8 @@ def test_load_to_memory(tsv_file, zip_file, fcs_file, yaml_file):
     assert error.exconly() == "TypeError: data has to be a string, Path, UPath"
 
 
-def test_describe_artifact(capsys):
-    ln.core.datasets.file_mini_csv()
-    artifact = ln.Artifact("mini.csv", description="test")
+def test_describe_artifact(get_mini_csv, capsys):
+    artifact = ln.Artifact(get_mini_csv, description="test")
     artifact.describe()
     captured = capsys.readouterr()
     assert len(captured.out) > 50

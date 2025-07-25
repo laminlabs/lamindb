@@ -1,6 +1,7 @@
 from typing import Collection, Literal, NamedTuple
 
 import pandas as pd
+from django.db.models import Q
 from lamindb_setup.core.upath import UPath
 
 from lamindb.base.types import FieldAttr
@@ -8,6 +9,16 @@ from lamindb.models import Feature, Schema, SQLRecord, ULabel
 from lamindb.models._from_values import _format_values
 
 CELLxGENESchemaVersions = Literal["4.0.0", "5.0.0", "5.1.0", "5.2.0", "5.3.0"]
+CELLxGENEOrganisms = Literal[
+    "human",
+    "mouse",
+    "zebra danio",
+    "rhesus macaquedomestic pig",
+    "chimpanzee",
+    "white-tufted-ear marmoset",
+    "sars-2",
+    "synthetic construct",
+]
 FieldType = Literal["ontology_id", "name"]
 
 
@@ -21,7 +32,6 @@ def save_cxg_defaults() -> None:
     - "unknown" entries for DevelopmentalStage, Phenotype, and CellType
     - "tissue", "organoid", and "cell culture" ULabels (tissue_type)
     - "cell", "nucleus", "na" ULabels (suspension_type)
-
     """
     import bionty as bt
 
@@ -39,16 +49,19 @@ def save_cxg_defaults() -> None:
     ).save()
 
     # na, unknown
-    for model, name in zip(
+    for biorecord, name in zip(
         [
+            bt.Ethnicity,
             bt.Ethnicity,
             bt.DevelopmentalStage,
             bt.Phenotype,
             bt.CellType,
         ],
-        ["na", "unknown", "unknown", "unknown"],
+        ["na", "unknown", "unknown", "unknown", "unknown"],
     ):
-        model(ontology_id=name, name=name, description="From CellxGene schema.").save()
+        biorecord(
+            ontology_id=name, name=name, description="From CellxGene schema."
+        ).save()
 
     # tissue_type
     tissue_type = ULabel(
@@ -69,6 +82,23 @@ def save_cxg_defaults() -> None:
         ULabel(
             name=name, type=suspension_type, description="From CellxGene schema."
         ).save()
+
+    # organisms
+    taxonomy_ids = [
+        "NCBITaxon:9606",  # Homo sapiens (Human)
+        "NCBITaxon:10090",  # Mus musculus (House mouse)
+        "NCBITaxon:9544",  # Macaca mulatta (Rhesus monkey)
+        "NCBITaxon:9825",  # Sus scrofa domesticus (Domestic pig)
+        "NCBITaxon:9598",  # Pan troglodytes (Chimpanzee)
+        "NCBITaxon:9483",  # Callithrix jacchus (White-tufted-ear marmoset)
+        "NCBITaxon:7955",  # Danio rerio (Zebrafish)
+    ]
+    ncbitaxon_source = bt.Source.filter(name="ncbitaxon").first()
+    for ontology_id in taxonomy_ids:
+        if not bt.Organism.filter(ontology_id=ontology_id).one_or_none():
+            bt.Organism.from_source(
+                ontology_id=ontology_id, source=ncbitaxon_source
+            ).save()
 
 
 def _create_cxg_sources(
@@ -124,7 +154,7 @@ def get_cxg_schema(
     schema_version: CELLxGENESchemaVersions,
     *,
     field_types: FieldType | Collection[FieldType] = "ontology_id",
-    organism: Literal["human", "mouse"] = "human",
+    organism: CELLxGENEOrganisms = "human",
 ) -> Schema:
     """Generates a :class:`~lamindb.Schema` for a specific CELLxGENE schema version.
 
@@ -134,6 +164,11 @@ def get_cxg_schema(
         organism: The organism of the Schema.
     """
     import bionty as bt
+
+    if existing_schema := Schema.filter(
+        Q(name__icontains=schema_version) & Q(name__icontains=organism)
+    ).one_or_none():
+        return existing_schema
 
     class CategorySpec(NamedTuple):
         field: str | FieldAttr
@@ -228,7 +263,8 @@ def get_cxg_schema(
     ).save()
 
     full_cxg_schema = Schema(
-        name=f"AnnData of CELLxGENE version {schema_version}",
+        # Do not change the name unless you also change the early return check above
+        name=f"AnnData of CELLxGENE version {schema_version} for {organism}",
         otype="AnnData",
         minimal_set=True,
         coerce_dtype=True,
