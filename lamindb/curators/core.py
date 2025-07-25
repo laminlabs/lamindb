@@ -198,12 +198,19 @@ class Curator:
                 "MuData",
                 "SpatialData",
             }:
-                # Open remote AnnData Artifacts in backed mode
+                # Open remote AnnData Artifacts
                 if not isinstance(self._artifact.path, LocalPathClasses):
                     if self._artifact.otype in {
                         "AnnData",
                     }:
-                        self._dataset = self._dataset.open(mode="r")
+                        try:
+                            self._dataset = self._dataset.open(mode="r")
+                        # open can raise various errors. Fall back to loading into memory if open fails
+                        except Exception as e:
+                            logger.warning(
+                                f"Unable to open remote AnnData Artifact: {e}. Falling back to loading into memory."
+                            )
+                            self._dataset = self._dataset.load(is_run_input=False)
                 else:
                     self._dataset = self._dataset.load(is_run_input=False)
         self._schema: Schema | None = schema
