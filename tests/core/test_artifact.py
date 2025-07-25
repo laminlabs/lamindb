@@ -847,6 +847,7 @@ def test_serialize_paths():
     )
     assert isinstance(filepath, CloudPath)
     storage.delete()
+    Path("pbmc68k_test.h5ad").unlink(missing_ok=True)
 
 
 def test_load_to_memory(tsv_file, zip_file, fcs_file, yaml_file):
