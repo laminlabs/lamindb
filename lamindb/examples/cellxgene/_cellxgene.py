@@ -263,6 +263,7 @@ def get_cxg_schema(
     ).save()
 
     full_cxg_schema = Schema(
+        # Do not change the name unless you also change the early return check above
         name=f"AnnData of CELLxGENE version {schema_version} for {organism}",
         otype="AnnData",
         minimal_set=True,
