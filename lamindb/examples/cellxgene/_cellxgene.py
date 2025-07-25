@@ -49,7 +49,7 @@ def save_cxg_defaults() -> None:
     ).save()
 
     # na, unknown
-    for model, name in zip(
+    for entity, name in zip(
         [
             bt.Ethnicity,
             bt.DevelopmentalStage,
@@ -58,7 +58,7 @@ def save_cxg_defaults() -> None:
         ],
         ["na", "unknown", "unknown", "unknown"],
     ):
-        model(ontology_id=name, name=name, description="From CellxGene schema.").save()
+        entity(ontology_id=name, name=name, description="From CellxGene schema.").save()
 
     # tissue_type
     tissue_type = ULabel(
@@ -79,6 +79,19 @@ def save_cxg_defaults() -> None:
         ULabel(
             name=name, type=suspension_type, description="From CellxGene schema."
         ).save()
+
+    # organisms
+    taxonomy_ids = [
+        "NCBITaxon:9606",  # Homo sapiens (Human)
+        "NCBITaxon:10090",  # Mus musculus (House mouse)
+        "NCBITaxon:9544",  # Macaca mulatta (Rhesus monkey)
+        "NCBITaxon:9825",  # Sus scrofa domesticus (Domestic pig)
+        "NCBITaxon:9598",  # Pan troglodytes (Chimpanzee)
+        "NCBITaxon:9483",  # Callithrix jacchus (White-tufted-ear marmoset)
+        "NCBITaxon:7955",  # Danio rerio (Zebrafish)
+    ]
+    for ontology_id in taxonomy_ids:
+        bt.Organism.from_source(ontology_id=ontology_id).save()
 
 
 def _create_cxg_sources(
