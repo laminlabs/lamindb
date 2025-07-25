@@ -31,7 +31,6 @@ def save_cxg_defaults() -> None:
     - "unknown" entries for DevelopmentalStage, Phenotype, and CellType
     - "tissue", "organoid", and "cell culture" ULabels (tissue_type)
     - "cell", "nucleus", "na" ULabels (suspension_type)
-
     """
     import bionty as bt
 
@@ -90,8 +89,12 @@ def save_cxg_defaults() -> None:
         "NCBITaxon:9483",  # Callithrix jacchus (White-tufted-ear marmoset)
         "NCBITaxon:7955",  # Danio rerio (Zebrafish)
     ]
+    ncbitaxon_source = bt.Source.filter(name="ncbitaxon").first()
     for ontology_id in taxonomy_ids:
-        bt.Organism.from_source(ontology_id=ontology_id).save()
+        if not bt.Organism.filter(ontology_id=ontology_id).one_or_none():
+            bt.Organism.from_source(
+                ontology_id=ontology_id, source=ncbitaxon_source
+            ).save()
 
 
 def _create_cxg_sources(
