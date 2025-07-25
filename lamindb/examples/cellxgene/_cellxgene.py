@@ -8,7 +8,7 @@ from lamindb.models import Feature, Schema, SQLRecord, ULabel
 from lamindb.models._from_values import _format_values
 
 CELLxGENESchemaVersions = Literal["4.0.0", "5.0.0", "5.1.0", "5.2.0", "5.3.0"]
-CELLxGENESupportedOrganisms = Literal[
+CELLxGENEOrganisms = Literal[
     "human",
     "mouse",
     "zebra danio",
@@ -48,7 +48,7 @@ def save_cxg_defaults() -> None:
     ).save()
 
     # na, unknown
-    for entity, name in zip(
+    for biorecord, name in zip(
         [
             bt.Ethnicity,
             bt.DevelopmentalStage,
@@ -57,7 +57,9 @@ def save_cxg_defaults() -> None:
         ],
         ["na", "unknown", "unknown", "unknown"],
     ):
-        entity(ontology_id=name, name=name, description="From CellxGene schema.").save()
+        biorecord(
+            ontology_id=name, name=name, description="From CellxGene schema."
+        ).save()
 
     # tissue_type
     tissue_type = ULabel(
@@ -150,7 +152,7 @@ def get_cxg_schema(
     schema_version: CELLxGENESchemaVersions,
     *,
     field_types: FieldType | Collection[FieldType] = "ontology_id",
-    organism: CELLxGENESupportedOrganisms = "human",
+    organism: CELLxGENEOrganisms = "human",
 ) -> Schema:
     """Generates a :class:`~lamindb.Schema` for a specific CELLxGENE schema version.
 
