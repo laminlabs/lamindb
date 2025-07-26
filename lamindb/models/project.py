@@ -133,7 +133,7 @@ class Reference(SQLRecord, CanCurate, TracksRun, TracksUpdates, ValidateFields):
         null=True,
     )
     """An abbreviation for the reference."""
-    url: str | None = URLField(null=True)
+    url: str | None = URLField(null=True, db_index=True)
     """URL linking to the reference."""
     pubmed_id: int | None = BigIntegerField(null=True, db_index=True)
     """A PudMmed ID."""
@@ -150,7 +150,7 @@ class Reference(SQLRecord, CanCurate, TracksRun, TracksUpdates, ValidateFields):
     """Digital Object Identifier (DOI) for the reference."""
     description: str | None = CharField(null=True, db_index=True)
     """Description of the reference."""
-    text: str | None = TextField(null=True)
+    text: str | None = TextField(null=True, db_index=True)
     """Abstract or full text of the reference to make it searchable."""
     date: DateType | None = DateField(null=True, default=None)
     """Date of creation or publication of the reference."""
