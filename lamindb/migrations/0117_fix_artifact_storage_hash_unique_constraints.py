@@ -5,7 +5,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("lamindb", "0116_squashed"),
+        ("lamindb", "0116_remove_artifact_unique_artifact_storage_key_hash_and_more"),
     ]
 
     operations = [
