@@ -1116,9 +1116,19 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             # folders
             # the conditional composite constraint allows duplicating files in different parts of the
             # file hierarchy, but errors if the same file is to be registered with the same key
+            # In SQL, NULL values are treated specially in unique constraints.
+            # Multiple NULL values are not considered equal to each other for uniqueness purposes.
+            # For non-NULL keys
             models.UniqueConstraint(
                 fields=["storage", "key", "hash"],
-                name="unique_artifact_storage_key_hash",
+                condition=models.Q(key__isnull=False),
+                name="unique_artifact_storage_key_hash_not_null",
+            ),
+            # For NULL keys (only storage + hash need to be unique)
+            models.UniqueConstraint(
+                fields=["storage", "hash"],
+                condition=models.Q(key__isnull=True),
+                name="unique_artifact_storage_hash_null_key",
             ),
         ]
 

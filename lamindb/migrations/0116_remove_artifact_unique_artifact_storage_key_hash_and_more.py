@@ -7,7 +7,7 @@ import lamindb.base.fields
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("lamindb", "0115_squashed"),
+        ("lamindb", "0115_alter_space_uid"),
     ]
 
     operations = [
