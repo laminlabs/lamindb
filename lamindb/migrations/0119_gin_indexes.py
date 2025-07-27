@@ -264,6 +264,31 @@ class Migration(migrations.Migration):
                 blank=True, default=None, editable=False, max_length=16, unique=True
             ),
         ),
+        migrations.AlterField(
+            model_name="run",
+            name="name",
+            field=lamindb.base.fields.CharField(
+                blank=True, default=None, max_length=150, null=True
+            ),
+        ),
+        migrations.AlterField(
+            model_name="run",
+            name="reference",
+            field=lamindb.base.fields.CharField(
+                blank=True, default=None, max_length=255, null=True
+            ),
+        ),
+        migrations.AlterField(
+            model_name="run",
+            name="uid",
+            field=lamindb.base.fields.CharField(
+                blank=True,
+                default=lamindb.base.uids.base62_16,
+                editable=False,
+                max_length=20,
+                unique=True,
+            ),
+        ),
     ]
 
 
@@ -774,6 +799,48 @@ if "postgresql" in db_engine:
                 name="lamindb_transfo_referen_tgmidx",
             ),
         ),
+        migrations.AddIndex(
+            model_name="run",
+            index=django.contrib.postgres.indexes.GinIndex(
+                django.contrib.postgres.indexes.OpClass(
+                    django.db.models.functions.text.Lower(
+                        django.db.models.functions.comparison.Coalesce(
+                            models.F("uid"), models.Value("")
+                        )
+                    ),
+                    name="gin_trgm_ops",
+                ),
+                name="lamindb_run_uid_tgmidx",
+            ),
+        ),
+        migrations.AddIndex(
+            model_name="run",
+            index=django.contrib.postgres.indexes.GinIndex(
+                django.contrib.postgres.indexes.OpClass(
+                    django.db.models.functions.text.Lower(
+                        django.db.models.functions.comparison.Coalesce(
+                            models.F("name"), models.Value("")
+                        )
+                    ),
+                    name="gin_trgm_ops",
+                ),
+                name="lamindb_run_name_tgmidx",
+            ),
+        ),
+        migrations.AddIndex(
+            model_name="run",
+            index=django.contrib.postgres.indexes.GinIndex(
+                django.contrib.postgres.indexes.OpClass(
+                    django.db.models.functions.text.Lower(
+                        django.db.models.functions.comparison.Coalesce(
+                            models.F("reference"), models.Value("")
+                        )
+                    ),
+                    name="gin_trgm_ops",
+                ),
+                name="lamindb_run_referen_tgmidx",
+            ),
+        ),
     ]
     Migration.operations += POSTGRES_OPERATIONS
 else:
@@ -937,6 +1004,18 @@ else:
             index=models.Index(
                 fields=["reference"], name="lamindb_transfo_referen_idx"
             ),
+        ),
+        migrations.AddIndex(
+            model_name="run",
+            index=models.Index(fields=["uid"], name="lamindb_run_uid_idx"),
+        ),
+        migrations.AddIndex(
+            model_name="run",
+            index=models.Index(fields=["name"], name="lamindb_run_name_idx"),
+        ),
+        migrations.AddIndex(
+            model_name="run",
+            index=models.Index(fields=["reference"], name="lamindb_run_referen_idx"),
         ),
     ]
     Migration.operations += SQLITE_OPERATIONS
