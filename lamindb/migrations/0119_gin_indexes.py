@@ -91,13 +91,6 @@ class Migration(migrations.Migration):
         ),
         migrations.AlterField(
             model_name="collection",
-            name="reference_type",
-            field=lamindb.base.fields.CharField(
-                blank=True, default=None, max_length=25, null=True
-            ),
-        ),
-        migrations.AlterField(
-            model_name="collection",
             name="uid",
             field=lamindb.base.fields.CharField(
                 blank=True,
@@ -259,13 +252,6 @@ class Migration(migrations.Migration):
         ),
         migrations.AlterField(
             model_name="transform",
-            name="reference_type",
-            field=lamindb.base.fields.CharField(
-                blank=True, default=None, max_length=25, null=True
-            ),
-        ),
-        migrations.AlterField(
-            model_name="transform",
             name="type",
             field=lamindb.base.fields.CharField(
                 blank=True, default="pipeline", max_length=20
@@ -295,7 +281,7 @@ if "postgresql" in db_engine:
                     ),
                     name="gin_trgm_ops",
                 ),
-                name="lamindb_artifact_uid_tgmidx",
+                name="lamindb_artifac_uid_tgmidx",
             ),
         ),
         migrations.AddIndex(
@@ -309,7 +295,7 @@ if "postgresql" in db_engine:
                     ),
                     name="gin_trgm_ops",
                 ),
-                name="lamindb_artifact_key_tgmidx",
+                name="lamindb_artifac_key_tgmidx",
             ),
         ),
         migrations.AddIndex(
@@ -323,7 +309,7 @@ if "postgresql" in db_engine:
                     ),
                     name="gin_trgm_ops",
                 ),
-                name="lamindb_artifact_description_tgmidx",
+                name="lamindb_artifac_descrip_tgmidx",
             ),
         ),
         migrations.AddIndex(
@@ -337,7 +323,7 @@ if "postgresql" in db_engine:
                     ),
                     name="gin_trgm_ops",
                 ),
-                name="lamindb_artifact_suffix_tgmidx",
+                name="lamindb_artifac_suffix_tgmidx",
             ),
         ),
         migrations.AddIndex(
@@ -351,7 +337,7 @@ if "postgresql" in db_engine:
                     ),
                     name="gin_trgm_ops",
                 ),
-                name="lamindb_artifact_kind_tgmidx",
+                name="lamindb_artifac_kind_tgmidx",
             ),
         ),
         migrations.AddIndex(
@@ -365,7 +351,7 @@ if "postgresql" in db_engine:
                     ),
                     name="gin_trgm_ops",
                 ),
-                name="lamindb_artifact_otype_tgmidx",
+                name="lamindb_artifac_otype_tgmidx",
             ),
         ),
         migrations.AddIndex(
@@ -379,7 +365,7 @@ if "postgresql" in db_engine:
                     ),
                     name="gin_trgm_ops",
                 ),
-                name="lamindb_artifact_hash_tgmidx",
+                name="lamindb_artifac_hash_tgmidx",
             ),
         ),
         migrations.AddIndex(
@@ -393,7 +379,7 @@ if "postgresql" in db_engine:
                     ),
                     name="gin_trgm_ops",
                 ),
-                name="lamindb_collection_uid_tgmidx",
+                name="lamindb_collect_uid_tgmidx",
             ),
         ),
         migrations.AddIndex(
@@ -407,7 +393,7 @@ if "postgresql" in db_engine:
                     ),
                     name="gin_trgm_ops",
                 ),
-                name="lamindb_collection_key_tgmidx",
+                name="lamindb_collect_key_tgmidx",
             ),
         ),
         migrations.AddIndex(
@@ -421,7 +407,7 @@ if "postgresql" in db_engine:
                     ),
                     name="gin_trgm_ops",
                 ),
-                name="lamindb_collection_description_tgmidx",
+                name="lamindb_collect_descrip_tgmidx",
             ),
         ),
         migrations.AddIndex(
@@ -435,7 +421,7 @@ if "postgresql" in db_engine:
                     ),
                     name="gin_trgm_ops",
                 ),
-                name="lamindb_collection_hash_tgmidx",
+                name="lamindb_collect_hash_tgmidx",
             ),
         ),
         migrations.AddIndex(
@@ -449,21 +435,7 @@ if "postgresql" in db_engine:
                     ),
                     name="gin_trgm_ops",
                 ),
-                name="lamindb_collection_reference_tgmidx",
-            ),
-        ),
-        migrations.AddIndex(
-            model_name="collection",
-            index=django.contrib.postgres.indexes.GinIndex(
-                django.contrib.postgres.indexes.OpClass(
-                    django.db.models.functions.text.Lower(
-                        django.db.models.functions.comparison.Coalesce(
-                            models.F("reference_type"), models.Value("")
-                        )
-                    ),
-                    name="gin_trgm_ops",
-                ),
-                name="lamindb_collection_reference_type_tgmidx",
+                name="lamindb_collect_referen_tgmidx",
             ),
         ),
         migrations.AddIndex(
@@ -533,7 +505,7 @@ if "postgresql" in db_engine:
                     ),
                     name="gin_trgm_ops",
                 ),
-                name="lamindb_feature_description_tgmidx",
+                name="lamindb_feature_descrip_tgmidx",
             ),
         ),
         migrations.AddIndex(
@@ -547,7 +519,7 @@ if "postgresql" in db_engine:
                     ),
                     name="gin_trgm_ops",
                 ),
-                name="lamindb_feature_synonyms_tgmidx",
+                name="lamindb_feature_synonym_tgmidx",
             ),
         ),
         migrations.AddIndex(
@@ -617,7 +589,7 @@ if "postgresql" in db_engine:
                     ),
                     name="gin_trgm_ops",
                 ),
-                name="lamindb_reference_uid_tgmidx",
+                name="lamindb_referen_uid_tgmidx",
             ),
         ),
         migrations.AddIndex(
@@ -631,7 +603,7 @@ if "postgresql" in db_engine:
                     ),
                     name="gin_trgm_ops",
                 ),
-                name="lamindb_reference_name_tgmidx",
+                name="lamindb_referen_name_tgmidx",
             ),
         ),
         migrations.AddIndex(
@@ -645,7 +617,7 @@ if "postgresql" in db_engine:
                     ),
                     name="gin_trgm_ops",
                 ),
-                name="lamindb_reference_abbr_tgmidx",
+                name="lamindb_referen_abbr_tgmidx",
             ),
         ),
         migrations.AddIndex(
@@ -659,7 +631,7 @@ if "postgresql" in db_engine:
                     ),
                     name="gin_trgm_ops",
                 ),
-                name="lamindb_reference_url_tgmidx",
+                name="lamindb_referen_url_tgmidx",
             ),
         ),
         migrations.AddIndex(
@@ -673,7 +645,7 @@ if "postgresql" in db_engine:
                     ),
                     name="gin_trgm_ops",
                 ),
-                name="lamindb_reference_doi_tgmidx",
+                name="lamindb_referen_doi_tgmidx",
             ),
         ),
         migrations.AddIndex(
@@ -687,7 +659,7 @@ if "postgresql" in db_engine:
                     ),
                     name="gin_trgm_ops",
                 ),
-                name="lamindb_reference_description_tgmidx",
+                name="lamindb_referen_descrip_tgmidx",
             ),
         ),
         migrations.AddIndex(
@@ -701,7 +673,7 @@ if "postgresql" in db_engine:
                     ),
                     name="gin_trgm_ops",
                 ),
-                name="lamindb_reference_text_tgmidx",
+                name="lamindb_referen_text_tgmidx",
             ),
         ),
         migrations.AddIndex(
@@ -715,7 +687,7 @@ if "postgresql" in db_engine:
                     ),
                     name="gin_trgm_ops",
                 ),
-                name="lamindb_transform_uid_tgmidx",
+                name="lamindb_transfo_uid_tgmidx",
             ),
         ),
         migrations.AddIndex(
@@ -729,7 +701,7 @@ if "postgresql" in db_engine:
                     ),
                     name="gin_trgm_ops",
                 ),
-                name="lamindb_transform_key_tgmidx",
+                name="lamindb_transfo_key_tgmidx",
             ),
         ),
         migrations.AddIndex(
@@ -743,7 +715,7 @@ if "postgresql" in db_engine:
                     ),
                     name="gin_trgm_ops",
                 ),
-                name="lamindb_transform_description_tgmidx",
+                name="lamindb_transfo_descrip_tgmidx",
             ),
         ),
         migrations.AddIndex(
@@ -757,7 +729,7 @@ if "postgresql" in db_engine:
                     ),
                     name="gin_trgm_ops",
                 ),
-                name="lamindb_transform_type_tgmidx",
+                name="lamindb_transfo_type_tgmidx",
             ),
         ),
         migrations.AddIndex(
@@ -771,7 +743,7 @@ if "postgresql" in db_engine:
                     ),
                     name="gin_trgm_ops",
                 ),
-                name="lamindb_transform_source_code_tgmidx",
+                name="lamindb_transfo_source__tgmidx",
             ),
         ),
         migrations.AddIndex(
@@ -785,7 +757,7 @@ if "postgresql" in db_engine:
                     ),
                     name="gin_trgm_ops",
                 ),
-                name="lamindb_transform_hash_tgmidx",
+                name="lamindb_transfo_hash_tgmidx",
             ),
         ),
         migrations.AddIndex(
@@ -799,21 +771,7 @@ if "postgresql" in db_engine:
                     ),
                     name="gin_trgm_ops",
                 ),
-                name="lamindb_transform_reference_tgmidx",
-            ),
-        ),
-        migrations.AddIndex(
-            model_name="transform",
-            index=django.contrib.postgres.indexes.GinIndex(
-                django.contrib.postgres.indexes.OpClass(
-                    django.db.models.functions.text.Lower(
-                        django.db.models.functions.comparison.Coalesce(
-                            models.F("reference_type"), models.Value("")
-                        )
-                    ),
-                    name="gin_trgm_ops",
-                ),
-                name="lamindb_transform_reference_type_tgmidx",
+                name="lamindb_transfo_referen_tgmidx",
             ),
         ),
     ]
@@ -822,63 +780,56 @@ else:
     SQLITE_OPERATIONS = [
         migrations.AddIndex(
             model_name="artifact",
-            index=models.Index(fields=["uid"], name="lamindb_artifact_uid_idx"),
+            index=models.Index(fields=["uid"], name="lamindb_artifac_uid_idx"),
         ),
         migrations.AddIndex(
             model_name="artifact",
-            index=models.Index(fields=["key"], name="lamindb_artifact_key_idx"),
+            index=models.Index(fields=["key"], name="lamindb_artifac_key_idx"),
         ),
         migrations.AddIndex(
             model_name="artifact",
             index=models.Index(
-                fields=["description"], name="lamindb_artifact_description_idx"
+                fields=["description"], name="lamindb_artifac_descrip_idx"
             ),
         ),
         migrations.AddIndex(
             model_name="artifact",
-            index=models.Index(fields=["suffix"], name="lamindb_artifact_suffix_idx"),
+            index=models.Index(fields=["suffix"], name="lamindb_artifac_suffix_idx"),
         ),
         migrations.AddIndex(
             model_name="artifact",
-            index=models.Index(fields=["kind"], name="lamindb_artifact_kind_idx"),
+            index=models.Index(fields=["kind"], name="lamindb_artifac_kind_idx"),
         ),
         migrations.AddIndex(
             model_name="artifact",
-            index=models.Index(fields=["otype"], name="lamindb_artifact_otype_idx"),
+            index=models.Index(fields=["otype"], name="lamindb_artifac_otype_idx"),
         ),
         migrations.AddIndex(
             model_name="artifact",
-            index=models.Index(fields=["hash"], name="lamindb_artifact_hash_idx"),
+            index=models.Index(fields=["hash"], name="lamindb_artifac_hash_idx"),
         ),
         migrations.AddIndex(
             model_name="collection",
-            index=models.Index(fields=["uid"], name="lamindb_collection_uid_idx"),
+            index=models.Index(fields=["uid"], name="lamindb_collect_uid_idx"),
         ),
         migrations.AddIndex(
             model_name="collection",
-            index=models.Index(fields=["key"], name="lamindb_collection_key_idx"),
+            index=models.Index(fields=["key"], name="lamindb_collect_key_idx"),
         ),
         migrations.AddIndex(
             model_name="collection",
             index=models.Index(
-                fields=["description"], name="lamindb_collection_description_idx"
+                fields=["description"], name="lamindb_collect_descrip_idx"
             ),
         ),
         migrations.AddIndex(
             model_name="collection",
-            index=models.Index(fields=["hash"], name="lamindb_collection_hash_idx"),
+            index=models.Index(fields=["hash"], name="lamindb_collect_hash_idx"),
         ),
         migrations.AddIndex(
             model_name="collection",
             index=models.Index(
-                fields=["reference"], name="lamindb_collection_reference_idx"
-            ),
-        ),
-        migrations.AddIndex(
-            model_name="collection",
-            index=models.Index(
-                fields=["reference_type"],
-                name="lamindb_collection_reference_type_idx",
+                fields=["reference"], name="lamindb_collect_referen_idx"
             ),
         ),
         migrations.AddIndex(
@@ -900,14 +851,12 @@ else:
         migrations.AddIndex(
             model_name="feature",
             index=models.Index(
-                fields=["description"], name="lamindb_feature_description_idx"
+                fields=["description"], name="lamindb_feature_descrip_idx"
             ),
         ),
         migrations.AddIndex(
             model_name="feature",
-            index=models.Index(
-                fields=["synonyms"], name="lamindb_feature_synonyms_idx"
-            ),
+            index=models.Index(fields=["synonyms"], name="lamindb_feature_synonym_idx"),
         ),
         migrations.AddIndex(
             model_name="project",
@@ -927,73 +876,66 @@ else:
         ),
         migrations.AddIndex(
             model_name="reference",
-            index=models.Index(fields=["uid"], name="lamindb_reference_uid_idx"),
+            index=models.Index(fields=["uid"], name="lamindb_referen_uid_idx"),
         ),
         migrations.AddIndex(
             model_name="reference",
-            index=models.Index(fields=["name"], name="lamindb_reference_name_idx"),
+            index=models.Index(fields=["name"], name="lamindb_referen_name_idx"),
         ),
         migrations.AddIndex(
             model_name="reference",
-            index=models.Index(fields=["abbr"], name="lamindb_reference_abbr_idx"),
+            index=models.Index(fields=["abbr"], name="lamindb_referen_abbr_idx"),
         ),
         migrations.AddIndex(
             model_name="reference",
-            index=models.Index(fields=["url"], name="lamindb_reference_url_idx"),
+            index=models.Index(fields=["url"], name="lamindb_referen_url_idx"),
         ),
         migrations.AddIndex(
             model_name="reference",
-            index=models.Index(fields=["doi"], name="lamindb_reference_doi_idx"),
+            index=models.Index(fields=["doi"], name="lamindb_referen_doi_idx"),
         ),
         migrations.AddIndex(
             model_name="reference",
             index=models.Index(
-                fields=["description"], name="lamindb_reference_description_idx"
+                fields=["description"], name="lamindb_referen_descrip_idx"
             ),
         ),
         migrations.AddIndex(
             model_name="reference",
-            index=models.Index(fields=["text"], name="lamindb_reference_text_idx"),
+            index=models.Index(fields=["text"], name="lamindb_referen_text_idx"),
         ),
         migrations.AddIndex(
             model_name="transform",
-            index=models.Index(fields=["uid"], name="lamindb_transform_uid_idx"),
+            index=models.Index(fields=["uid"], name="lamindb_transfo_uid_idx"),
         ),
         migrations.AddIndex(
             model_name="transform",
-            index=models.Index(fields=["key"], name="lamindb_transform_key_idx"),
+            index=models.Index(fields=["key"], name="lamindb_transfo_key_idx"),
         ),
         migrations.AddIndex(
             model_name="transform",
             index=models.Index(
-                fields=["description"], name="lamindb_transform_description_idx"
+                fields=["description"], name="lamindb_transfo_descrip_idx"
             ),
         ),
         migrations.AddIndex(
             model_name="transform",
-            index=models.Index(fields=["type"], name="lamindb_transform_type_idx"),
+            index=models.Index(fields=["type"], name="lamindb_transfo_type_idx"),
         ),
         migrations.AddIndex(
             model_name="transform",
             index=models.Index(
-                fields=["source_code"], name="lamindb_transform_source_code_idx"
+                fields=["source_code"], name="lamindb_transfo_source__idx"
             ),
         ),
         migrations.AddIndex(
             model_name="transform",
-            index=models.Index(fields=["hash"], name="lamindb_transform_hash_idx"),
+            index=models.Index(fields=["hash"], name="lamindb_transfo_hash_idx"),
         ),
         migrations.AddIndex(
             model_name="transform",
             index=models.Index(
-                fields=["reference"], name="lamindb_transform_reference_idx"
-            ),
-        ),
-        migrations.AddIndex(
-            model_name="transform",
-            index=models.Index(
-                fields=["reference_type"],
-                name="lamindb_transform_reference_type_idx",
+                fields=["reference"], name="lamindb_transfo_referen_idx"
             ),
         ),
     ]

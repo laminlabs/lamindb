@@ -107,7 +107,6 @@ class Transform(SQLRecord, IsVersioned):
                 "source_code",
                 "hash",
                 "reference",
-                "reference_type",
             ],
         )
 
@@ -140,7 +139,7 @@ class Transform(SQLRecord, IsVersioned):
     """Hash of the source code."""
     reference: str | None = CharField(max_length=255, null=True)
     """Reference for the transform, e.g., a URL."""
-    reference_type: str | None = CharField(max_length=25, null=True)
+    reference_type: str | None = CharField(max_length=25, null=True, db_index=True)
     """Reference type of the transform, e.g., 'url'."""
     runs: Run
     """Runs of this transform."""

@@ -163,7 +163,6 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 "description",
                 "hash",
                 "reference",
-                "reference_type",
             ],
         )
 
@@ -192,7 +191,7 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     reference: str | None = CharField(max_length=255, null=True)
     """A reference like URL or external ID."""
     # also for reference_type here, we allow an extra long max_length
-    reference_type: str | None = CharField(max_length=25, null=True)
+    reference_type: str | None = CharField(max_length=25, null=True, db_index=True)
     """Type of reference, e.g., cellxgene Census collection_id."""
     ulabels: ULabel = models.ManyToManyField(
         "ULabel", through="CollectionULabel", related_name="collections"

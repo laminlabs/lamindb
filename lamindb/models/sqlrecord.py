@@ -177,6 +177,8 @@ def generate_indexes(app_name, model_name, trigram_fields: list[str] | None = No
 
         for field in trigram_fields:
             # this is all due to the 30-char limit for index names
+            # this is bad if field names start with the same prefixes
+            # we need to add hashes at some point
             name_stem = f"{app_name[:7]}_{model_name[:7]}_{field[:7]}"
             indexes.append(
                 GinIndex(
