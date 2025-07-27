@@ -37,7 +37,13 @@ from .run import (
     TracksRun,
     TracksUpdates,
 )
-from .sqlrecord import BaseSQLRecord, Registry, SQLRecord, _get_record_kwargs
+from .sqlrecord import (
+    BaseSQLRecord,
+    Registry,
+    SQLRecord,
+    _get_record_kwargs,
+    generate_indexes,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -598,6 +604,18 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
 
     class Meta(SQLRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
         abstract = False
+        indexes = generate_indexes(
+            app_name="lamindb",
+            model_name="feature",
+            trigram_fields=[
+                "uid",
+                "name",
+                "dtype",
+                "unit",
+                "description",
+                "synonyms",
+            ],
+        )
 
     _name_field: str = "name"
     _aux_fields: dict[str, tuple[str, type]] = {
@@ -608,13 +626,11 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
 
     id: int = models.AutoField(primary_key=True)
     """Internal id, valid only in one DB instance."""
-    uid: str = CharField(
-        editable=False, unique=True, db_index=True, max_length=12, default=base62_12
-    )
+    uid: str = CharField(editable=False, unique=True, max_length=12, default=base62_12)
     """Universal id, valid across DB instances."""
-    name: str = CharField(max_length=150, db_index=True)
+    name: str = CharField(max_length=150)
     """Name of feature."""
-    dtype: Dtype | None = CharField(db_index=True, null=True)
+    dtype: Dtype | None = CharField(null=True)
     """Data type (:class:`~lamindb.base.types.Dtype`)."""
     type: Feature | None = ForeignKey(
         "self", PROTECT, null=True, related_name="features"
@@ -627,9 +643,9 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
     """Features of this type (can only be non-empty if `is_type` is `True`)."""
     is_type: bool = BooleanField(default=False, db_index=True, null=True)
     """Distinguish types from instances of the type."""
-    unit: str | None = CharField(max_length=30, db_index=True, null=True)
+    unit: str | None = CharField(max_length=30, null=True)
     """Unit of measure, ideally SI (`m`, `s`, `kg`, etc.) or 'normalized' etc. (optional)."""
-    description: str | None = CharField(db_index=True, null=True)
+    description: str | None = CharField(null=True)
     """A description."""
     array_rank: int = models.SmallIntegerField(default=0, db_index=True)
     """Rank of feature.
