@@ -176,23 +176,23 @@ def generate_indexes(app_name, model_name, trigram_fields: list[str] | None = No
         from django.contrib.postgres.indexes import GinIndex, OpClass
 
         for field in trigram_fields:
+            # this is all due to the 30-char limit for index names
+            name_stem = f"{app_name[:7]}_{model_name[:7]}_{field[:7]}"
             indexes.append(
                 GinIndex(
                     OpClass(
                         Lower(Coalesce(F(field), Value(""))),
                         name="gin_trgm_ops",
                     ),
-                    name=f"{app_name}_{model_name}_{field}_trgm_idx",  # Updated name for clarity
+                    name=f"{name_stem}_tgmidx",
                 )
             )
     else:
         # standard indexes for SQLite
         for field in trigram_fields:
-            indexes.append(
-                models.Index(
-                    fields=[field], name=f"{app_name}_{model_name}_{field}_std_idx"
-                )
-            )
+            # this is all due to the 30-char limit for index names
+            name_stem = f"{app_name[:7]}_{model_name[:7]}_{field[:7]}"
+            indexes.append(models.Index(fields=[field], name=f"{name_stem}_idx"))
     return indexes
 
 
