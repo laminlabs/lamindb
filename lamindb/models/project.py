@@ -230,14 +230,22 @@ class Project(SQLRecord, CanCurate, TracksRun, TracksUpdates, ValidateFields):
 
     class Meta(SQLRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
         abstract = False
+        indexes = generate_indexes(
+            app_name="lamindb",
+            model_name="project",
+            trigram_fields=[
+                "uid",
+                "name",
+                "abbr",
+                "url",
+            ],
+        )
 
     id: int = models.AutoField(primary_key=True)
     """Internal id, valid only in one DB instance."""
-    uid: str = CharField(
-        editable=False, unique=True, max_length=12, db_index=True, default=base62_12
-    )
+    uid: str = CharField(editable=False, unique=True, max_length=12, default=base62_12)
     """Universal id, valid across DB instances."""
-    name: str = CharField(db_index=True)
+    name: str = CharField()
     """Title or name of the Project."""
     type: Project | None = ForeignKey(
         "self", PROTECT, null=True, related_name="projects"
@@ -247,7 +255,7 @@ class Project(SQLRecord, CanCurate, TracksRun, TracksUpdates, ValidateFields):
     """Projects of this type (can only be non-empty if `is_type` is `True`)."""
     is_type: bool = BooleanField(default=False, db_index=True, null=True)
     """Distinguish types from instances of the type."""
-    abbr: str | None = CharField(max_length=32, db_index=True, null=True)
+    abbr: str | None = CharField(max_length=32, null=True)
     """An abbreviation."""
     url: str | None = URLField(max_length=255, null=True, default=None)
     """A URL."""
