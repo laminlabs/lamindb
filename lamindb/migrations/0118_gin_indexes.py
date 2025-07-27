@@ -641,6 +641,8 @@ SQLITE_OPERATIONS = [
 
 db_engine = django_settings.DATABASES["default"]["ENGINE"]
 if "postgresql" in db_engine:
-    Migration.operations += POSTGRES_OPERATIONS
+    from django.contrib.postgres.operations import TrigramExtension
+
+    Migration.operations += [TrigramExtension()] + POSTGRES_OPERATIONS
 else:
     Migration.operations += SQLITE_OPERATIONS
