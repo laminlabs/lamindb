@@ -19,7 +19,7 @@ from lamindb.base.users import current_user_id
 from ..models._is_versioned import process_revises
 from ._is_versioned import IsVersioned
 from .run import Run, User, delete_run_artifacts
-from .sqlrecord import SQLRecord, init_self_from_db, update_attributes
+from .sqlrecord import SQLRecord, generate_indexes, init_self_from_db, update_attributes
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -96,6 +96,19 @@ class Transform(SQLRecord, IsVersioned):
     class Meta(SQLRecord.Meta, IsVersioned.Meta):
         abstract = False
         unique_together = ("key", "hash")
+        indexes = generate_indexes(
+            app_name="lamindb",
+            model_name="transform",
+            trigram_fields=[
+                "uid",
+                "key",
+                "description",
+                "type",
+                "source_code",
+                "hash",
+                "reference",
+            ],
+        )
 
     _len_stem_uid: int = 12
     _len_full_uid: int = 16
@@ -103,33 +116,30 @@ class Transform(SQLRecord, IsVersioned):
 
     id: int = models.AutoField(primary_key=True)
     """Internal id, valid only in one DB instance."""
-    uid: str = CharField(
-        editable=False, unique=True, db_index=True, max_length=_len_full_uid
-    )
+    uid: str = CharField(editable=False, unique=True, max_length=_len_full_uid)
     """Universal id."""
     # the fact that key is nullable is consistent with Artifact
     # it might turn out that there will never really be a use case for this
     # but there likely also isn't much harm in it except for the mixed type
-    key: str | None = CharField(db_index=True, null=True)
+    key: str | None = CharField(null=True)
     """A name or "/"-separated path-like string.
 
     All transforms with the same key are part of the same version family.
     """
-    description: str | None = CharField(db_index=True, null=True)
+    description: str | None = CharField(null=True)
     """A description."""
     type: TransformType = CharField(
         max_length=20,
-        db_index=True,
         default="pipeline",
     )
     """:class:`~lamindb.base.types.TransformType` (default `"pipeline"`)."""
     source_code: str | None = TextField(null=True)
     """Source code of the transform."""
-    hash: str | None = CharField(max_length=HASH_LENGTH, db_index=True, null=True)
+    hash: str | None = CharField(max_length=HASH_LENGTH, null=True)
     """Hash of the source code."""
-    reference: str | None = CharField(max_length=255, db_index=True, null=True)
+    reference: str | None = CharField(max_length=255, null=True)
     """Reference for the transform, e.g., a URL."""
-    reference_type: str | None = CharField(max_length=25, db_index=True, null=True)
+    reference_type: str | None = CharField(max_length=25, null=True, db_index=True)
     """Reference type of the transform, e.g., 'url'."""
     runs: Run
     """Runs of this transform."""

@@ -22,7 +22,7 @@ from lamindb.errors import InvalidArgument
 
 from ..base.ids import base62_16
 from .can_curate import CanCurate
-from .sqlrecord import BaseSQLRecord, IsLink, SQLRecord
+from .sqlrecord import BaseSQLRecord, IsLink, SQLRecord, generate_indexes
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -223,14 +223,20 @@ class Run(SQLRecord):
         >>> ln.context.run
     """
 
+    class Meta(SQLRecord.Meta):
+        abstract = False
+        indexes = generate_indexes(
+            app_name="lamindb",
+            model_name="run",
+            trigram_fields=["uid", "name", "reference"],
+        )
+
     _name_field: str = "started_at"
 
     id: int = models.BigAutoField(primary_key=True)
     """Internal id, valid only in one DB instance."""
     # default uid was changed from base62_20 to base62_16 in 1.6.0
-    uid: str = CharField(
-        editable=False, unique=True, db_index=True, max_length=20, default=base62_16
-    )
+    uid: str = CharField(editable=False, unique=True, max_length=20, default=base62_16)
     """Universal id, valid across DB instances."""
     name: str | None = CharField(max_length=150, null=True)
     """A name."""
@@ -282,7 +288,7 @@ class Run(SQLRecord):
         "FeatureValue", through="RunFeatureValue", related_name="runs"
     )
     """Feature values."""
-    reference: str | None = CharField(max_length=255, db_index=True, null=True)
+    reference: str | None = CharField(max_length=255, null=True)
     """A reference like a URL or external ID (such as from a workflow manager)."""
     reference_type: str | None = CharField(max_length=25, db_index=True, null=True)
     """Type of reference such as a workflow manager execution ID."""

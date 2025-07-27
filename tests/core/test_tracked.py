@@ -1,4 +1,5 @@
 import concurrent.futures
+from pathlib import Path
 
 import lamindb as ln
 import pandas as pd
@@ -11,7 +12,9 @@ def process_chunk(chunk_id: int) -> str:
     df = pd.DataFrame(
         {"id": range(chunk_id * 10, (chunk_id + 1) * 10), "value": range(10)}
     )
-
+    env_file = Path("tmp_requirements.txt")
+    env_file.write_text("1")
+    ln.Artifact(env_file, description="requirements.txt").save()
     # Save it as an artifact
     key = f"chunk_{chunk_id}.parquet"
     artifact = ln.Artifact.from_df(df, key=key).save()
@@ -48,9 +51,12 @@ def test_tracked_parallel():
     # Each execution should have created its own artifact with unique run
     print(f"Created artifacts with keys: {chunk_keys}")
     artifacts = [ln.Artifact.get(key=key) for key in chunk_keys]
+    env_artifacts = ln.Artifact.filter(description="requirements.txt").all()
+    print(env_artifacts.df())
 
     # Check that we got the expected number of artifacts
     assert len(artifacts) == n_parallel
+    assert len(env_artifacts) == 1
 
     # Verify each artifact has its own unique run
     runs = [artifact.run for artifact in artifacts]
@@ -68,6 +74,7 @@ def test_tracked_parallel():
     # Clean up test artifacts
     for artifact in artifacts:
         artifact.delete(permanent=True)
+    env_artifacts[0].delete(permanent=True)
 
     ln.context._uid = None
     ln.context._run = None

@@ -88,6 +88,7 @@ from .sqlrecord import (
     IsLink,
     SQLRecord,
     _get_record_kwargs,
+    generate_indexes,
     record_repr,
 )
 from .storage import Storage
@@ -1116,13 +1117,34 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             # folders
             # the conditional composite constraint allows duplicating files in different parts of the
             # file hierarchy, but errors if the same file is to be registered with the same key
-            # or if the key is not populated
+            # In SQL, NULL values are treated specially in unique constraints.
+            # Multiple NULL values are not considered equal to each other for uniqueness purposes.
+            # For non-NULL keys
             models.UniqueConstraint(
                 fields=["storage", "key", "hash"],
-                name="unique_artifact_storage_key_hash",
-                condition=Q(key__isnull=False),
+                condition=models.Q(key__isnull=False),
+                name="unique_artifact_storage_key_hash_not_null",
+            ),
+            # For NULL keys (only storage + hash need to be unique)
+            models.UniqueConstraint(
+                fields=["storage", "hash"],
+                condition=models.Q(key__isnull=True),
+                name="unique_artifact_storage_hash_null_key",
             ),
         ]
+        indexes = generate_indexes(
+            app_name="lamindb",
+            model_name="artifact",
+            trigram_fields=[
+                "uid",
+                "key",
+                "description",
+                "suffix",
+                "kind",
+                "otype",
+                "hash",
+            ],
+        )
 
     _aux_fields: dict[str, tuple[str, type]] = {
         "0": ("_is_saved_to_storage_location", bool),
@@ -1203,11 +1225,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
     id: int = models.AutoField(primary_key=True)
     """Internal id, valid only in one DB instance."""
-    uid: str = CharField(
-        editable=False, unique=True, db_index=True, max_length=_len_full_uid
-    )
+    uid: str = CharField(editable=False, unique=True, max_length=_len_full_uid)
     """A universal random id."""
-    key: str | None = CharField(db_index=True, null=True)
+    key: str | None = CharField(null=True)
     """A (virtual) relative file path within the artifact's storage location.
 
     Setting a `key` is useful to automatically group artifacts into a version family.
@@ -1217,13 +1237,13 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     If you register existing files in a storage location, the `key` equals the
     actual filepath on the underyling filesytem or object store.
     """
-    description: str | None = CharField(db_index=True, null=True)
+    description: str | None = CharField(null=True)
     """A description."""
     storage: Storage = ForeignKey(
         Storage, PROTECT, related_name="artifacts", editable=False
     )
     """Storage location, e.g. an S3 or GCP bucket or a local directory."""
-    suffix: str = CharField(max_length=30, db_index=True, editable=False)
+    suffix: str = CharField(max_length=30, editable=False)
     # Initially, we thought about having this be nullable to indicate folders
     # But, for instance, .zarr is stored in a folder that ends with a .zarr suffix
     """Path suffix or empty string if no canonical suffix exists.
@@ -1232,13 +1252,10 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     """
     kind: ArtifactKind | str | None = CharField(
         max_length=20,
-        db_index=True,
         null=True,
     )
     """:class:`~lamindb.base.types.ArtifactKind` or custom `str` value (default `None`)."""
-    otype: str | None = CharField(
-        max_length=64, db_index=True, null=True, editable=False
-    )
+    otype: str | None = CharField(max_length=64, null=True, editable=False)
     """Default Python object type, e.g., DataFrame, AnnData."""
     size: int | None = BigIntegerField(
         null=True, db_index=True, default=None, editable=False
@@ -1247,9 +1264,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
     Examples: 1KB is 1e3 bytes, 1MB is 1e6, 1GB is 1e9, 1TB is 1e12 etc.
     """
-    hash: str | None = CharField(
-        max_length=HASH_LENGTH, db_index=True, null=True, editable=False
-    )
+    hash: str | None = CharField(max_length=HASH_LENGTH, null=True, editable=False)
     """Hash or pseudo-hash of artifact content.
 
     Useful to ascertain integrity and avoid duplication.
