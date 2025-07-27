@@ -27,7 +27,13 @@ from .feature import Feature
 from .record import Record
 from .run import Run, TracksRun, TracksUpdates, User
 from .schema import Schema
-from .sqlrecord import BaseSQLRecord, IsLink, SQLRecord, ValidateFields
+from .sqlrecord import (
+    BaseSQLRecord,
+    IsLink,
+    SQLRecord,
+    ValidateFields,
+    generate_indexes,
+)
 from .transform import Transform
 from .ulabel import ULabel
 
@@ -107,14 +113,25 @@ class Reference(SQLRecord, CanCurate, TracksRun, TracksUpdates, ValidateFields):
 
     class Meta(SQLRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
         abstract = False
+        indexes = generate_indexes(
+            app_name="lamindb",
+            model_name="reference",
+            trigram_fields=[
+                "uid",
+                "name",
+                "abbr",
+                "url",
+                "doi",
+                "description",
+                "text",
+            ],
+        )
 
     id: int = models.AutoField(primary_key=True)
     """Internal id, valid only in one DB instance."""
-    uid: str = CharField(
-        editable=False, unique=True, max_length=12, db_index=True, default=base62_12
-    )
+    uid: str = CharField(editable=False, unique=True, max_length=12, default=base62_12)
     """Universal id, valid across DB instances."""
-    name: str = CharField(db_index=True)
+    name: str = CharField()
     """Title or name of the reference document."""
     type: Reference | None = ForeignKey(
         "self", PROTECT, null=True, related_name="references"
@@ -129,17 +146,15 @@ class Reference(SQLRecord, CanCurate, TracksRun, TracksUpdates, ValidateFields):
     """Distinguish types from instances of the type."""
     abbr: str | None = CharField(
         max_length=32,
-        db_index=True,
         null=True,
     )
     """An abbreviation for the reference."""
     url: str | None = URLField(null=True)
     """URL linking to the reference."""
     pubmed_id: int | None = BigIntegerField(null=True, db_index=True)
-    """A PudMmed ID."""
+    """A PudMed ID."""
     doi: str | None = CharField(
         null=True,
-        db_index=True,
         validators=[
             RegexValidator(
                 regex=r"^(?:https?://(?:dx\.)?doi\.org/|doi:|DOI:)?10\.\d+/.*$",
@@ -148,7 +163,7 @@ class Reference(SQLRecord, CanCurate, TracksRun, TracksUpdates, ValidateFields):
         ],
     )
     """Digital Object Identifier (DOI) for the reference."""
-    description: str | None = CharField(null=True, db_index=True)
+    description: str | None = CharField(null=True)
     """Description of the reference."""
     text: str | None = TextField(null=True)
     """Abstract or full text of the reference to make it searchable."""
@@ -215,14 +230,22 @@ class Project(SQLRecord, CanCurate, TracksRun, TracksUpdates, ValidateFields):
 
     class Meta(SQLRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
         abstract = False
+        indexes = generate_indexes(
+            app_name="lamindb",
+            model_name="project",
+            trigram_fields=[
+                "uid",
+                "name",
+                "abbr",
+                "url",
+            ],
+        )
 
     id: int = models.AutoField(primary_key=True)
     """Internal id, valid only in one DB instance."""
-    uid: str = CharField(
-        editable=False, unique=True, max_length=12, db_index=True, default=base62_12
-    )
+    uid: str = CharField(editable=False, unique=True, max_length=12, default=base62_12)
     """Universal id, valid across DB instances."""
-    name: str = CharField(db_index=True)
+    name: str = CharField()
     """Title or name of the Project."""
     type: Project | None = ForeignKey(
         "self", PROTECT, null=True, related_name="projects"
@@ -232,7 +255,7 @@ class Project(SQLRecord, CanCurate, TracksRun, TracksUpdates, ValidateFields):
     """Projects of this type (can only be non-empty if `is_type` is `True`)."""
     is_type: bool = BooleanField(default=False, db_index=True, null=True)
     """Distinguish types from instances of the type."""
-    abbr: str | None = CharField(max_length=32, db_index=True, null=True)
+    abbr: str | None = CharField(max_length=32, null=True)
     """An abbreviation."""
     url: str | None = URLField(max_length=255, null=True, default=None)
     """A URL."""
