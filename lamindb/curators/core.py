@@ -1487,15 +1487,12 @@ class DataFrameCatManager:
             result = parse_dtype(index.dtype)[0]
             field = result["field"]
             key = "index"
-            subtype_str = result["subtype_str"]
             self._cat_vectors[key] = CatVector(
                 values_getter=self._dataset.index,
                 field=field,
                 key=key,
-                source=self._sources.get(key),
                 feature=index,
                 cat_manager=self,
-                subtype_str=subtype_str,
             )
 
     @property

@@ -121,14 +121,12 @@ def _create_cxg_sources(
                 row = entity_sources.iloc[0]  # for sources with organism "all"
             else:
                 filtered = entity_sources[entity_sources.organism == mapped_organism]
-                # Fall back to all and finally human if the organism is not specified
+                # Fall back to all if the organism is not specified
                 if filtered.empty:
                     fallback = entity_sources[entity_sources.organism == "all"]
                     if fallback.empty:
-                        fallback = entity_sources[entity_sources.organism == "human"]
-                    if fallback.empty:
                         raise ValueError(
-                            f"No source found for entity '{entity}' with organism '{organism}', 'all', or 'human'"
+                            f"No source found for entity '{entity}' with organism '{organism}' or 'all'"
                         )
                     row = fallback.iloc[0]
                 else:
