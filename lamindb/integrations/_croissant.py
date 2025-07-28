@@ -16,14 +16,13 @@ def curate_from_croissant(
     Returns a collection if multiple files are found in `croissant_data`, otherwise a single artifact.
 
     Args:
-        croissant_data: Path to CroissantML JSON file, JSON string, or dict
+        croissant_data: Path to CroissantML JSON file or dictionary.
 
     Example:
 
         ::
 
-            artifact = ln.integrations.curate_from_croissantml("dataset_metadata.json")
-            collection = ln.integrations.curate_from_croissantml(croissant_dict)
+            artifact = ln.integrations.curate_from_croissant("dataset_metadata.json")
     """
     import lamindb as ln
 
@@ -118,5 +117,5 @@ def curate_from_croissant(
         if license_label:
             collection.ulabels.add(license_label)
         if project_label:
-            artifact.projects.add(project_label)
+            collection.projects.add(project_label)
         return collection
