@@ -1,9 +1,12 @@
+import shutil
+
 import lamindb as ln
 
 
 def test_curate_from_croissantml():
-    path = ln.examples.croissantml.mini_immuno()
-    artifact = ln.integrations.curate_from_croissantml(path)
+    dataset_path, croissantml_path = ln.examples.croissantml.mini_immuno()
+    artifact = ln.integrations.curate_from_croissantml(croissantml_path)
+    shutil.rmtree(dataset_path)
     assert (
         artifact.description
         == "Mini immuno dataset (mini_immuno.anndata.zarr) - A few samples from the immunology dataset"
