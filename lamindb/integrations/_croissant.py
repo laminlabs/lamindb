@@ -76,8 +76,8 @@ def curate_from_croissant(
     # Extract file distributions
     artifacts = []
     file_distributions = data.get("distribution", [])
-    if isinstance(file_distributions, dict):
-        file_distributions = [file_distributions]
+    if not file_distributions:
+        raise ValueError("No file distributions found in croissant data")
     for dist in file_distributions:
         file_id = dist.get("@id", "")
         if Path(file_id).exists():
@@ -86,7 +86,9 @@ def curate_from_croissant(
             content_url = dist.get("contentUrl", "")
             file_path = content_url or data.get("url", "")
         if not file_path:
-            raise ValueError(f"No valid file path found in CroissantML: {dist}")
+            raise ValueError(
+                f"No valid file path found in croissant distribution: {dist}"
+            )
         if len(file_distributions) == 1:
             artifact_description = f"{dataset_name}"
             if file_id != dataset_name:
@@ -109,7 +111,7 @@ def curate_from_croissant(
 
     if len(artifacts) == 1:
         return artifacts[0]
-    elif len(artifacts) > 1:
+    else:
         collection = ln.Collection(  # type: ignore
             artifacts, key=dataset_name, description=description, version=version
         ).save()
@@ -118,5 +120,3 @@ def curate_from_croissant(
         if project_label:
             artifact.projects.add(project_label)
         return collection
-    else:
-        raise ValueError("No valid file distributions found in CroissantML data")
