@@ -1,11 +1,15 @@
 import shutil
+from time import perf_counter
 
 import lamindb_setup as ln_setup
 import pytest
 
 
 def pytest_sessionstart():
+    t_execute_start = perf_counter()
     ln_setup.init(storage="./testdb", modules="bionty,wetlab")
+    total_time_elapsed = perf_counter() - t_execute_start
+    print(f"time to setup the instance: {total_time_elapsed:.1f}s")
 
 
 def pytest_sessionfinish(session: pytest.Session):

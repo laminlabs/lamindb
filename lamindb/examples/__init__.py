@@ -6,10 +6,11 @@
    ingest_mini_immuno_datasets
    schemas
    cellxgene
+   croissant
 
 """
 
-from . import schemas
+from . import croissant, schemas
 from .cellxgene import _cellxgene
 
 
