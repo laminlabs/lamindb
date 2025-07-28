@@ -1055,9 +1055,12 @@ class CatVector:
         self._maximal_set = maximal_set
 
         self._all_filters = {"source": self._source, "organism": self._organism}
+
         if self._subtype_str and "=" in self._subtype_str:
             self._all_filters.update(
-                resolve_relation_filters(parse_filter_string(self._subtype_str), self)  # type: ignore
+                resolve_relation_filters(
+                    parse_filter_string(self._subtype_str), self._field.field.model
+                )  # type: ignore
             )
 
         if hasattr(field.field.model, "_name_field"):
@@ -1484,12 +1487,15 @@ class DataFrameCatManager:
             result = parse_dtype(index.dtype)[0]
             field = result["field"]
             key = "index"
+            subtype_str = result["subtype_str"]
             self._cat_vectors[key] = CatVector(
                 values_getter=self._dataset.index,
                 field=field,
                 key=key,
+                source=self._sources.get(key),
                 feature=index,
                 cat_manager=self,
+                subtype_str=subtype_str,
             )
 
     @property
