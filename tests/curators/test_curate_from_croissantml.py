@@ -9,8 +9,10 @@ def test_curate_from_croissantml():
         == "Mini immuno dataset (mini_immuno.anndata.zarr) - A few samples from the immunology dataset"
     )
     assert artifact.version == "1.0"
-    assert (
-        artifact.ulabels.get(name="https://creativecommons.org/licenses/by/4.0/")
-        is not None
+    license_label = artifact.ulabels.get(
+        name="https://creativecommons.org/licenses/by/4.0/"
     )
-    assert artifact.projects.get(name="Mini Immuno Project") is not None
+    project_label = artifact.projects.get(name="Mini Immuno Project")
+    artifact.delete(permanent=True)
+    project_label.delete()
+    license_label.delete()
