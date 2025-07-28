@@ -4,8 +4,8 @@ import lamindb as ln
 
 
 def test_curate_from_croissantml():
-    dataset_path, croissantml_path = ln.examples.croissantml.mini_immuno()
-    artifact = ln.integrations.curate_from_croissantml(croissantml_path)
+    dataset_path, croissant_path = ln.examples.croissantml.mini_immuno()
+    artifact = ln.integrations.curate_from_croissant(croissant_path)
     shutil.rmtree(dataset_path)
     assert (
         artifact.description

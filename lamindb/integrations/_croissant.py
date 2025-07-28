@@ -8,7 +8,7 @@ if TYPE_CHECKING:
     import lamindb as ln
 
 
-def curate_from_croissantml(
+def curate_from_croissant(
     croissant_data: str | Path | dict[str, Any],
 ) -> ln.Artifact | ln.Collection:
     """Create annotated artifacts from a CroissantML file.
