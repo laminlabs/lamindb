@@ -65,7 +65,7 @@ def save_mini_immuno_datasets():
     if str(docs_path) not in sys.path:
         sys.path.append(str(docs_path))
 
-    import ingest_mini_immuno_datasets  # noqa
+    import save_mini_immuno_datasets  # noqa
 
 
 def get_dataset1(
