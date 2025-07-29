@@ -109,28 +109,12 @@ def _create_cxg_sources(
 
     def _fetch_bionty_source(entity: str, organism: str) -> SQLRecord | None:  # type: ignore
         """Fetch the Bionty source of the pinned ontology."""
-        organism_mapping = {
-            "house mouse": "mouse",
-        }
-
-        mapped_organism = organism_mapping.get(organism, organism)
-
         entity_sources = sources_df.loc[(sources_df.entity == entity)].copy()
         if not entity_sources.empty:
             if len(entity_sources) == 1:
                 row = entity_sources.iloc[0]  # for sources with organism "all"
             else:
-                filtered = entity_sources[entity_sources.organism == mapped_organism]
-                # Fall back to all if the organism is not specified
-                if filtered.empty:
-                    fallback = entity_sources[entity_sources.organism == "all"]
-                    if fallback.empty:
-                        raise ValueError(
-                            f"No source found for entity '{entity}' with organism '{organism}' or 'all'"
-                        )
-                    row = fallback.iloc[0]
-                else:
-                    row = filtered.iloc[0]
+                row = entity_sources[entity_sources.organism == organism].iloc[0]
             source = bt.Source.filter(
                 organism=row.organism,
                 entity=f"bionty.{entity}",
