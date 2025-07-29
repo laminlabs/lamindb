@@ -45,7 +45,7 @@ def _check_df_equality(actual_df: pd.DataFrame, expected_df: pd.DataFrame) -> bo
 # parallels the `registries` guide
 # please also see the test_querset.py tests
 def test_curate_df():
-    ln.examples.ingest_mini_immuno_datasets()
+    ln.examples.datasets.mini_immuno.save_mini_immuno_datasets()
     artifact = ln.Artifact.get(key="examples/dataset1.h5ad")
     artifact2 = ln.Artifact.get(key="examples/dataset2.h5ad")
 

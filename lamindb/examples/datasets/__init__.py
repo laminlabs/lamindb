@@ -1,4 +1,4 @@
-"""Test datasets.
+"""Example datasets.
 
 The mini immuno dataset.
 

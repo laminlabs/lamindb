@@ -1,11 +1,13 @@
-"""The mini immuno dataset.
+"""The two "mini immuno" datasets.
 
 .. autosummary::
    :toctree: .
 
-   define_features_labels
    get_dataset1
    get_dataset2
+   define_features_labels
+   define_mini_immuno_schema_flexible
+   save_mini_immuno_datasets
 
 """
 
@@ -51,6 +53,19 @@ def define_mini_immuno_schema_flexible() -> Schema:
     import define_mini_immuno_schema_flexible  # noqa
 
     return Schema.get(name="Mini immuno schema")
+
+
+def save_mini_immuno_datasets():
+    """Save the two "mini immuno" datasets.
+
+    .. literalinclude:: scripts/save_mini_immuno_datasets.py
+        :language: python
+    """
+    docs_path = Path(__file__).parent.parent.parent.parent / "docs" / "scripts"
+    if str(docs_path) not in sys.path:
+        sys.path.append(str(docs_path))
+
+    import save_mini_immuno_datasets  # noqa
 
 
 def get_dataset1(
