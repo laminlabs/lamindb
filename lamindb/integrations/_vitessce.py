@@ -69,6 +69,8 @@ def save_vitessce_config(
     if len(dataset_artifacts) > 1:
         # if we have more datasets, we should create a collection
         # and attach an action to the collection
+        if key is None:  # backward compat and user convenience
+            key = description
         collection = Collection(
             dataset_artifacts, key=key, description=description
         ).save()
