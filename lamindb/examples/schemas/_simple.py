@@ -1,3 +1,4 @@
+import importlib
 import sys
 from pathlib import Path
 
@@ -15,5 +16,7 @@ def valid_features() -> Schema:
         sys.path.append(str(docs_path))
 
     import define_valid_features  # noqa
+
+    importlib.reload(define_valid_features)
 
     return Schema.get(name="valid_features")

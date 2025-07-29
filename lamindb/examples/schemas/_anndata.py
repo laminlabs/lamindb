@@ -1,3 +1,4 @@
+import importlib
 import sys
 from pathlib import Path
 
@@ -15,5 +16,7 @@ def anndata_ensembl_gene_ids_and_valid_features_in_obs() -> Schema:
         sys.path.append(str(docs_path))
 
     import define_schema_anndata_ensembl_gene_ids_and_valid_features_in_obs  # noqa
+
+    importlib.reload(define_schema_anndata_ensembl_gene_ids_and_valid_features_in_obs)
 
     return Schema.get(name="anndata_ensembl_gene_ids_and_valid_features_in_obs")
