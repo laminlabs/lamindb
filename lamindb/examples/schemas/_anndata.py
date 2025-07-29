@@ -10,7 +10,7 @@ if TYPE_CHECKING:
 
 
 def anndata_ensembl_gene_ids_and_valid_features_in_obs() -> Schema:
-    """Return a schema for an AnnData with Ensembl gene IDs and valid features in obs.
+    """An `AnnData` schema validating Ensembl gene IDs and valid features in obs.
 
     .. literalinclude:: scripts/define_schema_anndata_ensembl_gene_ids_and_valid_features_in_obs.py
         :language: python

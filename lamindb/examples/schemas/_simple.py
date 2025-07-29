@@ -10,7 +10,7 @@ if TYPE_CHECKING:
 
 
 def valid_features() -> Schema:
-    """Return a schema for an AnnData with Ensembl gene IDs and valid features in obs.
+    """A `DataFrame` schema that validates that columns map on existing features.
 
     .. literalinclude:: scripts/define_valid_features.py
         :language: python
