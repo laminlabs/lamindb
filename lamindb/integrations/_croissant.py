@@ -10,6 +10,7 @@ if TYPE_CHECKING:
 
 def curate_from_croissant(
     croissant_data: str | Path | dict[str, Any],
+    run: ln.Run | None = None,
 ) -> ln.Artifact | ln.Collection:
     """Create annotated artifacts from a CroissantML file.
 
@@ -100,6 +101,7 @@ def curate_from_croissant(
             description=artifact_description,
             version=version,
             kind="dataset",
+            run=run,
         ).save()
         if license_label:
             artifact.ulabels.add(license_label)
