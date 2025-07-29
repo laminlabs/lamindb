@@ -35,10 +35,10 @@ def save_vitessce_config(
 
     Args:
         vitessce_config: A `VitessceConfig` object.
-        key: A key for the `VitessceConfig` object. Is used as `key` for a
-            `Collection` in case the `VitessceConfig` object references
-            multiple artifacts.
-        description: A description for the `VitessceConfig` object.
+        key: A `key` for the `VitessceConfig` artifact.
+        description: A `description` for the `VitessceConfig` aritifact. Is additionally
+            used as `key` for a `Collection` in case the `VitessceConfig` object
+            references multiple artifacts.
     """
     # can only import here because vitessce is not a dependency
     from vitessce import VitessceConfig
@@ -69,6 +69,8 @@ def save_vitessce_config(
     if len(dataset_artifacts) > 1:
         # if we have more datasets, we should create a collection
         # and attach an action to the collection
+        # consicious use of description for key, see here
+        # https://github.com/laminlabs/lamindb/pull/2997
         collection = Collection(dataset_artifacts, key=description).save()
 
     # create a JSON export
