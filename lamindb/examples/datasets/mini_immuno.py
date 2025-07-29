@@ -61,7 +61,7 @@ def save_mini_immuno_datasets():
     .. literalinclude:: scripts/save_mini_immuno_datasets.py
         :language: python
     """
-    docs_path = Path(__file__).parent.parent.parent / "docs" / "scripts"
+    docs_path = Path(__file__).parent.parent.parent.parent / "docs" / "scripts"
     if str(docs_path) not in sys.path:
         sys.path.append(str(docs_path))
 
