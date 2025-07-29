@@ -20,17 +20,16 @@ from typing import (
 
 import dj_database_url
 import lamindb_setup as ln_setup
-from django.conf import settings as django_settings
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import IntegrityError, ProgrammingError, connections, models, transaction
-from django.db.models import CASCADE, PROTECT, F, Field, Manager, QuerySet, Value
+from django.db.models import CASCADE, PROTECT, Field, Manager, QuerySet
 from django.db.models.base import ModelBase
 from django.db.models.fields.related import (
     ManyToManyField,
     ManyToManyRel,
     ManyToOneRel,
 )
-from django.db.models.functions import Coalesce, Lower
+from django.db.models.functions import Lower
 from lamin_utils import colors, logger
 from lamindb_setup import settings as setup_settings
 from lamindb_setup._connect_instance import (
@@ -163,39 +162,6 @@ def init_self_from_db(self: SQLRecord, existing_record: SQLRecord):
     super(self.__class__, self).__init__(*new_args)
     self._state.adding = False  # mimic from_db
     self._state.db = "default"
-
-
-def generate_indexes(app_name, model_name, trigram_fields: list[str] | None = None):
-    """Dynamically generates a list of Django model indexes based on the database engine."""
-    trigram_fields = trigram_fields or []
-    indexes = []
-    db_engine = django_settings.DATABASES["default"]["ENGINE"]
-    is_postgres = "postgresql" in db_engine
-
-    if is_postgres:
-        from django.contrib.postgres.indexes import GinIndex, OpClass
-
-        for field in trigram_fields:
-            # this is all due to the 30-char limit for index names
-            # this is bad if field names start with the same prefixes
-            # we need to add hashes at some point
-            name_stem = f"{app_name[:7]}_{model_name[:7]}_{field[:7]}"
-            indexes.append(
-                GinIndex(
-                    OpClass(
-                        Lower(Coalesce(F(field), Value(""))),
-                        name="gin_trgm_ops",
-                    ),
-                    name=f"{name_stem}_tgmidx",
-                )
-            )
-    else:
-        # standard indexes for SQLite
-        for field in trigram_fields:
-            # this is all due to the 30-char limit for index names
-            name_stem = f"{app_name[:7]}_{model_name[:7]}_{field[:7]}"
-            indexes.append(models.Index(fields=[field], name=f"{name_stem}_idx"))
-    return indexes
 
 
 def update_attributes(record: SQLRecord, attributes: dict[str, str]):
