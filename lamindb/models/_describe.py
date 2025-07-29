@@ -179,7 +179,7 @@ def describe_artifact_general(
     two_column_items.append(Text.assemble(("branch: ", "dim"), branch_name))
     # actually not name field here, but handle
     created_by_handle = (
-        foreign_key_data["branch"]["name"]
+        foreign_key_data["created_by"]["name"]
         if foreign_key_data
         else self.created_by.handle
     )
