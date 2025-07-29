@@ -100,7 +100,6 @@ def curate_from_croissant(
             description=artifact_description,
             version=version,
             kind="dataset",
-            run=False,
         ).save()
         if license_label:
             artifact.ulabels.add(license_label)
