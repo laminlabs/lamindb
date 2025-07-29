@@ -11,6 +11,8 @@
 
 from __future__ import annotations
 
+import sys
+from pathlib import Path
 from typing import TYPE_CHECKING, Literal
 
 import anndata as ad
@@ -26,9 +28,6 @@ def define_features_labels() -> None:
     .. literalinclude:: scripts/define_mini_immuno_features_labels.py
         :language: python
     """
-    import sys
-    from pathlib import Path
-
     docs_path = Path(__file__).parent.parent.parent.parent / "docs" / "scripts"
     if str(docs_path) not in sys.path:
         sys.path.append(str(docs_path))
@@ -42,9 +41,6 @@ def define_mini_immuno_schema_flexible() -> Schema:
     .. literalinclude:: scripts/define_mini_immuno_schema_flexible.py
         :language: python
     """
-    import sys
-    from pathlib import Path
-
     from lamindb.models import Schema
 
     docs_path = Path(__file__).parent.parent.parent.parent / "docs" / "scripts"
