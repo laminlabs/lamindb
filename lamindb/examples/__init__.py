@@ -3,14 +3,15 @@
 .. autosummary::
    :toctree: .
 
-   ingest_mini_immuno_datasets
    schemas
+   datasets
    cellxgene
    croissant
+   ingest_mini_immuno_datasets
 
 """
 
-from . import croissant, schemas
+from . import croissant, datasets, schemas
 from .cellxgene import _cellxgene
 
 
