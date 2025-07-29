@@ -21,8 +21,15 @@ def anndata_ensembl_gene_ids_and_valid_features_in_obs() -> Schema:
     if str(docs_path) not in sys.path:
         sys.path.append(str(docs_path))
 
-    import define_schema_anndata_ensembl_gene_ids_and_valid_features_in_obs  # noqa
+    try:
+        return Schema.get(name="anndata_ensembl_gene_ids_and_valid_features_in_obs")
+    except Schema.DoesNotExist:
+        import define_schema_anndata_ensembl_gene_ids_and_valid_features_in_obs  # noqa
 
-    importlib.reload(define_schema_anndata_ensembl_gene_ids_and_valid_features_in_obs)
-
-    return Schema.get(name="anndata_ensembl_gene_ids_and_valid_features_in_obs")
+        try:
+            return Schema.get(name="anndata_ensembl_gene_ids_and_valid_features_in_obs")
+        except Schema.DoesNotExist:
+            importlib.reload(
+                define_schema_anndata_ensembl_gene_ids_and_valid_features_in_obs
+            )
+            return Schema.get(name="anndata_ensembl_gene_ids_and_valid_features_in_obs")

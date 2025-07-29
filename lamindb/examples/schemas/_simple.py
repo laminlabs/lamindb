@@ -21,8 +21,13 @@ def valid_features() -> Schema:
     if str(docs_path) not in sys.path:
         sys.path.append(str(docs_path))
 
-    import define_valid_features  # noqa
+    try:
+        return Schema.get(name="valid_features")
+    except Schema.DoesNotExist:
+        try:
+            import define_valid_features  # noqa
 
-    importlib.reload(define_valid_features)
-
-    return Schema.get(name="valid_features")
+            return Schema.get(name="valid_features")
+        except Schema.DoesNotExist:
+            importlib.reload(define_valid_features)
+            return Schema.get(name="valid_features")
