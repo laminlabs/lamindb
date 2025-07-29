@@ -56,15 +56,15 @@ def curate_from_croissant(
     # Create license feature and label if license info exists
     license_label = None
     if license_info:
-        license_ulabel_type = ln.ULabel.filter(name="License", is_type=True).first()
-        if not license_ulabel_type:
-            license_ulabel_type = ln.ULabel(name="License", is_type=True).save()
-        license_ulabel = ln.ULabel.filter(name=license_info).first()
-        if not license_ulabel:
+        license_label_type = ln.ULabel.filter(name="License", is_type=True).first()
+        if not license_label_type:
+            license_label_type = ln.ULabel(name="License", is_type=True).save()
+        license_label = ln.ULabel.filter(name=license_info).first()
+        if not license_label:
             license_label = ln.ULabel(
                 name=license_info,
                 description="Dataset license",
-                type=license_ulabel_type,
+                type=license_label_type,
             ).save()
     project_label = None
     if project_name:
