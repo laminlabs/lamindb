@@ -1,7 +1,6 @@
 from typing import Collection, Literal, NamedTuple
 
 import pandas as pd
-from django.db.models import Q
 from lamindb_setup.core.upath import UPath
 
 from lamindb.base.types import FieldAttr
@@ -165,10 +164,10 @@ def get_cxg_schema(
     """
     import bionty as bt
 
-    if existing_schema := Schema.filter(
-        Q(name__icontains=schema_version) & Q(name__icontains=organism)
-    ).one_or_none():
-        return existing_schema
+    # if existing_schema := Schema.filter(
+    #    Q(name__icontains=schema_version) & Q(name__icontains=organism)
+    # ).one_or_none():
+    #    return existing_schema
 
     class CategorySpec(NamedTuple):
         field: str | FieldAttr
@@ -195,7 +194,7 @@ def get_cxg_schema(
         "tissue": CategorySpec(bt.Tissue.name, None),
         "tissue_ontology_term_id": CategorySpec(bt.Tissue.ontology_id, None),
         "tissue_type": CategorySpec(ULabel.name, "tissue"),
-        "organism": CategorySpec(bt.Organism.name, None),
+        "organism": CategorySpec(bt.Organism.scientific_name, None),
         "organism_ontology_term_id": CategorySpec(bt.Organism.ontology_id, None),
         "donor_id": CategorySpec(str, "unknown"),
     }
@@ -255,7 +254,7 @@ def get_cxg_schema(
         obs_features.append(Feature(name=name, dtype=ULabel.name).save())
 
     obs_schema = Schema(
-        name=f"obs of CELLxGENE version {schema_version}",
+        name=f"obs of CELLxGENE version {schema_version} for {organism} of {field_types}",
         features=obs_features,
         otype="DataFrame",
         minimal_set=True,
@@ -264,7 +263,7 @@ def get_cxg_schema(
 
     full_cxg_schema = Schema(
         # Do not change the name unless you also change the early return check above
-        name=f"AnnData of CELLxGENE version {schema_version} for {organism}",
+        name=f"AnnData of CELLxGENE version {schema_version} for {organism} of {field_types}",
         otype="AnnData",
         minimal_set=True,
         coerce_dtype=True,
