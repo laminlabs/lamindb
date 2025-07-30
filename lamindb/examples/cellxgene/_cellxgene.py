@@ -1,6 +1,7 @@
 from typing import Collection, Literal, NamedTuple
 
 import pandas as pd
+from django.db.models import Q
 from lamindb_setup.core.upath import UPath
 
 from lamindb.base.types import FieldAttr
@@ -164,10 +165,13 @@ def get_cxg_schema(
     """
     import bionty as bt
 
-    # if existing_schema := Schema.filter(
-    #    Q(name__icontains=schema_version) & Q(name__icontains=organism)
-    # ).one_or_none():
-    #    return existing_schema
+    # Attempt to find the Schema early as building the Schema is expensive because of many Source look ups
+    if existing_schema := Schema.filter(
+        Q(name__icontains=schema_version)
+        & Q(name__icontains=organism)
+        & Q(name__icontains=field_types)
+    ).one_or_none():
+        return existing_schema
 
     class CategorySpec(NamedTuple):
         field: str | FieldAttr
