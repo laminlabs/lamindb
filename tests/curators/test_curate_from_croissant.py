@@ -10,7 +10,7 @@ def test_curate_artifact_from_croissant():
     shutil.rmtree(dataset1_path)
     assert (
         artifact1.description
-        == "Mini immuno dataset (mini_immuno.anndata.zarr) - A few samples from the immunology dataset"
+        == "Mini immuno dataset - A few samples from the immunology dataset"
     )
     assert artifact1.version == "1.0"
     license_label = artifact1.ulabels.get(
