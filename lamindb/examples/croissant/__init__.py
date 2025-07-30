@@ -1,15 +1,20 @@
+"""Example Croissant files.
+
+Examples for MLCommons Croissant files, which are used to store metadata about datasets.
+"""
+
 import json
 from pathlib import Path
 
 
 def mini_immuno(n_files: int = 1) -> list[Path]:
-    """Return paths to the mini immuno dataset and its metadata as a CroissantML file.
+    """Return paths to the mini immuno dataset and its metadata as a Croissant file.
 
     Args:
         n_files: Number of files inside the croissant file. Default is 1.
     """
-    from ...core.datasets import file_mini_csv
-    from ...core.datasets.mini_immuno import get_dataset1
+    from ..datasets import file_mini_csv
+    from ..datasets.mini_immuno import get_dataset1
 
     adata = get_dataset1(otype="AnnData")
     dataset1_path = Path("mini_immuno.anndata.zarr")

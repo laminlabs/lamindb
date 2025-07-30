@@ -38,7 +38,6 @@ from .sqlrecord import (
     IsLink,
     SQLRecord,
     _get_record_kwargs,
-    generate_indexes,
     init_self_from_db,
     update_attributes,
 )
@@ -154,17 +153,6 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
     class Meta(SQLRecord.Meta, IsVersioned.Meta, TracksRun.Meta, TracksUpdates.Meta):
         abstract = False
-        indexes = generate_indexes(
-            app_name="lamindb",
-            model_name="collection",
-            trigram_fields=[
-                "uid",
-                "key",
-                "description",
-                "hash",
-                "reference",
-            ],
-        )
 
     _len_full_uid: int = 20
     _len_stem_uid: int = 16
@@ -175,23 +163,26 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     uid: str = CharField(
         editable=False,
         unique=True,
+        db_index=True,
         max_length=_len_full_uid,
         default=base62_20,
     )
     """Universal id, valid across DB instances."""
-    key: str = CharField()
+    key: str = CharField(db_index=True)
     """Name or path-like key."""
     # below is the only case in which we use a TextField
     # for description; we do so because users had descriptions exceeding 255 chars
     # in their instances
-    description: str | None = TextField(null=True)
+    description: str | None = TextField(null=True, db_index=True)
     """A description or title."""
-    hash: str | None = CharField(max_length=HASH_LENGTH, null=True, unique=True)
+    hash: str | None = CharField(
+        max_length=HASH_LENGTH, db_index=True, null=True, unique=True
+    )
     """Hash of collection content."""
-    reference: str | None = CharField(max_length=255, null=True)
+    reference: str | None = CharField(max_length=255, db_index=True, null=True)
     """A reference like URL or external ID."""
     # also for reference_type here, we allow an extra long max_length
-    reference_type: str | None = CharField(max_length=25, null=True, db_index=True)
+    reference_type: str | None = CharField(max_length=25, db_index=True, null=True)
     """Type of reference, e.g., cellxgene Census collection_id."""
     ulabels: ULabel = models.ManyToManyField(
         "ULabel", through="CollectionULabel", related_name="collections"

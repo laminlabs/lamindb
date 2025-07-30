@@ -1,12 +1,16 @@
-from typing import Collection, Literal, NamedTuple
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Collection, Literal, NamedTuple
 
 import pandas as pd
 from django.db.models import Q
 from lamindb_setup.core.upath import UPath
 
-from lamindb.base.types import FieldAttr
-from lamindb.models import Feature, Schema, SQLRecord, ULabel
 from lamindb.models._from_values import _format_values
+
+if TYPE_CHECKING:
+    from lamindb.base.types import FieldAttr
+    from lamindb.models import Schema, SQLRecord
 
 CELLxGENESchemaVersions = Literal["4.0.0", "5.0.0", "5.1.0", "5.2.0", "5.3.0"]
 CELLxGENEOrganisms = Literal[
@@ -34,6 +38,8 @@ def save_cxg_defaults() -> None:
     - "cell", "nucleus", "na" ULabels (suspension_type)
     """
     import bionty as bt
+
+    from lamindb.models import ULabel
 
     # "normal" in Disease
     normal = bt.Phenotype.from_source(
@@ -164,6 +170,8 @@ def get_cxg_schema(
         organism: The organism of the Schema.
     """
     import bionty as bt
+
+    from lamindb.models import Feature, Schema, ULabel
 
     # Attempt to find the Schema early as building the Schema is expensive because of many Source look ups
     if existing_schema := Schema.filter(

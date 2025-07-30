@@ -1,19 +1,33 @@
-from ... import Schema
+from __future__ import annotations
+
+import importlib
+import sys
+from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ... import Schema
 
 
 def valid_features() -> Schema:
-    """Return a schema for an AnnData with Ensembl gene IDs and valid features in obs.
+    """A `DataFrame` schema that validates that columns map on existing features.
 
-    .. literalinclude:: scripts/define_schema_anndata_ensembl_gene_ids_and_valid_features_in_obs.py
+    .. literalinclude:: scripts/define_valid_features.py
         :language: python
     """
-    import subprocess
-    from pathlib import Path
+    from ... import Schema
 
     docs_path = Path(__file__).parent.parent.parent.parent / "docs" / "scripts"
-    subprocess.run(
-        ["python", str(docs_path / "define_valid_features.py")],
-        check=True,
-    )
+    if str(docs_path) not in sys.path:
+        sys.path.append(str(docs_path))
 
-    return Schema.get(name="valid_features")
+    try:
+        return Schema.get(name="valid_features")
+    except Schema.DoesNotExist:
+        try:
+            import define_valid_features  # noqa
+
+            return Schema.get(name="valid_features")
+        except Schema.DoesNotExist:
+            importlib.reload(define_valid_features)
+            return Schema.get(name="valid_features")
