@@ -11,30 +11,33 @@ def small_dataset3_cellxgene(
     otype: Literal["DataFrame", "AnnData"] = "AnnData",
     with_obs_defaults: bool = False,
     with_obs_typo: bool = False,
+    with_uns_organism: bool = False,
 ) -> tuple[pd.DataFrame, dict[str, Any]] | ad.AnnData:
-    # TODO: consider other ids for other organisms
-    # "ENSMUSG00002076988"
     var_ids = ["invalid_ensembl_id", "ENSG00000000419", "ENSG00000139618"]
-
     lung_id = "UBERON:0002048XXX" if with_obs_typo else "UBERON:0002048"
+
+    obs_data = {
+        "disease_ontology_term_id": [
+            "MONDO:0004975",
+            "MONDO:0004980",
+            "MONDO:0004980",
+        ],
+        "development_stage_ontology_term_id": ["unknown", "unknown", "unknown"],
+        "sex_ontology_term_id": ["PATO:0000383", "PATO:0000384", "unknown"],
+        "tissue_ontology_term_id": [lung_id, lung_id, "UBERON:0000948"],
+        "cell_type": ["T cell", "B cell", "B cell"],
+        "self_reported_ethnicity": ["South Asian", "South Asian", "South Asian"],
+        "donor_id": ["-1", "1", "2"],
+        "is_primary_data": [False, False, False],
+        "suspension_type": ["cell", "cell", "cell"],
+        "tissue_type": ["tissue", "tissue", "tissue"],
+    }
+
+    if not with_uns_organism:
+        obs_data["organism"] = ["Homo sapiens", "Homo sapiens", "Homo sapiens"]
+
     obs_df = pd.DataFrame(
-        {
-            "disease_ontology_term_id": [
-                "MONDO:0004975",
-                "MONDO:0004980",
-                "MONDO:0004980",
-            ],
-            "development_stage_ontology_term_id": ["unknown", "unknown", "unknown"],
-            "organism": ["human", "human", "human"],
-            "sex_ontology_term_id": ["PATO:0000383", "PATO:0000384", "unknown"],
-            "tissue_ontology_term_id": [lung_id, lung_id, "UBERON:0000948"],
-            "cell_type": ["T cell", "B cell", "B cell"],
-            "self_reported_ethnicity": ["South Asian", "South Asian", "South Asian"],
-            "donor_id": ["-1", "1", "2"],
-            "is_primary_data": [False, False, False],
-            "suspension_type": ["cell", "cell", "cell"],
-            "tissue_type": ["tissue", "tissue", "tissue"],
-        },
+        obs_data,
         index=["barcode1", "barcode2", "barcode3"],
     )
 
@@ -67,6 +70,8 @@ def small_dataset3_cellxgene(
         adata.raw.var.drop(columns="feature_is_filtered", inplace=True)
         if with_obs_defaults:
             adata.obs["assay"] = "single-cell RNA sequencing"
+        if with_uns_organism:
+            adata.uns["organism"] = "Homo sapiens"
         return adata
 
 

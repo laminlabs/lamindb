@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Collection, Literal, NamedTuple
 import pandas as pd
 from django.db.models import Q
 from lamindb_setup.core.upath import UPath
+from packaging import version
 
 from lamindb.models._from_values import _format_values
 
@@ -12,7 +13,7 @@ if TYPE_CHECKING:
     from lamindb.base.types import FieldAttr
     from lamindb.models import Schema, SQLRecord
 
-CELLxGENESchemaVersions = Literal["4.0.0", "5.0.0", "5.1.0", "5.2.0", "5.3.0"]
+CELLxGENESchemaVersions = Literal["4.0.0", "5.0.0", "5.1.0", "5.2.0", "5.3.0", "6.0.0"]
 CELLxGENEOrganisms = Literal[
     "human",
     "mouse",
@@ -233,6 +234,20 @@ def get_cxg_schema(
             f"Invalid field_types: {field_types}. Must contain 'ontology_id', 'name', or both."
         )
 
+    is_version_6_or_later = version.parse(schema_version) >= version.parse("6.0.0")
+
+    if is_version_6_or_later:
+        organism_fields = {"organism", "organism_ontology_term_id"}
+        obs_categoricals = {
+            k: v for k, v in categoricals.items() if k not in organism_fields
+        }
+        uns_categoricals = {
+            k: v for k, v in categoricals.items() if k in organism_fields
+        }
+    else:
+        obs_categoricals = categoricals
+        uns_categoricals = {}
+
     sources = _create_cxg_sources(
         categoricals=categoricals,
         schema_version=schema_version,
@@ -255,12 +270,12 @@ def get_cxg_schema(
     obs_features = [
         Feature(
             name=field,
-            dtype=categoricals[field],
+            dtype=obs_categoricals[field],
             cat_filters={"source": source},
             default_value=categoricals_to_spec[field].default,
         ).save()
         for field, source in sources.items()
-        if field != "var_index"
+        if field != "var_index" and field in obs_categoricals
     ]
     for name in ["is_primary_data", "suspension_type", "tissue_type"]:
         obs_features.append(Feature(name=name, dtype=ULabel.name).save())
@@ -273,13 +288,36 @@ def get_cxg_schema(
         coerce_dtype=True,
     ).save()
 
+    slots = {"var": var_schema, "obs": obs_schema}
+
+    if is_version_6_or_later and uns_categoricals:
+        uns_features = [
+            Feature(
+                name=field,
+                dtype=uns_categoricals[field],
+                cat_filters={"source": sources[field]},
+                default_value=categoricals_to_spec[field].default,
+            ).save()
+            for field in uns_categoricals
+        ]
+
+        uns_schema = Schema(
+            name=f"uns of CELLxGENE version {schema_version}",
+            features=uns_features,
+            otype="DataFrame",
+            minimal_set=True,
+            coerce_dtype=True,
+        ).save()
+
+        slots["uns"] = uns_schema
+
     full_cxg_schema = Schema(
         # Do not change the name unless you also change the early return check above
         name=f"AnnData of CELLxGENE version {schema_version} for {organism} of {field_types}",
         otype="AnnData",
         minimal_set=True,
         coerce_dtype=True,
-        slots={"var": var_schema, "obs": obs_schema},
+        slots=slots,
     ).save()
 
     return full_cxg_schema
