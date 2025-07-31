@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Collection, Literal, NamedTuple
 
 import pandas as pd
-from django.db.models import Q
 from lamindb_setup.core.upath import UPath
 from packaging import version
 
@@ -162,6 +161,7 @@ def get_cxg_schema(
     *,
     field_types: FieldType | Collection[FieldType] = "ontology_id",
     organism: CELLxGENEOrganisms = "human",
+    spatial_library_id: str | None = None,
 ) -> Schema:
     """Generates a :class:`~lamindb.Schema` for a specific CELLxGENE schema version.
 
@@ -169,6 +169,8 @@ def get_cxg_schema(
         schema_version: The CELLxGENE Schema version.
         field_types: One or several of 'ontology_id', 'name'.
         organism: The organism of the Schema.
+        library_id: Identifier for the spatial library.
+            Specifying this value enables curation against spatial requirements.
     """
     import bionty as bt
 
@@ -176,9 +178,7 @@ def get_cxg_schema(
 
     # Attempt to find the Schema early as building the Schema is expensive because of many Source look ups
     if existing_schema := Schema.filter(
-        Q(name__icontains=schema_version)
-        & Q(name__icontains=organism)
-        & Q(name__icontains=field_types)
+        name=f"AnnData of CELLxGENE version {schema_version} for {organism} of {field_types}"
     ).one_or_none():
         return existing_schema
 
@@ -236,17 +236,13 @@ def get_cxg_schema(
 
     is_version_6_or_later = version.parse(schema_version) >= version.parse("6.0.0")
 
+    organism_fields = {"organism", "organism_ontology_term_id"}
     if is_version_6_or_later:
-        organism_fields = {"organism", "organism_ontology_term_id"}
         obs_categoricals = {
             k: v for k, v in categoricals.items() if k not in organism_fields
         }
-        uns_categoricals = {
-            k: v for k, v in categoricals.items() if k in organism_fields
-        }
     else:
         obs_categoricals = categoricals
-        uns_categoricals = {}
 
     sources = _create_cxg_sources(
         categoricals=categoricals,
@@ -290,7 +286,11 @@ def get_cxg_schema(
 
     slots = {"var": var_schema, "obs": obs_schema}
 
-    if is_version_6_or_later and uns_categoricals:
+    if is_version_6_or_later:
+        uns_categoricals = {
+            k: v for k, v in categoricals.items() if k in organism_fields
+        }
+
         uns_features = [
             Feature(
                 name=field,
@@ -310,6 +310,26 @@ def get_cxg_schema(
         ).save()
 
         slots["uns"] = uns_schema
+
+        # Add spatial validation if library_id is provided
+        if spatial_library_id:
+            scalefactors_schema = Schema(
+                name=f"scalefactors of spatial {spatial_library_id}",
+                features=[
+                    Feature(name="spot_diameter_fullres", dtype=float).save(),
+                    Feature(name="tissue_hires_scalef", dtype=float).save(),
+                ],
+            ).save()
+
+            spatial_schema = Schema(
+                name="spatial metadata",
+                features=[Feature(name="is_single", dtype=bool).save()],
+            ).save()
+
+            slots["uns:spatial"] = spatial_schema
+            slots[f"uns:spatial:{spatial_library_id}:scalefactors"] = (
+                scalefactors_schema
+            )
 
     full_cxg_schema = Schema(
         # Do not change the name unless you also change the early return check above

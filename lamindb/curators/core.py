@@ -737,32 +737,56 @@ class AnnDataCurator(SlotsCurator):
             raise InvalidArgument("dataset must be AnnData-like.")
         if schema.otype != "AnnData":
             raise InvalidArgument("Schema otype must be 'AnnData'.")
-        self._slots = {
-            slot: DataFrameCurator(
-                (
+
+        for slot, slot_schema in schema.slots.items():
+            if slot in {"obs", "var", "var.T"}:
+                data_object = (
                     getattr(self._dataset, slot.strip(".T")).T
                     if slot == "var.T"
                     or (
-                        # backward compat
                         slot == "var"
                         and schema.slots["var"].itype not in {None, "Feature"}
                     )
                     else getattr(self._dataset, slot)
-                ),
-                slot_schema,
-                slot=slot,
-            )
-            for slot, slot_schema in schema.slots.items()
-            if slot in {"obs", "var", "var.T", "uns"}
-        }
-        if "var" in self._slots and schema.slots["var"].itype not in {None, "Feature"}:
-            logger.warning(
-                "auto-transposed `var` for backward compat, please indicate transposition in the schema definition by calling out `.T`: slots={'var.T': itype=bt.Gene.ensembl_gene_id}"
-            )
-            self._slots["var"].cat._cat_vectors["var_index"] = self._slots[
-                "var"
-            ].cat._cat_vectors.pop("columns")
-            self._slots["var"].cat._cat_vectors["var_index"]._key = "var_index"
+                )
+            elif slot == "uns":
+                # Simple uns slot - convert whole dict to DataFrame
+                data_object = pd.DataFrame([getattr(self._dataset, slot)])
+            elif slot.startswith("uns:"):
+                # Nested uns slots like "uns:spatial", "uns:spatial:library_123:scalefactors"
+                keys = slot.split(":")[1:]
+                data_object = self._dataset.uns
+
+                current_path = "uns"
+                try:
+                    for key in keys:
+                        current_path += f"['{key}']"
+                        data_object = data_object[key]
+                except KeyError:
+                    raise InvalidArgument(
+                        f"Schema slot '{slot}' specifies path {current_path} but key '{key}' "
+                        f"not found in AnnData.uns structure. Available keys at this level: "
+                        f"{list(data_object.keys()) if isinstance(data_object, dict) else 'not a dict'}"
+                    ) from None
+
+                data_object = pd.DataFrame([data_object])
+            else:
+                raise ValueError(
+                    f"AnnDataCurator currently only supports the slots 'var', 'var.T', 'obs', and 'uns' not {slot}"
+                )
+
+            self._slots[slot] = DataFrameCurator(data_object, slot_schema, slot=slot)
+            if "var" in self._slots and schema.slots["var"].itype not in {
+                None,
+                "Feature",
+            }:
+                logger.warning(
+                    "auto-transposed `var` for backward compat, please indicate transposition in the schema definition by calling out `.T`: slots={'var.T': itype=bt.Gene.ensembl_gene_id}"
+                )
+                self._slots["var"].cat._cat_vectors["var_index"] = self._slots[
+                    "var"
+                ].cat._cat_vectors.pop("columns")
+                self._slots["var"].cat._cat_vectors["var_index"]._key = "var_index"
 
 
 def _assign_var_fields_categoricals_multimodal(

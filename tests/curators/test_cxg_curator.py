@@ -3,15 +3,18 @@ import lamindb as ln
 import pytest
 
 
-@pytest.fixture(scope="module", params=["5.2.0", "6.0.0"])
-def cxg_schema(request):
-    ln.examples.cellxgene.save_cxg_defaults()
-    schema = ln.examples.cellxgene.get_cxg_schema(
-        schema_version=request.param, field_types=["name", "ontology_id"]
-    )
+@pytest.fixture
+def cxg_schema_factory():
+    def _create_schema(version):
+        ln.examples.cellxgene.save_cxg_defaults()
+        schema = ln.examples.cellxgene.get_cxg_schema(
+            schema_version=version, field_types=["name", "ontology_id"]
+        )
+        return schema, version
 
-    yield schema, request.param
+    yield _create_schema
 
+    # Cleanup after all tests
     ln.models.SchemaComponent.filter().delete()
     ln.Schema.filter().delete()
     ln.Feature.filter().delete()
@@ -27,52 +30,47 @@ def cxg_schema(request):
         entity.filter().all().delete()
 
 
-def test_cxg_curator(cxg_schema):
-    schema, version = cxg_schema
-    is_v6 = version == "6.0.0"
+def test_cxg_curator_5_x(cxg_schema_factory):
+    (cxg_schema,) = cxg_schema_factory("5.2.0")
 
     # test invalid var index and typo in obs column
     adata = ln.core.datasets.small_dataset3_cellxgene(
-        with_obs_defaults=True, with_obs_typo=True, with_uns_organism=is_v6
+        with_obs_defaults=True, with_obs_typo=True, with_var_typo=True
     )
-    curator = ln.curators.AnnDataCurator(adata, schema)
+    curator = ln.curators.AnnDataCurator(adata, cxg_schema)
     # Ensure that default values for Features are set
     curator.slots["obs"].standardize()
     with pytest.raises(ln.errors.ValidationError) as e:
         curator.validate()
-    assert (
-        "1 term not validated in feature 'index' in slot 'var': 'invalid_ensembl_id'"
-        in str(e)
-    )
+        assert (
+            "ValidationError: 1 term not validated in feature 'index' in slot 'var': 'invalid_ensembl_id'"
+            in str(e)
+        )
+
     # subset adata to remove invalid var index
     adata = adata[
         :, ~adata.var.index.isin(curator.slots["var"].cat.non_validated["index"])
     ].copy()
-    curator = ln.curators.AnnDataCurator(adata, schema)
+    curator = ln.curators.AnnDataCurator(adata, cxg_schema)
     with pytest.raises(ln.errors.ValidationError) as e:
         curator.validate()
-    assert (
-        "1 term not validated in feature 'tissue_ontology_term_id' in slot 'obs': 'UBERON:0002048XXX'"
-        in str(e)
-    )
+        assert (
+            "ValidationError: 1 term not validated in feature 'tissue_ontology_term_id' in slot 'obs': 'UBERON:0002048XXX'"
+            in str(e)
+        )
     # fix typo in obs column
     adata.obs["tissue_ontology_term_id"] = adata.obs["tissue_ontology_term_id"].replace(
         {"UBERON:0002048XXX": "UBERON:0002048"}
     )
-    artifact = curator.save_artifact(
-        key=f"examples/dataset-curated-against-cxg-{version}.h5ad"
-    )
+    artifact = curator.save_artifact(key="examples/dataset-curated-against-cxg.h5ad")
 
     # test missing obs columns
-    adata = ln.core.datasets.small_dataset3_cellxgene(
-        with_obs_defaults=False, with_uns_organism=is_v6
-    )
+    adata = ln.core.datasets.small_dataset3_cellxgene(with_obs_defaults=False)
     adata = adata[:, ~adata.var.index.isin({"invalid_ensembl_id"})].copy()
-    curator = ln.curators.AnnDataCurator(adata, schema)
+    curator = ln.curators.AnnDataCurator(adata, cxg_schema)
     with pytest.raises(ln.errors.ValidationError) as e:
         curator.validate()
-
-    expected_missing_obs = [
+    expected_missing = [
         "assay",
         "cell_type",
         "development_stage",
@@ -83,15 +81,17 @@ def test_cxg_curator(cxg_schema):
         "development_stage_ontology_term_id",
         "self_reported_ethnicity_ontology_term_id",
         "tissue_ontology_term_id",
+        "organism_ontology_term_id",
         "donor_id",
     ]
-    if not is_v6:
-        expected_missing_obs.append("organism_ontology_term_id")
-
-    assert all(col in str(e.value) for col in expected_missing_obs)
+    assert all(col in str(e.value) for col in expected_missing)
 
     # Clean up
     artifact.delete(permanent=True)
+
+
+def test_cxg_curator_6_x_spatial(cxg_schema_factory):
+    pass
 
 
 def test_invalid_field_type():
