@@ -580,8 +580,7 @@ class CanCurate:
         """Bulk create validated records by parsing values for an identifier such as a name or an id).
 
         Args:
-            values: A list of values for an identifier, e.g.
-                `["name1", "name2"]`.
+            values: A list of values for an identifier, e.g. `["name1", "name2"]`.
             field: A `SQLRecord` field to look up, e.g., `bt.CellMarker.name`.
             create: Whether to create records if they don't exist.
             organism: A `bionty.Organism` name or record.

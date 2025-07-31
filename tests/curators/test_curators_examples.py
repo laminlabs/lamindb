@@ -649,41 +649,14 @@ def spatialdata_blobs_schema():
     docs_path = Path.cwd() / "docs" / "scripts"
     sys.path.append(str(docs_path))
 
-    from define_schema_spatialdata import (
-        attrs_schema,
-        obs_schema,
-        sample_schema,
-        tech_schema,
-        varT_schema,
-    )
+    from define_schema_spatialdata import sdata_schema
 
-    spatialdata_schema_legacy = ln.Schema(
-        otype="SpatialData",
-        slots={
-            "bio": sample_schema,
-            "table:obs": obs_schema,
-            "table:var": varT_schema,
-        },
-    ).save()
-
-    spatialdata_schema_new = ln.Schema(
-        otype="SpatialData",
-        slots={
-            "attrs:sample": sample_schema,
-            "attrs:tech": tech_schema,
-            "attrs": attrs_schema,
-            "table:obs": obs_schema,
-            "table:var.T": varT_schema,
-        },
-    ).save()
-
-    yield spatialdata_schema_legacy, spatialdata_schema_new
+    yield sdata_schema
 
     from lamindb.models import SchemaComponent
 
     SchemaComponent.filter().delete()
-    spatialdata_schema_legacy.delete()
-    spatialdata_schema_new.delete()
+    sdata_schema.delete()
     ln.Schema.filter().delete()
     ln.Feature.filter().delete()
     bt.Gene.filter().delete()
@@ -697,43 +670,28 @@ def spatialdata_blobs_schema():
 def test_spatialdata_curator(
     spatialdata_blobs_schema: ln.Schema,
 ):
-    spatialdata_schema_legacy, spatialdata_schema_new = spatialdata_blobs_schema
     spatialdata = ln.core.datasets.spatialdata_blobs()
 
     # wrong dataset
     with pytest.raises(InvalidArgument):
         ln.curators.SpatialDataCurator(pd.DataFrame(), spatialdata_blobs_schema)
-    # wrong schema
+    # wrong schema - use an actual slot that exists
     with pytest.raises(InvalidArgument):
         ln.curators.SpatialDataCurator(
-            spatialdata, spatialdata_schema_legacy.slots["bio"]
+            spatialdata, spatialdata_blobs_schema.slots["attrs:bio"]
         )
 
-    curator = ln.curators.SpatialDataCurator(spatialdata, spatialdata_schema_legacy)
+    curator = ln.curators.SpatialDataCurator(spatialdata, spatialdata_blobs_schema)
     with pytest.raises(ln.errors.ValidationError):
         curator.validate()
+
     spatialdata.tables["table"].var.drop(index="ENSG00000999999", inplace=True)
-
     artifact = ln.Artifact.from_spatialdata(
         spatialdata,
         key="examples/spatialdata1.zarr",
-        schema=spatialdata_schema_legacy,
+        schema=spatialdata_blobs_schema,
     ).save()
-    assert artifact.schema == spatialdata_schema_legacy
-    assert artifact.features.slots.keys() == {
-        "bio",
-        "table:var",
-        "table:obs",
-    }
-    assert artifact.features.get_values()["disease"] == "Alzheimer disease"
-    artifact.delete(permanent=True)
-
-    artifact = ln.Artifact.from_spatialdata(
-        spatialdata,
-        key="examples/spatialdata1.zarr",
-        schema=spatialdata_schema_new,
-    ).save()
-    assert artifact.schema == spatialdata_schema_new
+    assert artifact.schema == spatialdata_blobs_schema
     assert artifact.features.slots.keys() == {
         "attrs:bio",
         "attrs:tech",
@@ -741,7 +699,8 @@ def test_spatialdata_curator(
         "tables:table:obs",
         "tables:table:var.T",
     }
-    assert artifact.features.get_values()["assay"] == "Visium Spatial Gene Expression"
+    assert artifact.features.get_values()["disease"] == "Alzheimer disease"
+
     assert (
         artifact.features.describe(return_str=True)
         == """Artifact .zarr · SpatialData · dataset

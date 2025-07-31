@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, Collection, Literal, NamedTuple
 
 import pandas as pd
 from lamindb_setup.core.upath import UPath
+from packaging import version
 
 from lamindb.models._from_values import _format_values
 
@@ -11,7 +12,17 @@ if TYPE_CHECKING:
     from lamindb.base.types import FieldAttr
     from lamindb.models import Schema, SQLRecord
 
-CELLxGENESchemaVersions = Literal["4.0.0", "5.0.0", "5.1.0", "5.2.0", "5.3.0"]
+CELLxGENESchemaVersions = Literal["4.0.0", "5.0.0", "5.1.0", "5.2.0", "5.3.0", "6.0.0"]
+CELLxGENEOrganisms = Literal[
+    "human",
+    "mouse",
+    "zebra danio",
+    "rhesus macaquedomestic pig",
+    "chimpanzee",
+    "white-tufted-ear marmoset",
+    "sars-2",
+    "synthetic construct",
+]
 FieldType = Literal["ontology_id", "name"]
 
 
@@ -25,7 +36,6 @@ def save_cxg_defaults() -> None:
     - "unknown" entries for DevelopmentalStage, Phenotype, and CellType
     - "tissue", "organoid", and "cell culture" ULabels (tissue_type)
     - "cell", "nucleus", "na" ULabels (suspension_type)
-
     """
     import bionty as bt
 
@@ -45,16 +55,19 @@ def save_cxg_defaults() -> None:
     ).save()
 
     # na, unknown
-    for model, name in zip(
+    for biorecord, name in zip(
         [
+            bt.Ethnicity,
             bt.Ethnicity,
             bt.DevelopmentalStage,
             bt.Phenotype,
             bt.CellType,
         ],
-        ["na", "unknown", "unknown", "unknown"],
+        ["na", "unknown", "unknown", "unknown", "unknown"],
     ):
-        model(ontology_id=name, name=name, description="From CellxGene schema.").save()
+        biorecord(
+            ontology_id=name, name=name, description="From CellxGene schema."
+        ).save()
 
     # tissue_type
     tissue_type = ULabel(
@@ -75,6 +88,23 @@ def save_cxg_defaults() -> None:
         ULabel(
             name=name, type=suspension_type, description="From CellxGene schema."
         ).save()
+
+    # organisms
+    taxonomy_ids = [
+        "NCBITaxon:9606",  # Homo sapiens (Human)
+        "NCBITaxon:10090",  # Mus musculus (House mouse)
+        "NCBITaxon:9544",  # Macaca mulatta (Rhesus monkey)
+        "NCBITaxon:9825",  # Sus scrofa domesticus (Domestic pig)
+        "NCBITaxon:9598",  # Pan troglodytes (Chimpanzee)
+        "NCBITaxon:9483",  # Callithrix jacchus (White-tufted-ear marmoset)
+        "NCBITaxon:7955",  # Danio rerio (Zebrafish)
+    ]
+    ncbitaxon_source = bt.Source.filter(name="ncbitaxon").first()
+    for ontology_id in taxonomy_ids:
+        if not bt.Organism.filter(ontology_id=ontology_id).one_or_none():
+            bt.Organism.from_source(
+                ontology_id=ontology_id, source=ncbitaxon_source
+            ).save()
 
 
 def _create_cxg_sources(
@@ -130,7 +160,8 @@ def get_cxg_schema(
     schema_version: CELLxGENESchemaVersions,
     *,
     field_types: FieldType | Collection[FieldType] = "ontology_id",
-    organism: Literal["human", "mouse"] = "human",
+    organism: CELLxGENEOrganisms = "human",
+    spatial_library_id: str | None = None,
 ) -> Schema:
     """Generates a :class:`~lamindb.Schema` for a specific CELLxGENE schema version.
 
@@ -138,10 +169,18 @@ def get_cxg_schema(
         schema_version: The CELLxGENE Schema version.
         field_types: One or several of 'ontology_id', 'name'.
         organism: The organism of the Schema.
+        library_id: Identifier for the spatial library.
+            Specifying this value enables curation against spatial requirements.
     """
     import bionty as bt
 
     from lamindb.models import Feature, Schema, ULabel
+
+    # Attempt to find the Schema early as building the Schema is expensive because of many Source look ups
+    if existing_schema := Schema.filter(
+        name=f"AnnData of CELLxGENE version {schema_version} for {organism} of {field_types}"
+    ).one_or_none():
+        return existing_schema
 
     class CategorySpec(NamedTuple):
         field: str | FieldAttr
@@ -168,7 +207,7 @@ def get_cxg_schema(
         "tissue": CategorySpec(bt.Tissue.name, None),
         "tissue_ontology_term_id": CategorySpec(bt.Tissue.ontology_id, None),
         "tissue_type": CategorySpec(ULabel.name, "tissue"),
-        "organism": CategorySpec(bt.Organism.name, None),
+        "organism": CategorySpec(bt.Organism.scientific_name, None),
         "organism_ontology_term_id": CategorySpec(bt.Organism.ontology_id, None),
         "donor_id": CategorySpec(str, "unknown"),
     }
@@ -195,6 +234,16 @@ def get_cxg_schema(
             f"Invalid field_types: {field_types}. Must contain 'ontology_id', 'name', or both."
         )
 
+    is_version_6_or_later = version.parse(schema_version) >= version.parse("6.0.0")
+
+    organism_fields = {"organism", "organism_ontology_term_id"}
+    if is_version_6_or_later:
+        obs_categoricals = {
+            k: v for k, v in categoricals.items() if k not in organism_fields
+        }
+    else:
+        obs_categoricals = categoricals
+
     sources = _create_cxg_sources(
         categoricals=categoricals,
         schema_version=schema_version,
@@ -217,30 +266,78 @@ def get_cxg_schema(
     obs_features = [
         Feature(
             name=field,
-            dtype=categoricals[field],
+            dtype=obs_categoricals[field],
             cat_filters={"source": source},
             default_value=categoricals_to_spec[field].default,
         ).save()
         for field, source in sources.items()
-        if field != "var_index"
+        if field != "var_index" and field in obs_categoricals
     ]
     for name in ["is_primary_data", "suspension_type", "tissue_type"]:
         obs_features.append(Feature(name=name, dtype=ULabel.name).save())
 
     obs_schema = Schema(
-        name=f"obs of CELLxGENE version {schema_version}",
+        name=f"obs of CELLxGENE version {schema_version} for {organism} of {field_types}",
         features=obs_features,
         otype="DataFrame",
         minimal_set=True,
         coerce_dtype=True,
     ).save()
 
+    slots = {"var": var_schema, "obs": obs_schema}
+
+    if is_version_6_or_later:
+        uns_categoricals = {
+            k: v for k, v in categoricals.items() if k in organism_fields
+        }
+
+        uns_features = [
+            Feature(
+                name=field,
+                dtype=uns_categoricals[field],
+                cat_filters={"source": sources[field]},
+                default_value=categoricals_to_spec[field].default,
+            ).save()
+            for field in uns_categoricals
+        ]
+
+        uns_schema = Schema(
+            name=f"uns of CELLxGENE version {schema_version}",
+            features=uns_features,
+            otype="DataFrame",
+            minimal_set=True,
+            coerce_dtype=True,
+        ).save()
+
+        slots["uns"] = uns_schema
+
+        # Add spatial validation if library_id is provided
+        if spatial_library_id:
+            scalefactors_schema = Schema(
+                name=f"scalefactors of spatial {spatial_library_id}",
+                features=[
+                    Feature(name="spot_diameter_fullres", dtype=float).save(),
+                    Feature(name="tissue_hires_scalef", dtype=float).save(),
+                ],
+            ).save()
+
+            spatial_schema = Schema(
+                name="spatial metadata",
+                features=[Feature(name="is_single", dtype=bool).save()],
+            ).save()
+
+            slots["uns:spatial"] = spatial_schema
+            slots[f"uns:spatial:{spatial_library_id}:scalefactors"] = (
+                scalefactors_schema
+            )
+
     full_cxg_schema = Schema(
-        name=f"AnnData of CELLxGENE version {schema_version}",
+        # Do not change the name unless you also change the early return check above
+        name=f"AnnData of CELLxGENE version {schema_version} for {organism} of {field_types}",
         otype="AnnData",
         minimal_set=True,
         coerce_dtype=True,
-        slots={"var": var_schema, "obs": obs_schema},
+        slots=slots,
     ).save()
 
     return full_cxg_schema
