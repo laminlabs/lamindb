@@ -74,8 +74,16 @@ def small_dataset3_cellxgene(
         adata.raw.var.drop(columns="feature_is_filtered", inplace=True)
 
         if with_obs_defaults:
+            adata.obs["cell_type_ontology_term_id"] = [
+                "CL:0000084",
+                "CL:0000236",
+                "CL:0000236",
+            ]
+            adata.obs["self_reported_ethnicity_ontology_term_id"] = "na"
+            adata.obs["assay_ontology_term_id"] = "EFO:1001982"
             adata.obs["assay"] = "single-cell RNA sequencing"
         if with_uns_organism:
+            adata.uns["organism_ontology_term_id"] = "NCBITaxon:9606"
             adata.uns["organism"] = "Homo sapiens"
         if with_uns_spatial:
             adata.uns["spatial"] = {
@@ -86,7 +94,7 @@ def small_dataset3_cellxgene(
                         "tissue_hires_scalef": 0.5,
                     },
                     "images": {
-                        "hires": np.random.default_rng().randint(
+                        "hires": np.random.default_rng().integers(
                             0, 255, (2000, 2000, 3), dtype=np.uint8
                         )
                     },

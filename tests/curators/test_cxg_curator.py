@@ -1,16 +1,15 @@
 import bionty as bt
 import lamindb as ln
 import pytest
+from lamindb.examples.cellxgene._cellxgene import CELLxGENESchemaVersions
 
 
 @pytest.fixture
 def cxg_schema_factory():
-    def _create_schema(version):
+    def _create_schema(version: CELLxGENESchemaVersions, **kwargs):
         ln.examples.cellxgene.save_cxg_defaults()
-        schema = ln.examples.cellxgene.get_cxg_schema(
-            schema_version=version, field_types=["name", "ontology_id"]
-        )
-        return schema, version
+        schema = ln.examples.cellxgene.get_cxg_schema(schema_version=version, **kwargs)
+        return schema
 
     yield _create_schema
 
@@ -31,7 +30,7 @@ def cxg_schema_factory():
 
 
 def test_cxg_curator_5_x(cxg_schema_factory):
-    (cxg_schema,) = cxg_schema_factory("5.2.0")
+    cxg_schema = cxg_schema_factory("5.2.0", field_types=["name", "ontology_id"])
 
     # test invalid var index and typo in obs column
     adata = ln.core.datasets.small_dataset3_cellxgene(
@@ -91,7 +90,18 @@ def test_cxg_curator_5_x(cxg_schema_factory):
 
 
 def test_cxg_curator_6_x_spatial(cxg_schema_factory):
-    pass
+    cxg_schema = cxg_schema_factory(
+        "6.0.0", spatial_library_id="library_123", field_types="ontology_id"
+    )
+
+    # test organism & spatial validation
+    adata = ln.core.datasets.small_dataset3_cellxgene(
+        with_obs_defaults=True, with_uns_organism=True, with_uns_spatial=True
+    )
+
+    curator = ln.curators.AnnDataCurator(adata, cxg_schema)
+
+    curator.validate()
 
 
 def test_invalid_field_type():
