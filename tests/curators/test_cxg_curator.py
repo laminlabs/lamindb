@@ -29,7 +29,7 @@ def cxg_schema_factory():
         entity.filter().all().delete()
 
 
-def test_cxg_curator_5_x(cxg_schema_factory):
+def test_cxg_curator_5(cxg_schema_factory):
     cxg_schema = cxg_schema_factory("5.2.0", field_types=["name", "ontology_id"])
 
     # test invalid var index and typo in obs column
@@ -89,7 +89,7 @@ def test_cxg_curator_5_x(cxg_schema_factory):
     artifact.delete(permanent=True)
 
 
-def test_cxg_curator_6_x_spatial(cxg_schema_factory):
+def test_cxg_curator_6_spatial(cxg_schema_factory):
     cxg_schema = cxg_schema_factory(
         "6.0.0", spatial_library_id="library_123", field_types="ontology_id"
     )
@@ -98,9 +98,17 @@ def test_cxg_curator_6_x_spatial(cxg_schema_factory):
     adata = ln.core.datasets.small_dataset3_cellxgene(
         with_obs_defaults=True, with_uns_organism=True, with_uns_spatial=True
     )
+    # delete a necessary component from uns["spatial"]
+    del adata.uns["spatial"]["is_single"]
 
     curator = ln.curators.AnnDataCurator(adata, cxg_schema)
 
+    with pytest.raises(ln.errors.ValidationError) as e:
+        curator.validate()
+    assert "column 'is_single' not in dataframe." in str(e.value)
+
+    adata.uns["spatial"]["is_single"] = True
+    curator = ln.curators.AnnDataCurator(adata, cxg_schema)
     curator.validate()
 
 
