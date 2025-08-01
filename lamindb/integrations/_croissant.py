@@ -91,11 +91,10 @@ def curate_from_croissant(
             )
         if len(file_distributions) == 1:
             artifact_description = f"{dataset_name}"
-            if file_id != dataset_name:
-                artifact_description += f" ({file_id})"
             artifact_description += f" - {description}"
         else:
             artifact_description = f"{file_id}"
+        # TODO: add a check about whether the file_id is part of a registered storage location
         artifact = ln.Artifact(  # type: ignore
             file_path,
             description=artifact_description,
