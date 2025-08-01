@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Collection, Literal, NamedTuple
 
 import pandas as pd
-from django.db.models import Q
 from lamindb_setup.core.upath import UPath
 
 from lamindb.models._from_values import _format_values
@@ -173,11 +172,9 @@ def get_cxg_schema(
 
     from lamindb.models import Feature, Schema, ULabel
 
-    # Attempt to find the Schema early as building the Schema is expensive because of many Source look ups
+    # Attempt to find the Schema early as building the Schema is expensive when looped
     if existing_schema := Schema.filter(
-        Q(name__icontains=schema_version)
-        & Q(name__icontains=organism)
-        & Q(name__icontains=field_types)
+        name=f"AnnData of CELLxGENE version {schema_version} for {organism} of {field_types}"
     ).one_or_none():
         return existing_schema
 
