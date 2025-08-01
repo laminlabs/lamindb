@@ -24,6 +24,7 @@ import pandas as pd
 import pandera.pandas as pandera
 from lamin_utils import colors, logger
 from lamindb_setup.core._docs import doc_args
+from lamindb_setup.core.upath import LocalPathClasses
 
 from lamindb.base.types import FieldAttr  # noqa
 from lamindb.models import (
@@ -197,7 +198,21 @@ class Curator:
                 "MuData",
                 "SpatialData",
             }:
-                self._dataset = self._dataset.load(is_run_input=False)
+                # Open remote AnnData Artifacts
+                if not isinstance(self._artifact.path, LocalPathClasses):
+                    if self._artifact.otype in {
+                        "AnnData",
+                    }:
+                        try:
+                            self._dataset = self._dataset.open(mode="r")
+                        # open can raise various errors. Fall back to loading into memory if open fails
+                        except Exception as e:
+                            logger.warning(
+                                f"Unable to open remote AnnData Artifact: {e}. Falling back to loading into memory."
+                            )
+                            self._dataset = self._dataset.load(is_run_input=False)
+                else:
+                    self._dataset = self._dataset.load(is_run_input=False)
         self._schema: Schema | None = schema
         self._is_validated: bool = False
 
@@ -1040,9 +1055,12 @@ class CatVector:
         self._maximal_set = maximal_set
 
         self._all_filters = {"source": self._source, "organism": self._organism}
+
         if self._subtype_str and "=" in self._subtype_str:
             self._all_filters.update(
-                resolve_relation_filters(parse_filter_string(self._subtype_str), self)  # type: ignore
+                resolve_relation_filters(
+                    parse_filter_string(self._subtype_str), self._field.field.model
+                )  # type: ignore
             )
 
         if hasattr(field.field.model, "_name_field"):
