@@ -3,6 +3,7 @@
 .. autosummary::
    :toctree: .
 
+   DictCurator
    DataFrameCurator
    AnnDataCurator
    MuDataCurator
@@ -21,13 +22,14 @@ Modules.
 from .core import (
     AnnDataCurator,
     DataFrameCurator,
+    DictCurator,
     MuDataCurator,
     SpatialDataCurator,
     TiledbsomaExperimentCurator,
 )
 
 __all__ = [
-    "AnnDataCurator",
+    "DictCuratorAnnDataCurator",
     "DataFrameCurator",
     "MuDataCurator",
     "SpatialDataCurator",

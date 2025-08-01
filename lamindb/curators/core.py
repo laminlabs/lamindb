@@ -26,12 +26,9 @@ from lamin_utils import colors, logger
 from lamindb_setup.core._docs import doc_args
 
 from lamindb.base.types import FieldAttr  # noqa
-from lamindb.models import (
-    Artifact,
-    Feature,
-    Run,
-    Schema,
-    SQLRecord,
+from lamindb.models import Artifact, Feature, Run, Schema, SQLRecord
+from lamindb.models._feature_manager import (
+    infer_feature_type_convert_json,
 )
 from lamindb.models._from_values import _format_values
 from lamindb.models.artifact import (
@@ -73,11 +70,10 @@ class CatLookup:
         slots: A dictionary of slot fields to lookup.
         public: Whether to lookup from the public instance. Defaults to False.
 
-    Example::
+    Examples::
 
         curator = ln.curators.DataFrameCurator(...)
         curator.cat.lookup()["cell_type"].alveolar_type_1_fibroblast_cell
-
     """
 
     def __init__(
@@ -377,15 +373,15 @@ class SlotsCurator(Curator):
         )
 
 
-def is_list_of_type(value, expected_type):
+def _is_list_of_type(value: Any, expected_type: Any) -> bool:
     """Helper function to check if a value is either of expected_type or a list of that type, or a mix of both in a nested structure."""
     if isinstance(value, Iterable) and not isinstance(value, (str, bytes)):
         # handle nested lists recursively
-        return all(is_list_of_type(item, expected_type) for item in value)
+        return all(_is_list_of_type(item, expected_type) for item in value)
     return isinstance(value, expected_type)
 
 
-def check_dtype(expected_type) -> Callable:
+def _check_dtype(expected_type) -> Callable:
     """Creates a check function for Pandera that validates a column's dtype.
 
     Supports both standard dtype checking and mixed list/single values for the same type.
@@ -416,18 +412,18 @@ def check_dtype(expected_type) -> Callable:
         if series.dtype == "object" and expected_type.startswith("list"):
             expected_type_member = expected_type.replace("list[", "").removesuffix("]")
             if expected_type_member == "int":
-                return series.apply(lambda x: is_list_of_type(x, int)).all()
+                return series.apply(lambda x: _is_list_of_type(x, int)).all()
             elif expected_type_member == "float":
-                return series.apply(lambda x: is_list_of_type(x, float)).all()
+                return series.apply(lambda x: _is_list_of_type(x, float)).all()
             elif expected_type_member == "num":
                 # for numeric, accept either int or float
-                return series.apply(lambda x: is_list_of_type(x, (int, float))).all()
+                return series.apply(lambda x: _is_list_of_type(x, (int, float))).all()
             elif (
                 expected_type_member == "str"
                 or expected_type_member == "path"
                 or expected_type_member.startswith("cat[")
             ):
-                return series.apply(lambda x: is_list_of_type(x, str)).all()
+                return series.apply(lambda x: _is_list_of_type(x, str)).all()
 
         # if we get here, the validation failed
         return False
@@ -435,10 +431,244 @@ def check_dtype(expected_type) -> Callable:
     return check_function
 
 
-# this is also currently used as DictCurator
+class DictCatManager:
+    """Manage categoricals in dictionaries by updating registries.
+
+    This class is accessible from within a :class:`lamindb.curator.DictCurator` via the `.cat` attribute.
+
+    If you find non-validated values, you have two options:
+
+    - new values found in the data can be registered via `DictCurator.cat.add_new_from()` :meth:`~lamindb.curators.core.DictCurator.add_new_from`
+    - non-validated values can be accessed via `DictCurator.cat.add_new_from()` :meth:`~lamindb.curators.core.DictCurator.non_validated` and addressed manually
+    """
+
+    def __init__(
+        self,
+        flattened_data: dict[Any, Any],
+        schema: Schema,
+        slot: str | None = None,
+        maximal_set: bool = False,
+    ):
+        self._data = flattened_data  # TODO maybe also support Artifact
+        self._schema = schema
+        self._slot = slot
+        self._is_validated = False
+        self._cat_vectors: dict[str, CatVector] = {}
+        self._non_validated_keys: list[str] = []
+        self._validate_category_error_messages: str = ""
+        self._maximal_set = maximal_set
+
+        # Handle both regular schema (schema.members) and slots-based schema (schema.slots)
+        categoricals = []
+
+        if hasattr(schema, "slots") and schema.slots:
+            # For slots-based schema, collect features from all slot schemas
+            for slot_key, slot_schema in schema.slots.items():
+                for feature in slot_schema.members:
+                    if feature.dtype and feature.dtype.startswith("cat"):
+                        # Map the feature to the flattened key structure
+                        flattened_key = (
+                            slot_key
+                            if slot_key in self._data
+                            else f"{slot_key}.{feature.name}"
+                        )
+                        if flattened_key in self._data:
+                            categoricals.append((flattened_key, feature))
+        else:
+            # For regular schema with direct members
+            for feature in schema.members:
+                if feature.dtype and feature.dtype.startswith("cat"):
+                    if feature.name in self._data:
+                        categoricals.append((feature.name, feature))
+
+        # Create CatVector for each categorical feature
+        for flattened_key, feature in categoricals:
+            self._cat_vectors[flattened_key] = CatVector(
+                values_getter=lambda k=flattened_key: [self._data[k]],
+                values_setter=lambda new_values, k=flattened_key: self._data.update(
+                    {k: new_values[0]}
+                ),
+                field=parse_dtype(feature.dtype)[0]["field"],
+                key=flattened_key,
+                feature=feature,
+                cat_manager=self,
+            )
+
+    def validate(self) -> bool:
+        """Validate all categorical vectors."""
+        self._validate_category_error_messages = ""  # Reset error messages
+
+        # Validate keys against the appropriate schema structure
+        keys = list(self._data.keys())
+
+        if hasattr(self._schema, "slots") and self._schema.slots:
+            # For slots-based schema, collect all expected features from all slots
+            expected_features = []
+            for slot_key, slot_schema in self._schema.slots.items():
+                for feature in slot_schema.members:
+                    # Handle both direct slot mapping and nested slot mapping
+                    if slot_key in keys:
+                        expected_features.append(slot_key)
+                    else:
+                        expected_features.append(f"{slot_key}.{feature.name}")
+
+            records = Feature.from_values(expected_features, mute=True)
+            expected_feature_names = records.list("name")
+
+            # Check which keys don't match expected features
+            self._non_validated_keys = [
+                key for key in keys if key not in expected_feature_names
+            ]
+        else:
+            # Regular schema validation
+            records = Feature.from_values(keys, mute=True)
+            self._non_validated_keys = [
+                key for key in keys if key not in records.list("name")
+            ]
+
+        # Validate categorical values - this is where error messages get set
+        validated = True
+        for key, cat_vector in self._cat_vectors.items():
+            logger.info(f"validating vector {key}")
+            cat_vector.validate()
+            validated &= cat_vector.is_validated
+
+        # The error message comes from CatVector validation, not key validation
+        # This matches DataFrameCurator where categorical validation drives the error messages
+
+        self._is_validated = validated and len(self._non_validated_keys) == 0
+        return self._is_validated
+
+    def add_new_from(self, key: str, **kwargs) -> None:
+        """Add validated & new categories."""
+        if key in self._cat_vectors:
+            self._cat_vectors[key].add_new(**kwargs)
+        elif key in self._non_validated_keys:
+            # Create new feature
+            value = self._data[key]
+            dtype, _, _ = infer_feature_type_convert_json(key, value)
+            feature = Feature(name=key, dtype=dtype, **kwargs).save()
+            logger.success(f"Created feature: {feature}")
+            # Remove from non-validated keys
+            self._non_validated_keys.remove(key)
+
+    def standardize(self, key: str) -> None:
+        """Replace synonyms with standardized values."""
+        if key in self._cat_vectors:
+            self._cat_vectors[key].standardize()
+
+    @property
+    def non_validated(self) -> dict[str, list[str]]:
+        """Return the non-validated features and labels."""
+        result = {}
+
+        # Add non-validated keys (match DataFrameCurator structure)
+        if self._non_validated_keys:
+            result["keys"] = self._non_validated_keys
+
+        # Add non-validated categorical values
+        for key, cat_vector in self._cat_vectors.items():
+            if cat_vector._non_validated:
+                result[key] = cat_vector._non_validated
+
+        return result
+
+
+class DictCurator(Curator):
+    """Curator for dictionaries.
+
+    Args:
+        dataset: The dictionary-like object to validate & annotate.
+        schema: A :class:`~lamindb.Schema` object that defines the validation constraints.
+        slot: Indicate the slot in a composite curator for a composite data structure.
+
+    Example:
+        Validate dictionary metadata::
+
+            dict_data = {"organism": "human", "library_id": "lib1"}
+            schema = ln.Schema(features=[
+                ln.Feature(name="organism", dtype="cat[bt.Organism]").save(),
+                ln.Feature(name="library_id", dtype="str").save()
+            ]).save()
+            curator = ln.curators.DictCurator(dict_data, schema)
+            curator.validate()
+    """
+
+    def __init__(
+        self,
+        dataset: dict | Artifact,
+        schema: Schema,
+        slot: str | None = None,
+    ) -> None:
+        super().__init__(dataset=dataset, schema=schema)
+        self._flattened_data = self._flatten_dict(self._dataset)
+        self._cat_manager = DictCatManager(self._flattened_data, schema, slot)
+
+    @property
+    def cat(self) -> DictCatManager:
+        """Manage categoricals by updating registries."""
+        return self._cat_manager
+
+    def _flatten_dict(self, data: dict, prefix: str = "") -> dict:
+        """Flatten nested dictionary using dot notation."""
+        flattened = {}
+        for key, value in data.items():
+            new_key = f"{prefix}:{key}" if prefix else key
+            if isinstance(value, dict):
+                flattened.update(self._flatten_dict(value, new_key))
+            else:
+                flattened[new_key] = value
+        return flattened
+
+    def validate(self) -> None:
+        """Validate dictionary against schema."""
+        self.cat.validate()
+
+        if self.cat._is_validated:
+            self._is_validated = True
+        else:
+            self._is_validated = False
+            if self.cat._validate_category_error_messages:
+                raise ValidationError(self.cat._validate_category_error_messages)
+
+    @doc_args(SAVE_ARTIFACT_DOCSTRING)
+    def save_artifact(
+        self,
+        *,
+        key: str | None = None,
+        description: str | None = None,
+        revises: Artifact | None = None,
+        run: Run | None = None,
+    ) -> Artifact:
+        """{}"""  # noqa: D415
+        if not self._is_validated:
+            self.validate()
+
+        raise NotImplementedError(
+            "save_artifact is currently not implemented for DictCurator."
+        )
+
+        # if self._artifact is None:
+        #    # Create artifact - you'll need to implement this based on how you want to store dict data
+        #    # For now, assuming you store it as JSON or similar
+        #    self._artifact = Artifact(
+        #        key=key,
+        ##        description=description,
+        #       revises=revises,
+        #       run=run,
+        #   )
+        #   self._artifact.schema = self._schema
+        #   self._artifact.save()
+
+        # return annotate_artifact(
+        #    self._artifact,
+        #    cat_vectors=self.cat._cat_vectors,
+        # )
+
+
 class DataFrameCurator(Curator):
     # the example in the docstring is tested in test_curators_quickstart_example
-    """Curator for `DataFrame`.
+    """Curator for Pandas `DataFrame`.
 
     Args:
         dataset: The DataFrame-like object to validate & annotate.
@@ -529,7 +759,7 @@ class DataFrameCurator(Curator):
                     pandera_columns[feature.name] = pandera.Column(
                         dtype=None,
                         checks=pandera.Check(
-                            check_dtype(feature.dtype),
+                            _check_dtype(feature.dtype),
                             element_wise=False,
                             error=f"Column '{feature.name}' failed dtype check for '{feature.dtype}': got {dtype}",
                         ),
@@ -1394,7 +1624,7 @@ class CatVector:
 
 
 class DataFrameCatManager:
-    """Manage categoricals by updating registries.
+    """Manage categoricals in DataFrames by updating registries.
 
     This class is accessible from within a `DataFrameCurator` via the `.cat` attribute.
 
@@ -1707,7 +1937,7 @@ def annotate_artifact(
             )
 
     slug = ln_setup.settings.instance.slug
-    if ln_setup.settings.instance.is_remote:  # pdagma: no cover
+    if ln_setup.settings.instance.is_remote:  # pragma: no cover
         logger.important(f"go to https://lamin.ai/{slug}/artifact/{artifact.uid}")
     return artifact
 

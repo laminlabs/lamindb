@@ -221,7 +221,7 @@ def process_pathlike(
 
 def process_data(
     provisional_uid: str,
-    data: UPathStr | pd.DataFrame | AnnData,
+    data: UPathStr | pd.DataFrame | ScverseDataStructures,
     format: str | None,
     key: str | None,
     storage: Storage,
@@ -1789,7 +1789,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     @classmethod
     def from_anndata(
         cls,
-        adata: Union[AnnData, UPathStr],
+        adata: AnnData | UPathStr,
         *,
         key: str | None = None,
         description: str | None = None,
@@ -1879,7 +1879,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     @classmethod
     def from_mudata(
         cls,
-        mdata: Union[MuData, UPathStr],
+        mdata: MuData | UPathStr,
         *,
         key: str | None = None,
         description: str | None = None,

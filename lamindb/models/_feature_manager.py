@@ -857,8 +857,7 @@ class FeatureManager:
 
         Args:
             values: A dictionary of keys (features) & values (labels, numbers, booleans).
-            feature_field: The field of a reference registry to map keys of the
-                dictionary.
+            feature_field: The field of a reference registry to map keys of the dictionary.
             str_as_ulabel: Whether to interpret string values as ulabels.
         """
         from .._tracked import get_current_tracked_run
