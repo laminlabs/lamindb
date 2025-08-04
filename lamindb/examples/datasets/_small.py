@@ -85,6 +85,8 @@ def small_dataset3_cellxgene(
         if with_uns_organism:
             adata.uns["organism_ontology_term_id"] = "NCBITaxon:9606"
             adata.uns["organism"] = "Homo sapiens"
+        else:
+            adata.obs["organism_ontology_term_id"] = "NCBITaxon:9606"
         if with_uns_spatial:
             adata.uns["spatial"] = {
                 "is_single": True,
