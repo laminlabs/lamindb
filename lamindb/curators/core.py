@@ -686,10 +686,11 @@ class DataFrameCurator(Curator):
                 description=description,
                 revises=revises,
                 run=run,
-                format=".csv" if key.endswith(".csv") else None,
+                format=".csv" if key is not None and key.endswith(".csv") else None,
             )
-            self._artifact.schema = self._schema
+
             self._artifact.save()
+        self._artifact.schema = self._schema
         return annotate_artifact(  # type: ignore
             self._artifact,
             cat_vectors=self.cat._cat_vectors,
