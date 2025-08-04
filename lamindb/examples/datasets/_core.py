@@ -434,7 +434,7 @@ def dict_cxg_uns() -> dict[str, Any]:
                     "tissue_hires_scalef": 0.177,
                 },
             },
-            "library_2": {  # Potentially another dynamic library_id key
+            "library_2": {  # Another dynamic library_id key
                 "images": {
                     "fullres": "path/to/fullres_2.jpg",
                     "hires": "path/to/hires_2.jpg",
