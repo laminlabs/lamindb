@@ -100,9 +100,10 @@ def install_ci(session, group):
         run(session, "uv pip install --system tiledbsoma")
         run(session, "uv pip install --system polars")
     elif group == "tutorial":
-        extras += "jupyter,bionty,zarr"
+        extras += "jupyter,bionty"
         run(session, "uv pip install --system huggingface_hub")
         run(session, "uv pip install --system polars")
+        run(session, "uv pip install --system anndata==0.12.1")
     elif group == "guide":
         extras += "bionty,zarr,jupyter"
         run(session, "uv pip install --system scanpy mudata spatialdata tiledbsoma")
