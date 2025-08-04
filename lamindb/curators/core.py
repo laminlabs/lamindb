@@ -364,12 +364,13 @@ class SlotsCurator(Curator):
                     )
                     break
 
-            self._artifact.schema = self._schema
             self._artifact.save()
         cat_vectors = {}
         for curator in self._slots.values():
             for key, cat_vector in curator.cat._cat_vectors.items():
                 cat_vectors[key] = cat_vector
+
+        self._artifact.schema = self._schema
         return annotate_artifact(  # type: ignore
             self._artifact,
             curator=self,
