@@ -158,7 +158,7 @@ def save_tiledbsoma_experiment(
         )
         storepath = setup_settings.storage.root / storage_key
 
-    if storepath.protocol == "s3":  # type: ignore
+    if storepath.protocol == "s3":
         ctx = soma.SOMATileDBContext(tiledb_config=_tiledb_config_s3(storepath))
     else:
         ctx = None
