@@ -450,7 +450,9 @@ def check_dtype(expected_type: Any) -> Callable:
     return check_function
 
 
-# this is also currently used as DictCurator
+# This is also currently used as DictCurator by flattening dictionaries into wide DataFrames.
+# Such an approach was never intended and there is room for a DictCurator in the future.
+# For more context, read
 class DataFrameCurator(Curator):
     # the example in the docstring is tested in test_curators_quickstart_example
     """Curator for `DataFrame`.
