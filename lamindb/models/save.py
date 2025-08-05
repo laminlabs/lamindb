@@ -422,6 +422,8 @@ def upload_artifact(
     )
     if getattr(artifact, "_to_store", False):
         logger.save(f"storing artifact '{artifact.uid}' at '{storage_path}'")
+        if storage_path.protocol == "s3":
+            kwargs["Tagging"] = f"space_id={artifact.space.id}"
         store_file_or_folder(
             artifact._local_filepath,
             storage_path,
