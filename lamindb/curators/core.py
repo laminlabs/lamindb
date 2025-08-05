@@ -364,13 +364,13 @@ class SlotsCurator(Curator):
                     )
                     break
 
-            self._artifact.save()
         cat_vectors = {}
         for curator in self._slots.values():
             for key, cat_vector in curator.cat._cat_vectors.items():
                 cat_vectors[key] = cat_vector
 
         self._artifact.schema = self._schema
+        self._artifact.save()
         return annotate_artifact(  # type: ignore
             self._artifact,
             curator=self,
@@ -689,8 +689,8 @@ class DataFrameCurator(Curator):
                 format=".csv" if key is not None and key.endswith(".csv") else None,
             )
 
-            self._artifact.save()
         self._artifact.schema = self._schema
+        self._artifact.save()
         return annotate_artifact(  # type: ignore
             self._artifact,
             cat_vectors=self.cat._cat_vectors,
