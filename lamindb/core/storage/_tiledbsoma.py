@@ -147,6 +147,7 @@ def save_tiledbsoma_experiment(
 
     run = get_run(run)
 
+    storepath: UPath
     appending = revises is not None
     if appending:
         storepath = revises.path
@@ -267,7 +268,14 @@ def save_tiledbsoma_experiment(
     artifact.n_observations = n_observations
     artifact.otype = "tiledbsoma"
 
-    return artifact.save()
+    artifact.save()
+
+    if storepath.protocol == "s3":
+        fs = storepath.fs
+        for path in fs.find(storepath_str):
+            fs.put_tags(path, {"space_id": str(artifact.space.id)})
+
+    return artifact
 
 
 # this is less defensive than _anndata_n_observations
