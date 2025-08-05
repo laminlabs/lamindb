@@ -418,10 +418,6 @@ def mudata_papalexi21_subset() -> MuData:  # pragma: no cover
     return mdata
 
 
-def dict_bla():
-    pass
-
-
 def df_iris() -> pd.DataFrame:
     """The iris collection as in sklearn.
 
