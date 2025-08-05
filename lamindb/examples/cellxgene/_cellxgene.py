@@ -100,10 +100,7 @@ def save_cxg_defaults() -> None:
     ]
     ncbitaxon_source = bt.Source.filter(name="ncbitaxon").first()
     for ontology_id in taxonomy_ids:
-        if not bt.Organism.filter(ontology_id=ontology_id).one_or_none():
-            bt.Organism.from_source(
-                ontology_id=ontology_id, source=ncbitaxon_source
-            ).save()
+        bt.Organism.from_source(ontology_id=ontology_id, source=ncbitaxon_source).save()
 
 
 def _create_cxg_sources(
@@ -173,9 +170,8 @@ def get_cxg_schema(
     from lamindb.models import Feature, Schema, ULabel
 
     # Attempt to find the Schema early as building the Schema is expensive when looped
-    if existing_schema := Schema.filter(
-        name=f"AnnData of CELLxGENE version {schema_version} for {organism} of {field_types}"
-    ).one_or_none():
+    full_cxg_schema_name = f"AnnData of CELLxGENE version {schema_version} for {organism} of {', '.join(field_types) if isinstance(field_types, list) else field_types}"
+    if existing_schema := Schema.filter(name=full_cxg_schema_name).one_or_none():
         return existing_schema
 
     class CategorySpec(NamedTuple):
@@ -271,8 +267,7 @@ def get_cxg_schema(
     ).save()
 
     full_cxg_schema = Schema(
-        # Do not change the name unless you also change the early return check above
-        name=f"AnnData of CELLxGENE version {schema_version} for {organism} of {field_types}",
+        name=full_cxg_schema_name,
         otype="AnnData",
         minimal_set=True,
         coerce_dtype=True,
