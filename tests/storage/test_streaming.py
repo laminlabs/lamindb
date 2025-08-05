@@ -129,6 +129,12 @@ def test_backed_access(adata_format):
     assert sub.obs_names.tolist() == obs_sub
     assert sub.to_memory().shape == (3, 200)
 
+    # check with a bool mask
+    obs_mask = np.isin(access.obs_names, obs_sub)
+    sub = access[obs_mask]
+    assert sub.obs_names.tolist() == obs_sub
+    assert sub.to_memory().shape == (3, 200)
+
     idx = np.array([1, 2, 5])
     sub = access[idx]
     assert sub.raw.shape == (3, 100)

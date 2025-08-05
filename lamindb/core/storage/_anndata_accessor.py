@@ -340,6 +340,12 @@ if ZARR_INSTALLED:
                 ds = sparse_dataset(elem)
                 return _subset_sparse(ds, indices)
             else:
+                indices = tuple(
+                    idim.tolist()
+                    if isinstance(idim, np.ndarray) and idim.dtype == "bool"
+                    else idim
+                    for idim in indices
+                )
                 return read_elem_partial(elem, indices=indices)
 
     # this is needed because accessing zarr.Group.keys() directly is very slow
