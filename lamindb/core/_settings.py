@@ -258,19 +258,12 @@ class Settings:
             # logger.warning(f"deprecated call because storage location does **not yet** exist; going forward, please create through ln.Storage(root={path}).save() going forward")
             if response != "y":
                 return None
-            ln_setup.settings.instance.local_storage = local_root
         else:
             if exists.instance_uid != ln_setup.settings.instance.uid:
                 raise ValueError(
                     f"Storage {ssettings.root_as_str} exists in another instance ({exists.instance_uid}), cannot write to it from here."
                 )
-            ssettings = StorageSettings(
-                root=exists.root,
-                region=exists.region,
-                uid=exists.uid,
-                instance_id=ln_setup.settings.instance._id,
-            )
-            ln_setup.settings.instance._local_storage = local_root
+        ln_setup.settings.instance.local_storage = local_root
 
     @property
     @deprecated("local_storage")
