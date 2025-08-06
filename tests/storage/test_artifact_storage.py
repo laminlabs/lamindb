@@ -9,7 +9,6 @@ from lamindb.errors import (
 
 
 def test_create_from_anndata_in_existing_cloud_storage():
-    ln.Storage("s3://lamindb-test/core").save()
     filepath = "s3://lamindb-test/core/scrnaseq_pbmc68k_tiny.h5ad"
     artifact = ln.Artifact.from_anndata(
         filepath, description="test_create_from_anndata_cloudpath"
@@ -60,13 +59,11 @@ def test_create_small_file_from_remote_path(
 
 
 def test_create_big_file_from_remote_path():
-    previous_storage = ln.setup.settings.storage.root_as_str
-    ln.settings.storage = "s3://lamindb-test/core"
     filepath_str = "s3://lamindb-test/core/human_immune.h5ad"
     artifact = ln.Artifact(filepath_str)
     assert artifact.key == "human_immune.h5ad"
     assert artifact._hash_type == "md5-2"
-    ln.settings.storage = previous_storage
+    assert artifact.path.as_posix().startswith("s3://lamindb-test/core")
 
 
 def test_delete_artifact_from_non_managed_storage():
