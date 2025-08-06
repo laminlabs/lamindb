@@ -617,5 +617,9 @@ def test_compressed():
     with pytest.raises(OSError):
         artifact.open(compression=None)
 
+    print("begin cleanup test_compressed")
+
     artifact.delete(permanent=True)
     adata_gz.unlink()
+
+    print("end cleanup test_compressed")
