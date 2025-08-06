@@ -646,7 +646,11 @@ def test_mudata_curator(
         "hto:obs",
     }
 
+    from lamindb.models import SchemaComponent
+
     artifact.delete(permanent=True)
+    SchemaComponent.filter().delete()
+    ln.Schema.filter().delete()
 
 
 def test_mudata_curator_nested_uns():
@@ -657,6 +661,7 @@ def test_mudata_curator_nested_uns():
     """
     mdata = ln.core.datasets.mudata_papalexi21_subset()
     mdata.uns["study_metadata"] = {"temperature": 21.6, "experiment_id": "EXP001"}
+    mdata["rna"].uns["site_metadata"] = {"pos": 99.9, "site_id": "SITE001"}
     mdata["rna"].uns["study_metadata"] = {
         "temperature": 21.6,
         "experiment_id": "EXP001",
@@ -704,7 +709,10 @@ def test_mudata_curator_nested_uns():
     ].features.first() == ln.Feature.get(name="pos")
 
     # Clean up
+    from lamindb.models import SchemaComponent
+
     artifact.delete(permanent=True)
+    SchemaComponent.filter().delete()
     ln.Schema.filter().delete()
     ln.Feature.filter().delete()
 
@@ -905,3 +913,4 @@ def test_tiledbsoma_curator(small_dataset1_schema: ln.Schema, clean_soma_files):
     soma_schema.delete()
     var_schema.delete()
     obs_schema.delete()
+    shutil.rmtree("./small_dataset1_typo.tiledbsoma")

@@ -713,7 +713,7 @@ class DataFrameCurator(Curator):
         )
 
 
-def _handle_nested_pathlike_slots(
+def _handle_pathlike_slots(
     dataset: ScverseDataStructures, slot: str
 ) -> tuple[pd.DataFrame | Any | None, str | None, str | None]:
     """Unified handler for nested slots across all Curators.
@@ -726,7 +726,7 @@ def _handle_nested_pathlike_slots(
     - "tables:table_key:obs", "tables:table_key:var" (SpatialData)
 
     Args:
-        dataset: The dataset object.
+        dataset: The dataset object
         slot: The slot string to parse and navigate
 
     Returns:
@@ -845,7 +845,7 @@ class AnnDataCurator(SlotsCurator):
 
         for slot, slot_schema in schema.slots.items():
             # handle (nested) `.uns` access
-            data_object, _, _ = _handle_nested_pathlike_slots(self._dataset, slot)
+            data_object, _, _ = _handle_pathlike_slots(self._dataset, slot)
 
             if data_object is not None:
                 self._slots[slot] = DataFrameCurator(
@@ -941,37 +941,40 @@ class MuDataCurator(SlotsCurator):
             raise InvalidArgument("Schema otype must be 'MuData'.")
 
         for slot, slot_schema in schema.slots.items():
-            data_object, table_key, sub_slot = _handle_nested_pathlike_slots(
+            data_object, table_key, sub_slot = _handle_pathlike_slots(
                 self._dataset, slot
             )
 
             if data_object is not None:
-                if sub_slot == "var" and schema.slots[slot].itype not in {
-                    None,
-                    "Feature",
-                }:
-                    logger.warning(
-                        "auto-transposed `var` for backward compat, please indicate transposition in the schema definition by calling out `.T`: slots={'var.T': itype=bt.Gene.ensembl_gene_id}"
-                    )
-                    data_object = data_object.T
-                elif sub_slot == "var.T":
-                    data_object = data_object.T
-
-                self._slots[slot] = DataFrameCurator(
-                    data_object, slot_schema, slot=slot
-                )
-
-                _assign_var_fields_categoricals_multimodal(
-                    modality=table_key,
-                    slot_type=sub_slot,
-                    slot=slot,
-                    slot_schema=slot_schema,
-                    var_fields=self._var_fields,
-                    cat_vectors=self._cat_vectors,
-                    slots=self._slots,
-                )
+                modality = table_key
+                modality_slot = sub_slot
             else:
-                raise ValueError(f"Slot '{slot}' not handled by MuDataCurator")
+                modality, modality_slot = None, slot
+                schema_dataset = self._dataset
+                data_object = getattr(schema_dataset, modality_slot.rstrip(".T"))
+
+            if modality_slot == "var" and schema.slots[slot].itype not in {
+                None,
+                "Feature",
+            }:
+                logger.warning(
+                    "auto-transposed `var` for backward compat, please indicate transposition in the schema definition by calling out `.T`: slots={'var.T': itype=bt.Gene.ensembl_gene_id}"
+                )
+                data_object = data_object.T
+            elif modality_slot == "var.T":
+                data_object = data_object.T
+
+            self._slots[slot] = DataFrameCurator(data_object, slot_schema, slot=slot)
+
+            _assign_var_fields_categoricals_multimodal(
+                modality=modality,
+                slot_type=modality_slot,
+                slot=slot,
+                slot_schema=slot_schema,
+                var_fields=self._var_fields,
+                cat_vectors=self._cat_vectors,
+                slots=self._slots,
+            )
 
         self._columns_field = self._var_fields
 
@@ -1006,7 +1009,7 @@ class SpatialDataCurator(SlotsCurator):
 
         for slot, slot_schema in schema.slots.items():
             # `.tables`
-            data_object, table_key, sub_slot = _handle_nested_pathlike_slots(
+            data_object, table_key, sub_slot = _handle_pathlike_slots(
                 self._dataset, slot
             )
 
