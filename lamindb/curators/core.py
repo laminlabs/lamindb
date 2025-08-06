@@ -713,102 +713,74 @@ class DataFrameCurator(Curator):
         )
 
 
-def _handle_pathlike_slots(
-    dataset: ScverseDataStructures, slot: str
-) -> tuple[pd.DataFrame | Any | None, str | None, str | None]:
-    """Unified handler for nested slots across all Curators.
+def _navigate_nested_dict(
+    dict_obj: dict[str, Any], keys: Iterable[str], slot: str, base_path: str
+) -> Any:
+    """Shared helper for traversing nested dictionaries.
 
-    Handles patterns like:
-    - "uns", "uns:spatial", "uns:spatial:library_123:scalefactors" (AnnData, MuData)
-    - "modality:uns", "modality:uns:spatial" (MuData)
-    - "modality:obs", "modality:var", "modality:var.T" (MuData)
-    - "attrs", "attrs:library_123" (SpatialData)
-    - "tables:table_key:obs", "tables:table_key:var" (SpatialData)
+    Args:
+        dict_obj: The dictionary to traverse
+        keys: List of keys to traverse
+        slot: Original slot string (for error messages)
+        base_path: Base path string (for error messages)
+
+    Returns:
+        The final object after traversing all keys
+    """
+    try:
+        for key in keys:
+            base_path += f"['{key}']"
+            dict_obj = dict_obj[key]
+    except KeyError:
+        raise InvalidArgument(
+            f"Schema slot '{slot}' specifies path {base_path} but key '{key}' "
+            f"not found. Available keys at this level: "
+            f"{list(dict_obj.keys()) if isinstance(dict_obj, dict) else 'not a dict'}"
+        ) from None
+    return dict_obj
+
+
+def _handle_dict_slots(
+    dataset: ScverseDataStructures, slot: str, dict_attr_names: list[str]
+) -> tuple[pd.DataFrame | None, str | None, str | None]:
+    """Handle dict-based slots (uns/attrs) for all curators.
 
     Args:
         dataset: The dataset object
-        slot: The slot string to parse and navigate
+        slot: The slot string to parse
+        dict_attr_names: List of dict attribute names to check (e.g., ["uns", "attrs"])
 
     Returns:
-        tuple: (data_object as DataFrame or raw data, table_key, sub_slot) where table_key and sub_slot
-               are used for multimodal data handling. Returns (None, None, None) if slot not handled.
+        tuple: (data_object as DataFrame, table_key, sub_slot) or (None, None, None)
     """
     parts = slot.split(":")
 
     # Handle direct dict slots: "uns", "attrs", "uns:key1:key2:..."
-    if len(parts) >= 1 and parts[0] in ["uns", "attrs"]:
+    if len(parts) >= 1 and parts[0] in dict_attr_names:
         dict_attr = getattr(dataset, parts[0], None)
         if dict_attr is not None:
             if len(parts) == 1:
                 return pd.DataFrame([dict_attr]), None, parts[0]
 
             keys = parts[1:]
-            data_object = dict_attr
-            current_path = parts[0]
-            try:
-                for key in keys:
-                    current_path += f"['{key}']"
-                    data_object = data_object[key]
-            except KeyError:
-                raise InvalidArgument(
-                    f"Schema slot '{slot}' specifies path {current_path} but key '{key}' "
-                    f"not found in {dataset.__class__.__name__}.{parts[0]} structure. "
-                    f"Available keys at this level: "
-                    f"{list(data_object.keys()) if isinstance(data_object, dict) else 'not a dict'}"
-                ) from None
+            data_object = _navigate_nested_dict(dict_attr, keys, slot, parts[0])
             return pd.DataFrame([data_object]), None, ":".join(parts[1:])
 
-    # Handle table slots: "tables:table_key:obs", "tables:table_key:var" (MOVED UP)
-    elif len(parts) == 3 and parts[0] == "tables":
-        table_key, sub_slot = parts[1], parts[2]
-        if hasattr(dataset, "tables"):
-            try:
-                slot_object = dataset.tables[table_key]
-                data_object = getattr(slot_object, sub_slot.rstrip(".T"))
-                return data_object, table_key, sub_slot
-            except KeyError:
-                raise InvalidArgument(
-                    f"Table '{table_key}' not found in dataset.tables"
-                ) from None
-            except AttributeError:
-                raise InvalidArgument(
-                    f"Attribute '{sub_slot}' not found on table '{table_key}'"
-                ) from None
-
-    # Handle modality slots: "modality:uns", "modality:obs", "modality:var", etc.
-    elif len(parts) >= 2:
-        modality, attr_name = parts[0], parts[1]
+    # Handle modality dict slots: "modality:uns", "modality:uns:key1:key2"
+    elif len(parts) >= 2 and parts[1] in dict_attr_names:
+        modality, dict_name = parts[0], parts[1]
         try:
             modality_dataset = dataset[modality]
+            dict_attr = getattr(modality_dataset, dict_name, None)
+            if dict_attr is not None:
+                if len(parts) == 2:
+                    return pd.DataFrame([dict_attr]), modality, dict_name
 
-            # Handle uns/attrs with potential nesting
-            if attr_name in ["uns", "attrs"]:
-                dict_attr = getattr(modality_dataset, attr_name, None)
-                if dict_attr is not None:
-                    if len(parts) == 2:
-                        return pd.DataFrame([dict_attr]), modality, attr_name
-
-                    keys = parts[2:]
-                    data_object = dict_attr
-                    current_path = f"{modality}.{attr_name}"
-                    try:
-                        for key in keys:
-                            current_path += f"['{key}']"
-                            data_object = data_object[key]
-                    except KeyError:
-                        raise InvalidArgument(
-                            f"Schema slot '{slot}' specifies path {current_path} but key '{key}' "
-                            f"not found in {modality_dataset.__class__.__name__}.{attr_name} structure. "
-                            f"Available keys at this level: "
-                            f"{list(data_object.keys()) if isinstance(data_object, dict) else 'not a dict'}"
-                        ) from None
-                    return pd.DataFrame([data_object]), modality, ":".join(parts[1:])
-
-            # Handle direct attributes like obs, var
-            elif hasattr(modality_dataset, attr_name.rstrip(".T")):
-                data_object = getattr(modality_dataset, attr_name.rstrip(".T"))
-                return data_object, modality, attr_name
-
+                keys = parts[2:]
+                data_object = _navigate_nested_dict(
+                    dict_attr, keys, slot, f"{modality}.{dict_name}"
+                )
+                return pd.DataFrame([data_object]), modality, ":".join(parts[1:])
         except (KeyError, AttributeError):
             pass
 
@@ -844,16 +816,14 @@ class AnnDataCurator(SlotsCurator):
             raise InvalidArgument("Schema otype must be 'AnnData'.")
 
         for slot, slot_schema in schema.slots.items():
-            # handle (nested) `.uns` access
-            data_object, _, _ = _handle_pathlike_slots(self._dataset, slot)
-
-            if data_object is not None:
-                self._slots[slot] = DataFrameCurator(
-                    data_object, slot_schema, slot=slot
+            if slot not in {"var", "var.T", "obs"} and not slot.startswith("uns"):
+                raise ValueError(
+                    f"AnnDataCurator currently only supports the slots 'var', 'var.T', 'obs', and 'uns' not {slot}"
                 )
+            if slot.startswith("uns"):
+                df, _, _ = _handle_dict_slots(self._dataset, slot, ["uns"])
             elif slot in {"obs", "var", "var.T"}:
-                # AnnData-specific slots
-                data_object = (
+                df = (
                     getattr(self._dataset, slot.strip(".T")).T
                     if slot == "var.T"
                     or (
@@ -862,23 +832,17 @@ class AnnDataCurator(SlotsCurator):
                     )
                     else getattr(self._dataset, slot)
                 )
-                self._slots[slot] = DataFrameCurator(
-                    data_object, slot_schema, slot=slot
-                )
+            self._slots[slot] = DataFrameCurator(df, slot_schema, slot=slot)
 
-                # Handle var index naming for backward compat
-                if slot == "var" and schema.slots["var"].itype not in {None, "Feature"}:
-                    logger.warning(
-                        "auto-transposed `var` for backward compat, please indicate transposition in the schema definition by calling out `.T`: slots={'var.T': itype=bt.Gene.ensembl_gene_id}"
-                    )
-                    self._slots["var"].cat._cat_vectors["var_index"] = self._slots[
-                        "var"
-                    ].cat._cat_vectors.pop("columns")
-                    self._slots["var"].cat._cat_vectors["var_index"]._key = "var_index"
-            else:
-                raise ValueError(
-                    f"AnnDataCurator currently only supports the slots 'var', 'var.T', 'obs', and 'uns' not {slot}"
+            # Handle var index naming for backward compat
+            if slot == "var" and schema.slots["var"].itype not in {None, "Feature"}:
+                logger.warning(
+                    "auto-transposed `var` for backward compat, please indicate transposition in the schema definition by calling out `.T`: slots={'var.T': itype=bt.Gene.ensembl_gene_id}"
                 )
+                self._slots["var"].cat._cat_vectors["var_index"] = self._slots[
+                    "var"
+                ].cat._cat_vectors.pop("columns")
+                self._slots["var"].cat._cat_vectors["var_index"]._key = "var_index"
 
 
 def _assign_var_fields_categoricals_multimodal(
@@ -892,7 +856,6 @@ def _assign_var_fields_categoricals_multimodal(
 ) -> None:
     """Assigns var_fields and categoricals for multimodal data curators."""
     if modality is not None:
-        # Makes sure that all tables are present
         var_fields[modality] = None
         cat_vectors[modality] = {}
 
@@ -941,30 +904,51 @@ class MuDataCurator(SlotsCurator):
             raise InvalidArgument("Schema otype must be 'MuData'.")
 
         for slot, slot_schema in schema.slots.items():
-            data_object, table_key, sub_slot = _handle_pathlike_slots(
-                self._dataset, slot
-            )
+            if "uns" in slot:
+                df, table_key, sub_slot = _handle_dict_slots(
+                    self._dataset, slot, ["uns"]
+                )
 
-            if data_object is not None:
-                modality = table_key
-                modality_slot = sub_slot
+                if df is not None:
+                    modality = table_key
+                    modality_slot = sub_slot
             else:
-                modality, modality_slot = None, slot
-                schema_dataset = self._dataset
-                data_object = getattr(schema_dataset, modality_slot.rstrip(".T"))
+                # Handle modality slots: "modality:obs", "modality:var"
+                parts = slot.split(":")
+                if len(parts) == 2:
+                    modality, modality_slot = parts
+                    try:
+                        schema_dataset = self._dataset[modality]
+                        df = getattr(schema_dataset, modality_slot.rstrip(".T"))
+                    except KeyError:
+                        raise InvalidArgument(
+                            f"Modality '{modality}' not found in MuData"
+                        ) from None
+                    except AttributeError:
+                        raise InvalidArgument(
+                            f"Attribute '{modality_slot}' not found on modality '{modality}'"
+                        ) from None
+                elif len(parts) > 2:
+                    raise ValueError(f"Unrecognized slot format: {slot}")
+                else:
+                    # Global MuData slots: "obs", "var" (uns is a dictionary and gets handled above)
+                    modality, modality_slot = None, slot
+                    schema_dataset = self._dataset
+                    df = getattr(schema_dataset, modality_slot.rstrip(".T"))
 
+            # Handle var transposition logic
             if modality_slot == "var" and schema.slots[slot].itype not in {
                 None,
                 "Feature",
             }:
                 logger.warning(
-                    "auto-transposed `var` for backward compat, please indicate transposition in the schema definition by calling out `.T`: slots={'var.T': itype=bt.Gene.ensembl_gene_id}"
+                    "auto-transposed `var` for backward compat, please indicate transposition in the schema definition by calling out `.T': slots={'var.T': itype=bt.Gene.ensembl_gene_id}"
                 )
-                data_object = data_object.T
+                df = df.T
             elif modality_slot == "var.T":
-                data_object = data_object.T
+                df = df.T
 
-            self._slots[slot] = DataFrameCurator(data_object, slot_schema, slot=slot)
+            self._slots[slot] = DataFrameCurator(df, slot_schema, slot=slot)
 
             _assign_var_fields_categoricals_multimodal(
                 modality=modality,
@@ -1007,44 +991,65 @@ class SpatialDataCurator(SlotsCurator):
             raise InvalidArgument("Schema otype must be 'SpatialData'.")
 
         for slot, slot_schema in schema.slots.items():
-            data_object, table_key, sub_slot = _handle_pathlike_slots(
-                self._dataset, slot
-            )
+            if slot.startswith("attrs"):
+                df, table_key, sub_slot = _handle_dict_slots(
+                    self._dataset, slot, ["attrs"]
+                )
 
-            if data_object is not None:
-                modality = table_key
-                modality_slot = sub_slot
+                if df is not None:
+                    modality = table_key
+                    modality_slot = sub_slot
             else:
-                # Legacy single attrs handling for backward compatibility
-                split_result = slot.split(":")
-                if len(split_result) == 1 and split_result[0] != "attrs":
-                    logger.warning(
-                        f"please prefix slot {slot} with 'attrs:' going forward"
-                    )
-                    try:
-                        data_object = pd.DataFrame([self._dataset.attrs[slot]])
-                        modality = None
-                        modality_slot = slot
-                    except KeyError:
-                        raise InvalidArgument(
-                            f"Slot '{slot}' not found in SpatialData.attrs"
-                        ) from None
+                # Handle table slots: "tables:table_key:obs", "tables:table_key:var"
+                parts = slot.split(":")
+                if len(parts) == 3 and parts[0] == "tables":
+                    table_key, sub_slot = parts[1], parts[2]
+                    if hasattr(self._dataset, "tables"):
+                        try:
+                            slot_object = self._dataset.tables[table_key]
+                            df = getattr(slot_object, sub_slot.rstrip(".T"))
+                            modality = table_key
+                            modality_slot = sub_slot
+                        except KeyError:
+                            raise InvalidArgument(
+                                f"Table '{table_key}' not found in dataset.tables"
+                            ) from None
+                        except AttributeError:
+                            raise InvalidArgument(
+                                f"Attribute '{sub_slot}' not found on table '{table_key}'"
+                            ) from None
+                    else:
+                        raise InvalidArgument("Dataset has no 'tables' attribute")
                 else:
-                    raise InvalidArgument(f"Unrecognized slot format: {slot}")
+                    # Legacy single attrs handling for backward compatibility
+                    if len(parts) == 1 and parts[0] != "attrs":
+                        logger.warning(
+                            f"please prefix slot {slot} with 'attrs:' going forward"
+                        )
+                        try:
+                            df = pd.DataFrame([self._dataset.attrs[slot]])
+                            modality = None
+                            modality_slot = slot
+                        except KeyError:
+                            raise InvalidArgument(
+                                f"Slot '{slot}' not found in SpatialData.attrs"
+                            ) from None
+                    else:
+                        raise InvalidArgument(f"Unrecognized slot format: {slot}")
 
-            # Handle var transposition logic (consolidated)
+            # Handle var transposition logic
             if modality_slot == "var" and schema.slots[slot].itype not in {
                 None,
                 "Feature",
             }:
                 logger.warning(
-                    "auto-transposed `var` for backward compat, please indicate transposition in the schema definition by calling out `.T`: slots={'var.T': itype=bt.Gene.ensembl_gene_id}"
+                    "auto-transposed `var` for backward compat, please indicate transposition in the schema definition by calling out `.T': slots={'var.T': itype=bt.Gene.ensembl_gene_id}"
                 )
-                data_object = data_object.T
+                df = df.T
             elif modality_slot == "var.T":
-                data_object = data_object.T
+                df = df.T
 
-            self._slots[slot] = DataFrameCurator(data_object, slot_schema, slot)
+            self._slots[slot] = DataFrameCurator(df, slot_schema, slot)
 
             _assign_var_fields_categoricals_multimodal(
                 modality=modality,
