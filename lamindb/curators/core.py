@@ -741,7 +741,7 @@ def _navigate_nested_dict(
 
 
 def _handle_dict_slots(
-    dataset: ScverseDataStructures, slot: str, dict_attr_names: list[str]
+    dataset: ScverseDataStructures, slot: str
 ) -> tuple[pd.DataFrame | None, str | None, str | None]:
     """Handle dict-based slots (uns/attrs) for all curators.
 
@@ -756,7 +756,7 @@ def _handle_dict_slots(
     parts = slot.split(":")
 
     # Handle direct dict slots: "uns", "attrs", "uns:key1:key2:..."
-    if len(parts) >= 1 and parts[0] in dict_attr_names:
+    if len(parts) >= 1 and parts[0] in ["uns", "attrs"]:
         dict_attr = getattr(dataset, parts[0], None)
         if dict_attr is not None:
             if len(parts) == 1:
@@ -767,7 +767,7 @@ def _handle_dict_slots(
             return pd.DataFrame([data_object]), None, ":".join(parts[1:])
 
     # Handle modality dict slots: "modality:uns", "modality:uns:key1:key2"
-    elif len(parts) >= 2 and parts[1] in dict_attr_names:
+    elif len(parts) >= 2 and parts[1] in ["uns", "attrs"]:
         modality, dict_name = parts[0], parts[1]
         try:
             modality_dataset = dataset[modality]
@@ -821,7 +821,7 @@ class AnnDataCurator(SlotsCurator):
                     f"AnnDataCurator currently only supports the slots 'var', 'var.T', 'obs', and 'uns' not {slot}"
                 )
             if slot.startswith("uns"):
-                df, _, _ = _handle_dict_slots(self._dataset, slot, ["uns"])
+                df, _, _ = _handle_dict_slots(self._dataset, slot)
             elif slot in {"obs", "var", "var.T"}:
                 df = (
                     getattr(self._dataset, slot.strip(".T")).T
@@ -905,9 +905,7 @@ class MuDataCurator(SlotsCurator):
 
         for slot, slot_schema in schema.slots.items():
             if "uns" in slot:
-                df, table_key, sub_slot = _handle_dict_slots(
-                    self._dataset, slot, ["uns"]
-                )
+                df, table_key, sub_slot = _handle_dict_slots(self._dataset, slot)
 
                 if df is not None:
                     modality = table_key
@@ -992,34 +990,29 @@ class SpatialDataCurator(SlotsCurator):
 
         for slot, slot_schema in schema.slots.items():
             if slot.startswith("attrs"):
-                df, table_key, sub_slot = _handle_dict_slots(
-                    self._dataset, slot, ["attrs"]
-                )
+                df, table_key, sub_slot = _handle_dict_slots(self._dataset, slot)
 
                 if df is not None:
                     modality = table_key
                     modality_slot = sub_slot
             else:
-                # Handle table slots: "tables:table_key:obs", "tables:table_key:var"
                 parts = slot.split(":")
+                # Handle table slots: "tables:table_key:obs", "tables:table_key:var"
                 if len(parts) == 3 and parts[0] == "tables":
                     table_key, sub_slot = parts[1], parts[2]
-                    if hasattr(self._dataset, "tables"):
-                        try:
-                            slot_object = self._dataset.tables[table_key]
-                            df = getattr(slot_object, sub_slot.rstrip(".T"))
-                            modality = table_key
-                            modality_slot = sub_slot
-                        except KeyError:
-                            raise InvalidArgument(
-                                f"Table '{table_key}' not found in dataset.tables"
-                            ) from None
-                        except AttributeError:
-                            raise InvalidArgument(
-                                f"Attribute '{sub_slot}' not found on table '{table_key}'"
-                            ) from None
-                    else:
-                        raise InvalidArgument("Dataset has no 'tables' attribute")
+                    try:
+                        slot_object = self._dataset.tables[table_key]
+                        df = getattr(slot_object, sub_slot.rstrip(".T"))
+                        modality = table_key
+                        modality_slot = sub_slot
+                    except KeyError:
+                        raise InvalidArgument(
+                            f"Table '{table_key}' not found in dataset.tables"
+                        ) from None
+                    except AttributeError:
+                        raise InvalidArgument(
+                            f"Attribute '{sub_slot}' not found on table '{table_key}'"
+                        ) from None
                 else:
                     # Legacy single attrs handling for backward compatibility
                     if len(parts) == 1 and parts[0] != "attrs":
