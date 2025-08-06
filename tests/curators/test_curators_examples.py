@@ -560,7 +560,7 @@ def test_anndata_curator_varT_curation_legacy(ccaplog):
 
 
 def test_anndata_curator_nested_uns():
-    """Test AnnData curator with uns slot validation."""
+    """Test AnnDataCurator with nested uns slot validation."""
     adata = datasets.small_dataset1(otype="AnnData")
     adata.uns["study_metadata"] = {"temperature": 21.6, "experiment_id": "EXP001"}
 
@@ -578,7 +578,6 @@ def test_anndata_curator_nested_uns():
         },
     ).save()
 
-    # Test curator creation and validation
     curator = ln.curators.AnnDataCurator(adata, anndata_schema)
     assert isinstance(curator.slots["uns:study_metadata"], ln.curators.DataFrameCurator)
 
@@ -651,41 +650,63 @@ def test_mudata_curator(
 
 
 def test_mudata_curator_nested_uns():
+    """Test MuData with nested uns slot validation.
+
+    This test verifies the behavior of both the MuData `.uns` slots and a `.uns` slot of
+    an AnnData object inside the MuData object that gets specified using the path `:` syntax.
+    """
     mdata = ln.core.datasets.mudata_papalexi21_subset()
     mdata.uns["study_metadata"] = {"temperature": 21.6, "experiment_id": "EXP001"}
+    mdata["rna"].uns["study_metadata"] = {
+        "temperature": 21.6,
+        "experiment_id": "EXP001",
+    }
 
-    uns_schema = ln.Schema(
+    study_uns_schema = ln.Schema(
         features=[
             ln.Feature(name="temperature", dtype=float).save(),
             ln.Feature(name="experiment_id", dtype=str).save(),
         ],
     ).save()
 
-    anndata_schema = ln.Schema(
-        name="anndata_with_nested_uns_schema",
-        otype="AnnData",
+    site_uns_schema = ln.Schema(
+        features=[
+            ln.Feature(name="pos", dtype=float).save(),
+            ln.Feature(name="site_id", dtype=str).save(),
+        ]
+    ).save()
+
+    mdata_schema = ln.Schema(
+        otype="MuData",
         slots={
-            "uns:study_metadata": uns_schema,
+            "uns:study_metadata": study_uns_schema,
+            "rna:uns:site_metadata": site_uns_schema,
         },
     ).save()
 
-    # Test curator creation and validation
-    curator = ln.curators.AnnDataCurator(adata, anndata_schema)
+    curator = ln.curators.MuDataCurator(mdata, mdata_schema)
     assert isinstance(curator.slots["uns:study_metadata"], ln.curators.DataFrameCurator)
+    assert isinstance(
+        curator.slots["rna:uns:site_metadata"], ln.curators.DataFrameCurator
+    )
 
     curator.validate()
-    artifact = curator.save_artifact(key="examples/anndata_with_uns.h5ad")
+    artifact = curator.save_artifact(key="examples/mdata_with_uns.h5mu")
 
-    assert artifact.schema == anndata_schema
+    assert artifact.schema == mdata_schema
     assert "uns:study_metadata" in artifact.features.slots
+    assert "rna:uns:site_metadata" in artifact.features.slots
     assert artifact.features.slots[
         "uns:study_metadata"
     ].features.first() == ln.Feature.get(name="temperature")
+    assert artifact.features.slots[
+        "rna:uns:site_metadata"
+    ].features.first() == ln.Feature.get(name="pos")
 
     # Clean up
     artifact.delete(permanent=True)
-    anndata_schema.delete()
-    uns_schema.delete()
+    ln.Schema.filter().delete()
+    ln.Feature.filter().delete()
 
 
 @pytest.fixture(scope="module")
