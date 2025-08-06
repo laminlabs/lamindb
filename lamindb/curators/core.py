@@ -758,6 +758,23 @@ def _handle_pathlike_slots(
                 ) from None
             return pd.DataFrame([data_object]), None, ":".join(parts[1:])
 
+    # Handle table slots: "tables:table_key:obs", "tables:table_key:var" (MOVED UP)
+    elif len(parts) == 3 and parts[0] == "tables":
+        table_key, sub_slot = parts[1], parts[2]
+        if hasattr(dataset, "tables"):
+            try:
+                slot_object = dataset.tables[table_key]
+                data_object = getattr(slot_object, sub_slot.rstrip(".T"))
+                return data_object, table_key, sub_slot
+            except KeyError:
+                raise InvalidArgument(
+                    f"Table '{table_key}' not found in dataset.tables"
+                ) from None
+            except AttributeError:
+                raise InvalidArgument(
+                    f"Attribute '{sub_slot}' not found on table '{table_key}'"
+                ) from None
+
     # Handle modality slots: "modality:uns", "modality:obs", "modality:var", etc.
     elif len(parts) >= 2:
         modality, attr_name = parts[0], parts[1]
@@ -794,23 +811,6 @@ def _handle_pathlike_slots(
 
         except (KeyError, AttributeError):
             pass
-
-    # Handle table slots: "tables:table_key:obs", "tables:table_key:var"
-    elif len(parts) == 3 and parts[0] == "tables":
-        table_key, sub_slot = parts[1], parts[2]
-        if hasattr(dataset, "tables"):
-            try:
-                slot_object = dataset.tables[table_key]
-                data_object = getattr(slot_object, sub_slot.rstrip(".T"))
-                return data_object, table_key, sub_slot
-            except KeyError:
-                raise InvalidArgument(
-                    f"Table '{table_key}' not found in dataset.tables"
-                ) from None
-            except AttributeError:
-                raise InvalidArgument(
-                    f"Attribute '{sub_slot}' not found on table '{table_key}'"
-                ) from None
 
     return None, None, None
 
@@ -987,7 +987,6 @@ class SpatialDataCurator(SlotsCurator):
         schema: A :class:`~lamindb.Schema` object that defines the validation constraints.
 
     Example:
-
         .. literalinclude:: scripts/curate_spatialdata.py
             :language: python
             :caption: curate_spatialdata.py
@@ -1008,36 +1007,13 @@ class SpatialDataCurator(SlotsCurator):
             raise InvalidArgument("Schema otype must be 'SpatialData'.")
 
         for slot, slot_schema in schema.slots.items():
-            # `.tables`
             data_object, table_key, sub_slot = _handle_pathlike_slots(
                 self._dataset, slot
             )
 
             if data_object is not None:
-                # Apply var transposition logic if needed
-                if sub_slot == "var" and schema.slots[slot].itype not in {
-                    None,
-                    "Feature",
-                }:
-                    logger.warning(
-                        "auto-transposed `var` for backward compat, please indicate transposition in the schema definition by calling out `.T`: slots={'var.T': itype=bt.Gene.ensembl_gene_id}"
-                    )
-                    data_object = data_object.T
-                elif sub_slot == "var.T":
-                    data_object = data_object.T
-
-                self._slots[slot] = DataFrameCurator(data_object, slot_schema, slot)
-
-                # Handle multimodal assignment
-                _assign_var_fields_categoricals_multimodal(
-                    modality=table_key,
-                    slot_type=sub_slot,
-                    slot=slot,
-                    slot_schema=slot_schema,
-                    var_fields=self._var_fields,
-                    cat_vectors=self._cat_vectors,
-                    slots=self._slots,
-                )
+                modality = table_key
+                modality_slot = sub_slot
             else:
                 # Legacy single attrs handling for backward compatibility
                 split_result = slot.split(":")
@@ -1047,25 +1023,38 @@ class SpatialDataCurator(SlotsCurator):
                     )
                     try:
                         data_object = pd.DataFrame([self._dataset.attrs[slot]])
-                        self._slots[slot] = DataFrameCurator(
-                            data_object, slot_schema, slot
-                        )
-
-                        _assign_var_fields_categoricals_multimodal(
-                            modality=None,
-                            slot_type=slot,
-                            slot=slot,
-                            slot_schema=slot_schema,
-                            var_fields=self._var_fields,
-                            cat_vectors=self._cat_vectors,
-                            slots=self._slots,
-                        )
+                        modality = None
+                        modality_slot = slot
                     except KeyError:
                         raise InvalidArgument(
                             f"Slot '{slot}' not found in SpatialData.attrs"
                         ) from None
                 else:
                     raise InvalidArgument(f"Unrecognized slot format: {slot}")
+
+            # Handle var transposition logic (consolidated)
+            if modality_slot == "var" and schema.slots[slot].itype not in {
+                None,
+                "Feature",
+            }:
+                logger.warning(
+                    "auto-transposed `var` for backward compat, please indicate transposition in the schema definition by calling out `.T`: slots={'var.T': itype=bt.Gene.ensembl_gene_id}"
+                )
+                data_object = data_object.T
+            elif modality_slot == "var.T":
+                data_object = data_object.T
+
+            self._slots[slot] = DataFrameCurator(data_object, slot_schema, slot)
+
+            _assign_var_fields_categoricals_multimodal(
+                modality=modality,
+                slot_type=modality_slot,
+                slot=slot,
+                slot_schema=slot_schema,
+                var_fields=self._var_fields,
+                cat_vectors=self._cat_vectors,
+                slots=self._slots,
+            )
 
         self._columns_field = self._var_fields
 
