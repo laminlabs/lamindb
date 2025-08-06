@@ -649,6 +649,7 @@ def test_mudata_curator(
 
     artifact.delete(permanent=True)
 
+
 def test_mudata_curator_nested_uns():
     mdata = ln.core.datasets.mudata_papalexi21_subset()
     mdata.uns["study_metadata"] = {"temperature": 21.6, "experiment_id": "EXP001"}
@@ -767,6 +768,7 @@ def test_spatialdata_curator(
     )
 
     artifact.delete(permanent=True)
+
 
 def test_soma_curator(curator_params: dict[str, str | FieldAttr]):
     """Test SOMA curator implementation."""
