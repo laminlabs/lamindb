@@ -562,11 +562,9 @@ def test_anndata_curator_varT_curation_legacy(ccaplog):
 def test_anndata_curator_nested_uns():
     """Test AnnData curator with uns slot validation."""
     adata = datasets.small_dataset1(otype="AnnData")
-
     adata.uns["study_metadata"] = {"temperature": 21.6, "experiment_id": "EXP001"}
 
     uns_schema = ln.Schema(
-        name="anndata_uns_nested_schema",
         features=[
             ln.Feature(name="temperature", dtype=float).save(),
             ln.Feature(name="experiment_id", dtype=str).save(),
@@ -574,7 +572,6 @@ def test_anndata_curator_nested_uns():
     ).save()
 
     anndata_schema = ln.Schema(
-        name="anndata_with_nested_uns_schema",
         otype="AnnData",
         slots={
             "uns:study_metadata": uns_schema,
@@ -598,35 +595,6 @@ def test_anndata_curator_nested_uns():
     artifact.delete(permanent=True)
     anndata_schema.delete()
     uns_schema.delete()
-
-
-def test_soma_curator(curator_params: dict[str, str | FieldAttr]):
-    """Test SOMA curator implementation."""
-    adata = datasets.small_dataset1(otype="AnnData")
-    tiledbsoma.io.from_anndata(
-        "./small_dataset1.tiledbsoma", adata, measurement_name="RNA"
-    )
-
-    curator = ln.Curator.from_tiledbsoma(  # type: ignore
-        "./small_dataset1.tiledbsoma",
-        var_index={"RNA": ("var_id", bt.Gene.ensembl_gene_id)},
-        **curator_params,
-    )
-    artifact = curator.save_artifact(key="examples/dataset1.tiledbsoma")
-
-    assert set(artifact.features.get_values()["cell_type_by_expert"]) == {
-        "CD8-positive, alpha-beta T cell",
-        "B cell",
-    }
-    assert set(artifact.features.get_values()["cell_type_by_model"]) == {
-        "T cell",
-        "B cell",
-    }
-
-    assert artifact._key_is_virtual
-
-    artifact.delete(permanent=True)
-    shutil.rmtree("./small_dataset1.tiledbsoma")
 
 
 def test_anndata_curator_no_var(small_dataset1_schema: ln.Schema):
@@ -680,6 +648,43 @@ def test_mudata_curator(
     }
 
     artifact.delete(permanent=True)
+
+def test_mudata_curator_nested_uns():
+    mdata = ln.core.datasets.mudata_papalexi21_subset()
+    mdata.uns["study_metadata"] = {"temperature": 21.6, "experiment_id": "EXP001"}
+
+    uns_schema = ln.Schema(
+        features=[
+            ln.Feature(name="temperature", dtype=float).save(),
+            ln.Feature(name="experiment_id", dtype=str).save(),
+        ],
+    ).save()
+
+    anndata_schema = ln.Schema(
+        name="anndata_with_nested_uns_schema",
+        otype="AnnData",
+        slots={
+            "uns:study_metadata": uns_schema,
+        },
+    ).save()
+
+    # Test curator creation and validation
+    curator = ln.curators.AnnDataCurator(adata, anndata_schema)
+    assert isinstance(curator.slots["uns:study_metadata"], ln.curators.DataFrameCurator)
+
+    curator.validate()
+    artifact = curator.save_artifact(key="examples/anndata_with_uns.h5ad")
+
+    assert artifact.schema == anndata_schema
+    assert "uns:study_metadata" in artifact.features.slots
+    assert artifact.features.slots[
+        "uns:study_metadata"
+    ].features.first() == ln.Feature.get(name="temperature")
+
+    # Clean up
+    artifact.delete(permanent=True)
+    anndata_schema.delete()
+    uns_schema.delete()
 
 
 @pytest.fixture(scope="module")
@@ -762,6 +767,34 @@ def test_spatialdata_curator(
     )
 
     artifact.delete(permanent=True)
+
+def test_soma_curator(curator_params: dict[str, str | FieldAttr]):
+    """Test SOMA curator implementation."""
+    adata = datasets.small_dataset1(otype="AnnData")
+    tiledbsoma.io.from_anndata(
+        "./small_dataset1.tiledbsoma", adata, measurement_name="RNA"
+    )
+
+    curator = ln.Curator.from_tiledbsoma(  # type: ignore
+        "./small_dataset1.tiledbsoma",
+        var_index={"RNA": ("var_id", bt.Gene.ensembl_gene_id)},
+        **curator_params,
+    )
+    artifact = curator.save_artifact(key="examples/dataset1.tiledbsoma")
+
+    assert set(artifact.features.get_values()["cell_type_by_expert"]) == {
+        "CD8-positive, alpha-beta T cell",
+        "B cell",
+    }
+    assert set(artifact.features.get_values()["cell_type_by_model"]) == {
+        "T cell",
+        "B cell",
+    }
+
+    assert artifact._key_is_virtual
+
+    artifact.delete(permanent=True)
+    shutil.rmtree("./small_dataset1.tiledbsoma")
 
 
 def test_tiledbsoma_curator(small_dataset1_schema: ln.Schema, clean_soma_files):

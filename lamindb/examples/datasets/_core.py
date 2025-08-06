@@ -401,7 +401,7 @@ def mudata_papalexi21_subset() -> MuData:  # pragma: no cover
         "orig.ident",
         "MULTI_ID",
         "NT",
-        "S.Score",
+        "S.Score", 
         "G2M.Score",
         "Phase",
         "gene_target",
