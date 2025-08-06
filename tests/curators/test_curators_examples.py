@@ -590,10 +590,32 @@ def test_anndata_curator_nested_uns():
         "uns:study_metadata"
     ].features.first() == ln.Feature.get(name="temperature")
 
+    with pytest.raises(InvalidArgument) as e:
+        adata = datasets.small_dataset1(otype="AnnData")
+        bad_schema = ln.Schema(
+            otype="AnnData",
+            slots={"uns:nonexistent": uns_schema},
+        ).save()
+        ln.curators.AnnDataCurator(adata, bad_schema)
+    assert (
+        "Schema slot 'uns:study_metadata' specifies path uns['study_metadata'] but key 'study_metadata' not found."
+        in str(e.value)
+    )
+
+    with pytest.raises(InvalidArgument) as e:
+        bad_schema = ln.Schema(
+            otype="AnnData",
+            slots={"uns:temperature:nonexistent_nested": uns_schema},
+        ).save()
+        ln.curators.AnnDataCurator(adata, bad_schema)
+    assert "key 'study_metadata' not found" in str(e.value)
+
     # Clean up
+    from lamindb.models import SchemaComponent
+
     artifact.delete(permanent=True)
-    anndata_schema.delete()
-    uns_schema.delete()
+    SchemaComponent.filter().delete()
+    ln.Schema.filter().delete()
 
 
 def test_anndata_curator_no_var(small_dataset1_schema: ln.Schema):

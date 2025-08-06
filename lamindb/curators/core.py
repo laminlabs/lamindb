@@ -392,15 +392,15 @@ class SlotsCurator(Curator):
         )
 
 
-def is_list_of_type(value: Any, expected_type: Any) -> bool:
+def _is_list_of_type(value: Any, expected_type: Any) -> bool:
     """Helper function to check if a value is either of expected_type or a list of that type, or a mix of both in a nested structure."""
     if isinstance(value, Iterable) and not isinstance(value, (str, bytes)):
         # handle nested lists recursively
-        return all(is_list_of_type(item, expected_type) for item in value)
+        return all(_is_list_of_type(item, expected_type) for item in value)
     return isinstance(value, expected_type)
 
 
-def check_dtype(expected_type: Any) -> Callable:
+def _check_dtype(expected_type: Any) -> Callable:
     """Creates a check function for Pandera that validates a column's dtype.
 
     Supports both standard dtype checking and mixed list/single values for the same type.
@@ -431,18 +431,18 @@ def check_dtype(expected_type: Any) -> Callable:
         if series.dtype == "object" and expected_type.startswith("list"):
             expected_type_member = expected_type.replace("list[", "").removesuffix("]")
             if expected_type_member == "int":
-                return series.apply(lambda x: is_list_of_type(x, int)).all()
+                return series.apply(lambda x: _is_list_of_type(x, int)).all()
             elif expected_type_member == "float":
-                return series.apply(lambda x: is_list_of_type(x, float)).all()
+                return series.apply(lambda x: _is_list_of_type(x, float)).all()
             elif expected_type_member == "num":
                 # for numeric, accept either int or float
-                return series.apply(lambda x: is_list_of_type(x, (int, float))).all()
+                return series.apply(lambda x: _is_list_of_type(x, (int, float))).all()
             elif (
                 expected_type_member == "str"
                 or expected_type_member == "path"
                 or expected_type_member.startswith("cat[")
             ):
-                return series.apply(lambda x: is_list_of_type(x, str)).all()
+                return series.apply(lambda x: _is_list_of_type(x, str)).all()
 
         # if we get here, the validation failed
         return False
@@ -453,7 +453,7 @@ def check_dtype(expected_type: Any) -> Callable:
 # This is also currently used as DictCurator by flattening dictionaries into wide DataFrames.
 # Such an approach was never intended and there is room for a DictCurator in the future.
 # For more context, read https://laminlabs.slack.com/archives/C07DB677JF6/p1753994077716099 and
-# https://www.notion.so/laminlabs/Add-a-DictCurator-2422aeaa55e180b9a513f91d13970836?source=copy_link
+# https://www.notion.so/laminlabs/Add-a-DictCurator-2422aeaa55e180b9a513f91d13970836
 class DataFrameCurator(Curator):
     # the example in the docstring is tested in test_curators_quickstart_example
     """Curator for `DataFrame`.
@@ -547,7 +547,7 @@ class DataFrameCurator(Curator):
                     pandera_columns[feature.name] = pandera.Column(
                         dtype=None,
                         checks=pandera.Check(
-                            check_dtype(feature.dtype),
+                            _check_dtype(feature.dtype),
                             element_wise=False,
                             error=f"Column '{feature.name}' failed dtype check for '{feature.dtype}': got {dtype}",
                         ),
@@ -716,42 +716,43 @@ class DataFrameCurator(Curator):
 def _navigate_nested_dict(
     dict_obj: dict[str, Any], keys: Iterable[str], slot: str, base_path: str
 ) -> Any:
-    """Shared helper for traversing nested dictionaries.
+    """Traverse nested dictionaries.
 
     Args:
         dict_obj: The dictionary to traverse
         keys: List of keys to traverse
         slot: Original slot string (for error messages)
         base_path: Base path string (for error messages)
-
-    Returns:
-        The final object after traversing all keys
     """
-    try:
-        for key in keys:
-            base_path += f"['{key}']"
-            dict_obj = dict_obj[key]
-    except KeyError:
-        raise InvalidArgument(
-            f"Schema slot '{slot}' specifies path {base_path} but key '{key}' "
-            f"not found. Available keys at this level: "
-            f"{list(dict_obj.keys()) if isinstance(dict_obj, dict) else 'not a dict'}"
-        ) from None
-    return dict_obj
+    current = dict_obj
+
+    for key in keys:
+        base_path += f"['{key}']"
+        try:
+            current = current[key]
+        except KeyError:
+            available = (
+                list(current.keys()) if isinstance(current, dict) else "not a dict"
+            )
+            raise InvalidArgument(
+                f"Schema slot '{slot}' specifies path {base_path} but key '{key}' "
+                f"not found. Available keys at this level: {available}"
+            ) from None
+
+    return current
 
 
 def _handle_dict_slots(
     dataset: ScverseDataStructures, slot: str
 ) -> tuple[pd.DataFrame | None, str | None, str | None]:
-    """Handle dict-based slots (uns/attrs) for all curators.
+    """Handle dict-based slots (uns/attrs) for all ScverseCurators.
 
     Args:
-        dataset: The dataset object
+        dataset: The scverse datastructure object
         slot: The slot string to parse
-        dict_attr_names: List of dict attribute names to check (e.g., ["uns", "attrs"])
 
     Returns:
-        tuple: (data_object as DataFrame, table_key, sub_slot) or (None, None, None)
+        tuple: (DataFrame, key, sub_slot)
     """
     parts = slot.split(":")
 
@@ -783,12 +784,14 @@ def _handle_dict_slots(
                 return pd.DataFrame([data_object]), modality, ":".join(parts[1:])
         except (KeyError, AttributeError):
             pass
+    else:
+        raise InvalidArgument(f"Dict slot '{slot}' not found in dataset")
 
     return None, None, None
 
 
 class AnnDataCurator(SlotsCurator):
-    """Curator for `AnnData`.
+    """Curator for `AnnData` objects.
 
     Args:
         dataset: The AnnData-like object to validate & annotate.
@@ -877,7 +880,7 @@ def _assign_var_fields_categoricals_multimodal(
 
 
 class MuDataCurator(SlotsCurator):
-    """Curator for `MuData`.
+    """Curator for `MuData` object.
 
     Args:
         dataset: The MuData-like object to validate & annotate.
@@ -962,7 +965,7 @@ class MuDataCurator(SlotsCurator):
 
 
 class SpatialDataCurator(SlotsCurator):
-    """Curator for `SpatialData`.
+    """Curator for `SpatialData` objects.
 
     Args:
         dataset: The SpatialData-like object to validate & annotate.
@@ -1058,7 +1061,7 @@ class SpatialDataCurator(SlotsCurator):
 
 
 class TiledbsomaExperimentCurator(SlotsCurator):
-    """Curator for `tiledbsoma.Experiment`.
+    """Curator for `tiledbsoma.Experiment` objects.
 
     Args:
         dataset: The `tiledbsoma.Experiment` object.
