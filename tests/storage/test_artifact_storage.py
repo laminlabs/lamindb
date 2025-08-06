@@ -9,10 +9,7 @@ from lamindb.errors import (
 
 
 def test_create_from_anndata_in_existing_cloud_storage():
-    previous_storage = ln.setup.settings.storage.root_as_str
-    ln.settings.storage = (
-        "s3://lamindb-test/core"  # need to register as storage location
-    )
+    ln.Storage("s3://lamindb-test/core").save()
     filepath = "s3://lamindb-test/core/scrnaseq_pbmc68k_tiny.h5ad"
     artifact = ln.Artifact.from_anndata(
         filepath, description="test_create_from_anndata_cloudpath"
@@ -21,7 +18,7 @@ def test_create_from_anndata_in_existing_cloud_storage():
     artifact.save()
     # check that the local filepath has been cleared
     assert not hasattr(artifact, "_local_filepath")
-    ln.settings.storage = previous_storage
+    assert artifact.path.as_posix().startswith("s3://lamindb-test/core")
 
 
 @pytest.mark.parametrize(
