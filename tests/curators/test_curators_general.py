@@ -668,7 +668,7 @@ def test_artifact_standardize_errors(df):
     with pytest.raises(RuntimeError) as e:
         curator.standardize()
     assert (
-        "can't mutate the dataset when an artifact is passed! Please load the dataset into memory using `dataset.load()` and pass it to a curator."
+        "Cannot mutate the dataset when an artifact is passed! Please load the dataset into memory using `dataset.load()` and pass it to a curator."
         in str(e.value)
     )
 
