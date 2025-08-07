@@ -68,7 +68,7 @@ def test_create_big_file_from_remote_path():
     filepath_str = "s3://lamindb-test/core/human_immune.h5ad"
     artifact = ln.Artifact(filepath_str)
     assert artifact.key == "human_immune.h5ad"
-    assert artifact._hash_type == "md5-2"
+    assert artifact._hash_type == "md5-3"
     ln.settings.storage = previous_storage
 
 
