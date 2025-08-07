@@ -37,9 +37,6 @@ def small_dataset3_cellxgene(
         "tissue_type": ["tissue", "tissue", "tissue"],
     }
 
-    if not with_uns_organism:
-        obs_data["organism"] = ["Homo sapiens", "Homo sapiens", "Homo sapiens"]
-
     obs_df = pd.DataFrame(
         obs_data,
         index=["barcode1", "barcode2", "barcode3"],
@@ -87,6 +84,7 @@ def small_dataset3_cellxgene(
             adata.uns["organism"] = "Homo sapiens"
         else:
             adata.obs["organism_ontology_term_id"] = "NCBITaxon:9606"
+            obs_data["organism"] = ["Homo sapiens", "Homo sapiens", "Homo sapiens"]
         if with_uns_spatial:
             adata.uns["spatial"] = {
                 "is_single": True,
