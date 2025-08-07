@@ -92,10 +92,10 @@ def backed_access(
     from lamindb.models import Artifact
 
     if isinstance(artifact_or_filepath, Artifact):
-        objectpath, _ = filepath_from_artifact(
-            artifact_or_filepath, using_key=using_key
-        )
+        artifact = artifact_or_filepath
+        objectpath, _ = filepath_from_artifact(artifact, using_key=using_key)
     else:
+        artifact = None
         objectpath = artifact_or_filepath
     name = objectpath.name
     # ignore .gz, only check the real suffix
@@ -113,7 +113,7 @@ def backed_access(
     elif suffix == ".zarr":
         conn, storage = registry.open("zarr", objectpath, mode=mode, **kwargs)
         if "spatialdata_attrs" in storage.attrs:
-            return SpatialDataAccessor(storage, name)
+            return SpatialDataAccessor(storage, name, artifact)
     elif len(df_suffixes := _flat_suffixes(objectpath)) == 1 and (
         df_suffix := df_suffixes.pop()
     ) in set(PYARROW_SUFFIXES).union(POLARS_SUFFIXES):
@@ -129,7 +129,7 @@ def backed_access(
     if is_anndata:
         if mode != "r":
             raise ValueError("Can only access `AnnData` with mode='r'.")
-        return AnnDataAccessor(conn, storage, name)
+        return AnnDataAccessor(conn, storage, name, artifact)
     else:
         return BackedAccessor(conn, storage)
 

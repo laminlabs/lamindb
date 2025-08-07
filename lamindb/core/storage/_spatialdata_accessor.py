@@ -8,13 +8,22 @@ from ._anndata_accessor import AnnDataAccessor
 if TYPE_CHECKING:
     from zarr import Group
 
+    from lamindb import Artifact
+
 
 class _TablesAccessor:
-    def __init__(self, tables: Group):
+    def __init__(self, tables: Group, artifact: Artifact | None = None):
         self._tables = tables
 
+        self._artifact = artifact
+
     def __getitem__(self, key: str) -> AnnDataAccessor:
-        return AnnDataAccessor(connection=None, storage=self._tables[key], filename=key)
+        return AnnDataAccessor(
+            connection=None,
+            storage=self._tables[key],
+            filename=key,
+            artifact=self._artifact,
+        )
 
     def keys(self) -> list[str]:
         return list(self._tables.keys())
@@ -33,14 +42,16 @@ class SpatialDataAccessor:
     For now only allows to access `tables`.
     """
 
-    def __init__(self, storage: Group, name: str):
+    def __init__(self, storage: Group, name: str, artifact: Artifact | None = None):
         self.storage = storage
         self._name = name
+
+        self._artifact = artifact
 
     @cached_property
     def tables(self) -> _TablesAccessor:
         """tables of the underlying SpatialData object."""
-        return _TablesAccessor(self.storage["tables"])
+        return _TablesAccessor(self.storage["tables"], self._artifact)
 
     def __repr__(self):
         """Description of the SpatialDataAccessor object."""
