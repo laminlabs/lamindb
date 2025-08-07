@@ -2395,9 +2395,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 else:
                     localpath.unlink(missing_ok=True)
         else:
-            access = backed_access(
-                filepath, mode, engine, using_key=using_key, **kwargs
-            )
+            access = backed_access(self, mode, engine, using_key=using_key, **kwargs)
             if is_tiledbsoma_w:
 
                 def finalize():
