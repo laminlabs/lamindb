@@ -33,6 +33,7 @@ def test_switch_delete_storage_location():
         == Path("./default_storage_unit_storage").resolve()
     )
     new_storage_location = "s3://lamindb-ci/test-settings-switch-storage"
+    ln.Storage(new_storage_location).save()
     ln.settings.storage = new_storage_location
     assert ln.setup.settings.storage.type_is_cloud
     assert ln.setup.settings.storage.root_as_str == new_storage_location
