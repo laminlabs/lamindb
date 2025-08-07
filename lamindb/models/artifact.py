@@ -2412,6 +2412,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                         new_version = Artifact(
                             filepath, revises=self, _is_internal_call=True
                         ).save()
+                        # note: sets _state.db = "default"
                         init_self_from_db(self, new_version)
 
                         if localpath != filepath and localpath.exists():
