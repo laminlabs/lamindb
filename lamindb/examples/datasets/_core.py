@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from urllib.request import urlretrieve
 
 import anndata as ad
@@ -416,6 +416,38 @@ def mudata_papalexi21_subset() -> MuData:  # pragma: no cover
     mdata.pull_obs(["technique"], mods="hto")
 
     return mdata
+
+
+def dict_cxg_uns() -> dict[str, Any]:
+    """An example CELLxGENE AnnData `.uns` dictionary."""
+    uns = {
+        "organism_ontology_term_id": "NCBITaxon:9606",
+        "spatial": {
+            "is_single": True,
+            "library_1": {  # Dynamic library_id key
+                "images": {
+                    "fullres": "path/to/fullres.jpg",
+                    "hires": "path/to/hires.jpg",
+                },
+                "scalefactors": {
+                    "spot_diameter_fullres": 89.43,
+                    "tissue_hires_scalef": 0.177,
+                },
+            },
+            "library_2": {  # Another dynamic library_id key
+                "images": {
+                    "fullres": "path/to/fullres_2.jpg",
+                    "hires": "path/to/hires_2.jpg",
+                },
+                "scalefactors": {
+                    "spot_diameter_fullres": 120.34,
+                    "tissue_hires_scalef": 0.355,
+                },
+            },
+        },
+    }
+
+    return uns
 
 
 def df_iris() -> pd.DataFrame:
