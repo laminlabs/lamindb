@@ -2360,11 +2360,12 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         is_tiledbsoma_w = (
             filepath.name == "soma" or self.suffix == ".tiledbsoma"
         ) and mode == "w"
+        is_zarr_w = self.suffix == ".zarr" and mode == "r+"
         # consider the case where an object is already locally cached
         localpath = setup_settings.paths.cloud_to_local_no_update(
             filepath, cache_key=cache_key
         )
-        if is_tiledbsoma_w:
+        if is_tiledbsoma_w or is_zarr_w:
             open_cache = False
         else:
             open_cache = not isinstance(
