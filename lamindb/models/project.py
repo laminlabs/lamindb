@@ -440,11 +440,29 @@ class RecordReference(BaseSQLRecord, IsLink):
         unique_together = ("record", "feature", "value")
 
 
+# for annotation of records with projects, RecordProject is for storing project values
+class ProjectRecord(BaseSQLRecord, IsLink, TracksRun):
+    id: int = models.BigAutoField(primary_key=True)
+    record: Record = ForeignKey(Record, CASCADE, related_name="links_project")
+    project: Project = ForeignKey(Project, PROTECT, related_name="links_record")
+    feature: Feature | None = ForeignKey(
+        Feature,
+        PROTECT,
+        null=True,
+        default=None,
+        related_name="links_projectrecord",
+    )
+
+    class Meta:
+        # can have the same label linked to the same artifact if the feature is different
+        unique_together = ("record", "project", "feature")
+
+
 class RecordProject(BaseSQLRecord, IsLink):
     id: int = models.BigAutoField(primary_key=True)
     record: Record = ForeignKey(Record, CASCADE, related_name="values_project")
     feature: Feature = ForeignKey(Feature, PROTECT, related_name="links_recordproject")
-    value: Project = ForeignKey(Project, PROTECT, related_name="links_record")
+    value: Project = ForeignKey(Project, PROTECT, related_name="links_in_record")
 
     class Meta:
         unique_together = ("record", "feature", "value")
