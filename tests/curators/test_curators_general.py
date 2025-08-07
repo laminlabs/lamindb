@@ -252,7 +252,8 @@ def test_schema_artifact_annotated(df):
     curator = ln.curators.DataFrameCurator(af, schema)
     curator.validate()
     curator.save_artifact()
-    assert af.schema is not None
+    af_queried = ln.Artifact.filter(key="test.parquet").one()
+    assert af_queried.schema is not None
 
     # clean up
     af.delete(permanent=True)
