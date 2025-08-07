@@ -197,11 +197,12 @@ class Settings:
 
         if isinstance(path_kwargs, tuple):
             path, kwargs = path_kwargs
+            # we should ultimately deprecate passing host here, I think
             if isinstance(kwargs, str):
                 kwargs = {"host": kwargs}
         else:
             path, kwargs = path_kwargs, {}
-        ssettings = StorageSettings(root=path, **kwargs)
+        ssettings = StorageSettings(root=path)  # there is no need to pass kwargs here!
         exists = ln.Storage.filter(root=ssettings.root_as_str).one_or_none()
         if exists is None:
             response = input(
@@ -223,6 +224,8 @@ class Settings:
                 instance_id=ln_setup.settings.instance._id,
             )
             ln_setup.settings.instance._storage = ssettings
+            kwargs.pop("host", None)  # host is not needed for existing storage
+            settings.storage._set_fs_kwargs(**kwargs)
 
     @property
     def instance_uid(self) -> str:
