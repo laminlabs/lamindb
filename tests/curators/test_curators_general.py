@@ -242,6 +242,25 @@ def test_schema_not_saved(df):
     )
 
 
+def test_schema_artifact_annotated(df):
+    """A passed Artifact should be annotated with a Schema if successfully curated."""
+    af = ln.Artifact.from_df(df, key="test.parquet").save()
+    schema = ln.Schema(
+        name="sample schema",
+        features=[ln.Feature(name="sample_id", dtype="str").save()],
+    ).save()
+    curator = ln.curators.DataFrameCurator(af, schema)
+    curator.validate()
+    curator.save_artifact()
+    af_queried = ln.Artifact.filter(key="test.parquet").one()
+    assert af_queried.schema is not None
+
+    # clean up
+    af.delete(permanent=True)
+    ln.Schema.filter().delete()
+    ln.Feature.filter().delete()
+
+
 def test_schema_optionals():
     schema = ln.Schema(
         name="my-schema",
