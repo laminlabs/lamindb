@@ -729,6 +729,8 @@ class AnnDataAccessor(_AnnDataAttrsMixin):
 
         self._artifact = artifact
 
+        self._updated = False  # track updates in r+ mode for zarr
+
         self._closed = False
 
     def close(self):
@@ -789,6 +791,8 @@ class AnnDataAccessor(_AnnDataAttrsMixin):
         df_store = self.storage[where]  # type: ignore
         write_elem(df_store, col_name, col)
         df_store.attrs["column-order"] = df_store.attrs["column-order"] + ["new_column"]
+
+        self._updated = True
 
 
 # get the number of observations in an anndata object or file fast and safely
