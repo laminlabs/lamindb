@@ -27,13 +27,13 @@ from lamindb_setup.core.upath import infer_filesystem
 from packaging import version
 from upath import UPath
 
-from lamindb import Artifact
-
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
     from fsspec.core import OpenFile
     from lamindb_setup.types import UPathStr
+
+    from lamindb import Artifact
 
 
 anndata_version_parse = version.parse(anndata_version)
@@ -742,7 +742,7 @@ class AnnDataAccessor(_AnnDataAttrsMixin):
         self._closed = True
 
         if self._updated and (artifact := self._artifact) is not None:
-            from lamindb.models.sqlrecord import init_self_from_db
+            from lamindb.models.artifact import Artifact, init_self_from_db
 
             new_version = Artifact(
                 artifact.path, revises=artifact, _is_internal_call=True
