@@ -24,10 +24,9 @@ def create_test_instance(pgurl: str):
     ln.setup.register()  # temporarily
     ln.setup.settings.auto_connect = True
     ln.settings.creation.artifact_silence_missing_run_warning = True
-    ln.settings.storage = (
-        "s3://lamindb-ci/test-data"  # register as valid storage location
-    )
-    ln.settings.storage = "./default_storage_unit_storage", "testuser1-laptop"
+    ln.Storage("s3://lamindb-ci/test-data").save()
+    ln.Storage("s3://lamindb-test/core").save()
+    ln.Storage("s3://lamindb-test/storage").save()
 
 
 def pytest_sessionstart():
