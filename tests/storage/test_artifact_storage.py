@@ -59,10 +59,13 @@ def test_create_small_file_from_remote_path(
 
 
 def test_create_big_file_from_remote_path():
+    # the point of this test is check the multi-upload hash
     filepath_str = "s3://lamindb-test/core/human_immune.h5ad"
+    # we don't use from_anndata() here because we test this with a small file for shorter run time
     artifact = ln.Artifact(filepath_str)
     assert artifact.key == "human_immune.h5ad"
-    assert artifact._hash_type == "md5-2"
+    assert artifact._hash_type == "md5-3"
+    assert artifact.size == 21960324
     assert artifact.path.as_posix().startswith("s3://lamindb-test/core")
 
 
