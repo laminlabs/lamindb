@@ -28,6 +28,8 @@ if TYPE_CHECKING:
     from fsspec.core import OpenFile
     from lamindb_setup.types import UPathStr
 
+    from lamindb import Artifact
+
 
 anndata_version_parse = version.parse(anndata_version)
 
@@ -708,6 +710,7 @@ class AnnDataAccessor(_AnnDataAttrsMixin):
         connection: OpenFile | None,
         storage: StorageType,
         filename: str,
+        artifact: Artifact | None = None,
     ):
         self._conn = connection
         self.storage = storage
@@ -718,6 +721,8 @@ class AnnDataAccessor(_AnnDataAttrsMixin):
 
         self._obs_names = _safer_read_index(self.storage["obs"])  # type: ignore
         self._var_names = _safer_read_index(self.storage["var"])  # type: ignore
+
+        self._artifact = artifact
 
         self._closed = False
 
