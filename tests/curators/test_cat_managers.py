@@ -267,7 +267,7 @@ def test_pass_artifact(df):
         curator.validate()
         with pytest.raises(
             RuntimeError,
-            match="Cannot mutate the dataset when an artifact is passed!",
+            match="can't mutate the dataset when an artifact is passed!",
         ):
             curator.standardize("all")
         curator.add_new_from("donor")
