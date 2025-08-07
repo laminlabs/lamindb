@@ -13,7 +13,12 @@ from anndata import __version__ as anndata_version
 from anndata._core.index import _normalize_indices
 from anndata._core.views import _resolve_idx
 from anndata._io.h5ad import read_dataframe_legacy as read_dataframe_legacy_h5
-from anndata._io.specs.registry import get_spec, read_elem, read_elem_partial
+from anndata._io.specs.registry import (
+    get_spec,
+    read_elem,
+    read_elem_partial,
+    write_elem,
+)
 from anndata.compat import _read_attr
 from fsspec.implementations.local import LocalFileSystem
 from fsspec.utils import infer_compression
@@ -773,6 +778,22 @@ class AnnDataAccessor(_AnnDataAttrsMixin):
         return AnnDataRawAccessor(
             self.storage["raw"], None, None, self._obs_names, None, self.shape[0]
         )
+
+    def add_column(
+        self,
+        where: Literal["obs", "var"],
+        col_name: str,
+        col: np.ndarray | pd.Series | pd.Categorical,
+    ):
+        """Add a new column to .obs or .var of the underlying AnnData object."""
+        storage_where = self.storage[where]  # type: ignore
+        if isinstance(col, pd.Series):
+            col = col.values
+
+        write_elem(storage_where, col_name, col)
+        storage_where.attrs["column-order"] = storage_where.attrs["column-order"] + [
+            "new_column"
+        ]
 
 
 # get the number of observations in an anndata object or file fast and safely
