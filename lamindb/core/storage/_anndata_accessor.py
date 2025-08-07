@@ -783,17 +783,12 @@ class AnnDataAccessor(_AnnDataAttrsMixin):
         self,
         where: Literal["obs", "var"],
         col_name: str,
-        col: np.ndarray | pd.Series | pd.Categorical,
+        col: np.ndarray | pd.Categorical,
     ):
         """Add a new column to .obs or .var of the underlying AnnData object."""
-        storage_where = self.storage[where]  # type: ignore
-        if isinstance(col, pd.Series):
-            col = col.values
-
-        write_elem(storage_where, col_name, col)
-        storage_where.attrs["column-order"] = storage_where.attrs["column-order"] + [
-            "new_column"
-        ]
+        df_store = self.storage[where]  # type: ignore
+        write_elem(df_store, col_name, col)
+        df_store.attrs["column-order"] = df_store.attrs["column-order"] + ["new_column"]
 
 
 # get the number of observations in an anndata object or file fast and safely
