@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Literal
 
+import h5py
 from anndata._io.specs.registry import get_spec
 
 from ._anndata_accessor import AnnDataAccessor, StorageType, registry
@@ -111,6 +112,8 @@ def backed_access(
     elif suffix in {".h5", ".hdf5", ".h5ad"}:
         conn, storage = registry.open("h5py", objectpath, mode=mode, **kwargs)
     elif suffix == ".zarr":
+        if mode not in {"r", "r+"}:
+            raise ValueError("`mode` should be either 'r' or 'r+' for zarr.")
         conn, storage = registry.open("zarr", objectpath, mode=mode, **kwargs)
         if "spatialdata_attrs" in storage.attrs:
             return SpatialDataAccessor(storage, name, artifact)
@@ -127,8 +130,8 @@ def backed_access(
 
     is_anndata = suffix == ".h5ad" or get_spec(storage).encoding_type == "anndata"
     if is_anndata:
-        if mode != "r":
-            raise ValueError("Can only access `AnnData` with mode='r'.")
+        if mode != "r" and isinstance(storage, h5py.Group):
+            raise ValueError("Can only access `hdf5` `AnnData` with mode='r'.")
         return AnnDataAccessor(conn, storage, name, artifact)
     else:
         return BackedAccessor(conn, storage)
