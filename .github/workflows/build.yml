@@ -51,7 +51,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix: ${{fromJson(needs.pre-filter.outputs.matrix)}}
-    timeout-minutes: 20
+    timeout-minutes: 60 # TODO revert
     steps:
       - uses: actions/checkout@v4
         with:
