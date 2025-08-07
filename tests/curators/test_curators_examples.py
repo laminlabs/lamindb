@@ -611,11 +611,10 @@ def test_anndata_curator_nested_uns():
     assert "key 'study_metadata' not found" in str(e.value)
 
     # Clean up
-    from lamindb.models import SchemaComponent
-
     artifact.delete(permanent=True)
-    SchemaComponent.filter().delete()
-    ln.Schema.filter().delete()
+    bad_schema.delete()
+    uns_schema.delete()
+    anndata_schema.delete()
 
 
 def test_anndata_curator_no_var(small_dataset1_schema: ln.Schema):
