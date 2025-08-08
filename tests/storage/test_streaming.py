@@ -12,7 +12,7 @@ import tiledbsoma
 import tiledbsoma.io
 import zarr
 from lamindb.core.loaders import load_h5ad
-from lamindb.core.storage._anndata_accessor import _anndata_n_observations
+from lamindb.core.storage._anndata_accessor import _anndata_n_observations, _to_index
 from lamindb.core.storage._backed_access import (
     AnnDataAccessor,
     BackedAccessor,
@@ -166,6 +166,16 @@ def test_backed_access(adata_format):
     if adata_format == "zarr":
         assert fp.suffix == ".zarr"
         shutil.rmtree(fp)
+
+
+def test_to_index():
+    elem_int = np.arange(3, dtype=int)
+    elem_float = elem_int.astype(float)
+    elem_str = elem_int.astype(str)
+
+    assert _to_index(elem_int).dtype == "object"
+    assert _to_index(elem_float).dtype == "object"
+    assert _to_index(elem_str).dtype == "object"
 
 
 def test_infer_suffix():
