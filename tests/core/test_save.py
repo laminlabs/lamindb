@@ -1,5 +1,10 @@
+# ruff: noqa: F811
+
 import lamindb as ln
 import pytest
+from _dataset_fixtures import (  # noqa
+    get_mini_csv,
+)
 from lamindb.models.save import prepare_error_message, store_artifacts
 
 
@@ -16,9 +21,8 @@ def test_bulk_save_and_update():
     assert ln.ULabel.get(name="ULabel 0 updated")
 
 
-def test_prepare_error_message():
-    ln.core.datasets.file_mini_csv()
-    artifact = ln.Artifact("mini.csv", description="test")
+def test_prepare_error_message(get_mini_csv):
+    artifact = ln.Artifact(get_mini_csv, description="test")
     exception = Exception("exception")
 
     error = prepare_error_message([], [artifact], exception)
@@ -30,17 +34,15 @@ def test_prepare_error_message():
     assert error.startswith("No entries were uploaded or committed to the database")
 
 
-def test_save_data_object():
-    ln.core.datasets.file_mini_csv()
-    artifact = ln.Artifact("mini.csv", description="test")
+def test_save_data_object(get_mini_csv):
+    artifact = ln.Artifact(get_mini_csv, description="test")
     artifact.save()
     assert artifact.path.exists()
     artifact.delete(permanent=True, storage=True)
 
 
-def test_store_artifacts_acid():
-    ln.core.datasets.file_mini_csv()
-    artifact = ln.Artifact("mini.csv", description="test")
+def test_store_artifacts_acid(get_mini_csv):
+    artifact = ln.Artifact(get_mini_csv, description="test")
     artifact._clear_storagekey = "test.csv"
     # errors on check_and_attempt_clearing
     with pytest.raises(FileNotFoundError):

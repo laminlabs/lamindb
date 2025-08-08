@@ -28,21 +28,17 @@ def save_vitessce_config(
     If the `VitessceConfig` object references multiple artifacts, automatically
     creates a `Collection` and displays the "Vitessce button" next to it.
 
+    The `VitessceConfig` artifact has `.suffix = ".vitessce.json"` and `.kind = "__lamindb_config__"`,
+    which is by default hidden on the hub UI.
+
     Guide: :doc:`docs:vitessce`.
 
     Args:
         vitessce_config: A `VitessceConfig` object.
-        key: A key for the `VitessceConfig` object. Is used as `key` for a
-            `Collection` in case the `VitessceConfig` object references
-            multiple artifacts.
-        description: A description for the `VitessceConfig` object.
-
-    .. versionchanged:: 0.76.12
-        Now assumes `vitessce-python >= 3.4.0`, which allows passing artifacts within `VitessceConfig`.
-    .. versionchanged:: 0.75.1
-        Now displays the "Vitessce button" on the hub next to the dataset. It additionally keeps displaying it next to the configuration file.
-    .. versionchanged:: 0.70.2
-        No longer saves the dataset. It only saves the `VitessceConfig` object.
+        key: A `key` for the `VitessceConfig` artifact.
+        description: A `description` for the `VitessceConfig` aritifact. Is additionally
+            used as `key` for a `Collection` in case the `VitessceConfig` object
+            references multiple artifacts.
     """
     # can only import here because vitessce is not a dependency
     from vitessce import VitessceConfig
@@ -73,6 +69,8 @@ def save_vitessce_config(
     if len(dataset_artifacts) > 1:
         # if we have more datasets, we should create a collection
         # and attach an action to the collection
+        # consicious use of description for key, see here
+        # https://github.com/laminlabs/lamindb/pull/2997
         collection = Collection(dataset_artifacts, key=description).save()
 
     # create a JSON export
@@ -80,7 +78,11 @@ def save_vitessce_config(
     with open(config_file_local_path, "w") as file:
         json.dump(vc_dict, file)
     vitessce_config_artifact = Artifact(
-        config_file_local_path, key=key, description=description, run=run
+        config_file_local_path,
+        key=key,
+        description=description,
+        run=run,
+        kind="__lamindb_config__",
     ).save()
     slug = ln_setup.settings.instance.slug
     logger.important(

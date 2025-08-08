@@ -67,7 +67,7 @@ from ..errors import IntegrityError, InvalidArgument, ValidationError
 from ..models._is_versioned import (
     create_uid,
 )
-from ._django import get_artifact_with_related
+from ._django import get_artifact_with_related, get_collection_with_related
 from ._feature_manager import (
     FeatureManager,
     filter_base,
@@ -117,7 +117,11 @@ if TYPE_CHECKING:
     from tiledbsoma import Measurement as SOMAMeasurement
 
     from lamindb.base.types import StrField
-    from lamindb.core.storage._backed_access import AnnDataAccessor, BackedAccessor
+    from lamindb.core.storage._backed_access import (
+        AnnDataAccessor,
+        BackedAccessor,
+        SpatialDataAccessor,
+    )
     from lamindb.core.types import ScverseDataStructures
 
     from ..base.types import (
@@ -709,7 +713,11 @@ def save_schema_links(self: Artifact) -> None:
 
 
 def _describe_postgres(self):  # for Artifact & Collection
-    from ._describe import describe_artifact_general, describe_header
+    from ._describe import (
+        describe_artifact_general,
+        describe_collection_general,
+        describe_header,
+    )
     from ._feature_manager import describe_features
 
     model_name = self.__class__.__name__
@@ -737,13 +745,23 @@ def _describe_postgres(self):  # for Artifact & Collection
             related_data=related_data,
             with_labels=True,
         )
+    elif model_name == "Collection":
+        result = get_collection_with_related(self, include_fk=True)
+        tree = describe_collection_general(
+            self, foreign_key_data=related_data.get("fk", {})
+        )
+        return tree
     else:
         tree = describe_header(self)
         return tree
 
 
 def _describe_sqlite(self, print_types: bool = False):  # for artifact & collection
-    from ._describe import describe_artifact_general, describe_header
+    from ._describe import (
+        describe_artifact_general,
+        describe_collection_general,
+        describe_header,
+    )
     from ._feature_manager import describe_features
     from .collection import Collection
 
@@ -786,6 +804,9 @@ def _describe_sqlite(self, print_types: bool = False):  # for artifact & collect
             tree=tree,
             with_labels=True,
         )
+    elif model_name == "Collection":
+        tree = describe_collection_general(self)
+        return tree
     else:
         tree = describe_header(self)
         return tree
@@ -983,7 +1004,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
     Args:
         data: `UPathStr` A path to a local or remote folder or file.
-        kind: `Literal["dataset", "model"] | None = None` Distinguish models from datasets from other files & folders.
+        kind: `Literal["dataset", "model"] | str | None = None` Distinguish models from datasets from other files & folders.
         key: `str | None = None` A path-like key to reference artifact in default storage, e.g., `"myfolder/myfile.fcs"`. Artifacts with the same key form a version family.
         description: `str | None = None` A description.
         revises: `Artifact | None = None` Previous version of the artifact. Is an alternative way to passing `key` to trigger a new version.
@@ -1096,11 +1117,19 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             # folders
             # the conditional composite constraint allows duplicating files in different parts of the
             # file hierarchy, but errors if the same file is to be registered with the same key
-            # or if the key is not populated
+            # In SQL, NULL values are treated specially in unique constraints.
+            # Multiple NULL values are not considered equal to each other for uniqueness purposes.
+            # For non-NULL keys
             models.UniqueConstraint(
                 fields=["storage", "key", "hash"],
-                name="unique_artifact_storage_key_hash",
-                condition=Q(key__isnull=False),
+                condition=models.Q(key__isnull=False),
+                name="unique_artifact_storage_key_hash_not_null",
+            ),
+            # For NULL keys (only storage + hash need to be unique)
+            models.UniqueConstraint(
+                fields=["storage", "hash"],
+                condition=models.Q(key__isnull=True),
+                name="unique_artifact_storage_hash_null_key",
             ),
         ]
 
@@ -1210,12 +1239,12 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
     This is either a file suffix (`".csv"`, `".h5ad"`, etc.) or the empty string "".
     """
-    kind: ArtifactKind | None = CharField(
+    kind: ArtifactKind | str | None = CharField(
         max_length=20,
         db_index=True,
         null=True,
     )
-    """:class:`~lamindb.base.types.ArtifactKind` (default `None`)."""
+    """:class:`~lamindb.base.types.ArtifactKind` or custom `str` value (default `None`)."""
     otype: str | None = CharField(
         max_length=64, db_index=True, null=True, editable=False
     )
@@ -1328,7 +1357,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         # here; and we might refactor this but we might also keep that internal
         # usage
         data: UPathStr,
-        kind: ArtifactKind | None = None,
+        kind: ArtifactKind | str | None = None,
         key: str | None = None,
         description: str | None = None,
         revises: Artifact | None = None,
@@ -1383,7 +1412,10 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         skip_check_exists = kwargs.pop("skip_check_exists", False)
         if "storage" in kwargs:
             storage = kwargs.pop("storage")
-        elif setup_settings.instance.keep_artifacts_local:
+        elif (
+            setup_settings.instance.keep_artifacts_local
+            and setup_settings.instance._local_storage is not None
+        ):
             storage = setup_settings.instance.local_storage.record
         else:
             storage = setup_settings.instance.storage.record
@@ -2244,6 +2276,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         **kwargs,
     ) -> (
         AnnDataAccessor
+        | SpatialDataAccessor
         | BackedAccessor
         | SOMACollection
         | SOMAExperiment

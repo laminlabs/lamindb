@@ -238,7 +238,7 @@ class Run(SQLRecord):
         editable=False, unique=True, db_index=True, max_length=20, default=base62_16
     )
     """Universal id, valid across DB instances."""
-    name: str | None = CharField(max_length=150, null=True)
+    name: str | None = CharField(max_length=150, null=True, db_index=True)
     """A name."""
     transform: Transform = ForeignKey("Transform", CASCADE, related_name="runs")
     """The transform :class:`~lamindb.Transform` that is being run."""

@@ -1,12 +1,7 @@
 from __future__ import annotations
 
 import warnings
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Literal,
-    overload,
-)
+from typing import TYPE_CHECKING, Any, Literal, overload
 
 import anndata as ad
 import pandas as pd
@@ -132,7 +127,7 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     """Versioned collections of artifacts.
 
     Args:
-        artifacts: `list[Artifact]` A list of artifacts.
+        artifacts: `Artifact | list[Artifact]` One or several artifacts.
         key: `str` A file-path like key, analogous to the `key` parameter of `Artifact` and `Transform`.
         description: `str | None = None` A description.
         revises: `Collection | None = None` An old version of the collection.
@@ -233,7 +228,7 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     @overload
     def __init__(
         self,
-        artifacts: list[Artifact],
+        artifacts: Artifact | list[Artifact],
         key: str,
         description: str | None = None,
         meta: Any | None = None,
@@ -260,7 +255,7 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         # now we proceed with the user-facing constructor
         if len(args) > 1:
             raise ValueError("Only one non-keyword arg allowed: artifacts")
-        artifacts: Artifact | Iterable[Artifact] = (
+        artifacts: Artifact | list[Artifact] = (
             kwargs.pop("artifacts") if len(args) == 0 else args[0]
         )
         meta_artifact: Artifact | None = kwargs.pop("meta_artifact", None)

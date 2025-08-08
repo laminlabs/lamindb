@@ -969,7 +969,6 @@ class FeatureManager:
                         }
                     else:
                         result = parse_dtype(feature.dtype)[0]
-                        print(result["field"])
                     validated = result["registry"].validate(  # type: ignore
                         values, field=result["field"], mute=True
                     )

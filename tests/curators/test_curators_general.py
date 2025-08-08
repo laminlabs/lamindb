@@ -242,6 +242,25 @@ def test_schema_not_saved(df):
     )
 
 
+def test_schema_artifact_annotated(df):
+    """A passed Artifact should be annotated with a Schema if successfully curated."""
+    af = ln.Artifact.from_df(df, key="test.parquet").save()
+    schema = ln.Schema(
+        name="sample schema",
+        features=[ln.Feature(name="sample_id", dtype="str").save()],
+    ).save()
+    curator = ln.curators.DataFrameCurator(af, schema)
+    curator.validate()
+    curator.save_artifact()
+    af_queried = ln.Artifact.filter(key="test.parquet").one()
+    assert af_queried.schema is not None
+
+    # clean up
+    af.delete(permanent=True)
+    ln.Schema.filter().delete()
+    ln.Feature.filter().delete()
+
+
 def test_schema_optionals():
     schema = ln.Schema(
         name="my-schema",
@@ -612,3 +631,30 @@ def test_add_new_from_subtype(df):
     ln.Feature.filter().delete()
     ln.Record.filter().update(type=None)
     ln.Record.filter().delete()
+
+
+def test_index_feature_exclusion_from_categoricals(df):
+    df_indexed = df.set_index("sample_id")
+
+    sample_type_feature = ln.Feature(name="sample_type", dtype="cat[ULabel]").save()
+    sample_id_feature = ln.Feature(name="sample_id", dtype="cat[ULabel]").save()
+
+    # schema with sample_id as index (not in features)
+    schema = ln.Schema(features=[sample_type_feature], index=sample_id_feature).save()
+
+    curator = ln.curators.DataFrameCurator(df_indexed, schema)
+
+    # Verify that only sample_type is in categoricals, not sample_id (index)
+    categoricals_names = [f.name for f in curator._cat_manager._categoricals]
+    assert "sample_type" in categoricals_names
+    assert "sample_id" not in categoricals_names
+
+    # Verify the cat_vectors do not include the index feature
+    cat_vector_keys = list(curator.cat._cat_vectors.keys())
+    assert "sample_type" in cat_vector_keys
+    assert "sample_id" not in cat_vector_keys
+    assert "columns" in cat_vector_keys
+
+    # clean up
+    schema.delete()
+    ln.Feature.filter().delete()

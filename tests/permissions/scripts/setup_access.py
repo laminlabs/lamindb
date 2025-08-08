@@ -19,7 +19,7 @@ def create_jwt_user(dsn_admin: str, jwt_role_name: str):
 
 pgurl = "postgresql://postgres:pwd@0.0.0.0:5432/pgtest"  # admin db connection url
 jwt_db_url = create_jwt_user(pgurl, jwt_role_name=f"{instance_id.hex}_jwt")
-_install_db_module(pgurl, instance_id=instance_id)
+_install_db_module(None, pgurl, instance_id=instance_id, public=False)
 
 print("Created jwt db connection")
 

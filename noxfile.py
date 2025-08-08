@@ -101,8 +101,8 @@ def install_ci(session, group):
         run(session, "uv pip install --system polars")
     elif group == "tutorial":
         extras += "jupyter,bionty"
-        run(session, "uv pip install --system huggingface_hub")
-        run(session, "uv pip install --system polars")
+        # anndata here to prevent installing older version on release
+        run(session, "uv pip install --system huggingface_hub polars anndata==0.12.1")
     elif group == "guide":
         extras += "bionty,zarr,jupyter"
         run(session, "uv pip install --system scanpy mudata spatialdata tiledbsoma")
@@ -249,7 +249,7 @@ def test(session, group):
         )
     elif group == "unit-storage":
         login_testuser2(session)  # shouldn't be necessary but is for now
-        run(session, f"pytest {coverage_args} ./tests/storage {duration_args}")
+        run(session, f"pytest -s {coverage_args} ./tests/storage {duration_args}")
     elif group == "tutorial":
         run(session, "lamin logout")
         run(

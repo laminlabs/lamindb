@@ -1,0 +1,73 @@
+{
+  "@context": {
+    "@vocab": "https://schema.org/",
+    "cr": "https://mlcommons.org/croissant/",
+    "ml": "http://ml-schema.org/",
+    "sc": "https://schema.org/",
+    "dct": "http://purl.org/dc/terms/",
+    "data": "https://mlcommons.org/croissant/data/",
+    "rai": "https://mlcommons.org/croissant/rai/",
+    "format": "https://mlcommons.org/croissant/format/",
+    "citeAs": "https://mlcommons.org/croissant/citeAs/",
+    "conformsTo": "https://mlcommons.org/croissant/conformsTo/",
+    "@language": "en",
+    "repeated": "https://mlcommons.org/croissant/repeated/",
+    "field": "https://mlcommons.org/croissant/field/",
+    "examples": "https://mlcommons.org/croissant/examples/",
+    "recordSet": "https://mlcommons.org/croissant/recordSet/",
+    "fileObject": "https://mlcommons.org/croissant/fileObject/",
+    "fileSet": "https://mlcommons.org/croissant/fileSet/",
+    "source": "https://mlcommons.org/croissant/source/",
+    "references": "https://mlcommons.org/croissant/references/",
+    "key": "https://mlcommons.org/croissant/key/",
+    "parentField": "https://mlcommons.org/croissant/parentField/",
+    "isLiveDataset": "https://mlcommons.org/croissant/isLiveDataset/",
+    "separator": "https://mlcommons.org/croissant/separator/",
+    "extract": "https://mlcommons.org/croissant/extract/",
+    "subField": "https://mlcommons.org/croissant/subField/",
+    "regex": "https://mlcommons.org/croissant/regex/",
+    "column": "https://mlcommons.org/croissant/column/",
+    "path": "https://mlcommons.org/croissant/path/",
+    "fileProperty": "https://mlcommons.org/croissant/fileProperty/",
+    "md5": "https://mlcommons.org/croissant/md5/",
+    "jsonPath": "https://mlcommons.org/croissant/jsonPath/",
+    "transform": "https://mlcommons.org/croissant/transform/",
+    "replace": "https://mlcommons.org/croissant/replace/",
+    "dataType": "https://mlcommons.org/croissant/dataType/",
+    "includes": "https://mlcommons.org/croissant/includes/",
+    "excludes": "https://mlcommons.org/croissant/excludes/"
+  },
+  "@type": "Dataset",
+  "name": "Mini immuno dataset",
+  "description": "A few samples from the immunology dataset",
+  "url": "https://lamin.ai/laminlabs/lamindata/artifact/tCUkRcaEjTjhtozp0000",
+  "creator": {
+    "@type": "Person",
+    "name": "falexwolf"
+  },
+  "dateCreated": "2025-07-16",
+  "cr:projectName": "Mini Immuno Project",
+  "datePublished": "2025-07-16",
+  "version": "1.0",
+  "license": "https://creativecommons.org/licenses/by/4.0/",
+  "citation": "Please cite this dataset as: mini immuno (2025)",
+  "encodingFormat": "zarr",
+  "distribution": [
+    {
+      "@type": "cr:FileSet",
+      "@id": "mini_immuno.anndata.zarr",
+      "containedIn": {
+        "@id": "directory"
+      },
+      "encodingFormat": "zarr"
+    }
+  ],
+  "cr:recordSet": [
+    {
+      "@type": "cr:RecordSet",
+      "@id": "#samples",
+      "name": "samples",
+      "description": "my sample"
+    }
+  ]
+}

@@ -1766,6 +1766,9 @@ def record_repr(
         field_names.insert(0, "uid")
     fields_str = {}
     for k in field_names:
+        if k == "n" and getattr(self, k) < 0:
+            # only needed for Schema
+            continue
         if not k.startswith("_") and hasattr(self, k):
             value = getattr(self, k)
             # Force strip the time component of the version

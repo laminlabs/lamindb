@@ -12,7 +12,7 @@ import tiledbsoma
 import tiledbsoma.io
 import zarr
 from lamindb.core.loaders import load_h5ad
-from lamindb.core.storage._anndata_accessor import _anndata_n_observations
+from lamindb.core.storage._anndata_accessor import _anndata_n_observations, _to_index
 from lamindb.core.storage._backed_access import (
     AnnDataAccessor,
     BackedAccessor,
@@ -129,6 +129,12 @@ def test_backed_access(adata_format):
     assert sub.obs_names.tolist() == obs_sub
     assert sub.to_memory().shape == (3, 200)
 
+    # check with a bool mask
+    obs_mask = np.isin(access.obs_names, obs_sub)
+    sub = access[obs_mask]
+    assert sub.obs_names.tolist() == obs_sub
+    assert sub.to_memory().shape == (3, 200)
+
     idx = np.array([1, 2, 5])
     sub = access[idx]
     assert sub.raw.shape == (3, 100)
@@ -160,6 +166,16 @@ def test_backed_access(adata_format):
     if adata_format == "zarr":
         assert fp.suffix == ".zarr"
         shutil.rmtree(fp)
+
+
+def test_to_index():
+    elem_int = np.arange(3, dtype=int)
+    elem_float = elem_int.astype(float)
+    elem_str = elem_int.astype(str)
+
+    assert _to_index(elem_int).dtype == "object"
+    assert _to_index(elem_float).dtype == "object"
+    assert _to_index(elem_str).dtype == "object"
 
 
 def test_infer_suffix():
@@ -212,8 +228,7 @@ def test_backed_zarr_not_adata():
 
 def test_anndata_open_mode():
     fp = ln.core.datasets.anndata_file_pbmc68k_test()
-    artifact = ln.Artifact(fp, key="test_adata.h5ad")
-    artifact.save()
+    artifact = ln.Artifact(fp, key="test_adata.h5ad").save()
 
     with artifact.open(mode="r") as access:
         assert isinstance(access, AnnDataAccessor)
@@ -550,6 +565,8 @@ def test_open_dataframe_collection():
     artifact3.delete(permanent=True)
     artifact4.delete(permanent=True, storage=False)
 
+    Path("mini.csv").unlink(missing_ok=True)
+
     ln.settings.storage = "s3://lamindb-test/storage"
 
 
@@ -610,5 +627,9 @@ def test_compressed():
     with pytest.raises(OSError):
         artifact.open(compression=None)
 
+    print("begin cleanup test_compressed")
+
     artifact.delete(permanent=True)
     adata_gz.unlink()
+
+    print("end cleanup test_compressed")
