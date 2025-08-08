@@ -13,7 +13,12 @@ from anndata import __version__ as anndata_version
 from anndata._core.index import _normalize_indices
 from anndata._core.views import _resolve_idx
 from anndata._io.h5ad import read_dataframe_legacy as read_dataframe_legacy_h5
-from anndata._io.specs.registry import get_spec, read_elem, read_elem_partial
+from anndata._io.specs.registry import (
+    get_spec,
+    read_elem,
+    read_elem_partial,
+    write_elem,
+)
 from anndata.compat import _read_attr
 from fsspec.implementations.local import LocalFileSystem
 from fsspec.utils import infer_compression
@@ -27,6 +32,8 @@ if TYPE_CHECKING:
 
     from fsspec.core import OpenFile
     from lamindb_setup.types import UPathStr
+
+    from lamindb import Artifact
 
 
 anndata_version_parse = version.parse(anndata_version)
@@ -708,6 +715,7 @@ class AnnDataAccessor(_AnnDataAttrsMixin):
         connection: OpenFile | None,
         storage: StorageType,
         filename: str,
+        artifact: Artifact | None = None,
     ):
         self._conn = connection
         self.storage = storage
@@ -719,6 +727,11 @@ class AnnDataAccessor(_AnnDataAttrsMixin):
         self._obs_names = _safer_read_index(self.storage["obs"])  # type: ignore
         self._var_names = _safer_read_index(self.storage["var"])  # type: ignore
 
+        self._artifact = artifact  # save artifact to update in write mode
+
+        self._updated = False  # track updates in r+ mode for zarr
+
+        self._entered = False  # check that the context manager is used
         self._closed = False
 
     def close(self):
@@ -729,11 +742,22 @@ class AnnDataAccessor(_AnnDataAttrsMixin):
             self._conn.close()
         self._closed = True
 
+        if self._updated and (artifact := self._artifact) is not None:
+            from lamindb.models.artifact import Artifact, init_self_from_db
+
+            new_version = Artifact(
+                artifact.path, revises=artifact, _is_internal_call=True
+            ).save()
+            # note: sets _state.db = "default"
+            init_self_from_db(artifact, new_version)
+
     @property
     def closed(self):
         return self._closed
 
     def __enter__(self):
+        self._entered = True
+
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -768,6 +792,30 @@ class AnnDataAccessor(_AnnDataAttrsMixin):
         return AnnDataRawAccessor(
             self.storage["raw"], None, None, self._obs_names, None, self.shape[0]
         )
+
+    def add_column(
+        self,
+        where: Literal["obs", "var"],
+        col_name: str,
+        col: np.ndarray | pd.Categorical,
+    ):
+        """Add a new column to .obs or .var of the underlying AnnData object."""
+        df_store = self.storage[where]  # type: ignore
+        if getattr(df_store, "read_only", True):
+            raise ValueError(
+                "You can use .add_column(...) only with zarr in a writable mode."
+            )
+        write_elem(df_store, col_name, col)
+        df_store.attrs["column-order"] = df_store.attrs["column-order"] + ["new_column"]
+        # remind only once if this wasn't updated before and not in the context manager
+        if not self._updated and not self._entered and self._artifact is not None:
+            logger.important(
+                "Do not forget to call .close() after you finish "
+                f"working with this accessor for {self._name} "
+                "to automatically update the corresponding artifact."
+            )
+
+        self._updated = True
 
 
 # get the number of observations in an anndata object or file fast and safely

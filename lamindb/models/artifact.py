@@ -2360,11 +2360,12 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         is_tiledbsoma_w = (
             filepath.name == "soma" or self.suffix == ".tiledbsoma"
         ) and mode == "w"
+        is_zarr_w = self.suffix == ".zarr" and mode == "r+"
         # consider the case where an object is already locally cached
         localpath = setup_settings.paths.cloud_to_local_no_update(
             filepath, cache_key=cache_key
         )
-        if is_tiledbsoma_w:
+        if is_tiledbsoma_w or is_zarr_w:
             open_cache = False
         else:
             open_cache = not isinstance(
@@ -2395,9 +2396,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 else:
                     localpath.unlink(missing_ok=True)
         else:
-            access = backed_access(
-                filepath, mode, engine, using_key=using_key, **kwargs
-            )
+            access = backed_access(self, mode, engine, using_key=using_key, **kwargs)
             if is_tiledbsoma_w:
 
                 def finalize():
@@ -2413,6 +2412,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                         new_version = Artifact(
                             filepath, revises=self, _is_internal_call=True
                         ).save()
+                        # note: sets _state.db = "default"
                         init_self_from_db(self, new_version)
 
                         if localpath != filepath and localpath.exists():
