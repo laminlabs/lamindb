@@ -803,7 +803,7 @@ class AnnDataAccessor(_AnnDataAttrsMixin):
         df_store = self.storage[where]  # type: ignore
         if getattr(df_store, "read_only", True):
             raise ValueError(
-                "You can use .add_column only with zarr in a writable mode."
+                "You can use .add_column(...) only with zarr in a writable mode."
             )
         write_elem(df_store, col_name, col)
         df_store.attrs["column-order"] = df_store.attrs["column-order"] + ["new_column"]
