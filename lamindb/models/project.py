@@ -468,6 +468,7 @@ class ProjectRecord(BaseSQLRecord, IsLink, TracksRun):
 
     class Meta:
         # can have the same label linked to the same artifact if the feature is different
+        app_label = "lamindb"
         unique_together = ("record", "project", "feature")
 
 
