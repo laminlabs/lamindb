@@ -727,10 +727,11 @@ class AnnDataAccessor(_AnnDataAttrsMixin):
         self._obs_names = _safer_read_index(self.storage["obs"])  # type: ignore
         self._var_names = _safer_read_index(self.storage["var"])  # type: ignore
 
-        self._artifact = artifact
+        self._artifact = artifact  # save artifact to update in write mode
 
         self._updated = False  # track updates in r+ mode for zarr
 
+        self._entered = False  # check that the context manager is used
         self._closed = False
 
     def close(self):
@@ -755,6 +756,8 @@ class AnnDataAccessor(_AnnDataAttrsMixin):
         return self._closed
 
     def __enter__(self):
+        self._entered = True
+
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -804,6 +807,13 @@ class AnnDataAccessor(_AnnDataAttrsMixin):
             )
         write_elem(df_store, col_name, col)
         df_store.attrs["column-order"] = df_store.attrs["column-order"] + ["new_column"]
+        # remind only once if this wasn't updated before and not in the context manager
+        if not self._updated and not self._entered and self._artifact is not None:
+            logger.important(
+                "Do not forget to call .close() after you finish "
+                f"working with this accessor for {self._name} "
+                "to automatically update the corresponding artifact."
+            )
 
         self._updated = True
 
