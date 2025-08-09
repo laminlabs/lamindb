@@ -5,7 +5,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("lamindb", "0118_squashed"),
+        ("lamindb", "0118_alter_recordproject_value_projectrecord"),
     ]
 
     operations = [
