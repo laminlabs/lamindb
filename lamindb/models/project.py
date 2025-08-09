@@ -286,10 +286,14 @@ class Project(SQLRecord, CanCurate, TracksRun, TracksUpdates, ValidateFields):
         Schema, through="SchemaProject", related_name="projects"
     )
     """Linked schemas."""
-    records: Record = models.ManyToManyField(
+    linked_in_records: Record = models.ManyToManyField(
         Record, through="RecordProject", related_name="linked_projects"
     )
     """Linked records."""
+    records: Record = models.ManyToManyField(
+        Record, through="ProjectRecord", related_name="projects"
+    )
+    """Annotated record."""
     collections: Collection = models.ManyToManyField(
         Collection, through="CollectionProject", related_name="projects"
     )

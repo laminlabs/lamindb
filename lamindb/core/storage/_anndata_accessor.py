@@ -438,9 +438,15 @@ def _try_backed_full(elem):
     return read_elem(elem)
 
 
+def _to_index(elem: np.ndarray):
+    if elem.dtype in (np.float64, np.int64):
+        elem = elem.astype(str)
+    return pd.Index(elem)
+
+
 def _safer_read_index(elem):
     if isinstance(elem, GroupTypes):
-        return pd.Index(read_elem(elem[_read_attr(elem.attrs, "_index")]))
+        return _to_index(read_elem(elem[_read_attr(elem.attrs, "_index")]))
     elif isinstance(elem, ArrayTypes):
         indices = None
         for index_name in ("index", "_index"):
@@ -450,7 +456,7 @@ def _safer_read_index(elem):
         if indices is not None and len(indices) > 0:
             if isinstance(indices[0], bytes):
                 indices = np.frompyfunc(lambda x: x.decode("utf-8"), 1, 1)(indices)
-            return pd.Index(indices)
+            return _to_index(indices)
         else:
             raise ValueError("Indices not found.")
     else:
