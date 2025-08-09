@@ -5,15 +5,26 @@ from django.db import migrations
 TABLE_NAME = "lamindb_record"
 
 CREATE_FUNCTION_SQL = f"""
-CREATE OR REPLACE FUNCTION is_valid_record_type(type_id INTEGER)
-RETURNS BOOLEAN AS $$
+CREATE OR REPLACE FUNCTION is_valid_record_type(type_id INTEGER, is_type BOOLEAN)
+RETURNS BOOLEAN AS $
 BEGIN
+    -- Record with no type is valid
     IF type_id IS NULL THEN
         RETURN TRUE;
     END IF;
+
+    -- If current record is a type, it can only reference schema-less types
+    IF is_type = TRUE THEN
+        RETURN EXISTS (
+            SELECT 1 FROM lamindb_record
+            WHERE id = type_id AND is_type = TRUE AND schema_id IS NULL
+        );
+    END IF;
+
+    -- Regular records can reference any type
     RETURN EXISTS (
-        SELECT 1 FROM {TABLE_NAME}
-        WHERE id = type_id AND is_type = TRUE AND schema_id IS NULL
+        SELECT 1 FROM lamindb_record
+        WHERE id = type_id AND is_type = TRUE
     );
 END;
 $$ LANGUAGE plpgsql;
