@@ -153,6 +153,7 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
     class Meta(SQLRecord.Meta, IsVersioned.Meta, TracksRun.Meta, TracksUpdates.Meta):
         abstract = False
+        app_label = "lamindb"
 
     _len_full_uid: int = 20
     _len_stem_uid: int = 16
@@ -728,6 +729,7 @@ class CollectionArtifact(BaseSQLRecord, IsLink, TracksRun):
     artifact: Artifact = ForeignKey(Artifact, PROTECT, related_name="links_collection")
 
     class Meta:
+        app_label = "lamindb"
         unique_together = ("collection", "artifact")
 
 

@@ -952,6 +952,7 @@ class Space(BaseSQLRecord):
     """
 
     class Meta:
+        app_label = "lamindb"
         constraints = [
             models.UniqueConstraint(Lower("name"), name="unique_space_name_lower")
         ]
@@ -1007,6 +1008,12 @@ class Branch(BaseSQLRecord):
     Every `SQLRecord` has a `branch` field, which dictates where a record appears in queries & searches.
     """
 
+    class Meta:
+        app_label = "lamindb"
+        constraints = [
+            models.UniqueConstraint(Lower("name"), name="unique_branch_name_lower")
+        ]
+
     # below isn't fully implemented but a roadmap
     # - 3: template (hidden in queries & searches)
     # - 2: locked (same as default, but locked for edits except for space admins)
@@ -1017,11 +1024,6 @@ class Branch(BaseSQLRecord):
     # An integer higher than >3 codes a branch that can be used for collaborators to create drafts
     # that can be merged onto the main branch in an experience akin to a Pull Request. The mapping
     # onto a semantic branch name is handled through LaminHub.
-
-    class Meta:
-        constraints = [
-            models.UniqueConstraint(Lower("name"), name="unique_branch_name_lower")
-        ]
 
     id: int = models.AutoField(primary_key=True)
     """An integer id that's synchronized for a family of coupled database instances.
@@ -1806,6 +1808,7 @@ class Migration(BaseSQLRecord):
 
     class Meta:
         db_table = "django_migrations"
+        app_label = "lamindb"
         managed = False
 
 

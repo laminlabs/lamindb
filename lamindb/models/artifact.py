@@ -1110,6 +1110,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
     class Meta(SQLRecord.Meta, IsVersioned.Meta, TracksRun.Meta, TracksUpdates.Meta):
         abstract = False
+        app_label = "lamindb"
         constraints = [
             # a simple hard unique constraint on `hash` clashes with the fact
             # that pipelines sometimes aim to ingest the exact same file in different
@@ -2855,6 +2856,7 @@ class ArtifactFeatureValue(BaseSQLRecord, IsLink, TracksRun):
     featurevalue = ForeignKey(FeatureValue, PROTECT, related_name="links_artifact")
 
     class Meta:
+        app_label = "lamindb"
         unique_together = ("artifact", "featurevalue")
 
 

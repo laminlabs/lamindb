@@ -3,15 +3,11 @@ from pathlib import Path
 from subprocess import DEVNULL, run
 from time import perf_counter
 
+import lamindb as ln
 import lamindb_setup as ln_setup
 import pytest
 from lamin_utils import logger
 from laminci.db import setup_local_test_postgres
-
-AUTO_CONNECT = ln_setup.settings.auto_connect
-ln_setup.settings.auto_connect = False
-
-import lamindb as ln
 
 
 def pytest_sessionstart():
@@ -29,7 +25,6 @@ def pytest_sessionstart():
         name="lamindb-unit-tests-core",
         db=pgurl,
     )
-    ln.setup.settings.auto_connect = True
     ln.settings.creation.artifact_silence_missing_run_warning = True
     total_time_elapsed = perf_counter() - t_execute_start
     print(f"time to setup the instance: {total_time_elapsed:.1f}s")
@@ -40,7 +35,6 @@ def pytest_sessionfinish(session: pytest.Session):
     shutil.rmtree("./default_storage_unit_core")
     ln.setup.delete("lamindb-unit-tests-core", force=True)
     run("docker stop pgtest && docker rm pgtest", shell=True, stdout=DEVNULL)  # noqa: S602
-    ln.setup.settings.auto_connect = AUTO_CONNECT
 
 
 @pytest.fixture
