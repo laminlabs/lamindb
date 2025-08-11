@@ -816,6 +816,8 @@ class AnnDataAccessor(_AnnDataAttrsMixin):
             )
 
         self._updated = True
+        # reset the cached property
+        self.__dict__.pop(where, None)
 
 
 # get the number of observations in an anndata object or file fast and safely
