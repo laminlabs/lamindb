@@ -492,33 +492,40 @@ class _MapAccessor:
         return descr
 
 
+def _safer_read_df(elem, indices=None):
+    if indices is not None:
+        obj = registry.safer_read_partial(elem, indices=indices)
+        df = _records_to_df(obj)
+    else:
+        df = registry.read_dataframe(elem)
+    if df.index.dtype in (np.float64, np.int64):
+        df.index = df.index.astype(str)
+    return df
+
+
 class _AnnDataAttrsMixin:
     storage: StorageType
     _attrs_keys: Mapping[str, list]
 
     @cached_property
-    def obs(self) -> pd.DataFrame:
+    def obs(self) -> pd.DataFrame | None:
         if "obs" not in self._attrs_keys:
             return None
         indices = getattr(self, "indices", None)
-        if indices is not None:
-            indices = (indices[0], slice(None))
-            obj = registry.safer_read_partial(self.storage["obs"], indices=indices)  # type: ignore
-            return _records_to_df(obj)
-        else:
-            return registry.read_dataframe(self.storage["obs"])  # type: ignore
+        return _safer_read_df(
+            self.storage["obs"],  # type: ignore
+            indices=(indices[0], slice(None)) if indices is not None else None,
+        )
 
     @cached_property
-    def var(self) -> pd.DataFrame:
+    def var(self) -> pd.DataFrame | None:
         if "var" not in self._attrs_keys:
             return None
         indices = getattr(self, "indices", None)
-        if indices is not None:
-            indices = (indices[1], slice(None))
-            obj = registry.safer_read_partial(self.storage["var"], indices=indices)  # type: ignore
-            return _records_to_df(obj)
-        else:
-            return registry.read_dataframe(self.storage["var"])  # type: ignore
+        return _safer_read_df(
+            self.storage["var"],  # type: ignore
+            indices=(indices[1], slice(None)) if indices is not None else None,
+        )
 
     @cached_property
     def uns(self):
