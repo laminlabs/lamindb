@@ -13,12 +13,17 @@ from anndata import __version__ as anndata_version
 from anndata._core.index import _normalize_indices
 from anndata._core.views import _resolve_idx
 from anndata._io.h5ad import read_dataframe_legacy as read_dataframe_legacy_h5
-from anndata._io.specs.registry import get_spec, read_elem, read_elem_partial
+from anndata._io.specs.registry import (
+    get_spec,
+    read_elem,
+    read_elem_partial,
+    write_elem,
+)
 from anndata.compat import _read_attr
 from fsspec.implementations.local import LocalFileSystem
 from fsspec.utils import infer_compression
 from lamin_utils import logger
-from lamindb_setup.core.upath import infer_filesystem
+from lamindb_setup.core.upath import S3FSMap, infer_filesystem
 from packaging import version
 from upath import UPath
 
@@ -27,6 +32,8 @@ if TYPE_CHECKING:
 
     from fsspec.core import OpenFile
     from lamindb_setup.types import UPathStr
+
+    from lamindb import Artifact
 
 
 anndata_version_parse = version.parse(anndata_version)
@@ -300,6 +307,11 @@ if ZARR_INSTALLED:
 
         store = get_zarr_store(filepath)
         storage = zarr.open(store, mode=mode)
+        # zarr v2 re-initializes the mapper
+        # we need to put back the correct one
+        # S3FSMap is returned from get_zarr_store only for zarr v2
+        if isinstance(store, S3FSMap):
+            storage.store.map = store
         conn = None
         return conn, storage
 
@@ -485,33 +497,40 @@ class _MapAccessor:
         return descr
 
 
+def _safer_read_df(elem, indices=None):
+    if indices is not None:
+        obj = registry.safer_read_partial(elem, indices=indices)
+        df = _records_to_df(obj)
+    else:
+        df = registry.read_dataframe(elem)
+    if df.index.dtype in (np.float64, np.int64):
+        df.index = df.index.astype(str)
+    return df
+
+
 class _AnnDataAttrsMixin:
     storage: StorageType
     _attrs_keys: Mapping[str, list]
 
     @cached_property
-    def obs(self) -> pd.DataFrame:
+    def obs(self) -> pd.DataFrame | None:
         if "obs" not in self._attrs_keys:
             return None
         indices = getattr(self, "indices", None)
-        if indices is not None:
-            indices = (indices[0], slice(None))
-            obj = registry.safer_read_partial(self.storage["obs"], indices=indices)  # type: ignore
-            return _records_to_df(obj)
-        else:
-            return registry.read_dataframe(self.storage["obs"])  # type: ignore
+        return _safer_read_df(
+            self.storage["obs"],  # type: ignore
+            indices=(indices[0], slice(None)) if indices is not None else None,
+        )
 
     @cached_property
-    def var(self) -> pd.DataFrame:
+    def var(self) -> pd.DataFrame | None:
         if "var" not in self._attrs_keys:
             return None
         indices = getattr(self, "indices", None)
-        if indices is not None:
-            indices = (indices[1], slice(None))
-            obj = registry.safer_read_partial(self.storage["var"], indices=indices)  # type: ignore
-            return _records_to_df(obj)
-        else:
-            return registry.read_dataframe(self.storage["var"])  # type: ignore
+        return _safer_read_df(
+            self.storage["var"],  # type: ignore
+            indices=(indices[1], slice(None)) if indices is not None else None,
+        )
 
     @cached_property
     def uns(self):
@@ -708,6 +727,7 @@ class AnnDataAccessor(_AnnDataAttrsMixin):
         connection: OpenFile | None,
         storage: StorageType,
         filename: str,
+        artifact: Artifact | None = None,
     ):
         self._conn = connection
         self.storage = storage
@@ -719,6 +739,11 @@ class AnnDataAccessor(_AnnDataAttrsMixin):
         self._obs_names = _safer_read_index(self.storage["obs"])  # type: ignore
         self._var_names = _safer_read_index(self.storage["var"])  # type: ignore
 
+        self._artifact = artifact  # save artifact to update in write mode
+
+        self._updated = False  # track updates in r+ mode for zarr
+
+        self._entered = False  # check that the context manager is used
         self._closed = False
 
     def close(self):
@@ -729,11 +754,23 @@ class AnnDataAccessor(_AnnDataAttrsMixin):
             self._conn.close()
         self._closed = True
 
+        if self._updated and (artifact := self._artifact) is not None:
+            from lamindb.models.artifact import Artifact
+            from lamindb.models.sqlrecord import init_self_from_db
+
+            new_version = Artifact(
+                artifact.path, revises=artifact, _is_internal_call=True
+            ).save()
+            # note: sets _state.db = "default"
+            init_self_from_db(artifact, new_version)
+
     @property
     def closed(self):
         return self._closed
 
     def __enter__(self):
+        self._entered = True
+
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -768,6 +805,35 @@ class AnnDataAccessor(_AnnDataAttrsMixin):
         return AnnDataRawAccessor(
             self.storage["raw"], None, None, self._obs_names, None, self.shape[0]
         )
+
+    def add_column(
+        self,
+        where: Literal["obs", "var"],
+        col_name: str,
+        col: np.ndarray | pd.Categorical,
+    ):
+        """Add a new column to .obs or .var of the underlying AnnData object."""
+        df_store = self.storage[where]  # type: ignore
+        if getattr(df_store, "read_only", True):
+            raise ValueError(
+                "You can use .add_column(...) only with zarr in a writable mode."
+            )
+        write_elem(df_store, col_name, col)
+        df_store.attrs["column-order"] = df_store.attrs["column-order"] + [col_name]
+        # remind only once if this wasn't updated before and not in the context manager
+        if not self._updated and not self._entered and self._artifact is not None:
+            logger.important(
+                "Do not forget to call .close() after you finish "
+                f"working with this accessor for {self._name} "
+                "to automatically update the corresponding artifact."
+            )
+
+        self._updated = True
+        # reset the cached property
+        # todo: maybe just append the column if the df was already loaded
+        self.__dict__.pop(where, None)
+        # update the cached columns
+        self._attrs_keys[where].append(col_name)
 
 
 # get the number of observations in an anndata object or file fast and safely

@@ -37,6 +37,9 @@ def get_zarr_store(
     if isinstance(storepath, LocalPathClasses):
         store = storepath_str
     elif IS_ZARR_V3:
+        # todo: also check how to treat non-asynchronous filesystems
+        # zarr has something for this, using fsspec async wrapper
+        # check FsspecStore code
         store = zarr.storage.FsspecStore.from_upath(UPath(storepath, asynchronous=True))
     else:
         store = create_mapper(storepath.fs, storepath_str, check=check, create=create)

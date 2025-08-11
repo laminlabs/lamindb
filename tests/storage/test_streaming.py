@@ -168,6 +168,40 @@ def test_backed_access(adata_format):
         shutil.rmtree(fp)
 
 
+def test_add_column():
+    previous_storage = ln.setup.settings.storage.root_as_str
+    ln.settings.storage = "s3://lamindb-test/storage"
+
+    adata = load_h5ad(ln.core.datasets.anndata_file_pbmc68k_test())
+    zarr_path = "adata_write_mode.zarr"
+    adata.write_zarr(zarr_path)
+
+    artifact = ln.Artifact(zarr_path, description="test add_column").save()
+
+    access = artifact.open(mode="r+")
+    n_obs, n_var = access.shape
+    access.add_column("obs", "ones_obs", np.ones(n_obs))
+    access.add_column("var", "ones_var", np.ones(n_var))
+    assert np.all(access.obs["ones_obs"] == 1)
+    assert np.all(access.var["ones_var"] == 1)
+    access.close()
+    assert artifact.uid.endswith("0001")
+
+    cat_col = pd.Categorical(["one"] + ["two"] * (n_obs - 1))
+    with artifact.open(mode="r+") as access:
+        access.add_column("obs", "cat_col", cat_col)
+        assert access.obs["cat_col"].cat.categories.to_list() == ["one", "two"]
+    assert artifact.uid.endswith("0002")
+    # can't add in read mode
+    with pytest.raises(ValueError):
+        artifact.open().add_column("obs", "new_col", cat_col)
+
+    artifact.delete(permanent=True)
+    shutil.rmtree(zarr_path)
+
+    ln.settings.storage = previous_storage
+
+
 def test_to_index():
     elem_int = np.arange(3, dtype=int)
     elem_float = elem_int.astype(float)
