@@ -2289,17 +2289,19 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     ):
         """Open a dataset for streaming.
 
-        Works for `AnnData` (`.h5ad` and `.zarr`), generic `hdf5` and `zarr`,
-        `tiledbsoma` objects (`.tiledbsoma`), `pyarrow` or `polars` compatible formats
+        Works for `AnnData` (`.h5ad` and `.zarr`), `SpatialData` (`.zarr`),
+        generic `hdf5` and `zarr`, `tiledbsoma` objects (`.tiledbsoma`),
+        `pyarrow` or `polars` compatible formats
         (`.parquet`, `.csv`, `.ipc` etc. files or directories with such files).
 
         Args:
-            mode: can only be `"w"` (write mode) for `tiledbsoma` stores,
+            mode: can be `"r"` or `"w"` (write mode) for `tiledbsoma` stores,
+                `"r"` or `"r+"` for `AnnData` or `SpatialData` `zarr` stores,
                 otherwise should be always `"r"` (read-only mode).
             engine: Which module to use for lazy loading of a dataframe
                 from `pyarrow` or `polars` compatible formats.
                 This has no effect if the artifact is not a dataframe, i.e.
-                if it is an `AnnData,` `hdf5`, `zarr` or `tiledbsoma` object.
+                if it is an `AnnData,` `hdf5`, `zarr`, `tiledbsoma` object etc.
             is_run_input: Whether to track this artifact as run input.
             **kwargs: Keyword arguments for the accessor, i.e. `h5py` or `zarr` connection,
                 `pyarrow.dataset.dataset`, `polars.scan_*` function.
