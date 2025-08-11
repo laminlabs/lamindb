@@ -192,6 +192,9 @@ def test_add_column():
         access.add_column("obs", "cat_col", cat_col)
         assert access.obs["cat_col"].cat.categories.to_list() == ["one", "two"]
     assert artifact.uid.endswith("0002")
+    # can't add in read mode
+    with pytest.raises(ValueError):
+        artifact.open().add_column("obs", "new_col", cat_col)
 
     artifact.delete(permanent=True)
     shutil.rmtree(zarr_path)
