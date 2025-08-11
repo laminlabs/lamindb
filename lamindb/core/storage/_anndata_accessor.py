@@ -23,7 +23,7 @@ from anndata.compat import _read_attr
 from fsspec.implementations.local import LocalFileSystem
 from fsspec.utils import infer_compression
 from lamin_utils import logger
-from lamindb_setup.core.upath import infer_filesystem
+from lamindb_setup.core.upath import S3FSMap, infer_filesystem
 from packaging import version
 from upath import UPath
 
@@ -307,6 +307,11 @@ if ZARR_INSTALLED:
 
         store = get_zarr_store(filepath)
         storage = zarr.open(store, mode=mode)
+        # zarr v2 re-initializes the mapper
+        # we need to put back the correct one
+        # S3FSMap is returned from get_zarr_store only for zarr v2
+        if isinstance(store, S3FSMap):
+            storage.store.map = store
         conn = None
         return conn, storage
 
@@ -750,7 +755,8 @@ class AnnDataAccessor(_AnnDataAttrsMixin):
         self._closed = True
 
         if self._updated and (artifact := self._artifact) is not None:
-            from lamindb.models.artifact import Artifact, init_self_from_db
+            from lamindb.models.artifact import Artifact
+            from lamindb.models.sqlrecord import init_self_from_db
 
             new_version = Artifact(
                 artifact.path, revises=artifact, _is_internal_call=True
@@ -813,7 +819,7 @@ class AnnDataAccessor(_AnnDataAttrsMixin):
                 "You can use .add_column(...) only with zarr in a writable mode."
             )
         write_elem(df_store, col_name, col)
-        df_store.attrs["column-order"] = df_store.attrs["column-order"] + ["new_column"]
+        df_store.attrs["column-order"] = df_store.attrs["column-order"] + [col_name]
         # remind only once if this wasn't updated before and not in the context manager
         if not self._updated and not self._entered and self._artifact is not None:
             logger.important(
@@ -825,6 +831,8 @@ class AnnDataAccessor(_AnnDataAttrsMixin):
         self._updated = True
         # reset the cached property
         self.__dict__.pop(where, None)
+        # update the cached columns
+        self._attrs_keys[where].append(col_name)
 
 
 # get the number of observations in an anndata object or file fast and safely

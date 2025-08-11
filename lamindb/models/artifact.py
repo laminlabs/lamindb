@@ -542,6 +542,7 @@ def log_storage_hint(
 def data_is_scversedatastructure(
     data: ScverseDataStructures | UPathStr,
     structure_type: Literal["AnnData", "MuData", "SpatialData"] | None = None,
+    cloud_warning: bool = True,
 ) -> bool:
     """Determine whether a specific in-memory object or a UPathstr is any or a specific scverse data structure."""
     file_suffix = None
@@ -580,7 +581,7 @@ def data_is_scversedatastructure(
                     )
                     == data_type
                 )
-            else:
+            elif cloud_warning:
                 logger.warning(
                     f"we do not check whether cloud zarr is {structure_type}"
                 )
@@ -600,6 +601,7 @@ def data_is_soma_experiment(data: SOMAExperiment | UPathStr) -> bool:
 def _check_otype_artifact(
     data: UPathStr | pd.DataFrame | ScverseDataStructures,
     otype: str | None = None,
+    cloud_warning: bool = True,
 ) -> str:
     if otype is None:
         if isinstance(data, pd.DataFrame):
@@ -608,15 +610,15 @@ def _check_otype_artifact(
             return otype
 
         data_is_path = isinstance(data, (str, Path))
-        if data_is_scversedatastructure(data, "AnnData"):
+        if data_is_scversedatastructure(data, "AnnData", cloud_warning):
             if not data_is_path:
                 logger.warning("data is an AnnData, please use .from_anndata()")
             otype = "AnnData"
-        elif data_is_scversedatastructure(data, "MuData"):
+        elif data_is_scversedatastructure(data, "MuData", cloud_warning):
             if not data_is_path:
                 logger.warning("data is a MuData, please use .from_mudata()")
             otype = "MuData"
-        elif data_is_scversedatastructure(data, "SpatialData"):
+        elif data_is_scversedatastructure(data, "SpatialData", cloud_warning):
             if not data_is_path:
                 logger.warning("data is a SpatialData, please use .from_spatialdata()")
             otype = "SpatialData"
@@ -1424,7 +1426,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             # issue in Groovy / nf-lamin producing malformed S3 paths
             # https://laminlabs.slack.com/archives/C08J590666Q/p1751315027830849?thread_ts=1751039961.479259&cid=C08J590666Q
             data = data.replace("s3:///", "s3://")
-        otype = _check_otype_artifact(data=data, otype=otype)
+        otype = _check_otype_artifact(
+            data=data, otype=otype, cloud_warning=not _is_internal_call
+        )
         if "type" in kwargs:
             logger.warning("`type` will be removed soon, please use `kind`")
             kind = kwargs.pop("type")
@@ -2339,7 +2343,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 s + ".gz" for s in PYARROW_SUFFIXES
             )  # this doesn't work for externally gzipped files, REMOVE LATER
         )
-        if self.suffix not in suffixes:
+        suffix = self.suffix
+        if suffix not in suffixes:
             raise ValueError(
                 "Artifact should have a zarr, h5, tiledbsoma object"
                 " or a compatible `pyarrow.dataset.dataset` or `polars.scan_*` directory"
@@ -2348,19 +2353,23 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 f" Or no suffix for a folder with {', '.join(df_suffixes)} files"
                 " (no mixing allowed)."
             )
-        if self.suffix != ".tiledbsoma" and self.key != "soma" and mode != "r":
-            raise ValueError(
-                "Only a tiledbsoma store can be openened with `mode!='r'`."
-            )
-
         using_key = settings._using_key
         filepath, cache_key = filepath_cache_key_from_artifact(
             self, using_key=using_key
         )
+
         is_tiledbsoma_w = (
-            filepath.name == "soma" or self.suffix == ".tiledbsoma"
+            filepath.name == "soma" or suffix == ".tiledbsoma"
         ) and mode == "w"
-        is_zarr_w = self.suffix == ".zarr" and mode == "r+"
+        is_zarr_w = suffix == ".zarr" and mode == "r+"
+
+        if mode != "r" and not (is_tiledbsoma_w or is_zarr_w):
+            raise ValueError(
+                f"It is not allowed to open a {suffix} object with mode='{mode}'. "
+                "You can open all supported formats with mode='r', "
+                "a tiledbsoma store with mode='w', "
+                "AnnData or SpatialData zarr store with mode='r+'."
+            )
         # consider the case where an object is already locally cached
         localpath = setup_settings.paths.cloud_to_local_no_update(
             filepath, cache_key=cache_key
