@@ -830,6 +830,7 @@ class AnnDataAccessor(_AnnDataAttrsMixin):
 
         self._updated = True
         # reset the cached property
+        # todo: maybe just append the column if the df was already loaded
         self.__dict__.pop(where, None)
         # update the cached columns
         self._attrs_keys[where].append(col_name)
