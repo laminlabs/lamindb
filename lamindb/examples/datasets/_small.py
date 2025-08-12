@@ -25,7 +25,7 @@ def small_dataset3_cellxgene(
                 "MONDO:0004980",
             ],
             "development_stage_ontology_term_id": ["unknown", "unknown", "unknown"],
-            "organism": ["human", "human", "human"],
+            "organism": ["Homo sapiens", "Homo sapiens", "Homo sapiens"],
             "sex_ontology_term_id": ["PATO:0000383", "PATO:0000384", "unknown"],
             "tissue_ontology_term_id": [lung_id, lung_id, "UBERON:0000948"],
             "cell_type": ["T cell", "B cell", "B cell"],
