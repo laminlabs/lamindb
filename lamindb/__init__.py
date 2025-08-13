@@ -83,7 +83,7 @@ Curators and integrations.
    curators
    integrations
 
-Low-level functionality.
+Examples, errors, and setup.
 
 .. autosummary::
    :toctree: .
@@ -91,6 +91,12 @@ Low-level functionality.
    examples
    errors
    setup
+
+Low-level functionality.
+
+.. autosummary::
+   :toctree: .
+
    base
    core
    models
@@ -193,10 +199,11 @@ __all__ = [
     # curators and integrations
     "curators",
     "integrations",
-    # low-level functionality
+    # examples, errors, setup
     "examples",
     "errors",
     "setup",
+    # low-level functionality
     "base",
     "core",
     "models",
