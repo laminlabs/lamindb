@@ -83,7 +83,7 @@ Curators and integrations.
    curators
    integrations
 
-Low-level functionality.
+Examples, errors, and setup.
 
 .. autosummary::
    :toctree: .
@@ -91,6 +91,12 @@ Low-level functionality.
    examples
    errors
    setup
+
+Low-level functionality.
+
+.. autosummary::
+   :toctree: .
+
    base
    core
    models
@@ -108,7 +114,7 @@ Backwards compatibility.
 
 # ruff: noqa: I001
 # denote a release candidate for 0.1.0 with 0.1rc1, 0.1a1, 0.1b1, etc.
-__version__ = "1.10.2"
+__version__ = "1.11a1"
 
 import warnings as _warnings
 
@@ -161,3 +167,44 @@ context.__doc__ = """Global run context (:class:`~lamindb.core.Context`)."""
 from django.db.models import Q
 
 Param = Feature  # backward compat
+
+__all__ = [
+    # data lineage
+    "track",
+    "finish",
+    "tracked",
+    # registries
+    "Artifact",
+    "Storage",
+    "Transform",
+    "Run",
+    "Feature",
+    "ULabel",
+    "Schema",
+    "Record",
+    "User",
+    "Collection",
+    "Project",
+    "Space",
+    "Branch",
+    "Reference",
+    "Person",
+    # other
+    "connect",
+    "view",
+    "save",
+    "UPath",
+    "settings",
+    "context",
+    # curators and integrations
+    "curators",
+    "integrations",
+    # examples, errors, setup
+    "examples",
+    "errors",
+    "setup",
+    # low-level functionality
+    "base",
+    "core",
+    "models",
+]
