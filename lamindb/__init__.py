@@ -161,3 +161,43 @@ context.__doc__ = """Global run context (:class:`~lamindb.core.Context`)."""
 from django.db.models import Q
 
 Param = Feature  # backward compat
+
+__all__ = [
+    # data lineage
+    "track",
+    "finish",
+    "tracked",
+    # registries
+    "Artifact",
+    "Storage",
+    "Transform",
+    "Run",
+    "Feature",
+    "ULabel",
+    "Schema",
+    "Record",
+    "User",
+    "Collection",
+    "Project",
+    "Space",
+    "Branch",
+    "Reference",
+    "Person",
+    # other
+    "connect",
+    "view",
+    "save",
+    "UPath",
+    "settings",
+    "context",
+    # curators and integrations
+    "curators",
+    "integrations",
+    # low-level functionality
+    "examples",
+    "errors",
+    "setup",
+    "base",
+    "core",
+    "models",
+]
