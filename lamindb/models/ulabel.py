@@ -88,6 +88,7 @@ class ULabel(SQLRecord, HasParents, CanCurate, TracksRun, TracksUpdates):
 
     class Meta(SQLRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
         abstract = False
+        app_label = "lamindb"
 
     _name_field: str = "name"
 
@@ -221,6 +222,7 @@ class ArtifactULabel(BaseSQLRecord, IsLink, TracksRun):
     class Meta:
         # can have the same label linked to the same artifact if the feature is
         # different
+        app_label = "lamindb"
         unique_together = ("artifact", "ulabel", "feature")
 
 
@@ -230,6 +232,7 @@ class TransformULabel(BaseSQLRecord, IsLink, TracksRun):
     ulabel: ULabel = ForeignKey(ULabel, PROTECT, related_name="links_transform")
 
     class Meta:
+        app_label = "lamindb"
         unique_together = ("transform", "ulabel")
 
 
@@ -247,6 +250,7 @@ class RunULabel(BaseSQLRecord, IsLink):
     """Creator of record."""
 
     class Meta:
+        app_label = "lamindb"
         unique_together = ("run", "ulabel")
 
 
@@ -263,4 +267,5 @@ class CollectionULabel(BaseSQLRecord, IsLink, TracksRun):
     feature_ref_is_name: bool | None = BooleanField(null=True)
 
     class Meta:
+        app_label = "lamindb"
         unique_together = ("collection", "ulabel")
