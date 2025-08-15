@@ -743,16 +743,8 @@ class BasicQuerySet(models.QuerySet):
         """Delete all records in the query set."""
         from lamindb.models import Artifact, Collection, Run, Transform
 
-        # both Transform & Run reference report & env artifacts and hence we need to iterate through them
+        # both Transform & Run might reference artifacts
         if self.model in {Artifact, Collection, Transform, Run}:
-            if "permanent" in kwargs and kwargs["permanent"]:
-                if len(self) == self.model.filter().count():
-                    response = input(
-                        f"You're attempting to delete all {self.model.__name__} objects permanently. Are you sure? (y/n) "
-                    )
-                    if response != "y":
-                        logger.important("cancelled")
-                        return
             for record in self:
                 logger.important(f"deleting {record}")
                 record.delete(*args, **kwargs)
