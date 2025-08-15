@@ -374,11 +374,6 @@ class Run(SQLRecord):
             reference_type=reference_type,
         )
 
-    def delete(self) -> None:
-        """Delete."""
-        delete_run_artifacts(self)
-        super().delete()
-
     @property
     @deprecated("features")
     def params(self) -> FeatureManager:
@@ -476,7 +471,7 @@ def delete_run_artifacts(run: Run) -> None:
         if environment._environment_of.count() == 0:
             environment.delete(permanent=True)
     if report is not None:
-        # only delete if there are no other runs attached to this environment
+        # only delete if there are no other runs attached to this report
         if report._report_of.count() == 0:
             report.delete(permanent=True)
 

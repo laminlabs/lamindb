@@ -30,6 +30,22 @@ if TYPE_CHECKING:
     from .ulabel import ULabel
 
 
+def delete_transform_relations(transform: Transform):
+    from .project import TransformProject
+
+    # query all runs and delete their associated report and env artifacts
+    runs = Run.filter(transform=transform)
+    for run in runs:
+        delete_run_artifacts(run)
+    # CASCADE doesn't do the job below because run_id might be protected through run__transform=self
+    # hence, proactively delete the label links
+    qs = TransformProject.filter(transform=transform)
+    if qs.exists():
+        qs.delete()
+    # at this point, all artifacts have been taken care of
+    # and one can now leverage CASCADE delete
+
+
 # does not inherit from TracksRun because the Transform
 # is needed to define a run
 class Transform(SQLRecord, IsVersioned):
@@ -315,23 +331,6 @@ class Transform(SQLRecord, IsVersioned):
     def latest_run(self) -> Run:
         """The latest run of this transform."""
         return self.runs.order_by("-started_at").first()
-
-    def delete(self) -> None:
-        """Delete."""
-        from .project import TransformProject
-
-        # query all runs and delete their artifacts
-        runs = Run.filter(transform=self)
-        for run in runs:
-            delete_run_artifacts(run)
-        # CASCADE doesn't do the job below because run_id might be protected through run__transform=self
-        # hence, proactively delete the labels
-        qs = TransformProject.filter(transform=self)
-        if qs.exists():
-            qs.delete()
-        # at this point, all artifacts have been taken care of
-        # we can now leverage CASCADE delete
-        super().delete()
 
     def view_lineage(self, with_successors: bool = False, distance: int = 5):
         """View lineage of transforms.

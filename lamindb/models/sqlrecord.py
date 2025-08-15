@@ -918,30 +918,6 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                 self.projects.add(ln.context.project)
         return self
 
-    def delete(self) -> None:
-        """Delete."""
-        # note that the logic below does not fire if a record is moved to the trash
-        # the idea is that moving a record to the trash should move its entire version family
-        # to the trash, whereas permanently deleting should default to only deleting a single record
-        # of a version family
-        # we can consider making it easy to permanently delete entire version families as well,
-        # but that's for another time
-        if isinstance(self, IsVersioned) and self.is_latest:
-            new_latest = (
-                self.__class__.objects.using(self._state.db)
-                .filter(is_latest=False, uid__startswith=self.stem_uid)
-                .order_by("-created_at")
-                .first()
-            )
-            if new_latest is not None:
-                new_latest.is_latest = True
-                with transaction.atomic():
-                    new_latest.save()
-                    super().delete()  # type: ignore
-                logger.warning(f"new latest version is {new_latest}")
-                return None
-        super().delete()
-
 
 class Space(BaseSQLRecord):
     """Workspaces with managed access for specific users or teams.
@@ -1120,6 +1096,91 @@ class SQLRecord(BaseSQLRecord, metaclass=Registry):
     @_branch_code.setter
     def _branch_code(self, value: int):
         self.branch_id = value
+
+    def delete(self, permanent: bool | None = None, **kwargs) -> None:
+        """Delete record.
+
+        Args:
+            permanent: Whether to permanently delete the record (skips trash).
+
+        Examples:
+
+            For any `SQLRecord` object `record`, call:
+
+            >>> record.delete()
+        """
+        if self._state.adding:
+            logger.warning("record is not yet saved, delete has no effect")
+            return
+        name_with_module = self.__class__.__get_name_with_module__()
+
+        if name_with_module == "Artifact":
+            # this first check means an invalid delete fails fast rather than cascading through
+            # database and storage permission errors
+            isettings = setup_settings.instance
+            if self.storage.instance_uid != isettings.uid and (
+                kwargs["storage"] or kwargs["storage"] is None
+            ):
+                from .storage import Storage
+
+                raise IntegrityError(
+                    "Cannot simply delete artifacts outside of this instance's managed storage locations."
+                    "\n(1) If you only want to delete the metadata record in this instance, pass `storage=False`"
+                    f"\n(2) If you want to delete the artifact in storage, please load the managing lamindb instance (uid={self.storage.instance_uid})."
+                    f"\nThese are all managed storage locations of this instance:\n{Storage.filter(instance_uid=isettings.uid).df()}"
+                )
+
+        # deal with versioned records
+        if isinstance(self, IsVersioned) and self.is_latest:
+            new_latest = (
+                self.__class__.objects.using(self._state.db)
+                .filter(is_latest=False, uid__startswith=self.stem_uid)
+                .order_by("-created_at")
+                .first()
+            )
+            if new_latest is not None:
+                new_latest.is_latest = True
+                with transaction.atomic():
+                    new_latest.save()
+                    super().delete()  # type: ignore
+                logger.warning(f"new latest version is: {new_latest}")
+                return None
+
+        # change branch_id to trash
+        trash_branch_id = -1
+        if self.branch_id > trash_branch_id and permanent is not True:
+            self.branch_id = trash_branch_id
+            self.save()
+            logger.warning(f"moved record to trash (`branch_id = -1`): {self}")
+            return
+
+        # permanent delete
+        if permanent is None:
+            response = input(
+                "Record is already in trash! Are you sure you want to delete it from your"
+                " database? You can't undo this action. (y/n) "
+            )
+            delete_record = response == "y"
+        else:
+            delete_record = permanent
+
+        if delete_record:
+            if name_with_module == "Run":
+                from .run import delete_run_artifacts
+
+                delete_run_artifacts(self)
+            elif name_with_module == "Transform":
+                from .transform import delete_transform_relations
+
+                delete_transform_relations(self)
+            elif name_with_module == "Artifact":
+                from .artifact import delete_permanently
+
+                delete_permanently(
+                    self, storage=kwargs["storage"], using_key=kwargs["using_key"]
+                )
+            if name_with_module != "Artifact":
+                super().delete()
 
 
 def _format_django_validation_error(record: SQLRecord, e: DjangoValidationError):

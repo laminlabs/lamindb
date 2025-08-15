@@ -167,6 +167,18 @@ def test_pass_version():
         ln.Transform(key="mytransform", version="1")
 
 
+def test_delete():
+    ulabel = ln.ULabel(name="test-delete")
+    # record not yet saved, delete has no effect
+    ulabel.delete()
+    assert ulabel.branch_id == 1
+    ulabel.save()
+    ulabel.delete()
+    assert ulabel.branch_id == -1
+    ulabel.delete(permanent=True)
+    assert ln.ULabel.filter(name="test-delete").exists() is False
+
+
 def test_get_name_field():
     transform = ln.Transform(key="test").save()
     assert get_name_field(ln.Run(transform)) == "started_at"
