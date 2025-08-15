@@ -103,9 +103,9 @@ def test_transfer_from_remote_to_local(ccaplog):
     artifact3.load()
 
     # delete with storage=False, because these are all stored in the source instances
-    artifact1.delete(storage=False)
-    artifact2.delete(storage=False)
-    artifact3.delete(storage=False)
+    artifact1.delete(storage=False, permanent=True)
+    artifact2.delete(storage=False, permanent=True)
+    artifact3.delete(storage=False, permanent=True)
 
 
 def test_transfer_into_space():

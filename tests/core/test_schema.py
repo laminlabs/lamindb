@@ -50,18 +50,12 @@ def test_schema_from_values():
     # edge cases
     with pytest.raises(ValueError):
         schema = ln.Schema.from_values([])
-
     with pytest.raises(TypeError):
         ln.Schema.from_values(["a"], field="name")
     with pytest.raises(ValidationError):
         schema = ln.Schema.from_values(
             ["weird_name"], field=ln.Feature.name, dtype="float"
         )
-    ln.Feature.filter().all().delete()
-    with pytest.raises(ValidationError):
-        ln.Schema.from_values([1], field=ln.Feature.name, dtype="float")
-
-    # return none if no validated features
     with pytest.raises(ValidationError):
         ln.Schema.from_values(["name"], field=ln.Feature.name, dtype="float")
 

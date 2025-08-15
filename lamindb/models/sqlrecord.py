@@ -918,6 +918,25 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                 self.projects.add(ln.context.project)
         return self
 
+    def delete(self) -> None:
+        """Delete."""
+        # deal with versioned records
+        if isinstance(self, IsVersioned) and self.is_latest:
+            new_latest = (
+                self.__class__.objects.using(self._state.db)
+                .filter(is_latest=False, uid__startswith=self.stem_uid)
+                .order_by("-created_at")
+                .first()
+            )
+            if new_latest is not None:
+                new_latest.is_latest = True
+                with transaction.atomic():
+                    new_latest.save()
+                    super().delete()  # type: ignore
+                logger.warning(f"new latest version is: {new_latest}")
+                return None
+        super().delete()
+
 
 class Space(BaseSQLRecord):
     """Workspaces with managed access for specific users or teams.
@@ -1130,22 +1149,6 @@ class SQLRecord(BaseSQLRecord, metaclass=Registry):
                     f"\n(2) If you want to delete the artifact in storage, please load the managing lamindb instance (uid={self.storage.instance_uid})."
                     f"\nThese are all managed storage locations of this instance:\n{Storage.filter(instance_uid=isettings.uid).df()}"
                 )
-
-        # deal with versioned records
-        if isinstance(self, IsVersioned) and self.is_latest:
-            new_latest = (
-                self.__class__.objects.using(self._state.db)
-                .filter(is_latest=False, uid__startswith=self.stem_uid)
-                .order_by("-created_at")
-                .first()
-            )
-            if new_latest is not None:
-                new_latest.is_latest = True
-                with transaction.atomic():
-                    new_latest.save()
-                    super().delete()  # type: ignore
-                logger.warning(f"new latest version is: {new_latest}")
-                return None
 
         # change branch_id to trash
         trash_branch_id = -1

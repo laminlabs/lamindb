@@ -15,7 +15,9 @@ ln.track(space=space_name)
 assert ln.context.space.name == space_name
 ulabel = ln.ULabel(name="My test ulabel in test space").save()
 assert ulabel.space.name == space_name  # ulabel should end up in the restricted space
-ulabel.delete()  # delete silently passes in case another worker deleted the ulabel
+ulabel.delete(
+    permanent=True
+)  # delete silently passes in case another worker deleted the ulabel
 assert (
     ln.context.transform.space.name == space_name
 )  # transform and run in restricted space
