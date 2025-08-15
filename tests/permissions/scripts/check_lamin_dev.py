@@ -20,4 +20,4 @@ assert (
     ln.context.transform.space.name == space_name
 )  # transform and run in restricted space
 assert ln.context.run.space.name == space_name  # transform and run in restricted space
-ln.context.transform.delete()
+ln.context.transform.delete(permanent=True)
