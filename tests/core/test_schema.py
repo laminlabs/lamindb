@@ -24,7 +24,7 @@ def test_schema_from_values():
     bt.settings.organism = "human"
     bt.Gene.filter(symbol__in=gene_symbols).all().delete()
     with pytest.raises(ValidationError) as error:
-        schema = ln.Schema.from_values(gene_symbols, bt.Gene.symbol, type=int)
+        schema = ln.Schema.from_values(gene_symbols, bt.Gene.symbol, dtype=int)
     assert error.exconly().startswith(
         "lamindb.errors.ValidationError: These values could not be validated:"
     )
@@ -33,7 +33,7 @@ def test_schema_from_values():
     # below should be a queryset and not a list
     assert set(schema.members) == set(bt.Gene.from_values(gene_symbols, "symbol"))
     assert schema.dtype == "num"  # this is NUMBER_TYPE
-    schema = ln.Schema.from_values(gene_symbols, bt.Gene.symbol, type=int)
+    schema = ln.Schema.from_values(gene_symbols, bt.Gene.symbol, dtype=int)
     assert schema._state.adding
     assert schema.dtype == "int"
     assert schema.itype == "bionty.Gene"
@@ -42,7 +42,7 @@ def test_schema_from_values():
     id = schema.id
     # test that the schema is retrieved from the database
     # in case it already exists
-    schema = ln.Schema.from_values(gene_symbols, bt.Gene.symbol, type=int)
+    schema = ln.Schema.from_values(gene_symbols, bt.Gene.symbol, dtype=int)
     assert not schema._state.adding
     assert id == schema.id
     schema.delete(permanent=True)
@@ -55,14 +55,15 @@ def test_schema_from_values():
         ln.Schema.from_values(["a"], field="name")
     with pytest.raises(ValidationError):
         schema = ln.Schema.from_values(
-            ["weird_name"], field=ln.Feature.name, type="float"
+            ["weird_name"], field=ln.Feature.name, dtype="float"
         )
+    ln.Feature.filter().all().delete()
     with pytest.raises(ValidationError):
-        ln.Schema.from_values([1], field=ln.Feature.name, type="float")
+        ln.Schema.from_values([1], field=ln.Feature.name, dtype="float")
 
     # return none if no validated features
     with pytest.raises(ValidationError):
-        ln.Schema.from_values(["name"], field=ln.Feature.name, type="float")
+        ln.Schema.from_values(["name"], field=ln.Feature.name, dtype="float")
 
 
 def test_schema_from_records(df):
