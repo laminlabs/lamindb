@@ -1121,6 +1121,7 @@ class SQLRecord(BaseSQLRecord, metaclass=Registry):
             if self.storage.instance_uid != isettings.uid and (
                 kwargs["storage"] or kwargs["storage"] is None
             ):
+                from ..errors import IntegrityError
                 from .storage import Storage
 
                 raise IntegrityError(

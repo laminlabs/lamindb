@@ -170,10 +170,10 @@ def test_pass_version():
 def test_delete():
     ulabel = ln.ULabel(name="test-delete")
     # record not yet saved, delete has no effect
-    ulabel.delete(permanent=True)
+    ulabel.delete()
     assert ulabel.branch_id == 1
     ulabel.save()
-    ulabel.delete(permanent=True)
+    ulabel.delete()
     assert ulabel.branch_id == -1
     ulabel.delete(permanent=True)
     assert ln.ULabel.filter(name="test-delete").exists() is False
