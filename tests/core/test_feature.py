@@ -42,7 +42,7 @@ def test_feature_init():
 
     # ensure feat1 does not exist
     if feat1 := ln.Feature.filter(name="feat1").one_or_none() is not None:
-        feat1.delete()
+        feat1.delete(permanent=True)
 
     feat1 = ln.Feature(name="feat", dtype="str").save()
     # duplicate name with different dtype should fail
@@ -52,13 +52,13 @@ def test_feature_init():
         error.exconly()
         == "lamindb.errors.ValidationError: Feature feat already exists with dtype str, you passed cat"
     )
-    feat1.delete()
+    feat1.delete(permanent=True)
 
     # string and list syntax for categorical dtypes should be equivalent and work
     feat2 = ln.Feature(name="feat2", dtype="str", description="feat2").save()
     feat2_again = ln.Feature(name="feat2", dtype="str", description="feat2").save()
     assert feat2 == feat2_again
-    feat2.delete()
+    feat2.delete(permanent=True)
 
     # categorical dtype with union of registries using string syntax must be valid
     feature = ln.Feature(name="feat1", dtype="cat[ULabel|bionty.Gene]")
@@ -87,7 +87,7 @@ def test_cat_filters_dtype():
 
     assert feature.dtype == "cat[bionty.Disease[source__uid='4a3ejKuf']]"
 
-    feature.delete()
+    feature.delete(permanent=True)
 
 
 def test_cat_filters_empty_filter():
@@ -115,12 +115,12 @@ def test_cat_filters_invalid_field_name():
         "lamindb.errors.ValidationError: SQLRecord Source has no attribute 'invalid_field' in filter source__invalid_field"
         in error.exconly()
     )
-    source.delete()
+    source.delete(permanent=True)
 
 
 def test_feature_from_df(df):
     if feat1 := ln.Feature.filter(name="feat1").one_or_none() is not None:
-        feat1.delete()
+        feat1.delete(permanent=True)
     features = ln.Feature.from_df(df.iloc[:, :4]).save()
     artifact = ln.Artifact.from_df(df, description="test").save()
     # test for deprecated add_feature_set

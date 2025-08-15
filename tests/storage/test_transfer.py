@@ -117,8 +117,8 @@ def test_transfer_into_space():
         ulabel.save()
     assert ulabel.space_id == space.id
 
-    ulabel.delete()
-    space.delete()
+    ulabel.delete(permanent=True)
+    space.delete(permanent=True)
 
 
 def test_using_record_organism():

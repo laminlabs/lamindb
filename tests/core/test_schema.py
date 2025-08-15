@@ -45,7 +45,7 @@ def test_schema_from_values():
     schema = ln.Schema.from_values(gene_symbols, bt.Gene.symbol, type=int)
     assert not schema._state.adding
     assert id == schema.id
-    schema.delete()
+    schema.delete(permanent=True)
 
     # edge cases
     with pytest.raises(ValueError):
@@ -86,7 +86,7 @@ def test_schema_from_records(df):
     schema = ln.Schema(features)
     assert not schema._state.adding
     assert schema.id is not None
-    schema.delete()
+    schema.delete(permanent=True)
 
     # edge case
     with pytest.raises(ValueError):
@@ -104,7 +104,7 @@ def test_schema_from_df(df):
     assert error.exconly().startswith("ValueError: data types are heterogeneous:")
     schema = ln.Schema.from_df(df[["feat1", "feat2"]], field=bt.Gene.symbol)
     for gene in genes:
-        gene.delete()
+        gene.delete(permanent=True)
 
     # now for the features registry
     features = ln.Feature.from_df(df)
@@ -133,7 +133,7 @@ def test_validate_features():
     with pytest.raises(TypeError) as error:
         validate_features([transform, ln.Run(transform)])
     assert error.exconly() == "TypeError: schema can only contain a single type"
-    transform.delete()
+    transform.delete(permanent=True)
 
 
 def test_kwargs():
@@ -150,7 +150,7 @@ def test_edge_cases():
         error.exconly()
         == "ValueError: Please pass a ListLike of features, not a single feature"
     )
-    feature.delete()
+    feature.delete(permanent=True)
 
 
 @pytest.fixture(scope="module")
@@ -277,7 +277,7 @@ def test_schema_update(
     assert mini_immuno_schema_flexible.hash == orig_hash
     assert ccaplog.text.count(warning_message) == 2
     assert mini_immuno_schema_flexible.n == 6
-    feature_to_add.delete()
+    feature_to_add.delete(permanent=True)
 
     # change is flexible (an auxiliary field) --------------------------------
 
@@ -322,7 +322,7 @@ def test_schema_update(
     assert mini_immuno_schema_flexible.n == 6
     assert mini_immuno_schema_flexible.hash == orig_hash
     assert ccaplog.text.count(warning_message) == 8
-    index_feature.delete()
+    index_feature.delete(permanent=True)
 
     # make a feature optional --------------------------------
 
@@ -387,9 +387,9 @@ def test_schema_components(mini_immuno_schema_flexible: ln.Schema):
     except IntegrityError as error:
         assert str(error).startswith("duplicate key value violates unique constraint")
 
-    anndata_schema.delete()
-    var_schema2.delete()
-    var_schema.delete()
+    anndata_schema.delete(permanent=True)
+    var_schema2.delete(permanent=True)
+    var_schema.delete(permanent=True)
 
 
 def test_mini_immuno_schema_flexible(mini_immuno_schema_flexible):
@@ -482,7 +482,7 @@ def test_schemas_anndata():
     assert varT_schema.name == "valid_ensembl_gene_ids"
     assert varT_schema.itype == "bionty.Gene.ensembl_gene_id"
     assert varT_schema.hash == "1gocc_TJ1RU2bMwDRK-WUA"
-    schema.delete()
+    schema.delete(permanent=True)
 
 
 def test_schema_already_saved_aux():
@@ -547,8 +547,8 @@ def test_schema_already_saved_aux():
     assert len(schema.slots["var"]._aux["af"].keys()) == 3
     assert schema.slots["var"]._aux == schema_2.slots["var"]._aux
 
-    schema_2.delete()
-    schema.delete()
+    schema_2.delete(permanent=True)
+    schema.delete(permanent=True)
 
 
 def test_schema_not_saved_describe():
@@ -566,5 +566,5 @@ def test_schema_is_type():
     assert BioSample.type == Sample
     assert BioSample.is_type
     # clean up
-    BioSample.delete()
-    Sample.delete()
+    BioSample.delete(permanent=True)
+    Sample.delete(permanent=True)
