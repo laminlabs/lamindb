@@ -1,7 +1,6 @@
 # ruff: noqa: TC004
 from __future__ import annotations
 
-import os
 import shutil
 from collections import defaultdict
 from pathlib import Path, PurePath, PurePosixPath
@@ -63,7 +62,7 @@ from ..core.storage.paths import (
     filepath_cache_key_from_artifact,
     filepath_from_artifact,
 )
-from ..errors import IntegrityError, InvalidArgument, ValidationError
+from ..errors import InvalidArgument, ValidationError
 from ..models._is_versioned import (
     create_uid,
 )
@@ -993,6 +992,56 @@ def add_labels(
                 feature_ref_is_name=feature_ref_is_name,
                 label_ref_is_name=label_ref_is_name,
             )
+
+
+def delete_permanently(artifact: Artifact, storage: bool, using_key: str):
+    # need to grab file path before deletion
+    try:
+        path, _ = filepath_from_artifact(artifact, using_key)
+    except OSError:
+        # we can still delete the record
+        logger.warning("Could not get path")
+        storage = False
+    # only delete in storage if DB delete is successful
+    # DB delete might error because of a foreign key constraint violated etc.
+    if artifact._overwrite_versions and artifact.is_latest:
+        logger.important(
+            "deleting all versions of this artifact because they all share the same store"
+        )
+        for version in artifact.versions.all():  # includes artifact
+            _delete_skip_storage(version)
+    else:
+        artifact._delete_skip_storage()
+    # by default do not delete storage if deleting only a previous version
+    # and the underlying store is mutable
+    if artifact._overwrite_versions and not artifact.is_latest:
+        delete_in_storage = False
+        if storage:
+            logger.warning(
+                "storage argument is ignored; can't delete store of a previous version if overwrite_versions is True"
+            )
+    elif artifact.key is None or artifact._key_is_virtual:
+        # do not ask for confirmation also if storage is None
+        delete_in_storage = storage is None or storage
+    else:
+        # for artifacts with non-virtual semantic storage keys (key is not None)
+        # ask for extra-confirmation
+        if storage is None:
+            response = input(
+                f"Are you sure to want to delete {path}? (y/n)  You can't undo"
+                " this action."
+            )
+            delete_in_storage = response == "y"
+        else:
+            delete_in_storage = storage
+    if not delete_in_storage:
+        logger.important(f"a file/folder remains here: {path}")
+    # we don't yet have logic to bring back the deleted metadata record
+    # in case storage deletion fails - this is important for ACID down the road
+    if delete_in_storage:
+        delete_msg = delete_storage(path, raise_file_not_found_error=False)
+        if delete_msg != "did-not-delete":
+            logger.success(f"deleted {colors.yellow(f'{path}')}")
 
 
 class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
@@ -2581,94 +2630,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             artifact = ln.Artifact.get(key="some.tiledbsoma". is_latest=True)
             artiact.delete() # delete all versions, the data will be deleted or prompted for deletion.
         """
-        # we're *not* running the line below because the case `storage is None` triggers user feedback in one case
-        # storage = True if storage is None else storage
-
-        # this first check means an invalid delete fails fast rather than cascading through
-        # database and storage permission errors
-        if os.getenv("LAMINDB_MULTI_INSTANCE") is None:
-            isettings = setup_settings.instance
-            if self.storage.instance_uid != isettings.uid and (
-                storage or storage is None
-            ):
-                raise IntegrityError(
-                    "Cannot simply delete artifacts outside of this instance's managed storage locations."
-                    "\n(1) If you only want to delete the metadata record in this instance, pass `storage=False`"
-                    f"\n(2) If you want to delete the artifact in storage, please load the managing lamindb instance (uid={self.storage.instance_uid})."
-                    f"\nThese are all managed storage locations of this instance:\n{Storage.filter(instance_uid=isettings.uid).df()}"
-                )
-        # by default, we only move artifacts into the trash (branch_id = -1)
-        trash_branch_id = -1
-        if self.branch_id > trash_branch_id and not permanent:
-            if storage is not None:
-                logger.warning("moving artifact to trash, storage arg is ignored")
-            # move to trash
-            self.branch_id = trash_branch_id
-            self.save()
-            logger.important(f"moved artifact to trash (branch_id = {trash_branch_id})")
-            return
-
-        # if the artifact is already in the trash
-        # permanent delete skips the trash
-        if permanent is None:
-            # ask for confirmation of permanent delete
-            response = input(
-                "Artifact record is already in trash! Are you sure you want to permanently"
-                " delete it? (y/n) You can't undo this action."
-            )
-            delete_record = response == "y"
-        else:
-            assert permanent  # noqa: S101
-            delete_record = True
-
-        if delete_record:
-            # need to grab file path before deletion
-            try:
-                path, _ = filepath_from_artifact(self, using_key)
-            except OSError:
-                # we can still delete the record
-                logger.warning("Could not get path")
-                storage = False
-            # only delete in storage if DB delete is successful
-            # DB delete might error because of a foreign key constraint violated etc.
-            if self._overwrite_versions and self.is_latest:
-                logger.important(
-                    "deleting all versions of this artifact because they all share the same store"
-                )
-                for version in self.versions.all():  # includes self
-                    _delete_skip_storage(version)
-            else:
-                self._delete_skip_storage()
-            # by default do not delete storage if deleting only a previous version
-            # and the underlying store is mutable
-            if self._overwrite_versions and not self.is_latest:
-                delete_in_storage = False
-                if storage:
-                    logger.warning(
-                        "storage argument is ignored; can't delete store of a previous version if overwrite_versions is True"
-                    )
-            elif self.key is None or self._key_is_virtual:
-                # do not ask for confirmation also if storage is None
-                delete_in_storage = storage is None or storage
-            else:
-                # for artifacts with non-virtual semantic storage keys (key is not None)
-                # ask for extra-confirmation
-                if storage is None:
-                    response = input(
-                        f"Are you sure to want to delete {path}? (y/n)  You can't undo"
-                        " this action."
-                    )
-                    delete_in_storage = response == "y"
-                else:
-                    delete_in_storage = storage
-            if not delete_in_storage:
-                logger.important(f"a file/folder remains here: {path}")
-            # we don't yet have logic to bring back the deleted metadata record
-            # in case storage deletion fails - this is important for ACID down the road
-            if delete_in_storage:
-                delete_msg = delete_storage(path, raise_file_not_found_error=False)
-                if delete_msg != "did-not-delete":
-                    logger.success(f"deleted {colors.yellow(f'{path}')}")
+        super().delete(permanent=permanent, storage=storage, using_key=using_key)
 
     @property
     def _is_saved_to_storage_location(self) -> bool | None:
@@ -2849,7 +2811,7 @@ def _synchronize_cleanup_on_error(
 
 
 def _delete_skip_storage(artifact, *args, **kwargs) -> None:
-    super(Artifact, artifact).delete(*args, **kwargs)
+    super(SQLRecord, artifact).delete(*args, **kwargs)
 
 
 def _save_skip_storage(artifact, **kwargs) -> None:

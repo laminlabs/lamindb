@@ -577,39 +577,6 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         _track_run_input(self, is_run_input)
         return concat_object
 
-    def delete(self, permanent: bool | None = None) -> None:
-        """Delete collection.
-
-        Args:
-            permanent: Whether to permanently delete the collection record (skips trash).
-
-        Examples:
-
-            For any `Collection` object `collection`, call:
-
-            >>> collection.delete()
-        """
-        # change branch_id to trash
-        trash_branch_id = -1
-        if self.branch_id > trash_branch_id and permanent is not True:
-            self.branch_id = trash_branch_id
-            self.save()
-            logger.warning(f"moved collection to trash (branch_id = {trash_branch_id})")
-            return
-
-        # permanent delete
-        if permanent is None:
-            response = input(
-                "Collection record is already in trash! Are you sure to delete it from your"
-                " database? (y/n) You can't undo this action."
-            )
-            delete_record = response == "y"
-        else:
-            delete_record = permanent
-
-        if delete_record:
-            super().delete()
-
     def save(self, using: str | None = None) -> Collection:
         """Save the collection and underlying artifacts to database & storage.
 

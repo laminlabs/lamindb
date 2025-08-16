@@ -103,13 +103,13 @@ def test_fine_grained_permissions_account():
     assert ulabel.projects.all().count() == 2
     # check delete
     # should delete
-    ln.ULabel.get(name="full_access_ulabel").delete()
+    ln.ULabel.get(name="full_access_ulabel").delete(permanent=True)
     assert ln.ULabel.filter().count() == 2
     # should not delete, does not error for some reason
-    ln.ULabel.get(name="select_ulabel").delete()
+    ln.ULabel.get(name="select_ulabel").delete(permanent=True)
     assert ln.ULabel.filter().count() == 2
     # default space
-    ulabel.delete()
+    ulabel.delete(permanent=True)
     assert ln.ULabel.filter().count() == 2
     # check insert
     # should succeed
@@ -219,7 +219,7 @@ def test_fine_grained_permissions_single_records():
     ulabel.projects.add(project)
     assert ulabel.projects.count() == 1
 
-    ulabel.delete()
+    ulabel.delete(permanent=True)
     assert not ln.ULabel.filter(name="no_access_ulabel").exists()
 
 

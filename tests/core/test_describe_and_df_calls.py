@@ -219,7 +219,9 @@ def test_curate_df():
 
     artifact.delete(permanent=True)
     artifact2.delete(permanent=True)
-    ln.Schema.get(name="anndata_ensembl_gene_ids_and_valid_features_in_obs").delete()
+    ln.Schema.get(name="anndata_ensembl_gene_ids_and_valid_features_in_obs").delete(
+        permanent=True
+    )
     ln.Schema.filter().delete()
     ln.Feature.filter().delete()
     bt.Gene.filter().delete()
