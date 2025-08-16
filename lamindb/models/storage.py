@@ -233,7 +233,6 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
             instance_id=setup_settings.instance._id,
             instance_slug=setup_settings.instance.slug,
             register_hub=setup_settings.instance.is_on_hub,
-            prevent_register_hub=not setup_settings.instance.is_on_hub,
             region=kwargs.get("region", None),  # host was renamed to region already
         )
         # ssettings performed validation and normalization of the root path
