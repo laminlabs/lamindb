@@ -26,6 +26,7 @@ from _dataset_fixtures import (  # noqa
     get_small_sdata,
     get_small_soma_experiment,
 )
+from lamindb.core._settings import settings
 from lamindb.core.loaders import load_fcs, load_to_memory, load_tsv
 from lamindb.core.storage.paths import (
     AUTO_KEY_PREFIX,
@@ -41,8 +42,11 @@ from lamindb.models.artifact import (
     data_is_scversedatastructure,
     data_is_soma_experiment,
     get_relative_path_to_directory,
+    process_data,
 )
 from lamindb_setup.core.upath import (
+    CloudPath,
+    LocalPathClasses,
     UPath,
     extract_suffix_from_path,
 )
@@ -784,6 +788,57 @@ def test_check_path_is_child_of_root():
         UPath("s3://bucket/key", endpoint_url="http://localhost:8000"),
         root="s3://bucket?endpoint_url=http://localhost:8000",
     )
+
+
+def test_serialize_paths():
+    fp_str = ln.core.datasets.anndata_file_pbmc68k_test().as_posix()
+    fp_path = Path(fp_str)
+
+    up_str = "s3://lamindb-ci/test-unknown-storage-in-core-tests/test.csv"
+    up_upath = UPath(up_str)
+
+    storage = settings._storage_settings.record
+    using_key = None
+
+    _, filepath, _, _, _ = process_data(
+        "id", fp_str, None, None, storage, using_key, skip_existence_check=True
+    )
+    assert isinstance(filepath, LocalPathClasses)
+    _, filepath, _, _, _ = process_data(
+        "id", fp_path, None, None, storage, using_key, skip_existence_check=True
+    )
+    assert isinstance(filepath, LocalPathClasses)
+
+    with pytest.raises(ln.errors.UnknownStorageLocation) as err:
+        _, filepath, _, _, _ = process_data(
+            "id",
+            up_str,
+            None,
+            None,
+            storage,
+            using_key,
+            skip_existence_check=True,
+        )
+    assert f"Path {up_str} is not contained in any known storage" in err.exconly()
+    storage = ln.Storage(
+        root="s3://lamindb-ci/test-unknown-storage-in-core-tests"
+    ).save()
+    _, filepath, _, _, _ = process_data(
+        "id", up_str, None, None, storage, using_key, skip_existence_check=True
+    )
+    assert isinstance(filepath, CloudPath)
+    _, filepath, _, _, _ = process_data(
+        "id",
+        up_upath,
+        None,
+        None,
+        storage,
+        using_key,
+        skip_existence_check=True,
+    )
+    assert isinstance(filepath, CloudPath)
+    storage.delete()
+    Path("pbmc68k_test.h5ad").unlink(missing_ok=True)
 
 
 def test_load_to_memory(tsv_file, zip_file, fcs_file, yaml_file):

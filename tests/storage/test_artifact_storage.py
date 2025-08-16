@@ -1,20 +1,10 @@
 import shutil
-from pathlib import Path
 
 import anndata as ad
 import lamindb as ln
 import pytest
-from lamindb.core._settings import settings
 from lamindb.errors import (
     IntegrityError,
-)
-from lamindb.models.artifact import (
-    process_data,
-)
-from lamindb_setup.core.upath import (
-    CloudPath,
-    LocalPathClasses,
-    UPath,
 )
 
 
@@ -177,54 +167,3 @@ def test_folder_like_artifact_s3():
     assert study0_data._hash_type == "md5-d"
     assert study0_data.n_files == 51
     assert study0_data.size == 658465
-
-
-def test_serialize_paths():
-    fp_str = ln.core.datasets.anndata_file_pbmc68k_test().as_posix()
-    fp_path = Path(fp_str)
-
-    up_str = "s3://lamindb-ci/test-unknown-storage-in-core-tests/test.csv"
-    up_upath = UPath(up_str)
-
-    storage = settings._storage_settings.record
-    using_key = None
-
-    _, filepath, _, _, _ = process_data(
-        "id", fp_str, None, None, storage, using_key, skip_existence_check=True
-    )
-    assert isinstance(filepath, LocalPathClasses)
-    _, filepath, _, _, _ = process_data(
-        "id", fp_path, None, None, storage, using_key, skip_existence_check=True
-    )
-    assert isinstance(filepath, LocalPathClasses)
-
-    with pytest.raises(ln.errors.UnknownStorageLocation) as err:
-        _, filepath, _, _, _ = process_data(
-            "id",
-            up_str,
-            None,
-            None,
-            storage,
-            using_key,
-            skip_existence_check=True,
-        )
-    assert f"Path {up_str} is not contained in any known storage" in err.exconly()
-    storage = ln.Storage(
-        root="s3://lamindb-ci/test-unknown-storage-in-core-tests"
-    ).save()
-    _, filepath, _, _, _ = process_data(
-        "id", up_str, None, None, storage, using_key, skip_existence_check=True
-    )
-    assert isinstance(filepath, CloudPath)
-    _, filepath, _, _, _ = process_data(
-        "id",
-        up_upath,
-        None,
-        None,
-        storage,
-        using_key,
-        skip_existence_check=True,
-    )
-    assert isinstance(filepath, CloudPath)
-    storage.delete()
-    Path("pbmc68k_test.h5ad").unlink(missing_ok=True)
