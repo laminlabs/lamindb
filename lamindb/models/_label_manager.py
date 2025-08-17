@@ -268,7 +268,7 @@ class LabelManager:
                     for link in links:
                         if link.feature is not None:
                             features.add(link.feature)
-                            key = link.feature.name
+                            key = link.feature.uid
                         else:
                             key = None
                         keys.append(key)
@@ -299,9 +299,9 @@ class LabelManager:
                     )
                 save(new_features)  # type: ignore
             if hasattr(self._host, related_name):
-                for feature_name, feature_labels in labels_by_features.items():
-                    if feature_name is not None:
-                        feature_id = Feature.get(name=feature_name).id
+                for feature_uid, feature_labels in labels_by_features.items():
+                    if feature_uid is not None:
+                        feature_id = Feature.get(feature_uid).id
                     else:
                         feature_id = None
                     getattr(self._host, related_name).add(
