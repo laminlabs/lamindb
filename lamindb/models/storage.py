@@ -11,6 +11,7 @@ from lamindb_setup import settings as setup_settings
 from lamindb_setup.core._hub_core import (
     delete_storage_record,
     get_storage_records_for_instance,
+    select_space,
 )
 from lamindb_setup.core._settings_storage import (
     StorageSettings,
@@ -25,7 +26,7 @@ from lamindb.base.fields import (
 
 from ..base.ids import base62_12
 from .run import TracksRun, TracksUpdates
-from .sqlrecord import SQLRecord
+from .sqlrecord import Space, SQLRecord
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -77,6 +78,7 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
     Args:
         root: `str` The root path of the storage location, e.g., `"./mydir"`, `"s3://my-bucket"`, `"s3://my-bucket/myfolder"`, `"gs://my-bucket/myfolder"`, `"/nfs/shared/datasets/genomics"`, `"/weka/shared/models/"`, ...
         description: `str | None = None` An optional description.
+        space: `Space | None = None` A space to restrict access permissions.
         host: `str | None = None` For local storage locations, pass a globally unique host identifier, e.g. `"my-institute-cluster-1"`, `"my-server-abcd"`, ...
 
     See Also:
@@ -107,14 +109,13 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
 
             ln.Storage(root="/dir/our-shared-dir", host="our-server-123").save()
 
-        Switch to another storage location::
+        Globally switch to another storage location::
 
             ln.settings.storage = "/dir/our-shared-dir"  # or "s3://our-bucket/our-folder", "gs://our-bucket/our-folder", ...
 
-        If you're operating in `keep-artifacts-local` mode (:doc:`faq/keep-artifacts-local`), you can switch among additional local storage locations::
+        Or if you're operating in `keep-artifacts-local` mode (:doc:`faq/keep-artifacts-local`)::
 
-            ln.Storage(root="/dir/our-other-shared-dir", host="our-server-123").save()  # create
-            ln.settings.local_storage = "/dir/our-other-shared-dir"  # switch
+            ln.settings.local_storage = "/dir/our-other-shared-dir"
 
         View all storage locations used in your LaminDB instance::
 
@@ -175,6 +176,7 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
         root: str,
         *,
         description: str | None = None,
+        space: Space | None = None,
         host: str | None = None,
     ): ...
 
@@ -214,6 +216,7 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
             ).one_or_none()
         else:
             storage_record = Storage.filter(root=kwargs["root"]).one_or_none()
+        space = kwargs.get("space", None)
         if storage_record is not None:
             from .sqlrecord import init_self_from_db
 
@@ -222,8 +225,18 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
 
         skip_preparation = kwargs.pop("_skip_preparation", False)
         if skip_preparation:
+            assert space is None, "`space` must not be set if _skip_preparation is True"  # noqa: S101
             super().__init__(*args, **kwargs)
             return None
+
+        space_uuid = None
+        if space is not None:
+            hub_space_record = select_space(space.uid)
+            if hub_space_record is None:
+                raise ValueError(
+                    "Please first create a space on the hub: https://docs.lamin.ai/access"
+                )
+            space_uuid = hub_space_record["id"]
 
         # instance_id won't take effect if
         # - there is no write access
@@ -234,6 +247,7 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
             instance_slug=setup_settings.instance.slug,
             register_hub=setup_settings.instance.is_on_hub,
             region=kwargs.get("region", None),  # host was renamed to region already
+            space_id=space_uuid,
         )
         # ssettings performed validation and normalization of the root path
         kwargs["root"] = ssettings.root_as_str  # noqa: S101

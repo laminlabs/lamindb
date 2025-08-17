@@ -1457,12 +1457,14 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             branch_id = 1
         branch = kwargs.pop("branch", None)
         space = kwargs.pop("space", None)
-        space_id = kwargs.pop("space_id", 1)
+        assert "space_id" not in kwargs  # noqa: S101
         format = kwargs.pop("format", None)
         _is_internal_call = kwargs.pop("_is_internal_call", False)
         skip_check_exists = kwargs.pop("skip_check_exists", False)
+        storage_was_passed = False
         if "storage" in kwargs:
             storage = kwargs.pop("storage")
+            storage_was_passed = True
         elif (
             setup_settings.instance.keep_artifacts_local
             and setup_settings.instance._local_storage is not None
@@ -1470,6 +1472,20 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             storage = setup_settings.instance.local_storage.record
         else:
             storage = setup_settings.instance.storage.record
+        if space is not None:
+            from lamindb import context as run_context
+
+            if run_context.space is not None:
+                space = run_context.space
+            elif setup_settings.space is not None:
+                space = setup_settings.space
+            if space is not None:
+                if storage != space.storage:
+                    if storage_was_passed:
+                        logger.warning(
+                            "storage argument ignored as storage information from space takes precedence"
+                        )
+                    storage = space.storage
         using_key = kwargs.pop("using_key", None)
         otype = kwargs.pop("otype") if "otype" in kwargs else None
         if isinstance(data, str) and data.startswith("s3:///"):
@@ -1580,7 +1596,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         kwargs["branch"] = branch
         kwargs["branch_id"] = branch_id
         kwargs["space"] = space
-        kwargs["space_id"] = space_id
         kwargs["otype"] = otype
         kwargs["revises"] = revises
         # this check needs to come down here because key might be populated from an
