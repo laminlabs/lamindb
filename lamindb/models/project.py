@@ -53,6 +53,7 @@ class Person(SQLRecord, CanCurate, TracksRun, TracksUpdates, ValidateFields):
 
     class Meta(SQLRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
         abstract = False
+        app_label = "lamindb"
 
     id: int = models.AutoField(primary_key=True)
     """Internal id, valid only in one DB instance."""
@@ -107,6 +108,7 @@ class Reference(SQLRecord, CanCurate, TracksRun, TracksUpdates, ValidateFields):
 
     class Meta(SQLRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
         abstract = False
+        app_label = "lamindb"
 
     id: int = models.AutoField(primary_key=True)
     """Internal id, valid only in one DB instance."""
@@ -215,6 +217,7 @@ class Project(SQLRecord, CanCurate, TracksRun, TracksUpdates, ValidateFields):
 
     class Meta(SQLRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
         abstract = False
+        app_label = "lamindb"
 
     id: int = models.AutoField(primary_key=True)
     """Internal id, valid only in one DB instance."""
@@ -286,10 +289,14 @@ class Project(SQLRecord, CanCurate, TracksRun, TracksUpdates, ValidateFields):
         Schema, through="SchemaProject", related_name="projects"
     )
     """Linked schemas."""
-    records: Record = models.ManyToManyField(
+    linked_in_records: Record = models.ManyToManyField(
         Record, through="RecordProject", related_name="linked_projects"
     )
     """Linked records."""
+    records: Record = models.ManyToManyField(
+        Record, through="ProjectRecord", related_name="projects"
+    )
+    """Annotated record."""
     collections: Collection = models.ManyToManyField(
         Collection, through="CollectionProject", related_name="projects"
     )
@@ -336,6 +343,7 @@ class ArtifactProject(BaseSQLRecord, IsLink, TracksRun):
     feature_ref_is_name: bool | None = BooleanField(null=True, default=None)
 
     class Meta:
+        app_label = "lamindb"
         # can have the same label linked to the same artifact if the feature is different
         unique_together = ("artifact", "project", "feature")
 
@@ -358,6 +366,7 @@ class RunProject(BaseSQLRecord, IsLink):
     """Creator of record."""
 
     class Meta:
+        app_label = "lamindb"
         unique_together = ("run", "project")
 
 
@@ -367,6 +376,7 @@ class TransformProject(BaseSQLRecord, IsLink, TracksRun):
     project: Project = ForeignKey(Project, PROTECT, related_name="links_transform")
 
     class Meta:
+        app_label = "lamindb"
         unique_together = ("transform", "project")
 
 
@@ -378,6 +388,7 @@ class CollectionProject(BaseSQLRecord, IsLink, TracksRun):
     project: Project = ForeignKey(Project, PROTECT, related_name="links_collection")
 
     class Meta:
+        app_label = "lamindb"
         unique_together = ("collection", "project")
 
 
@@ -387,6 +398,7 @@ class ULabelProject(BaseSQLRecord, IsLink, TracksRun):
     project: Project = ForeignKey(Project, PROTECT, related_name="links_ulabel")
 
     class Meta:
+        app_label = "lamindb"
         unique_together = ("ulabel", "project")
 
 
@@ -397,6 +409,7 @@ class PersonProject(BaseSQLRecord, IsLink, TracksRun):
     role: str | None = CharField(null=True, default=None)
 
     class Meta:
+        app_label = "lamindb"
         unique_together = ("person", "project")
 
 
@@ -406,6 +419,7 @@ class FeatureProject(BaseSQLRecord, IsLink, TracksRun):
     project: Project = ForeignKey(Project, PROTECT, related_name="links_feature")
 
     class Meta:
+        app_label = "lamindb"
         unique_together = ("feature", "project")
 
 
@@ -415,6 +429,7 @@ class SchemaProject(BaseSQLRecord, IsLink, TracksRun):
     project: Project = ForeignKey(Project, PROTECT, related_name="links_schema")
 
     class Meta:
+        app_label = "lamindb"
         unique_together = ("schema", "project")
 
 
@@ -425,6 +440,7 @@ class RecordPerson(BaseSQLRecord, IsLink):
     value: Person = ForeignKey(Person, PROTECT, related_name="links_record")
 
     class Meta:
+        app_label = "lamindb"
         unique_together = ("record", "feature", "value")
 
 
@@ -437,16 +453,37 @@ class RecordReference(BaseSQLRecord, IsLink):
     value: Reference = ForeignKey(Reference, PROTECT, related_name="links_record")
 
     class Meta:
+        app_label = "lamindb"
         unique_together = ("record", "feature", "value")
+
+
+# for annotation of records with projects, RecordProject is for storing project values
+class ProjectRecord(BaseSQLRecord, IsLink, TracksRun):
+    id: int = models.BigAutoField(primary_key=True)
+    record: Record = ForeignKey(Record, CASCADE, related_name="links_project")
+    project: Project = ForeignKey(Project, PROTECT, related_name="links_record")
+    feature: Feature | None = ForeignKey(
+        Feature,
+        PROTECT,
+        null=True,
+        default=None,
+        related_name="links_projectrecord",
+    )
+
+    class Meta:
+        # can have the same label linked to the same artifact if the feature is different
+        app_label = "lamindb"
+        unique_together = ("record", "project", "feature")
 
 
 class RecordProject(BaseSQLRecord, IsLink):
     id: int = models.BigAutoField(primary_key=True)
     record: Record = ForeignKey(Record, CASCADE, related_name="values_project")
     feature: Feature = ForeignKey(Feature, PROTECT, related_name="links_recordproject")
-    value: Project = ForeignKey(Project, PROTECT, related_name="links_record")
+    value: Project = ForeignKey(Project, PROTECT, related_name="links_in_record")
 
     class Meta:
+        app_label = "lamindb"
         unique_together = ("record", "feature", "value")
 
 
@@ -465,6 +502,7 @@ class ArtifactReference(BaseSQLRecord, IsLink, TracksRun):
     feature_ref_is_name: bool | None = BooleanField(null=True, default=None)
 
     class Meta:
+        app_label = "lamindb"
         # can have the same label linked to the same artifact if the feature is different
         unique_together = ("artifact", "reference", "feature")
 
@@ -479,6 +517,7 @@ class TransformReference(BaseSQLRecord, IsLink, TracksRun):
     )
 
     class Meta:
+        app_label = "lamindb"
         unique_together = ("transform", "reference")
 
 
@@ -492,4 +531,5 @@ class CollectionReference(BaseSQLRecord, IsLink, TracksRun):
     )
 
     class Meta:
+        app_label = "lamindb"
         unique_together = ("collection", "reference")

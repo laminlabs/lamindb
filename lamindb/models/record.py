@@ -54,6 +54,7 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates):
 
     class Meta(SQLRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
         abstract = False
+        app_label = "lamindb"
 
     _name_field: str = "name"
 
@@ -252,6 +253,7 @@ class RecordJson(BaseSQLRecord, IsLink):
     value: Any = JSONField(default=None, db_default=None)
 
     class Meta:
+        app_label = "lamindb"
         unique_together = ("record", "feature")  # a list is modeled as a list in json
 
 
@@ -266,6 +268,7 @@ class RecordRecord(SQLRecord, IsLink):
     )  # component
 
     class Meta:
+        app_label = "lamindb"
         unique_together = ("record", "feature", "value")
 
 
@@ -277,6 +280,7 @@ class RecordULabel(BaseSQLRecord, IsLink):
 
     class Meta:
         # allows linking exactly one record to one ulabel per feature, because we likely don't want to have Many
+        app_label = "lamindb"
         unique_together = ("record", "feature", "value")
 
 
@@ -288,6 +292,7 @@ class RecordRun(BaseSQLRecord, IsLink):
 
     class Meta:
         # allows linking several records to a single run for the same feature because we'll likely need this
+        app_label = "lamindb"
         unique_together = ("record", "feature", "value")
 
 
@@ -299,6 +304,7 @@ class RecordArtifact(BaseSQLRecord, IsLink):
 
     class Meta:
         # allows linking several records to a single artifact for the same feature because we'll likely need this
+        app_label = "lamindb"
         unique_together = ("record", "feature", "value")
 
 
@@ -315,4 +321,5 @@ class ArtifactRecord(BaseSQLRecord, IsLink):
 
     class Meta:
         # allows linking several records to a single artifact for the same feature because we'll likely need this
+        app_label = "lamindb"
         unique_together = ("artifact", "record", "feature")

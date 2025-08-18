@@ -719,15 +719,15 @@ def parse_staged_feature_sets_from_anndata(
             data_parse = backed_access(filepath, using_key=using_key)
         else:
             data_parse = ad.read_h5ad(filepath, backed="r")
-        type = "float"
+        dtype = "float"
     else:
-        type = "float" if adata.X is None else serialize_pandas_dtype(adata.X.dtype)
+        dtype = "float" if adata.X is None else serialize_pandas_dtype(adata.X.dtype)
     feature_sets = {}
     if var_field is not None:
         schema_var = Schema.from_values(
             data_parse.var.index,
             var_field,
-            type=type,
+            dtype=dtype,
             mute=mute,
             organism=organism,
             raise_validation_error=False,

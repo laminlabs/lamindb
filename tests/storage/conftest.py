@@ -3,15 +3,11 @@ from pathlib import Path
 from subprocess import DEVNULL, run
 from time import perf_counter
 
+import lamindb as ln
 import lamindb_setup as ln_setup
 import pytest
 from lamin_utils import logger
 from laminci.db import setup_local_test_postgres
-
-AUTO_CONNECT = ln_setup.settings.auto_connect
-ln_setup.settings.auto_connect = False
-
-import lamindb as ln
 
 
 def create_test_instance(pgurl: str):
@@ -22,8 +18,8 @@ def create_test_instance(pgurl: str):
         db=pgurl,
     )
     ln.setup.register()  # temporarily
-    ln.setup.settings.auto_connect = True
     ln.settings.creation.artifact_silence_missing_run_warning = True
+    ln.settings.track_run_inputs = False
     ln.Storage("s3://lamindb-ci/test-data").save()
     ln.Storage("s3://lamindb-test/core").save()
     ln.Storage("s3://lamindb-test/storage").save()
@@ -73,7 +69,6 @@ def delete_test_instance():
 def pytest_sessionfinish(session: pytest.Session):
     delete_test_instance()
     run("docker stop pgtest && docker rm pgtest", shell=True, stdout=DEVNULL)  # noqa: S602
-    ln.setup.settings.auto_connect = AUTO_CONNECT
 
 
 @pytest.fixture

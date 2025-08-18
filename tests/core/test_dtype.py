@@ -240,7 +240,7 @@ def test_feature_dtype():
         "field": bt.Disease.name,
     }
 
-    feature.delete()
+    feature.delete(permanent=True)
 
 
 def test_cat_filters_incompatible_with_union_dtypes():
@@ -318,14 +318,14 @@ def test_resolve_relation_filter_with_uid(source):
     parsed = {"source__uid": ("source", "uid", "testuid1")}
     result = resolve_relation_filters(parsed, bt.Gene)
     assert result == {"source": source}
-    source.delete()
+    source.delete(permanent=True)
 
 
 def test_resolve_relation_filter_with_name(organism):
     parsed = {"organism__name": ("organism", "name", "test_organism")}
     result = resolve_relation_filters(parsed, bt.Gene)
     assert result == {"organism": organism}
-    organism.delete()
+    organism.delete(permanent=True)
 
 
 def test_resolve_multiple_relation_filters(organism, source):
@@ -335,15 +335,15 @@ def test_resolve_multiple_relation_filters(organism, source):
     }
     result = resolve_relation_filters(parsed, bt.Gene)
     assert result == {"organism": organism, "source": source}
-    source.delete()
-    organism.delete()
+    source.delete(permanent=True)
+    organism.delete(permanent=True)
 
 
 def test_resolve_nested_filter(organism):
     parsed = {"organism__name__contains": ("organism", "name__contains", "test_orga")}
     result = resolve_relation_filters(parsed, bt.Gene)
     assert result == {"organism": organism}
-    organism.delete()
+    organism.delete(permanent=True)
 
 
 def test_resolve_relation_filter_failed_resolution():

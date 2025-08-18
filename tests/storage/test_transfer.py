@@ -103,9 +103,11 @@ def test_transfer_from_remote_to_local(ccaplog):
     artifact3.load()
 
     # delete with storage=False, because these are all stored in the source instances
-    artifact1.delete(storage=False)
-    artifact2.delete(storage=False)
-    artifact3.delete(storage=False)
+    artifact1.delete(storage=False, permanent=True)
+    artifact2.delete(storage=False, permanent=True)
+    artifact3.delete(
+        storage=False
+    )  # there is an issue here with permanent deletion because of schema module mismatch
 
 
 def test_transfer_into_space():
@@ -117,7 +119,7 @@ def test_transfer_into_space():
         ulabel.save()
     assert ulabel.space_id == space.id
 
-    ulabel.delete()
+    ulabel.delete(permanent=True)
     space.delete()
 
 

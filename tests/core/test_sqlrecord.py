@@ -149,10 +149,10 @@ def test_suggest_similar_names():
     assert queryset.count() == 2
     assert queryset[0].name == "Special test experiment abc"
 
-    ulabel1.delete()
-    ulabel2.delete()
-    ulabel3.delete()
-    ulabel4.delete()
+    ulabel1.delete(permanent=True)
+    ulabel2.delete(permanent=True)
+    ulabel3.delete(permanent=True)
+    ulabel4.delete(permanent=True)
 
 
 def test_pass_version():
@@ -167,12 +167,24 @@ def test_pass_version():
         ln.Transform(key="mytransform", version="1")
 
 
+def test_delete():
+    ulabel = ln.ULabel(name="test-delete")
+    # record not yet saved, delete has no effect
+    ulabel.delete()
+    assert ulabel.branch_id == 1
+    ulabel.save()
+    ulabel.delete()
+    assert ulabel.branch_id == -1
+    ulabel.delete(permanent=True)
+    assert ln.ULabel.filter(name="test-delete").exists() is False
+
+
 def test_get_name_field():
     transform = ln.Transform(key="test").save()
     assert get_name_field(ln.Run(transform)) == "started_at"
     with pytest.raises(ValueError):
         get_name_field(ln.Artifact.ulabels.through())
-    transform.delete()
+    transform.delete(permanent=True)
 
 
 def test_using():

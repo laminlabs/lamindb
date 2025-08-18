@@ -353,6 +353,7 @@ class Schema(SQLRecord, CanCurate, TracksRun):
 
     class Meta(SQLRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
         abstract = False
+        app_label = "lamindb"
 
     _name_field: str = "name"
     _aux_fields: dict[str, tuple[str, type]] = {
@@ -771,7 +772,7 @@ class Schema(SQLRecord, CanCurate, TracksRun):
         cls,
         values: ListLike,
         field: FieldAttr = Feature.name,
-        type: str | None = None,
+        dtype: str | None = None,
         name: str | None = None,
         mute: bool = False,
         organism: SQLRecord | str | None = None,
@@ -783,7 +784,7 @@ class Schema(SQLRecord, CanCurate, TracksRun):
         Args:
             values: A list of values, like feature names or ids.
             field: The field of a reference registry to map values.
-            type: The simple type.
+            dtype: The simple dtype.
                 Defaults to `None` if reference registry is :class:`~lamindb.Feature`,
                 defaults to `"float"` otherwise.
             name: A name.
@@ -816,8 +817,8 @@ class Schema(SQLRecord, CanCurate, TracksRun):
         if isinstance(values, DICT_KEYS_TYPE):
             values = list(values)
         registry = field.field.model
-        if registry != Feature and type is None:
-            type = NUMBER_TYPE
+        if registry != Feature and dtype is None:
+            dtype = NUMBER_TYPE
             logger.debug("setting feature set to 'number'")
         validated = registry.validate(values, field=field, mute=mute, organism=organism)
         values_array = np.array(values)
@@ -841,7 +842,7 @@ class Schema(SQLRecord, CanCurate, TracksRun):
         schema = Schema(
             features=validated_features,
             name=name,
-            dtype=get_type_str(type),
+            dtype=get_type_str(dtype),
         )
         return schema
 
@@ -1200,6 +1201,7 @@ class SchemaFeature(BaseSQLRecord, IsLink):
     feature: Feature = ForeignKey(Feature, PROTECT, related_name="links_schema")
 
     class Meta:
+        app_label = "lamindb"
         unique_together = ("schema", "feature")
 
 
@@ -1211,6 +1213,7 @@ class ArtifactSchema(BaseSQLRecord, IsLink, TracksRun):
     feature_ref_is_semantic: bool | None = BooleanField(null=True)
 
     class Meta:
+        app_label = "lamindb"
         unique_together = (("artifact", "schema"), ("artifact", "slot"))
 
 
@@ -1221,6 +1224,7 @@ class SchemaComponent(BaseSQLRecord, IsLink, TracksRun):
     slot: str | None = CharField(null=True)
 
     class Meta:
+        app_label = "lamindb"
         unique_together = (("composite", "slot", "component"), ("composite", "slot"))
 
 

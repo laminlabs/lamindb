@@ -365,11 +365,11 @@ def save_context_core(
 
     if run is not None:
         base_path = ln_setup.settings.cache_dir / "environments" / f"run_{run.uid}"
-        paths = [base_path / "run_env_pip.txt", base_path / "r_pak_lockfile.json"]
+        paths = [base_path / "run_env_pip.txt", base_path / "r_environment.txt"]
         existing_paths = [path for path in paths if path.exists()]
         if len(existing_paths) == 2:
             # let's not store the python environment for an R session for now
-            existing_paths = [base_path / "r_pak_lockfile.json"]
+            existing_paths = [base_path / "r_environment.txt"]
 
         if existing_paths:
             overwrite_env = True
@@ -387,8 +387,8 @@ def save_context_core(
                 if len(existing_paths) == 1:
                     if existing_paths[0].name == "run_env_pip.txt":
                         description = "requirements.txt"
-                    elif existing_paths[0].name == "r_pak_lockfile.json":
-                        description = "r_pak_lockfile.json"
+                    elif existing_paths[0].name == "r_environment.txt":
+                        description = "r_environment.txt"
                     env_hash, _ = hash_file(artifact_path)
                 else:
                     description = "environments"

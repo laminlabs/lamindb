@@ -120,7 +120,7 @@ def test_revise_transforms():
     assert new_transform.uid.endswith("0001")
     assert new_transform.version is None
 
-    transform.delete()
+    transform.delete(permanent=True)
 
 
 def test_delete():
@@ -146,7 +146,7 @@ def test_delete():
     assert report_path.exists()
     assert environment_path.exists()
     # now delete everything
-    transform.delete()
+    transform.delete(permanent=True)
     assert not report_path.exists()
     assert not environment_path.exists()
     assert len(ln.Artifact.filter(id__in=[report.id, environment.id]).all()) == 0
