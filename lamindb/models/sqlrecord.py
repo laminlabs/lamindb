@@ -1161,7 +1161,7 @@ class SQLRecord(BaseSQLRecord, metaclass=Registry):
         # permanent delete
         if permanent is None:
             response = input(
-                "Record is already in trash! Are you sure you want to delete it from your"
+                f"Record {self.uid} is already in trash! Are you sure you want to delete it from your"
                 " database? You can't undo this action. (y/n) "
             )
             delete_record = response == "y"

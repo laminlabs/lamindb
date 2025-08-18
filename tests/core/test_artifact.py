@@ -316,7 +316,12 @@ def test_revise_artifact(df):
     assert new_artifact.version is None
     assert new_artifact.description == artifact.description
 
-    artifact.delete(permanent=True)
+    artifact.delete()
+
+    artifact_from_trash = ln.Artifact.get(artifact.uid[:-4])  # query with stem uid
+    assert artifact_from_trash.branch_id == -1
+
+    artifact.delete(permanent=True)  # permanent deletion
 
 
 def test_create_from_dataframe(df):
