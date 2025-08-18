@@ -1011,7 +1011,7 @@ class Space(BaseSQLRecord):
     ):
         if "uid" not in kwargs:
             logger.warning(
-                "creating spaces is possible in SQLite for demo purposes, but not does restrict access permissions"
+                "creating spaces is possible in SQLite for demo purposes, but does *not* affect access permissions"
             )
         super().__init__(*args, **kwargs)
 
