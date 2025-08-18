@@ -960,8 +960,7 @@ class Space(BaseSQLRecord):
         editable=False,
         unique=True,
         max_length=12,
-        default="aaaaaaaaaaaaa",
-        db_default="aaaaaaaaaaaa",
+        default=base62_12,
         db_index=True,
     )
     """Universal id."""
@@ -994,6 +993,10 @@ class Space(BaseSQLRecord):
         *args,
         **kwargs,
     ):
+        if "uid" not in kwargs:
+            logger.warning(
+                "creating spaces is possible in SQLite for demo purposes, but not does restrict access permissions"
+            )
         super().__init__(*args, **kwargs)
 
 
