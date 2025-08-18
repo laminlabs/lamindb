@@ -676,3 +676,35 @@ def test_artifact_standardize_errors(df):
     af.delete(permanent=True)
     ln.Schema.filter().delete()
     ln.Feature.filter().delete()
+
+
+def test_relation_filters_in_subtype_str():
+    """Test that relation filters work correctly in subtype_str parsing."""
+    source = bt.Source.filter(entity="bionty.CellType").first()
+
+    cell_type_1 = bt.CellType(name="T cell", source=source).save()
+    cell_type_2 = bt.CellType(name="B cell").save()
+
+    df = pd.DataFrame({"cell_type": pd.Categorical(["T cell", "B cell", "NK cell"])})
+
+    feature_with_rel_filters = ln.Feature(
+        name="cell_type", dtype=f"cat[bionty.CellType[source__name={source.name}]]"
+    ).save()
+
+    schema = ln.Schema(features=[feature_with_rel_filters]).save()
+    curator = ln.curators.DataFrameCurator(df, schema)
+
+    try:
+        curator.validate()
+    except ValidationError as e:
+        # Should show that only "NK cell" is not validated
+        # (T cell should be found because it matches the source filter,
+        #  but B cell should not be found because it doesn't match)
+        assert "NK cell" in str(e)
+        assert "B cell" not in str(e)
+
+    # Clean up
+    schema.delete()
+    feature_with_rel_filters.delete()
+    cell_type_1.delete()
+    cell_type_2.delete()
