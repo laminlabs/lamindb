@@ -658,3 +658,21 @@ def test_index_feature_exclusion_from_categoricals(df):
     # clean up
     schema.delete(permanent=True)
     ln.Feature.filter().delete()
+
+
+def test_artifact_standardize_errors(df):
+    """Passed Artifacts to a Curator cannot be standardized."""
+    af = ln.Artifact.from_df(df, description="test").save()
+    sample_type_feature = ln.Feature(name="sample_type", dtype="cat[ULabel]").save()
+    schema = ln.Schema(features=[sample_type_feature]).save()
+    curator = ln.curators.DataFrameCurator(af, schema)
+    with pytest.raises(RuntimeError) as e:
+        curator.standardize()
+    assert (
+        "Cannot mutate the dataset when an artifact is passed! Please load the dataset into memory using `dataset.load()` and pass it to a curator."
+        in str(e.value)
+    )
+
+    af.delete(permanent=True)
+    ln.Schema.filter().delete()
+    ln.Feature.filter().delete()

@@ -149,6 +149,15 @@ def test_data_is_anndata_paths():
     assert not data_is_scversedatastructure("s3://somewhere/something.zarr", "AnnData")
 
 
+def test_data_is_anndata_anndatacessor(get_small_adata):
+    artifact = ln.Artifact(get_small_adata, key="test_adata.h5ad").save()
+
+    with artifact.open(mode="r") as access:
+        assert data_is_scversedatastructure(access, "AnnData")
+
+    artifact.delete(permanent=True)
+
+
 def test_data_is_mudata_paths():
     assert data_is_scversedatastructure("something.h5mu", "MuData")
     assert data_is_scversedatastructure("something.mudata.zarr", "MuData")
