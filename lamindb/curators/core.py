@@ -466,7 +466,7 @@ class DataFrameCurator(Curator):
 
     Example:
 
-        For simple example using a flexible schema, see :meth:`~lamindb.Artifact.from_df`.
+        For a simple example using a flexible schema, see :meth:`~lamindb.Artifact.from_df`.
 
         Here is an example that enforces a minimal set of columns in the dataframe.
 
@@ -720,20 +720,23 @@ class DataFrameCurator(Curator):
         )
 
 
-def _navigate_nested_dict(
-    dict_obj: dict[str, Any], keys: Iterable[str], slot: str, base_path: str
+def _resolve_schema_slot_path(
+    target_dict: dict[str, Any], slot_keys: Iterable[str], slot: str, base_path: str
 ) -> Any:
-    """Traverse nested dictionaries with sane error behavior.
+    """Resolve a schema slot path by traversing nested dictionary keys.
 
     Args:
-        dict_obj: The dictionary to traverse
-        keys: Keys to traverse
-        slot: Original slot string (for error messages)
-        base_path: Base path string (for error messages)
-    """
-    current = dict_obj
+        target_dict: Root dictionary to traverse
+        slot_keys: Sequence of keys defining the paths to traverse
+        slot_name: Schema slot identifier for error context
+        base_path: Base path string for error context
 
-    for key in keys:
+    Returns:
+        The value at the resolved path
+    """
+    current = target_dict
+
+    for key in slot_keys:
         base_path += f"['{key}']"
         try:
             current = current[key]
@@ -752,14 +755,21 @@ def _navigate_nested_dict(
 def _handle_dict_slots(
     dataset: ScverseDataStructures, slot: str
 ) -> tuple[pd.DataFrame | None, str | None, str | None]:
-    """Handle dict-based slot paths (uns/attrs) for all ScverseCurators.
+    """Handle dict-based slot paths (uns/attrs standalone or of modalities) for all ScverseCurators.
+
+    Supports two patterns:
+        - Direct dict access: "uns", "attrs", "uns:key1:key2", "attrs:key"
+        - Modality dict access: "modality:uns"
 
     Args:
         dataset: The scverse datastructure object
         slot: The slot path string to parse like 'uns:path:to'.
 
     Returns:
-        tuple: (DataFrame, key, sub_slot)
+        tuple: (dataframe, modality_key, remaining_slot_path)
+            - dataframe: Single-row DataFrame containing the resolved data
+            - modality_key: Modality identifier if slot targets modality dict, else None
+            - remaining_slot_path: The dict attribute and nested keys as string
     """
     path_parts = slot.split(":")
 
@@ -771,7 +781,9 @@ def _handle_dict_slots(
                 return pd.DataFrame([dict_attr]), None, path_parts[0]
 
             deeper_keys = path_parts[1:]
-            data = _navigate_nested_dict(dict_attr, deeper_keys, slot, path_parts[0])
+            data = _resolve_schema_slot_path(
+                dict_attr, deeper_keys, slot, path_parts[0]
+            )
             return pd.DataFrame([data]), None, ":".join(path_parts[1:])
 
     # Handle modality dict slots: "modality:uns", "modality:uns:key1:key2"
@@ -785,14 +797,17 @@ def _handle_dict_slots(
                     return pd.DataFrame([dict_attr]), modality, dict_name
 
                 deeper_keys = path_parts[2:]
-                data = _navigate_nested_dict(
+                data = _resolve_schema_slot_path(
                     dict_attr, deeper_keys, slot, f"{modality}.{dict_name}"
                 )
                 return pd.DataFrame([data]), modality, ":".join(path_parts[1:])
         except (KeyError, AttributeError):
             pass
     else:
-        raise InvalidArgument(f"Dict slot '{slot}' not found in dataset")
+        raise InvalidArgument(
+            f"Invalid dict slot pattern '{slot}'. Expected formats: "
+            f"'uns', 'attrs', 'uns:key', 'attrs:key', 'modality:uns'"
+        )
 
     return None, None, None
 
@@ -914,10 +929,11 @@ class MuDataCurator(SlotsCurator):
             raise InvalidArgument("Schema otype must be 'MuData'.")
 
         for slot, slot_schema in schema.slots.items():
+            # Handle slots: "mdata.uns", "modality:uns"
             if "uns" in slot:
                 df, modality, modality_slot = _handle_dict_slots(self._dataset, slot)
             else:
-                # Handle modality slots: "modality:obs", "modality:var"
+                # Handle slots: "modality:obs", "modality:var"
                 parts = slot.split(":")
                 if len(parts) == 2:
                     modality, modality_slot = parts
@@ -933,7 +949,7 @@ class MuDataCurator(SlotsCurator):
                             f"Attribute '{modality_slot}' not found on modality '{modality}'"
                         ) from None
                 else:
-                    # Global MuData slots: "obs", "var" (uns is a dictionary and gets handled above)
+                    # Handle slots: "mdata:obs", "mdata:var" (uns is a dictionary and gets handled above)
                     modality, modality_slot = None, slot
                     schema_dataset = self._dataset
                     df = getattr(schema_dataset, modality_slot.rstrip(".T"))
@@ -993,11 +1009,12 @@ class SpatialDataCurator(SlotsCurator):
             raise InvalidArgument("Schema otype must be 'SpatialData'.")
 
         for slot, slot_schema in schema.slots.items():
+            # Handle slots: "sdata:attrs"
             if slot.startswith("attrs"):
                 df, table_key, table_slot = _handle_dict_slots(self._dataset, slot)
             else:
                 parts = slot.split(":")
-                # Handle table slots: "tables:table_key:obs", "tables:table_key:var"
+                # Handle slots: "tables:table_key:obs", "tables:table_key:var"
                 if len(parts) == 3 and parts[0] == "tables":
                     table_key, table_slot = parts[1], parts[2]
                     try:
@@ -1005,14 +1022,14 @@ class SpatialDataCurator(SlotsCurator):
                         df = getattr(slot_object, table_slot.rstrip(".T"))
                     except KeyError:
                         raise InvalidArgument(
-                            f"Table '{table_key}' not found in dataset.tables"
+                            f"Table '{table_key}' not found in sdata.tables"
                         ) from None
                     except AttributeError:
                         raise InvalidArgument(
                             f"Attribute '{table_slot}' not found on table '{table_key}'"
                         ) from None
                 else:
-                    # Legacy single attrs handling for backward compatibility
+                    # Handle legacy single attrs for backward compatibility
                     if len(parts) == 1 and parts[0] != "attrs":
                         logger.warning(
                             f"please prefix slot {slot} with 'attrs:' going forward"
@@ -1023,7 +1040,7 @@ class SpatialDataCurator(SlotsCurator):
                             table_slot = slot
                         except KeyError:
                             raise InvalidArgument(
-                                f"Slot '{slot}' not found in SpatialData.attrs"
+                                f"Slot '{slot}' not found in sdata.attrs"
                             ) from None
                     else:
                         raise InvalidArgument(f"Unrecognized slot format: {slot}")
