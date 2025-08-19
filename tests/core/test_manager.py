@@ -10,6 +10,6 @@ def test_manager_list():
     label.parents.set(labels)
     assert len(label.parents.list()) == 3
     assert "ULabel 1" in label.parents.list("name")
-    label.delete()
+    label.delete(permanent=True)
     for label in labels:
-        label.delete()
+        label.delete(permanent=True)

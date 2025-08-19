@@ -620,6 +620,11 @@ class DataFrameCurator(Curator):
         - Adds missing columns for features
         - Fills missing values for features with default values
         """
+        if self._artifact is not None:
+            raise RuntimeError(
+                "Cannot mutate the dataset when an artifact is passed! Please load the dataset into memory using `dataset.load()` and pass it to a curator."
+            )
+
         for feature in self._schema.members:
             if feature.name not in self._dataset.columns:
                 if feature.default_value is not None or feature.nullable:
@@ -1652,7 +1657,9 @@ class DataFrameCatManager:
             key: The key referencing the column in the DataFrame to standardize.
         """
         if self._artifact is not None:
-            raise RuntimeError("can't mutate the dataset when an artifact is passed!")
+            raise RuntimeError(
+                "Cannot mutate the dataset when an artifact is passed! Please load the dataset into memory using `dataset.load()` and pass it to a curator."
+            )
 
         if key == "all":
             logger.warning(

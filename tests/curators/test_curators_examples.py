@@ -42,7 +42,9 @@ def small_dataset1_schema():
 
     yield schema
 
-    schema.delete()
+    for af in ln.Artifact.filter():
+        af.delete(permanent=True)
+    schema.delete(permanent=True)
     ln.Schema.filter().delete()
     ln.Feature.filter().delete()
     bt.Gene.filter().delete()
@@ -125,7 +127,9 @@ def mudata_papalexi21_subset_schema():
 
     yield mudata_schema
 
-    mudata_schema.delete()
+    for af in ln.Artifact.filter():
+        af.delete(permanent=True)
+    mudata_schema.delete(permanent=True)
     ln.Schema.filter().delete()
     ln.Feature.filter().delete()
     bt.Gene.filter().delete()
@@ -160,8 +164,8 @@ def test_dataframe_curator(small_dataset1_schema: ln.Schema):
         in error.exconly()
     )
 
-    schema.delete()
-    feature_to_fail.delete()
+    schema.delete(permanent=True)
+    feature_to_fail.delete(permanent=True)
 
     # Wrong subtype
     df = datasets.mini_immuno.get_dataset1(otype="DataFrame", with_wrong_subtype=True)
@@ -243,8 +247,8 @@ def test_dataframe_curator_index():
         curator.validate()
     assert "expected series 'None' to have type str" in error.exconly()
 
-    schema.delete()
-    feature.delete()
+    schema.delete(permanent=True)
+    feature.delete(permanent=True)
 
 
 def test_dataframe_curator_validate_all_annotate_cat(small_dataset1_schema):
@@ -269,7 +273,7 @@ def test_dataframe_curator_validate_all_annotate_cat(small_dataset1_schema):
         "B cell",
     }
     artifact.delete(permanent=True)
-    schema.delete()
+    schema.delete(permanent=True)
 
 
 def test_dataframe_curator_validate_all_annotate_cat2(small_dataset1_schema):
@@ -297,7 +301,7 @@ def test_dataframe_curator_validate_all_annotate_cat2(small_dataset1_schema):
         "B cell",
     }
     artifact.delete(permanent=True)
-    schema.delete()
+    schema.delete(permanent=True)
 
 
 def test_schema_new_genes(ccaplog):
@@ -326,8 +330,8 @@ def test_schema_new_genes(ccaplog):
         in ccaplog.text
     )
 
-    schema.delete()
-    feature.delete()
+    schema.delete(permanent=True)
+    feature.delete(permanent=True)
 
 
 def test_schema_no_match_ensembl():
@@ -352,7 +356,7 @@ def test_schema_no_match_ensembl():
     → fix typos, remove non-existent values, or save terms via: curator.cat.add_new_from('index')"""
     )
 
-    schema.delete()
+    schema.delete(permanent=True)
 
 
 def test_schema_mixed_ensembl_symbols(ccaplog):
@@ -386,7 +390,7 @@ def test_schema_mixed_ensembl_symbols(ccaplog):
 
     assert "2 terms not validated in feature 'index': 'BRCA2', 'TP53'" in ccaplog.text
 
-    schema.delete()
+    schema.delete(permanent=True)
 
 
 def test_anndata_curator_different_components(small_dataset1_schema: ln.Schema):
@@ -466,8 +470,8 @@ def test_anndata_curator_different_components(small_dataset1_schema: ln.Schema):
             )
 
         artifact.delete(permanent=True)
-        anndata_schema.delete()
-        var_schema.delete()
+        anndata_schema.delete(permanent=True)
+        var_schema.delete(permanent=True)
 
 
 def test_anndata_curator_varT_curation():
@@ -513,8 +517,8 @@ def test_anndata_curator_varT_curation():
 
                 artifact.delete(permanent=True)
 
-            anndata_schema.delete()
-            varT_schema.delete()
+            anndata_schema.delete(permanent=True)
+            varT_schema.delete(permanent=True)
 
 
 def test_anndata_curator_varT_curation_legacy(ccaplog):
@@ -555,8 +559,8 @@ def test_anndata_curator_varT_curation_legacy(ccaplog):
 
             artifact.delete(permanent=True)
 
-            anndata_schema.delete()
-            varT_schema.delete()
+            anndata_schema.delete(permanent=True)
+            varT_schema.delete(permanent=True)
 
 
 def test_anndata_curator_nested_uns():
@@ -631,7 +635,7 @@ def test_anndata_curator_no_var(small_dataset1_schema: ln.Schema):
 
     artifact = curator.save_artifact(key="examples/dataset1_no_var.h5ad")
     artifact.delete(permanent=True)
-    anndata_schema_no_var.delete()
+    anndata_schema_no_var.delete(permanent=True)
 
 
 def test_mudata_curator(
@@ -752,8 +756,9 @@ def spatialdata_blobs_schema():
 
     from lamindb.models import SchemaComponent
 
+    for af in ln.Artifact.filter():
+        af.delete(permanent=True)
     SchemaComponent.filter().delete()
-    sdata_schema.delete()
     ln.Schema.filter().delete()
     ln.Feature.filter().delete()
     bt.Gene.filter().delete()
@@ -930,8 +935,8 @@ def test_tiledbsoma_curator(small_dataset1_schema: ln.Schema, clean_soma_files):
         assert "GeneTypo" in str(error.value)
 
     # Clean up
+    shutil.rmtree(typo_soma_path)
     artifact.delete(permanent=True)
-    soma_schema.delete()
-    var_schema.delete()
-    obs_schema.delete()
-    shutil.rmtree("./small_dataset1_typo.tiledbsoma")
+    soma_schema.delete(permanent=True)
+    var_schema.delete(permanent=True)
+    obs_schema.delete(permanent=True)

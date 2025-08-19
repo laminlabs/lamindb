@@ -25,9 +25,9 @@ def test_query_parents_children():
     children = label1.query_children()
     assert len(children) == 2
     assert label2 in children and label3 in children
-    label1.delete()
-    label2.delete()
-    label3.delete()
+    label1.delete(permanent=True)
+    label2.delete(permanent=True)
+    label3.delete(permanent=True)
 
 
 def test_add_emoji():
@@ -36,7 +36,7 @@ def test_add_emoji():
     transform.save()
     run = ln.Run(transform=transform)
     assert _add_emoji(run, label="run") == "🖥️ run"
-    transform.delete()
+    transform.delete(permanent=True)
 
 
 def test_view_lineage_circular():
@@ -50,5 +50,4 @@ def test_view_lineage_circular():
     run.input_artifacts.add(artifact)
     artifact.view_lineage()
     artifact.delete(permanent=True)
-    run.delete()
-    transform.delete()
+    transform.delete(permanent=True)

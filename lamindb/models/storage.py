@@ -146,6 +146,7 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
 
     class Meta(SQLRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
         abstract = False
+        app_label = "lamindb"
 
     _name_field: str = "root"
 
@@ -296,10 +297,13 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
         access_token = self._access_token if hasattr(self, "_access_token") else None
         return create_path(self.root, access_token=access_token)
 
-    def delete(self) -> None:
+    def delete(self) -> None:  # type: ignore
+        # type ignore is there because we don't use a trash here unlike everywhere else
         """Delete the storage location.
 
         This errors in case the storage location is not empty.
+
+        Unlike other `SQLRecord`-based registries, this does *not* move the storage record into the trash.
         """
         from .. import settings
 
@@ -324,4 +328,4 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
             ssettings._mark_storage_root.unlink(
                 missing_ok=True  # this is totally weird, but needed on Py3.11
             )
-        super().delete()
+        super(SQLRecord, self).delete()

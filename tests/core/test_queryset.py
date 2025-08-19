@@ -67,13 +67,13 @@ def test_df():
     # assert df.shape[0] > 0
 
     # clean up
-    project_label.delete()
+    project_label.delete(permanent=True)
     for label in labels:
-        label.delete()
+        label.delete(permanent=True)
 
-    schema.delete()
+    schema.delete(permanent=True)
     for feature in features:
-        feature.delete()
+        feature.delete(permanent=True)
 
     # call it from a non-select-derived queryset
     qs = ln.User.objects.all()
@@ -151,7 +151,7 @@ def test_search():
     assert qs.search("ULabel 1")[0].name == "ULabel 1"
     assert qs.search("ULabel 1", field=ln.ULabel.name)[0].name == "ULabel 1"
     for label in labels:
-        label.delete()
+        label.delete(permanent=True)
 
 
 def test_lookup():

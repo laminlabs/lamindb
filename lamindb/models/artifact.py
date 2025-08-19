@@ -1,7 +1,6 @@
 # ruff: noqa: TC004
 from __future__ import annotations
 
-import os
 import shutil
 from collections import defaultdict
 from pathlib import Path, PurePath, PurePosixPath
@@ -63,7 +62,7 @@ from ..core.storage.paths import (
     filepath_cache_key_from_artifact,
     filepath_from_artifact,
 )
-from ..errors import IntegrityError, InvalidArgument, ValidationError
+from ..errors import InvalidArgument, ValidationError
 from ..models._is_versioned import (
     create_uid,
 )
@@ -542,6 +541,7 @@ def log_storage_hint(
 def data_is_scversedatastructure(
     data: ScverseDataStructures | UPathStr,
     structure_type: Literal["AnnData", "MuData", "SpatialData"] | None = None,
+    cloud_warning: bool = True,
 ) -> bool:
     """Determine whether a specific in-memory object or a UPathstr is any or a specific scverse data structure."""
     file_suffix = None
@@ -552,14 +552,14 @@ def data_is_scversedatastructure(
     # SpatialData does not have a unique suffix but `.zarr`
 
     # AnnData allows both AnnDataAccessor and AnnData
+    class_name = data.__class__.__name__
     if structure_type is None:
         return any(
-            hasattr(data, "__class__")
-            and data.__class__.__name__
+            class_name
             in (["AnnData", "AnnDataAccessor"] if cl_name == "AnnData" else [cl_name])
             for cl_name in ["AnnData", "MuData", "SpatialData"]
         )
-    elif hasattr(data, "__class__") and data.__class__.__name__ in (
+    elif class_name in (
         ["AnnData", "AnnDataAccessor"]
         if structure_type == "AnnData"
         else [structure_type]
@@ -587,7 +587,7 @@ def data_is_scversedatastructure(
                     )
                     == data_type
                 )
-            else:
+            elif cloud_warning:
                 logger.warning(
                     f"we do not check whether cloud zarr is {structure_type}"
                 )
@@ -608,6 +608,7 @@ def data_is_soma_experiment(data: SOMAExperiment | UPathStr) -> bool:
 def _check_otype_artifact(
     data: UPathStr | pd.DataFrame | ScverseDataStructures,
     otype: str | None = None,
+    cloud_warning: bool = True,
 ) -> str:
     if otype is None:
         if isinstance(data, pd.DataFrame):
@@ -616,15 +617,15 @@ def _check_otype_artifact(
             return otype
 
         data_is_path = isinstance(data, (str, Path))
-        if data_is_scversedatastructure(data, "AnnData"):
+        if data_is_scversedatastructure(data, "AnnData", cloud_warning):
             if not data_is_path:
                 logger.warning("data is an AnnData, please use .from_anndata()")
             otype = "AnnData"
-        elif data_is_scversedatastructure(data, "MuData"):
+        elif data_is_scversedatastructure(data, "MuData", cloud_warning):
             if not data_is_path:
                 logger.warning("data is a MuData, please use .from_mudata()")
             otype = "MuData"
-        elif data_is_scversedatastructure(data, "SpatialData"):
+        elif data_is_scversedatastructure(data, "SpatialData", cloud_warning):
             if not data_is_path:
                 logger.warning("data is a SpatialData, please use .from_spatialdata()")
             otype = "SpatialData"
@@ -1001,6 +1002,56 @@ def add_labels(
             )
 
 
+def delete_permanently(artifact: Artifact, storage: bool, using_key: str):
+    # need to grab file path before deletion
+    try:
+        path, _ = filepath_from_artifact(artifact, using_key)
+    except OSError:
+        # we can still delete the record
+        logger.warning("Could not get path")
+        storage = False
+    # only delete in storage if DB delete is successful
+    # DB delete might error because of a foreign key constraint violated etc.
+    if artifact._overwrite_versions and artifact.is_latest:
+        logger.important(
+            "deleting all versions of this artifact because they all share the same store"
+        )
+        for version in artifact.versions.all():  # includes artifact
+            _delete_skip_storage(version)
+    else:
+        artifact._delete_skip_storage()
+    # by default do not delete storage if deleting only a previous version
+    # and the underlying store is mutable
+    if artifact._overwrite_versions and not artifact.is_latest:
+        delete_in_storage = False
+        if storage:
+            logger.warning(
+                "storage argument is ignored; can't delete store of a previous version if overwrite_versions is True"
+            )
+    elif artifact.key is None or artifact._key_is_virtual:
+        # do not ask for confirmation also if storage is None
+        delete_in_storage = storage is None or storage
+    else:
+        # for artifacts with non-virtual semantic storage keys (key is not None)
+        # ask for extra-confirmation
+        if storage is None:
+            response = input(
+                f"Are you sure to want to delete {path}? (y/n)  You can't undo"
+                " this action."
+            )
+            delete_in_storage = response == "y"
+        else:
+            delete_in_storage = storage
+    if not delete_in_storage:
+        logger.important(f"a file/folder remains here: {path}")
+    # we don't yet have logic to bring back the deleted metadata record
+    # in case storage deletion fails - this is important for ACID down the road
+    if delete_in_storage:
+        delete_msg = delete_storage(path, raise_file_not_found_error=False)
+        if delete_msg != "did-not-delete":
+            logger.success(f"deleted {colors.yellow(f'{path}')}")
+
+
 class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     # Note that this docstring has to be consistent with Curator.save_artifact()
     """Datasets & models stored as files, folders, or arrays.
@@ -1118,6 +1169,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
     class Meta(SQLRecord.Meta, IsVersioned.Meta, TracksRun.Meta, TracksUpdates.Meta):
         abstract = False
+        app_label = "lamindb"
         constraints = [
             # a simple hard unique constraint on `hash` clashes with the fact
             # that pipelines sometimes aim to ingest the exact same file in different
@@ -1432,7 +1484,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             # issue in Groovy / nf-lamin producing malformed S3 paths
             # https://laminlabs.slack.com/archives/C08J590666Q/p1751315027830849?thread_ts=1751039961.479259&cid=C08J590666Q
             data = data.replace("s3:///", "s3://")
-        otype = _check_otype_artifact(data=data, otype=otype)
+        otype = _check_otype_artifact(
+            data=data, otype=otype, cloud_warning=not _is_internal_call
+        )
         if "type" in kwargs:
             logger.warning("`type` will be removed soon, please use `kind`")
             kind = kwargs.pop("type")
@@ -2293,17 +2347,19 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     ):
         """Open a dataset for streaming.
 
-        Works for `AnnData` (`.h5ad` and `.zarr`), generic `hdf5` and `zarr`,
-        `tiledbsoma` objects (`.tiledbsoma`), `pyarrow` or `polars` compatible formats
+        Works for `AnnData` (`.h5ad` and `.zarr`), `SpatialData` (`.zarr`),
+        generic `hdf5` and `zarr`, `tiledbsoma` objects (`.tiledbsoma`),
+        `pyarrow` or `polars` compatible formats
         (`.parquet`, `.csv`, `.ipc` etc. files or directories with such files).
 
         Args:
-            mode: can only be `"w"` (write mode) for `tiledbsoma` stores,
+            mode: can be `"r"` or `"w"` (write mode) for `tiledbsoma` stores,
+                `"r"` or `"r+"` for `AnnData` or `SpatialData` `zarr` stores,
                 otherwise should be always `"r"` (read-only mode).
             engine: Which module to use for lazy loading of a dataframe
                 from `pyarrow` or `polars` compatible formats.
                 This has no effect if the artifact is not a dataframe, i.e.
-                if it is an `AnnData,` `hdf5`, `zarr` or `tiledbsoma` object.
+                if it is an `AnnData,` `hdf5`, `zarr`, `tiledbsoma` object etc.
             is_run_input: Whether to track this artifact as run input.
             **kwargs: Keyword arguments for the accessor, i.e. `h5py` or `zarr` connection,
                 `pyarrow.dataset.dataset`, `polars.scan_*` function.
@@ -2347,7 +2403,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 s + ".gz" for s in PYARROW_SUFFIXES
             )  # this doesn't work for externally gzipped files, REMOVE LATER
         )
-        if self.suffix not in suffixes:
+        suffix = self.suffix
+        if suffix not in suffixes:
             raise ValueError(
                 "Artifact should have a zarr, h5, tiledbsoma object"
                 " or a compatible `pyarrow.dataset.dataset` or `polars.scan_*` directory"
@@ -2356,23 +2413,28 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 f" Or no suffix for a folder with {', '.join(df_suffixes)} files"
                 " (no mixing allowed)."
             )
-        if self.suffix != ".tiledbsoma" and self.key != "soma" and mode != "r":
-            raise ValueError(
-                "Only a tiledbsoma store can be openened with `mode!='r'`."
-            )
-
         using_key = settings._using_key
         filepath, cache_key = filepath_cache_key_from_artifact(
             self, using_key=using_key
         )
+
         is_tiledbsoma_w = (
-            filepath.name == "soma" or self.suffix == ".tiledbsoma"
+            filepath.name == "soma" or suffix == ".tiledbsoma"
         ) and mode == "w"
+        is_zarr_w = suffix == ".zarr" and mode == "r+"
+
+        if mode != "r" and not (is_tiledbsoma_w or is_zarr_w):
+            raise ValueError(
+                f"It is not allowed to open a {suffix} object with mode='{mode}'. "
+                "You can open all supported formats with mode='r', "
+                "a tiledbsoma store with mode='w', "
+                "AnnData or SpatialData zarr store with mode='r+'."
+            )
         # consider the case where an object is already locally cached
         localpath = setup_settings.paths.cloud_to_local_no_update(
             filepath, cache_key=cache_key
         )
-        if is_tiledbsoma_w:
+        if is_tiledbsoma_w or is_zarr_w:
             open_cache = False
         else:
             open_cache = not isinstance(
@@ -2403,9 +2465,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 else:
                     localpath.unlink(missing_ok=True)
         else:
-            access = backed_access(
-                filepath, mode, engine, using_key=using_key, **kwargs
-            )
+            access = backed_access(self, mode, engine, using_key=using_key, **kwargs)
             if is_tiledbsoma_w:
 
                 def finalize():
@@ -2421,6 +2481,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                         new_version = Artifact(
                             filepath, revises=self, _is_internal_call=True
                         ).save()
+                        # note: sets _state.db = "default"
                         init_self_from_db(self, new_version)
 
                         if localpath != filepath and localpath.exists():
@@ -2577,94 +2638,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             artifact = ln.Artifact.get(key="some.tiledbsoma". is_latest=True)
             artiact.delete() # delete all versions, the data will be deleted or prompted for deletion.
         """
-        # we're *not* running the line below because the case `storage is None` triggers user feedback in one case
-        # storage = True if storage is None else storage
-
-        # this first check means an invalid delete fails fast rather than cascading through
-        # database and storage permission errors
-        if os.getenv("LAMINDB_MULTI_INSTANCE") is None:
-            isettings = setup_settings.instance
-            if self.storage.instance_uid != isettings.uid and (
-                storage or storage is None
-            ):
-                raise IntegrityError(
-                    "Cannot simply delete artifacts outside of this instance's managed storage locations."
-                    "\n(1) If you only want to delete the metadata record in this instance, pass `storage=False`"
-                    f"\n(2) If you want to delete the artifact in storage, please load the managing lamindb instance (uid={self.storage.instance_uid})."
-                    f"\nThese are all managed storage locations of this instance:\n{Storage.filter(instance_uid=isettings.uid).df()}"
-                )
-        # by default, we only move artifacts into the trash (branch_id = -1)
-        trash_branch_id = -1
-        if self.branch_id > trash_branch_id and not permanent:
-            if storage is not None:
-                logger.warning("moving artifact to trash, storage arg is ignored")
-            # move to trash
-            self.branch_id = trash_branch_id
-            self.save()
-            logger.important(f"moved artifact to trash (branch_id = {trash_branch_id})")
-            return
-
-        # if the artifact is already in the trash
-        # permanent delete skips the trash
-        if permanent is None:
-            # ask for confirmation of permanent delete
-            response = input(
-                "Artifact record is already in trash! Are you sure you want to permanently"
-                " delete it? (y/n) You can't undo this action."
-            )
-            delete_record = response == "y"
-        else:
-            assert permanent  # noqa: S101
-            delete_record = True
-
-        if delete_record:
-            # need to grab file path before deletion
-            try:
-                path, _ = filepath_from_artifact(self, using_key)
-            except OSError:
-                # we can still delete the record
-                logger.warning("Could not get path")
-                storage = False
-            # only delete in storage if DB delete is successful
-            # DB delete might error because of a foreign key constraint violated etc.
-            if self._overwrite_versions and self.is_latest:
-                logger.important(
-                    "deleting all versions of this artifact because they all share the same store"
-                )
-                for version in self.versions.all():  # includes self
-                    _delete_skip_storage(version)
-            else:
-                self._delete_skip_storage()
-            # by default do not delete storage if deleting only a previous version
-            # and the underlying store is mutable
-            if self._overwrite_versions and not self.is_latest:
-                delete_in_storage = False
-                if storage:
-                    logger.warning(
-                        "storage argument is ignored; can't delete store of a previous version if overwrite_versions is True"
-                    )
-            elif self.key is None or self._key_is_virtual:
-                # do not ask for confirmation also if storage is None
-                delete_in_storage = storage is None or storage
-            else:
-                # for artifacts with non-virtual semantic storage keys (key is not None)
-                # ask for extra-confirmation
-                if storage is None:
-                    response = input(
-                        f"Are you sure to want to delete {path}? (y/n)  You can't undo"
-                        " this action."
-                    )
-                    delete_in_storage = response == "y"
-                else:
-                    delete_in_storage = storage
-            if not delete_in_storage:
-                logger.important(f"a file/folder remains here: {path}")
-            # we don't yet have logic to bring back the deleted metadata record
-            # in case storage deletion fails - this is important for ACID down the road
-            if delete_in_storage:
-                delete_msg = delete_storage(path, raise_file_not_found_error=False)
-                if delete_msg != "did-not-delete":
-                    logger.success(f"deleted {colors.yellow(f'{path}')}")
+        super().delete(permanent=permanent, storage=storage, using_key=using_key)
 
     @property
     def _is_saved_to_storage_location(self) -> bool | None:
@@ -2845,7 +2819,7 @@ def _synchronize_cleanup_on_error(
 
 
 def _delete_skip_storage(artifact, *args, **kwargs) -> None:
-    super(Artifact, artifact).delete(*args, **kwargs)
+    super(SQLRecord, artifact).delete(*args, **kwargs)
 
 
 def _save_skip_storage(artifact, **kwargs) -> None:
@@ -2863,6 +2837,7 @@ class ArtifactFeatureValue(BaseSQLRecord, IsLink, TracksRun):
     featurevalue = ForeignKey(FeatureValue, PROTECT, related_name="links_artifact")
 
     class Meta:
+        app_label = "lamindb"
         unique_together = ("artifact", "featurevalue")
 
 
