@@ -813,7 +813,7 @@ def _handle_dict_slots(
 
 
 class AnnDataCurator(SlotsCurator):
-    """Curator for `AnnData` objects.
+    """Curator for `AnnData`.
 
     Args:
         dataset: The AnnData-like object to validate & annotate.
@@ -902,7 +902,7 @@ def _assign_var_fields_categoricals_multimodal(
 
 
 class MuDataCurator(SlotsCurator):
-    """Curator for `MuData` object.
+    """Curator for `MuData`.
 
     Args:
         dataset: The MuData-like object to validate & annotate.
@@ -960,7 +960,7 @@ class MuDataCurator(SlotsCurator):
                 "Feature",
             }:
                 logger.warning(
-                    "auto-transposed `var` for backward compat, please indicate transposition in the schema definition by calling out `.T': slots={'var.T': itype=bt.Gene.ensembl_gene_id}"
+                    "auto-transposed `var` for backward compat, please indicate transposition in the schema definition by calling out `.T`: slots={'var.T': itype=bt.Gene.ensembl_gene_id}"
                 )
                 df = df.T
             elif modality_slot == "var.T":
@@ -982,7 +982,7 @@ class MuDataCurator(SlotsCurator):
 
 
 class SpatialDataCurator(SlotsCurator):
-    """Curator for `SpatialData` objects.
+    """Curator for `SpatialData`.
 
     Args:
         dataset: The SpatialData-like object to validate & annotate.
@@ -1051,7 +1051,7 @@ class SpatialDataCurator(SlotsCurator):
                 "Feature",
             }:
                 logger.warning(
-                    "auto-transposed `var` for backward compat, please indicate transposition in the schema definition by calling out `.T': slots={'var.T': itype=bt.Gene.ensembl_gene_id}"
+                    "auto-transposed `var` for backward compat, please indicate transposition in the schema definition by calling out `.T`: slots={'var.T': itype=bt.Gene.ensembl_gene_id}"
                 )
                 df = df.T
             elif table_slot == "var.T":
@@ -1073,7 +1073,7 @@ class SpatialDataCurator(SlotsCurator):
 
 
 class TiledbsomaExperimentCurator(SlotsCurator):
-    """Curator for `tiledbsoma.Experiment` objects.
+    """Curator for `tiledbsoma.Experiment`.
 
     Args:
         dataset: The `tiledbsoma.Experiment` object.
