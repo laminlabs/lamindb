@@ -112,7 +112,7 @@ def test_latest_version_and_get():
     # but will also be a hit for the query
     assert len(ln.Transform.filter(description="Introduction").all()) == 3
     assert len(ln.Transform.filter(description="Introduction").latest_version()) == 2
-    transform_v4.delete()
+    transform_v4.delete(permanent=True)
     assert ln.Transform.get(description="Introduction") == transform_v3
     assert (
         ln.Transform.filter(description="Introduction").latest_version().one()
@@ -125,7 +125,7 @@ def test_latest_version_and_get():
     assert ln.Transform.get(transform_v3.uid[:4]) == transform_v3
 
     # test delete
-    transform_v3.delete()
+    transform_v3.delete(permanent=True)
     assert transform_v2.is_latest
 
     # test empty QuerySet

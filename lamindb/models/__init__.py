@@ -78,6 +78,7 @@ from .project import (
     PersonProject,
     RecordPerson,
     RecordReference,
+    ProjectRecord,
 )
 from .run import RunFeatureValue
 from .schema import (

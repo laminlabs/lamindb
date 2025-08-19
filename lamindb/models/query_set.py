@@ -144,7 +144,6 @@ def process_expressions(queryset: QuerySet, expressions: dict) -> dict:
         queryset,
         expressions,
     )
-
     if issubclass(queryset.model, SQLRecord):
         # branch_id is set to 1 unless expressions contains id or uid
         if not (
@@ -186,19 +185,15 @@ def get(
     if isinstance(idlike, int):
         return super(QuerySet, qs).get(id=idlike)  # type: ignore
     elif isinstance(idlike, str):
-        qs = qs.filter(uid__startswith=idlike)
-
         NAME_FIELD = (
             registry._name_field if hasattr(registry, "_name_field") else "name"
         )
         DOESNOTEXIST_MSG = f"No record found with uid '{idlike}'. Did you forget a keyword as in {registry.__name__}.get({NAME_FIELD}='{idlike}')?"
-
-        if issubclass(registry, IsVersioned):
-            if len(idlike) <= registry._len_stem_uid:
-                return one_helper(qs.latest_version(), DOESNOTEXIST_MSG)
-            else:
-                return one_helper(qs, DOESNOTEXIST_MSG)
+        if issubclass(registry, IsVersioned) and len(idlike) <= registry._len_stem_uid:
+            qs = qs.filter(uid__startswith=idlike, is_latest=True)
+            return one_helper(qs, DOESNOTEXIST_MSG)
         else:
+            qs = qs.filter(uid__startswith=idlike)
             return one_helper(qs, DOESNOTEXIST_MSG)
     else:
         assert idlike is None  # noqa: S101

@@ -8,8 +8,6 @@ from lamin_utils import logger
 from rich.text import Text
 from rich.tree import Tree
 
-from ..core._context import is_run_from_ipython
-
 if TYPE_CHECKING:
     from lamindb.models import Artifact, Collection, Run
 
@@ -40,6 +38,8 @@ def format_rich_tree(
     tree: Tree, fallback: str = "", return_str: bool = False, strip_ansi: bool = True
 ) -> str | None:
     from rich.console import Console
+
+    from ..core._context import is_run_from_ipython
 
     # If tree has no children, return fallback
     if not tree.children:
