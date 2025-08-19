@@ -563,33 +563,62 @@ def test_anndata_curator_varT_curation_legacy(ccaplog):
             varT_schema.delete(permanent=True)
 
 
-def test_soma_curator(curator_params: dict[str, str | FieldAttr]):
-    """Test SOMA curator implementation."""
+def test_anndata_curator_nested_uns():
+    """Test AnnDataCurator with nested uns slot validation."""
     adata = datasets.small_dataset1(otype="AnnData")
-    tiledbsoma.io.from_anndata(
-        "./small_dataset1.tiledbsoma", adata, measurement_name="RNA"
+    adata.uns["study_metadata"] = {"temperature": 21.6, "experiment_id": "EXP001"}
+
+    uns_schema = ln.Schema(
+        features=[
+            ln.Feature(name="temperature", dtype=float).save(),
+            ln.Feature(name="experiment_id", dtype=str).save(),
+        ],
+    ).save()
+
+    anndata_schema = ln.Schema(
+        otype="AnnData",
+        slots={
+            "uns:study_metadata": uns_schema,
+        },
+    ).save()
+
+    curator = ln.curators.AnnDataCurator(adata, anndata_schema)
+    assert isinstance(curator.slots["uns:study_metadata"], ln.curators.DataFrameCurator)
+
+    curator.validate()
+    artifact = curator.save_artifact(key="examples/anndata_with_uns.h5ad")
+
+    assert artifact.schema == anndata_schema
+    assert "uns:study_metadata" in artifact.features.slots
+    assert artifact.features.slots[
+        "uns:study_metadata"
+    ].features.first() == ln.Feature.get(name="temperature")
+
+    with pytest.raises(InvalidArgument) as e:
+        adata = datasets.small_dataset1(otype="AnnData")
+        bad_schema = ln.Schema(
+            otype="AnnData",
+            slots={"uns:nonexistent": uns_schema},
+        ).save()
+        ln.curators.AnnDataCurator(adata, bad_schema)
+    assert (
+        "Schema slot 'uns:study_metadata' specifies path uns['study_metadata'] but key 'study_metadata' not found."
+        in str(e.value)
     )
 
-    curator = ln.Curator.from_tiledbsoma(  # type: ignore
-        "./small_dataset1.tiledbsoma",
-        var_index={"RNA": ("var_id", bt.Gene.ensembl_gene_id)},
-        **curator_params,
-    )
-    artifact = curator.save_artifact(key="examples/dataset1.tiledbsoma")
+    with pytest.raises(InvalidArgument) as e:
+        bad_schema = ln.Schema(
+            otype="AnnData",
+            slots={"uns:temperature:nonexistent_nested": uns_schema},
+        ).save()
+        ln.curators.AnnDataCurator(adata, bad_schema)
+    assert "key 'study_metadata' not found" in str(e.value)
 
-    assert set(artifact.features.get_values()["cell_type_by_expert"]) == {
-        "CD8-positive, alpha-beta T cell",
-        "B cell",
-    }
-    assert set(artifact.features.get_values()["cell_type_by_model"]) == {
-        "T cell",
-        "B cell",
-    }
-
-    assert artifact._key_is_virtual
-
+    # Clean up
     artifact.delete(permanent=True)
-    shutil.rmtree("./small_dataset1.tiledbsoma")
+    bad_schema.delete()
+    uns_schema.delete()
+    anndata_schema.delete()
 
 
 def test_anndata_curator_no_var(small_dataset1_schema: ln.Schema):
@@ -642,7 +671,75 @@ def test_mudata_curator(
         "hto:obs",
     }
 
+    from lamindb.models import SchemaComponent
+
     artifact.delete(permanent=True)
+    SchemaComponent.filter().delete()
+    ln.Schema.filter().delete()
+
+
+def test_mudata_curator_nested_uns():
+    """Test MuData with nested uns slot validation.
+
+    This test verifies the behavior of both the MuData `.uns` slots and a `.uns` slot of
+    an AnnData object inside the MuData object that gets specified using the path `:` syntax.
+    """
+    mdata = ln.core.datasets.mudata_papalexi21_subset()
+    mdata.uns["study_metadata"] = {"temperature": 21.6, "experiment_id": "EXP001"}
+    mdata["rna"].uns["site_metadata"] = {"pos": 99.9, "site_id": "SITE001"}
+    mdata["rna"].uns["study_metadata"] = {
+        "temperature": 21.6,
+        "experiment_id": "EXP001",
+    }
+
+    study_uns_schema = ln.Schema(
+        features=[
+            ln.Feature(name="temperature", dtype=float).save(),
+            ln.Feature(name="experiment_id", dtype=str).save(),
+        ],
+    ).save()
+
+    site_uns_schema = ln.Schema(
+        features=[
+            ln.Feature(name="pos", dtype=float).save(),
+            ln.Feature(name="site_id", dtype=str).save(),
+        ]
+    ).save()
+
+    mdata_schema = ln.Schema(
+        otype="MuData",
+        slots={
+            "uns:study_metadata": study_uns_schema,
+            "rna:uns:site_metadata": site_uns_schema,
+        },
+    ).save()
+
+    curator = ln.curators.MuDataCurator(mdata, mdata_schema)
+    assert isinstance(curator.slots["uns:study_metadata"], ln.curators.DataFrameCurator)
+    assert isinstance(
+        curator.slots["rna:uns:site_metadata"], ln.curators.DataFrameCurator
+    )
+
+    curator.validate()
+    artifact = curator.save_artifact(key="examples/mdata_with_uns.h5mu")
+
+    assert artifact.schema == mdata_schema
+    assert "uns:study_metadata" in artifact.features.slots
+    assert "rna:uns:site_metadata" in artifact.features.slots
+    assert artifact.features.slots[
+        "uns:study_metadata"
+    ].features.first() == ln.Feature.get(name="temperature")
+    assert artifact.features.slots[
+        "rna:uns:site_metadata"
+    ].features.first() == ln.Feature.get(name="pos")
+
+    # Clean up
+    from lamindb.models import SchemaComponent
+
+    artifact.delete(permanent=True)
+    SchemaComponent.filter().delete()
+    ln.Schema.filter().delete()
+    ln.Feature.filter().delete()
 
 
 @pytest.fixture(scope="module")
@@ -653,43 +750,15 @@ def spatialdata_blobs_schema():
     docs_path = Path.cwd() / "docs" / "scripts"
     sys.path.append(str(docs_path))
 
-    from define_schema_spatialdata import (
-        attrs_schema,
-        obs_schema,
-        sample_schema,
-        tech_schema,
-        varT_schema,
-    )
+    from define_schema_spatialdata import sdata_schema
 
-    spatialdata_schema_legacy = ln.Schema(
-        otype="SpatialData",
-        slots={
-            "bio": sample_schema,
-            "table:obs": obs_schema,
-            "table:var": varT_schema,
-        },
-    ).save()
-
-    spatialdata_schema_new = ln.Schema(
-        otype="SpatialData",
-        slots={
-            "attrs:sample": sample_schema,
-            "attrs:tech": tech_schema,
-            "attrs": attrs_schema,
-            "table:obs": obs_schema,
-            "table:var.T": varT_schema,
-        },
-    ).save()
-
-    yield spatialdata_schema_legacy, spatialdata_schema_new
+    yield sdata_schema
 
     from lamindb.models import SchemaComponent
 
     for af in ln.Artifact.filter():
         af.delete(permanent=True)
     SchemaComponent.filter().delete()
-    spatialdata_schema_legacy.delete(permanent=True)
-    spatialdata_schema_new.delete(permanent=True)
     ln.Schema.filter().delete()
     ln.Feature.filter().delete()
     bt.Gene.filter().delete()
@@ -703,43 +772,28 @@ def spatialdata_blobs_schema():
 def test_spatialdata_curator(
     spatialdata_blobs_schema: ln.Schema,
 ):
-    spatialdata_schema_legacy, spatialdata_schema_new = spatialdata_blobs_schema
     spatialdata = ln.core.datasets.spatialdata_blobs()
 
     # wrong dataset
     with pytest.raises(InvalidArgument):
         ln.curators.SpatialDataCurator(pd.DataFrame(), spatialdata_blobs_schema)
-    # wrong schema
+    # wrong schema - use an actual slot that exists
     with pytest.raises(InvalidArgument):
         ln.curators.SpatialDataCurator(
-            spatialdata, spatialdata_schema_legacy.slots["bio"]
+            spatialdata, spatialdata_blobs_schema.slots["attrs:bio"]
         )
 
-    curator = ln.curators.SpatialDataCurator(spatialdata, spatialdata_schema_legacy)
+    curator = ln.curators.SpatialDataCurator(spatialdata, spatialdata_blobs_schema)
     with pytest.raises(ln.errors.ValidationError):
         curator.validate()
+
     spatialdata.tables["table"].var.drop(index="ENSG00000999999", inplace=True)
-
     artifact = ln.Artifact.from_spatialdata(
         spatialdata,
         key="examples/spatialdata1.zarr",
-        schema=spatialdata_schema_legacy,
+        schema=spatialdata_blobs_schema,
     ).save()
-    assert artifact.schema == spatialdata_schema_legacy
-    assert artifact.features.slots.keys() == {
-        "bio",
-        "table:var",
-        "table:obs",
-    }
-    assert artifact.features.get_values()["disease"] == "Alzheimer disease"
-    artifact.delete(permanent=True)
-
-    artifact = ln.Artifact.from_spatialdata(
-        spatialdata,
-        key="examples/spatialdata1.zarr",
-        schema=spatialdata_schema_new,
-    ).save()
-    assert artifact.schema == spatialdata_schema_new
+    assert artifact.schema == spatialdata_blobs_schema
     assert artifact.features.slots.keys() == {
         "attrs:bio",
         "attrs:tech",
@@ -747,7 +801,8 @@ def test_spatialdata_curator(
         "tables:table:obs",
         "tables:table:var.T",
     }
-    assert artifact.features.get_values()["assay"] == "Visium Spatial Gene Expression"
+    assert artifact.features.get_values()["disease"] == "Alzheimer disease"
+
     assert (
         artifact.features.describe(return_str=True)
         == """Artifact .zarr · SpatialData · dataset
@@ -768,6 +823,35 @@ def test_spatialdata_curator(
     )
 
     artifact.delete(permanent=True)
+
+
+def test_soma_curator(curator_params: dict[str, str | FieldAttr]):
+    """Test SOMA curator implementation."""
+    adata = datasets.small_dataset1(otype="AnnData")
+    tiledbsoma.io.from_anndata(
+        "./small_dataset1.tiledbsoma", adata, measurement_name="RNA"
+    )
+
+    curator = ln.Curator.from_tiledbsoma(  # type: ignore
+        "./small_dataset1.tiledbsoma",
+        var_index={"RNA": ("var_id", bt.Gene.ensembl_gene_id)},
+        **curator_params,
+    )
+    artifact = curator.save_artifact(key="examples/dataset1.tiledbsoma")
+
+    assert set(artifact.features.get_values()["cell_type_by_expert"]) == {
+        "CD8-positive, alpha-beta T cell",
+        "B cell",
+    }
+    assert set(artifact.features.get_values()["cell_type_by_model"]) == {
+        "T cell",
+        "B cell",
+    }
+
+    assert artifact._key_is_virtual
+
+    artifact.delete(permanent=True)
+    shutil.rmtree("./small_dataset1.tiledbsoma")
 
 
 def test_tiledbsoma_curator(small_dataset1_schema: ln.Schema, clean_soma_files):
