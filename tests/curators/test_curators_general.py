@@ -111,7 +111,7 @@ def test_curator__repr__(df):
     print(actual_repr)
     assert actual_repr.strip() == expected_repr.strip()
 
-    schema.delete()
+    schema.delete(permanent=True)
 
 
 def test_nullable():
@@ -134,8 +134,8 @@ def test_nullable():
     ):
         curator.validate()
 
-    schema.delete()
-    disease.delete()
+    schema.delete(permanent=True)
+    disease.delete(permanent=True)
 
 
 def test_pandera_dataframe_schema(
@@ -335,7 +335,7 @@ def test_schema_minimal_set_var_allowed(minimal_set):
     curator.validate()
 
     # clean up
-    schema.delete()
+    schema.delete(permanent=True)
 
 
 def test_schema_maximal_set_var():
@@ -355,7 +355,7 @@ def test_schema_maximal_set_var():
     )
 
     # clean up
-    schema.delete()
+    schema.delete(permanent=True)
 
 
 def test_feature_dtype_path():
@@ -433,7 +433,7 @@ def test_feature_dtype_path():
     assert curator.validate() is None
 
     # clean up
-    nextflow_schema.delete()
+    nextflow_schema.delete(permanent=True)
     ln.Feature.filter().delete()
 
 
@@ -458,7 +458,7 @@ def test_cat_filters_specific_source_uid(df_disease, disease_ontology_old):
             in str(error)
         )
 
-    schema.delete()
+    schema.delete(permanent=True)
 
 
 def test_cat_filters_specific_source(df_disease, disease_ontology_old):
@@ -482,7 +482,7 @@ def test_cat_filters_specific_source(df_disease, disease_ontology_old):
             in str(error)
         )
 
-    schema.delete()
+    schema.delete(permanent=True)
 
 
 def test_cat_filters_multiple_relation_filters(df_disease, disease_ontology_old):
@@ -507,7 +507,7 @@ def test_cat_filters_multiple_relation_filters(df_disease, disease_ontology_old)
             "2 terms not validated in feature 'disease': 'HDAC4-related haploinsufficiency syndrome', 'SAMD9L-related spectrum and myeloid neoplasm risk'"
             in str(error)
         )
-    schema.delete()
+    schema.delete(permanent=True)
 
 
 def test_curate_columns(df):
@@ -534,7 +534,7 @@ def test_curate_columns(df):
     df.rename(columns={"sample_name_name": "sample_name"}, inplace=True)
     curator.validate()
 
-    schema.delete()
+    schema.delete(permanent=True)
     ln.Feature.filter().delete()
 
 
@@ -554,8 +554,8 @@ def test_wrong_datatype(df):
         in str(excinfo.value)
     )
 
-    schema.delete()
-    feature.delete()
+    schema.delete(permanent=True)
+    feature.delete(permanent=True)
 
 
 def test_hash_index_feature(df):
@@ -596,8 +596,8 @@ def test_hash_index_feature(df):
 
     # clean up
     artifact.delete(permanent=True)
-    schema_index.delete()
-    schema.delete()
+    schema_index.delete(permanent=True)
+    schema.delete(permanent=True)
     ln.Feature.filter().delete()
 
 
@@ -627,7 +627,7 @@ def test_add_new_from_subtype(df):
     assert sample_type.records.list("name") == ["Type A", "Type B"]
 
     # clean up
-    schema.delete()
+    schema.delete(permanent=True)
     ln.Feature.filter().delete()
     ln.Record.filter().update(type=None)
     ln.Record.filter().delete()
@@ -656,5 +656,5 @@ def test_index_feature_exclusion_from_categoricals(df):
     assert "columns" in cat_vector_keys
 
     # clean up
-    schema.delete()
+    schema.delete(permanent=True)
     ln.Feature.filter().delete()
