@@ -616,9 +616,9 @@ def test_anndata_curator_nested_uns():
 
     # Clean up
     artifact.delete(permanent=True)
-    bad_schema.delete()
-    uns_schema.delete()
-    anndata_schema.delete()
+    bad_schema.delete(permanent=True)
+    uns_schema.delete(permanent=True)
+    anndata_schema.delete(permanent=True)
 
 
 def test_anndata_curator_no_var(small_dataset1_schema: ln.Schema):
