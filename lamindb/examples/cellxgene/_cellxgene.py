@@ -20,7 +20,6 @@ CELLxGENEOrganisms = Literal[
     "chimpanzee",
     "white-tufted-ear marmoset",
     "sars-2",
-    "synthetic construct",
 ]
 FieldType = Literal["ontology_id", "name"]
 
@@ -54,7 +53,7 @@ def save_cxg_defaults() -> None:
     ).save()
 
     # na, unknown
-    for biorecord, name in zip(
+    for model, name in zip(
         [
             bt.Ethnicity,
             bt.Ethnicity,
@@ -64,9 +63,7 @@ def save_cxg_defaults() -> None:
         ],
         ["na", "unknown", "unknown", "unknown", "unknown"],
     ):
-        biorecord(
-            ontology_id=name, name=name, description="From CellxGene schema."
-        ).save()
+        model(ontology_id=name, name=name, description="From CellxGene schema.").save()
 
     # tissue_type
     tissue_type = ULabel(
@@ -98,9 +95,11 @@ def save_cxg_defaults() -> None:
         "NCBITaxon:9483",  # Callithrix jacchus (White-tufted-ear marmoset)
         "NCBITaxon:7955",  # Danio rerio (Zebrafish)
     ]
-    ncbitaxon_source = bt.Source.filter(name="ncbitaxon").first()
     for ontology_id in taxonomy_ids:
-        bt.Organism.from_source(ontology_id=ontology_id, source=ncbitaxon_source).save()
+        bt.Organism.from_source(
+            ontology_id=ontology_id,
+            source=bt.Source.get(name="ncbitaxon", currently_used=True),
+        ).save()
 
 
 def _create_cxg_sources(
@@ -168,11 +167,6 @@ def get_cxg_schema(
     import bionty as bt
 
     from lamindb.models import Feature, Schema, ULabel
-
-    # Attempt to find the Schema early as building the Schema is expensive when looped
-    full_cxg_schema_name = f"AnnData of CELLxGENE version {schema_version} for {organism} of {', '.join(field_types) if isinstance(field_types, list) else field_types}"
-    if existing_schema := Schema.filter(name=full_cxg_schema_name).one_or_none():
-        return existing_schema
 
     class CategorySpec(NamedTuple):
         field: str | FieldAttr
@@ -267,7 +261,7 @@ def get_cxg_schema(
     ).save()
 
     full_cxg_schema = Schema(
-        name=full_cxg_schema_name,
+        name=f"AnnData of CELLxGENE version {schema_version} for {organism} of {', '.join(field_types) if isinstance(field_types, list) else field_types}",
         otype="AnnData",
         minimal_set=True,
         coerce_dtype=True,
