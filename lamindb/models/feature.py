@@ -780,7 +780,7 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
     def from_df(
         cls, df: pd.DataFrame, field: FieldAttr | None = None, *, mute: bool = True
     ) -> SQLRecordList:
-        """Create Feature records for columns.
+        """Create Feature records for dataframe columns.
 
         Args:
             df: Source DataFrame to extract column information from
@@ -887,7 +887,7 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
         return SQLRecordList(features)
 
     def save(self, *args, **kwargs) -> Feature:
-        """Save."""
+        """Save the feature to the instance."""
         super().save(*args, **kwargs)
         return self
 
