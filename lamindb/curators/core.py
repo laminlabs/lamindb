@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import copy
 import re
-from collections.abc import Iterable
 from typing import TYPE_CHECKING, Any, Callable
 
 import lamindb_setup as ln_setup
@@ -26,6 +25,7 @@ from lamin_utils import colors, logger
 from lamindb_setup.core._docs import doc_args
 from lamindb_setup.core.upath import LocalPathClasses
 
+from lamindb.base.dtypes import check_dtype
 from lamindb.base.types import FieldAttr  # noqa
 from lamindb.models import (
     Artifact,
@@ -49,6 +49,7 @@ from lamindb.models.feature import (
 from ..errors import InvalidArgument, ValidationError
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
     from typing import Any
 
     from anndata import AnnData
@@ -393,64 +394,6 @@ class SlotsCurator(Curator):
         )
 
 
-def _is_list_of_type(value: Any, expected_type: Any) -> bool:
-    """Helper function to check if a value is either of expected_type or a list of that type, or a mix of both in a nested structure."""
-    if isinstance(value, Iterable) and not isinstance(value, (str, bytes)):
-        # handle nested lists recursively
-        return all(_is_list_of_type(item, expected_type) for item in value)
-    return isinstance(value, expected_type)
-
-
-def _check_dtype(expected_type: Any) -> Callable:
-    """Creates a check function for Pandera that validates a column's dtype.
-
-    Supports both standard dtype checking and mixed list/single values for the same type.
-    For example, a column with expected_type 'float' would also accept a mix of float values and lists of floats.
-
-    Args:
-        expected_type: String identifier for the expected type ('int', 'float', 'num', 'str')
-
-    Returns:
-        A function that checks if a series has the expected dtype or contains mixed types
-    """
-
-    def check_function(series):
-        # first check if the series is entirely of the expected dtype (fast path)
-        if expected_type == "int" and pd.api.types.is_integer_dtype(series.dtype):
-            return True
-        elif expected_type == "float" and pd.api.types.is_float_dtype(series.dtype):
-            return True
-        elif expected_type == "num" and pd.api.types.is_numeric_dtype(series.dtype):
-            return True
-        elif expected_type == "str" and pd.api.types.is_string_dtype(series.dtype):
-            return True
-        elif expected_type == "path" and pd.api.types.is_string_dtype(series.dtype):
-            return True
-
-        # if we're here, it might be a mixed column with object dtype
-        # need to check each value individually
-        if series.dtype == "object" and expected_type.startswith("list"):
-            expected_type_member = expected_type.replace("list[", "").removesuffix("]")
-            if expected_type_member == "int":
-                return series.apply(lambda x: _is_list_of_type(x, int)).all()
-            elif expected_type_member == "float":
-                return series.apply(lambda x: _is_list_of_type(x, float)).all()
-            elif expected_type_member == "num":
-                # for numeric, accept either int or float
-                return series.apply(lambda x: _is_list_of_type(x, (int, float))).all()
-            elif (
-                expected_type_member == "str"
-                or expected_type_member == "path"
-                or expected_type_member.startswith("cat[")
-            ):
-                return series.apply(lambda x: _is_list_of_type(x, str)).all()
-
-        # if we get here, the validation failed
-        return False
-
-    return check_function
-
-
 # This is also currently used as DictCurator by flattening dictionaries into wide DataFrames.
 # Such an approach was never intended and there is room for a DictCurator in the future.
 # For more context, read https://laminlabs.slack.com/archives/C07DB677JF6/p1753994077716099 and
@@ -548,7 +491,7 @@ class DataFrameCurator(Curator):
                     pandera_columns[feature.name] = pandera.Column(
                         dtype=None,
                         checks=pandera.Check(
-                            _check_dtype(feature.dtype),
+                            check_dtype(feature.dtype),
                             element_wise=False,
                             error=f"Column '{feature.name}' failed dtype check for '{feature.dtype}': got {dtype}",
                         ),
@@ -745,7 +688,7 @@ def _resolve_schema_slot_path(
                 list(current.keys()) if isinstance(current, dict) else "not a dict"
             )
             raise InvalidArgument(
-                f"Schema slot '{slot}' specifies path {base_path} but key '{key}' "
+                f"Schema slot '{slot}' requires keys {base_path} but key '{key}' "
                 f"not found. Available keys at this level: {available}"
             ) from None
 

@@ -10,6 +10,7 @@ Modules:
    uids
    types
    fields
+   dtypes
 
 Utils:
 
@@ -23,4 +24,4 @@ Utils:
 
 from lamindb_setup.core import deprecated, doc_args
 
-from . import fields, types, uids
+from . import dtypes, fields, types, uids

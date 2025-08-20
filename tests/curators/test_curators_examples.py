@@ -138,6 +138,11 @@ def mudata_papalexi21_subset_schema():
     bt.ExperimentalFactor.filter().delete()
 
 
+@pytest.fixture(scope="module")
+def uns_study_metadata():
+    return {"temperature": 21.6, "experiment_id": "EXP001"}
+
+
 def test_dataframe_curator(small_dataset1_schema: ln.Schema):
     """Test DataFrame curator implementation."""
 
@@ -563,10 +568,10 @@ def test_anndata_curator_varT_curation_legacy(ccaplog):
             varT_schema.delete(permanent=True)
 
 
-def test_anndata_curator_nested_uns():
+def test_anndata_curator_nested_uns(uns_study_metadata):
     """Test AnnDataCurator with nested uns slot validation."""
     adata = datasets.small_dataset1(otype="AnnData")
-    adata.uns["study_metadata"] = {"temperature": 21.6, "experiment_id": "EXP001"}
+    adata.uns["study_metadata"] = uns_study_metadata
 
     study_metadata_schema = ln.Schema(
         features=[
@@ -602,7 +607,7 @@ def test_anndata_curator_nested_uns():
     with pytest.raises(InvalidArgument) as e:
         ln.curators.AnnDataCurator(adata, bad_schema)
     assert (
-        "Schema slot 'uns:study_metadata' specifies path uns['study_metadata'] but key 'study_metadata' not found."
+        "Schema slot 'uns:study_metadata' requires keys uns['study_metadata'] but key 'study_metadata' not found."
         in str(e.value)
     )
 
@@ -678,19 +683,15 @@ def test_mudata_curator(
     ln.Schema.filter().delete()
 
 
-def test_mudata_curator_nested_uns():
+def test_mudata_curator_nested_uns(uns_study_metadata):
     """Test MuData with nested uns slot validation.
 
     This test verifies the behavior of both the MuData `.uns` slots and a `.uns` slot of
-    an AnnData object inside the MuData object that gets specified using the path `:` syntax.
+    an AnnData object inside the MuData object that gets specified using the key `:` syntax.
     """
     mdata = ln.core.datasets.mudata_papalexi21_subset()
-    mdata.uns["study_metadata"] = {"temperature": 21.6, "experiment_id": "EXP001"}
+    mdata.uns["study_metadata"] = uns_study_metadata
     mdata["rna"].uns["site_metadata"] = {"pos": 99.9, "site_id": "SITE001"}
-    mdata["rna"].uns["study_metadata"] = {
-        "temperature": 21.6,
-        "experiment_id": "EXP001",
-    }
 
     study_uns_schema = ln.Schema(
         features=[
