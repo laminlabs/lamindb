@@ -824,7 +824,7 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
             dictionary: Source dictionary to extract key information from
             field: FieldAttr for Feature model validation, defaults to Feature.name
             str_as_cat: Whether to interpret string values as categorical
-            mute: Whether to mute Feature creation similar names found warnings
+            mute: Whether to mute dtype inference and Feature creation warnings
         """
         from lamindb.models._feature_manager import infer_feature_type_convert_json
 
@@ -836,7 +836,7 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
         dtypes = {}
         ambiguous_keys = []
         for key, value in dictionary.items():
-            dtype, _, message = infer_feature_type_convert_json(key, value, mute=True)
+            dtype, _, message = infer_feature_type_convert_json(key, value, mute=mute)
 
             if dtype == "cat ? str":
                 if str_as_cat is None:
