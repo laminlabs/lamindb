@@ -824,7 +824,7 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
             dictionary: Source dictionary to extract key information from
             field: FieldAttr for Feature model validation, defaults to Feature.name
             str_as_cat: Whether to interpret string values as categorical
-            mute: Whether to mute dtype inference and Feature creation warnings
+            mute: Whether to mute dtype inference and feature creation warnings
         """
         from lamindb.models._feature_manager import infer_feature_type_convert_json
 
