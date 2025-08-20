@@ -568,7 +568,7 @@ def test_anndata_curator_nested_uns():
     adata = datasets.small_dataset1(otype="AnnData")
     adata.uns["study_metadata"] = {"temperature": 21.6, "experiment_id": "EXP001"}
 
-    uns_schema = ln.Schema(
+    study_metadata_schema = ln.Schema(
         features=[
             ln.Feature(name="temperature", dtype=float).save(),
             ln.Feature(name="experiment_id", dtype=str).save(),
@@ -578,7 +578,7 @@ def test_anndata_curator_nested_uns():
     anndata_schema = ln.Schema(
         otype="AnnData",
         slots={
-            "uns:study_metadata": uns_schema,
+            "uns:study_metadata": study_metadata_schema,
         },
     ).save()
 
@@ -594,12 +594,12 @@ def test_anndata_curator_nested_uns():
         "uns:study_metadata"
     ].features.first() == ln.Feature.get(name="temperature")
 
+    adata = datasets.small_dataset1(otype="AnnData")
+    bad_schema = ln.Schema(
+        otype="AnnData",
+        slots={"uns:nonexistent": study_metadata_schema},
+    ).save()
     with pytest.raises(InvalidArgument) as e:
-        adata = datasets.small_dataset1(otype="AnnData")
-        bad_schema = ln.Schema(
-            otype="AnnData",
-            slots={"uns:nonexistent": uns_schema},
-        ).save()
         ln.curators.AnnDataCurator(adata, bad_schema)
     assert (
         "Schema slot 'uns:study_metadata' specifies path uns['study_metadata'] but key 'study_metadata' not found."
@@ -609,7 +609,7 @@ def test_anndata_curator_nested_uns():
     with pytest.raises(InvalidArgument) as e:
         bad_schema = ln.Schema(
             otype="AnnData",
-            slots={"uns:temperature:nonexistent_nested": uns_schema},
+            slots={"uns:temperature:nonexistent_nested": study_metadata_schema},
         ).save()
         ln.curators.AnnDataCurator(adata, bad_schema)
     assert "key 'study_metadata' not found" in str(e.value)
@@ -617,7 +617,7 @@ def test_anndata_curator_nested_uns():
     # Clean up
     artifact.delete(permanent=True)
     bad_schema.delete(permanent=True)
-    uns_schema.delete(permanent=True)
+    study_metadata_schema.delete(permanent=True)
     anndata_schema.delete(permanent=True)
 
 
