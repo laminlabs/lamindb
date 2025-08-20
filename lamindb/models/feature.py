@@ -815,7 +815,7 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
         dictionary: dict[str, Any],
         field: FieldAttr | None = None,
         *,
-        str_as_cat: bool = False,
+        str_as_cat: bool | None = None,
         mute: bool = True,
     ) -> SQLRecordList:
         """Create Feature records for dictionary keys.
@@ -835,22 +835,22 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
 
         dtypes = {}
         ambiguous_keys = []
-
         for key, value in dictionary.items():
             dtype, _, message = infer_feature_type_convert_json(key, value, mute=True)
 
             if dtype == "cat ? str":
-                if str_as_cat:
-                    dtype = "cat"
-                else:
+                if str_as_cat is None:
                     ambiguous_keys.append(
                         (key, "str or cat", message.strip("# ") if message else "")
                     )
                     continue
-            elif dtype == "list[cat ? str]":
                 if str_as_cat:
-                    dtype = "list[cat]"
+                    dtype = "cat"
                 else:
+                    dtype = "str"
+
+            elif dtype == "list[cat ? str]":
+                if str_as_cat is None:
                     ambiguous_keys.append(
                         (
                             key,
@@ -859,6 +859,10 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
                         )
                     )
                     continue
+                if str_as_cat:
+                    dtype = "list[cat]"
+                else:
+                    dtype = "list[str]"
 
             dtypes[key] = dtype
 

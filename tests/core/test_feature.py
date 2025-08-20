@@ -181,7 +181,7 @@ def test_feature_from_df(df):
 def test_feature_from_dict(dict):
     # ambiguous str types
     with pytest.raises(ValueError) as e:
-        features = ln.Feature.from_dict(dict, str_as_cat=False)
+        features = ln.Feature.from_dict(dict, str_as_cat=None)
     error_msg = str(e.value)
     assert "Ambiguous dtypes detected" in error_msg
     assert "'feat3': str or cat" in error_msg
@@ -207,6 +207,18 @@ def test_feature_from_dict(dict):
     feat7 = ln.Feature.get(name="feat7")
     assert feat7.dtype == "dict"
 
+    # clean up to create again
+    feat3.delete(permanent=True)
+    feat6.delete(permanent=True)
+
+    # do not convert str to cat
+    features = ln.Feature.from_dict(dict, str_as_cat=False)
+    ln.save(features)
+    feat3 = ln.Feature.get(name="feat3")
+    assert feat3.dtype == "str"
+    feat6 = ln.Feature.get(name="feat6")
+    assert feat6.dtype == "list[str]"
+
     # Wrong field
     with pytest.raises(ValueError) as e:
         ln.Feature.from_dict(dict, field=ln.ULabel.name)
@@ -214,7 +226,7 @@ def test_feature_from_dict(dict):
 
     # Explicit field
     features_with_field = ln.Feature.from_dict(
-        dict, field=ln.Feature.name, str_as_cat=True
+        dict, field=ln.Feature.name, str_as_cat=False
     )
     assert len(features_with_field) == len(dict)
 
