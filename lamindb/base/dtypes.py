@@ -3,8 +3,6 @@ from typing import Any, Callable, Iterable
 
 import pandas as pd
 
-from lamindb.models import SQLRecord
-
 
 def is_list_of_type(value: Any, expected_type: Any) -> bool:
     """Helper function to check if a value is either of expected_type or a list of that type, or a mix of both in a nested structure."""
@@ -73,4 +71,6 @@ def is_valid_datetime_str(date_string: str) -> bool | str:
 
 
 def is_iterable_of_sqlrecord(value: Any):
+    from lamindb.models import SQLRecord
+
     return isinstance(value, Iterable) and isinstance(next(iter(value)), SQLRecord)
