@@ -972,7 +972,7 @@ class SpatialDataCurator(SlotsCurator):
                             f"Attribute '{table_slot}' not found on table '{table_key}'"
                         ) from None
                 else:
-                    # Handle legacy single attrs for backward compatibility
+                    # Handle legacy single keys for backward compatibility
                     if len(parts) == 1 and parts[0] != "attrs":
                         logger.warning(
                             f"please prefix slot {slot} with 'attrs:' going forward"
