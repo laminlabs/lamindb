@@ -20,6 +20,19 @@ def df():
     )
 
 
+@pytest.fixture(scope="module")
+def dict():
+    return {
+        "feat1": 42,
+        "feat2": 3.14,
+        "feat3": "test_string",  # string (ambiguous cat ? str)
+        "feat4": True,
+        "feat5": [1, 2, 3],
+        "feat6": ["a", "b", "c"],  # list[str] (ambiguous list[cat ? str])
+        "feat7": {"key": "value"},
+    }
+
+
 def test_feature_init():
     # positional args not supported
     with pytest.raises(ValueError):
@@ -163,3 +176,47 @@ def test_feature_from_df(df):
     ln.Schema.filter().all().delete()
     ln.ULabel.filter().all().delete()
     ln.Feature.filter().all().delete()
+
+
+def test_feature_from_dict(dict):
+    # ambiguous str types
+    with pytest.raises(ValueError) as e:
+        features = ln.Feature.from_dict(dict, str_as_cat=False)
+    error_msg = str(e.value)
+    assert "Ambiguous dtypes detected" in error_msg
+    assert "'feat3': str or cat" in error_msg
+    assert "'feat6': list[str] or list[cat]" in error_msg
+    assert "Please specify `str_as_cat` parameter" in error_msg
+
+    # convert str to cat
+    features = ln.Feature.from_dict(dict, str_as_cat=True)
+    ln.save(features)
+    assert len(features) == len(dict)
+    feat1 = ln.Feature.get(name="feat1")
+    assert feat1.dtype == "int"
+    feat2 = ln.Feature.get(name="feat2")
+    assert feat2.dtype == "float"
+    feat3 = ln.Feature.get(name="feat3")
+    assert feat3.dtype == "cat"
+    feat4 = ln.Feature.get(name="feat4")
+    assert feat4.dtype == "bool"
+    feat5 = ln.Feature.get(name="feat5")
+    assert feat5.dtype == "list[int]"
+    feat6 = ln.Feature.get(name="feat6")
+    assert feat6.dtype == "list[cat]"
+    feat7 = ln.Feature.get(name="feat7")
+    assert feat7.dtype == "dict"
+
+    # Wrong field
+    with pytest.raises(ValueError) as e:
+        ln.Feature.from_dict(dict, field=ln.ULabel.name)
+    assert "field must be a Feature FieldAttr" in str(e.value)
+
+    # Explicit field
+    features_with_field = ln.Feature.from_dict(
+        dict, field=ln.Feature.name, str_as_cat=True
+    )
+    assert len(features_with_field) == len(dict)
+
+    # Clean up
+    ln.Feature.filter().delete()
