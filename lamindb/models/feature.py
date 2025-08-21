@@ -884,8 +884,6 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
             original_verbosity = logger._verbosity
             logger.set_verbosity(0)
         try:
-            original_verbosity = logger._verbosity
-            logger.set_verbosity(0)
             features = [Feature(name=key, dtype=dtype) for key, dtype in dtypes.items()]  # type: ignore
             assert len(features) == len(dictionary)  # noqa: S101
             return SQLRecordList(features)
