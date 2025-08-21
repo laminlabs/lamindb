@@ -21,7 +21,6 @@ from lamindb_setup.core._settings_storage import (
     init_storage,
 )
 from lamindb_setup.core.upath import check_storage_is_empty, create_path
-from model_utils import FieldTracker
 
 from lamindb.base.fields import (
     CharField,
@@ -181,8 +180,6 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
     artifacts: Artifact
     """Artifacts contained in this storage location."""
 
-    _field_tracker = FieldTracker(fields=["space"])
-
     @overload
     def __init__(
         self,
@@ -206,6 +203,8 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
     ):
         if len(args) == len(self._meta.concrete_fields):
             super().__init__(*args)
+            self._old_space = self.space
+            self._old_space_id = self.space_id
             return None
         if args:
             assert len(args) == 1, (  # noqa: S101
@@ -234,6 +233,8 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
             from .sqlrecord import init_self_from_db
 
             init_self_from_db(self, storage_record)
+            self._old_space = self.space
+            self._old_space_id = self.space_id
             return None
 
         skip_preparation = kwargs.pop("_skip_preparation", False)
@@ -301,6 +302,8 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
             f"{managed_message} storage location at {kwargs['root']}{is_managed_by_instance}{hub_message}"
         )
         super().__init__(**kwargs)
+        self._old_space = self.space
+        self._old_space_id = self.space_id
 
     @property
     def host(self) -> str | None:
@@ -325,10 +328,13 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
 
     def save(self, *args, **kwargs):
         """Save the storage record."""
-        if self._field_tracker.has_changed(
-            "space"
-        ):  # space_id is automatically handled by field tracker according to Claude
-            update_storage_with_space(storage_lnid=self.uid, space_lnid=self.space.uid)
+        if hasattr(self, "_old_space") and hasattr(self, "_old_space_id"):
+            if (
+                self._old_space != self.space or self._old_space_id != self.space_id
+            ):  # space_id is automatically handled by field tracker according to Claude
+                update_storage_with_space(
+                    storage_lnid=self.uid, space_lnid=self.space.uid
+                )
         super().save(*args, **kwargs)
         return self
 
