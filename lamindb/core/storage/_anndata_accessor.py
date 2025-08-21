@@ -308,12 +308,15 @@ if ZARR_INSTALLED:
         store = get_zarr_store(filepath)
         kwargs = {}
         if IS_ZARR_V3 and mode != "r":
+            # otherwise unable to write
             kwargs["use_consolidated"] = False
         storage = zarr.open(store, mode=mode, **kwargs)
         # zarr v2 re-initializes the mapper
         # we need to put back the correct one
         # S3FSMap is returned from get_zarr_store only for zarr v2
         if isinstance(store, S3FSMap):
+            assert not IS_ZARR_V3  # noqa: S101
+
             storage.store.map = store
         conn = None
         return conn, storage
@@ -366,10 +369,10 @@ if ZARR_INSTALLED:
     # this is needed because accessing zarr.Group.keys() directly is very slow
     @registry.register("zarr")
     def keys(storage: zarr.Group):
-        if hasattr(storage, "_sync_iter"):  # zarr v3
+        if IS_ZARR_V3:
             paths = storage._sync_iter(storage.store.list())
         else:
-            paths = storage.store.keys()  # zarr v2
+            paths = storage.store.keys()
 
         attrs_keys: dict[str, list] = {}
         obs_var_arrays = []
@@ -751,21 +754,35 @@ class AnnDataAccessor(_AnnDataAttrsMixin):
 
     def close(self):
         """Closes the connection."""
-        if hasattr(self, "storage") and hasattr(self.storage, "close"):
-            self.storage.close()
-        if hasattr(self, "_conn") and hasattr(self._conn, "close"):
-            self._conn.close()
-        self._closed = True
+        storage = self.storage
+        connection = self._conn
 
         if self._updated and (artifact := self._artifact) is not None:
             from lamindb.models.artifact import Artifact
             from lamindb.models.sqlrecord import init_self_from_db
+
+            # now self._updated can only be True for zarr
+            assert ZARR_INSTALLED  # noqa: S101
+
+            store = storage.store
+            keys = storage._sync_iter(store.list()) if IS_ZARR_V3 else store.keys()
+            # this checks that there consolidated metadata was written before
+            # need to update it
+            # zmetadata is in spatialdata sometimes for some reason
+            if ".zmetadata" in keys or "zmetadata" in keys:
+                zarr.consolidate_metadata(store)
 
             new_version = Artifact(
                 artifact.path, revises=artifact, _is_internal_call=True
             ).save()
             # note: sets _state.db = "default"
             init_self_from_db(artifact, new_version)
+
+        if hasattr(storage, "close"):
+            storage.close()
+        if hasattr(connection, "close"):
+            connection.close()
+        self._closed = True
 
     @property
     def closed(self):
