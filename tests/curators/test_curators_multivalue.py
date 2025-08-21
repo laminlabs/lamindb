@@ -31,7 +31,7 @@ def lists_schema():
 
     yield schema
 
-    schema.delete()
+    schema.delete(permanent=True)
     ln.Feature.filter().delete()
     bt.Tissue.filter().delete()
 

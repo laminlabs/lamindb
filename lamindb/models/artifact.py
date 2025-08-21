@@ -551,12 +551,19 @@ def data_is_scversedatastructure(
         file_suffix = ".h5mu"
     # SpatialData does not have a unique suffix but `.zarr`
 
+    # AnnData allows both AnnDataAccessor and AnnData
+    class_name = data.__class__.__name__
     if structure_type is None:
         return any(
-            hasattr(data, "__class__") and data.__class__.__name__ == cl_name
+            class_name
+            in (["AnnData", "AnnDataAccessor"] if cl_name == "AnnData" else [cl_name])
             for cl_name in ["AnnData", "MuData", "SpatialData"]
         )
-    elif hasattr(data, "__class__") and data.__class__.__name__ == structure_type:
+    elif class_name in (
+        ["AnnData", "AnnDataAccessor"]
+        if structure_type == "AnnData"
+        else [structure_type]
+    ):
         return True
 
     data_type = structure_type.lower()
@@ -585,6 +592,7 @@ def data_is_scversedatastructure(
                     f"we do not check whether cloud zarr is {structure_type}"
                 )
                 return False
+
     return False
 
 
