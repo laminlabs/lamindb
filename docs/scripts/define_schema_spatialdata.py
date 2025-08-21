@@ -32,6 +32,12 @@ obs_schema = ln.Schema(
     ],
 ).save()
 
+uns_schema = ln.Schema(
+    features=[
+        ln.Feature(name="analysis", dtype="str").save(),
+    ],
+).save()
+
 # Schema enforces only registered Ensembl Gene IDs are valid (maximal_set=True)
 varT_schema = ln.Schema(itype=bt.Gene.ensembl_gene_id, maximal_set=True).save()
 
