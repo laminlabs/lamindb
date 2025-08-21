@@ -1,4 +1,5 @@
 import lamindb as ln
+from lamindb_setup.core._hub_core import select_space, select_storage
 
 assert ln.setup.settings.user.handle == "testuser1"
 
@@ -16,19 +17,51 @@ storage_loc = ln.Storage("create-s3", space=space).save()
 
 ln.track(space=space_name)
 
-assert ln.context.space.name == space_name
-ulabel = ln.ULabel(name="My test ulabel in test space").save()
-artifact = ln.Artifact(".gitignore", key="mytest").save()
+try:
+    assert ln.context.space.name == space_name
+    ulabel = ln.ULabel(name="My test ulabel in test space").save()
+    artifact = ln.Artifact(".gitignore", key="mytest").save()
 
-# checks
-assert ulabel.space == space  # ulabel should end up in the restricted space
-assert artifact.space == space
-assert artifact.storage == storage_loc
-assert ln.context.transform.space == space
-assert ln.context.run.space == space
+    # checks
+    assert ulabel.space == space  # ulabel should end up in the restricted space
+    assert artifact.space == space
+    assert artifact.storage == storage_loc
+    assert ln.context.transform.space == space
+    assert ln.context.run.space == space
 
-# clean up
-ulabel.delete(permanent=True)
-artifact.delete(permanent=True)
-ln.context.transform.delete(permanent=True)
-storage_loc.delete()
+    # update the space of the storage location
+    space2 = ln.Space.get(name="Our test space for CI 2")
+    storage_loc.space = space2
+    storage_loc.save()
+
+    response_storage = select_storage(lnid=storage_loc.uid)
+    response_space = select_space(lnid=space2.uid)
+    assert response_storage["space_id"] == response_space["id"]
+
+except Exception as e:
+    try:
+        ulabel.delete(permanent=True)
+    except Exception as e1:
+        print("e1", e1)
+        pass
+    try:
+        artifact.delete(permanent=True)
+    except Exception as e2:
+        print("e2", e2)
+        pass
+    try:
+        ln.context.transform.latest_run.delete(permanent=True)
+    except Exception as e3:
+        print("e3", e3)
+        pass
+    try:
+        ln.context.transform.delete(permanent=True)
+    except Exception as e3:
+        print("e3", e3)
+        pass
+    try:
+        storage_loc.delete()
+    except Exception as e4:
+        print("e4", e4)
+        pass
+    raise e
