@@ -799,18 +799,19 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
                 dtypes[name] = "cat"
             else:
                 dtypes[name] = serialize_pandas_dtype(col.dtype)
-        if mute:
-            try:
-                original_verbosity = logger._verbosity
-                logger.set_verbosity(0)
-                features = [
-                    Feature(name=name, dtype=dtype) for name, dtype in dtypes.items()
-                ]  # type: ignore
-            finally:
-                logger.set_verbosity(original_verbosity)
 
-        assert len(features) == len(df.columns)  # noqa: S101
-        return SQLRecordList(features)
+        if mute:
+            original_verbosity = logger._verbosity
+            logger.set_verbosity(0)
+        try:
+            features = [
+                Feature(name=name, dtype=dtype) for name, dtype in dtypes.items()
+            ]  # type: ignore
+            assert len(features) == len(df.columns)  # noqa: S101
+            return SQLRecordList(features)
+        finally:
+            if mute:
+                logger.set_verbosity(original_verbosity)
 
     @classmethod
     def from_dict(
@@ -880,16 +881,17 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
             raise ValueError(error_msg)
 
         if mute:
-            try:
-                original_verbosity = logger._verbosity
-                logger.set_verbosity(0)
-                features = [
-                    Feature(name=key, dtype=dtype) for key, dtype in dtypes.items()
-                ]  # type: ignore
-            finally:
+            original_verbosity = logger._verbosity
+            logger.set_verbosity(0)
+        try:
+            original_verbosity = logger._verbosity
+            logger.set_verbosity(0)
+            features = [Feature(name=key, dtype=dtype) for key, dtype in dtypes.items()]  # type: ignore
+            assert len(features) == len(dictionary)  # noqa: S101
+            return SQLRecordList(features)
+        finally:
+            if mute:
                 logger.set_verbosity(original_verbosity)
-        assert len(features) == len(dictionary)  # noqa: S101
-        return SQLRecordList(features)
 
     def save(self, *args, **kwargs) -> Feature:
         """Save the feature to the instance."""
