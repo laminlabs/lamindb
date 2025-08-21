@@ -4,6 +4,7 @@ from typing import (
     TYPE_CHECKING,
     overload,
 )
+from uuid import UUID
 
 from django.db import models
 from lamin_utils import logger
@@ -11,6 +12,7 @@ from lamindb_setup import settings as setup_settings
 from lamindb_setup.core._hub_core import (
     delete_storage_record,
     get_storage_records_for_instance,
+    select_space,
 )
 from lamindb_setup.core._settings_storage import (
     StorageSettings,
@@ -25,7 +27,7 @@ from lamindb.base.fields import (
 
 from ..base.ids import base62_12
 from .run import TracksRun, TracksUpdates
-from .sqlrecord import SQLRecord
+from .sqlrecord import Space, SQLRecord
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -61,22 +63,31 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
 
     .. dropdown:: Managing access to storage locations across instances
 
-        You can manage access through AWS policies that you attach to your S3 bucket
-        or leverage LaminHub's fine-grained access management.
+        You can manage access through LaminHub's fine-grained access management or
+        through AWS policies that you attach to your S3 bucket.
 
-        Head over to `https://lamin.ai/{account}/infrastructure`.
-        By clicking the green button that says "Connect S3 bucket", you enable Lamin to issue federated S3 tokens
-        for a bucket so that your collaborators can access data based on their permissions in LaminHub.
+        To enable access management via LaminHub, head over to `https://lamin.ai/{account}/infrastructure`.
+        By clicking the green button that says "Connect S3 bucket", LaminDB will start connecting through federated S3 tokens
+        so that your collaborators access data based on their permissions in LaminHub.
         :doc:`docs:access` has more details.
 
         .. image:: https://lamin-site-assets.s3.amazonaws.com/.lamindb/ze8hkgVxVptSSZEU0000.png
            :width: 800px
+
+        By default, access permissions to a storage location are governed by the access permissions of its managing instance. If you
+        want to further restrict access to a storage location, you can move it into a space::
+
+            space = ln.Space.get(name="my-space")
+            storage_loc = ln.Storage.get(root="s3://my-storace-location")
+            storage_loc.space = space
+            storage_loc.save()
 
         If you don't want to store data in the cloud, you can use local storage locations: :doc:`faq/keep-artifacts-local`.
 
     Args:
         root: `str` The root path of the storage location, e.g., `"./mydir"`, `"s3://my-bucket"`, `"s3://my-bucket/myfolder"`, `"gs://my-bucket/myfolder"`, `"/nfs/shared/datasets/genomics"`, `"/weka/shared/models/"`, ...
         description: `str | None = None` An optional description.
+        space: `Space | None = None` A space to restrict access permissions to the storage location.
         host: `str | None = None` For local storage locations, pass a globally unique host identifier, e.g. `"my-institute-cluster-1"`, `"my-server-abcd"`, ...
 
     See Also:
@@ -107,14 +118,13 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
 
             ln.Storage(root="/dir/our-shared-dir", host="our-server-123").save()
 
-        Switch to another storage location::
+        Globally switch to another storage location::
 
             ln.settings.storage = "/dir/our-shared-dir"  # or "s3://our-bucket/our-folder", "gs://our-bucket/our-folder", ...
 
-        If you're operating in `keep-artifacts-local` mode (:doc:`faq/keep-artifacts-local`), you can switch among additional local storage locations::
+        Or if you're operating in `keep-artifacts-local` mode (:doc:`faq/keep-artifacts-local`)::
 
-            ln.Storage(root="/dir/our-other-shared-dir", host="our-server-123").save()  # create
-            ln.settings.local_storage = "/dir/our-other-shared-dir"  # switch
+            ln.settings.local_storage = "/dir/our-other-shared-dir"
 
         View all storage locations used in your LaminDB instance::
 
@@ -175,6 +185,7 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
         root: str,
         *,
         description: str | None = None,
+        space: Space | None = None,
         host: str | None = None,
     ): ...
 
@@ -214,6 +225,7 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
             ).one_or_none()
         else:
             storage_record = Storage.filter(root=kwargs["root"]).one_or_none()
+        space = kwargs.get("space", None)
         if storage_record is not None:
             from .sqlrecord import init_self_from_db
 
@@ -222,8 +234,18 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
 
         skip_preparation = kwargs.pop("_skip_preparation", False)
         if skip_preparation:
+            assert space is None, "`space` must not be set if _skip_preparation is True"  # noqa: S101
             super().__init__(*args, **kwargs)
             return None
+
+        space_uuid = None
+        if space is not None:
+            hub_space_record = select_space(space.uid)
+            if hub_space_record is None:
+                raise ValueError(
+                    "Please first create a space on the hub: https://docs.lamin.ai/access"
+                )
+            space_uuid = UUID(hub_space_record["id"])
 
         # instance_id won't take effect if
         # - there is no write access
@@ -233,8 +255,8 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
             instance_id=setup_settings.instance._id,
             instance_slug=setup_settings.instance.slug,
             register_hub=setup_settings.instance.is_on_hub,
-            prevent_register_hub=not setup_settings.instance.is_on_hub,
             region=kwargs.get("region", None),  # host was renamed to region already
+            space_uuid=space_uuid,
         )
         # ssettings performed validation and normalization of the root path
         kwargs["root"] = ssettings.root_as_str  # noqa: S101
