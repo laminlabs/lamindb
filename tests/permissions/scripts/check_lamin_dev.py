@@ -1,4 +1,5 @@
 import lamindb as ln
+from lamindb_setup.core._hub_core import select_space, select_storage
 
 assert ln.setup.settings.user.handle == "testuser1"
 
@@ -26,6 +27,15 @@ assert artifact.space == space
 assert artifact.storage == storage_loc
 assert ln.context.transform.space == space
 assert ln.context.run.space == space
+
+# update the space of the storage location
+space2 = ln.Space.get(name="Our test space for CI 2")
+storage_loc.space = space2
+storage_loc.save()
+
+response_storage = select_storage(lnid=storage_loc.lnid)
+response_space = select_space(lnid=space2.lnid)
+assert response_storage["space_id"] == response_space["id"]
 
 # clean up
 ulabel.delete(permanent=True)
