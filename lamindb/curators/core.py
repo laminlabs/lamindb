@@ -352,6 +352,9 @@ class SlotsCurator(Curator):
 
         if self._artifact is None:
             type_mapping = [
+                (   lambda dataset: isinstance(dataset, pd.DataFrame),
+                    Artifact.from_df
+                ),
                 (
                     lambda dataset: data_is_scversedatastructure(dataset, "AnnData"),
                     Artifact.from_anndata,
@@ -398,7 +401,7 @@ class SlotsCurator(Curator):
 # Such an approach was never intended and there is room for a DictCurator in the future.
 # For more context, read https://laminlabs.slack.com/archives/C07DB677JF6/p1753994077716099 and
 # https://www.notion.so/laminlabs/Add-a-DictCurator-2422aeaa55e180b9a513f91d13970836
-class DataFrameCurator(Curator):
+class DataFrameCurator(SlotsCurator):
     # the example in the docstring is tested in test_curators_quickstart_example
     """Curator for `DataFrame`.
 
@@ -434,6 +437,27 @@ class DataFrameCurator(Curator):
         slot: str | None = None,
     ) -> None:
         super().__init__(dataset=dataset, schema=schema)
+
+        # Handle composite schemas including attrs slots
+        if slot is None and hasattr(schema, 'slots') and schema.slots:
+            for slot_name, slot_schema in schema.slots.items():
+                if slot_name.startswith("attrs"):
+                    path_parts = slot_name.split(":")
+                    if len(path_parts) >= 1 and path_parts[0] == "attrs":
+                        attrs_dict = getattr(self._dataset, 'attrs', None)
+                        if attrs_dict is not None:
+                            if len(path_parts) == 1:
+                                df = pd.DataFrame([attrs_dict])
+                            else:
+                                deeper_keys = path_parts[1:]
+                                data = _resolve_schema_slot_path(
+                                    attrs_dict, deeper_keys, slot_name, "attrs"
+                                )
+                                df = pd.DataFrame([data])
+                            self._slots[slot_name] = DataFrameCurator(df, slot_schema, slot=slot_name)
+                # The convention for composite Schemas is that "df" specifies the main Schema
+                elif slot_name == "df":
+                    self._slots[slot_name] = DataFrameCurator(self._dataset, slot_schema, slot=slot_name)
 
         categoricals = []
         features = []
@@ -617,6 +641,10 @@ class DataFrameCurator(Curator):
     @doc_args(VALIDATE_DOCSTRING)
     def validate(self) -> None:
         """{}"""  # noqa: D415
+        if self._schema.itype == "Composite":
+            super().validate()
+            return
+
         if self._schema.n > 0:
             try:
                 # first validate through pandera
@@ -645,6 +673,10 @@ class DataFrameCurator(Curator):
         """{}"""  # noqa: D415
         if not self._is_validated:
             self.validate()  # raises ValidationError if doesn't validate
+
+        if self._schema.itype == "Composite":
+            super().save_artifact(key=key, description=description, revises=revises, run=run)
+        
         if self._artifact is None:
             self._artifact = Artifact.from_df(
                 self._dataset,
@@ -1692,7 +1724,7 @@ def get_organism_kwargs(
 def annotate_artifact(
     artifact: Artifact,
     *,
-    curator: AnnDataCurator | SlotsCurator | None = None,
+    curator: SlotsCurator | None = None,
     cat_vectors: dict[str, CatVector] | None = None,
 ) -> Artifact:
     from .. import settings
@@ -1725,13 +1757,15 @@ def annotate_artifact(
         )
 
     # annotate with inferred schemas aka feature sets
-    if artifact.otype == "DataFrame":
+    if artifact.otype == "DataFrame" and curator is not None and curator._schema.itype != "Composite":
         features = cat_vectors["columns"].records
         if features is not None:
             index_feature = artifact.schema.index
+            # DataFrameCurators with Composite Schemas must use "Feature" here
+            itype = artifact.schema.itype if not (isinstance(curator, DataFrameCurator) and curator._schema.itype == "Composite") else "Feature"
             feature_set = Schema(
                 features=[f for f in features if f != index_feature],
-                itype=artifact.schema.itype,
+                itype=itype,
                 index=index_feature,
                 minimal_set=artifact.schema.minimal_set,
                 maximal_set=artifact.schema.maximal_set,
@@ -1751,42 +1785,43 @@ def annotate_artifact(
                 feature_set.save(), through_defaults={"slot": "columns"}
             )
     else:
-        for slot, slot_curator in curator._slots.items():
-            # var_index is backward compat (2025-05-01)
-            name = (
-                "var_index"
-                if (slot == "var" and "var_index" in slot_curator.cat._cat_vectors)
-                else "columns"
-            )
-            features = slot_curator.cat._cat_vectors[name].records
-            if features is None:
-                logger.warning(f"no features found for slot {slot}")
-                continue
-            validating_schema = slot_curator._schema
-            index_feature = validating_schema.index
-            feature_set = Schema(
-                features=[f for f in features if f != index_feature],
-                itype=validating_schema.itype,
-                index=index_feature,
-                minimal_set=validating_schema.minimal_set,
-                maximal_set=validating_schema.maximal_set,
-                coerce_dtype=validating_schema.coerce_dtype,
-                ordered_set=validating_schema.ordered_set,
-            )
-            if (
-                feature_set._state.adding
-                and len(features) > settings.annotation.n_max_records
-            ):
-                logger.important(
-                    f"not annotating with {len(features)} features for slot {slot} as it exceeds {settings.annotation.n_max_records} (ln.settings.annotation.n_max_records)"
+        if curator is not None:
+            for slot, slot_curator in curator._slots.items():
+                # var_index is backward compat (2025-05-01)
+                name = (
+                    "var_index"
+                    if (slot == "var" and "var_index" in slot_curator.cat._cat_vectors)
+                    else "columns"
                 )
-                itype = parse_cat_dtype(
-                    artifact.schema.slots[slot].itype, is_itype=True
-                )["field"]
-                feature_set = Schema(itype=itype, n=len(features))
-            artifact.feature_sets.add(
-                feature_set.save(), through_defaults={"slot": slot}
-            )
+                features = slot_curator.cat._cat_vectors[name].records
+                if features is None:
+                    logger.warning(f"no features found for slot {slot}")
+                    continue
+                validating_schema = slot_curator._schema
+                index_feature = validating_schema.index
+                feature_set = Schema(
+                    features=[f for f in features if f != index_feature],
+                    itype=validating_schema.itype,
+                    index=index_feature,
+                    minimal_set=validating_schema.minimal_set,
+                    maximal_set=validating_schema.maximal_set,
+                    coerce_dtype=validating_schema.coerce_dtype,
+                    ordered_set=validating_schema.ordered_set,
+                )
+                if (
+                    feature_set._state.adding
+                    and len(features) > settings.annotation.n_max_records
+                ):
+                    logger.important(
+                        f"not annotating with {len(features)} features for slot {slot} as it exceeds {settings.annotation.n_max_records} (ln.settings.annotation.n_max_records)"
+                    )
+                    itype = parse_cat_dtype(
+                        artifact.schema.slots[slot].itype, is_itype=True
+                    )["field"]
+                    feature_set = Schema(itype=itype, n=len(features))
+                artifact.feature_sets.add(
+                    feature_set.save(), through_defaults={"slot": slot}
+                )
 
     slug = ln_setup.settings.instance.slug
     if ln_setup.settings.instance.is_remote:  # pdagma: no cover
