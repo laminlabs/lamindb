@@ -295,7 +295,7 @@ except ImportError:
 if ZARR_INSTALLED:
     from anndata._io.zarr import read_dataframe_legacy as read_dataframe_legacy_zarr
 
-    from ._zarr import get_zarr_store
+    from ._zarr import IS_ZARR_V3, get_zarr_store
 
     ArrayTypes.append(zarr.Array)
     GroupTypes.append(zarr.Group)
@@ -306,7 +306,10 @@ if ZARR_INSTALLED:
         assert mode in {"r", "r+", "a", "w", "w-"}, f"Unknown mode {mode}!"  #  noqa: S101
 
         store = get_zarr_store(filepath)
-        storage = zarr.open(store, mode=mode)
+        kwargs = {}
+        if IS_ZARR_V3 and mode != "r":
+            kwargs["use_consolidated"] = False
+        storage = zarr.open(store, mode=mode, **kwargs)
         # zarr v2 re-initializes the mapper
         # we need to put back the correct one
         # S3FSMap is returned from get_zarr_store only for zarr v2
