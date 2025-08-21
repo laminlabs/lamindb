@@ -4,6 +4,7 @@ from typing import (
     TYPE_CHECKING,
     overload,
 )
+from uuid import UUID
 
 from django.db import models
 from lamin_utils import logger
@@ -236,7 +237,7 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
                 raise ValueError(
                     "Please first create a space on the hub: https://docs.lamin.ai/access"
                 )
-            space_uuid = hub_space_record["id"]
+            space_uuid = UUID(hub_space_record["id"])
 
         # instance_id won't take effect if
         # - there is no write access
@@ -247,7 +248,7 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
             instance_slug=setup_settings.instance.slug,
             register_hub=setup_settings.instance.is_on_hub,
             region=kwargs.get("region", None),  # host was renamed to region already
-            space_id=space_uuid,
+            space_uuid=space_uuid,
         )
         # ssettings performed validation and normalization of the root path
         kwargs["root"] = ssettings.root_as_str  # noqa: S101

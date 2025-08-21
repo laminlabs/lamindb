@@ -1480,20 +1480,24 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             storage = setup_settings.instance.local_storage.record
         else:
             storage = setup_settings.instance.storage.record
-        if space is not None:
+        if space is None:
             from lamindb import context as run_context
 
             if run_context.space is not None:
                 space = run_context.space
             elif setup_settings.space is not None:
                 space = setup_settings.space
-            if space is not None:
-                if storage != space.storage:
-                    if storage_was_passed:
-                        logger.warning(
-                            "storage argument ignored as storage information from space takes precedence"
-                        )
-                    storage = space.storage
+        if space is not None and space != storage.space:
+            if storage_was_passed:
+                logger.warning(
+                    "storage argument ignored as storage information from space takes precedence"
+                )
+            storage_locs_for_space = Storage.filter(space=space)
+            storage = storage_locs_for_space.first()
+            if len(storage_locs_for_space) > 1:
+                logger.warning(
+                    f"more than one storage location for space {space}, choosing {storage}"
+                )
         using_key = kwargs.pop("using_key", None)
         otype = kwargs.pop("otype") if "otype" in kwargs else None
         if isinstance(data, str) and data.startswith("s3:///"):
