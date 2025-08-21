@@ -8,4 +8,4 @@ assert ln.setup.settings.instance.slug == "laminlabs/lamin-dev"
 
 artifact = ln.Artifact.get(key="mytest")
 assert artifact.space.name == "Our test space for CI"
-artifact.delete()
+artifact.delete(permanent=True)

@@ -1,6 +1,15 @@
 import lamindb as ln
 from lamindb_setup.core._hub_core import select_space, select_storage
 
+
+def cleanup(records):
+    for record in records:
+        try:
+            record.delete(permanent=True)
+        except Exception as e:
+            print(f"Failed deleting {record}: {e}")
+
+
 assert ln.setup.settings.user.handle == "testuser1"
 
 ln.connect("laminlabs/lamin-dev")
@@ -38,30 +47,23 @@ try:
     response_space = select_space(lnid=space2.uid)
     assert response_storage["space_id"] == response_space["id"]
 
+    cleanup(
+        (
+            ulabel,
+            artifact,
+            ln.context.transform.latest_run,
+            ln.context.transform,
+            storage_loc,
+        )
+    )
 except Exception as e:
-    try:
-        ulabel.delete(permanent=True)
-    except Exception as e1:
-        print("e1", e1)
-        pass
-    try:
-        artifact.delete(permanent=True)
-    except Exception as e2:
-        print("e2", e2)
-        pass
-    try:
-        ln.context.transform.latest_run.delete(permanent=True)
-    except Exception as e3:
-        print("e3", e3)
-        pass
-    try:
-        ln.context.transform.delete(permanent=True)
-    except Exception as e3:
-        print("e3", e3)
-        pass
-    try:
-        storage_loc.delete()
-    except Exception as e4:
-        print("e4", e4)
-        pass
+    cleanup(
+        (
+            ulabel,
+            artifact,
+            ln.context.transform.latest_run,
+            ln.context.transform,
+            storage_loc,
+        )
+    )
     raise e
