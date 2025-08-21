@@ -1465,7 +1465,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             branch_id = 1
         branch = kwargs.pop("branch", None)
         space = kwargs.pop("space", None)
-        assert "space_id" not in kwargs  # noqa: S101
+        assert "space_id" not in kwargs, "please pass space instead"  # noqa: S101
         format = kwargs.pop("format", None)
         _is_internal_call = kwargs.pop("_is_internal_call", False)
         skip_check_exists = kwargs.pop("skip_check_exists", False)

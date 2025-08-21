@@ -63,23 +63,31 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
 
     .. dropdown:: Managing access to storage locations across instances
 
-        You can manage access through AWS policies that you attach to your S3 bucket
-        or leverage LaminHub's fine-grained access management.
+        You can manage access through LaminHub's fine-grained access management or
+        through AWS policies that you attach to your S3 bucket.
 
-        Head over to `https://lamin.ai/{account}/infrastructure`.
-        By clicking the green button that says "Connect S3 bucket", you enable Lamin to issue federated S3 tokens
-        for a bucket so that your collaborators can access data based on their permissions in LaminHub.
+        To enable access management via LaminHub, head over to `https://lamin.ai/{account}/infrastructure`.
+        By clicking the green button that says "Connect S3 bucket", LaminDB will start connecting through federated S3 tokens
+        so that your collaborators access data based on their permissions in LaminHub.
         :doc:`docs:access` has more details.
 
         .. image:: https://lamin-site-assets.s3.amazonaws.com/.lamindb/ze8hkgVxVptSSZEU0000.png
            :width: 800px
+
+        By default, access permissions to a storage location are governed by the access permissions of its managing instance. If you
+        want to further restrict access to a storage location, you can move it into a space::
+
+            space = ln.Space.get(name="my-space")
+            storage_loc = ln.Storage.get(root="s3://my-storace-location")
+            storage_loc.space = space
+            storage_loc.save()
 
         If you don't want to store data in the cloud, you can use local storage locations: :doc:`faq/keep-artifacts-local`.
 
     Args:
         root: `str` The root path of the storage location, e.g., `"./mydir"`, `"s3://my-bucket"`, `"s3://my-bucket/myfolder"`, `"gs://my-bucket/myfolder"`, `"/nfs/shared/datasets/genomics"`, `"/weka/shared/models/"`, ...
         description: `str | None = None` An optional description.
-        space: `Space | None = None` A space to restrict access permissions.
+        space: `Space | None = None` A space to restrict access permissions to the storage location.
         host: `str | None = None` For local storage locations, pass a globally unique host identifier, e.g. `"my-institute-cluster-1"`, `"my-server-abcd"`, ...
 
     See Also:
