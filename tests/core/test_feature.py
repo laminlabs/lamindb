@@ -181,7 +181,7 @@ def test_feature_from_df(df):
 def test_feature_from_dict(dict_data):
     # ambiguous str types
     with pytest.raises(ValueError) as e:
-        features = ln.Feature.from_dict(dict_data, str_as_cat=None, mute=False)
+        features = ln.Feature.from_dict(dict_data, str_as_cat=None)
     error_msg = str(e.value)
     assert "Ambiguous dtypes detected" in error_msg
     assert "'dict_feat3': str or cat" in error_msg
@@ -189,7 +189,7 @@ def test_feature_from_dict(dict_data):
     assert "Please pass `str_as_cat` parameter" in error_msg
 
     # convert str to cat
-    features = ln.Feature.from_dict(dict_data, str_as_cat=True, mute=False)
+    features = ln.Feature.from_dict(dict_data, str_as_cat=True)
     assert len(features) == len(dict_data)
     assert features[0].dtype == "int"
     assert features[1].dtype == "float"
@@ -200,17 +200,17 @@ def test_feature_from_dict(dict_data):
     assert features[6].dtype == "dict"
 
     # do not convert str to cat
-    features = ln.Feature.from_dict(dict_data, str_as_cat=False, mute=False)
+    features = ln.Feature.from_dict(dict_data, str_as_cat=False)
     assert features[2].dtype == "str"
     assert features[5].dtype == "list[str]"
 
     # Wrong field
     with pytest.raises(ValueError) as e:
-        ln.Feature.from_dict(dict_data, field=ln.ULabel.name, mute=False)
+        ln.Feature.from_dict(dict_data, field=ln.ULabel.name)
     assert "field must be a Feature FieldAttr" in str(e.value)
 
     # Explicit field
     features_with_field = ln.Feature.from_dict(
-        dict_data, field=ln.Feature.name, str_as_cat=False, mute=False
+        dict_data, field=ln.Feature.name, str_as_cat=False
     )
     assert len(features_with_field) == len(dict_data)
