@@ -1266,7 +1266,9 @@ class CatVector:
             type_record = registry.get(name=self._subtype_str)
         if df is not None and registry == Feature:
             nonval_columns = Feature.inspect(df.columns, mute=True).non_validated
-            non_validated_records = Feature.from_df(df.loc[:, nonval_columns])
+            non_validated_records = Feature.from_df(
+                df.loc[:, nonval_columns], mute=True
+            )
         else:
             if (
                 self._organism

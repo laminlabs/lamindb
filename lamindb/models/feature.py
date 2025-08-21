@@ -778,7 +778,7 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
 
     @classmethod
     def from_df(
-        cls, df: pd.DataFrame, field: FieldAttr | None = None, *, mute: bool = True
+        cls, df: pd.DataFrame, field: FieldAttr | None = None, *, mute: bool = False
     ) -> SQLRecordList:
         """Create Feature records for dataframe columns.
 
@@ -800,12 +800,15 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
             else:
                 dtypes[name] = serialize_pandas_dtype(col.dtype)
         if mute:
-            with logger.mute():
+            try:
+                original_verbosity = logger._verbosity
+                logger.set_verbosity(0)
                 features = [
-                    Feature(name=key, dtype=dtype) for key, dtype in dtypes.items()
+                    Feature(name=name, dtype=dtype) for name, dtype in dtypes.items()
                 ]  # type: ignore
-        else:
-            features = [Feature(name=key, dtype=dtype) for key, dtype in dtypes.items()]  # type: ignore
+            finally:
+                logger.set_verbosity(original_verbosity)
+
         assert len(features) == len(df.columns)  # noqa: S101
         return SQLRecordList(features)
 
@@ -816,7 +819,7 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
         field: FieldAttr | None = None,
         *,
         str_as_cat: bool | None = None,
-        mute: bool = True,
+        mute: bool = False,
     ) -> SQLRecordList:
         """Create Feature records for dictionary keys.
 
@@ -867,7 +870,7 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
             dtypes[key] = dtype
 
         if ambiguous_keys:
-            error_msg = "Ambiguous dtypes detected. Please specify `str_as_cat` parameter or create features explicitly:\n"
+            error_msg = "Ambiguous dtypes detected. Please pass `str_as_cat` parameter or create features explicitly:\n"
             for key, options, msg in ambiguous_keys:
                 error_msg += f"  '{key}': {options}"
                 if msg:
@@ -877,12 +880,14 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
             raise ValueError(error_msg)
 
         if mute:
-            with logger.mute():
+            try:
+                original_verbosity = logger._verbosity
+                logger.set_verbosity(0)
                 features = [
                     Feature(name=key, dtype=dtype) for key, dtype in dtypes.items()
                 ]  # type: ignore
-        else:
-            features = [Feature(name=key, dtype=dtype) for key, dtype in dtypes.items()]  # type: ignore
+            finally:
+                logger.set_verbosity(original_verbosity)
         assert len(features) == len(dictionary)  # noqa: S101
         return SQLRecordList(features)
 

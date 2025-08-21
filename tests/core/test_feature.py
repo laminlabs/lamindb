@@ -186,7 +186,7 @@ def test_feature_from_dict(dict_data):
     assert "Ambiguous dtypes detected" in error_msg
     assert "'dict_feat3': str or cat" in error_msg
     assert "'dict_feat6': list[str] or list[cat]" in error_msg
-    assert "Please specify `str_as_cat` parameter" in error_msg
+    assert "Please pass `str_as_cat` parameter" in error_msg
 
     # convert str to cat
     features = ln.Feature.from_dict(dict_data, str_as_cat=True)
