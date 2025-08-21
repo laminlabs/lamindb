@@ -21,7 +21,6 @@ dependencies = [
     "lamindb_setup[aws]==1.9.1",
     # others
     "pyyaml",
-    "django-model-utils",  # 42.6kb in v5.0.0
     "pyarrow",
     "pandera>=0.24.0",
     "typing_extensions!=4.6.0",

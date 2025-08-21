@@ -13,7 +13,6 @@ from lamindb_setup.core._hub_core import (
     delete_storage_record,
     get_storage_records_for_instance,
     select_space,
-    update_storage_with_space,
 )
 from lamindb_setup.core._settings_storage import (
     StorageSettings,
@@ -21,7 +20,6 @@ from lamindb_setup.core._settings_storage import (
     init_storage,
 )
 from lamindb_setup.core.upath import check_storage_is_empty, create_path
-from model_utils import FieldTracker
 
 from lamindb.base.fields import (
     CharField,
@@ -181,8 +179,6 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
     artifacts: Artifact
     """Artifacts contained in this storage location."""
 
-    _field_tracker = FieldTracker(fields=["space"])
-
     @overload
     def __init__(
         self,
@@ -322,13 +318,6 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
         """
         access_token = self._access_token if hasattr(self, "_access_token") else None
         return create_path(self.root, access_token=access_token)
-
-    def save(self, *args, **kwargs):
-        if self._field_tracker.has_changed(
-            "space"
-        ):  # space_id is automatically handled by field tracker according to Claude
-            update_storage_with_space(storage_lnid=self.uid, space_lnid=self.space.uid)
-        super().save(*args, **kwargs)
 
     def delete(self) -> None:  # type: ignore
         # type ignore is there because we don't use a trash here unlike everywhere else
