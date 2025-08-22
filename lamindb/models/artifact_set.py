@@ -135,7 +135,7 @@ def artifacts_from_path(artifacts: ArtifactSet, path: UPathStr) -> ArtifactSet:
 
     if stem_len == 16:
         qs = artifacts.filter(  # type: ignore
-            uid__startswith=stem, _key_is_virtual=True, is_latest=True
+            uid__startswith=stem, _key_is_virtual=True
         )
     elif stem_len == 20:
         qs = artifacts.filter(uid=stem, _key_is_virtual=True)  # type: ignore
@@ -150,6 +150,6 @@ def artifacts_from_path(artifacts: ArtifactSet, path: UPathStr) -> ArtifactSet:
         .annotate(
             db_path=Concat("storage__root", Value("/"), "key", output_field=TextField())
         )
-        .filter(db_path=path_str, is_latest=True)
+        .filter(db_path=path_str)
     )
     return qs
