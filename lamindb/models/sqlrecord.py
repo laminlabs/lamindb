@@ -921,7 +921,14 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
     def delete(self) -> None:
         """Delete."""
         # deal with versioned records
-        if isinstance(self, IsVersioned) and self.is_latest:
+        # _overwrite_versions is set to True for folder artifacts
+        # no need to set the new latest version becase all versions are deleted
+        # when deleting the latest version of a folder artifact
+        if (
+            isinstance(self, IsVersioned)
+            and self.is_latest
+            and not getattr(self, "_overwrite_versions", False)
+        ):
             new_latest = (
                 self.__class__.objects.using(self._state.db)
                 .filter(is_latest=False, uid__startswith=self.stem_uid)

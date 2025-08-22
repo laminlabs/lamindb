@@ -736,10 +736,10 @@ class BasicQuerySet(models.QuerySet):
 
     def delete(self, *args, **kwargs):
         """Delete all records in the query set."""
-        from lamindb.models import Artifact, Collection, Run, Transform
+        from lamindb.models import Artifact, Collection, Run, Storage, Transform
 
         # both Transform & Run might reference artifacts
-        if self.model in {Artifact, Collection, Transform, Run}:
+        if self.model in {Artifact, Collection, Transform, Run, Storage}:
             for record in self:
                 logger.important(f"deleting {record}")
                 record.delete(*args, **kwargs)
