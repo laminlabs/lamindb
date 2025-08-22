@@ -124,36 +124,32 @@ class ArtifactSet(Iterable):
         _track_run_input(artifacts, is_run_input)
         return ds
 
-    @doc_args(Artifact.get_by_path.__doc__)
-    def get_by_path(self, path: UPathStr) -> Artifact | None:
-        """{}"""  # noqa: D415
-        upath = UPath(path)
 
-        path_str = upath.as_posix()
+def artifacts_from_path(artifacts: ArtifactSet, path: UPathStr) -> ArtifactSet:
+    upath = UPath(path)
 
-        stem = upath.stem
-        stem_len = len(stem)
+    path_str = upath.as_posix()
 
-        artifacts = self
+    stem = upath.stem
+    stem_len = len(stem)
 
-        if stem_len == 16:
-            artifact = artifacts.filter(  # type: ignore
-                uid__startswith=stem, _key_is_virtual=True, is_latest=True
-            ).one_or_none()
-        elif stem_len == 20:
-            artifact = artifacts.filter(uid=stem, _key_is_virtual=True).one_or_none()  # type: ignore
-        else:
-            artifact = None
+    if stem_len == 16:
+        qs = artifacts.filter(  # type: ignore
+            uid__startswith=stem, _key_is_virtual=True, is_latest=True
+        )
+    elif stem_len == 20:
+        qs = artifacts.filter(uid=stem, _key_is_virtual=True)  # type: ignore
+    else:
+        qs = None
 
-        if artifact is None:
-            artifact = (
-                artifacts.filter(_key_is_virtual=False)  # type: ignore
-                .annotate(
-                    db_path=Concat(
-                        "storage__root", Value("/"), "key", output_field=TextField()
-                    )
-                )
-                .filter(db_path=path_str, is_latest=True)
-                .one_or_none()
-            )
-        return artifact
+    if qs:  # an empty query set evaluates to False
+        return qs
+
+    qs = (
+        artifacts.filter(_key_is_virtual=False)  # type: ignore
+        .annotate(
+            db_path=Concat("storage__root", Value("/"), "key", output_field=TextField())
+        )
+        .filter(db_path=path_str, is_latest=True)
+    )
+    return qs

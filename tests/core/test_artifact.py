@@ -1017,9 +1017,10 @@ def test_get_by_path(df):
     artifact = ln.Artifact.from_df(df, key="df.parquet").save()
     artifact_path = artifact.path
 
-    assert ln.Artifact.get_by_path(artifact_path) == artifact
-    assert ln.Artifact.filter().get_by_path(artifact_path.as_posix()) == artifact
+    assert ln.Artifact.get(path=artifact_path) == artifact
+    assert ln.Artifact.filter().get(path=artifact_path.as_posix()) == artifact
 
-    assert ln.Artifact.get_by_path("s3://bucket/folder/file.parquet") is None
+    with pytest.raises(ln.Artifact.DoesNotExist):
+        ln.Artifact.get(path="s3://bucket/folder/file.parquet")
 
     artifact.delete(permanent=True)
