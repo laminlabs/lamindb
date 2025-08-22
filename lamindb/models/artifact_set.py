@@ -3,8 +3,11 @@ from __future__ import annotations
 from collections.abc import Iterable, Iterator
 from typing import TYPE_CHECKING, Literal
 
+from django.db.models import TextField, Value
+from django.db.models.functions import Concat
 from lamin_utils import logger
 from lamindb_setup.core._docs import doc_args
+from upath import UPath
 
 from ..core._mapped_collection import MappedCollection
 from ..core.storage._backed_access import _open_dataframe
@@ -13,10 +16,10 @@ from .collection import Collection, _load_concat_artifacts
 
 if TYPE_CHECKING:
     from anndata import AnnData
+    from lamindb_setup.types import UPathStr
     from pandas import DataFrame
     from polars import LazyFrame as PolarsLazyFrame
     from pyarrow.dataset import Dataset as PyArrowDataset
-    from upath import UPath
 
 
 UNORDERED_WARNING = (
@@ -120,3 +123,37 @@ class ArtifactSet(Iterable):
         # track only if successful
         _track_run_input(artifacts, is_run_input)
         return ds
+
+    @doc_args(Artifact.get_from_path.__doc__)
+    def get_from_path(self, path: UPathStr) -> Artifact | None:
+        """{}"""  # noqa: D415
+        upath = UPath(path)
+
+        path_str = upath.as_posix()
+
+        stem = upath.stem
+        stem_len = len(stem)
+
+        artifacts = self
+
+        if stem_len == 16:
+            artifact = artifacts.filter(  # type: ignore
+                uid__startswith=stem, _key_is_virtual=True, is_latest=True
+            ).one_or_none()
+        elif stem_len == 20:
+            artifact = artifacts.filter(uid=stem, _key_is_virtual=True).one_or_none()  # type: ignore
+        else:
+            artifact = None
+
+        if artifact is None:
+            artifact = (
+                artifacts.filter(_key_is_virtual=False)  # type: ignore
+                .annotate(
+                    db_path=Concat(
+                        "storage__root", Value("/"), "key", output_field=TextField()
+                    )
+                )
+                .filter(db_path=path_str, is_latest=True)
+                .one_or_none()
+            )
+        return artifact
