@@ -1011,3 +1011,15 @@ def test_artifact_get_tracking(df):
 
     artifact.delete(permanent=True)
     transform.delete()
+
+
+def test_get_by_path(df):
+    artifact = ln.Artifact.from_df(df, key="df.parquet").save()
+    artifact_path = artifact.path
+
+    assert ln.Artifact.get_by_path(artifact_path) == artifact
+    assert ln.Artifact.filter().get_by_path(artifact_path.as_posix()) == artifact
+
+    assert ln.Artifact.get_by_path("s3://bucket/folder/file.parquet") is None
+
+    artifact.delete(permanent=True)
