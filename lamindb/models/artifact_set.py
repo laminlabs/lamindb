@@ -124,8 +124,8 @@ class ArtifactSet(Iterable):
         _track_run_input(artifacts, is_run_input)
         return ds
 
-    @doc_args(Artifact.get_from_path.__doc__)
-    def get_from_path(self, path: UPathStr) -> Artifact | None:
+    @doc_args(Artifact.get_by_path.__doc__)
+    def get_by_path(self, path: UPathStr) -> Artifact | None:
         """{}"""  # noqa: D415
         upath = UPath(path)
 

@@ -1691,7 +1691,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         )
 
     @classmethod
-    def get_from_path(cls, path: UPathStr) -> Artifact | None:
+    def get_by_path(cls, path: UPathStr) -> Artifact | None:
         """Get the latest artifact registered for the path if exists, ``None`` otherwise.
 
         Args:
@@ -1699,7 +1699,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         """
         from .query_set import QuerySet
 
-        return QuerySet(model=cls).get_from_path(path)
+        return QuerySet(model=cls).get_by_path(path)
 
     @classmethod
     def get(
