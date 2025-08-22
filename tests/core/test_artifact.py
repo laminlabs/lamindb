@@ -1023,4 +1023,7 @@ def test_get_by_path(df):
     with pytest.raises(ln.Artifact.DoesNotExist):
         ln.Artifact.get(path="s3://bucket/folder/file.parquet")
 
+    with pytest.raises(ValueError):
+        ln.User.get(path="some/path")
+
     artifact.delete(permanent=True)
