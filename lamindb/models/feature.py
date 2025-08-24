@@ -777,12 +777,21 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
                 )
 
     @classmethod
-    def from_df(cls, df: pd.DataFrame, field: FieldAttr | None = None) -> SQLRecordList:
-        """Create Feature records for columns."""
+    def from_df(
+        cls, df: pd.DataFrame, field: FieldAttr | None = None, *, mute: bool = False
+    ) -> SQLRecordList:
+        """Create Feature records for dataframe columns.
+
+        Args:
+            df: Source DataFrame to extract column information from
+            field: FieldAttr for Feature model validation, defaults to Feature.name
+            mute: Whether to mute Feature creation similar names found warnings
+        """
         field = Feature.name if field is None else field
         registry = field.field.model  # type: ignore
         if registry != Feature:
             raise ValueError("field must be a Feature FieldAttr!")
+
         categoricals = categoricals_from_df(df)
         dtypes = {}
         for name, col in df.items():
@@ -790,15 +799,100 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
                 dtypes[name] = "cat"
             else:
                 dtypes[name] = serialize_pandas_dtype(col.dtype)
-        with logger.mute():  # silence the warning "loaded record with exact same name "
+
+        if mute:
+            original_verbosity = logger._verbosity
+            logger.set_verbosity(0)
+        try:
             features = [
                 Feature(name=name, dtype=dtype) for name, dtype in dtypes.items()
             ]  # type: ignore
-        assert len(features) == len(df.columns)  # noqa: S101
-        return SQLRecordList(features)
+            assert len(features) == len(df.columns)  # noqa: S101
+            return SQLRecordList(features)
+        finally:
+            if mute:
+                logger.set_verbosity(original_verbosity)
+
+    @classmethod
+    def from_dict(
+        cls,
+        dictionary: dict[str, Any],
+        field: FieldAttr | None = None,
+        *,
+        str_as_cat: bool | None = None,
+        mute: bool = False,
+    ) -> SQLRecordList:
+        """Create Feature records for dictionary keys.
+
+        Args:
+            dictionary: Source dictionary to extract key information from
+            field: FieldAttr for Feature model validation, defaults to Feature.name
+            str_as_cat: Whether to interpret string values as categorical
+            mute: Whether to mute dtype inference and feature creation warnings
+        """
+        from lamindb.models._feature_manager import infer_feature_type_convert_json
+
+        field = Feature.name if field is None else field
+        registry = field.field.model  # type: ignore
+        if registry != Feature:
+            raise ValueError("field must be a Feature FieldAttr!")
+
+        dtypes = {}
+        ambiguous_keys = []
+        for key, value in dictionary.items():
+            dtype, _, message = infer_feature_type_convert_json(key, value, mute=mute)
+
+            if dtype == "cat ? str":
+                if str_as_cat is None:
+                    ambiguous_keys.append(
+                        (key, "str or cat", message.strip("# ") if message else "")
+                    )
+                    continue
+                if str_as_cat:
+                    dtype = "cat"
+                else:
+                    dtype = "str"
+
+            elif dtype == "list[cat ? str]":
+                if str_as_cat is None:
+                    ambiguous_keys.append(
+                        (
+                            key,
+                            "list[str] or list[cat]",
+                            message.strip("# ") if message else "",
+                        )
+                    )
+                    continue
+                if str_as_cat:
+                    dtype = "list[cat]"
+                else:
+                    dtype = "list[str]"
+
+            dtypes[key] = dtype
+
+        if ambiguous_keys:
+            error_msg = "Ambiguous dtypes detected. Please pass `str_as_cat` parameter or create features explicitly:\n"
+            for key, options, msg in ambiguous_keys:
+                error_msg += f"  '{key}': {options}"
+                if msg:
+                    error_msg += f" ({msg})"
+                error_msg += "\n"
+            error_msg += "\nUse `str_as_cat=True` to treat strings as categorical, or `str_as_cat=False` for plain strings."
+            raise ValueError(error_msg)
+
+        if mute:
+            original_verbosity = logger._verbosity
+            logger.set_verbosity(0)
+        try:
+            features = [Feature(name=key, dtype=dtype) for key, dtype in dtypes.items()]  # type: ignore
+            assert len(features) == len(dictionary)  # noqa: S101
+            return SQLRecordList(features)
+        finally:
+            if mute:
+                logger.set_verbosity(original_verbosity)
 
     def save(self, *args, **kwargs) -> Feature:
-        """Save."""
+        """Save the feature to the instance."""
         super().save(*args, **kwargs)
         return self
 
@@ -887,7 +981,7 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
     #     However, when accessing an artifact annotation with a feature that's defined on the observation-level, say `"cell_type"`, you expect a set of values. So,
     #     `artifact.features.get_values(["cell_type_from_expert"])` should return a set: `{"T cell", "B cell"}`.
 
-    #     The value of `observational_unit` is currently auto-managed: if using `artifact.featueres.add_values()`,
+    #     The value of `observational_unit` is currently auto-managed: if using `artifact.features.add_values()`,
     #     it will be set to `Artifact`. In a curator, the value depends on whether it's an artifact- or observation-level slot
     #     (e.g. `.uns` is artifact-level in `AnnData` whereas `.obs` is observation-level).
 
