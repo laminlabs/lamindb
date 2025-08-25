@@ -142,22 +142,6 @@ def mudata_papalexi21_subset_schema():
 def uns_study_metadata():
     return {"temperature": 21.6, "experiment_id": "EXP001"}
 
-@pytest.fixture(scope="module")
-def study_metadata_schema():
-    study_metadata_schema = ln.Schema(
-        features=[
-            ln.Feature(name="temperature", dtype=float).save(),
-            ln.Feature(name="experiment_id", dtype=str).save(),
-        ],
-    ).save()
-
-    yield study_metadata_schema
-
-    study_metadata_schema.delete(permanent=True)
-    ln.Schema.filter().delete()
-    ln.Feature.filter().delete()
-
-
 def test_dataframe_curator(small_dataset1_schema: ln.Schema):
     """Test DataFrame curator implementation."""
 
@@ -323,12 +307,22 @@ def test_dataframe_curator_validate_all_annotate_cat2(small_dataset1_schema):
     artifact.delete(permanent=True)
     schema.delete(permanent=True)
 
-def test_dataframe_attrs_validation(uns_study_metadata, study_metadata_schema):
+def test_dataframe_attrs_validation(uns_study_metadata):
     df = datasets.mini_immuno.get_dataset1(otype="DataFrame")
     df.attrs = uns_study_metadata
 
+    df_feature = ln.Feature.get(name="perturbation")
     df_schema = ln.Schema(
-        features=[ln.Feature.get(name="perturbation")],
+        features=[df_feature],
+    ).save()
+
+    temperature_feature = ln.Feature(name="temperature", dtype=float).save()
+    experiment_id_feature = ln.Feature(name="experiment_id", dtype=str).save()
+    study_metadata_schema = ln.Schema(
+        features=[
+            temperature_feature,
+            experiment_id_feature,
+        ],
     ).save()
 
     schema = ln.Schema(
@@ -350,14 +344,22 @@ def test_dataframe_attrs_validation(uns_study_metadata, study_metadata_schema):
     artifact = curator.save_artifact(key="examples/df_with_attrs.parquet")
 
     assert artifact.schema == schema
-    assert "df" in artifact.features.slots
+    assert "df" in artifact.features.slots  
     assert "attrs" in artifact.features.slots
     assert artifact.features.slots[
         "attrs"
     ].features.first() == ln.Feature.get(name="temperature")
     assert artifact.features.slots[
         "attrs"
-    ].features.first() == ln.Feature.get(name="pos")
+    ].features.last() == ln.Feature.get(name="experiment_id")
+
+    from lamindb.models import SchemaComponent
+    SchemaComponent.filter().delete()
+    artifact.delete(permanent=True)
+    df_schema.delete(permanent=True)
+    study_metadata_schema.delete(permanent=True)
+    schema.delete(permanent=True)
+    experiment_id_feature.delete(permanent=True)
 
 
 def test_schema_new_genes(ccaplog):
@@ -619,10 +621,17 @@ def test_anndata_curator_varT_curation_legacy(ccaplog):
             varT_schema.delete(permanent=True)
 
 
-def test_anndata_curator_nested_uns(uns_study_metadata, study_metadata_schema):
+def test_anndata_curator_nested_uns(uns_study_metadata):
     """Test AnnDataCurator with nested uns slot validation."""
     adata = datasets.small_dataset1(otype="AnnData")
     adata.uns["study_metadata"] = uns_study_metadata
+
+    study_metadata_schema = ln.Schema(
+        features=[
+            ln.Feature(name="temperature", dtype=float).save(),
+            ln.Feature(name="experiment_id", dtype=str).save(),
+        ],
+    ).save()
 
     anndata_schema = ln.Schema(
         otype="AnnData",
@@ -666,6 +675,7 @@ def test_anndata_curator_nested_uns(uns_study_metadata, study_metadata_schema):
     # Clean up
     artifact.delete(permanent=True)
     bad_schema.delete(permanent=True)
+    study_metadata_schema.delete(permanent=True)
     anndata_schema.delete(permanent=True)
 
 

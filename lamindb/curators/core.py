@@ -437,6 +437,7 @@ class DataFrameCurator(SlotsCurator):
         slot: str | None = None,
     ) -> None:
         super().__init__(dataset=dataset, schema=schema)
+        self._slot = slot
 
         # Handle composite schemas including attrs slots
         if slot is None and hasattr(schema, 'slots') and schema.slots:
