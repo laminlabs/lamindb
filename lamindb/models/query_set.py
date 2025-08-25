@@ -172,28 +172,28 @@ def process_expressions(queryset: QuerySet, expressions: dict) -> dict:
 
 
 def get(
-    registry_or_queryset: Union[type[SQLRecord], QuerySet],
+    registry_or_queryset: Union[type[SQLRecord], BasicQuerySet],
     idlike: int | str | None = None,
     **expressions,
 ) -> SQLRecord:
-    if isinstance(registry_or_queryset, QuerySet):
+    if isinstance(registry_or_queryset, BasicQuerySet):
         qs = registry_or_queryset
         registry = qs.model
     else:
-        qs = QuerySet(model=registry_or_queryset)
+        qs = BasicQuerySet(model=registry_or_queryset)
         registry = registry_or_queryset
     if isinstance(idlike, int):
-        return super(QuerySet, qs).get(id=idlike)  # type: ignore
+        return BasicQuerySet.get(qs, id=idlike)
     elif isinstance(idlike, str):
         NAME_FIELD = (
             registry._name_field if hasattr(registry, "_name_field") else "name"
         )
         DOESNOTEXIST_MSG = f"No record found with uid '{idlike}'. Did you forget a keyword as in {registry.__name__}.get({NAME_FIELD}='{idlike}')?"
         if issubclass(registry, IsVersioned) and len(idlike) <= registry._len_stem_uid:
-            qs = qs.filter(uid__startswith=idlike, is_latest=True)
+            qs = BasicQuerySet.filter(qs, uid__startswith=idlike, is_latest=True)
             return one_helper(qs, DOESNOTEXIST_MSG)
         else:
-            qs = qs.filter(uid__startswith=idlike)
+            qs = BasicQuerySet.filter(qs, uid__startswith=idlike)
             return one_helper(qs, DOESNOTEXIST_MSG)
     else:
         assert idlike is None  # noqa: S101
@@ -205,20 +205,19 @@ def get(
         if issubclass(registry, IsVersioned) and is_latest_was_not_in_expressions:
             expressions["is_latest"] = True
         try:
-            return registry.objects.using(qs.db).get(**expressions)
-        except registry.DoesNotExist:
+            return BasicQuerySet.get(qs, **expressions)
+        except registry.DoesNotExist as e:
             # handle the case in which the is_latest injection led to a missed query
             if "is_latest" in expressions and is_latest_was_not_in_expressions:
                 expressions.pop("is_latest")
                 result = (
-                    registry.objects.using(qs.db)
-                    .filter(**expressions)
+                    BasicQuerySet.filter(qs, **expressions)
                     .order_by("-created_at")
                     .first()
                 )
                 if result is not None:
                     return result
-            raise registry.DoesNotExist from registry.DoesNotExist
+            raise registry.DoesNotExist from e
 
 
 class SQLRecordList(UserList, Generic[T]):
@@ -736,10 +735,10 @@ class BasicQuerySet(models.QuerySet):
 
     def delete(self, *args, **kwargs):
         """Delete all records in the query set."""
-        from lamindb.models import Artifact, Collection, Run, Transform
+        from lamindb.models import Artifact, Collection, Run, Storage, Transform
 
         # both Transform & Run might reference artifacts
-        if self.model in {Artifact, Collection, Transform, Run}:
+        if self.model in {Artifact, Collection, Transform, Run, Storage}:
             for record in self:
                 logger.important(f"deleting {record}")
                 record.delete(*args, **kwargs)
@@ -864,8 +863,18 @@ class QuerySet(BasicQuerySet):
         """Query a single record. Raises error if there are more or none."""
         is_run_input = expressions.pop("is_run_input", False)
 
+        if path := expressions.pop("path", None):
+            from .artifact_set import ArtifactSet, artifacts_from_path
+
+            if not isinstance(self, ArtifactSet):
+                raise ValueError("Querying by path is only possible for artifacts.")
+
+            qs = artifacts_from_path(self, path)
+        else:
+            qs = self
+
         try:
-            record = get(self, idlike, **expressions)
+            record = get(qs, idlike, **expressions)  # type: ignore
         except ValueError as e:
             # Pass through original error for explicit id lookups
             if "Field 'id' expected a number" in str(e):
@@ -881,8 +890,8 @@ class QuerySet(BasicQuerySet):
             raise  # pragma: no cover
 
         if is_run_input is not False:  # might be None or True or Run
-            from lamindb.models.artifact import Artifact, _track_run_input
-            from lamindb.models.collection import Collection
+            from .artifact import Artifact, _track_run_input
+            from .collection import Collection
 
             if isinstance(record, (Artifact, Collection)):
                 _track_run_input(record, is_run_input)
