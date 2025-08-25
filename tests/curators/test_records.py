@@ -13,7 +13,7 @@ def test_record_example_compound_treatment(
 
     dictionary = (
         ln.Record.filter(type=treatments_sheet)
-        .df()[["is_type", "name"]]
+        .to_dataframe()[["is_type", "name"]]
         .to_dict(orient="list")
     )
     assert dictionary == {
@@ -29,7 +29,7 @@ def test_record_example_compound_treatment(
 
     dictionary = (
         ln.Record.filter(type=treatments_sheet)
-        .df(features=True)[["compound", "concentration", "name"]]
+        .to_dataframe(features=True)[["compound", "concentration", "name"]]
         .to_dict(orient="list")
     )
     assert dictionary == {
@@ -49,7 +49,9 @@ def test_record_example_compound_treatment(
 
     dictionary = (
         ln.Record.filter(type=sample_sheet1)
-        .df(features=["cell_line", "treatment"])[["cell_line", "name", "treatment"]]
+        .to_dataframe(features=["cell_line", "treatment"])[
+            ["cell_line", "name", "treatment"]
+        ]
         .to_dict(orient="list")
     )
     assert dictionary == {

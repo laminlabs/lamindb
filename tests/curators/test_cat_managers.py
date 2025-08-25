@@ -230,14 +230,14 @@ def test_df_curator(df, categoricals):
 
         assert (
             artifact.cell_types.through.filter(artifact_id=artifact.id)
-            .df()["label_ref_is_name"]
+            .to_dataframe()["label_ref_is_name"]
             .values.sum()
             == 5
         )
 
         assert (
             artifact.experimental_factors.through.filter(artifact_id=artifact.id)
-            .df()["label_ref_is_name"]
+            .to_dataframe()["label_ref_is_name"]
             .values.sum()
             == 0
         )

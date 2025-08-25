@@ -13,6 +13,7 @@ from django.db import models
 from django.db.models import F, ForeignKey, ManyToManyField, Q, Subquery
 from django.db.models.fields.related import ForeignObjectRel
 from lamin_utils import logger
+from lamindb_setup.core import deprecated
 from lamindb_setup.core._docs import doc_args
 
 from ..errors import DoesNotExist
@@ -221,7 +222,7 @@ def get(
 
 
 class SQLRecordList(UserList, Generic[T]):
-    """Is ordered, can't be queried, but has `.df()`."""
+    """Is ordered, can't be queried, but has `.to_dataframe()`."""
 
     def __init__(self, records: Iterable[T]):
         if isinstance(records, list):
@@ -229,10 +230,14 @@ class SQLRecordList(UserList, Generic[T]):
         else:
             super().__init__(records)  # Let UserList handle the conversion
 
-    def df(self) -> pd.DataFrame:
+    def to_dataframe(self) -> pd.DataFrame:
         keys = get_keys_from_df(self.data, self.data[0].__class__)
         values = [record.__dict__ for record in self.data]
         return pd.DataFrame(values, columns=keys)
+
+    @deprecated(new_name="to_dataframe")
+    def df(self) -> pd.DataFrame:
+        return self.to_dataframe()
 
     def list(
         self, field: str
@@ -665,8 +670,8 @@ class BasicQuerySet(models.QuerySet):
             new_cls = cls
         return object.__new__(new_cls)
 
-    @doc_args(SQLRecord.df.__doc__)
-    def df(
+    @doc_args(SQLRecord.to_dataframe.__doc__)
+    def to_dataframe(
         self,
         include: str | list[str] | None = None,
         features: bool | list[str] | str | None = None,
@@ -732,6 +737,14 @@ class BasicQuerySet(models.QuerySet):
             df_reshaped = df_reshaped.set_index(pk_column_name)
         time = logger.debug("finished", time=time)
         return df_reshaped
+
+    @deprecated(new_name="to_dataframe")
+    def df(
+        self,
+        include: str | list[str] | None = None,
+        features: bool | list[str] | str | None = None,
+    ) -> pd.DataFrame:
+        return self.to_dataframe(include, features)
 
     def delete(self, *args, **kwargs):
         """Delete all records in the query set."""
