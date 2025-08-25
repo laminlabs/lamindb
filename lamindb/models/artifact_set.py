@@ -126,6 +126,7 @@ class ArtifactSet(Iterable):
 
 
 def artifacts_from_path(artifacts: ArtifactSet, path: UPathStr) -> ArtifactSet:
+    """Returns artifacts in the query set that are registered for the provided path."""
     upath = UPath(path)
 
     path_str = upath.as_posix()
