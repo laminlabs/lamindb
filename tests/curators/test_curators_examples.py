@@ -142,6 +142,7 @@ def mudata_papalexi21_subset_schema():
 def uns_study_metadata():
     return {"temperature": 21.6, "experiment_id": "EXP001"}
 
+
 def test_dataframe_curator(small_dataset1_schema: ln.Schema):
     """Test DataFrame curator implementation."""
 
@@ -307,11 +308,15 @@ def test_dataframe_curator_validate_all_annotate_cat2(small_dataset1_schema):
     artifact.delete(permanent=True)
     schema.delete(permanent=True)
 
+
 def test_dataframe_attrs_validation(uns_study_metadata):
     df = datasets.mini_immuno.get_dataset1(otype="DataFrame")
     df.attrs = uns_study_metadata
 
-    df_feature = ln.Feature.get(name="perturbation")
+    perturbation = ln.ULabel(name="Perturbation", is_type=True).save()
+    df_feature = ln.Feature(name="perturbation", dtype=perturbation).save()
+    ln.ULabel(name="DMSO", type=perturbation).save()
+    ln.ULabel(name="IFNG", type=perturbation).save()
     df_schema = ln.Schema(
         features=[df_feature],
     ).save()
@@ -326,36 +331,42 @@ def test_dataframe_attrs_validation(uns_study_metadata):
     ).save()
 
     schema = ln.Schema(
-        slots={
-            "df": df_schema,
-            "attrs": study_metadata_schema
-        },
+        slots={"df": df_schema, "attrs": study_metadata_schema},
         otype="DataFrame",
     ).save()
 
-    curator = ln.curators.DataFrameCurator(
-        df, schema=schema
+    bad_schema = ln.Schema(slots={"doesnotexist": df_schema}, otype="DataFrame").save()
+
+    with pytest.raises(ValueError) as e:
+        curator = ln.curators.DataFrameCurator(df, schema=bad_schema)
+    assert (
+        "Slot 'doesnotexist' is not supported for DataFrameCurator. Must be one of 'df' or 'attrs'."
+        in str(e.value)
     )
 
-    assert isinstance(curator.slots["df"], ln.curators.DataFrameCurator)    
+    curator = ln.curators.DataFrameCurator(df, schema=schema)
+
+    assert isinstance(curator.slots["df"], ln.curators.DataFrameCurator)
     assert isinstance(curator.slots["attrs"], ln.curators.DataFrameCurator)
 
     curator.validate()
     artifact = curator.save_artifact(key="examples/df_with_attrs.parquet")
 
     assert artifact.schema == schema
-    assert "df" in artifact.features.slots  
+    assert "df" in artifact.features.slots
     assert "attrs" in artifact.features.slots
-    assert artifact.features.slots[
-        "attrs"
-    ].features.first() == ln.Feature.get(name="temperature")
-    assert artifact.features.slots[
-        "attrs"
-    ].features.last() == ln.Feature.get(name="experiment_id")
+    assert artifact.features.slots["attrs"].features.first() == ln.Feature.get(
+        name="temperature"
+    )
+    assert artifact.features.slots["attrs"].features.last() == ln.Feature.get(
+        name="experiment_id"
+    )
 
     from lamindb.models import SchemaComponent
+
     SchemaComponent.filter().delete()
     artifact.delete(permanent=True)
+    bad_schema.delete(permanent=True)
     df_schema.delete(permanent=True)
     study_metadata_schema.delete(permanent=True)
     schema.delete(permanent=True)

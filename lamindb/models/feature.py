@@ -93,10 +93,6 @@ def parse_cat_dtype(
     """Parses a categorical dtype string into its components (registry, field, subtypes)."""
     from .artifact import Artifact
 
-    if dtype_str == "Composite":
-        # Composite schemas don't have a real registry, return default
-        return {"field": Feature.name, "registry_str": "Feature", "subtype_str": ""}
-
     assert isinstance(dtype_str, str)  # noqa: S101
     if related_registries is None:
         related_registries = dict_module_name_to_model_name(Artifact)

@@ -438,28 +438,31 @@ class DataFrameCurator(SlotsCurator):
         self._slot = slot
 
         # Handle composite schemas including attrs slots
-        if slot is None and hasattr(schema, "slots") and schema.slots:
+        if slot is None and schema.slots:
             for slot_name, slot_schema in schema.slots.items():
                 if slot_name.startswith("attrs"):
                     path_parts = slot_name.split(":")
-                    if len(path_parts) >= 1 and path_parts[0] == "attrs":
-                        attrs_dict = getattr(self._dataset, "attrs", None)
-                        if attrs_dict is not None:
-                            if len(path_parts) == 1:
-                                df = pd.DataFrame([attrs_dict])
-                            else:
-                                deeper_keys = path_parts[1:]
-                                data = _resolve_schema_slot_path(
-                                    attrs_dict, deeper_keys, slot_name, "attrs"
-                                )
-                                df = pd.DataFrame([data])
-                            self._slots[slot_name] = DataFrameCurator(
-                                df, slot_schema, slot=slot_name
+                    attrs_dict = getattr(self._dataset, "attrs", None)
+                    if attrs_dict is not None:
+                        if len(path_parts) == 1:
+                            data = attrs_dict
+                        else:
+                            deeper_keys = path_parts[1:]
+                            data = _resolve_schema_slot_path(
+                                attrs_dict, deeper_keys, slot_name, "attrs"
                             )
-                # The convention for composite Schemas is that "df" specifies the main Schema
+                        df = pd.DataFrame([data])
+                        self._slots[slot_name] = DataFrameCurator(
+                            df, slot_schema, slot=slot_name
+                        )
+                # In DataFrameCurator composite Schemas, the "df" slot defines the Schema for the main DataFrame columns
                 elif slot_name == "df":
                     self._slots[slot_name] = DataFrameCurator(
                         self._dataset, slot_schema, slot=slot_name
+                    )
+                else:
+                    raise ValueError(
+                        f"Slot '{slot_name}' is not supported for DataFrameCurator. Must be one of 'df' or 'attrs'."
                     )
 
         categoricals = []
@@ -569,9 +572,14 @@ class DataFrameCurator(SlotsCurator):
         # in the DataFrameCatManager, we use the
         # actual columns of the dataset, not the pandera columns
         # the pandera columns might have additional optional columns
+        columns_field = (
+            Feature.name
+            if schema.itype == "Composite"
+            else parse_cat_dtype(schema.itype, is_itype=True)["field"]
+        )
         self._cat_manager = DataFrameCatManager(
             self._dataset,
-            columns_field=parse_cat_dtype(schema.itype, is_itype=True)["field"],
+            columns_field=columns_field,
             categoricals=categoricals,
             index=schema.index,
             slot=slot,
@@ -1770,18 +1778,9 @@ def annotate_artifact(
         features = cat_vectors["columns"].records
         if features is not None:
             index_feature = artifact.schema.index
-            # DataFrameCurators with Composite Schemas must use "Feature" here
-            itype = (
-                artifact.schema.itype
-                if not (
-                    isinstance(curator, DataFrameCurator)
-                    and curator._schema.itype == "Composite"
-                )
-                else "Feature"
-            )
             feature_set = Schema(
                 features=[f for f in features if f != index_feature],
-                itype=itype,
+                itype=artifact.schema.itype,
                 index=index_feature,
                 minimal_set=artifact.schema.minimal_set,
                 maximal_set=artifact.schema.maximal_set,
@@ -1795,7 +1794,11 @@ def annotate_artifact(
                 logger.important(
                     f"not annotating with {len(features)} features as it exceeds {settings.annotation.n_max_records} (ln.settings.annotation.n_max_records)"
                 )
-                itype = parse_cat_dtype(artifact.schema.itype, is_itype=True)["field"]
+                itype = (
+                    Feature.name
+                    if artifact.schema.itype == "Composite"
+                    else parse_cat_dtype(artifact.schema.itype, is_itype=True)["field"]
+                )
                 feature_set = Schema(itype=itype, n=len(features))
             artifact.feature_sets.add(
                 feature_set.save(), through_defaults={"slot": "columns"}
@@ -1831,9 +1834,13 @@ def annotate_artifact(
                     logger.important(
                         f"not annotating with {len(features)} features for slot {slot} as it exceeds {settings.annotation.n_max_records} (ln.settings.annotation.n_max_records)"
                     )
-                    itype = parse_cat_dtype(
-                        artifact.schema.slots[slot].itype, is_itype=True
-                    )["field"]
+                    itype = (
+                        Feature.name
+                        if artifact.schema.slots[slot].itype == "Composite"
+                        else parse_cat_dtype(
+                            artifact.schema.slots[slot].itype, is_itype=True
+                        )["field"]
+                    )
                     feature_set = Schema(itype=itype, n=len(features))
                 artifact.feature_sets.add(
                     feature_set.save(), through_defaults={"slot": slot}
