@@ -582,7 +582,7 @@ def test_create_from_local_filepath(
     artifact.save()
     assert artifact.path.exists()
     # check get by path
-    assert ln.Artifact.get(path=artifact.path) == artifact, (artifact, artifact.path)
+    assert ln.Artifact.get(path=artifact.path) == artifact
 
     if key is None:
         assert (

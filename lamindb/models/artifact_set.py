@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Iterable, Iterator
 from typing import TYPE_CHECKING, Literal
 
-from django.db.models import TextField, Value
+from django.db.models import Q, TextField, Value
 from django.db.models.functions import Concat
 from lamin_utils import logger
 from lamindb_setup.core._docs import doc_args
@@ -135,10 +135,11 @@ def artifacts_from_path(artifacts: ArtifactSet, path: UPathStr) -> ArtifactSet:
 
     if stem_len == 16:
         qs = artifacts.filter(  # type: ignore
-            uid__startswith=stem, _key_is_virtual=True
+            Q(_key_is_virtual=True) | Q(key__isnull=True),
+            uid__startswith=stem,
         )
     elif stem_len == 20:
-        qs = artifacts.filter(uid=stem, _key_is_virtual=True)  # type: ignore
+        qs = artifacts.filter(Q(_key_is_virtual=True) | Q(key__isnull=True), uid=stem)  # type: ignore
     else:
         qs = None
 
