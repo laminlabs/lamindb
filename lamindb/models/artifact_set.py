@@ -147,7 +147,7 @@ def artifacts_from_path(artifacts: ArtifactSet, path: UPathStr) -> ArtifactSet:
 
     qs = (
         artifacts.filter(_key_is_virtual=False)  # type: ignore
-        .annotate(
+        .alias(
             db_path=Concat("storage__root", Value("/"), "key", output_field=TextField())
         )
         .filter(db_path=path_str)
