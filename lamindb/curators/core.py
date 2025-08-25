@@ -352,9 +352,7 @@ class SlotsCurator(Curator):
 
         if self._artifact is None:
             type_mapping = [
-                (   lambda dataset: isinstance(dataset, pd.DataFrame),
-                    Artifact.from_df
-                ),
+                (lambda dataset: isinstance(dataset, pd.DataFrame), Artifact.from_df),
                 (
                     lambda dataset: data_is_scversedatastructure(dataset, "AnnData"),
                     Artifact.from_anndata,
@@ -440,12 +438,12 @@ class DataFrameCurator(SlotsCurator):
         self._slot = slot
 
         # Handle composite schemas including attrs slots
-        if slot is None and hasattr(schema, 'slots') and schema.slots:
+        if slot is None and hasattr(schema, "slots") and schema.slots:
             for slot_name, slot_schema in schema.slots.items():
                 if slot_name.startswith("attrs"):
                     path_parts = slot_name.split(":")
                     if len(path_parts) >= 1 and path_parts[0] == "attrs":
-                        attrs_dict = getattr(self._dataset, 'attrs', None)
+                        attrs_dict = getattr(self._dataset, "attrs", None)
                         if attrs_dict is not None:
                             if len(path_parts) == 1:
                                 df = pd.DataFrame([attrs_dict])
@@ -455,10 +453,14 @@ class DataFrameCurator(SlotsCurator):
                                     attrs_dict, deeper_keys, slot_name, "attrs"
                                 )
                                 df = pd.DataFrame([data])
-                            self._slots[slot_name] = DataFrameCurator(df, slot_schema, slot=slot_name)
+                            self._slots[slot_name] = DataFrameCurator(
+                                df, slot_schema, slot=slot_name
+                            )
                 # The convention for composite Schemas is that "df" specifies the main Schema
                 elif slot_name == "df":
-                    self._slots[slot_name] = DataFrameCurator(self._dataset, slot_schema, slot=slot_name)
+                    self._slots[slot_name] = DataFrameCurator(
+                        self._dataset, slot_schema, slot=slot_name
+                    )
 
         categoricals = []
         features = []
@@ -676,8 +678,10 @@ class DataFrameCurator(SlotsCurator):
             self.validate()  # raises ValidationError if doesn't validate
 
         if self._schema.itype == "Composite":
-            super().save_artifact(key=key, description=description, revises=revises, run=run)
-        
+            super().save_artifact(
+                key=key, description=description, revises=revises, run=run
+            )
+
         if self._artifact is None:
             self._artifact = Artifact.from_df(
                 self._dataset,
@@ -1758,12 +1762,23 @@ def annotate_artifact(
         )
 
     # annotate with inferred schemas aka feature sets
-    if artifact.otype == "DataFrame" and curator is not None and curator._schema.itype != "Composite":
+    if (
+        artifact.otype == "DataFrame"
+        and getattr(curator, "_schema", None) is None
+        or getattr(curator._schema, "itype", None) != "Composite"
+    ):
         features = cat_vectors["columns"].records
         if features is not None:
             index_feature = artifact.schema.index
             # DataFrameCurators with Composite Schemas must use "Feature" here
-            itype = artifact.schema.itype if not (isinstance(curator, DataFrameCurator) and curator._schema.itype == "Composite") else "Feature"
+            itype = (
+                artifact.schema.itype
+                if not (
+                    isinstance(curator, DataFrameCurator)
+                    and curator._schema.itype == "Composite"
+                )
+                else "Feature"
+            )
             feature_set = Schema(
                 features=[f for f in features if f != index_feature],
                 itype=itype,
