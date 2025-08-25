@@ -129,7 +129,7 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
 
         View all storage locations used in your LaminDB instance::
 
-            ln.Storage.df()
+            ln.Storage.to_dataframe()
 
     Notes:
 

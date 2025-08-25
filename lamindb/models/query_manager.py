@@ -242,7 +242,7 @@ class QueryManager(Manager):
         >>> label = ln.ULabel.get(name="ULabel1")
         >>> label.parents.set(labels)
         >>> manager = label.parents
-        >>> manager.df()
+        >>> manager.to_dataframe()
     """
 
     def _track_run_input_manager(self):

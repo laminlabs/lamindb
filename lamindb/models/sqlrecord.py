@@ -334,7 +334,7 @@ RECORD_REGISTRY_EXAMPLE = """Example::
         experiment.save()
 
         # `Experiment` refers to the registry, which you can query
-        df = Experiment.filter(name__startswith="my ").df()
+        df = Experiment.filter(name__startswith="my ").to_dataframe()
 """
 
 
@@ -425,7 +425,7 @@ class Registry(ModelBase):
 
         Examples:
             >>> ln.ULabel(name="my label").save()
-            >>> ln.ULabel.filter(name__startswith="my").df()
+            >>> ln.ULabel.filter(name__startswith="my").to_dataframe()
         """
         from .query_set import QuerySet
 
@@ -506,7 +506,7 @@ class Registry(ModelBase):
         query_set = cls.filter()
         if hasattr(cls, "updated_at"):
             query_set = query_set.order_by("-updated_at")
-        return query_set[:limit].df(include=include, features=features)
+        return query_set[:limit].to_dataframe(include=include, features=features)
 
     @deprecated(new_name="to_dataframe")
     def df(
@@ -1163,7 +1163,7 @@ class SQLRecord(BaseSQLRecord, metaclass=Registry):
                     "Cannot simply delete artifacts outside of this instance's managed storage locations."
                     "\n(1) If you only want to delete the metadata record in this instance, pass `storage=False`"
                     f"\n(2) If you want to delete the artifact in storage, please load the managing lamindb instance (uid={self.storage.instance_uid})."
-                    f"\nThese are all managed storage locations of this instance:\n{Storage.filter(instance_uid=isettings.uid).df()}"
+                    f"\nThese are all managed storage locations of this instance:\n{Storage.filter(instance_uid=isettings.uid).to_dataframe()}"
                 )
 
         # change branch_id to trash

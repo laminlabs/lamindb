@@ -200,7 +200,7 @@ def process_pathlike(
                     # hence, we revert the creation and throw an error
                     storage_record.delete()
                     raise UnknownStorageLocation(
-                        f"Path {filepath} is not contained in any known storage location:\n{Storage.df()[['uid', 'root', 'type']]}\n\n"
+                        f"Path {filepath} is not contained in any known storage location:\n{Storage.to_dataframe()[['uid', 'root', 'type']]}\n\n"
                         f"Create a managed storage location that contains the path, e.g., by calling: ln.Storage(root='{new_root}').save()"
                     )
                 use_existing_storage_key = True
@@ -1095,7 +1095,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         You can make a **new version** of an artifact by passing an existing `key`::
 
             artifact_v2 = ln.Artifact("./my_file.parquet", key="examples/my_file.parquet").save()
-            artifact_v2.versions.df()  # see all versions
+            artifact_v2.versions.to_dataframe()  # see all versions
 
         You can write artifacts to other storage locations by switching the current default storage location (:attr:`~lamindb.core.Settings.storage`)::
 

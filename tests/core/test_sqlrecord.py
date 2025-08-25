@@ -75,7 +75,7 @@ def test_search_and_get(get_search_test_filepaths):
     )
     artifact4.save()
 
-    result = ln.Artifact.search("search3").df()
+    result = ln.Artifact.search("search3").to_dataframe()
     assert result.iloc[0].description == "test-search3"
     assert result.iloc[1].description == "test-search3"
 
@@ -87,7 +87,7 @@ def test_search_and_get(get_search_test_filepaths):
         "./unregistered_storage/test-search5.txt", key="test-search5.txt"
     )
     artifact5.save()
-    res = ln.Artifact.search("search5").df()
+    res = ln.Artifact.search("search5").to_dataframe()
     assert res.iloc[0].key == "test-search5.txt"
 
     res_q = ln.Artifact.search("search5")
@@ -96,7 +96,9 @@ def test_search_and_get(get_search_test_filepaths):
     assert res.uid.tolist() == [i.uid for i in res_q]
 
     # multi-field search
-    res = ln.Artifact.search("txt", field=["key", "description", "suffix"]).df()
+    res = ln.Artifact.search(
+        "txt", field=["key", "description", "suffix"]
+    ).to_dataframe()
     assert res.iloc[0].suffix == ".txt"
 
     # get
