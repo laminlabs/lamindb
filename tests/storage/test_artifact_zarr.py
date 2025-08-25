@@ -35,6 +35,8 @@ def test_zarr_upload_cache(get_small_adata):
     assert artifact.n_files >= 1
     artifact.save()
 
+    assert ln.Artifact.get(path=artifact.path) == artifact
+
     assert artifact._is_saved_to_storage_location
 
     assert isinstance(artifact.path, CloudPath)

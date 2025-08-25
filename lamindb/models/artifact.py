@@ -1704,6 +1704,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             idlike: Either a uid stub, uid or an integer id.
             is_run_input: Whether to track this artifact as run input.
             expressions: Fields and values passed as Django query expressions.
+                Use `path=...` to get an artifact for a local or remote filepath if exists.
 
         Raises:
             :exc:`docs:lamindb.errors.DoesNotExist`: In case no matching record is found.
@@ -1718,6 +1719,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
                 artifact = ln.Artifact.get("tCUkRcaEjTjhtozp0000")
                 artifact = ln.Arfifact.get(key="examples/my_file.parquet")
+                artifact = ln.Artifact.get(path="s3://bucket/folder/adata.h5ad")
         """
         from .query_set import QuerySet
 
