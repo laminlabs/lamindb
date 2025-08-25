@@ -625,6 +625,8 @@ def test_create_from_local_filepath(
             else:
                 assert artifact.path == lamindb_setup.settings.storage.root / key
 
+    # check get by path
+    assert ln.Artifact.get(path=artifact.path) == artifact
     # only delete from storage if a file copy took place
     delete_from_storage = str(test_filepath.resolve()) != str(artifact.path)
     artifact.delete(permanent=True, storage=delete_from_storage)
