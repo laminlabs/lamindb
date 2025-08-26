@@ -337,6 +337,25 @@ def test_revise_artifact(df):
     artifact.delete(permanent=True)  # permanent deletion
 
 
+def test_create_external_schema(tsv_file):
+    species = ln.Feature(name="species", dtype="str").save()
+    split = ln.Feature(name="split", dtype="str").save()
+    schema = ln.Schema([species, split]).save()
+
+    # not using from_df here because it would attempt to validate the internal
+    artifact = ln.Artifact(
+        tsv_file,
+        features={"species": "bird", "split": "train"},
+        schema=schema,  # this is interpreted as an external schema
+        description="test",
+    ).save()
+    assert artifact.features.get_values() == {"species": "bird", "split": "train"}
+
+    artifact.delete(permanent=True)
+    schema.delete(permanent=True)
+    ln.Feature.filter().delete()
+
+
 def test_create_from_dataframe(df):
     artifact = ln.Artifact.from_dataframe(df, description="test1")
     assert artifact.description == "test1"

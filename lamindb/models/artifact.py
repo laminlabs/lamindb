@@ -1219,9 +1219,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
         Features may or may not be part of the dataset, i.e., the artifact content in storage. For
         instance, the :class:`~lamindb.curators.DataFrameCurator` flow validates the columns of a
-        `DataFrame`-like artifact and annotates it with features corresponding to
-        these columns. `artifact.features.add_values`, by contrast, does not
-        validate the content of the artifact.
+        `DataFrame`-like artifact and annotates it with features corresponding to these columns.
+        `artifact.features.add_values`, by contrast, does not validate the content of the artifact.
 
         .. dropdown:: An example for a model-like artifact
 
@@ -1445,15 +1444,24 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         # now proceed with the user-facing constructor
         if len(args) > 1:
             raise ValueError("Only one non-keyword arg allowed: data")
+
         data: str | Path = kwargs.pop("data") if len(args) == 0 else args[0]
         kind: str = kwargs.pop("kind", None)
         key: str | None = kwargs.pop("key", None)
         run_id: int | None = kwargs.pop("run_id", None)  # for REST API
         run: Run | None = kwargs.pop("run", None)
+        using_key = kwargs.pop("using_key", None)
         description: str | None = kwargs.pop("description", None)
         revises: Artifact | None = kwargs.pop("revises", None)
         overwrite_versions: bool | None = kwargs.pop("overwrite_versions", None)
         version: str | None = kwargs.pop("version", None)
+
+        features: dict[str, Any] = kwargs.pop("features", None)
+        schema: Schema | None = kwargs.pop("schema", None)
+        if features is not None:
+            self._staged_features = features
+            self._staged_schema = schema
+
         branch_id: int | None = None
         if "visibility" in kwargs:  # backward compat
             branch_id = kwargs.pop("visibility")
@@ -1464,6 +1472,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         else:
             branch_id = 1
         branch = kwargs.pop("branch", None)
+
         space = kwargs.pop("space", None)
         assert "space_id" not in kwargs, "please pass space instead"  # noqa: S101
         format = kwargs.pop("format", None)
@@ -1498,7 +1507,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 logger.warning(
                     f"more than one storage location for space {space}, choosing {storage}"
                 )
-        using_key = kwargs.pop("using_key", None)
         otype = kwargs.pop("otype") if "otype" in kwargs else None
         if isinstance(data, str) and data.startswith("s3:///"):
             # issue in Groovy / nf-lamin producing malformed S3 paths
@@ -2812,11 +2820,19 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 local_path_cache,
             )
             logger.important(f"moved local artifact to cache: {local_path_cache}")
+
+        # annotate Artifact
         if hasattr(self, "_curator"):
             curator = self._curator
             delattr(self, "_curator")
-            # just annotates this artifact
             curator.save_artifact()
+        if hasattr(self, "_staged_features"):
+            self.features.add_values(
+                self._staged_features, schema=getattr(self, "_staged_schema", None)
+            )
+            delattr(self, "_staged_features")
+            if hasattr(self, "_staged_schema"):
+                delattr(self, "_staged_schema")
         return self
 
     def restore(self) -> None:
