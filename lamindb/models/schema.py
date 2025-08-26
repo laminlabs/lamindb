@@ -349,7 +349,7 @@ class Schema(SQLRecord, CanCurate, TracksRun):
 
             # from a dataframe
             df = pd.DataFrame({"feat1": [1, 2], "feat2": [3.1, 4.2], "feat3": ["cond1", "cond2"]})
-            schema = ln.Schema.from_df(df)
+            schema = ln.Schema.from_dataframe(df)
     """
 
     class Meta(SQLRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):

@@ -238,7 +238,7 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates):
         )
         run = Run(transform, initiated_by_run=context.run).save()
         run.input_records.add(self)
-        return Artifact.from_df(
+        return Artifact.from_dataframe(
             self.to_pandas(),
             key=key,
             description=f"Export of sheet {self.uid}{description}",

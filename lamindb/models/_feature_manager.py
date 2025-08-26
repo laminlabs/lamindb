@@ -725,7 +725,7 @@ def parse_staged_feature_sets_from_anndata(
         if schema_var is not None:
             feature_sets["var"] = schema_var
     if obs_field is not None and len(data_parse.obs.columns) > 0:
-        schema_obs = Schema.from_df(
+        schema_obs = Schema.from_dataframe(
             df=data_parse.obs,
             field=obs_field,
             mute=mute,
@@ -1253,7 +1253,7 @@ class FeatureManager:
         """Add feature set corresponding to column names of DataFrame."""
         assert self._host.otype == "DataFrame"  # noqa: S101
         df = self._host.load(is_run_input=False)
-        schema = Schema.from_df(
+        schema = Schema.from_dataframe(
             df=df,
             field=field,
             mute=mute,

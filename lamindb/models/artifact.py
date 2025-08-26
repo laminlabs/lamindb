@@ -612,7 +612,7 @@ def _check_otype_artifact(
 ) -> str:
     if otype is None:
         if isinstance(data, pd.DataFrame):
-            logger.warning("data is a DataFrame, please use .from_df()")
+            logger.warning("data is a DataFrame, please use .from_dataframe()")
             otype = "DataFrame"
             return otype
 
@@ -1087,10 +1087,10 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
             artifact = ln.Artifact("s3://my_bucket/my_folder/my_file.csv").save()
 
-        If you want to **validate & annotate** an array, pass a `schema` to one of the `.from_df()`, `.from_anndata()`, ... constructors::
+        If you want to **validate & annotate** an array, pass a `schema` to one of the `.from_dataframe()`, `.from_anndata()`, ... constructors::
 
             schema = ln.Schema(itype=ln.Feature)  # a schema that merely enforces that feature names exist in the Feature registry
-            artifact = ln.Artifact.from_df("./my_file.parquet", key="my_dataset.parquet", schema=schema).save()  # validated and annotated
+            artifact = ln.Artifact.from_dataframe("./my_file.parquet", key="my_dataset.parquet", schema=schema).save()  # validated and annotated
 
         You can make a **new version** of an artifact by passing an existing `key`::
 

@@ -44,7 +44,7 @@ def test_view_lineage_circular():
 
     transform = ln.Transform(key="test").save()
     run = ln.Run(transform=transform).save()
-    artifact = ln.Artifact.from_df(
+    artifact = ln.Artifact.from_dataframe(
         pd.DataFrame({"a": [1, 2, 3]}), description="test artifact", run=run
     ).save()
     run.input_artifacts.add(artifact)

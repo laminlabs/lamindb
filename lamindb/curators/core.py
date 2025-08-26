@@ -646,7 +646,7 @@ class DataFrameCurator(Curator):
         if not self._is_validated:
             self.validate()  # raises ValidationError if doesn't validate
         if self._artifact is None:
-            self._artifact = Artifact.from_df(
+            self._artifact = Artifact.from_dataframe(
                 self._dataset,
                 key=key,
                 description=description,
@@ -1321,7 +1321,7 @@ class CatVector:
             type_record = registry.get(name=self._subtype_str)
         if df is not None and registry == Feature:
             nonval_columns = Feature.inspect(df.columns, mute=True).non_validated
-            non_validated_records = Feature.from_df(df.loc[:, nonval_columns])
+            non_validated_records = Feature.from_dataframe(df.loc[:, nonval_columns])
         else:
             if (
                 self._organism

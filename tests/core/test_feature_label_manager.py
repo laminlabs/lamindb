@@ -27,7 +27,7 @@ def adata():
 
 def test_features_add():
     df = small_dataset1(otype="DataFrame")
-    artifact = ln.Artifact.from_df(df, description="test dataset").save()
+    artifact = ln.Artifact.from_dataframe(df, description="test dataset").save()
     with pytest.raises(ValidationError) as err:
         artifact.features.add_values({"perturbation": df.perturbation.unique()})
     assert (
@@ -487,7 +487,7 @@ def test_add_labels_using_anndata(adata):
     # now register features we want to validate
     # (we are not interested in cell_type_id, here)
     ln.save(
-        ln.Feature.from_df(
+        ln.Feature.from_dataframe(
             adata.obs[["cell_type", "tissue", "cell_type_by_expert", "disease"]]
         )
     )

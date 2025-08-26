@@ -244,7 +244,7 @@ def test_schema_not_saved(df):
 
 def test_schema_artifact_annotated(df):
     """A passed Artifact should be annotated with a Schema if successfully curated."""
-    af = ln.Artifact.from_df(df, key="test.parquet").save()
+    af = ln.Artifact.from_dataframe(df, key="test.parquet").save()
     schema = ln.Schema(
         name="sample schema",
         features=[ln.Feature(name="sample_id", dtype="str").save()],
@@ -589,7 +589,7 @@ def test_hash_index_feature(df):
     ).save()
     assert schema.hash == "Z_dmk1WendD15s2FyBW1HA"
 
-    artifact = ln.Artifact.from_df(
+    artifact = ln.Artifact.from_dataframe(
         df_index, key="curated_df.parquet", schema=schema_index
     ).save()
     assert artifact.feature_sets.all().one() == schema_index
@@ -662,7 +662,7 @@ def test_index_feature_exclusion_from_categoricals(df):
 
 def test_artifact_standardize_errors(df):
     """Passed Artifacts to a Curator cannot be standardized."""
-    af = ln.Artifact.from_df(df, description="test").save()
+    af = ln.Artifact.from_dataframe(df, description="test").save()
     sample_type_feature = ln.Feature(name="sample_type", dtype="cat[ULabel]").save()
     schema = ln.Schema(features=[sample_type_feature]).save()
     curator = ln.curators.DataFrameCurator(af, schema)
