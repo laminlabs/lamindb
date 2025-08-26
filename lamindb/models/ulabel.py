@@ -83,7 +83,7 @@ class ULabel(SQLRecord, HasParents, CanCurate, TracksRun, TracksUpdates):
 
         Query an artifact by ulabel:
 
-        >>> ln.Artifact.filter(ulabels=train_split).df()
+        >>> ln.Artifact.filter(ulabels=train_split).to_dataframe()
     """
 
     class Meta(SQLRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):

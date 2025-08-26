@@ -334,7 +334,7 @@ RECORD_REGISTRY_EXAMPLE = """Example::
         experiment.save()
 
         # `Experiment` refers to the registry, which you can query
-        df = Experiment.filter(name__startswith="my ").df()
+        df = Experiment.filter(name__startswith="my ").to_dataframe()
 """
 
 
@@ -425,7 +425,7 @@ class Registry(ModelBase):
 
         Examples:
             >>> ln.ULabel(name="my label").save()
-            >>> ln.ULabel.filter(name__startswith="my").df()
+            >>> ln.ULabel.filter(name__startswith="my").to_dataframe()
         """
         from .query_set import QuerySet
 
@@ -464,7 +464,7 @@ class Registry(ModelBase):
 
         return QuerySet(model=cls).get(idlike, **expressions)
 
-    def df(
+    def to_dataframe(
         cls,
         include: str | list[str] | None = None,
         features: bool | list[str] | str = False,
@@ -492,21 +492,30 @@ class Registry(ModelBase):
 
             Include the name of the creator in the `DataFrame`:
 
-            >>> ln.ULabel.df(include="created_by__name"])
+            >>> ln.ULabel.to_dataframe(include="created_by__name"])
 
             Include display of features for `Artifact`:
 
-            >>> df = ln.Artifact.df(features=True)
+            >>> df = ln.Artifact.to_dataframe(features=True)
             >>> ln.view(df)  # visualize with type annotations
 
             Only include select features:
 
-            >>> df = ln.Artifact.df(features=["cell_type_by_expert", "cell_type_by_model"])
+            >>> df = ln.Artifact.to_dataframe(features=["cell_type_by_expert", "cell_type_by_model"])
         """
         query_set = cls.filter()
         if hasattr(cls, "updated_at"):
             query_set = query_set.order_by("-updated_at")
-        return query_set[:limit].df(include=include, features=features)
+        return query_set[:limit].to_dataframe(include=include, features=features)
+
+    @deprecated(new_name="to_dataframe")
+    def df(
+        cls,
+        include: str | list[str] | None = None,
+        features: bool | list[str] | str = False,
+        limit: int = 100,
+    ) -> pd.DataFrame:
+        return cls.to_dataframe(include, features, limit)
 
     @doc_args(_search.__doc__)
     def search(
@@ -921,7 +930,14 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
     def delete(self) -> None:
         """Delete."""
         # deal with versioned records
-        if isinstance(self, IsVersioned) and self.is_latest:
+        # _overwrite_versions is set to True for folder artifacts
+        # no need to set the new latest version becase all versions are deleted
+        # when deleting the latest version of a folder artifact
+        if (
+            isinstance(self, IsVersioned)
+            and self.is_latest
+            and not getattr(self, "_overwrite_versions", False)
+        ):
             new_latest = (
                 self.__class__.objects.using(self._state.db)
                 .filter(is_latest=False, uid__startswith=self.stem_uid)
@@ -1147,7 +1163,7 @@ class SQLRecord(BaseSQLRecord, metaclass=Registry):
                     "Cannot simply delete artifacts outside of this instance's managed storage locations."
                     "\n(1) If you only want to delete the metadata record in this instance, pass `storage=False`"
                     f"\n(2) If you want to delete the artifact in storage, please load the managing lamindb instance (uid={self.storage.instance_uid})."
-                    f"\nThese are all managed storage locations of this instance:\n{Storage.filter(instance_uid=isettings.uid).df()}"
+                    f"\nThese are all managed storage locations of this instance:\n{Storage.filter(instance_uid=isettings.uid).to_dataframe()}"
                 )
 
         # change branch_id to trash

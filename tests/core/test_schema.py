@@ -477,6 +477,7 @@ def test_schemas_anndata():
     assert varT_schema.name == "valid_ensembl_gene_ids"
     assert varT_schema.itype == "bionty.Gene.ensembl_gene_id"
     assert varT_schema.hash == "1gocc_TJ1RU2bMwDRK-WUA"
+
     schema.delete(permanent=True)
 
 
@@ -560,6 +561,7 @@ def test_schema_is_type():
     assert BioSample.hash is None
     assert BioSample.type == Sample
     assert BioSample.is_type
+
     # clean up
     BioSample.delete(permanent=True)
     Sample.delete(permanent=True)
