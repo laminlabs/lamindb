@@ -9,11 +9,11 @@ study_metadata_schema = ln.Schema(
         ln.Feature(name="experiment_id", dtype=str).save(),
     ],
 ).save()
-main_schema = ln.Schema(
+df_columns_schema = ln.Schema(
     features=[ln.Feature(name="perturbation", dtype="str").save()],
 ).save()
 schema = ln.Schema(
-    slots={"df": main_schema, "attrs": study_metadata_schema},
+    slots={"df": df_columns_schema, "attrs": study_metadata_schema},
     otype="DataFrame",
 ).save()
 
