@@ -6,6 +6,7 @@ import numpy as np
 from django.db import models
 from django.db.models import CASCADE, PROTECT, ManyToManyField
 from lamin_utils import logger
+from lamindb_setup.core import deprecated
 from lamindb_setup.core.hashing import HASH_LENGTH, hash_string
 from rich.table import Table
 from rich.text import Text
@@ -847,7 +848,7 @@ class Schema(SQLRecord, CanCurate, TracksRun):
         return schema
 
     @classmethod
-    def from_df(
+    def from_dataframe(
         cls,
         df: pd.DataFrame,
         field: FieldAttr = Feature.name,
@@ -889,6 +890,19 @@ class Schema(SQLRecord, CanCurate, TracksRun):
                 dtype=get_type_str(dtype),
             )
         return schema
+
+    @classmethod
+    @deprecated("from_dataframe")
+    def from_df(
+        cls,
+        df: pd.DataFrame,
+        field: FieldAttr = Feature.name,
+        name: str | None = None,
+        mute: bool = False,
+        organism: SQLRecord | str | None = None,
+        source: SQLRecord | None = None,
+    ) -> Schema | None:
+        return cls.from_dataframe(df, field, name, mute, organism, source)
 
     def save(self, *args, **kwargs) -> Schema:
         """Save."""

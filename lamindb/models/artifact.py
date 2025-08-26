@@ -1789,7 +1789,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             )
 
     @classmethod
-    def from_df(
+    def from_dataframe(
         cls,
         df: pd.DataFrame,
         *,
@@ -1824,7 +1824,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 import lamindb as ln
 
                 df = ln.core.datasets.mini_immuno.get_dataset1()
-                artifact = ln.Artifact.from_df(df, key="examples/dataset1.parquet").save()
+                artifact = ln.Artifact.from_dataframe(df, key="examples/dataset1.parquet").save()
 
             With validation and annotation.
 
@@ -1868,6 +1868,29 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             artifact.schema = schema
             artifact._curator = curator
         return artifact
+
+    @classmethod
+    @deprecated("from_dataframe")
+    def from_df(
+        cls,
+        df: pd.DataFrame,
+        *,
+        key: str | None = None,
+        description: str | None = None,
+        run: Run | None = None,
+        revises: Artifact | None = None,
+        schema: Schema | None = None,
+        **kwargs,
+    ) -> Artifact:
+        return cls.from_dataframe(
+            df,
+            key=key,
+            description=description,
+            run=run,
+            revises=revises,
+            schema=schema,
+            **kwargs,
+        )
 
     @classmethod
     def from_anndata(
