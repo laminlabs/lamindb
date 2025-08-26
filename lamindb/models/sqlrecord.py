@@ -804,7 +804,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
         artifacts: list = []
         if self.__class__.__name__ == "Collection" and self.id is not None:
             # when creating a new collection without being able to access artifacts
-            artifacts = self.ordered_artifacts.list()
+            artifacts = self.ordered_artifacts.to_list()
         pre_existing_record = None
         # consider records that are being transferred from other databases
         transfer_logs: dict[str, list[str]] = {
@@ -1547,7 +1547,7 @@ def check_name_change(record: SQLRecord):
                 .exclude(feature_id=None)  # must have a feature
                 .distinct()
             )
-            artifact_ids = linked_records.list("artifact__uid")
+            artifact_ids = linked_records.to_list("artifact__uid")
             n = len(artifact_ids)
             if n > 0:
                 s = "s" if n > 1 else ""
@@ -1565,7 +1565,7 @@ def check_name_change(record: SQLRecord):
         # when a feature is renamed
         elif isinstance(record, Feature):
             # only internal features are associated with schemas
-            linked_artifacts = Artifact.filter(feature_sets__features=record).list(
+            linked_artifacts = Artifact.filter(feature_sets__features=record).to_list(
                 "uid"
             )
             n = len(linked_artifacts)

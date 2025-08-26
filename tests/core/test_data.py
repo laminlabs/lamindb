@@ -21,7 +21,7 @@ def test_rename():
         }
     )
 
-    curator = ln.Curator.from_df(
+    curator = ln.Curator.from_dataframe(
         df,
         categoricals={
             "feature_to_rename": ln.ULabel.name,

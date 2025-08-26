@@ -61,7 +61,7 @@ def test_schema_from_values():
 
 
 def test_schema_from_records(df):
-    features = ln.Feature.from_df(df)
+    features = ln.Feature.from_dataframe(df)
     with pytest.raises(ValueError) as error:
         schema = ln.Schema(features)
     assert (
@@ -95,16 +95,16 @@ def test_schema_from_df(df):
     genes = [bt.Gene(symbol=name) for name in df.columns]
     ln.save(genes)
     with pytest.raises(ValueError) as error:
-        ln.Schema.from_df(df, field=bt.Gene.symbol)
+        ln.Schema.from_dataframe(df, field=bt.Gene.symbol)
     assert error.exconly().startswith("ValueError: data types are heterogeneous:")
-    schema = ln.Schema.from_df(df[["feat1", "feat2"]], field=bt.Gene.symbol)
+    schema = ln.Schema.from_dataframe(df[["feat1", "feat2"]], field=bt.Gene.symbol)
     for gene in genes:
         gene.delete(permanent=True)
 
     # now for the features registry
-    features = ln.Feature.from_df(df)
+    features = ln.Feature.from_dataframe(df)
     ln.save(features)
-    schema = ln.Schema.from_df(df).save()
+    schema = ln.Schema.from_dataframe(df).save()
     assert schema.dtype is None
     ln.Schema.filter().all().delete()
     ln.Feature.filter().all().delete()
@@ -167,7 +167,7 @@ def test_schema_update_implicit_through_name_equality(
     ccaplog,
 ):
     df = pd.DataFrame({"a": [1]})
-    artifact = ln.Artifact.from_df(df, key="test_artifact.parquet").save()
+    artifact = ln.Artifact.from_dataframe(df, key="test_artifact.parquet").save()
     artifact.schema = mini_immuno_schema_flexible
     artifact.save()
 
@@ -247,7 +247,7 @@ def test_schema_update(
     ccaplog,
 ):
     df = pd.DataFrame({"a": [1]})
-    artifact = ln.Artifact.from_df(df, key="test_artifact.parquet").save()
+    artifact = ln.Artifact.from_dataframe(df, key="test_artifact.parquet").save()
     artifact.schema = mini_immuno_schema_flexible
     artifact.save()
 

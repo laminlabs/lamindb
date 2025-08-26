@@ -262,7 +262,7 @@ def test_dataframe_curator_validate_all_annotate_cat(small_dataset1_schema):
     schema = ln.Schema(itype=ln.Feature).save()
     assert schema.flexible
     df = datasets.small_dataset1(otype="DataFrame")
-    artifact = ln.Artifact.from_df(
+    artifact = ln.Artifact.from_dataframe(
         df, key="examples/dataset1.parquet", schema=schema
     ).save()
     assert set(artifact.features.get_values()["perturbation"]) == {

@@ -11,6 +11,7 @@ from django.db.models.query_utils import DeferredAttribute
 from django.db.utils import IntegrityError
 from lamin_utils import logger
 from lamindb_setup._init_instance import get_schema_module_name
+from lamindb_setup.core import deprecated
 from lamindb_setup.core.hashing import HASH_LENGTH, hash_dict, hash_string
 from lamindb_setup.errors import (
     MODULE_WASNT_CONFIGURED_MESSAGE_TEMPLATE,
@@ -777,7 +778,7 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
                 )
 
     @classmethod
-    def from_df(
+    def from_dataframe(
         cls, df: pd.DataFrame, field: FieldAttr | None = None, *, mute: bool = False
     ) -> SQLRecordList:
         """Create Feature records for dataframe columns.
@@ -812,6 +813,13 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
         finally:
             if mute:
                 logger.set_verbosity(original_verbosity)
+
+    @classmethod
+    @deprecated("from_dataframe")
+    def from_df(
+        cls, df: pd.DataFrame, field: FieldAttr | None = None, *, mute: bool = False
+    ) -> SQLRecordList:
+        return cls.from_dataframe(df, field, mute=mute)
 
     @classmethod
     def from_dict(
