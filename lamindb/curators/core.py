@@ -408,7 +408,7 @@ class DataFrameCurator(SlotsCurator):
         schema: A :class:`~lamindb.Schema` object that defines the validation constraints.
         slot: Indicate the slot in a composite curator for a composite data structure.
 
-    Example:
+    Examples:
 
         For a simple example using a flexible schema, see :meth:`~lamindb.Artifact.from_df`.
 
@@ -425,6 +425,12 @@ class DataFrameCurator(SlotsCurator):
         Valid features & labels were defined as:
 
         .. literalinclude:: scripts/define_mini_immuno_features_labels.py
+            :language: python
+
+        It is also possible to curate the `attrs` slot.
+        The columns of the dataframe itself must then be specified as the slot `df`.
+
+        .. literalinclude:: scripts/curate_dataframe_attrs.py
             :language: python
     """
 
