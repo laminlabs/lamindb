@@ -576,7 +576,7 @@ def test_anndata_curator_varT_curation():
                 if n_max_records == 2:
                     assert not artifact.features.slots[slot].members.exists()
                 else:
-                    assert artifact.features.slots[slot].members.df()[
+                    assert artifact.features.slots[slot].members.to_dataframe()[
                         "ensembl_gene_id"
                     ].tolist() == [
                         "ENSG00000153563",
@@ -619,7 +619,7 @@ def test_anndata_curator_varT_curation_legacy(ccaplog):
             )
             assert artifact.features.slots[slot].n == 3  # 3 genes get linked
             assert set(
-                artifact.features.slots[slot].members.df()["ensembl_gene_id"]
+                artifact.features.slots[slot].members.to_dataframe()["ensembl_gene_id"]
             ) == {
                 "ENSG00000153563",
                 "ENSG00000010610",

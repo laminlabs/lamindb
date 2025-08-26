@@ -294,8 +294,8 @@ Here is how to create records for them:
     # test comparator
     assert artifact == ln.Artifact.filter(experiment__contains="ment 1").one()
     # due to the __in comparator, we get the same artifact twice below
-    # print(ln.Artifact.df(features=["experiment"]))
-    # print(ln.Artifact.filter(experiment__contains="Experi").df(features=["experiment"]))
+    # print(ln.Artifact.to_dataframe(features=["experiment"]))
+    # print(ln.Artifact.filter(experiment__contains="Experi").to_dataframe(features=["experiment"]))
     assert len(ln.Artifact.filter(experiment__contains="Experi").all()) == 2
     assert ln.Artifact.filter(temperature__lt=21).one_or_none() is None
     assert len(ln.Artifact.filter(temperature__gt=21).all()) >= 1
@@ -558,7 +558,7 @@ def test_add_labels_using_anndata(adata):
     diseases = [ln.ULabel(name=name) for name in adata.obs["disease"].unique()]
     ln.save(diseases)
     add_labels(artifact, diseases, feature=features.disease, from_curator=True)
-    df = artifact.features.slots["obs"].features.df()
+    df = artifact.features.slots["obs"].features.to_dataframe()
     assert set(df["name"]) == {
         "cell_type",
         "disease",
@@ -577,7 +577,7 @@ def test_add_labels_using_anndata(adata):
     features = ln.Feature.lookup()
     artifact.labels.add(experiment_1, feature=features.experiment)
     # TODO: replace the following with an updated test
-    # df = artifact.features["external"].df()
+    # df = artifact.features["external"].to_dataframe()
     # assert set(df["name"]) == {
     #     "organism",
     #     "experiment",

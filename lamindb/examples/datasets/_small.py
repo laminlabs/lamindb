@@ -92,6 +92,16 @@ def anndata_with_obs() -> ad.AnnData:
     df.index = "obs" + df.index.astype(str)
 
     adata = ad.AnnData(X=np.zeros(shape=(40, 100), dtype=np.float32), obs=df)
-    adata.var.index = bionty_base.Gene().df().head(100)["ensembl_gene_id"].values
+    bionty_genes = bionty_base.Gene()
+    # backwards compatible
+    adata.var.index = (
+        (
+            bionty_genes.to_dataframe()
+            if hasattr(bionty_genes, "to_dataframe")
+            else bionty_genes.df()
+        )
+        .head(100)["ensembl_gene_id"]
+        .values
+    )
 
     return adata
