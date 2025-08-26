@@ -497,7 +497,7 @@ def describe_features(
 
 
 def infer_feature_type_convert_json(
-    key: str, value: Any, mute: bool = False, str_as_ulabel: bool = True
+    key: str, value: Any, mute: bool = False
 ) -> tuple[str, Any, str]:
     from lamindb.base.dtypes import is_valid_datetime_str
 
@@ -841,59 +841,70 @@ class FeatureManager:
         self,
         values: dict[str, str | int | float | bool],
         feature_field: FieldAttr = Feature.name,
-        str_as_ulabel: bool = True,
+        schema: Schema = None,
     ) -> None:
         """Curate artifact with features & values.
 
         Args:
             values: A dictionary of keys (features) & values (labels, numbers, booleans).
             feature_field: The field of a reference registry to map keys of the dictionary.
-            str_as_ulabel: Whether to interpret string values as ulabels.
+            schema: Schema to validate against.
         """
         from lamindb.base.dtypes import is_iterable_of_sqlrecord
 
         from .._tracked import get_current_tracked_run
 
-        # rename to distinguish from the values inside the dict
         dictionary = values
         keys = dictionary.keys()
         if isinstance(keys, DICT_KEYS_TYPE):
             keys = list(keys)  # type: ignore
-        # deal with other cases later
         assert all(isinstance(key, str) for key in keys)  # noqa: S101
+
         registry = feature_field.field.model
         value_model = FeatureValue
         model_name = "Feature"
-        records = registry.from_values(keys, field=feature_field, mute=True)
-        if len(records) != len(keys):
-            not_validated_keys = [
-                key for key in keys if key not in records.list("name")
-            ]
-            not_validated_keys_dtype_message = [
-                (key, infer_feature_type_convert_json(key, dictionary[key]))
-                for key in not_validated_keys
-            ]
-            run = get_current_tracked_run()
-            if run is not None:
-                name = f"{run.transform.type}[{run.transform.key}]"
-                type_hint = f"""  {model_name.lower()}_type = ln.{model_name}(name='{name}', is_type=True).save()"""
-                elements = [type_hint]
-                type_kwarg = f", type={model_name.lower()}_type"
-            else:
-                elements = []
-                type_kwarg = ""
-            elements += [
-                f"  ln.{model_name}(name='{key}', dtype='{dtype}'{type_kwarg}).save(){message}"
-                for key, (dtype, _, message) in not_validated_keys_dtype_message
-            ]
-            hint = "\n".join(elements)
-            msg = (
-                f"These keys could not be validated: {not_validated_keys}\n"
-                f"Here is how to create a {model_name.lower()}:\n\n{hint}"
-            )
-            raise ValidationError(msg)
 
-        # figure out which of the values go where
+        if schema is not None:
+            records = schema.members.filter(name__in=keys)
+            if len(records) != len(keys):
+                missing_keys = [
+                    key
+                    for key in keys
+                    if key not in records.values_list("name", flat=True)
+                ]
+                raise ValueError(
+                    f"feature{'s' if len(missing_keys) != 1 else ''} not found in schema: {', '.join(missing_keys)}"
+                )
+        else:
+            records = registry.from_values(keys, field=feature_field, mute=True)
+            if len(records) != len(keys):
+                not_validated_keys = [
+                    key for key in keys if key not in records.list("name")
+                ]
+                not_validated_keys_dtype_message = [
+                    (key, infer_feature_type_convert_json(key, dictionary[key]))
+                    for key in not_validated_keys
+                ]
+                run = get_current_tracked_run()
+                if run is not None:
+                    name = f"{run.transform.type}[{run.transform.key}]"
+                    type_hint = f"""  {model_name.lower()}_type = ln.{model_name}(name='{name}', is_type=True).save()"""
+                    elements = [type_hint]
+                    type_kwarg = f", type={model_name.lower()}_type"
+                else:
+                    elements = []
+                    type_kwarg = ""
+                elements += [
+                    f"  ln.{model_name}(name='{key}', dtype='{dtype}'{type_kwarg}).save(){message}"
+                    for key, (dtype, _, message) in not_validated_keys_dtype_message
+                ]
+                hint = "\n".join(elements)
+                msg = (
+                    f"These keys could not be validated: {not_validated_keys}\n"
+                    f"Here is how to create a {model_name.lower()}:\n\n{hint}"
+                )
+                raise ValidationError(msg)
+
         features_labels = defaultdict(list)
         _feature_values = []
         not_validated_values: dict[str, list[str]] = defaultdict(list)
@@ -903,7 +914,6 @@ class FeatureManager:
                 feature.name,
                 value,
                 mute=True,
-                str_as_ulabel=str_as_ulabel,
             )
             if feature.dtype == "num":
                 if inferred_type not in {"int", "float"}:
@@ -985,6 +995,7 @@ class FeatureManager:
                 f"Here is how to create records for them:\n\n{hint}"
             )
             raise ValidationError(msg)
+
         if features_labels:
             self._add_label_feature_links(features_labels)
         if _feature_values:
@@ -1002,7 +1013,6 @@ class FeatureManager:
             valuefield_id = "featurevalue_id"
             host_class_lower = self._host.__class__.__get_name_with_module__().lower()
             if dict_typed_features:
-                # delete all previously existing anotations with dictionaries
                 kwargs = {
                     f"links_{host_class_lower}__{host_class_lower}_id": self._host.id,
                     f"{model_name.lower()}__in": dict_typed_features,
@@ -1011,7 +1021,6 @@ class FeatureManager:
                     value_model.filter(**kwargs).all().delete()
                 except ProtectedError:
                     pass
-            # add new feature links
             links = [
                 IsLink(
                     **{
@@ -1021,8 +1030,6 @@ class FeatureManager:
                 )
                 for feature_value in _feature_values
             ]
-            # a link might already exist, to avoid raising a unique constraint
-            # error, ignore_conflicts
             save(links, ignore_conflicts=True)
 
     def remove_values(
@@ -1030,7 +1037,7 @@ class FeatureManager:
         feature: str | Feature,
         *,
         value: Any | None = None,
-    ):
+    ) -> None:
         """Remove value annotations for a given feature.
 
         Args:

@@ -43,9 +43,32 @@ Here is how to create a feature:
     artifact.features.add_values({"perturbation": df.perturbation.unique()})
     assert artifact in ln.Artifact.filter(perturbation__isnull=False)
     assert artifact not in ln.Artifact.filter(perturbation__isnull=True)
+
     artifact.delete(permanent=True)
-    ln.ULabel.filter().all().delete()
-    ln.Feature.filter().all().delete()
+    ln.ULabel.filter().delete()
+    ln.Feature.filter().delete()
+
+
+def test_features_add_external():
+    df = small_dataset1(otype="DataFrame")
+    artifact = ln.Artifact.from_df(df, description="test dataset").save()
+
+    species = ln.Feature(name="species", dtype="str").save()
+    split = ln.Feature(name="split", dtype="str").save()
+    schema = ln.Schema([species, split]).save()
+
+    with pytest.raises(ValueError) as e:
+        artifact.features.add_values({"doesnot": "exist"}, schema=schema)
+    assert "feature not found in schema: doesnot" in str(e.value)
+
+    artifact.features.add_values({"species": "bird", "split": "train"}, schema=schema)
+    artifact.save()
+
+    assert artifact.features.get_values() == {"species": "bird", "split": "train"}
+
+    artifact.delete(permanent=True)
+    schema.delete(permanent=True)
+    ln.Feature.filter().delete()
 
 
 # below the test for annotating with feature values
@@ -314,12 +337,12 @@ Here is how to create records for them:
 
     # delete everything we created
     artifact.delete(permanent=True)
-    ln.ULabel.filter().all().delete()
-    ln.Schema.filter().all().delete()
-    ln.Feature.filter().all().delete()
-    bt.Gene.filter().all().delete()
-    bt.Organism.filter().all().delete()
-    bt.Disease.filter().all().delete()
+    ln.ULabel.filter().delete()
+    ln.Schema.filter().delete()
+    ln.Feature.filter().delete()
+    bt.Gene.filter().delete()
+    bt.Organism.filter().delete()
+    bt.Disease.filter().delete()
 
 
 # most underlying logic here is comprehensively tested in test_context
@@ -438,9 +461,9 @@ def test_labels_add(adata):
 
     artifact2.delete(permanent=True)
     artifact.delete(permanent=True)
-    ln.Schema.filter().all().delete()
-    ln.Feature.filter().all().delete()
-    ln.ULabel.filter().all().delete()
+    ln.Schema.filter().delete()
+    ln.Feature.filter().delete()
+    ln.ULabel.filter().delete()
 
 
 def test_add_labels_using_anndata(adata):
@@ -466,7 +489,7 @@ def test_add_labels_using_anndata(adata):
     artifact = ln.Artifact.filter(description="Mini adata").one_or_none()
     if artifact is not None:
         artifact.delete(permanent=True, storage=True)
-    ln.Schema.filter().all().delete()
+    ln.Schema.filter().delete()
 
     # try to construct without registering metadata features
     artifact = ln.Artifact.from_anndata(adata, description="Mini adata")
@@ -632,14 +655,14 @@ def test_add_labels_using_anndata(adata):
 
     # clean up
     artifact.delete(permanent=True)
-    bt.Gene.filter().all().delete()
-    bt.Organism.filter().all().delete()
-    ln.Schema.filter().all().delete()
-    ln.Feature.filter().all().delete()
-    bt.CellType.filter().all().delete()
-    bt.Tissue.filter().all().delete()
-    bt.Disease.filter().all().delete()
-    ln.ULabel.filter().all().delete()
+    bt.Gene.filter().delete()
+    bt.Organism.filter().delete()
+    ln.Schema.filter().delete()
+    ln.Feature.filter().delete()
+    bt.CellType.filter().delete()
+    bt.Tissue.filter().delete()
+    bt.Disease.filter().delete()
+    ln.ULabel.filter().delete()
 
 
 def test_labels_get(get_mini_csv):
