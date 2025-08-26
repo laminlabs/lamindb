@@ -1539,6 +1539,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 )
         else:
             is_automanaged_path = False
+
         provisional_uid, revises = create_uid(revises=revises, version=version)
         kwargs_or_artifact, privates = get_artifact_kwargs_from_data(
             data=data,
@@ -1596,7 +1597,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                     uid, revises = create_uid(revises=revises, version=version)
             kwargs["uid"] = uid
 
-        # only set key now so that we don't do a look-up on it in case revises is passed
+        # only set key now so that we don't perform a look-up on it in case revises is passed
         if revises is not None and revises.key is not None and kwargs["key"] is None:
             kwargs["key"] = revises.key
 
