@@ -18,10 +18,10 @@ def test_df():
     project_names = [f"Project {i}" for i in range(3)]
     labels = ln.ULabel.from_values(project_names, create=True).save()
     project_label.children.add(*labels)
-    df = ln.ULabel.df(include="parents__name")
+    df = ln.ULabel.to_dataframe(include="parents__name")
     assert df.columns[2] == "parents__name"
     assert df["parents__name"].iloc[0] == {project_label.name}
-    df = ln.ULabel.df(include=["parents__name", "parents__created_by_id"])
+    df = ln.ULabel.to_dataframe(include=["parents__name", "parents__created_by_id"])
     assert df.columns[3] == "parents__created_by_id"
     assert df["parents__name"].iloc[0] == {project_label.name}
     assert set(df["parents__created_by_id"].iloc[0]) == {current_user_id()}
@@ -33,12 +33,12 @@ def test_df():
     schema = ln.Schema(features, name="my schema").save()
     schema.features.set(features)
 
-    df = ln.Schema.filter(name="my schema").df(include="features__name")
+    df = ln.Schema.filter(name="my schema").to_dataframe(include="features__name")
     assert df.columns[2] == "features__name"
     # order is not conserved
     assert set(df["features__name"].iloc[0]) == set(feature_names)
     # pass a list
-    df = ln.Schema.filter(name="my schema").df(
+    df = ln.Schema.filter(name="my schema").to_dataframe(
         include=["features__name", "features__created_by_id"]
     )
     assert df.columns[3] == "features__created_by_id"
@@ -46,12 +46,14 @@ def test_df():
     assert set(df["features__created_by_id"].iloc[0]) == {current_user_id()}
 
     # inner join parents on features
-    df = ln.Schema.filter().df(include=["features__name", "features__created_by_id"])
+    df = ln.Schema.filter().to_dataframe(
+        include=["features__name", "features__created_by_id"]
+    )
     assert set(df["features__name"].iloc[0]) == set(feature_names)
     assert set(df["features__created_by_id"].iloc[0]) == {current_user_id()}
 
     # raise error for non many-to-many
-    df = ln.ULabel.filter(name="Project 0").df(include="created_by__name")
+    df = ln.ULabel.filter(name="Project 0").to_dataframe(include="created_by__name")
     assert df["created_by__name"].iloc[0] == "Test User1"
 
     # do not return fields with no data in the registry
@@ -60,7 +62,7 @@ def test_df():
     # df = (
     #     ln.Artifact.using("laminlabs/cellxgene")
     #     .filter(suffix=".h5ad")
-    #     .df(include=["tissues__name", "pathways__name"])
+    #     .to_dataframe(include=["tissues__name", "pathways__name"])
     # )
     # assert "tissues__name" in df.columns
     # assert "pathways__name" not in df.columns
@@ -77,7 +79,7 @@ def test_df():
 
     # call it from a non-select-derived queryset
     qs = ln.User.objects.all()
-    assert qs.df().iloc[0]["handle"] == "testuser1"
+    assert qs.to_dataframe().iloc[0]["handle"] == "testuser1"
 
 
 def test_one_first():

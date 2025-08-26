@@ -162,7 +162,7 @@ def view(
             logger.print(section)
             logger.print("*" * len(section_no_color))
         for registry in sorted(filtered_registries, key=lambda x: x.__name__):
-            df = registry.df(limit=limit)
+            df = registry.to_dataframe(limit=limit)
             if df.shape[0] > 0:
                 logger.print(colors.blue(colors.bold(registry.__name__)))
                 show(df)

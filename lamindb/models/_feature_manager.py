@@ -496,21 +496,11 @@ def describe_features(
     return tree
 
 
-def is_valid_datetime_str(date_string: str) -> bool | str:
-    try:
-        dt = datetime.fromisoformat(date_string)
-        return dt.isoformat()
-    except ValueError:
-        return False
-
-
-def is_iterable_of_sqlrecord(value: Any):
-    return isinstance(value, Iterable) and isinstance(next(iter(value)), SQLRecord)
-
-
 def infer_feature_type_convert_json(
     key: str, value: Any, mute: bool = False, str_as_ulabel: bool = True
 ) -> tuple[str, Any, str]:
+    from lamindb.base.dtypes import is_valid_datetime_str
+
     message = ""
     if isinstance(value, bool):
         return "bool", value, message
@@ -857,10 +847,11 @@ class FeatureManager:
 
         Args:
             values: A dictionary of keys (features) & values (labels, numbers, booleans).
-            feature_field: The field of a reference registry to map keys of the
-                dictionary.
+            feature_field: The field of a reference registry to map keys of the dictionary.
             str_as_ulabel: Whether to interpret string values as ulabels.
         """
+        from lamindb.base.dtypes import is_iterable_of_sqlrecord
+
         from .._tracked import get_current_tracked_run
 
         # rename to distinguish from the values inside the dict

@@ -388,7 +388,7 @@ def _df_edges_from_parents(
     )
     all = record.__class__.objects
     records = parents | all.filter(id=record.id)
-    df = records.distinct().df(include=[f"{key}__id"])
+    df = records.distinct().to_dataframe(include=[f"{key}__id"])
     if f"{key}__id" not in df.columns:
         return None
     df_edges = df[[f"{key}__id"]]

@@ -15,6 +15,7 @@ def test_create_from_anndata_in_existing_cloud_storage():
     )
     assert artifact.n_observations == 70
     artifact.save()
+    assert ln.Artifact.get(path=artifact.path) == artifact
     # check that the local filepath has been cleared
     assert not hasattr(artifact, "_local_filepath")
     assert artifact.path.as_posix().startswith("s3://lamindb-test/core")

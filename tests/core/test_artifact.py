@@ -581,6 +581,8 @@ def test_create_from_local_filepath(
     assert artifact.n_files is None
     artifact.save()
     assert artifact.path.exists()
+    # check get by path
+    assert ln.Artifact.get(path=artifact.path) == artifact
 
     if key is None:
         assert (
@@ -624,7 +626,6 @@ def test_create_from_local_filepath(
                 )
             else:
                 assert artifact.path == lamindb_setup.settings.storage.root / key
-
     # only delete from storage if a file copy took place
     delete_from_storage = str(test_filepath.resolve()) != str(artifact.path)
     artifact.delete(permanent=True, storage=delete_from_storage)
@@ -1011,3 +1012,19 @@ def test_artifact_get_tracking(df):
 
     artifact.delete(permanent=True)
     transform.delete()
+
+
+def test_get_by_path(df):
+    artifact = ln.Artifact.from_df(df, key="df.parquet").save()
+    artifact_path = artifact.path
+
+    assert ln.Artifact.get(path=artifact_path) == artifact
+    assert ln.Artifact.filter().get(path=artifact_path.as_posix()) == artifact
+
+    with pytest.raises(ln.Artifact.DoesNotExist):
+        ln.Artifact.get(path="s3://bucket/folder/file.parquet")
+
+    with pytest.raises(ValueError):
+        ln.User.get(path="some/path")
+
+    artifact.delete(permanent=True)

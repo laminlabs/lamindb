@@ -25,6 +25,7 @@ from django.db.models.lookups import (
 )
 from lamin_utils import logger
 from lamin_utils._lookup import Lookup
+from lamindb_setup.core import deprecated
 from lamindb_setup.core._docs import doc_args
 
 if TYPE_CHECKING:
@@ -241,7 +242,7 @@ class QueryManager(Manager):
         >>> label = ln.ULabel.get(name="ULabel1")
         >>> label.parents.set(labels)
         >>> manager = label.parents
-        >>> manager.df()
+        >>> manager.to_dataframe()
     """
 
     def _track_run_input_manager(self):
@@ -283,12 +284,16 @@ class QueryManager(Manager):
             self._track_run_input_manager()
             return list(self.values_list(field, flat=True))
 
-    def df(self, **kwargs):
+    def to_dataframe(self, **kwargs):
         """Convert to DataFrame.
 
-        For `**kwargs`, see :meth:`lamindb.models.QuerySet.df`.
+        For `**kwargs`, see :meth:`lamindb.models.QuerySet.to_dataframe`.
         """
-        return self.all().df(**kwargs)
+        return self.all().to_dataframe(**kwargs)
+
+    @deprecated(new_name="to_dataframe")
+    def df(self, **kwargs):
+        return self.to_dataframe(**kwargs)
 
     def all(self):
         """Return QuerySet of all.
