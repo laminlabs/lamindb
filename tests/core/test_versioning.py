@@ -44,9 +44,9 @@ def test_bump_version():
 
 
 def test__add_to_version_family(df1, df2):
-    artifact1 = ln.Artifact.from_df(df1, description="test1")
+    artifact1 = ln.Artifact.from_dataframe(df1, description="test1")
     artifact1.save()
-    artifact2 = ln.Artifact.from_df(df2, description="test2")
+    artifact2 = ln.Artifact.from_dataframe(df2, description="test2")
     artifact2.save()
     assert (
         artifact1.uid[: artifact1._len_stem_uid]

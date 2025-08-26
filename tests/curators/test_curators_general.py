@@ -244,7 +244,7 @@ def test_schema_not_saved(df):
 
 def test_schema_artifact_annotated(df):
     """A passed Artifact should be annotated with a Schema if successfully curated."""
-    af = ln.Artifact.from_df(df, key="test.parquet").save()
+    af = ln.Artifact.from_dataframe(df, key="test.parquet").save()
     schema = ln.Schema(
         name="sample schema",
         features=[ln.Feature(name="sample_id", dtype="str").save()],
@@ -270,7 +270,7 @@ def test_schema_optionals():
             ln.Feature(name="sample_type", dtype=str).save(),
         ],
     ).save()
-    assert schema.optionals.get().list("name") == [
+    assert schema.optionals.get().to_list("name") == [
         "sample_name",
     ]
 
@@ -281,7 +281,7 @@ def test_schema_optionals():
     ):
         schema.optionals.set("test")
     schema.optionals.set([ln.Feature.get(name="sample_type")])
-    assert schema.optionals.get().list("name") == ["sample_type"]
+    assert schema.optionals.get().to_list("name") == ["sample_type"]
     # add sample_name to optionals
     with pytest.raises(
         TypeError,
@@ -289,7 +289,7 @@ def test_schema_optionals():
     ):
         schema.optionals.add("test")
     schema.optionals.add(ln.Feature.get(name="sample_name"))
-    assert schema.optionals.get().list("name") == ["sample_name", "sample_type"]
+    assert schema.optionals.get().to_list("name") == ["sample_name", "sample_type"]
 
     # clean up
     ln.Schema.filter().delete()
@@ -589,7 +589,7 @@ def test_hash_index_feature(df):
     ).save()
     assert schema.hash == "Z_dmk1WendD15s2FyBW1HA"
 
-    artifact = ln.Artifact.from_df(
+    artifact = ln.Artifact.from_dataframe(
         df_index, key="curated_df.parquet", schema=schema_index
     ).save()
     assert artifact.feature_sets.all().one() == schema_index
@@ -624,7 +624,7 @@ def test_add_new_from_subtype(df):
     # add new from subtype
     curator.cat.add_new_from("sample_type")
     curator.validate()
-    assert sample_type.records.list("name") == ["Type A", "Type B"]
+    assert sample_type.records.to_list("name") == ["Type A", "Type B"]
 
     # clean up
     schema.delete(permanent=True)
@@ -662,7 +662,7 @@ def test_index_feature_exclusion_from_categoricals(df):
 
 def test_artifact_standardize_errors(df):
     """Passed Artifacts to a Curator cannot be standardized."""
-    af = ln.Artifact.from_df(df, description="test").save()
+    af = ln.Artifact.from_dataframe(df, description="test").save()
     sample_type_feature = ln.Feature(name="sample_type", dtype="cat[ULabel]").save()
     schema = ln.Schema(features=[sample_type_feature]).save()
     curator = ln.curators.DataFrameCurator(af, schema)

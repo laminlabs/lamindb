@@ -265,7 +265,7 @@ class QueryManager(Manager):
                     logger.warning(WARNING_RUN_TRANSFORM)
                 _track_run_input(self.instance)
 
-    def list(self, field: str | None = None):
+    def to_list(self, field: str | None = None):
         """Populate a list with the results.
 
         Examples:
@@ -274,8 +274,8 @@ class QueryManager(Manager):
             >>> ln.ULabel(name="ULabel1").save()
             >>> label = ln.ULabel.get(name="ULabel1")
             >>> label.parents.set(labels)
-            >>> label.parents.list()
-            >>> label.parents.list("name")
+            >>> label.parents.to_list()
+            >>> label.parents.to_list("name")
             ['ULabel1', 'ULabel2', 'ULabel3']
         """
         if field is None:
@@ -283,6 +283,10 @@ class QueryManager(Manager):
         else:
             self._track_run_input_manager()
             return list(self.values_list(field, flat=True))
+
+    @deprecated(new_name="to_list")
+    def list(self, field: str | None = None):
+        return self.to_list(field)
 
     def to_dataframe(self, **kwargs):
         """Convert to DataFrame.
