@@ -61,7 +61,7 @@ def test_cxg_curator_5(cxg_schema_factory):
     adata.obs["tissue_ontology_term_id"] = adata.obs["tissue_ontology_term_id"].replace(
         {"UBERON:0002048XXX": "UBERON:0002048"}
     )
-    artifact = curator.save_artifact(key="examples/dataset-curated-against-cxg.h5ad")
+    artifact = curator.save_artifact(key="examples/dataset-curated-against-cxg-5.h5ad")
 
     # test missing obs columns
     adata = ln.core.datasets.small_dataset3_cellxgene(with_obs_defaults=False)
@@ -90,6 +90,7 @@ def test_cxg_curator_5(cxg_schema_factory):
 
 
 def test_cxg_curator_6_spatial(cxg_schema_factory):
+    """Tests organism (in `uns` as of 6.x) and spatial slot validation of CxG 6.x."""
     cxg_schema = cxg_schema_factory(
         "6.0.0", spatial_library_id="library_123", field_types="ontology_id"
     )

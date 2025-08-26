@@ -54,7 +54,7 @@ def save_cxg_defaults() -> None:
     ).save()
 
     # na, unknown
-    for biorecord, name in zip(
+    for model, name in zip(
         [
             bt.Ethnicity,
             bt.Ethnicity,
@@ -64,9 +64,7 @@ def save_cxg_defaults() -> None:
         ],
         ["na", "unknown", "unknown", "unknown", "unknown"],
     ):
-        biorecord(
-            ontology_id=name, name=name, description="From CellxGene schema."
-        ).save()
+        model(ontology_id=name, name=name, description="From CellxGene schema.").save()
 
     # tissue_type
     tissue_type = ULabel(
@@ -173,12 +171,6 @@ def get_cxg_schema(
     import bionty as bt
 
     from lamindb.models import Feature, Schema, ULabel
-
-    # Attempt to find the Schema early as building the Schema is expensive because of many Source look ups
-    if existing_schema := Schema.filter(
-        name=f"AnnData of CELLxGENE version {schema_version} for {organism} of {field_types}"
-    ).one_or_none():
-        return existing_schema
 
     class CategorySpec(NamedTuple):
         field: str | FieldAttr
