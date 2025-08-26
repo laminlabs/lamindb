@@ -1021,6 +1021,7 @@ class FeatureManager:
                     value_model.filter(**kwargs).all().delete()
                 except ProtectedError:
                     pass
+            # add new feature links
             links = [
                 IsLink(
                     **{
@@ -1030,6 +1031,8 @@ class FeatureManager:
                 )
                 for feature_value in _feature_values
             ]
+            # a link might already exist, to avoid raising a unique constraint
+            # error, ignore_conflicts
             save(links, ignore_conflicts=True)
 
     def remove_values(

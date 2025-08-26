@@ -346,7 +346,7 @@ def test_create_external_schema(tsv_file):
     artifact = ln.Artifact(
         tsv_file,
         features={"species": "bird", "split": "train"},
-        schema=schema,  # this is interpreted as an external schema
+        schema=schema,
         description="test",
     ).save()
     assert artifact.features.get_values() == {"species": "bird", "split": "train"}
