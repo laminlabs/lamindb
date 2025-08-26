@@ -867,7 +867,7 @@ class FeatureManager:
         records = registry.from_values(keys, field=feature_field, mute=True)
         if len(records) != len(keys):
             not_validated_keys = [
-                key for key in keys if key not in records.list("name")
+                key for key in keys if key not in records.to_list("name")
             ]
             not_validated_keys_dtype_message = [
                 (key, infer_feature_type_convert_json(key, dictionary[key]))

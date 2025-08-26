@@ -880,7 +880,7 @@ def get_labels(
 
         values = []
         for v in qs_by_registry.values():
-            values += v.list(get_name_field(v))
+            values += v.to_list(get_name_field(v))
         return values
     if len(registries_to_check) == 1 and registry in qs_by_registry:
         return qs_by_registry[registry]
@@ -903,7 +903,7 @@ def add_labels(
         raise ValueError("Please save the artifact/collection before adding a label!")
 
     if isinstance(records, (QuerySet, QuerySet.__base__)):  # need to have both
-        records = records.list()
+        records = records.to_list()
     if isinstance(records, (str, SQLRecord)):
         records = [records]
     if not isinstance(records, list):  # avoids warning for pd Series

@@ -270,7 +270,7 @@ def test_schema_optionals():
             ln.Feature(name="sample_type", dtype=str).save(),
         ],
     ).save()
-    assert schema.optionals.get().list("name") == [
+    assert schema.optionals.get().to_list("name") == [
         "sample_name",
     ]
 
@@ -281,7 +281,7 @@ def test_schema_optionals():
     ):
         schema.optionals.set("test")
     schema.optionals.set([ln.Feature.get(name="sample_type")])
-    assert schema.optionals.get().list("name") == ["sample_type"]
+    assert schema.optionals.get().to_list("name") == ["sample_type"]
     # add sample_name to optionals
     with pytest.raises(
         TypeError,
@@ -289,7 +289,7 @@ def test_schema_optionals():
     ):
         schema.optionals.add("test")
     schema.optionals.add(ln.Feature.get(name="sample_name"))
-    assert schema.optionals.get().list("name") == ["sample_name", "sample_type"]
+    assert schema.optionals.get().to_list("name") == ["sample_name", "sample_type"]
 
     # clean up
     ln.Schema.filter().delete()
@@ -624,7 +624,7 @@ def test_add_new_from_subtype(df):
     # add new from subtype
     curator.cat.add_new_from("sample_type")
     curator.validate()
-    assert sample_type.records.list("name") == ["Type A", "Type B"]
+    assert sample_type.records.to_list("name") == ["Type A", "Type B"]
 
     # clean up
     schema.delete(permanent=True)

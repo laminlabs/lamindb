@@ -79,7 +79,7 @@ def test_schema_creation(transactions_schema):
     assert schema is not None
     assert schema.otype == "DataFrame"
     # check the order of the features
-    assert schema.members.list("name") == [
+    assert schema.members.to_list("name") == [
         "date",
         "transaction_amount_usd_cent",
         "transaction_amount_eur_cent",

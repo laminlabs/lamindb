@@ -94,7 +94,7 @@ def test_record_example_compound_treatment(
 
     # this sheet does not have a schema!
     artifact = sample_sheet1.to_artifact()
-    assert sample_sheet1.schema.members.list("name") == [
+    assert sample_sheet1.schema.members.to_list("name") == [
         "treatment",
         "cell_line",
         "preparation_date",
@@ -171,14 +171,14 @@ def test_nextflow_sheet_with_samples(
     artifact = nextflow_sheet.to_artifact()
     assert artifact.schema is nextflow_sheet.schema
     assert artifact._state.adding is False
-    assert nextflow_sheet.schema.members.list("name") == [
+    assert nextflow_sheet.schema.members.to_list("name") == [
         "sample",
         "fastq_1",
         "fastq_2",
         "expected_cells",
         "seq_center",
     ]
-    assert artifact.features.slots["columns"].members.list("name") == [
+    assert artifact.features.slots["columns"].members.to_list("name") == [
         "sample",
         "fastq_1",
         "fastq_2",

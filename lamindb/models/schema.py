@@ -898,7 +898,7 @@ class Schema(SQLRecord, CanCurate, TracksRun):
             features = (
                 self._features[1]
                 if hasattr(self, "_features")
-                else (self.members.list() if self.members.exists() else [])
+                else (self.members.to_list() if self.members.exists() else [])
             )
             index_feature = self.index
             _, validated_kwargs, _, _, _ = self._validate_kwargs_calculate_hash(
@@ -926,7 +926,7 @@ class Schema(SQLRecord, CanCurate, TracksRun):
                 datasets = Artifact.filter(schema=self).all()
                 if datasets.exists():
                     logger.warning(
-                        f"you updated the schema hash and might invalidate datasets that were previously validated with this schema: {datasets.list('uid')}"
+                        f"you updated the schema hash and might invalidate datasets that were previously validated with this schema: {datasets.to_list('uid')}"
                     )
                 self.hash = validated_kwargs["hash"]
                 self.n = validated_kwargs["n"]
