@@ -95,7 +95,6 @@ def test_cxg_curator_6_spatial(cxg_schema_factory):
         "6.0.0", spatial_library_id="library_123", field_types="ontology_id"
     )
 
-    # test organism & spatial validation
     adata = ln.core.datasets.small_dataset3_cellxgene(
         with_obs_defaults=True, with_uns_organism=True, with_uns_spatial=True
     )
