@@ -356,14 +356,13 @@ def test_create_external_schema(tsv_file):
     split.delete(permanent=True)
 
 
-def test_from_dataframe_external_schema():
-    df = pd.DataFrame({"something_A": [1, 2], "something_B": [3, 4]})
+def test_from_dataframe_external_schema(df):
     species = ln.Feature(name="species", dtype="str").save()
     split = ln.Feature(name="split", dtype="str").save()
     external_schema = ln.Schema(features=[species, split]).save()
 
-    feat1 = ln.Feature(name="something_A", dtype="int").save()
-    feat2 = ln.Feature(name="something_B", dtype="int").save()
+    feat1 = ln.Feature(name="feat1", dtype="int").save()
+    feat2 = ln.Feature(name="feat2", dtype="int").save()
     schema = ln.Schema(
         features=[feat1, feat2], slots={"external": external_schema}, otype="DataFrame"
     ).save()
