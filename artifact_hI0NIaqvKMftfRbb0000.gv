@@ -1,0 +1,11 @@
+digraph artifact_hI0NIaqvKMftfRbb0000 {
+	node [color="#065f46" fillcolor=honeydew fontname=Helvetica fontsize=10]
+	edge [arrowsize=0.5]
+	run_kMyCht8O2fhXFtAj [label=<🧩 test<BR/><FONT COLOR="GREY" POINT-SIZE="10" FACE="Monospace">uid=XRMotHmZoS430000<BR/>type=pipeline, user=Lukas Heumos<BR/>run=2025-08-27 15:07:08 UTC</FONT>> fillcolor=gainsboro shape=box style="rounded,filled"]
+	artifact_hI0NIaqvKMftfRbb0000 [label=<📄 test artifact<BR/><FONT COLOR="GREY" POINT-SIZE="10" FACE="Monospace">uid=hI0NIaqvKMftfRbb0000<BR/>suffix=.parquet</FONT>> fillcolor=honeydew shape=box style="rounded,filled"]
+	run_kMyCht8O2fhXFtAj -> artifact_hI0NIaqvKMftfRbb0000 [color=dimgrey]
+	artifact_hI0NIaqvKMftfRbb0000 [label=<📄 test artifact<BR/><FONT COLOR="GREY" POINT-SIZE="10" FACE="Monospace">uid=hI0NIaqvKMftfRbb0000<BR/>suffix=.parquet</FONT>> fillcolor=honeydew shape=box style="rounded,filled"]
+	run_kMyCht8O2fhXFtAj [label=<🧩 test<BR/><FONT COLOR="GREY" POINT-SIZE="10" FACE="Monospace">uid=XRMotHmZoS430000<BR/>type=pipeline, user=Lukas Heumos<BR/>run=2025-08-27 15:07:08 UTC</FONT>> fillcolor=gainsboro shape=box style="rounded,filled"]
+	artifact_hI0NIaqvKMftfRbb0000 -> run_kMyCht8O2fhXFtAj [color=dimgrey]
+	artifact_hI0NIaqvKMftfRbb0000 [label=<📄 test artifact<BR/><FONT COLOR="GREY" POINT-SIZE="10" FACE="Monospace">uid=hI0NIaqvKMftfRbb0000<BR/>suffix=.parquet</FONT>> fillcolor="#10b981" shape=box style="rounded,filled"]
+}

@@ -1462,11 +1462,14 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             from lamindb.curators import DataFrameCurator
 
             temp_df = pd.DataFrame([features])
-
-            # Use external schema if available in composite schema
             validation_schema = schema
-            if schema.itype == "Composite" and "external" in schema.slots:
-                validation_schema = schema.slots["external"]
+            if schema.itype == "Composite" and schema.slots:
+                if len(schema.slots) > 1:
+                    raise ValueError(
+                        f"Composite schema has {len(schema.slots)} slots. "
+                        "External feature validation only supports schemas with a single slot."
+                    )
+                validation_schema = next(iter(schema.slots.values()))
 
             external_curator = DataFrameCurator(temp_df, validation_schema)
             external_curator.validate()
@@ -1887,28 +1890,23 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 )
                 return artifact
 
-            # Extract the main schema if this is a composite schema
-            validation_schema = schema
-            if schema.itype == "Composite" and "main" in schema.slots:
-                validation_schema = schema.slots["main"]
-
-            curator = DataFrameCurator(artifact, validation_schema)
-            curator.validate()
+            if schema.itype == "Composite":
+                # Composite schema means no DataFrame validation, just external features
+                pass
+            else:
+                # Regular schema means DataFrame validation
+                curator = DataFrameCurator(artifact, schema)
+                curator.validate()
+                artifact.schema = schema
+                artifact._curator = curator
 
         # Handle external features separately
         if features is not None:
-            if (
-                schema is not None
-                and schema.itype == "Composite"
-                and "external" in schema.slots
-            ):
-                from ..curators import DataFrameCurator
-
-                external_schema = schema.slots["external"]
+            if schema is not None and schema.itype == "Composite":
+                validation_schema = next(iter(schema.slots.values()))
                 temp_df = pd.DataFrame([features])
-                external_curator = DataFrameCurator(temp_df, external_schema)
+                external_curator = DataFrameCurator(temp_df, validation_schema)
                 external_curator.validate()
-                curator._artifact = artifact
 
             artifact._external_features = features
 

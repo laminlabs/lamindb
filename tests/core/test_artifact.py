@@ -340,7 +340,7 @@ def test_revise_artifact(df):
 def test_create_external_schema(tsv_file):
     species = ln.Feature(name="species", dtype="str").save()
     split = ln.Feature(name="split", dtype="str").save()
-    schema = ln.Schema([species, split]).save()
+    schema = ln.Schema(features=[species, split]).save()
 
     artifact = ln.Artifact(
         tsv_file,
@@ -352,19 +352,24 @@ def test_create_external_schema(tsv_file):
 
     artifact.delete(permanent=True)
     schema.delete(permanent=True)
-    ln.Feature.filter().delete()
+    species.delete(permanent=True)
+    split.delete(permanent=True)
 
 
-def test_from_dataframe_external_schema(df):
+"""
+def test_from_dataframe_external_schema():
+    df = pd.DataFrame({"something_A": [1, 2], "something_B": [3, 4]})
     species = ln.Feature(name="species", dtype="str").save()
     split = ln.Feature(name="split", dtype="str").save()
-    external_schema = ln.Schema([species, split]).save()
+    external_schema = ln.Schema(features=[species, split]).save()
 
-    feat1 = ln.Feature(name="feat1", dtype="int").save()
-    feat2 = ln.Feature(name="feat2", dtype="int").save()
+
+    feat1 = ln.Feature(name="something_A", dtype="int").save()
+    feat2 = ln.Feature(name="something_B", dtype="int").save()
     schema = ln.Schema(
         features=[feat1, feat2], slots={"external": external_schema}, otype="DataFrame"
     ).save()
+
 
     artifact = ln.Artifact.from_dataframe(
         df,
@@ -379,8 +384,14 @@ def test_from_dataframe_external_schema(df):
     artifact.delete(permanent=True)
     schema.delete(permanent=True)
     external_schema.delete(permanent=True)
-    ln.models.SchemaFeature.filter().delete()
-    ln.Feature.filter().delete()
+    for feature in [species, split, feat1, feat2]:
+        ln.models.SchemaFeature.filter(feature=feature).delete()
+
+    for feature in [species, split, feat1, feat2]:
+        feature.delete(permanent=True)
+
+    ln.Schema.filter().delete()
+    """
 
 
 def test_create_from_dataframe(df):

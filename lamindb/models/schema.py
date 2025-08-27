@@ -580,8 +580,9 @@ class Schema(SQLRecord, CanCurate, TracksRun):
         self._slots: dict[str, Schema] = {}
         # if both features and a schema are provided, we use an internal slot for a new schema of the features
         if features and slots:
+            slot_name = f"{name or 'features'}_schema"
             main_schema = Schema(features=features).save()
-            slots["main"] = main_schema
+            slots[slot_name] = main_schema
             features = []
 
         if features:

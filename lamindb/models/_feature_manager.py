@@ -854,10 +854,12 @@ class FeatureManager:
 
         from .._tracked import get_current_tracked_run
 
+        # rename to distinguish from the values inside the dict
         dictionary = values
         keys = dictionary.keys()
         if isinstance(keys, DICT_KEYS_TYPE):
             keys = list(keys)  # type: ignore
+        # deal with other cases later
         assert all(isinstance(key, str) for key in keys)  # noqa: S101
 
         registry = feature_field.field.model
@@ -1009,6 +1011,7 @@ class FeatureManager:
             valuefield_id = "featurevalue_id"
             host_class_lower = self._host.__class__.__get_name_with_module__().lower()
             if dict_typed_features:
+                # delete all previously existing anotations with dictionaries
                 kwargs = {
                     f"links_{host_class_lower}__{host_class_lower}_id": self._host.id,
                     f"{model_name.lower()}__in": dict_typed_features,
