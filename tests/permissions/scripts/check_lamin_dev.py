@@ -5,7 +5,9 @@ from lamindb_setup.core._hub_core import select_space, select_storage
 def cleanup(records):
     for record in records:
         try:
-            if isinstance(record, ln.models.SQLRecord):
+            if isinstance(record, ln.models.SQLRecord) and not isinstance(
+                record, ln.Storage
+            ):
                 record.delete(permanent=True)
             else:
                 # no permanent arg for BaseSQLRecord
@@ -36,6 +38,10 @@ try:
     artifact = ln.Artifact(".gitignore", key="mytest").save()
 
     # checks
+    # check that exist
+    ln.ULabel.get(name="My test ulabel in test space")
+    ln.Artifact.get(key="mytest")
+
     assert ulabel.space == space  # ulabel should end up in the restricted space
     assert artifact.space == space
     assert artifact.storage == storage_loc
