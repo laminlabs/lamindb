@@ -1,8 +1,0 @@
-digraph hS3h9VQr {
-	node [color="#065f46" fillcolor=honeydew fontname=Helvetica fontsize=10 shape=box style="rounded,filled"]
-	edge [arrowsize=0.5]
-	hS3h9VQr [label=" <label1<BR/><FONT COLOR=\"GREY\" POINT-SIZE=\"10\" FACE=\"Monospace\">uid=hS3h9VQr</FONT>>" fillcolor="#10b981"]
-	uiuLX0Jf [label=<label2<BR/><FONT COLOR="GREY" POINT-SIZE="10" FACE="Monospace">uid=uiuLX0Jf</FONT>>]
-	hS3h9VQr [label=<label1<BR/><FONT COLOR="GREY" POINT-SIZE="10" FACE="Monospace">uid=hS3h9VQr</FONT>>]
-	uiuLX0Jf -> hS3h9VQr [color=dimgrey]
-}
