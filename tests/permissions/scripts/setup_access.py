@@ -3,6 +3,7 @@ import hubmodule
 import hubmodule.models as hm
 from uuid import uuid4
 from hubmodule._migrate import _apply_migrations_with_tracking, reset_rls
+from hubmodule._setup import _setup_extensions, _setup_secret, _setup_utils_jwt
 from laminhub_rest.core.postgres import DbRoleHandler
 from pathlib import Path
 
@@ -22,6 +23,9 @@ def create_jwt_user(dsn_admin: str, jwt_role_name: str):
 pgurl = "postgresql://postgres:pwd@0.0.0.0:5432/pgtest"  # admin db connection url
 jwt_db_url = create_jwt_user(pgurl, jwt_role_name=f"{instance_id.hex}_jwt")
 
+_setup_extensions(pgurl)
+_setup_secret(pgurl)
+_setup_utils_jwt(pgurl)
 migrations_sql_dir = Path(hubmodule.__file__).parent / "sql/0004_migrations"
 _apply_migrations_with_tracking(pgurl, migrations_sql_dir)
 reset_rls(pgurl, instance_id=instance_id, public=False)
