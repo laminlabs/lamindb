@@ -5,7 +5,9 @@ from lamindb_setup.core._hub_core import select_space, select_storage
 def cleanup(records):
     for record in records:
         try:
-            if isinstance(ln.models.SQLRecord) and not isinstance(record, ln.Storage):
+            if isinstance(record, ln.models.SQLRecord) and not isinstance(
+                record, ln.Storage
+            ):
                 record.delete(permanent=True)
             else:
                 # no permanent arg for BaseSQLRecord
