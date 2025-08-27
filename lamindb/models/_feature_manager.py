@@ -865,16 +865,12 @@ class FeatureManager:
         model_name = "Feature"
 
         if schema is not None:
+            from lamindb.curators import DataFrameCurator
+
+            temp_df = pd.DataFrame([values])
+            curator = DataFrameCurator(temp_df, schema)
+            curator.validate()
             records = schema.members.filter(name__in=keys)
-            if len(records) != len(keys):
-                missing_keys = [
-                    key
-                    for key in keys
-                    if key not in records.values_list("name", flat=True)
-                ]
-                raise ValueError(
-                    f"feature{'s' if len(missing_keys) != 1 else ''} not found in schema: {', '.join(missing_keys)}"
-                )
         else:
             records = registry.from_values(keys, field=feature_field, mute=True)
             if len(records) != len(keys):

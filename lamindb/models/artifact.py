@@ -1458,9 +1458,21 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
         features: dict[str, Any] = kwargs.pop("features", None)
         schema: Schema | None = kwargs.pop("schema", None)
-        if features is not None:
-            self._staged_features = features
-            self._staged_schema = schema
+        if features is not None and schema is not None:
+            from lamindb.curators import DataFrameCurator
+
+            temp_df = pd.DataFrame([features])
+
+            # Use external schema if available in composite schema
+            validation_schema = schema
+            if schema.itype == "Composite" and "external" in schema.slots:
+                validation_schema = schema.slots["external"]
+
+            external_curator = DataFrameCurator(temp_df, validation_schema)
+            external_curator.validate()
+            external_curator._artifact = self
+
+            self._external_features = features
 
         branch_id: int | None = None
         if "visibility" in kwargs:  # backward compat
@@ -1807,6 +1819,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         run: Run | None = None,
         revises: Artifact | None = None,
         schema: Schema | None = None,
+        features: dict[str, Any] | None = None,
         **kwargs,
     ) -> Artifact:
         """Create from `DataFrame`, optionally validate & annotate.
@@ -1819,6 +1832,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             revises: An old version of the artifact.
             run: The run that creates the artifact.
             schema: A schema that defines how to validate & annotate.
+            features: External features dict for additional annotation.
 
         See Also:
             :meth:`~lamindb.Collection`
@@ -1862,6 +1876,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             **kwargs,
         )
         artifact.n_observations = len(df)
+
         if schema is not None:
             from ..curators import DataFrameCurator
 
@@ -1872,10 +1887,31 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 )
                 return artifact
 
-            curator = DataFrameCurator(artifact, schema)
+            # Extract the main schema if this is a composite schema
+            validation_schema = schema
+            if schema.itype == "Composite" and "main" in schema.slots:
+                validation_schema = schema.slots["main"]
+
+            curator = DataFrameCurator(artifact, validation_schema)
             curator.validate()
-            artifact.schema = schema
-            artifact._curator = curator
+
+        # Handle external features separately
+        if features is not None:
+            if (
+                schema is not None
+                and schema.itype == "Composite"
+                and "external" in schema.slots
+            ):
+                from ..curators import DataFrameCurator
+
+                external_schema = schema.slots["external"]
+                temp_df = pd.DataFrame([features])
+                external_curator = DataFrameCurator(temp_df, external_schema)
+                external_curator.validate()
+                curator._artifact = artifact
+
+            artifact._external_features = features
+
         return artifact
 
     @classmethod
@@ -2821,18 +2857,19 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             )
             logger.important(f"moved local artifact to cache: {local_path_cache}")
 
+        # Handle external features
+        if hasattr(self, "_external_features"):
+            external_features = self._external_features
+            delattr(self, "_external_features")
+            self.features.add_values(external_features)
+
         # annotate Artifact
         if hasattr(self, "_curator"):
             curator = self._curator
             delattr(self, "_curator")
+            # just annotates this artifact
             curator.save_artifact()
-        if hasattr(self, "_staged_features"):
-            self.features.add_values(
-                self._staged_features, schema=getattr(self, "_staged_schema", None)
-            )
-            delattr(self, "_staged_features")
-            if hasattr(self, "_staged_schema"):
-                delattr(self, "_staged_schema")
+
         return self
 
     def restore(self) -> None:

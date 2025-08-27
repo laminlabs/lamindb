@@ -578,6 +578,12 @@ class Schema(SQLRecord, CanCurate, TracksRun):
                 self.optionals.set(optional_features)
                 return None
         self._slots: dict[str, Schema] = {}
+        # if both features and a schema are provided, we use an internal slot for a new schema of the features
+        if features and slots:
+            main_schema = Schema(features=features).save()
+            slots["main"] = main_schema
+            features = []
+
         if features:
             self._features = (get_related_name(features_registry), features)  # type: ignore
         elif slots:

@@ -51,15 +51,15 @@ Here is how to create a feature:
 
 def test_features_add_external():
     df = small_dataset1(otype="DataFrame")
-    artifact = ln.Artifact.from_df(df, description="test dataset").save()
+    artifact = ln.Artifact.from_dataframe(df, description="test dataset").save()
 
     species = ln.Feature(name="species", dtype="str").save()
     split = ln.Feature(name="split", dtype="str").save()
     schema = ln.Schema([species, split]).save()
 
-    with pytest.raises(ValueError) as e:
+    with pytest.raises(ValidationError) as e:
         artifact.features.add_values({"doesnot": "exist"}, schema=schema)
-    assert "feature not found in schema: doesnot" in str(e.value)
+    assert "column 'split' not in dataframe" in str(e.value)
 
     artifact.features.add_values({"species": "bird", "split": "train"}, schema=schema)
     artifact.save()
