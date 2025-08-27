@@ -38,8 +38,9 @@ try:
     artifact = ln.Artifact(".gitignore", key="mytest").save()
 
     # checks
-    ulabel = ln.ULabel.get(name="My test ulabel in test space")
-    artifact = ln.Artifact.get(key="mytest")
+    # check that exist
+    ln.ULabel.get(name="My test ulabel in test space")
+    ln.Artifact.get(key="mytest")
 
     assert ulabel.space == space  # ulabel should end up in the restricted space
     assert artifact.space == space
