@@ -212,7 +212,9 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates):
         df.columns.values[0] = "__lamindb_record_uid__"
         df.columns.values[1] = "__lamindb_record_name__"
         if self.schema is not None:
-            desired_order = self.schema.members.list("name")  # only members is ordered!
+            desired_order = self.schema.members.to_list(
+                "name"
+            )  # only members is ordered!
         else:
             # sort alphabetically for now
             desired_order = df.columns[2:].tolist()
@@ -236,7 +238,7 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates):
         )
         run = Run(transform, initiated_by_run=context.run).save()
         run.input_records.add(self)
-        return Artifact.from_df(
+        return Artifact.from_dataframe(
             self.to_pandas(),
             key=key,
             description=f"Export of sheet {self.uid}{description}",

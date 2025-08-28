@@ -27,7 +27,7 @@ def adata():
 
 def test_features_add():
     df = small_dataset1(otype="DataFrame")
-    artifact = ln.Artifact.from_df(df, description="test dataset").save()
+    artifact = ln.Artifact.from_dataframe(df, description="test dataset").save()
     with pytest.raises(ValidationError) as err:
         artifact.features.add_values({"perturbation": df.perturbation.unique()})
     assert (
@@ -487,7 +487,7 @@ def test_add_labels_using_anndata(adata):
     # now register features we want to validate
     # (we are not interested in cell_type_id, here)
     ln.save(
-        ln.Feature.from_df(
+        ln.Feature.from_dataframe(
             adata.obs[["cell_type", "tissue", "cell_type_by_expert", "disease"]]
         )
     )
@@ -510,7 +510,7 @@ def test_add_labels_using_anndata(adata):
         itype="Feature", _links_artifact__slot="obs"
     ).one()
     assert schema_obs.n == 4
-    assert "organism" not in schema_obs.features.list("name")
+    assert "organism" not in schema_obs.features.to_list("name")
 
     # now, we add organism and run checks
     features = ln.Feature.lookup()
@@ -584,27 +584,29 @@ def test_add_labels_using_anndata(adata):
     # }
     # assert set(df["dtype"]) == {"cat[bionty.Organism]", "cat[ULabel]"}
 
-    assert set(artifact.labels.get(features.experiment).list("name")) == {
+    assert set(artifact.labels.get(features.experiment).to_list("name")) == {
         "experiment_1"
     }
-    assert set(artifact.labels.get(features.disease).list("name")) == {
+    assert set(artifact.labels.get(features.disease).to_list("name")) == {
         "chronic kidney disease",
         "Alzheimer disease",
         "liver lymphoma",
         "cardiac ventricle disorder",
     }
-    assert set(artifact.labels.get(features.organism).list("name")) == {"mouse"}
-    assert set(artifact.labels.get(features.tissue)["bionty.Tissue"].list("name")) == {
+    assert set(artifact.labels.get(features.organism).to_list("name")) == {"mouse"}
+    assert set(
+        artifact.labels.get(features.tissue)["bionty.Tissue"].to_list("name")
+    ) == {
         "liver",
         "heart",
         "kidney",
         "brain",
     }
-    assert set(artifact.labels.get(features.tissue)["ULabel"].list("name")) == {
+    assert set(artifact.labels.get(features.tissue)["ULabel"].to_list("name")) == {
         "organoid",
     }
     # currently, we can't stratify the two cases below
-    assert set(artifact.labels.get(features.cell_type).list("name")) == {
+    assert set(artifact.labels.get(features.cell_type).to_list("name")) == {
         "T cell",
         "my new cell type",
         "hepatocyte",
@@ -618,7 +620,7 @@ def test_add_labels_using_anndata(adata):
         "hematopoietic stem cell",
         "B cell",
     }
-    assert set(artifact.labels.get(features.cell_type_by_expert).list("name")) == {
+    assert set(artifact.labels.get(features.cell_type_by_expert).to_list("name")) == {
         "T cell",
         "my new cell type",
         "hepatocyte",

@@ -37,7 +37,7 @@ def adata2():
 
 def test_from_single_artifact(adata):
     bt.settings.organism = "human"
-    features = ln.Feature.from_df(adata.obs)
+    features = ln.Feature.from_dataframe(adata.obs)
     validated = ln.Feature.validate(
         [feature.name for feature in features], field="name"
     )
@@ -81,7 +81,7 @@ def test_edge_cases(df):
         "ValueError: Artifact or list[Artifact] is allowed."
     )
 
-    artifact = ln.Artifact.from_df(df, description="Test artifact")
+    artifact = ln.Artifact.from_dataframe(df, description="Test artifact")
     assert artifact._state.adding
     with pytest.raises(ValueError) as error:
         ln.Collection([artifact])
@@ -99,7 +99,7 @@ def test_edge_cases(df):
 
 
 def test_from_inconsistent_artifacts(df, adata):
-    artifact1 = ln.Artifact.from_df(df, description="My test").save()
+    artifact1 = ln.Artifact.from_dataframe(df, description="My test").save()
     artifact2 = ln.Artifact.from_anndata(adata, description="My test2").save()
     collection = ln.Collection([artifact1, artifact2], key="Inconsistent").save()
     # test idempotency of .save()
@@ -386,7 +386,7 @@ def test_mapped(adata, adata2):
 
 def test_revise_collection(df, adata):
     # create a versioned collection
-    artifact = ln.Artifact.from_df(df, description="test").save()
+    artifact = ln.Artifact.from_dataframe(df, description="test").save()
     collection = ln.Collection(artifact, key="test-collection", version="1")
     assert collection.version == "1"
     assert collection.uid.endswith("0000")
@@ -416,7 +416,7 @@ def test_revise_collection(df, adata):
 
     # create new collection from newly versioned collection
     df.iloc[0, 0] = 0
-    artifact = ln.Artifact.from_df(df, description="test")
+    artifact = ln.Artifact.from_dataframe(df, description="test")
     artifact.save()
     collection_r3 = ln.Collection(
         artifact, key="test-collection", description="test description3", version="2"
@@ -436,7 +436,7 @@ def test_revise_collection(df, adata):
 
 
 def test_collection_append(df, adata):
-    artifact = ln.Artifact.from_df(df, description="test").save()
+    artifact = ln.Artifact.from_dataframe(df, description="test").save()
     artifact_1 = ln.Artifact.from_anndata(adata, description="test").save()
     collection = ln.Collection(artifact, key="Test", description="Test append").save()
     new_collection = collection.append(artifact_1).save()
@@ -452,7 +452,7 @@ def test_collection_append(df, adata):
 
 
 def test_with_metadata(df, adata):
-    meta_artifact = ln.Artifact.from_df(df, description="test")
+    meta_artifact = ln.Artifact.from_dataframe(df, description="test")
     meta_artifact.save()
     data_artifact = ln.Artifact.from_anndata(adata, description="test adata")
     data_artifact.save()
@@ -469,7 +469,7 @@ def test_with_metadata(df, adata):
 
 
 def test_collection_get_tracking(df):
-    artifact = ln.Artifact.from_df(df, key="df.parquet").save()
+    artifact = ln.Artifact.from_dataframe(df, key="df.parquet").save()
     collection = ln.Collection(artifact, key="track-collection").save()
 
     transform = ln.Transform(key="test track collection via get").save()

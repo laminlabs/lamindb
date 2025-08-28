@@ -121,7 +121,7 @@ def get_existing_records(
     #     ]
     # )
     # order by causes a factor 10 in runtime
-    # records = query_set.order_by(preserved).list()
+    # records = query_set.order_by(preserved).to_list()
 
     # log validated terms
     is_validated = model.validate(
@@ -165,7 +165,7 @@ def get_existing_records(
     query = {f"{field.field.name}__in": iterable_idx.values}  # type: ignore
     if organism is not None:
         query["organism"] = organism
-    records = model.filter(**query).list()
+    records = model.filter(**query).to_list()
 
     if len(validated) == len(iterable_idx):
         return records, pd.Index([]), msg

@@ -612,7 +612,7 @@ def _check_otype_artifact(
 ) -> str:
     if otype is None:
         if isinstance(data, pd.DataFrame):
-            logger.warning("data is a DataFrame, please use .from_df()")
+            logger.warning("data is a DataFrame, please use .from_dataframe()")
             otype = "DataFrame"
             return otype
 
@@ -880,7 +880,7 @@ def get_labels(
 
         values = []
         for v in qs_by_registry.values():
-            values += v.list(get_name_field(v))
+            values += v.to_list(get_name_field(v))
         return values
     if len(registries_to_check) == 1 and registry in qs_by_registry:
         return qs_by_registry[registry]
@@ -903,7 +903,7 @@ def add_labels(
         raise ValueError("Please save the artifact/collection before adding a label!")
 
     if isinstance(records, (QuerySet, QuerySet.__base__)):  # need to have both
-        records = records.list()
+        records = records.to_list()
     if isinstance(records, (str, SQLRecord)):
         records = [records]
     if not isinstance(records, list):  # avoids warning for pd Series
@@ -1087,10 +1087,10 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
             artifact = ln.Artifact("s3://my_bucket/my_folder/my_file.csv").save()
 
-        If you want to **validate & annotate** an array, pass a `schema` to one of the `.from_df()`, `.from_anndata()`, ... constructors::
+        If you want to **validate & annotate** an array, pass a `schema` to one of the `.from_dataframe()`, `.from_anndata()`, ... constructors::
 
             schema = ln.Schema(itype=ln.Feature)  # a schema that merely enforces that feature names exist in the Feature registry
-            artifact = ln.Artifact.from_df("./my_file.parquet", key="my_dataset.parquet", schema=schema).save()  # validated and annotated
+            artifact = ln.Artifact.from_dataframe("./my_file.parquet", key="my_dataset.parquet", schema=schema).save()  # validated and annotated
 
         You can make a **new version** of an artifact by passing an existing `key`::
 
@@ -1789,7 +1789,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             )
 
     @classmethod
-    def from_df(
+    def from_dataframe(
         cls,
         df: pd.DataFrame,
         *,
@@ -1824,7 +1824,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 import lamindb as ln
 
                 df = ln.core.datasets.mini_immuno.get_dataset1()
-                artifact = ln.Artifact.from_df(df, key="examples/dataset1.parquet").save()
+                artifact = ln.Artifact.from_dataframe(df, key="examples/dataset1.parquet").save()
 
             With validation and annotation.
 
@@ -1868,6 +1868,29 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             artifact.schema = schema
             artifact._curator = curator
         return artifact
+
+    @classmethod
+    @deprecated("from_dataframe")
+    def from_df(
+        cls,
+        df: pd.DataFrame,
+        *,
+        key: str | None = None,
+        description: str | None = None,
+        run: Run | None = None,
+        revises: Artifact | None = None,
+        schema: Schema | None = None,
+        **kwargs,
+    ) -> Artifact:
+        return cls.from_dataframe(
+            df,
+            key=key,
+            description=description,
+            run=run,
+            revises=revises,
+            schema=schema,
+            **kwargs,
+        )
 
     @classmethod
     def from_anndata(

@@ -133,7 +133,7 @@ class CatManager:
 
         if self._artifact is None:
             if isinstance(self._dataset, pd.DataFrame):
-                artifact = Artifact.from_df(
+                artifact = Artifact.from_dataframe(
                     self._dataset,
                     key=key,
                     description=description,
@@ -1275,7 +1275,7 @@ class TiledbsomaCatManager(CatManager):
                 empty_dict, schema=self._obs_pa_schema
             ).to_pandas()
             # in parallel to https://github.com/laminlabs/lamindb/blob/2a1709990b5736b480c6de49c0ada47fafc8b18d/lamindb/core/_feature_manager.py#L549-L554
-            feature_sets["obs"] = Schema.from_df(
+            feature_sets["obs"] = Schema.from_dataframe(
                 df=mock_df,
                 field=self._columns_field,
                 mute=True,
@@ -1367,7 +1367,7 @@ def legacy_annotate_artifact(
 
 
 @classmethod  # type: ignore
-def from_df(
+def from_dataframe(
     cls,
     df: pd.DataFrame,
     categoricals: dict[str, FieldAttr] | None = None,
@@ -1381,6 +1381,18 @@ def from_df(
         categoricals=categoricals,
         columns_field=columns,
     )
+
+
+@classmethod  # type: ignore
+@deprecated("from_dataframe")
+def from_df(
+    cls,
+    df: pd.DataFrame,
+    categoricals: dict[str, FieldAttr] | None = None,
+    columns: FieldAttr = Feature.name,
+    organism: str | None = None,
+) -> DataFrameCatManager:
+    return cls.from_dataframe(df, categoricals, columns, organism)
 
 
 @classmethod  # type: ignore
@@ -1468,6 +1480,7 @@ def from_spatialdata(
     )
 
 
+CatManager.from_dataframe = from_dataframe  # type: ignore
 CatManager.from_df = from_df  # type: ignore
 CatManager.from_anndata = from_anndata  # type: ignore
 CatManager.from_mudata = from_mudata  # type: ignore
