@@ -1890,25 +1890,20 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 )
                 return artifact
 
-            if schema.itype == "Composite":
-                # Composite schema means no DataFrame validation, just external features
-                pass
+            if schema.itype == "Composite" and features is not None:
+                if schema is not None and schema.itype == "Composite":
+                    validation_schema = next(iter(schema.slots.values()))
+                    temp_df = pd.DataFrame([features])
+                    external_curator = DataFrameCurator(temp_df, validation_schema)
+                    external_curator.validate()
+
+                artifact._external_features = features
             else:
                 # Regular schema means DataFrame validation
                 curator = DataFrameCurator(artifact, schema)
                 curator.validate()
                 artifact.schema = schema
                 artifact._curator = curator
-
-        # Handle external features separately
-        if features is not None:
-            if schema is not None and schema.itype == "Composite":
-                validation_schema = next(iter(schema.slots.values()))
-                temp_df = pd.DataFrame([features])
-                external_curator = DataFrameCurator(temp_df, validation_schema)
-                external_curator.validate()
-
-            artifact._external_features = features
 
         return artifact
 
