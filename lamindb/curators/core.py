@@ -699,7 +699,7 @@ class DataFrameCurator(SlotsCurator):
 
         # Always create atomic curator for the main DataFrame
         self._pure_curator = PureDataFrameCurator(
-            dataset=self._dataset,
+            dataset=dataset,
             schema=main_schema,
             slot=slot,
         )
