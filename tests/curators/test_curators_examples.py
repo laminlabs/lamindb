@@ -314,12 +314,9 @@ def test_dataframe_attrs_validation(uns_study_metadata):
     df.attrs = uns_study_metadata
 
     perturbation = ln.ULabel(name="Perturbation", is_type=True).save()
-    df_feature = ln.Feature(name="perturbation", dtype=perturbation).save()
+    perturbation_feature = ln.Feature(name="perturbation", dtype=perturbation).save()
     ln.ULabel(name="DMSO", type=perturbation).save()
     ln.ULabel(name="IFNG", type=perturbation).save()
-    df_schema = ln.Schema(
-        features=[df_feature],
-    ).save()
 
     temperature_feature = ln.Feature(name="temperature", dtype=float).save()
     experiment_id_feature = ln.Feature(name="experiment_id", dtype=str).save()
@@ -331,29 +328,28 @@ def test_dataframe_attrs_validation(uns_study_metadata):
     ).save()
 
     schema = ln.Schema(
-        slots={"df": df_schema, "attrs": study_metadata_schema},
+        features=[perturbation_feature],
+        slots={"attrs": study_metadata_schema},
         otype="DataFrame",
     ).save()
 
-    bad_schema = ln.Schema(slots={"doesnotexist": df_schema}, otype="DataFrame").save()
+    bad_schema = ln.Schema(slots={"doesnotexist": schema}, otype="DataFrame").save()
 
     with pytest.raises(ValueError) as e:
         curator = ln.curators.DataFrameCurator(df, schema=bad_schema)
     assert (
-        "Slot 'doesnotexist' is not supported for DataFrameCurator. Must be one of 'df' or 'attrs'."
+        "Slot 'doesnotexist' is not supported for DataFrameCurator. Must be 'attrs'."
         in str(e.value)
     )
 
     curator = ln.curators.DataFrameCurator(df, schema=schema)
 
-    assert isinstance(curator.slots["df"], ln.curators.DataFrameCurator)
-    assert isinstance(curator.slots["attrs"], ln.curators.DataFrameCurator)
+    assert curator.slots["attrs"].__class__.__name__ == "PureDataFrameCurator"
 
     curator.validate()
     artifact = curator.save_artifact(key="examples/df_with_attrs.parquet")
 
     assert artifact.schema == schema
-    assert "df" in artifact.features.slots
     assert "attrs" in artifact.features.slots
     assert artifact.features.slots["attrs"].features.first() == ln.Feature.get(
         name="temperature"
@@ -367,7 +363,6 @@ def test_dataframe_attrs_validation(uns_study_metadata):
     SchemaComponent.filter().delete()
     artifact.delete(permanent=True)
     bad_schema.delete(permanent=True)
-    df_schema.delete(permanent=True)
     study_metadata_schema.delete(permanent=True)
     schema.delete(permanent=True)
     experiment_id_feature.delete(permanent=True)
@@ -505,11 +500,11 @@ def test_anndata_curator_different_components(small_dataset1_schema: ln.Schema):
 
         adata = datasets.small_dataset1(otype="AnnData")
         curator = ln.curators.AnnDataCurator(adata, anndata_schema)
-        assert isinstance(curator.slots["var.T"], ln.curators.DataFrameCurator)
+        assert curator.slots["var.T"].__class__.__name__ == "PureDataFrameCurator"
         if add_comp == "obs":
-            assert isinstance(curator.slots["obs"], ln.curators.DataFrameCurator)
+            assert curator.slots["obs"].__class__.__name__ == "PureDataFrameCurator"
         if add_comp == "uns":
-            assert isinstance(curator.slots["uns"], ln.curators.DataFrameCurator)
+            assert curator.slots["uns"].__class__.__name__ == "PureDataFrameCurator"
 
         artifact = ln.Artifact.from_anndata(
             adata, key="examples/dataset1.h5ad", schema=anndata_schema
@@ -652,7 +647,9 @@ def test_anndata_curator_nested_uns(uns_study_metadata):
     ).save()
 
     curator = ln.curators.AnnDataCurator(adata, anndata_schema)
-    assert isinstance(curator.slots["uns:study_metadata"], ln.curators.DataFrameCurator)
+    assert (
+        curator.slots["uns:study_metadata"].__class__.__name__ == "PureDataFrameCurator"
+    )
 
     curator.validate()
     artifact = curator.save_artifact(key="examples/anndata_with_uns.h5ad")
@@ -780,9 +777,12 @@ def test_mudata_curator_nested_uns(uns_study_metadata):
     ).save()
 
     curator = ln.curators.MuDataCurator(mdata, mdata_schema)
-    assert isinstance(curator.slots["uns:study_metadata"], ln.curators.DataFrameCurator)
-    assert isinstance(
-        curator.slots["rna:uns:site_metadata"], ln.curators.DataFrameCurator
+    assert (
+        curator.slots["uns:study_metadata"].__class__.__name__ == "PureDataFrameCurator"
+    )
+    assert (
+        curator.slots["rna:uns:site_metadata"].__class__.__name__
+        == "PureDataFrameCurator"
     )
 
     curator.validate()

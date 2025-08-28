@@ -314,7 +314,7 @@ class SlotsCurator(Curator):
         schema: Schema,
     ) -> None:
         super().__init__(dataset=dataset, schema=schema)
-        self._slots: dict[str, DataFrameCurator] = {}
+        self._slots: dict[str, PureDataFrameCurator] = {}
 
         # used for multimodal data structures (not AnnData)
         # in form of {table/modality_key: var_field}
@@ -324,7 +324,7 @@ class SlotsCurator(Curator):
 
     @property
     @doc_args(SLOTS_DOCSTRING)
-    def slots(self) -> dict[str, DataFrameCurator]:
+    def slots(self) -> dict[str, PureDataFrameCurator]:
         """{}"""  # noqa: D415
         return self._slots
 
@@ -399,40 +399,9 @@ class SlotsCurator(Curator):
 # Such an approach was never intended and there is room for a DictCurator in the future.
 # For more context, read https://laminlabs.slack.com/archives/C07DB677JF6/p1753994077716099 and
 # https://www.notion.so/laminlabs/Add-a-DictCurator-2422aeaa55e180b9a513f91d13970836
-class DataFrameCurator(SlotsCurator):
+class PureDataFrameCurator(Curator):
     # the example in the docstring is tested in test_curators_quickstart_example
-    """Curator for `DataFrame`.
-
-    Args:
-        dataset: The DataFrame-like object to validate & annotate.
-        schema: A :class:`~lamindb.Schema` object that defines the validation constraints.
-        slot: Indicate the slot in a composite curator for a composite data structure.
-
-    Examples:
-
-        For a simple example using a flexible schema, see :meth:`~lamindb.Artifact.from_df`.
-
-        Here is an example that enforces a minimal set of columns in the dataframe.
-
-        .. literalinclude:: scripts/curate_dataframe_minimal_errors.py
-            :language: python
-
-        Under-the-hood, this used the following schema.
-
-        .. literalinclude:: scripts/define_mini_immuno_schema_flexible.py
-            :language: python
-
-        Valid features & labels were defined as:
-
-        .. literalinclude:: scripts/define_mini_immuno_features_labels.py
-            :language: python
-
-        It is also possible to curate the `attrs` slot.
-        The columns of the dataframe itself must then be specified as the slot `df`.
-
-        .. literalinclude:: scripts/curate_dataframe_attrs.py
-            :language: python
-    """
+    """TODO internal."""
 
     def __init__(
         self,
@@ -441,35 +410,6 @@ class DataFrameCurator(SlotsCurator):
         slot: str | None = None,
     ) -> None:
         super().__init__(dataset=dataset, schema=schema)
-        self._slot = slot
-
-        # Handle composite schemas including attrs slots
-        if slot is None and schema.slots:
-            for slot_name, slot_schema in schema.slots.items():
-                if slot_name.startswith("attrs"):
-                    path_parts = slot_name.split(":")
-                    attrs_dict = getattr(self._dataset, "attrs", None)
-                    if attrs_dict is not None:
-                        if len(path_parts) == 1:
-                            data = attrs_dict
-                        else:
-                            deeper_keys = path_parts[1:]
-                            data = _resolve_schema_slot_path(
-                                attrs_dict, deeper_keys, slot_name, "attrs"
-                            )
-                        df = pd.DataFrame([data])
-                        self._slots[slot_name] = DataFrameCurator(
-                            df, slot_schema, slot=slot_name
-                        )
-                # In DataFrameCurator composite Schemas, the "df" slot defines the Schema for the main DataFrame columns
-                elif slot_name == "df":
-                    self._slots[slot_name] = DataFrameCurator(
-                        self._dataset, slot_schema, slot=slot_name
-                    )
-                else:
-                    raise ValueError(
-                        f"Slot '{slot_name}' is not supported for DataFrameCurator. Must be one of 'df' or 'attrs'."
-                    )
 
         categoricals = []
         features = []
@@ -578,11 +518,11 @@ class DataFrameCurator(SlotsCurator):
         # in the DataFrameCatManager, we use the
         # actual columns of the dataset, not the pandera columns
         # the pandera columns might have additional optional columns
-        columns_field = (
-            Feature.name
-            if schema.itype == "Composite"
-            else parse_cat_dtype(schema.itype, is_itype=True)["field"]
-        )
+        if schema.itype == "Composite":
+            # Use Feature.name as the columns field for composite schemas
+            columns_field = Feature.name
+        else:
+            columns_field = parse_cat_dtype(schema.itype, is_itype=True)["field"]
         self._cat_manager = DataFrameCatManager(
             self._dataset,
             columns_field=columns_field,
@@ -658,10 +598,6 @@ class DataFrameCurator(SlotsCurator):
     @doc_args(VALIDATE_DOCSTRING)
     def validate(self) -> None:
         """{}"""  # noqa: D415
-        if self._schema.itype == "Composite":
-            super().validate()
-            return
-
         if self._schema.n > 0:
             try:
                 # first validate through pandera
@@ -690,12 +626,6 @@ class DataFrameCurator(SlotsCurator):
         """{}"""  # noqa: D415
         if not self._is_validated:
             self.validate()  # raises ValidationError if doesn't validate
-
-        if self._schema.itype == "Composite":
-            super().save_artifact(
-                key=key, description=description, revises=revises, run=run
-            )
-
         if self._artifact is None:
             self._artifact = Artifact.from_dataframe(
                 self._dataset,
@@ -712,6 +642,147 @@ class DataFrameCurator(SlotsCurator):
             self._artifact,
             cat_vectors=self.cat._cat_vectors,
         )
+
+
+class DataFrameCurator(SlotsCurator):
+    """Curator for `DataFrame`.
+
+    Args:
+        dataset: The DataFrame-like object to validate & annotate.
+        schema: A :class:`~lamindb.Schema` object that defines the validation constraints.
+        slot: Indicate the slot in a composite curator for a composite data structure.
+
+    Examples:
+
+        For a simple example using a flexible schema, see :meth:`~lamindb.Artifact.from_df`.
+
+        Here is an example that enforces a minimal set of columns in the dataframe.
+
+        .. literalinclude:: scripts/curate_dataframe_minimal_errors.py
+            :language: python
+
+        Under-the-hood, this used the following schema.
+
+        .. literalinclude:: scripts/define_mini_immuno_schema_flexible.py
+            :language: python
+
+        Valid features & labels were defined as:
+
+        .. literalinclude:: scripts/define_mini_immuno_features_labels.py
+            :language: python
+
+         It is also possible to curate the `attrs` slot.
+
+        .. literalinclude:: scripts/curate_dataframe_attrs.py
+            :language: python
+    """
+
+    def __init__(
+        self,
+        dataset: pd.DataFrame | Artifact,
+        schema: Schema,
+        slot: str | None = None,
+    ) -> None:
+        super().__init__(dataset=dataset, schema=schema)
+
+        # Check if main schema is empty due to feature movement
+        main_schema = schema
+        skip_slot = None
+
+        if not schema.features.exists() and schema.slots:
+            # Find the auto-generated feature slot
+            for slot_name, slot_schema in schema.slots.items():
+                if slot_name.endswith("_schema"):
+                    main_schema = slot_schema
+                    skip_slot = slot_name
+                    break
+
+        # Always create atomic curator for the main DataFrame
+        self._pure_curator = PureDataFrameCurator(
+            dataset=self._dataset,
+            schema=main_schema,
+            slot=slot,
+        )
+
+        # Handle additional slots if present
+        if slot is None and schema.slots:
+            for slot_name, slot_schema in schema.slots.items():
+                if slot_name == skip_slot:
+                    continue
+                if slot_name.startswith("attrs"):
+                    path_parts = slot_name.split(":")
+                    attrs_dict = getattr(self._dataset, "attrs", None)
+                    if attrs_dict is not None:
+                        if len(path_parts) == 1:
+                            data = attrs_dict
+                        else:
+                            deeper_keys = path_parts[1:]
+                            data = _resolve_schema_slot_path(
+                                attrs_dict, deeper_keys, slot_name, "attrs"
+                            )
+                        df = pd.DataFrame([data])
+                        self._slots[slot_name] = PureDataFrameCurator(
+                            df, slot_schema, slot=slot_name
+                        )
+                elif slot_name.endswith("_schema") or slot_name == "features_schema":
+                    # Handle auto-generated feature schemas from schema.py logic
+                    # These represent the main DataFrame features moved to a slot
+                    self._slots[slot_name] = PureDataFrameCurator(
+                        self._dataset, slot_schema, slot=slot_name
+                    )
+                else:
+                    raise ValueError(
+                        f"Slot '{slot_name}' is not supported for DataFrameCurator. Must be 'attrs'."
+                    )
+
+    @property
+    def cat(self) -> DataFrameCatManager:
+        """Manage categoricals by updating registries."""
+        if hasattr(self, "_pure_curator"):
+            return self._pure_curator.cat
+        raise AttributeError("cat is only available for atomic DataFrameCurator")
+
+    def standardize(self) -> None:
+        """Standardize the dataset.
+
+        - Adds missing columns for features
+        - Fills missing values for features with default values
+        """
+        if hasattr(self, "_pure_curator"):
+            self._pure_curator.standardize()
+        else:
+            for slot_curator in self._slots.values():
+                slot_curator.standardize()
+
+    @doc_args(VALIDATE_DOCSTRING)
+    def validate(self) -> None:
+        """{}."""
+        if hasattr(self, "_pure_curator"):
+            self._pure_curator.validate()
+            self._is_validated = self._pure_curator._is_validated
+        if self._schema.itype == "Composite":
+            super().validate()
+
+    @doc_args(SAVE_ARTIFACT_DOCSTRING)
+    def save_artifact(
+        self, *, key=None, description=None, revises=None, run=None
+    ) -> Artifact:
+        """{}."""
+        if not self._is_validated:
+            self.validate()
+
+        if self._slots:
+            self._slots["columns"] = self._pure_curator
+            try:
+                return super().save_artifact(
+                    key=key, description=description, revises=revises, run=run
+                )
+            finally:
+                del self._slots["columns"]
+        else:
+            return self._pure_curator.save_artifact(
+                key=key, description=description, revises=revises, run=run
+            )
 
 
 def _resolve_schema_slot_path(
@@ -851,7 +922,7 @@ class AnnDataCurator(SlotsCurator):
                     )
                     else getattr(self._dataset, slot)
                 )
-            self._slots[slot] = DataFrameCurator(df, slot_schema, slot=slot)
+            self._slots[slot] = PureDataFrameCurator(df, slot_schema, slot=slot)
 
             # Handle var index naming for backward compat
             if slot == "var" and schema.slots["var"].itype not in {None, "Feature"}:
@@ -871,7 +942,7 @@ def _assign_var_fields_categoricals_multimodal(
     slot_schema: Schema,
     var_fields: dict[str, FieldAttr],
     cat_vectors: dict[str, dict[str, CatVector]],
-    slots: dict[str, DataFrameCurator],
+    slots: dict[str, PureDataFrameCurator],
 ) -> None:
     """Assigns var_fields and categoricals for multimodal data curators."""
     if modality is not None:
@@ -960,7 +1031,7 @@ class MuDataCurator(SlotsCurator):
             elif modality_slot == "var.T":
                 df = df.T
 
-            self._slots[slot] = DataFrameCurator(df, slot_schema, slot=slot)
+            self._slots[slot] = PureDataFrameCurator(df, slot_schema, slot=slot)
 
             _assign_var_fields_categoricals_multimodal(
                 modality=modality,
@@ -1051,7 +1122,7 @@ class SpatialDataCurator(SlotsCurator):
             elif table_slot == "var.T":
                 df = df.T
 
-            self._slots[slot] = DataFrameCurator(df, slot_schema, slot)
+            self._slots[slot] = PureDataFrameCurator(df, slot_schema, slot)
 
             _assign_var_fields_categoricals_multimodal(
                 modality=table_key,
@@ -1105,7 +1176,7 @@ class TiledbsomaExperimentCurator(SlotsCurator):
                     .drop("soma_joinid", axis=1, errors="ignore")
                 )
 
-                self._slots[slot] = DataFrameCurator(
+                self._slots[slot] = PureDataFrameCurator(
                     (schema_dataset.T if modality_slot == "var.T" else schema_dataset),
                     slot_schema,
                 )
@@ -1118,7 +1189,7 @@ class TiledbsomaExperimentCurator(SlotsCurator):
                     .to_pandas()
                     .drop(["soma_joinid", "obs_id"], axis=1, errors="ignore")
                 )
-                self._slots[slot] = DataFrameCurator(
+                self._slots[slot] = PureDataFrameCurator(
                     schema_dataset,
                     slot_schema,
                 )
