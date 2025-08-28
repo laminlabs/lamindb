@@ -106,8 +106,8 @@ def test_schema_from_df(df):
     ln.save(features)
     schema = ln.Schema.from_dataframe(df).save()
     assert schema.dtype is None
-    ln.Schema.filter().all().delete()
-    ln.Feature.filter().all().delete()
+    ln.Schema.filter().delete()
+    ln.Feature.filter().delete()
 
 
 def test_get_related_name():
