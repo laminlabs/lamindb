@@ -264,12 +264,14 @@ def save_context_core(
     if (
         is_run_from_ipython and notebook_runner != "nbconvert" and filepath.exists()
     ):  # python notebooks in interactive session
-        import nbproject
+        if is_ipynb:
+            # ignore this for py:percent notebooks
+            import nbproject
 
-        # it might be that the user modifies the title just before ln.finish()
-        if (nbproject_title := nbproject.meta.live.title) != transform.description:
-            transform.description = nbproject_title
-            transform.save()
+            # it might be that the user modifies the title just before ln.finish()
+            if (nbproject_title := nbproject.meta.live.title) != transform.description:
+                transform.description = nbproject_title
+                transform.save()
         if not ln_setup._TESTING:
             save_source_code_and_report = check_filepath_recently_saved(
                 filepath, is_retry
