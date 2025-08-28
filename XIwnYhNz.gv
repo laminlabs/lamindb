@@ -1,0 +1,8 @@
+digraph XIwnYhNz {
+	node [color="#065f46" fillcolor=honeydew fontname=Helvetica fontsize=10 shape=box style="rounded,filled"]
+	edge [arrowsize=0.5]
+	XIwnYhNz [label=" <label1<BR/><FONT COLOR=\"GREY\" POINT-SIZE=\"10\" FACE=\"Monospace\">uid=XIwnYhNz</FONT>>" fillcolor="#10b981"]
+	SvDIPC5G [label=<label2<BR/><FONT COLOR="GREY" POINT-SIZE="10" FACE="Monospace">uid=SvDIPC5G</FONT>>]
+	XIwnYhNz [label=<label1<BR/><FONT COLOR="GREY" POINT-SIZE="10" FACE="Monospace">uid=XIwnYhNz</FONT>>]
+	SvDIPC5G -> XIwnYhNz [color=dimgrey]
+}

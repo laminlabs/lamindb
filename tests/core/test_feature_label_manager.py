@@ -201,10 +201,10 @@ Here is how to create a feature:
     assert (
         error.exconly()
         == """\
-lamindb.errors.ValidationError: These values could not be validated: {'ULabel': ['Experiment 2', 'project_1', 'U0123'], 'bionty.CellType': ['T cell']}
+lamindb.errors.ValidationError: These values could not be validated: {'ULabel': ['project_1', 'U0123', 'Experiment 2'], 'bionty.CellType': ['T cell']}
 Here is how to create records for them:
 
-  records = ln.ULabel.from_values(['Experiment 2', 'project_1', 'U0123'], create=True).save()
+  records = ln.ULabel.from_values(['project_1', 'U0123', 'Experiment 2'], create=True).save()
   records = bionty.CellType.from_values(['T cell'], create=True).save()"""
     )
 
