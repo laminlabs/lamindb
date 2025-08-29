@@ -185,7 +185,6 @@ def install_ci(session, group):
                 session,
                 "uv pip install --system --no-deps ./sub/bionty",
             )
-    run(session, "uv pip install --system s3fs==2025.7.0 gcsfs==2025.7.0")
 
 
 @nox.session
