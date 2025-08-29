@@ -35,7 +35,7 @@ ListLike = Union[list[str], pd.Series, np.array]
 StrField = Union[str, FieldAttr]  # typing.TypeAlias
 
 TransformType = Literal[
-    "pipeline", "notebook", "upload", "script", "function", "linker"
+    "pipeline", "notebook", "upload", "script", "function", "linker", "executable"
 ]
 ArtifactKind = Literal["dataset", "model", "__lamindb_run__"]
 
