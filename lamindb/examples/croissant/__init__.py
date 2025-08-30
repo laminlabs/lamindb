@@ -1,6 +1,10 @@
-"""Example Croissant files.
+"""Examples for MLCommons Croissant files, which are used to store metadata about datasets.
 
-Examples for MLCommons Croissant files, which are used to store metadata about datasets.
+.. autosummary::
+   :toctree: .
+
+   mini_immuno
+
 """
 
 import json
