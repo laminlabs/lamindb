@@ -314,7 +314,7 @@ class SlotsCurator(Curator):
         schema: Schema,
     ) -> None:
         super().__init__(dataset=dataset, schema=schema)
-        self._slots: dict[str, _AtomicDataFrameCurator] = {}
+        self._slots: dict[str, AtomicDataFrameCurator] = {}
 
         # used for multimodal data structures (not AnnData)
         # in form of {table/modality_key: var_field}
@@ -324,7 +324,7 @@ class SlotsCurator(Curator):
 
     @property
     @doc_args(SLOTS_DOCSTRING)
-    def slots(self) -> dict[str, _AtomicDataFrameCurator]:
+    def slots(self) -> dict[str, AtomicDataFrameCurator]:
         """{}"""  # noqa: D415
         return self._slots
 
@@ -402,7 +402,7 @@ class SlotsCurator(Curator):
 # Such an approach was never intended and there is room for a DictCurator in the future.
 # For more context, read https://laminlabs.slack.com/archives/C07DB677JF6/p1753994077716099 and
 # https://www.notion.so/laminlabs/Add-a-DictCurator-2422aeaa55e180b9a513f91d13970836
-class _AtomicDataFrameCurator(Curator):
+class AtomicDataFrameCurator(Curator):
     """Curator for `DataFrame`.
 
     Internal class that is not user facing.
@@ -696,10 +696,8 @@ class DataFrameCurator(SlotsCurator):
     ) -> None:
         super().__init__(dataset=dataset, schema=schema)
 
-        # Check if main schema is empty due to feature movement
         main_schema = schema
         skip_slot = None
-
         if not schema.features.exists() and schema.slots:
             # Find the auto-generated feature slot
             for slot_name, slot_schema in schema.slots.items():
@@ -709,7 +707,7 @@ class DataFrameCurator(SlotsCurator):
                     break
 
         # Always create atomic curator for the main DataFrame
-        self._atomic_curator = _AtomicDataFrameCurator(
+        self._atomic_curator = AtomicDataFrameCurator(
             dataset=dataset,
             schema=main_schema,
             slot=slot,
@@ -732,11 +730,11 @@ class DataFrameCurator(SlotsCurator):
                                 attrs_dict, deeper_keys, slot_name, "attrs"
                             )
                         df = pd.DataFrame([data])
-                        self._slots[slot_name] = _AtomicDataFrameCurator(
+                        self._slots[slot_name] = AtomicDataFrameCurator(
                             df, slot_schema, slot=slot_name
                         )
                 elif slot_name == "columns" or slot_name.startswith("__external"):
-                    self._slots[slot_name] = _AtomicDataFrameCurator(
+                    self._slots[slot_name] = AtomicDataFrameCurator(
                         self._dataset, slot_schema, slot=slot_name
                     )
                 else:
@@ -749,7 +747,7 @@ class DataFrameCurator(SlotsCurator):
         """Manage categoricals by updating registries."""
         if hasattr(self, "_atomic_curator"):
             return self._atomic_curator.cat
-        raise AttributeError("cat is only available for atomic DataFrameCurator")
+        raise AttributeError("cat is only available for slots DataFrameCurator")
 
     def standardize(self) -> None:
         """Standardize the dataset.
@@ -931,7 +929,7 @@ class AnnDataCurator(SlotsCurator):
                     )
                     else getattr(self._dataset, slot)
                 )
-            self._slots[slot] = _AtomicDataFrameCurator(df, slot_schema, slot=slot)
+            self._slots[slot] = AtomicDataFrameCurator(df, slot_schema, slot=slot)
 
             # Handle var index naming for backward compat
             if slot == "var" and schema.slots["var"].itype not in {None, "Feature"}:
@@ -951,7 +949,7 @@ def _assign_var_fields_categoricals_multimodal(
     slot_schema: Schema,
     var_fields: dict[str, FieldAttr],
     cat_vectors: dict[str, dict[str, CatVector]],
-    slots: dict[str, _AtomicDataFrameCurator],
+    slots: dict[str, AtomicDataFrameCurator],
 ) -> None:
     """Assigns var_fields and categoricals for multimodal data curators."""
     if modality is not None:
@@ -1040,7 +1038,7 @@ class MuDataCurator(SlotsCurator):
             elif modality_slot == "var.T":
                 df = df.T
 
-            self._slots[slot] = _AtomicDataFrameCurator(df, slot_schema, slot=slot)
+            self._slots[slot] = AtomicDataFrameCurator(df, slot_schema, slot=slot)
 
             _assign_var_fields_categoricals_multimodal(
                 modality=modality,
@@ -1131,7 +1129,7 @@ class SpatialDataCurator(SlotsCurator):
             elif table_slot == "var.T":
                 df = df.T
 
-            self._slots[slot] = _AtomicDataFrameCurator(df, slot_schema, slot)
+            self._slots[slot] = AtomicDataFrameCurator(df, slot_schema, slot)
 
             _assign_var_fields_categoricals_multimodal(
                 modality=table_key,
@@ -1185,7 +1183,7 @@ class TiledbsomaExperimentCurator(SlotsCurator):
                     .drop("soma_joinid", axis=1, errors="ignore")
                 )
 
-                self._slots[slot] = _AtomicDataFrameCurator(
+                self._slots[slot] = AtomicDataFrameCurator(
                     (schema_dataset.T if modality_slot == "var.T" else schema_dataset),
                     slot_schema,
                 )
@@ -1198,7 +1196,7 @@ class TiledbsomaExperimentCurator(SlotsCurator):
                     .to_pandas()
                     .drop(["soma_joinid", "obs_id"], axis=1, errors="ignore")
                 )
-                self._slots[slot] = _AtomicDataFrameCurator(
+                self._slots[slot] = AtomicDataFrameCurator(
                     schema_dataset,
                     slot_schema,
                 )
