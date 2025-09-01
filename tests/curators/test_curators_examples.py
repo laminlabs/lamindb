@@ -344,7 +344,7 @@ def test_dataframe_attrs_validation(uns_study_metadata):
 
     curator = ln.curators.DataFrameCurator(df, schema=schema)
 
-    assert curator.slots["attrs"].__class__.__name__ == "PureDataFrameCurator"
+    assert curator.slots["attrs"].__class__.__name__ == "_AtomicDataFrameCurator"
 
     curator.validate()
     artifact = curator.save_artifact(key="examples/df_with_attrs.parquet")
@@ -500,11 +500,11 @@ def test_anndata_curator_different_components(small_dataset1_schema: ln.Schema):
 
         adata = datasets.small_dataset1(otype="AnnData")
         curator = ln.curators.AnnDataCurator(adata, anndata_schema)
-        assert curator.slots["var.T"].__class__.__name__ == "PureDataFrameCurator"
+        assert curator.slots["var.T"].__class__.__name__ == "_AtomicDataFrameCurator"
         if add_comp == "obs":
-            assert curator.slots["obs"].__class__.__name__ == "PureDataFrameCurator"
+            assert curator.slots["obs"].__class__.__name__ == "_AtomicDataFrameCurator"
         if add_comp == "uns":
-            assert curator.slots["uns"].__class__.__name__ == "PureDataFrameCurator"
+            assert curator.slots["uns"].__class__.__name__ == "_AtomicDataFrameCurator"
 
         artifact = ln.Artifact.from_anndata(
             adata, key="examples/dataset1.h5ad", schema=anndata_schema
@@ -648,7 +648,8 @@ def test_anndata_curator_nested_uns(uns_study_metadata):
 
     curator = ln.curators.AnnDataCurator(adata, anndata_schema)
     assert (
-        curator.slots["uns:study_metadata"].__class__.__name__ == "PureDataFrameCurator"
+        curator.slots["uns:study_metadata"].__class__.__name__
+        == "_AtomicDataFrameCurator"
     )
 
     curator.validate()
@@ -778,11 +779,12 @@ def test_mudata_curator_nested_uns(uns_study_metadata):
 
     curator = ln.curators.MuDataCurator(mdata, mdata_schema)
     assert (
-        curator.slots["uns:study_metadata"].__class__.__name__ == "PureDataFrameCurator"
+        curator.slots["uns:study_metadata"].__class__.__name__
+        == "_AtomicDataFrameCurator"
     )
     assert (
         curator.slots["rna:uns:site_metadata"].__class__.__name__
-        == "PureDataFrameCurator"
+        == "_AtomicDataFrameCurator"
     )
 
     curator.validate()

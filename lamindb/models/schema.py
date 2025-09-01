@@ -578,11 +578,24 @@ class Schema(SQLRecord, CanCurate, TracksRun):
                 self.optionals.set(optional_features)
                 return None
         self._slots: dict[str, Schema] = {}
-        # if both features and a schema are provided, we use a slot for a new schema of the features
+        # if both features and a schema are provided, we store a new schema of the features in a slot
         if features and slots:
-            main_schema = Schema(features=features).save()
-            slot_name = f"__external_{name}__" if name else "__external__"
-            slots[slot_name] = main_schema
+            schema = Schema(features=features).save()
+            # Use "columns" when the main features represent DataFrame structure:
+            # - It's a DataFrame schema
+            # - The slots are purely metadata (attrs, uns) not data structure
+            # Use "__external__" when the main features are external annotations/metadata
+            metadata_only_slots = {"attrs", "uns"}  # slots that are pure metadata
+            slot_names = set(slots.keys())
+            if (
+                otype == "DataFrame"
+                and slot_names.issubset(metadata_only_slots)
+                and len(slot_names) > 0
+            ):
+                slot_name = "columns"
+            else:
+                slot_name = f"__external_{name}__" if name else "__external__"
+            slots[slot_name] = schema
             features = []
 
         if features:
