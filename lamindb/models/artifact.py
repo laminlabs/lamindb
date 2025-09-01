@@ -1219,9 +1219,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
         Features may or may not be part of the dataset, i.e., the artifact content in storage. For
         instance, the :class:`~lamindb.curators.DataFrameCurator` flow validates the columns of a
-        `DataFrame`-like artifact and annotates it with features corresponding to
-        these columns. `artifact.features.add_values`, by contrast, does not
-        validate the content of the artifact.
+        `DataFrame`-like artifact and annotates it with features corresponding to these columns.
+        `artifact.features.add_values`, by contrast, does not validate the content of the artifact.
 
         .. dropdown:: An example for a model-like artifact
 
@@ -1445,15 +1444,46 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         # now proceed with the user-facing constructor
         if len(args) > 1:
             raise ValueError("Only one non-keyword arg allowed: data")
+
         data: str | Path = kwargs.pop("data") if len(args) == 0 else args[0]
         kind: str = kwargs.pop("kind", None)
         key: str | None = kwargs.pop("key", None)
         run_id: int | None = kwargs.pop("run_id", None)  # for REST API
         run: Run | None = kwargs.pop("run", None)
+        using_key = kwargs.pop("using_key", None)
         description: str | None = kwargs.pop("description", None)
         revises: Artifact | None = kwargs.pop("revises", None)
         overwrite_versions: bool | None = kwargs.pop("overwrite_versions", None)
         version: str | None = kwargs.pop("version", None)
+
+        features: dict[str, Any] = kwargs.pop("features", None)
+        schema: Schema | None = kwargs.pop("schema", None)
+        if features is not None and schema is not None:
+            from lamindb.curators import DataFrameCurator
+
+            temp_df = pd.DataFrame([features])
+            validation_schema = schema
+            if schema.itype == "Composite" and schema.slots:
+                if len(schema.slots) > 1:
+                    raise ValueError(
+                        f"Composite schema has {len(schema.slots)} slots. "
+                        "External feature validation only supports schemas with a single slot."
+                    )
+                try:
+                    validation_schema = next(
+                        k for k in schema.slots.keys() if k.startswith("__external")
+                    )
+                except StopIteration:
+                    raise ValueError(
+                        "External feature validation requires a slot that starts with __external."
+                    ) from None
+
+            external_curator = DataFrameCurator(temp_df, validation_schema)
+            external_curator.validate()
+            external_curator._artifact = self
+
+            self._external_features = features
+
         branch_id: int | None = None
         if "visibility" in kwargs:  # backward compat
             branch_id = kwargs.pop("visibility")
@@ -1464,6 +1494,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         else:
             branch_id = 1
         branch = kwargs.pop("branch", None)
+
         space = kwargs.pop("space", None)
         assert "space_id" not in kwargs, "please pass space instead"  # noqa: S101
         format = kwargs.pop("format", None)
@@ -1498,7 +1529,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 logger.warning(
                     f"more than one storage location for space {space}, choosing {storage}"
                 )
-        using_key = kwargs.pop("using_key", None)
         otype = kwargs.pop("otype") if "otype" in kwargs else None
         if isinstance(data, str) and data.startswith("s3:///"):
             # issue in Groovy / nf-lamin producing malformed S3 paths
@@ -1539,6 +1569,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 )
         else:
             is_automanaged_path = False
+
         provisional_uid, revises = create_uid(revises=revises, version=version)
         kwargs_or_artifact, privates = get_artifact_kwargs_from_data(
             data=data,
@@ -1596,7 +1627,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                     uid, revises = create_uid(revises=revises, version=version)
             kwargs["uid"] = uid
 
-        # only set key now so that we don't do a look-up on it in case revises is passed
+        # only set key now so that we don't perform a look-up on it in case revises is passed
         if revises is not None and revises.key is not None and kwargs["key"] is None:
             kwargs["key"] = revises.key
 
@@ -1798,6 +1829,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         run: Run | None = None,
         revises: Artifact | None = None,
         schema: Schema | None = None,
+        features: dict[str, Any] | None = None,
         **kwargs,
     ) -> Artifact:
         """Create from `DataFrame`, optionally validate & annotate.
@@ -1810,6 +1842,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             revises: An old version of the artifact.
             run: The run that creates the artifact.
             schema: A schema that defines how to validate & annotate.
+            features: External features dict for additional annotation.
 
         See Also:
             :meth:`~lamindb.Collection`
@@ -1853,6 +1886,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             **kwargs,
         )
         artifact.n_observations = len(df)
+
         if schema is not None:
             from ..curators import DataFrameCurator
 
@@ -1863,10 +1897,31 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 )
                 return artifact
 
-            curator = DataFrameCurator(artifact, schema)
-            curator.validate()
-            artifact.schema = schema
-            artifact._curator = curator
+            # Handle external features validation for Composite schemas
+            if schema.itype == "Composite" and features is not None:
+                try:
+                    external_slot = next(
+                        k for k in schema.slots.keys() if "external" in k
+                    )
+                    validation_schema = schema.slots[external_slot]
+                except StopIteration:
+                    raise ValueError(
+                        "External feature validation requires a slot that starts with __external."
+                    ) from None
+
+                external_curator = DataFrameCurator(
+                    pd.DataFrame([features]), validation_schema
+                )
+                external_curator.validate()
+                artifact._external_features = features
+
+            # Validate main DataFrame if not Composite or if Composite has attrs
+            if schema.itype != "Composite" or "attrs" in schema.slots:
+                curator = DataFrameCurator(artifact, schema)
+                curator.validate()
+                artifact.schema = schema
+                artifact._curator = curator
+
         return artifact
 
     @classmethod
@@ -2811,11 +2866,20 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 local_path_cache,
             )
             logger.important(f"moved local artifact to cache: {local_path_cache}")
+
+        # Handle external features
+        if hasattr(self, "_external_features"):
+            external_features = self._external_features
+            delattr(self, "_external_features")
+            self.features.add_values(external_features)
+
+        # annotate Artifact
         if hasattr(self, "_curator"):
             curator = self._curator
             delattr(self, "_curator")
             # just annotates this artifact
             curator.save_artifact()
+
         return self
 
     def restore(self) -> None:
