@@ -23,6 +23,9 @@ def curate_from_croissant(
 
         ::
 
+            croissant_path, dataset1_path = ln.examples.croissant.mini_immuno()
+            with open(croissant_path) as f:
+                dictionary = json.load(f)
             artifact = ln.integrations.curate_from_croissant("dataset_metadata.json")
     """
     import lamindb as ln
