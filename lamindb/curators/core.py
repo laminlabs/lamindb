@@ -264,6 +264,12 @@ class Curator:
 
         cls_name = colors.green(self.__class__.__name__)
 
+        # Hide AtomicDataFrameCurator implementation detail
+        if self.__class__.__name__ == "AtomicDataFrameCurator":
+            cls_name = colors.green("DataFrameCurator")
+        else:
+            cls_name = colors.green(self.__class__.__name__)
+
         # Get additional info based on curator type
         extra_info = ""
         if hasattr(self, "_slots") and self._slots:
@@ -1701,6 +1707,30 @@ class DataFrameCatManager:
     def categoricals(self) -> list[Feature]:
         """The categorical features."""
         return self._categoricals
+
+    def __repr__(self) -> str:
+        cls_name = colors.green(self.__class__.__name__)
+
+        status_str = (
+            f"{colors.green('validated')}"
+            if self._is_validated
+            else f"{colors.yellow('unvalidated')}"
+        )
+
+        info_parts = []
+
+        cat_count = len(self._categoricals)
+        if cat_count > 0:
+            info_parts.append(f"categorical_features={cat_count}")
+
+        if self._slot:
+            info_parts.append(f"slot: {colors.italic(self._slot)}")
+
+        info_str = ", ".join(info_parts)
+        if info_str:
+            return f"{cls_name}({info_str}, {status_str})"
+        else:
+            return f"{cls_name}({status_str})"
 
     def lookup(self, public: bool = False) -> CatLookup:
         """Lookup categories.
