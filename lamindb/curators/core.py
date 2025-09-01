@@ -147,6 +147,7 @@ CAT_MANAGER_DOCSTRING = """Manage categoricals by updating registries."""
 
 SLOTS_DOCSTRING = """Access sub curators by slot."""
 
+SLOTS_DETAILS_DOCSTRING = """Uses **slots** to specify which compartment contains each feature set. Slots are keys that identify where specific features and their values are stored within composite data structures, enabling validation of features that exist in different locations within a single schema."""
 
 VALIDATE_DOCSTRING = """Validate dataset against Schema.
 
@@ -300,8 +301,11 @@ class Curator:
         )
 
 
+@doc_args(SLOTS_DETAILS_DOCSTRING)
 class SlotsCurator(Curator):
     """Curator for a dataset with slots.
+
+    {}
 
     Args:
         dataset: The dataset to validate & annotate.
@@ -755,8 +759,11 @@ def _handle_dict_slots(
     return None, None, None
 
 
+@doc_args(SLOTS_DETAILS_DOCSTRING)
 class AnnDataCurator(SlotsCurator):
     """Curator for `AnnData`.
+
+    {}
 
     Args:
         dataset: The AnnData-like object to validate & annotate.
@@ -844,8 +851,11 @@ def _assign_var_fields_categoricals_multimodal(
             cat_vectors[modality] = obs_fields
 
 
+@doc_args(SLOTS_DETAILS_DOCSTRING)
 class MuDataCurator(SlotsCurator):
     """Curator for `MuData`.
+
+    {}
 
     Args:
         dataset: The MuData-like object to validate & annotate.
@@ -924,8 +934,11 @@ class MuDataCurator(SlotsCurator):
         self._columns_field = self._var_fields
 
 
+@doc_args(SLOTS_DETAILS_DOCSTRING)
 class SpatialDataCurator(SlotsCurator):
     """Curator for `SpatialData`.
+
+    {}
 
     Args:
         dataset: The SpatialData-like object to validate & annotate.
@@ -1015,8 +1028,11 @@ class SpatialDataCurator(SlotsCurator):
         self._columns_field = self._var_fields
 
 
+@doc_args(SLOTS_DETAILS_DOCSTRING)
 class TiledbsomaExperimentCurator(SlotsCurator):
     """Curator for `tiledbsoma.Experiment`.
+
+    {}
 
     Args:
         dataset: The `tiledbsoma.Experiment` object.
