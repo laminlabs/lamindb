@@ -1469,7 +1469,14 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                         f"Composite schema has {len(schema.slots)} slots. "
                         "External feature validation only supports schemas with a single slot."
                     )
-                validation_schema = next(iter(schema.slots.values()))
+                try:
+                    validation_schema = next(
+                        k for k in schema.slots.keys() if k.startswith("__external")
+                    )
+                except StopIteration:
+                    raise ValueError(
+                        "External feature validation requires a slot that starts with __external."
+                    ) from None
 
             external_curator = DataFrameCurator(temp_df, validation_schema)
             external_curator.validate()
@@ -1890,16 +1897,26 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 )
                 return artifact
 
+            # Handle external features validation for Composite schemas
             if schema.itype == "Composite" and features is not None:
-                if schema is not None and schema.itype == "Composite":
-                    validation_schema = next(iter(schema.slots.values()))
-                    temp_df = pd.DataFrame([features])
-                    external_curator = DataFrameCurator(temp_df, validation_schema)
-                    external_curator.validate()
+                try:
+                    external_slot = next(
+                        k for k in schema.slots.keys() if "external" in k
+                    )
+                    validation_schema = schema.slots[external_slot]
+                except StopIteration:
+                    raise ValueError(
+                        "External feature validation requires a slot that starts with __external."
+                    ) from None
 
+                external_curator = DataFrameCurator(
+                    pd.DataFrame([features]), validation_schema
+                )
+                external_curator.validate()
                 artifact._external_features = features
-            else:
-                # Regular schema means DataFrame validation
+
+            # Validate main DataFrame if not Composite or if Composite has attrs
+            if schema.itype != "Composite" or "attrs" in schema.slots:
                 curator = DataFrameCurator(artifact, schema)
                 curator.validate()
                 artifact.schema = schema

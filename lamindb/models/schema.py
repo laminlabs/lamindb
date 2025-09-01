@@ -578,10 +578,11 @@ class Schema(SQLRecord, CanCurate, TracksRun):
                 self.optionals.set(optional_features)
                 return None
         self._slots: dict[str, Schema] = {}
-        # if both features and a schema are provided, we use an internal slot for a new schema of the features
+        # if both features and a schema are provided, we use a slot for a new schema of the features
         if features and slots:
             main_schema = Schema(features=features).save()
-            slots["__features__"] = main_schema
+            slot_name = f"__external_{name}__" if name else "__external__"
+            slots[slot_name] = main_schema
             features = []
 
         if features:
