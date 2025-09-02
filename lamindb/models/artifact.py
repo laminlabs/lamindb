@@ -1901,7 +1901,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             if schema.itype == "Composite" and features is not None:
                 try:
                     external_slot = next(
-                        k for k in schema.slots.keys() if "external" in k
+                        k for k in schema.slots.keys() if "__external__" in k
                     )
                     validation_schema = schema.slots[external_slot]
                 except StopIteration:
@@ -1909,6 +1909,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                         "External feature validation requires a slot that starts with __external."
                     ) from None
 
+                print(validation_schema.describe())
                 external_curator = DataFrameCurator(
                     pd.DataFrame([features]), validation_schema
                 )

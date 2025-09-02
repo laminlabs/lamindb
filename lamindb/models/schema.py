@@ -578,26 +578,22 @@ class Schema(SQLRecord, CanCurate, TracksRun):
                 self.optionals.set(optional_features)
                 return None
         self._slots: dict[str, Schema] = {}
-        # if both features and a schema are provided, we use a slot for a new schema of the features
-        if features and slots:
-            main_schema = Schema(features=features).save()
-            slot_name = f"__external_{name}__" if name else "__external__"
-            slots[slot_name] = main_schema
-            features = []
 
         if features:
             self._features = (get_related_name(features_registry), features)  # type: ignore
-        elif slots:
+        if slots:
             for slot_key, component in slots.items():
                 if component._state.adding:
                     raise InvalidArgument(
                         f"schema for {slot_key} {component} must be saved before use"
                     )
             self._slots = slots
+
         if validated_kwargs["hash"] in KNOWN_SCHEMAS:
             validated_kwargs["uid"] = KNOWN_SCHEMAS[validated_kwargs["hash"]]
         else:
             validated_kwargs["uid"] = ids.base62_16()
+
         super().__init__(**validated_kwargs)
 
     def _validate_kwargs_calculate_hash(
@@ -912,7 +908,7 @@ class Schema(SQLRecord, CanCurate, TracksRun):
         return cls.from_dataframe(df, field, name, mute, organism, source)
 
     def save(self, *args, **kwargs) -> Schema:
-        """Save."""
+        """Save schema."""
         from .save import bulk_create
 
         if self.pk is not None:
@@ -969,6 +965,38 @@ class Schema(SQLRecord, CanCurate, TracksRun):
             assert self.n > 0  # noqa: S101
             using: bool | None = kwargs.pop("using", None)
             related_name, records = self._features
+
+            # Handle composite schemas with features differently
+            if self.itype == "Composite":
+                # For composite schemas, store features directly via SchemaFeature
+                links = [
+                    SchemaFeature(**{"schema_id": self.id, "feature_id": record.id})
+                    for record in records
+                ]
+                SchemaFeature.objects.using(using).bulk_create(
+                    links, ignore_conflicts=True
+                )
+            else:
+                # Original logic for non-composite schemas
+                through_model = getattr(self, related_name).through
+                related_model_split = parse_cat_dtype(self.itype, is_itype=True)[
+                    "registry_str"
+                ].split(".")
+                if len(related_model_split) == 1:
+                    related_field = related_model_split[0].lower()
+                else:
+                    related_field = related_model_split[1].lower()
+                related_field_id = f"{related_field}_id"
+                links = [
+                    through_model(**{"schema_id": self.id, related_field_id: record.id})
+                    for record in records
+                ]
+                through_model.objects.using(using).bulk_create(
+                    links, ignore_conflicts=True
+                )
+            delattr(self, "_features")
+
+            """
             # only the following method preserves the order
             # .set() does not preserve the order but orders by
             # the feature primary key
@@ -987,6 +1015,7 @@ class Schema(SQLRecord, CanCurate, TracksRun):
             ]
             through_model.objects.using(using).bulk_create(links, ignore_conflicts=True)
             delattr(self, "_features")
+            """
         return self
 
     @property
