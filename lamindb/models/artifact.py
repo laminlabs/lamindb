@@ -1052,6 +1052,24 @@ def delete_permanently(artifact: Artifact, storage: bool, using_key: str):
             logger.success(f"deleted {colors.yellow(f'{path}')}")
 
 
+class LazyArtifact:
+    def __init__(self, suffix: str, overwrite_versions: bool, **kwargs):
+        self.kwargs = kwargs
+        self.kwargs["overwrite_versions"] = overwrite_versions
+
+        uid, _ = create_uid(n_full_id=20)
+        storage_key = auto_storage_key_from_artifact_uid(
+            uid, suffix, overwrite_versions=overwrite_versions
+        )
+        storepath = setup_settings.storage.root / storage_key
+
+        self.path = storepath
+
+    def save(self, upload: bool | None = None, **kwargs) -> Artifact:
+        artifact = Artifact(self.path, _is_internal_call=True, **self.kwargs)
+        return artifact.save(upload=upload, **kwargs)
+
+
 class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     # Note that this docstring has to be consistent with Curator.save_artifact()
     """Datasets & models stored as files, folders, or arrays.
@@ -1651,6 +1669,18 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             raise ValueError("Pass one of key, run or description as a parameter")
 
         super().__init__(**kwargs)
+
+    @staticmethod
+    def lazy_artifact(
+        suffix: str,
+        overwrite_versions: bool,
+        key: str | None = None,
+        description: str | None = None,
+        run: Run | None = None,
+        **kwargs,
+    ) -> LazyArtifact:
+        args = {"key": key, "description": description, "run": run, **kwargs}
+        return LazyArtifact(suffix, overwrite_versions, **args)
 
     @property
     @deprecated("kind")
