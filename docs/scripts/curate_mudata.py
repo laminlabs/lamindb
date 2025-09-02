@@ -1,7 +1,7 @@
 import lamindb as ln
 import bionty as bt
 
-from .define_unstructured_schema import study_metadata_schema
+from define_unstructured_schema import study_metadata_schema
 
 
 # define the global obs schema
