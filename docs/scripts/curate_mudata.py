@@ -1,6 +1,8 @@
 import lamindb as ln
 import bionty as bt
 
+from .define_unstructured_schema import study_metadata_schema
+
 
 # define the global obs schema
 obs_schema = ln.Schema(
@@ -47,11 +49,16 @@ mudata_schema = ln.Schema(
         "rna:obs": obs_schema_rna,
         "hto:obs": obs_schema_hto,
         "rna:var": var_schema_rna,
+        "rna:uns:study_metadata": study_metadata_schema,
     },
 ).save()
 
 # curate a MuData
 mdata = ln.core.datasets.mudata_papalexi21_subset()
+mdata["rna"].uns["study_metadata"] = {
+    "temperature": 21.6,
+    "experiment_id": "EXP001",
+}
 bt.settings.organism = "human"  # set the organism to map gene symbols
 curator = ln.curators.MuDataCurator(mdata, mudata_schema)
 artifact = curator.save_artifact(key="examples/mudata_papalexi21_subset.h5mu")
