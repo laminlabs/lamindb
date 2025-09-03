@@ -273,6 +273,23 @@ def test_anndata_open_mode():
     artifact.delete(permanent=True, storage=True)
 
 
+def test_lazy_artifact():
+    lazy = ln.Artifact.lazy_artifact(
+        suffix=".zarr", overwrite_versions=True, key="mydata.zarr"
+    )
+
+    store = zarr.open(lazy.path, mode="w")
+    store["test"] = np.array(["test"])
+
+    artifact = lazy.save()
+    assert ".lamindb" in artifact.path.as_posix()
+
+    access = artifact.open()
+    assert access.storage["test"][...] == "test"
+
+    artifact.delete(permanent=True, storage=True)
+
+
 @pytest.mark.parametrize("storage", [None, "s3://lamindb-test/storage"])
 def test_write_read_tiledbsoma(storage):
     if storage is not None:
