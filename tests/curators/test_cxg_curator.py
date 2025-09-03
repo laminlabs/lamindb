@@ -6,12 +6,14 @@ from lamindb.examples.cellxgene._cellxgene import CELLxGENESchemaVersions
 
 @pytest.fixture
 def cxg_schema_factory():
-    def _create_schema(version: CELLxGENESchemaVersions, **kwargs):
-        ln.examples.cellxgene.save_cxg_defaults()
-        schema = ln.examples.cellxgene.get_cxg_schema(schema_version=version, **kwargs)
+    def create_schema(version: CELLxGENESchemaVersions, **kwargs):
+        ln.examples.cellxgene.save_cellxgene_defaults()
+        schema = ln.examples.cellxgene.create_cellxgene_schema(
+            schema_version=version, **kwargs
+        )
         return schema
 
-    yield _create_schema
+    yield create_schema
 
     # Cleanup after all tests
     ln.models.SchemaComponent.filter().delete()
@@ -90,7 +92,7 @@ def test_cxg_curator_5(cxg_schema_factory):
 
 
 def test_cxg_curator_6_spatial(cxg_schema_factory):
-    """Tests organism (in `uns` as of 6.x) and spatial slot validation of CxG 6.x."""
+    """Tests organism (in `uns` as of 6.x) and spatial slot validation of CELLxGENE 6.x."""
     cxg_schema = cxg_schema_factory(
         "6.0.0", spatial_library_id="library_123", field_types="ontology_id"
     )

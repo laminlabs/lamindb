@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Collection, Literal, NamedTuple
 
 import pandas as pd
+from lamindb_setup.core import deprecated
 from lamindb_setup.core.upath import UPath
 from packaging import version
 
@@ -25,7 +26,12 @@ CELLxGENEOrganisms = Literal[
 FieldType = Literal["ontology_id", "name"]
 
 
+@deprecated(new_name="save_cellxgene_defaults")
 def save_cxg_defaults() -> None:
+    return save_cxg_defaults()
+
+
+def save_cellxgene_defaults() -> None:
     """Save default values of the CELLxGENE schema to the instance.
 
     Adds CELLxGENE specific (control) values that are not available in the ontologies:
@@ -103,7 +109,7 @@ def save_cxg_defaults() -> None:
         ).save()
 
 
-def _create_cxg_sources(
+def _create_cellxgene_sources(
     categoricals: dict[str, FieldAttr], schema_version: str, organism: str
 ) -> dict[str, SQLRecord]:
     """Create a source dictionary of CELLxGENE categoricals to Source."""
@@ -131,7 +137,7 @@ def _create_cxg_sources(
                 )
             return source
 
-    sources_df = pd.read_csv(UPath(__file__).parent / "cxg_schema_versions.csv")
+    sources_df = pd.read_csv(UPath(__file__).parent / "cellxgene_schema_versions.csv")
     sources_df = sources_df[sources_df.schema_version == schema_version]
     if sources_df.empty:
         raise ValueError(
@@ -152,7 +158,23 @@ def _create_cxg_sources(
     return key_to_source
 
 
+@deprecated(new_name="create_cellxgene_schema")
 def get_cxg_schema(
+    schema_version: CELLxGENESchemaVersions,
+    *,
+    field_types: FieldType | Collection[FieldType] = "ontology_id",
+    organism: CELLxGENEOrganisms = "human",
+    spatial_library_id: str | None = None,
+) -> Schema:
+    return create_cellxgene_schema(
+        schema_version,
+        field_types=field_types,
+        organism=organism,
+        spatial_library_id=spatial_library_id,
+    )
+
+
+def create_cellxgene_schema(
     schema_version: CELLxGENESchemaVersions,
     *,
     field_types: FieldType | Collection[FieldType] = "ontology_id",
@@ -234,7 +256,7 @@ def get_cxg_schema(
     else:
         obs_categoricals = categoricals
 
-    sources = _create_cxg_sources(
+    sources = _create_cellxgene_sources(
         categoricals=categoricals,
         schema_version=schema_version,
         organism=organism,
@@ -312,8 +334,14 @@ def get_cxg_schema(
             ).save()
 
             spatial_schema = Schema(
-                name="spatial metadata",
-                features=[Feature(name="is_single", dtype=bool).save()],
+                name="CELLxGENE spatial metadata",
+                features=[
+                    Feature(
+                        name="is_single",
+                        dtype=bool,
+                        description="True if dataset represents single spatial unit (tissue section for Visium, array for Slide-seqV2)",
+                    ).save()
+                ],
             ).save()
 
             slots["uns:spatial"] = spatial_schema

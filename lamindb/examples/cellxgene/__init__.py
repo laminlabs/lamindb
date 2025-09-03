@@ -3,9 +3,9 @@
 .. autosummary::
    :toctree: .
 
-   save_cxg_defaults
-   get_cxg_schema
+   save_cellxgene_defaults
+   create_cellxgene_schema
 
 """
 
-from ._cellxgene import get_cxg_schema, save_cxg_defaults
+from ._cellxgene import create_cellxgene_schema, save_cellxgene_defaults
