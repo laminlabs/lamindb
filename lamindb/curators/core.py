@@ -147,7 +147,7 @@ CAT_MANAGER_DOCSTRING = """Manage categoricals by updating registries."""
 
 SLOTS_DOCSTRING = """Access sub curators by slot."""
 
-SLOTS_DETAILS_DOCSTRING = """Uses **slots** to specify which compartment contains each feature set. Slots are keys that identify where specific features and their values are stored within composite data structures, enabling validation of features that exist in different locations within a single schema."""
+SLOTS_DETAILS_DOCSTRING = """Uses **slots** to specify which component contains which schema. Slots are keys that identify where features are stored within composite data structures."""
 
 VALIDATE_DOCSTRING = """Validate dataset against Schema.
 
