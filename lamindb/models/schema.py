@@ -966,34 +966,25 @@ class Schema(SQLRecord, CanCurate, TracksRun):
             using: bool | None = kwargs.pop("using", None)
             related_name, records = self._features
 
-            # For composite schemas, store features directly via SchemaFeature
+            # .set() does not preserve the order but orders by the feature primary key
+            # only the following method preserves the order
+            through_model = getattr(self, related_name).through
             if self.itype == "Composite":
-                links = [
-                    SchemaFeature(**{"schema_id": self.id, "feature_id": record.id})
-                    for record in records
-                ]
-                SchemaFeature.objects.using(using).bulk_create(
-                    links, ignore_conflicts=True
-                )
+                related_model_split = ["Feature"]
             else:
-                # .set() does not preserve the order but orders by the feature primary key
-                # only the following method preserves the order
-                through_model = getattr(self, related_name).through
                 related_model_split = parse_cat_dtype(self.itype, is_itype=True)[
                     "registry_str"
                 ].split(".")
-                if len(related_model_split) == 1:
-                    related_field = related_model_split[0].lower()
-                else:
-                    related_field = related_model_split[1].lower()
-                related_field_id = f"{related_field}_id"
-                links = [
-                    through_model(**{"schema_id": self.id, related_field_id: record.id})
-                    for record in records
-                ]
-                through_model.objects.using(using).bulk_create(
-                    links, ignore_conflicts=True
-                )
+            if len(related_model_split) == 1:
+                related_field = related_model_split[0].lower()
+            else:
+                related_field = related_model_split[1].lower()
+            related_field_id = f"{related_field}_id"
+            links = [
+                through_model(**{"schema_id": self.id, related_field_id: record.id})
+                for record in records
+            ]
+            through_model.objects.using(using).bulk_create(links, ignore_conflicts=True)
             delattr(self, "_features")
 
         return self

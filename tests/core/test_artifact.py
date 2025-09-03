@@ -52,8 +52,7 @@ from lamindb_setup.core.upath import (
 )
 
 # how do we properly abstract out the default storage variable?
-# currently, we're only mocking it through `storage` as
-# set in conftest.py
+# currently, we're only mocking it through `storage` as set in conftest.py
 
 ln.settings.verbosity = "success"
 bt.settings.organism = "human"
@@ -345,11 +344,13 @@ def test_revise_artifact(df):
                 ln.Feature(name="species", dtype=str).save(),
                 ln.Feature(name="split", dtype=str).save(),
             ]
-        ).save(),
+        ),
         None,
     ],
 )
 def test_create_external_schema(tsv_file, schema):
+    if schema:
+        schema.save()
     artifact = ln.Artifact(
         tsv_file,
         features={"species": "bird", "split": "train"},
@@ -397,8 +398,6 @@ def test_from_dataframe_external_schema(df):
 
     for feature in [species, split, feat1, feat2]:
         feature.delete(permanent=True)
-
-    ln.Schema.filter().delete()
 
 
 def test_create_from_dataframe(df):

@@ -1906,7 +1906,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                     validation_schema = schema.slots[external_slot]
                 except StopIteration:
                     raise ValueError(
-                        "External feature validation requires a slot that starts with __external."
+                        "External feature validation requires a slot __external__."
                     ) from None
 
                 external_curator = DataFrameCurator(
