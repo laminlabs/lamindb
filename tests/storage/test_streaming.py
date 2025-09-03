@@ -273,14 +273,14 @@ def test_anndata_open_mode():
     artifact.delete(permanent=True, storage=True)
 
 
-def test_lazy_artifact():
+def test_from_lazy():
     # a different suffix in key
     with pytest.raises(ValueError):
-        ln.Artifact.lazy_artifact(
+        ln.Artifact.from_lazy(
             suffix=".zarr", overwrite_versions=True, key="mydata.h5ad"
         )
 
-    lazy = ln.Artifact.lazy_artifact(
+    lazy = ln.Artifact.from_lazy(
         suffix=".zarr", overwrite_versions=True, key="mydata.zarr"
     )
 
