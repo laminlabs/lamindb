@@ -394,8 +394,6 @@ def test_from_dataframe_external_schema(df):
     artifact.delete(permanent=True)
     schema.delete(permanent=True)
     external_schema.delete(permanent=True)
-    for feature in [species, split, feat1, feat2]:
-        ln.models.SchemaFeature.filter(feature=feature).delete()
 
     for feature in [species, split, feat1, feat2]:
         feature.delete(permanent=True)

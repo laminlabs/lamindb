@@ -1909,7 +1909,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                         "External feature validation requires a slot that starts with __external."
                     ) from None
 
-                print(validation_schema.describe())
                 external_curator = DataFrameCurator(
                     pd.DataFrame([features]), validation_schema
                 )
