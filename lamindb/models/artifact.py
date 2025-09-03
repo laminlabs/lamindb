@@ -1723,7 +1723,10 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         Args:
             suffix: The suffix for the auto-generated internal path
             overwrite_versions: Whether to overwrite versions.
-            **kwargs: Keyword arguments for the artifact to be created.
+            key: An optional key to reference the artifact.
+            description: A description.
+            run: The run that creates the artifact.
+            **kwargs: Other keyword arguments for the artifact to be created.
 
         Examples:
 
