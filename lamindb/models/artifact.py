@@ -1715,7 +1715,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         """Create a lazy artifact for streaming to auto-generated internal paths.
 
         This is needed when it is desirable to stream to a `lamindb` auto-generated internal path
-        and register the path as an artifact (see :class:`~lamindb.Artifact`).
+        and register the path as an artifact.
 
         The lazy artifact object (see :class:`~lamindb.models.LazyArtifact`) creates a real artifact
         on `.save()` with the provided arguments.
