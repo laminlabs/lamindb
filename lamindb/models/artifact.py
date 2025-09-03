@@ -1702,8 +1702,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
         super().__init__(**kwargs)
 
-    @staticmethod
+    @classmethod
     def from_lazy(
+        cls,
         suffix: str,
         overwrite_versions: bool,
         key: str | None = None,
