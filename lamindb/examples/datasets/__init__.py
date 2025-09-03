@@ -41,7 +41,7 @@ Dictionary, Dataframe, AnnData, MuData, SpatialData.
 .. autosummary::
    :toctree: .
 
-   dict_cxg_uns
+   dict_cellxgene_uns
    df_iris
    df_iris_in_meter
    df_iris_in_meter_study1
