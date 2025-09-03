@@ -26,7 +26,7 @@ def cxg_schema_factory():
         bt.CellType,
         ln.ULabel,
     ]:
-        entity.filter().all().delete()
+        entity.filter().delete()
 
 
 def test_cxg_curator_5(cxg_schema_factory):

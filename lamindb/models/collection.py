@@ -401,7 +401,7 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
         """
         return Collection(  # type: ignore
-            self.artifacts.all().list() + [artifact],
+            self.artifacts.all().to_list() + [artifact],
             # key is automatically derived from revises.key
             description=self.description,
             revises=self,

@@ -17,7 +17,7 @@ def process_chunk(chunk_id: int) -> str:
     ln.Artifact(env_file, description="requirements.txt").save()
     # Save it as an artifact
     key = f"chunk_{chunk_id}.parquet"
-    artifact = ln.Artifact.from_df(df, key=key).save()
+    artifact = ln.Artifact.from_dataframe(df, key=key).save()
     return artifact.key
 
 

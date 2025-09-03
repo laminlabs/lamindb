@@ -6,6 +6,7 @@ import numpy as np
 from django.db import models
 from django.db.models import CASCADE, PROTECT, ManyToManyField
 from lamin_utils import logger
+from lamindb_setup.core import deprecated
 from lamindb_setup.core.hashing import HASH_LENGTH, hash_string
 from rich.table import Table
 from rich.text import Text
@@ -348,7 +349,7 @@ class Schema(SQLRecord, CanCurate, TracksRun):
 
             # from a dataframe
             df = pd.DataFrame({"feat1": [1, 2], "feat2": [3.1, 4.2], "feat3": ["cond1", "cond2"]})
-            schema = ln.Schema.from_df(df)
+            schema = ln.Schema.from_dataframe(df)
     """
 
     class Meta(SQLRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
@@ -577,6 +578,13 @@ class Schema(SQLRecord, CanCurate, TracksRun):
                 self.optionals.set(optional_features)
                 return None
         self._slots: dict[str, Schema] = {}
+        # if both features and a schema are provided, we use a slot for a new schema of the features
+        if features and slots:
+            main_schema = Schema(features=features).save()
+            slot_name = f"__external_{name}__" if name else "__external__"
+            slots[slot_name] = main_schema
+            features = []
+
         if features:
             self._features = (get_related_name(features_registry), features)  # type: ignore
         elif slots:
@@ -847,7 +855,7 @@ class Schema(SQLRecord, CanCurate, TracksRun):
         return schema
 
     @classmethod
-    def from_df(
+    def from_dataframe(
         cls,
         df: pd.DataFrame,
         field: FieldAttr = Feature.name,
@@ -890,6 +898,19 @@ class Schema(SQLRecord, CanCurate, TracksRun):
             )
         return schema
 
+    @classmethod
+    @deprecated("from_dataframe")
+    def from_df(
+        cls,
+        df: pd.DataFrame,
+        field: FieldAttr = Feature.name,
+        name: str | None = None,
+        mute: bool = False,
+        organism: SQLRecord | str | None = None,
+        source: SQLRecord | None = None,
+    ) -> Schema | None:
+        return cls.from_dataframe(df, field, name, mute, organism, source)
+
     def save(self, *args, **kwargs) -> Schema:
         """Save."""
         from .save import bulk_create
@@ -898,7 +919,7 @@ class Schema(SQLRecord, CanCurate, TracksRun):
             features = (
                 self._features[1]
                 if hasattr(self, "_features")
-                else (self.members.list() if self.members.exists() else [])
+                else (self.members.to_list() if self.members.exists() else [])
             )
             index_feature = self.index
             _, validated_kwargs, _, _, _ = self._validate_kwargs_calculate_hash(
@@ -926,7 +947,7 @@ class Schema(SQLRecord, CanCurate, TracksRun):
                 datasets = Artifact.filter(schema=self).all()
                 if datasets.exists():
                     logger.warning(
-                        f"you updated the schema hash and might invalidate datasets that were previously validated with this schema: {datasets.list('uid')}"
+                        f"you updated the schema hash and might invalidate datasets that were previously validated with this schema: {datasets.to_list('uid')}"
                     )
                 self.hash = validated_kwargs["hash"]
                 self.n = validated_kwargs["n"]

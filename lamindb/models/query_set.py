@@ -239,10 +239,14 @@ class SQLRecordList(UserList, Generic[T]):
     def df(self) -> pd.DataFrame:
         return self.to_dataframe()
 
-    def list(
+    def to_list(
         self, field: str
-    ) -> list[str]:  # meaningful to be parallel with list() in QuerySet
+    ) -> list[str]:  # meaningful to be parallel with to_list() in QuerySet
         return [getattr(record, field) for record in self.data]
+
+    @deprecated(new_name="to_list")
+    def list(self, field: str) -> list[str]:
+        return self.to_list(field)
 
     def one(self) -> T:
         """Exactly one result. Throws error if there are more or none."""
@@ -347,7 +351,7 @@ def get_feature_annotate_kwargs(
             | Q(dtype__startswith="cat[ULabel")
             | Q(dtype__startswith="cat[Record")
         )
-        feature_names = feature_qs.list("name")
+        feature_names = feature_qs.to_list("name")
         logger.important(
             f"queried for all categorical features with dtype ULabel or Record and non-categorical features: ({len(feature_names)}) {feature_names}"
         )
@@ -705,7 +709,7 @@ class BasicQuerySet(models.QuerySet):
             id_subquery = self.values("id")
             time = logger.debug("finished get id values", time=time)
             # for annotate, we want the queryset without filters so that joins don't affect the annotations
-            query_set_without_filters = self.model.objects.filter(
+            query_set_without_filters = self.model.objects.using(self._db).filter(
                 id__in=Subquery(id_subquery)
             )
             time = logger.debug("finished get query_set_without_filters", time=time)
@@ -758,20 +762,24 @@ class BasicQuerySet(models.QuerySet):
         else:
             super().delete(*args, **kwargs)
 
-    def list(self, field: str | None = None) -> list[SQLRecord] | list[str]:
+    def to_list(self, field: str | None = None) -> list[SQLRecord] | list[str]:
         """Populate an (unordered) list with the results.
 
         Note that the order in this list is only meaningful if you ordered the underlying query set with `.order_by()`.
 
         Examples:
-            >>> queryset.list()  # list of records
-            >>> queryset.list("name")  # list of values
+            >>> queryset.to_list()  # list of records
+            >>> queryset.to_list("name")  # list of values
         """
         if field is None:
             return list(self)
         else:
             # list casting is necessary because values_list does not return a list
             return list(self.values_list(field, flat=True))
+
+    @deprecated(new_name="to_list")
+    def list(self, field: str | None = None) -> list[SQLRecord] | list[str]:
+        return self.to_list(field)
 
     def first(self) -> SQLRecord | None:
         """If non-empty, the first result in the query set, otherwise ``None``.

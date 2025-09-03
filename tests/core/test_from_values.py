@@ -86,7 +86,7 @@ def test_from_values_synonyms_aware():
     assert records[0].name == "T cell"
     assert isinstance(records[0].source, bt.Source)
     assert records[0].ontology_id == "CL:0000084"
-    bt.CellType.filter().all().delete()
+    bt.CellType.filter().delete()
 
 
 def test_standardize():

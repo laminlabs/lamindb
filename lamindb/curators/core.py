@@ -440,18 +440,18 @@ class DataFrameCurator(Curator):
         feature_ids: set[int] = set()
 
         if schema.flexible:
-            features += Feature.filter(name__in=self._dataset.keys()).list()
+            features += Feature.filter(name__in=self._dataset.keys()).to_list()
             feature_ids = {feature.id for feature in features}
 
         if schema.n > 0:
             if schema._index_feature_uid is not None:
                 schema_features = [
                     feature
-                    for feature in schema.members.list()
+                    for feature in schema.members.to_list()
                     if feature.uid != schema._index_feature_uid  # type: ignore
                 ]
             else:
-                schema_features = schema.members.list()  # type: ignore
+                schema_features = schema.members.to_list()  # type: ignore
             if feature_ids:
                 features.extend(
                     feature
@@ -646,7 +646,7 @@ class DataFrameCurator(Curator):
         if not self._is_validated:
             self.validate()  # raises ValidationError if doesn't validate
         if self._artifact is None:
-            self._artifact = Artifact.from_df(
+            self._artifact = Artifact.from_dataframe(
                 self._dataset,
                 key=key,
                 description=description,
@@ -1321,7 +1321,7 @@ class CatVector:
             type_record = registry.get(name=self._subtype_str)
         if df is not None and registry == Feature:
             nonval_columns = Feature.inspect(df.columns, mute=True).non_validated
-            non_validated_records = Feature.from_df(df.loc[:, nonval_columns])
+            non_validated_records = Feature.from_dataframe(df.loc[:, nonval_columns])
         else:
             if (
                 self._organism
@@ -1423,7 +1423,7 @@ class CatVector:
                     warning_message += "\n    for remaining terms:\n"
                 warning_message += f"    → fix typos, remove non-existent values, or save terms via: {colors.cyan(non_validated_hint_print)}"
                 if self._subtype_query_set is not None:
-                    warning_message += f"\n    → a valid label for subtype '{self._subtype_str}' has to be one of {self._subtype_query_set.list('name')}"
+                    warning_message += f"\n    → a valid label for subtype '{self._subtype_str}' has to be one of {self._subtype_query_set.to_list('name')}"
             logger.info(f'mapping "{self._key}" on {colors.italic(model_field)}')
             logger.warning(warning_message)
             if self._cat_manager is not None:

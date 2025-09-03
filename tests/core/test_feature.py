@@ -134,8 +134,8 @@ def test_cat_filters_invalid_field_name():
 def test_feature_from_df(df):
     if feat1 := ln.Feature.filter(name="feat1").one_or_none() is not None:
         feat1.delete(permanent=True)
-    features = ln.Feature.from_df(df.iloc[:, :4]).save()
-    artifact = ln.Artifact.from_df(df, description="test").save()
+    features = ln.Feature.from_dataframe(df.iloc[:, :4]).save()
+    artifact = ln.Artifact.from_dataframe(df, description="test").save()
     # test for deprecated add_feature_set
     artifact.features._add_schema(ln.Schema(features), slot="columns")
     features = artifact.features.slots["columns"].features.all()

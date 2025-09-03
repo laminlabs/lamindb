@@ -52,7 +52,7 @@ def tracked(uid: str | None = None) -> Callable[[Callable[P, R]], Callable[P, R]
             artifact = ln.Artifact.get(key=input_artifact_key)
             df = artifact.load()  # auto-tracked as input
             new_df = df.iloc[:subset_rows, :subset_cols]
-            ln.Artifact.from_df(new_df, key=output_artifact_key).save()  # auto-tracked as output
+            ln.Artifact.from_dataframe(new_df, key=output_artifact_key).save()  # auto-tracked as output
     """
 
     def decorator_tracked(func: Callable[P, R]) -> Callable[P, R]:
@@ -104,9 +104,7 @@ def tracked(uid: str | None = None) -> Callable[[Callable[P, R]], Callable[P, R]
             # Deal with non-trivial parameter values
             filtered_params = {}
             for key, value in params.items():
-                dtype, _, _ = infer_feature_type_convert_json(
-                    key, value, str_as_ulabel=False
-                )
+                dtype, _, _ = infer_feature_type_convert_json(key, value)
                 if (dtype == "?" or dtype.startswith("cat")) and dtype != "cat ? str":
                     continue
                 filtered_params[key] = value
