@@ -222,4 +222,4 @@ _build
 .vscode
 
 # CELLxGENE
-!lamindb/examples/cellxgene/cxg_schema_versions.csv
+!lamindb/examples/cellxgene/cellxgene_schema_versions.csv
