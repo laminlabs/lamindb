@@ -1094,7 +1094,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
         To validate & annotate by **external features**, pass a `schema`::
 
-            schema = ln.Schema(itype=ln.Feature).save()
+            schema = ln.examples.schemas.valid_features()
             artifact = ln.Artifact("./my_file.parquet", features={"species": "bird"}, schema=schema).save()
 
         You can make a **new version** of an artifact by passing an existing `key`::
@@ -1222,8 +1222,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
             ln.Artifact.filter(scientist="Barbara McClintock")
 
-        Features may or may not be part of the dataset, i.e., the artifact content in storage. For
-        instance, the :class:`~lamindb.curators.DataFrameCurator` flow validates the columns of a
+        Features may or may not be part of the dataset, i.e., the artifact content in storage.
+        For instance, the :class:`~lamindb.curators.DataFrameCurator` flow validates the columns of a
         `DataFrame`-like artifact and annotates it with features corresponding to these columns.
         `artifact.features.add_values`, by contrast, does not validate the content of the artifact.
 
@@ -1240,6 +1240,11 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                         "subset_highlyvariable": True,
                     },
                 })
+
+        To validate external features::
+
+            schema = ln.Schema([ln.Feature(name="species", dtype=str).save()]).save()
+            artifact.features.add_values({"species": "bird"}, schema=schema)
         """
         from ._feature_manager import FeatureManager
 
