@@ -274,6 +274,12 @@ def test_anndata_open_mode():
 
 
 def test_lazy_artifact():
+    # a different suffix in key
+    with pytest.raises(ValueError):
+        ln.Artifact.lazy_artifact(
+            suffix=".zarr", overwrite_versions=True, key="mydata.h5ad"
+        )
+
     lazy = ln.Artifact.lazy_artifact(
         suffix=".zarr", overwrite_versions=True, key="mydata.zarr"
     )
@@ -282,7 +288,10 @@ def test_lazy_artifact():
     store["test"] = np.array(["test"])
 
     artifact = lazy.save()
-    assert ".lamindb" in artifact.path.as_posix()
+
+    path_str = artifact.path.as_posix()
+    assert ".lamindb" in path_str
+    assert artifact.uid[:16] in path_str
 
     access = artifact.open()
     assert access.storage["test"][...] == "test"
