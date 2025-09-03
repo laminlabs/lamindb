@@ -1052,6 +1052,56 @@ def delete_permanently(artifact: Artifact, storage: bool, using_key: str):
             logger.success(f"deleted {colors.yellow(f'{path}')}")
 
 
+class LazyArtifact:
+    """Lazy artifact for streaming to auto-generated internal paths.
+
+    This is needed when it is desirable to stream to a `lamindb` auto-generated internal path
+    and register the path as an artifact (see :class:`~lamindb.Artifact`).
+
+    This object creates a real artifact on `.save()` with the provided arguments.
+
+    Args:
+        suffix: The suffix for the auto-generated internal path
+        overwrite_versions: Whether to overwrite versions.
+        **kwargs: Keyword arguments for the artifact to be created.
+
+    Examples:
+
+        Create a lazy artifact, write to the path and save to get a real artifact::
+
+            lazy = ln.Artifact.from_lazy(suffix=".zarr", overwrite_versions=True, key="mydata.zarr")
+            zarr.open(lazy.path, mode="w")["test"] = np.array(["test"]) # stream to the path
+            artifact = lazy.save()
+    """
+
+    def __init__(self, suffix: str, overwrite_versions: bool, **kwargs):
+        self.kwargs = kwargs
+        self.kwargs["overwrite_versions"] = overwrite_versions
+
+        if (key := kwargs.get("key")) is not None and extract_suffix_from_path(
+            PurePosixPath(key)
+        ) != suffix:
+            raise ValueError(
+                "The suffix argument and the suffix of key should be the same."
+            )
+
+        uid, _ = create_uid(n_full_id=20)
+        storage_key = auto_storage_key_from_artifact_uid(
+            uid, suffix, overwrite_versions=overwrite_versions
+        )
+        storepath = setup_settings.storage.root / storage_key
+
+        self._path = storepath
+
+    @property
+    def path(self) -> UPath:
+        return self._path
+
+    def save(self, upload: bool | None = None, **kwargs) -> Artifact:
+        artifact = Artifact(self.path, _is_internal_call=True, **self.kwargs)
+        return artifact.save(upload=upload, **kwargs)
+
+
 class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     # Note that this docstring has to be consistent with Curator.save_artifact()
     """Datasets & models stored as files, folders, or arrays.
@@ -1651,6 +1701,43 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             raise ValueError("Pass one of key, run or description as a parameter")
 
         super().__init__(**kwargs)
+
+    @classmethod
+    def from_lazy(
+        cls,
+        suffix: str,
+        overwrite_versions: bool,
+        key: str | None = None,
+        description: str | None = None,
+        run: Run | None = None,
+        **kwargs,
+    ) -> LazyArtifact:
+        """Create a lazy artifact for streaming to auto-generated internal paths.
+
+        This is needed when it is desirable to stream to a `lamindb` auto-generated internal path
+        and register the path as an artifact.
+
+        The lazy artifact object (see :class:`~lamindb.models.LazyArtifact`) creates a real artifact
+        on `.save()` with the provided arguments.
+
+        Args:
+            suffix: The suffix for the auto-generated internal path
+            overwrite_versions: Whether to overwrite versions.
+            key: An optional key to reference the artifact.
+            description: A description.
+            run: The run that creates the artifact.
+            **kwargs: Other keyword arguments for the artifact to be created.
+
+        Examples:
+
+            Create a lazy artifact, write to the path and save to get a real artifact::
+
+                lazy = ln.Artifact.from_lazy(suffix=".zarr", overwrite_versions=True, key="mydata.zarr")
+                zarr.open(lazy.path, mode="w")["test"] = np.array(["test"]) # stream to the path
+                artifact = lazy.save()
+        """
+        args = {"key": key, "description": description, "run": run, **kwargs}
+        return LazyArtifact(suffix, overwrite_versions, **args)
 
     @property
     @deprecated("kind")
