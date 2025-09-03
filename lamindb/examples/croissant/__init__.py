@@ -22,9 +22,6 @@ def mini_immuno(n_files: int = 1) -> list[Path]:
         ::
 
             croissant_path, dataset1_path = ln.examples.croissant.mini_immuno()
-            with open(croissant_path) as f:
-                dictionary = json.load(f)
-            artifact = ln.integrations.curate_from_croissant(croissant_path)
     """
     from ..datasets import file_mini_csv
     from ..datasets.mini_immuno import get_dataset1
