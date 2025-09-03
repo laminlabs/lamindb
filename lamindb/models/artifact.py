@@ -1092,10 +1092,12 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             schema = ln.Schema(itype=ln.Feature)  # a schema that merely enforces that feature names exist in the Feature registry
             artifact = ln.Artifact.from_dataframe("./my_file.parquet", key="my_dataset.parquet", schema=schema).save()  # validated and annotated
 
-        To validate & annotate by **external features**, pass a `schema`::
+        To annotate by **external features**::
 
             schema = ln.examples.schemas.valid_features()
-            artifact = ln.Artifact("./my_file.parquet", features={"species": "bird"}, schema=schema).save()
+            artifact = ln.Artifact("./my_file.parquet", features={"species": "bird"}).save()
+
+        A `schema` can be optionally passed to also validate the features.
 
         You can make a **new version** of an artifact by passing an existing `key`::
 
@@ -1492,7 +1494,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             external_curator.validate()
             external_curator._artifact = self
 
-            self._external_features = features
+        self._external_features = features
 
         branch_id: int | None = None
         if "visibility" in kwargs:  # backward compat

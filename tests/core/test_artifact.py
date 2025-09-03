@@ -351,22 +351,22 @@ def test_revise_artifact(df):
 def test_create_external_schema(tsv_file, schema):
     if schema:
         schema.save()
+    else:
+        (ln.Feature(name="split", dtype=str).save(),)
+        (ln.Feature(name="species", dtype=str).save(),)
     artifact = ln.Artifact(
         tsv_file,
         features={"species": "bird", "split": "train"},
         schema=schema,
         description="test",
     ).save()
-    if schema:
-        assert artifact.features.get_values() == {"species": "bird", "split": "train"}
-    else:
-        assert artifact.features.get_values() == {}
+    assert artifact.features.get_values() == {"species": "bird", "split": "train"}
 
     artifact.delete(permanent=True)
     if schema:
         schema.delete(permanent=True)
-        ln.Feature.get(name="species").delete(permanent=True)
-        ln.Feature.get(name="split").delete(permanent=True)
+    ln.Feature.get(name="species").delete(permanent=True)
+    ln.Feature.get(name="split").delete(permanent=True)
 
 
 def test_from_dataframe_external_schema(df):
