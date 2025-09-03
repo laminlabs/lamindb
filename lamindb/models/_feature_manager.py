@@ -849,6 +849,13 @@ class FeatureManager:
             values: A dictionary of keys (features) & values (labels, numbers, booleans).
             feature_field: The field of a reference registry to map keys of the dictionary.
             schema: Schema to validate against.
+
+        Examples:
+
+            To validate external features::
+
+                schema = ln.Schema([ln.Feature(name="species", dtype=str).save()]).save()
+                artifact.features.add_values({"species": "bird"}, schema=schema)
         """
         from lamindb.base.dtypes import is_iterable_of_sqlrecord
 
