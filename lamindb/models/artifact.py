@@ -1057,13 +1057,24 @@ class LazyArtifact:
         self.kwargs = kwargs
         self.kwargs["overwrite_versions"] = overwrite_versions
 
+        if (key := kwargs.get("key")) is not None and extract_suffix_from_path(
+            PurePosixPath(key)
+        ) != suffix:
+            raise ValueError(
+                "The suffix argument and the suffix of key should be the same."
+            )
+
         uid, _ = create_uid(n_full_id=20)
         storage_key = auto_storage_key_from_artifact_uid(
             uid, suffix, overwrite_versions=overwrite_versions
         )
         storepath = setup_settings.storage.root / storage_key
 
-        self.path = storepath
+        self._path = storepath
+
+    @property
+    def path(self) -> UPath:
+        return self._path
 
     def save(self, upload: bool | None = None, **kwargs) -> Artifact:
         artifact = Artifact(self.path, _is_internal_call=True, **self.kwargs)
