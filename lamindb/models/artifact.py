@@ -1094,7 +1094,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
         To validate & annotate by **external features**, pass a `schema`::
 
-            schema = ln.Schema([ln.Feature(name="species", dtype=str).save()]).save()
+            schema = ln.Schema(itype=ln.Feature).save()
             artifact = ln.Artifact("./my_file.parquet", features={"species": "bird"}, schema=schema).save()
 
         You can make a **new version** of an artifact by passing an existing `key`::

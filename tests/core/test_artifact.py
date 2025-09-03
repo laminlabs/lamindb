@@ -372,7 +372,7 @@ def test_create_external_schema(tsv_file, schema):
 def test_from_dataframe_external_schema(df):
     species = ln.Feature(name="species", dtype="str").save()
     split = ln.Feature(name="split", dtype="str").save()
-    external_schema = ln.Schema(itype=ln.Feature, flexible=True).save()
+    external_schema = ln.Schema(itype=ln.Feature).save()
 
     feat1 = ln.Feature(name="feat1", dtype="int").save()
     feat2 = ln.Feature(name="feat2", dtype="int").save()

@@ -18,3 +18,4 @@ artifact = ln.Artifact.from_dataframe(
     schema=schema,
     description="test dataframe with external features",
 ).save()
+artifact.describe()
