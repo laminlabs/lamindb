@@ -2884,7 +2884,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             logger.important(f"moved local artifact to cache: {local_path_cache}")
 
         # Handle external features
-        if hasattr(self, "_external_features"):
+        if hasattr(self, "_external_features") and self._external_features is not None:
             external_features = self._external_features
             delattr(self, "_external_features")
             self.features.add_values(external_features)
