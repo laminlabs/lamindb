@@ -1,4 +1,5 @@
 import shutil
+from pathlib import Path
 
 import bionty as bt
 import lamindb as ln
@@ -44,7 +45,10 @@ def small_dataset1_schema():
 
     for af in ln.Artifact.filter():
         af.delete(permanent=True)
-    schema.delete(permanent=True)
+
+    from lamindb.models import SchemaComponent
+
+    SchemaComponent.filter().delete()
     ln.Schema.filter().delete()
     ln.Feature.filter().delete()
     bt.Gene.filter().delete()
@@ -129,7 +133,6 @@ def mudata_papalexi21_subset_schema():
 
     for af in ln.Artifact.filter():
         af.delete(permanent=True)
-    mudata_schema.delete(permanent=True)
     ln.Schema.filter().delete()
     ln.Feature.filter().delete()
     bt.Gene.filter().delete()
@@ -145,20 +148,46 @@ def uns_study_metadata():
 
 @pytest.fixture(scope="module")
 def study_metadata_schema():
-    temperature_feature = ln.Feature(name="temperature", dtype=float).save()
-    experiment_id_feature = ln.Feature(name="experiment_id", dtype=str).save()
-    study_metadata_schema = ln.Schema(
-        features=[
-            temperature_feature,
-            experiment_id_feature,
-        ],
-    ).save()
+    import sys
+    from pathlib import Path
+
+    docs_path = Path.cwd() / "docs" / "scripts"
+    sys.path.append(str(docs_path))
+
+    from define_unstructured_schema import study_metadata_schema
 
     yield study_metadata_schema
 
     study_metadata_schema.delete(permanent=True)
-    temperature_feature.delete(permanent=True)
-    experiment_id_feature.delete(permanent=True)
+    ln.Feature.filter().delete()
+
+
+@pytest.fixture(scope="module")
+def spatialdata_blobs_schema():
+    import sys
+    from pathlib import Path
+
+    docs_path = Path.cwd() / "docs" / "scripts"
+    sys.path.append(str(docs_path))
+
+    from define_schema_spatialdata import sdata_schema
+
+    yield sdata_schema
+
+    for af in ln.Artifact.filter():
+        af.delete(permanent=True)
+
+    from lamindb.models import SchemaComponent
+
+    SchemaComponent.filter().delete()
+
+    ln.Schema.filter().delete()
+    bt.Gene.filter().delete()
+    ln.ULabel.filter(type__isnull=False).delete()
+    ln.ULabel.filter().delete()
+    bt.ExperimentalFactor.filter().delete()
+    bt.DevelopmentalStage.filter().delete()
+    bt.Disease.filter().delete()
 
 
 def test_dataframe_curator(small_dataset1_schema: ln.Schema):
@@ -755,14 +784,13 @@ def test_mudata_curator(
         "hto:obs",
     }
 
-    from lamindb.models import SchemaComponent
-
     artifact.delete(permanent=True)
-    SchemaComponent.filter().delete()
-    ln.Schema.filter().delete()
+    mudata_schema.delete(permanent=True)
+    small_dataset1_schema.delete(permanent=True)
+    Path("papalexi21_subset.h5mu").unlink(missing_ok=True)
 
 
-def test_mudata_curator_nested_uns(uns_study_metadata):
+def test_mudata_curator_nested_uns(uns_study_metadata, study_metadata_schema):
     """Test MuData with nested uns slot validation.
 
     This test verifies the behavior of both the MuData `.uns` slots and a `.uns` slot of
@@ -771,13 +799,6 @@ def test_mudata_curator_nested_uns(uns_study_metadata):
     mdata = ln.core.datasets.mudata_papalexi21_subset()
     mdata.uns["study_metadata"] = uns_study_metadata
     mdata["rna"].uns["site_metadata"] = {"pos": 99.9, "site_id": "SITE001"}
-
-    study_uns_schema = ln.Schema(
-        features=[
-            ln.Feature(name="temperature", dtype=float).save(),
-            ln.Feature(name="experiment_id", dtype=str).save(),
-        ],
-    ).save()
 
     site_uns_schema = ln.Schema(
         features=[
@@ -789,7 +810,7 @@ def test_mudata_curator_nested_uns(uns_study_metadata):
     mdata_schema = ln.Schema(
         otype="MuData",
         slots={
-            "uns:study_metadata": study_uns_schema,
+            "uns:study_metadata": study_metadata_schema,
             "rna:uns:site_metadata": site_uns_schema,
         },
     ).save()
@@ -814,39 +835,7 @@ def test_mudata_curator_nested_uns(uns_study_metadata):
     ].features.first() == ln.Feature.get(name="pos")
 
     # Clean up
-    from lamindb.models import SchemaComponent
-
     artifact.delete(permanent=True)
-    SchemaComponent.filter().delete()
-    ln.Schema.filter().delete()
-    ln.Feature.filter().delete()
-
-
-@pytest.fixture(scope="module")
-def spatialdata_blobs_schema():
-    import sys
-    from pathlib import Path
-
-    docs_path = Path.cwd() / "docs" / "scripts"
-    sys.path.append(str(docs_path))
-
-    from define_schema_spatialdata import sdata_schema
-
-    yield sdata_schema
-
-    from lamindb.models import SchemaComponent
-
-    for af in ln.Artifact.filter():
-        af.delete(permanent=True)
-    SchemaComponent.filter().delete()
-    ln.Schema.filter().delete()
-    ln.Feature.filter().delete()
-    bt.Gene.filter().delete()
-    ln.ULabel.filter(type__isnull=False).delete()
-    ln.ULabel.filter().delete()
-    bt.ExperimentalFactor.filter().delete()
-    bt.DevelopmentalStage.filter().delete()
-    bt.Disease.filter().delete()
 
 
 def test_spatialdata_curator(
@@ -934,7 +923,7 @@ def test_soma_curator(curator_params: dict[str, str | FieldAttr]):
     shutil.rmtree("./small_dataset1.tiledbsoma")
 
 
-def test_tiledbsoma_curator(small_dataset1_schema: ln.Schema, clean_soma_files):
+def test_tiledbsoma_curator(clean_soma_files):
     """Test TiledbSomaExperimentCurator with schema."""
     obs_schema = ln.Schema(
         features=[
@@ -971,7 +960,9 @@ def test_tiledbsoma_curator(small_dataset1_schema: ln.Schema, clean_soma_files):
     # Test with invalid schema
     with tiledbsoma.Experiment.open("small_dataset.tiledbsoma") as experiment:
         with pytest.raises(ln.errors.InvalidArgument):
-            ln.curators.TiledbsomaExperimentCurator(experiment, small_dataset1_schema)
+            ln.curators.TiledbsomaExperimentCurator(
+                experiment, ln.Schema(features=[]).save()
+            )
 
     with tiledbsoma.Experiment.open("small_dataset.tiledbsoma") as experiment:
         curator = ln.curators.TiledbsomaExperimentCurator(experiment, soma_schema)
