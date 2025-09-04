@@ -1142,6 +1142,13 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             schema = ln.Schema(itype=ln.Feature)  # a schema that merely enforces that feature names exist in the Feature registry
             artifact = ln.Artifact.from_dataframe("./my_file.parquet", key="my_dataset.parquet", schema=schema).save()  # validated and annotated
 
+        To annotate by **external features**::
+
+            schema = ln.examples.schemas.valid_features()
+            artifact = ln.Artifact("./my_file.parquet", features={"species": "bird"}).save()
+
+        A `schema` can be optionally passed to also validate the features.
+
         You can make a **new version** of an artifact by passing an existing `key`::
 
             artifact_v2 = ln.Artifact("./my_file.parquet", key="examples/my_file.parquet").save()
@@ -1267,8 +1274,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
             ln.Artifact.filter(scientist="Barbara McClintock")
 
-        Features may or may not be part of the dataset, i.e., the artifact content in storage. For
-        instance, the :class:`~lamindb.curators.DataFrameCurator` flow validates the columns of a
+        Features may or may not be part of the dataset, i.e., the artifact content in storage.
+        For instance, the :class:`~lamindb.curators.DataFrameCurator` flow validates the columns of a
         `DataFrame`-like artifact and annotates it with features corresponding to these columns.
         `artifact.features.add_values`, by contrast, does not validate the content of the artifact.
 
@@ -1285,6 +1292,11 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                         "subset_highlyvariable": True,
                     },
                 })
+
+        To validate external features::
+
+            schema = ln.Schema([ln.Feature(name="species", dtype=str).save()]).save()
+            artifact.features.add_values({"species": "bird"}, schema=schema)
         """
         from ._feature_manager import FeatureManager
 
@@ -1532,7 +1544,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             external_curator.validate()
             external_curator._artifact = self
 
-            self._external_features = features
+        self._external_features = features
 
         branch_id: int | None = None
         if "visibility" in kwargs:  # backward compat
@@ -1961,6 +1973,10 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             .. literalinclude:: scripts/define_mini_immuno_features_labels.py
                :language: python
 
+            External features:
+
+            .. literalinclude:: scripts/curate_dataframe_external_features.py
+               :language: python
         """
         artifact = Artifact(  # type: ignore
             data=df,
@@ -1988,12 +2004,12 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             if schema.itype == "Composite" and features is not None:
                 try:
                     external_slot = next(
-                        k for k in schema.slots.keys() if "external" in k
+                        k for k in schema.slots.keys() if "__external__" in k
                     )
                     validation_schema = schema.slots[external_slot]
                 except StopIteration:
                     raise ValueError(
-                        "External feature validation requires a slot that starts with __external."
+                        "External feature validation requires a slot __external__."
                     ) from None
 
                 external_curator = DataFrameCurator(
@@ -2955,7 +2971,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             logger.important(f"moved local artifact to cache: {local_path_cache}")
 
         # Handle external features
-        if hasattr(self, "_external_features"):
+        if hasattr(self, "_external_features") and self._external_features is not None:
             external_features = self._external_features
             delattr(self, "_external_features")
             self.features.add_values(external_features)
