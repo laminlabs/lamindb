@@ -44,7 +44,10 @@ try:
 
     assert ulabel.space == space  # ulabel should end up in the restricted space
     assert artifact.space == space
-    assert artifact.storage == storage_loc
+    # the below check doesn't work: another worker might have associated another storage location with the space, and then the artifact ends up in that
+    # assert artifact.storage == storage_loc
+    # hence this check
+    assert artifact.storage in ln.Storage.filter(space=space).all()
     assert ln.context.transform.space == space
     assert ln.context.run.space == space
 

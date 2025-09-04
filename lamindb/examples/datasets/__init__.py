@@ -41,7 +41,7 @@ Dictionary, Dataframe, AnnData, MuData, SpatialData.
 .. autosummary::
    :toctree: .
 
-   dict_cxg_uns
+   dict_cellxgene_uns
    df_iris
    df_iris_in_meter
    df_iris_in_meter_study1
@@ -78,7 +78,7 @@ from ._core import (
     df_iris_in_meter,
     df_iris_in_meter_study1,
     df_iris_in_meter_study2,
-    dict_cxg_uns,
+    dict_cellxgene_uns,
     dir_iris_images,
     dir_scrnaseq_cellranger,
     file_bam,

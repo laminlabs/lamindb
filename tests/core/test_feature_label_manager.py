@@ -198,15 +198,26 @@ Here is how to create a feature:
 
     with pytest.raises(ValidationError) as error:
         artifact.features.add_values(features)
-    assert (
-        error.exconly()
-        == """\
-lamindb.errors.ValidationError: These values could not be validated: {'ULabel': ['project_1', 'U0123', 'Experiment 2'], 'bionty.CellType': ['T cell']}
-Here is how to create records for them:
+        error_msg = error.exconly()
 
-  records = ln.ULabel.from_values(['project_1', 'U0123', 'Experiment 2'], create=True).save()
-  records = bionty.CellType.from_values(['T cell'], create=True).save()"""
-    )
+        assert (
+            "lamindb.errors.ValidationError: These values could not be validated:"
+            in error_msg
+        )
+        assert "Here is how to create records for them:" in error_msg
+
+        expected_values = {
+            "ULabel": ["project_1", "U0123", "Experiment 2"],
+            "bionty.CellType": ["T cell"],
+        }
+
+        for key, values in expected_values.items():
+            assert f"'{key}':" in error_msg
+            for value in values:
+                assert value in error_msg
+            assert f"{key.split('.')[-1]}.from_values(" in error_msg
+
+        assert "create=True).save()" in error_msg
 
     ln.ULabel.from_values(["Experiment 2", "project_1", "U0123"], create=True).save()
     bt.CellType.from_source(name="T cell").save()

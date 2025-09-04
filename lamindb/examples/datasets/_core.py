@@ -418,7 +418,7 @@ def mudata_papalexi21_subset() -> MuData:  # pragma: no cover
     return mdata
 
 
-def dict_cxg_uns() -> dict[str, Any]:
+def dict_cellxgene_uns() -> dict[str, Any]:
     """An example CELLxGENE AnnData `.uns` dictionary."""
     uns = {
         "organism_ontology_term_id": "NCBITaxon:9606",

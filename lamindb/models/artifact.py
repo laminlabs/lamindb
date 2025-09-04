@@ -1052,6 +1052,56 @@ def delete_permanently(artifact: Artifact, storage: bool, using_key: str):
             logger.success(f"deleted {colors.yellow(f'{path}')}")
 
 
+class LazyArtifact:
+    """Lazy artifact for streaming to auto-generated internal paths.
+
+    This is needed when it is desirable to stream to a `lamindb` auto-generated internal path
+    and register the path as an artifact (see :class:`~lamindb.Artifact`).
+
+    This object creates a real artifact on `.save()` with the provided arguments.
+
+    Args:
+        suffix: The suffix for the auto-generated internal path
+        overwrite_versions: Whether to overwrite versions.
+        **kwargs: Keyword arguments for the artifact to be created.
+
+    Examples:
+
+        Create a lazy artifact, write to the path and save to get a real artifact::
+
+            lazy = ln.Artifact.from_lazy(suffix=".zarr", overwrite_versions=True, key="mydata.zarr")
+            zarr.open(lazy.path, mode="w")["test"] = np.array(["test"]) # stream to the path
+            artifact = lazy.save()
+    """
+
+    def __init__(self, suffix: str, overwrite_versions: bool, **kwargs):
+        self.kwargs = kwargs
+        self.kwargs["overwrite_versions"] = overwrite_versions
+
+        if (key := kwargs.get("key")) is not None and extract_suffix_from_path(
+            PurePosixPath(key)
+        ) != suffix:
+            raise ValueError(
+                "The suffix argument and the suffix of key should be the same."
+            )
+
+        uid, _ = create_uid(n_full_id=20)
+        storage_key = auto_storage_key_from_artifact_uid(
+            uid, suffix, overwrite_versions=overwrite_versions
+        )
+        storepath = setup_settings.storage.root / storage_key
+
+        self._path = storepath
+
+    @property
+    def path(self) -> UPath:
+        return self._path
+
+    def save(self, upload: bool | None = None, **kwargs) -> Artifact:
+        artifact = Artifact(self.path, _is_internal_call=True, **self.kwargs)
+        return artifact.save(upload=upload, **kwargs)
+
+
 class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     # Note that this docstring has to be consistent with Curator.save_artifact()
     """Datasets & models stored as files, folders, or arrays.
@@ -1091,6 +1141,13 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
             schema = ln.Schema(itype=ln.Feature)  # a schema that merely enforces that feature names exist in the Feature registry
             artifact = ln.Artifact.from_dataframe("./my_file.parquet", key="my_dataset.parquet", schema=schema).save()  # validated and annotated
+
+        To annotate by **external features**::
+
+            schema = ln.examples.schemas.valid_features()
+            artifact = ln.Artifact("./my_file.parquet", features={"species": "bird"}).save()
+
+        A `schema` can be optionally passed to also validate the features.
 
         You can make a **new version** of an artifact by passing an existing `key`::
 
@@ -1217,8 +1274,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
             ln.Artifact.filter(scientist="Barbara McClintock")
 
-        Features may or may not be part of the dataset, i.e., the artifact content in storage. For
-        instance, the :class:`~lamindb.curators.DataFrameCurator` flow validates the columns of a
+        Features may or may not be part of the dataset, i.e., the artifact content in storage.
+        For instance, the :class:`~lamindb.curators.DataFrameCurator` flow validates the columns of a
         `DataFrame`-like artifact and annotates it with features corresponding to these columns.
         `artifact.features.add_values`, by contrast, does not validate the content of the artifact.
 
@@ -1235,6 +1292,11 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                         "subset_highlyvariable": True,
                     },
                 })
+
+        To validate external features::
+
+            schema = ln.Schema([ln.Feature(name="species", dtype=str).save()]).save()
+            artifact.features.add_values({"species": "bird"}, schema=schema)
         """
         from ._feature_manager import FeatureManager
 
@@ -1482,7 +1544,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             external_curator.validate()
             external_curator._artifact = self
 
-            self._external_features = features
+        self._external_features = features
 
         branch_id: int | None = None
         if "visibility" in kwargs:  # backward compat
@@ -1651,6 +1713,43 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             raise ValueError("Pass one of key, run or description as a parameter")
 
         super().__init__(**kwargs)
+
+    @classmethod
+    def from_lazy(
+        cls,
+        suffix: str,
+        overwrite_versions: bool,
+        key: str | None = None,
+        description: str | None = None,
+        run: Run | None = None,
+        **kwargs,
+    ) -> LazyArtifact:
+        """Create a lazy artifact for streaming to auto-generated internal paths.
+
+        This is needed when it is desirable to stream to a `lamindb` auto-generated internal path
+        and register the path as an artifact.
+
+        The lazy artifact object (see :class:`~lamindb.models.LazyArtifact`) creates a real artifact
+        on `.save()` with the provided arguments.
+
+        Args:
+            suffix: The suffix for the auto-generated internal path
+            overwrite_versions: Whether to overwrite versions.
+            key: An optional key to reference the artifact.
+            description: A description.
+            run: The run that creates the artifact.
+            **kwargs: Other keyword arguments for the artifact to be created.
+
+        Examples:
+
+            Create a lazy artifact, write to the path and save to get a real artifact::
+
+                lazy = ln.Artifact.from_lazy(suffix=".zarr", overwrite_versions=True, key="mydata.zarr")
+                zarr.open(lazy.path, mode="w")["test"] = np.array(["test"]) # stream to the path
+                artifact = lazy.save()
+        """
+        args = {"key": key, "description": description, "run": run, **kwargs}
+        return LazyArtifact(suffix, overwrite_versions, **args)
 
     @property
     @deprecated("kind")
@@ -1874,6 +1973,10 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             .. literalinclude:: scripts/define_mini_immuno_features_labels.py
                :language: python
 
+            External features:
+
+            .. literalinclude:: scripts/curate_dataframe_external_features.py
+               :language: python
         """
         artifact = Artifact(  # type: ignore
             data=df,
@@ -1901,12 +2004,12 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             if schema.itype == "Composite" and features is not None:
                 try:
                     external_slot = next(
-                        k for k in schema.slots.keys() if "external" in k
+                        k for k in schema.slots.keys() if "__external__" in k
                     )
                     validation_schema = schema.slots[external_slot]
                 except StopIteration:
                     raise ValueError(
-                        "External feature validation requires a slot that starts with __external."
+                        "External feature validation requires a slot __external__."
                     ) from None
 
                 external_curator = DataFrameCurator(
@@ -2868,7 +2971,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             logger.important(f"moved local artifact to cache: {local_path_cache}")
 
         # Handle external features
-        if hasattr(self, "_external_features"):
+        if hasattr(self, "_external_features") and self._external_features is not None:
             external_features = self._external_features
             delattr(self, "_external_features")
             self.features.add_values(external_features)

@@ -578,39 +578,22 @@ class Schema(SQLRecord, CanCurate, TracksRun):
                 self.optionals.set(optional_features)
                 return None
         self._slots: dict[str, Schema] = {}
-        # if both features and a schema are provided, we store a new schema of the features in a slot
-        if features and slots:
-            schema = Schema(features=features).save()
-            # Use "columns" when the main features represent DataFrame structure:
-            # - It's a DataFrame schema
-            # - The slots are purely metadata (attrs, uns) not data structure
-            # Use "__external__" when the main features are external annotations/metadata
-            metadata_only_slots = {"attrs", "uns"}  # slots that are pure metadata
-            slot_names = set(slots.keys())
-            if (
-                otype == "DataFrame"
-                and slot_names.issubset(metadata_only_slots)
-                and len(slot_names) > 0
-            ):
-                slot_name = "columns"
-            else:
-                slot_name = f"__external_{name}__" if name else "__external__"
-            slots[slot_name] = schema
-            features = []
 
         if features:
             self._features = (get_related_name(features_registry), features)  # type: ignore
-        elif slots:
+        if slots:
             for slot_key, component in slots.items():
                 if component._state.adding:
                     raise InvalidArgument(
                         f"schema for {slot_key} {component} must be saved before use"
                     )
             self._slots = slots
+
         if validated_kwargs["hash"] in KNOWN_SCHEMAS:
             validated_kwargs["uid"] = KNOWN_SCHEMAS[validated_kwargs["hash"]]
         else:
             validated_kwargs["uid"] = ids.base62_16()
+
         super().__init__(**validated_kwargs)
 
     def _validate_kwargs_calculate_hash(
@@ -925,7 +908,7 @@ class Schema(SQLRecord, CanCurate, TracksRun):
         return cls.from_dataframe(df, field, name, mute, organism, source)
 
     def save(self, *args, **kwargs) -> Schema:
-        """Save."""
+        """Save schema."""
         from .save import bulk_create
 
         if self.pk is not None:
@@ -982,13 +965,16 @@ class Schema(SQLRecord, CanCurate, TracksRun):
             assert self.n > 0  # noqa: S101
             using: bool | None = kwargs.pop("using", None)
             related_name, records = self._features
+
+            # .set() does not preserve the order but orders by the feature primary key
             # only the following method preserves the order
-            # .set() does not preserve the order but orders by
-            # the feature primary key
             through_model = getattr(self, related_name).through
-            related_model_split = parse_cat_dtype(self.itype, is_itype=True)[
-                "registry_str"
-            ].split(".")
+            if self.itype == "Composite":
+                related_model_split = ["Feature"]
+            else:
+                related_model_split = parse_cat_dtype(self.itype, is_itype=True)[
+                    "registry_str"
+                ].split(".")
             if len(related_model_split) == 1:
                 related_field = related_model_split[0].lower()
             else:
@@ -1000,6 +986,7 @@ class Schema(SQLRecord, CanCurate, TracksRun):
             ]
             through_model.objects.using(using).bulk_create(links, ignore_conflicts=True)
             delattr(self, "_features")
+
         return self
 
     @property
