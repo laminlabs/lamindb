@@ -351,7 +351,7 @@ def save_context_core(
             if transform_hash != transform.hash:
                 response = input(
                     f"You are about to overwrite existing source code (hash '{transform.hash}') for Transform('{transform.uid}')."
-                    f" Proceed? (y/n)"
+                    f" Proceed? (y/n) "
                 )
                 if response == "y":
                     transform.source_code = source_code_path.read_text()
@@ -434,7 +434,7 @@ def save_context_core(
                     hash, _ = hash_file(report_path)  # ignore hash_type for now
                     if hash != run.report.hash:
                         response = input(
-                            f"You are about to overwrite an existing report (hash '{run.report.hash}') for Run('{run.uid}'). Proceed? (y/n)"
+                            f"You are about to overwrite an existing report (hash '{run.report.hash}') for Run('{run.uid}'). Proceed? (y/n) "
                         )
                         if response == "y":
                             run.report.replace(report_path)

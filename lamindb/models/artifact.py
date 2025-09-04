@@ -1036,7 +1036,7 @@ def delete_permanently(artifact: Artifact, storage: bool, using_key: str):
         # ask for extra-confirmation
         if storage is None:
             response = input(
-                f"Are you sure to want to delete {path}? (y/n)  You can't undo"
+                f"Are you sure to want to delete {path}? (y/n) You can't undo"
                 " this action."
             )
             delete_in_storage = response == "y"
