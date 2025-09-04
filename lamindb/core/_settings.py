@@ -206,7 +206,7 @@ class Settings:
         exists = ln.Storage.filter(root=ssettings.root_as_str).one_or_none()
         if exists is None:
             response = input(
-                f"Storage location {ssettings.root_as_str} does not yet exist. Do you want to continue with creating it? (y/n)"
+                f"Storage location {ssettings.root_as_str} does not yet exist. Do you want to continue with creating it? (y/n) "
             )
             # logger.warning(f"deprecated call because storage location does **not yet** exist; going forward, please create through ln.Storage(root={path}).save() going forward")
             if response != "y":
@@ -256,7 +256,7 @@ class Settings:
         exists = ln.Storage.filter(root=ssettings.root_as_str).one_or_none()
         if exists is None:
             response = input(
-                f"Storage location {ssettings.root_as_str} does not yet exist. Do you want to continue with creating it? (y/n)"
+                f"Storage location {ssettings.root_as_str} does not yet exist. Do you want to continue with creating it? (y/n) "
             )
             # logger.warning(f"deprecated call because storage location does **not yet** exist; going forward, please create through ln.Storage(root={path}).save() going forward")
             if response != "y":
