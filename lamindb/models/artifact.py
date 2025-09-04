@@ -1102,8 +1102,9 @@ class LazyArtifact:
         return artifact.save(upload=upload, **kwargs)
 
     def __repr__(self) -> str:  # pragma: no cover
+        show_kwargs = {k: v for k, v in self.kwargs.items() if v is not None}
         return (
-            f"LazyArtifact object with\n path: {self.path}\n arguments: {self.kwargs}"
+            f"LazyArtifact object with\n path: {self.path}\n arguments: {show_kwargs}"
         )
 
 
