@@ -1001,10 +1001,10 @@ class Schema(SQLRecord, CanCurate, TracksRun):
             # this should return a queryset and not a list...
             # need to fix this
             return self._features[1]
-        if self.is_type:
-            return Feature.objects.none()
-        if self.itype == "Composite":
+        if len(self.features.all()) > 0:
             return self.features.order_by("links_schema__id")
+        if self.itype == "Composite" or self.is_type:
+            return Feature.objects.none()
         related_name = self._get_related_name()
         if related_name is None:
             related_name = "features"

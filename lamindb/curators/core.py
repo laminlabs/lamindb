@@ -410,7 +410,9 @@ class SlotsCurator(Curator):
 class AtomicDataFrameCurator(Curator):
     """Curator for `DataFrame`.
 
-    Internal class that is not user facing.
+    Provides all key functionality to validate Pandas DataFrames.
+    This class is not user facing unlike :class:`~lamindb.DataFrameCurator` which extends this
+    class with functionality to validate the `attrs` slot.
 
     Args:
         dataset: The DataFrame-like object to validate & annotate.
@@ -1880,11 +1882,7 @@ def annotate_artifact(
         )
 
     # annotate with inferred schemas aka feature sets
-    if (
-        artifact.otype == "DataFrame"
-        and getattr(curator, "_schema", None) is None
-        or getattr(curator._schema, "itype", None) != "Composite"
-    ):
+    if artifact.otype == "DataFrame" and getattr(curator, "_schema", None) is None:
         features = cat_vectors["columns"].records
         if features is not None:
             index_feature = artifact.schema.index
