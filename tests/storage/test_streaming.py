@@ -273,6 +273,32 @@ def test_anndata_open_mode():
     artifact.delete(permanent=True, storage=True)
 
 
+def test_from_lazy():
+    # a different suffix in key
+    with pytest.raises(ValueError):
+        ln.Artifact.from_lazy(
+            suffix=".zarr", overwrite_versions=True, key="mydata.h5ad"
+        )
+
+    lazy = ln.Artifact.from_lazy(
+        suffix=".zarr", overwrite_versions=True, key="mydata.zarr"
+    )
+
+    store = zarr.open(lazy.path, mode="w")
+    store["test"] = np.array(["test"])
+
+    artifact = lazy.save()
+
+    path_str = artifact.path.as_posix()
+    assert ".lamindb" in path_str
+    assert artifact.uid[:16] in path_str
+
+    access = artifact.open()
+    assert access.storage["test"][...] == "test"
+
+    artifact.delete(permanent=True, storage=True)
+
+
 @pytest.mark.parametrize("storage", [None, "s3://lamindb-test/storage"])
 def test_write_read_tiledbsoma(storage):
     if storage is not None:

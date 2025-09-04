@@ -9,6 +9,7 @@
    BasicQuerySet
    QuerySet
    ArtifactSet
+   LazyArtifact
    QueryManager
    SQLRecordList
    FeatureManager
@@ -49,7 +50,7 @@ from .schema import Schema
 from .ulabel import ULabel
 
 # should come last as it needs everything else
-from .artifact import Artifact
+from .artifact import Artifact, LazyArtifact
 from ._feature_manager import FeatureManager
 from ._label_manager import LabelManager
 from .collection import Collection, CollectionArtifact

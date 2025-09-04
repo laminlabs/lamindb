@@ -78,6 +78,7 @@ def get_dataset1(
     with_outdated_gene: bool = False,
     with_wrong_subtype: bool = False,
     with_index_type_mismatch: bool = False,
+    with_nested_uns: bool = False,
 ) -> pd.DataFrame | ad.AnnData:
     """A small tabular dataset measuring expression & metadata."""
     # define the data in the dataset

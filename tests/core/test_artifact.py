@@ -52,8 +52,7 @@ from lamindb_setup.core.upath import (
 )
 
 # how do we properly abstract out the default storage variable?
-# currently, we're only mocking it through `storage` as
-# set in conftest.py
+# currently, we're only mocking it through `storage` as set in conftest.py
 
 ln.settings.verbosity = "success"
 bt.settings.organism = "human"
@@ -337,11 +336,24 @@ def test_revise_artifact(df):
     artifact.delete(permanent=True)  # permanent deletion
 
 
-def test_create_external_schema(tsv_file):
-    species = ln.Feature(name="species", dtype="str").save()
-    split = ln.Feature(name="split", dtype="str").save()
-    schema = ln.Schema(features=[species, split]).save()
-
+@pytest.mark.parametrize(
+    "schema",
+    [
+        ln.Schema(
+            features=[
+                ln.Feature(name="species", dtype=str).save(),
+                ln.Feature(name="split", dtype=str).save(),
+            ]
+        ),
+        None,
+    ],
+)
+def test_create_external_schema(tsv_file, schema):
+    if schema:
+        schema.save()
+    else:
+        (ln.Feature(name="split", dtype=str).save(),)
+        (ln.Feature(name="species", dtype=str).save(),)
     artifact = ln.Artifact(
         tsv_file,
         features={"species": "bird", "split": "train"},
@@ -351,20 +363,23 @@ def test_create_external_schema(tsv_file):
     assert artifact.features.get_values() == {"species": "bird", "split": "train"}
 
     artifact.delete(permanent=True)
-    schema.delete(permanent=True)
-    species.delete(permanent=True)
-    split.delete(permanent=True)
+    if schema:
+        schema.delete(permanent=True)
+    ln.Feature.get(name="species").delete(permanent=True)
+    ln.Feature.get(name="split").delete(permanent=True)
 
 
 def test_from_dataframe_external_schema(df):
     species = ln.Feature(name="species", dtype="str").save()
     split = ln.Feature(name="split", dtype="str").save()
-    external_schema = ln.Schema(features=[species, split]).save()
+    external_schema = ln.Schema(itype=ln.Feature).save()
 
     feat1 = ln.Feature(name="feat1", dtype="int").save()
     feat2 = ln.Feature(name="feat2", dtype="int").save()
     schema = ln.Schema(
-        features=[feat1, feat2], slots={"external": external_schema}, otype="DataFrame"
+        features=[feat1, feat2],
+        slots={"__external__": external_schema},
+        otype="DataFrame",
     ).save()
 
     artifact = ln.Artifact.from_dataframe(
@@ -380,13 +395,9 @@ def test_from_dataframe_external_schema(df):
     artifact.delete(permanent=True)
     schema.delete(permanent=True)
     external_schema.delete(permanent=True)
-    for feature in [species, split, feat1, feat2]:
-        ln.models.SchemaFeature.filter(feature=feature).delete()
 
     for feature in [species, split, feat1, feat2]:
         feature.delete(permanent=True)
-
-    ln.Schema.filter().delete()
 
 
 def test_create_from_dataframe(df):

@@ -645,7 +645,9 @@ def test_index_feature_exclusion_from_categoricals(df):
     curator = ln.curators.DataFrameCurator(df_indexed, schema)
 
     # Verify that only sample_type is in categoricals, not sample_id (index)
-    categoricals_names = [f.name for f in curator._cat_manager._categoricals]
+    categoricals_names = [
+        f.name for f in curator._atomic_curator._cat_manager._categoricals
+    ]
     assert "sample_type" in categoricals_names
     assert "sample_id" not in categoricals_names
 

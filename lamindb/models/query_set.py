@@ -709,7 +709,7 @@ class BasicQuerySet(models.QuerySet):
             id_subquery = self.values("id")
             time = logger.debug("finished get id values", time=time)
             # for annotate, we want the queryset without filters so that joins don't affect the annotations
-            query_set_without_filters = self.model.objects.filter(
+            query_set_without_filters = self.model.objects.using(self._db).filter(
                 id__in=Subquery(id_subquery)
             )
             time = logger.debug("finished get query_set_without_filters", time=time)

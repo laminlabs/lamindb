@@ -578,26 +578,22 @@ class Schema(SQLRecord, CanCurate, TracksRun):
                 self.optionals.set(optional_features)
                 return None
         self._slots: dict[str, Schema] = {}
-        # if both features and a schema are provided, we use a slot for a new schema of the features
-        if features and slots:
-            main_schema = Schema(features=features).save()
-            slot_name = f"__external_{name}__" if name else "__external__"
-            slots[slot_name] = main_schema
-            features = []
 
         if features:
             self._features = (get_related_name(features_registry), features)  # type: ignore
-        elif slots:
+        if slots:
             for slot_key, component in slots.items():
                 if component._state.adding:
                     raise InvalidArgument(
                         f"schema for {slot_key} {component} must be saved before use"
                     )
             self._slots = slots
+
         if validated_kwargs["hash"] in KNOWN_SCHEMAS:
             validated_kwargs["uid"] = KNOWN_SCHEMAS[validated_kwargs["hash"]]
         else:
             validated_kwargs["uid"] = ids.base62_16()
+
         super().__init__(**validated_kwargs)
 
     def _validate_kwargs_calculate_hash(
@@ -632,14 +628,20 @@ class Schema(SQLRecord, CanCurate, TracksRun):
                 raise TypeError("index must be a Feature")
             features.insert(0, index)
 
+        if slots:
+            itype = "Composite"
+            if otype is None:
+                raise InvalidArgument("Please pass otype != None for composite schemas")
+
         if features:
             features, configs = get_features_config(features)
             features_registry = validate_features(features)
-            itype_compare = features_registry.__get_name_with_module__()
-            if itype is not None:
-                assert itype.startswith(itype_compare), str(itype_compare)  # noqa: S101
-            else:
-                itype = itype_compare
+            if itype != "Composite":
+                itype_compare = features_registry.__get_name_with_module__()
+                if itype is not None:
+                    assert itype.startswith(itype_compare), str(itype_compare)  # noqa: S101
+                else:
+                    itype = itype_compare
             if n_features is not None:
                 if n_features != len(features):
                     logger.important(f"updating to n {len(features)} features")
@@ -662,11 +664,6 @@ class Schema(SQLRecord, CanCurate, TracksRun):
 
         if flexible is None:
             flexible = flexible_default
-
-        if slots:
-            itype = "Composite"
-            if otype is None:
-                raise InvalidArgument("Please pass otype != None for composite schemas")
 
         if itype is not None and not isinstance(itype, str):
             itype_str = serialize_dtype(itype, is_itype=True)
@@ -912,7 +909,7 @@ class Schema(SQLRecord, CanCurate, TracksRun):
         return cls.from_dataframe(df, field, name, mute, organism, source)
 
     def save(self, *args, **kwargs) -> Schema:
-        """Save."""
+        """Save schema."""
         from .save import bulk_create
 
         if self.pk is not None:
@@ -969,13 +966,16 @@ class Schema(SQLRecord, CanCurate, TracksRun):
             assert self.n > 0  # noqa: S101
             using: bool | None = kwargs.pop("using", None)
             related_name, records = self._features
+
+            # .set() does not preserve the order but orders by the feature primary key
             # only the following method preserves the order
-            # .set() does not preserve the order but orders by
-            # the feature primary key
             through_model = getattr(self, related_name).through
-            related_model_split = parse_cat_dtype(self.itype, is_itype=True)[
-                "registry_str"
-            ].split(".")
+            if self.itype == "Composite":
+                related_model_split = ["Feature"]
+            else:
+                related_model_split = parse_cat_dtype(self.itype, is_itype=True)[
+                    "registry_str"
+                ].split(".")
             if len(related_model_split) == 1:
                 related_field = related_model_split[0].lower()
             else:
@@ -987,6 +987,7 @@ class Schema(SQLRecord, CanCurate, TracksRun):
             ]
             through_model.objects.using(using).bulk_create(links, ignore_conflicts=True)
             delattr(self, "_features")
+
         return self
 
     @property
@@ -1000,6 +1001,8 @@ class Schema(SQLRecord, CanCurate, TracksRun):
             # this should return a queryset and not a list...
             # need to fix this
             return self._features[1]
+        if len(self.features.all()) > 0:
+            return self.features.order_by("links_schema__id")
         if self.itype == "Composite" or self.is_type:
             return Feature.objects.none()
         related_name = self._get_related_name()

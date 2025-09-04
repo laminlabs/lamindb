@@ -1,4 +1,5 @@
 import shutil
+from pathlib import Path
 
 import bionty as bt
 import lamindb as ln
@@ -304,9 +305,9 @@ def test_dataframe_curator_index():
 
 def test_dataframe_curator_validate_all_annotate_cat(small_dataset1_schema):
     """Do not pass any features."""
-
     schema = ln.Schema(itype=ln.Feature).save()
     assert schema.flexible
+
     df = datasets.small_dataset1(otype="DataFrame")
     artifact = ln.Artifact.from_dataframe(
         df, key="examples/dataset1.parquet", schema=schema
@@ -323,19 +324,20 @@ def test_dataframe_curator_validate_all_annotate_cat(small_dataset1_schema):
         "T cell",
         "B cell",
     }
+
     artifact.delete(permanent=True)
     schema.delete(permanent=True)
 
 
 def test_dataframe_curator_validate_all_annotate_cat2(small_dataset1_schema):
     """Combine half-specifying features, half not."""
-
     schema = ln.Schema(
         itype=ln.Feature,
         features=[ln.Feature.get(name="perturbation")],
         flexible=True,
     ).save()
     assert schema.flexible
+
     df = datasets.small_dataset1(otype="DataFrame")
     curator = ln.curators.DataFrameCurator(df, schema)
     artifact = curator.save_artifact(key="examples/dataset1.parquet")
@@ -351,7 +353,75 @@ def test_dataframe_curator_validate_all_annotate_cat2(small_dataset1_schema):
         "T cell",
         "B cell",
     }
+
     artifact.delete(permanent=True)
+    schema.delete(permanent=True)
+
+
+@pytest.mark.parametrize("include_attrs_slot", [True, False])
+def test_dataframe_attrs_validation(
+    uns_study_metadata, study_metadata_schema, include_attrs_slot
+):
+    df = datasets.mini_immuno.get_dataset1(otype="DataFrame")
+    if include_attrs_slot:
+        df.attrs = uns_study_metadata
+
+    perturbation = ln.ULabel(name="Perturbation", is_type=True).save()
+    perturbation_feature = ln.Feature(name="perturbation", dtype=perturbation).save()
+    ln.ULabel(name="DMSO", type=perturbation).save()
+    ln.ULabel(name="IFNG", type=perturbation).save()
+
+    if include_attrs_slot:
+        schema = ln.Schema(
+            features=[perturbation_feature],
+            slots={"attrs": study_metadata_schema},
+            otype="DataFrame",
+        ).save()
+    else:
+        schema = ln.Schema(
+            features=[perturbation_feature],
+            otype="DataFrame",
+        ).save()
+
+    bad_schema = ln.Schema(slots={"doesnotexist": schema}, otype="DataFrame").save()
+
+    with pytest.raises(ValueError) as e:
+        curator = ln.curators.DataFrameCurator(df, schema=bad_schema)
+    assert (
+        "Slot 'doesnotexist' is not supported for DataFrameCurator. Must be 'attrs'."
+        in str(e.value)
+    )
+
+    curator = ln.curators.DataFrameCurator(df, schema=schema)
+
+    if include_attrs_slot:
+        assert curator.slots["attrs"].__class__.__name__ == "ComponentCurator"
+    else:
+        assert not curator.slots
+
+    curator.validate()
+    artifact = curator.save_artifact(key="examples/df_with_attrs.parquet")
+
+    assert artifact.schema == schema
+    if include_attrs_slot:
+        assert "attrs" in artifact.features.slots
+        assert artifact.features.slots["attrs"].features.first() == ln.Feature.get(
+            name="temperature"
+        )
+        assert artifact.features.slots["attrs"].features.last() == ln.Feature.get(
+            name="experiment_id"
+        )
+    else:
+        assert (
+            not hasattr(artifact.features, "slots")
+            or "attrs" not in artifact.features.slots
+        )
+
+    from lamindb.models import SchemaComponent
+
+    SchemaComponent.filter().delete()
+    artifact.delete(permanent=True)
+    bad_schema.delete(permanent=True)
     schema.delete(permanent=True)
 
 
@@ -487,11 +557,11 @@ def test_anndata_curator_different_components(small_dataset1_schema: ln.Schema):
 
         adata = datasets.small_dataset1(otype="AnnData")
         curator = ln.curators.AnnDataCurator(adata, anndata_schema)
-        assert isinstance(curator.slots["var.T"], ln.curators.DataFrameCurator)
+        assert curator.slots["var.T"].__class__.__name__ == "ComponentCurator"
         if add_comp == "obs":
-            assert isinstance(curator.slots["obs"], ln.curators.DataFrameCurator)
+            assert curator.slots["obs"].__class__.__name__ == "ComponentCurator"
         if add_comp == "uns":
-            assert isinstance(curator.slots["uns"], ln.curators.DataFrameCurator)
+            assert curator.slots["uns"].__class__.__name__ == "ComponentCurator"
 
         artifact = ln.Artifact.from_anndata(
             adata, key="examples/dataset1.h5ad", schema=anndata_schema
@@ -627,7 +697,7 @@ def test_anndata_curator_nested_uns(uns_study_metadata, study_metadata_schema):
     ).save()
 
     curator = ln.curators.AnnDataCurator(adata, anndata_schema)
-    assert isinstance(curator.slots["uns:study_metadata"], ln.curators.DataFrameCurator)
+    assert curator.slots["uns:study_metadata"].__class__.__name__ == "ComponentCurator"
 
     curator.validate()
     artifact = curator.save_artifact(key="examples/anndata_with_uns.h5ad")
@@ -717,6 +787,7 @@ def test_mudata_curator(
     artifact.delete(permanent=True)
     mudata_schema.delete(permanent=True)
     small_dataset1_schema.delete(permanent=True)
+    Path("papalexi21_subset.h5mu").unlink(missing_ok=True)
 
 
 def test_mudata_curator_nested_uns(uns_study_metadata, study_metadata_schema):
@@ -745,9 +816,9 @@ def test_mudata_curator_nested_uns(uns_study_metadata, study_metadata_schema):
     ).save()
 
     curator = ln.curators.MuDataCurator(mdata, mdata_schema)
-    assert isinstance(curator.slots["uns:study_metadata"], ln.curators.DataFrameCurator)
-    assert isinstance(
-        curator.slots["rna:uns:site_metadata"], ln.curators.DataFrameCurator
+    assert curator.slots["uns:study_metadata"].__class__.__name__ == "ComponentCurator"
+    assert (
+        curator.slots["rna:uns:site_metadata"].__class__.__name__ == "ComponentCurator"
     )
 
     curator.validate()

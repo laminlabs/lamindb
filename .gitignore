@@ -221,5 +221,5 @@ _build
 # VSCode
 .vscode
 
-# cxg
-!lamindb/examples/cellxgene/cxg_schema_versions.csv
+# CELLxGENE
+!lamindb/examples/cellxgene/cellxgene_schema_versions.csv
