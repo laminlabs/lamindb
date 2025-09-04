@@ -342,7 +342,6 @@ def test_dataframe_attrs_validation(
     ln.ULabel(name="DMSO", type=perturbation).save()
     ln.ULabel(name="IFNG", type=perturbation).save()
 
-    # Create schema with or without attrs slot
     if include_attrs_slot:
         schema = ln.Schema(
             features=[perturbation_feature],
@@ -367,7 +366,7 @@ def test_dataframe_attrs_validation(
     curator = ln.curators.DataFrameCurator(df, schema=schema)
 
     if include_attrs_slot:
-        assert curator.slots["attrs"].__class__.__name__ == "AtomicDataFrameCurator"
+        assert curator.slots["attrs"].__class__.__name__ == "ComponentCurator"
     else:
         assert not curator.slots
 
@@ -529,11 +528,11 @@ def test_anndata_curator_different_components(small_dataset1_schema: ln.Schema):
 
         adata = datasets.small_dataset1(otype="AnnData")
         curator = ln.curators.AnnDataCurator(adata, anndata_schema)
-        assert curator.slots["var.T"].__class__.__name__ == "AtomicDataFrameCurator"
+        assert curator.slots["var.T"].__class__.__name__ == "ComponentCurator"
         if add_comp == "obs":
-            assert curator.slots["obs"].__class__.__name__ == "AtomicDataFrameCurator"
+            assert curator.slots["obs"].__class__.__name__ == "ComponentCurator"
         if add_comp == "uns":
-            assert curator.slots["uns"].__class__.__name__ == "AtomicDataFrameCurator"
+            assert curator.slots["uns"].__class__.__name__ == "ComponentCurator"
 
         artifact = ln.Artifact.from_anndata(
             adata, key="examples/dataset1.h5ad", schema=anndata_schema
@@ -669,10 +668,7 @@ def test_anndata_curator_nested_uns(uns_study_metadata, study_metadata_schema):
     ).save()
 
     curator = ln.curators.AnnDataCurator(adata, anndata_schema)
-    assert (
-        curator.slots["uns:study_metadata"].__class__.__name__
-        == "AtomicDataFrameCurator"
-    )
+    assert curator.slots["uns:study_metadata"].__class__.__name__ == "ComponentCurator"
 
     curator.validate()
     artifact = curator.save_artifact(key="examples/anndata_with_uns.h5ad")
@@ -799,13 +795,9 @@ def test_mudata_curator_nested_uns(uns_study_metadata):
     ).save()
 
     curator = ln.curators.MuDataCurator(mdata, mdata_schema)
+    assert curator.slots["uns:study_metadata"].__class__.__name__ == "ComponentCurator"
     assert (
-        curator.slots["uns:study_metadata"].__class__.__name__
-        == "AtomicDataFrameCurator"
-    )
-    assert (
-        curator.slots["rna:uns:site_metadata"].__class__.__name__
-        == "AtomicDataFrameCurator"
+        curator.slots["rna:uns:site_metadata"].__class__.__name__ == "ComponentCurator"
     )
 
     curator.validate()

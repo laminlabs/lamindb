@@ -5,7 +5,7 @@
 
    Curator
    SlotsCurator
-   AtomicDataFrameCurator
+   ComponentCurator
    CatVector
    CatLookup
    DataFrameCatManager
@@ -319,7 +319,7 @@ class SlotsCurator(Curator):
         schema: Schema,
     ) -> None:
         super().__init__(dataset=dataset, schema=schema)
-        self._slots: dict[str, AtomicDataFrameCurator] = {}
+        self._slots: dict[str, ComponentCurator] = {}
 
         # used for multimodal data structures (not AnnData)
         # in form of {table/modality_key: var_field}
@@ -329,7 +329,7 @@ class SlotsCurator(Curator):
 
     @property
     @doc_args(SLOTS_DOCSTRING)
-    def slots(self) -> dict[str, AtomicDataFrameCurator]:
+    def slots(self) -> dict[str, ComponentCurator]:
         """{}"""  # noqa: D415
         return self._slots
 
@@ -407,7 +407,7 @@ class SlotsCurator(Curator):
 # Such an approach was never intended and there is room for a DictCurator in the future.
 # For more context, read https://laminlabs.slack.com/archives/C07DB677JF6/p1753994077716099 and
 # https://www.notion.so/laminlabs/Add-a-DictCurator-2422aeaa55e180b9a513f91d13970836
-class AtomicDataFrameCurator(Curator):
+class ComponentCurator(Curator):
     """Curator for `DataFrame`.
 
     Provides all key functionality to validate Pandas DataFrames.
@@ -536,7 +536,6 @@ class AtomicDataFrameCurator(Curator):
         # actual columns of the dataset, not the pandera columns
         # the pandera columns might have additional optional columns
         if schema.itype == "Composite":
-            # Use Feature.name as the columns field for composite schemas
             columns_field = Feature.name
         else:
             columns_field = parse_cat_dtype(schema.itype, is_itype=True)["field"]
@@ -705,7 +704,7 @@ class DataFrameCurator(SlotsCurator):
 
         # Create atomic curator for features only
         if len(self._schema.features.all()) > 0:
-            self._atomic_curator = AtomicDataFrameCurator(
+            self._atomic_curator = ComponentCurator(
                 dataset=dataset,
                 schema=schema,
                 slot=slot,
@@ -726,7 +725,7 @@ class DataFrameCurator(SlotsCurator):
                                 attrs_dict, deeper_keys, slot_name, "attrs"
                             )
                         df = pd.DataFrame([data])
-                        self._slots[slot_name] = AtomicDataFrameCurator(
+                        self._slots[slot_name] = ComponentCurator(
                             df, slot_schema, slot=slot_name
                         )
                 else:
@@ -924,7 +923,7 @@ class AnnDataCurator(SlotsCurator):
                     )
                     else getattr(self._dataset, slot)
                 )
-            self._slots[slot] = AtomicDataFrameCurator(df, slot_schema, slot=slot)
+            self._slots[slot] = ComponentCurator(df, slot_schema, slot=slot)
 
             # Handle var index naming for backward compat
             if slot == "var" and schema.slots["var"].itype not in {None, "Feature"}:
@@ -944,7 +943,7 @@ def _assign_var_fields_categoricals_multimodal(
     slot_schema: Schema,
     var_fields: dict[str, FieldAttr],
     cat_vectors: dict[str, dict[str, CatVector]],
-    slots: dict[str, AtomicDataFrameCurator],
+    slots: dict[str, ComponentCurator],
 ) -> None:
     """Assigns var_fields and categoricals for multimodal data curators."""
     if modality is not None:
@@ -1036,7 +1035,7 @@ class MuDataCurator(SlotsCurator):
             elif modality_slot == "var.T":
                 df = df.T
 
-            self._slots[slot] = AtomicDataFrameCurator(df, slot_schema, slot=slot)
+            self._slots[slot] = ComponentCurator(df, slot_schema, slot=slot)
 
             _assign_var_fields_categoricals_multimodal(
                 modality=modality,
@@ -1130,7 +1129,7 @@ class SpatialDataCurator(SlotsCurator):
             elif table_slot == "var.T":
                 df = df.T
 
-            self._slots[slot] = AtomicDataFrameCurator(df, slot_schema, slot)
+            self._slots[slot] = ComponentCurator(df, slot_schema, slot)
 
             _assign_var_fields_categoricals_multimodal(
                 modality=table_key,
@@ -1187,7 +1186,7 @@ class TiledbsomaExperimentCurator(SlotsCurator):
                     .drop("soma_joinid", axis=1, errors="ignore")
                 )
 
-                self._slots[slot] = AtomicDataFrameCurator(
+                self._slots[slot] = ComponentCurator(
                     (schema_dataset.T if modality_slot == "var.T" else schema_dataset),
                     slot_schema,
                 )
@@ -1200,7 +1199,7 @@ class TiledbsomaExperimentCurator(SlotsCurator):
                     .to_pandas()
                     .drop(["soma_joinid", "obs_id"], axis=1, errors="ignore")
                 )
-                self._slots[slot] = AtomicDataFrameCurator(
+                self._slots[slot] = ComponentCurator(
                     schema_dataset,
                     slot_schema,
                 )
@@ -1882,7 +1881,9 @@ def annotate_artifact(
         )
 
     # annotate with inferred schemas aka feature sets
-    if artifact.otype == "DataFrame" and getattr(curator, "_schema", None) is None:
+    if (
+        artifact.otype == "DataFrame" and getattr(curator, "_schema", None) is None
+    ):  # Prevent overwriting user-defined schemas that contain slots
         features = cat_vectors["columns"].records
         if features is not None:
             index_feature = artifact.schema.index
@@ -1912,47 +1913,46 @@ def annotate_artifact(
                 feature_set.save(), through_defaults={"slot": "columns"}
             )
     else:
-        if curator is not None:
-            for slot, slot_curator in curator._slots.items():
-                # var_index is backward compat (2025-05-01)
-                name = (
-                    "var_index"
-                    if (slot == "var" and "var_index" in slot_curator.cat._cat_vectors)
-                    else "columns"
+        for slot, slot_curator in curator._slots.items():
+            # var_index is backward compat (2025-05-01)
+            name = (
+                "var_index"
+                if (slot == "var" and "var_index" in slot_curator.cat._cat_vectors)
+                else "columns"
+            )
+            features = slot_curator.cat._cat_vectors[name].records
+            if features is None:
+                logger.warning(f"no features found for slot {slot}")
+                continue
+            validating_schema = slot_curator._schema
+            index_feature = validating_schema.index
+            feature_set = Schema(
+                features=[f for f in features if f != index_feature],
+                itype=validating_schema.itype,
+                index=index_feature,
+                minimal_set=validating_schema.minimal_set,
+                maximal_set=validating_schema.maximal_set,
+                coerce_dtype=validating_schema.coerce_dtype,
+                ordered_set=validating_schema.ordered_set,
+            )
+            if (
+                feature_set._state.adding
+                and len(features) > settings.annotation.n_max_records
+            ):
+                logger.important(
+                    f"not annotating with {len(features)} features for slot {slot} as it exceeds {settings.annotation.n_max_records} (ln.settings.annotation.n_max_records)"
                 )
-                features = slot_curator.cat._cat_vectors[name].records
-                if features is None:
-                    logger.warning(f"no features found for slot {slot}")
-                    continue
-                validating_schema = slot_curator._schema
-                index_feature = validating_schema.index
-                feature_set = Schema(
-                    features=[f for f in features if f != index_feature],
-                    itype=validating_schema.itype,
-                    index=index_feature,
-                    minimal_set=validating_schema.minimal_set,
-                    maximal_set=validating_schema.maximal_set,
-                    coerce_dtype=validating_schema.coerce_dtype,
-                    ordered_set=validating_schema.ordered_set,
+                itype = (
+                    Feature.name
+                    if artifact.schema.slots[slot].itype == "Composite"
+                    else parse_cat_dtype(
+                        artifact.schema.slots[slot].itype, is_itype=True
+                    )["field"]
                 )
-                if (
-                    feature_set._state.adding
-                    and len(features) > settings.annotation.n_max_records
-                ):
-                    logger.important(
-                        f"not annotating with {len(features)} features for slot {slot} as it exceeds {settings.annotation.n_max_records} (ln.settings.annotation.n_max_records)"
-                    )
-                    itype = (
-                        Feature.name
-                        if artifact.schema.slots[slot].itype == "Composite"
-                        else parse_cat_dtype(
-                            artifact.schema.slots[slot].itype, is_itype=True
-                        )["field"]
-                    )
-                    feature_set = Schema(itype=itype, n=len(features))
-                artifact.feature_sets.add(
-                    feature_set.save(), through_defaults={"slot": slot}
-                )
+                feature_set = Schema(itype=itype, n=len(features))
+            artifact.feature_sets.add(
+                feature_set.save(), through_defaults={"slot": slot}
+            )
 
     slug = ln_setup.settings.instance.slug
     if ln_setup.settings.instance.is_remote:  # pdagma: no cover
