@@ -258,9 +258,9 @@ def test_dataframe_curator_index():
 
 def test_dataframe_curator_validate_all_annotate_cat(small_dataset1_schema):
     """Do not pass any features."""
-
     schema = ln.Schema(itype=ln.Feature).save()
     assert schema.flexible
+
     df = datasets.small_dataset1(otype="DataFrame")
     artifact = ln.Artifact.from_dataframe(
         df, key="examples/dataset1.parquet", schema=schema
@@ -277,19 +277,20 @@ def test_dataframe_curator_validate_all_annotate_cat(small_dataset1_schema):
         "T cell",
         "B cell",
     }
+
     artifact.delete(permanent=True)
     schema.delete(permanent=True)
 
 
 def test_dataframe_curator_validate_all_annotate_cat2(small_dataset1_schema):
     """Combine half-specifying features, half not."""
-
     schema = ln.Schema(
         itype=ln.Feature,
         features=[ln.Feature.get(name="perturbation")],
         flexible=True,
     ).save()
     assert schema.flexible
+
     df = datasets.small_dataset1(otype="DataFrame")
     curator = ln.curators.DataFrameCurator(df, schema)
     artifact = curator.save_artifact(key="examples/dataset1.parquet")
@@ -305,6 +306,7 @@ def test_dataframe_curator_validate_all_annotate_cat2(small_dataset1_schema):
         "T cell",
         "B cell",
     }
+
     artifact.delete(permanent=True)
     schema.delete(permanent=True)
 

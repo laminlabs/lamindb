@@ -1991,7 +1991,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         artifact.n_observations = len(df)
 
         if schema is not None:
-            from ..curators import DataFrameCurator
+            from lamindb.curators.core import AtomicDataFrameCurator
 
             if not artifact._state.adding and artifact.suffix != ".parquet":
                 logger.warning(
@@ -2012,7 +2012,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                         "External feature validation requires a slot __external__."
                     ) from None
 
-                external_curator = DataFrameCurator(
+                external_curator = AtomicDataFrameCurator(
                     pd.DataFrame([features]), validation_schema
                 )
                 external_curator.validate()
@@ -2020,7 +2020,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
             # Validate main DataFrame if not Composite or if Composite has attrs
             if schema.itype != "Composite" or "attrs" in schema.slots:
-                curator = DataFrameCurator(artifact, schema)
+                curator = AtomicDataFrameCurator(artifact, schema)
                 curator.validate()
                 artifact.schema = schema
                 artifact._curator = curator

@@ -628,14 +628,20 @@ class Schema(SQLRecord, CanCurate, TracksRun):
                 raise TypeError("index must be a Feature")
             features.insert(0, index)
 
+        if slots:
+            itype = "Composite"
+            if otype is None:
+                raise InvalidArgument("Please pass otype != None for composite schemas")
+
         if features:
             features, configs = get_features_config(features)
             features_registry = validate_features(features)
-            itype_compare = features_registry.__get_name_with_module__()
-            if itype is not None:
-                assert itype.startswith(itype_compare), str(itype_compare)  # noqa: S101
-            else:
-                itype = itype_compare
+            if itype != "Composite":
+                itype_compare = features_registry.__get_name_with_module__()
+                if itype is not None:
+                    assert itype.startswith(itype_compare), str(itype_compare)  # noqa: S101
+                else:
+                    itype = itype_compare
             if n_features is not None:
                 if n_features != len(features):
                     logger.important(f"updating to n {len(features)} features")
@@ -658,11 +664,6 @@ class Schema(SQLRecord, CanCurate, TracksRun):
 
         if flexible is None:
             flexible = flexible_default
-
-        if slots:
-            itype = "Composite"
-            if otype is None:
-                raise InvalidArgument("Please pass otype != None for composite schemas")
 
         if itype is not None and not isinstance(itype, str):
             itype_str = serialize_dtype(itype, is_itype=True)
@@ -1000,8 +1001,10 @@ class Schema(SQLRecord, CanCurate, TracksRun):
             # this should return a queryset and not a list...
             # need to fix this
             return self._features[1]
-        if self.itype == "Composite" or self.is_type:
+        if self.is_type:
             return Feature.objects.none()
+        if self.itype == "Composite":
+            return self.features.order_by("links_schema__id")
         related_name = self._get_related_name()
         if related_name is None:
             related_name = "features"

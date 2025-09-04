@@ -5,6 +5,7 @@
 
    Curator
    SlotsCurator
+   AtomicDataFrameCurator
    CatVector
    CatLookup
    DataFrameCatManager
@@ -264,12 +265,6 @@ class Curator:
             status_str = f", {colors.yellow('unvalidated')}"
 
         cls_name = colors.green(self.__class__.__name__)
-
-        # Hide AtomicDataFrameCurator implementation detail
-        if self.__class__.__name__ == "AtomicDataFrameCurator":
-            cls_name = colors.green("DataFrameCurator")
-        else:
-            cls_name = colors.green(self.__class__.__name__)
 
         # Get additional info based on curator type
         extra_info = ""
@@ -706,28 +701,17 @@ class DataFrameCurator(SlotsCurator):
     ) -> None:
         super().__init__(dataset=dataset, schema=schema)
 
-        main_schema = schema
-        skip_slot = None
-        if not schema.features.exists() and schema.slots:
-            # Find the auto-generated feature slot
-            for slot_name, slot_schema in schema.slots.items():
-                if slot_name == "columns" or slot_name.startswith("__external"):
-                    main_schema = slot_schema
-                    skip_slot = slot_name
-                    break
+        # Create atomic curator for features only
+        if len(self._schema.features.all()) > 0:
+            self._atomic_curator = AtomicDataFrameCurator(
+                dataset=dataset,
+                schema=schema,
+                slot=slot,
+            )
 
-        # Always create atomic curator for the main DataFrame
-        self._atomic_curator = AtomicDataFrameCurator(
-            dataset=dataset,
-            schema=main_schema,
-            slot=slot,
-        )
-
-        # Handle additional slots if present
+        # Handle (nested) attrs
         if slot is None and schema.slots:
             for slot_name, slot_schema in schema.slots.items():
-                if slot_name == skip_slot:
-                    continue
                 if slot_name.startswith("attrs"):
                     path_parts = slot_name.split(":")
                     attrs_dict = getattr(self._dataset, "attrs", None)
@@ -743,10 +727,6 @@ class DataFrameCurator(SlotsCurator):
                         self._slots[slot_name] = AtomicDataFrameCurator(
                             df, slot_schema, slot=slot_name
                         )
-                elif slot_name == "columns" or slot_name.startswith("__external"):
-                    self._slots[slot_name] = AtomicDataFrameCurator(
-                        self._dataset, slot_schema, slot=slot_name
-                    )
                 else:
                     raise ValueError(
                         f"Slot '{slot_name}' is not supported for DataFrameCurator. Must be 'attrs'."
