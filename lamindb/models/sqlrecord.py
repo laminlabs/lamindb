@@ -1010,9 +1010,20 @@ class Space(BaseSQLRecord):
         **kwargs,
     ):
         if "uid" not in kwargs:
-            logger.warning(
-                "creating spaces is possible in SQLite for demo purposes, but does *not* affect access permissions"
-            )
+            warn = False
+            msg = ""
+            isettings = setup_settings.instance
+            if (dialect := isettings.dialect) != "postgresql":
+                warn = True
+                msg = f"on {dialect} databases"
+            elif not isettings.is_on_hub:
+                warn = True
+                msg = "on local instances"
+            if warn:
+                logger.warning(
+                    f"creating spaces manually {msg} is possible for demo purposes, "
+                    "but does *not* affect access permissions"
+                )
         super().__init__(*args, **kwargs)
 
 
