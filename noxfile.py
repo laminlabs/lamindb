@@ -337,7 +337,7 @@ def clidocs(session):
                     )
                     help_docstring = help_dict["docstring"]
 
-                    page += f"### lamin {command_name}\n\n"
+                    page += f"### {command_name}\n\n"
                     if help_docstring:
                         page += f"{help_docstring}\n\n"
                     page += f"```text\n{help_string}\n```\n\n"
