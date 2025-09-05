@@ -332,15 +332,13 @@ def clidocs(session):
                     help_dict = helps[full_key]
                     processed_commands.add(command_name)
 
-                    help_string = help_dict["help"].replace(
-                        "Usage: main", "Usage: lamin"
-                    )
+                    help_string = help_dict["help"].replace("Usage: main", "lamin")
                     help_docstring = help_dict["docstring"]
 
                     page += f"### {command_name}\n\n"
                     if help_docstring:
                         page += f"{help_docstring}\n\n"
-                    page += f"```text\n{help_string}\n```\n\n"
+                    page += f"Usage:\n```text\n{help_string}\n```\n\n"
 
         # Add any remaining commands that aren't in groups
         remaining_commands = []
