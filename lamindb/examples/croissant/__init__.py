@@ -1,6 +1,10 @@
-"""Example Croissant files.
+"""Examples for MLCommons Croissant files, which are used to store metadata about datasets.
 
-Examples for MLCommons Croissant files, which are used to store metadata about datasets.
+.. autosummary::
+   :toctree: .
+
+   mini_immuno
+
 """
 
 import json
@@ -12,6 +16,12 @@ def mini_immuno(n_files: int = 1) -> list[Path]:
 
     Args:
         n_files: Number of files inside the croissant file. Default is 1.
+
+    Example
+
+        ::
+
+            croissant_path, dataset1_path = ln.examples.croissant.mini_immuno()
     """
     from ..datasets import file_mini_csv
     from ..datasets.mini_immuno import get_dataset1
