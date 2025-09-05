@@ -20,7 +20,7 @@ from .can_curate import CanCurate
 from .feature import Feature
 from .has_parents import _query_relatives
 from .query_set import reorder_subset_columns_in_df
-from .run import Run, TracksRun, TracksUpdates
+from .run import Run, TracksRun, TracksUpdates, User
 from .sqlrecord import BaseSQLRecord, IsLink, SQLRecord, _get_record_kwargs
 from .transform import Transform
 from .ulabel import ULabel
@@ -282,6 +282,18 @@ class RecordULabel(BaseSQLRecord, IsLink):
 
     class Meta:
         # allows linking exactly one record to one ulabel per feature, because we likely don't want to have Many
+        app_label = "lamindb"
+        unique_together = ("record", "feature", "value")
+
+
+class RecordUser(BaseSQLRecord, IsLink):
+    id: int = models.BigAutoField(primary_key=True)
+    record: Record = ForeignKey(Record, CASCADE, related_name="values_user")
+    feature: Feature = ForeignKey(Feature, PROTECT, related_name="links_recorduser")
+    value: User = ForeignKey(User, PROTECT, related_name="links_record")
+
+    class Meta:
+        # allows linking exactly one record to one user per feature, because we likely don't want to have Many
         app_label = "lamindb"
         unique_together = ("record", "feature", "value")
 
