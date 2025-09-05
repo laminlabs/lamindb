@@ -266,7 +266,7 @@ def test_utility_tables():
     assert ln.User.filter().count() == 2
     # can't insert
     with pytest.raises(ProgrammingError):
-        ln.Space(name="new space", uid="00000005").save()
+        ln.Space(name="new space").save()
 
     with pytest.raises(ProgrammingError):
         hm.Account(id=uuid4().hex, uid="accntid2", role="admin").save()

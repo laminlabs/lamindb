@@ -976,8 +976,7 @@ class Space(BaseSQLRecord):
         editable=False,
         unique=True,
         max_length=12,
-        default="aaaaaaaaaaaaa",
-        db_default="aaaaaaaaaaaa",
+        default=base62_12,
         db_index=True,
     )
     """Universal id."""
@@ -1010,6 +1009,21 @@ class Space(BaseSQLRecord):
         *args,
         **kwargs,
     ):
+        if "uid" not in kwargs:
+            warn = False
+            msg = ""
+            isettings = setup_settings.instance
+            if (dialect := isettings.dialect) != "postgresql":
+                warn = True
+                msg = f"on {dialect} databases"
+            elif not isettings.is_on_hub:
+                warn = True
+                msg = "on local instances"
+            if warn:
+                logger.warning(
+                    f"creating spaces manually {msg} is possible for demo purposes, "
+                    "but does *not* affect access permissions"
+                )
         super().__init__(*args, **kwargs)
 
 
