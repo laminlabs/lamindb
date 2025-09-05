@@ -2,11 +2,9 @@
 
 from django.db import migrations
 
-TABLE_NAME = "lamindb_record"
-
-CREATE_FUNCTION_SQL = f"""
+CREATE_FUNCTION_SQL = """
 CREATE OR REPLACE FUNCTION is_valid_record_type(type_id INTEGER, is_type BOOLEAN)
-RETURNS BOOLEAN AS $
+RETURNS BOOLEAN AS $$
 BEGIN
     -- Record with no type is valid
     IF type_id IS NULL THEN
@@ -14,32 +12,32 @@ BEGIN
     END IF;
 
     -- If current record is a type, it can only reference schema-less types
-    IF is_type = TRUE THEN
+    IF is_type THEN
         RETURN EXISTS (
-            SELECT 1 FROM lamindb_record
-            WHERE id = type_id AND is_type = TRUE AND schema_id IS NULL
+            SELECT 1 FROM lamindb_record r
+            WHERE r.id = type_id AND r.is_type AND r.schema_id IS NULL
         );
     END IF;
 
     -- Regular records can reference any type
     RETURN EXISTS (
-        SELECT 1 FROM lamindb_record
-        WHERE id = type_id AND is_type = TRUE
+        SELECT 1 FROM lamindb_record r
+        WHERE r.id = type_id AND r.is_type
     );
 END;
 $$ LANGUAGE plpgsql;
 """
 
-ADD_CONSTRAINT_SQL = f"""
-ALTER TABLE {TABLE_NAME}
-ADD CONSTRAINT record_type_is_valid_fk
-CHECK (is_valid_record_type(type_id));
+ADD_CONSTRAINT_SQL = """
+ALTER TABLE lamindb_record
+ADD CONSTRAINT record_type_is_valid_ck
+CHECK (is_valid_record_type(type_id, is_type));
 """
 
 DROP_CONSTRAINT_SQL = (
-    f"ALTER TABLE {TABLE_NAME} DROP CONSTRAINT IF EXISTS record_type_is_valid_fk;"
+    "ALTER TABLE lamindb_record DROP CONSTRAINT IF EXISTS record_type_is_valid_ck;"
 )
-DROP_FUNCTION_SQL = "DROP FUNCTION IF EXISTS is_valid_record_type(INTEGER);"
+DROP_FUNCTION_SQL = "DROP FUNCTION IF EXISTS is_valid_record_type(INTEGER, BOOLEAN);"
 
 
 def apply_postgres_constraint(apps, schema_editor):
