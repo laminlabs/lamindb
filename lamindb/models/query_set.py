@@ -922,33 +922,33 @@ class QuerySet(BasicQuerySet):
 
     def filter(self, *queries, **expressions) -> QuerySet:
         """Query a set of records."""
-        if expressions and self.model.__class__.__name__ == "Artifact":
+        if expressions and self.model.__name__ == "Artifact":
             from ._feature_manager import filter_base
             from .artifact import Artifact
             from .feature import Feature
 
             keys_normalized = [key.split("__")[0] for key in expressions]
-            field_or_feature_or_param = keys_normalized[0].split("__")[0]
-            if field_or_feature_or_param in Artifact.__get_available_fields__():
-                qs = QuerySet(model=self.model.__class__).filter(
-                    *queries, **expressions
-                )
+            field_or_feature = keys_normalized[0].split("__")[0]
+            if field_or_feature in Artifact.__get_available_fields__():
+                qs = QuerySet(model=self.model).filter(*queries, **expressions)
                 if not any(e.startswith("kind") for e in expressions):
                     return qs.exclude(kind="__lamindb_run__")
                 else:
                     return qs
             elif all(
-                features_validated := Feature.validate(
+                features_validated := Feature.objects.using(self.db).validate(
                     keys_normalized, field="name", mute=True
                 )
             ):
-                return filter_base(Artifact, **expressions)
+                return filter_base(
+                    Artifact, db=self.db, _skip_validation=True, **expressions
+                )
             else:
                 features = ", ".join(
                     sorted(np.array(keys_normalized)[~features_validated])
                 )
                 message = f"feature names: {features}"
-                avail_fields = self.model.__class__.__get_available_fields__()
+                avail_fields = self.model.__get_available_fields__()
                 if "_branch_code" in avail_fields:
                     avail_fields.remove("_branch_code")  # backward compat
                 fields = ", ".join(sorted(avail_fields))

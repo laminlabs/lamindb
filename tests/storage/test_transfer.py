@@ -169,3 +169,7 @@ def test_using_record_organism():
         "record must be a bionty.Source record from instance 'laminlabs/lamin-dev'"
         in str(error.value)
     )
+
+
+def test_using_query_by_feature():
+    assert ln.Artifact.using("laminlabs/cellxgene").filter(n_of_donors__gte=100).all()
