@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING, Any, Literal, Union, overload
 
 import fsspec
 import lamindb_setup as ln_setup
-import numpy as np
 import pandas as pd
 from anndata import AnnData
 from django.db import connections, models
@@ -69,7 +68,6 @@ from ..models._is_versioned import (
 from ._django import get_artifact_with_related, get_collection_with_related
 from ._feature_manager import (
     FeatureManager,
-    filter_base,
     get_label_links,
 )
 from ._is_versioned import IsVersioned
@@ -1888,42 +1886,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 ln.Arfifact.filter(cell_type_by_model__name="T cell")
 
         """
-        from .query_set import QuerySet
-
-        if expressions:
-            keys_normalized = [key.split("__")[0] for key in expressions]
-            field_or_feature_or_param = keys_normalized[0].split("__")[0]
-            if field_or_feature_or_param in Artifact.__get_available_fields__():
-                qs = QuerySet(model=cls).filter(*queries, **expressions)
-                if not any(e.startswith("kind") for e in expressions):
-                    return qs.exclude(kind="__lamindb_run__")
-                else:
-                    return qs
-            elif all(
-                features_validated := Feature.validate(
-                    keys_normalized, field="name", mute=True
-                )
-            ):
-                return filter_base(Artifact, **expressions)
-            else:
-                features = ", ".join(
-                    sorted(np.array(keys_normalized)[~features_validated])
-                )
-                message = f"feature names: {features}"
-                avail_fields = cls.__get_available_fields__()
-                if "_branch_code" in avail_fields:
-                    avail_fields.remove("_branch_code")  # backward compat
-                fields = ", ".join(sorted(avail_fields))
-                raise InvalidArgument(
-                    f"You can query either by available fields: {fields}\n"
-                    f"Or fix invalid {message}"
-                )
-        else:
-            return (
-                QuerySet(model=cls)
-                .filter(*queries, **expressions)
-                .exclude(kind="__lamindb_run__")
-            )
+        # from Registry metaclass
+        return type(cls).filter(cls, *queries, **expressions)
 
     @classmethod
     def from_dataframe(

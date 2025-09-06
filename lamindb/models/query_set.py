@@ -945,6 +945,11 @@ class QuerySet(BasicQuerySet):
     def filter(self, *queries, **expressions) -> QuerySet:
         """Query a set of records."""
         # Suggest to use __name for related fields such as id when not passed
+        if hasattr(self, "_filter_with_features") and not expressions.pop(
+            "_skip_filter_with_features", False
+        ):
+            return self._filter_with_features(*queries, **expressions)
+
         for field, value in expressions.items():
             if (
                 isinstance(value, str)

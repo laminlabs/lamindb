@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Iterable, Iterator
 from typing import TYPE_CHECKING, Literal
 
+import numpy as np
 from django.db.models import Q, TextField, Value
 from django.db.models.functions import Concat
 from lamin_utils import logger
@@ -11,8 +12,11 @@ from upath import UPath
 
 from ..core._mapped_collection import MappedCollection
 from ..core.storage._backed_access import _open_dataframe
+from ..errors import InvalidArgument
+from ._feature_manager import filter_base
 from .artifact import Artifact, _track_run_input
 from .collection import Collection, _load_concat_artifacts
+from .feature import Feature
 
 if TYPE_CHECKING:
     from anndata import AnnData
@@ -28,6 +32,7 @@ UNORDERED_WARNING = (
 )
 
 
+# maybe make this abstract
 class ArtifactSet(Iterable):
     """Abstract class representing sets of artifacts returned by queries.
 
@@ -39,6 +44,47 @@ class ArtifactSet(Iterable):
         >>> artifacts = ln.Artifact.filter(otype="AnnData")
         >>> artifacts # an instance of ArtifactQuerySet inheriting from ArtifactSet
     """
+
+    def _filter_with_features(self, *queries, **expressions) -> ArtifactSet:
+        if expressions:
+            keys_normalized = [key.split("__")[0] for key in expressions]
+            field_or_feature_or_param = keys_normalized[0].split("__")[0]
+            if field_or_feature_or_param in Artifact.__get_available_fields__():
+                qs = self.filter(  # type: ignore
+                    *queries, **expressions, _skip_filter_with_features=True
+                )
+                if not any(e.startswith("kind") for e in expressions):
+                    return qs.exclude(kind="__lamindb_run__")
+                else:
+                    return qs
+            elif all(
+                features_validated := Feature.objects.using(self.db).validate(  # type: ignore
+                    keys_normalized, field="name", mute=True
+                )
+            ):
+                return filter_base(
+                    Artifact,
+                    db=self.db,  # type: ignore
+                    _skip_validation=True,
+                    **expressions,
+                )
+            else:
+                features = ", ".join(
+                    sorted(np.array(keys_normalized)[~features_validated])
+                )
+                message = f"feature names: {features}"
+                avail_fields = Artifact.__get_available_fields__()
+                if "_branch_code" in avail_fields:
+                    avail_fields.remove("_branch_code")  # backward compat
+                fields = ", ".join(sorted(avail_fields))
+                raise InvalidArgument(
+                    f"You can query either by available fields: {fields}\n"
+                    f"Or fix invalid {message}"
+                )
+        else:
+            return self.filter(  # type: ignore
+                *queries, **expressions, _skip_filter_with_features=True
+            ).exclude(kind="__lamindb_run__")
 
     @doc_args(Collection.load.__doc__)
     def load(
