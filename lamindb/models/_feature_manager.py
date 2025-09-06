@@ -562,7 +562,7 @@ def infer_feature_type_convert_json(
 
 
 def filter_base(
-    registry: Registry, _skip_validation: bool = True, **expression
+    registry: Registry, _skip_validation: bool = True, db: str = "default", **expression
 ) -> QuerySet:
     from .artifact import Artifact
 
@@ -570,13 +570,13 @@ def filter_base(
     value_model = FeatureValue
     keys_normalized = [key.split("__")[0] for key in expression]
     if not _skip_validation:
-        validated = model.validate(keys_normalized, field="name", mute=True)
+        validated = model.using(db).validate(keys_normalized, field="name", mute=True)
         if sum(validated) != len(keys_normalized):
             raise ValidationError(
                 f"Some keys in the filter expression are not registered as features: {np.array(keys_normalized)[~validated]}"
             )
     new_expression = {}
-    features = model.filter(name__in=keys_normalized).all().distinct()
+    features = model.using(db).filter(name__in=keys_normalized).all().distinct()
     feature_param = "feature"
     for key, value in expression.items():
         split_key = key.split("__")
@@ -594,7 +594,7 @@ def filter_base(
                     from .artifact import ArtifactFeatureValue
 
                     if value:  # True
-                        return Artifact.objects.exclude(
+                        return Artifact.objects.using(db).exclude(
                             id__in=Subquery(
                                 ArtifactFeatureValue.objects.filter(
                                     featurevalue__feature=feature
@@ -602,7 +602,7 @@ def filter_base(
                             )
                         )
                     else:
-                        return Artifact.objects.exclude(
+                        return Artifact.objects.using(db).exclude(
                             id__in=Subquery(
                                 ArtifactFeatureValue.objects.filter(
                                     featurevalue__feature=feature
@@ -626,9 +626,9 @@ def filter_base(
                         f"links_{result['registry'].__name__.lower()}__feature": feature
                     }
                     if value:  # True
-                        return Artifact.objects.exclude(**kwargs)
+                        return Artifact.objects.using(db).exclude(**kwargs)
                     else:
-                        return Artifact.objects.filter(**kwargs)
+                        return Artifact.objects.using(db).filter(**kwargs)
             else:
                 # because SQL is sensitive to whether querying with __in or not
                 # and might return multiple equivalent records for the latter
@@ -670,7 +670,7 @@ def filter_base(
             # https://laminlabs.slack.com/archives/C04FPE8V01W/p1688328084810609
     if not (new_expression):
         raise NotImplementedError
-    return registry.objects.filter(**new_expression)
+    return registry.objects.using(db).filter(**new_expression)
 
 
 # for deprecated functionality
