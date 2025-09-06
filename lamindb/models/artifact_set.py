@@ -184,9 +184,14 @@ def artifacts_from_path(artifacts: ArtifactSet, path: UPathStr) -> ArtifactSet:
         qs = artifacts.filter(  # type: ignore
             Q(_key_is_virtual=True) | Q(key__isnull=True),
             uid__startswith=stem,
+            _skip_filter_with_features=True,
         )
     elif stem_len == 20:
-        qs = artifacts.filter(Q(_key_is_virtual=True) | Q(key__isnull=True), uid=stem)  # type: ignore
+        qs = artifacts.filter(  # type: ignore
+            Q(_key_is_virtual=True) | Q(key__isnull=True),
+            uid=stem,
+            _skip_filter_with_features=True,
+        )
     else:
         qs = None
 
@@ -194,10 +199,10 @@ def artifacts_from_path(artifacts: ArtifactSet, path: UPathStr) -> ArtifactSet:
         return qs
 
     qs = (
-        artifacts.filter(_key_is_virtual=False)  # type: ignore
+        artifacts.filter(_key_is_virtual=False, _skip_filter_with_features=True)  # type: ignore
         .alias(
             db_path=Concat("storage__root", Value("/"), "key", output_field=TextField())
         )
-        .filter(db_path=path_str)
+        .filter(db_path=path_str, _skip_filter_with_features=True)
     )
     return qs
