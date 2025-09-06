@@ -17,6 +17,7 @@ from ._feature_manager import filter_base
 from .artifact import Artifact, _track_run_input
 from .collection import Collection, _load_concat_artifacts
 from .feature import Feature
+from .query_set import BasicQuerySet
 
 if TYPE_CHECKING:
     from anndata import AnnData
@@ -181,16 +182,16 @@ def artifacts_from_path(artifacts: ArtifactSet, path: UPathStr) -> ArtifactSet:
     stem_len = len(stem)
 
     if stem_len == 16:
-        qs = artifacts.filter(  # type: ignore
+        qs = BasicQuerySet.filter(
+            artifacts,
             Q(_key_is_virtual=True) | Q(key__isnull=True),
             uid__startswith=stem,
-            _skip_filter_with_features=True,
         )
     elif stem_len == 20:
-        qs = artifacts.filter(  # type: ignore
+        qs = BasicQuerySet.filter(
+            artifacts,
             Q(_key_is_virtual=True) | Q(key__isnull=True),
             uid=stem,
-            _skip_filter_with_features=True,
         )
     else:
         qs = None
@@ -199,10 +200,10 @@ def artifacts_from_path(artifacts: ArtifactSet, path: UPathStr) -> ArtifactSet:
         return qs
 
     qs = (
-        artifacts.filter(_key_is_virtual=False, _skip_filter_with_features=True)  # type: ignore
+        BasicQuerySet.filter(artifacts, _key_is_virtual=False)
         .alias(
             db_path=Concat("storage__root", Value("/"), "key", output_field=TextField())
         )
-        .filter(db_path=path_str, _skip_filter_with_features=True)
+        .filter(db_path=path_str)
     )
     return qs
