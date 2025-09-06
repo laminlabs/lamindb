@@ -177,14 +177,21 @@ def get(
     idlike: int | str | None = None,
     **expressions,
 ) -> SQLRecord:
+    get_kwargs = {}
     if isinstance(registry_or_queryset, BasicQuerySet):
         qs = registry_or_queryset
         registry = qs.model
+        if isinstance(qs, QuerySet) and hasattr(qs, "_filter_with_features"):
+            # BasicQuerySet.get(qs, **expressions) uses qs.filter(...) under the hood
+            # ArtifactQuerySet filtering only allows some fields (Artifact.__get_available_fields__)
+            # we don't want this check here
+            get_kwargs = {"_skip_filter_with_features": True}
     else:
         qs = BasicQuerySet(model=registry_or_queryset)
         registry = registry_or_queryset
+
     if isinstance(idlike, int):
-        return BasicQuerySet.get(qs, id=idlike)
+        return BasicQuerySet.get(qs, id=idlike, **get_kwargs)
     elif isinstance(idlike, str):
         NAME_FIELD = (
             registry._name_field if hasattr(registry, "_name_field") else "name"
@@ -206,7 +213,9 @@ def get(
         if issubclass(registry, IsVersioned) and is_latest_was_not_in_expressions:
             expressions["is_latest"] = True
         try:
-            return BasicQuerySet.get(qs, **expressions)
+            return BasicQuerySet.get(
+                qs, **expressions, **(get_kwargs if expressions else {})
+            )
         except registry.DoesNotExist as e:
             # handle the case in which the is_latest injection led to a missed query
             if "is_latest" in expressions and is_latest_was_not_in_expressions:
@@ -922,6 +931,11 @@ class QuerySet(BasicQuerySet):
     def filter(self, *queries, **expressions) -> QuerySet:
         """Query a set of records."""
         # Suggest to use __name for related fields such as id when not passed
+        if hasattr(self, "_filter_with_features") and not expressions.pop(
+            "_skip_filter_with_features", False
+        ):
+            return self._filter_with_features(*queries, **expressions)
+
         for field, value in expressions.items():
             if (
                 isinstance(value, str)
