@@ -929,7 +929,11 @@ class QuerySet(BasicQuerySet):
 
             keys_normalized = [key.split("__")[0] for key in expressions]
             field_or_feature = keys_normalized[0].split("__")[0]
-            if field_or_feature in Artifact.__get_available_fields__():
+            available_fields = {f.name for f in Artifact._meta.get_fields()}
+            available_fields.add("_branch_code")  # backward compat
+            available_fields.add("visibility")  # backward compat
+            available_fields.add("transform")
+            if field_or_feature in available_fields:
                 qs = super().filter(*queries, **expressions)
                 if not any(e.startswith("kind") for e in expressions):
                     return qs.exclude(kind="__lamindb_run__")
