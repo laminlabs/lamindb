@@ -17,7 +17,7 @@ from ._feature_manager import filter_base
 from .artifact import Artifact, _track_run_input
 from .collection import Collection, _load_concat_artifacts
 from .feature import Feature
-from .query_set import BasicQuerySet
+from .query_set import BasicQuerySet, QuerySet
 
 if TYPE_CHECKING:
     from anndata import AnnData
@@ -204,6 +204,13 @@ def artifacts_from_path(artifacts: ArtifactSet, path: UPathStr) -> ArtifactSet:
         .alias(
             db_path=Concat("storage__root", Value("/"), "key", output_field=TextField())
         )
-        .filter(db_path=path_str)
+        .filter(
+            db_path=path_str,
+            **(
+                {"_skip_filter_with_features": True}
+                if isinstance(artifacts, QuerySet)
+                else {}
+            ),
+        )
     )
     return qs
