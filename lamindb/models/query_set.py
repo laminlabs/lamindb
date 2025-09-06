@@ -933,6 +933,7 @@ class QuerySet(BasicQuerySet):
             available_fields.add("_branch_code")  # backward compat
             available_fields.add("visibility")  # backward compat
             available_fields.add("transform")
+            available_fields.add("db_path")  # alias needed for filtering by path
             if field_or_feature in available_fields:
                 qs = super().filter(*queries, **expressions)
                 if not any(e.startswith("kind") for e in expressions):
