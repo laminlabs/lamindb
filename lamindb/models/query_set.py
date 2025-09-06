@@ -7,6 +7,7 @@ from collections.abc import Iterable as IterableType
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Generic, NamedTuple, TypeVar, Union
 
+import numpy as np
 import pandas as pd
 from django.core.exceptions import FieldError
 from django.db import models
@@ -16,7 +17,7 @@ from lamin_utils import logger
 from lamindb_setup.core import deprecated
 from lamindb_setup.core._docs import doc_args
 
-from ..errors import DoesNotExist
+from ..errors import DoesNotExist, InvalidArgument
 from ._is_versioned import IsVersioned
 from .can_curate import CanCurate, _inspect, _standardize, _validate
 from .query_manager import _lookup, _search
@@ -921,6 +922,40 @@ class QuerySet(BasicQuerySet):
 
     def filter(self, *queries, **expressions) -> QuerySet:
         """Query a set of records."""
+        if expressions and self.model.__class__.__name__ == "Artifact":
+            from ._feature_manager import filter_base
+            from .artifact import Artifact
+            from .feature import Feature
+
+            keys_normalized = [key.split("__")[0] for key in expressions]
+            field_or_feature_or_param = keys_normalized[0].split("__")[0]
+            if field_or_feature_or_param in Artifact.__get_available_fields__():
+                qs = QuerySet(model=self.model.__class__).filter(
+                    *queries, **expressions
+                )
+                if not any(e.startswith("kind") for e in expressions):
+                    return qs.exclude(kind="__lamindb_run__")
+                else:
+                    return qs
+            elif all(
+                features_validated := Feature.validate(
+                    keys_normalized, field="name", mute=True
+                )
+            ):
+                return filter_base(Artifact, **expressions)
+            else:
+                features = ", ".join(
+                    sorted(np.array(keys_normalized)[~features_validated])
+                )
+                message = f"feature names: {features}"
+                avail_fields = self.model.__class__.__get_available_fields__()
+                if "_branch_code" in avail_fields:
+                    avail_fields.remove("_branch_code")  # backward compat
+                fields = ", ".join(sorted(avail_fields))
+                raise InvalidArgument(
+                    f"You can query either by available fields: {fields}\n"
+                    f"Or fix invalid {message}"
+                )
         # Suggest to use __name for related fields such as id when not passed
         for field, value in expressions.items():
             if (
