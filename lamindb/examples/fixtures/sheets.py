@@ -46,6 +46,8 @@ def populate_sheets_compound_treatment():
 
     # Samples ---------------------------
 
+    project = ln.Feature(name="project", dtype=ln.Project).save()
+    project1 = ln.Project(name="Project 1").save()
     sample_type = ln.Record(name="BioSample", is_type=True).save()
     treatment = ln.Feature(name="treatment", dtype=treatment_type).save()
     cell_line = ln.Feature(name="cell_line", dtype=bt.CellLine).save()
@@ -54,7 +56,7 @@ def populate_sheets_compound_treatment():
     cell_line.save()
     schema1 = ln.Schema(
         name="My samples schema 2025-06",
-        features=[treatment, cell_line, preparation_date],
+        features=[treatment, cell_line, preparation_date, project],
     ).save()
     sample_sheet1 = ln.Record(
         name="My samples 2025-06", schema=schema1, type=sample_type
@@ -69,6 +71,7 @@ def populate_sheets_compound_treatment():
     ln.models.RecordJson(
         record=sample1, feature=preparation_date, value="2025-06-01T05:00:00"
     ).save()
+    ln.models.RecordProject(record=sample1, feature=project, value=project1).save()
     # populate sample2
     sample2 = ln.Record(name="sample2", type=sample_sheet1).save()
     ln.models.RecordRecord(record=sample2, feature=treatment, value=treatment2).save()
@@ -76,12 +79,13 @@ def populate_sheets_compound_treatment():
     ln.models.RecordJson(
         record=sample2, feature=preparation_date, value="2025-06-01T06:00:00"
     ).save()
+    ln.models.RecordProject(record=sample2, feature=project, value=project1).save()
 
     # another sheet for samples
     sample_note = ln.Feature(name="sample_note", dtype="str").save()
     schema2 = ln.Schema(
         name="My samples schema 2025-07",
-        features=[treatment, cell_line, sample_note],
+        features=[treatment, cell_line, sample_note, project],
     ).save()
     # the sheet
     sample_sheet2 = ln.Record(
@@ -94,6 +98,7 @@ def populate_sheets_compound_treatment():
     ln.models.RecordJson(
         record=sample3, feature=preparation_date, value="2025-06-02T05:00:00Z"
     ).save()
+    ln.models.RecordProject(record=sample3, feature=project, value=project1).save()
     # populate sample4
     sample4 = ln.Record(type=sample_sheet2).save()
     ln.models.RecordRecord(record=sample4, feature=treatment, value=treatment2).save()
@@ -101,6 +106,7 @@ def populate_sheets_compound_treatment():
     ln.models.RecordJson(
         record=sample4, feature=preparation_date, value="2025-06-02T06:00:00Z"
     ).save()
+    ln.models.RecordProject(record=sample4, feature=project, value=project1).save()
 
     yield treatments_sheet, sample_sheet1
 

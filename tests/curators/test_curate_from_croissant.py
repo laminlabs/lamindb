@@ -10,8 +10,9 @@ def test_curate_artifact_from_croissant():
     shutil.rmtree(dataset1_path)
     assert (
         artifact1.description
-        == "Mini immuno dataset (mini_immuno.anndata.zarr) - A few samples from the immunology dataset"
+        == "Mini immuno dataset - A few samples from the immunology dataset"
     )
+    assert artifact1.key == dataset1_path.as_posix()
     assert artifact1.version == "1.0"
     license_label = artifact1.ulabels.get(
         name="https://creativecommons.org/licenses/by/4.0/"
@@ -31,8 +32,8 @@ def test_curate_collection_from_croissant():
     croissant_path.unlink()
     shutil.rmtree(dataset1_path)
     dataset2_path.unlink()
-    artifact1 = collection.artifacts.get(description="mini_immuno.anndata.zarr")
-    artifact2 = collection.artifacts.get(description="mini.csv")
+    artifact1 = collection.artifacts.get(key="mini_immuno.anndata.zarr")
+    artifact2 = collection.artifacts.get(key="mini.csv")
     license_label = collection.ulabels.get(
         name="https://creativecommons.org/licenses/by/4.0/"
     )

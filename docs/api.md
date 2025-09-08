@@ -1,4 +1,4 @@
-# API
+# API Reference
 
 <meta http-equiv="Refresh" content="0; url=./lamindb.html" />
 
@@ -18,5 +18,4 @@ lamindb
 
 bionty
 wetlab
-clinicore
 ```
