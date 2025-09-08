@@ -4,6 +4,9 @@ import json
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+import lamindb_setup as ln_setup
+from lamindb_setup.core.upath import UPath
+
 if TYPE_CHECKING:
     import lamindb as ln
 
@@ -26,6 +29,8 @@ def curate_from_croissant(
             artifact = ln.integrations.curate_from_croissant("dataset_metadata.json")
     """
     import lamindb as ln
+
+    from ..models.artifact import check_path_in_existing_storage
 
     # Load CroissantML data
     if isinstance(croissant_data, (str, Path)):
@@ -86,17 +91,25 @@ def curate_from_croissant(
             content_url = dist.get("contentUrl", "")
             file_path = content_url or data.get("url", "")
         if not file_path:
-            raise ValueError(
-                f"No valid file path found in croissant distribution: {dist}"
-            )
-        if len(file_distributions) == 1:
-            artifact_description = f"{dataset_name}"
-            artifact_description += f" - {description}"
+            raise ValueError(f"No file path found in croissant distribution: {dist}")
+        if not UPath(file_path).exists():
+            raise ValueError(f"Inferred file path does not exist: {file_path}")
+        result = check_path_in_existing_storage(
+            file_path, check_hub_register_storage=ln_setup.settings.instance.is_on_hub
+        )
+        if isinstance(result, ln.Storage):
+            key = None  # will automatically use existing storage key
         else:
-            artifact_description = f"{file_id}"
-        # TODO: add a check about whether the file_id is part of a registered storage location
+            key = file_id
+        if len(file_distributions) == 1:
+            # it doesn't make sense to have the dataset name on the individual
+            # artifact if it's part of a collection
+            artifact_description = f"{dataset_name} - {description}"
+        else:
+            artifact_description = None
         artifact = ln.Artifact(  # type: ignore
             file_path,
+            key=key,
             description=artifact_description,
             version=version,
             kind="dataset",
