@@ -353,7 +353,7 @@ def anndata_suo22_Visium10X():  # pragma: no cover
     return ad.read_h5ad(filepath)
 
 
-def mudata_papalexi21_subset(with_rna_uns: bool = False) -> MuData:  # pragma: no cover
+def mudata_papalexi21_subset(with_uns: bool = False) -> MuData:  # pragma: no cover
     """A subsetted mudata from papalexi21.
 
     To reproduce the subsetting:
@@ -415,11 +415,12 @@ def mudata_papalexi21_subset(with_rna_uns: bool = False) -> MuData:  # pragma: n
     mdata["hto"].obs["technique"] = mdata["hto"].obs["technique"].astype("category")
     mdata.pull_obs(["technique"], mods="hto")
 
-    if with_rna_uns:
-        mdata["rna"].uns["study_metadata"] = {
+    if with_uns:
+        mdata.uns["study_metadata"] = {
             "temperature": 21.6,
             "experiment": "Experiment 1",
         }
+        mdata["rna"].uns["site_metadata"] = {"pos": 99.9, "site_id": "SITE001"}
 
     return mdata
 

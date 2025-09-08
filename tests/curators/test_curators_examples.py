@@ -684,10 +684,10 @@ def test_anndata_curator_varT_curation_legacy(ccaplog):
             varT_schema.delete(permanent=True)
 
 
-def test_anndata_curator_nested_uns(uns_study_metadata, study_metadata_schema):
+def test_anndata_curator_nested_uns(study_metadata_schema):
     """Test AnnDataCurator with nested uns slot validation."""
     adata = datasets.small_dataset1(otype="AnnData")
-    adata.uns["study_metadata"] = uns_study_metadata
+    adata.uns["study_metadata"] = adata.uns.copy()
 
     anndata_schema = ln.Schema(
         otype="AnnData",
@@ -790,15 +790,13 @@ def test_mudata_curator(
     Path("papalexi21_subset.h5mu").unlink(missing_ok=True)
 
 
-def test_mudata_curator_nested_uns(uns_study_metadata, study_metadata_schema):
+def test_mudata_curator_nested_uns(study_metadata_schema):
     """Test MuData with nested uns slot validation.
 
     This test verifies the behavior of both the MuData `.uns` slots and a `.uns` slot of
     an AnnData object inside the MuData object that gets specified using the key `:` syntax.
     """
-    mdata = ln.core.datasets.mudata_papalexi21_subset()
-    mdata.uns["study_metadata"] = uns_study_metadata
-    mdata["rna"].uns["site_metadata"] = {"pos": 99.9, "site_id": "SITE001"}
+    mdata = ln.core.datasets.mudata_papalexi21_subset(with_uns=True)
 
     site_uns_schema = ln.Schema(
         features=[
