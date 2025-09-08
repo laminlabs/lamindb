@@ -887,7 +887,7 @@ class AnnDataCurator(SlotsCurator):
 
     Examples:
 
-        Curate ENSEMBL gene IDs & all features in obs:
+        Curate Ensembl gene IDs and valid features in obs:
 
         .. literalinclude:: scripts/curate_anndata_flexible.py
             :language: python

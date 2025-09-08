@@ -836,6 +836,7 @@ def test_mudata_curator_nested_uns(uns_study_metadata, study_metadata_schema):
 
     # Clean up
     artifact.delete(permanent=True)
+    Path("papalexi21_subset.h5mu").unlink(missing_ok=True)
 
 
 def test_spatialdata_curator(
@@ -960,9 +961,9 @@ def test_tiledbsoma_curator(clean_soma_files):
     # Test with invalid schema
     with tiledbsoma.Experiment.open("small_dataset.tiledbsoma") as experiment:
         with pytest.raises(ln.errors.InvalidArgument):
-            ln.curators.TiledbsomaExperimentCurator(
-                experiment, ln.Schema(features=[]).save()
-            )
+            min_schema = ln.Schema(features=[]).save()
+            ln.curators.TiledbsomaExperimentCurator(experiment, schema=min_schema)
+            min_schema.delete(permanent=True)
 
     with tiledbsoma.Experiment.open("small_dataset.tiledbsoma") as experiment:
         curator = ln.curators.TiledbsomaExperimentCurator(experiment, soma_schema)
