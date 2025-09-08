@@ -482,7 +482,6 @@ class Context:
         run = None
         if not new_run:  # try loading latest run by same user
             run = (
-                # we do want to skip runs in the trash here
                 Run.filter(
                     transform=self._transform, created_by_id=ln_setup.settings.user.id
                 )
@@ -719,7 +718,6 @@ class Context:
 
             # we need to traverse from greater depth to shorter depth so that we match better matches first
             transforms = (
-                # we include transforms in the trash here
                 Transform.filter(key__endswith=self._path.name, is_latest=True)
                 .annotate(slash_count=SlashCount("key"))
                 .order_by("-slash_count")
