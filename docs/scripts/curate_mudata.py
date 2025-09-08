@@ -8,8 +8,8 @@ from docs.scripts.define_schema_df_metadata import study_metadata_schema
 obs_schema = ln.Schema(
     name="mudata_papalexi21_subset_obs_schema",
     features=[
-        ln.Feature(name="perturbation", dtype="cat[ULabel[Perturbation]]").save(),
-        ln.Feature(name="replicate", dtype="cat[ULabel[Replicate]]").save(),
+        ln.Feature(name="perturbation", dtype="str").save(),
+        ln.Feature(name="replicate", dtype="str").save(),
     ],
 ).save()
 
