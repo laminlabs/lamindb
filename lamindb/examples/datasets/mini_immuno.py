@@ -78,7 +78,7 @@ def get_dataset1(
     with_outdated_gene: bool = False,
     with_wrong_subtype: bool = False,
     with_index_type_mismatch: bool = False,
-    with_nested_uns: bool = False,
+    with_uns: bool = False,
 ) -> pd.DataFrame | ad.AnnData:
     """A small tabular dataset measuring expression & metadata."""
     # define the data in the dataset
@@ -147,6 +147,11 @@ def get_dataset1(
         dataset_ad = ad.AnnData(
             dataset_df.iloc[:, :3], obs=dataset_df.iloc[:, 3:], uns=metadata
         )
+        if with_uns:
+            dataset_ad.uns["study_metadata"] = {
+                "temperature": 21.6,
+                "experiment_id": "EXP001",
+            }
         return dataset_ad
 
 
