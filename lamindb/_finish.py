@@ -474,7 +474,7 @@ def save_context_core(
         # this can happen in interactively executed notebooks with a pro-active version bump in case it turns out that the user didn't make a change to the notebook
         run.transform = transform
         run.save()
-        ln.Transform.get(transform_id_prior_to_save).delete()
+        ln.Transform.get(transform_id_prior_to_save).delete(permanent=True)
 
     # finalize
     if finished_at and not from_cli and run is not None:
