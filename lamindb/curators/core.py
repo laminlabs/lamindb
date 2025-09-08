@@ -885,11 +885,19 @@ class AnnDataCurator(SlotsCurator):
         dataset: The AnnData-like object to validate & annotate.
         schema: A :class:`~lamindb.Schema` object that defines the validation constraints.
 
-    Example:
+    Examples:
 
-        .. literalinclude:: scripts/curate_anndata_flexible.py
-            :language: python
-            :caption: curate_anndata_flexible.py
+        Curate ENSEMBL gene IDs & all features in obs::
+
+            .. literalinclude:: scripts/curate_anndata_flexible.py
+                :language: python
+                :caption: curate_anndata_flexible.py
+
+        Curate `uns` dictionary::
+
+            .. literalinclude:: scripts/curate_anndata_uns.py
+                :language: python
+                :caption: curate_anndata_uns.py
 
     See Also:
         :meth:`~lamindb.Artifact.from_anndata`.
