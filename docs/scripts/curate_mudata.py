@@ -3,13 +3,17 @@ import bionty as bt
 
 from docs.scripts.define_schema_df_metadata import study_metadata_schema
 
+# Define valid perturbation types
+perturbation_type = ln.ULabel.get(name="Perturbation")
+ln.ULabel(name="Perturbed", type=perturbation_type).save()
+ln.ULabel(name="NT", type=perturbation_type).save()
 
 # define the global obs schema
 obs_schema = ln.Schema(
     name="mudata_papalexi21_subset_obs_schema",
     features=[
-        ln.Feature(name="perturbation", dtype="str").save(),
-        ln.Feature(name="replicate", dtype="str").save(),
+        ln.Feature(name="perturbation", dtype="cat[ULabel[Perturbation]]").save(),
+        ln.Feature(name="replicate", dtype="cat[ULabel[Replicate]]").save(),
     ],
 ).save()
 
