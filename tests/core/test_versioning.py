@@ -43,7 +43,7 @@ def test_bump_version():
     assert bump_version(current_version_major_minor, bump_type="minor") == "2.2"
 
 
-def test__add_to_version_family(df1, df2):
+def test_add_to_version_family(df1, df2):
     artifact1 = ln.Artifact.from_dataframe(df1, description="test1")
     artifact1.save()
     artifact2 = ln.Artifact.from_dataframe(df2, description="test2")
@@ -91,7 +91,7 @@ def test_latest_version_and_get():
     transform_v1 = ln.Transform(description="Introduction").save()
     assert transform_v1.is_latest
     assert transform_v1.version is None
-    # pass the latest version, also vary the name for the fun of it
+    # pass the latest version
     transform_v2 = ln.Transform(
         description="Introduction v2", revises=transform_v1, version="2"
     ).save()
@@ -122,11 +122,7 @@ def test_latest_version_and_get():
     # test get
     assert ln.Transform.get(transform_v3.uid) == transform_v3
     assert ln.Transform.get(transform_v3.id) == transform_v3
-    assert ln.Transform.get(transform_v3.uid[:4]) == transform_v3
-
-    # test delete
-    transform_v3.delete(permanent=True)
-    assert transform_v2.is_latest
+    assert ln.Transform.get(transform_v3.uid[:-4]) == transform_v3
 
     # test empty QuerySet
     assert (
@@ -135,3 +131,29 @@ def test_latest_version_and_get():
         .one_or_none()
         is None
     )
+
+    # test soft delete
+    transform_v3.delete()
+    assert transform_v2.is_latest
+
+    # test hard delete
+    transform_v2.delete(permanent=True)
+    assert (
+        transform_v1_retrieved := ln.Transform.get(transform_v3.uid[:-4])
+    ) == transform_v1
+    assert transform_v1_retrieved.is_latest
+
+    # test soft delete on the last existing version does not change is_latest
+    transform_v1_retrieved.delete()
+    assert (
+        transform_v1_retrieved := ln.Transform.get(transform_v1.uid)
+    ) == transform_v1
+    assert transform_v1_retrieved.is_latest
+
+    # fully delete
+    transform_v1.delete(permanent=True)
+
+    # last object that exists is in the trash
+    assert ln.Transform.get(transform_v3.uid[:-4]) == transform_v3
+    assert transform_v3.branch_id == -1
+    transform_v3.delete(permanent=True)
