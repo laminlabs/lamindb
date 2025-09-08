@@ -460,7 +460,7 @@ class Context:
             transform_exists = None
             if transform.id is not None:
                 # transform has an id but unclear whether already saved
-                transform_exists = Transform.objects.filter(id=transform.id).first()
+                transform_exists = Transform.filter(id=transform.id).first()
             if transform_exists is None:
                 transform.save()
                 self._logging_message_track += f"created Transform('{transform.uid}')"
@@ -706,7 +706,7 @@ class Context:
                 transform_hash = None
         # see whether we find a transform with the exact same hash
         if transform_hash is not None:
-            aux_transform = Transform.objects.filter(hash=transform_hash).one_or_none()
+            aux_transform = Transform.filter(hash=transform_hash).one_or_none()
         else:
             aux_transform = None
         # if the user did not pass a uid and there is no matching aux_transform
@@ -720,7 +720,7 @@ class Context:
             # we need to traverse from greater depth to shorter depth so that we match better matches first
             transforms = (
                 # we include transforms in the trash here
-                Transform.objects.filter(key__endswith=self._path.name, is_latest=True)
+                Transform.filter(key__endswith=self._path.name, is_latest=True)
                 .annotate(slash_count=SlashCount("key"))
                 .order_by("-slash_count")
             )
