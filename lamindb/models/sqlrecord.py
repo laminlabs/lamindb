@@ -319,6 +319,39 @@ def suggest_records_with_similar_names(
     return None
 
 
+def delete_record(record: BaseSQLRecord, is_soft: bool = True):
+    def delete():
+        if is_soft:
+            record.branch_id = -1
+            record.save()
+        else:
+            super(BaseSQLRecord, record).delete()
+
+    # deal with versioned records
+    # if _ovewrite_version = True, there is only a single version and
+    # no need to set the new latest version because all versions are deleted
+    # when deleting the latest version
+    if (
+        isinstance(record, IsVersioned)
+        and record.is_latest
+        and not getattr(record, "_overwrite_versions", False)
+    ):
+        new_latest = (
+            record.__class__.objects.using(record._state.db)
+            .filter(is_latest=False, uid__startswith=record.stem_uid)
+            .order_by("-created_at")
+            .first()
+        )
+        if new_latest is not None:
+            new_latest.is_latest = True
+            with transaction.atomic():
+                new_latest.save()
+                delete()
+            logger.warning(f"new latest version is: {new_latest}")
+    else:
+        delete()
+
+
 RECORD_REGISTRY_EXAMPLE = """Example::
 
         from lamindb import SQLRecord, fields
@@ -929,29 +962,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
 
     def delete(self) -> None:
         """Delete."""
-        # deal with versioned records
-        # _overwrite_versions is set to True for folder artifacts
-        # no need to set the new latest version becase all versions are deleted
-        # when deleting the latest version of a folder artifact
-        if (
-            isinstance(self, IsVersioned)
-            and self.is_latest
-            and not getattr(self, "_overwrite_versions", False)
-        ):
-            new_latest = (
-                self.__class__.objects.using(self._state.db)
-                .filter(is_latest=False, uid__startswith=self.stem_uid)
-                .order_by("-created_at")
-                .first()
-            )
-            if new_latest is not None:
-                new_latest.is_latest = True
-                with transaction.atomic():
-                    new_latest.save()
-                    super().delete()  # type: ignore
-                logger.warning(f"new latest version is: {new_latest}")
-                return None
-        super().delete()
+        delete_record(self, is_soft=False)
 
 
 class Space(BaseSQLRecord):
@@ -1183,9 +1194,8 @@ class SQLRecord(BaseSQLRecord, metaclass=Registry):
         # change branch_id to trash
         trash_branch_id = -1
         if self.branch_id > trash_branch_id and permanent is not True:
-            self.branch_id = trash_branch_id
-            self.save()
-            logger.warning(f"moved record to trash (`branch_id = -1`): {self}")
+            delete_record(self, is_soft=True)
+            logger.warning(f"moved record to trash (branch_id = -1): {self}")
             return
 
         # permanent delete
@@ -1194,11 +1204,11 @@ class SQLRecord(BaseSQLRecord, metaclass=Registry):
                 f"Record {self.uid} is already in trash! Are you sure you want to delete it from your"
                 " database? You can't undo this action. (y/n) "
             )
-            delete_record = response == "y"
+            confirm_delete = response == "y"
         else:
-            delete_record = permanent
+            confirm_delete = permanent
 
-        if delete_record:
+        if confirm_delete:
             if name_with_module == "Run":
                 from .run import delete_run_artifacts
 
