@@ -21,7 +21,7 @@ dependencies = [
     "lamindb_setup[aws]==1.10.0",
     # Lamin OPTIONAL packages (but included to avoid users forgetting about passing extras)
     "bionty>=1.7a1", # do NOT pin, is bounded in bionty
-    "wetlab>=1.5a1"  # do NOT pin, is bounded in wetlab
+    "wetlab>=1.5a1", # do NOT pin, is bounded in wetlab
     # Others
     "pyyaml",
     "pyarrow",
