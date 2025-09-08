@@ -64,7 +64,7 @@ jobs:
           repository: laminlabs/laminhub
           token: ${{ secrets.GH_TOKEN_DEPLOY_LAMINAPP }}
           path: laminhub
-          ref: main
+          ref: set_searchpath_rls
 
       - uses: actions/setup-python@v5
         with:
