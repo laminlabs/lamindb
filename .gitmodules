@@ -10,9 +10,6 @@
 [submodule "sub/wetlab"]
 	path = sub/wetlab
 	url = https://github.com/laminlabs/wetlab
-[submodule "sub/clinicore"]
-	path = sub/clinicore
-	url = https://github.com/laminlabs/clinicore
 [submodule "sub/cellxgene-lamin"]
 	path = sub/cellxgene-lamin
 	url = https://github.com/laminlabs/cellxgene-lamin.git
