@@ -16,7 +16,7 @@ from lamin_utils import logger
 from lamindb_setup.core import deprecated
 from lamindb_setup.core._docs import doc_args
 
-from ..errors import DoesNotExist
+from ..errors import DoesNotExist, MultipleResultsFound
 from ._is_versioned import IsVersioned
 from .can_curate import CanCurate, _inspect, _standardize, _validate
 from .query_manager import _lookup, _search
@@ -26,10 +26,6 @@ if TYPE_CHECKING:
     from lamindb.base.types import ListLike, StrField
 
 T = TypeVar("T")
-
-
-class MultipleResultsFound(Exception):
-    pass
 
 
 pd.set_option("display.max_columns", 200)
@@ -68,7 +64,7 @@ def one_helper(
     does_not_exist_msg: str | None = None,
     raise_doesnotexist: bool = True,
     not_exists: bool | None = None,
-    raise_multipleresultsfound=False,
+    raise_multipleresultsfound: bool = True,
 ):
     if not_exists is None:
         if isinstance(self, SQLRecordList):

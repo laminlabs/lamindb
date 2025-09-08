@@ -60,6 +60,12 @@ class DoesNotExist(Exception):
     pass
 
 
+class MultipleResultsFound(Exception):
+    """Multiple records found."""
+
+    pass
+
+
 class InconsistentKey(Exception):
     """Inconsistent transform or artifact `key`."""
 

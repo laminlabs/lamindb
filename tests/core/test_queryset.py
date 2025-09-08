@@ -92,10 +92,9 @@ def test_one_first():
     with pytest.raises(DoesNotExist):
         qs.one()
     qs = bt.Source.filter().all()
-    # should be MultipleResultsFound, but internal to Django
-    with pytest.raises(Exception):  # noqa: B017
+    with pytest.raises(ln.errors.MultipleResultsFound):
         qs.one()
-    with pytest.raises(Exception):  # noqa: B017
+    with pytest.raises(ln.errors.MultipleResultsFound):
         qs.one_or_none()
 
 
