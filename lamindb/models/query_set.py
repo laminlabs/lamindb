@@ -63,15 +63,28 @@ def get_keys_from_df(data: list, registry: SQLRecord) -> list[str]:
     return keys
 
 
-def one_helper(self: QuerySet | SQLRecordList, does_not_exist_msg: str | None = None):
-    if isinstance(self, SQLRecord):
-        not_exists = len(self) == 0
-    else:
-        not_exists = not self.exists()  # type: ignore
+def one_helper(
+    self: QuerySet | SQLRecordList,
+    does_not_exist_msg: str | None = None,
+    raise_doesnotexist: bool = True,
+    not_exists: bool | None = None,
+    raise_multipleresultsfound=False,
+):
+    if not_exists is None:
+        if isinstance(self, SQLRecordList):
+            not_exists = len(self) == 0
+        else:
+            not_exists = not self.exists()  # type: ignore
     if not_exists:
-        raise DoesNotExist(does_not_exist_msg)
+        if raise_doesnotexist:
+            raise DoesNotExist(does_not_exist_msg)
+        else:
+            return None
     elif len(self) > 1:
-        raise MultipleResultsFound(self)
+        if raise_multipleresultsfound:
+            raise MultipleResultsFound(self)
+        else:
+            return self[0]
     else:
         return self[0]
 
@@ -190,9 +203,25 @@ def get(
             registry._name_field if hasattr(registry, "_name_field") else "name"
         )
         DOESNOTEXIST_MSG = f"No record found with uid '{idlike}'. Did you forget a keyword as in {registry.__name__}.get({NAME_FIELD}='{idlike}')?"
+        # this is the case in which the user passes an under-specified uid
         if issubclass(registry, IsVersioned) and len(idlike) <= registry._len_stem_uid:
-            qs = BasicQuerySet.filter(qs, uid__startswith=idlike, is_latest=True)
-            return one_helper(qs, DOESNOTEXIST_MSG)
+            new_qs = BasicQuerySet.filter(qs, uid__startswith=idlike, is_latest=True)
+            not_exists = None
+            if not new_qs.exists():
+                # also try is_latest is False due to nothing found
+                new_qs = BasicQuerySet.filter(
+                    qs, uid__startswith=idlike, is_latest=False
+                )
+            else:
+                not_exists = False
+            # it doesn't make sense to raise MultipleResultsFound when querying with an
+            # underspecified uid
+            return one_helper(
+                new_qs,
+                DOESNOTEXIST_MSG,
+                not_exists=not_exists,
+                raise_multipleresultsfound=False,
+            )
         else:
             qs = BasicQuerySet.filter(qs, uid__startswith=idlike)
             return one_helper(qs, DOESNOTEXIST_MSG)
@@ -805,12 +834,7 @@ class BasicQuerySet(models.QuerySet):
             >>> ULabel.filter(name="benchmark").one_or_none()
             >>> ULabel.filter(name="non existing label").one_or_none()
         """
-        if not self.exists():
-            return None
-        elif len(self) == 1:
-            return self[0]
-        else:
-            raise MultipleResultsFound(self.all())
+        return one_helper(self, raise_doesnotexist=False)
 
     def latest_version(self) -> QuerySet:
         """Filter every version family by latest version."""

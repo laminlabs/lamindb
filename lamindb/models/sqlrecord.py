@@ -339,11 +339,14 @@ def delete_record(record: BaseSQLRecord, is_soft: bool = True):
         new_latest = (
             record.__class__.objects.using(record._state.db)
             .filter(is_latest=False, uid__startswith=record.stem_uid)
+            .exclude(branch_id=-1)  # exclude candidates in the trash
             .order_by("-created_at")
             .first()
         )
         if new_latest is not None:
             new_latest.is_latest = True
+            if is_soft:
+                record.is_latest = False
             with transaction.atomic():
                 new_latest.save()
                 delete()
