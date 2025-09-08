@@ -28,7 +28,7 @@ FieldType = Literal["ontology_id", "name"]
 
 @deprecated(new_name="save_cellxgene_defaults")
 def save_cxg_defaults() -> None:
-    return save_cxg_defaults()
+    return save_cellxgene_defaults()
 
 
 def save_cellxgene_defaults() -> None:

@@ -34,9 +34,9 @@ print("Created jwt db connection")
 
 # create models
 
-full_access = ln.Space(name="full access", uid="00000001").save()  # type: ignore
-select_access = ln.Space(name="select access", uid="00000002").save()  # type: ignore
-no_access = ln.Space(name="no access", uid="00000003").save()  # type: ignore
+full_access = ln.Space(name="full access").save()  # type: ignore
+select_access = ln.Space(name="select access").save()  # type: ignore
+no_access = ln.Space(name="no access").save()  # type: ignore
 # set read role for the default space
 account = hm.Account(
     id=ln.setup.settings.user._uuid.hex, uid="accntid1", role="read"
@@ -91,7 +91,7 @@ project.save()
 ulabel.projects.add(project)
 
 # setup team and relevent models
-team_access = ln.Space(name="team access", uid="00000004").save()  # type: ignore
+team_access = ln.Space(name="team access").save()  # type: ignore
 team = hm.Team(id=uuid4().hex, uid="teamuiduid11", name="test_team", role="read").save()
 hm.AccountTeam(account=account, team=team).save()
 hm.AccessSpace(team=team, space=team_access, role="read").save()
