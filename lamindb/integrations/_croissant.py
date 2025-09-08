@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import lamindb_setup as ln_setup
+from lamin_utils import logger
 from lamindb_setup.core.upath import UPath
 
 if TYPE_CHECKING:
@@ -100,6 +101,14 @@ def curate_from_croissant(
         if isinstance(result, ln.Storage):
             key = None  # will automatically use existing storage key
         else:
+            current_storage_location = (
+                ln.settings.storage
+                if not ln.setup.settings.instance.keep_artifacts_local
+                else ln.settings.local_storage
+            )
+            logger.warning(
+                f"file path {file_path} is not part of a known storage location, will be duplicated to: {current_storage_location}"
+            )
             key = file_id
         if len(file_distributions) == 1:
             # it doesn't make sense to have the dataset name on the individual
