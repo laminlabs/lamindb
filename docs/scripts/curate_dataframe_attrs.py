@@ -1,6 +1,6 @@
 import lamindb as ln
 
-from .define_unstructured_schema import study_metadata_schema
+from .define_schema_df_metadata import study_metadata_schema
 
 df = ln.core.datasets.mini_immuno.get_dataset1(otype="DataFrame")
 schema = ln.Schema(

@@ -68,5 +68,6 @@ repos:
               tests/writelog/conftest.py|
               tests/writelog_sqlite/conftest.py|
               tests/curators/test_curators_examples.py|
-              tests/core/conftest.py
+              tests/core/conftest.py|
+              docs/scripts/
           )

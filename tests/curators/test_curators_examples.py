@@ -1,5 +1,9 @@
 import shutil
+import sys
 from pathlib import Path
+
+docs_path = Path.cwd() / "docs" / "scripts"
+sys.path.append(str(docs_path))
 
 import bionty as bt
 import lamindb as ln
@@ -142,19 +146,8 @@ def mudata_papalexi21_subset_schema():
 
 
 @pytest.fixture(scope="module")
-def uns_study_metadata():
-    return {"temperature": 21.6, "experiment": "Experiment 1"}
-
-
-@pytest.fixture(scope="module")
 def study_metadata_schema():
-    import sys
-    from pathlib import Path
-
-    docs_path = Path.cwd() / "docs" / "scripts"
-    sys.path.append(str(docs_path))
-
-    from define_unstructured_schema import study_metadata_schema
+    from define_schema_df_metadata import study_metadata_schema
 
     yield study_metadata_schema
 
@@ -163,13 +156,17 @@ def study_metadata_schema():
 
 
 @pytest.fixture(scope="module")
+def anndata_uns_schema():
+    from define_schema_anndata_uns import anndata_uns_schema
+
+    yield anndata_uns_schema
+
+    ln.Schema.filter().delete()
+    ln.Feature.filter().delete()
+
+
+@pytest.fixture(scope="module")
 def spatialdata_blobs_schema():
-    import sys
-    from pathlib import Path
-
-    docs_path = Path.cwd() / "docs" / "scripts"
-    sys.path.append(str(docs_path))
-
     from define_schema_spatialdata import sdata_schema
 
     yield sdata_schema
@@ -359,12 +356,8 @@ def test_dataframe_curator_validate_all_annotate_cat2(small_dataset1_schema):
 
 
 @pytest.mark.parametrize("include_attrs_slot", [True, False])
-def test_dataframe_attrs_validation(
-    uns_study_metadata, study_metadata_schema, include_attrs_slot
-):
+def test_dataframe_attrs_validation(study_metadata_schema, include_attrs_slot):
     df = datasets.mini_immuno.get_dataset1(otype="DataFrame")
-    if include_attrs_slot:
-        df.attrs = uns_study_metadata
 
     perturbation = ln.ULabel(name="Perturbation", is_type=True).save()
     perturbation_feature = ln.Feature(name="perturbation", dtype=perturbation).save()
@@ -684,25 +677,18 @@ def test_anndata_curator_varT_curation_legacy(ccaplog):
             varT_schema.delete(permanent=True)
 
 
-def test_anndata_curator_nested_uns(study_metadata_schema):
+def test_anndata_curator_nested_uns(study_metadata_schema, anndata_uns_schema):
     """Test AnnDataCurator with nested uns slot validation."""
     adata = datasets.small_dataset1(otype="AnnData")
     adata.uns["study_metadata"] = adata.uns.copy()
 
-    anndata_schema = ln.Schema(
-        otype="AnnData",
-        slots={
-            "uns:study_metadata": study_metadata_schema,
-        },
-    ).save()
-
-    curator = ln.curators.AnnDataCurator(adata, anndata_schema)
+    curator = ln.curators.AnnDataCurator(adata, anndata_uns_schema)
     assert curator.slots["uns:study_metadata"].__class__.__name__ == "ComponentCurator"
 
     curator.validate()
     artifact = curator.save_artifact(key="examples/anndata_with_uns.h5ad")
 
-    assert artifact.schema == anndata_schema
+    assert artifact.schema == anndata_uns_schema
     assert "uns:study_metadata" in artifact.features.slots
     assert artifact.features.slots[
         "uns:study_metadata"
@@ -731,7 +717,7 @@ def test_anndata_curator_nested_uns(study_metadata_schema):
     # Clean up
     artifact.delete(permanent=True)
     bad_schema.delete(permanent=True)
-    anndata_schema.delete(permanent=True)
+    anndata_uns_schema.delete(permanent=True)
 
 
 def test_anndata_curator_no_var(small_dataset1_schema: ln.Schema):
