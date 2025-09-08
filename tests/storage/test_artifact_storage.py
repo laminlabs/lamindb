@@ -9,19 +9,16 @@ from lamindb.errors import (
 
 
 def test_create_from_anndata_in_existing_cloud_storage():
-    previous_storage = ln.setup.settings.storage.root_as_str
-    ln.settings.storage = (
-        "s3://lamindb-test/core"  # need to register as storage location
-    )
     filepath = "s3://lamindb-test/core/scrnaseq_pbmc68k_tiny.h5ad"
     artifact = ln.Artifact.from_anndata(
         filepath, description="test_create_from_anndata_cloudpath"
     )
     assert artifact.n_observations == 70
     artifact.save()
+    assert ln.Artifact.get(path=artifact.path) == artifact
     # check that the local filepath has been cleared
     assert not hasattr(artifact, "_local_filepath")
-    ln.settings.storage = previous_storage
+    assert artifact.path.as_posix().startswith("s3://lamindb-test/core")
 
 
 @pytest.mark.parametrize(
@@ -63,13 +60,14 @@ def test_create_small_file_from_remote_path(
 
 
 def test_create_big_file_from_remote_path():
-    previous_storage = ln.setup.settings.storage.root_as_str
-    ln.settings.storage = "s3://lamindb-test/core"
+    # the point of this test is check the multi-upload hash
     filepath_str = "s3://lamindb-test/core/human_immune.h5ad"
+    # we don't use from_anndata() here because we test this with a small file for shorter run time
     artifact = ln.Artifact(filepath_str)
     assert artifact.key == "human_immune.h5ad"
-    assert artifact._hash_type == "md5-2"
-    ln.settings.storage = previous_storage
+    assert artifact._hash_type == "md5-3"
+    assert artifact.size == 21960324
+    assert artifact.path.as_posix().startswith("s3://lamindb-test/core")
 
 
 def test_delete_artifact_from_non_managed_storage():

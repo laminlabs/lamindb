@@ -53,7 +53,7 @@ def test_curate_df():
     df = (
         ln.Artifact.filter(key__startswith="examples/dataset", suffix=".h5ad")
         .order_by("-key")
-        .df(include=["feature_sets__hash", "feature_sets__name"])
+        .to_dataframe(include=["feature_sets__hash", "feature_sets__name"])
         .drop(["uid"], axis=1)
     )
     expected_data = {
@@ -77,7 +77,7 @@ def test_curate_df():
             ulabels__name="IFNG",
         )
         .order_by("-key")
-        .df(
+        .to_dataframe(
             features=[
                 "cell_type_by_expert",
                 "cell_type_by_model",
@@ -219,7 +219,9 @@ def test_curate_df():
 
     artifact.delete(permanent=True)
     artifact2.delete(permanent=True)
-    ln.Schema.get(name="anndata_ensembl_gene_ids_and_valid_features_in_obs").delete()
+    ln.Schema.get(name="anndata_ensembl_gene_ids_and_valid_features_in_obs").delete(
+        permanent=True
+    )
     ln.Schema.filter().delete()
     ln.Feature.filter().delete()
     bt.Gene.filter().delete()

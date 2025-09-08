@@ -388,7 +388,7 @@ def _df_edges_from_parents(
     )
     all = record.__class__.objects
     records = parents | all.filter(id=record.id)
-    df = records.distinct().df(include=[f"{key}__id"])
+    df = records.distinct().to_dataframe(include=[f"{key}__id"])
     if f"{key}__id" not in df.columns:
         return None
     df_edges = df[[f"{key}__id"]]
@@ -494,21 +494,21 @@ def _get_all_parent_runs(data: Artifact | Collection) -> list:
                 r.__getattribute__(f"input_{name}s")
                 .all()
                 .filter(branch_id__in=[0, 1])
-                .list()
+                .to_list()
             )
             if name == "artifact":
                 inputs_run += (
-                    r.input_collections.all().filter(branch_id__in=[0, 1]).list()
+                    r.input_collections.all().filter(branch_id__in=[0, 1]).to_list()
                 )
             outputs_run = (
                 r.__getattribute__(f"output_{name}s")
                 .all()
                 .filter(branch_id__in=[0, 1])
-                .list()
+                .to_list()
             )
             if name == "artifact":
                 outputs_run += (
-                    r.output_collections.all().filter(branch_id__in=[0, 1]).list()
+                    r.output_collections.all().filter(branch_id__in=[0, 1]).to_list()
                 )
             # if inputs are outputs artifacts are the same, will result infinite loop
             # so only show as outputs
@@ -554,11 +554,11 @@ def _get_all_child_runs(data: Artifact | Collection) -> list:
                 r.__getattribute__(f"input_{name}s")
                 .all()
                 .filter(branch_id__in=[0, 1])
-                .list()
+                .to_list()
             )
             if name == "artifact":
                 inputs_run += (
-                    r.input_collections.all().filter(branch_id__in=[0, 1]).list()
+                    r.input_collections.all().filter(branch_id__in=[0, 1]).to_list()
                 )
             run_inputs_outputs += [(inputs_run, r)]
 
@@ -566,25 +566,25 @@ def _get_all_child_runs(data: Artifact | Collection) -> list:
                 r.__getattribute__(f"output_{name}s")
                 .all()
                 .filter(branch_id__in=[0, 1])
-                .list()
+                .to_list()
             )
             if name == "artifact":
                 outputs_run += (
-                    r.output_collections.all().filter(branch_id__in=[0, 1]).list()
+                    r.output_collections.all().filter(branch_id__in=[0, 1]).to_list()
                 )
             run_inputs_outputs += [(r, outputs_run)]
 
             child_runs.update(
                 Run.filter(  # type: ignore
                     **{f"input_{name}s__uid__in": [i.uid for i in outputs_run]}
-                ).list()
+                ).to_list()
             )
             # for artifacts, also include collections in the lineage
             if name == "artifact":
                 child_runs.update(
                     Run.filter(  # type: ignore
                         input_collections__uid__in=[i.uid for i in outputs_run]
-                    ).list()
+                    ).to_list()
                 )
         runs = child_runs
     return run_inputs_outputs

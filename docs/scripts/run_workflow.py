@@ -14,7 +14,7 @@ def subset_dataframe(
     dataset = artifact.load(is_run_input=run)
     new_data = dataset.iloc[:subset_rows, :subset_cols]
     new_key = artifact.key.replace(".parquet", "_subsetted.parquet")
-    return ln.Artifact.from_df(new_data, key=new_key, run=run).save()
+    return ln.Artifact.from_dataframe(new_data, key=new_key, run=run).save()
 
 
 if __name__ == "__main__":
@@ -28,7 +28,9 @@ if __name__ == "__main__":
 
     if args.subset:
         df = ln.core.datasets.small_dataset1(otype="DataFrame")
-        artifact = ln.Artifact.from_df(df, key="my_analysis/dataset.parquet").save()
+        artifact = ln.Artifact.from_dataframe(
+            df, key="my_analysis/dataset.parquet"
+        ).save()
         subsetted_artifact = subset_dataframe(artifact)
 
     ln.finish()

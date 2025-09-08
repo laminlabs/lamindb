@@ -100,9 +100,9 @@ def install_ci(session, group):
         run(session, "uv pip install --system tiledbsoma")
         run(session, "uv pip install --system polars")
     elif group == "tutorial":
-        extras += "jupyter,bionty,zarr"
-        run(session, "uv pip install --system huggingface_hub")
-        run(session, "uv pip install --system polars")
+        extras += "jupyter,bionty"
+        # anndata here to prevent installing older version on release
+        run(session, "uv pip install --system huggingface_hub polars anndata==0.12.1")
     elif group == "guide":
         extras += "bionty,zarr,jupyter"
         run(session, "uv pip install --system scanpy mudata spatialdata tiledbsoma")
@@ -237,8 +237,6 @@ def configure_coverage(session) -> None:
     ],
 )
 def test(session, group):
-    import lamindb as ln
-
     login_testuser2(session)
     login_testuser1(session)
     run(session, "lamin settings set private-django-api true")
@@ -250,14 +248,14 @@ def test(session, group):
             f"pytest {coverage_args} ./tests/core {duration_args}",
         )
     elif group == "unit-storage":
-        run(session, f"pytest {coverage_args} ./tests/storage {duration_args}")
+        login_testuser2(session)  # shouldn't be necessary but is for now
+        run(session, f"pytest -s {coverage_args} ./tests/storage {duration_args}")
     elif group == "tutorial":
         run(session, "lamin logout")
         run(
             session, f"pytest -s {coverage_args} ./docs/test_notebooks.py::test_{group}"
         )
     elif group == "guide":
-        ln.setup.settings.auto_connect = True
         run(
             session,
             f"pytest -s {coverage_args} ./docs/test_notebooks.py::test_{group}",
@@ -268,7 +266,6 @@ def test(session, group):
             f"pytest -s {coverage_args} ./docs/test_notebooks.py::test_{group}",
         )
     elif group == "faq":
-        ln.setup.settings.auto_connect = True
         run(session, f"pytest -s {coverage_args} ./docs/faq")
     elif group == "storage":
         run(session, f"pytest -s {coverage_args} ./docs/storage")
@@ -335,15 +332,13 @@ def clidocs(session):
                     help_dict = helps[full_key]
                     processed_commands.add(command_name)
 
-                    help_string = help_dict["help"].replace(
-                        "Usage: main", "Usage: lamin"
-                    )
+                    help_string = help_dict["help"].replace("Usage: main", "lamin")
                     help_docstring = help_dict["docstring"]
 
-                    page += f"### lamin {command_name}\n\n"
+                    page += f"### {command_name}\n\n"
                     if help_docstring:
                         page += f"{help_docstring}\n\n"
-                    page += f"```text\n{help_string}\n```\n\n"
+                    page += f"Usage:\n```text\n{help_string}\n```\n\n"
 
         # Add any remaining commands that aren't in groups
         remaining_commands = []

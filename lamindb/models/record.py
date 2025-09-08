@@ -20,7 +20,7 @@ from .can_curate import CanCurate
 from .feature import Feature
 from .has_parents import _query_relatives
 from .query_set import reorder_subset_columns_in_df
-from .run import Run, TracksRun, TracksUpdates
+from .run import Run, TracksRun, TracksUpdates, User
 from .sqlrecord import BaseSQLRecord, IsLink, SQLRecord, _get_record_kwargs
 from .transform import Transform
 from .ulabel import ULabel
@@ -54,6 +54,7 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates):
 
     class Meta(SQLRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
         abstract = False
+        app_label = "lamindb"
 
     _name_field: str = "name"
 
@@ -207,11 +208,13 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates):
     def to_pandas(self) -> pd.DataFrame:
         """Export all children of a record type recursively to a pandas DataFrame."""
         assert self.is_type, "Only types can be exported as dataframes"  # noqa: S101
-        df = self.query_children().df(features="queryset")
+        df = self.query_children().to_dataframe(features="queryset")
         df.columns.values[0] = "__lamindb_record_uid__"
         df.columns.values[1] = "__lamindb_record_name__"
         if self.schema is not None:
-            desired_order = self.schema.members.list("name")  # only members is ordered!
+            desired_order = self.schema.members.to_list(
+                "name"
+            )  # only members is ordered!
         else:
             # sort alphabetically for now
             desired_order = df.columns[2:].tolist()
@@ -235,7 +238,7 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates):
         )
         run = Run(transform, initiated_by_run=context.run).save()
         run.input_records.add(self)
-        return Artifact.from_df(
+        return Artifact.from_dataframe(
             self.to_pandas(),
             key=key,
             description=f"Export of sheet {self.uid}{description}",
@@ -252,6 +255,7 @@ class RecordJson(BaseSQLRecord, IsLink):
     value: Any = JSONField(default=None, db_default=None)
 
     class Meta:
+        app_label = "lamindb"
         unique_together = ("record", "feature")  # a list is modeled as a list in json
 
 
@@ -266,6 +270,7 @@ class RecordRecord(SQLRecord, IsLink):
     )  # component
 
     class Meta:
+        app_label = "lamindb"
         unique_together = ("record", "feature", "value")
 
 
@@ -277,6 +282,19 @@ class RecordULabel(BaseSQLRecord, IsLink):
 
     class Meta:
         # allows linking exactly one record to one ulabel per feature, because we likely don't want to have Many
+        app_label = "lamindb"
+        unique_together = ("record", "feature", "value")
+
+
+class RecordUser(BaseSQLRecord, IsLink):
+    id: int = models.BigAutoField(primary_key=True)
+    record: Record = ForeignKey(Record, CASCADE, related_name="values_user")
+    feature: Feature = ForeignKey(Feature, PROTECT, related_name="links_recorduser")
+    value: User = ForeignKey(User, PROTECT, related_name="links_record")
+
+    class Meta:
+        # allows linking exactly one record to one user per feature, because we likely don't want to have Many
+        app_label = "lamindb"
         unique_together = ("record", "feature", "value")
 
 
@@ -288,6 +306,7 @@ class RecordRun(BaseSQLRecord, IsLink):
 
     class Meta:
         # allows linking several records to a single run for the same feature because we'll likely need this
+        app_label = "lamindb"
         unique_together = ("record", "feature", "value")
 
 
@@ -299,6 +318,7 @@ class RecordArtifact(BaseSQLRecord, IsLink):
 
     class Meta:
         # allows linking several records to a single artifact for the same feature because we'll likely need this
+        app_label = "lamindb"
         unique_together = ("record", "feature", "value")
 
 
@@ -315,4 +335,5 @@ class ArtifactRecord(BaseSQLRecord, IsLink):
 
     class Meta:
         # allows linking several records to a single artifact for the same feature because we'll likely need this
+        app_label = "lamindb"
         unique_together = ("artifact", "record", "feature")

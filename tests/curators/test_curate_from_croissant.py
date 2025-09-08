@@ -17,9 +17,10 @@ def test_curate_artifact_from_croissant():
         name="https://creativecommons.org/licenses/by/4.0/"
     )
     project_label = artifact1.projects.get(name="Mini Immuno Project")
+
     artifact1.delete(permanent=True)
-    project_label.delete()
-    license_label.delete()
+    project_label.delete(permanent=True)
+    license_label.delete(permanent=True)
 
 
 def test_curate_collection_from_croissant():
@@ -36,8 +37,9 @@ def test_curate_collection_from_croissant():
         name="https://creativecommons.org/licenses/by/4.0/"
     )
     project_label = collection.projects.get(name="Mini Immuno Project")
+
     collection.delete(permanent=True)
     artifact1.delete(permanent=True)
     artifact2.delete(permanent=True)
-    project_label.delete()
-    license_label.delete()
+    project_label.delete(permanent=True)
+    license_label.delete(permanent=True)

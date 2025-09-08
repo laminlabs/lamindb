@@ -13,12 +13,17 @@ from anndata import __version__ as anndata_version
 from anndata._core.index import _normalize_indices
 from anndata._core.views import _resolve_idx
 from anndata._io.h5ad import read_dataframe_legacy as read_dataframe_legacy_h5
-from anndata._io.specs.registry import get_spec, read_elem, read_elem_partial
+from anndata._io.specs.registry import (
+    get_spec,
+    read_elem,
+    read_elem_partial,
+    write_elem,
+)
 from anndata.compat import _read_attr
 from fsspec.implementations.local import LocalFileSystem
 from fsspec.utils import infer_compression
 from lamin_utils import logger
-from lamindb_setup.core.upath import infer_filesystem
+from lamindb_setup.core.upath import S3FSMap, infer_filesystem
 from packaging import version
 from upath import UPath
 
@@ -27,6 +32,8 @@ if TYPE_CHECKING:
 
     from fsspec.core import OpenFile
     from lamindb_setup.types import UPathStr
+
+    from lamindb import Artifact
 
 
 anndata_version_parse = version.parse(anndata_version)
@@ -288,7 +295,7 @@ except ImportError:
 if ZARR_INSTALLED:
     from anndata._io.zarr import read_dataframe_legacy as read_dataframe_legacy_zarr
 
-    from ._zarr import get_zarr_store
+    from ._zarr import IS_ZARR_V3, get_zarr_store
 
     ArrayTypes.append(zarr.Array)
     GroupTypes.append(zarr.Group)
@@ -299,7 +306,18 @@ if ZARR_INSTALLED:
         assert mode in {"r", "r+", "a", "w", "w-"}, f"Unknown mode {mode}!"  #  noqa: S101
 
         store = get_zarr_store(filepath)
-        storage = zarr.open(store, mode=mode)
+        kwargs = {}
+        if IS_ZARR_V3 and mode != "r":
+            # otherwise unable to write
+            kwargs["use_consolidated"] = False
+        storage = zarr.open(store, mode=mode, **kwargs)
+        # zarr v2 re-initializes the mapper
+        # we need to put back the correct one
+        # S3FSMap is returned from get_zarr_store only for zarr v2
+        if isinstance(store, S3FSMap):
+            assert not IS_ZARR_V3  # noqa: S101
+
+            storage.store.map = store
         conn = None
         return conn, storage
 
@@ -340,15 +358,21 @@ if ZARR_INSTALLED:
                 ds = sparse_dataset(elem)
                 return _subset_sparse(ds, indices)
             else:
+                indices = tuple(
+                    idim.tolist()
+                    if isinstance(idim, np.ndarray) and idim.dtype == "bool"
+                    else idim
+                    for idim in indices
+                )
                 return read_elem_partial(elem, indices=indices)
 
     # this is needed because accessing zarr.Group.keys() directly is very slow
     @registry.register("zarr")
     def keys(storage: zarr.Group):
-        if hasattr(storage, "_sync_iter"):  # zarr v3
+        if IS_ZARR_V3:
             paths = storage._sync_iter(storage.store.list())
         else:
-            paths = storage.store.keys()  # zarr v2
+            paths = storage.store.keys()
 
         attrs_keys: dict[str, list] = {}
         obs_var_arrays = []
@@ -432,9 +456,15 @@ def _try_backed_full(elem):
     return read_elem(elem)
 
 
+def _to_index(elem: np.ndarray):
+    if elem.dtype in (np.float64, np.int64):
+        elem = elem.astype(str)
+    return pd.Index(elem)
+
+
 def _safer_read_index(elem):
     if isinstance(elem, GroupTypes):
-        return pd.Index(read_elem(elem[_read_attr(elem.attrs, "_index")]))
+        return _to_index(read_elem(elem[_read_attr(elem.attrs, "_index")]))
     elif isinstance(elem, ArrayTypes):
         indices = None
         for index_name in ("index", "_index"):
@@ -444,7 +474,7 @@ def _safer_read_index(elem):
         if indices is not None and len(indices) > 0:
             if isinstance(indices[0], bytes):
                 indices = np.frompyfunc(lambda x: x.decode("utf-8"), 1, 1)(indices)
-            return pd.Index(indices)
+            return _to_index(indices)
         else:
             raise ValueError("Indices not found.")
     else:
@@ -473,33 +503,40 @@ class _MapAccessor:
         return descr
 
 
+def _safer_read_df(elem, indices=None):
+    if indices is not None:
+        obj = registry.safer_read_partial(elem, indices=indices)
+        df = _records_to_df(obj)
+    else:
+        df = registry.read_dataframe(elem)
+    if df.index.dtype in (np.float64, np.int64):
+        df.index = df.index.astype(str)
+    return df
+
+
 class _AnnDataAttrsMixin:
     storage: StorageType
     _attrs_keys: Mapping[str, list]
 
     @cached_property
-    def obs(self) -> pd.DataFrame:
+    def obs(self) -> pd.DataFrame | None:
         if "obs" not in self._attrs_keys:
             return None
         indices = getattr(self, "indices", None)
-        if indices is not None:
-            indices = (indices[0], slice(None))
-            obj = registry.safer_read_partial(self.storage["obs"], indices=indices)  # type: ignore
-            return _records_to_df(obj)
-        else:
-            return registry.read_dataframe(self.storage["obs"])  # type: ignore
+        return _safer_read_df(
+            self.storage["obs"],  # type: ignore
+            indices=(indices[0], slice(None)) if indices is not None else None,
+        )
 
     @cached_property
-    def var(self) -> pd.DataFrame:
+    def var(self) -> pd.DataFrame | None:
         if "var" not in self._attrs_keys:
             return None
         indices = getattr(self, "indices", None)
-        if indices is not None:
-            indices = (indices[1], slice(None))
-            obj = registry.safer_read_partial(self.storage["var"], indices=indices)  # type: ignore
-            return _records_to_df(obj)
-        else:
-            return registry.read_dataframe(self.storage["var"])  # type: ignore
+        return _safer_read_df(
+            self.storage["var"],  # type: ignore
+            indices=(indices[1], slice(None)) if indices is not None else None,
+        )
 
     @cached_property
     def uns(self):
@@ -696,6 +733,7 @@ class AnnDataAccessor(_AnnDataAttrsMixin):
         connection: OpenFile | None,
         storage: StorageType,
         filename: str,
+        artifact: Artifact | None = None,
     ):
         self._conn = connection
         self.storage = storage
@@ -707,14 +745,43 @@ class AnnDataAccessor(_AnnDataAttrsMixin):
         self._obs_names = _safer_read_index(self.storage["obs"])  # type: ignore
         self._var_names = _safer_read_index(self.storage["var"])  # type: ignore
 
+        self._artifact = artifact  # save artifact to update in write mode
+
+        self._updated = False  # track updates in r+ mode for zarr
+
+        self._entered = False  # check that the context manager is used
         self._closed = False
 
     def close(self):
         """Closes the connection."""
-        if hasattr(self, "storage") and hasattr(self.storage, "close"):
-            self.storage.close()
-        if hasattr(self, "_conn") and hasattr(self._conn, "close"):
-            self._conn.close()
+        storage = self.storage
+        connection = self._conn
+
+        if self._updated and (artifact := self._artifact) is not None:
+            from lamindb.models.artifact import Artifact
+            from lamindb.models.sqlrecord import init_self_from_db
+
+            # now self._updated can only be True for zarr
+            assert ZARR_INSTALLED  # noqa: S101
+
+            store = storage.store
+            keys = storage._sync_iter(store.list()) if IS_ZARR_V3 else store.keys()
+            # this checks that there consolidated metadata was written before
+            # need to update it
+            # zmetadata is in spatialdata sometimes for some reason
+            if ".zmetadata" in keys or "zmetadata" in keys:
+                zarr.consolidate_metadata(store)
+
+            new_version = Artifact(
+                artifact.path, revises=artifact, _is_internal_call=True
+            ).save()
+            # note: sets _state.db = "default"
+            init_self_from_db(artifact, new_version)
+
+        if hasattr(storage, "close"):
+            storage.close()
+        if hasattr(connection, "close"):
+            connection.close()
         self._closed = True
 
     @property
@@ -722,6 +789,8 @@ class AnnDataAccessor(_AnnDataAttrsMixin):
         return self._closed
 
     def __enter__(self):
+        self._entered = True
+
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -756,6 +825,35 @@ class AnnDataAccessor(_AnnDataAttrsMixin):
         return AnnDataRawAccessor(
             self.storage["raw"], None, None, self._obs_names, None, self.shape[0]
         )
+
+    def add_column(
+        self,
+        where: Literal["obs", "var"],
+        col_name: str,
+        col: np.ndarray | pd.Categorical,
+    ):
+        """Add a new column to .obs or .var of the underlying AnnData object."""
+        df_store = self.storage[where]  # type: ignore
+        if getattr(df_store, "read_only", True):
+            raise ValueError(
+                "You can use .add_column(...) only with zarr in a writable mode."
+            )
+        write_elem(df_store, col_name, col)
+        df_store.attrs["column-order"] = df_store.attrs["column-order"] + [col_name]
+        # remind only once if this wasn't updated before and not in the context manager
+        if not self._updated and not self._entered and self._artifact is not None:
+            logger.important(
+                "Do not forget to call .close() after you finish "
+                f"working with this accessor for {self._name} "
+                "to automatically update the corresponding artifact."
+            )
+
+        self._updated = True
+        # reset the cached property
+        # todo: maybe just append the column if the df was already loaded
+        self.__dict__.pop(where, None)
+        # update the cached columns
+        self._attrs_keys[where].append(col_name)
 
 
 # get the number of observations in an anndata object or file fast and safely

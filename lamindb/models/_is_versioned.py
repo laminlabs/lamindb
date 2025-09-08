@@ -108,12 +108,12 @@ def bump_version(
 ) -> str:
     """Bumps the version number by major or minor depending on the bump_type flag.
 
-    Parameters:
-    version (str): The current version in "MAJOR" or "MAJOR.MINOR" format.
-    bump_type (str): The type of version bump, either 'major' or 'minor'.
+    Args:
+        version: The current version in "MAJOR" or "MAJOR.MINOR" format.
+        bump_type: The type of version bump, either 'major' or 'minor'.
 
     Returns:
-    str: The new version string.
+        The new version string.
     """
     try:
         # Split the version into major and minor parts if possible

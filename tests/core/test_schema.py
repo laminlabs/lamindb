@@ -24,7 +24,7 @@ def test_schema_from_values():
     bt.settings.organism = "human"
     bt.Gene.filter(symbol__in=gene_symbols).all().delete()
     with pytest.raises(ValidationError) as error:
-        schema = ln.Schema.from_values(gene_symbols, bt.Gene.symbol, type=int)
+        schema = ln.Schema.from_values(gene_symbols, bt.Gene.symbol, dtype=int)
     assert error.exconly().startswith(
         "lamindb.errors.ValidationError: These values could not be validated:"
     )
@@ -33,7 +33,7 @@ def test_schema_from_values():
     # below should be a queryset and not a list
     assert set(schema.members) == set(bt.Gene.from_values(gene_symbols, "symbol"))
     assert schema.dtype == "num"  # this is NUMBER_TYPE
-    schema = ln.Schema.from_values(gene_symbols, bt.Gene.symbol, type=int)
+    schema = ln.Schema.from_values(gene_symbols, bt.Gene.symbol, dtype=int)
     assert schema._state.adding
     assert schema.dtype == "int"
     assert schema.itype == "bionty.Gene"
@@ -42,31 +42,26 @@ def test_schema_from_values():
     id = schema.id
     # test that the schema is retrieved from the database
     # in case it already exists
-    schema = ln.Schema.from_values(gene_symbols, bt.Gene.symbol, type=int)
+    schema = ln.Schema.from_values(gene_symbols, bt.Gene.symbol, dtype=int)
     assert not schema._state.adding
     assert id == schema.id
-    schema.delete()
+    schema.delete(permanent=True)
 
     # edge cases
     with pytest.raises(ValueError):
         schema = ln.Schema.from_values([])
-
     with pytest.raises(TypeError):
         ln.Schema.from_values(["a"], field="name")
     with pytest.raises(ValidationError):
         schema = ln.Schema.from_values(
-            ["weird_name"], field=ln.Feature.name, type="float"
+            ["weird_name"], field=ln.Feature.name, dtype="float"
         )
     with pytest.raises(ValidationError):
-        ln.Schema.from_values([1], field=ln.Feature.name, type="float")
-
-    # return none if no validated features
-    with pytest.raises(ValidationError):
-        ln.Schema.from_values(["name"], field=ln.Feature.name, type="float")
+        ln.Schema.from_values(["name"], field=ln.Feature.name, dtype="float")
 
 
 def test_schema_from_records(df):
-    features = ln.Feature.from_df(df)
+    features = ln.Feature.from_dataframe(df)
     with pytest.raises(ValueError) as error:
         schema = ln.Schema(features)
     assert (
@@ -86,7 +81,7 @@ def test_schema_from_records(df):
     schema = ln.Schema(features)
     assert not schema._state.adding
     assert schema.id is not None
-    schema.delete()
+    schema.delete(permanent=True)
 
     # edge case
     with pytest.raises(ValueError):
@@ -100,19 +95,19 @@ def test_schema_from_df(df):
     genes = [bt.Gene(symbol=name) for name in df.columns]
     ln.save(genes)
     with pytest.raises(ValueError) as error:
-        ln.Schema.from_df(df, field=bt.Gene.symbol)
+        ln.Schema.from_dataframe(df, field=bt.Gene.symbol)
     assert error.exconly().startswith("ValueError: data types are heterogeneous:")
-    schema = ln.Schema.from_df(df[["feat1", "feat2"]], field=bt.Gene.symbol)
+    schema = ln.Schema.from_dataframe(df[["feat1", "feat2"]], field=bt.Gene.symbol)
     for gene in genes:
-        gene.delete()
+        gene.delete(permanent=True)
 
     # now for the features registry
-    features = ln.Feature.from_df(df)
+    features = ln.Feature.from_dataframe(df)
     ln.save(features)
-    schema = ln.Schema.from_df(df).save()
+    schema = ln.Schema.from_dataframe(df).save()
     assert schema.dtype is None
-    ln.Schema.filter().all().delete()
-    ln.Feature.filter().all().delete()
+    ln.Schema.filter().delete()
+    ln.Feature.filter().delete()
 
 
 def test_get_related_name():
@@ -133,7 +128,7 @@ def test_validate_features():
     with pytest.raises(TypeError) as error:
         validate_features([transform, ln.Run(transform)])
     assert error.exconly() == "TypeError: schema can only contain a single type"
-    transform.delete()
+    transform.delete(permanent=True)
 
 
 def test_kwargs():
@@ -150,7 +145,7 @@ def test_edge_cases():
         error.exconly()
         == "ValueError: Please pass a ListLike of features, not a single feature"
     )
-    feature.delete()
+    feature.delete(permanent=True)
 
 
 @pytest.fixture(scope="module")
@@ -172,7 +167,7 @@ def test_schema_update_implicit_through_name_equality(
     ccaplog,
 ):
     df = pd.DataFrame({"a": [1]})
-    artifact = ln.Artifact.from_df(df, key="test_artifact.parquet").save()
+    artifact = ln.Artifact.from_dataframe(df, key="test_artifact.parquet").save()
     artifact.schema = mini_immuno_schema_flexible
     artifact.save()
 
@@ -252,7 +247,7 @@ def test_schema_update(
     ccaplog,
 ):
     df = pd.DataFrame({"a": [1]})
-    artifact = ln.Artifact.from_df(df, key="test_artifact.parquet").save()
+    artifact = ln.Artifact.from_dataframe(df, key="test_artifact.parquet").save()
     artifact.schema = mini_immuno_schema_flexible
     artifact.save()
 
@@ -277,7 +272,7 @@ def test_schema_update(
     assert mini_immuno_schema_flexible.hash == orig_hash
     assert ccaplog.text.count(warning_message) == 2
     assert mini_immuno_schema_flexible.n == 6
-    feature_to_add.delete()
+    feature_to_add.delete(permanent=True)
 
     # change is flexible (an auxiliary field) --------------------------------
 
@@ -322,7 +317,7 @@ def test_schema_update(
     assert mini_immuno_schema_flexible.n == 6
     assert mini_immuno_schema_flexible.hash == orig_hash
     assert ccaplog.text.count(warning_message) == 8
-    index_feature.delete()
+    index_feature.delete(permanent=True)
 
     # make a feature optional --------------------------------
 
@@ -387,9 +382,9 @@ def test_schema_components(mini_immuno_schema_flexible: ln.Schema):
     except IntegrityError as error:
         assert str(error).startswith("duplicate key value violates unique constraint")
 
-    anndata_schema.delete()
-    var_schema2.delete()
-    var_schema.delete()
+    anndata_schema.delete(permanent=True)
+    var_schema2.delete(permanent=True)
+    var_schema.delete(permanent=True)
 
 
 def test_mini_immuno_schema_flexible(mini_immuno_schema_flexible):
@@ -482,7 +477,8 @@ def test_schemas_anndata():
     assert varT_schema.name == "valid_ensembl_gene_ids"
     assert varT_schema.itype == "bionty.Gene.ensembl_gene_id"
     assert varT_schema.hash == "1gocc_TJ1RU2bMwDRK-WUA"
-    schema.delete()
+
+    schema.delete(permanent=True)
 
 
 def test_schema_already_saved_aux():
@@ -547,8 +543,8 @@ def test_schema_already_saved_aux():
     assert len(schema.slots["var"]._aux["af"].keys()) == 3
     assert schema.slots["var"]._aux == schema_2.slots["var"]._aux
 
-    schema_2.delete()
-    schema.delete()
+    schema_2.delete(permanent=True)
+    schema.delete(permanent=True)
 
 
 def test_schema_not_saved_describe():
@@ -565,6 +561,7 @@ def test_schema_is_type():
     assert BioSample.hash is None
     assert BioSample.type == Sample
     assert BioSample.is_type
+
     # clean up
-    BioSample.delete()
-    Sample.delete()
+    BioSample.delete(permanent=True)
+    Sample.delete(permanent=True)

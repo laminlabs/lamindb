@@ -17,7 +17,7 @@ def process_chunk(chunk_id: int) -> str:
     ln.Artifact(env_file, description="requirements.txt").save()
     # Save it as an artifact
     key = f"chunk_{chunk_id}.parquet"
-    artifact = ln.Artifact.from_df(df, key=key).save()
+    artifact = ln.Artifact.from_dataframe(df, key=key).save()
     return artifact.key
 
 
@@ -52,7 +52,7 @@ def test_tracked_parallel():
     print(f"Created artifacts with keys: {chunk_keys}")
     artifacts = [ln.Artifact.get(key=key) for key in chunk_keys]
     env_artifacts = ln.Artifact.filter(description="requirements.txt").all()
-    print(env_artifacts.df())
+    print(env_artifacts.to_dataframe())
 
     # Check that we got the expected number of artifacts
     assert len(artifacts) == n_parallel

@@ -1,21 +1,24 @@
 import bionty as bt
 import lamindb as ln
 import pytest
+from lamindb.examples.cellxgene._cellxgene import CELLxGENESchemaVersions
 
 
-@pytest.fixture(scope="module")
-def cxg_schema():
-    ln.examples.cellxgene.save_cxg_defaults()
-    schema = ln.examples.cellxgene.get_cxg_schema(
-        schema_version="5.2.0", field_types=["name", "ontology_id"]
-    )
+@pytest.fixture
+def cxg_schema_factory():
+    def create_schema(version: CELLxGENESchemaVersions, **kwargs):
+        ln.examples.cellxgene.save_cellxgene_defaults()
+        schema = ln.examples.cellxgene.create_cellxgene_schema(
+            schema_version=version, **kwargs
+        )
+        return schema
 
-    yield schema
+    yield create_schema
 
+    # Cleanup after all tests
     ln.models.SchemaComponent.filter().delete()
     ln.Schema.filter().delete()
     ln.Feature.filter().delete()
-
     ln.ULabel.filter(type__isnull=False).delete()
     for entity in [
         bt.Disease,
@@ -25,13 +28,15 @@ def cxg_schema():
         bt.CellType,
         ln.ULabel,
     ]:
-        entity.filter().all().delete()
+        entity.filter().delete()
 
 
-def test_cxg_curator(cxg_schema):
+def test_cxg_curator_5(cxg_schema_factory):
+    cxg_schema = cxg_schema_factory("5.2.0", field_types=["name", "ontology_id"])
+
     # test invalid var index and typo in obs column
     adata = ln.core.datasets.small_dataset3_cellxgene(
-        with_obs_defaults=True, with_obs_typo=True
+        with_obs_defaults=True, with_obs_typo=True, with_var_typo=True
     )
     curator = ln.curators.AnnDataCurator(adata, cxg_schema)
     # Ensure that default values for Features are set
@@ -58,7 +63,7 @@ def test_cxg_curator(cxg_schema):
     adata.obs["tissue_ontology_term_id"] = adata.obs["tissue_ontology_term_id"].replace(
         {"UBERON:0002048XXX": "UBERON:0002048"}
     )
-    artifact = curator.save_artifact(key="examples/dataset-curated-against-cxg.h5ad")
+    artifact = curator.save_artifact(key="examples/dataset-curated-against-cxg-5.h5ad")
 
     # test missing obs columns
     adata = ln.core.datasets.small_dataset3_cellxgene(with_obs_defaults=False)
@@ -86,9 +91,32 @@ def test_cxg_curator(cxg_schema):
     artifact.delete(permanent=True)
 
 
+def test_cxg_curator_6_spatial(cxg_schema_factory):
+    """Tests organism (in `uns` as of 6.x) and spatial slot validation of CELLxGENE 6.x."""
+    cxg_schema = cxg_schema_factory(
+        "6.0.0", spatial_library_id="library_123", field_types="ontology_id"
+    )
+
+    adata = ln.core.datasets.small_dataset3_cellxgene(
+        with_obs_defaults=True, with_uns_organism=True, with_uns_spatial=True
+    )
+    # delete a necessary component from uns["spatial"]
+    del adata.uns["spatial"]["is_single"]
+
+    curator = ln.curators.AnnDataCurator(adata, cxg_schema)
+
+    with pytest.raises(ln.errors.ValidationError) as e:
+        curator.validate()
+    assert "column 'is_single' not in dataframe." in str(e.value)
+
+    adata.uns["spatial"]["is_single"] = True
+    curator = ln.curators.AnnDataCurator(adata, cxg_schema)
+    curator.validate()
+
+
 def test_invalid_field_type():
     with pytest.raises(ValueError) as e:
-        ln.examples.cellxgene.get_cxg_schema(
+        ln.examples.cellxgene.create_cellxgene_schema(
             schema_version="5.3.0", field_types=["ensembl_gene_ids"]
         )
     assert "Invalid field_types" in str(e.value)
@@ -96,5 +124,5 @@ def test_invalid_field_type():
 
 def test_invalid_schema_Version():
     with pytest.raises(ValueError) as e:
-        ln.examples.cellxgene.get_cxg_schema(schema_version="200.0.0")
+        ln.examples.cellxgene.create_cellxgene_schema(schema_version="200.0.0")
     assert "Invalid schema_version" in str(e.value)

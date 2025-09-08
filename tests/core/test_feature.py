@@ -20,6 +20,19 @@ def df():
     )
 
 
+@pytest.fixture(scope="module")
+def dict_data():
+    return {
+        "dict_feat1": 42,
+        "dict_feat2": 3.14,
+        "dict_feat3": "somestring",  # string (ambiguous cat ? str)
+        "dict_feat4": True,
+        "dict_feat5": [1, 2, 3],
+        "dict_feat6": ["a", "b", "c"],  # list[str] (ambiguous list[cat ? str])
+        "dict_feat7": {"key": "value"},
+    }
+
+
 def test_feature_init():
     # positional args not supported
     with pytest.raises(ValueError):
@@ -42,7 +55,7 @@ def test_feature_init():
 
     # ensure feat1 does not exist
     if feat1 := ln.Feature.filter(name="feat1").one_or_none() is not None:
-        feat1.delete()
+        feat1.delete(permanent=True)
 
     feat1 = ln.Feature(name="feat", dtype="str").save()
     # duplicate name with different dtype should fail
@@ -52,13 +65,13 @@ def test_feature_init():
         error.exconly()
         == "lamindb.errors.ValidationError: Feature feat already exists with dtype str, you passed cat"
     )
-    feat1.delete()
+    feat1.delete(permanent=True)
 
     # string and list syntax for categorical dtypes should be equivalent and work
     feat2 = ln.Feature(name="feat2", dtype="str", description="feat2").save()
     feat2_again = ln.Feature(name="feat2", dtype="str", description="feat2").save()
     assert feat2 == feat2_again
-    feat2.delete()
+    feat2.delete(permanent=True)
 
     # categorical dtype with union of registries using string syntax must be valid
     feature = ln.Feature(name="feat1", dtype="cat[ULabel|bionty.Gene]")
@@ -87,7 +100,7 @@ def test_cat_filters_dtype():
 
     assert feature.dtype == "cat[bionty.Disease[source__uid='4a3ejKuf']]"
 
-    feature.delete()
+    feature.delete(permanent=True)
 
 
 def test_cat_filters_empty_filter():
@@ -115,14 +128,14 @@ def test_cat_filters_invalid_field_name():
         "lamindb.errors.ValidationError: SQLRecord Source has no attribute 'invalid_field' in filter source__invalid_field"
         in error.exconly()
     )
-    source.delete()
+    source.delete(permanent=True)
 
 
 def test_feature_from_df(df):
     if feat1 := ln.Feature.filter(name="feat1").one_or_none() is not None:
-        feat1.delete()
-    features = ln.Feature.from_df(df.iloc[:, :4]).save()
-    artifact = ln.Artifact.from_df(df, description="test").save()
+        feat1.delete(permanent=True)
+    features = ln.Feature.from_dataframe(df.iloc[:, :4]).save()
+    artifact = ln.Artifact.from_dataframe(df, description="test").save()
     # test for deprecated add_feature_set
     artifact.features._add_schema(ln.Schema(features), slot="columns")
     features = artifact.features.slots["columns"].features.all()
@@ -160,6 +173,44 @@ def test_feature_from_df(df):
 
     # clean up
     artifact.delete(permanent=True)
-    ln.Schema.filter().all().delete()
-    ln.ULabel.filter().all().delete()
-    ln.Feature.filter().all().delete()
+    ln.Schema.filter().delete()
+    ln.ULabel.filter().delete()
+    ln.Feature.filter().delete()
+
+
+def test_feature_from_dict(dict_data):
+    # ambiguous str types
+    with pytest.raises(ValueError) as e:
+        features = ln.Feature.from_dict(dict_data, str_as_cat=None)
+    error_msg = str(e.value)
+    assert "Ambiguous dtypes detected" in error_msg
+    assert "'dict_feat3': str or cat" in error_msg
+    assert "'dict_feat6': list[str] or list[cat]" in error_msg
+    assert "Please pass `str_as_cat` parameter" in error_msg
+
+    # convert str to cat
+    features = ln.Feature.from_dict(dict_data, str_as_cat=True)
+    assert len(features) == len(dict_data)
+    assert features[0].dtype == "int"
+    assert features[1].dtype == "float"
+    assert features[2].dtype == "cat"
+    assert features[3].dtype == "bool"
+    assert features[4].dtype == "list[int]"
+    assert features[5].dtype == "list[cat]"
+    assert features[6].dtype == "dict"
+
+    # do not convert str to cat
+    features = ln.Feature.from_dict(dict_data, str_as_cat=False)
+    assert features[2].dtype == "str"
+    assert features[5].dtype == "list[str]"
+
+    # Wrong field
+    with pytest.raises(ValueError) as e:
+        ln.Feature.from_dict(dict_data, field=ln.ULabel.name)
+    assert "field must be a Feature FieldAttr" in str(e.value)
+
+    # Explicit field
+    features_with_field = ln.Feature.from_dict(
+        dict_data, field=ln.Feature.name, str_as_cat=False
+    )
+    assert len(features_with_field) == len(dict_data)

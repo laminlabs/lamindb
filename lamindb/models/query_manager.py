@@ -25,6 +25,7 @@ from django.db.models.lookups import (
 )
 from lamin_utils import logger
 from lamin_utils._lookup import Lookup
+from lamindb_setup.core import deprecated
 from lamindb_setup.core._docs import doc_args
 
 if TYPE_CHECKING:
@@ -241,7 +242,7 @@ class QueryManager(Manager):
         >>> label = ln.ULabel.get(name="ULabel1")
         >>> label.parents.set(labels)
         >>> manager = label.parents
-        >>> manager.df()
+        >>> manager.to_dataframe()
     """
 
     def _track_run_input_manager(self):
@@ -264,7 +265,7 @@ class QueryManager(Manager):
                     logger.warning(WARNING_RUN_TRANSFORM)
                 _track_run_input(self.instance)
 
-    def list(self, field: str | None = None):
+    def to_list(self, field: str | None = None):
         """Populate a list with the results.
 
         Examples:
@@ -273,8 +274,8 @@ class QueryManager(Manager):
             >>> ln.ULabel(name="ULabel1").save()
             >>> label = ln.ULabel.get(name="ULabel1")
             >>> label.parents.set(labels)
-            >>> label.parents.list()
-            >>> label.parents.list("name")
+            >>> label.parents.to_list()
+            >>> label.parents.to_list("name")
             ['ULabel1', 'ULabel2', 'ULabel3']
         """
         if field is None:
@@ -283,12 +284,20 @@ class QueryManager(Manager):
             self._track_run_input_manager()
             return list(self.values_list(field, flat=True))
 
-    def df(self, **kwargs):
+    @deprecated(new_name="to_list")
+    def list(self, field: str | None = None):
+        return self.to_list(field)
+
+    def to_dataframe(self, **kwargs):
         """Convert to DataFrame.
 
-        For `**kwargs`, see :meth:`lamindb.models.QuerySet.df`.
+        For `**kwargs`, see :meth:`lamindb.models.QuerySet.to_dataframe`.
         """
-        return self.all().df(**kwargs)
+        return self.all().to_dataframe(**kwargs)
+
+    @deprecated(new_name="to_dataframe")
+    def df(self, **kwargs):
+        return self.to_dataframe(**kwargs)
 
     def all(self):
         """Return QuerySet of all.

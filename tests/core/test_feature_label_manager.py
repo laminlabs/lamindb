@@ -27,7 +27,7 @@ def adata():
 
 def test_features_add():
     df = small_dataset1(otype="DataFrame")
-    artifact = ln.Artifact.from_df(df, description="test dataset").save()
+    artifact = ln.Artifact.from_dataframe(df, description="test dataset").save()
     with pytest.raises(ValidationError) as err:
         artifact.features.add_values({"perturbation": df.perturbation.unique()})
     assert (
@@ -43,9 +43,32 @@ Here is how to create a feature:
     artifact.features.add_values({"perturbation": df.perturbation.unique()})
     assert artifact in ln.Artifact.filter(perturbation__isnull=False)
     assert artifact not in ln.Artifact.filter(perturbation__isnull=True)
+
     artifact.delete(permanent=True)
-    ln.ULabel.filter().all().delete()
-    ln.Feature.filter().all().delete()
+    ln.ULabel.filter().delete()
+    ln.Feature.filter().delete()
+
+
+def test_features_add_external():
+    df = small_dataset1(otype="DataFrame")
+    artifact = ln.Artifact.from_dataframe(df, description="test dataset").save()
+
+    species = ln.Feature(name="species", dtype="str").save()
+    split = ln.Feature(name="split", dtype="str").save()
+    schema = ln.Schema([species, split]).save()
+
+    with pytest.raises(ValidationError) as e:
+        artifact.features.add_values({"doesnot": "exist"}, schema=schema)
+    assert "column 'split' not in dataframe" in str(e.value)
+
+    artifact.features.add_values({"species": "bird", "split": "train"}, schema=schema)
+    artifact.save()
+
+    assert artifact.features.get_values() == {"species": "bird", "split": "train"}
+
+    artifact.delete(permanent=True)
+    schema.delete(permanent=True)
+    ln.Feature.filter().delete()
 
 
 # below the test for annotating with feature values
@@ -175,15 +198,26 @@ Here is how to create a feature:
 
     with pytest.raises(ValidationError) as error:
         artifact.features.add_values(features)
-    assert (
-        error.exconly()
-        == """\
-lamindb.errors.ValidationError: These values could not be validated: {'ULabel': ['Experiment 2', 'project_1', 'U0123'], 'bionty.CellType': ['T cell']}
-Here is how to create records for them:
+        error_msg = error.exconly()
 
-  records = ln.ULabel.from_values(['Experiment 2', 'project_1', 'U0123'], create=True).save()
-  records = bionty.CellType.from_values(['T cell'], create=True).save()"""
-    )
+        assert (
+            "lamindb.errors.ValidationError: These values could not be validated:"
+            in error_msg
+        )
+        assert "Here is how to create records for them:" in error_msg
+
+        expected_values = {
+            "ULabel": ["project_1", "U0123", "Experiment 2"],
+            "bionty.CellType": ["T cell"],
+        }
+
+        for key, values in expected_values.items():
+            assert f"'{key}':" in error_msg
+            for value in values:
+                assert value in error_msg
+            assert f"{key.split('.')[-1]}.from_values(" in error_msg
+
+        assert "create=True).save()" in error_msg
 
     ln.ULabel.from_values(["Experiment 2", "project_1", "U0123"], create=True).save()
     bt.CellType.from_source(name="T cell").save()
@@ -294,8 +328,8 @@ Here is how to create records for them:
     # test comparator
     assert artifact == ln.Artifact.filter(experiment__contains="ment 1").one()
     # due to the __in comparator, we get the same artifact twice below
-    # print(ln.Artifact.df(features=["experiment"]))
-    # print(ln.Artifact.filter(experiment__contains="Experi").df(features=["experiment"]))
+    # print(ln.Artifact.to_dataframe(features=["experiment"]))
+    # print(ln.Artifact.filter(experiment__contains="Experi").to_dataframe(features=["experiment"]))
     assert len(ln.Artifact.filter(experiment__contains="Experi").all()) == 2
     assert ln.Artifact.filter(temperature__lt=21).one_or_none() is None
     assert len(ln.Artifact.filter(temperature__gt=21).all()) >= 1
@@ -314,12 +348,12 @@ Here is how to create records for them:
 
     # delete everything we created
     artifact.delete(permanent=True)
-    ln.ULabel.filter().all().delete()
-    ln.Schema.filter().all().delete()
-    ln.Feature.filter().all().delete()
-    bt.Gene.filter().all().delete()
-    bt.Organism.filter().all().delete()
-    bt.Disease.filter().all().delete()
+    ln.ULabel.filter().delete()
+    ln.Schema.filter().delete()
+    ln.Feature.filter().delete()
+    bt.Gene.filter().delete()
+    bt.Organism.filter().delete()
+    bt.Disease.filter().delete()
 
 
 # most underlying logic here is comprehensively tested in test_context
@@ -438,9 +472,9 @@ def test_labels_add(adata):
 
     artifact2.delete(permanent=True)
     artifact.delete(permanent=True)
-    ln.Schema.filter().all().delete()
-    ln.Feature.filter().all().delete()
-    ln.ULabel.filter().all().delete()
+    ln.Schema.filter().delete()
+    ln.Feature.filter().delete()
+    ln.ULabel.filter().delete()
 
 
 def test_add_labels_using_anndata(adata):
@@ -466,7 +500,7 @@ def test_add_labels_using_anndata(adata):
     artifact = ln.Artifact.filter(description="Mini adata").one_or_none()
     if artifact is not None:
         artifact.delete(permanent=True, storage=True)
-    ln.Schema.filter().all().delete()
+    ln.Schema.filter().delete()
 
     # try to construct without registering metadata features
     artifact = ln.Artifact.from_anndata(adata, description="Mini adata")
@@ -487,7 +521,7 @@ def test_add_labels_using_anndata(adata):
     # now register features we want to validate
     # (we are not interested in cell_type_id, here)
     ln.save(
-        ln.Feature.from_df(
+        ln.Feature.from_dataframe(
             adata.obs[["cell_type", "tissue", "cell_type_by_expert", "disease"]]
         )
     )
@@ -510,7 +544,7 @@ def test_add_labels_using_anndata(adata):
         itype="Feature", _links_artifact__slot="obs"
     ).one()
     assert schema_obs.n == 4
-    assert "organism" not in schema_obs.features.list("name")
+    assert "organism" not in schema_obs.features.to_list("name")
 
     # now, we add organism and run checks
     features = ln.Feature.lookup()
@@ -558,7 +592,7 @@ def test_add_labels_using_anndata(adata):
     diseases = [ln.ULabel(name=name) for name in adata.obs["disease"].unique()]
     ln.save(diseases)
     add_labels(artifact, diseases, feature=features.disease, from_curator=True)
-    df = artifact.features.slots["obs"].features.df()
+    df = artifact.features.slots["obs"].features.to_dataframe()
     assert set(df["name"]) == {
         "cell_type",
         "disease",
@@ -577,34 +611,36 @@ def test_add_labels_using_anndata(adata):
     features = ln.Feature.lookup()
     artifact.labels.add(experiment_1, feature=features.experiment)
     # TODO: replace the following with an updated test
-    # df = artifact.features["external"].df()
+    # df = artifact.features["external"].to_dataframe()
     # assert set(df["name"]) == {
     #     "organism",
     #     "experiment",
     # }
     # assert set(df["dtype"]) == {"cat[bionty.Organism]", "cat[ULabel]"}
 
-    assert set(artifact.labels.get(features.experiment).list("name")) == {
+    assert set(artifact.labels.get(features.experiment).to_list("name")) == {
         "experiment_1"
     }
-    assert set(artifact.labels.get(features.disease).list("name")) == {
+    assert set(artifact.labels.get(features.disease).to_list("name")) == {
         "chronic kidney disease",
         "Alzheimer disease",
         "liver lymphoma",
         "cardiac ventricle disorder",
     }
-    assert set(artifact.labels.get(features.organism).list("name")) == {"mouse"}
-    assert set(artifact.labels.get(features.tissue)["bionty.Tissue"].list("name")) == {
+    assert set(artifact.labels.get(features.organism).to_list("name")) == {"mouse"}
+    assert set(
+        artifact.labels.get(features.tissue)["bionty.Tissue"].to_list("name")
+    ) == {
         "liver",
         "heart",
         "kidney",
         "brain",
     }
-    assert set(artifact.labels.get(features.tissue)["ULabel"].list("name")) == {
+    assert set(artifact.labels.get(features.tissue)["ULabel"].to_list("name")) == {
         "organoid",
     }
     # currently, we can't stratify the two cases below
-    assert set(artifact.labels.get(features.cell_type).list("name")) == {
+    assert set(artifact.labels.get(features.cell_type).to_list("name")) == {
         "T cell",
         "my new cell type",
         "hepatocyte",
@@ -618,7 +654,7 @@ def test_add_labels_using_anndata(adata):
         "hematopoietic stem cell",
         "B cell",
     }
-    assert set(artifact.labels.get(features.cell_type_by_expert).list("name")) == {
+    assert set(artifact.labels.get(features.cell_type_by_expert).to_list("name")) == {
         "T cell",
         "my new cell type",
         "hepatocyte",
@@ -632,14 +668,14 @@ def test_add_labels_using_anndata(adata):
 
     # clean up
     artifact.delete(permanent=True)
-    bt.Gene.filter().all().delete()
-    bt.Organism.filter().all().delete()
-    ln.Schema.filter().all().delete()
-    ln.Feature.filter().all().delete()
-    bt.CellType.filter().all().delete()
-    bt.Tissue.filter().all().delete()
-    bt.Disease.filter().all().delete()
-    ln.ULabel.filter().all().delete()
+    bt.Gene.filter().delete()
+    bt.Organism.filter().delete()
+    ln.Schema.filter().delete()
+    ln.Feature.filter().delete()
+    bt.CellType.filter().delete()
+    bt.Tissue.filter().delete()
+    bt.Disease.filter().delete()
+    ln.ULabel.filter().delete()
 
 
 def test_labels_get(get_mini_csv):

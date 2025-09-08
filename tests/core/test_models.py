@@ -107,7 +107,7 @@ def test_registry__repr__artifact():
 
 
 def test_unsaved_relationship_modification_attempts():
-    af = ln.Artifact.from_df(
+    af = ln.Artifact.from_dataframe(
         pd.DataFrame({"col1": [1, 2, 3], "col2": [4, 5, 6]}), description="testme"
     )
 

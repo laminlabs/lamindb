@@ -111,7 +111,7 @@ def test_curator__repr__(df):
     print(actual_repr)
     assert actual_repr.strip() == expected_repr.strip()
 
-    schema.delete()
+    schema.delete(permanent=True)
 
 
 def test_nullable():
@@ -134,8 +134,8 @@ def test_nullable():
     ):
         curator.validate()
 
-    schema.delete()
-    disease.delete()
+    schema.delete(permanent=True)
+    disease.delete(permanent=True)
 
 
 def test_pandera_dataframe_schema(
@@ -242,6 +242,25 @@ def test_schema_not_saved(df):
     )
 
 
+def test_schema_artifact_annotated(df):
+    """A passed Artifact should be annotated with a Schema if successfully curated."""
+    af = ln.Artifact.from_dataframe(df, key="test.parquet").save()
+    schema = ln.Schema(
+        name="sample schema",
+        features=[ln.Feature(name="sample_id", dtype="str").save()],
+    ).save()
+    curator = ln.curators.DataFrameCurator(af, schema)
+    curator.validate()
+    curator.save_artifact()
+    af_queried = ln.Artifact.filter(key="test.parquet").one()
+    assert af_queried.schema is not None
+
+    # clean up
+    af.delete(permanent=True)
+    ln.Schema.filter().delete()
+    ln.Feature.filter().delete()
+
+
 def test_schema_optionals():
     schema = ln.Schema(
         name="my-schema",
@@ -251,7 +270,7 @@ def test_schema_optionals():
             ln.Feature(name="sample_type", dtype=str).save(),
         ],
     ).save()
-    assert schema.optionals.get().list("name") == [
+    assert schema.optionals.get().to_list("name") == [
         "sample_name",
     ]
 
@@ -262,7 +281,7 @@ def test_schema_optionals():
     ):
         schema.optionals.set("test")
     schema.optionals.set([ln.Feature.get(name="sample_type")])
-    assert schema.optionals.get().list("name") == ["sample_type"]
+    assert schema.optionals.get().to_list("name") == ["sample_type"]
     # add sample_name to optionals
     with pytest.raises(
         TypeError,
@@ -270,7 +289,7 @@ def test_schema_optionals():
     ):
         schema.optionals.add("test")
     schema.optionals.add(ln.Feature.get(name="sample_name"))
-    assert schema.optionals.get().list("name") == ["sample_name", "sample_type"]
+    assert schema.optionals.get().to_list("name") == ["sample_name", "sample_type"]
 
     # clean up
     ln.Schema.filter().delete()
@@ -316,7 +335,7 @@ def test_schema_minimal_set_var_allowed(minimal_set):
     curator.validate()
 
     # clean up
-    schema.delete()
+    schema.delete(permanent=True)
 
 
 def test_schema_maximal_set_var():
@@ -336,7 +355,7 @@ def test_schema_maximal_set_var():
     )
 
     # clean up
-    schema.delete()
+    schema.delete(permanent=True)
 
 
 def test_feature_dtype_path():
@@ -414,7 +433,7 @@ def test_feature_dtype_path():
     assert curator.validate() is None
 
     # clean up
-    nextflow_schema.delete()
+    nextflow_schema.delete(permanent=True)
     ln.Feature.filter().delete()
 
 
@@ -439,7 +458,7 @@ def test_cat_filters_specific_source_uid(df_disease, disease_ontology_old):
             in str(error)
         )
 
-    schema.delete()
+    schema.delete(permanent=True)
 
 
 def test_cat_filters_specific_source(df_disease, disease_ontology_old):
@@ -463,7 +482,7 @@ def test_cat_filters_specific_source(df_disease, disease_ontology_old):
             in str(error)
         )
 
-    schema.delete()
+    schema.delete(permanent=True)
 
 
 def test_cat_filters_multiple_relation_filters(df_disease, disease_ontology_old):
@@ -488,7 +507,7 @@ def test_cat_filters_multiple_relation_filters(df_disease, disease_ontology_old)
             "2 terms not validated in feature 'disease': 'HDAC4-related haploinsufficiency syndrome', 'SAMD9L-related spectrum and myeloid neoplasm risk'"
             in str(error)
         )
-    schema.delete()
+    schema.delete(permanent=True)
 
 
 def test_curate_columns(df):
@@ -515,7 +534,7 @@ def test_curate_columns(df):
     df.rename(columns={"sample_name_name": "sample_name"}, inplace=True)
     curator.validate()
 
-    schema.delete()
+    schema.delete(permanent=True)
     ln.Feature.filter().delete()
 
 
@@ -535,8 +554,8 @@ def test_wrong_datatype(df):
         in str(excinfo.value)
     )
 
-    schema.delete()
-    feature.delete()
+    schema.delete(permanent=True)
+    feature.delete(permanent=True)
 
 
 def test_hash_index_feature(df):
@@ -570,15 +589,15 @@ def test_hash_index_feature(df):
     ).save()
     assert schema.hash == "Z_dmk1WendD15s2FyBW1HA"
 
-    artifact = ln.Artifact.from_df(
+    artifact = ln.Artifact.from_dataframe(
         df_index, key="curated_df.parquet", schema=schema_index
     ).save()
     assert artifact.feature_sets.all().one() == schema_index
 
     # clean up
     artifact.delete(permanent=True)
-    schema_index.delete()
-    schema.delete()
+    schema_index.delete(permanent=True)
+    schema.delete(permanent=True)
     ln.Feature.filter().delete()
 
 
@@ -605,10 +624,10 @@ def test_add_new_from_subtype(df):
     # add new from subtype
     curator.cat.add_new_from("sample_type")
     curator.validate()
-    assert sample_type.records.list("name") == ["Type A", "Type B"]
+    assert sample_type.records.to_list("name") == ["Type A", "Type B"]
 
     # clean up
-    schema.delete()
+    schema.delete(permanent=True)
     ln.Feature.filter().delete()
     ln.Record.filter().update(type=None)
     ln.Record.filter().delete()
@@ -626,7 +645,9 @@ def test_index_feature_exclusion_from_categoricals(df):
     curator = ln.curators.DataFrameCurator(df_indexed, schema)
 
     # Verify that only sample_type is in categoricals, not sample_id (index)
-    categoricals_names = [f.name for f in curator._cat_manager._categoricals]
+    categoricals_names = [
+        f.name for f in curator._atomic_curator._cat_manager._categoricals
+    ]
     assert "sample_type" in categoricals_names
     assert "sample_id" not in categoricals_names
 
@@ -637,5 +658,23 @@ def test_index_feature_exclusion_from_categoricals(df):
     assert "columns" in cat_vector_keys
 
     # clean up
-    schema.delete()
+    schema.delete(permanent=True)
+    ln.Feature.filter().delete()
+
+
+def test_artifact_standardize_errors(df):
+    """Passed Artifacts to a Curator cannot be standardized."""
+    af = ln.Artifact.from_dataframe(df, description="test").save()
+    sample_type_feature = ln.Feature(name="sample_type", dtype="cat[ULabel]").save()
+    schema = ln.Schema(features=[sample_type_feature]).save()
+    curator = ln.curators.DataFrameCurator(af, schema)
+    with pytest.raises(RuntimeError) as e:
+        curator.standardize()
+    assert (
+        "Cannot mutate the dataset when an artifact is passed! Please load the dataset into memory using `dataset.load()` and pass it to a curator."
+        in str(e.value)
+    )
+
+    af.delete(permanent=True)
+    ln.Schema.filter().delete()
     ln.Feature.filter().delete()

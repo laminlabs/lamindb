@@ -6,6 +6,7 @@ import numpy as np
 from django.db import models
 from django.db.models import CASCADE, PROTECT, ManyToManyField
 from lamin_utils import logger
+from lamindb_setup.core import deprecated
 from lamindb_setup.core.hashing import HASH_LENGTH, hash_string
 from rich.table import Table
 from rich.text import Text
@@ -348,11 +349,12 @@ class Schema(SQLRecord, CanCurate, TracksRun):
 
             # from a dataframe
             df = pd.DataFrame({"feat1": [1, 2], "feat2": [3.1, 4.2], "feat3": ["cond1", "cond2"]})
-            schema = ln.Schema.from_df(df)
+            schema = ln.Schema.from_dataframe(df)
     """
 
     class Meta(SQLRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
         abstract = False
+        app_label = "lamindb"
 
     _name_field: str = "name"
     _aux_fields: dict[str, tuple[str, type]] = {
@@ -576,19 +578,22 @@ class Schema(SQLRecord, CanCurate, TracksRun):
                 self.optionals.set(optional_features)
                 return None
         self._slots: dict[str, Schema] = {}
+
         if features:
             self._features = (get_related_name(features_registry), features)  # type: ignore
-        elif slots:
+        if slots:
             for slot_key, component in slots.items():
                 if component._state.adding:
                     raise InvalidArgument(
                         f"schema for {slot_key} {component} must be saved before use"
                     )
             self._slots = slots
+
         if validated_kwargs["hash"] in KNOWN_SCHEMAS:
             validated_kwargs["uid"] = KNOWN_SCHEMAS[validated_kwargs["hash"]]
         else:
             validated_kwargs["uid"] = ids.base62_16()
+
         super().__init__(**validated_kwargs)
 
     def _validate_kwargs_calculate_hash(
@@ -623,14 +628,20 @@ class Schema(SQLRecord, CanCurate, TracksRun):
                 raise TypeError("index must be a Feature")
             features.insert(0, index)
 
+        if slots:
+            itype = "Composite"
+            if otype is None:
+                raise InvalidArgument("Please pass otype != None for composite schemas")
+
         if features:
             features, configs = get_features_config(features)
             features_registry = validate_features(features)
-            itype_compare = features_registry.__get_name_with_module__()
-            if itype is not None:
-                assert itype.startswith(itype_compare), str(itype_compare)  # noqa: S101
-            else:
-                itype = itype_compare
+            if itype != "Composite":
+                itype_compare = features_registry.__get_name_with_module__()
+                if itype is not None:
+                    assert itype.startswith(itype_compare), str(itype_compare)  # noqa: S101
+                else:
+                    itype = itype_compare
             if n_features is not None:
                 if n_features != len(features):
                     logger.important(f"updating to n {len(features)} features")
@@ -653,11 +664,6 @@ class Schema(SQLRecord, CanCurate, TracksRun):
 
         if flexible is None:
             flexible = flexible_default
-
-        if slots:
-            itype = "Composite"
-            if otype is None:
-                raise InvalidArgument("Please pass otype != None for composite schemas")
 
         if itype is not None and not isinstance(itype, str):
             itype_str = serialize_dtype(itype, is_itype=True)
@@ -771,7 +777,7 @@ class Schema(SQLRecord, CanCurate, TracksRun):
         cls,
         values: ListLike,
         field: FieldAttr = Feature.name,
-        type: str | None = None,
+        dtype: str | None = None,
         name: str | None = None,
         mute: bool = False,
         organism: SQLRecord | str | None = None,
@@ -783,7 +789,7 @@ class Schema(SQLRecord, CanCurate, TracksRun):
         Args:
             values: A list of values, like feature names or ids.
             field: The field of a reference registry to map values.
-            type: The simple type.
+            dtype: The simple dtype.
                 Defaults to `None` if reference registry is :class:`~lamindb.Feature`,
                 defaults to `"float"` otherwise.
             name: A name.
@@ -816,8 +822,8 @@ class Schema(SQLRecord, CanCurate, TracksRun):
         if isinstance(values, DICT_KEYS_TYPE):
             values = list(values)
         registry = field.field.model
-        if registry != Feature and type is None:
-            type = NUMBER_TYPE
+        if registry != Feature and dtype is None:
+            dtype = NUMBER_TYPE
             logger.debug("setting feature set to 'number'")
         validated = registry.validate(values, field=field, mute=mute, organism=organism)
         values_array = np.array(values)
@@ -841,12 +847,12 @@ class Schema(SQLRecord, CanCurate, TracksRun):
         schema = Schema(
             features=validated_features,
             name=name,
-            dtype=get_type_str(type),
+            dtype=get_type_str(dtype),
         )
         return schema
 
     @classmethod
-    def from_df(
+    def from_dataframe(
         cls,
         df: pd.DataFrame,
         field: FieldAttr = Feature.name,
@@ -889,15 +895,28 @@ class Schema(SQLRecord, CanCurate, TracksRun):
             )
         return schema
 
+    @classmethod
+    @deprecated("from_dataframe")
+    def from_df(
+        cls,
+        df: pd.DataFrame,
+        field: FieldAttr = Feature.name,
+        name: str | None = None,
+        mute: bool = False,
+        organism: SQLRecord | str | None = None,
+        source: SQLRecord | None = None,
+    ) -> Schema | None:
+        return cls.from_dataframe(df, field, name, mute, organism, source)
+
     def save(self, *args, **kwargs) -> Schema:
-        """Save."""
+        """Save schema."""
         from .save import bulk_create
 
         if self.pk is not None:
             features = (
                 self._features[1]
                 if hasattr(self, "_features")
-                else (self.members.list() if self.members.exists() else [])
+                else (self.members.to_list() if self.members.exists() else [])
             )
             index_feature = self.index
             _, validated_kwargs, _, _, _ = self._validate_kwargs_calculate_hash(
@@ -925,7 +944,7 @@ class Schema(SQLRecord, CanCurate, TracksRun):
                 datasets = Artifact.filter(schema=self).all()
                 if datasets.exists():
                     logger.warning(
-                        f"you updated the schema hash and might invalidate datasets that were previously validated with this schema: {datasets.list('uid')}"
+                        f"you updated the schema hash and might invalidate datasets that were previously validated with this schema: {datasets.to_list('uid')}"
                     )
                 self.hash = validated_kwargs["hash"]
                 self.n = validated_kwargs["n"]
@@ -947,13 +966,16 @@ class Schema(SQLRecord, CanCurate, TracksRun):
             assert self.n > 0  # noqa: S101
             using: bool | None = kwargs.pop("using", None)
             related_name, records = self._features
+
+            # .set() does not preserve the order but orders by the feature primary key
             # only the following method preserves the order
-            # .set() does not preserve the order but orders by
-            # the feature primary key
             through_model = getattr(self, related_name).through
-            related_model_split = parse_cat_dtype(self.itype, is_itype=True)[
-                "registry_str"
-            ].split(".")
+            if self.itype == "Composite":
+                related_model_split = ["Feature"]
+            else:
+                related_model_split = parse_cat_dtype(self.itype, is_itype=True)[
+                    "registry_str"
+                ].split(".")
             if len(related_model_split) == 1:
                 related_field = related_model_split[0].lower()
             else:
@@ -965,6 +987,7 @@ class Schema(SQLRecord, CanCurate, TracksRun):
             ]
             through_model.objects.using(using).bulk_create(links, ignore_conflicts=True)
             delattr(self, "_features")
+
         return self
 
     @property
@@ -978,6 +1001,8 @@ class Schema(SQLRecord, CanCurate, TracksRun):
             # this should return a queryset and not a list...
             # need to fix this
             return self._features[1]
+        if len(self.features.all()) > 0:
+            return self.features.order_by("links_schema__id")
         if self.itype == "Composite" or self.is_type:
             return Feature.objects.none()
         related_name = self._get_related_name()
@@ -1200,6 +1225,7 @@ class SchemaFeature(BaseSQLRecord, IsLink):
     feature: Feature = ForeignKey(Feature, PROTECT, related_name="links_schema")
 
     class Meta:
+        app_label = "lamindb"
         unique_together = ("schema", "feature")
 
 
@@ -1211,6 +1237,7 @@ class ArtifactSchema(BaseSQLRecord, IsLink, TracksRun):
     feature_ref_is_semantic: bool | None = BooleanField(null=True)
 
     class Meta:
+        app_label = "lamindb"
         unique_together = (("artifact", "schema"), ("artifact", "slot"))
 
 
@@ -1221,6 +1248,7 @@ class SchemaComponent(BaseSQLRecord, IsLink, TracksRun):
     slot: str | None = CharField(null=True)
 
     class Meta:
+        app_label = "lamindb"
         unique_together = (("composite", "slot", "component"), ("composite", "slot"))
 
 

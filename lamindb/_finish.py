@@ -264,12 +264,14 @@ def save_context_core(
     if (
         is_run_from_ipython and notebook_runner != "nbconvert" and filepath.exists()
     ):  # python notebooks in interactive session
-        import nbproject
+        if is_ipynb:
+            # ignore this for py:percent notebooks
+            import nbproject
 
-        # it might be that the user modifies the title just before ln.finish()
-        if (nbproject_title := nbproject.meta.live.title) != transform.description:
-            transform.description = nbproject_title
-            transform.save()
+            # it might be that the user modifies the title just before ln.finish()
+            if (nbproject_title := nbproject.meta.live.title) != transform.description:
+                transform.description = nbproject_title
+                transform.save()
         if not ln_setup._TESTING:
             save_source_code_and_report = check_filepath_recently_saved(
                 filepath, is_retry
@@ -349,7 +351,7 @@ def save_context_core(
             if transform_hash != transform.hash:
                 response = input(
                     f"You are about to overwrite existing source code (hash '{transform.hash}') for Transform('{transform.uid}')."
-                    f" Proceed? (y/n)"
+                    f" Proceed? (y/n) "
                 )
                 if response == "y":
                     transform.source_code = source_code_path.read_text()
@@ -365,11 +367,11 @@ def save_context_core(
 
     if run is not None:
         base_path = ln_setup.settings.cache_dir / "environments" / f"run_{run.uid}"
-        paths = [base_path / "run_env_pip.txt", base_path / "r_pak_lockfile.json"]
+        paths = [base_path / "run_env_pip.txt", base_path / "r_environment.txt"]
         existing_paths = [path for path in paths if path.exists()]
         if len(existing_paths) == 2:
             # let's not store the python environment for an R session for now
-            existing_paths = [base_path / "r_pak_lockfile.json"]
+            existing_paths = [base_path / "r_environment.txt"]
 
         if existing_paths:
             overwrite_env = True
@@ -387,8 +389,8 @@ def save_context_core(
                 if len(existing_paths) == 1:
                     if existing_paths[0].name == "run_env_pip.txt":
                         description = "requirements.txt"
-                    elif existing_paths[0].name == "r_pak_lockfile.json":
-                        description = "r_pak_lockfile.json"
+                    elif existing_paths[0].name == "r_environment.txt":
+                        description = "r_environment.txt"
                     env_hash, _ = hash_file(artifact_path)
                 else:
                     description = "environments"
@@ -432,7 +434,7 @@ def save_context_core(
                     hash, _ = hash_file(report_path)  # ignore hash_type for now
                     if hash != run.report.hash:
                         response = input(
-                            f"You are about to overwrite an existing report (hash '{run.report.hash}') for Run('{run.uid}'). Proceed? (y/n)"
+                            f"You are about to overwrite an existing report (hash '{run.report.hash}') for Run('{run.uid}'). Proceed? (y/n) "
                         )
                         if response == "y":
                             run.report.replace(report_path)

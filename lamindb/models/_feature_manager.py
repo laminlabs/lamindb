@@ -496,21 +496,11 @@ def describe_features(
     return tree
 
 
-def is_valid_datetime_str(date_string: str) -> bool | str:
-    try:
-        dt = datetime.fromisoformat(date_string)
-        return dt.isoformat()
-    except ValueError:
-        return False
-
-
-def is_iterable_of_sqlrecord(value: Any):
-    return isinstance(value, Iterable) and isinstance(next(iter(value)), SQLRecord)
-
-
 def infer_feature_type_convert_json(
-    key: str, value: Any, mute: bool = False, str_as_ulabel: bool = True
+    key: str, value: Any, mute: bool = False
 ) -> tuple[str, Any, str]:
+    from lamindb.base.dtypes import is_valid_datetime_str
+
     message = ""
     if isinstance(value, bool):
         return "bool", value, message
@@ -719,15 +709,15 @@ def parse_staged_feature_sets_from_anndata(
             data_parse = backed_access(filepath, using_key=using_key)
         else:
             data_parse = ad.read_h5ad(filepath, backed="r")
-        type = "float"
+        dtype = "float"
     else:
-        type = "float" if adata.X is None else serialize_pandas_dtype(adata.X.dtype)
+        dtype = "float" if adata.X is None else serialize_pandas_dtype(adata.X.dtype)
     feature_sets = {}
     if var_field is not None:
         schema_var = Schema.from_values(
             data_parse.var.index,
             var_field,
-            type=type,
+            dtype=dtype,
             mute=mute,
             organism=organism,
             raise_validation_error=False,
@@ -735,7 +725,7 @@ def parse_staged_feature_sets_from_anndata(
         if schema_var is not None:
             feature_sets["var"] = schema_var
     if obs_field is not None and len(data_parse.obs.columns) > 0:
-        schema_obs = Schema.from_df(
+        schema_obs = Schema.from_dataframe(
             df=data_parse.obs,
             field=obs_field,
             mute=mute,
@@ -851,16 +841,17 @@ class FeatureManager:
         self,
         values: dict[str, str | int | float | bool],
         feature_field: FieldAttr = Feature.name,
-        str_as_ulabel: bool = True,
+        schema: Schema = None,
     ) -> None:
         """Curate artifact with features & values.
 
         Args:
             values: A dictionary of keys (features) & values (labels, numbers, booleans).
-            feature_field: The field of a reference registry to map keys of the
-                dictionary.
-            str_as_ulabel: Whether to interpret string values as ulabels.
+            feature_field: The field of a reference registry to map keys of the dictionary.
+            schema: Schema to validate against.
         """
+        from lamindb.base.dtypes import is_iterable_of_sqlrecord
+
         from .._tracked import get_current_tracked_run
 
         # rename to distinguish from the values inside the dict
@@ -870,39 +861,48 @@ class FeatureManager:
             keys = list(keys)  # type: ignore
         # deal with other cases later
         assert all(isinstance(key, str) for key in keys)  # noqa: S101
+
         registry = feature_field.field.model
         value_model = FeatureValue
         model_name = "Feature"
-        records = registry.from_values(keys, field=feature_field, mute=True)
-        if len(records) != len(keys):
-            not_validated_keys = [
-                key for key in keys if key not in records.list("name")
-            ]
-            not_validated_keys_dtype_message = [
-                (key, infer_feature_type_convert_json(key, dictionary[key]))
-                for key in not_validated_keys
-            ]
-            run = get_current_tracked_run()
-            if run is not None:
-                name = f"{run.transform.type}[{run.transform.key}]"
-                type_hint = f"""  {model_name.lower()}_type = ln.{model_name}(name='{name}', is_type=True).save()"""
-                elements = [type_hint]
-                type_kwarg = f", type={model_name.lower()}_type"
-            else:
-                elements = []
-                type_kwarg = ""
-            elements += [
-                f"  ln.{model_name}(name='{key}', dtype='{dtype}'{type_kwarg}).save(){message}"
-                for key, (dtype, _, message) in not_validated_keys_dtype_message
-            ]
-            hint = "\n".join(elements)
-            msg = (
-                f"These keys could not be validated: {not_validated_keys}\n"
-                f"Here is how to create a {model_name.lower()}:\n\n{hint}"
-            )
-            raise ValidationError(msg)
 
-        # figure out which of the values go where
+        if schema is not None:
+            from lamindb.curators import DataFrameCurator
+
+            temp_df = pd.DataFrame([values])
+            curator = DataFrameCurator(temp_df, schema)
+            curator.validate()
+            records = schema.members.filter(name__in=keys)
+        else:
+            records = registry.from_values(keys, field=feature_field, mute=True)
+            if len(records) != len(keys):
+                not_validated_keys = [
+                    key for key in keys if key not in records.to_list("name")
+                ]
+                not_validated_keys_dtype_message = [
+                    (key, infer_feature_type_convert_json(key, dictionary[key]))
+                    for key in not_validated_keys
+                ]
+                run = get_current_tracked_run()
+                if run is not None:
+                    name = f"{run.transform.type}[{run.transform.key}]"
+                    type_hint = f"""  {model_name.lower()}_type = ln.{model_name}(name='{name}', is_type=True).save()"""
+                    elements = [type_hint]
+                    type_kwarg = f", type={model_name.lower()}_type"
+                else:
+                    elements = []
+                    type_kwarg = ""
+                elements += [
+                    f"  ln.{model_name}(name='{key}', dtype='{dtype}'{type_kwarg}).save(){message}"
+                    for key, (dtype, _, message) in not_validated_keys_dtype_message
+                ]
+                hint = "\n".join(elements)
+                msg = (
+                    f"These keys could not be validated: {not_validated_keys}\n"
+                    f"Here is how to create a {model_name.lower()}:\n\n{hint}"
+                )
+                raise ValidationError(msg)
+
         features_labels = defaultdict(list)
         _feature_values = []
         not_validated_values: dict[str, list[str]] = defaultdict(list)
@@ -912,7 +912,6 @@ class FeatureManager:
                 feature.name,
                 value,
                 mute=True,
-                str_as_ulabel=str_as_ulabel,
             )
             if feature.dtype == "num":
                 if inferred_type not in {"int", "float"}:
@@ -994,6 +993,7 @@ class FeatureManager:
                 f"Here is how to create records for them:\n\n{hint}"
             )
             raise ValidationError(msg)
+
         if features_labels:
             self._add_label_feature_links(features_labels)
         if _feature_values:
@@ -1039,7 +1039,7 @@ class FeatureManager:
         feature: str | Feature,
         *,
         value: Any | None = None,
-    ):
+    ) -> None:
         """Remove value annotations for a given feature.
 
         Args:
@@ -1262,7 +1262,7 @@ class FeatureManager:
         """Add feature set corresponding to column names of DataFrame."""
         assert self._host.otype == "DataFrame"  # noqa: S101
         df = self._host.load(is_run_input=False)
-        schema = Schema.from_df(
+        schema = Schema.from_dataframe(
             df=df,
             field=field,
             mute=mute,

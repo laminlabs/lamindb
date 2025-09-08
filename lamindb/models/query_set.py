@@ -13,6 +13,7 @@ from django.db import models
 from django.db.models import F, ForeignKey, ManyToManyField, Q, Subquery
 from django.db.models.fields.related import ForeignObjectRel
 from lamin_utils import logger
+from lamindb_setup.core import deprecated
 from lamindb_setup.core._docs import doc_args
 
 from ..errors import DoesNotExist
@@ -144,7 +145,6 @@ def process_expressions(queryset: QuerySet, expressions: dict) -> dict:
         queryset,
         expressions,
     )
-
     if issubclass(queryset.model, SQLRecord):
         # branch_id is set to 1 unless expressions contains id or uid
         if not (
@@ -173,32 +173,28 @@ def process_expressions(queryset: QuerySet, expressions: dict) -> dict:
 
 
 def get(
-    registry_or_queryset: Union[type[SQLRecord], QuerySet],
+    registry_or_queryset: Union[type[SQLRecord], BasicQuerySet],
     idlike: int | str | None = None,
     **expressions,
 ) -> SQLRecord:
-    if isinstance(registry_or_queryset, QuerySet):
+    if isinstance(registry_or_queryset, BasicQuerySet):
         qs = registry_or_queryset
         registry = qs.model
     else:
-        qs = QuerySet(model=registry_or_queryset)
+        qs = BasicQuerySet(model=registry_or_queryset)
         registry = registry_or_queryset
     if isinstance(idlike, int):
-        return super(QuerySet, qs).get(id=idlike)  # type: ignore
+        return BasicQuerySet.get(qs, id=idlike)
     elif isinstance(idlike, str):
-        qs = qs.filter(uid__startswith=idlike)
-
         NAME_FIELD = (
             registry._name_field if hasattr(registry, "_name_field") else "name"
         )
         DOESNOTEXIST_MSG = f"No record found with uid '{idlike}'. Did you forget a keyword as in {registry.__name__}.get({NAME_FIELD}='{idlike}')?"
-
-        if issubclass(registry, IsVersioned):
-            if len(idlike) <= registry._len_stem_uid:
-                return one_helper(qs.latest_version(), DOESNOTEXIST_MSG)
-            else:
-                return one_helper(qs, DOESNOTEXIST_MSG)
+        if issubclass(registry, IsVersioned) and len(idlike) <= registry._len_stem_uid:
+            qs = BasicQuerySet.filter(qs, uid__startswith=idlike, is_latest=True)
+            return one_helper(qs, DOESNOTEXIST_MSG)
         else:
+            qs = BasicQuerySet.filter(qs, uid__startswith=idlike)
             return one_helper(qs, DOESNOTEXIST_MSG)
     else:
         assert idlike is None  # noqa: S101
@@ -210,24 +206,23 @@ def get(
         if issubclass(registry, IsVersioned) and is_latest_was_not_in_expressions:
             expressions["is_latest"] = True
         try:
-            return registry.objects.using(qs.db).get(**expressions)
-        except registry.DoesNotExist:
+            return BasicQuerySet.get(qs, **expressions)
+        except registry.DoesNotExist as e:
             # handle the case in which the is_latest injection led to a missed query
             if "is_latest" in expressions and is_latest_was_not_in_expressions:
                 expressions.pop("is_latest")
                 result = (
-                    registry.objects.using(qs.db)
-                    .filter(**expressions)
+                    BasicQuerySet.filter(qs, **expressions)
                     .order_by("-created_at")
                     .first()
                 )
                 if result is not None:
                     return result
-            raise registry.DoesNotExist from registry.DoesNotExist
+            raise registry.DoesNotExist from e
 
 
 class SQLRecordList(UserList, Generic[T]):
-    """Is ordered, can't be queried, but has `.df()`."""
+    """Is ordered, can't be queried, but has `.to_dataframe()`."""
 
     def __init__(self, records: Iterable[T]):
         if isinstance(records, list):
@@ -235,15 +230,23 @@ class SQLRecordList(UserList, Generic[T]):
         else:
             super().__init__(records)  # Let UserList handle the conversion
 
-    def df(self) -> pd.DataFrame:
+    def to_dataframe(self) -> pd.DataFrame:
         keys = get_keys_from_df(self.data, self.data[0].__class__)
         values = [record.__dict__ for record in self.data]
         return pd.DataFrame(values, columns=keys)
 
-    def list(
+    @deprecated(new_name="to_dataframe")
+    def df(self) -> pd.DataFrame:
+        return self.to_dataframe()
+
+    def to_list(
         self, field: str
-    ) -> list[str]:  # meaningful to be parallel with list() in QuerySet
+    ) -> list[str]:  # meaningful to be parallel with to_list() in QuerySet
         return [getattr(record, field) for record in self.data]
+
+    @deprecated(new_name="to_list")
+    def list(self, field: str) -> list[str]:
+        return self.to_list(field)
 
     def one(self) -> T:
         """Exactly one result. Throws error if there are more or none."""
@@ -348,7 +351,7 @@ def get_feature_annotate_kwargs(
             | Q(dtype__startswith="cat[ULabel")
             | Q(dtype__startswith="cat[Record")
         )
-        feature_names = feature_qs.list("name")
+        feature_names = feature_qs.to_list("name")
         logger.important(
             f"queried for all categorical features with dtype ULabel or Record and non-categorical features: ({len(feature_names)}) {feature_names}"
         )
@@ -387,6 +390,9 @@ def get_feature_annotate_kwargs(
     # Prepare Django's annotate for features
     annotate_kwargs = {}
     for link_attr, feature_type in link_attributes_on_models.items():
+        if link_attr == "links_project" and registry is Record:
+            # we're only interested in values_project when "annotating" records
+            continue
         annotate_kwargs[f"{link_attr}__feature__name"] = F(
             f"{link_attr}__feature__name"
         )
@@ -671,8 +677,8 @@ class BasicQuerySet(models.QuerySet):
             new_cls = cls
         return object.__new__(new_cls)
 
-    @doc_args(SQLRecord.df.__doc__)
-    def df(
+    @doc_args(SQLRecord.to_dataframe.__doc__)
+    def to_dataframe(
         self,
         include: str | list[str] | None = None,
         features: bool | list[str] | str | None = None,
@@ -706,7 +712,7 @@ class BasicQuerySet(models.QuerySet):
             id_subquery = self.values("id")
             time = logger.debug("finished get id values", time=time)
             # for annotate, we want the queryset without filters so that joins don't affect the annotations
-            query_set_without_filters = self.model.objects.filter(
+            query_set_without_filters = self.model.objects.using(self._db).filter(
                 id__in=Subquery(id_subquery)
             )
             time = logger.debug("finished get query_set_without_filters", time=time)
@@ -739,32 +745,44 @@ class BasicQuerySet(models.QuerySet):
         time = logger.debug("finished", time=time)
         return df_reshaped
 
+    @deprecated(new_name="to_dataframe")
+    def df(
+        self,
+        include: str | list[str] | None = None,
+        features: bool | list[str] | str | None = None,
+    ) -> pd.DataFrame:
+        return self.to_dataframe(include, features)
+
     def delete(self, *args, **kwargs):
         """Delete all records in the query set."""
-        from lamindb.models import Artifact, Collection, Run, Transform
+        from lamindb.models import Artifact, Collection, Run, Storage, Transform
 
         # both Transform & Run might reference artifacts
-        if self.model in {Artifact, Collection, Transform, Run}:
+        if self.model in {Artifact, Collection, Transform, Run, Storage}:
             for record in self:
                 logger.important(f"deleting {record}")
                 record.delete(*args, **kwargs)
         else:
             super().delete(*args, **kwargs)
 
-    def list(self, field: str | None = None) -> list[SQLRecord] | list[str]:
+    def to_list(self, field: str | None = None) -> list[SQLRecord] | list[str]:
         """Populate an (unordered) list with the results.
 
         Note that the order in this list is only meaningful if you ordered the underlying query set with `.order_by()`.
 
         Examples:
-            >>> queryset.list()  # list of records
-            >>> queryset.list("name")  # list of values
+            >>> queryset.to_list()  # list of records
+            >>> queryset.to_list("name")  # list of values
         """
         if field is None:
             return list(self)
         else:
             # list casting is necessary because values_list does not return a list
             return list(self.values_list(field, flat=True))
+
+    @deprecated(new_name="to_list")
+    def list(self, field: str | None = None) -> list[SQLRecord] | list[str]:
+        return self.to_list(field)
 
     def first(self) -> SQLRecord | None:
         """If non-empty, the first result in the query set, otherwise ``None``.
@@ -869,8 +887,18 @@ class QuerySet(BasicQuerySet):
         """Query a single record. Raises error if there are more or none."""
         is_run_input = expressions.pop("is_run_input", False)
 
+        if path := expressions.pop("path", None):
+            from .artifact_set import ArtifactSet, artifacts_from_path
+
+            if not isinstance(self, ArtifactSet):
+                raise ValueError("Querying by path is only possible for artifacts.")
+
+            qs = artifacts_from_path(self, path)
+        else:
+            qs = self
+
         try:
-            record = get(self, idlike, **expressions)
+            record = get(qs, idlike, **expressions)  # type: ignore
         except ValueError as e:
             # Pass through original error for explicit id lookups
             if "Field 'id' expected a number" in str(e):
@@ -886,8 +914,8 @@ class QuerySet(BasicQuerySet):
             raise  # pragma: no cover
 
         if is_run_input is not False:  # might be None or True or Run
-            from lamindb.models.artifact import Artifact, _track_run_input
-            from lamindb.models.collection import Collection
+            from .artifact import Artifact, _track_run_input
+            from .collection import Collection
 
             if isinstance(record, (Artifact, Collection)):
                 _track_run_input(record, is_run_input)

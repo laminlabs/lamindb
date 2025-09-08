@@ -142,6 +142,9 @@ class User(BaseSQLRecord, CanCurate):
         >>> user
     """
 
+    class Meta:
+        app_label = "lamindb"
+
     _name_field: str = "handle"
 
     id: int = models.AutoField(primary_key=True)
@@ -222,6 +225,9 @@ class Run(SQLRecord):
         >>> ln.track()  # Jupyter notebook metadata is automatically parsed
         >>> ln.context.run
     """
+
+    class Meta:
+        app_label = "lamindb"
 
     _name_field: str = "started_at"
 
@@ -368,11 +374,6 @@ class Run(SQLRecord):
             reference_type=reference_type,
         )
 
-    def delete(self) -> None:
-        """Delete."""
-        delete_run_artifacts(self)
-        super().delete()
-
     @property
     @deprecated("features")
     def params(self) -> FeatureManager:
@@ -470,7 +471,7 @@ def delete_run_artifacts(run: Run) -> None:
         if environment._environment_of.count() == 0:
             environment.delete(permanent=True)
     if report is not None:
-        # only delete if there are no other runs attached to this environment
+        # only delete if there are no other runs attached to this report
         if report._report_of.count() == 0:
             report.delete(permanent=True)
 
@@ -492,4 +493,5 @@ class RunFeatureValue(BaseSQLRecord, IsLink):
     """Creator of record."""
 
     class Meta:
+        app_label = "lamindb"
         unique_together = ("run", "featurevalue")

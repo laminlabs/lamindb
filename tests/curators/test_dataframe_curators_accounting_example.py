@@ -44,15 +44,15 @@ def transactions_schema():
 
     yield schema
 
-    schema.delete()
-    amount_eur.delete()
-    amount_usd.delete()
-    transaction_type.delete()
-    date.delete()
-    currency.delete()
-    eur.delete()
-    usd.delete()
-    currency_type.delete()
+    schema.delete(permanent=True)
+    amount_eur.delete(permanent=True)
+    amount_usd.delete(permanent=True)
+    transaction_type.delete(permanent=True)
+    date.delete(permanent=True)
+    currency.delete(permanent=True)
+    eur.delete(permanent=True)
+    usd.delete(permanent=True)
+    currency_type.delete(permanent=True)
 
 
 @pytest.fixture
@@ -79,7 +79,7 @@ def test_schema_creation(transactions_schema):
     assert schema is not None
     assert schema.otype == "DataFrame"
     # check the order of the features
-    assert schema.members.list("name") == [
+    assert schema.members.to_list("name") == [
         "date",
         "transaction_amount_usd_cent",
         "transaction_amount_eur_cent",

@@ -13,7 +13,7 @@ def test_record_example_compound_treatment(
 
     dictionary = (
         ln.Record.filter(type=treatments_sheet)
-        .df()[["is_type", "name"]]
+        .to_dataframe()[["is_type", "name"]]
         .to_dict(orient="list")
     )
     assert dictionary == {
@@ -29,7 +29,7 @@ def test_record_example_compound_treatment(
 
     dictionary = (
         ln.Record.filter(type=treatments_sheet)
-        .df(features=True)[["compound", "concentration", "name"]]
+        .to_dataframe(features=True)[["compound", "concentration", "name"]]
         .to_dict(orient="list")
     )
     assert dictionary == {
@@ -49,7 +49,9 @@ def test_record_example_compound_treatment(
 
     dictionary = (
         ln.Record.filter(type=sample_sheet1)
-        .df(features=["cell_line", "treatment"])[["cell_line", "name", "treatment"]]
+        .to_dataframe(features=["cell_line", "treatment"])[
+            ["cell_line", "name", "treatment"]
+        ]
         .to_dict(orient="list")
     )
     assert dictionary == {
@@ -90,12 +92,12 @@ def test_record_example_compound_treatment(
         ],
     }
 
-    # this sheet does not have a schema!
     artifact = sample_sheet1.to_artifact()
-    assert sample_sheet1.schema.members.list("name") == [
+    assert sample_sheet1.schema.members.to_list("name") == [
         "treatment",
         "cell_line",
         "preparation_date",
+        "project",
     ]
     assert artifact.run.input_records.count() == 1
     assert artifact.transform.type == "function"
@@ -104,8 +106,8 @@ def test_record_example_compound_treatment(
     # treatment1,HEK293T cell,2025-06-01 05:00:00,iCwgKgZELoLtIoGy,sample1
     # treatment2,HEK293T cell,2025-06-01 06:00:00,qvU9m7VF6fSdsqJs,sample2
     assert artifact.path.read_text().startswith("""\
-treatment,cell_line,preparation_date,__lamindb_record_uid__,__lamindb_record_name__
-treatment1,HEK293T cell,2025-06-01 05:00:00""")
+treatment,cell_line,preparation_date,project,__lamindb_record_uid__,__lamindb_record_name__
+treatment1,HEK293T cell,2025-06-01 05:00:00,Project 1""")
     assert artifact.key == f"sheet_exports/{sample_sheet1.name}.csv"
     assert artifact.description.startswith(f"Export of sheet {sample_sheet1.uid}")
     assert artifact._state.adding is False
@@ -115,8 +117,9 @@ treatment1,HEK293T cell,2025-06-01 05:00:00""")
         == """\
 Artifact .csv · DataFrame · dataset
 └── Dataset features
-    └── columns • 3         [Feature]
+    └── columns • 4         [Feature]
         cell_line           cat[bionty.CellLine]    HEK293T cell
+        project             cat[Project]            Project 1
         treatment           cat[Record[Treatment]]  treatment1, treatment2
         preparation_date    datetime"""
     )
@@ -169,14 +172,14 @@ def test_nextflow_sheet_with_samples(
     artifact = nextflow_sheet.to_artifact()
     assert artifact.schema is nextflow_sheet.schema
     assert artifact._state.adding is False
-    assert nextflow_sheet.schema.members.list("name") == [
+    assert nextflow_sheet.schema.members.to_list("name") == [
         "sample",
         "fastq_1",
         "fastq_2",
         "expected_cells",
         "seq_center",
     ]
-    assert artifact.features.slots["columns"].members.list("name") == [
+    assert artifact.features.slots["columns"].members.to_list("name") == [
         "sample",
         "fastq_1",
         "fastq_2",
