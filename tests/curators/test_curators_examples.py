@@ -959,11 +959,10 @@ def test_tiledbsoma_curator(clean_soma_files):
         ln.curators.TiledbsomaExperimentCurator(adata, soma_schema)
 
     # Test with invalid schema
+    min_schema = ln.Schema(features=[]).save()
     with tiledbsoma.Experiment.open("small_dataset.tiledbsoma") as experiment:
         with pytest.raises(ln.errors.InvalidArgument):
-            min_schema = ln.Schema(features=[]).save()
             ln.curators.TiledbsomaExperimentCurator(experiment, schema=min_schema)
-            min_schema.delete(permanent=True)
 
     with tiledbsoma.Experiment.open("small_dataset.tiledbsoma") as experiment:
         curator = ln.curators.TiledbsomaExperimentCurator(experiment, soma_schema)
@@ -1009,6 +1008,7 @@ def test_tiledbsoma_curator(clean_soma_files):
     # Clean up
     shutil.rmtree(typo_soma_path)
     artifact.delete(permanent=True)
+    min_schema.delete(permanent=True)
     soma_schema.delete(permanent=True)
     var_schema.delete(permanent=True)
     obs_schema.delete(permanent=True)
