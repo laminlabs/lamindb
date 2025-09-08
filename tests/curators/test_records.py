@@ -92,12 +92,12 @@ def test_record_example_compound_treatment(
         ],
     }
 
-    # this sheet does not have a schema!
     artifact = sample_sheet1.to_artifact()
     assert sample_sheet1.schema.members.to_list("name") == [
         "treatment",
         "cell_line",
         "preparation_date",
+        "project",
     ]
     assert artifact.run.input_records.count() == 1
     assert artifact.transform.type == "function"
@@ -106,8 +106,8 @@ def test_record_example_compound_treatment(
     # treatment1,HEK293T cell,2025-06-01 05:00:00,iCwgKgZELoLtIoGy,sample1
     # treatment2,HEK293T cell,2025-06-01 06:00:00,qvU9m7VF6fSdsqJs,sample2
     assert artifact.path.read_text().startswith("""\
-treatment,cell_line,preparation_date,__lamindb_record_uid__,__lamindb_record_name__
-treatment1,HEK293T cell,2025-06-01 05:00:00""")
+treatment,cell_line,preparation_date,project,__lamindb_record_uid__,__lamindb_record_name__
+treatment1,HEK293T cell,2025-06-01 05:00:00,Project 1""")
     assert artifact.key == f"sheet_exports/{sample_sheet1.name}.csv"
     assert artifact.description.startswith(f"Export of sheet {sample_sheet1.uid}")
     assert artifact._state.adding is False
@@ -117,8 +117,9 @@ treatment1,HEK293T cell,2025-06-01 05:00:00""")
         == """\
 Artifact .csv · DataFrame · dataset
 └── Dataset features
-    └── columns • 3         [Feature]
+    └── columns • 4         [Feature]
         cell_line           cat[bionty.CellLine]    HEK293T cell
+        project             cat[Project]            Project 1
         treatment           cat[Record[Treatment]]  treatment1, treatment2
         preparation_date    datetime"""
     )

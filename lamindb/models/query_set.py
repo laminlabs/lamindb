@@ -390,6 +390,9 @@ def get_feature_annotate_kwargs(
     # Prepare Django's annotate for features
     annotate_kwargs = {}
     for link_attr, feature_type in link_attributes_on_models.items():
+        if link_attr == "links_project" and registry is Record:
+            # we're only interested in values_project when "annotating" records
+            continue
         annotate_kwargs[f"{link_attr}__feature__name"] = F(
             f"{link_attr}__feature__name"
         )
