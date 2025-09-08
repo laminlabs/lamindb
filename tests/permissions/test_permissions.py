@@ -30,7 +30,9 @@ db_token_manager.set(db_token)
 def test_authentication():
     # just check that the token was setup
     with connection.cursor() as cur:
-        cur.execute("SELECT 1 in (SELECT id FROM check_access() WHERE role = 'read');")
+        cur.execute(
+            "SELECT 1 in (SELECT id FROM public.check_access() WHERE role = 'read');"
+        )
         result = cur.fetchall()[0][0]
     assert result
     # check querying without setting jwt
