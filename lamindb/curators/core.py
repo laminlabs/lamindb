@@ -411,7 +411,7 @@ class ComponentCurator(Curator):
     """Curator for `DataFrame`.
 
     Provides all key functionality to validate Pandas DataFrames.
-    This class is not user facing unlike :class:`~lamindb.DataFrameCurator` which extends this
+    This class is not user facing unlike :class:`~lamindb.curators.DataFrameCurator` which extends this
     class with functionality to validate the `attrs` slot.
 
     Args:
@@ -671,7 +671,7 @@ class DataFrameCurator(SlotsCurator):
 
     Examples:
 
-        For a simple example using a flexible schema, see :meth:`~lamindb.Artifact.from_df`.
+        For a simple example using a flexible schema, see :meth:`~lamindb.Artifact.from_dataframe`.
 
         Here is an example that enforces a minimal set of columns in the dataframe.
 
@@ -688,7 +688,7 @@ class DataFrameCurator(SlotsCurator):
         .. literalinclude:: scripts/define_mini_immuno_features_labels.py
             :language: python
 
-         It is also possible to curate the `attrs` slot.
+        It is also possible to curate the `attrs` slot.
 
         .. literalinclude:: scripts/curate_dataframe_attrs.py
             :language: python
@@ -885,11 +885,19 @@ class AnnDataCurator(SlotsCurator):
         dataset: The AnnData-like object to validate & annotate.
         schema: A :class:`~lamindb.Schema` object that defines the validation constraints.
 
-    Example:
+    Examples:
+
+        Curate Ensembl gene IDs and valid features in obs:
 
         .. literalinclude:: scripts/curate_anndata_flexible.py
             :language: python
             :caption: curate_anndata_flexible.py
+
+        Curate `uns` dictionary:
+
+        .. literalinclude:: scripts/curate_anndata_uns.py
+            :language: python
+            :caption: curate_anndata_uns.py
 
     See Also:
         :meth:`~lamindb.Artifact.from_anndata`.
@@ -903,7 +911,7 @@ class AnnDataCurator(SlotsCurator):
         super().__init__(dataset=dataset, schema=schema)
         if not data_is_scversedatastructure(self._dataset, "AnnData"):
             raise InvalidArgument("dataset must be AnnData-like.")
-        if schema.otype != "AnnData":
+        if schema.otype and schema.otype != "AnnData":
             raise InvalidArgument("Schema otype must be 'AnnData'.")
 
         for slot, slot_schema in schema.slots.items():

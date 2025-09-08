@@ -1,6 +1,17 @@
 import lamindb as ln
 import bionty as bt
 
+from docs.scripts.define_schema_df_metadata import study_metadata_schema
+
+# define labels
+perturbation = ln.ULabel(name="Perturbation", is_type=True).save()
+ln.ULabel(name="Perturbed", type=perturbation).save()
+ln.ULabel(name="NT", type=perturbation).save()
+
+replicate = ln.ULabel(name="Replicate", is_type=True).save()
+ln.ULabel(name="rep1", type=replicate).save()
+ln.ULabel(name="rep2", type=replicate).save()
+ln.ULabel(name="rep3", type=replicate).save()
 
 # define the global obs schema
 obs_schema = ln.Schema(
@@ -25,7 +36,7 @@ obs_schema_rna = ln.Schema(
 obs_schema_hto = ln.Schema(
     name="mudata_papalexi21_subset_hto_obs_schema",
     features=[
-        ln.Feature(name="nCount_HTO", dtype=int).save(),
+        ln.Feature(name="nCount_HTO", dtype=float).save(),
         ln.Feature(name="nFeature_HTO", dtype=int).save(),
         ln.Feature(name="technique", dtype=bt.ExperimentalFactor).save(),
     ],
@@ -47,11 +58,12 @@ mudata_schema = ln.Schema(
         "rna:obs": obs_schema_rna,
         "hto:obs": obs_schema_hto,
         "rna:var": var_schema_rna,
+        "uns:study_metadata": study_metadata_schema,
     },
 ).save()
 
 # curate a MuData
-mdata = ln.core.datasets.mudata_papalexi21_subset()
+mdata = ln.core.datasets.mudata_papalexi21_subset(with_uns=True)
 bt.settings.organism = "human"  # set the organism to map gene symbols
 curator = ln.curators.MuDataCurator(mdata, mudata_schema)
 artifact = curator.save_artifact(key="examples/mudata_papalexi21_subset.h5mu")
