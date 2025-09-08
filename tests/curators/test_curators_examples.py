@@ -143,7 +143,7 @@ def mudata_papalexi21_subset_schema():
 
 @pytest.fixture(scope="module")
 def uns_study_metadata():
-    return {"temperature": 21.6, "experiment_id": "EXP001"}
+    return {"temperature": 21.6, "experiment": "Experiment 1"}
 
 
 @pytest.fixture(scope="module")
@@ -409,7 +409,7 @@ def test_dataframe_attrs_validation(
             name="temperature"
         )
         assert artifact.features.slots["attrs"].features.last() == ln.Feature.get(
-            name="experiment_id"
+            name="experiment"
         )
     else:
         assert (

@@ -418,7 +418,7 @@ def mudata_papalexi21_subset(with_rna_uns: bool = False) -> MuData:  # pragma: n
     if with_rna_uns:
         mdata["rna"].uns["study_metadata"] = {
             "temperature": 21.6,
-            "experiment_id": "EXP001",
+            "experiment": "Experiment 1",
         }
 
     return mdata
