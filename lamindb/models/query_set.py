@@ -799,22 +799,25 @@ class BasicQuerySet(models.QuerySet):
         if len(self) < 10000:
             for record in self:
                 # both Transform & Run might reference artifacts
-                if not permanent:
-                    logger.warning(f"moved record to trash (branch_id = -1): {record}")
-                else:
-                    if self.model in {Artifact, Collection, Transform, Run, Storage}:
+                if self.model in {Artifact, Collection, Transform, Run, Storage}:
+                    if not permanent:
+                        logger.warning(
+                            f"moved record to trash (branch_id = -1): {self}"
+                        )
+                    else:
                         logger.important(f"deleting {record}")
-
                 if isinstance(record, SQLRecord):
                     record.delete(*args, permanent=permanent, **kwargs)  # type: ignore
+                    logger.warning(
+                        f"moved {len(self)} records to trash (branch_id = -1)"
+                    )
                 else:
                     record.delete(*args, **kwargs)
+        else:
+            if not permanent:
+                self.update(branch_id=-1)
             else:
-                if not permanent:
-                    logger.warning("moved records to trash (branch_id = -1)")
-                    self.update(branch_id=-1)
-                else:
-                    super().delete(*args, **kwargs)
+                super().delete(*args, **kwargs)
 
     def to_list(self, field: str | None = None) -> list[SQLRecord] | list[str]:
         """Populate an (unordered) list with the results.
