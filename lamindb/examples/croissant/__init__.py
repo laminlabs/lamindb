@@ -11,7 +11,9 @@ import json
 from pathlib import Path
 
 
-def mini_immuno(n_files: int = 1, filepath_prefix: str = "") -> list[Path]:
+def mini_immuno(
+    n_files: int = 1, filepath_prefix: str = "", strip_version: bool = False
+) -> list[Path]:
     """Return paths to the mini immuno dataset and its metadata as a Croissant file.
 
     Args:
@@ -42,6 +44,8 @@ def mini_immuno(n_files: int = 1, filepath_prefix: str = "") -> list[Path]:
     if filepath_prefix:
         assert data["distribution"][0]["@id"] == "mini_immuno.anndata.zarr"  # noqa: S101
         data["distribution"][0]["@id"] = str(Path(filepath_prefix) / dataset1_path.name)
+    if strip_version:
+        data.pop("version", None)
     if n_files == 2:
         file_mini_csv()
         if filepath_prefix:
