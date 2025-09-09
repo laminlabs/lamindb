@@ -108,6 +108,10 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates):
         Run, through="RecordRun", related_name="records"
     )
     """Linked runs."""
+    linked_users: Run = models.ManyToManyField(
+        Run, through="RecordUser", related_name="records"
+    )
+    """Linked runs."""
     run: Run | None = ForeignKey(
         Run,
         PROTECT,
@@ -122,7 +126,7 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates):
     ulabels: ULabel = models.ManyToManyField(
         ULabel,
         through="RecordULabel",
-        related_name="_records",  # in transition period
+        related_name="_records",  # in transition period with underscore prefix
     )
     """Linked runs."""
     linked_projects: Project
