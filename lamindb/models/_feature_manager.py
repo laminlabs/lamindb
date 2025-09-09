@@ -23,7 +23,7 @@ from rich.table import Column, Table
 from rich.text import Text
 
 from lamindb.core.storage import LocalPathClasses
-from lamindb.errors import DoesNotExist, ValidationError
+from lamindb.errors import DoesNotExist, InvalidArgument, ValidationError
 from lamindb.models._from_values import _format_values
 from lamindb.models.feature import (
     serialize_pandas_dtype,
@@ -671,6 +671,48 @@ def filter_base(
     if not (new_expression):
         raise NotImplementedError
     return registry.objects.using(db).filter(**new_expression)
+
+
+def filter_with_features(queryset, *queries, **expressions):
+    from .artifact import Artifact
+
+    if expressions:
+        keys_normalized = [key.split("__")[0] for key in expressions]
+        field_or_feature_or_param = keys_normalized[0].split("__")[0]
+        if field_or_feature_or_param in Artifact.__get_available_fields__():
+            qs = queryset.filter(  # type: ignore
+                *queries, **expressions, _skip_filter_with_features=True
+            )
+            if not any(e.startswith("kind") for e in expressions):
+                return qs.exclude(kind="__lamindb_run__")
+            else:
+                return qs
+        elif all(
+            features_validated := Feature.objects.using(queryset.db).validate(
+                keys_normalized, field="name", mute=True
+            )
+        ):
+            return filter_base(
+                Artifact,
+                db=queryset.db,
+                _skip_validation=True,
+                **expressions,
+            )
+        else:
+            features = ", ".join(sorted(np.array(keys_normalized)[~features_validated]))
+            message = f"feature names: {features}"
+            avail_fields = Artifact.__get_available_fields__()
+            if "_branch_code" in avail_fields:
+                avail_fields.remove("_branch_code")  # backward compat
+            fields = ", ".join(sorted(avail_fields))
+            raise InvalidArgument(
+                f"You can query either by available fields: {fields}\n"
+                f"Or fix invalid {message}"
+            )
+    else:
+        return queryset.filter(  # type: ignore
+            *queries, **expressions, _skip_filter_with_features=True
+        ).exclude(kind="__lamindb_run__")
 
 
 # for deprecated functionality

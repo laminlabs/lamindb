@@ -97,7 +97,7 @@ def get_backward_compat_filter_kwargs(queryset, expressions):
             "visibility": "branch_id",
             "_branch_code": "branch_id",
         }
-    elif queryset.model == Artifact:
+    elif queryset.model is Artifact:
         name_mappings = {
             "visibility": "branch_id",
             "_branch_code": "branch_id",
@@ -188,9 +188,11 @@ def get(
 ) -> SQLRecord:
     get_kwargs = {}
     if isinstance(registry_or_queryset, BasicQuerySet):
+        from lamindb.models import Artifact
+
         qs = registry_or_queryset
         registry = qs.model
-        if isinstance(qs, QuerySet) and hasattr(qs, "_filter_with_features"):
+        if isinstance(qs, QuerySet) and registry is Artifact:
             # BasicQuerySet.get(qs, **expressions) uses qs.filter(...) under the hood
             # ArtifactQuerySet filtering only allows some fields (Artifact.__get_available_fields__)
             # we don't want this check here
@@ -953,11 +955,15 @@ class QuerySet(BasicQuerySet):
 
     def filter(self, *queries, **expressions) -> QuerySet:
         """Query a set of records."""
+        from lamindb.models import Artifact
+
         # Suggest to use __name for related fields such as id when not passed
-        if hasattr(self, "_filter_with_features") and not expressions.pop(
+        if self.model is Artifact and not expressions.pop(
             "_skip_filter_with_features", False
         ):
-            return self._filter_with_features(*queries, **expressions)
+            from ._feature_manager import filter_with_features
+
+            return filter_with_features(self, *queries, **expressions)
 
         for field, value in expressions.items():
             if (
