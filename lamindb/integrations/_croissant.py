@@ -55,10 +55,10 @@ def curate_from_croissant(
 
     # Extract basic metadata
     dataset_name = data["name"]
-    description = data.get("description", "")
-    version = data.get("version", "1.0")
-    license_info = data.get("license", "")
-    project_name = data.get("cr:projectName", "")
+    description = data.get("description", None)
+    version = data.get("version", None)
+    license_info = data.get("license", None)
+    project_name = data.get("cr:projectName", None)
 
     # Create license feature and label if license info exists
     license_label = None
@@ -113,7 +113,9 @@ def curate_from_croissant(
         if len(file_distributions) == 1:
             # it doesn't make sense to have the dataset name on the individual
             # artifact if it's part of a collection
-            artifact_description = f"{dataset_name} - {description}"
+            artifact_description = dataset_name
+            if description is not None:
+                artifact_description += f" - {description}"
         else:
             artifact_description = None
         artifact = ln.Artifact(  # type: ignore
