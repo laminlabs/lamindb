@@ -626,7 +626,7 @@ class Registry(ModelBase):
             # this just retrives the full connection string from iresult
             db = update_db_using_local(iresult, settings_file)
             cache_using_filepath.write_text(
-                f"{iresult['lnid']}\n{iresult['schema_str']}"
+                f"{iresult['lnid']}\n{iresult['schema_str']}", encoding="utf-8"
             )
             # need to set the token if it is a fine_grained_access and the user is jwt (not public)
             is_fine_grained_access = (
@@ -639,7 +639,7 @@ class Registry(ModelBase):
             source_modules = isettings.modules
             db = isettings.db
             cache_using_filepath.write_text(
-                f"{isettings.uid}\n{','.join(source_modules)}"
+                f"{isettings.uid}\n{','.join(source_modules)}", encoding="utf-8"
             )
             # need to set the token if it is a fine_grained_access and the user is jwt (not public)
             is_fine_grained_access = (
