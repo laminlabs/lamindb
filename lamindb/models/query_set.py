@@ -783,10 +783,9 @@ class BasicQuerySet(models.QuerySet):
 
         Args:
             permanent: Whether to permanently delete the record (skips trash).
-            batch_size: Number of records to process in each batch.
 
         Note:
-            Calling `delete()` twice on the same record does NOT permanently delete in bulk operations.
+            Calling `delete()` twice on the same queryset does NOT permanently delete in bulk operations.
             Use `permanent=True` for actual deletion.
 
         Examples:
@@ -800,17 +799,22 @@ class BasicQuerySet(models.QuerySet):
         if len(self) < 10000:
             for record in self:
                 # both Transform & Run might reference artifacts
-                if self.model in {Artifact, Collection, Transform, Run, Storage}:
-                    logger.important(f"deleting {record}")
+                if not permanent:
+                    logger.warning(f"moved record to trash (branch_id = -1): {record}")
+                else:
+                    if self.model in {Artifact, Collection, Transform, Run, Storage}:
+                        logger.important(f"deleting {record}")
+
                 if isinstance(record, SQLRecord):
                     record.delete(*args, permanent=permanent, **kwargs)  # type: ignore
                 else:
                     record.delete(*args, **kwargs)
-        else:
-            if not permanent:
-                self.update(branch_id=-1)
             else:
-                super().delete(*args, **kwargs)
+                if not permanent:
+                    logger.warning("moved records to trash (branch_id = -1)")
+                    self.update(branch_id=-1)
+                else:
+                    super().delete(*args, **kwargs)
 
     def to_list(self, field: str | None = None) -> list[SQLRecord] | list[str]:
         """Populate an (unordered) list with the results.

@@ -47,7 +47,7 @@ def save(
 
     Args:
         records: Multiple :class:`~lamindb.models.SQLRecord` objects.
-        ignore_conflicts: If ``True``, do not error if some records violate a unique or another constraint.
+        ignore_conflicts: If `True`, do not error if some records violate a unique or another constraint.
             However, it won't inplace update the id fields of records.
             If you need records with ids, you need to query them from the database.
         batch_size: Number of records to process in each batch.
