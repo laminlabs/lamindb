@@ -693,7 +693,7 @@ def filter_base(
 def filter_with_features(
     queryset: BasicQuerySet, *queries, **expressions
 ) -> BasicQuerySet:
-    from .query_set import BasicQuerySet, QuerySet
+    from lamindb.models import Artifact, BasicQuerySet, QuerySet
 
     if isinstance(queryset, QuerySet):
         # need to avoid infinite recursion because
@@ -704,15 +704,16 @@ def filter_with_features(
 
     registry = queryset.model
 
+    if registry is Artifact and not any(e.startswith("kind") for e in expressions):
+        exclude_kwargs = {"kind": "__lamindb_run__"}
+    else:
+        exclude_kwargs = {}
+
     if expressions:
         keys_normalized = [key.split("__")[0] for key in expressions]
         field_or_feature_or_param = keys_normalized[0].split("__")[0]
         if field_or_feature_or_param in registry.__get_available_fields__():
             qs = queryset.filter(*queries, **expressions, **filter_kwargs)
-            if not any(e.startswith("kind") for e in expressions):
-                return qs.exclude(kind="__lamindb_run__")
-            else:
-                return qs
         elif all(
             features_validated := Feature.objects.using(queryset.db).validate(
                 keys_normalized, field="name", mute=True
@@ -727,7 +728,7 @@ def filter_with_features(
                 **expressions,
             )
             qs.__class__ = type(queryset)
-            return qs.filter(*queries, **filter_kwargs)
+            qs = qs.filter(*queries, **filter_kwargs)
         else:
             features = ", ".join(sorted(np.array(keys_normalized)[~features_validated]))
             message = f"feature names: {features}"
@@ -740,9 +741,9 @@ def filter_with_features(
                 f"Or fix invalid {message}"
             )
     else:
-        return queryset.filter(*queries, **expressions, **filter_kwargs).exclude(
-            kind="__lamindb_run__"
-        )
+        qs = queryset.filter(*queries, **filter_kwargs)
+
+    return qs.exclude(**exclude_kwargs) if exclude_kwargs else qs
 
 
 # for deprecated functionality

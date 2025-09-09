@@ -946,12 +946,15 @@ class QuerySet(BasicQuerySet):
 
     def filter(self, *queries, **expressions) -> QuerySet:
         """Query a set of records."""
-        from lamindb.models import Artifact
+        from lamindb.models import Artifact, Record, Run
 
-        if (
-            not expressions.pop("_skip_filter_with_features", False)
-            and self.model is Artifact
-        ):
+        registry = self.model
+
+        if not expressions.pop("_skip_filter_with_features", False) and registry in {
+            Artifact,
+            Run,
+            Record,
+        }:
             from ._feature_manager import filter_with_features
 
             return filter_with_features(self, *queries, **expressions)
@@ -962,9 +965,9 @@ class QuerySet(BasicQuerySet):
                 isinstance(value, str)
                 and value.strip("-").isalpha()
                 and "__" not in field
-                and hasattr(self.model, field)
+                and hasattr(registry, field)
             ):
-                field_attr = getattr(self.model, field)
+                field_attr = getattr(registry, field)
                 if hasattr(field_attr, "field") and field_attr.field.related_model:
                     raise FieldError(
                         f"Invalid lookup '{value}' for {field}. Did you mean {field}__name?"
