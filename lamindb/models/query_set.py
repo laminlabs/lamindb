@@ -187,11 +187,8 @@ def get(
     **expressions,
 ) -> SQLRecord:
     if isinstance(registry_or_queryset, BasicQuerySet):
-        # not QuerySet but BasicQuerySet
-        assert type(registry_or_queryset).__name__ in {  # noqa: S101
-            "BasicQuerySet",
-            "ArtifactBasicQuerySet",
-        }
+        # not QuerySet but only BasicQuerySet
+        assert not isinstance(registry_or_queryset, QuerySet)  # noqa: S101
 
         qs = registry_or_queryset
         registry = qs.model

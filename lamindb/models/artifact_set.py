@@ -128,8 +128,10 @@ class ArtifactSet(Iterable):
 
 def artifacts_from_path(artifacts: ArtifactSet, path: UPathStr) -> ArtifactSet:
     """Returns artifacts in the query set that are registered for the provided path."""
-    # not QuerySet but BasicQuerySet
-    assert type(artifacts).__name__ in {"BasicQuerySet", "ArtifactBasicQuerySet"}  # noqa: S101
+    from lamindb.models import BasicQuerySet, QuerySet
+
+    # not QuerySet but only BasicQuerySet
+    assert isinstance(artifacts, BasicQuerySet) and not isinstance(artifacts, QuerySet)  # noqa: S101
 
     upath = UPath(path)
 

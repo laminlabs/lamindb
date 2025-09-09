@@ -566,14 +566,11 @@ def filter_base(
     _skip_validation: bool = True,
     **expression,
 ) -> BasicQuerySet:
-    from lamindb.models import Artifact, BasicQuerySet
+    from lamindb.models import Artifact, BasicQuerySet, QuerySet
 
     if isinstance(registry_or_queryset, BasicQuerySet):
-        # not QuerySet but BasicQuerySet
-        assert type(registry_or_queryset).__name__ in {  # noqa: S101
-            "BasicQuerySet",
-            "ArtifactBasicQuerySet",
-        }
+        # not QuerySet but only BasicQuerySet
+        assert not isinstance(registry_or_queryset, QuerySet)  # noqa: S101
 
         registry = registry_or_queryset.model
         queryset = registry_or_queryset
