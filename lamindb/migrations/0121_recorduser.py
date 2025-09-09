@@ -54,7 +54,7 @@ class Migration(migrations.Migration):
             model_name="record",
             name="linked_users",
             field=models.ManyToManyField(
-                related_name="records", through="lamindb.RecordUser", to="lamindb.run"
+                related_name="records", through="lamindb.RecordUser", to="lamindb.user"
             ),
         ),
     ]

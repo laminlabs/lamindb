@@ -108,8 +108,8 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates):
         Run, through="RecordRun", related_name="records"
     )
     """Linked runs."""
-    linked_users: Run = models.ManyToManyField(
-        Run, through="RecordUser", related_name="records"
+    linked_users: User = models.ManyToManyField(
+        User, through="RecordUser", related_name="records"
     )
     """Linked runs."""
     run: Run | None = ForeignKey(
