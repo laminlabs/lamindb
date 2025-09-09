@@ -799,6 +799,7 @@ class BasicQuerySet(models.QuerySet):
 
         if len(self) < 10000:
             for record in self:
+                # both Transform & Run might reference artifacts
                 if self.model in {Artifact, Collection, Transform, Run, Storage}:
                     logger.important(f"deleting {record}")
                 record.delete(*args, permanent=permanent, **kwargs)
