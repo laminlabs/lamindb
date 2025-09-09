@@ -173,7 +173,7 @@ def notebook_to_script(  # type: ignore
     if script_path is None:
         return py_content
     else:
-        script_path.write_text(py_content)
+        script_path.write_text(py_content, encoding="utf-8")
 
 
 def clean_r_notebook_html(file_path: Path) -> tuple[str | None, Path]:
@@ -202,7 +202,7 @@ def clean_r_notebook_html(file_path: Path) -> tuple[str | None, Path]:
             )  # RStudio might insert a newline
             cleaned_content = cleaned_content.replace(orig_error_message, "")
     cleaned_path = file_path.parent / (f"{file_path.stem}.cleaned{file_path.suffix}")
-    cleaned_path.write_text(cleaned_content)
+    cleaned_path.write_text(cleaned_content, encoding="utf-8")
     return title_text, cleaned_path
 
 
