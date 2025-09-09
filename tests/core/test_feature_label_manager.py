@@ -348,12 +348,12 @@ Here is how to create a feature:
 
     # delete everything we created
     artifact.delete(permanent=True)
-    ln.ULabel.filter().delete()
-    ln.Schema.filter().delete()
-    ln.Feature.filter().delete()
-    bt.Gene.filter().delete()
-    bt.Organism.filter().delete()
-    bt.Disease.filter().delete()
+    ln.ULabel.filter().delete(permanent=True)
+    ln.Schema.filter().delete(permanent=True)
+    ln.Feature.filter().delete(permanent=True)
+    bt.Gene.filter().delete(permanent=True)
+    bt.Organism.filter().delete(permanent=True)
+    bt.Disease.filter().delete(permanent=True)
 
 
 # most underlying logic here is comprehensively tested in test_context
@@ -472,9 +472,9 @@ def test_labels_add(adata):
 
     artifact2.delete(permanent=True)
     artifact.delete(permanent=True)
-    ln.Schema.filter().delete()
-    ln.Feature.filter().delete()
-    ln.ULabel.filter().delete()
+    ln.Schema.filter().delete(permanent=True)
+    ln.Feature.filter().delete(permanent=True)
+    ln.ULabel.filter().delete(permanent=True)
 
 
 def test_add_labels_using_anndata(adata):
@@ -496,11 +496,11 @@ def test_add_labels_using_anndata(adata):
     # clean up DB state
     organism_feature = ln.Feature.filter(name="organism").one_or_none()
     if organism_feature is not None:
-        organism_feature.delete()
+        organism_feature.delete(permanent=True)
     artifact = ln.Artifact.filter(description="Mini adata").one_or_none()
     if artifact is not None:
         artifact.delete(permanent=True, storage=True)
-    ln.Schema.filter().delete()
+    ln.Schema.filter().delete(permanent=True)
 
     # try to construct without registering metadata features
     artifact = ln.Artifact.from_anndata(adata, description="Mini adata")
@@ -668,14 +668,14 @@ def test_add_labels_using_anndata(adata):
 
     # clean up
     artifact.delete(permanent=True)
-    bt.Gene.filter().delete()
-    bt.Organism.filter().delete()
-    ln.Schema.filter().delete()
-    ln.Feature.filter().delete()
-    bt.CellType.filter().delete()
-    bt.Tissue.filter().delete()
-    bt.Disease.filter().delete()
-    ln.ULabel.filter().delete()
+    bt.Gene.filter().delete(permanent=True)
+    bt.Organism.filter().delete(permanent=True)
+    ln.Schema.filter().delete(permanent=True)
+    ln.Feature.filter().delete(permanent=True)
+    bt.CellType.filter().delete(permanent=True)
+    bt.Tissue.filter().delete(permanent=True)
+    bt.Disease.filter().delete(permanent=True)
+    ln.ULabel.filter().delete(permanent=True)
 
 
 def test_labels_get(get_mini_csv):
@@ -694,8 +694,8 @@ def test_labels_get(get_mini_csv):
     artifact.features._add_schema(schema, slot="random")
     assert artifact.feature_sets.first() == schema
     artifact.delete(permanent=True, storage=True)
-    schema.delete()
-    feature_name_feature.delete()
+    schema.delete(permanent=True)
+    feature_name_feature.delete(permanent=True)
 
 
 @pytest.fixture
@@ -743,6 +743,6 @@ def test_add_from(get_test_artifacts):
     artifact1.ulabels.remove(*ulabels)
 
     for ulabel in ulabels:
-        ulabel.delete()
+        ulabel.delete(permanent=True)
     for cell_line in cell_lines:
-        cell_line.delete()
+        cell_line.delete(permanent=True)

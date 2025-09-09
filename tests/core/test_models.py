@@ -120,8 +120,8 @@ def test_unsaved_relationship_modification_attempts():
         == "You are trying to access the many-to-many relationships of an unsaved Artifact object. Please save it first using '.save()'."
     )
 
-    new_label.delete()
-    af.delete()
+    new_label.delete(permanent=True)
+    af.delete(permanent=True)
 
 
 def test_unsaved_model_different_instance():
@@ -139,4 +139,4 @@ def test_unsaved_model_different_instance():
         "Please save the record first to your instance using '.save()'."
     )
 
-    new_label.delete()
+    new_label.delete(permanent=True)

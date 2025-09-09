@@ -482,7 +482,7 @@ def test_collection_get_tracking(df):
 
     collection.delete(permanent=True)
     artifact.delete(permanent=True)
-    transform.delete()
+    transform.delete(permanent=True)
 
 
 def test_describe_collection(adata, capsys):

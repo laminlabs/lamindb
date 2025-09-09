@@ -802,7 +802,10 @@ class BasicQuerySet(models.QuerySet):
                 # both Transform & Run might reference artifacts
                 if self.model in {Artifact, Collection, Transform, Run, Storage}:
                     logger.important(f"deleting {record}")
-                record.delete(*args, permanent=permanent, **kwargs)
+                if isinstance(record, SQLRecord):
+                    record.delete(*args, permanent=permanent, **kwargs)  # type: ignore
+                else:
+                    record.delete(*args, **kwargs)
         else:
             if not permanent:
                 self.update(branch_id=-1)

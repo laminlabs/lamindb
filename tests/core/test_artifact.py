@@ -1082,7 +1082,7 @@ def test_artifact_get_tracking(df):
     )
 
     artifact.delete(permanent=True)
-    transform.delete()
+    transform.delete(permanent=True)
 
 
 def test_get_by_path(df):

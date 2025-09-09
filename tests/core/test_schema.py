@@ -154,12 +154,12 @@ def mini_immuno_schema_flexible():
 
     yield schema
 
-    ln.Schema.filter().delete()
-    ln.Feature.filter().delete()
-    bt.Gene.filter().delete()
-    ln.ULabel.filter(type__isnull=False).delete()
-    ln.ULabel.filter().delete()
-    bt.CellType.filter().delete()
+    ln.Schema.filter().delete(permanent=True)
+    ln.Feature.filter().delete(permanent=True)
+    bt.Gene.filter().delete(permanent=True)
+    ln.ULabel.filter(type__isnull=False).delete(permanent=True)
+    ln.ULabel.filter().delete(permanent=True)
+    bt.CellType.filter().delete(permanent=True)
 
 
 def test_schema_update_implicit_through_name_equality(

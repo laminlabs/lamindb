@@ -9,8 +9,8 @@ def test_view_parents():
     label2.save()
     label1.parents.add(label2)
     label1.view_parents(ln.ULabel.name, distance=1)
-    label1.delete()
-    label2.delete()
+    label1.delete(permanent=True)
+    label2.delete(permanent=True)
 
 
 def test_query_parents_children():
