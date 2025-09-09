@@ -130,7 +130,7 @@ def bulk_create(
     Args:
         records: Iterable of SQLRecord objects to create
         ignore_conflicts: Whether to ignore conflicts during creation
-        batch_size: Number of records to process in each batch. Defaults to 10000.
+        batch_size: Number of records to process in each batch.
     """
     records_by_orm = defaultdict(list)
     for record in records:

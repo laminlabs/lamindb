@@ -778,17 +778,35 @@ class BasicQuerySet(models.QuerySet):
     ) -> pd.DataFrame:
         return self.to_dataframe(include, features)
 
-    def delete(self, *args, **kwargs):
-        """Delete all records in the query set."""
+    def delete(self, *args, permanent: bool | None = None, **kwargs):
+        """Delete all records in the query set.
+
+        Args:
+            permanent: Whether to permanently delete the record (skips trash).
+            batch_size: Number of records to process in each batch.
+
+        Note:
+            Calling `delete()` twice on the same record does NOT permanently delete in bulk operations.
+            Use `permanent=True` for actual deletion.
+
+        Examples:
+
+            For any `QuerySet` object `qs`, call:
+
+            >>> qs.delete()
+        """
         from lamindb.models import Artifact, Collection, Run, Storage, Transform
 
-        # both Transform & Run might reference artifacts
-        if self.model in {Artifact, Collection, Transform, Run, Storage}:
+        if len(self) < 10000:
             for record in self:
-                logger.important(f"deleting {record}")
-                record.delete(*args, **kwargs)
+                if self.model in {Artifact, Collection, Transform, Run, Storage}:
+                    logger.important(f"deleting {record}")
+                record.delete(*args, permanent=permanent, **kwargs)
         else:
-            super().delete(*args, **kwargs)
+            if not permanent:
+                self.update(branch_id=-1)
+            else:
+                super().delete(*args, **kwargs)
 
     def to_list(self, field: str | None = None) -> list[SQLRecord] | list[str]:
         """Populate an (unordered) list with the results.
