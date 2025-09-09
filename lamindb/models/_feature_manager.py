@@ -567,6 +567,7 @@ def filter_base(
 ) -> BasicQuerySet:
     from lamindb.models import Artifact, BasicQuerySet, QuerySet
 
+    # not QuerySet but only BasicQuerySet
     assert isinstance(queryset, BasicQuerySet) and not isinstance(queryset, QuerySet)  # noqa: S101
 
     registry = queryset.model
@@ -708,15 +709,12 @@ def filter_with_features(
                 keys_normalized, field="name", mute=True
             )
         ):
-            qs = queryset.all()
             # filter_base requires qs to be BasicQuerySet
-            qs.__class__ = BasicQuerySet
             qs = filter_base(
-                qs,
+                queryset._to_class(BasicQuerySet, copy=True),
                 _skip_validation=True,
                 **expressions,
-            )
-            qs.__class__ = type(queryset)
+            )._to_class(type(queryset), copy=False)
             qs = qs.filter(*queries, **filter_kwargs)
         else:
             features = ", ".join(sorted(np.array(keys_normalized)[~features_validated]))

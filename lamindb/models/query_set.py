@@ -671,6 +671,27 @@ def process_cols_from_include(
     return result
 
 
+def _queryset_class_factory(
+    registry: Registry, queryset_cls: type[models.QuerySet]
+) -> type[models.QuerySet]:
+    from lamindb.models import Artifact, ArtifactSet
+
+    # If the model is Artifact, create a new class
+    # for BasicQuerySet or QuerySet that inherits from ArtifactSet.
+    # This allows to add artifact specific functionality to all classes
+    # inheriting from BasicQuerySet.
+    # Thus all query sets of artifacts (and only of artifacts)
+    # will have functions from ArtifactSet.
+    if registry is Artifact and not issubclass(queryset_cls, ArtifactSet):
+        new_cls = type(
+            "Artifact" + queryset_cls.__name__, (queryset_cls, ArtifactSet), {}
+        )
+    else:
+        new_cls = queryset_cls
+
+    return new_cls
+
+
 class BasicQuerySet(models.QuerySet):
     """Sets of records returned by queries.
 
@@ -686,19 +707,23 @@ class BasicQuerySet(models.QuerySet):
     """
 
     def __new__(cls, model=None, query=None, using=None, hints=None):
-        from lamindb.models import Artifact, ArtifactSet
+        # see comments in _queryset_class_factory
+        return object.__new__(_queryset_class_factory(model, cls))
 
-        # If the model is Artifact, create a new class
-        # for BasicQuerySet or QuerySet that inherits from ArtifactSet.
-        # This allows to add artifact specific functionality to all classes
-        # inheriting from BasicQuerySet.
-        # Thus all query sets of artifacts (and only of artifacts)
-        # will have functions from ArtifactSet.
-        if model is Artifact and not issubclass(cls, ArtifactSet):
-            new_cls = type("Artifact" + cls.__name__, (cls, ArtifactSet), {})
-        else:
-            new_cls = cls
-        return object.__new__(new_cls)
+    def _to_class(
+        self, cls: type[models.QuerySet], copy: bool = True
+    ) -> models.QuerySet:
+        qs = self.all() if copy else self
+        qs.__class__ = cls
+        return qs
+
+    def _to_basic(self, copy: bool = True) -> BasicQuerySet:
+        cls = _queryset_class_factory(self.model, BasicQuerySet)
+        return self._to_class(cls, copy)
+
+    def _to_non_basic(self, copy: bool = True) -> QuerySet:
+        cls = _queryset_class_factory(self.model, QuerySet)
+        return self._to_class(cls, copy)
 
     @doc_args(SQLRecord.to_dataframe.__doc__)
     def to_dataframe(
@@ -905,9 +930,8 @@ class QuerySet(BasicQuerySet):
         """Query a single record. Raises error if there are more or none."""
         is_run_input = expressions.pop("is_run_input", False)
 
-        qs = self.all()  # copy the current queryset
         # artifacts_from_path and get accept only BasicQuerySet
-        qs.__class__ = BasicQuerySet
+        qs = self._to_class(BasicQuerySet, copy=True)
 
         if path := expressions.pop("path", None):
             from .artifact_set import ArtifactSet, artifacts_from_path
