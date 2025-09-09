@@ -917,7 +917,7 @@ class QuerySet(BasicQuerySet):
             qs = artifacts_from_path(qs, path)
 
         try:
-            record = get(qs, idlike, **expressions)  # type: ignore
+            record = get(qs, idlike, **expressions)
         except ValueError as e:
             # Pass through original error for explicit id lookups
             if "Field 'id' expected a number" in str(e):
