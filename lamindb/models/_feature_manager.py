@@ -673,14 +673,14 @@ def filter_base(
     return registry.objects.using(db).filter(**new_expression)
 
 
-def filter_with_features(queryset, *queries, **expressions):
+def filter_with_features(queryset: QuerySet, *queries, **expressions):
     from .artifact import Artifact
 
     if expressions:
         keys_normalized = [key.split("__")[0] for key in expressions]
         field_or_feature_or_param = keys_normalized[0].split("__")[0]
         if field_or_feature_or_param in Artifact.__get_available_fields__():
-            qs = queryset.filter(  # type: ignore
+            qs = queryset.filter(
                 *queries, **expressions, _skip_filter_with_features=True
             )
             if not any(e.startswith("kind") for e in expressions):
@@ -710,7 +710,7 @@ def filter_with_features(queryset, *queries, **expressions):
                 f"Or fix invalid {message}"
             )
     else:
-        return queryset.filter(  # type: ignore
+        return queryset.filter(
             *queries, **expressions, _skip_filter_with_features=True
         ).exclude(kind="__lamindb_run__")
 

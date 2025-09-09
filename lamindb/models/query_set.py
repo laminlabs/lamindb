@@ -194,7 +194,7 @@ def get(
         registry = qs.model
         if isinstance(qs, QuerySet) and registry is Artifact:
             # BasicQuerySet.get(qs, **expressions) uses qs.filter(...) under the hood
-            # ArtifactQuerySet filtering only allows some fields (Artifact.__get_available_fields__)
+            # filtering with features only allows some fields (.__get_available_fields__)
             # we don't want this check here
             get_kwargs = {"_skip_filter_with_features": True}
     else:
