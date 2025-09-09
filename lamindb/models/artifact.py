@@ -418,24 +418,6 @@ def get_artifact_kwargs_from_data(
         skip_check_exists,
         is_replace=is_replace,
     )
-    stat_or_artifact = get_stat_or_artifact(
-        path=path,
-        key=key,
-        instance=using_key,
-        is_replace=is_replace,
-    )
-    if isinstance(stat_or_artifact, Artifact):
-        existing_artifact = stat_or_artifact
-        if run is not None:
-            existing_artifact._populate_subsequent_runs(run)
-        return existing_artifact, None
-    else:
-        size, hash, hash_type, n_files, revises = stat_or_artifact
-
-    if revises is not None:  # update provisional_uid
-        provisional_uid, revises = create_uid(revises=revises, version=version)
-        if settings.cache_dir in path.parents:
-            path = path.rename(path.with_name(f"{provisional_uid}{suffix}"))
 
     check_path_in_storage = False
     if use_existing_storage_key:
@@ -455,6 +437,25 @@ def get_artifact_kwargs_from_data(
         check_path_in_storage = True
     else:
         storage = storage
+
+    stat_or_artifact = get_stat_or_artifact(
+        path=path,
+        key=key,
+        instance=using_key,
+        is_replace=is_replace,
+    )
+    if isinstance(stat_or_artifact, Artifact):
+        existing_artifact = stat_or_artifact
+        if run is not None:
+            existing_artifact._populate_subsequent_runs(run)
+        return existing_artifact, None
+    else:
+        size, hash, hash_type, n_files, revises = stat_or_artifact
+
+    if revises is not None:  # update provisional_uid
+        provisional_uid, revises = create_uid(revises=revises, version=version)
+        if settings.cache_dir in path.parents:
+            path = path.rename(path.with_name(f"{provisional_uid}{suffix}"))
 
     log_storage_hint(
         check_path_in_storage=check_path_in_storage,
@@ -1033,7 +1034,7 @@ def delete_permanently(artifact: Artifact, storage: bool, using_key: str):
         delete_in_storage = storage is None or storage
     else:
         # for artifacts with non-virtual semantic storage keys (key is not None)
-        # ask for extra-confirmation
+        # ask for extra-confirmation if storage is None
         if storage is None:
             response = input(
                 f"Are you sure to want to delete {path}? (y/n) You can't undo"
