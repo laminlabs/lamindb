@@ -50,4 +50,11 @@ class Migration(migrations.Migration):
             },
             bases=(models.Model, lamindb.models.sqlrecord.IsLink),
         ),
+        migrations.AddField(
+            model_name="record",
+            name="linked_users",
+            field=models.ManyToManyField(
+                related_name="records", through="lamindb.RecordUser", to="lamindb.user"
+            ),
+        ),
     ]
