@@ -1033,7 +1033,7 @@ def delete_permanently(artifact: Artifact, storage: bool, using_key: str):
         delete_in_storage = storage is None or storage
     else:
         # for artifacts with non-virtual semantic storage keys (key is not None)
-        # ask for extra-confirmation
+        # ask for extra-confirmation if storage is None
         if storage is None:
             response = input(
                 f"Are you sure to want to delete {path}? (y/n) You can't undo"
