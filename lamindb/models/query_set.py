@@ -5,7 +5,7 @@ from collections import UserList
 from collections.abc import Iterable
 from collections.abc import Iterable as IterableType
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Generic, NamedTuple, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Generic, NamedTuple, TypeVar
 
 import pandas as pd
 from django.core.exceptions import FieldError
@@ -182,27 +182,21 @@ def process_expressions(queryset: QuerySet, expressions: dict) -> dict:
 
 
 def get(
-    registry_or_queryset: Union[type[SQLRecord], BasicQuerySet],
+    registry_or_queryset: Registry | BasicQuerySet,
     idlike: int | str | None = None,
     **expressions,
 ) -> SQLRecord:
-    get_kwargs = {}
     if isinstance(registry_or_queryset, BasicQuerySet):
-        from lamindb.models import Artifact
+        assert type(registry_or_queryset) is BasicQuerySet  # not QuerySet # noqa: S101
 
         qs = registry_or_queryset
         registry = qs.model
-        if isinstance(qs, QuerySet) and registry is Artifact:
-            # BasicQuerySet.get(qs, **expressions) uses qs.filter(...) under the hood
-            # filtering with features only allows some fields (.__get_available_fields__)
-            # we don't want this check here
-            get_kwargs = {"_skip_filter_with_features": True}
     else:
         qs = BasicQuerySet(model=registry_or_queryset)
         registry = registry_or_queryset
 
     if isinstance(idlike, int):
-        return BasicQuerySet.get(qs, id=idlike, **get_kwargs)
+        return qs.get(id=idlike)
     elif isinstance(idlike, str):
         NAME_FIELD = (
             registry._name_field if hasattr(registry, "_name_field") else "name"
@@ -210,13 +204,11 @@ def get(
         DOESNOTEXIST_MSG = f"No record found with uid '{idlike}'. Did you forget a keyword as in {registry.__name__}.get({NAME_FIELD}='{idlike}')?"
         # this is the case in which the user passes an under-specified uid
         if issubclass(registry, IsVersioned) and len(idlike) <= registry._len_stem_uid:
-            new_qs = BasicQuerySet.filter(qs, uid__startswith=idlike, is_latest=True)
+            new_qs = qs.filter(uid__startswith=idlike, is_latest=True)
             not_exists = None
             if not new_qs.exists():
                 # also try is_latest is False due to nothing found
-                new_qs = BasicQuerySet.filter(
-                    qs, uid__startswith=idlike, is_latest=False
-                )
+                new_qs = qs.filter(uid__startswith=idlike, is_latest=False)
             else:
                 not_exists = False
             # it doesn't make sense to raise MultipleResultsFound when querying with an
@@ -228,7 +220,7 @@ def get(
                 raise_multipleresultsfound=False,
             )
         else:
-            qs = BasicQuerySet.filter(qs, uid__startswith=idlike)
+            qs = qs.filter(uid__startswith=idlike)
             return one_helper(qs, DOESNOTEXIST_MSG)
     else:
         assert idlike is None  # noqa: S101
@@ -240,18 +232,12 @@ def get(
         if issubclass(registry, IsVersioned) and is_latest_was_not_in_expressions:
             expressions["is_latest"] = True
         try:
-            return BasicQuerySet.get(
-                qs, **expressions, **(get_kwargs if expressions else {})
-            )
+            return qs.get(**expressions)
         except registry.DoesNotExist as e:
             # handle the case in which the is_latest injection led to a missed query
             if "is_latest" in expressions and is_latest_was_not_in_expressions:
                 expressions.pop("is_latest")
-                result = (
-                    BasicQuerySet.filter(qs, **expressions)
-                    .order_by("-created_at")
-                    .first()
-                )
+                result = qs.filter(**expressions).order_by("-created_at").first()
                 if result is not None:
                     return result
             raise registry.DoesNotExist from e
@@ -918,15 +904,17 @@ class QuerySet(BasicQuerySet):
         """Query a single record. Raises error if there are more or none."""
         is_run_input = expressions.pop("is_run_input", False)
 
+        qs = self.all()  # copy the current queryset
+        # artifacts_from_path and get accept only BasicQuerySet
+        qs.__class__ = BasicQuerySet
+
         if path := expressions.pop("path", None):
             from .artifact_set import ArtifactSet, artifacts_from_path
 
             if not isinstance(self, ArtifactSet):
                 raise ValueError("Querying by path is only possible for artifacts.")
 
-            qs = artifacts_from_path(self, path)
-        else:
-            qs = self
+            qs = artifacts_from_path(qs, path)
 
         try:
             record = get(qs, idlike, **expressions)  # type: ignore
@@ -957,14 +945,19 @@ class QuerySet(BasicQuerySet):
         """Query a set of records."""
         from lamindb.models import Artifact
 
-        # Suggest to use __name for related fields such as id when not passed
-        if self.model is Artifact and not expressions.pop(
-            "_skip_filter_with_features", False
-        ):
+        if self.model is Artifact:
             from ._feature_manager import filter_with_features
 
-            return filter_with_features(self, *queries, **expressions)
+            self_class = type(self)
+            # copy the current queryset
+            qs = self.all()
+            # filter_with_features accepts only BasicQuerySet
+            qs.__class__ = BasicQuerySet
+            qs_result = filter_with_features(qs, *queries, **expressions)
+            qs_result.__class__ = self_class
+            return qs_result
 
+        # Suggest to use __name for related fields such as id when not passed
         for field, value in expressions.items():
             if (
                 isinstance(value, str)

@@ -65,7 +65,7 @@ if TYPE_CHECKING:
         Collection,
         IsLink,
     )
-    from lamindb.models.query_set import QuerySet
+    from lamindb.models.query_set import BasicQuerySet
 
     from .run import Run
 
@@ -100,7 +100,7 @@ def get_schema_by_slot_(host: Artifact) -> dict[str, Schema]:
 
 def get_label_links(
     host: Artifact | Collection, registry: str, feature: Feature
-) -> QuerySet:
+) -> BasicQuerySet:
     kwargs = {"artifact_id": host.id, "feature_id": feature.id}
     link_records = (
         getattr(host, host.features._accessor_by_registry[registry])  # type: ignore
@@ -110,7 +110,7 @@ def get_label_links(
     return link_records
 
 
-def get_schema_links(host: Artifact | Collection) -> QuerySet:
+def get_schema_links(host: Artifact | Collection) -> BasicQuerySet:
     kwargs = {"artifact_id": host.id}
     links_schema = host.feature_sets.through.objects.filter(**kwargs)
     return links_schema
@@ -562,9 +562,22 @@ def infer_feature_type_convert_json(
 
 
 def filter_base(
-    registry: Registry, _skip_validation: bool = True, db: str = "default", **expression
-) -> QuerySet:
-    from .artifact import Artifact
+    registry_or_queryset: Registry | BasicQuerySet,
+    _skip_validation: bool = True,
+    **expression,
+) -> BasicQuerySet:
+    from lamindb.models import Artifact, BasicQuerySet
+
+    if isinstance(registry_or_queryset, BasicQuerySet):
+        assert type(registry_or_queryset) is BasicQuerySet  # not QuerySet # noqa: S101
+
+        registry = registry_or_queryset.model
+        queryset = registry_or_queryset
+        db = queryset.db
+    else:
+        registry = registry_or_queryset
+        queryset = BasicQuerySet(model=registry)
+        db = None
 
     model = Feature
     value_model = FeatureValue
@@ -594,7 +607,7 @@ def filter_base(
                     from .artifact import ArtifactFeatureValue
 
                     if value:  # True
-                        return Artifact.objects.using(db).exclude(
+                        return queryset.exclude(
                             id__in=Subquery(
                                 ArtifactFeatureValue.objects.filter(
                                     featurevalue__feature=feature
@@ -602,7 +615,7 @@ def filter_base(
                             )
                         )
                     else:
-                        return Artifact.objects.using(db).exclude(
+                        return queryset.exclude(
                             id__in=Subquery(
                                 ArtifactFeatureValue.objects.filter(
                                     featurevalue__feature=feature
@@ -626,9 +639,9 @@ def filter_base(
                         f"links_{result['registry'].__name__.lower()}__feature": feature
                     }
                     if value:  # True
-                        return Artifact.objects.using(db).exclude(**kwargs)
+                        return queryset.exclude(**kwargs)
                     else:
-                        return Artifact.objects.using(db).filter(**kwargs)
+                        return queryset.filter(**kwargs)
             else:
                 # because SQL is sensitive to whether querying with __in or not
                 # and might return multiple equivalent records for the latter
@@ -642,7 +655,7 @@ def filter_base(
                     # we need the comparator here because users might query like so
                     # ln.Artifact.filter(experiment__contains="Experi")
                     expression = {f"{field_name}{comparator}": value}
-                    labels = result["registry"].filter(**expression).all()
+                    labels = result["registry"].using(db).filter(**expression).all()
                     if len(labels) == 0:
                         raise DoesNotExist(
                             f"Did not find a {label_registry.__name__} matching `{field_name}{comparator}={value}`"
@@ -668,21 +681,23 @@ def filter_base(
             # find artifacts that are annotated by all of them at the same
             # time; hence, we don't want the __in construct that we use to match strings
             # https://laminlabs.slack.com/archives/C04FPE8V01W/p1688328084810609
-    if not (new_expression):
+    if not new_expression:
         raise NotImplementedError
-    return registry.objects.using(db).filter(**new_expression)
+    return queryset.filter(**new_expression)
 
 
-def filter_with_features(queryset: QuerySet, *queries, **expressions):
-    from .artifact import Artifact
+def filter_with_features(
+    queryset: BasicQuerySet, *queries, **expressions
+) -> BasicQuerySet:
+    from lamindb.models import Artifact, BasicQuerySet
+
+    assert type(queryset) is BasicQuerySet  # not QuerySet # noqa: S101
 
     if expressions:
         keys_normalized = [key.split("__")[0] for key in expressions]
         field_or_feature_or_param = keys_normalized[0].split("__")[0]
         if field_or_feature_or_param in Artifact.__get_available_fields__():
-            qs = queryset.filter(
-                *queries, **expressions, _skip_filter_with_features=True
-            )
+            qs = queryset.filter(*queries, **expressions)
             if not any(e.startswith("kind") for e in expressions):
                 return qs.exclude(kind="__lamindb_run__")
             else:
@@ -693,8 +708,7 @@ def filter_with_features(queryset: QuerySet, *queries, **expressions):
             )
         ):
             return filter_base(
-                Artifact,
-                db=queryset.db,
+                queryset,
                 _skip_validation=True,
                 **expressions,
             )
@@ -710,9 +724,7 @@ def filter_with_features(queryset: QuerySet, *queries, **expressions):
                 f"Or fix invalid {message}"
             )
     else:
-        return queryset.filter(
-            *queries, **expressions, _skip_filter_with_features=True
-        ).exclude(kind="__lamindb_run__")
+        return queryset.filter(*queries, **expressions).exclude(kind="__lamindb_run__")
 
 
 # for deprecated functionality
@@ -807,7 +819,7 @@ class FeatureManager:
         return describe_features(self._host, to_dict=True)  # type: ignore
 
     @deprecated("slots[slot].members")
-    def __getitem__(self, slot) -> QuerySet:
+    def __getitem__(self, slot) -> BasicQuerySet:
         if slot not in self.slots:
             raise ValueError(
                 f"No linked feature set for slot: {slot}\nDid you get validation"

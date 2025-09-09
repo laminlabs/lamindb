@@ -13,7 +13,7 @@ from ..core._mapped_collection import MappedCollection
 from ..core.storage._backed_access import _open_dataframe
 from .artifact import Artifact, _track_run_input
 from .collection import Collection, _load_concat_artifacts
-from .query_set import BasicQuerySet, QuerySet
+from .query_set import BasicQuerySet
 
 if TYPE_CHECKING:
     from anndata import AnnData
@@ -129,6 +129,8 @@ class ArtifactSet(Iterable):
 
 def artifacts_from_path(artifacts: ArtifactSet, path: UPathStr) -> ArtifactSet:
     """Returns artifacts in the query set that are registered for the provided path."""
+    assert type(artifacts) is BasicQuerySet  # not QuerySet # noqa: S101
+
     upath = UPath(path)
 
     path_str = upath.as_posix()
@@ -137,14 +139,12 @@ def artifacts_from_path(artifacts: ArtifactSet, path: UPathStr) -> ArtifactSet:
     stem_len = len(stem)
 
     if stem_len == 16:
-        qs = BasicQuerySet.filter(
-            artifacts,
+        qs = artifacts.filter(
             Q(_key_is_virtual=True) | Q(key__isnull=True),
             uid__startswith=stem,
         )
     elif stem_len == 20:
-        qs = BasicQuerySet.filter(
-            artifacts,
+        qs = artifacts.filter(
             Q(_key_is_virtual=True) | Q(key__isnull=True),
             uid=stem,
         )
@@ -155,17 +155,10 @@ def artifacts_from_path(artifacts: ArtifactSet, path: UPathStr) -> ArtifactSet:
         return qs
 
     qs = (
-        BasicQuerySet.filter(artifacts, _key_is_virtual=False)
+        artifacts.filter(_key_is_virtual=False)
         .alias(
             db_path=Concat("storage__root", Value("/"), "key", output_field=TextField())
         )
-        .filter(
-            db_path=path_str,
-            **(
-                {"_skip_filter_with_features": True}
-                if isinstance(artifacts, QuerySet)
-                else {}
-            ),
-        )
+        .filter(db_path=path_str)
     )
     return qs
