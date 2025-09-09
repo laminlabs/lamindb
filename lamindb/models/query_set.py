@@ -187,7 +187,11 @@ def get(
     **expressions,
 ) -> SQLRecord:
     if isinstance(registry_or_queryset, BasicQuerySet):
-        assert type(registry_or_queryset) is BasicQuerySet  # not QuerySet # noqa: S101
+        # not QuerySet but BasicQuerySet
+        assert type(registry_or_queryset).__name__ in {  # noqa: S101
+            "BasicQuerySet",
+            "ArtifactBasicQuerySet",
+        }
 
         qs = registry_or_queryset
         registry = qs.model
@@ -913,7 +917,6 @@ class QuerySet(BasicQuerySet):
 
             if not isinstance(self, ArtifactSet):
                 raise ValueError("Querying by path is only possible for artifacts.")
-
             qs = artifacts_from_path(qs, path)
 
         try:

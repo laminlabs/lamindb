@@ -569,7 +569,11 @@ def filter_base(
     from lamindb.models import Artifact, BasicQuerySet
 
     if isinstance(registry_or_queryset, BasicQuerySet):
-        assert type(registry_or_queryset) is BasicQuerySet  # not QuerySet # noqa: S101
+        # not QuerySet but BasicQuerySet
+        assert type(registry_or_queryset).__name__ in {  # noqa: S101
+            "BasicQuerySet",
+            "ArtifactBasicQuerySet",
+        }
 
         registry = registry_or_queryset.model
         queryset = registry_or_queryset
@@ -689,9 +693,10 @@ def filter_base(
 def filter_with_features(
     queryset: BasicQuerySet, *queries, **expressions
 ) -> BasicQuerySet:
-    from lamindb.models import Artifact, BasicQuerySet
+    from lamindb.models import Artifact
 
-    assert type(queryset) is BasicQuerySet  # not QuerySet # noqa: S101
+    # not QuerySet but BasicQuerySet
+    assert type(queryset).__name__ in {"BasicQuerySet", "ArtifactBasicQuerySet"}  # noqa: S101
 
     if expressions:
         keys_normalized = [key.split("__")[0] for key in expressions]
