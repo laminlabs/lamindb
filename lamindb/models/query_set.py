@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Generic, NamedTuple, TypeVar, Union
 
 import pandas as pd
-from django.core.exceptions import FieldError
+from django.core.exceptions import FieldDoesNotExist, FieldError
 from django.db import models
 from django.db.models import F, ForeignKey, ManyToManyField, Q, Subquery
 from django.db.models.fields.related import ForeignObjectRel
@@ -796,28 +796,25 @@ class BasicQuerySet(models.QuerySet):
         """
         from lamindb.models import Artifact, Collection, Run, Storage, Transform
 
-        if len(self) < 10000:
+        # both Transform & Run might reference artifacts
+        if self.model in {Artifact, Collection, Transform, Run, Storage}:
             for record in self:
-                # both Transform & Run might reference artifacts
-                if self.model in {Artifact, Collection, Transform, Run, Storage}:
-                    if not permanent:
-                        logger.warning(
-                            f"moved record to trash (branch_id = -1): {self}"
-                        )
-                    else:
-                        logger.important(f"deleting {record}")
-                if isinstance(record, SQLRecord):
-                    record.delete(*args, permanent=permanent, **kwargs)  # type: ignore
-                    logger.warning(
-                        f"moved {len(self)} records to trash (branch_id = -1)"
-                    )
-                else:
-                    record.delete(*args, **kwargs)
+                record.delete(*args, permanent=permanent, **kwargs)  # type: ignore
         else:
             if not permanent:
-                self.update(branch_id=-1)
+                try:
+                    self.update(branch_id=-1)
+                except FieldDoesNotExist:
+                    logger.important(
+                        "records cannot be moved to trash. Deleted records."
+                    )
+                    super().delete(*args, **kwargs)
             else:
                 super().delete(*args, **kwargs)
+        if not permanent:
+            logger.warning("moved records to trash (branch_id = -1)")
+        else:
+            logger.important("deleted records")
 
     def to_list(self, field: str | None = None) -> list[SQLRecord] | list[str]:
         """Populate an (unordered) list with the results.
