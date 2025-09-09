@@ -412,7 +412,7 @@ def test_dataframe_attrs_validation(study_metadata_schema, include_attrs_slot):
 
     from lamindb.models import SchemaComponent
 
-    SchemaComponent.filter().delete()
+    SchemaComponent.filter().delete(permanent=True)
     artifact.delete(permanent=True)
     bad_schema.delete(permanent=True)
     schema.delete(permanent=True)
