@@ -693,15 +693,15 @@ def filter_base(
 def filter_with_features(
     queryset: BasicQuerySet, *queries, **expressions
 ) -> BasicQuerySet:
-    from lamindb.models import Artifact
-
     # not QuerySet but BasicQuerySet
     assert type(queryset).__name__ in {"BasicQuerySet", "ArtifactBasicQuerySet"}  # noqa: S101
+
+    registry = queryset.model
 
     if expressions:
         keys_normalized = [key.split("__")[0] for key in expressions]
         field_or_feature_or_param = keys_normalized[0].split("__")[0]
-        if field_or_feature_or_param in Artifact.__get_available_fields__():
+        if field_or_feature_or_param in registry.__get_available_fields__():
             qs = queryset.filter(*queries, **expressions)
             if not any(e.startswith("kind") for e in expressions):
                 return qs.exclude(kind="__lamindb_run__")
@@ -720,7 +720,7 @@ def filter_with_features(
         else:
             features = ", ".join(sorted(np.array(keys_normalized)[~features_validated]))
             message = f"feature names: {features}"
-            avail_fields = Artifact.__get_available_fields__()
+            avail_fields = registry.__get_available_fields__()
             if "_branch_code" in avail_fields:
                 avail_fields.remove("_branch_code")  # backward compat
             fields = ", ".join(sorted(avail_fields))
