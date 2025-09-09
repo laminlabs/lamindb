@@ -33,7 +33,6 @@ from lamindb.models.save import save
 from lamindb.models.schema import DICT_KEYS_TYPE, Schema
 from lamindb.models.sqlrecord import (
     REGISTRY_UNIQUE_FIELD,
-    Registry,
     get_name_field,
     transfer_fk_to_default_db_bulk,
     transfer_to_default_db,
@@ -562,23 +561,16 @@ def infer_feature_type_convert_json(
 
 
 def filter_base(
-    registry_or_queryset: Registry | BasicQuerySet,
+    queryset: BasicQuerySet,
     _skip_validation: bool = True,
     **expression,
 ) -> BasicQuerySet:
     from lamindb.models import Artifact, BasicQuerySet, QuerySet
 
-    if isinstance(registry_or_queryset, BasicQuerySet):
-        # not QuerySet but only BasicQuerySet
-        assert not isinstance(registry_or_queryset, QuerySet)  # noqa: S101
+    assert isinstance(queryset, BasicQuerySet) and not isinstance(queryset, QuerySet)  # noqa: S101
 
-        registry = registry_or_queryset.model
-        queryset = registry_or_queryset
-        db = queryset.db
-    else:
-        registry = registry_or_queryset
-        queryset = BasicQuerySet(model=registry)
-        db = None
+    registry = queryset.model
+    db = queryset.db
 
     model = Feature
     value_model = FeatureValue
