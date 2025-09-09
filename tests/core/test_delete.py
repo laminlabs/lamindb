@@ -8,7 +8,7 @@ def test_delete_qs(permanent, size):
     """Test deletion behavior for small (<10000) and large (>=10000) querysets.
 
     Small querysets delete individually, large ones trigger bulk delete."""
-    prefix = f"testlabel_{size}"
+    prefix = f"testlabel_{size}_"
     ln.settings.creation.search_names = False
     labels = [ln.ULabel(name=f"{prefix}{i}") for i in range(size)]
     ln.settings.creation.search_names = True
