@@ -591,12 +591,12 @@ def test_soma_curator(adata, categoricals, clean_soma_files):  # noqa: F811
         # clean up
         if artifact:
             artifact.delete(permanent=True)
-        ln.ULabel.filter().delete()
-        bt.ExperimentalFactor.filter().delete()
-        bt.CellType.filter().delete()
-        ln.Schema.filter().delete()
-        ln.Feature.filter().delete()
-        bt.Gene.filter().delete()
+        ln.ULabel.filter().delete(permanent=True)
+        bt.ExperimentalFactor.filter().delete(permanent=True)
+        bt.CellType.filter().delete(permanent=True)
+        ln.Schema.filter().delete(permanent=True)
+        ln.Feature.filter().delete(permanent=True)
+        bt.Gene.filter().delete(permanent=True)
 
 
 def test_soma_curator_genes_columns(adata, clean_soma_files):  # noqa: F811
@@ -628,12 +628,12 @@ def test_soma_curator_genes_columns(adata, clean_soma_files):  # noqa: F811
     finally:
         # clean up
         artifact.delete(permanent=True)
-        ln.ULabel.filter().delete()
-        bt.ExperimentalFactor.filter().delete()
-        bt.CellType.filter().delete()
-        ln.Schema.filter().delete()
-        ln.Feature.filter().delete()
-        bt.Gene.filter().delete()
+        ln.ULabel.filter().delete(permanent=True)
+        bt.ExperimentalFactor.filter().delete(permanent=True)
+        bt.CellType.filter().delete(permanent=True)
+        ln.Schema.filter().delete(permanent=True)
+        ln.Feature.filter().delete(permanent=True)
+        bt.Gene.filter().delete(permanent=True)
 
 
 def test_spatialdata_curator():
@@ -761,10 +761,10 @@ def test_spatialdata_curator():
 
     finally:
         artifact.delete(permanent=True)
-        ln.ULabel.filter().delete()
-        bt.ExperimentalFactor.filter().delete()
-        bt.Disease.filter().delete()
-        bt.DevelopmentalStage.filter().delete()
-        ln.Schema.filter().delete()
-        bt.Gene.filter().delete()
-        ln.Feature.filter().delete()
+        ln.ULabel.filter().delete(permanent=True)
+        bt.ExperimentalFactor.filter().delete(permanent=True)
+        bt.Disease.filter().delete(permanent=True)
+        bt.DevelopmentalStage.filter().delete(permanent=True)
+        ln.Schema.filter().delete(permanent=True)
+        bt.Gene.filter().delete(permanent=True)
+        ln.Feature.filter().delete(permanent=True)

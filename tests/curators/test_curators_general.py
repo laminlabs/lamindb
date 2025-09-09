@@ -226,8 +226,8 @@ def test_pandera_dataframe_schema(
     ).validate()
 
     # clean up
-    ln.Schema.filter().delete()
-    ln.Feature.filter().delete()
+    ln.Schema.filter().delete(permanent=True)
+    ln.Feature.filter().delete(permanent=True)
 
 
 def test_schema_not_saved(df):
@@ -257,8 +257,8 @@ def test_schema_artifact_annotated(df):
 
     # clean up
     af.delete(permanent=True)
-    ln.Schema.filter().delete()
-    ln.Feature.filter().delete()
+    ln.Schema.filter().delete(permanent=True)
+    ln.Feature.filter().delete(permanent=True)
 
 
 def test_schema_optionals():
@@ -292,8 +292,8 @@ def test_schema_optionals():
     assert schema.optionals.get().to_list("name") == ["sample_name", "sample_type"]
 
     # clean up
-    ln.Schema.filter().delete()
-    ln.Feature.filter().delete()
+    ln.Schema.filter().delete(permanent=True)
+    ln.Feature.filter().delete(permanent=True)
 
 
 def test_schema_ordered_set(df):
@@ -316,8 +316,8 @@ def test_schema_ordered_set(df):
     assert ln.curators.DataFrameCurator(df, schema=schema).validate() is None
 
     # clean up
-    ln.Schema.filter().delete()
-    ln.Feature.filter().delete()
+    ln.Schema.filter().delete(permanent=True)
+    ln.Feature.filter().delete(permanent=True)
 
 
 @pytest.mark.parametrize("minimal_set", [True, False])
@@ -434,7 +434,7 @@ def test_feature_dtype_path():
 
     # clean up
     nextflow_schema.delete(permanent=True)
-    ln.Feature.filter().delete()
+    ln.Feature.filter().delete(permanent=True)
 
 
 def test_cat_filters_specific_source_uid(df_disease, disease_ontology_old):
@@ -535,7 +535,7 @@ def test_curate_columns(df):
     curator.validate()
 
     schema.delete(permanent=True)
-    ln.Feature.filter().delete()
+    ln.Feature.filter().delete(permanent=True)
 
 
 def test_wrong_datatype(df):
@@ -598,7 +598,7 @@ def test_hash_index_feature(df):
     artifact.delete(permanent=True)
     schema_index.delete(permanent=True)
     schema.delete(permanent=True)
-    ln.Feature.filter().delete()
+    ln.Feature.filter().delete(permanent=True)
 
 
 def test_add_new_from_subtype(df):
@@ -628,9 +628,9 @@ def test_add_new_from_subtype(df):
 
     # clean up
     schema.delete(permanent=True)
-    ln.Feature.filter().delete()
+    ln.Feature.filter().delete(permanent=True)
     ln.Record.filter().update(type=None)
-    ln.Record.filter().delete()
+    ln.Record.filter().delete(permanent=True)
 
 
 def test_index_feature_exclusion_from_categoricals(df):
@@ -659,7 +659,7 @@ def test_index_feature_exclusion_from_categoricals(df):
 
     # clean up
     schema.delete(permanent=True)
-    ln.Feature.filter().delete()
+    ln.Feature.filter().delete(permanent=True)
 
 
 def test_artifact_standardize_errors(df):
@@ -676,5 +676,5 @@ def test_artifact_standardize_errors(df):
     )
 
     af.delete(permanent=True)
-    ln.Schema.filter().delete()
-    ln.Feature.filter().delete()
+    ln.Schema.filter().delete(permanent=True)
+    ln.Feature.filter().delete(permanent=True)

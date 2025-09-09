@@ -45,8 +45,8 @@ Here is how to create a feature:
     assert artifact not in ln.Artifact.filter(perturbation__isnull=True)
 
     artifact.delete(permanent=True)
-    ln.ULabel.filter().delete()
-    ln.Feature.filter().delete()
+    ln.ULabel.filter().delete(permanent=True)
+    ln.Feature.filter().delete(permanent=True)
 
 
 def test_features_add_external():
@@ -68,7 +68,7 @@ def test_features_add_external():
 
     artifact.delete(permanent=True)
     schema.delete(permanent=True)
-    ln.Feature.filter().delete()
+    ln.Feature.filter().delete(permanent=True)
 
 
 # below the test for annotating with feature values

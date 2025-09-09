@@ -32,8 +32,8 @@ def lists_schema():
     yield schema
 
     schema.delete(permanent=True)
-    ln.Feature.filter().delete()
-    bt.Tissue.filter().delete()
+    ln.Feature.filter().delete(permanent=True)
+    bt.Tissue.filter().delete(permanent=True)
 
 
 def test_curator_df_multivalue(df, lists_schema):
