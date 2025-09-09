@@ -948,17 +948,13 @@ class QuerySet(BasicQuerySet):
         """Query a set of records."""
         from lamindb.models import Artifact
 
-        if self.model is Artifact:
+        if (
+            not expressions.pop("_skip_filter_with_features", False)
+            and self.model is Artifact
+        ):
             from ._feature_manager import filter_with_features
 
-            self_class = type(self)
-            # copy the current queryset
-            qs = self.all()
-            # filter_with_features accepts only BasicQuerySet
-            qs.__class__ = BasicQuerySet
-            qs_result = filter_with_features(qs, *queries, **expressions)
-            qs_result.__class__ = self_class
-            return qs_result
+            return filter_with_features(self, *queries, **expressions)
 
         # Suggest to use __name for related fields such as id when not passed
         for field, value in expressions.items():

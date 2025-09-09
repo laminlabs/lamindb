@@ -693,8 +693,14 @@ def filter_base(
 def filter_with_features(
     queryset: BasicQuerySet, *queries, **expressions
 ) -> BasicQuerySet:
-    # not QuerySet but BasicQuerySet
-    assert type(queryset).__name__ in {"BasicQuerySet", "ArtifactBasicQuerySet"}  # noqa: S101
+    from .query_set import BasicQuerySet, QuerySet
+
+    if isinstance(queryset, QuerySet):
+        # need to avoid infinite recursion because
+        # filter_with_features is called in queryset.filter otherwise
+        filter_kwargs = {"_skip_filter_with_features": True}
+    else:
+        filter_kwargs = {}
 
     registry = queryset.model
 
@@ -702,7 +708,7 @@ def filter_with_features(
         keys_normalized = [key.split("__")[0] for key in expressions]
         field_or_feature_or_param = keys_normalized[0].split("__")[0]
         if field_or_feature_or_param in registry.__get_available_fields__():
-            qs = queryset.filter(*queries, **expressions)
+            qs = queryset.filter(*queries, **expressions, **filter_kwargs)
             if not any(e.startswith("kind") for e in expressions):
                 return qs.exclude(kind="__lamindb_run__")
             else:
@@ -712,11 +718,16 @@ def filter_with_features(
                 keys_normalized, field="name", mute=True
             )
         ):
-            return filter_base(
-                queryset,
+            qs = queryset.all()
+            # filter_base requires qs to be BasicQuerySet
+            qs.__class__ = BasicQuerySet
+            qs = filter_base(
+                qs,
                 _skip_validation=True,
                 **expressions,
             )
+            qs.__class__ = type(queryset)
+            return qs
         else:
             features = ", ".join(sorted(np.array(keys_normalized)[~features_validated]))
             message = f"feature names: {features}"
@@ -729,7 +740,9 @@ def filter_with_features(
                 f"Or fix invalid {message}"
             )
     else:
-        return queryset.filter(*queries, **expressions).exclude(kind="__lamindb_run__")
+        return queryset.filter(*queries, **expressions, **filter_kwargs).exclude(
+            kind="__lamindb_run__"
+        )
 
 
 # for deprecated functionality
