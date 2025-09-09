@@ -727,7 +727,7 @@ def filter_with_features(
                 **expressions,
             )
             qs.__class__ = type(queryset)
-            return qs
+            return qs.filter(*queries, **filter_kwargs)
         else:
             features = ", ".join(sorted(np.array(keys_normalized)[~features_validated]))
             message = f"feature names: {features}"
