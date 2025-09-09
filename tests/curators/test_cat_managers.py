@@ -152,10 +152,10 @@ def test_df_cat_manager(df):
         # no need to standardize
         cat_manager.standardize("cell_type")
     finally:
-        ln.ULabel.filter().delete()
-        bt.ExperimentalFactor.filter().delete()
-        bt.CellType.filter().delete()
-        ln.Schema.filter().delete()
+        ln.ULabel.filter().delete(permanent=True)
+        bt.ExperimentalFactor.filter().delete(permanent=True)
+        bt.CellType.filter().delete(permanent=True)
+        ln.Schema.filter().delete(permanent=True)
 
 
 def test_custom_using_invalid_field_lookup(curate_lookup):
@@ -254,10 +254,10 @@ def test_df_curator(df, categoricals):
     finally:
         # clean up
         artifact.delete(permanent=True)
-        ln.ULabel.filter().delete()
-        bt.ExperimentalFactor.filter().delete()
-        bt.CellType.filter().delete()
-        ln.Schema.filter().delete()
+        ln.ULabel.filter().delete(permanent=True)
+        bt.ExperimentalFactor.filter().delete(permanent=True)
+        bt.CellType.filter().delete(permanent=True)
+        ln.Schema.filter().delete(permanent=True)
 
 
 def test_pass_artifact(df):
@@ -280,8 +280,8 @@ def test_pass_artifact(df):
     finally:
         # clean up
         artifact.delete(permanent=True)
-        ln.ULabel.filter().delete()
-        ln.Schema.filter().delete()
+        ln.ULabel.filter().delete(permanent=True)
+        ln.Schema.filter().delete(permanent=True)
 
 
 @pytest.mark.parametrize("to_add", ["donor", "all"])
@@ -339,11 +339,11 @@ def test_anndata_curator(adata, categoricals, to_add):
     finally:
         # clean up
         artifact.delete(permanent=True)
-        ln.ULabel.filter().delete()
-        bt.ExperimentalFactor.filter().delete()
-        bt.CellType.filter().delete()
-        ln.Schema.filter().delete()
-        bt.Gene.filter().delete()
+        ln.ULabel.filter().delete(permanent=True)
+        bt.ExperimentalFactor.filter().delete(permanent=True)
+        bt.CellType.filter().delete(permanent=True)
+        ln.Schema.filter().delete(permanent=True)
+        bt.Gene.filter().delete(permanent=True)
 
 
 def test_str_var_index(adata):
@@ -451,11 +451,11 @@ def test_mudata_curator(mdata):
         # clean up
         if artifact:
             artifact.delete(permanent=True)
-        ln.ULabel.filter().delete()
-        bt.ExperimentalFactor.filter().delete()
-        bt.CellType.filter().delete()
-        ln.Schema.filter().delete()
-        bt.Gene.filter().delete()
+        ln.ULabel.filter().delete(permanent=True)
+        bt.ExperimentalFactor.filter().delete(permanent=True)
+        bt.CellType.filter().delete(permanent=True)
+        ln.Schema.filter().delete(permanent=True)
+        bt.Gene.filter().delete(permanent=True)
 
 
 def test_soma_curator(adata, categoricals, clean_soma_files):  # noqa: F811

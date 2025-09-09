@@ -28,7 +28,7 @@ def cxg_schema_factory():
         bt.CellType,
         ln.ULabel,
     ]:
-        entity.filter().delete()
+        entity.filter().delete(permanent=True)
 
 
 def test_cxg_curator_5(cxg_schema_factory):

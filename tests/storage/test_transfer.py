@@ -9,10 +9,10 @@ from lamindb.models._django import get_artifact_with_related
 def test_transfer_from_remote_to_local(ccaplog):
     """Test transfer from remote to local instance."""
 
-    bt.Gene.filter().delete()
-    bt.Organism.filter().delete()
-    ln.ULabel.filter().delete()
-    bt.CellType.filter().delete()
+    bt.Gene.filter().delete(permanent=True)
+    bt.Organism.filter().delete(permanent=True)
+    ln.ULabel.filter().delete(permanent=True)
+    bt.CellType.filter().delete(permanent=True)
 
     # test transfer from an instance with an extra schema module: wetlab
     # we also made sure that the artifact here has a wetlab label attached
