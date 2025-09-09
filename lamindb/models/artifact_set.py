@@ -28,6 +28,7 @@ UNORDERED_WARNING = (
 )
 
 
+# maybe make this abstract
 class ArtifactSet(Iterable):
     """Abstract class representing sets of artifacts returned by queries.
 
@@ -127,6 +128,11 @@ class ArtifactSet(Iterable):
 
 def artifacts_from_path(artifacts: ArtifactSet, path: UPathStr) -> ArtifactSet:
     """Returns artifacts in the query set that are registered for the provided path."""
+    from lamindb.models import BasicQuerySet, QuerySet
+
+    # not QuerySet but only BasicQuerySet
+    assert isinstance(artifacts, BasicQuerySet) and not isinstance(artifacts, QuerySet)  # noqa: S101
+
     upath = UPath(path)
 
     path_str = upath.as_posix()
@@ -135,12 +141,15 @@ def artifacts_from_path(artifacts: ArtifactSet, path: UPathStr) -> ArtifactSet:
     stem_len = len(stem)
 
     if stem_len == 16:
-        qs = artifacts.filter(  # type: ignore
+        qs = artifacts.filter(
             Q(_key_is_virtual=True) | Q(key__isnull=True),
             uid__startswith=stem,
         )
     elif stem_len == 20:
-        qs = artifacts.filter(Q(_key_is_virtual=True) | Q(key__isnull=True), uid=stem)  # type: ignore
+        qs = artifacts.filter(
+            Q(_key_is_virtual=True) | Q(key__isnull=True),
+            uid=stem,
+        )
     else:
         qs = None
 
@@ -148,7 +157,7 @@ def artifacts_from_path(artifacts: ArtifactSet, path: UPathStr) -> ArtifactSet:
         return qs
 
     qs = (
-        artifacts.filter(_key_is_virtual=False)  # type: ignore
+        artifacts.filter(_key_is_virtual=False)
         .alias(
             db_path=Concat("storage__root", Value("/"), "key", output_field=TextField())
         )

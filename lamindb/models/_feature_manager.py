@@ -23,7 +23,7 @@ from rich.table import Column, Table
 from rich.text import Text
 
 from lamindb.core.storage import LocalPathClasses
-from lamindb.errors import DoesNotExist, ValidationError
+from lamindb.errors import DoesNotExist, InvalidArgument, ValidationError
 from lamindb.models._from_values import _format_values
 from lamindb.models.feature import (
     serialize_pandas_dtype,
@@ -33,7 +33,6 @@ from lamindb.models.save import save
 from lamindb.models.schema import DICT_KEYS_TYPE, Schema
 from lamindb.models.sqlrecord import (
     REGISTRY_UNIQUE_FIELD,
-    Registry,
     get_name_field,
     transfer_fk_to_default_db_bulk,
     transfer_to_default_db,
@@ -65,7 +64,7 @@ if TYPE_CHECKING:
         Collection,
         IsLink,
     )
-    from lamindb.models.query_set import QuerySet
+    from lamindb.models.query_set import BasicQuerySet
 
     from .run import Run
 
@@ -100,7 +99,7 @@ def get_schema_by_slot_(host: Artifact) -> dict[str, Schema]:
 
 def get_label_links(
     host: Artifact | Collection, registry: str, feature: Feature
-) -> QuerySet:
+) -> BasicQuerySet:
     kwargs = {"artifact_id": host.id, "feature_id": feature.id}
     link_records = (
         getattr(host, host.features._accessor_by_registry[registry])  # type: ignore
@@ -110,7 +109,7 @@ def get_label_links(
     return link_records
 
 
-def get_schema_links(host: Artifact | Collection) -> QuerySet:
+def get_schema_links(host: Artifact | Collection) -> BasicQuerySet:
     kwargs = {"artifact_id": host.id}
     links_schema = host.feature_sets.through.objects.filter(**kwargs)
     return links_schema
@@ -562,21 +561,29 @@ def infer_feature_type_convert_json(
 
 
 def filter_base(
-    registry: Registry, _skip_validation: bool = True, **expression
-) -> QuerySet:
-    from .artifact import Artifact
+    queryset: BasicQuerySet,
+    _skip_validation: bool = True,
+    **expression,
+) -> BasicQuerySet:
+    from lamindb.models import Artifact, BasicQuerySet, QuerySet
+
+    # not QuerySet but only BasicQuerySet
+    assert isinstance(queryset, BasicQuerySet) and not isinstance(queryset, QuerySet)  # noqa: S101
+
+    registry = queryset.model
+    db = queryset.db
 
     model = Feature
     value_model = FeatureValue
     keys_normalized = [key.split("__")[0] for key in expression]
     if not _skip_validation:
-        validated = model.validate(keys_normalized, field="name", mute=True)
+        validated = model.using(db).validate(keys_normalized, field="name", mute=True)
         if sum(validated) != len(keys_normalized):
             raise ValidationError(
                 f"Some keys in the filter expression are not registered as features: {np.array(keys_normalized)[~validated]}"
             )
     new_expression = {}
-    features = model.filter(name__in=keys_normalized).all().distinct()
+    features = model.using(db).filter(name__in=keys_normalized).all().distinct()
     feature_param = "feature"
     for key, value in expression.items():
         split_key = key.split("__")
@@ -594,7 +601,7 @@ def filter_base(
                     from .artifact import ArtifactFeatureValue
 
                     if value:  # True
-                        return Artifact.objects.exclude(
+                        return queryset.exclude(
                             id__in=Subquery(
                                 ArtifactFeatureValue.objects.filter(
                                     featurevalue__feature=feature
@@ -602,7 +609,7 @@ def filter_base(
                             )
                         )
                     else:
-                        return Artifact.objects.exclude(
+                        return queryset.exclude(
                             id__in=Subquery(
                                 ArtifactFeatureValue.objects.filter(
                                     featurevalue__feature=feature
@@ -626,9 +633,9 @@ def filter_base(
                         f"links_{result['registry'].__name__.lower()}__feature": feature
                     }
                     if value:  # True
-                        return Artifact.objects.exclude(**kwargs)
+                        return queryset.exclude(**kwargs)
                     else:
-                        return Artifact.objects.filter(**kwargs)
+                        return queryset.filter(**kwargs)
             else:
                 # because SQL is sensitive to whether querying with __in or not
                 # and might return multiple equivalent records for the latter
@@ -642,7 +649,7 @@ def filter_base(
                     # we need the comparator here because users might query like so
                     # ln.Artifact.filter(experiment__contains="Experi")
                     expression = {f"{field_name}{comparator}": value}
-                    labels = result["registry"].filter(**expression).all()
+                    labels = result["registry"].using(db).filter(**expression).all()
                     if len(labels) == 0:
                         raise DoesNotExist(
                             f"Did not find a {label_registry.__name__} matching `{field_name}{comparator}={value}`"
@@ -668,9 +675,62 @@ def filter_base(
             # find artifacts that are annotated by all of them at the same
             # time; hence, we don't want the __in construct that we use to match strings
             # https://laminlabs.slack.com/archives/C04FPE8V01W/p1688328084810609
-    if not (new_expression):
+    if not new_expression:
         raise NotImplementedError
-    return registry.objects.filter(**new_expression)
+    return queryset.filter(**new_expression)
+
+
+def filter_with_features(
+    queryset: BasicQuerySet, *queries, **expressions
+) -> BasicQuerySet:
+    from lamindb.models import Artifact, BasicQuerySet, QuerySet
+
+    if isinstance(queryset, QuerySet):
+        # need to avoid infinite recursion because
+        # filter_with_features is called in queryset.filter otherwise
+        filter_kwargs = {"_skip_filter_with_features": True}
+    else:
+        filter_kwargs = {}
+
+    registry = queryset.model
+
+    if registry is Artifact and not any(e.startswith("kind") for e in expressions):
+        exclude_kwargs = {"kind": "__lamindb_run__"}
+    else:
+        exclude_kwargs = {}
+
+    if expressions:
+        keys_normalized = [key.split("__")[0] for key in expressions]
+        field_or_feature_or_param = keys_normalized[0].split("__")[0]
+        if field_or_feature_or_param in registry.__get_available_fields__():
+            qs = queryset.filter(*queries, **expressions, **filter_kwargs)
+        elif all(
+            features_validated := Feature.objects.using(queryset.db).validate(
+                keys_normalized, field="name", mute=True
+            )
+        ):
+            # filter_base requires qs to be BasicQuerySet
+            qs = filter_base(
+                queryset._to_class(BasicQuerySet, copy=True),
+                _skip_validation=True,
+                **expressions,
+            )._to_class(type(queryset), copy=False)
+            qs = qs.filter(*queries, **filter_kwargs)
+        else:
+            features = ", ".join(sorted(np.array(keys_normalized)[~features_validated]))
+            message = f"feature names: {features}"
+            avail_fields = registry.__get_available_fields__()
+            if "_branch_code" in avail_fields:
+                avail_fields.remove("_branch_code")  # backward compat
+            fields = ", ".join(sorted(avail_fields))
+            raise InvalidArgument(
+                f"You can query either by available fields: {fields}\n"
+                f"Or fix invalid {message}"
+            )
+    else:
+        qs = queryset.filter(*queries, **filter_kwargs)
+
+    return qs.exclude(**exclude_kwargs) if exclude_kwargs else qs
 
 
 # for deprecated functionality
@@ -765,7 +825,7 @@ class FeatureManager:
         return describe_features(self._host, to_dict=True)  # type: ignore
 
     @deprecated("slots[slot].members")
-    def __getitem__(self, slot) -> QuerySet:
+    def __getitem__(self, slot) -> BasicQuerySet:
         if slot not in self.slots:
             raise ValueError(
                 f"No linked feature set for slot: {slot}\nDid you get validation"

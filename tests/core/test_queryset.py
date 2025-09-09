@@ -9,6 +9,7 @@ import pytest
 from django.core.exceptions import FieldError
 from lamindb.base.users import current_user_id
 from lamindb.errors import InvalidArgument
+from lamindb.models import ArtifactSet, BasicQuerySet, QuerySet
 from lamindb.models.query_set import DoesNotExist
 
 
@@ -209,3 +210,22 @@ def test_get_doesnotexist_error():
         f"Did you forget a keyword as in ULabel.get(name='{non_existent_label}')?"
         in error_message
     )
+
+
+def test_to_class():
+    qs = ln.Artifact.filter()
+    assert isinstance(qs, QuerySet)
+    assert isinstance(qs, ArtifactSet)
+
+    qs_copy = qs._to_non_basic(copy=True)
+    assert isinstance(qs_copy, QuerySet)
+    assert isinstance(qs_copy, ArtifactSet)
+
+    qs_basic = qs._to_basic(copy=True)
+    assert isinstance(qs_basic, BasicQuerySet)
+    assert isinstance(qs_basic, ArtifactSet)
+    assert not isinstance(qs_basic, QuerySet)
+
+    qs_basic._to_non_basic(copy=False)
+    assert isinstance(qs_basic, QuerySet)
+    assert isinstance(qs_basic, ArtifactSet)
