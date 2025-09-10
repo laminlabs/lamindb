@@ -821,14 +821,25 @@ class BasicQuerySet(models.QuerySet):
         from lamindb.models import Artifact, Collection, Run, Storage, Transform
 
         # all these models have non-trivial delete behavior, hence we need to handle in a loop
-        if self.model in {Artifact, Collection, Transform, Run, Storage}:
+        if self.model in {Artifact, Collection, Transform, Run}:
             for record in self:
-                record.delete(*args, permanent=permanent, **kwargs)  # type: ignore
+                record.delete(*args, permanent=permanent, **kwargs)
+        elif self.model is Storage:  # storage does not have soft delete
+            if permanent is False:
+                logger.warning(
+                    "the Storage registry doesn't support soft delete, hard deleting"
+                )
+            for record in self:
+                record.delete()
         else:
             if not permanent and hasattr(self.model, "branch_id"):
                 logger.warning("moved records to trash (branch_id = -1)")
                 self.update(branch_id=-1)
             else:
+                if permanent is False:
+                    logger.warning(
+                        f"model {self.model.__name__} doesn't support soft delete, hard deleting"
+                    )
                 super().delete(*args, **kwargs)
 
     def to_list(self, field: str | None = None) -> list[SQLRecord] | list[str]:
