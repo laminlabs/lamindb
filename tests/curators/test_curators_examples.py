@@ -47,7 +47,18 @@ def small_dataset1_schema():
 
     yield schema
 
-    schema.delete(permanent=True)
+    for af in ln.Artifact.filter():
+        af.delete(permanent=True)
+
+    from lamindb.models import SchemaComponent
+
+    SchemaComponent.filter().delete(permanent=True)
+    ln.Schema.filter().delete(permanent=True)
+    ln.Feature.filter().delete(permanent=True)
+    bt.Gene.filter().delete(permanent=True)
+    ln.ULabel.filter(type__isnull=False).delete(permanent=True)
+    ln.ULabel.filter().delete(permanent=True)
+    bt.CellType.filter().delete(permanent=True)
 
 
 @pytest.fixture(scope="module")
@@ -160,20 +171,20 @@ def spatialdata_blobs_schema():
 
     yield sdata_schema
 
-    # get components
-    sample_schema = sdata_schema.slots["attrs:bio"]
-    tech_schema = sdata_schema.slots["attrs:tech"]
-    attrs_schema = sdata_schema.slots["attrs"]
-    obs_schema = sdata_schema.slots["tables:table:obs"]
-    varT_schema = sdata_schema.slots["tables:table:var.T"]
+    for af in ln.Artifact.filter():
+        af.delete(permanent=True)
 
-    # delete
-    sdata_schema.delete(permanent=True)
-    sample_schema.delete(permanent=True)
-    tech_schema.delete(permanent=True)
-    attrs_schema.delete(permanent=True)
-    obs_schema.delete(permanent=True)
-    varT_schema.delete(permanent=True)
+    from lamindb.models import SchemaComponent
+
+    SchemaComponent.filter().delete(permanent=True)
+
+    ln.Schema.filter().delete(permanent=True)
+    bt.Gene.filter().delete(permanent=True)
+    ln.ULabel.filter(type__isnull=False).delete(permanent=True)
+    ln.ULabel.filter().delete(permanent=True)
+    bt.ExperimentalFactor.filter().delete(permanent=True)
+    bt.DevelopmentalStage.filter().delete(permanent=True)
+    bt.Disease.filter().delete(permanent=True)
 
 
 def test_dataframe_curator(small_dataset1_schema: ln.Schema):
