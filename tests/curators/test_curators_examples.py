@@ -52,13 +52,13 @@ def small_dataset1_schema():
 
     from lamindb.models import SchemaComponent
 
-    SchemaComponent.filter().delete()
-    ln.Schema.filter().delete()
-    ln.Feature.filter().delete()
-    bt.Gene.filter().delete()
-    ln.ULabel.filter(type__isnull=False).delete()
-    ln.ULabel.filter().delete()
-    bt.CellType.filter().delete()
+    SchemaComponent.filter().delete(permanent=True)
+    ln.Schema.filter().delete(permanent=True)
+    ln.Feature.filter().delete(permanent=True)
+    bt.Gene.filter().delete(permanent=True)
+    ln.ULabel.filter(type__isnull=False).delete(permanent=True)
+    ln.ULabel.filter().delete(permanent=True)
+    bt.CellType.filter().delete(permanent=True)
 
 
 @pytest.fixture(scope="module")
@@ -137,12 +137,13 @@ def mudata_papalexi21_subset_schema():
 
     for af in ln.Artifact.filter():
         af.delete(permanent=True)
-    ln.Schema.filter().delete()
-    ln.Feature.filter().delete()
-    bt.Gene.filter().delete()
-    ln.ULabel.filter(type__isnull=False).delete()
-    ln.ULabel.filter().delete()
-    bt.ExperimentalFactor.filter().delete()
+    ln.Schema.filter().delete(permanent=True)
+    ln.Feature.filter().delete(permanent=True)
+    bt.models.SchemaGene.filter().delete()
+    bt.Gene.filter().delete(permanent=True)
+    ln.ULabel.filter(type__isnull=False).delete(permanent=True)
+    ln.ULabel.filter().delete(permanent=True)
+    bt.ExperimentalFactor.filter().delete(permanent=True)
 
 
 @pytest.fixture(scope="module")
@@ -152,7 +153,7 @@ def study_metadata_schema():
     yield study_metadata_schema
 
     study_metadata_schema.delete(permanent=True)
-    ln.Feature.filter().delete()
+    ln.Feature.filter().delete(permanent=True)
 
 
 @pytest.fixture(scope="module")
@@ -161,8 +162,8 @@ def anndata_uns_schema():
 
     yield anndata_uns_schema
 
-    ln.Schema.filter().delete()
-    ln.Feature.filter().delete()
+    ln.Schema.filter().delete(permanent=True)
+    ln.Feature.filter().delete(permanent=True)
 
 
 @pytest.fixture(scope="module")
@@ -176,15 +177,16 @@ def spatialdata_blobs_schema():
 
     from lamindb.models import SchemaComponent
 
-    SchemaComponent.filter().delete()
+    SchemaComponent.filter().delete(permanent=True)
 
-    ln.Schema.filter().delete()
-    bt.Gene.filter().delete()
-    ln.ULabel.filter(type__isnull=False).delete()
-    ln.ULabel.filter().delete()
-    bt.ExperimentalFactor.filter().delete()
-    bt.DevelopmentalStage.filter().delete()
-    bt.Disease.filter().delete()
+    ln.Schema.filter().delete(permanent=True)
+    bt.models.SchemaGene.filter().delete()
+    bt.Gene.filter().delete(permanent=True)
+    ln.ULabel.filter(type__isnull=False).delete(permanent=True)
+    ln.ULabel.filter().delete(permanent=True)
+    bt.ExperimentalFactor.filter().delete(permanent=True)
+    bt.DevelopmentalStage.filter().delete(permanent=True)
+    bt.Disease.filter().delete(permanent=True)
 
 
 def test_dataframe_curator(small_dataset1_schema: ln.Schema):
@@ -412,7 +414,7 @@ def test_dataframe_attrs_validation(study_metadata_schema, include_attrs_slot):
 
     from lamindb.models import SchemaComponent
 
-    SchemaComponent.filter().delete()
+    SchemaComponent.filter().delete(permanent=True)
     artifact.delete(permanent=True)
     bad_schema.delete(permanent=True)
     schema.delete(permanent=True)

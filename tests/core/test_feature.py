@@ -173,9 +173,9 @@ def test_feature_from_df(df):
 
     # clean up
     artifact.delete(permanent=True)
-    ln.Schema.filter().delete()
-    ln.ULabel.filter().delete()
-    ln.Feature.filter().delete()
+    ln.Schema.filter().delete(permanent=True)
+    ln.ULabel.filter().delete(permanent=True)
+    ln.Feature.filter().delete(permanent=True)
 
 
 def test_feature_from_dict(dict_data):

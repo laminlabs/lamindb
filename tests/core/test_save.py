@@ -63,7 +63,7 @@ def test_save_parents():
     records = bt.CellLine.from_values(["HEPG2", "HUVEC"])
     ln.save(records)
     assert bt.CellLine.get("4ea731nb").parents.to_dataframe().shape[0] == 1
-    bt.CellLine.filter().delete()
+    bt.CellLine.filter().delete(permanent=True)
 
 
 def test_save_batch_size():

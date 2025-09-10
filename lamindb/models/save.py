@@ -47,11 +47,10 @@ def save(
 
     Args:
         records: Multiple :class:`~lamindb.models.SQLRecord` objects.
-        ignore_conflicts: If ``True``, do not error if some records violate a
-            unique or another constraint. However, it won't inplace update the id
-            fields of records. If you need records with ids, you need to query
-            them from the database.
-        batch_size: Number of records to process in each batch. Defaults to 10000.
+        ignore_conflicts: If `True`, do not error if some records violate a unique or another constraint.
+            However, it won't inplace update the id fields of records.
+            If you need records with ids, you need to query them from the database.
+        batch_size: Number of records to process in each batch.
             Large batch sizes can improve performance but may lead to memory issues.
 
     Examples:
@@ -130,7 +129,7 @@ def bulk_create(
     Args:
         records: Iterable of SQLRecord objects to create
         ignore_conflicts: Whether to ignore conflicts during creation
-        batch_size: Number of records to process in each batch. Defaults to 10000.
+        batch_size: Number of records to process in each batch.
     """
     records_by_orm = defaultdict(list)
     for record in records:
@@ -332,8 +331,7 @@ def store_artifacts(
     from .artifact import Artifact
 
     exception: Exception | None = None
-    # because uploads might fail, we need to maintain a new list
-    # of the succeeded uploads
+    # because uploads might fail, we need to maintain a new list of the succeeded uploads
     stored_artifacts = []
 
     # upload new local artifacts

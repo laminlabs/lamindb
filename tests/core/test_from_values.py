@@ -17,7 +17,7 @@ def df():
 
 
 def test_from_values_name(df):
-    bt.CellType.filter().delete()
+    bt.CellType.filter().delete(permanent=True)
     assert df["cell_type"].tolist() == ["T cell", "hepatocyte", "my new cell type"]
     # create records from bionty
     result = bt.CellType.from_values(df.cell_type, "name")
@@ -86,7 +86,7 @@ def test_from_values_synonyms_aware():
     assert records[0].name == "T cell"
     assert isinstance(records[0].source, bt.Source)
     assert records[0].ontology_id == "CL:0000084"
-    bt.CellType.filter().delete()
+    bt.CellType.filter().delete(permanent=True)
 
 
 def test_standardize():

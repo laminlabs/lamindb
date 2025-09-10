@@ -22,7 +22,7 @@ def df():
 def test_schema_from_values():
     gene_symbols = ["TCF7", "MYC"]
     bt.settings.organism = "human"
-    bt.Gene.filter(symbol__in=gene_symbols).all().delete()
+    bt.Gene.filter(symbol__in=gene_symbols).all().delete(permanent=True)
     with pytest.raises(ValidationError) as error:
         schema = ln.Schema.from_values(gene_symbols, bt.Gene.symbol, dtype=int)
     assert error.exconly().startswith(
@@ -106,8 +106,8 @@ def test_schema_from_df(df):
     ln.save(features)
     schema = ln.Schema.from_dataframe(df).save()
     assert schema.dtype is None
-    ln.Schema.filter().delete()
-    ln.Feature.filter().delete()
+    ln.Schema.filter().delete(permanent=True)
+    ln.Feature.filter().delete(permanent=True)
 
 
 def test_get_related_name():
@@ -154,12 +154,12 @@ def mini_immuno_schema_flexible():
 
     yield schema
 
-    ln.Schema.filter().delete()
-    ln.Feature.filter().delete()
-    bt.Gene.filter().delete()
-    ln.ULabel.filter(type__isnull=False).delete()
-    ln.ULabel.filter().delete()
-    bt.CellType.filter().delete()
+    ln.Schema.filter().delete(permanent=True)
+    ln.Feature.filter().delete(permanent=True)
+    bt.Gene.filter().delete(permanent=True)
+    ln.ULabel.filter(type__isnull=False).delete(permanent=True)
+    ln.ULabel.filter().delete(permanent=True)
+    bt.CellType.filter().delete(permanent=True)
 
 
 def test_schema_update_implicit_through_name_equality(

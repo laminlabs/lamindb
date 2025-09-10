@@ -222,8 +222,8 @@ def test_curate_df():
     ln.Schema.get(name="anndata_ensembl_gene_ids_and_valid_features_in_obs").delete(
         permanent=True
     )
-    ln.Schema.filter().delete()
-    ln.Feature.filter().delete()
-    bt.Gene.filter().delete()
-    ln.ULabel.filter().delete()
-    bt.CellType.filter().delete()
+    ln.Schema.filter().delete(permanent=True)
+    ln.Feature.filter().delete(permanent=True)
+    bt.Gene.filter().delete(permanent=True)
+    ln.ULabel.filter().delete(permanent=True)
+    bt.CellType.filter().delete(permanent=True)

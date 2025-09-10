@@ -6,8 +6,8 @@ from lamindb.errors import ValidationError
 
 # some validate tests are in test_queryset
 def test_inspect():
-    ln.Schema.filter().delete()
-    bt.Gene.filter().delete()
+    ln.Schema.filter().delete(permanent=True)
+    bt.Gene.filter().delete(permanent=True)
     bt.settings.organism = "human"
     result = bt.Gene.inspect("TCF7", "symbol")
     assert result.validated == []
@@ -19,7 +19,7 @@ def test_inspect():
     assert result.validated == ["TCF7"]
 
     # clean up
-    bt.Gene.filter().delete()
+    bt.Gene.filter().delete(permanent=True)
 
 
 # if a record was added to the DB via a different source
@@ -50,7 +50,7 @@ def test_inspect_source():
         bt.CellType.standardize("T-cell", source=source2, mute=True, strict_source=True)
         == "T cell"
     )
-    bt.CellType.filter().delete()
+    bt.CellType.filter().delete(permanent=True)
 
 
 def test_standardize():
@@ -81,7 +81,7 @@ def test_standardize_source_aware():
 
 
 def test_add_remove_synonym():
-    bt.CellType.filter().delete()
+    bt.CellType.filter().delete(permanent=True)
 
     # a registry that doesn't have a synonyms column
     user = ln.User.get(handle="testuser1")
@@ -119,11 +119,11 @@ def test_add_remove_synonym():
     tcell.remove_synonym("my cell type")
 
     # clean up
-    bt.CellType.filter().delete()
+    bt.CellType.filter().delete(permanent=True)
 
 
 def test_set_abbr():
-    bt.CellType.filter().delete()
+    bt.CellType.filter().delete(permanent=True)
     bt.CellType(name="my cell type").save()
     record = bt.CellType.get(name="my cell type")
     # if abbr is name, do not add to synonyms
@@ -164,4 +164,4 @@ def test_synonym_mapping():
     )
     assert result.synonyms_mapper == {}
 
-    bt.Gene.filter().delete()
+    bt.Gene.filter().delete(permanent=True)

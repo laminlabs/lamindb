@@ -16,10 +16,10 @@ def cxg_schema_factory():
     yield create_schema
 
     # Cleanup after all tests
-    ln.models.SchemaComponent.filter().delete()
-    ln.Schema.filter().delete()
-    ln.Feature.filter().delete()
-    ln.ULabel.filter(type__isnull=False).delete()
+    ln.models.SchemaComponent.filter().delete(permanent=True)
+    ln.Schema.filter().delete(permanent=True)
+    ln.Feature.filter().delete(permanent=True)
+    ln.ULabel.filter(type__isnull=False).delete(permanent=True)
     for entity in [
         bt.Disease,
         bt.Ethnicity,
@@ -28,7 +28,7 @@ def cxg_schema_factory():
         bt.CellType,
         ln.ULabel,
     ]:
-        entity.filter().delete()
+        entity.filter().delete(permanent=True)
 
 
 def test_cxg_curator_5(cxg_schema_factory):
