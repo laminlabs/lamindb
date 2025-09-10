@@ -7,15 +7,12 @@ pip install lamindb
 You can configure the installation using `extras`, e.g.,
 
 ```shell
-pip install 'lamindb[jupyter,bionty]'
+pip install 'lamindb[gcp]'
 ```
 
 Supported `extras` are:
 
 ```yaml
-# commonly used
-jupyter   # parse Jupyter notebook metadata
-bionty    # basic biological ontologies
 # cloud backends (AWS is assumed)
 gcp       # Google Cloud (gcfs, etc.)
 # biological artifact formats

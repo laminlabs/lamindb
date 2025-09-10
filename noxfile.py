@@ -50,7 +50,7 @@ def install(session):
         "./sub/bionty",
     ]
     top_deps = [
-        ".[dev,bionty,jupyter]",
+        ".[dev]",
     ]
     cmds = [
         f"uv pip install {'--system' if CI else ''} --no-cache-dir {' '.join(base_deps)}",
@@ -81,7 +81,7 @@ def install(session):
 def install_ci(session, group):
     extras = ""
     if group == "unit-core":
-        extras += "bionty,zarr,fcs,jupyter"
+        extras += "zarr,fcs"
         # tiledbsoma dependency, specifying it here explicitly
         # otherwise there are problems with uv resolver
         run(session, "uv pip install --system scanpy")
@@ -100,26 +100,25 @@ def install_ci(session, group):
         run(session, "uv pip install --system tiledbsoma")
         run(session, "uv pip install --system polars")
     elif group == "tutorial":
-        extras += "jupyter,bionty"
         # anndata here to prevent installing older version on release
         run(session, "uv pip install --system huggingface_hub polars anndata==0.12.1")
     elif group == "guide":
-        extras += "bionty,zarr,jupyter"
+        extras += "zarr"
         run(session, "uv pip install --system scanpy mudata spatialdata tiledbsoma")
     elif group == "biology":
-        extras += "bionty,fcs,jupyter"
+        extras += "fcs"
         run(session, "uv pip install --system ipywidgets")
     elif group == "faq":
-        extras += "bionty,jupyter,zarr"
+        extras += "zarr"
     elif group == "storage":
-        extras += "zarr,bionty,jupyter"
+        extras += "zarr"
         run(
             session,
             "uv pip install --system --no-deps ./sub/wetlab",
         )
         run(session, "uv pip install --system vitessce")
     elif group == "curator":
-        extras += "zarr,jupyter,bionty"
+        extras += "zarr"
         run(
             session,
             "uv pip install --system --no-deps ./sub/wetlab",
@@ -146,7 +145,7 @@ def install_ci(session, group):
             "uv pip install --system --no-deps ./sub/wetlab",
         )
     elif group == "cli":
-        extras += "jupyter,bionty"
+        pass
     elif group == "permissions":
         run(
             session,

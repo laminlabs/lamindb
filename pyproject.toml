@@ -19,9 +19,16 @@ dependencies = [
     "lamin_utils==0.15.0",
     "lamin_cli==1.7.0",
     "lamindb_setup[aws]==1.10.0",
-    # Lamin OPTIONAL packages (but included to avoid users forgetting about passing extras)
+    # Lamin OPTIONAL packages, included to avoid users forgetting about passing extras,
+    # which has happened very often these past years
+    # these are small packages with few dependencies
     "bionty>=1.7a1", # do NOT pin, is bounded in bionty
     "wetlab>=1.5a1", # do NOT pin, is bounded in wetlab
+    # Jupyter -- these are also small packages with few & small dependencies
+    "nbproject==0.11.1",  # keep pinning
+    "jupytext",
+    "nbconvert>=7.2.1", # avoid lxml[html_clean] dependency
+    "mistune!=3.1.0",  # there is a bug in it
     # Others
     "pyyaml",
     "pyarrow",
@@ -45,21 +52,12 @@ Home = "https://github.com/laminlabs/lamindb"
 gcp = [
     "lamindb_setup[gcp]",
 ]
-jupyter = [
-    "nbproject==0.11.1",  # keep pinning
-    "jupytext",
-    "nbconvert>=7.2.1", # avoid lxml[html_clean] dependency
-    "mistune!=3.1.0",  # there is a bug in it
-]
 zarr = [
     "numcodecs<0.16.0", # 0.16.0 breaks zarr<3.0.*
     "zarr>=2.16.0,<3.0.0a0", # not yet compatible with 3.0.*
 ]
 fcs = [
     "readfcs>=2.0.1",
-]
-clinicore = [
-    "clinicore>=1.2.1"   # do NOT pin, is bounded in clinicore
 ]
 dev = [
     # basic test

@@ -19,7 +19,7 @@ It lets you track data transformations, validate & annotate datasets, and query 
 Install the `lamindb` Python package:
 
 ```shell
-pip install 'lamindb[jupyter,bionty]'  # support notebooks & biological ontologies
+pip install lamindb
 ```
 
 Create a LaminDB instance:
