@@ -783,6 +783,7 @@ class BasicQuerySet(models.QuerySet):
 
         Args:
             permanent: Whether to permanently delete the record (skips trash).
+                Is only relevant for records that have the `branch` field.
 
         Note:
             Calling `delete()` twice on the same queryset does NOT permanently delete in bulk operations.
@@ -801,7 +802,7 @@ class BasicQuerySet(models.QuerySet):
             for record in self:
                 record.delete(*args, permanent=permanent, **kwargs)  # type: ignore
         else:
-            if not permanent or not hasattr(self.model, "branch_id"):
+            if not permanent and hasattr(self.model, "branch_id"):
                 logger.warning("moved records to trash (branch_id = -1)")
                 self.update(branch_id=-1)
             else:
