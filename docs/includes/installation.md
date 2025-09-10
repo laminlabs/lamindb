@@ -17,6 +17,8 @@ Supported `extras` are:
 gcp       # Google Cloud (gcfs, etc.)
 # biological artifact formats
 fcs       # FCS artifacts (flow cytometry)
+# storage backends
+zarr      # store & stream arrays with zarr
 ```
 
 If you'd like to install from GitHub, see [here](https://github.com/laminlabs/lamindb/blob/main/README.md).
