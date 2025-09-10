@@ -139,6 +139,7 @@ def mudata_papalexi21_subset_schema():
         af.delete(permanent=True)
     ln.Schema.filter().delete(permanent=True)
     ln.Feature.filter().delete(permanent=True)
+    bt.models.SchemaGene.filter().delete()
     bt.Gene.filter().delete(permanent=True)
     ln.ULabel.filter(type__isnull=False).delete(permanent=True)
     ln.ULabel.filter().delete(permanent=True)
@@ -179,6 +180,7 @@ def spatialdata_blobs_schema():
     SchemaComponent.filter().delete(permanent=True)
 
     ln.Schema.filter().delete(permanent=True)
+    bt.models.SchemaGene.filter().delete()
     bt.Gene.filter().delete(permanent=True)
     ln.ULabel.filter(type__isnull=False).delete(permanent=True)
     ln.ULabel.filter().delete(permanent=True)
