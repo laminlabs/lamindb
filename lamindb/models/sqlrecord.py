@@ -1024,7 +1024,7 @@ class Space(BaseSQLRecord):
         *args,
         **kwargs,
     ):
-        if "uid" not in kwargs:
+        if not args and "uid" not in kwargs:
             warn = False
             msg = ""
             isettings = setup_settings.instance
