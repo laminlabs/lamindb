@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Generic, NamedTuple, TypeVar, Union
 
 import pandas as pd
-from django.core.exceptions import FieldDoesNotExist, FieldError
+from django.core.exceptions import FieldError
 from django.db import models
 from django.db.models import F, ForeignKey, ManyToManyField, Q, Subquery
 from django.db.models.fields.related import ForeignObjectRel
@@ -796,25 +796,16 @@ class BasicQuerySet(models.QuerySet):
         """
         from lamindb.models import Artifact, Collection, Run, Storage, Transform
 
-        # both Transform & Run might reference artifacts
+        # all these models have non-trivial delete behavior, hence we need to handle in a loop
         if self.model in {Artifact, Collection, Transform, Run, Storage}:
             for record in self:
                 record.delete(*args, permanent=permanent, **kwargs)  # type: ignore
         else:
-            if not permanent:
-                try:
-                    self.update(branch_id=-1)
-                except FieldDoesNotExist:
-                    logger.important(
-                        "records cannot be moved to trash. Deleted records."
-                    )
-                    super().delete(*args, **kwargs)
+            if not permanent or not hasattr(self.model, "branch_id"):
+                logger.warning("moved records to trash (branch_id = -1)")
+                self.update(branch_id=-1)
             else:
                 super().delete(*args, **kwargs)
-        if not permanent:
-            logger.warning("moved records to trash (branch_id = -1)")
-        else:
-            logger.important("deleted records")
 
     def to_list(self, field: str | None = None) -> list[SQLRecord] | list[str]:
         """Populate an (unordered) list with the results.
