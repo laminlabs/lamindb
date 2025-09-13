@@ -442,12 +442,6 @@ def get_artifact_kwargs_from_data(
     else:
         local_filepath = path
         cloud_filepath = None
-    privates = {
-        "local_filepath": local_filepath,
-        "cloud_filepath": cloud_filepath,
-        "memory_rep": memory_rep,
-        "check_path_in_storage": check_path_in_storage,
-    }
 
     stat_or_artifact = get_stat_or_artifact(
         path=path,
@@ -455,11 +449,26 @@ def get_artifact_kwargs_from_data(
         instance=using_key,
         is_replace=is_replace,
     )
+    privates = {
+        "local_filepath": local_filepath,
+        "cloud_filepath": cloud_filepath,
+        "memory_rep": memory_rep,
+        "check_path_in_storage": check_path_in_storage,
+    }
     if isinstance(stat_or_artifact, Artifact):
         existing_artifact = stat_or_artifact
         if run is not None:
             existing_artifact._populate_subsequent_runs(run)
-        return existing_artifact, privates
+        # if the artifact was unsuccessfully saved, we want to
+        # enable re-uploading after returning the artifact record
+        # the upload is triggered by whether the privates are returned
+        # because we do not want to upload the exact same file again
+        # we return None here if _is_saved_to_storage_location is not False
+        if existing_artifact._is_saved_to_storage_location is False:
+            return_privates = privates
+        else:
+            return_privates = None
+        return existing_artifact, return_privates
     else:
         size, hash, hash_type, n_files, revises = stat_or_artifact
 
@@ -2889,10 +2898,13 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             self._to_store = True
 
         # _is_saved_to_storage_location indicates whether the saving / upload process is successful
+        # it might be True if an artifact was already uploaded or False in case of a failed upload
+        # it is None for new artifacts and artifacts that were created with lamindb versions prior
+        # to June 2025
         flag_complete = hasattr(self, "_local_filepath") and getattr(
             self, "_to_store", False
         )
-        if flag_complete:
+        if flag_complete and self._is_saved_to_storage_location is None:
             self._is_saved_to_storage_location = (
                 False  # will be updated to True at the end
             )
