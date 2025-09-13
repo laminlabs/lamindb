@@ -436,6 +436,19 @@ def get_artifact_kwargs_from_data(
     else:
         storage = storage
 
+    if not isinstance(path, LocalPathClasses):
+        local_filepath = None
+        cloud_filepath = path
+    else:
+        local_filepath = path
+        cloud_filepath = None
+    privates = {
+        "local_filepath": local_filepath,
+        "cloud_filepath": cloud_filepath,
+        "memory_rep": memory_rep,
+        "check_path_in_storage": check_path_in_storage,
+    }
+
     stat_or_artifact = get_stat_or_artifact(
         path=path,
         key=key,
@@ -446,7 +459,7 @@ def get_artifact_kwargs_from_data(
         existing_artifact = stat_or_artifact
         if run is not None:
             existing_artifact._populate_subsequent_runs(run)
-        return existing_artifact, None
+        return existing_artifact, privates
     else:
         size, hash, hash_type, n_files, revises = stat_or_artifact
 
@@ -491,18 +504,6 @@ def get_artifact_kwargs_from_data(
         "run": run,
         "_key_is_virtual": key_is_virtual,
         "revises": revises,
-    }
-    if not isinstance(path, LocalPathClasses):
-        local_filepath = None
-        cloud_filepath = path
-    else:
-        local_filepath = path
-        cloud_filepath = None
-    privates = {
-        "local_filepath": local_filepath,
-        "cloud_filepath": cloud_filepath,
-        "memory_rep": memory_rep,
-        "check_path_in_storage": check_path_in_storage,
     }
     return kwargs, privates
 
@@ -1651,6 +1652,13 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             overwrite_versions=overwrite_versions,
         )
 
+        def set_private_attributes():
+            if data is not None:
+                self._local_filepath = privates["local_filepath"]
+                self._cloud_filepath = privates["cloud_filepath"]
+                self._memory_rep = privates["memory_rep"]
+                self._to_store = not privates["check_path_in_storage"]
+
         # an object with the same hash already exists
         if isinstance(kwargs_or_artifact, Artifact):
             from .sqlrecord import init_self_from_db, update_attributes
@@ -1665,6 +1673,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                     f"key {self.key} on existing artifact differs from passed key {key}"
                 )
             update_attributes(self, attr_to_update)
+            # an existing artifact might have an imcomplete upload and hence we should
+            # re-populate _local_filepath because this is what triggers the upload
+            set_private_attributes()
             return None
         else:
             kwargs = kwargs_or_artifact
@@ -1672,11 +1683,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         if revises is None:
             revises = kwargs_or_artifact.pop("revises")
 
-        if data is not None:
-            self._local_filepath = privates["local_filepath"]
-            self._cloud_filepath = privates["cloud_filepath"]
-            self._memory_rep = privates["memory_rep"]
-            self._to_store = not privates["check_path_in_storage"]
+        set_private_attributes()
 
         if is_automanaged_path and _is_internal_call:
             kwargs["_key_is_virtual"] = True
