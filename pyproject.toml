@@ -17,8 +17,8 @@ classifiers = [
 dependencies = [
     # Lamin PINNED packages
     "lamin_utils==0.15.0",
-    "lamin_cli==1.7.0",
-    "lamindb_setup[aws]==1.10.0",
+    "lamin_cli==1.7.1",
+    "lamindb_setup[aws]==1.10.1",
     # Lamin OPTIONAL packages, included to avoid users forgetting about passing extras,
     # which has happened very often these past years
     # these are small packages with few dependencies
