@@ -1662,7 +1662,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         )
 
         def set_private_attributes():
-            if data is not None:
+            if data is not None and privates is not None:
                 self._local_filepath = privates["local_filepath"]
                 self._cloud_filepath = privates["cloud_filepath"]
                 self._memory_rep = privates["memory_rep"]
