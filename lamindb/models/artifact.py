@@ -10,7 +10,7 @@ import fsspec
 import lamindb_setup as ln_setup
 import pandas as pd
 from anndata import AnnData
-from django.db import connections, models
+from django.db import ProgrammingError, connections, models
 from django.db.models import CASCADE, PROTECT, Q
 from django.db.models.functions import Length
 from lamin_utils import colors, logger
@@ -32,7 +32,7 @@ from lamindb.base.fields import (
     CharField,
     ForeignKey,
 )
-from lamindb.errors import FieldValidationError, UnknownStorageLocation
+from lamindb.errors import FieldValidationError, NoWriteAccess, UnknownStorageLocation
 from lamindb.models.query_set import QuerySet
 
 from ..base.users import current_user_id
@@ -3131,7 +3131,41 @@ def _track_run_input(
                 IsLink(run_id=run.id, collection_id=data_id)
                 for data_id in input_data_ids
             ]
-        IsLink.objects.bulk_create(links, ignore_conflicts=True)
+        try:
+            IsLink.objects.bulk_create(links, ignore_conflicts=True)
+        except ProgrammingError as e:
+            if "new row violates row-level security policy" in str(e):
+                instance = setup_settings.instance
+                available_spaces = instance.available_spaces
+                if available_spaces is None:
+                    raise NoWriteAccess(
+                        f"You’re not allowed to write to the instance {instance.slug}.\n"
+                        "Please contact administrators of the instance if you need write access."
+                    ) from None
+                write_access_spaces = (
+                    available_spaces["admin"] + available_spaces["write"]
+                )
+                no_write_access_spaces = {
+                    data_space
+                    for data in input_data
+                    if (data_space := data.space) not in write_access_spaces
+                }
+                if (run_space := run.space) not in write_access_spaces:
+                    no_write_access_spaces.add(run_space)
+                if len(no_write_access_spaces) > 1:
+                    name_msg = ", ".join(
+                        f"'{space.name}'" for space in no_write_access_spaces
+                    )
+                    space_msg = "spaces"
+                else:
+                    name_msg = f"'{no_write_access_spaces.pop().name}'"
+                    space_msg = "space"
+                raise NoWriteAccess(
+                    f"You’re not allowed to write to the {space_msg} {name_msg}.\n"
+                    f"Please contact administrators of the {space_msg} if you need write access."
+                ) from None
+            else:
+                raise e
 
 
 # privates currently dealt with separately

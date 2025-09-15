@@ -918,7 +918,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                 ):
                     raise NoWriteAccess(
                         f"You’re not allowed to write to the space '{self.space.name}'.\n"
-                        "Please contact an administrator of the space if you need write access."
+                        "Please contact administrators of the space if you need write access."
                     ) from None
                 else:
                     raise
