@@ -325,6 +325,7 @@ def test_tracking_error():
     with pytest.raises(ln.errors.NoWriteAccess) as e:
         _track_run_input(artifact, run)
     assert "You’re not allowed to write to the space " in str(e)
+    raise e
 
     # switch user role back to read
     with psycopg2.connect(pgurl) as conn, conn.cursor() as cur:
