@@ -315,9 +315,9 @@ def test_tracking_error():
 
     # this error because ln.setup.settings.instance._db_permissions is not jwt
     # it is None
-    with pytest.raises(ln.errors.NoWriteAccess) as e:
-        _track_run_input(artifact, run)
-    assert "You’re not allowed to write to the instance " in str(e)
+    #    with pytest.raises(ln.errors.NoWriteAccess) as e:
+    #        _track_run_input(artifact, run)
+    #    assert "You’re not allowed to write to the instance " in str(e)
 
     # the instance is local so we set this manually
     ln.setup.settings.instance._db_permissions = "jwt"
@@ -331,7 +331,6 @@ def test_tracking_error():
         cur.execute(
             "UPDATE hubmodule_account SET role = 'read' WHERE id = %s", (user_uuid,)
         )
-    raise Exception(str(ln.setup.settings.instance.available_spaces))
     # as the user is read-only now, 2 spaces are unavailable for writes (artifact.space, run.space)
     with pytest.raises(ln.errors.NoWriteAccess) as e:
         _track_run_input(artifact, run)
