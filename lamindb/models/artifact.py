@@ -3072,8 +3072,12 @@ def _track_run_input(
                 )
                 data.save()
                 is_valid = True
+            data_run_id, run_id = data.run_id, run.id
+            different_runs = (data_run_id != run_id) or (
+                data_run_id is None and run_id is None
+            )
             return (
-                data.run_id != run.id
+                different_runs
                 and not data._state.adding  # this seems duplicated with data._state.db is None
                 and is_valid
             )
@@ -3118,8 +3122,9 @@ def _track_run_input(
     if track_run_input:
         if run is None:
             raise ValueError("No run context set. Call `ln.track()`.")
-        # avoid adding the same run twice
-        run.save()
+        if run._state.adding:
+            # avoid adding the same run twice
+            run.save()
         if data_class_name == "artifact":
             IsLink = run.input_artifacts.through
             links = [
@@ -3152,7 +3157,6 @@ def _track_run_input(
                 }
                 if (run_space := run.space) not in write_access_spaces:
                     no_write_access_spaces.add(run_space)
-                raise Exception(str(write_access_spaces) + str(no_write_access_spaces))  # noqa
                 if len(no_write_access_spaces) > 1:
                     name_msg = ", ".join(
                         f"'{space.name}'" for space in no_write_access_spaces
