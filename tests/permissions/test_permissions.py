@@ -331,6 +331,7 @@ def test_tracking_error():
         cur.execute(
             "UPDATE hubmodule_account SET role = 'read' WHERE id = %s", (user_uuid,)
         )
+    raise Exception(str(ln.setup.settings.instance.available_spaces))
     # as the user is read-only now, 2 spaces are unavailable for writes (artifact.space, run.space)
     with pytest.raises(ln.errors.NoWriteAccess) as e:
         _track_run_input(artifact, run)

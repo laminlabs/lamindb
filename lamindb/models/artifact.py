@@ -3152,7 +3152,6 @@ def _track_run_input(
                 }
                 if (run_space := run.space) not in write_access_spaces:
                     no_write_access_spaces.add(run_space)
-                    raise Exception(str(no_write_access_spaces))  # noqa
                 if len(no_write_access_spaces) > 1:
                     name_msg = ", ".join(
                         f"'{space.name}'" for space in no_write_access_spaces
