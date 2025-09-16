@@ -10,6 +10,7 @@ import pytest
 from django.db import connection, transaction
 from django.db.utils import IntegrityError, InternalError, ProgrammingError
 from jwt_utils import sign_jwt
+from lamindb.models.artifact import _track_run_input
 from lamindb_setup.core.django import DBToken, db_token_manager
 from psycopg2.extensions import adapt
 
@@ -293,6 +294,27 @@ def test_write_role():
         )
 
     ln.ULabel(name="new label team default space").save()
+
+
+def test_tracking_error():
+    # switch user role to write to create the transform and run
+    with psycopg2.connect(pgurl) as conn, conn.cursor() as cur:
+        cur.execute(
+            "UPDATE hubmodule_account SET role = 'write' WHERE id = %s", (user_uuid,)
+        )
+
+    artifact = ln.Artifact.get(description="test tracking error")
+
+    transform = ln.Transform(key="My transform").save()
+    run = ln.Run(transform)
+
+    _track_run_input(artifact, run)
+
+    # switch user role back to read
+    with psycopg2.connect(pgurl) as conn, conn.cursor() as cur:
+        cur.execute(
+            "UPDATE hubmodule_account SET role = 'read' WHERE id = %s", (user_uuid,)
+        )
 
 
 def test_token_reset():
