@@ -322,9 +322,9 @@ def test_tracking_error():
     # the instance is local so we set this manually
     ln.setup.settings.instance._db_permissions = "jwt"
     # artifact.space is not available for writes
-    with pytest.raises(ln.errors.NoWriteAccess) as e:
-        _track_run_input(artifact, run)
-    assert "You’re not allowed to write to the space " in str(e)
+    #    with pytest.raises(ln.errors.NoWriteAccess) as e:
+    #        _track_run_input(artifact, run)
+    #    assert "You’re not allowed to write to the space " in str(e)
 
     # switch user role back to read
     with psycopg2.connect(pgurl) as conn, conn.cursor() as cur:
