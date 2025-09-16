@@ -10,6 +10,7 @@ import pytest
 from django.db import connection, transaction
 from django.db.utils import IntegrityError, InternalError, ProgrammingError
 from jwt_utils import sign_jwt
+from lamindb.models.artifact import _track_run_input
 from lamindb_setup.core.django import DBToken, db_token_manager
 from psycopg2.extensions import adapt
 
@@ -293,6 +294,49 @@ def test_write_role():
         )
 
     ln.ULabel(name="new label team default space").save()
+
+    with psycopg2.connect(pgurl) as conn, conn.cursor() as cur:
+        cur.execute(
+            "UPDATE hubmodule_team SET role = 'read' WHERE uid = 'teamuiduid11'",
+        )
+
+
+def test_tracking_error():
+    # switch user role to write to create the transform and run
+    with psycopg2.connect(pgurl) as conn, conn.cursor() as cur:
+        cur.execute(
+            "UPDATE hubmodule_account SET role = 'write' WHERE id = %s", (user_uuid,)
+        )
+
+    artifact = ln.Artifact.get(description="test tracking error")
+
+    transform = ln.Transform(key="My transform").save()
+    run = ln.Run(transform)  # unsaved, this is saved inside _track_run_input
+
+    # this error because ln.setup.settings.instance._db_permissions is not jwt
+    # it is None
+    with pytest.raises(ln.errors.NoWriteAccess) as e:
+        _track_run_input(artifact, run)
+    assert "You’re not allowed to write to the instance " in str(e)
+
+    # the instance is local so we set this manually
+    ln.setup.settings.instance._db_permissions = "jwt"
+    # artifact.space is not available for writes
+    with pytest.raises(ln.errors.NoWriteAccess) as e:
+        _track_run_input(artifact, run)
+    assert "You’re not allowed to write to the space " in str(e)
+
+    # switch user role back to read
+    with psycopg2.connect(pgurl) as conn, conn.cursor() as cur:
+        cur.execute(
+            "UPDATE hubmodule_account SET role = 'read' WHERE id = %s", (user_uuid,)
+        )
+    # as the user is read-only now, 2 spaces are unavailable for writes (artifact.space, run.space)
+    with pytest.raises(ln.errors.NoWriteAccess) as e:
+        _track_run_input(artifact, run)
+    assert "You’re not allowed to write to the spaces " in str(e)
+
+    ln.setup.settings.instance._db_permissions = None
 
 
 def test_token_reset():

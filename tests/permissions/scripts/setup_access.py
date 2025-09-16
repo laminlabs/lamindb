@@ -100,6 +100,11 @@ feature = ln.Feature(name="team_access_feature", dtype=float)
 feature.space = team_access
 feature.save()
 
+# artifact for testing tracking error
+artifact = ln.Artifact("README.md", description="test tracking error")
+artifact.space = select_access
+artifact.save()
+
 print("Created models")
 
 # save jwt db connection
