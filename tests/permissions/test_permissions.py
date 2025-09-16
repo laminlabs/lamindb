@@ -306,7 +306,7 @@ def test_tracking_error():
     artifact = ln.Artifact.get(description="test tracking error")
 
     transform = ln.Transform(key="My transform").save()
-    run = ln.Run(transform)
+    run = ln.Run(transform).save()
 
     _track_run_input(artifact, run)
 
