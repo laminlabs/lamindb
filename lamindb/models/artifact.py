@@ -339,7 +339,7 @@ def get_stat_or_artifact(
         artifact_with_same_hash_exists = result.filter(hash=hash).count() > 0
         if not artifact_with_same_hash_exists and len(result) > 0:
             logger.important(
-                f"creating new artifact version for key='{key}' (storage: '{storage.root_as_str}')"
+                f"creating new artifact version for key='{key}' (storage: '{storage.root}')"
             )
             previous_artifact_version = result[0]
     if artifact_with_same_hash_exists:
