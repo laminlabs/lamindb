@@ -600,9 +600,11 @@ class Context:
         if pypackages is None:
             pypackages = True
         description = None
+        if path.suffix == ".ipynb" and path.stem.startswith("Untitled"):
+            raise RuntimeError(
+                "Your notebook is untitled, please rename it before tracking"
+            )
         path_str = path.as_posix()
-        if path_str.endswith("Untitled.ipynb"):
-            raise RuntimeError("Please rename your notebook before tracking it")
         if path_str.startswith("/fileId="):
             logger.warning("tracking on Google Colab is experimental")
             path_str = get_notebook_key_colab()
