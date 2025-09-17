@@ -294,6 +294,7 @@ def process_data(
 
 def get_stat_or_artifact(
     path: UPath,
+    storage: Record,
     key: str | None = None,
     check_hash: bool = True,
     is_replace: bool = False,
@@ -331,14 +332,14 @@ def get_stat_or_artifact(
     else:
         result = (
             Artifact.objects.using(instance)
-            .filter(Q(hash=hash) | Q(key=key, storage=settings.storage.record))
+            .filter(Q(hash=hash) | Q(key=key, storage=storage))
             .order_by("-created_at")
             .all()
         )
         artifact_with_same_hash_exists = result.filter(hash=hash).count() > 0
         if not artifact_with_same_hash_exists and len(result) > 0:
             logger.important(
-                f"creating new artifact version for key='{key}' (storage: '{settings.storage.root_as_str}')"
+                f"creating new artifact version for key='{key}' (storage: '{storage.root_as_str}')"
             )
             previous_artifact_version = result[0]
     if artifact_with_same_hash_exists:
@@ -438,6 +439,7 @@ def get_artifact_kwargs_from_data(
 
     stat_or_artifact = get_stat_or_artifact(
         path=path,
+        storage=storage,
         key=key,
         instance=using_key,
         is_replace=is_replace,
