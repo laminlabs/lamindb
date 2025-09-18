@@ -561,6 +561,7 @@ def test_open_dataframe_artifact():
 
 
 def test_open_dataframe_collection():
+    previous_storage = ln.setup.settings.storage.root_as_str
     ln.settings.storage = "s3://lamindb-test/storage"
 
     df = pd.DataFrame({"feat1": [0, 0, 1, 1], "feat2": [6, 7, 8, 9]})
@@ -627,7 +628,7 @@ def test_open_dataframe_collection():
 
     Path("mini.csv").unlink(missing_ok=True)
 
-    ln.settings.storage = "s3://lamindb-test/storage"
+    ln.settings.storage = previous_storage
 
 
 def test_backed_wrong_suffix():
