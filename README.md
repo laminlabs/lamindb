@@ -53,9 +53,7 @@ ln.finish()  # finish the run
 
 <!-- from here on, slight deviation from preface.md, where all this is treated in the walk through in more depth -->
 
-The code snippet above creates an artifact in your instance. Artifacts represent datasets and models stored as files or folders in various formats.
-
-Running this code inside a script via `python create-fasta.py` produces the following data lineage.
+The code snippet above creates an artifact in your instance. Artifacts represent datasets and models stored as files or folders in various formats. Running the code inside a script via `python create-fasta.py` produces the following data lineage.
 
 ```python
 artifact = ln.Artifact.get(key="sample.fasta")  # query artifact by key
@@ -82,7 +80,7 @@ Data lineage is just one type of metadata to help analysis and model training th
 
 <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/6sofuDVvTANB0f480001.png" width="850">
 
-You can annotate artifacts with various ontologies. Let’s annotate the artifact with a built-in universal label ontology.
+You can annotate artifacts with various ontologies. Let’s annotate the artifact with a universal label ontology.
 
 ```python
 # create a label
@@ -91,9 +89,9 @@ my_experiment = ln.ULabel(name="My experiment").save()
 artifact.ulabels.add(my_experiment)
 ```
 
-Annotations help you organize your data collections and make it easier to find relevant data.
+Annotations help you organizing and finding artifacts.
 
-You can perform sophisticated queries using annotations and other properties of ontologies.
+You can perform sophisticated queries using annotations and fields.
 
 ```python
 # query with ulabel and artifact suffix
