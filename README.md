@@ -53,6 +53,8 @@ ln.finish()  # finish the run
 
 <!-- from here on, slight deviation from preface.md, where all this is treated in the walk through in more depth -->
 
+The code snippet above creates an artifact in your instance. Artifacts represent datasets and models stored as files or folders in various formats.
+
 Running this code inside a script via `python create-fasta.py` produces the following data lineage.
 
 ```python
@@ -79,6 +81,24 @@ ln.Artifact.get(transform__key="create-fasta.py")  # query artifact by transform
 Data lineage is just one type of metadata to help analysis and model training through queries, validation, and annotation. Here is a more [comprehensive example](https://lamin.ai/laminlabs/lamindata/artifact/9K1dteZ6Qx0EXK8g).
 
 <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/6sofuDVvTANB0f480001.png" width="850">
+
+You can annotate artifacts with various ontologies. Let’s annotate the artifact with a built-in universal label ontology.
+
+```python
+# create a label
+my_experiment = ln.ULabel(name="My experiment").save()
+# annotate the artifact with the label
+artifact.ulabels.add(my_experiment)
+```
+
+Annotations help you organize your data collections and make it easier to find relevant data.
+
+You can perform sophisticated queries using annotations and other properties of ontologies.
+
+```python
+# query with ulabel and artifact suffix
+ln.Artifact.filter(ulabels=my_experiment, suffix=".fasta").to_dataframe()
+```
 
 ## Docs
 
