@@ -59,6 +59,17 @@ def test_create_small_file_from_remote_path(
     ln.settings.creation.artifact_skip_size_hash = False
 
 
+def test_versioning_arifact_from_existing_path():
+    artifact1 = ln.Artifact("s3://lamindb-ci/test-data/test.parquet").save()
+    artifact2 = ln.Artifact(
+        "s3://lamindb-ci/test-data/test.csv", revises=artifact1
+    ).save()
+    assert artifact1.stem_uid == artifact2.stem_uid
+    assert artifact1.uid != artifact2.uid
+    artifact1.delete(permanent=True, storage=False)
+    artifact2.delete(permanent=True, storage=False)
+
+
 def test_create_big_file_from_remote_path():
     # the point of this test is check the multi-upload hash
     filepath_str = "s3://lamindb-test/core/human_immune.h5ad"
