@@ -5,12 +5,12 @@
 [![pypi](https://img.shields.io/pypi/v/lamindb?color=blue&label=pypi%20package)](https://pypi.org/project/lamindb)
 [![PyPI Downloads](https://img.shields.io/pepy/dt/lamindb?logo=pypi)](https://pepy.tech/project/lamindb)
 
-# LaminDB - A data framework for biology
+# LaminDB - A data lakehouse for biology
 
 <!-- first two sentences sync from preface.md -->
 
-LaminDB is an open-source data framework to enable learning at scale in computational biology.
-It lets you track data transformations, validate & annotate datasets, and query a built-in database for biological metadata & data structures.
+LaminDB is an open-source data lakehouse to enable learning at scale in biology.
+It lets you track data transformations and organize large collections of biological data structures through validation, annotation, queries, and search.
 
 ## Setup
 
@@ -71,24 +71,24 @@ artifact.describe()
 
 <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/BOTCBgHDAvwglN3U0002.png" width="550">
 
-You can also query artifacts by the script that created them.
+You can organize datasets with validation & annotation of any kind of metadata to then access them via queries & search. Here is a more [comprehensive example](https://lamin.ai/laminlabs/lamindata/artifact/9K1dteZ6Qx0EXK8g).
+
+<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/6sofuDVvTANB0f480002.png" width="850">
+
+For instance, to query artifacts by the script that created them, use:
 
 ```python
 ln.Artifact.filter(transform__key="create-fasta.py").to_dataframe()  # query artifacts by transform key
 ```
 
-Data lineage is just one type of metadata to help analysis and model training through queries, validation, and annotation. Here is a more [comprehensive example](https://lamin.ai/laminlabs/lamindata/artifact/9K1dteZ6Qx0EXK8g).
-
-<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/6sofuDVvTANB0f480002.png" width="850">
-
-If you just want to annotate an artifact with a label, use the universal label ontology:
+To annotate an artifact with a label, use:
 
 ```python
-my_experiment = ln.ULabel(name="My experiment").save()  # create a label
+my_experiment = ln.ULabel(name="My experiment").save()  # create a label in the universal label ontology
 artifact.ulabels.add(my_experiment)  # annotate the artifact with the label
 ```
 
-You can then find the artifact with the `filter()` statement.
+To query the artifact, use the `filter()` statement.
 
 ```python
 ln.Artifact.filter(ulabels=my_experiment, suffix=".fasta").to_dataframe()  # query with ulabel and suffix
@@ -96,6 +96,8 @@ ln.Artifact.filter(ulabels=my_experiment, suffix=".fasta").to_dataframe()  # que
 
 If you have a structured dataset like a `DataFrame`, an `AnnData`, or another array, you can validate the content of the dataset (and parse annotations).
 Here is an example for a dataframe: [docs.lamin.ai/introduction#validate-an-artifact](https://docs.lamin.ai/introduction#validate-an-artifact).
+
+With a large body of validated datasets, you can then access data through distributed queries & batch streaming, see here: [docs.lamin.ai/arrays](https://docs.lamin.ai/arrays).
 
 ## Docs
 
