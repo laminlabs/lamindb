@@ -71,7 +71,7 @@ artifact.describe()
 
 <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/BOTCBgHDAvwglN3U0002.png" width="550">
 
-You can query artifacts by the script that created them.
+You can also query artifacts by the script that created them.
 
 ```python
 ln.Artifact.filter(transform__key="create-fasta.py").to_dataframe()  # query artifacts by transform key
