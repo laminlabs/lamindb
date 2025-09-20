@@ -269,7 +269,9 @@ def copy_or_move_to_cache(
     # non-local storage_path further
     if local_path != cache_path:
         if cache_path.exists():
-            logger.warning(f"replacing the existing cache path {cache_path.as_posix()}")
+            logger.important_hint(
+                f"replacing the existing cache path {cache_path.as_posix()}"
+            )
             if cache_path.is_dir():
                 shutil.rmtree(cache_path)
             else:

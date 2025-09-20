@@ -61,17 +61,17 @@ artifact = ln.Artifact.get(key="sample.fasta")  # query artifact by key
 artifact.view_lineage()
 ```
 
-<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/EkQATsQL5wqC95Wj0003.png" width="220">
+<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/EkQATsQL5wqC95Wj0005.png" width="220">
 
-You'll know how that artifact was created.
+You'll know how that artifact was created and what it is used for ([interactive visualization](https://lamin.ai/laminlabs/lamindata/transform/7MFHMgOkxPVO)) in addition to capturing basic metadata:
 
 ```python
 artifact.describe()
 ```
 
-<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/BOTCBgHDAvwglN3U0001.png" width="850">
+<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/BOTCBgHDAvwglN3U0002.png" width="850">
 
-And you can query artifacts by the script that created them.
+You can query artifacts by the script that created them.
 
 ```python
 ln.Artifact.filter(transform__key="create-fasta.py").to_dataframe()  # query artifacts by transform key
@@ -79,22 +79,19 @@ ln.Artifact.filter(transform__key="create-fasta.py").to_dataframe()  # query art
 
 Data lineage is just one type of metadata to help analysis and model training through queries, validation, and annotation. Here is a more [comprehensive example](https://lamin.ai/laminlabs/lamindata/artifact/9K1dteZ6Qx0EXK8g).
 
-<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/6sofuDVvTANB0f480001.png" width="850">
+<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/6sofuDVvTANB0f480002.png" width="850">
 
-If you just want to annotate an artifact with a label, create one using the universal label ontology:
+If you just want to annotate an artifact with a label, use the universal label ontology:
 
 ```python
-# create a label
-my_experiment = ln.ULabel(name="My experiment").save()
-# annotate the artifact with the label
-artifact.ulabels.add(my_experiment)
+my_experiment = ln.ULabel(name="My experiment").save()  # create a label
+artifact.ulabels.add(my_experiment)  # annotate the artifact with the label
 ```
 
 You can then find the artifact with the `filter()` statement.
 
 ```python
-# query with ulabel and artifact suffix
-ln.Artifact.filter(ulabels=my_experiment, suffix=".fasta").to_dataframe()
+ln.Artifact.filter(ulabels=my_experiment, suffix=".fasta").to_dataframe()  # query with ulabel and suffix
 ```
 
 If you have a structured dataset like a `DataFrame`, an `AnnData`, or any other array, you can additionally validate the **content** of the dataset _while_ inferring annotations from it.

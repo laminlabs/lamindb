@@ -350,7 +350,7 @@ def delete_record(record: BaseSQLRecord, is_soft: bool = True):
             with transaction.atomic():
                 new_latest.save()
                 delete()
-            logger.warning(f"new latest version is: {new_latest}")
+            logger.important_hint(f"new latest version is: {new_latest}")
             return None
     # deal with all other cases of the nested if condition now
     delete()
