@@ -61,15 +61,15 @@ artifact = ln.Artifact.get(key="sample.fasta")  # query artifact by key
 artifact.view_lineage()
 ```
 
-<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/EkQATsQL5wqC95Wj0005.png" width="220">
+<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/EkQATsQL5wqC95Wj0005.png" width="300">
 
-You'll know how that artifact was created and what it is used for ([interactive visualization](https://lamin.ai/laminlabs/lamindata/transform/7MFHMgOkxPVO)) in addition to capturing basic metadata:
+You'll know how that artifact was created and what it's used for ([interactive visualization](https://lamin.ai/laminlabs/lamindata/artifact/8incOOgjn6F0K1TS)) in addition to capturing basic metadata:
 
 ```python
 artifact.describe()
 ```
 
-<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/BOTCBgHDAvwglN3U0002.png" width="850">
+<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/BOTCBgHDAvwglN3U0002.png" width="550">
 
 You can query artifacts by the script that created them.
 
@@ -94,7 +94,7 @@ You can then find the artifact with the `filter()` statement.
 ln.Artifact.filter(ulabels=my_experiment, suffix=".fasta").to_dataframe()  # query with ulabel and suffix
 ```
 
-If you have a structured dataset like a `DataFrame`, an `AnnData`, or any other array, you can additionally validate the **content** of the dataset _while_ inferring annotations from it.
+If you have a structured dataset like a `DataFrame`, an `AnnData`, or another array, you can validate the content of the dataset (and parse annotations).
 Here is an example for a dataframe: [docs.lamin.ai/introduction#validate-an-artifact](https://docs.lamin.ai/introduction#validate-an-artifact).
 
 ## Docs
