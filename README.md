@@ -88,7 +88,7 @@ my_experiment = ln.ULabel(name="My experiment").save()  # create a label in the 
 artifact.ulabels.add(my_experiment)  # annotate the artifact with the label
 ```
 
-To query the artifact, use the `filter()` statement.
+To query for artifacts, use the `filter()` statement.
 
 ```python
 ln.Artifact.filter(ulabels=my_experiment, suffix=".fasta").to_dataframe()  # query with ulabel and suffix
