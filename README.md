@@ -22,8 +22,6 @@ LaminDB goes further with a lakehouse that models biological datasets beyond tab
 - data lineage: trace data sources and code, scientists, and machine learning models
 - domain knowledge and experimental metadata: manage the features and labels underlying models and analyses
 
-LaminDB can be connected to LaminHub to then serve as a LIMS for wetlab scientists, closing the drylab-wetlab feedback loop: [lamin.ai](https://lamin.ai)
-
 </details>
 
 **Highlights.**
@@ -33,13 +31,14 @@ LaminDB can be connected to LaminHub to then serve as a LIMS for wetlab scientis
 - **biology aware:**
   - _data structures:_ validate, annotate & query formats like `DataFrame`, `AnnData`, `MuData`, ... backed by `parquet`, `zarr`, HDF5, LanceDB, DuckDB, ...
   - _entities:_ organize features & labels in registries for experimental metadata & extendable ontologies
-  - [_LIMS_](https://en.wikipedia.org/wiki/Laboratory_information_management_system): can be connected to LaminHub and then serve as a LIMS for wetlab scientists
 - **queryable & batch-loadable:** manage schemas to impose integrity on arrays for distributed queries & batch loading
 - **reproducible & auditable:** auto-version artifacts, execution reports, source code, and compute environments; hashes, timestamps, user attributions
 - **zero lock-in:** runs in your infrastructure and is _not_ a client for a Lamin REST API
 - **battle-tested:** used in production in BigPharma, BioTech, hospitals & top labs, based on the Django ORM
 - **extendable:** create custom plug-ins based on Django for your own applications
 - **integrations:** visualization tools like [vitessce](https://docs.lamin.ai/vitessce), workflow managers like [redun](https://docs.lamin.ai/redun) & [nextflow](https://docs.lamin.ai/nextflow), and [other tools](https://docs.lamin.ai/integrations)
+
+LaminDB can be connected to LaminHub to then serve as a [_LIMS_](https://en.wikipedia.org/wiki/Laboratory_information_management_system) for wetlab scientists, closing the drylab-wetlab feedback loop: [lamin.ai](https://lamin.ai)
 
 ## Docs
 
