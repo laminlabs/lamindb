@@ -567,5 +567,5 @@ def test_schema_is_type():
 
     # clean up
     BioSample.delete(permanent=True)
-    Sample.delete(permanent=True)
     TechSample.delete(permanent=True)
+    Sample.delete(permanent=True)
