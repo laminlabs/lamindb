@@ -92,7 +92,7 @@ artifact = ln.Artifact.get(key="sample.fasta")  # query artifact by key
 artifact.view_lineage()
 ```
 
-<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/EkQATsQL5wqC95Wj0005.png" width="300">
+<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/EkQATsQL5wqC95Wj0005.png" width="250">
 
 You'll know how that artifact was created and what it's used for ([interactive visualization](https://lamin.ai/laminlabs/lamindata/artifact/8incOOgjn6F0K1TS)) in addition to capturing basic metadata:
 
