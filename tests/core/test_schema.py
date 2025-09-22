@@ -561,7 +561,11 @@ def test_schema_is_type():
     assert BioSample.hash is None
     assert BioSample.type == Sample
     assert BioSample.is_type
+    # create a schema without any features but with a type
+    TechSample = ln.Schema(name="TechSample", type=Sample).save()
+    assert TechSample.type == Sample
 
     # clean up
     BioSample.delete(permanent=True)
     Sample.delete(permanent=True)
+    TechSample.delete(permanent=True)

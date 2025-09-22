@@ -1211,12 +1211,14 @@ def get_type_str(dtype: str | None) -> str | None:
     return type_str
 
 
-def _get_related_name(self: Schema) -> str:
+def _get_related_name(self: Schema) -> str | None:
     related_models = dict_related_model_to_related_name(self, instance=self._state.db)
-    related_name = related_models.get(
-        parse_cat_dtype(self.itype, is_itype=True)["registry_str"]
-    )
-    return related_name
+    if self.itype:
+        related_name = related_models.get(
+            parse_cat_dtype(self.itype, is_itype=True)["registry_str"]
+        )
+        return related_name
+    return None
 
 
 class SchemaFeature(BaseSQLRecord, IsLink):
