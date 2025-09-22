@@ -32,13 +32,12 @@ For data structures like `DataFrame`, `AnnData`, `.zarr`, `.tiledbsoma`, etc., L
 - **biology aware:**
   - _data structures:_ validate, annotate & query formats like `DataFrame`, `AnnData`, `MuData`, ... backed by `parquet`, `zarr`, HDF5, LanceDB, DuckDB, ...
   - _entities:_ organize features & labels in registries for experimental metadata ([LIMS](https://en.wikipedia.org/wiki/Laboratory_information_management_system)) & extendable ontologies
-- **queryable & batch-loadable:** manage schemas to impose integrity for distributed queries & batch loading
-- **reproducible:** auto-version artifacts, execution reports, source code, and compute environments
+- **queryable & batch-loadable:** manage schemas to impose integrity on arrays for distributed queries & batch loading
+- **reproducible & auditable:** auto-version artifacts, execution reports, source code, and compute environments; hashes, timestamps, user attributions
 - **zero lock-in:** runs in your infrastructure and is _not_ a client for a Lamin REST API
-- **auditable:** data & metadata records are hashed, timestamped, and attributed to users
 - **battle-tested:** used in production in BigPharma, BioTech, hospitals & top labs, based on the Django ORM
 - **extendable:** create custom plug-ins based on Django for your own applications
-- **integrations:** Vitessce, workflow managers like [redun](redun) & [nextflow](nextflow) and [more](https://docs.lamin.ai/integrations)
+- **integrations:** visualization tools like [vitessce](https://docs.lamin.ai/vitessce), workflow managers like [redun](https://docs.lamin.ai/redun) & [nextflow](https://docs.lamin.ai/nextflow), and [other tools](https://docs.lamin.ai/integrations)
 
 ## Docs
 
