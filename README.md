@@ -26,14 +26,14 @@ Moreover, it provides context through data lineage -- tracing data and code, sci
 **Highlights.**
 
 - **data lineage:** track inputs & outputs of notebooks, scripts, functions & pipelines with a single line of code
-- **unified infrastructure:** query any number of storage locations (local, S3, GCP, https, HF, R2), SQL databases (Postgres, SQLite) & ontologies
+- **unified infrastructure:** query any number of storage locations (local, S3, GCP, https, HF, R2), SQL databases (Postgres, SQLite) & ontologies based on the Django ORM
 - **lakehouse capabilities**: manage, monitor, and constrain features, labels, and dataset schemas; perform distributed queries and batch loading
-- **biology data formats:** validate, annotate & query formats like `DataFrame`, `AnnData`, `MuData`, ... backed by `parquet`, `zarr`, HDF5, LanceDB, DuckDB, ...
+- **biological data formats:** validate, annotate & query formats like `DataFrame`, `AnnData`, `MuData`, ... backed by `parquet`, `zarr`, HDF5, LanceDB, DuckDB, ...
 - **biological entities**: organize features & labels in registries for experimental metadata & extensible ontologies
-- **reproducible & auditable:** auto-version artifacts, execution reports, source code, and compute environments; hashes, timestamps, user attributions
-- **zero lock-in & scalable:** runs in your infrastructure and is _not_ a client for a rate-limited Lamin REST API
-- **production-ready:** used in BigPharma, BioTech, hospitals & top labs, based on the Django ORM
-- **extendable:** create custom plug-ins based on Django for your own applications
+- **reproducible & auditable:** auto-version, timestamp and user-attribute artifacts, execution reports, source code, and compute environments
+- **zero lock-in & scalable:** runs in your infrastructure; is _not_ a client for a rate-limited REST API
+- **production-ready:** used in BigPharma, BioTech, hospitals & top labs
+- **extendable:** create custom plug-ins for your own applications based on the Django ecosystem
 - **integrations:** visualization tools like [vitessce](https://docs.lamin.ai/vitessce), workflow managers like [redun](https://docs.lamin.ai/redun) & [nextflow](https://docs.lamin.ai/nextflow), and [other tools](https://docs.lamin.ai/integrations)
 
 For wetlab integration, LaminDB can be connected to LaminHub to then serve as a [LIMS](https://en.wikipedia.org/wiki/Laboratory_information_management_system), closing the drylab-wetlab feedback loop: [lamin.ai](https://lamin.ai)
