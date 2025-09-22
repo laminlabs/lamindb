@@ -18,7 +18,7 @@ Let alone training models on historical data, LIMS & ELN systems, orthogonal ass
 
 Biological datasets are typically managed with versioned storage systems, GUI-focused community or SaaS platforms, structureless data lakes, rigid data warehouses (SQL, monolithic arrays), and data lakehouses for tabular data.
 
-LaminDB goes further with a lakehouse that models biological datasets beyond tables (`DataFrame`, `AnnData`, `.zarr`, `.tiledbsoma`, ...) with enough structure to enable queries and enough freedom to keep the pace of R&D high.
+LaminDB extends the lakehouse architecture to biological registries & datasets beyond tables (`DataFrame`, `AnnData`, `.zarr`, `.tiledbsoma`, ...) with enough structure to enable queries and enough freedom to keep the pace of R&D high.
 Moreover, it provides context through data lineage -- tracing data and code, scientists and models -- and abstractions for biological domain knowledge and experimental metadata.
 
 </details>
@@ -32,9 +32,9 @@ Moreover, it provides context through data lineage -- tracing data and code, sci
 - **biological entities**: organize experimental metadata & extensible ontologies in registries based on the Django ORM
 - **reproducible & auditable:** auto-version & timestamp execution reports, source code & compute environments, attribute records to users
 - **zero lock-in & scalable:** runs in your infrastructure; is _not_ a client for a rate-limited REST API
-- **production-ready:** used in BigPharma, BioTech, hospitals & top labs
 - **extendable:** create custom plug-ins for your own applications based on the Django ecosystem
 - **integrations:** visualization tools like [vitessce](https://docs.lamin.ai/vitessce), workflow managers like [nextflow](https://docs.lamin.ai/nextflow) & [redun](https://docs.lamin.ai/redun), and [other tools](https://docs.lamin.ai/integrations)
+- **production-ready:** used in BigPharma, BioTech, hospitals & top labs
 
 LaminDB can be connected to LaminHub to serve as a [LIMS](https://en.wikipedia.org/wiki/Laboratory_information_management_system) for wetlab scientists, closing the drylab-wetlab feedback loop: [lamin.ai](https://lamin.ai)
 
