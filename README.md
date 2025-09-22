@@ -27,7 +27,7 @@ Moreover, it provides context through data lineage -- tracing data and code, sci
 
 - **data lineage:** track inputs & outputs of notebooks, scripts, functions & pipelines with a single line of code
 - **unified infrastructure:** query any number of storage locations (local, S3, GCP, https, HF, R2), SQL databases (Postgres, SQLite) & ontologies
-- **lakehouse capabilities**: manage & monitor features, labels, and schemas; perform distributed queries and batch loading
+- **lakehouse capabilities**: manage, monitor, and constrain features, labels, and dataset schemas; perform distributed queries and batch loading
 - **biology data formats:** validate, annotate & query formats like `DataFrame`, `AnnData`, `MuData`, ... backed by `parquet`, `zarr`, HDF5, LanceDB, DuckDB, ...
 - **biological entities**: organize features & labels in registries for experimental metadata & extensible ontologies
 - **reproducible & auditable:** auto-version artifacts, execution reports, source code, and compute environments; hashes, timestamps, user attributions
