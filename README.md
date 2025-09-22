@@ -17,21 +17,19 @@ Leave alone training models on historical data, LIMS & ELN systems, orthogonal a
 
 Biological datasets are typically managed with versioned storage systems (file systems, object storage, git, dvc), GUI-focused community or SaaS platforms (LIMS & ELN systems), structureless data lakes, rigid data warehouses (SQL, monolithic arrays), and data lakehouses for tabular data.
 
-LaminDB goes further with a lakehouse that models biological datasets beyond tables with enough structure to enable queries and enough freedom to keep the pace of R&D high. For data structures like `DataFrame`, `AnnData`, `.zarr`, `.tiledbsoma`, etc., LaminDB tracks the rich context of biological research and uses it to validate and index datasets to enable queries. In particular, you get
-
-- data lineage: trace data sources and code, scientists, and machine learning models
-- domain knowledge and experimental metadata: manage the features and labels underlying models and analyses
+LaminDB goes further with a lakehouse that models biological datasets beyond tables (`DataFrame`, `AnnData`, `.zarr`, `.tiledbsoma`, etc.,) with enough structure to enable queries and enough freedom to keep the pace of R&D high. Moreover, it provides context through data lineage (to trace data and code, scientists and models) and abstractions for biological domain knowledge and experimental metadata.
 
 </details>
 
 **Highlights.**
 
 - **data lineage:** track inputs & outputs of notebooks, scripts, functions & pipelines with a single line of code
-- **unified access:** query any number of storage locations (local, S3, GCP, https, HF, R2), SQL databases (Postgres, SQLite) & ontologies
+- **unified infrastructure:** query any number of storage locations (local, S3, GCP, https, HF, R2), SQL databases (Postgres, SQLite) & ontologies
+- **lakehouse control**: manage & monitor all features, labels, and dataset schemas to enable queries & keep data under control
 - **biology aware:**
   - _data structures:_ validate, annotate & query formats like `DataFrame`, `AnnData`, `MuData`, ... backed by `parquet`, `zarr`, HDF5, LanceDB, DuckDB, ...
   - _entities:_ organize features & labels in registries for experimental metadata & extendable ontologies
-- **queryable & batch-loadable:** perform distributed queries and batch loading, with schemas ensuring array integrity
+- **queryable & batch-loadable:** perform distributed queries and batch loading on validated datasets
 - **reproducible & auditable:** auto-version artifacts, execution reports, source code, and compute environments; hashes, timestamps, user attributions
 - **zero lock-in:** runs in your infrastructure and is _not_ a client for a Lamin REST API
 - **battle-tested:** used in production in BigPharma, BioTech, hospitals & top labs, based on the Django ORM
