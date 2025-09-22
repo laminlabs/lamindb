@@ -7,7 +7,8 @@
 
 # LaminDB - A data lakehouse for biology
 
-LaminDB is an open-source data lakehouse to organize biological datasets through validation & annotation. It provides data lineage, findability, queryability, reusability, and reproducibility.
+LaminDB is an open-source data lakehouse to enable learning at scale in biology.
+It organizes datasets through validation & annotation and provides data lineage, queryability, and reproducibility on top of [FAIR](https://en.wikipedia.org/wiki/FAIR_data) data.
 
 <details>
 <summary>Why?</summary>
@@ -17,7 +18,7 @@ Let alone training models on historical data, LIMS & ELN systems, orthogonal ass
 
 Biological datasets are typically managed with versioned storage systems (file systems, object storage, git, dvc), GUI-focused community or SaaS platforms (LIMS & ELN systems), structureless data lakes, rigid data warehouses (SQL, monolithic arrays), and data lakehouses for tabular data.
 
-LaminDB goes further with a lakehouse that models biological datasets beyond tables (`DataFrame`, `AnnData`, `.zarr`, `.tiledbsoma`, etc.) with enough structure to enable queries and enough freedom to keep the pace of R&D high.
+LaminDB goes further with a lakehouse that models biological datasets beyond tables (`DataFrame`, `AnnData`, `.zarr`, `.tiledbsoma`, ...) with enough structure to enable queries and enough freedom to keep the pace of R&D high.
 Moreover, it provides context through data lineage -- tracing data and code, scientists and models -- and abstractions for biological domain knowledge and experimental metadata.
 
 </details>
@@ -27,16 +28,15 @@ Moreover, it provides context through data lineage -- tracing data and code, sci
 - **data lineage:** track inputs & outputs of notebooks, scripts, functions & pipelines with a single line of code
 - **unified infrastructure:** query any number of storage locations (local, S3, GCP, https, HF, R2), SQL databases (Postgres, SQLite) & ontologies
 - **lakehouse capabilities**: manage & monitor features, labels, and schemas; perform distributed queries and batch loading
-- **biology aware:**
-  - _data structures:_ validate, annotate & query formats like `DataFrame`, `AnnData`, `MuData`, ... backed by `parquet`, `zarr`, HDF5, LanceDB, DuckDB, ...
-  - _entities:_ organize features & labels in registries for experimental metadata & extendable ontologies
+- **biology data formats:** validate, annotate & query formats like `DataFrame`, `AnnData`, `MuData`, ... backed by `parquet`, `zarr`, HDF5, LanceDB, DuckDB, ...
+- **biological entities**: organize features & labels in registries for experimental metadata & extensible ontologies
 - **reproducible & auditable:** auto-version artifacts, execution reports, source code, and compute environments; hashes, timestamps, user attributions
-- **zero lock-in:** runs in your infrastructure and is _not_ a client for a Lamin REST API
-- **battle-tested:** used in production in BigPharma, BioTech, hospitals & top labs, based on the Django ORM
+- **zero lock-in & scalable:** runs in your infrastructure and is _not_ a client for a rate-limited Lamin REST API
+- **production-ready:** used in BigPharma, BioTech, hospitals & top labs, based on the Django ORM
 - **extendable:** create custom plug-ins based on Django for your own applications
 - **integrations:** visualization tools like [vitessce](https://docs.lamin.ai/vitessce), workflow managers like [redun](https://docs.lamin.ai/redun) & [nextflow](https://docs.lamin.ai/nextflow), and [other tools](https://docs.lamin.ai/integrations)
 
-LaminDB can be connected to LaminHub to then serve as a [_LIMS_](https://en.wikipedia.org/wiki/Laboratory_information_management_system) for wetlab scientists, closing the drylab-wetlab feedback loop: [lamin.ai](https://lamin.ai)
+For wetlab integration, LaminDB can be connected to LaminHub to then serve as a [LIMS](https://en.wikipedia.org/wiki/Laboratory_information_management_system), closing the drylab-wetlab feedback loop: [lamin.ai](https://lamin.ai)
 
 ## Docs
 
