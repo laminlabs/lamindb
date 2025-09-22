@@ -234,7 +234,15 @@ def check_and_attempt_upload(
             try:
                 copy_or_move_to_cache(artifact, storage_path, cache_path)
             except Exception as e:
-                logger.warning(f"A problem with cache on saving: {e}")
+                if not str(e).startswith(
+                    "[WinError 32] The process cannot access the file "
+                    "because it is being used by another process"
+                ):
+                    # ignore WinError 32 error, this just means that the file is still open on save
+                    # it is saved at this point, so not a big deal if copy or move to cache fails
+                    # this mostly happens for run logs
+                    # just ignore without a warning
+                    logger.warning(f"A problem with cache on saving: {e}")
         # after successful upload, we should remove the attribute so that another call
         # call to save won't upload again, the user should call replace() then
         del artifact._local_filepath
