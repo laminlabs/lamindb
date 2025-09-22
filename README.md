@@ -31,7 +31,7 @@ LaminDB goes further with a lakehouse that models biological datasets beyond tab
 - **biology aware:**
   - _data structures:_ validate, annotate & query formats like `DataFrame`, `AnnData`, `MuData`, ... backed by `parquet`, `zarr`, HDF5, LanceDB, DuckDB, ...
   - _entities:_ organize features & labels in registries for experimental metadata & extendable ontologies
-- **queryable & batch-loadable:** manage schemas to impose integrity on arrays for distributed queries & batch loading
+- **queryable & batch-loadable:** perform distributed queries and batch loading, with schemas ensuring array integrity
 - **reproducible & auditable:** auto-version artifacts, execution reports, source code, and compute environments; hashes, timestamps, user attributions
 - **zero lock-in:** runs in your infrastructure and is _not_ a client for a Lamin REST API
 - **battle-tested:** used in production in BigPharma, BioTech, hospitals & top labs, based on the Django ORM
