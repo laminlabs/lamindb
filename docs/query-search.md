@@ -1,4 +1,4 @@
-# Query & search
+# Query, search & stream
 
 ```{toctree}
 :maxdepth: 1
