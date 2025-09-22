@@ -106,12 +106,6 @@ You can organize datasets with validation & annotation of any kind of metadata t
 
 <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/6sofuDVvTANB0f480002.png" width="850">
 
-For instance, to query artifacts by the script that created them, use:
-
-```python
-ln.Artifact.filter(transform__key="create-fasta.py").to_dataframe()  # query artifacts by transform key
-```
-
 To annotate an artifact with a label, use:
 
 ```python
@@ -119,10 +113,11 @@ my_experiment = ln.ULabel(name="My experiment").save()  # create a label in the 
 artifact.ulabels.add(my_experiment)  # annotate the artifact with the label
 ```
 
-To query for artifacts, use the `filter()` statement.
+To query for a set of artifacts, use the `filter()` statement.
 
 ```python
-ln.Artifact.filter(ulabels=my_experiment, suffix=".fasta").to_dataframe()  # query with ulabel and suffix
+ln.Artifact.filter(ulabels=my_experiment, suffix=".fasta").to_dataframe()  # query by suffix and the ulabel we just created
+ln.Artifact.filter(transform__key="create-fasta.py").to_dataframe()  # query by the name of the script we just ran
 ```
 
 If you have a structured dataset like a `DataFrame`, an `AnnData`, or another array, you can validate the content of the dataset (and parse annotations).
