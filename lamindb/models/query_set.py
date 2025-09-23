@@ -249,7 +249,7 @@ def get(
                 result = qs.filter(**expressions).order_by("-created_at").first()
                 if result is not None:
                     return result
-            raise registry.DoesNotExist from e
+            raise e
 
 
 class SQLRecordList(UserList, Generic[T]):

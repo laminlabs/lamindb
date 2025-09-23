@@ -212,6 +212,40 @@ def test_get_doesnotexist_error():
     )
 
 
+def test_get():
+    branch = ln.Branch(name="test_branch").save()
+
+    artifact = ln.Artifact.from_dataframe(
+        ln.User.to_dataframe(), key="df_test_get.parquet"
+    )
+    artifact.branch = branch
+    artifact.save()
+    # errors if doesn't find or multiple records found
+    ln.Artifact.get(key="df_test_get.parquet", branch=branch)
+    ln.Artifact.get(key="df_test_get.parquet", branch_id=branch.id)
+    ln.Artifact.get(key="df_test_get.parquet", branch__in=[branch])
+    ln.Artifact.get(key="df_test_get.parquet", branch_id__in=[branch.id])
+    ln.Artifact.get(key="df_test_get.parquet", branch=None)
+    ln.Artifact.get(key="df_test_get.parquet", branch_id=None)
+
+    with pytest.raises(ln.Artifact.DoesNotExist):
+        ln.Artifact.get(key="df_test_get.parquet")
+
+    ln.Artifact.get(artifact.id)
+    ln.Artifact.get(id=artifact.id)
+    ln.Artifact.get(id__in=[artifact.id])
+
+    ln.Artifact.get(artifact.uid[:5])
+    ln.Artifact.get(uid=artifact.uid)
+    ln.Artifact.get(uid__in=[artifact.uid])
+
+    ln.Artifact.get(hash=artifact.hash)
+    ln.Artifact.get(hash__in=[artifact.hash])
+
+    artifact.delete(permanent=True)
+    branch.delete()
+
+
 def test_to_class():
     qs = ln.Artifact.filter()
     assert isinstance(qs, QuerySet)
