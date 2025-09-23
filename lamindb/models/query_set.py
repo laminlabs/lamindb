@@ -232,10 +232,13 @@ def get(
         is_latest_was_not_in_expressions = "is_latest" not in expressions
         if issubclass(registry, IsVersioned) and is_latest_was_not_in_expressions:
             expressions["is_latest"] = True
+
         # this can changed due to the privte django api edits
-        multiple_objects_error = getattr(
-            registry, "MultipleObjectsReturned", registry._MultipleObjectsReturned
-        )
+        if hasattr(registry, "MultipleObjectsReturned"):
+            multiple_objects_error = registry.MultipleObjectsReturned
+        else:
+            multiple_objects_error = registry._MultipleObjectsReturned
+
         try:
             return qs.get(**expressions)
         except registry.DoesNotExist as e:
