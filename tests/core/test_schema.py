@@ -3,7 +3,7 @@ import lamindb as ln
 import pandas as pd
 import pytest
 from django.db.utils import IntegrityError
-from lamindb.errors import FieldValidationError, ValidationError
+from lamindb.errors import FieldValidationError, InvalidArgument, ValidationError
 from lamindb.models.schema import get_related_name, validate_features
 
 
@@ -548,7 +548,7 @@ def test_schema_already_saved_aux():
 
 
 def test_schema_not_saved_describe():
-    schema = ln.Schema()
+    schema = ln.Schema(name="NotSavedSchema", is_type=True)
     with pytest.raises(ValueError) as e:
         schema.describe()
     assert "Schema must be saved before describing" in str(e.value)
@@ -561,7 +561,10 @@ def test_schema_is_type():
     assert BioSample.hash is None
     assert BioSample.type == Sample
     assert BioSample.is_type
-
+    # create a schema without any features or slots or itype or is_type=True
+    with pytest.raises(InvalidArgument) as e:
+        ln.Schema(name="TechSample", type=Sample)
+    assert "Please pass features or slots or itype or set is_type=True" in str(e.value)
     # clean up
     BioSample.delete(permanent=True)
     Sample.delete(permanent=True)

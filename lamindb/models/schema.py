@@ -258,6 +258,12 @@ class Schema(SQLRecord, CanCurate, TracksRun):
 
     Composite schemas can have multiple slots, e.g., for an `AnnData`, one schema for slot `obs` and another one for `var`.
 
+    To create a schema, one of the following must be passed:
+    - `features`: A list of :class:`~lamindb.Feature` records, e.g., `[Feature(...), Feature(...)]`.
+    - `itype`: A registry field, e.g., `Feature` or `bionty.Gene.ensembl_gene_id`, to constrain feature identifiers to be valid identifiers of the registry.
+    - `slots`: A dictionary mapping slot names to :class:`~lamindb.Schema` objects, e.g., `{"obs": Schema(...), "var": Schema(...), "obsm": Schema(...)}`.
+    - `is_type=True`: To create a schema type, e.g., `ln.Schema(name="ProteinPanel", is_type=True)`.
+
     Args:
         features: `list[SQLRecord] | list[tuple[Feature, dict]] | None = None` Feature
             records, e.g., `[Feature(...), Feature(...)]` or Features with their config, e.g., `[Feature(...).with_config(optional=True)]`.
@@ -565,6 +571,10 @@ class Schema(SQLRecord, CanCurate, TracksRun):
             coerce_dtype=coerce_dtype,
             n_features=n_features,
         )
+        if not features and not slots and not is_type and not itype:
+            raise InvalidArgument(
+                "Please pass features or slots or itype or set is_type=True"
+            )
         if not is_type:
             schema = (
                 Schema.objects.using(using)
@@ -1211,12 +1221,14 @@ def get_type_str(dtype: str | None) -> str | None:
     return type_str
 
 
-def _get_related_name(self: Schema) -> str:
+def _get_related_name(self: Schema) -> str | None:
     related_models = dict_related_model_to_related_name(self, instance=self._state.db)
-    related_name = related_models.get(
-        parse_cat_dtype(self.itype, is_itype=True)["registry_str"]
-    )
-    return related_name
+    if self.itype:
+        related_name = related_models.get(
+            parse_cat_dtype(self.itype, is_itype=True)["registry_str"]
+        )
+        return related_name
+    return None
 
 
 class SchemaFeature(BaseSQLRecord, IsLink):
