@@ -226,19 +226,10 @@ def get(
     else:
         assert idlike is None  # noqa: S101
         expressions = process_expressions(qs, expressions)
-        # first check without branch_id
-        branch_id = expressions.pop("branch_id", None)
         # inject is_latest for consistency with idlike
         is_latest_was_not_in_expressions = "is_latest" not in expressions
         if issubclass(registry, IsVersioned) and is_latest_was_not_in_expressions:
             expressions["is_latest"] = True
-
-        # this can changed due to the privte django api edits
-        if hasattr(registry, "MultipleObjectsReturned"):
-            multiple_objects_error = registry.MultipleObjectsReturned
-        else:
-            multiple_objects_error = registry._MultipleObjectsReturned
-
         try:
             return qs.get(**expressions)
         except registry.DoesNotExist as e:
@@ -249,11 +240,6 @@ def get(
                 if result is not None:
                     return result
             raise registry.DoesNotExist from e
-        except multiple_objects_error as e:
-            # for consistency with .filter() when there are multiple objects across branches
-            if branch_id is not None:
-                return qs.get(**expressions, branch_id=branch_id)
-            raise e
 
 
 class SQLRecordList(UserList, Generic[T]):
