@@ -550,7 +550,7 @@ def test_wrong_datatype(df):
         excinfo.value
     )
     assert (
-        "Hint: Consider setting 'coerce_datatype=True' to attempt coercing/converting values during validation to the pre-defined dtype."
+        "Hint: Consider setting 'coerce_dtype=True' to attempt coercing/converting values during validation to the pre-defined dtype."
         in str(excinfo.value)
     )
 
