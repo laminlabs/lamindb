@@ -18,7 +18,14 @@ pgurl = "postgresql://postgres:pwd@0.0.0.0:5432/pgtest"  # admin db connection u
 
 user_uuid = ln.setup.settings.user._uuid.hex
 expiration = time.time() + 2000
-token = sign_jwt(pgurl, {"account_id": user_uuid, "exp": expiration})
+# full collaborator token
+token = sign_jwt(
+    pgurl, {"account_id": user_uuid, "exp": expiration, "type": "collaborator"}
+)
+# read-only token
+token_read = sign_jwt(
+    pgurl, {"account_id": user_uuid, "exp": expiration, "type": "read-only"}
+)
 # init an instance of DBToken manually
 db_token = DBToken({})
 db_token._token = token
@@ -95,6 +102,12 @@ def test_authentication():
         connection.connection.cursor() as cur,
     ):
         cur.execute("SELECT security.get_secret('jwt_secret');")
+    # test read-only token
+    with connection.connection.cursor() as cur:
+        cur.execute("SELECT set_token(%s); SELECT * FROM check_access()", (token_read,))
+        result = cur.fetchall()
+    assert len(result) == 1
+    assert result[0] == (1, "read", "space")
 
 
 def test_fine_grained_permissions_account():
