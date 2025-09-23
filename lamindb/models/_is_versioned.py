@@ -193,7 +193,7 @@ def create_uid(
         if revises is not None:
             if version == revises.version:
                 raise ValueError(
-                    f"Please increment the previous version: '{revises.version}'"
+                    f"Please change the version tag or leave it `None`, '{revises.version}' is already taken"
                 )
     return suid + vuid, revises
 
