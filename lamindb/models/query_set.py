@@ -226,8 +226,8 @@ def get(
     else:
         assert idlike is None  # noqa: S101
         expressions = process_expressions(qs, expressions)
-        # don't want branch_id here in .get(), only in .filter()
-        expressions.pop("branch_id", None)
+        # first check without branch_id
+        branch_id = expressions.pop("branch_id", None)
         # inject is_latest for consistency with idlike
         is_latest_was_not_in_expressions = "is_latest" not in expressions
         if issubclass(registry, IsVersioned) and is_latest_was_not_in_expressions:
@@ -242,6 +242,11 @@ def get(
                 if result is not None:
                     return result
             raise registry.DoesNotExist from e
+        except registry.MultipleObjectsReturned as e:
+            # for consistency with .filter() when there are multiple objects across branches
+            if branch_id is not None:
+                return qs.get(**expressions, branch_id=branch_id)
+            raise registry.MultipleObjectsReturned from e
 
 
 class SQLRecordList(UserList, Generic[T]):
