@@ -157,22 +157,32 @@ def process_expressions(queryset: QuerySet, expressions: dict) -> dict:
     if issubclass(queryset.model, SQLRecord):
         # branch_id is set to 1 unless expressions contains id or uid
         expressions_have_id_or_uid = False
+        id_uid = {"id", "uid"}
+        id_uid__ = ("id__", "uid__")
         for expression in expressions:
-            if (
-                expression == "id"
-                or expression == "uid"
-                or expression.startswith(("id__", "uid__"))
-            ):
+            if expression in id_uid or expression.startswith(id_uid__):
                 expressions_have_id_or_uid = True
                 break
         if not expressions_have_id_or_uid:
-            if not any(e.startswith("branch_id") for e in expressions):
+            expressions_have_branch = False
+            branch_branch_id = {"branch", "branch_id"}
+            branch_branch_id__ = ("branch__", "branch_id__")
+            for expression in expressions:
+                if expression in branch_branch_id or expression.startswith(
+                    branch_branch_id__
+                ):
+                    expressions_have_branch = True
+                    break
+            if not expressions_have_branch:
                 expressions["branch_id"] = 1  # default branch_id
-            # if branch_id is None, do not apply a filter
-            # otherwise, it would mean filtering for NULL values, which doesn't make
-            # sense for a non-NULLABLE column
-            elif "branch_id" in expressions and expressions["branch_id"] is None:
-                expressions.pop("branch_id")
+            else:
+                # if branch_id is None, do not apply a filter
+                # otherwise, it would mean filtering for NULL values, which doesn't make
+                # sense for a non-NULLABLE column
+                if "branch_id" in expressions and expressions["branch_id"] is None:
+                    expressions.pop("branch_id")
+                if "branch" in expressions and expressions["branch"] is None:
+                    expressions.pop("branch")
     if queryset._db is not None:
         # only check for database mismatch if there is a defined database on the
         # queryset
