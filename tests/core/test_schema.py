@@ -549,9 +549,9 @@ def test_schema_already_saved_aux():
 
 def test_schema_not_saved_describe():
     schema = ln.Schema(name="not_saved_schema", itype=ln.Feature)
-    with pytest.raises(ValueError) as e:
+    with pytest.raises(InvalidArgument) as e:
         schema.describe()
-    assert "Schema must be saved before describing" in str(e.value)
+        assert "Schema must be saved before describing" in str(e.value)
 
 
 def test_schema_is_type():
@@ -561,7 +561,7 @@ def test_schema_is_type():
     assert BioSample.hash is None
     assert BioSample.type == Sample
     assert BioSample.is_type
-    # create a schema without any features but with a type
+    # create a schema without any features or slots or itype or is_type=True
     with pytest.raises(InvalidArgument) as error:
         ln.Schema(name="TechSample", type=Sample)
         assert (
