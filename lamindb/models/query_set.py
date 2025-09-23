@@ -155,15 +155,9 @@ def process_expressions(queryset: QuerySet, expressions: dict) -> dict:
         expressions,
     )
     if issubclass(queryset.model, SQLRecord):
-        # branch_id is set to 1 unless expressions contains id or uid
-        expressions_have_id_or_uid = False
-        id_uid = {"id", "uid"}
-        id_uid__ = ("id__", "uid__")
-        for expression in expressions:
-            if expression in id_uid or expression.startswith(id_uid__):
-                expressions_have_id_or_uid = True
-                break
-        if not expressions_have_id_or_uid:
+        # branch_id is set to 1 unless expressions contains id, uid or hash
+        id_uid_hash = {"id", "uid", "hash", "id__in", "uid__in", "hash__in"}
+        if not any(expression in id_uid_hash for expression in expressions):
             expressions_have_branch = False
             branch_branch_id = {"branch", "branch_id"}
             branch_branch_id__ = ("branch__", "branch_id__")
@@ -174,7 +168,8 @@ def process_expressions(queryset: QuerySet, expressions: dict) -> dict:
                     expressions_have_branch = True
                     break
             if not expressions_have_branch:
-                expressions["branch_id"] = 1  # default branch_id
+                # TODO: should be set to the current default branch
+                expressions["branch_id"] = 1
             else:
                 # if branch_id is None, do not apply a filter
                 # otherwise, it would mean filtering for NULL values, which doesn't make
