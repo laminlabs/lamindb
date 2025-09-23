@@ -565,6 +565,10 @@ class Schema(SQLRecord, CanCurate, TracksRun):
             coerce_dtype=coerce_dtype,
             n_features=n_features,
         )
+        if not features and not slots and not is_type and not itype:
+            raise InvalidArgument(
+                "Please pass features or slots or itype or set is_type=True"
+            )
         if not is_type:
             schema = (
                 Schema.objects.using(using)

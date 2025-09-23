@@ -3,7 +3,7 @@ import lamindb as ln
 import pandas as pd
 import pytest
 from django.db.utils import IntegrityError
-from lamindb.errors import FieldValidationError, ValidationError
+from lamindb.errors import FieldValidationError, InvalidArgument, ValidationError
 from lamindb.models.schema import get_related_name, validate_features
 
 
@@ -562,10 +562,13 @@ def test_schema_is_type():
     assert BioSample.type == Sample
     assert BioSample.is_type
     # create a schema without any features but with a type
-    TechSample = ln.Schema(name="TechSample", type=Sample).save()
-    assert TechSample.type == Sample
+    with pytest.raises(InvalidArgument) as error:
+        ln.Schema(name="TechSample", type=Sample)
+        assert (
+            error.exconly()
+            == "InvalidArgument: Please pass features or slots or itype or set is_type=True"
+        )
 
     # clean up
     BioSample.delete(permanent=True)
-    TechSample.delete(permanent=True)
     Sample.delete(permanent=True)
