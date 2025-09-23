@@ -551,7 +551,7 @@ def test_schema_not_saved_describe():
     schema = ln.Schema(name="not_saved_schema", itype=ln.Feature)
     with pytest.raises(InvalidArgument) as e:
         schema.describe()
-        assert "Schema must be saved before describing" in str(e.value)
+    assert "Schema must be saved before describing" in str(e.value)
 
 
 def test_schema_is_type():
