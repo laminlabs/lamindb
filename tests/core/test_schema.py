@@ -551,7 +551,7 @@ def test_schema_not_saved_describe():
     schema = ln.Schema(name="not_saved_schema", itype=ln.Feature)
     with pytest.raises(ValueError) as e:
         schema.describe()
-        assert e.exconly() == "ValueError: Schema must be saved before describing"
+    assert "Schema must be saved before describing" in str(e.value)
 
 
 def test_schema_is_type():
@@ -564,11 +564,7 @@ def test_schema_is_type():
     # create a schema without any features or slots or itype or is_type=True
     with pytest.raises(InvalidArgument) as e:
         ln.Schema(name="TechSample", type=Sample)
-        assert (
-            e.exconly()
-            == "InvalidArgument: Please pass features or slots or itype or set is_type=True"
-        )
-
+    assert "Please pass features or slots or itype or set is_type=True" in str(e.value)
     # clean up
     BioSample.delete(permanent=True)
     Sample.delete(permanent=True)
