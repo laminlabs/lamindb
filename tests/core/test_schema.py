@@ -548,7 +548,7 @@ def test_schema_already_saved_aux():
 
 
 def test_schema_not_saved_describe():
-    schema = ln.Schema()
+    schema = ln.Schema(name="not_saved_schema", itype=ln.Feature)
     with pytest.raises(ValueError) as e:
         schema.describe()
     assert "Schema must be saved before describing" in str(e.value)
