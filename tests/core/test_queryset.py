@@ -119,9 +119,11 @@ def test_filter_unknown_field():
 
 
 def test_get_id_type_error():
+    print(ln.Artifact.MultipleObjectsReturned)
     with pytest.raises(
         ValueError, match=re.escape("Field 'id' expected a number but got 'abc'.")
     ):
+        print(ln.Artifact.MultipleObjectsReturned)
         ln.Artifact.get(id="abc")
 
 
