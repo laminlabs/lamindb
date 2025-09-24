@@ -2,6 +2,7 @@
 
 
 import re
+from contextlib import contextmanager
 
 import bionty as bt
 import lamindb as ln
@@ -212,7 +213,17 @@ def test_get_doesnotexist_error():
     )
 
 
-def test_get():
+@contextmanager
+def set_branch(branch: ln.Branch):
+    try:
+        ln.setup.settings.branch = branch
+        yield branch
+    finally:
+        ln.setup.settings._branch = None
+        ln.setup.settings._branch_path.unlink(missing_ok=True)
+
+
+def test_get_filter_branch():
     branch = ln.Branch(name="test_branch").save()
 
     artifact = ln.Artifact.from_dataframe(
@@ -220,6 +231,18 @@ def test_get():
     )
     artifact.branch = branch
     artifact.save()
+
+    # switch to branch "test_branch"
+    with set_branch(branch):
+        # errors if doesn't find or multiple records found
+        ln.Artifact.get(key="df_test_get.parquet")
+        assert ln.Artifact.filter(key="df_test_get.parquet").count() == 1
+
+    # back to main branch
+    with pytest.raises(ln.Artifact.DoesNotExist):
+        ln.Artifact.get(key="df_test_get.parquet")
+    assert ln.Artifact.filter(key="df_test_get.parquet").count() == 0
+
     # errors if doesn't find or multiple records found
     ln.Artifact.get(key="df_test_get.parquet", branch=branch)
     ln.Artifact.get(key="df_test_get.parquet", branch_id=branch.id)
@@ -227,9 +250,6 @@ def test_get():
     ln.Artifact.get(key="df_test_get.parquet", branch_id__in=[branch.id])
     ln.Artifact.get(key="df_test_get.parquet", branch=None)
     ln.Artifact.get(key="df_test_get.parquet", branch_id=None)
-
-    with pytest.raises(ln.Artifact.DoesNotExist):
-        ln.Artifact.get(key="df_test_get.parquet")
 
     ln.Artifact.get(artifact.id)
     ln.Artifact.get(id=artifact.id)
