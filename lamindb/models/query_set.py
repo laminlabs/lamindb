@@ -169,8 +169,12 @@ def process_expressions(queryset: QuerySet, expressions: dict) -> dict:
                     expressions_have_branch = True
                     break
             if not expressions_have_branch:
-                # set the current branch by default
-                expressions["branch_id"] = setup_settings.branch.id
+                # add the current branch by default
+                branch_id = setup_settings.branch.id
+                if branch_id == 1:
+                    expressions["branch_id"] = 1
+                else:
+                    expressions["branch_id__in"] = [1, branch_id]
             else:
                 # if branch_id is None, do not apply a filter
                 # otherwise, it would mean filtering for NULL values, which doesn't make
