@@ -13,6 +13,7 @@ from django.db import models
 from django.db.models import F, ForeignKey, ManyToManyField, Q, Subquery
 from django.db.models.fields.related import ForeignObjectRel
 from lamin_utils import logger
+from lamindb_setup import settings as setup_settings
 from lamindb_setup.core import deprecated
 from lamindb_setup.core._docs import doc_args
 
@@ -168,8 +169,12 @@ def process_expressions(queryset: QuerySet, expressions: dict) -> dict:
                     expressions_have_branch = True
                     break
             if not expressions_have_branch:
-                # TODO: should be set to the current default branch
-                expressions["branch_id"] = 1
+                # add the current branch by default
+                branch_id = setup_settings.branch.id
+                if branch_id == 1:
+                    expressions["branch_id"] = 1
+                else:
+                    expressions["branch_id__in"] = [1, branch_id]
             else:
                 # if branch_id is None, do not apply a filter
                 # otherwise, it would mean filtering for NULL values, which doesn't make
