@@ -420,20 +420,15 @@ def get_artifact_kwargs_from_data(
     )
 
     check_path_in_storage = False
+    real_key = None
     if use_existing_storage_key:
         inferred_key = get_relative_path_to_directory(
             path=path, directory=UPath(storage.root)
         ).as_posix()
         if key is None:
             key = inferred_key
-        else:
-            if not key == inferred_key:
-                raise InvalidArgument(
-                    f"The path '{data}' is already in registered storage"
-                    f" '{storage.root}' with key '{inferred_key}'\nYou passed"
-                    f" conflicting key '{key}': please move the file before"
-                    " registering it."
-                )
+        elif key != inferred_key:
+            real_key = inferred_key
         check_path_in_storage = True
     else:
         storage = storage
@@ -467,13 +462,13 @@ def get_artifact_kwargs_from_data(
         is_dir=n_files is not None,
     )
 
-    # do we use a virtual or an actual storage key?
-    key_is_virtual = settings.creation._artifact_use_virtual_keys
-
-    # if the file is already in storage, independent of the default
-    # we use an actual storage key
     if check_path_in_storage:
-        key_is_virtual = False
+        # we use an actual storage key if key is not provided explicitly
+        key_is_virtual = real_key is not None
+    else:
+        # do we use a virtual or an actual storage key?
+        key_is_virtual = settings.creation._artifact_use_virtual_keys
+
     if overwrite_versions is None:
         overwrite_versions = n_files is not None
     kwargs = {
@@ -494,6 +489,7 @@ def get_artifact_kwargs_from_data(
         "run": run,
         "_key_is_virtual": key_is_virtual,
         "revises": revises,
+        "_real_key": real_key,
     }
     if not isinstance(path, LocalPathClasses):
         local_filepath = None
@@ -1259,6 +1255,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
     _aux_fields: dict[str, tuple[str, type]] = {
         "0": ("_is_saved_to_storage_location", bool),
+        "1": ("_real_key", str),
     }
     _len_full_uid: int = 20
     _len_stem_uid: int = 16
@@ -1722,7 +1719,11 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         ):
             raise ValueError("Pass one of key, run or description as a parameter")
 
+        _real_key = kwargs.pop("_real_key")
+
         super().__init__(**kwargs)
+
+        self._real_key = _real_key
 
     @classmethod
     def from_lazy(
@@ -2817,6 +2818,22 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             artiact.delete() # delete all versions, the data will be deleted or prompted for deletion.
         """
         super().delete(permanent=permanent, storage=storage, using_key=using_key)
+
+    @property
+    def _real_key(self) -> str | None:
+        """A real key for artifacts that represent paths in existing storages and also have a virtual key."""
+        if self._aux is not None:
+            return self._aux.get("af", {}).get("1", None)
+        else:
+            return None
+
+    @_real_key.setter
+    def _real_key(self, value: str | None) -> None:
+        self._aux = self._aux or {}
+        if value is not None:
+            self._aux.setdefault("af", {})["1"] = value
+        elif "af" in self._aux:
+            self._aux["af"].pop("1")
 
     @property
     def _is_saved_to_storage_location(self) -> bool | None:
