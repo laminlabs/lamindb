@@ -25,12 +25,14 @@ AUTO_KEY_PREFIX = ".lamindb/"
 
 # add type annotations back asap when re-organizing the module
 def auto_storage_key_from_artifact(artifact: Artifact):
-    if artifact.key is None or artifact._key_is_virtual:
+    if (real_key := artifact._real_key) is not None:
+        return real_key
+    key = artifact.key
+    if key is None or artifact._key_is_virtual:
         return auto_storage_key_from_artifact_uid(
             artifact.uid, artifact.suffix, artifact.overwrite_versions
         )
-    else:
-        return artifact.key
+    return artifact.key
 
 
 def auto_storage_key_from_artifact_uid(
