@@ -7,7 +7,7 @@
 query-search
 track
 curate
-bio-registries
+manage-ontologies
 transfer
 ```
 

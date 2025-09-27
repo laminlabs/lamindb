@@ -591,7 +591,7 @@ class CanCurate:
             A list of validated records. For bionty registries. Also returns knowledge-coupled records.
 
         Notes:
-            For more info, see tutorial: :doc:`docs:bio-registries`.
+            For more info, see tutorial: :doc:`docs:manage-ontologies`.
 
         Example::
 

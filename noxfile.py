@@ -33,7 +33,7 @@ GROUPS["guide"] = [
     "curate.ipynb",
 ]
 GROUPS["biology"] = [
-    "bio-registries.ipynb",
+    "manage-ontologies.ipynb",
 ]
 
 
