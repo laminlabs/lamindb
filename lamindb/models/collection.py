@@ -437,7 +437,6 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
         dataframe = _open_dataframe(paths, engine=engine, **kwargs)
         # track only if successful
-        # is it really needed if tracking is done in self.ordered_artifacts.all()? - Sergei
         _track_run_input(self, is_run_input)
         return dataframe
 
@@ -538,7 +537,6 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             dtype,
         )
         # track only if successful
-        # is it really needed if tracking is done in self.ordered_artifacts.all()? - Sergei
         _track_run_input(self, is_run_input)
         return ds
 
@@ -573,7 +571,6 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         artifacts = self.ordered_artifacts.all()
         concat_object = _load_concat_artifacts(artifacts, join, **kwargs)
         # only call it here because there might be errors during load or concat
-        # is it really needed if tracking is done in self.ordered_artifacts.all()? - Sergei
         _track_run_input(self, is_run_input)
         return concat_object
 
@@ -640,7 +637,7 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         you non-deterministic order.
 
         Using the property `.ordered_artifacts` allows to iterate through a set
-        that's ordered in the order of creation.
+        that's ordered by the order of the list that created the collection.
         """
         return self.artifacts.order_by("links_collection__id")
 
