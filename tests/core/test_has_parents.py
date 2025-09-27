@@ -31,11 +31,11 @@ def test_query_parents_children():
 
 
 def test_add_emoji():
-    transform = ln.Transform(key="test-12345", type="upload")
-    assert _add_emoji(transform, label="transform") == "🖥️ transform"
+    transform = ln.Transform(key="test-12345", type="function")
+    assert _add_emoji(transform, label="transform") == "🔧 transform"
     transform.save()
     run = ln.Run(transform=transform)
-    assert _add_emoji(run, label="run") == "🖥️ run"
+    assert _add_emoji(run, label="run") == "🔧 run"
     transform.delete(permanent=True)
 
 
