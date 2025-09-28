@@ -24,6 +24,7 @@ from lamindb_setup.core.upath import check_storage_is_empty, create_path
 
 from lamindb.base.fields import (
     CharField,
+    TextField,
 )
 
 from ..base.ids import base62_12
@@ -169,8 +170,8 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
     """Universal id, valid across DB instances."""
     root: str = CharField(db_index=True, unique=True)
     """Root path of storage (cloud or local path)."""
-    description: str | None = CharField(db_index=True, null=True)
-    """A description of what the storage location is used for (optional)."""
+    description: str | None = TextField(null=True)
+    """A description."""
     type: StorageType = CharField(max_length=30, db_index=True)
     """Can be "local" vs. "s3" vs. "gs". Is auto-detected from the format of the `root` path."""
     region: str | None = CharField(max_length=64, db_index=True, null=True)

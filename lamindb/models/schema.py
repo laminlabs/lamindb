@@ -19,6 +19,7 @@ from lamindb.base.fields import (
     ForeignKey,
     IntegerField,
     JSONField,
+    TextField,
 )
 from lamindb.base.types import FieldAttr, ListLike
 from lamindb.errors import FieldValidationError, InvalidArgument
@@ -377,7 +378,7 @@ class Schema(SQLRecord, CanCurate, TracksRun):
     """A universal id."""
     name: str | None = CharField(max_length=150, null=True, db_index=True)
     """A name."""
-    description: str | None = CharField(null=True, db_index=True)
+    description: str | None = TextField(null=True)
     """A description."""
     n: int = IntegerField()
     """Number of features in the schema."""

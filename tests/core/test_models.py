@@ -24,7 +24,7 @@ def test_registry__repr__feature():
         .dtype: CharField
         .is_type: BooleanField
         .unit: CharField
-        .description: CharField
+        .description: TextField
         .array_rank: SmallIntegerField
         .array_size: IntegerField
         .array_shape: JSONField
@@ -58,7 +58,7 @@ def test_registry__repr__artifact():
       Simple fields
         .uid: CharField
         .key: CharField
-        .description: CharField
+        .description: TextField
         .suffix: CharField
         .kind: CharField
         .otype: CharField

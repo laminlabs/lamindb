@@ -631,7 +631,7 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
     """Distinguish types from instances of the type."""
     unit: str | None = CharField(max_length=30, db_index=True, null=True)
     """Unit of measure, ideally SI (`m`, `s`, `kg`, etc.) or 'normalized' etc. (optional)."""
-    description: str | None = CharField(db_index=True, null=True)
+    description: str | None = TextField(null=True)
     """A description."""
     array_rank: int = models.SmallIntegerField(default=0, db_index=True)
     """Rank of feature.

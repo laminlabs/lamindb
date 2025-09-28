@@ -174,7 +174,7 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     # below is the only case in which we use a TextField
     # for description; we do so because users had descriptions exceeding 255 chars
     # in their instances
-    description: str | None = TextField(null=True, db_index=True)
+    description: str | None = TextField(null=True)
     """A description or title."""
     hash: str | None = CharField(
         max_length=HASH_LENGTH, db_index=True, null=True, unique=True

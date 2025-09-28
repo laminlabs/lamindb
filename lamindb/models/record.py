@@ -11,6 +11,7 @@ from lamindb.base.fields import (
     CharField,
     ForeignKey,
     JSONField,
+    TextField,
 )
 from lamindb.errors import FieldValidationError
 
@@ -94,8 +95,8 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates):
     """Record-like components of this record."""
     composites: Record
     """Record-like composites of this record."""
-    description: str | None = CharField(null=True, db_index=True)
-    """A description (optional)."""
+    description: str | None = TextField(null=True)
+    """A description."""
     linked_artifacts: Artifact = models.ManyToManyField(
         Artifact, through="RecordArtifact", related_name="linked_in_records"
     )
