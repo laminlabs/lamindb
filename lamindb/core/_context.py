@@ -441,10 +441,6 @@ class Context:
                 ) = self._track_source_code(path=path)
             if description is None:
                 description = self._description
-            # temporarily until the hub displays the key by default
-            # populate the description with the filename again
-            if description is None:
-                description = self._path.name
             self._create_or_load_transform(
                 description=description,
                 transform_ref=transform_ref,
@@ -710,8 +706,14 @@ class Context:
             aux_transform = Transform.filter(hash=transform_hash).one_or_none()
         else:
             aux_transform = None
+
+        # determine the transform key
+        if ln_setup.settings.work_dir is not None:
+            key = self._path.relative_to(ln_setup.settings.work_dir).as_posix()
+        else:
+            key = self._path.name
         # if the user did not pass a uid and there is no matching aux_transform
-        # need to search for the transform based on the filename
+        # need to search for the transform based on the key
         if self.uid is None and aux_transform is None:
 
             class SlashCount(Func):
@@ -720,12 +722,11 @@ class Context:
 
             # we need to traverse from greater depth to shorter depth so that we match better matches first
             transforms = (
-                Transform.filter(key__endswith=self._path.name, is_latest=True)
+                Transform.filter(key__endswith=key, is_latest=True)
                 .annotate(slash_count=SlashCount("key"))
                 .order_by("-slash_count")
             )
             uid = f"{base62_12()}0000"
-            key = self._path.name
             target_transform = None
             if len(transforms) != 0:
                 message = ""
@@ -755,19 +756,6 @@ class Context:
         # the user did pass the uid
         elif self.uid is not None and len(self.uid) == 16:
             transform = Transform.filter(uid=self.uid).one_or_none()
-            if transform is not None:
-                if transform.key not in self._path.as_posix():
-                    n_parts = len(Path(transform.key).parts)
-                    (
-                        Path(*self._path.parts[-n_parts:]).as_posix()
-                        if n_parts > 0
-                        else ""
-                    )
-                    key = self._path.name
-                else:
-                    key = transform.key  # type: ignore
-            else:
-                key = self._path.name
         else:
             if self.uid is not None:
                 # the case with length 16 is covered above
@@ -784,10 +772,8 @@ class Context:
                 # deal with a hash-based match
                 # the user might have a made a copy of the notebook or script
                 # and actually wants to create a new transform
-                if aux_transform is not None and not aux_transform.key.endswith(
-                    self._path.name
-                ):
-                    prompt = f"Found transform with same hash but different key: {aux_transform.key}. Did you rename your {transform_type} to {self._path.name} (1) or intentionally made a copy (2)?"
+                if aux_transform is not None and not aux_transform.key.endswith(key):
+                    prompt = f"Found transform with same hash but different key: {aux_transform.key}. Did you rename your {transform_type} to {key} (1) or intentionally made a copy (2)?"
                     response = (
                         "1" if os.getenv("LAMIN_TESTING") == "true" else input(prompt)
                     )
@@ -800,12 +786,6 @@ class Context:
                             None,
                         )  # make a new transform
             if aux_transform is not None:
-                if aux_transform.key.endswith(self._path.name):
-                    key = aux_transform.key
-                else:
-                    key = "/".join(
-                        aux_transform.key.split("/")[:-1] + [self._path.name]
-                    )
                 uid, target_transform, message = self._process_aux_transform(
                     aux_transform, transform_hash
                 )
@@ -814,7 +794,6 @@ class Context:
             else:
                 uid = f"{self.uid}0000" if self.uid is not None else None
                 target_transform = None
-                key = self._path.name
             self.uid, transform = uid, target_transform
         if self.version is not None:
             # test inconsistent version passed
