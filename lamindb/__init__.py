@@ -1,4 +1,4 @@
-"""A data framework for biology.
+"""A data lakehouse for biology.
 
 Data lineage
 ============
@@ -40,7 +40,7 @@ Validate and annotate artifacts.
    ULabel
    Schema
 
-Manage flexible records to track, e.g., samples or donors.
+Manage sheets with flexible records, e.g., for samples or donors.
 
 .. autosummary::
    :toctree: .
@@ -58,7 +58,6 @@ Manage projects.
    Space
    Branch
    Reference
-   Person
 
 Other
 =====
@@ -114,7 +113,7 @@ Backwards compatibility.
 
 # ruff: noqa: I001
 # denote a release candidate for 0.1.0 with 0.1rc1, 0.1a1, 0.1b1, etc.
-__version__ = "1.11.3"
+__version__ = "1.12a1"
 
 import warnings as _warnings
 
@@ -141,7 +140,6 @@ from .models import (
     Collection,
     Feature,
     FeatureSet,  # backward compat
-    Person,
     Project,
     Reference,
     Run,
@@ -188,7 +186,6 @@ __all__ = [
     "Space",
     "Branch",
     "Reference",
-    "Person",
     # other
     "connect",
     "view",
