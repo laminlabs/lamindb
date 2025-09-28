@@ -773,7 +773,7 @@ class Context:
                 # the user might have a made a copy of the notebook or script
                 # and actually wants to create a new transform
                 if aux_transform is not None and not aux_transform.key.endswith(key):
-                    prompt = f"Found transform with same hash but different key: {aux_transform.key}. Did you rename your {transform_type} to {self._path.name} (1) or intentionally made a copy (2)?"
+                    prompt = f"Found transform with same hash but different key: {aux_transform.key}. Did you rename your {transform_type} to {key} (1) or intentionally made a copy (2)?"
                     response = (
                         "1" if os.getenv("LAMIN_TESTING") == "true" else input(prompt)
                     )
@@ -786,12 +786,6 @@ class Context:
                             None,
                         )  # make a new transform
             if aux_transform is not None:
-                if aux_transform.key.endswith(self._path.name):
-                    key = aux_transform.key
-                else:
-                    key = "/".join(
-                        aux_transform.key.split("/")[:-1] + [self._path.name]
-                    )
                 uid, target_transform, message = self._process_aux_transform(
                     aux_transform, transform_hash
                 )
@@ -800,7 +794,6 @@ class Context:
             else:
                 uid = f"{self.uid}0000" if self.uid is not None else None
                 target_transform = None
-                key = self._path.name
             self.uid, transform = uid, target_transform
         if self.version is not None:
             # test inconsistent version passed
