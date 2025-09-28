@@ -469,7 +469,7 @@ def test_schema_no_match_ensembl():
     assert (
         error.exconly()
         == """lamindb.errors.ValidationError: 2 terms not validated in feature 'index': 'ENSG99999999998', 'ENSG99999999999'
-    → fix typos, remove non-existent values, or save terms via: curator.cat.add_new_from('index')"""
+    → fix organism 'human', fix typos, remove non-existent values, or save terms via: curator.cat.add_new_from('index')"""
     )
 
     schema.delete(permanent=True)
@@ -608,7 +608,7 @@ def test_anndata_curator_varT_curation():
                 ).save()
             assert error.exconly() == (
                 f"lamindb.errors.ValidationError: 1 term not validated in feature 'columns' in slot '{slot}': 'GeneTypo'\n"
-                f"    → fix typos, remove non-existent values, or save terms via: curator.slots['{slot}'].cat.add_new_from('columns')"
+                f"    → fix organism 'human', fix typos, remove non-existent values, or save terms via: curator.slots['{slot}'].cat.add_new_from('columns')"
             )
         else:
             for n_max_records in [2, 4]:
@@ -654,7 +654,7 @@ def test_anndata_curator_varT_curation_legacy(ccaplog):
                 ).save()
             assert error.exconly() == (
                 f"lamindb.errors.ValidationError: 1 term not validated in feature 'var_index' in slot '{slot}': 'GeneTypo'\n"
-                f"    → fix typos, remove non-existent values, or save terms via: curator.slots['{slot}'].cat.add_new_from('var_index')"
+                f"    → fix organism 'human', fix typos, remove non-existent values, or save terms via: curator.slots['{slot}'].cat.add_new_from('var_index')"
             )
         else:
             artifact = ln.Artifact.from_anndata(
