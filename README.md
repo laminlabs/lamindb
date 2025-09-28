@@ -7,8 +7,7 @@
 
 # LaminDB - A data lakehouse for biology
 
-LaminDB is an open-source data lakehouse to enable learning at scale in biology.
-It organizes datasets through validation & annotation and provides data lineage, queryability, and reproducibility on top of [FAIR](https://en.wikipedia.org/wiki/FAIR_data) data.
+LaminDB organizes datasets through validation & annotation and provides data lineage, queryability & reproducibility on top of [FAIR](https://en.wikipedia.org/wiki/FAIR_data) data.
 
 <details>
 <summary>Why?</summary>
