@@ -1,4 +1,4 @@
-"""A data framework for biology.
+"""A data lakehouse for biology.
 
 Data lineage
 ============
@@ -40,7 +40,7 @@ Validate and annotate artifacts.
    ULabel
    Schema
 
-Manage flexible records to track, e.g., samples or donors.
+Manage sheets with flexible records, e.g., for samples or donors.
 
 .. autosummary::
    :toctree: .
