@@ -13,6 +13,7 @@ from django.db import models
 from django.db.models import F, ForeignKey, ManyToManyField, Q, Subquery
 from django.db.models.fields.related import ForeignObjectRel
 from lamin_utils import logger
+from lamindb_setup import settings as setup_settings
 from lamindb_setup.core import deprecated
 from lamindb_setup.core._docs import doc_args
 
@@ -155,19 +156,33 @@ def process_expressions(queryset: QuerySet, expressions: dict) -> dict:
         expressions,
     )
     if issubclass(queryset.model, SQLRecord):
-        # branch_id is set to 1 unless expressions contains id or uid
-        if not (
-            "id" in expressions
-            or "uid" in expressions
-            or "uid__startswith" in expressions
-        ):
-            if not any(e.startswith("branch_id") for e in expressions):
-                expressions["branch_id"] = 1  # default branch_id
-            # if branch_id is None, do not apply a filter
-            # otherwise, it would mean filtering for NULL values, which doesn't make
-            # sense for a non-NULLABLE column
-            elif "branch_id" in expressions and expressions["branch_id"] is None:
-                expressions.pop("branch_id")
+        # branch_id is set to 1 unless expressions contains id, uid or hash
+        id_uid_hash = {"id", "uid", "hash", "id__in", "uid__in", "hash__in"}
+        if not any(expression in id_uid_hash for expression in expressions):
+            expressions_have_branch = False
+            branch_branch_id = {"branch", "branch_id"}
+            branch_branch_id__ = ("branch__", "branch_id__")
+            for expression in expressions:
+                if expression in branch_branch_id or expression.startswith(
+                    branch_branch_id__
+                ):
+                    expressions_have_branch = True
+                    break
+            if not expressions_have_branch:
+                # add the current branch by default
+                branch_id = setup_settings.branch.id
+                if branch_id == 1:
+                    expressions["branch_id"] = 1
+                else:
+                    expressions["branch_id__in"] = [1, branch_id]
+            else:
+                # if branch_id is None, do not apply a filter
+                # otherwise, it would mean filtering for NULL values, which doesn't make
+                # sense for a non-NULLABLE column
+                if "branch_id" in expressions and expressions["branch_id"] is None:
+                    expressions.pop("branch_id")
+                if "branch" in expressions and expressions["branch"] is None:
+                    expressions.pop("branch")
     if queryset._db is not None:
         # only check for database mismatch if there is a defined database on the
         # queryset
@@ -226,8 +241,6 @@ def get(
     else:
         assert idlike is None  # noqa: S101
         expressions = process_expressions(qs, expressions)
-        # don't want branch_id here in .get(), only in .filter()
-        expressions.pop("branch_id", None)
         # inject is_latest for consistency with idlike
         is_latest_was_not_in_expressions = "is_latest" not in expressions
         if issubclass(registry, IsVersioned) and is_latest_was_not_in_expressions:
@@ -241,7 +254,7 @@ def get(
                 result = qs.filter(**expressions).order_by("-created_at").first()
                 if result is not None:
                     return result
-            raise registry.DoesNotExist from e
+            raise e
 
 
 class SQLRecordList(UserList, Generic[T]):

@@ -17,8 +17,8 @@ classifiers = [
 dependencies = [
     # Lamin PINNED packages
     "lamin_utils==0.15.0",
-    "lamin_cli==1.7.1",
-    "lamindb_setup[aws]==1.10.1",
+    "lamin_cli==1.7.2",
+    "lamindb_setup[aws]==1.10.2",
     # Lamin OPTIONAL packages, included to avoid users forgetting about passing extras,
     # which has happened very often these past years
     # these are small packages with few dependencies
@@ -36,10 +36,8 @@ dependencies = [
     "typing_extensions!=4.6.0",
     "python-dateutil",
     "pandas>=2.0.0", # for .infer_objects(copy=False) in lamin-utils
-    # backed sparse is incompatible with 1.15.0 for anndata 1.11.1
-    # vitessce requires anndata<=1.11.0 now
-    "scipy<1.15.0",
-    "anndata>=0.8.0,<=0.12.1",  # will upgrade to new anndata releases
+    # note: backed sparse is incompatible with scipy 1.15.0 for anndata 1.11.1
+    "anndata>=0.8.0,<=0.12.2",  # will upgrade to new anndata releases
     "fsspec",
     "graphviz",
     "psycopg2-binary",

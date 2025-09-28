@@ -1018,7 +1018,7 @@ def test_bulk_delete():
 
     ln.Artifact.filter(id__in=[environment.id, report.id]).delete()
 
-    assert len(ln.Artifact.filter(id__in=[environment.id, report.id]).all()) == 0
+    assert len(ln.Artifact.filter(id__in=[environment.id, report.id], branch_id=1)) == 0
 
     # the 2 artifacts are in trash now
     assert (
@@ -1027,8 +1027,6 @@ def test_bulk_delete():
                 id__in=[environment.id, report.id],
                 branch_id=-1,
             )
-            .distinct()
-            .all()
         )
         == 2
     )
@@ -1043,8 +1041,6 @@ def test_bulk_delete():
                 id__in=[environment.id, report.id],
                 branch_id=None,
             )
-            .distinct()
-            .all()
         )
         == 0
     )

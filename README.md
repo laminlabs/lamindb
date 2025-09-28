@@ -37,7 +37,7 @@ Moreover, it provides context through data lineage -- tracing data and code, sci
 - **integrations:** visualization tools like [vitessce](https://docs.lamin.ai/vitessce), workflow managers like [nextflow](https://docs.lamin.ai/nextflow) & [redun](https://docs.lamin.ai/redun), and [other tools](https://docs.lamin.ai/integrations)
 - **production-ready:** used in BigPharma, BioTech, hospitals & top labs
 
-LaminDB can be connected to LaminHub to serve as a [LIMS](https://en.wikipedia.org/wiki/Laboratory_information_management_system) for wetlab scientists, closing the drylab-wetlab feedback loop: [lamin.ai](https://lamin.ai)
+LaminDB can be connected to LaminHub to serve as a [LIMS](https://en.wikipedia.org/wiki/Laboratory_information_management_system) for wetlab scientists, closing the drylab-wetlab feedback loop: [lamin.ai](https://lamin.ai).
 
 ## Docs
 
@@ -102,7 +102,7 @@ artifact.describe()
 
 <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/BOTCBgHDAvwglN3U0002.png" width="550">
 
-You can organize datasets with validation & annotation of any kind of metadata to then access them via queries & search. Here is a more [comprehensive example](https://lamin.ai/laminlabs/lamindata/artifact/9K1dteZ6Qx0EXK8g).
+You can organize datasets with validation & annotation of any kind of metadata to then access them via queries & search. Here is a more [comprehensive example](https://lamin.ai/laminlabs/lamindata/artifact/9K1dteZ6Qx0EXK8g):
 
 <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/6sofuDVvTANB0f480002.png" width="850">
 
@@ -121,6 +121,6 @@ ln.Artifact.filter(transform__key="create-fasta.py").to_dataframe()  # query by 
 ```
 
 If you have a structured dataset like a `DataFrame`, an `AnnData`, or another array, you can validate the content of the dataset (and parse annotations).
-Here is an example for a dataframe: [docs.lamin.ai/introduction#validate-an-artifact](https://docs.lamin.ai/introduction#validate-an-artifact).
+Here is [an example for a dataframe](https://docs.lamin.ai/tutorial#validate-an-artifact).
 
 With a large body of validated datasets, you can then access data through distributed queries & batch streaming, see here: [docs.lamin.ai/arrays](https://docs.lamin.ai/arrays).
