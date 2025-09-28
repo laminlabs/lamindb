@@ -10,12 +10,21 @@ import lamindb.models.run
 import lamindb.models.sqlrecord
 
 
+def check_person_registry_empty(apps, schema_editor):
+    Person = apps.get_model("lamindb", "Person")
+    if Person.objects.exists():
+        raise RuntimeError(
+            f"Please export your data, the person registry will be dropped in this migration:\n{Person.to_dataframe()}"
+        )
+
+
 class Migration(migrations.Migration):
     dependencies = [
         ("lamindb", "0121_recorduser"),
     ]
 
     operations = [
+        migrations.RunPython(check_person_registry_empty, migrations.RunPython.noop),
         migrations.RemoveField(
             model_name="project",
             name="people",
