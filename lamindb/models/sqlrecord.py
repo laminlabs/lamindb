@@ -1116,6 +1116,35 @@ class Branch(BaseSQLRecord):
         super().__init__(*args, **kwargs)
 
 
+class Page(BaseSQLRecord, IsVersioned):
+    _len_full_uid: int = 20
+    _len_stem_uid: int = 16
+
+    class Meta:
+        app_label = "lamindb"
+
+    id = models.BigAutoField(primary_key=True)
+    """Internal id, valid only in one DB instance."""
+    uid: str = CharField(
+        editable=False, unique=True, db_index=True, max_length=_len_full_uid
+    )
+    """Universal id."""
+    content: str | None = TextField(null=True)
+    """Markdown content of the page."""
+    hash: str | None = CharField(max_length=22, db_index=True, null=True)
+    """Content hash of the page."""
+    created_at: datetime = DateTimeField(
+        editable=False, db_default=models.functions.Now(), db_index=True
+    )
+    """Time of creation of record."""
+    created_by: User = ForeignKey(
+        "User", CASCADE, default=None, related_name="+", null=True
+    )
+    """Creator of page."""
+    space: Space = ForeignKey(Space, PROTECT, default=1, db_default=1, related_name="+")
+    """The space in which the record lives."""
+
+
 @doc_args(RECORD_REGISTRY_EXAMPLE)
 class SQLRecord(BaseSQLRecord, metaclass=Registry):
     """Metadata record.
@@ -1146,6 +1175,10 @@ class SQLRecord(BaseSQLRecord, metaclass=Registry):
     """Whether record is on a branch or in another "special state"."""
     space: Space = ForeignKey(Space, PROTECT, default=1, db_default=1, related_name="+")
     """The space in which the record lives."""
+    page: Page | None = ForeignKey(
+        Page, PROTECT, default=None, null=True, related_name="+"
+    )
+    """A page to describe the record."""
     _aux: dict[str, Any] | None = JSONField(default=None, db_default=None, null=True)
     """Auxiliary field for dictionary-like metadata."""
 
