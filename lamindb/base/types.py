@@ -34,9 +34,7 @@ from lamindb_setup.types import UPathStr  # noqa: F401
 ListLike = Union[list[str], pd.Series, np.array]
 StrField = Union[str, FieldAttr]  # typing.TypeAlias
 
-TransformType = Literal[
-    "pipeline", "notebook", "upload", "script", "function", "linker"
-]
+TransformType = Literal["pipeline", "notebook", "script", "function", "linker"]
 ArtifactKind = Literal["dataset", "model", "__lamindb_run__"]
 
 # below is used for Feature.dtype and Param.dtype
