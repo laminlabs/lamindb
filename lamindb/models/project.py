@@ -104,19 +104,23 @@ class Reference(SQLRecord, CanCurate, TracksRun, TracksUpdates, ValidateFields):
     artifacts: Artifact = models.ManyToManyField(
         Artifact, through="ArtifactReference", related_name="references"
     )
-    """Artifacts associated with this reference."""
+    """Annotated artifacts."""
     transforms: Artifact = models.ManyToManyField(
         Transform, through="TransformReference", related_name="references"
     )
-    """Transforms associated with this reference."""
+    """Annotated transforms."""
     collections: Artifact = models.ManyToManyField(
         Collection, through="CollectionReference", related_name="references"
     )
-    """Collections associated with this reference."""
+    """Annotated collections."""
     linked_in_records: Record = models.ManyToManyField(
         Record, through="RecordReference", related_name="linked_references"
     )
-    """Linked records."""
+    """Linked in records."""
+    records: Record = models.ManyToManyField(
+        Record, through="ReferenceRecord", related_name="references"
+    )
+    """Annotated records."""
 
     @overload
     def __init__(
@@ -363,13 +367,31 @@ class SchemaProject(BaseSQLRecord, IsLink, TracksRun):
         unique_together = ("schema", "project")
 
 
+# for annotation of records with references, RecordReference is for storing reference values
+class ReferenceRecord(BaseSQLRecord, IsLink, TracksRun):
+    id: int = models.BigAutoField(primary_key=True)
+    reference: Reference = ForeignKey(Reference, PROTECT, related_name="links_record")
+    feature: Feature | None = ForeignKey(
+        Feature,
+        PROTECT,
+        null=True,
+        default=None,
+        related_name="links_referencerecord",
+    )
+    record: Record = ForeignKey(Record, CASCADE, related_name="links_reference")
+
+    class Meta:
+        app_label = "lamindb"
+        unique_together = ("reference", "feature", "record")
+
+
 class RecordReference(BaseSQLRecord, IsLink):
     id: int = models.BigAutoField(primary_key=True)
     record: Record = ForeignKey(Record, CASCADE, related_name="values_reference")
     feature: Feature = ForeignKey(
         Feature, PROTECT, related_name="links_recordreference"
     )
-    value: Reference = ForeignKey(Reference, PROTECT, related_name="links_record")
+    value: Reference = ForeignKey(Reference, PROTECT, related_name="links_in_record")
 
     class Meta:
         app_label = "lamindb"
@@ -379,7 +401,6 @@ class RecordReference(BaseSQLRecord, IsLink):
 # for annotation of records with projects, RecordProject is for storing project values
 class ProjectRecord(BaseSQLRecord, IsLink, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
-    record: Record = ForeignKey(Record, CASCADE, related_name="links_project")
     project: Project = ForeignKey(Project, PROTECT, related_name="links_record")
     feature: Feature | None = ForeignKey(
         Feature,
@@ -388,11 +409,11 @@ class ProjectRecord(BaseSQLRecord, IsLink, TracksRun):
         default=None,
         related_name="links_projectrecord",
     )
+    record: Record = ForeignKey(Record, CASCADE, related_name="links_project")
 
     class Meta:
-        # can have the same label linked to the same artifact if the feature is different
         app_label = "lamindb"
-        unique_together = ("record", "project", "feature")
+        unique_together = ("project", "feature", "record")
 
 
 class RecordProject(BaseSQLRecord, IsLink):
@@ -422,7 +443,6 @@ class ArtifactReference(BaseSQLRecord, IsLink, TracksRun):
 
     class Meta:
         app_label = "lamindb"
-        # can have the same label linked to the same artifact if the feature is different
         unique_together = ("artifact", "reference", "feature")
 
 
