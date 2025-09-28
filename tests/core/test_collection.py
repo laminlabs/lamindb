@@ -396,7 +396,10 @@ def test_revise_collection(df, adata):
 
     with pytest.raises(ValueError) as error:
         collection_r2 = ln.Collection(artifact, revises=collection, version="1")
-    assert error.exconly() == "ValueError: Please increment the previous version: '1'"
+    assert (
+        error.exconly()
+        == "ValueError: Please change the version tag or leave it `None`, '1' is already taken"
+    )
 
     with pytest.raises(TypeError):
         ln.Collection(adata, revises="wrong-type")

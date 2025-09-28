@@ -86,11 +86,58 @@ def test_get_new_path_from_uid():
     UPath("./test_new_path.txt").unlink()
 
 
-def test_latest_version_and_get():
+def test_transform_versioning_based_on_key():
+    transform1 = ln.Transform(
+        key="test-pipeline",
+        version="1.0",
+        source_code="1",
+        type="pipeline",
+    ).save()
+    assert transform1.is_latest
+
+    with pytest.raises(ValueError) as e:
+        transform2 = ln.Transform(
+            key="test-pipeline",
+            version="1.0",
+            source_code="2",
+            type="pipeline",
+        ).save()
+    assert (
+        e.exconly()
+        == "ValueError: Please change the version tag or leave it `None`, '1.0' is already taken"
+    )
+
+    transform2 = ln.Transform(
+        key="test-pipeline",
+        # do not pass the version tag, which corresponds to: version=None
+        source_code="2",
+        type="pipeline",
+    ).save()
+
+    assert transform2.version is None
+    assert transform2.is_latest
+    assert transform2.hash != transform1.hash
+    assert not ln.Transform.get(key="test-pipeline", version="1.0").is_latest
+
+    transform3 = ln.Transform(
+        key="test-pipeline",
+        version="abcd",  # mimic commit hash
+        source_code="3",
+        type="pipeline",
+    ).save()
+
+    assert transform3.version == "abcd"
+    assert transform3.is_latest
+    assert transform3.hash != transform2.hash
+    assert not ln.Transform.get(key="test-pipeline", source_code="2").is_latest
+
+
+def test_transform_versioning_based_on_revises():
     # build one version family
     transform_v1 = ln.Transform(description="Introduction").save()
     assert transform_v1.is_latest
     assert transform_v1.version is None
+
     # pass the latest version
     transform_v2 = ln.Transform(
         description="Introduction v2", revises=transform_v1, version="2"
@@ -98,6 +145,7 @@ def test_latest_version_and_get():
     assert not transform_v1.is_latest
     assert transform_v2.is_latest
     assert transform_v2.uid.endswith("0001")
+
     # consciously *not* pass the latest version to revises but the previous
     # it automatically retrieves the latest version
     transform_v3 = ln.Transform(description="Introduction", revises=transform_v1).save()
@@ -108,7 +156,8 @@ def test_latest_version_and_get():
     assert transform_v3.is_latest
     transform_v4 = ln.Transform(description="Introduction").save()
     assert transform_v4.is_latest
-    # add another transform with the same name that's not part of this family
+
+    # add another transform with the same description that's not part of this family
     # but will also be a hit for the query
     assert len(ln.Transform.filter(description="Introduction").all()) == 3
     assert len(ln.Transform.filter(description="Introduction").latest_version()) == 2

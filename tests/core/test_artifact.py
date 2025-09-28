@@ -245,7 +245,10 @@ def test_revise_artifact(df):
 
     with pytest.raises(ValueError) as error:
         artifact_r2 = ln.Artifact.from_dataframe(df, revises=artifact, version="1")
-    assert error.exconly() == "ValueError: Please increment the previous version: '1'"
+    assert (
+        error.exconly()
+        == "ValueError: Please change the version tag or leave it `None`, '1' is already taken"
+    )
 
     # create new file from old file
     df.iloc[0, 0] = 99  # mutate dataframe so that hash lookup doesn't trigger

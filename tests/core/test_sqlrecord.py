@@ -165,8 +165,12 @@ def test_pass_version():
     # in case source code is saved
     transform.source_code = "dummy"
     transform.save()
-    with pytest.raises(ValueError, match="Please increment the previous version"):
+    with pytest.raises(ValueError) as e:
         ln.Transform(key="mytransform", version="1")
+    assert (
+        e.exconly()
+        == "ValueError: Please change the version tag or leave it `None`, '1' is already taken"
+    )
 
 
 def test_delete():
