@@ -12,48 +12,20 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.RemoveField(
-            model_name="personproject",
-            name="person",
-        ),
-        migrations.RemoveField(
-            model_name="recordperson",
-            name="value",
+            model_name="project",
+            name="people",
         ),
         migrations.RemoveField(
             model_name="reference",
             name="authors",
         ),
-        migrations.RemoveField(
-            model_name="project",
-            name="people",
-        ),
         migrations.AlterUniqueTogether(
             name="personproject",
             unique_together=None,
         ),
-        migrations.RemoveField(
-            model_name="personproject",
-            name="created_by",
-        ),
-        migrations.RemoveField(
-            model_name="personproject",
-            name="project",
-        ),
-        migrations.RemoveField(
-            model_name="personproject",
-            name="run",
-        ),
         migrations.AlterUniqueTogether(
             name="recordperson",
             unique_together=None,
-        ),
-        migrations.RemoveField(
-            model_name="recordperson",
-            name="feature",
-        ),
-        migrations.RemoveField(
-            model_name="recordperson",
-            name="record",
         ),
         migrations.RenameField(
             model_name="reference",
