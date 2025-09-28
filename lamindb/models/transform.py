@@ -127,12 +127,14 @@ class Transform(SQLRecord, IsVersioned):
     # the fact that key is nullable is consistent with Artifact
     # it might turn out that there will never really be a use case for this
     # but there likely also isn't much harm in it except for the mixed type
-    key: str | None = CharField(db_index=True, null=True)
+    # max length for key is 1014 and equals the max lenght of an S3 key & artifact key
+    key: str | None = CharField(db_index=True, null=True, max_length=1024)
     """A name or "/"-separated path-like string.
 
     All transforms with the same key are part of the same version family.
     """
-    description: str | None = CharField(db_index=True, null=True)
+    # db_index on description because sometimes we query for equality in the case of artifacts
+    description: str | None = TextField(null=True, db_index=True)
     """A description."""
     type: TransformType = CharField(
         max_length=20,

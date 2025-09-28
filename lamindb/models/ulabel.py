@@ -11,6 +11,7 @@ from lamindb.base.fields import (
     CharField,
     DateTimeField,
     ForeignKey,
+    TextField,
 )
 from lamindb.errors import FieldValidationError
 
@@ -112,8 +113,8 @@ class ULabel(SQLRecord, HasParents, CanCurate, TracksRun, TracksUpdates):
 
     For example, a ulabel "Project" would be a type, and the actual projects "Project 1", "Project 2", would be records of that `type`.
     """
-    description: str | None = CharField(null=True, db_index=True)
-    """A description (optional)."""
+    description: str | None = TextField(null=True)
+    """A description."""
     reference: str | None = CharField(max_length=255, db_index=True, null=True)
     """A simple reference like URL or external ID."""
     reference_type: str | None = CharField(max_length=25, db_index=True, null=True)

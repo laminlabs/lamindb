@@ -50,6 +50,7 @@ from ..base.fields import (
     DateTimeField,
     ForeignKey,
     JSONField,
+    TextField,
 )
 from ..base.ids import base62_12
 from ..base.types import FieldAttr, StrField
@@ -995,7 +996,7 @@ class Space(BaseSQLRecord):
         db_index=True,
     )
     """Universal id."""
-    description: str | None = CharField(null=True)
+    description: str | None = TextField(null=True)
     """Description of space."""
     created_at: datetime = DateTimeField(
         editable=False, db_default=models.functions.Now(), db_index=True
@@ -1083,7 +1084,7 @@ class Branch(BaseSQLRecord):
 
     This id is useful if one wants to apply the same patch to many database instances.
     """
-    description: str | None = CharField(null=True)
+    description: str | None = TextField(null=True)
     """Description of branch."""
     created_at: datetime = DateTimeField(
         editable=False, db_default=models.functions.Now(), db_index=True

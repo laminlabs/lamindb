@@ -31,6 +31,7 @@ from lamindb.base.fields import (
     BooleanField,
     CharField,
     ForeignKey,
+    TextField,
 )
 from lamindb.errors import FieldValidationError, NoWriteAccess, UnknownStorageLocation
 from lamindb.models.query_set import QuerySet
@@ -1343,7 +1344,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         editable=False, unique=True, db_index=True, max_length=_len_full_uid
     )
     """A universal random id."""
-    key: str | None = CharField(db_index=True, null=True)
+    # the max length of 1024 equals the max length of a S3 key
+    key: str | None = CharField(db_index=True, null=True, max_length=1024)
     """A (virtual) relative file path within the artifact's storage location.
 
     Setting a `key` is useful to automatically group artifacts into a version family.
@@ -1353,7 +1355,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     If you register existing files in a storage location, the `key` equals the
     actual filepath on the underyling filesytem or object store.
     """
-    description: str | None = CharField(db_index=True, null=True)
+    # db_index on description because sometimes we query for equality in the case of artifacts
+    description: str | None = TextField(null=True, db_index=True)
     """A description."""
     storage: Storage = ForeignKey(
         Storage, PROTECT, related_name="artifacts", editable=False
