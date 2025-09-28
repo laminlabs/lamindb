@@ -351,7 +351,7 @@ def test_schema_maximal_set_var():
         curator.validate()
     assert error.exconly() == (
         "lamindb.errors.ValidationError: 1 term not validated in feature 'columns' in slot 'var.T': 'NOT_VALID_ENSEMBL'\n"
-        "    → fix typos, remove non-existent values, or save terms via: curator.slots['var.T'].cat.add_new_from('columns')"
+        "    → fix organism 'human', fix typos, remove non-existent values, or save terms via: curator.slots['var.T'].cat.add_new_from('columns')"
     )
 
     # clean up

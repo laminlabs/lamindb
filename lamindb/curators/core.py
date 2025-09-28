@@ -1561,7 +1561,18 @@ class CatVector:
             if n_non_validated > len(syn_mapper):
                 if syn_mapper:
                     warning_message += "\n    for remaining terms:\n"
-                warning_message += f"    → fix typos, remove non-existent values, or save terms via: {colors.cyan(non_validated_hint_print)}"
+                check_organism = ""
+                if registry.__base__.__name__ == "BioRecord":
+                    import bionty as bt
+                    from bionty._organism import is_organism_required
+
+                    if is_organism_required(registry):
+                        organism = (
+                            valid_inspect_kwargs.get("organism", False)
+                            or bt.settings.organism.name
+                        )
+                        check_organism = f"fix organism '{organism}', "
+                warning_message += f"    → {check_organism}fix typos, remove non-existent values, or save terms via: {colors.cyan(non_validated_hint_print)}"
                 if self._subtype_query_set is not None:
                     warning_message += f"\n    → a valid label for subtype '{self._subtype_str}' has to be one of {self._subtype_query_set.to_list('name')}"
             logger.info(f'mapping "{self._key}" on {colors.italic(model_field)}')
