@@ -12,14 +12,13 @@ from lamindb.base.fields import (
     CharField,
     DateField,
     DateTimeField,
-    EmailField,
     ForeignKey,
     TextField,
     URLField,
 )
 from lamindb.base.users import current_user_id
 
-from ..base.ids import base62_8, base62_12
+from ..base.ids import base62_12
 from .artifact import Artifact
 from .can_curate import CanCurate
 from .collection import Collection
@@ -34,60 +33,6 @@ from .ulabel import ULabel
 if TYPE_CHECKING:
     from datetime import date as DateType
     from datetime import datetime
-
-
-class Person(SQLRecord, CanCurate, TracksRun, TracksUpdates, ValidateFields):
-    """People such as authors of a study or collaborators in a project.
-
-    This registry is distinct from `User` and exists for project management.
-
-    You'll soon be able to conveniently create persons from users.
-
-    Example:
-        >>> person = Person(
-        ...     name="Jane Doe",
-        ...     email="jane.doe@example.com",
-        ...     internal=True,
-        ... ).save()
-    """
-
-    class Meta(SQLRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
-        abstract = False
-        app_label = "lamindb"
-
-    id: int = models.AutoField(primary_key=True)
-    """Internal id, valid only in one DB instance."""
-    uid: str = CharField(
-        editable=False, unique=True, max_length=8, db_index=True, default=base62_8
-    )
-    """Universal id, valid across DB instances."""
-    name: str = CharField(db_index=True)
-    """Name of the person (forename(s) lastname)."""
-    email: str | None = EmailField(null=True, default=None)
-    """Email of the person."""
-    external: bool = BooleanField(default=True, db_index=True)
-    """Whether the person is external to the organization."""
-    records: Record = models.ManyToManyField(
-        Record, through="RecordPerson", related_name="linked_people"
-    )
-    """Linked records."""
-
-    @overload
-    def __init__(
-        self,
-        name: str,
-        email: str | None = None,
-        external: bool = True,
-    ): ...
-
-    @overload
-    def __init__(
-        self,
-        *db_args,
-    ): ...
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
 
 
 class Reference(SQLRecord, CanCurate, TracksRun, TracksUpdates, ValidateFields):
@@ -118,6 +63,8 @@ class Reference(SQLRecord, CanCurate, TracksRun, TracksUpdates, ValidateFields):
     """Universal id, valid across DB instances."""
     name: str = CharField(db_index=True)
     """Title or name of the reference document."""
+    description: str | None = TextField(null=True)
+    """A description."""
     type: Reference | None = ForeignKey(
         "self", PROTECT, null=True, related_name="references"
     )
@@ -150,14 +97,10 @@ class Reference(SQLRecord, CanCurate, TracksRun, TracksUpdates, ValidateFields):
         ],
     )
     """Digital Object Identifier (DOI) for the reference."""
-    description: str | None = CharField(null=True, db_index=True)
-    """Description of the reference."""
     text: str | None = TextField(null=True, db_index=True)
     """Abstract or full text of the reference to make it searchable."""
     date: DateType | None = DateField(null=True, default=None)
     """Date of creation or publication of the reference."""
-    authors: Person = models.ManyToManyField(Person, related_name="references")
-    """All people associated with this reference."""
     artifacts: Artifact = models.ManyToManyField(
         Artifact, through="ArtifactReference", related_name="references"
     )
@@ -170,7 +113,7 @@ class Reference(SQLRecord, CanCurate, TracksRun, TracksUpdates, ValidateFields):
         Collection, through="CollectionReference", related_name="references"
     )
     """Collections associated with this reference."""
-    records: Record = models.ManyToManyField(
+    linked_in_records: Record = models.ManyToManyField(
         Record, through="RecordReference", related_name="linked_references"
     )
     """Linked records."""
@@ -227,6 +170,8 @@ class Project(SQLRecord, CanCurate, TracksRun, TracksUpdates, ValidateFields):
     """Universal id, valid across DB instances."""
     name: str = CharField(db_index=True)
     """Title or name of the Project."""
+    description: str | None = TextField(null=True)
+    """A description."""
     type: Project | None = ForeignKey(
         "self", PROTECT, null=True, related_name="projects"
     )
@@ -261,48 +206,44 @@ class Project(SQLRecord, CanCurate, TracksRun, TracksUpdates, ValidateFields):
 
     Reverse accessor for `.predecessors`.
     """
-    people: Person = models.ManyToManyField(
-        Person, through="PersonProject", related_name="projects"
-    )
-    """Linked people."""
     artifacts: Artifact = models.ManyToManyField(
         Artifact, through="ArtifactProject", related_name="projects"
     )
-    """Linked artifacts."""
+    """Annotated artifacts."""
     transforms: Transform = models.ManyToManyField(
         Transform, through="TransformProject", related_name="projects"
     )
-    """Linked transforms."""
+    """Annotated transforms."""
     runs: Run = models.ManyToManyField(
         Run, through="RunProject", related_name="projects"
     )
-    """Linked transforms."""
+    """Annotated runs."""
     ulabels: ULabel = models.ManyToManyField(
         ULabel, through="ULabelProject", related_name="projects"
     )
-    """Linked ulabels."""
+    """Annotated ulabels."""
     features: ULabel = models.ManyToManyField(
         Feature, through="FeatureProject", related_name="projects"
     )
-    """Linked features."""
+    """Annotated features."""
     schemas: ULabel = models.ManyToManyField(
         Schema, through="SchemaProject", related_name="projects"
     )
-    """Linked schemas."""
+    """Annotated schemas."""
     linked_in_records: Record = models.ManyToManyField(
         Record, through="RecordProject", related_name="linked_projects"
     )
-    """Linked records."""
+    """Linked in records."""
     records: Record = models.ManyToManyField(
         Record, through="ProjectRecord", related_name="projects"
     )
-    """Annotated record."""
+    """Annotated records."""
     collections: Collection = models.ManyToManyField(
         Collection, through="CollectionProject", related_name="projects"
     )
-    """Linked collections."""
+    """Annotated collections."""
     references: Reference = models.ManyToManyField("Reference", related_name="projects")
-    """Linked references."""
+    """Annotated references."""
     _status_code: int = models.SmallIntegerField(default=0, db_index=True)
     """Status code."""
 
@@ -402,17 +343,6 @@ class ULabelProject(BaseSQLRecord, IsLink, TracksRun):
         unique_together = ("ulabel", "project")
 
 
-class PersonProject(BaseSQLRecord, IsLink, TracksRun):
-    id: int = models.BigAutoField(primary_key=True)
-    person: Person = ForeignKey(Person, CASCADE, related_name="links_project")
-    project: Project = ForeignKey(Project, PROTECT, related_name="links_person")
-    role: str | None = CharField(null=True, default=None)
-
-    class Meta:
-        app_label = "lamindb"
-        unique_together = ("person", "project")
-
-
 class FeatureProject(BaseSQLRecord, IsLink, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
     feature: Feature = ForeignKey(Feature, CASCADE, related_name="links_project")
@@ -431,17 +361,6 @@ class SchemaProject(BaseSQLRecord, IsLink, TracksRun):
     class Meta:
         app_label = "lamindb"
         unique_together = ("schema", "project")
-
-
-class RecordPerson(BaseSQLRecord, IsLink):
-    id: int = models.BigAutoField(primary_key=True)
-    record: Record = ForeignKey(Record, CASCADE, related_name="values_person")
-    feature: Feature = ForeignKey(Feature, PROTECT, related_name="links_recordperson")
-    value: Person = ForeignKey(Person, PROTECT, related_name="links_record")
-
-    class Meta:
-        app_label = "lamindb"
-        unique_together = ("record", "feature", "value")
 
 
 class RecordReference(BaseSQLRecord, IsLink):

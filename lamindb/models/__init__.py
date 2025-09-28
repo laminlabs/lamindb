@@ -54,7 +54,7 @@ from .artifact import Artifact, LazyArtifact
 from ._feature_manager import FeatureManager
 from ._label_manager import LabelManager
 from .collection import Collection, CollectionArtifact
-from .project import Person, Project, Reference
+from .project import Project, Reference
 from .query_manager import QueryManager
 from .query_set import BasicQuerySet, QuerySet, SQLRecordList
 from .artifact_set import ArtifactSet
@@ -76,8 +76,6 @@ from .project import (
     CollectionReference,
     RunProject,
     RecordProject,
-    PersonProject,
-    RecordPerson,
     RecordReference,
     ProjectRecord,
 )

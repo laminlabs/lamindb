@@ -28,7 +28,7 @@ from .ulabel import ULabel
 if TYPE_CHECKING:
     import pandas as pd
 
-    from .project import Person, Project, Reference
+    from .project import Project, Reference
     from .query_set import QuerySet
     from .schema import Schema
 
@@ -87,7 +87,7 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates):
 
     If `is_type` is `True`, the schema is used to enforce certain features for each records of this type.
     """
-    # naming convention in analogy with Schema
+    # naming convention in analogy to Schema
     components: Record = models.ManyToManyField(
         "Record", through="RecordRecord", symmetrical=False, related_name="composites"
     )
@@ -133,8 +133,6 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates):
     """Linked projects."""
     linked_references: Reference
     """Linked references."""
-    linked_people: Person
-    """Linked people."""
 
     @overload
     def __init__(

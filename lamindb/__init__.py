@@ -58,7 +58,6 @@ Manage projects.
    Space
    Branch
    Reference
-   Person
 
 Other
 =====
@@ -141,7 +140,6 @@ from .models import (
     Collection,
     Feature,
     FeatureSet,  # backward compat
-    Person,
     Project,
     Reference,
     Run,
@@ -188,7 +186,6 @@ __all__ = [
     "Space",
     "Branch",
     "Reference",
-    "Person",
     # other
     "connect",
     "view",
