@@ -46,6 +46,7 @@ from lamindb_setup.core.upath import extract_suffix_from_path
 from lamindb.base import deprecated
 
 from ..base.fields import (
+    BooleanField,
     CharField,
     DateTimeField,
     ForeignKey,
@@ -1181,6 +1182,8 @@ class SQLRecord(BaseSQLRecord, metaclass=Registry):
         Page, PROTECT, default=None, null=True, related_name="+"
     )
     """A page to describe the record."""
+    is_locked: bool = BooleanField(default=False)
+    """Whether the record is locked for edits."""
     _aux: dict[str, Any] | None = JSONField(default=None, db_default=None, null=True)
     """Auxiliary field for dictionary-like metadata."""
 
