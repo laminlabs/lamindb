@@ -318,6 +318,7 @@ def get_basic_field_names(
     for field_name in [
         "version",
         "is_latest",
+        "is_locked",
         "run_id",
         "created_at",
         "created_by_id",

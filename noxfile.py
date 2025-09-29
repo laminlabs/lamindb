@@ -92,7 +92,7 @@ def install_ci(session, group):
         run(session, "uv pip install --system xarray-dataclasses")
         run(session, "uv pip install --system spatialdata")
     elif group == "unit-storage":
-        extras += "zarr,bionty,gcp"
+        extras += "zarr,gcp"
         run(session, "uv pip install --system huggingface_hub")
         # tiledbsoma dependency, specifying it here explicitly
         # otherwise there are problems with uv resolver
@@ -132,7 +132,7 @@ def install_ci(session, group):
         )
         run(session, "uv pip install --system tiledbsoma")
     elif group == "docs":
-        extras += "bionty,zarr"
+        extras += "zarr"
         # spatialdata dependency, specifying it here explicitly
         # otherwise there are problems with uv resolver
         run(session, "uv pip install --system xarray-dataclasses")
@@ -177,13 +177,8 @@ def install_ci(session, group):
     if IS_PR or group == "docs":
         run(
             session,
-            "uv pip install --system --no-deps ./sub/lamindb-setup ./sub/lamin-cli",
+            "uv pip install --system --no-deps ./sub/lamindb-setup ./sub/lamin-cli ./sub/bionty",
         )
-        if "bionty" in extras:
-            run(
-                session,
-                "uv pip install --system --no-deps ./sub/bionty",
-            )
 
 
 @nox.session

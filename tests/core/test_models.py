@@ -30,11 +30,13 @@ def test_registry__repr__feature():
         .array_shape: JSONField
         .proxy_dtype: CharField
         .synonyms: TextField
+        .is_locked: BooleanField
         .created_at: DateTimeField
         .updated_at: DateTimeField
       Relational fields
         .branch: Branch
         .space: Space
+        .page: Page
         .created_by: User
         .run: Run
         .type: Feature
@@ -68,11 +70,13 @@ def test_registry__repr__artifact():
         .n_observations: BigIntegerField
         .version: CharField
         .is_latest: BooleanField
+        .is_locked: BooleanField
         .created_at: DateTimeField
         .updated_at: DateTimeField
       Relational fields
         .branch: Branch
         .space: Space
+        .page: Page
         .storage: Storage
         .run: Run
         .schema: Schema

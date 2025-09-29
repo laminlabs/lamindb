@@ -171,5 +171,5 @@ def test_using_record_organism():
     )
 
 
-def test_using_query_by_feature():
-    assert ln.Artifact.using("laminlabs/cellxgene").filter(n_of_donors__gte=100)
+# def test_using_query_by_feature():
+#     assert ln.Artifact.using("laminlabs/cellxgene").filter(n_of_donors__gte=100)

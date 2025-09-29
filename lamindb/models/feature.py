@@ -43,6 +43,7 @@ from .sqlrecord import BaseSQLRecord, Registry, SQLRecord, _get_record_kwargs
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
+    from .projects import Project
     from .schema import Schema
 
 FEATURE_DTYPES = set(get_args(Dtype))
@@ -684,6 +685,8 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
     # backward fields
     values: FeatureValue
     """Values for this feature."""
+    projects: Project
+    """Annotating projects."""
 
     @overload
     def __init__(
