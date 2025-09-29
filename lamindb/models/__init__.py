@@ -41,6 +41,7 @@ from .sqlrecord import (
     format_field_value,
     record_repr,
     IsLink,
+    Page,
 )
 from .storage import Storage
 from .transform import Transform

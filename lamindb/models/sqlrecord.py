@@ -1117,6 +1117,8 @@ class Branch(BaseSQLRecord):
 
 
 class Page(BaseSQLRecord, IsVersioned):
+    """An unstructured notes page that can be attached to any record."""
+
     _len_full_uid: int = 20
     _len_stem_uid: int = 16
 
