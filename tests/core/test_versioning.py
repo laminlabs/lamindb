@@ -180,3 +180,18 @@ def test_transform_versioning_based_on_revises():
     assert ln.Transform.get(transform_v3.uid[:-4]) == transform_v3
     assert transform_v3.branch_id == -1
     transform_v3.delete(permanent=True)
+
+
+def test_path_rename():
+    # this is related to renames inside _add_to_version_family
+    with open("test_new_path.txt", "w") as f:
+        f.write("test_new_path")
+    old_path = ln.UPath("s3://lamindata/.lamindb/test_new_path.txt")
+    old_path.upload_from("./test_new_path.txt")
+    assert old_path.exists()
+    new_path = old_path.rename(old_path.with_name("test_new_path2.txt"))
+    assert new_path.exists()
+    assert new_path.as_posix() == "s3://lamindata/.lamindb/test_new_path2.txt"
+    assert not old_path.exists()
+    new_path.unlink()
+    ln.UPath("./test_new_path.txt").unlink()
