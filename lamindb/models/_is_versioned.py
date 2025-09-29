@@ -1,11 +1,11 @@
 from __future__ import annotations
 
+from pathlib import PurePosixPath
 from typing import TYPE_CHECKING, Literal, overload
 
 from django.db import models
 from lamin_utils import logger
 from lamin_utils._base62 import increment_base62
-from lamindb_setup.core.upath import LocalPathClasses, UPath
 
 from lamindb.base import ids
 from lamindb.base.fields import (
@@ -88,12 +88,17 @@ class IsVersioned(models.Model):
         """
         old_uid = self.uid  # type: ignore
         new_uid, revises = create_uid(revises=revises, version=version)
-        if self.__class__.__name__ == "Artifact" and self._key_is_virtual:
+        if self.__class__.__name__ == "Artifact" and (
+            self._key_is_virtual or self.key is None
+        ):
+            from lamindb.core.storage.paths import auto_storage_key_from_artifact_uid
+
             old_path = self.path
-            new_path = get_new_path_from_uid(
-                old_path=old_path, old_uid=old_uid, new_uid=new_uid
+            real_key = auto_storage_key_from_artifact_uid(
+                new_uid, self.suffix, self._overwrite_versions
             )
-            new_path = UPath(old_path).rename(new_path)
+            new_path = old_path.rename(old_path.with_name(PurePosixPath(real_key).name))
+            self._real_key = real_key  # update after the successful rename
             logger.success(f"updated path from {old_path} to {new_path}!")
         self.uid = new_uid
         self.version = version
@@ -196,16 +201,6 @@ def create_uid(
                     f"Please change the version tag or leave it `None`, '{revises.version}' is already taken"
                 )
     return suid + vuid, revises
-
-
-def get_new_path_from_uid(old_path: UPath, old_uid: str, new_uid: str):
-    if isinstance(old_path, LocalPathClasses):
-        # for local path, the rename target must be full path
-        new_path = old_path.as_posix().replace(old_uid, new_uid)
-    else:
-        # for cloud path, the rename target must be the last part of the path
-        new_path = old_path.name.replace(old_uid, new_uid)
-    return new_path
 
 
 def process_revises(
