@@ -35,6 +35,7 @@ def test_registry__repr__feature():
       Relational fields
         .branch: Branch
         .space: Space
+        .page: Page
         .created_by: User
         .run: Run
         .type: Feature
@@ -73,6 +74,7 @@ def test_registry__repr__artifact():
       Relational fields
         .branch: Branch
         .space: Space
+        .page: Page
         .storage: Storage
         .run: Run
         .schema: Schema

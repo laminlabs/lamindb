@@ -55,6 +55,7 @@ if TYPE_CHECKING:
     from .artifact import Artifact
     from .project import Project
     from .query_set import QuerySet, SQLRecordList
+    from .record import Record
 
 
 NUMBER_TYPE = "num"
@@ -449,6 +450,11 @@ class Schema(SQLRecord, CanCurate, TracksRun):
     """The artifacts that were validated against this schema with a :class:`~lamindb.curators.core.Curator`."""
     projects: Project
     """Linked projects."""
+    schemas: Schema
+    """Schemas for this type."""
+    records: Record
+    """Records that were annotated with this schema."""
+
     _curation: dict[str, Any] = JSONField(default=None, db_default=None, null=True)
     # lamindb v2
     # _itype: ContentType = models.ForeignKey(ContentType, on_delete=models.CASCADE)
