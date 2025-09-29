@@ -8,11 +8,6 @@ def test_folder_like_artifact(get_test_filepaths, key):
     is_in_registered_storage = get_test_filepaths[0]
     test_dirpath = get_test_filepaths[2]
     hash_test_dir = get_test_filepaths[5]
-
-    # run tests on initial Artifact creation
-    if key is not None and is_in_registered_storage:
-        assert ln.Artifact(test_dirpath, key=key)._real_key is not None
-        return None
     if key is None and not is_in_registered_storage:
         with pytest.raises(ValueError) as error:
             ln.Artifact(test_dirpath, key=key)
