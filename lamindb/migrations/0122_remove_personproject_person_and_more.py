@@ -198,4 +198,22 @@ class Migration(migrations.Migration):
             name="projectrecord",
             unique_together={("project", "feature", "record")},
         ),
+        migrations.AddField(
+            model_name="reference",
+            name="records",
+            field=models.ManyToManyField(
+                related_name="references",
+                through="lamindb.ReferenceRecord",
+                to="lamindb.record",
+            ),
+        ),
+        migrations.AlterField(
+            model_name="reference",
+            name="linked_in_records",
+            field=models.ManyToManyField(
+                related_name="linked_references",
+                through="lamindb.RecordReference",
+                to="lamindb.record",
+            ),
+        ),
     ]
