@@ -2473,34 +2473,41 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             err_msg += " with " + ("a folder." if _overwrite_versions else "a file.")
             raise ValueError(err_msg)
 
-        if self.key is not None and not self._key_is_virtual:
-            key_path = PurePosixPath(self.key)
-            new_filename = f"{key_path.stem}{kwargs['suffix']}"
+        new_suffix = kwargs["suffix"]
+        key = self.key
+        if key is not None and not self._key_is_virtual:
+            # non-virtual key case
+            key_path = PurePosixPath(key)
+            new_filename = f"{key_path.stem}{new_suffix}"
             # the following will only be true if the suffix changes!
             if key_path.name != new_filename:
-                self._clear_storagekey = self.key
-                self.key = str(key_path.with_name(new_filename))
+                self._clear_storagekey = key
+                new_key = key_path.with_name(new_filename).as_posix()
+                self.key = new_key
+                self._real_key = new_key
                 # update old key with the new one so that checks in record pass
-                self._old_key = self.key
+                self._old_key = new_key
                 logger.warning(
                     f"replacing the file will replace key '{key_path}' with '{self.key}'"
                     f" and delete '{key_path}' upon `save()`"
                 )
         else:
+            # virtual key case
             old_storage = auto_storage_key_from_artifact(self)
             is_dir = self.n_files is not None
             new_storage = auto_storage_key_from_artifact_uid(
-                self.uid, kwargs["suffix"], is_dir
+                self.uid, new_suffix, is_dir
             )
             if old_storage != new_storage:
                 self._clear_storagekey = old_storage
-                if self.key is not None:
-                    new_key_path = PurePosixPath(self.key).with_suffix(kwargs["suffix"])
-                    self.key = str(new_key_path)
+                if key is not None:
+                    new_key = PurePosixPath(key).with_suffix(new_suffix).as_posix()
+                    self.key = new_key
                     # update old key with the new one so that checks in record pass
-                    self._old_key = self.key
+                    self._old_key = new_key
+                self._real_key = new_storage
 
-        self.suffix = kwargs["suffix"]
+        self.suffix = new_suffix
         self.size = kwargs["size"]
         self.hash = kwargs["hash"]
         self._hash_type = kwargs["_hash_type"]
