@@ -1170,6 +1170,7 @@ class SQLRecord(BaseSQLRecord, metaclass=Registry):
     machine learning or biological models.
     """
 
+    # we need the db_default when not interacting via django directly on a required field
     branch: Branch = ForeignKey(
         Branch,
         PROTECT,
@@ -1185,7 +1186,7 @@ class SQLRecord(BaseSQLRecord, metaclass=Registry):
         Page, PROTECT, default=None, null=True, related_name="+"
     )
     """A page to describe the record."""
-    is_locked: bool = BooleanField(default=False)
+    is_locked: bool = BooleanField(default=False, db_default=False)
     """Whether the record is locked for edits."""
     _aux: dict[str, Any] | None = JSONField(default=None, db_default=None, null=True)
     """Auxiliary field for dictionary-like metadata."""
