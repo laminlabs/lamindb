@@ -91,15 +91,22 @@ class IsVersioned(models.Model):
         if self.__class__.__name__ == "Artifact" and (
             self._key_is_virtual or self.key is None
         ):
-            from lamindb.core.storage.paths import auto_storage_key_from_artifact_uid
-
-            old_path = self.path
-            real_key = auto_storage_key_from_artifact_uid(
-                new_uid, self.suffix, self._overwrite_versions
+            from lamindb.core.storage.paths import (
+                AUTO_KEY_PREFIX,
+                auto_storage_key_from_artifact_uid,
             )
-            new_path = old_path.rename(old_path.with_name(PurePosixPath(real_key).name))
-            self._real_key = real_key  # update after the successful rename
-            logger.success(f"updated path from {old_path} to {new_path}!")
+
+            old_real_key = self._real_key  # type: ignore
+            if old_real_key is None or old_real_key.startswith(AUTO_KEY_PREFIX):
+                old_path = self.path
+                new_real_key = auto_storage_key_from_artifact_uid(
+                    new_uid, self.suffix, self._overwrite_versions
+                )
+                new_path = old_path.rename(
+                    old_path.with_name(PurePosixPath(new_real_key).name)
+                )
+                self._real_key = new_real_key  # update after the successful rename
+                logger.success(f"updated path from {old_path} to {new_path}!")
         self.uid = new_uid
         self.version = version
         self.save()

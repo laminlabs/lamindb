@@ -2503,7 +2503,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 if key is not None:
                     new_key = PurePosixPath(key).with_suffix(new_suffix).as_posix()
                     self.key = new_key
-                    # update old key with the new one so that checks in record pass
+                    # update the old key with the new one so that checks in record pass
                     self._old_key = new_key
                 self._real_key = new_storage
 
