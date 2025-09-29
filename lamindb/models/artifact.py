@@ -462,6 +462,9 @@ def get_artifact_kwargs_from_data(
         is_dir=n_files is not None,
     )
 
+    if overwrite_versions is None:
+        overwrite_versions = n_files is not None
+
     if check_path_in_storage:
         # we use an actual storage key if key is not provided explicitly
         key_is_virtual = real_key is not None
@@ -469,8 +472,15 @@ def get_artifact_kwargs_from_data(
         # do we use a virtual or an actual storage key?
         key_is_virtual = settings.creation._artifact_use_virtual_keys
 
-    if overwrite_versions is None:
-        overwrite_versions = n_files is not None
+    if real_key is None:
+        if key is None or key_is_virtual:
+            real_key = auto_storage_key_from_artifact_uid(
+                provisional_uid, suffix, overwrite_versions
+            )
+        elif not key_is_virtual:
+            real_key = key
+    assert real_key is not None  # noqa: S101
+
     kwargs = {
         "uid": provisional_uid,
         "suffix": suffix,
