@@ -1117,6 +1117,9 @@ class Branch(BaseSQLRecord):
         super().__init__(*args, **kwargs)
 
 
+# this page does not have is_locked because we want each of page
+# to be immutable anyway, meaning we always create a new version
+# hence we can solve locking simply by virtue of not allowing edits
 class Page(BaseSQLRecord, IsVersioned):
     """An unstructured notes page that can be attached to any record."""
 
