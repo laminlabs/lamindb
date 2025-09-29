@@ -22,8 +22,8 @@ dependencies = [
     # Lamin OPTIONAL packages, included to avoid users forgetting about passing extras,
     # which has happened very often these past years
     # these are small packages with few dependencies
-    "bionty>=1.8a1", # do NOT pin, is bounded in bionty
-    "wetlab>=1.6a1", # do NOT pin, is bounded in wetlab
+    "bionty>=1.7a1", # do NOT pin, is bounded in bionty
+    "wetlab>=1.5a1", # do NOT pin, is bounded in wetlab
     # Jupyter -- these are also small packages with few & small dependencies
     "nbproject==0.11.1",  # keep pinning
     "jupytext",
