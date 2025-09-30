@@ -117,6 +117,7 @@ def tracked(uid: str | None = None) -> Callable[[Callable[P, R]], Callable[P, R]
             try:
                 result = func(*args, **kwargs)
                 run.finished_at = datetime.now(timezone.utc)
+                run._status_code = 0  # completed
                 run.save()
                 return result
             finally:
