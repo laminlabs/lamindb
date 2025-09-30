@@ -2,6 +2,8 @@
 
 from django.db import migrations, models
 
+import lamindb.base.fields
+
 
 class Migration(migrations.Migration):
     dependencies = [
@@ -17,6 +19,13 @@ class Migration(migrations.Migration):
             name="_status_code",
             field=models.SmallIntegerField(
                 db_default=-3, db_index=True, default=-3, null=True
+            ),
+        ),
+        migrations.AlterField(
+            model_name="feature",
+            name="dtype",
+            field=lamindb.base.fields.CharField(
+                blank=True, db_index=True, default=None, max_length=255
             ),
         ),
     ]

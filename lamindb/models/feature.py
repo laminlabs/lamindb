@@ -617,7 +617,7 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
     """Universal id, valid across DB instances."""
     name: str = CharField(max_length=150, db_index=True)
     """Name of feature."""
-    dtype: Dtype | None = CharField(db_index=True, null=True)
+    dtype: Dtype = CharField(db_index=True)
     """Data type (:class:`~lamindb.base.types.Dtype`)."""
     type: Feature | None = ForeignKey(
         "self", PROTECT, null=True, related_name="features"
