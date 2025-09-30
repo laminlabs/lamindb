@@ -1,3 +1,11 @@
+"""PyTorch Lightning integrations.
+
+.. autosummary::
+   :toctree: .
+
+   LightningCallback
+"""
+
 from pathlib import Path
 
 import lightning as pl
