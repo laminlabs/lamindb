@@ -45,3 +45,6 @@ class LightningCallback(pl.Callback):
             key=f"{self.key_prefix}/{self.run_id}.ckpt",
             kind="model",
         ).save()
+
+
+__all__ = ["LightningCallback"]

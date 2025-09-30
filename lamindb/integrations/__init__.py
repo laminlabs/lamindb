@@ -17,6 +17,7 @@ def __getattr__(attr_name: str) -> Any:
         from lamindb.integrations import _lightning
 
         return _lightning
+    raise AttributeError(f"module has no attribute {attr_name!r}")
 
 
 from lamindb.core.storage import save_tiledbsoma_experiment
