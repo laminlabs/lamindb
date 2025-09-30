@@ -472,15 +472,6 @@ def get_artifact_kwargs_from_data(
         # do we use a virtual or an actual storage key?
         key_is_virtual = settings.creation._artifact_use_virtual_keys
 
-    if real_key is None:
-        if key is None or key_is_virtual:
-            real_key = auto_storage_key_from_artifact_uid(
-                provisional_uid, suffix, overwrite_versions
-            )
-        elif not key_is_virtual:
-            real_key = key
-    assert real_key is not None  # noqa: S101
-
     kwargs = {
         "uid": provisional_uid,
         "suffix": suffix,
@@ -2474,38 +2465,39 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             raise ValueError(err_msg)
 
         new_suffix = kwargs["suffix"]
-        key = self.key
-        if key is not None and not self._key_is_virtual:
-            # non-virtual key case
-            key_path = PurePosixPath(key)
-            new_filename = f"{key_path.stem}{new_suffix}"
-            # the following will only be true if the suffix changes!
-            if key_path.name != new_filename:
-                self._clear_storagekey = key
-                new_key = key_path.with_name(new_filename).as_posix()
+        if new_suffix != self.suffix:
+            key = self.key
+            real_key = self._real_key
+            if key is not None:
+                new_key = PurePosixPath(key).with_suffix(new_suffix).as_posix()
+            else:
+                new_key = None
+            if (key is not None and not self._key_is_virtual) or real_key is not None:
+                # real_key is not None implies key is not None
+                assert key is not None  # noqa: S101
+                if real_key is not None:
+                    self._clear_storagekey = real_key
+                    self._real_key = (
+                        PurePosixPath(real_key).with_suffix(new_suffix).as_posix()
+                    )
+                    warn_msg = f", _real_key {real_key} with {self._real_key}"
+                else:
+                    self._clear_storagekey = key
+                    warn_msg = ""
                 self.key = new_key
-                self._real_key = new_key
                 # update old key with the new one so that checks in record pass
                 self._old_key = new_key
                 logger.warning(
-                    f"replacing the file will replace key '{key_path}' with '{self.key}'"
-                    f" and delete '{key_path}' upon `save()`"
+                    f"replacing the file will replace key '{key}' with '{new_key}'{warn_msg}"
+                    f" and delete '{self._clear_storagekey}' upon `save()`"
                 )
-        else:
-            # virtual key case
-            old_storage = auto_storage_key_from_artifact(self)
-            is_dir = self.n_files is not None
-            new_storage = auto_storage_key_from_artifact_uid(
-                self.uid, new_suffix, is_dir
-            )
-            if old_storage != new_storage:
-                self._clear_storagekey = old_storage
-                if key is not None:
-                    new_key = PurePosixPath(key).with_suffix(new_suffix).as_posix()
-                    self.key = new_key
-                    # update the old key with the new one so that checks in record pass
-                    self._old_key = new_key
-                self._real_key = new_storage
+            else:
+                # purely virtual key case
+                self._clear_storagekey = auto_storage_key_from_artifact(self)
+                # might replace None with None, not a big deal
+                self.key = new_key
+                # update the old key with the new one so that checks in record pass
+                self._old_key = new_key
 
         self.suffix = new_suffix
         self.size = kwargs["size"]
