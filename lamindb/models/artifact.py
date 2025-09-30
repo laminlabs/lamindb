@@ -2480,7 +2480,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                     self._real_key = (
                         PurePosixPath(real_key).with_suffix(new_suffix).as_posix()
                     )
-                    warn_msg = f", _real_key {real_key} with {self._real_key}"
+                    warn_msg = f", _real_key '{real_key}' with '{self._real_key}'"
                 else:
                     self._clear_storagekey = key
                     warn_msg = ""
