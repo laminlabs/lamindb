@@ -24,7 +24,6 @@ class LightningCallback(pl.Callback):
         self.run_id = run_id
         self.key_prefix = key_prefix
         self.checkpoint_dir = Path(checkpoint_dir)
-        self.checkpoint_dir.mkdir(parents=True, exist_ok=True)
 
     def on_train_epoch_end(self, trainer: Trainer, pl_module: LightningModule) -> None:
         """Saves model checkpoint to LaminDB at end of each epoch."""
