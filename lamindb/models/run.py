@@ -317,16 +317,10 @@ class Run(SQLRecord):
     """Linked projects."""
     _is_consecutive: bool | None = BooleanField(null=True)
     """Indicates whether code was consecutively executed. Is relevant for notebooks."""
-    _status_code: int = models.SmallIntegerField(default=None, db_index=True, null=True)
-    """Status code of the run.
-
-    - -3: scheduled
-    - -2: re-started
-    - -1: started
-    - 0: completed
-    - 1: errored
-    - 2: aborted
-    """
+    _status_code: int = models.SmallIntegerField(
+        default=-3, db_default=-3, db_index=True, null=True
+    )
+    """Status code of the run. See the status property for mapping to string."""
 
     @overload
     def __init__(
@@ -371,6 +365,41 @@ class Run(SQLRecord):
             initiated_by_run=initiated_by_run,
             reference_type=reference_type,
         )
+
+    @property
+    def status(self) -> str:
+        """Get status of run.
+
+        Returns the status as a string, one of: `scheduled`, `re-started`, `started`, `completed`, `errored`, or `aborted`.
+
+        The string maps to an integer field `_status_code` of the run registry, with mapping:
+            - -3: `scheduled`
+            - -2: `re-started`
+            - -1: `started`
+            - 0: `completed`
+            - 1: `errored`
+            - 2: `aborted`
+
+        You can use this private integer field for queries.
+
+        Examples:
+
+            ::
+
+                run.status
+                #> 'completed'
+        """
+        if self._status_code is None:
+            return "unknown"
+        status_dict = {
+            -3: "scheduled",
+            -2: "re-started",
+            -1: "started",
+            0: "completed",
+            1: "errored",
+            2: "aborted",
+        }
+        return status_dict.get(self._status_code, "unknown")
 
     @property
     @deprecated("features")
