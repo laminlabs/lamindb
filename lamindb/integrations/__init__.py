@@ -6,17 +6,17 @@
    save_vitessce_config
    save_tiledbsoma_experiment
    curate_from_croissant
-   LightningCallback
+   lightning
 """
 
 from typing import Any
 
 
 def __getattr__(attr_name: str) -> Any:
-    if attr_name == "LightningCallback":
-        from ._lightning import LightningCallback
+    if attr_name == "lightning":
+        from lamindb.integrations import _lightning
 
-        return LightningCallback
+        return _lightning
 
 
 from lamindb.core.storage import save_tiledbsoma_experiment
@@ -24,8 +24,13 @@ from lamindb.core.storage import save_tiledbsoma_experiment
 from ._croissant import curate_from_croissant
 from ._vitessce import save_vitessce_config
 
+
+def __dir__():
+    return __all__
+
+
 __all__ = [
-    "LightningCallback",
+    "lightning",
     "save_tiledbsoma_experiment",
     "curate_from_croissant",
     "save_vitessce_config",
