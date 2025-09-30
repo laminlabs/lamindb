@@ -16,6 +16,10 @@ def test_folder_like_artifact(get_test_filepaths, key):
         )
         return None
     artifact1 = ln.Artifact(test_dirpath, key=key)
+    if key is not None and is_in_registered_storage:
+        assert artifact1._real_key is not None
+    else:
+        assert artifact1._real_key is None
     assert artifact1.n_files == 3
     assert artifact1.hash == hash_test_dir
     assert artifact1._state.adding

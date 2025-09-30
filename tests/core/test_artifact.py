@@ -704,12 +704,15 @@ def test_create_from_local_filepath(
 
 @pytest.mark.parametrize("key", [None, "my_new_folder"])
 def test_from_dir_many_artifacts(get_test_filepaths, key):
-    get_test_filepaths[0]
+    is_in_registered_storage = get_test_filepaths[0]
     test_dirpath = get_test_filepaths[2]
     # the directory contains 3 files, two of them are duplicated
     artifacts = ln.Artifact.from_dir(test_dirpath, key=key)
     for artifact in artifacts:
-        assert artifact._real_key is not None
+        if key is not None and is_in_registered_storage:
+            assert artifact._real_key is not None
+        else:
+            assert artifact._real_key is None
     # we only return the duplicated ones
     hashes = [artifact.hash for artifact in artifacts if artifact.hash is not None]
     uids = [artifact.uid for artifact in artifacts]
