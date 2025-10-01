@@ -1097,6 +1097,7 @@ def test_get_by_path(df):
     artifact.delete(permanent=True)
 
     path_str = "s3://lamindb-ci/test-data/test.csv"
+    storage = ln.Storage(ln.UPath(path_str).parent).save()
 
     artifact = ln.Artifact(path_str, description="test get by path").save()
     assert not artifact._key_is_virtual
@@ -1111,3 +1112,5 @@ def test_get_by_path(df):
     assert ln.Artifact.get(path=path_str) == artifact
 
     artifact.delete(permanent=True, storage=False)
+
+    storage.delete()
