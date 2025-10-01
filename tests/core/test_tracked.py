@@ -70,6 +70,7 @@ def test_tracked_parallel():
         assert run.started_at is not None
         assert run.finished_at is not None
         assert run.started_at < run.finished_at
+        assert run.status == "completed"
 
     # Clean up test artifacts
     for artifact in artifacts:

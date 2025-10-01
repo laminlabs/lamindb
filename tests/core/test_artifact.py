@@ -707,15 +707,12 @@ def test_from_dir_many_artifacts(get_test_filepaths, key):
     is_in_registered_storage = get_test_filepaths[0]
     test_dirpath = get_test_filepaths[2]
     # the directory contains 3 files, two of them are duplicated
-    if key is not None and is_in_registered_storage:
-        with pytest.raises(InvalidArgument) as error:
-            ln.Artifact.from_dir(test_dirpath, key=key)
-        assert error.exconly().startswith(
-            "lamindb.errors.InvalidArgument: The path"  # The path {data} is already in registered storage
-        )
-        return None
-    else:
-        artifacts = ln.Artifact.from_dir(test_dirpath, key=key)
+    artifacts = ln.Artifact.from_dir(test_dirpath, key=key)
+    for artifact in artifacts:
+        if key is not None and is_in_registered_storage:
+            assert artifact._real_key is not None
+        else:
+            assert artifact._real_key is None
     # we only return the duplicated ones
     hashes = [artifact.hash for artifact in artifacts if artifact.hash is not None]
     uids = [artifact.uid for artifact in artifacts]
@@ -1098,3 +1095,22 @@ def test_get_by_path(df):
         ln.User.get(path="some/path")
 
     artifact.delete(permanent=True)
+
+    path_str = "s3://lamindb-ci/test-data/test.csv"
+    storage = ln.Storage(ln.UPath(path_str).parent).save()
+
+    artifact = ln.Artifact(path_str, description="test get by path").save()
+    assert not artifact._key_is_virtual
+    assert artifact._real_key is None
+    assert ln.Artifact.get(path=path_str) == artifact
+
+    artifact.delete(permanent=True, storage=False)
+
+    artifact = ln.Artifact(path_str, key="some_file.csv").save()
+    assert artifact._key_is_virtual
+    assert artifact._real_key.endswith("test.csv")
+    assert ln.Artifact.get(path=path_str) == artifact
+
+    artifact.delete(permanent=True, storage=False)
+
+    storage.delete()

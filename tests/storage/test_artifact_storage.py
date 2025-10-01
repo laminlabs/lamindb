@@ -75,10 +75,18 @@ def test_create_big_file_from_remote_path():
     filepath_str = "s3://lamindb-test/core/human_immune.h5ad"
     # we don't use from_anndata() here because we test this with a small file for shorter run time
     artifact = ln.Artifact(filepath_str)
+    assert not artifact._key_is_virtual
+    assert artifact._real_key is None
     assert artifact.key == "human_immune.h5ad"
     assert artifact._hash_type == "md5-3"
     assert artifact.size == 21960324
-    assert artifact.path.as_posix().startswith("s3://lamindb-test/core")
+    assert artifact.path.as_posix() == filepath_str
+    # check _real_key
+    artifact = ln.Artifact(filepath_str, key="adata_test_key.h5ad")
+    assert artifact._key_is_virtual
+    assert artifact.key == "adata_test_key.h5ad"
+    assert artifact._real_key.endswith("human_immune.h5ad")
+    assert artifact.path.as_posix() == filepath_str
 
 
 def test_delete_artifact_from_non_managed_storage():

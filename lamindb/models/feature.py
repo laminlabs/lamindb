@@ -601,6 +601,12 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
     class Meta(SQLRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
         abstract = False
         app_label = "lamindb"
+        constraints = [
+            models.CheckConstraint(
+                check=models.Q(is_type=True) | models.Q(dtype__isnull=False),
+                name="dtype_not_null_when_is_type_false",
+            )
+        ]
 
     _name_field: str = "name"
     _aux_fields: dict[str, tuple[str, type]] = {
@@ -617,7 +623,8 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
     """Universal id, valid across DB instances."""
     name: str = CharField(max_length=150, db_index=True)
     """Name of feature."""
-    dtype: Dtype | None = CharField(db_index=True, null=True)
+    # dtype can be null if is_type is True
+    dtype: Dtype = CharField(db_index=True, null=True)
     """Data type (:class:`~lamindb.base.types.Dtype`)."""
     type: Feature | None = ForeignKey(
         "self", PROTECT, null=True, related_name="features"
