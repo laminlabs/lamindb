@@ -43,6 +43,7 @@ def test_registry__repr__feature():
         .features: Feature
         .values: FeatureValue
         .projects: Project
+        .blocks: FeatureBlock
     """).strip()
 
     actual_repr = _strip_ansi(repr(feature))
@@ -75,7 +76,6 @@ def test_registry__repr__artifact():
       Relational fields
         .branch: Branch
         .space: Space
-        .pages: Page
         .storage: Storage
         .run: Run
         .schema: Schema
@@ -88,6 +88,7 @@ def test_registry__repr__artifact():
         .records: Record
         .references: Reference
         .projects: Project
+        .blocks: Block
       Bionty fields
         .organisms: bionty.Organism
         .genes: bionty.Gene

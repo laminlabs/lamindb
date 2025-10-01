@@ -5,6 +5,7 @@ from django.db.models import CASCADE, CharField, DateTimeField, ForeignKey, Text
 
 from .artifact import Artifact
 from .collection import Collection
+from .feature import Feature
 from .project import Project
 from .record import Record
 from .run import Run, User
@@ -133,6 +134,16 @@ class SchemaBlock(BlockMixin, BaseSQLRecord):
 
     schema: Schema = ForeignKey(Schema, CASCADE, related_name="blocks", null=True)
     """The schema to which the block is attached."""
+
+
+class FeatureBlock(BlockMixin, BaseSQLRecord):
+    """An unstructured notes block that can be attached to an artifact."""
+
+    class Meta:
+        app_label = "lamindb"
+
+    feature: Feature = ForeignKey(Feature, CASCADE, related_name="blocks", null=True)
+    """The feature to which the block is attached."""
 
 
 class ProjectBlock(BlockMixin, BaseSQLRecord):
