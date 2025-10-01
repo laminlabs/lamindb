@@ -1571,8 +1571,8 @@ def track_current_key_and_name_values(record: SQLRecord):
     # below, we're using __dict__ to avoid triggering the refresh from the database
     # which can lead to a recursion
     if isinstance(record, Artifact):
-        record._old_key = record.__dict__.get("key")
-        record._old_suffix = record.__dict__.get("suffix")
+        record._old_key = record.__dict__.get("key")  # type: ignore
+        record._old_suffix = record.__dict__.get("suffix")  # type: ignore
     elif hasattr(record, "_name_field"):
         record._old_name = record.__dict__.get(record._name_field)
 
@@ -1660,12 +1660,12 @@ def check_key_change(record: Union[Artifact, Transform]):
 
     if not isinstance(record, Artifact) or not hasattr(record, "_old_key"):
         return
-    if record._old_suffix != record.suffix:
+    if record._old_suffix != record.suffix:  # type: ignore
         raise InvalidArgument(
-            f"Changing the `.suffix` of an artifact is not allowed! You tried to change it from '{record._old_suffix}' to '{record.suffix}'."
+            f"Changing the `.suffix` of an artifact is not allowed! You tried to change it from '{record._old_suffix}' to '{record.suffix}'."  # type: ignore
         )
 
-    old_key = record._old_key
+    old_key = record._old_key  # type: ignore
     new_key = record.key
 
     if old_key != new_key:

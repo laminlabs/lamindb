@@ -224,7 +224,7 @@ def check_and_attempt_upload(
             logger.warning(f"could not upload artifact: {artifact}")
             # clear dangling storages if we were actually uploading or saving
             if getattr(artifact, "_to_store", False):
-                artifact._clear_storagekey = auto_storage_key_from_artifact(artifact)
+                artifact._clear_storagekey = auto_storage_key_from_artifact(artifact)  # type: ignore
             return exception
         # copies (if on-disk) or moves the temporary file (if in-memory) to the cache
         if os.getenv("LAMINDB_MULTI_INSTANCE") is None:
@@ -313,18 +313,18 @@ def check_and_attempt_clearing(
     # or if there was an exception during upload
     if hasattr(artifact, "_clear_storagekey"):
         try:
-            if artifact._clear_storagekey is not None:
+            if artifact._clear_storagekey is not None:  # type: ignore
                 delete_msg = delete_storage_using_key(
                     artifact,
-                    artifact._clear_storagekey,
+                    artifact._clear_storagekey,  # type: ignore
                     raise_file_not_found_error=raise_file_not_found_error,
                     using_key=using_key,
                 )
                 if delete_msg != "did-not-delete":
                     logger.success(
-                        f"deleted stale object at storage key {artifact._clear_storagekey}"
+                        f"deleted stale object at storage key {artifact._clear_storagekey}"  # type: ignore
                     )
-                artifact._clear_storagekey = None
+                artifact._clear_storagekey = None  # type: ignore
         except Exception as exception:
             return exception
     # returning None means proceed (either success or no action needed)
@@ -370,7 +370,7 @@ def store_artifacts(
             artifact, raise_file_not_found_error=True, using_key=using_key
         )
         if exception is not None:
-            logger.warning(f"clean up of {artifact._clear_storagekey} failed")
+            logger.warning(f"clean up of {artifact._clear_storagekey} failed")  # type: ignore
             break
 
     if exception is not None:
@@ -385,7 +385,7 @@ def store_artifacts(
                     )
                     if exception_clear is not None:
                         logger.warning(
-                            f"clean up of {artifact._clear_storagekey} after the upload error failed"
+                            f"clean up of {artifact._clear_storagekey} after the upload error failed"  # type: ignore
                         )
         error_message = prepare_error_message(artifacts, stored_artifacts, exception)
         # this is bad because we're losing the original traceback

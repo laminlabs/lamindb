@@ -420,20 +420,15 @@ def get_artifact_kwargs_from_data(
     )
 
     check_path_in_storage = False
+    real_key = None
     if use_existing_storage_key:
         inferred_key = get_relative_path_to_directory(
             path=path, directory=UPath(storage.root)
         ).as_posix()
         if key is None:
             key = inferred_key
-        else:
-            if not key == inferred_key:
-                raise InvalidArgument(
-                    f"The path '{data}' is already in registered storage"
-                    f" '{storage.root}' with key '{inferred_key}'\nYou passed"
-                    f" conflicting key '{key}': please move the file before"
-                    " registering it."
-                )
+        elif key != inferred_key:
+            real_key = inferred_key
         check_path_in_storage = True
     else:
         storage = storage
@@ -467,15 +462,16 @@ def get_artifact_kwargs_from_data(
         is_dir=n_files is not None,
     )
 
-    # do we use a virtual or an actual storage key?
-    key_is_virtual = settings.creation._artifact_use_virtual_keys
-
-    # if the file is already in storage, independent of the default
-    # we use an actual storage key
-    if check_path_in_storage:
-        key_is_virtual = False
     if overwrite_versions is None:
         overwrite_versions = n_files is not None
+
+    if check_path_in_storage:
+        # we use an actual storage key if key is not provided explicitly
+        key_is_virtual = real_key is not None
+    else:
+        # do we use a virtual or an actual storage key?
+        key_is_virtual = settings.creation._artifact_use_virtual_keys
+
     kwargs = {
         "uid": provisional_uid,
         "suffix": suffix,
@@ -494,6 +490,7 @@ def get_artifact_kwargs_from_data(
         "run": run,
         "_key_is_virtual": key_is_virtual,
         "revises": revises,
+        "_real_key": real_key,
     }
     if not isinstance(path, LocalPathClasses):
         local_filepath = None
@@ -1355,6 +1352,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     If you register existing files in a storage location, the `key` equals the
     actual filepath on the underyling filesytem or object store.
     """
+    _real_key: str | None = CharField(db_index=True, null=True, max_length=1024)
+    """An optional real storage key."""
     # db_index on description because sometimes we query for equality in the case of artifacts
     description: str | None = TextField(null=True, db_index=True)
     """A description."""
@@ -2462,34 +2461,42 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             err_msg += " with " + ("a folder." if _overwrite_versions else "a file.")
             raise ValueError(err_msg)
 
-        if self.key is not None and not self._key_is_virtual:
-            key_path = PurePosixPath(self.key)
-            new_filename = f"{key_path.stem}{kwargs['suffix']}"
-            # the following will only be true if the suffix changes!
-            if key_path.name != new_filename:
-                self._clear_storagekey = self.key
-                self.key = str(key_path.with_name(new_filename))
+        new_suffix = kwargs["suffix"]
+        if new_suffix != self.suffix:
+            key = self.key
+            real_key = self._real_key
+            if key is not None:
+                new_key = PurePosixPath(key).with_suffix(new_suffix).as_posix()
+            else:
+                new_key = None
+            if (key is not None and not self._key_is_virtual) or real_key is not None:
+                # real_key is not None implies key is not None
+                assert key is not None  # noqa: S101
+                if real_key is not None:
+                    self._clear_storagekey = real_key
+                    self._real_key = (
+                        PurePosixPath(real_key).with_suffix(new_suffix).as_posix()
+                    )
+                    warn_msg = f", _real_key '{real_key}' with '{self._real_key}'"
+                else:
+                    self._clear_storagekey = key
+                    warn_msg = ""
+                self.key = new_key
                 # update old key with the new one so that checks in record pass
-                self._old_key = self.key
+                self._old_key = new_key
                 logger.warning(
-                    f"replacing the file will replace key '{key_path}' with '{self.key}'"
-                    f" and delete '{key_path}' upon `save()`"
+                    f"replacing the file will replace key '{key}' with '{new_key}'{warn_msg}"
+                    f" and delete '{self._clear_storagekey}' upon `save()`"
                 )
-        else:
-            old_storage = auto_storage_key_from_artifact(self)
-            is_dir = self.n_files is not None
-            new_storage = auto_storage_key_from_artifact_uid(
-                self.uid, kwargs["suffix"], is_dir
-            )
-            if old_storage != new_storage:
-                self._clear_storagekey = old_storage
-                if self.key is not None:
-                    new_key_path = PurePosixPath(self.key).with_suffix(kwargs["suffix"])
-                    self.key = str(new_key_path)
-                    # update old key with the new one so that checks in record pass
-                    self._old_key = self.key
+            else:
+                # purely virtual key case
+                self._clear_storagekey = auto_storage_key_from_artifact(self)
+                # might replace None with None, not a big deal
+                self.key = new_key
+                # update the old key with the new one so that checks in record pass
+                self._old_key = new_key
 
-        self.suffix = kwargs["suffix"]
+        self.suffix = new_suffix
         self.size = kwargs["size"]
         self.hash = kwargs["hash"]
         self._hash_type = kwargs["_hash_type"]

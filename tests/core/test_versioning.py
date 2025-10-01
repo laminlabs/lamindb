@@ -1,12 +1,7 @@
 import lamindb as ln
 import pandas as pd
 import pytest
-from lamindb import UPath
-from lamindb.models._is_versioned import (
-    bump_version,
-    get_new_path_from_uid,
-    set_version,
-)
+from lamindb.models._is_versioned import bump_version, set_version
 
 
 @pytest.fixture(scope="module")
@@ -63,27 +58,6 @@ def test_add_to_version_family(df1, df2):
     )
     artifact1.delete(permanent=True)
     artifact2.delete(permanent=True)
-
-
-def test_get_new_path_from_uid():
-    # test cloud path as it has different behavior than local path
-    with open("test_new_path.txt", "w") as f:
-        f.write("test_new_path")
-    old_path = UPath("s3://lamindata/.lamindb/test_new_path.txt")
-    old_path.upload_from("./test_new_path.txt")
-    assert old_path.exists()
-    new_path = get_new_path_from_uid(
-        old_path=old_path,
-        old_uid="test_new_path",
-        new_uid="test_new_path2",
-    )
-    assert new_path == "test_new_path2.txt"
-    new_path = old_path.rename(new_path)
-    assert new_path.exists()
-    assert str(new_path) == "s3://lamindata/.lamindb/test_new_path2.txt"
-    assert not old_path.exists()
-    new_path.unlink()
-    UPath("./test_new_path.txt").unlink()
 
 
 def test_transform_versioning_based_on_key():
@@ -206,3 +180,18 @@ def test_transform_versioning_based_on_revises():
     assert ln.Transform.get(transform_v3.uid[:-4]) == transform_v3
     assert transform_v3.branch_id == -1
     transform_v3.delete(permanent=True)
+
+
+def test_path_rename():
+    # this is related to renames inside _add_to_version_family
+    with open("test_new_path.txt", "w") as f:
+        f.write("test_new_path")
+    old_path = ln.UPath("s3://lamindata/.lamindb/test_new_path.txt")
+    old_path.upload_from("./test_new_path.txt")
+    assert old_path.exists()
+    new_path = old_path.rename(old_path.with_name("test_new_path2.txt"))
+    assert new_path.exists()
+    assert new_path.as_posix() == "s3://lamindata/.lamindb/test_new_path2.txt"
+    assert not old_path.exists()
+    new_path.unlink()
+    ln.UPath("./test_new_path.txt").unlink()
