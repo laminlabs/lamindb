@@ -9,7 +9,6 @@ import lamindb.base.fields
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("bionty", "0061_remove_cellline_page_remove_cellmarker_page_and_more"),
         ("lamindb", "0128_artifact__real_key"),
     ]
 
