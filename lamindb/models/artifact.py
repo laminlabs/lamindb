@@ -438,6 +438,13 @@ def get_artifact_kwargs_from_data(
     else:
         storage = storage
 
+    if not isinstance(path, LocalPathClasses):
+        local_filepath = None
+        cloud_filepath = path
+    else:
+        local_filepath = path
+        cloud_filepath = None
+
     stat_or_artifact = get_stat_or_artifact(
         path=path,
         storage=storage,
@@ -445,11 +452,26 @@ def get_artifact_kwargs_from_data(
         instance=using_key,
         is_replace=is_replace,
     )
+    privates = {
+        "local_filepath": local_filepath,
+        "cloud_filepath": cloud_filepath,
+        "memory_rep": memory_rep,
+        "check_path_in_storage": check_path_in_storage,
+    }
     if isinstance(stat_or_artifact, Artifact):
         existing_artifact = stat_or_artifact
         if run is not None:
             existing_artifact._populate_subsequent_runs(run)
-        return existing_artifact, None
+        # if the artifact was unsuccessfully saved, we want to
+        # enable re-uploading after returning the artifact record
+        # the upload is triggered by whether the privates are returned
+        # because we do not want to upload the exact same file again
+        # we return None here if _is_saved_to_storage_location is not False
+        if existing_artifact._is_saved_to_storage_location is False:
+            return_privates = privates
+        else:
+            return_privates = None
+        return existing_artifact, return_privates
     else:
         size, hash, hash_type, n_files, revises = stat_or_artifact
 
@@ -494,18 +516,6 @@ def get_artifact_kwargs_from_data(
         "run": run,
         "_key_is_virtual": key_is_virtual,
         "revises": revises,
-    }
-    if not isinstance(path, LocalPathClasses):
-        local_filepath = None
-        cloud_filepath = path
-    else:
-        local_filepath = path
-        cloud_filepath = None
-    privates = {
-        "local_filepath": local_filepath,
-        "cloud_filepath": cloud_filepath,
-        "memory_rep": memory_rep,
-        "check_path_in_storage": check_path_in_storage,
     }
     return kwargs, privates
 
@@ -1656,6 +1666,13 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             overwrite_versions=overwrite_versions,
         )
 
+        def set_private_attributes():
+            if data is not None and privates is not None:
+                self._local_filepath = privates["local_filepath"]
+                self._cloud_filepath = privates["cloud_filepath"]
+                self._memory_rep = privates["memory_rep"]
+                self._to_store = not privates["check_path_in_storage"]
+
         # an object with the same hash already exists
         if isinstance(kwargs_or_artifact, Artifact):
             from .sqlrecord import init_self_from_db, update_attributes
@@ -1670,6 +1687,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                     f"key {self.key} on existing artifact differs from passed key {key}"
                 )
             update_attributes(self, attr_to_update)
+            # an existing artifact might have an imcomplete upload and hence we should
+            # re-populate _local_filepath because this is what triggers the upload
+            set_private_attributes()
             return None
         else:
             kwargs = kwargs_or_artifact
@@ -1677,11 +1697,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         if revises is None:
             revises = kwargs_or_artifact.pop("revises")
 
-        if data is not None:
-            self._local_filepath = privates["local_filepath"]
-            self._cloud_filepath = privates["cloud_filepath"]
-            self._memory_rep = privates["memory_rep"]
-            self._to_store = not privates["check_path_in_storage"]
+        set_private_attributes()
 
         if is_automanaged_path and _is_internal_call:
             kwargs["_key_is_virtual"] = True
@@ -2887,10 +2903,13 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             self._to_store = True
 
         # _is_saved_to_storage_location indicates whether the saving / upload process is successful
+        # it might be True if an artifact was already uploaded or False in case of a failed upload
+        # it is None for new artifacts and artifacts that were created with lamindb versions prior
+        # to June 2025
         flag_complete = hasattr(self, "_local_filepath") and getattr(
             self, "_to_store", False
         )
-        if flag_complete:
+        if flag_complete and self._is_saved_to_storage_location is None:
             self._is_saved_to_storage_location = (
                 False  # will be updated to True at the end
             )
