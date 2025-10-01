@@ -1256,7 +1256,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
     _aux_fields: dict[str, tuple[str, type]] = {
         "0": ("_is_saved_to_storage_location", bool),
-        "1": ("_real_key", str),
     }
     _len_full_uid: int = 20
     _len_stem_uid: int = 16
@@ -1353,6 +1352,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     If you register existing files in a storage location, the `key` equals the
     actual filepath on the underyling filesytem or object store.
     """
+    _real_key: str | None = CharField(db_index=True, null=True, max_length=1024)
+    """An optional real storage key."""
     # db_index on description because sometimes we query for equality in the case of artifacts
     description: str | None = TextField(null=True, db_index=True)
     """A description."""
@@ -1720,11 +1721,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         ):
             raise ValueError("Pass one of key, run or description as a parameter")
 
-        _real_key = kwargs.pop("_real_key")
-
         super().__init__(**kwargs)
-
-        self._real_key = _real_key
 
     @classmethod
     def from_lazy(
@@ -2827,22 +2824,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             artiact.delete() # delete all versions, the data will be deleted or prompted for deletion.
         """
         super().delete(permanent=permanent, storage=storage, using_key=using_key)
-
-    @property
-    def _real_key(self) -> str | None:
-        """A real key for artifacts that represent paths in existing storages and also have a virtual key."""
-        if self._aux is not None:
-            return self._aux.get("af", {}).get("1", None)
-        else:
-            return None
-
-    @_real_key.setter
-    def _real_key(self, value: str | None) -> None:
-        self._aux = self._aux or {}
-        if value is not None:
-            self._aux.setdefault("af", {})["1"] = value
-        elif "af" in self._aux:
-            self._aux["af"].pop("1")
 
     @property
     def _is_saved_to_storage_location(self) -> bool | None:
