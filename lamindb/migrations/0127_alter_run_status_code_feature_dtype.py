@@ -19,4 +19,13 @@ class Migration(migrations.Migration):
                 db_default=-3, db_index=True, default=-3, null=True
             ),
         ),
+        migrations.AddConstraint(
+            model_name="feature",
+            constraint=models.CheckConstraint(
+                condition=models.Q(
+                    ("is_type", True), ("dtype__isnull", False), _connector="OR"
+                ),
+                name="dtype_not_null_when_is_type_false",
+            ),
+        ),
     ]
