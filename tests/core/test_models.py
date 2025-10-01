@@ -15,7 +15,7 @@ def _strip_ansi(text: str) -> str:
 def test_registry__repr__feature():
     import lamindb.models as ln
 
-    feature = ln.Param
+    feature = ln.Feature
     expected_repr = textwrap.dedent("""\
     Feature
       Simple fields
@@ -36,7 +36,6 @@ def test_registry__repr__feature():
       Relational fields
         .branch: Branch
         .space: Space
-        .page: Page
         .created_by: User
         .run: Run
         .type: Feature
@@ -76,7 +75,7 @@ def test_registry__repr__artifact():
       Relational fields
         .branch: Branch
         .space: Space
-        .page: Page
+        .pages: Page
         .storage: Storage
         .run: Run
         .schema: Schema
