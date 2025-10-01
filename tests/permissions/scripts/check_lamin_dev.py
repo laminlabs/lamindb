@@ -54,6 +54,7 @@ try:
     response_space = select_space(lnid=space2.uid)
     assert response_storage["space_id"] == response_space["id"]
 
+finally:
     cleanup(
         (
             ulabel,
@@ -63,14 +64,3 @@ try:
             storage_loc,
         )
     )
-except Exception as e:
-    cleanup(
-        (
-            ulabel,
-            artifact,
-            ln.context.transform.latest_run,
-            ln.context.transform,
-            storage_loc,
-        )
-    )
-    raise e
