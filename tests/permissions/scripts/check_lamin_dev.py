@@ -5,6 +5,8 @@ from lamindb_setup.core._hub_core import select_space, select_storage
 def cleanup(records):
     for record in records:
         try:
+            if isinstance(record, ln.Storage):
+                record.artifacts.all().delete(permanent=True)
             record.delete(permanent=True)
         except Exception as e:
             print(f"Failed deleting {record}: {e}")
