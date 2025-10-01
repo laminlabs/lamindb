@@ -1095,3 +1095,19 @@ def test_get_by_path(df):
         ln.User.get(path="some/path")
 
     artifact.delete(permanent=True)
+
+    path_str = "s3://lamindb-ci/test-data/test.csv"
+
+    artifact = ln.Artifact(path_str, description="test get by path").save()
+    assert not artifact._key_is_virtual
+    assert artifact._real_key is None
+    assert ln.Artifact.get(path=path_str) == artifact
+
+    artifact.delete(permanent=True, storage=False)
+
+    artifact = ln.Artifact(path_str, key="some_file.csv").save()
+    assert artifact._key_is_virtual
+    assert artifact._real_key.endswith("test.csv")
+    assert ln.Artifact.get(path=path_str) == artifact
+
+    artifact.delete(permanent=True, storage=False)
