@@ -41,7 +41,6 @@ from .sqlrecord import (
     format_field_value,
     record_repr,
     IsLink,
-    Page,
 )
 from .storage import Storage
 from .transform import Transform
@@ -100,7 +99,7 @@ from .record import (
     RecordArtifact,
     ArtifactRecord,
 )
-
+from .page import RootPage, ArtifactPage
 
 LinkORM = IsLink  # backward compat
 ParamValue = FeatureValue  # backward compat
