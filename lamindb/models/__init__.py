@@ -99,7 +99,18 @@ from .record import (
     RecordArtifact,
     ArtifactRecord,
 )
-from .page import RootPage, ArtifactPage
+from .block import (
+    RootBlock,
+    ArtifactBlock,
+    TransformBlock,
+    RecordBlock,
+    CollectionBlock,
+    RunBlock,
+    SchemaBlock,
+    ProjectBlock,
+    BranchBlock,
+    SpaceBlock,
+)
 
 LinkORM = IsLink  # backward compat
 ParamValue = FeatureValue  # backward compat
