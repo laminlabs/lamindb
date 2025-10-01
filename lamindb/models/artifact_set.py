@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Iterable, Iterator
 from typing import TYPE_CHECKING, Literal
 
-from django.db.models import Q, TextField, Value
+from django.db.models import Case, Q, TextField, Value, When
 from django.db.models.functions import Concat
 from lamin_utils import logger
 from lamindb_setup.core._docs import doc_args
@@ -143,11 +143,13 @@ def artifacts_from_path(artifacts: ArtifactSet, path: UPathStr) -> ArtifactSet:
     if stem_len == 16:
         qs = artifacts.filter(
             Q(_key_is_virtual=True) | Q(key__isnull=True),
+            _real_key__isnull=True,
             uid__startswith=stem,
         )
     elif stem_len == 20:
         qs = artifacts.filter(
             Q(_key_is_virtual=True) | Q(key__isnull=True),
+            _real_key__isnull=True,
             uid=stem,
         )
     else:
@@ -157,10 +159,25 @@ def artifacts_from_path(artifacts: ArtifactSet, path: UPathStr) -> ArtifactSet:
         return qs
 
     qs = (
-        artifacts.filter(_key_is_virtual=False)
+        artifacts.filter(Q(_key_is_virtual=False) | Q(_real_key__isnull=False))
         .alias(
-            db_path=Concat("storage__root", Value("/"), "key", output_field=TextField())
+            db_path=Case(
+                When(
+                    _real_key__isnull=False,
+                    then=Concat(
+                        "storage__root",
+                        Value("/"),
+                        "_real_key",
+                        output_field=TextField(),
+                    ),
+                ),
+                default=Concat(
+                    "storage__root", Value("/"), "key", output_field=TextField()
+                ),
+                output_field=TextField(),
+            )
         )
         .filter(db_path=path_str)
     )
+
     return qs
