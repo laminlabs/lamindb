@@ -5,13 +5,9 @@ from lamindb_setup.core._hub_core import select_space, select_storage
 def cleanup(records):
     for record in records:
         try:
-            if isinstance(record, ln.models.SQLRecord) and not isinstance(
-                record, ln.Storage
-            ):
-                record.delete(permanent=True)
-            else:
-                # no permanent arg for BaseSQLRecord
-                record.delete()
+            if isinstance(record, ln.Storage):
+                record.artifacts.all().delete(permanent=True)
+            record.delete(permanent=True)
         except Exception as e:
             print(f"Failed deleting {record}: {e}")
 
@@ -47,7 +43,7 @@ try:
     # the below check doesn't work: another worker might have associated another storage location with the space, and then the artifact ends up in that
     # assert artifact.storage == storage_loc
     # hence this check
-    assert artifact.storage in ln.Storage.filter(space=space).all()
+    assert artifact.storage in ln.Storage.filter(space=space)
     assert ln.context.transform.space == space
     assert ln.context.run.space == space
 
@@ -60,6 +56,7 @@ try:
     response_space = select_space(lnid=space2.uid)
     assert response_storage["space_id"] == response_space["id"]
 
+finally:
     cleanup(
         (
             ulabel,
@@ -69,14 +66,3 @@ try:
             storage_loc,
         )
     )
-except Exception as e:
-    cleanup(
-        (
-            ulabel,
-            artifact,
-            ln.context.transform.latest_run,
-            ln.context.transform,
-            storage_loc,
-        )
-    )
-    raise e

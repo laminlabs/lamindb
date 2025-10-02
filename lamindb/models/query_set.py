@@ -822,6 +822,8 @@ class BasicQuerySet(models.QuerySet):
         Args:
             permanent: Whether to permanently delete the record (skips trash).
                 Is only relevant for records that have the `branch` field.
+                If `None`, uses soft delete for records that have the `branch` field,
+                hard delete otherwise.
 
         Note:
             Calling `delete()` twice on the same queryset does NOT permanently delete in bulk operations.
@@ -841,8 +843,9 @@ class BasicQuerySet(models.QuerySet):
                 record.delete(*args, permanent=permanent, **kwargs)
         elif self.model is Storage:  # storage does not have soft delete
             if permanent is False:
-                logger.warning(
-                    "the Storage registry doesn't support soft delete, hard deleting"
+                raise ValueError(
+                    "Soft delete is not possible for Storage, "
+                    "use 'permanent=True' or 'permanent=None' for permanent deletion."
                 )
             for record in self:
                 record.delete()
@@ -852,8 +855,9 @@ class BasicQuerySet(models.QuerySet):
                 self.update(branch_id=-1)
             else:
                 if permanent is False:
-                    logger.warning(
-                        f"model {self.model.__name__} doesn't support soft delete, hard deleting"
+                    raise ValueError(
+                        f"Soft delete is not possible for {self.model.__name__}, "
+                        "use 'permanent=True' for permanent deletion."
                     )
                 super().delete(*args, **kwargs)
 
