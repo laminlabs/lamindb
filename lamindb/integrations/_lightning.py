@@ -3,7 +3,7 @@
 .. autosummary::
     :toctree: .
 
-    LightningCallback
+    Callback
 """
 
 from collections.abc import Sequence
@@ -16,7 +16,7 @@ from lightning.pytorch import LightningModule, Trainer
 import lamindb as ln
 
 
-class LightningCallback(pl.Callback):
+class Callback(pl.Callback):
     """Saves PyTorch Lightning model checkpoints to LaminDB after each training epoch.
 
     Creates version families of artifacts for given `key` (relative file path).
@@ -80,4 +80,4 @@ class LightningCallback(pl.Callback):
         af.save()
 
 
-__all__ = ["LightningCallback"]
+__all__ = ["Callback"]
