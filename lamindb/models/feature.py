@@ -603,7 +603,7 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
         app_label = "lamindb"
         constraints = [
             models.CheckConstraint(
-                check=models.Q(is_type=True) | models.Q(dtype__isnull=False),
+                condition=models.Q(is_type=True) | models.Q(dtype__isnull=False),
                 name="dtype_not_null_when_is_type_false",
             )
         ]
