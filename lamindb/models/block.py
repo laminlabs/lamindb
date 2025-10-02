@@ -38,10 +38,10 @@ class BlockMixin(IsVersioned):
 
     Only current option is: "mdpage" (markdown page).
     """
-    vertical_pos: int = models.SmallIntegerField(default=0, db_default=0, db_index=True)
-    """The vertical position of the block in the GUI as as an integer that can be converted into a percentage.
+    vertical_pos: float = models.FloatField(default=0, db_default=0, db_index=True)
+    """The vertical position of the block in the GUI as a float.
 
-    Say, one could map 10k to 100% and 0 to 0%. Using an integer allows exact positioning (e.g. to group comments on the same spot) vs. a float would have ambiguities.
+    It can be used to act as a percentage to define absolute positioning or for ordering.
     """
     created_at: datetime = DateTimeField(
         editable=False, db_default=models.functions.Now(), db_index=True
@@ -76,7 +76,7 @@ class RecordBlock(BlockMixin, BaseSQLRecord):
     class Meta:
         app_label = "lamindb"
 
-    record: Record = ForeignKey(Record, CASCADE, related_name="blocks", null=True)
+    record: Record = ForeignKey(Record, CASCADE, related_name="blocks")
     """The record to which the block is attached."""
 
 
@@ -86,7 +86,7 @@ class ArtifactBlock(BlockMixin, BaseSQLRecord):
     class Meta:
         app_label = "lamindb"
 
-    artifact: Artifact = ForeignKey(Artifact, CASCADE, related_name="blocks", null=True)
+    artifact: Artifact = ForeignKey(Artifact, CASCADE, related_name="blocks")
     """The artifact to which the block is attached."""
 
 
@@ -110,7 +110,7 @@ class RunBlock(BlockMixin, BaseSQLRecord):
     class Meta:
         app_label = "lamindb"
 
-    run: Run = ForeignKey(Run, CASCADE, related_name="blocks", null=True)
+    run: Run = ForeignKey(Run, CASCADE, related_name="blocks")
     """The run to which the block is attached."""
 
 
@@ -132,7 +132,7 @@ class SchemaBlock(BlockMixin, BaseSQLRecord):
     class Meta:
         app_label = "lamindb"
 
-    schema: Schema = ForeignKey(Schema, CASCADE, related_name="blocks", null=True)
+    schema: Schema = ForeignKey(Schema, CASCADE, related_name="blocks")
     """The schema to which the block is attached."""
 
 
@@ -142,7 +142,7 @@ class FeatureBlock(BlockMixin, BaseSQLRecord):
     class Meta:
         app_label = "lamindb"
 
-    feature: Feature = ForeignKey(Feature, CASCADE, related_name="blocks", null=True)
+    feature: Feature = ForeignKey(Feature, CASCADE, related_name="blocks")
     """The feature to which the block is attached."""
 
 
@@ -152,7 +152,7 @@ class ProjectBlock(BlockMixin, BaseSQLRecord):
     class Meta:
         app_label = "lamindb"
 
-    project: Project = ForeignKey(Project, CASCADE, related_name="blocks", null=True)
+    project: Project = ForeignKey(Project, CASCADE, related_name="blocks")
 
 
 class SpaceBlock(BlockMixin, BaseSQLRecord):
@@ -161,7 +161,7 @@ class SpaceBlock(BlockMixin, BaseSQLRecord):
     class Meta:
         app_label = "lamindb"
 
-    space: Space = ForeignKey(Space, CASCADE, related_name="blocks", null=True)
+    space: Space = ForeignKey(Space, CASCADE, related_name="blocks")
     """The space to which the block is attached."""
 
 
@@ -171,4 +171,4 @@ class BranchBlock(BlockMixin, BaseSQLRecord):
     class Meta:
         app_label = "lamindb"
 
-    branch: Branch = ForeignKey(Branch, CASCADE, related_name="blocks", null=True)
+    branch: Branch = ForeignKey(Branch, CASCADE, related_name="blocks")
