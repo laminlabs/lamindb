@@ -115,7 +115,6 @@ IPYTHON = getattr(builtins, "__IPYTHON__", False)
 #     "a dance of words, where clarity meets brevity. Every syllable counts,"
 #     "illustrating the skill in compact expression, ensuring the essence of the"
 #     "message shines through within the exacting limit."
-# This is a good maximal length for a description field.
 
 
 class IsLink:
@@ -1877,6 +1876,9 @@ def record_repr(
     if "created_at" in field_names:
         field_names.remove("created_at")
         field_names.append("created_at")
+    if "is_locked" in field_names:
+        field_names.remove("is_locked")
+        field_names.append("is_locked")
     if field_names[0] != "uid" and "uid" in field_names:
         field_names.remove("uid")
         field_names.insert(0, "uid")
@@ -1896,21 +1898,6 @@ def record_repr(
         [f"{k}={fields_str[k]}" for k in fields_str if fields_str[k] is not None]
     )
     return f"{self.__class__.__name__}({fields_joined_str})"
-
-
-# below is code to further format the repr of a record
-#
-# def format_repr(
-#     record: SQLRecord, exclude_field_names: str | list[str] | None = None
-# ) -> str:
-#     if isinstance(exclude_field_names, str):
-#         exclude_field_names = [exclude_field_names]
-#     exclude_field_names_init = ["id", "created_at", "updated_at"]
-#     if exclude_field_names is not None:
-#         exclude_field_names_init += exclude_field_names
-#     return record.__repr__(
-#         include_foreign_keys=False, exclude_field_names=exclude_field_names_init
-#     )
 
 
 SQLRecord.__repr__ = record_repr  # type: ignore
