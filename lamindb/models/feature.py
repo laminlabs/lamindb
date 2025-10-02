@@ -909,9 +909,8 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
             if feature_type:
                 if isinstance(feature_type, str):
                     feature_type = Feature(name=feature_type, is_type=True).save()  # type: ignore
-                else:
-                    for feature in features:
-                        feature.type = feature_type
+                for feature in features:
+                    feature.type = feature_type  # type: ignore
             return SQLRecordList(features)
         finally:
             if mute:
