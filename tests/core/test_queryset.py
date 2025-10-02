@@ -283,3 +283,11 @@ def test_to_class():
     qs_basic._to_non_basic(copy=False)
     assert isinstance(qs_basic, QuerySet)
     assert isinstance(qs_basic, ArtifactSet)
+
+
+def test_queryset_soft_delete_error():
+    with pytest.raises(ValueError):
+        ln.Storage.filter().delete(permanent=False)
+
+    with pytest.raises(ValueError):
+        ln.Branch.filter().delete(permanent=False)

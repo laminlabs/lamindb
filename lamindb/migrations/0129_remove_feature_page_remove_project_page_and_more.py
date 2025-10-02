@@ -835,11 +835,11 @@ class Migration(migrations.Migration):
     ]
 
 
-if "wetlab" in ln_setup.settings.instance.schema:
+if "wetlab" in ln_setup.settings.instance.modules:
     Migration.dependencies.append(
         ("wetlab", "0045_remove_biologic_page_remove_biosample_page_and_more"),
     )
-if "bionty" in ln_setup.settings.instance.schema:
+if "bionty" in ln_setup.settings.instance.modules:
     Migration.dependencies.append(
         ("bionty", "0061_remove_cellline_page_remove_cellmarker_page_and_more"),
     )

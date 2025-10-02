@@ -965,8 +965,18 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                 self.projects.add(ln.context.project)
         return self
 
-    def delete(self) -> None:
-        """Delete."""
+    def delete(self, permanent: bool | None = None) -> None:
+        """Delete.
+
+        Args:
+            permanent: For consistency, `False` raises an error, as soft delete is impossible.
+        """
+        if permanent is False:
+            raise ValueError(
+                f"Soft delete is not possible for {self.__class__.__name__}, "
+                "use 'permanent=True' or 'permanent=None' for permanent deletion."
+            )
+
         delete_record(self, is_soft=False)
 
 
@@ -1172,6 +1182,7 @@ class SQLRecord(BaseSQLRecord, metaclass=Registry):
 
         Args:
             permanent: Whether to permanently delete the record (skips trash).
+                If `None`, performs soft delete if the record is not already in the trash.
 
         Examples:
 
