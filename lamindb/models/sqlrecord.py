@@ -974,7 +974,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
         if permanent is False:
             raise ValueError(
                 f"Soft delete is not possible for {self.__class__.__name__}, "
-                "use 'permanent=True' for permanent deletion."
+                "use 'permanent=True' or 'permanent=None' for permanent deletion."
             )
 
         delete_record(self, is_soft=False)

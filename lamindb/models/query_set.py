@@ -845,7 +845,7 @@ class BasicQuerySet(models.QuerySet):
             if permanent is False:
                 raise ValueError(
                     "Soft delete is not possible for Storage, "
-                    "use 'permanent=True' for permanent deletion."
+                    "use 'permanent=True' or 'permanent=None' for permanent deletion."
                 )
             for record in self:
                 record.delete()

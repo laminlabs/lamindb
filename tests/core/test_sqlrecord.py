@@ -256,3 +256,11 @@ def test_get_record_kwargs_empty():
             pass
 
     assert _get_record_kwargs(NoInitSQLRecord) == []
+
+
+def test_soft_delete_error():
+    with pytest.raises(ValueError):
+        ln.Storage.filter().first().delete(permanent=False)
+
+    with pytest.raises(ValueError):
+        ln.Branch.filter().first().delete(permanent=False)
