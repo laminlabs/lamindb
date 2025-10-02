@@ -66,7 +66,7 @@ def _inspect(
     values = _concat_lists(values)
 
     field_str = get_name_field(cls, field=field)
-    queryset = cls.all() if isinstance(cls, (QuerySet, Manager)) else cls.objects.all()
+    queryset = cls.all() if isinstance(cls, (QuerySet, Manager)) else cls.filter().all()
     registry = queryset.model
     model_name = registry._meta.model.__name__
     if isinstance(source, SQLRecord):
@@ -170,7 +170,7 @@ def _validate(
 
     field_str = get_name_field(cls, field=field)
 
-    queryset = cls.all() if isinstance(cls, (QuerySet, Manager)) else cls.objects.all()
+    queryset = cls.all() if isinstance(cls, (QuerySet, Manager)) else cls.filter().all()
     registry = queryset.model
     if isinstance(source, SQLRecord):
         _check_if_record_in_db(source, queryset.db)
@@ -191,10 +191,8 @@ def _validate(
     )
     if field_values.empty:
         if not mute:
-            msg = (
-                f"Your {cls.__name__} registry is empty, consider populating it first!"
-            )
-            if hasattr(cls, "source_id"):
+            msg = f"Your {queryset.model.__name__} registry is empty, consider populating it first!"
+            if hasattr(queryset.model, "source_id"):
                 msg += "\n   → use `.import_source()` to import records from a source, e.g. a public ontology"
             logger.warning(msg)
         return np.array([False] * len(values))
@@ -238,7 +236,7 @@ def _standardize(
     return_field_str = get_name_field(
         cls, field=field if return_field is None else return_field
     )
-    queryset = cls.all() if isinstance(cls, (QuerySet, Manager)) else cls.objects.all()
+    queryset = cls.all() if isinstance(cls, (QuerySet, Manager)) else cls.filter().all()
     registry = queryset.model
     if isinstance(source, SQLRecord):
         _check_if_record_in_db(source, queryset.db)
@@ -358,7 +356,7 @@ def _add_or_remove_synonyms(
         from IPython.display import display
 
         syns_all = (
-            record.__class__.objects.exclude(synonyms="").exclude(synonyms=None).all()  # type: ignore
+            record.__class__.filter().exclude(synonyms="").exclude(synonyms=None).all()  # type: ignore
         )
         if len(syns_all) == 0:
             return

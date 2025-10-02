@@ -1,3 +1,4 @@
+import bionty as bt
 import lamindb as ln
 import pytest
 
@@ -16,3 +17,17 @@ def test_delete_qs(permanent):
         0 if permanent else 3
     )
     assert ln.ULabel.filter(name__startswith="label_").count() == 0
+
+
+def test_recreate_soft_deleted_record():
+    record = bt.Ethnicity.from_source(ontology_id="HANCESTRO:0006").save()
+    assert record.branch_id == 1
+    record.delete()
+    assert record.branch_id == -1
+    record = bt.Ethnicity.from_source(ontology_id="HANCESTRO:0006")
+    record.description = "new description"
+    record = record.save()
+    # now this record is recovered from the trash with the new description
+    assert record.branch_id == 1
+    assert record.description == "new description"
+    bt.Ethnicity.objects.filter().delete()
