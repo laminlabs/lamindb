@@ -1,4 +1,4 @@
-"""Examples and utilities for MLflow runs.
+"""Examples and utilities for ML tracking frameworks.
 
 .. autosummary::
    :toctree: .
@@ -10,7 +10,7 @@
 import lamindb as ln
 from lamindb.models import Schema
 
-# The following comments apply to all Schemas
+# The following comments apply to all of the following schemas.
 # A different design could leverage records instead where ID and name are bundled.
 # This could potentially show up nicer in the UI and allow for markdown comments on MLflow experiments or runs.
 
