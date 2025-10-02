@@ -1085,6 +1085,8 @@ class Branch(BaseSQLRecord):
 
     This id is useful if one wants to apply the same patch to many database instances.
     """
+    space: Space = ForeignKey(Space, PROTECT, default=1, db_default=1, related_name="+")
+    """The space associated with the branch."""
     description: str | None = TextField(null=True)
     """Description of branch."""
     created_at: datetime = DateTimeField(
