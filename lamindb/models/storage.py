@@ -339,15 +339,24 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
         super().save(*args, **kwargs)
         return self
 
-    def delete(self) -> None:  # type: ignore
+    def delete(self, permanent: bool | None = None) -> None:  # type: ignore
         # type ignore is there because we don't use a trash here unlike everywhere else
         """Delete the storage location.
 
         This errors in case the storage location is not empty.
 
         Unlike other `SQLRecord`-based registries, this does *not* move the storage record into the trash.
+
+        Args:
+            permanent: For consistency, `False` raises an error, as soft delete is impossible.
         """
         from .. import settings
+
+        if permanent is False:
+            raise ValueError(
+                "Soft delete is not possible for Storage, "
+                "use 'permanent=True' or 'permanent=None' for permanent deletion."
+            )
 
         assert not self.artifacts.exists(), "Cannot delete storage holding artifacts."  # noqa: S101
         check_storage_is_empty(self.path)

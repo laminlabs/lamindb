@@ -15,7 +15,7 @@ def _strip_ansi(text: str) -> str:
 def test_registry__repr__feature():
     import lamindb.models as ln
 
-    feature = ln.Param
+    feature = ln.Feature
     expected_repr = textwrap.dedent("""\
     Feature
       Simple fields
@@ -36,7 +36,6 @@ def test_registry__repr__feature():
       Relational fields
         .branch: Branch
         .space: Space
-        .page: Page
         .created_by: User
         .run: Run
         .type: Feature
@@ -44,6 +43,7 @@ def test_registry__repr__feature():
         .features: Feature
         .values: FeatureValue
         .projects: Project
+        .blocks: FeatureBlock
     """).strip()
 
     actual_repr = _strip_ansi(repr(feature))
@@ -76,7 +76,6 @@ def test_registry__repr__artifact():
       Relational fields
         .branch: Branch
         .space: Space
-        .page: Page
         .storage: Storage
         .run: Run
         .schema: Schema
@@ -89,6 +88,7 @@ def test_registry__repr__artifact():
         .records: Record
         .references: Reference
         .projects: Project
+        .blocks: Block
       Bionty fields
         .organisms: bionty.Organism
         .genes: bionty.Gene
