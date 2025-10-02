@@ -3,6 +3,7 @@ import hubmodule
 import hubmodule.models as hm
 from uuid import uuid4
 from hubmodule._migrate import _apply_migrations_with_tracking, reset_rls
+from hubmodule._rls import RLSGenerator
 from hubmodule._setup import _setup_extensions, _setup_secret, _setup_utils_jwt
 from laminhub_rest.core.postgres import DbRoleHandler
 from pathlib import Path
@@ -28,6 +29,15 @@ _setup_secret(pgurl)
 _setup_utils_jwt(pgurl)
 migrations_sql_dir = Path(hubmodule.__file__).parent / "sql/0004_migrations"
 _apply_migrations_with_tracking(pgurl, migrations_sql_dir)
+
+rls_gen = RLSGenerator(
+    pgurl,
+    jwt_role_name=f"{instance_id.hex}_jwt",
+    public_role_name=None,
+)
+
+print(rls_gen.query_text.splitlines()[2200:2500])
+
 reset_rls(pgurl, instance_id=instance_id, public=False)
 
 print("Created jwt db connection")
