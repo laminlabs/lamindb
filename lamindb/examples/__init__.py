@@ -11,5 +11,5 @@
 
 """
 
-from . import croissant, datasets, mlflow, schemas
+from . import croissant, datasets, ml_tracking, schemas
 from .cellxgene import _cellxgene
