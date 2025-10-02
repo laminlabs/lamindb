@@ -39,12 +39,12 @@ class Callback(pl.Callback):
     ):
         self.path = Path(path)
         self.key = key
-        self.metrics = annotate_by
+        self.annotate_by = annotate_by
         self.feature_values = feature_values or {}
 
     def on_train_start(self, trainer: Trainer, pl_module: LightningModule) -> None:
         """Validates that LaminDB Features exist for all specified params."""
-        all_features = list(self.metrics or []) + list(self.feature_values.keys())
+        all_features = list(self.annotate_by or []) + list(self.feature_values.keys())
         if all_features:
             missing = [
                 feature
@@ -64,9 +64,11 @@ class Callback(pl.Callback):
 
         feature_values = dict(self.feature_values)
 
-        if self.metrics:
-            for metric_name in self.metrics:
-                if metric_name in trainer.callback_metrics:
+        if self.annotate_by:
+            for metric_name in self.annotate_by:
+                if hasattr(trainer, metric_name):
+                    feature_values[metric_name] = getattr(trainer, metric_name)
+                elif metric_name in trainer.callback_metrics:
                     metric_value = trainer.callback_metrics[metric_name]
                     feature_values[metric_name] = (
                         metric_value.item()
