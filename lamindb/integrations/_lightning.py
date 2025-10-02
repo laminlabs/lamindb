@@ -1,0 +1,77 @@
+"""PyTorch Lightning integrations.
+
+.. autosummary::
+    :toctree: .
+
+    Callback
+"""
+
+from pathlib import Path
+from typing import Any
+
+import lightning as pl
+from lightning.pytorch import LightningModule, Trainer
+
+import lamindb as ln
+
+
+class Callback(pl.Callback):
+    """Saves PyTorch Lightning model checkpoints to LaminDB after each training epoch.
+
+    Creates version families of artifacts for given `key` (relative file path).
+
+    Args:
+        path: Path to the checkpoint
+        key: Artifact key in LaminDB storage
+        features: Additional feature values that every checkpoint gets annotated by.
+            Examples are { "mlflow_run_id": mlflow_run.info.run_id }.
+    """
+
+    def __init__(
+        self,
+        path: str | Path,
+        key: str,
+        features: dict[str, Any] | None = None,
+    ):
+        self.path = Path(path)
+        self.key = key
+        self.features = features or {}
+
+    def on_train_start(self, trainer: Trainer, pl_module: LightningModule) -> None:
+        """Validates that LaminDB Features exist for all specified params."""
+        missing = [
+            feature
+            for feature in self.features.keys()
+            if ln.Feature.filter(name=feature).one_or_none() is None
+        ]
+        if missing:
+            s = "s" if len(missing) > 1 else ""
+            raise ValueError(
+                f"Feature{s} {', '.join(missing)} missing. Create {'them' if len(missing) > 1 else 'it'} first."
+            )
+
+    def on_train_epoch_end(self, trainer: Trainer, pl_module: LightningModule) -> None:
+        """Saves model checkpoint artifacts at the end of each epoch and optionally annotates them."""
+        trainer.save_checkpoint(self.path)
+        af = ln.Artifact(self.path, key=self.key, kind="model").save()
+
+        feature_values = dict(self.features)
+
+        for name in self.features.keys():
+            if hasattr(trainer, name):
+                feature_values[name] = getattr(trainer, name)
+            elif name in trainer.callback_metrics:
+                metric_value = trainer.callback_metrics[name]
+                feature_values[name] = (
+                    metric_value.item()
+                    if hasattr(metric_value, "item")
+                    else float(metric_value)
+                )
+
+        if feature_values:
+            af.features.add_values(feature_values)
+
+        af.save()
+
+
+__all__ = ["Callback"]

@@ -135,6 +135,9 @@ class LogStreamHandler:
         if not self.file.closed:
             self.file.flush()
 
+    def isatty(self) -> bool:
+        return False
+
     # .flush is sometimes (in jupyter etc.) called after every .write
     # this needs to be called only at the end
     def flush_buffer(self):

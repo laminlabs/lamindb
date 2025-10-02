@@ -17,7 +17,7 @@ def mini_immuno(
     """Return paths to the mini immuno dataset and its metadata as a Croissant file.
 
     Args:
-        n_files: Number of files inside the croissant file. Default is 1.
+        n_files: Number of files inside the croissant file.
         filepath_prefix: Move the dataset and references to it in a specific directory.
 
     Example
@@ -63,8 +63,10 @@ def mini_immuno(
     croissant_path = Path("mini_immuno.anndata.zarr_metadata.json")
     with open(croissant_path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2)
+
     result: list[Path] = [croissant_path, dataset1_path]
     if n_files == 1:
         return result
     result.append(dataset2_path)
+
     return result
