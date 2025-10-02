@@ -2,6 +2,7 @@
 
 import django.db.models.deletion
 import django.db.models.functions.datetime
+import lamindb_setup as ln_setup
 from django.db import migrations, models
 
 import lamindb.base.fields
@@ -832,3 +833,13 @@ class Migration(migrations.Migration):
             name="Page",
         ),
     ]
+
+
+if "wetlab" in ln_setup.settings.instance.schema:
+    Migration.dependencies.append(
+        ("wetlab", "0045_remove_biologic_page_remove_biosample_page_and_more"),
+    )
+if "bionty" in ln_setup.settings.instance.schema:
+    Migration.dependencies.append(
+        ("bionty", "0061_remove_cellline_page_remove_cellmarker_page_and_more"),
+    )
