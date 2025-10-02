@@ -911,7 +911,7 @@ class AnnDataCurator(SlotsCurator):
         super().__init__(dataset=dataset, schema=schema)
         if not data_is_scversedatastructure(self._dataset, "AnnData"):
             raise InvalidArgument("dataset must be AnnData-like.")
-        if schema.otype and schema.otype != "AnnData":
+        if schema.otype != "AnnData":
             raise InvalidArgument("Schema otype must be 'AnnData'.")
 
         for slot, slot_schema in schema.slots.items():
