@@ -221,13 +221,19 @@ def test_feature_from_dict_type(dict_data):
     features = ln.Feature.from_dict(
         dict_data, str_as_cat=True, feature_type="Testdata_str"
     )
+    ln.save(features)
     for feature in features:
         assert feature.type.name == "Testdata_str"
 
     # feature_type Feature that is a type
-    feature_type = ln.Feature(name="Testdata_feature_type", is_type=True)
-    features = ln.Feature.from_dict(
+    feature_type = ln.Feature(name="Testdata_feature_type", is_type=True).save()
+    features_2 = ln.Feature.from_dict(
         dict_data, str_as_cat=True, feature_type=feature_type
     )
-    for feature in features:
+    ln.save(features_2)
+    for feature in features_2:
         assert feature.type.name == "Testdata_feature_type"
+
+    ln.Feature.filter(type__isnull=False).delete(permanent=True)
+    ln.Feature.get(name="Testdata_str").delete(permanent=True)
+    feature_type.delete(permanent=True)
