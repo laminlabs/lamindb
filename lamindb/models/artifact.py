@@ -126,6 +126,7 @@ if TYPE_CHECKING:
         ArtifactKind,
     )
     from ._label_manager import LabelManager
+    from .block import ArtifactBlock
     from .collection import Collection
     from .project import Project, Reference
     from .record import Record
@@ -1474,6 +1475,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     """Annotating records."""
     linked_in_records: Record
     """Linked in records."""
+    blocks: ArtifactBlock
+    """Blocks that annotate this artifact."""
 
     @overload
     def __init__(

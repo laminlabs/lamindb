@@ -34,6 +34,8 @@ if TYPE_CHECKING:
     from datetime import date as DateType
     from datetime import datetime
 
+    from .block import ProjectBlock
+
 
 class Reference(SQLRecord, CanCurate, TracksRun, TracksUpdates, ValidateFields):
     """References such as internal studies, papers, documents, or URLs.
@@ -121,6 +123,8 @@ class Reference(SQLRecord, CanCurate, TracksRun, TracksUpdates, ValidateFields):
         Record, through="ReferenceRecord", related_name="references"
     )
     """Annotated records."""
+    projects: Project
+    """Projects that annotate this reference."""
 
     @overload
     def __init__(
@@ -250,6 +254,8 @@ class Project(SQLRecord, CanCurate, TracksRun, TracksUpdates, ValidateFields):
     """Annotated references."""
     _status_code: int = models.SmallIntegerField(default=0, db_index=True)
     """Status code."""
+    blocks: ProjectBlock
+    """Blocks that annotate this project."""
 
     @overload
     def __init__(

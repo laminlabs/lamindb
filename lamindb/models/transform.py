@@ -26,6 +26,7 @@ if TYPE_CHECKING:
 
     from lamindb.base.types import TransformType
 
+    from .block import TransformBlock
     from .project import Project, Reference
     from .ulabel import ULabel
 
@@ -189,6 +190,8 @@ class Transform(SQLRecord, IsVersioned):
         "Transform", PROTECT, related_name="_derived_from", default=None, null=True
     )
     """Creating template."""
+    blocks: TransformBlock
+    """Blocks that annotate this artifact."""
 
     @overload
     def __init__(

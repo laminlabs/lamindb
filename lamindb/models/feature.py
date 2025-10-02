@@ -43,6 +43,7 @@ from .sqlrecord import BaseSQLRecord, Registry, SQLRecord, _get_record_kwargs
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
+    from .block import FeatureBlock
     from .projects import Project
     from .schema import Schema
 
@@ -694,6 +695,8 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
     """Values for this feature."""
     projects: Project
     """Annotating projects."""
+    blocks: FeatureBlock
+    """Blocks that annotate this feature."""
 
     @overload
     def __init__(
