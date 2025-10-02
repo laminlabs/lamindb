@@ -115,7 +115,6 @@ IPYTHON = getattr(builtins, "__IPYTHON__", False)
 #     "a dance of words, where clarity meets brevity. Every syllable counts,"
 #     "illustrating the skill in compact expression, ensuring the essence of the"
 #     "message shines through within the exacting limit."
-# This is a good maximal length for a description field.
 
 
 class IsLink:
@@ -1085,6 +1084,8 @@ class Branch(BaseSQLRecord):
 
     This id is useful if one wants to apply the same patch to many database instances.
     """
+    space: Space = ForeignKey(Space, PROTECT, default=1, db_default=1, related_name="+")
+    """The space associated with the branch."""
     description: str | None = TextField(null=True)
     """Description of branch."""
     created_at: datetime = DateTimeField(
@@ -1115,40 +1116,6 @@ class Branch(BaseSQLRecord):
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
-
-
-# this page does not have is_locked because we want each of page
-# to be immutable anyway, meaning we always create a new version
-# hence we can solve locking simply by virtue of not allowing edits
-class Page(BaseSQLRecord, IsVersioned):
-    """An unstructured notes page that can be attached to any record."""
-
-    _len_full_uid: int = 20
-    _len_stem_uid: int = 16
-
-    class Meta:
-        app_label = "lamindb"
-
-    id = models.BigAutoField(primary_key=True)
-    """Internal id, valid only in one DB instance."""
-    uid: str = CharField(
-        editable=False, unique=True, db_index=True, max_length=_len_full_uid
-    )
-    """Universal id."""
-    content: str | None = TextField(null=True)
-    """Markdown content of the page."""
-    hash: str | None = CharField(max_length=22, db_index=True, null=True)
-    """Content hash of the page."""
-    created_at: datetime = DateTimeField(
-        editable=False, db_default=models.functions.Now(), db_index=True
-    )
-    """Time of creation of record."""
-    created_by: User = ForeignKey(
-        "User", CASCADE, default=None, related_name="+", null=True
-    )
-    """Creator of page."""
-    space: Space = ForeignKey(Space, PROTECT, default=1, db_default=1, related_name="+")
-    """The space in which the record lives."""
 
 
 @doc_args(RECORD_REGISTRY_EXAMPLE)
@@ -1182,10 +1149,6 @@ class SQLRecord(BaseSQLRecord, metaclass=Registry):
     """Whether record is on a branch or in another "special state"."""
     space: Space = ForeignKey(Space, PROTECT, default=1, db_default=1, related_name="+")
     """The space in which the record lives."""
-    page: Page | None = ForeignKey(
-        Page, PROTECT, default=None, null=True, related_name="+"
-    )
-    """A page to describe the record."""
     is_locked: bool = BooleanField(default=False, db_default=False)
     """Whether the record is locked for edits."""
     _aux: dict[str, Any] | None = JSONField(default=None, db_default=None, null=True)
@@ -1913,6 +1876,9 @@ def record_repr(
     if "created_at" in field_names:
         field_names.remove("created_at")
         field_names.append("created_at")
+    if "is_locked" in field_names:
+        field_names.remove("is_locked")
+        field_names.append("is_locked")
     if field_names[0] != "uid" and "uid" in field_names:
         field_names.remove("uid")
         field_names.insert(0, "uid")
@@ -1932,21 +1898,6 @@ def record_repr(
         [f"{k}={fields_str[k]}" for k in fields_str if fields_str[k] is not None]
     )
     return f"{self.__class__.__name__}({fields_joined_str})"
-
-
-# below is code to further format the repr of a record
-#
-# def format_repr(
-#     record: SQLRecord, exclude_field_names: str | list[str] | None = None
-# ) -> str:
-#     if isinstance(exclude_field_names, str):
-#         exclude_field_names = [exclude_field_names]
-#     exclude_field_names_init = ["id", "created_at", "updated_at"]
-#     if exclude_field_names is not None:
-#         exclude_field_names_init += exclude_field_names
-#     return record.__repr__(
-#         include_foreign_keys=False, exclude_field_names=exclude_field_names_init
-#     )
 
 
 SQLRecord.__repr__ = record_repr  # type: ignore
