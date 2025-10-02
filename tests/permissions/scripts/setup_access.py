@@ -36,7 +36,8 @@ rls_gen = RLSGenerator(
     public_role_name=None,
 )
 
-print(rls_gen.query_text.splitlines()[2200:2500])
+for line in rls_gen.query_text.splitlines()[2400:2500]:
+    print(line)
 
 reset_rls(pgurl, instance_id=instance_id, public=False)
 
