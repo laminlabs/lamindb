@@ -84,8 +84,8 @@ def test_registry__repr__artifact():
         .input_of_runs: Run
         .feature_sets: Schema
         .collections: Collection
-        .linked_in_records: Record
         .records: Record
+        .linked_in_records: Record
         .references: Reference
         .projects: Project
         .blocks: Block

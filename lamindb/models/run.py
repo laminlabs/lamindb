@@ -27,6 +27,7 @@ if TYPE_CHECKING:
 
     from ._feature_manager import FeatureManager
     from .artifact import Artifact
+    from .block import RunBlock
     from .collection import Collection
     from .feature import FeatureValue
     from .project import Project
@@ -315,6 +316,10 @@ class Run(SQLRecord):
     """Runs that were initiated by this run."""
     projects: Project
     """Linked projects."""
+    blocks: RunBlock
+    """Blocks that annotate this run."""
+    records: Record
+    """Records that annotate this run."""
     _is_consecutive: bool | None = BooleanField(null=True)
     """Indicates whether code was consecutively executed. Is relevant for notebooks."""
     _status_code: int = models.SmallIntegerField(

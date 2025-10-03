@@ -29,6 +29,7 @@ from .ulabel import ULabel
 if TYPE_CHECKING:
     import pandas as pd
 
+    from .blocks import RunBlock
     from .project import Project, Reference
     from .query_set import QuerySet
     from .schema import Schema
@@ -56,6 +57,11 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates):
     class Meta(SQLRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
         abstract = False
         app_label = "lamindb"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["name", "type", "space"], name="unique_name_type_space"
+            )
+        ]
 
     _name_field: str = "name"
 
@@ -66,7 +72,10 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates):
     )
     """A universal random id, valid across DB instances."""
     name: str = CharField(max_length=150, db_index=True, null=True)
-    """Name or title of record (optional)."""
+    """Name or title of record (optional).
+
+    Names for a given `type` and `space` are constrained to be unique.
+    """
     type: Record | None = ForeignKey("self", PROTECT, null=True, related_name="records")
     """Type of record, e.g., `Sample`, `Donor`, `Cell`, `Compound`, `Sequence`.
 
@@ -97,22 +106,6 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates):
     """Record-like composites of this record."""
     description: str | None = TextField(null=True)
     """A description."""
-    linked_artifacts: Artifact = models.ManyToManyField(
-        Artifact, through="RecordArtifact", related_name="linked_in_records"
-    )
-    """Linked artifacts."""
-    artifacts: Artifact = models.ManyToManyField(
-        Artifact, through="ArtifactRecord", related_name="records"
-    )
-    """Annotated artifacts."""
-    linked_runs: Run = models.ManyToManyField(
-        Run, through="RecordRun", related_name="records"
-    )
-    """Linked runs."""
-    linked_users: User = models.ManyToManyField(
-        User, through="RecordUser", related_name="records"
-    )
-    """Linked runs."""
     run: Run | None = ForeignKey(
         Run,
         PROTECT,
@@ -124,16 +117,55 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates):
     """Run that created the record."""
     input_of_runs: Run = models.ManyToManyField(Run, related_name="input_records")
     """Runs that use this record as an input."""
+    artifacts: Artifact = models.ManyToManyField(
+        Artifact, through="ArtifactRecord", related_name="records"
+    )
+    """Artifacts annotated by this record."""
+    projects: Project
+    """Projects that annotate this record."""
+    references: Reference
+    """References that annotate this record."""
+    linked_runs: Run = models.ManyToManyField(
+        Run, through="RecordRun", related_name="records"
+    )
+    """Runs linked in this record as values."""
+    linked_users: User = models.ManyToManyField(
+        User, through="RecordUser", related_name="records"
+    )
+    """Users linked in this record as values."""
+    # this field should be named linked_ulabels, but we are in a transition period
     ulabels: ULabel = models.ManyToManyField(
         ULabel,
         through="RecordULabel",
         related_name="_records",  # in transition period with underscore prefix
     )
-    """Linked runs."""
+    """Ulabels linked in this record as values."""
+    linked_artifacts: Artifact = models.ManyToManyField(
+        Artifact, through="RecordArtifact", related_name="linked_in_records"
+    )
+    """Artifacts linked in this record as values."""
     linked_projects: Project
-    """Linked projects."""
+    """Projects linked in this record as values."""
     linked_references: Reference
-    """Linked references."""
+    """References linked in this record as values."""
+    values_json: RecordJson
+    """JSON values (for lists, dicts, etc.)."""
+    values_record: RecordRecord
+    """Record values."""
+    values_ulabel: RecordULabel
+    """ULabel values."""
+    values_user: RecordUser
+    """User values."""
+    values_run: RecordRun
+    """Run values."""
+    values_artifact: RecordArtifact
+    """Artifact values."""
+    values_reference: Reference
+    """Reference values."""
+    values_project: Project
+    """Project values."""
+    blocks: RunBlock
+    """Blocks that annotate this record."""
 
     @overload
     def __init__(
