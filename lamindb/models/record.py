@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Any, overload
 from django.db import models
 from django.db.models import CASCADE, PROTECT
 from lamin_utils import logger
+from lamindb_setup.core import deprecated
 
 from lamindb.base.fields import (
     BooleanField,
@@ -79,7 +80,7 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates, HasParents):
 
     See Also:
         :meth:`~lamindb.Feature`
-            Dimensions of measurement (e.g. column of a sheet).
+            Dimensions of measurement (e.g. column of a sheet, attribute of a record).
     """
 
     class Meta(SQLRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
@@ -290,7 +291,7 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates, HasParents):
         """
         return _query_relatives([self], "records", self.__class__)  # type: ignore
 
-    def to_pandas(self) -> pd.DataFrame:
+    def to_dataframe(self) -> pd.DataFrame:
         """Export all children of a record type recursively to a pandas DataFrame."""
         assert self.is_type, "Only types can be exported as dataframes"  # noqa: S101
         df = self.query_children().to_dataframe(features="queryset")
@@ -306,6 +307,10 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates, HasParents):
             desired_order.sort()
         df = reorder_subset_columns_in_df(df, desired_order, position=0)  # type: ignore
         return df.sort_index()  # order by id for now
+
+    @deprecated("to_dataframe")
+    def to_pandas(self) -> pd.DataFrame:
+        return self.to_dataframe()
 
     def to_artifact(self, key: str = None) -> Artifact:
         """Export all children of a record type as a `.csv` artifact."""
