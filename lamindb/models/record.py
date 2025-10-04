@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Any, overload
 from django.db import models
 from django.db.models import CASCADE, PROTECT
 from lamin_utils import logger
+from lamindb_setup.core import deprecated
 
 from lamindb.base.fields import (
     BooleanField,
@@ -19,7 +20,7 @@ from ..base.ids import base62_16
 from .artifact import Artifact
 from .can_curate import CanCurate
 from .feature import Feature
-from .has_parents import _query_relatives
+from .has_parents import HasParents, _query_relatives
 from .query_set import reorder_subset_columns_in_df
 from .run import Run, TracksRun, TracksUpdates, User
 from .sqlrecord import BaseSQLRecord, IsLink, SQLRecord, _get_record_kwargs
@@ -35,23 +36,51 @@ if TYPE_CHECKING:
     from .schema import Schema
 
 
-class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates):
+class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates, HasParents):
     """Flexible records as you find them in Excel-like sheets.
 
-    Useful register, e.g., samples, donors, cells, compounds, sequences.
+    Useful to manage samples, donors, cells, compounds, sequences.
 
-    This is currently more convenient to use through the UI.
+    Simply create a record type and then instances of that type::
 
-    A `Record` has a flexible schema: it can store data for arbitrary features.
-    Changing the fields of a :class:`~lamindb.models.SQLRecord`, you need to modify the columns of the underlying table in the database.
+        sample_type = Record(name="Sample", is_type=True).save()
+        sample1 = Record(name="Sample 1", type=sample_type).save()
+        sample2 = Record(name="Sample 2", type=sample_type).save()
+
+    You can then annotate artifacts and other entities with these records, e.g.::
+
+        artifact.records.add(sample1)
+
+    To query artifacts by records::
+
+        ln.Artifact.filter(records=sample1).to_dataframe()
+
+    Records can also model flexible ontologies through their parents-children relationships.
+
+        cell_type = Record(name="CellType", is_type=True).save()
+        t_cell = Record(name="T Cell", type=cell_type).save()
+        cd4_t_cell = Record(name="CD4+ T Cell", type=cell_type).save()
+        t_cell.children.add(cd4_t_cell)
+
+    .. note::
+
+        A `Record` has a flexible schema: it can store data for arbitrary features.
+        By contrast, if you want to change the fields of a :class:`~lamindb.models.SQLRecord`, you need to modify the columns of the underlying table in the database.
+        The latter is more efficient for large datasets and you can customize it through modules like the `bionty` or `wetlab` module.
 
     Args:
         name: `str` A name.
         description: `str` A description.
+        type: `Record | None = None` The type of this record.
+        is_type: `bool = False` Whether this record is a type (a record that
+            classifies other records).
+        schema: `Schema | None = None` A schema to enforce for a type (optional).
+        reference: `str | None = None` For instance, an external ID or a URL.
+        reference_type: `str | None = None` For instance, `"url"`.
 
     See Also:
         :meth:`~lamindb.Feature`
-            Dimensions of measurement (e.g. column of a sheet).
+            Dimensions of measurement (e.g. column of a sheet, attribute of a record).
     """
 
     class Meta(SQLRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
@@ -88,6 +117,12 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates):
 
     For example, if a record "Compound" is a `type`, the actual compounds "darerinib", "tramerinib", would be instances of that `type`.
     """
+    description: str | None = TextField(null=True)
+    """A description."""
+    reference: str | None = CharField(max_length=255, db_index=True, null=True)
+    """A simple reference like a URL or external ID."""
+    reference_type: str | None = CharField(max_length=25, db_index=True, null=True)
+    """Type of simple reference."""
     schema: Schema | None = ForeignKey(
         "Schema", CASCADE, null=True, related_name="records"
     )
@@ -104,8 +139,20 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates):
     """Record-like components of this record."""
     composites: Record
     """Record-like composites of this record."""
-    description: str | None = TextField(null=True)
-    """A description."""
+    parents: ULabel = models.ManyToManyField(
+        "self", symmetrical=False, related_name="children"
+    )
+    """Parent entities of this record.
+
+    For advanced use cases, you can build an ontology under a given `type`.
+
+    Say, if you modeled `CellType` as a `Record`, you would introduce a type `CellType` and model the hiearchy of cell types under it.
+    """
+    children: ULabel
+    """Child entities of this record.
+
+    Reverse accessor for parents.
+    """
     run: Run | None = ForeignKey(
         Run,
         PROTECT,
@@ -148,21 +195,21 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates):
     """Projects linked in this record as values."""
     linked_references: Reference
     """References linked in this record as values."""
-    values_json: RecordJson
+    _values_json: RecordJson
     """JSON values (for lists, dicts, etc.)."""
-    values_record: RecordRecord
+    _values_record: RecordRecord
     """Record values."""
-    values_ulabel: RecordULabel
+    _values_ulabel: RecordULabel
     """ULabel values."""
-    values_user: RecordUser
+    _values_user: RecordUser
     """User values."""
-    values_run: RecordRun
+    _values_run: RecordRun
     """Run values."""
-    values_artifact: RecordArtifact
+    _values_artifact: RecordArtifact
     """Artifact values."""
-    values_reference: Reference
+    _values_reference: Reference
     """Reference values."""
-    values_project: Project
+    _values_project: Project
     """Project values."""
     blocks: RunBlock
     """Blocks that annotate this record."""
@@ -196,7 +243,9 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates):
         type: str | None = kwargs.pop("type", None)
         is_type: bool = kwargs.pop("is_type", False)
         description: str | None = kwargs.pop("description", None)
-        schema = kwargs.pop("schema", None)
+        schema: Schema | None = kwargs.pop("schema", None)
+        reference: str | None = kwargs.pop("reference", None)
+        reference_type: str | None = kwargs.pop("reference_type", None)
         branch = kwargs.pop("branch", None)
         branch_id = kwargs.pop("branch_id", 1)
         space = kwargs.pop("space", None)
@@ -218,6 +267,8 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates):
             type=type,
             is_type=is_type,
             description=description,
+            reference=reference,
+            reference_type=reference_type,
             schema=schema,
             branch=branch,
             branch_id=branch_id,
@@ -240,7 +291,7 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates):
         """
         return _query_relatives([self], "records", self.__class__)  # type: ignore
 
-    def to_pandas(self) -> pd.DataFrame:
+    def to_dataframe(self) -> pd.DataFrame:
         """Export all children of a record type recursively to a pandas DataFrame."""
         assert self.is_type, "Only types can be exported as dataframes"  # noqa: S101
         df = self.query_children().to_dataframe(features="queryset")
@@ -256,6 +307,10 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates):
             desired_order.sort()
         df = reorder_subset_columns_in_df(df, desired_order, position=0)  # type: ignore
         return df.sort_index()  # order by id for now
+
+    @deprecated("to_dataframe")
+    def to_pandas(self) -> pd.DataFrame:
+        return self.to_dataframe()
 
     def to_artifact(self, key: str = None) -> Artifact:
         """Export all children of a record type as a `.csv` artifact."""
@@ -285,7 +340,7 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates):
 
 class RecordJson(BaseSQLRecord, IsLink):
     id: int = models.BigAutoField(primary_key=True)
-    record: Record = ForeignKey(Record, CASCADE, related_name="values_json")
+    record: Record = ForeignKey(Record, CASCADE, related_name="_values_json")
     feature: Feature = ForeignKey(Feature, PROTECT, related_name="links_recordjson")
     value: Any = JSONField(default=None, db_default=None)
 
@@ -297,7 +352,7 @@ class RecordJson(BaseSQLRecord, IsLink):
 class RecordRecord(SQLRecord, IsLink):
     id: int = models.BigAutoField(primary_key=True)
     record: Record = ForeignKey(
-        Record, CASCADE, related_name="values_record"
+        Record, CASCADE, related_name="_values_record"
     )  # composite
     feature: Feature = ForeignKey(Feature, PROTECT, related_name="links_recordrecord")
     value: Record = ForeignKey(
@@ -311,7 +366,7 @@ class RecordRecord(SQLRecord, IsLink):
 
 class RecordULabel(BaseSQLRecord, IsLink):
     id: int = models.BigAutoField(primary_key=True)
-    record: Record = ForeignKey(Record, CASCADE, related_name="values_ulabel")
+    record: Record = ForeignKey(Record, CASCADE, related_name="_values_ulabel")
     feature: Feature = ForeignKey(Feature, PROTECT, related_name="links_recordulabel")
     value: ULabel = ForeignKey(ULabel, PROTECT, related_name="links_record")
 
@@ -323,7 +378,7 @@ class RecordULabel(BaseSQLRecord, IsLink):
 
 class RecordUser(BaseSQLRecord, IsLink):
     id: int = models.BigAutoField(primary_key=True)
-    record: Record = ForeignKey(Record, CASCADE, related_name="values_user")
+    record: Record = ForeignKey(Record, CASCADE, related_name="_values_user")
     feature: Feature = ForeignKey(Feature, PROTECT, related_name="links_recorduser")
     value: User = ForeignKey(User, PROTECT, related_name="links_record")
 
@@ -335,7 +390,7 @@ class RecordUser(BaseSQLRecord, IsLink):
 
 class RecordRun(BaseSQLRecord, IsLink):
     id: int = models.BigAutoField(primary_key=True)
-    record: Record = ForeignKey(Record, CASCADE, related_name="values_run")
+    record: Record = ForeignKey(Record, CASCADE, related_name="_values_run")
     feature: Feature = ForeignKey(Feature, PROTECT, related_name="links_recordrun")
     value: Run = ForeignKey(Run, PROTECT, related_name="links_record")
 
@@ -347,7 +402,7 @@ class RecordRun(BaseSQLRecord, IsLink):
 
 class RecordArtifact(BaseSQLRecord, IsLink):
     id: int = models.BigAutoField(primary_key=True)
-    record: Record = ForeignKey(Record, CASCADE, related_name="values_artifact")
+    record: Record = ForeignKey(Record, CASCADE, related_name="_values_artifact")
     feature: Feature = ForeignKey(Feature, PROTECT, related_name="links_recordartifact")
     value: Artifact = ForeignKey(Artifact, PROTECT, related_name="links_in_record")
 
