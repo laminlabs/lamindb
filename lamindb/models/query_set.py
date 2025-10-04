@@ -429,7 +429,7 @@ def get_feature_annotate_kwargs(
     annotate_kwargs = {}
     for link_attr, feature_type in link_attributes_on_models.items():
         if link_attr == "links_project" and registry is Record:
-            # we're only interested in values_project when "annotating" records
+            # we're only interested in _values_project when "annotating" records
             continue
         annotate_kwargs[f"{link_attr}__feature__name"] = F(
             f"{link_attr}__feature__name"
@@ -443,7 +443,9 @@ def get_feature_annotate_kwargs(
         annotate_kwargs[f"{link_attr}__{field_name}__name"] = F(
             f"{link_attr}__{field_name}__name"
         )
-    json_values_attribute = "_feature_values" if registry is Artifact else "values_json"
+    json_values_attribute = (
+        "_feature_values" if registry is Artifact else "_values_json"
+    )
     annotate_kwargs[f"{json_values_attribute}__feature__name"] = F(
         f"{json_values_attribute}__feature__name"
     )
@@ -537,7 +539,9 @@ def reshape_annotate_result(
 
     cols_from_include = cols_from_include or {}
 
-    json_values_attribute = "_feature_values" if registry is Artifact else "values_json"
+    json_values_attribute = (
+        "_feature_values" if registry is Artifact else "_values_json"
+    )
 
     # initialize result with basic fields, need a copy as we're modifying it
     # will give us warnings otherwise
