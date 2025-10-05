@@ -31,23 +31,23 @@ def test_rename():
     curator.add_new_from("feature_to_rename")
     curator.add_new_from("feature_to_rename2")
     artifact = curator.save_artifact(description="test-rename")
-    assert artifact.ulabels.through.objects.filter(
-        feature__name="feature_to_rename", ulabel__name="label-to-rename"
+    assert artifact.records.through.objects.filter(
+        feature__name="feature_to_rename", record__name="label-to-rename"
     ).exists()
     assert ln.Artifact.filter(feature_sets__features__name="feature_to_rename").exists()
 
     # rename label
-    ulabel = ln.Record.get(name="label-to-rename")
+    record = ln.Record.get(name="label-to-rename")
     with pytest.raises(SQLRecordNameChangeIntegrityError):
-        ulabel.name = "label-renamed"
-        ulabel.save()
+        record.name = "label-renamed"
+        record.save()
 
-    artifact.labels.make_external(ulabel)
-    assert not artifact.ulabels.through.objects.filter(
-        feature__name="feature_to_rename", ulabel__name="label-to-rename"
+    artifact.labels.make_external(record)
+    assert not artifact.records.through.objects.filter(
+        feature__name="feature_to_rename", record__name="label-to-rename"
     ).exists()
-    ulabel.name = "label-renamed"
-    ulabel.save()
+    record.name = "label-renamed"
+    record.save()
 
     # rename feature
     feature = ln.Feature.get(name="feature_to_rename")

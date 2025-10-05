@@ -5,7 +5,7 @@ import pytest
 from lamindb.errors import FieldValidationError
 
 
-def test_ulabel():
+def test_record():
     with pytest.raises(
         FieldValidationError,
         match=re.escape(
@@ -27,7 +27,7 @@ def test_ulabel():
         ln.Record(name="my_type", is_type=True)
 
 
-def test_ulabel_plural_type_warning(ccaplog):
+def test_record_plural_type_warning(ccaplog):
     ln.Record(name="MyThings", is_type=True)
     assert (
         "name 'MyThings' for type ends with 's', in case you're naming with plural, consider the singular for a type name"

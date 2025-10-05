@@ -54,7 +54,7 @@ def test_seralize_dtypes():
 # -----------------------------------------------------------------------------
 
 
-def test_simple_ulabel_with_subtype_and_field():
+def test_simple_record_with_subtype_and_field():
     dtype_str = "cat[Record[Customer].name]"
     result = parse_dtype(dtype_str)
     assert len(result) == 1
@@ -67,7 +67,7 @@ def test_simple_ulabel_with_subtype_and_field():
     }
 
 
-def test_multiple_ulabels_with_subtypes_and_fields():
+def test_multiple_records_with_subtypes_and_fields():
     dtype_str = "cat[Record[Customer].name|Record[Supplier].name]"
     result = parse_dtype(dtype_str)
     assert len(result) == 2

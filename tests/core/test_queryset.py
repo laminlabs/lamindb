@@ -104,17 +104,17 @@ def test_filter_related_field_name():
     with pytest.raises(
         FieldError,
         match=re.escape(
-            "Invalid lookup 'somelabel' for ulabels. Did you mean ulabels__name?"
+            "Invalid lookup 'somelabel' for records. Did you mean records__name?"
         ),
     ):
-        ln.Artifact.filter(ulabels="somelabel").all()
+        ln.Artifact.filter(records="somelabel").all()
 
 
 def test_filter_unknown_field():
     with pytest.raises(InvalidArgument) as error:
         ln.Artifact.filter(nonexistent="value").all()
     assert error.exconly() == (
-        "lamindb.errors.InvalidArgument: You can query either by available fields: blocks, branch, cell_lines, cell_markers, cell_types, collections, created_at, created_by, description, developmental_stages, diseases, ethnicities, experimental_factors, feature_sets, genes, hash, id, input_of_runs, is_latest, is_locked, key, kind, linked_in_records, n_files, n_observations, organisms, otype, pathways, phenotypes, projects, proteins, records, references, run, schema, size, space, storage, suffix, tissues, transform, uid, ulabels, updated_at, version, visibility\n"
+        "lamindb.errors.InvalidArgument: You can query either by available fields: blocks, branch, cell_lines, cell_markers, cell_types, collections, created_at, created_by, description, developmental_stages, diseases, ethnicities, experimental_factors, feature_sets, genes, hash, id, input_of_runs, is_latest, is_locked, key, kind, linked_in_records, n_files, n_observations, organisms, otype, pathways, phenotypes, projects, proteins, records, references, run, schema, size, space, storage, suffix, tissues, transform, uid, records, updated_at, version, visibility\n"
         "Or fix invalid feature names: nonexistent"
     )
 
@@ -130,17 +130,17 @@ def test_get_related_field_name():
     with pytest.raises(
         FieldError,
         match=re.escape(
-            "Invalid lookup 'somelabel' for ulabels. Did you mean ulabels__name?"
+            "Invalid lookup 'somelabel' for records. Did you mean records__name?"
         ),
     ):
-        ln.Artifact.get(ulabels="somelabel").all()
+        ln.Artifact.get(records="somelabel").all()
 
 
 def test_get_unknown_field():
     with pytest.raises(
         FieldError,
         match=re.escape(
-            "Unknown field 'nonexistent'. Available fields: blocks, branch, cell_lines, cell_markers, cell_types, collections, created_at, created_by, description, developmental_stages, diseases, ethnicities, experimental_factors, feature_sets, genes, hash, id, input_of_runs, is_latest, is_locked, key, kind, linked_in_records, n_files, n_observations, organisms, otype, pathways, phenotypes, projects, proteins, records, references, run, schema, size, space, storage, suffix, tissues, transform, uid, ulabels, updated_at, version, visibility"
+            "Unknown field 'nonexistent'. Available fields: blocks, branch, cell_lines, cell_markers, cell_types, collections, created_at, created_by, description, developmental_stages, diseases, ethnicities, experimental_factors, feature_sets, genes, hash, id, input_of_runs, is_latest, is_locked, key, kind, linked_in_records, n_files, n_observations, organisms, otype, pathways, phenotypes, projects, proteins, records, references, run, schema, size, space, storage, suffix, tissues, transform, uid, records, updated_at, version, visibility"
         ),
     ):
         ln.Artifact.get(nonexistent="value")

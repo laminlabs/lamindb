@@ -87,17 +87,17 @@ def test_features_add_remove(adata):
     )
     experiment_label = ln.Record(name="Experiment 1").save()
     # add the label without the feature first
-    artifact.ulabels.add(experiment_label)
-    assert artifact.links_ulabel.get().ulabel.name == "Experiment 1"
-    assert artifact.links_ulabel.get().feature is None
+    artifact.records.add(experiment_label)
+    assert artifact.links_record.get().record.name == "Experiment 1"
+    assert artifact.links_record.get().feature is None
 
     # now add the label with the feature and make sure that it has the feature annotation
     artifact.features.add_values({"experiment": "Experiment 1"})
-    assert artifact.links_ulabel.get().ulabel.name == "Experiment 1"
-    assert artifact.links_ulabel.get().feature.name == "experiment"
+    assert artifact.links_record.get().record.name == "Experiment 1"
+    assert artifact.links_record.get().feature.name == "experiment"
     # repeat
     artifact.features.add_values({"experiment": "Experiment 1"})
-    assert artifact.links_ulabel.get().ulabel.name == "Experiment 1"
+    assert artifact.links_record.get().record.name == "Experiment 1"
 
     # numerical feature
     temperature = ln.Feature(name="temperature", dtype="cat").save()
@@ -661,7 +661,7 @@ def test_add_labels_using_anndata(adata):
         "hematopoietic stem cell",
         "B cell",
     }
-    assert experiment_1 in artifact.ulabels.all()
+    assert experiment_1 in artifact.records.all()
 
     # call describe
     artifact.describe()
@@ -717,8 +717,8 @@ def get_test_artifacts():
 def test_add_from(get_test_artifacts):
     artifact1, artifact2 = get_test_artifacts
     label_names = [f"Project {i}" for i in range(3)]
-    ulabels = [ln.Record(name=label_name) for label_name in label_names]
-    ln.save(ulabels)
+    records = [ln.Record(name=label_name) for label_name in label_names]
+    ln.save(records)
 
     cell_line_names = [f"Cell line {i}" for i in range(3)]
     cell_lines = [bt.CellLine(name=name) for name in cell_line_names]
@@ -727,22 +727,22 @@ def test_add_from(get_test_artifacts):
     # pass a list of length 0
     artifact2.labels.add([])
     # now actually pass the labels
-    artifact2.labels.add(ulabels)
+    artifact2.labels.add(records)
     # here test add without passing a feature
     artifact2.labels.add(cell_lines)
     assert artifact2.cell_lines.count() == len(cell_lines)
 
-    assert artifact1.ulabels.exists() is False
+    assert artifact1.records.exists() is False
     artifact1.labels.add_from(artifact2)
-    assert artifact1.ulabels.count() == artifact2.ulabels.count()
+    assert artifact1.records.count() == artifact2.records.count()
     assert artifact1.cell_lines.count() == artifact2.cell_lines.count()
 
     artifact2.cell_lines.remove(*cell_lines)
     artifact1.cell_lines.remove(*cell_lines)
-    artifact2.ulabels.remove(*ulabels)
-    artifact1.ulabels.remove(*ulabels)
+    artifact2.records.remove(*records)
+    artifact1.records.remove(*records)
 
-    for ulabel in ulabels:
-        ulabel.delete(permanent=True)
+    for record in records:
+        record.delete(permanent=True)
     for cell_line in cell_lines:
         cell_line.delete(permanent=True)

@@ -68,13 +68,13 @@ def test_curate_df():
     _check_df_equality(df, expected_df)
 
     # Test df with features
-    # test that the ulabels filter DOES NOT affect joining the annotations
+    # test that the records filter DOES NOT affect joining the annotations
     # we want it to only affect the artifact query (even though here, it won't change the result as both artifacts have the IFNG label)
     df = (
         ln.Artifact.filter(
             key__startswith="examples/dataset",
             suffix=".h5ad",
-            ulabels__name="IFNG",
+            records__name="IFNG",
         )
         .order_by("-key")
         .to_dataframe(
@@ -199,7 +199,7 @@ def test_curate_df():
     assert len(labels_node.children[0].label.columns) == 3
     assert len(labels_node.children[0].label.rows) == 2
     assert labels_node.children[0].label.columns[0]._cells == [
-        ".ulabels",
+        ".records",
         ".cell_types",
     ]
     assert labels_node.children[0].label.columns[1]._cells[0].plain == "Record"

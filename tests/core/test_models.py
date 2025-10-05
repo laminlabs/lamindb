@@ -80,7 +80,7 @@ def test_registry__repr__artifact():
         .run: Run
         .schema: Schema
         .created_by: User
-        .ulabels: Record
+        .records: Record
         .input_of_runs: Run
         .feature_sets: Schema
         .collections: Collection
@@ -117,7 +117,7 @@ def test_unsaved_relationship_modification_attempts():
 
     new_label = ln.Record(name="testlabel").save()
     with pytest.raises(ValueError) as excinfo:
-        af.ulabels.add(new_label)
+        af.records.add(new_label)
 
     assert (
         str(excinfo.value)
@@ -135,7 +135,7 @@ def test_unsaved_model_different_instance():
 
     new_label = ln.Record(name="testlabel").save()
     with pytest.raises(ValueError) as excinfo:
-        af.ulabels.add(new_label)
+        af.records.add(new_label)
 
     assert (
         str(excinfo.value)
