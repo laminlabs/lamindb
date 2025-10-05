@@ -290,8 +290,8 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates, HasParents):
         """
         return _query_relatives([self], "records", self.__class__)  # type: ignore
 
-    def to_dataframe(self) -> pd.DataFrame:
-        """Export all children of a record type recursively to a pandas DataFrame."""
+    def type_to_dataframe(self) -> pd.DataFrame:
+        """Export all instances of this record type to a pandas DataFrame."""
         assert self.is_type, "Only types can be exported as dataframes"  # noqa: S101
         df = self.query_children().to_dataframe(features="queryset")
         df.columns.values[0] = "__lamindb_record_uid__"
@@ -307,12 +307,12 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates, HasParents):
         df = reorder_subset_columns_in_df(df, desired_order, position=0)  # type: ignore
         return df.sort_index()  # order by id for now
 
-    @deprecated("to_dataframe")
+    @deprecated("type_to_dataframe")
     def to_pandas(self) -> pd.DataFrame:
         return self.to_dataframe()
 
     def to_artifact(self, key: str = None) -> Artifact:
-        """Export all children of a record type as a `.csv` artifact."""
+        """Use `type_to_datafame` to create an artifact."""
         from lamindb.core._context import context
 
         assert self.is_type, "Only types can be exported as artifacts"  # noqa: S101
@@ -328,7 +328,7 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates, HasParents):
         run = Run(transform, initiated_by_run=context.run).save()
         run.input_records.add(self)
         return Artifact.from_dataframe(
-            self.to_pandas(),
+            self.type_to_datafame(),
             key=key,
             description=f"Export of sheet {self.uid}{description}",
             schema=self.schema,
