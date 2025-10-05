@@ -227,6 +227,9 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates, HasParents):
         type: Record | None = None,
         is_type: bool = False,
         description: str | None = None,
+        schema: Schema | None = None,
+        reference: str | None = None,
+        reference_type: str | None = None,
     ): ...
 
     @overload
