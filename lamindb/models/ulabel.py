@@ -40,27 +40,6 @@ class ULabel(SQLRecord, HasParents, CanCurate, TracksRun, TracksUpdates):
         reference: `str | None = None` For instance, an external ID or a URL.
         reference_type: `str | None = None` For instance, `"url"`.
 
-    A `ULabel` record provides the easiest way to annotate a dataset
-    with a label: `"My project"`, `"curated"`, or `"Batch X"`:
-
-        >>> my_project = ULabel(name="My project").save()
-        >>> artifact.ulabels.add(my_project)
-
-    Often, a ulabel is measured *within* a dataset. For instance, an artifact
-    might characterize 2 species of the Iris flower (`"setosa"` &
-    `"versicolor"`) measured by a `"species"` feature. Use the
-    :class:`~lamindb.curators.DataFrameCurator` flow to automatically parse, validate, and
-    annotate with labels that are contained in `DataFrame` objects.
-
-    .. note::
-
-        If you work with complex entities like cell lines, cell types, tissues,
-        etc., consider using the pre-defined biological registries in
-        :mod:`bionty` to label artifacts & collections.
-
-        If you work with biological samples, likely, the only sustainable way of
-        tracking metadata, is to create a custom schema module.
-
     See Also:
         :meth:`~lamindb.Feature`
             Dimensions of measurement for artifacts & collections.

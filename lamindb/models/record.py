@@ -39,41 +39,7 @@ if TYPE_CHECKING:
 class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates, HasParents):
     """Metadata records for labeling and organizing entities in sheets.
 
-    Useful to manage samples, donors, cells, compounds, sequences.
-
-    Create a record type and then instances of that type::
-
-        sample_type = Record(name="Sample", is_type=True).save()
-        sample1 = Record(name="Sample 1", type=sample_type).save()
-        sample2 = Record(name="Sample 2", type=sample_type).save()
-
-    You can then annotate artifacts and other entities with these records, e.g.::
-
-        artifact.records.add(sample1)
-
-    To query artifacts by records::
-
-        ln.Artifact.filter(records=sample1).to_dataframe()
-
-    Through the UI can assign attributes to records in form of features. The Python API also allows to
-    assign features programmatically, but is currently still low-level::
-
-        feature = ln.Feature(name="age", type="int").save()
-        sample1.values_record.create(feature=feature, value=42)
-        sample2.values_record.create(feature=feature, value=23)
-
-    Records can also model flexible ontologies through their parents-children relationships::
-
-        cell_type = Record(name="CellType", is_type=True).save()
-        t_cell = Record(name="T Cell", type=cell_type).save()
-        cd4_t_cell = Record(name="CD4+ T Cell", type=cell_type).save()
-        t_cell.children.add(cd4_t_cell)
-
-    .. note::
-
-        A `Record` has a flexible schema: it can store data for arbitrary features.
-        By contrast, if you want to change the fields of a :class:`~lamindb.models.SQLRecord`, you need to modify the columns of the underlying table in the database.
-        The latter is more efficient for large datasets and you can customize it through modules like the `bionty` or `wetlab` module.
+    Is useful to manage samples, donors, cells, compounds, sequences.
 
     Args:
         name: `str` A name.
@@ -88,6 +54,58 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates, HasParents):
     See Also:
         :meth:`~lamindb.Feature`
             Dimensions of measurement (e.g. column of a sheet, attribute of a record).
+
+    Examples:
+
+        Create a record type and then instances of that type::
+
+            sample_type = Record(name="Sample", is_type=True).save()
+            sample1 = Record(name="Sample 1", type=sample_type).save()
+            sample2 = Record(name="Sample 2", type=sample_type).save()
+
+        You can then annotate artifacts and other entities with these records, e.g.::
+
+            artifact.records.add(sample1)
+
+        To query artifacts by records::
+
+            ln.Artifact.filter(records=sample1).to_dataframe()
+
+        Through the UI can assign attributes to records in form of features. The Python API also allows to
+        assign features programmatically, but is currently still low-level::
+
+            feature = ln.Feature(name="age", type="int").save()
+            sample1.values_record.create(feature=feature, value=42)
+            sample2.values_record.create(feature=feature, value=23)
+
+        Records can also model flexible ontologies through their parents-children relationships::
+
+            cell_type = Record(name="CellType", is_type=True).save()
+            t_cell = Record(name="T Cell", type=cell_type).save()
+            cd4_t_cell = Record(name="CD4+ T Cell", type=cell_type).save()
+            t_cell.children.add(cd4_t_cell)
+
+        Often, a label is measured *within* a dataset. For instance, an artifact
+        might characterize 2 species of the Iris flower (`"setosa"` &
+        `"versicolor"`) measured by a `"species"` feature. For such cases, you can use
+        :class:`~lamindb.curators.DataFrameCurator` to automatically parse, validate, and
+        annotate with labels that are contained in `DataFrame` objects.
+
+    .. note::
+
+        If you work with complex entities like cell lines, cell types, tissues,
+        etc., consider using the pre-defined biological registries in
+        :mod:`bionty` to label artifacts & collections.
+
+        If you work with biological samples, likely, the only sustainable way of
+        tracking metadata, is to create a custom schema module.
+
+    .. note::
+
+        A `Record` has a flexible schema: it can store data for arbitrary features.
+        By contrast, if you want to change the fields of a :class:`~lamindb.models.SQLRecord`, you need to modify the columns of the underlying table in the database.
+        The latter is more efficient for large datasets and you can customize it through modules like the `bionty` or `wetlab` module.
+
     """
 
     class Meta(SQLRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
