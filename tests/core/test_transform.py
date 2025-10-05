@@ -88,7 +88,7 @@ def test_revise_transforms():
 
     # wrong transform type
     with pytest.raises(TypeError) as error:
-        ln.Transform(revises=ln.ULabel(name="x"))
+        ln.Transform(revises=ln.Record(name="x"))
     assert error.exconly().startswith(
         "TypeError: `revises` has to be of type `Transform`"
     )

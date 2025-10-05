@@ -157,8 +157,8 @@ def mini_immuno_schema_flexible():
     ln.Schema.filter().delete(permanent=True)
     ln.Feature.filter().delete(permanent=True)
     bt.Gene.filter().delete(permanent=True)
-    ln.ULabel.filter(type__isnull=False).delete(permanent=True)
-    ln.ULabel.filter().delete(permanent=True)
+    ln.Record.filter(type__isnull=False).delete(permanent=True)
+    ln.Record.filter().delete(permanent=True)
     bt.CellType.filter().delete(permanent=True)
 
 

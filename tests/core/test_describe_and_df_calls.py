@@ -179,14 +179,14 @@ def test_curate_df():
 │   ├── obs • 4             [Feature]
 │   │   cell_type_by_expe…  cat[bionty.CellType]    B cell, CD8-positive, alpha…
 │   │   cell_type_by_model  cat[bionty.CellType]    B cell, T cell
-│   │   perturbation        cat[ULabel]             DMSO, IFNG
+│   │   perturbation        cat[Record]             DMSO, IFNG
 │   │   sample_note         str
 │   └── var.T • 3           [bionty.Gene.ensembl_…
 │       CD8A                num
 │       CD4                 num
 │       CD14                num
 └── Linked features
-    └── experiment          cat[ULabel]             Experiment 1
+    └── experiment          cat[Record]             Experiment 1
         date_of_study       date                    2024-12-01
         study_metadata      dict                    {'detail1': '123', 'detail2…
         study_note          str                     We had a great time perform…
@@ -202,7 +202,7 @@ def test_curate_df():
         ".ulabels",
         ".cell_types",
     ]
-    assert labels_node.children[0].label.columns[1]._cells[0].plain == "ULabel"
+    assert labels_node.children[0].label.columns[1]._cells[0].plain == "Record"
     assert labels_node.children[0].label.columns[1]._cells[1].plain == "bionty.CellType"
     assert {
         c.strip()
@@ -225,5 +225,5 @@ def test_curate_df():
     ln.Schema.filter().delete(permanent=True)
     ln.Feature.filter().delete(permanent=True)
     bt.Gene.filter().delete(permanent=True)
-    ln.ULabel.filter().delete(permanent=True)
+    ln.Record.filter().delete(permanent=True)
     bt.CellType.filter().delete(permanent=True)

@@ -80,7 +80,7 @@ def test_registry__repr__artifact():
         .run: Run
         .schema: Schema
         .created_by: User
-        .ulabels: ULabel
+        .ulabels: Record
         .input_of_runs: Run
         .feature_sets: Schema
         .collections: Collection
@@ -115,7 +115,7 @@ def test_unsaved_relationship_modification_attempts():
         pd.DataFrame({"col1": [1, 2, 3], "col2": [4, 5, 6]}), description="testme"
     )
 
-    new_label = ln.ULabel(name="testlabel").save()
+    new_label = ln.Record(name="testlabel").save()
     with pytest.raises(ValueError) as excinfo:
         af.ulabels.add(new_label)
 
@@ -133,7 +133,7 @@ def test_unsaved_model_different_instance():
         key="scrna/micro-macfarland2020.h5ad"
     )
 
-    new_label = ln.ULabel(name="testlabel").save()
+    new_label = ln.Record(name="testlabel").save()
     with pytest.raises(ValueError) as excinfo:
         af.ulabels.add(new_label)
 

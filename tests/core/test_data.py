@@ -24,8 +24,8 @@ def test_rename():
     curator = ln.Curator.from_dataframe(
         df,
         categoricals={
-            "feature_to_rename": ln.ULabel.name,
-            "feature_to_rename2": ln.ULabel.name,
+            "feature_to_rename": ln.Record.name,
+            "feature_to_rename2": ln.Record.name,
         },
     )
     curator.add_new_from("feature_to_rename")
@@ -37,7 +37,7 @@ def test_rename():
     assert ln.Artifact.filter(feature_sets__features__name="feature_to_rename").exists()
 
     # rename label
-    ulabel = ln.ULabel.get(name="label-to-rename")
+    ulabel = ln.Record.get(name="label-to-rename")
     with pytest.raises(SQLRecordNameChangeIntegrityError):
         ulabel.name = "label-renamed"
         ulabel.save()
@@ -73,5 +73,5 @@ def test_rename():
     # clean up
     artifact.delete(permanent=True)
     ln.Schema.filter().delete(permanent=True)
-    ln.ULabel.filter().delete(permanent=True)
+    ln.Record.filter().delete(permanent=True)
     ln.Feature.filter().delete(permanent=True)

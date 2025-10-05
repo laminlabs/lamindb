@@ -12,10 +12,10 @@ def test_ulabel():
             "Only name, type, is_type, description, reference, reference_type are valid keyword arguments"
         ),
     ):
-        ln.ULabel(x=1)
+        ln.Record(x=1)
 
     with pytest.raises(ValueError) as error:
-        ln.ULabel(1)
+        ln.Record(1)
     assert error.exconly() == "ValueError: Only one non-keyword arg allowed"
 
     with pytest.raises(
@@ -24,11 +24,11 @@ def test_ulabel():
             "'my_type' should start with a capital letter given you're defining a type"
         ),
     ):
-        ln.ULabel(name="my_type", is_type=True)
+        ln.Record(name="my_type", is_type=True)
 
 
 def test_ulabel_plural_type_warning(ccaplog):
-    ln.ULabel(name="MyThings", is_type=True)
+    ln.Record(name="MyThings", is_type=True)
     assert (
         "name 'MyThings' for type ends with 's', in case you're naming with plural, consider the singular for a type name"
         in ccaplog.text

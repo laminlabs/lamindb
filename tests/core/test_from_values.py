@@ -47,10 +47,10 @@ def test_from_values_multiple_match():
 
 def test_get_or_create_records():
     names = ["ulabel" + str(i) for i in range(25)]
-    labels = [ln.ULabel(name=name) for name in names]
+    labels = [ln.Record(name=name) for name in names]
     ln.save(labels)
     # more than 20 existing values
-    labels = ln.ULabel.from_values(names, field="name")
+    labels = ln.Record.from_values(names, field="name")
     assert len(labels) == 25
 
 

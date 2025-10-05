@@ -28,17 +28,17 @@ def test_init_with_args():
         )
         + r".*",
     ):
-        # can't use ULabel here because it raises "Only one non-keyword arg allowed"
+        # can't use Record here because it raises "Only one non-keyword arg allowed"
         ln.User("an arg")
 
 
 def test_validate_required_fields():
     # label has a required name
     with pytest.raises(FieldValidationError):
-        ln.ULabel()
+        ln.Record()
     # label has a required name
     with pytest.raises(FieldValidationError):
-        ln.ULabel(description="test")
+        ln.Record(description="test")
 
 
 @pytest.fixture
@@ -118,12 +118,12 @@ def test_search_and_get(get_search_test_filepaths):
 
 
 def test_suggest_similar_names():
-    ulabel1 = ln.ULabel(name="Test experiment 1").save()
-    ulabel2 = ln.ULabel(name="Test experiment 2").save()
-    ulabel3 = ln.ULabel(name="Special test experiment abc").save()
-    ulabel4 = ln.ULabel(name="A very special test experiment abc").save()
+    ulabel1 = ln.Record(name="Test experiment 1").save()
+    ulabel2 = ln.Record(name="Test experiment 2").save()
+    ulabel3 = ln.Record(name="Special test experiment abc").save()
+    ulabel4 = ln.Record(name="A very special test experiment abc").save()
 
-    assert ln.ULabel(name="Test experiment 1").uid == ulabel1.uid
+    assert ln.Record(name="Test experiment 1").uid == ulabel1.uid
 
     assert suggest_records_with_similar_names(
         ulabel1, "name", {"name": "Test experiment 1"}
@@ -133,7 +133,7 @@ def test_suggest_similar_names():
     )
 
     queryset = _search(
-        ln.ULabel,
+        ln.Record,
         "Test experiment 123",
         field="name",
         truncate_string=True,
@@ -142,7 +142,7 @@ def test_suggest_similar_names():
     assert queryset.count() == 3
 
     queryset = _search(
-        ln.ULabel,
+        ln.Record,
         "Special test experiment abc",
         field="name",
         truncate_string=True,
@@ -174,7 +174,7 @@ def test_pass_version():
 
 
 def test_delete():
-    ulabel = ln.ULabel(name="test-delete")
+    ulabel = ln.Record(name="test-delete")
     # record not yet saved, delete has no effect
     ulabel.delete()
     assert ulabel.branch_id == 1
@@ -182,7 +182,7 @@ def test_delete():
     ulabel.delete()
     assert ulabel.branch_id == -1
     ulabel.delete(permanent=True)
-    assert ln.ULabel.filter(name="test-delete").exists() is False
+    assert ln.Record.filter(name="test-delete").exists() is False
 
 
 def test_get_name_field():
