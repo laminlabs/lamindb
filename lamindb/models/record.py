@@ -172,6 +172,22 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates, HasParents):
     """Projects that annotate this record."""
     references: Reference
     """References that annotate this record."""
+    values_json: RecordJson
+    """JSON values (for lists, dicts, etc.)."""
+    values_record: RecordRecord
+    """Record values with their features."""
+    values_ulabel: RecordULabel
+    """ULabel values with their features."""
+    values_user: RecordUser
+    """User values with their features."""
+    values_run: RecordRun
+    """Run values with their features."""
+    values_artifact: RecordArtifact
+    """Artifact values with their features."""
+    values_reference: Reference
+    """Reference values with their features."""
+    values_project: Project
+    """Project values with their features."""
     linked_runs: Run = models.ManyToManyField(
         Run, through="RecordRun", related_name="records"
     )
@@ -180,13 +196,12 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates, HasParents):
         User, through="RecordUser", related_name="records"
     )
     """Users linked in this record as values."""
-    # this field should be named linked_ulabels, but we are in a transition period
-    ulabels: ULabel = models.ManyToManyField(
+    linked_ulabels: ULabel = models.ManyToManyField(
         ULabel,
         through="RecordULabel",
-        related_name="_records",  # in transition period with underscore prefix
+        related_name="linked_in_records",
     )
-    """Ulabels linked in this record as values."""
+    """ULabels linked in this record as values."""
     linked_artifacts: Artifact = models.ManyToManyField(
         Artifact, through="RecordArtifact", related_name="linked_in_records"
     )
@@ -195,22 +210,6 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates, HasParents):
     """Projects linked in this record as values."""
     linked_references: Reference
     """References linked in this record as values."""
-    _values_json: RecordJson
-    """JSON values (for lists, dicts, etc.)."""
-    _values_record: RecordRecord
-    """Record values."""
-    _values_ulabel: RecordULabel
-    """ULabel values."""
-    _values_user: RecordUser
-    """User values."""
-    _values_run: RecordRun
-    """Run values."""
-    _values_artifact: RecordArtifact
-    """Artifact values."""
-    _values_reference: Reference
-    """Reference values."""
-    _values_project: Project
-    """Project values."""
     blocks: RunBlock
     """Blocks that annotate this record."""
 
@@ -340,7 +339,7 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates, HasParents):
 
 class RecordJson(BaseSQLRecord, IsLink):
     id: int = models.BigAutoField(primary_key=True)
-    record: Record = ForeignKey(Record, CASCADE, related_name="_values_json")
+    record: Record = ForeignKey(Record, CASCADE, related_name="values_json")
     feature: Feature = ForeignKey(Feature, PROTECT, related_name="links_recordjson")
     value: Any = JSONField(default=None, db_default=None)
 
@@ -352,7 +351,7 @@ class RecordJson(BaseSQLRecord, IsLink):
 class RecordRecord(SQLRecord, IsLink):
     id: int = models.BigAutoField(primary_key=True)
     record: Record = ForeignKey(
-        Record, CASCADE, related_name="_values_record"
+        Record, CASCADE, related_name="values_record"
     )  # composite
     feature: Feature = ForeignKey(Feature, PROTECT, related_name="links_recordrecord")
     value: Record = ForeignKey(
@@ -366,7 +365,7 @@ class RecordRecord(SQLRecord, IsLink):
 
 class RecordULabel(BaseSQLRecord, IsLink):
     id: int = models.BigAutoField(primary_key=True)
-    record: Record = ForeignKey(Record, CASCADE, related_name="_values_ulabel")
+    record: Record = ForeignKey(Record, CASCADE, related_name="values_ulabel")
     feature: Feature = ForeignKey(Feature, PROTECT, related_name="links_recordulabel")
     value: ULabel = ForeignKey(ULabel, PROTECT, related_name="links_record")
 
@@ -378,7 +377,7 @@ class RecordULabel(BaseSQLRecord, IsLink):
 
 class RecordUser(BaseSQLRecord, IsLink):
     id: int = models.BigAutoField(primary_key=True)
-    record: Record = ForeignKey(Record, CASCADE, related_name="_values_user")
+    record: Record = ForeignKey(Record, CASCADE, related_name="values_user")
     feature: Feature = ForeignKey(Feature, PROTECT, related_name="links_recorduser")
     value: User = ForeignKey(User, PROTECT, related_name="links_record")
 
@@ -390,7 +389,7 @@ class RecordUser(BaseSQLRecord, IsLink):
 
 class RecordRun(BaseSQLRecord, IsLink):
     id: int = models.BigAutoField(primary_key=True)
-    record: Record = ForeignKey(Record, CASCADE, related_name="_values_run")
+    record: Record = ForeignKey(Record, CASCADE, related_name="values_run")
     feature: Feature = ForeignKey(Feature, PROTECT, related_name="links_recordrun")
     value: Run = ForeignKey(Run, PROTECT, related_name="links_record")
 
@@ -402,7 +401,7 @@ class RecordRun(BaseSQLRecord, IsLink):
 
 class RecordArtifact(BaseSQLRecord, IsLink):
     id: int = models.BigAutoField(primary_key=True)
-    record: Record = ForeignKey(Record, CASCADE, related_name="_values_artifact")
+    record: Record = ForeignKey(Record, CASCADE, related_name="values_artifact")
     feature: Feature = ForeignKey(Feature, PROTECT, related_name="links_recordartifact")
     value: Artifact = ForeignKey(Artifact, PROTECT, related_name="links_in_record")
 
