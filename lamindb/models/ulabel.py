@@ -34,6 +34,9 @@ if TYPE_CHECKING:
 class ULabel(SQLRecord, HasParents, CanCurate, TracksRun, TracksUpdates):
     """Universal labels.
 
+    For new labels, see `Record` instead. Existing labels and code will continue to work
+    but be migrated to the Record registry.
+
     Args:
         name: `str` A name.
         description: `str | None = None` A description.
