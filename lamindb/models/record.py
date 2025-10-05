@@ -37,11 +37,11 @@ if TYPE_CHECKING:
 
 
 class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates, HasParents):
-    """Flexible records as you find them in Excel-like sheets.
+    """Metadata records for labeling and organizing entities in sheets.
 
     Useful to manage samples, donors, cells, compounds, sequences.
 
-    Simply create a record type and then instances of that type::
+    Create a record type and then instances of that type::
 
         sample_type = Record(name="Sample", is_type=True).save()
         sample1 = Record(name="Sample 1", type=sample_type).save()
@@ -55,7 +55,14 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates, HasParents):
 
         ln.Artifact.filter(records=sample1).to_dataframe()
 
-    Records can also model flexible ontologies through their parents-children relationships.
+    Through the UI can assign attributes to records in form of features. The Python API also allows to
+    assign features programmatically, but is currently still low-level::
+
+        feature = ln.Feature(name="age", type="int").save()
+        sample1.values_record.create(feature=feature, value=42)
+        sample2.values_record.create(feature=feature, value=23)
+
+    Records can also model flexible ontologies through their parents-children relationships::
 
         cell_type = Record(name="CellType", is_type=True).save()
         t_cell = Record(name="T Cell", type=cell_type).save()
