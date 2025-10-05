@@ -30,4 +30,18 @@ class Migration(migrations.Migration):
                 blank=True, db_index=True, default=None, max_length=25, null=True
             ),
         ),
+        migrations.RenameField(
+            model_name="record",
+            old_name="ulabels",
+            new_name="linked_ulabels",
+        ),
+        migrations.AlterField(
+            model_name="record",
+            name="linked_ulabels",
+            field=models.ManyToManyField(
+                related_name="linked_in_records",
+                through="lamindb.RecordULabel",
+                to="lamindb.ulabel",
+            ),
+        ),
     ]
