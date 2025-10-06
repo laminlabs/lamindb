@@ -13,6 +13,7 @@ from typing import Any
 
 
 def __getattr__(attr_name: str) -> Any:
+    # Defers import until accessed to avoid requiring PyTorch Lightning
     if attr_name == "lightning":
         from lamindb.integrations import _lightning
 
@@ -27,6 +28,7 @@ from ._vitessce import save_vitessce_config
 
 
 def __dir__():
+    # Makes lazy imports discoverable to dir() to enable autocomplete including lazy modules
     return __all__
 
 

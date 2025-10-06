@@ -21,8 +21,8 @@ class Callback(pl.Callback):
     Creates version families of artifacts for given `key` (relative file path).
 
     Args:
-        path: Path to the checkpoint
-        key: Artifact key in LaminDB storage
+        path: Path to the checkpoint.
+        key: Artifact key.
         features: Additional feature values that every checkpoint gets annotated by.
             Examples are { "mlflow_run_id": mlflow_run.info.run_id }.
     """
@@ -38,7 +38,7 @@ class Callback(pl.Callback):
         self.features = features or {}
 
     def on_train_start(self, trainer: Trainer, pl_module: LightningModule) -> None:
-        """Validates that LaminDB Features exist for all specified params."""
+        """Validates that features exist for all specified params."""
         missing = [
             feature
             for feature in self.features.keys()

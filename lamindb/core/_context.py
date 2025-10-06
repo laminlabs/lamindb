@@ -135,6 +135,9 @@ class LogStreamHandler:
         if not self.file.closed:
             self.file.flush()
 
+    # https://laminlabs.slack.com/archives/C07DB677JF6/p1759423901926139
+    # other tracking frameworks like W&B use our output stream and expect
+    # certain functions like isatty to be available
     def isatty(self) -> bool:
         return False
 
