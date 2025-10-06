@@ -172,6 +172,9 @@ def test_fine_grained_permissions_account():
     root_block = ln.models.RootBlock(name="instance", content="test").save()
     root_block.content = "test 2"
     root_block.save()
+    # test SpaceBlock
+    space = ln.Space.get(name="select access")
+    ln.models.SpaceBlock(space=space, content="test").save()
 
 
 def test_fine_grained_permissions_team():
