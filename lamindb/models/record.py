@@ -311,7 +311,15 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates, HasParents):
         return self.schema is not None and self.is_type
 
     def query_children(self) -> QuerySet:
-        """Query all children of a record type recursively.
+        """Query all children of a record.
+
+        While `.children` retrieves the direct children, this method
+        retrieves all descendants of a record type.
+        """
+        return _query_relatives([self], "children", self.__class__)  # type: ignore
+
+    def query_records(self) -> QuerySet:
+        """Query all records of a type.
 
         While `.records` retrieves the direct children, this method
         retrieves all descendants of a record type.
@@ -321,7 +329,7 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates, HasParents):
     def type_to_dataframe(self) -> pd.DataFrame:
         """Export all instances of this record type to a pandas DataFrame."""
         assert self.is_type, "Only types can be exported as dataframes"  # noqa: S101
-        df = self.query_children().to_dataframe(features="queryset")
+        df = self.query_records().to_dataframe(features="queryset")
         df.columns.values[0] = "__lamindb_record_uid__"
         df.columns.values[1] = "__lamindb_record_name__"
         if self.schema is not None:
