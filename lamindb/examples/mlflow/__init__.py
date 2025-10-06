@@ -8,9 +8,6 @@
 
 import lamindb as ln
 
-# A different design could leverage records instead where ID and name are bundled.
-# This could potentially show up nicer in the UI and allow for markdown comments on MLflow experiments or runs.
-
 
 def save_mlflow_features():
     """Saves all MLflow experiment and run related features.

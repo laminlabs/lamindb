@@ -1,19 +1,15 @@
-"""Examples and utilities for W&B.
+"""Examples and utilities for Weights & Biases.
 
 .. autosummary::
    :toctree: .
 
-   create_wandb_schema
+   save_wandb_features
 """
 
 import lamindb as ln
-from lamindb.models import Schema
-
-# A different design could leverage records instead where ID and name are bundled.
-# This could potentially show up nicer in the UI and allow for markdown comments on W&B experiments or runs.
 
 
-def create_wandb_schema():
+def save_wandb_features():
     """Saves all Weights & Biases project and run related features.
 
     Saves the following features:
@@ -30,7 +26,7 @@ def create_wandb_schema():
     - timestamp
     - runtime
     """
-    wandb_type = ln.Feature(name="W&B", is_type=True).save()
+    wandb_type = ln.Feature(name="Weights & Biases", is_type=True).save()
     ln.Feature(name="wandb_run_id", dtype=str, type=wandb_type).save()
     ln.Feature(name="wandb_run_name", dtype=str, type=wandb_type).save()
     ln.Feature(name="wandb_run_entity", dtype=str, type=wandb_type).save()
