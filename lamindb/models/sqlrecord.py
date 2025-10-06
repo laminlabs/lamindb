@@ -127,9 +127,10 @@ def deferred_attribute__repr__(self):
 
 
 def unique_constraint_error_in_error_message(error_msg: str) -> bool:
+    """Check if the error message indicates a unique constraint violation."""
     return (
-        "UNIQUE constraint failed" in error_msg
-        or "duplicate key value violates unique constraint" in error_msg
+        "UNIQUE constraint failed" in error_msg  # SQLite
+        or "duplicate key value violates unique constraint" in error_msg  # Postgre
     )
 
 
