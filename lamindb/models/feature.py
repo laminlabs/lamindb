@@ -847,11 +847,11 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
         """Create Feature records for dictionary keys.
 
         Args:
-            dictionary: Source dictionary to extract key information from
-            field: FieldAttr for Feature model validation, defaults to Feature.name
-            str_as_cat: Whether to interpret string values as categorical
-            type: Feature type of all created features
-            mute: Whether to mute dtype inference and feature creation warnings
+            dictionary: Source dictionary to extract key information from.
+            field: FieldAttr for Feature model validation, defaults to `Feature.name`.
+            str_as_cat: Whether to interpret string values as categorical.
+            type: Feature type of all created features.
+            mute: Whether to mute dtype inference and feature creation warnings.
         """
         from lamindb.models._feature_manager import infer_feature_type_convert_json
 

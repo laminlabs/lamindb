@@ -16,7 +16,7 @@ import lamindb as ln
 
 
 class Callback(pl.Callback):
-    """Saves PyTorch Lightning model checkpoints to LaminDB after each training epoch.
+    """Saves PyTorch Lightning model checkpoints to LaminDB instance after each training epoch.
 
     Creates version families of artifacts for given `key` (relative file path).
 

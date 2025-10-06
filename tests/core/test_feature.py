@@ -218,10 +218,10 @@ def test_feature_from_dict(dict_data):
 
 def test_feature_from_dict_type(dict_data):
     feature_type = ln.Feature(name="Testdata_feature_type", is_type=True).save()
-    features_2 = ln.Feature.from_dict(
+    features = ln.Feature.from_dict(
         dict_data, str_as_cat=True, type=feature_type
     ).save()
-    for feature in features_2:
+    for feature in features:
         assert feature.type.name == "Testdata_feature_type"
 
     ln.Feature.filter(type__isnull=False).delete(permanent=True)
