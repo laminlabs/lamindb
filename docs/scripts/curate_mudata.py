@@ -4,21 +4,21 @@ import bionty as bt
 from docs.scripts.define_schema_df_metadata import study_metadata_schema
 
 # define labels
-perturbation = ln.ULabel(name="Perturbation", is_type=True).save()
-ln.ULabel(name="Perturbed", type=perturbation).save()
-ln.ULabel(name="NT", type=perturbation).save()
+perturbation = ln.Record(name="Perturbation", is_type=True).save()
+ln.Record(name="Perturbed", type=perturbation).save()
+ln.Record(name="NT", type=perturbation).save()
 
-replicate = ln.ULabel(name="Replicate", is_type=True).save()
-ln.ULabel(name="rep1", type=replicate).save()
-ln.ULabel(name="rep2", type=replicate).save()
-ln.ULabel(name="rep3", type=replicate).save()
+replicate = ln.Record(name="Replicate", is_type=True).save()
+ln.Record(name="rep1", type=replicate).save()
+ln.Record(name="rep2", type=replicate).save()
+ln.Record(name="rep3", type=replicate).save()
 
 # define the global obs schema
 obs_schema = ln.Schema(
     name="mudata_papalexi21_subset_obs_schema",
     features=[
-        ln.Feature(name="perturbation", dtype="cat[ULabel[Perturbation]]").save(),
-        ln.Feature(name="replicate", dtype="cat[ULabel[Replicate]]").save(),
+        ln.Feature(name="perturbation", dtype="cat[Record[Perturbation]]").save(),
+        ln.Feature(name="replicate", dtype="cat[Record[Replicate]]").save(),
     ],
 ).save()
 
@@ -63,7 +63,7 @@ mudata_schema = ln.Schema(
 ).save()
 
 # curate a MuData
-mdata = ln.core.datasets.mudata_papalexi21_subset(with_uns=True)
+mdata = ln.examples.datasets.mudata_papalexi21_subset(with_uns=True)
 bt.settings.organism = "human"  # set the organism to map gene symbols
 curator = ln.curators.MuDataCurator(mdata, mudata_schema)
 artifact = curator.save_artifact(key="examples/mudata_papalexi21_subset.h5mu")

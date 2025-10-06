@@ -291,7 +291,7 @@ class Schema(SQLRecord, CanCurate, TracksRun):
             during validation, see :attr:`~lamindb.Schema.coerce_dtype`.
 
     See Also:
-        :meth:`~lamindb.Artifact.from_df`
+        :meth:`~lamindb.Artifact.from_dataframe`
             Validate & annotate a `DataFrame` with a schema.
         :meth:`~lamindb.Artifact.from_anndata`
             Validate & annotate an `AnnData` with a schema.

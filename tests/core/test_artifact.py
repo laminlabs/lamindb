@@ -307,7 +307,7 @@ def test_revise_artifact(df):
 
     with pytest.raises(TypeError) as error:
         ln.Artifact.from_dataframe(
-            df, description="test1a", revises=ln.ULabel(name="test")
+            df, description="test1a", revises=ln.Record(name="test")
         )
     assert error.exconly() == "TypeError: `revises` has to be of type `Artifact`"
 

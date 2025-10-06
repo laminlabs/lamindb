@@ -1,6 +1,6 @@
 import lamindb as ln
 
-spatialdata = ln.core.datasets.spatialdata_blobs()
+spatialdata = ln.examples.datasets.spatialdata_blobs()
 sdata_schema = ln.Schema.get(name="spatialdata_blobs_schema")
 curator = ln.curators.SpatialDataCurator(spatialdata, sdata_schema)
 try:

@@ -2,7 +2,7 @@ import bionty as bt
 import lamindb as ln
 import pandas as pd
 import pytest
-from lamindb import ULabel
+from lamindb import Record
 from lamindb.errors import ValidationError
 from lamindb.models.feature import (
     parse_dtype,
@@ -54,36 +54,36 @@ def test_seralize_dtypes():
 # -----------------------------------------------------------------------------
 
 
-def test_simple_ulabel_with_subtype_and_field():
-    dtype_str = "cat[ULabel[Customer].name]"
+def test_simple_record_with_subtype_and_field():
+    dtype_str = "cat[Record[Customer].name]"
     result = parse_dtype(dtype_str)
     assert len(result) == 1
     assert result[0] == {
-        "registry_str": "ULabel",
+        "registry_str": "Record",
         "subtype_str": "Customer",
         "field_str": "name",
-        "registry": ULabel,
-        "field": ULabel.name,
+        "registry": Record,
+        "field": Record.name,
     }
 
 
-def test_multiple_ulabels_with_subtypes_and_fields():
-    dtype_str = "cat[ULabel[Customer].name|ULabel[Supplier].name]"
+def test_multiple_records_with_subtypes_and_fields():
+    dtype_str = "cat[Record[Customer].name|Record[Supplier].name]"
     result = parse_dtype(dtype_str)
     assert len(result) == 2
     assert result[0] == {
-        "registry_str": "ULabel",
+        "registry_str": "Record",
         "subtype_str": "Customer",
         "field_str": "name",
-        "registry": ULabel,
-        "field": ULabel.name,
+        "registry": Record,
+        "field": Record.name,
     }
     assert result[1] == {
-        "registry_str": "ULabel",
+        "registry_str": "Record",
         "subtype_str": "Supplier",
         "field_str": "name",
-        "registry": ULabel,
-        "field": ULabel.name,
+        "registry": Record,
+        "field": Record.name,
     }
 
 
@@ -140,7 +140,7 @@ def test_malformed_categorical():
     assert err.exconly().startswith(
         f"ValueError: dtype is '{dtype_str}' but has to be one of"
     )
-    dtype_str = "cat[ULabel[Customer.name"
+    dtype_str = "cat[Record[Customer.name"
     with pytest.raises(ValueError) as err:
         parse_dtype(dtype_str)
     assert err.exconly().startswith(
@@ -149,56 +149,56 @@ def test_malformed_categorical():
 
 
 def test_simple_registry_without_field():
-    dtype_str = "cat[ULabel]"
+    dtype_str = "cat[Record]"
     result = parse_dtype(dtype_str)
     assert len(result) == 1
     assert result[0] == {
-        "registry_str": "ULabel",
+        "registry_str": "Record",
         "subtype_str": "",
         "field_str": "name",
-        "registry": ULabel,
-        "field": ULabel.name,
+        "registry": Record,
+        "field": Record.name,
     }
 
 
 def test_registry_with_subtype_no_field():
-    dtype_str = "cat[ULabel[Customer]]"
+    dtype_str = "cat[Record[Customer]]"
     result = parse_dtype(dtype_str)
     assert len(result) == 1
     assert result[0] == {
-        "registry_str": "ULabel",
+        "registry_str": "Record",
         "subtype_str": "Customer",
         "field_str": "name",
-        "registry": ULabel,
-        "field": ULabel.name,
+        "registry": Record,
+        "field": Record.name,
     }
 
 
 def test_list_of_dtypes():
-    dtype_str = "list[cat[ULabel[Customer]]]"
+    dtype_str = "list[cat[Record[Customer]]]"
     result = parse_dtype(dtype_str)
     assert len(result) == 1
     assert result[0] == {
-        "registry_str": "ULabel",
+        "registry_str": "Record",
         "subtype_str": "Customer",
         "field_str": "name",
-        "registry": ULabel,
-        "field": ULabel.name,
+        "registry": Record,
+        "field": Record.name,
         "list": True,
     }
     assert serialize_dtype(list[bt.CellLine]) == "list[cat[bionty.CellLine]]"
 
 
 def test_nested_cat_dtypes():
-    dtype_str = "cat[ULabel[Customer[UScustomer]].name]"
+    dtype_str = "cat[Record[Customer[UScustomer]].name]"
     result = parse_dtype(dtype_str)
     assert len(result) == 1
     assert result[0] == {
-        "registry_str": "ULabel",
+        "registry_str": "Record",
         "subtype_str": "Customer[UScustomer]",
         "field_str": "name",
-        "registry": ULabel,
-        "field": ULabel.name,
+        "registry": Record,
+        "field": Record.name,
         "nested_subtypes": ["Customer", "UScustomer"],
     }
 
@@ -247,11 +247,11 @@ def test_cat_filters_incompatible_with_union_dtypes():
     with pytest.raises(ValidationError) as exc_info:
         ln.Feature(
             name="test_feature",
-            dtype="cat[ULabel|bionty.CellType]",
+            dtype="cat[Record|bionty.CellType]",
             cat_filters={"source": "test"},
         )
     assert (
-        "cat_filters are incompatible with union dtypes: 'cat[ULabel|bionty.CellType]'"
+        "cat_filters are incompatible with union dtypes: 'cat[Record|bionty.CellType]'"
         in str(exc_info.value)
     )
 
@@ -260,11 +260,11 @@ def test_cat_filters_incompatible_with_nested_dtypes():
     with pytest.raises(ValidationError) as exc_info:
         ln.Feature(
             name="test_feature",
-            dtype="cat[ULabel[Customer[SubCustomer]]]",
+            dtype="cat[Record[Customer[SubCustomer]]]",
             cat_filters={"source": "test"},
         )
     assert (
-        "cat_filters are incompatible with nested dtypes: 'cat[ULabel[Customer[SubCustomer]]]'"
+        "cat_filters are incompatible with nested dtypes: 'cat[Record[Customer[SubCustomer]]]'"
         in str(exc_info.value)
     )
 

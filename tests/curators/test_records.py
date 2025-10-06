@@ -69,7 +69,7 @@ def test_record_example_compound_treatment(
         ],
     }
 
-    df = sample_sheet1.to_pandas()
+    df = sample_sheet1.type_to_dataframe()
     dictionary = df[
         ["cell_line", "__lamindb_record_name__", "treatment", "preparation_date"]
     ].to_dict(orient="list")
