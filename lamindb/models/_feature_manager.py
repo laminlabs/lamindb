@@ -867,8 +867,6 @@ class FeatureManager:
             related_names = dict_related_model_to_related_name(self._host.__class__)
         else:
             related_names = {"ULabel": "ulabels"}
-        if "Record" in related_names:
-            related_names["Record"] = "records"
         for class_name, registry_features_labels in features_labels.items():
             related_name = related_names[class_name]  # e.g., "ulabels"
             IsLink = getattr(self._host, related_name).through
