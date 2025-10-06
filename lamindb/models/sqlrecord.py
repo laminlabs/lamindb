@@ -126,6 +126,14 @@ def deferred_attribute__repr__(self):
     return f"FieldAttr({self.field.model.__name__}.{self.field.name})"
 
 
+def unique_constraint_error_in_error_message(error_msg: str) -> bool:
+    """Check if the error message indicates a unique constraint violation."""
+    return (
+        "UNIQUE constraint failed" in error_msg  # SQLite
+        or "duplicate key value violates unique constraint" in error_msg  # Postgre
+    )
+
+
 FieldAttr.__repr__ = deferred_attribute__repr__  # type: ignore
 
 
@@ -889,10 +897,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                     self.__class__.__name__ in {"Transform", "Artifact"}
                     and isinstance(e, IntegrityError)
                     and "hash" in error_msg
-                    and (
-                        "UNIQUE constraint failed" in error_msg
-                        or "duplicate key value violates unique constraint" in error_msg
-                    )
+                    and unique_constraint_error_in_error_message(error_msg)
                 ):
                     pre_existing_record = self.__class__.get(hash=self.hash)
                     logger.warning(
@@ -902,16 +907,53 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                 elif (
                     self.__class__.__name__ == "Storage"
                     and isinstance(e, IntegrityError)
-                    and "root" in error_msg
-                    or "uid" in error_msg
+                    and ("root" in error_msg or "uid" in error_msg)
+                    and unique_constraint_error_in_error_message(error_msg)
+                ):
+                    # even if uid was in the error message, we can retrieve based on
+                    # the root because it's going to be the same root
+                    pre_existing_record = self.__class__.get(root=self.root)
+                    init_self_from_db(self, pre_existing_record)
+                elif (
+                    isinstance(e, IntegrityError)
+                    and ("ontology_id" in error_msg or "uid" in error_msg)
                     and (
                         "UNIQUE constraint failed" in error_msg
                         or "duplicate key value violates unique constraint" in error_msg
                     )
                 ):
-                    # even if uid was in the error message, we can retrieve based on
-                    # the root because it's going to be the same root
-                    pre_existing_record = self.__class__.get(root=self.root)
+                    if "UNIQUE constraint failed" in error_msg:  # sqlite
+                        constraint_fields = [
+                            f.split(".")[-1]
+                            for f in error_msg.removeprefix(
+                                "UNIQUE constraint failed: "
+                            ).split(", ")
+                        ]
+                    else:  # postgres
+                        constraint_fields = [
+                            error_msg.split('"')[1]
+                            .split('"')[0]
+                            .removesuffix("_key")
+                            .split("_")[-1]  # field name
+                        ]
+                    # here we query against the all branches with .objects
+                    pre_existing_record = self.__class__.objects.get(
+                        **{f: getattr(self, f) for f in constraint_fields}
+                    )
+                    if pre_existing_record.branch_id == 1:
+                        logger.warning(
+                            f"returning existing {self.__class__.__name__} record with same {', '.join(constraint_fields)}: '{', '.join([str(getattr(self, f)) for f in constraint_fields])}'"
+                        )
+                    else:
+                        # modifies the fields of the existing record with new values of self
+                        # TODO: parents should be properly dealt with
+                        self._parents: list = []
+                        field_names = [i.name for i in self.__class__._meta.fields]
+                        update_attributes(
+                            pre_existing_record,
+                            {f: getattr(self, f) for f in field_names},
+                        )
+                        pre_existing_record.save()
                     init_self_from_db(self, pre_existing_record)
                 elif (
                     isinstance(e, ProgrammingError)
@@ -919,7 +961,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                     and "new row violates row-level security policy" in error_msg
                 ):
                     raise NoWriteAccess(
-                        f"You’re not allowed to write to the space '{self.space.name}'.\n"
+                        f"You're not allowed to write to the space '{self.space.name}'.\n"
                         "Please contact administrators of the space if you need write access."
                     ) from None
                 else:
