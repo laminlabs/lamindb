@@ -202,3 +202,22 @@ Artifact .csv · DataFrame · dataset
         expected_cells      int"""
     )
     artifact.delete(permanent=True)
+
+
+def test_record_soft_deleted_recreate():
+    """Test that a soft-deleted record can be recreated with changes."""
+    # testing soft delete and recreate with sqlite (postgres is tested in core/test_delete.py)
+    # soft delete a record, then recreate it with some changes
+    record = ln.Record(name="test_record").save()
+    uid = record.uid
+    assert record.branch_id == 1
+    record.delete()
+    assert record.branch_id == -1
+    # now recreate the same record with the same uid but a different name
+    record = ln.Record(name="test_record 2")
+    record.uid = uid
+    record.save()
+    # now this record is recovered from the trash
+    assert record.branch_id == 1
+    assert record.name == "test_record 2"
+    ln.Record.objects.filter().delete()

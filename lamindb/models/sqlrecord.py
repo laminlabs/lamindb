@@ -126,6 +126,13 @@ def deferred_attribute__repr__(self):
     return f"FieldAttr({self.field.model.__name__}.{self.field.name})"
 
 
+def unique_constraint_error_in_error_message(error_msg: str) -> bool:
+    return (
+        "UNIQUE constraint failed" in error_msg
+        or "duplicate key value violates unique constraint" in error_msg
+    )
+
+
 FieldAttr.__repr__ = deferred_attribute__repr__  # type: ignore
 
 
@@ -889,10 +896,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                     self.__class__.__name__ in {"Transform", "Artifact"}
                     and isinstance(e, IntegrityError)
                     and "hash" in error_msg
-                    and (
-                        "UNIQUE constraint failed" in error_msg
-                        or "duplicate key value violates unique constraint" in error_msg
-                    )
+                    and unique_constraint_error_in_error_message(error_msg)
                 ):
                     pre_existing_record = self.__class__.get(hash=self.hash)
                     logger.warning(
@@ -903,10 +907,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                     self.__class__.__name__ == "Storage"
                     and isinstance(e, IntegrityError)
                     and ("root" in error_msg or "uid" in error_msg)
-                    and (
-                        "UNIQUE constraint failed" in error_msg
-                        or "duplicate key value violates unique constraint" in error_msg
-                    )
+                    and unique_constraint_error_in_error_message(error_msg)
                 ):
                     # even if uid was in the error message, we can retrieve based on
                     # the root because it's going to be the same root
