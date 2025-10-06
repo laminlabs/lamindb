@@ -131,6 +131,13 @@ def test_cat_filters_invalid_field_name():
     source.delete(permanent=True)
 
 
+def test_dtype_user():
+    # two alternative ways of indicating the User dtype
+    feature = ln.Feature(name="user_feat", dtype="cat[User]")
+    feature = ln.Feature(name="user_feat", dtype=ln.User)
+    assert feature.dtype == "cat[User]"
+
+
 def test_feature_from_df(df):
     if feat1 := ln.Feature.filter(name="feat1").one_or_none() is not None:
         feat1.delete(permanent=True)

@@ -1417,10 +1417,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         max_length=30, db_index=True, null=True, editable=False
     )
     """Type of hash."""
-    ulabels: ULabel = models.ManyToManyField(
-        ULabel, through="ArtifactULabel", related_name="artifacts"
-    )
-    """The ulabels measured in the artifact (:class:`~lamindb.ULabel`)."""
     run: Run | None = ForeignKey(
         Run,
         PROTECT,
@@ -1472,17 +1468,23 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     )
     """Creator of record."""
     _overwrite_versions: bool = BooleanField(default=None)
-    # see corresponding property `overwrite_versions`
+    """See corresponding property `overwrite_versions`."""
+    ulabels: ULabel = models.ManyToManyField(
+        ULabel, through="ArtifactULabel", related_name="artifacts"
+    )
+    """The ulabels annotating this artifact."""
+    users: User = models.ManyToManyField(User, through="ArtifactUser", related_name="+")
+    """The users annotating this artifact."""
     projects: Project
-    """Annotating projects."""
+    """The projects annotating this artifact."""
     references: Reference
-    """Annotating references."""
+    """The references annotating this artifact."""
     records: Record
-    """Annotating records."""
+    """The records annotating this artifact."""
     linked_in_records: Record
-    """Linked in records."""
+    """This artifact is linked in these records as a value."""
     blocks: ArtifactBlock
-    """Blocks that annotate this artifact."""
+    """The blocks that annotate this artifact."""
 
     @overload
     def __init__(
@@ -3042,6 +3044,23 @@ class ArtifactFeatureValue(BaseSQLRecord, IsLink, TracksRun):
     class Meta:
         app_label = "lamindb"
         unique_together = ("artifact", "featurevalue")
+
+
+class ArtifactUser(BaseSQLRecord, IsLink, TracksRun):
+    id: int = models.BigAutoField(primary_key=True)
+    artifact: Artifact = ForeignKey("Artifact", CASCADE, related_name="links_user")
+    user: User = ForeignKey(User, PROTECT, related_name="links_artifact")
+    feature: Feature | None = ForeignKey(
+        Feature, PROTECT, null=True, related_name="links_artifactuser", default=None
+    )
+    label_ref_is_name: bool | None = BooleanField(null=True)
+    feature_ref_is_name: bool | None = BooleanField(null=True)
+
+    class Meta:
+        # can have the same label linked to the same artifact if the feature is
+        # different
+        app_label = "lamindb"
+        unique_together = ("artifact", "user", "feature")
 
 
 def _track_run_input(
