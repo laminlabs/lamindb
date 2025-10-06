@@ -33,7 +33,7 @@ reset_rls(pgurl, instance_id=instance_id, public=False)
 for i, line in enumerate(
     RLSGenerator(pgurl, f"{instance_id.hex}_jwt", None).query_text.splitlines()
 ):
-    if "lamindb_spaceblock" in line:
+    if "lamindb_rootblock" in line:
         print(i, line)
 
 print("Created jwt db connection")
