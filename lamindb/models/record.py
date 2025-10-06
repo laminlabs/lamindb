@@ -347,7 +347,7 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates, HasParents):
 
     @deprecated("type_to_dataframe")
     def to_pandas(self) -> pd.DataFrame:
-        return self.to_dataframe()
+        return self.type_to_dataframe()
 
     def to_artifact(self, key: str = None) -> Artifact:
         """Use `type_to_datafame` to create an artifact."""
