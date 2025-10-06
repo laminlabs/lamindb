@@ -1229,7 +1229,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             Storage locations for artifacts.
         :class:`~lamindb.Collection`
             Collections of artifacts.
-        :meth:`~lamindb.Artifact.from_df`
+        :meth:`~lamindb.Artifact.from_dataframe`
             Create an artifact from a `DataFrame`.
         :meth:`~lamindb.Artifact.from_anndata`
             Create an artifact from an `AnnData`.

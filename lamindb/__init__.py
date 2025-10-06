@@ -57,7 +57,6 @@ Manage projects.
    Space
    Branch
    Reference
-   Page
 
 Other
 =====

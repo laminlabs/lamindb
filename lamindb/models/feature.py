@@ -540,7 +540,7 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
         custom registries to manage high-level derived features like gene sets.
 
     See Also:
-        :meth:`~lamindb.Feature.from_df`
+        :meth:`~lamindb.Feature.from_dataframe`
             Create feature records from DataFrame.
         :attr:`~lamindb.Artifact.features`
             Feature manager of an artifact or collection.
