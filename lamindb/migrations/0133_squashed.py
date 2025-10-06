@@ -209,6 +209,7 @@ class Migration(migrations.Migration):
         ("lamindb", "0130_branch_space_alter_artifactblock_artifact_and_more"),
         ("lamindb", "0131_record_unique_name_type_space"),
         ("lamindb", "0132_record_parents_record_reference_and_more"),
+        ("lamindb", "0133_artifactuser_artifact_users"),
     ]
 
     dependencies = []  # type: ignore
