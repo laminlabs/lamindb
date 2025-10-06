@@ -366,7 +366,10 @@ def get_feature_annotate_kwargs(
         for obj in registry._meta.related_objects:
             if not hasattr(getattr(registry, obj.related_name), "through"):
                 continue
-            links = getattr(registry, obj.related_name).through.filter(
+            link_model = getattr(registry, obj.related_name).through
+            if link_model.__name__ == "Record_parents":
+                continue
+            links = link_model.filter(
                 **{registry.__name__.lower() + "_id__in": ids_list}
             )
             feature_names_for_link_model = links.values_list("feature__name", flat=True)

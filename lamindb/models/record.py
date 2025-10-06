@@ -350,7 +350,7 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates, HasParents):
         return self.type_to_dataframe()
 
     def to_artifact(self, key: str = None) -> Artifact:
-        """Use `type_to_datafame` to create an artifact."""
+        """Calls `type_to_dataframe()` to create an artifact."""
         from lamindb.core._context import context
 
         assert self.is_type, "Only types can be exported as artifacts"  # noqa: S101
@@ -366,7 +366,7 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates, HasParents):
         run = Run(transform, initiated_by_run=context.run).save()
         run.input_records.add(self)
         return Artifact.from_dataframe(
-            self.type_to_datafame(),
+            self.type_to_dataframe(),
             key=key,
             description=f"Export of sheet {self.uid}{description}",
             schema=self.schema,
