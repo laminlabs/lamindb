@@ -882,6 +882,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                     super().save(*args, **kwargs)
             except (IntegrityError, ProgrammingError) as e:
                 error_msg = str(e)
+                print("error_msg", error_msg)
                 # two possible error messages for hash duplication
                 # "duplicate key value violates unique constraint"
                 # "UNIQUE constraint failed"
@@ -902,8 +903,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                 elif (
                     self.__class__.__name__ == "Storage"
                     and isinstance(e, IntegrityError)
-                    and "root" in error_msg
-                    or "uid" in error_msg
+                    and ("root" in error_msg or "uid" in error_msg)
                     and (
                         "UNIQUE constraint failed" in error_msg
                         or "duplicate key value violates unique constraint" in error_msg
@@ -913,16 +913,23 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                     # the root because it's going to be the same root
                     pre_existing_record = self.__class__.get(root=self.root)
                     init_self_from_db(self, pre_existing_record)
-                elif (
-                    isinstance(e, IntegrityError)
-                    and "UNIQUE constraint failed" in error_msg
+                elif isinstance(e, IntegrityError) and (
+                    "UNIQUE constraint failed" in error_msg
+                    or "duplicate key value violates unique constraint" in error_msg
                 ):
-                    constraint_fields = [
-                        f.split(".")[-1]
-                        for f in error_msg.removeprefix(
-                            "UNIQUE constraint failed: "
-                        ).split(", ")
-                    ]
+                    if "UNIQUE constraint failed" in error_msg:  # sqlite
+                        constraint_fields = [
+                            f.split(".")[-1]
+                            for f in error_msg.removeprefix(
+                                "UNIQUE constraint failed: "
+                            ).split(", ")
+                        ]
+                    else:  # postgres
+                        constraint_fields = [
+                            error_msg.split("DETAIL:  Key ")[-1]
+                            .split("(")[1]
+                            .split(")")[0]
+                        ]
                     # here we query against the all branches with .objects
                     pre_existing_record = self.__class__.objects.get(
                         **{f: getattr(self, f) for f in constraint_fields}
