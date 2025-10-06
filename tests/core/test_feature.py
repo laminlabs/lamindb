@@ -74,11 +74,11 @@ def test_feature_init():
     feat2.delete(permanent=True)
 
     # categorical dtype with union of registries using string syntax must be valid
-    feature = ln.Feature(name="feat1", dtype="cat[ULabel|bionty.Gene]")
-    assert feature.dtype == "cat[ULabel|bionty.Gene]"
+    feature = ln.Feature(name="feat1", dtype="cat[Record|bionty.Gene]")
+    assert feature.dtype == "cat[Record|bionty.Gene]"
     # categorical dtype with union of registries using objects must be valid
-    feature = ln.Feature(name="feat1", dtype=[ln.ULabel, bt.Gene])
-    assert feature.dtype == "cat[ULabel|bionty.Gene]"
+    feature = ln.Feature(name="feat1", dtype=[ln.Record, bt.Gene])
+    assert feature.dtype == "cat[Record|bionty.Gene]"
 
     # dtype with field name before bracket filters must be valid
     feature = ln.Feature(
@@ -152,7 +152,7 @@ def test_feature_from_df(df):
             assert feature.dtype == serialize_pandas_dtype(orig_type)
     for feature in features:
         feature.save()
-    labels = [ln.ULabel(name=name) for name in df["feat3"].unique()]
+    labels = [ln.Record(name=name) for name in df["feat3"].unique()]
     ln.save(labels)
     feature = ln.Feature.get(name="feat3")
     feature.dtype = "cat"
@@ -174,7 +174,7 @@ def test_feature_from_df(df):
     # clean up
     artifact.delete(permanent=True)
     ln.Schema.filter().delete(permanent=True)
-    ln.ULabel.filter().delete(permanent=True)
+    ln.Record.filter().delete(permanent=True)
     ln.Feature.filter().delete(permanent=True)
 
 
@@ -206,7 +206,7 @@ def test_feature_from_dict(dict_data):
 
     # Wrong field
     with pytest.raises(ValueError) as e:
-        ln.Feature.from_dict(dict_data, field=ln.ULabel.name)
+        ln.Feature.from_dict(dict_data, field=ln.Record.name)
     assert "field must be a Feature FieldAttr" in str(e.value)
 
     # Explicit field

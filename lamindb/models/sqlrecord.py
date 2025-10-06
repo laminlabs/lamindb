@@ -71,6 +71,7 @@ if TYPE_CHECKING:
     import pandas as pd
 
     from .artifact import Artifact
+    from .blocks import Block
     from .run import Run, User
     from .transform import Transform
 
@@ -1045,6 +1046,8 @@ class Space(BaseSQLRecord):
         "User", CASCADE, default=None, related_name="+", null=True
     )
     """Creator of space."""
+    blocks: Block
+    """Blocks that annotate this space."""
 
     @overload
     def __init__(
@@ -1135,6 +1138,8 @@ class Branch(BaseSQLRecord):
         "User", CASCADE, default=None, related_name="+", null=True
     )
     """Creator of branch."""
+    blocks: Block
+    """Blocks that annotate this branch."""
 
     @overload
     def __init__(

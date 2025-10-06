@@ -126,6 +126,7 @@ if TYPE_CHECKING:
         ArtifactKind,
     )
     from ._label_manager import LabelManager
+    from .block import ArtifactBlock
     from .collection import Collection
     from .project import Project, Reference
     from .record import Record
@@ -849,6 +850,8 @@ def get_labels(
     flat_names: bool = False,
 ) -> QuerySet | dict[str, QuerySet] | list:
     """{}"""  # noqa: D415
+    from .record import Record
+
     if not isinstance(feature, Feature):
         raise TypeError("feature has to be of type Feature")
     if feature.dtype is None or not feature.dtype.startswith("cat["):
@@ -863,10 +866,14 @@ def get_labels(
     for registry in registries_to_check:
         # currently need to distinguish between ULabel and non-ULabel, because
         # we only have the feature information for Label
-        if registry == "ULabel":
+        if registry in {"ULabel", "Record"}:
             links_to_labels = get_label_links(self, registry, feature)
-            label_ids = [link.ulabel_id for link in links_to_labels]
-            qs_by_registry[registry] = ULabel.objects.using(self._state.db).filter(
+            label_ids = [
+                (link.ulabel_id if registry == "ULabel" else link.record_id)
+                for link in links_to_labels
+            ]
+            model = ULabel if registry == "ULabel" else Record
+            qs_by_registry[registry] = model.objects.using(self._state.db).filter(
                 id__in=label_ids
             )
         elif registry in self.features._accessor_by_registry:
@@ -930,7 +937,7 @@ def add_labels(
             raise ValueError(
                 "Please pass a record (a `SQLRecord` object), not a string, e.g., via:"
                 " label"
-                f" = ln.ULabel(name='{records[0]}')"  # type: ignore
+                f" = ln.Record(name='{records[0]}')"  # type: ignore
             )
         records = records_validated
 
@@ -1222,7 +1229,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             Storage locations for artifacts.
         :class:`~lamindb.Collection`
             Collections of artifacts.
-        :meth:`~lamindb.Artifact.from_df`
+        :meth:`~lamindb.Artifact.from_dataframe`
             Create an artifact from a `DataFrame`.
         :meth:`~lamindb.Artifact.from_anndata`
             Create an artifact from an `AnnData`.
@@ -1474,6 +1481,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     """Annotating records."""
     linked_in_records: Record
     """Linked in records."""
+    blocks: ArtifactBlock
+    """Blocks that annotate this artifact."""
 
     @overload
     def __init__(

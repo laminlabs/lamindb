@@ -9,16 +9,16 @@ from lamindb.models.save import prepare_error_message, store_artifacts
 
 
 def test_bulk_save_and_update():
-    label_names = [f"ULabel {i} new" for i in range(3)]
-    labels = [ln.ULabel(name=name) for name in label_names]
+    label_names = [f"Record {i} new" for i in range(3)]
+    labels = [ln.Record(name=name) for name in label_names]
     # test bulk creation of new records
     ln.save(labels)
-    assert len(ln.ULabel.filter(name__in=label_names).distinct().all()) == 3
-    labels[0].name = "ULabel 0 updated"
+    assert len(ln.Record.filter(name__in=label_names).distinct().all()) == 3
+    labels[0].name = "Record 0 updated"
     # test bulk update of existing records
     ln.save(labels)
-    assert len(ln.ULabel.filter(name__in=label_names).distinct().all()) == 2
-    assert ln.ULabel.get(name="ULabel 0 updated")
+    assert len(ln.Record.filter(name__in=label_names).distinct().all()) == 2
+    assert ln.Record.get(name="Record 0 updated")
 
 
 def test_prepare_error_message(get_mini_csv):
@@ -67,8 +67,8 @@ def test_save_parents():
 
 
 def test_save_batch_size():
-    label_names = [f"ULabel {i} batch_size" for i in range(3)]
-    labels = [ln.ULabel(name=name) for name in label_names]
+    label_names = [f"Record {i} batch_size" for i in range(3)]
+    labels = [ln.Record(name=name) for name in label_names]
     # test bulk creation of new records with batch size
     ln.save(labels, batch_size=2)
-    assert ln.ULabel.filter(name__in=label_names).distinct().count() == 3
+    assert ln.Record.filter(name__in=label_names).distinct().count() == 3

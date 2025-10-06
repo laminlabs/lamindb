@@ -70,9 +70,9 @@ Here is how to create a feature:
     ln.track(transform=successor, params=params)
     assert ln.context.run.features.get_values() == params
 
-    # test that run populates things like ULabels etc.
-    ulabel = ln.ULabel(name="my-label-in-track")
-    assert ulabel.run == ln.context.run
+    # test that run populates things like records
+    record = ln.Record(name="my-label-in-track")
+    assert record.run == ln.context.run
 
     # test that we can call ln.finish() also for pipeline-like transforms
     assert ln.context.run.finished_at is None

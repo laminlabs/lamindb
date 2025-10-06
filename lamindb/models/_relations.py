@@ -83,6 +83,13 @@ def dict_related_model_to_related_name(
             record.name is not None
             and include(record.related_model)
             and record.related_model.__get_module_name__() in schema_modules
+            and not (
+                (
+                    record.related_name
+                    if not isinstance(record, ManyToManyField)
+                    else record.name
+                ).startswith("linked_in_")
+            )
         )
     }
     return d

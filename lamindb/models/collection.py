@@ -49,6 +49,7 @@ if TYPE_CHECKING:
     from pyarrow.dataset import Dataset as PyArrowDataset
 
     from ..core.storage import UPath
+    from .block import CollectionBlock
     from .project import Project, Reference
     from .query_set import QuerySet
     from .transform import Transform
@@ -224,6 +225,8 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     """Linked projects."""
     references: Reference
     """Linked references."""
+    blocks: CollectionBlock
+    """Blocks that annotate this collection."""
 
     @overload
     def __init__(

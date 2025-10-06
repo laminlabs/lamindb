@@ -2,9 +2,9 @@ import lamindb as ln
 import bionty as bt
 
 # define valid labels
-perturbation_type = ln.ULabel(name="Perturbation", is_type=True).save()
-ln.ULabel(name="DMSO", type=perturbation_type).save()
-ln.ULabel(name="IFNG", type=perturbation_type).save()
+perturbation_type = ln.Record(name="Perturbation", is_type=True).save()
+ln.Record(name="DMSO", type=perturbation_type).save()
+ln.Record(name="IFNG", type=perturbation_type).save()
 bt.CellType.from_source(name="B cell").save()
 bt.CellType.from_source(name="T cell").save()
 

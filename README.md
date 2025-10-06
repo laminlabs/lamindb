@@ -108,14 +108,14 @@ You can organize datasets with validation & annotation of any kind of metadata t
 To annotate an artifact with a label, use:
 
 ```python
-my_experiment = ln.ULabel(name="My experiment").save()  # create a label in the universal label ontology
-artifact.ulabels.add(my_experiment)  # annotate the artifact with the label
+my_experiment = ln.Record(name="My experiment").save()  # create a label in the universal label ontology
+artifact.records.add(my_experiment)  # annotate the artifact with the label
 ```
 
 To query for a set of artifacts, use the `filter()` statement.
 
 ```python
-ln.Artifact.filter(ulabels=my_experiment, suffix=".fasta").to_dataframe()  # query by suffix and the ulabel we just created
+ln.Artifact.filter(records=my_experiment, suffix=".fasta").to_dataframe()  # query by suffix and the ulabel we just created
 ln.Artifact.filter(transform__key="create-fasta.py").to_dataframe()  # query by the name of the script we just ran
 ```
 

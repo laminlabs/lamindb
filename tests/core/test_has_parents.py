@@ -3,20 +3,20 @@ from lamindb.models.has_parents import _add_emoji
 
 
 def test_view_parents():
-    label1 = ln.ULabel(name="label1")
-    label2 = ln.ULabel(name="label2")
+    label1 = ln.Record(name="label1")
+    label2 = ln.Record(name="label2")
     label1.save()
     label2.save()
     label1.parents.add(label2)
-    label1.view_parents(ln.ULabel.name, distance=1)
+    label1.view_parents(ln.Record.name, distance=1)
     label1.delete(permanent=True)
     label2.delete(permanent=True)
 
 
 def test_query_parents_children():
-    label1 = ln.ULabel(name="label1").save()
-    label2 = ln.ULabel(name="label2").save()
-    label3 = ln.ULabel(name="label3").save()
+    label1 = ln.Record(name="label1").save()
+    label2 = ln.Record(name="label2").save()
+    label3 = ln.Record(name="label3").save()
     label1.children.add(label2)
     label2.children.add(label3)
     parents = label3.query_parents()
