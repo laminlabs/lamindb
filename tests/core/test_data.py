@@ -24,30 +24,30 @@ def test_rename():
     curator = ln.Curator.from_dataframe(
         df,
         categoricals={
-            "feature_to_rename": ln.Record.name,
-            "feature_to_rename2": ln.Record.name,
+            "feature_to_rename": ln.ULabel.name,
+            "feature_to_rename2": ln.ULabel.name,
         },
     )
     curator.add_new_from("feature_to_rename")
     curator.add_new_from("feature_to_rename2")
     artifact = curator.save_artifact(description="test-rename")
-    assert artifact.records.through.objects.filter(
-        feature__name="feature_to_rename", record__name="label-to-rename"
+    assert artifact.ulabels.through.objects.filter(
+        feature__name="feature_to_rename", ulabel__name="label-to-rename"
     ).exists()
     assert ln.Artifact.filter(feature_sets__features__name="feature_to_rename").exists()
 
     # rename label
-    record = ln.Record.get(name="label-to-rename")
+    ulabel = ln.ULabel.get(name="label-to-rename")
     with pytest.raises(SQLRecordNameChangeIntegrityError):
-        record.name = "label-renamed"
-        record.save()
+        ulabel.name = "label-renamed"
+        ulabel.save()
 
-    artifact.labels.make_external(record)
-    assert not artifact.records.through.objects.filter(
-        feature__name="feature_to_rename", record__name="label-to-rename"
+    artifact.labels.make_external(ulabel)
+    assert not artifact.ulabels.through.objects.filter(
+        feature__name="feature_to_rename", ulabel__name="label-to-rename"
     ).exists()
-    record.name = "label-renamed"
-    record.save()
+    ulabel.name = "label-renamed"
+    ulabel.save()
 
     # rename feature
     feature = ln.Feature.get(name="feature_to_rename")
@@ -73,5 +73,5 @@ def test_rename():
     # clean up
     artifact.delete(permanent=True)
     ln.Schema.filter().delete(permanent=True)
-    ln.Record.filter().delete(permanent=True)
+    ln.ULabel.filter().delete(permanent=True)
     ln.Feature.filter().delete(permanent=True)
