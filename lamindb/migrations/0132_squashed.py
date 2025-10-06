@@ -2264,7 +2264,7 @@ class Migration(migrations.Migration):
             name="run",
             field=lamindb.base.fields.ForeignKey(
                 blank=True,
-                default=None,
+                default=lamindb.models.run.current_run,
                 editable=False,
                 null=True,
                 on_delete=django.db.models.deletion.PROTECT,
