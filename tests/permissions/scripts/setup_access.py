@@ -6,6 +6,7 @@ from hubmodule._migrate import _apply_migrations_with_tracking, reset_rls
 from hubmodule._setup import _setup_extensions, _setup_secret, _setup_utils_jwt
 from laminhub_rest.core.postgres import DbRoleHandler
 from pathlib import Path
+from hubmodule._rls import RLSGenerator
 
 # create a db connection url that works with RLS
 instance_id = ln.setup.settings.instance._id
@@ -29,6 +30,11 @@ _setup_utils_jwt(pgurl)
 migrations_sql_dir = Path(hubmodule.__file__).parent / "sql/0004_migrations"
 _apply_migrations_with_tracking(pgurl, migrations_sql_dir)
 reset_rls(pgurl, instance_id=instance_id, public=False)
+for i, line in enumerate(
+    RLSGenerator(pgurl, f"{instance_id.hex}_jwt", None).query_text.splitlines()
+):
+    if "lamindb_spaceblock" in line:
+        print(i, line)
 
 print("Created jwt db connection")
 

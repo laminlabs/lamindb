@@ -274,7 +274,7 @@ def test(session, group):
             f"pytest {coverage_args} ./sub/lamin-cli/tests/core {duration_args}",
         )
     elif group == "permissions":
-        run(session, f"pytest {coverage_args} ./tests/permissions")
+        run(session, f"pytest -s {coverage_args} ./tests/permissions")
     # move artifacts into right place
     if group in {"tutorial", "guide", "biology"}:
         target_dir = Path(f"./docs/{group}")
