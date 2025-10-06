@@ -33,8 +33,7 @@ reset_rls(pgurl, instance_id=instance_id, public=False)
 for i, table in enumerate(
     RLSGenerator(pgurl, f"{instance_id.hex}_jwt", None)._list_tables()
 ):
-    if "block" in table.table_name:
-        print(i, table.table_name, table.foreign_keys, table.has_space_id)
+    print(i, table.table_name, table.foreign_keys, table.has_space_id)
 
 print("Created jwt db connection")
 
