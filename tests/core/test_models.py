@@ -80,7 +80,7 @@ def test_registry__repr__artifact():
         .run: Run
         .schema: Schema
         .created_by: User
-        .records: Record
+        .ulabels: ULabel
         .input_of_runs: Run
         .feature_sets: Schema
         .collections: Collection
