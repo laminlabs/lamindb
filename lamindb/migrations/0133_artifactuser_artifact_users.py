@@ -12,7 +12,7 @@ import lamindb.models.sqlrecord
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("lamindb", "0132_squashed"),
+        ("lamindb", "0132_record_parents_record_reference_and_more"),
     ]
 
     operations = [
