@@ -63,7 +63,7 @@ mudata_schema = ln.Schema(
 ).save()
 
 # curate a MuData
-mdata = ln.core.datasets.mudata_papalexi21_subset(with_uns=True)
+mdata = ln.examples.datasets.mudata_papalexi21_subset(with_uns=True)
 bt.settings.organism = "human"  # set the organism to map gene symbols
 curator = ln.curators.MuDataCurator(mdata, mudata_schema)
 artifact = curator.save_artifact(key="examples/mudata_papalexi21_subset.h5mu")

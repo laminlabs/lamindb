@@ -21,7 +21,7 @@ bt.CellType.from_values(["B cell", "T cell"], create=True).save()
 schema = ln.examples.schemas.anndata_ensembl_gene_ids_and_valid_features_in_obs()
 
 ## Ingest dataset1
-adata = ln.core.datasets.mini_immuno.get_dataset1(otype="AnnData")
+adata = ln.examples.datasets.mini_immuno.get_dataset1(otype="AnnData")
 artifact = ln.Artifact.from_anndata(
     adata,
     key="examples/dataset1.h5ad",
@@ -33,7 +33,7 @@ dataset_metadata.update(adhoc)
 artifact.features.add_values(dataset_metadata)  # type: ignore
 
 # Ingest dataset2
-adata2 = ln.core.datasets.mini_immuno.get_dataset2(otype="AnnData")
+adata2 = ln.examples.datasets.mini_immuno.get_dataset2(otype="AnnData")
 artifact2 = ln.Artifact.from_anndata(
     adata2,
     key="examples/dataset2.h5ad",
