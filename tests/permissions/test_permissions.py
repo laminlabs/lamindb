@@ -174,7 +174,8 @@ def test_fine_grained_permissions_account():
     root_block.save()
     # test SpaceBlock
     space = ln.Space.get(name="select access")
-    ln.models.SpaceBlock(space=space, content="test").save()
+    with pytest.raises(ln.errors.NoWriteAccess):
+        ln.models.SpaceBlock(space=space, content="test").save()
 
 
 def test_fine_grained_permissions_team():
