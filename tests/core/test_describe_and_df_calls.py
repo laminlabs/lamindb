@@ -68,13 +68,13 @@ def test_curate_df():
     _check_df_equality(df, expected_df)
 
     # Test df with features
-    # test that the ulabels filter DOES NOT affect joining the annotations
+    # test that the records filter DOES NOT affect joining the annotations
     # we want it to only affect the artifact query (even though here, it won't change the result as both artifacts have the IFNG label)
     df = (
         ln.Artifact.filter(
             key__startswith="examples/dataset",
             suffix=".h5ad",
-            ulabels__name="IFNG",
+            records__name="IFNG",
         )
         .order_by("-key")
         .to_dataframe(
@@ -179,14 +179,14 @@ def test_curate_df():
 │   ├── obs • 4             [Feature]
 │   │   cell_type_by_expe…  cat[bionty.CellType]    B cell, CD8-positive, alpha…
 │   │   cell_type_by_model  cat[bionty.CellType]    B cell, T cell
-│   │   perturbation        cat[ULabel]             DMSO, IFNG
+│   │   perturbation        cat[Record]             DMSO, IFNG
 │   │   sample_note         str
 │   └── var.T • 3           [bionty.Gene.ensembl_…
 │       CD8A                num
 │       CD4                 num
 │       CD14                num
 └── Linked features
-    └── experiment          cat[ULabel]             Experiment 1
+    └── experiment          cat[Record]             Experiment 1
         date_of_study       date                    2024-12-01
         study_metadata      dict                    {'detail1': '123', 'detail2…
         study_note          str                     We had a great time perform…
@@ -199,10 +199,10 @@ def test_curate_df():
     assert len(labels_node.children[0].label.columns) == 3
     assert len(labels_node.children[0].label.rows) == 2
     assert labels_node.children[0].label.columns[0]._cells == [
-        ".ulabels",
+        ".records",
         ".cell_types",
     ]
-    assert labels_node.children[0].label.columns[1]._cells[0].plain == "ULabel"
+    assert labels_node.children[0].label.columns[1]._cells[0].plain == "Record"
     assert labels_node.children[0].label.columns[1]._cells[1].plain == "bionty.CellType"
     assert {
         c.strip()
@@ -225,5 +225,5 @@ def test_curate_df():
     ln.Schema.filter().delete(permanent=True)
     ln.Feature.filter().delete(permanent=True)
     bt.Gene.filter().delete(permanent=True)
-    ln.ULabel.filter().delete(permanent=True)
+    ln.Record.filter().delete(permanent=True)
     bt.CellType.filter().delete(permanent=True)

@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Any, overload
 from django.db import models
 from django.db.models import CASCADE, PROTECT
 from lamin_utils import logger
+from lamindb_setup.core import deprecated
 
 from lamindb.base.fields import (
     BooleanField,
@@ -19,9 +20,9 @@ from ..base.ids import base62_16
 from .artifact import Artifact
 from .can_curate import CanCurate
 from .feature import Feature
-from .has_parents import _query_relatives
+from .has_parents import HasParents, _query_relatives
 from .query_set import reorder_subset_columns_in_df
-from .run import Run, TracksRun, TracksUpdates, User
+from .run import Run, TracksRun, TracksUpdates, User, current_run
 from .sqlrecord import BaseSQLRecord, IsLink, SQLRecord, _get_record_kwargs
 from .transform import Transform
 from .ulabel import ULabel
@@ -29,33 +30,92 @@ from .ulabel import ULabel
 if TYPE_CHECKING:
     import pandas as pd
 
+    from .blocks import RunBlock
     from .project import Project, Reference
     from .query_set import QuerySet
     from .schema import Schema
 
 
-class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates):
-    """Flexible records as you find them in Excel-like sheets.
+class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates, HasParents):
+    """Metadata records for labeling and organizing entities in sheets.
 
-    Useful register, e.g., samples, donors, cells, compounds, sequences.
-
-    This is currently more convenient to use through the UI.
-
-    A `Record` has a flexible schema: it can store data for arbitrary features.
-    Changing the fields of a :class:`~lamindb.models.SQLRecord`, you need to modify the columns of the underlying table in the database.
+    Is useful to manage samples, donors, cells, compounds, sequences.
 
     Args:
         name: `str` A name.
         description: `str` A description.
+        type: `Record | None = None` The type of this record.
+        is_type: `bool = False` Whether this record is a type (a record that
+            classifies other records).
+        schema: `Schema | None = None` A schema to enforce for a type (optional).
+        reference: `str | None = None` For instance, an external ID or a URL.
+        reference_type: `str | None = None` For instance, `"url"`.
 
     See Also:
         :meth:`~lamindb.Feature`
-            Dimensions of measurement (e.g. column of a sheet).
+            Dimensions of measurement (e.g. column of a sheet, attribute of a record).
+
+    Examples:
+
+        Create a record type and then instances of that type::
+
+            sample_type = Record(name="Sample", is_type=True).save()
+            sample1 = Record(name="Sample 1", type=sample_type).save()
+            sample2 = Record(name="Sample 2", type=sample_type).save()
+
+        You can then annotate artifacts and other entities with these records, e.g.::
+
+            artifact.records.add(sample1)
+
+        To query artifacts by records::
+
+            ln.Artifact.filter(records=sample1).to_dataframe()
+
+        Through the UI can assign attributes to records in form of features. The Python API also allows to
+        assign features programmatically, but is currently still low-level::
+
+            feature = ln.Feature(name="age", type="int").save()
+            sample1.values_record.create(feature=feature, value=42)
+            sample2.values_record.create(feature=feature, value=23)
+
+        Records can also model flexible ontologies through their parents-children relationships::
+
+            cell_type = Record(name="CellType", is_type=True).save()
+            t_cell = Record(name="T Cell", type=cell_type).save()
+            cd4_t_cell = Record(name="CD4+ T Cell", type=cell_type).save()
+            t_cell.children.add(cd4_t_cell)
+
+        Often, a label is measured *within* a dataset. For instance, an artifact
+        might characterize 2 species of the Iris flower (`"setosa"` &
+        `"versicolor"`) measured by a `"species"` feature. For such cases, you can use
+        :class:`~lamindb.curators.DataFrameCurator` to automatically parse, validate, and
+        annotate with labels that are contained in `DataFrame` objects.
+
+    .. note::
+
+        If you work with complex entities like cell lines, cell types, tissues,
+        etc., consider using the pre-defined biological registries in
+        :mod:`bionty` to label artifacts & collections.
+
+        If you work with biological samples, likely, the only sustainable way of
+        tracking metadata, is to create a custom schema module.
+
+    .. note::
+
+        A `Record` has a flexible schema: it can store data for arbitrary features.
+        By contrast, if you want to change the fields of a :class:`~lamindb.models.SQLRecord`, you need to modify the columns of the underlying table in the database.
+        The latter is more efficient for large datasets and you can customize it through modules like the `bionty` or `wetlab` module.
+
     """
 
     class Meta(SQLRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
         abstract = False
         app_label = "lamindb"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["name", "type", "space"], name="unique_name_type_space"
+            )
+        ]
 
     _name_field: str = "name"
 
@@ -66,7 +126,10 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates):
     )
     """A universal random id, valid across DB instances."""
     name: str = CharField(max_length=150, db_index=True, null=True)
-    """Name or title of record (optional)."""
+    """Name or title of record (optional).
+
+    Names for a given `type` and `space` are constrained to be unique.
+    """
     type: Record | None = ForeignKey("self", PROTECT, null=True, related_name="records")
     """Type of record, e.g., `Sample`, `Donor`, `Cell`, `Compound`, `Sequence`.
 
@@ -79,6 +142,12 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates):
 
     For example, if a record "Compound" is a `type`, the actual compounds "darerinib", "tramerinib", would be instances of that `type`.
     """
+    description: str | None = TextField(null=True)
+    """A description."""
+    reference: str | None = CharField(max_length=255, db_index=True, null=True)
+    """A simple reference like a URL or external ID."""
+    reference_type: str | None = CharField(max_length=25, db_index=True, null=True)
+    """Type of simple reference."""
     schema: Schema | None = ForeignKey(
         "Schema", CASCADE, null=True, related_name="records"
     )
@@ -95,45 +164,81 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates):
     """Record-like components of this record."""
     composites: Record
     """Record-like composites of this record."""
-    description: str | None = TextField(null=True)
-    """A description."""
-    linked_artifacts: Artifact = models.ManyToManyField(
-        Artifact, through="RecordArtifact", related_name="linked_in_records"
+    parents: ULabel = models.ManyToManyField(
+        "self", symmetrical=False, related_name="children"
     )
-    """Linked artifacts."""
-    artifacts: Artifact = models.ManyToManyField(
-        Artifact, through="ArtifactRecord", related_name="records"
-    )
-    """Annotated artifacts."""
-    linked_runs: Run = models.ManyToManyField(
-        Run, through="RecordRun", related_name="records"
-    )
-    """Linked runs."""
-    linked_users: User = models.ManyToManyField(
-        User, through="RecordUser", related_name="records"
-    )
-    """Linked runs."""
+    """Parent entities of this record.
+
+    For advanced use cases, you can build an ontology under a given `type`.
+
+    Say, if you modeled `CellType` as a `Record`, you would introduce a type `CellType` and model the hiearchy of cell types under it.
+    """
+    children: ULabel
+    """Child entities of this record.
+
+    Reverse accessor for parents.
+    """
+    # this is handled manually here because we want to se the related_name attribute
+    # (this doesn't happen via inheritance of TracksRun, everything else is the same)
     run: Run | None = ForeignKey(
         Run,
         PROTECT,
         related_name="output_records",
         null=True,
-        default=None,
+        default=current_run,
         editable=False,
     )
     """Run that created the record."""
     input_of_runs: Run = models.ManyToManyField(Run, related_name="input_records")
     """Runs that use this record as an input."""
-    ulabels: ULabel = models.ManyToManyField(
+    artifacts: Artifact = models.ManyToManyField(
+        Artifact, through="ArtifactRecord", related_name="records"
+    )
+    """Artifacts annotated by this record."""
+    projects: Project
+    """Projects that annotate this record."""
+    references: Reference
+    """References that annotate this record."""
+    values_json: RecordJson
+    """JSON values (for lists, dicts, etc.)."""
+    values_record: RecordRecord
+    """Record values with their features."""
+    values_ulabel: RecordULabel
+    """ULabel values with their features."""
+    values_user: RecordUser
+    """User values with their features."""
+    values_run: RecordRun
+    """Run values with their features."""
+    values_artifact: RecordArtifact
+    """Artifact values with their features."""
+    values_reference: Reference
+    """Reference values with their features."""
+    values_project: Project
+    """Project values with their features."""
+    linked_runs: Run = models.ManyToManyField(
+        Run, through="RecordRun", related_name="records"
+    )
+    """Runs linked in this record as values."""
+    linked_users: User = models.ManyToManyField(
+        User, through="RecordUser", related_name="records"
+    )
+    """Users linked in this record as values."""
+    linked_ulabels: ULabel = models.ManyToManyField(
         ULabel,
         through="RecordULabel",
-        related_name="_records",  # in transition period with underscore prefix
+        related_name="linked_in_records",
     )
-    """Linked runs."""
+    """ULabels linked in this record as values."""
+    linked_artifacts: Artifact = models.ManyToManyField(
+        Artifact, through="RecordArtifact", related_name="linked_in_records"
+    )
+    """Artifacts linked in this record as values."""
     linked_projects: Project
-    """Linked projects."""
+    """Projects linked in this record as values."""
     linked_references: Reference
-    """Linked references."""
+    """References linked in this record as values."""
+    blocks: RunBlock
+    """Blocks that annotate this record."""
 
     @overload
     def __init__(
@@ -142,6 +247,9 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates):
         type: Record | None = None,
         is_type: bool = False,
         description: str | None = None,
+        schema: Schema | None = None,
+        reference: str | None = None,
+        reference_type: str | None = None,
     ): ...
 
     @overload
@@ -164,7 +272,9 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates):
         type: str | None = kwargs.pop("type", None)
         is_type: bool = kwargs.pop("is_type", False)
         description: str | None = kwargs.pop("description", None)
-        schema = kwargs.pop("schema", None)
+        schema: Schema | None = kwargs.pop("schema", None)
+        reference: str | None = kwargs.pop("reference", None)
+        reference_type: str | None = kwargs.pop("reference_type", None)
         branch = kwargs.pop("branch", None)
         branch_id = kwargs.pop("branch_id", 1)
         space = kwargs.pop("space", None)
@@ -186,6 +296,8 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates):
             type=type,
             is_type=is_type,
             description=description,
+            reference=reference,
+            reference_type=reference_type,
             schema=schema,
             branch=branch,
             branch_id=branch_id,
@@ -201,17 +313,25 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates):
         return self.schema is not None and self.is_type
 
     def query_children(self) -> QuerySet:
-        """Query all children of a record type recursively.
+        """Query all children of a record.
+
+        While `.children` retrieves the direct children, this method
+        retrieves all descendants of a record type.
+        """
+        return _query_relatives([self], "children", self.__class__)  # type: ignore
+
+    def query_records(self) -> QuerySet:
+        """Query all records of a type.
 
         While `.records` retrieves the direct children, this method
         retrieves all descendants of a record type.
         """
         return _query_relatives([self], "records", self.__class__)  # type: ignore
 
-    def to_pandas(self) -> pd.DataFrame:
-        """Export all children of a record type recursively to a pandas DataFrame."""
+    def type_to_dataframe(self) -> pd.DataFrame:
+        """Export all instances of this record type to a pandas DataFrame."""
         assert self.is_type, "Only types can be exported as dataframes"  # noqa: S101
-        df = self.query_children().to_dataframe(features="queryset")
+        df = self.query_records().to_dataframe(features="queryset")
         df.columns.values[0] = "__lamindb_record_uid__"
         df.columns.values[1] = "__lamindb_record_name__"
         if self.schema is not None:
@@ -225,8 +345,12 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates):
         df = reorder_subset_columns_in_df(df, desired_order, position=0)  # type: ignore
         return df.sort_index()  # order by id for now
 
+    @deprecated("type_to_dataframe")
+    def to_pandas(self) -> pd.DataFrame:
+        return self.type_to_dataframe()
+
     def to_artifact(self, key: str = None) -> Artifact:
-        """Export all children of a record type as a `.csv` artifact."""
+        """Calls `type_to_dataframe()` to create an artifact."""
         from lamindb.core._context import context
 
         assert self.is_type, "Only types can be exported as artifacts"  # noqa: S101
@@ -242,7 +366,7 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates):
         run = Run(transform, initiated_by_run=context.run).save()
         run.input_records.add(self)
         return Artifact.from_dataframe(
-            self.to_pandas(),
+            self.type_to_dataframe(),
             key=key,
             description=f"Export of sheet {self.uid}{description}",
             schema=self.schema,

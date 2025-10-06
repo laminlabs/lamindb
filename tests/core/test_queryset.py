@@ -16,14 +16,14 @@ from lamindb.models.query_set import DoesNotExist
 
 # please also see the test_curate_df.py tests
 def test_df():
-    project_label = ln.ULabel(name="project").save()
+    project_label = ln.Record(name="project").save()
     project_names = [f"Project {i}" for i in range(3)]
-    labels = ln.ULabel.from_values(project_names, create=True).save()
+    labels = ln.Record.from_values(project_names, create=True).save()
     project_label.children.add(*labels)
-    df = ln.ULabel.to_dataframe(include="parents__name")
+    df = ln.Record.to_dataframe(include="parents__name")
     assert df.columns[2] == "parents__name"
     assert df["parents__name"].iloc[0] == {project_label.name}
-    df = ln.ULabel.to_dataframe(include=["parents__name", "parents__created_by_id"])
+    df = ln.Record.to_dataframe(include=["parents__name", "parents__created_by_id"])
     assert df.columns[3] == "parents__created_by_id"
     assert df["parents__name"].iloc[0] == {project_label.name}
     assert set(df["parents__created_by_id"].iloc[0]) == {current_user_id()}
@@ -55,7 +55,7 @@ def test_df():
     assert set(df["features__created_by_id"].iloc[0]) == {current_user_id()}
 
     # raise error for non many-to-many
-    df = ln.ULabel.filter(name="Project 0").to_dataframe(include="created_by__name")
+    df = ln.Record.filter(name="Project 0").to_dataframe(include="created_by__name")
     assert df["created_by__name"].iloc[0] == "Test User1"
 
     # do not return fields with no data in the registry
@@ -104,10 +104,10 @@ def test_filter_related_field_name():
     with pytest.raises(
         FieldError,
         match=re.escape(
-            "Invalid lookup 'somelabel' for ulabels. Did you mean ulabels__name?"
+            "Invalid lookup 'somelabel' for records. Did you mean records__name?"
         ),
     ):
-        ln.Artifact.filter(ulabels="somelabel").all()
+        ln.Artifact.filter(records="somelabel").all()
 
 
 def test_filter_unknown_field():
@@ -130,10 +130,10 @@ def test_get_related_field_name():
     with pytest.raises(
         FieldError,
         match=re.escape(
-            "Invalid lookup 'somelabel' for ulabels. Did you mean ulabels__name?"
+            "Invalid lookup 'somelabel' for records. Did you mean records__name?"
         ),
     ):
-        ln.Artifact.get(ulabels="somelabel").all()
+        ln.Artifact.get(records="somelabel").all()
 
 
 def test_get_unknown_field():
@@ -147,12 +147,12 @@ def test_get_unknown_field():
 
 
 def test_search():
-    label_names = [f"ULabel {i}" for i in range(3)]
-    labels = [ln.ULabel(name=name) for name in label_names]
+    label_names = [f"Record {i}" for i in range(3)]
+    labels = [ln.Record(name=name) for name in label_names]
     ln.save(labels)
-    qs = ln.ULabel.filter(name__startswith="ULabel").all()
-    assert qs.search("ULabel 1")[0].name == "ULabel 1"
-    assert qs.search("ULabel 1", field=ln.ULabel.name)[0].name == "ULabel 1"
+    qs = ln.Record.filter(name__startswith="Record").all()
+    assert qs.search("Record 1")[0].name == "Record 1"
+    assert qs.search("Record 1", field=ln.Record.name)[0].name == "Record 1"
     for label in labels:
         label.delete(permanent=True)
 
@@ -203,12 +203,12 @@ def test_get_doesnotexist_error():
     non_existent_label = "some-label-name"
 
     with pytest.raises(DoesNotExist) as excinfo:
-        ln.ULabel.get(non_existent_label)
+        ln.Record.get(non_existent_label)
 
     error_message = str(excinfo.value)
     assert f"No record found with uid '{non_existent_label}'" in error_message
     assert (
-        f"Did you forget a keyword as in ULabel.get(name='{non_existent_label}')?"
+        f"Did you forget a keyword as in Record.get(name='{non_existent_label}')?"
         in error_message
     )
 

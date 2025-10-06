@@ -98,7 +98,7 @@ def get_artifact_with_related(
 
     # Create the map that the conversion function will need.
     # It maps the target model class to the m2m field name, e.g.,
-    # {<class 'Ulabel'>: 'ulabels', <class 'CellType'>: 'cell_types'}
+    # {'Ulabel': 'ulabels', 'CellType': 'cell_types'}
     m2m_model_to_field_map = {}
     if include_m2m:
         full_map = dict_related_model_to_related_name(
@@ -109,7 +109,6 @@ def get_artifact_with_related(
             for model_cls, field_name in full_map.items()
             if not field_name.startswith("_") and field_name not in EXCLUDE_LABELS
         }
-    list(m2m_model_to_field_map.values())
     link_tables = (
         []
         if not include_feature_link

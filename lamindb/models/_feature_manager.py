@@ -76,6 +76,7 @@ def get_accessor_by_registry_(host: Artifact | Collection) -> dict:
     }
     dictionary["Feature"] = "features"
     dictionary["ULabel"] = "ulabels"
+    dictionary["Record"] = "records"
     return dictionary
 
 

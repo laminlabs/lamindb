@@ -302,7 +302,7 @@ class QueryManager(Manager):
     def all(self):
         """Return QuerySet of all.
 
-        For `**kwargs`, see :meth:`lamindb.models.QuerySet.df`.
+        For `**kwargs`, see :meth:`lamindb.models.QuerySet.to_dataframe`.
         """
         self._track_run_input_manager()
         return super().all()

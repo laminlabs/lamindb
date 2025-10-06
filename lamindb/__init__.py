@@ -31,21 +31,20 @@ Manage artifacts and transforms.
    Transform
    Run
 
-Validate and annotate artifacts.
-
-.. autosummary::
-   :toctree: .
-
-   Feature
-   ULabel
-   Schema
-
-Manage sheets with flexible records, e.g., for samples or donors.
+Create labels and manage sheets with flexible records, e.g., for samples or donors.
 
 .. autosummary::
    :toctree: .
 
    Record
+
+Define features & schemas to validate artifacts & records.
+
+.. autosummary::
+   :toctree: .
+
+   Feature
+   Schema
 
 Manage projects.
 
@@ -58,7 +57,6 @@ Manage projects.
    Space
    Branch
    Reference
-   Page
 
 Other
 =====
@@ -106,9 +104,7 @@ Backwards compatibility.
 .. autosummary::
    :toctree: .
 
-   Param
-   FeatureSet
-   Curator
+   ULabel
 
 """
 
