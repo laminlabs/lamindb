@@ -79,7 +79,7 @@ def test_features_add_remove(adata):
     assert error.exconly().startswith(
         "lamindb.errors.ValidationError: These keys could not be validated:"
     )
-    ln.Feature(name="experiment", dtype="cat").save()
+    ln.Feature(name="experiment", dtype=ln.Record).save()
     with pytest.raises(ValidationError) as error:
         artifact.features.add_values({"experiment": "Experiment 1"})
     assert error.exconly().startswith(
@@ -401,9 +401,8 @@ def test_params_add():
 
 def test_labels_add(adata):
     label = ln.Record(name="Experiment 1")
-    artifact = ln.Artifact.from_anndata(adata, description="test")
-    artifact.save()
-    experiment = ln.Feature(name="experiment", dtype="cat")
+    artifact = ln.Artifact.from_anndata(adata, description="test").save()
+    experiment = ln.Feature(name="experiment", dtype=ln.Record)
     with pytest.raises(ValueError) as error:
         artifact.labels.add("experiment_1", experiment)
     assert (
@@ -454,7 +453,7 @@ def test_labels_add(adata):
 
     # now, try adding a new label
     project = ln.Record(name="project 1").save()
-    ln.Feature(name="project", dtype="cat").save()
+    ln.Feature(name="project", dtype=ln.Record).save()
     features = ln.Feature.lookup()
     artifact.labels.add(project, feature=features.project)
     # check that the label is there, it's exactly one label with name "Experiment 1"
