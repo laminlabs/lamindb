@@ -54,7 +54,7 @@ def revert_postgres_constraint(apps, schema_editor):
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("lamindb", "0119_squashed"),
+        ("lamindb", "0119_rename_records_project_linked_in_records"),
     ]
 
     operations = [
