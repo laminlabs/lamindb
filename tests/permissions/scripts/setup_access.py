@@ -29,11 +29,12 @@ _setup_secret(pgurl)
 _setup_utils_jwt(pgurl)
 migrations_sql_dir = Path(hubmodule.__file__).parent / "sql/0004_migrations"
 _apply_migrations_with_tracking(pgurl, migrations_sql_dir)
-reset_rls(pgurl, instance_id=instance_id, public=False)
 for i, table in enumerate(
     RLSGenerator(pgurl, f"{instance_id.hex}_jwt", None)._list_tables()
 ):
     print(i, table.table_name, table.foreign_keys, table.has_space_id)
+reset_rls(pgurl, instance_id=instance_id, public=False)
+
 
 print("Created jwt db connection")
 
