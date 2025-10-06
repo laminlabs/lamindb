@@ -841,14 +841,16 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
         field: FieldAttr | None = None,
         *,
         str_as_cat: bool | None = None,
+        type: Feature | None = None,
         mute: bool = False,
     ) -> SQLRecordList:
         """Create Feature records for dictionary keys.
 
         Args:
             dictionary: Source dictionary to extract key information from
-            field: FieldAttr for Feature model validation, defaults to Feature.name
+            field: FieldAttr for Feature model validation, defaults to `Feature.name`
             str_as_cat: Whether to interpret string values as categorical
+            type: Feature type of all created features
             mute: Whether to mute dtype inference and feature creation warnings
         """
         from lamindb.models._feature_manager import infer_feature_type_convert_json
@@ -905,7 +907,10 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
             original_verbosity = logger._verbosity
             logger.set_verbosity(0)
         try:
-            features = [Feature(name=key, dtype=dtype) for key, dtype in dtypes.items()]  # type: ignore
+            features = [
+                Feature(name=key, dtype=dtype, type=type)
+                for key, dtype in dtypes.items()
+            ]  # type: ignore
             assert len(features) == len(dictionary)  # noqa: S101
             return SQLRecordList(features)
         finally:

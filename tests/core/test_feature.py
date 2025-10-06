@@ -221,3 +221,15 @@ def test_feature_from_dict(dict_data):
         dict_data, field=ln.Feature.name, str_as_cat=False
     )
     assert len(features_with_field) == len(dict_data)
+
+
+def test_feature_from_dict_type(dict_data):
+    feature_type = ln.Feature(name="Testdata_feature_type", is_type=True).save()
+    features = ln.Feature.from_dict(
+        dict_data, str_as_cat=True, type=feature_type
+    ).save()
+    for feature in features:
+        assert feature.type.name == "Testdata_feature_type"
+
+    ln.Feature.filter(type__isnull=False).delete(permanent=True)
+    feature_type.delete(permanent=True)
