@@ -42,13 +42,22 @@ def _query_relatives(
     attr: str,
     cls: type[HasParents],
 ) -> QuerySet:
-    relatives = cls.objects.none()  # type: ignore
-    if len(records) == 0:
+    from .query_set import get_default_branch_ids
+
+    branch_ids = get_default_branch_ids()
+
+    def query_relatives_on_branches(records, attr, cls) -> QuerySet:
+        relatives = cls.objects.none()  # type: ignore
+        if len(records) == 0:
+            return relatives
+        for record in records:
+            relatives = relatives.union(
+                getattr(record, attr).filter(branch_id__in=branch_ids)
+            )
+        relatives = relatives.union(query_relatives_on_branches(relatives, attr, cls))
         return relatives
-    for record in records:
-        relatives = relatives.union(getattr(record, attr).all())
-    relatives = relatives.union(_query_relatives(relatives, attr, cls))
-    return relatives
+
+    return query_relatives_on_branches(records, attr, cls)
 
 
 class HasParents:
