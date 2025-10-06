@@ -22,7 +22,7 @@ from .can_curate import CanCurate
 from .feature import Feature
 from .has_parents import HasParents, _query_relatives
 from .query_set import reorder_subset_columns_in_df
-from .run import Run, TracksRun, TracksUpdates, User
+from .run import Run, TracksRun, TracksUpdates, User, current_run
 from .sqlrecord import BaseSQLRecord, IsLink, SQLRecord, _get_record_kwargs
 from .transform import Transform
 from .ulabel import ULabel
@@ -178,12 +178,14 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates, HasParents):
 
     Reverse accessor for parents.
     """
+    # this is handled manually here because we want to se the related_name attribute
+    # (this doesn't happen via inheritance of TracksRun, everything else is the same)
     run: Run | None = ForeignKey(
         Run,
         PROTECT,
         related_name="output_records",
         null=True,
-        default=None,
+        default=current_run,
         editable=False,
     )
     """Run that created the record."""
