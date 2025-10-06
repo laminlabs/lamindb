@@ -1388,7 +1388,7 @@ class CatVector:
             related_name = registry._meta.get_field("type").remote_field.related_name
             type_record = registry.get(name=self._subtype_str)
             if registry.__name__ == "Record":
-                self._subtype_query_set = type_record.query_children()
+                self._subtype_query_set = type_record.query_records()
             else:
                 self._subtype_query_set = getattr(type_record, related_name).all()
             values_array = np.array(str_values)
