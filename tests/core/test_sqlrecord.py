@@ -33,12 +33,12 @@ def test_init_with_args():
 
 
 def test_validate_required_fields():
-    # label has a required name
+    # ULabel has a required name
     with pytest.raises(FieldValidationError):
-        ln.Record()
-    # label has a required name
+        ln.ULabel()
+    # ULabel has a required name
     with pytest.raises(FieldValidationError):
-        ln.Record(description="test")
+        ln.ULabel(description="test")
 
 
 @pytest.fixture
