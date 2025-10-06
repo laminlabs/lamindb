@@ -61,11 +61,22 @@ def get_keys_from_df(data: list, registry: SQLRecord) -> list[str]:
 
 
 def get_default_branch_ids() -> list[int]:
+    """Return branch IDs to include in default queries.
+
+    By default, queries include records on the main branch (branch_id=1) but exclude trashed (branch_id=-1)
+    and archived records (branch_id=0). This matches behavior of familiar tools like GitHub, Slack, and
+    email clients.
+
+    If a user switches to another branch via `lamin switch branch`, the main branch will still be included.
+
+    Returns:
+        List containing the default branch and current branch if different.
+    """
     branch_id = setup_settings.branch.id
-    branches = [0, 1]
-    if branch_id != 1:
-        branches.append(branch_id)
-    return branches
+    branch_ids = [branch_id]
+    if branch_id != 1:  # add the main branch by default
+        branch_ids.append(1)
+    return branch_ids
 
 
 def one_helper(
