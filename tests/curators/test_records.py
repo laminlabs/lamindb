@@ -105,6 +105,7 @@ def test_record_example_compound_treatment(
     # treatment,cell_line,preparation_date,__lamindb_record_uid__,__lamindb_record_name__
     # treatment1,HEK293T cell,2025-06-01 05:00:00,iCwgKgZELoLtIoGy,sample1
     # treatment2,HEK293T cell,2025-06-01 06:00:00,qvU9m7VF6fSdsqJs,sample2
+    assert len(artifact.load()) == 2  # two rows in the dataframe
     assert artifact.path.read_text().startswith("""\
 treatment,cell_line,preparation_date,project,__lamindb_record_uid__,__lamindb_record_name__
 treatment1,HEK293T cell,2025-06-01 05:00:00,Project 1""")
@@ -123,8 +124,14 @@ Artifact .csv · DataFrame · dataset
         treatment           cat[Record[Treatment]]  treatment1, treatment2
         preparation_date    datetime"""
     )
-    # re-run the export which triggers hash lookup, which need to escapte re-validation
+    # re-run the export which triggers hash lookup
     sample_sheet1.to_artifact()
+    # soft-delete a record in the sheet
+    sample_sheet1.records.first().delete()
+    assert ln.Record.filter(type=sample_sheet1).count() == 1
+    df = sample_sheet1.type_to_dataframe()
+    assert len(df) == 1  # one row in the dataframe
+
     artifact.delete(permanent=True)
 
 

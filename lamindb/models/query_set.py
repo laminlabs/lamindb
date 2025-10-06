@@ -60,6 +60,14 @@ def get_keys_from_df(data: list, registry: SQLRecord) -> list[str]:
     return keys
 
 
+def get_default_branch_ids() -> list[int]:
+    branch_id = setup_settings.branch.id
+    branches = [0, 1]
+    if branch_id != 1:
+        branches.append(branch_id)
+    return branches
+
+
 def one_helper(
     self: QuerySet | SQLRecordList,
     does_not_exist_msg: str | None = None,
@@ -169,12 +177,7 @@ def process_expressions(queryset: QuerySet, expressions: dict) -> dict:
                     expressions_have_branch = True
                     break
             if not expressions_have_branch:
-                # add the current branch by default
-                branch_id = setup_settings.branch.id
-                if branch_id == 1:
-                    expressions["branch_id"] = 1
-                else:
-                    expressions["branch_id__in"] = [1, branch_id]
+                expressions["branch_id__in"] = get_default_branch_ids()
             else:
                 # if branch_id is None, do not apply a filter
                 # otherwise, it would mean filtering for NULL values, which doesn't make
