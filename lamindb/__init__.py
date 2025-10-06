@@ -106,9 +106,6 @@ Backwards compatibility.
    :toctree: .
 
    ULabel
-   Param
-   FeatureSet
-   Curator
 
 """
 
