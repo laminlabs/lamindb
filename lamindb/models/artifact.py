@@ -1473,7 +1473,12 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         ULabel, through="ArtifactULabel", related_name="artifacts"
     )
     """The ulabels annotating this artifact."""
-    users: User = models.ManyToManyField(User, through="ArtifactUser", related_name="+")
+    users: User = models.ManyToManyField(
+        User,
+        through="ArtifactUser",
+        through_fields=("artifact", "user"),
+        related_name="+",
+    )
     """The users annotating this artifact."""
     projects: Project
     """The projects annotating this artifact."""
