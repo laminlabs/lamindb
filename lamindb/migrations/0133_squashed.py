@@ -209,6 +209,7 @@ class Migration(migrations.Migration):
         ("lamindb", "0130_branch_space_alter_artifactblock_artifact_and_more"),
         ("lamindb", "0131_record_unique_name_type_space"),
         ("lamindb", "0132_record_parents_record_reference_and_more"),
+        ("lamindb", "0133_artifactuser_artifact_users"),
     ]
 
     dependencies = []  # type: ignore
@@ -5379,6 +5380,95 @@ class Migration(migrations.Migration):
                 condition=models.Q(("key__isnull", True)),
                 fields=("storage", "hash"),
                 name="unique_artifact_storage_hash_null_key",
+            ),
+        ),
+        migrations.CreateModel(
+            name="ArtifactUser",
+            fields=[
+                (
+                    "created_at",
+                    lamindb.base.fields.DateTimeField(
+                        blank=True,
+                        db_default=django.db.models.functions.datetime.Now(),
+                        db_index=True,
+                        editable=False,
+                    ),
+                ),
+                ("id", models.BigAutoField(primary_key=True, serialize=False)),
+                (
+                    "label_ref_is_name",
+                    lamindb.base.fields.BooleanField(
+                        blank=True, default=None, null=True
+                    ),
+                ),
+                (
+                    "feature_ref_is_name",
+                    lamindb.base.fields.BooleanField(
+                        blank=True, default=None, null=True
+                    ),
+                ),
+                (
+                    "artifact",
+                    lamindb.base.fields.ForeignKey(
+                        blank=True,
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="links_user",
+                        to="lamindb.artifact",
+                    ),
+                ),
+                (
+                    "created_by",
+                    lamindb.base.fields.ForeignKey(
+                        blank=True,
+                        default=lamindb.base.users.current_user_id,
+                        editable=False,
+                        on_delete=django.db.models.deletion.PROTECT,
+                        related_name="+",
+                        to="lamindb.user",
+                    ),
+                ),
+                (
+                    "feature",
+                    lamindb.base.fields.ForeignKey(
+                        blank=True,
+                        default=None,
+                        null=True,
+                        on_delete=django.db.models.deletion.PROTECT,
+                        related_name="links_artifactuser",
+                        to="lamindb.feature",
+                    ),
+                ),
+                (
+                    "run",
+                    lamindb.base.fields.ForeignKey(
+                        blank=True,
+                        default=lamindb.models.run.current_run,
+                        null=True,
+                        on_delete=django.db.models.deletion.PROTECT,
+                        related_name="+",
+                        to="lamindb.run",
+                    ),
+                ),
+                (
+                    "user",
+                    lamindb.base.fields.ForeignKey(
+                        blank=True,
+                        on_delete=django.db.models.deletion.PROTECT,
+                        related_name="links_artifact",
+                        to="lamindb.user",
+                    ),
+                ),
+            ],
+            options={
+                "unique_together": {("artifact", "user", "feature")},
+            },
+            bases=(lamindb.models.sqlrecord.IsLink, models.Model),
+        ),
+        migrations.AddField(
+            model_name="artifact",
+            name="users",
+            field=models.ManyToManyField(
+                related_name="+", through="lamindb.ArtifactUser", to="lamindb.user"
             ),
         ),
         migrations.RunPython(
