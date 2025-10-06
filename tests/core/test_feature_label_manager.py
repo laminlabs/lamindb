@@ -38,7 +38,7 @@ Here is how to create a feature:
   ln.Feature(name='perturbation', dtype='cat').save()"""
     )
 
-    ln.Feature(name="perturbation", dtype="cat").save()
+    ln.Feature(name="perturbation", dtype=ln.Record).save()
     ln.Record.from_values(["DMSO", "IFNG"], create=True).save()
     artifact.features.add_values({"perturbation": df.perturbation.unique()})
     assert artifact in ln.Artifact.filter(perturbation__isnull=False)
