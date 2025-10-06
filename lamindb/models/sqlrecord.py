@@ -882,7 +882,6 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                     super().save(*args, **kwargs)
             except (IntegrityError, ProgrammingError) as e:
                 error_msg = str(e)
-                print("error_msg", error_msg)
                 # two possible error messages for hash duplication
                 # "duplicate key value violates unique constraint"
                 # "UNIQUE constraint failed"
@@ -926,10 +925,13 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                         ]
                     else:  # postgres
                         constraint_fields = [
-                            error_msg.split("DETAIL:  Key ")[-1]
-                            .split("(")[1]
-                            .split(")")[0]
+                            error_msg.split('"')[1]
+                            .split('"')[0]
+                            .removesuffix("_key")
+                            .split("_")[-1]  # field name
                         ]
+                    if "pkey" in constraint_fields:
+                        raise e  # primary key conflict, cannot resolve
                     # here we query against the all branches with .objects
                     pre_existing_record = self.__class__.objects.get(
                         **{f: getattr(self, f) for f in constraint_fields}
