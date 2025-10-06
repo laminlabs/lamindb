@@ -912,9 +912,13 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                     # the root because it's going to be the same root
                     pre_existing_record = self.__class__.get(root=self.root)
                     init_self_from_db(self, pre_existing_record)
-                elif isinstance(e, IntegrityError) and (
-                    "UNIQUE constraint failed" in error_msg
-                    or "duplicate key value violates unique constraint" in error_msg
+                elif (
+                    isinstance(e, IntegrityError)
+                    and ("ontology_id" in error_msg or "uid" in error_msg)
+                    and (
+                        "UNIQUE constraint failed" in error_msg
+                        or "duplicate key value violates unique constraint" in error_msg
+                    )
                 ):
                     if "UNIQUE constraint failed" in error_msg:  # sqlite
                         constraint_fields = [
@@ -930,8 +934,6 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                             .removesuffix("_key")
                             .split("_")[-1]  # field name
                         ]
-                    if "pkey" in constraint_fields:
-                        raise e  # primary key conflict, cannot resolve
                     # here we query against the all branches with .objects
                     pre_existing_record = self.__class__.objects.get(
                         **{f: getattr(self, f) for f in constraint_fields}
