@@ -924,7 +924,7 @@ class SpatialDataCatManager(CatManager):
         )
 
 
-class TiledbsomaCatManager(CatManager):
+class TiledbsomaCatManager(CatManager):  # pragma: no cover
     """Categorical manager for `tiledbsoma.Experiment`."""
 
     def __init__(
