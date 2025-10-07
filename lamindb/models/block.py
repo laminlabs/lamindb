@@ -71,7 +71,7 @@ class RootBlock(BlockMixin, BaseSQLRecord):
 
 
 class RecordBlock(BlockMixin, BaseSQLRecord):
-    """An unstructured notes block that can be attached to an artifact."""
+    """An unstructured notes block that can be attached to a record."""
 
     class Meta:
         app_label = "lamindb"
@@ -91,7 +91,7 @@ class ArtifactBlock(BlockMixin, BaseSQLRecord):
 
 
 class TransformBlock(BlockMixin, BaseSQLRecord):
-    """An unstructured notes block that can be attached to an artifact."""
+    """An unstructured notes block that can be attached to a transform."""
 
     class Meta:
         app_label = "lamindb"
@@ -105,7 +105,7 @@ class TransformBlock(BlockMixin, BaseSQLRecord):
 
 
 class RunBlock(BlockMixin, BaseSQLRecord):
-    """An unstructured notes block that can be attached to an artifact."""
+    """An unstructured notes block that can be attached to a run."""
 
     class Meta:
         app_label = "lamindb"
@@ -115,7 +115,7 @@ class RunBlock(BlockMixin, BaseSQLRecord):
 
 
 class CollectionBlock(BlockMixin, BaseSQLRecord):
-    """An unstructured notes block that can be attached to an artifact."""
+    """An unstructured notes block that can be attached to a collection."""
 
     class Meta:
         app_label = "lamindb"
@@ -127,7 +127,7 @@ class CollectionBlock(BlockMixin, BaseSQLRecord):
 
 
 class SchemaBlock(BlockMixin, BaseSQLRecord):
-    """An unstructured notes block that can be attached to an artifact."""
+    """An unstructured notes block that can be attached to a schema."""
 
     class Meta:
         app_label = "lamindb"
@@ -137,7 +137,7 @@ class SchemaBlock(BlockMixin, BaseSQLRecord):
 
 
 class FeatureBlock(BlockMixin, BaseSQLRecord):
-    """An unstructured notes block that can be attached to an artifact."""
+    """An unstructured notes block that can be attached to a feature."""
 
     class Meta:
         app_label = "lamindb"
@@ -147,16 +147,17 @@ class FeatureBlock(BlockMixin, BaseSQLRecord):
 
 
 class ProjectBlock(BlockMixin, BaseSQLRecord):
-    """An unstructured notes block that can be attached to an artifact."""
+    """An unstructured notes block that can be attached to a project."""
 
     class Meta:
         app_label = "lamindb"
 
     project: Project = ForeignKey(Project, CASCADE, related_name="blocks")
+    """The project to which the block is attached."""
 
 
 class SpaceBlock(BlockMixin, BaseSQLRecord):
-    """An unstructured notes block that can be attached to an artifact."""
+    """An unstructured notes block that can be attached to a space."""
 
     class Meta:
         app_label = "lamindb"
@@ -166,9 +167,10 @@ class SpaceBlock(BlockMixin, BaseSQLRecord):
 
 
 class BranchBlock(BlockMixin, BaseSQLRecord):
-    """An unstructured notes block that can be attached to an artifact."""
+    """An unstructured notes block that can be attached to a branch."""
 
     class Meta:
         app_label = "lamindb"
 
     branch: Branch = ForeignKey(Branch, CASCADE, related_name="blocks")
+    """The branch to which the block is attached."""
