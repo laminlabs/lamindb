@@ -15,9 +15,9 @@ from typing import Any
 def __getattr__(attr_name: str) -> Any:
     # Defers import until accessed to avoid requiring PyTorch Lightning
     if attr_name == "lightning":
-        from lamindb.integrations import lightning
+        from lamindb.integrations import _lightning
 
-        return lightning
+        return _lightning
     raise AttributeError(f"module has no attribute {attr_name!r}")
 
 
