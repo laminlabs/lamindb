@@ -186,28 +186,27 @@ def test_feature_from_df(df):
 
 
 def test_feature_from_dict(dict_data):
-    # ambiguous str types
-    with pytest.raises(ValueError) as e:
-        features = ln.Feature.from_dict(dict_data, str_as_cat=None)
-    error_msg = str(e.value)
-    assert "Ambiguous dtypes detected" in error_msg
-    assert "'dict_feat3': str or cat" in error_msg
-    assert "'dict_feat6': list[str] or list[cat]" in error_msg
-    assert "Please pass `str_as_cat` parameter" in error_msg
-
-    # convert str to cat
-    features = ln.Feature.from_dict(dict_data, str_as_cat=True)
+    # defaults to str for ambiguous types
+    features = ln.Feature.from_dict(dict_data)
     assert len(features) == len(dict_data)
     assert features[0].dtype == "int"
     assert features[1].dtype == "float"
-    assert features[2].dtype == "cat"
+    assert features[2].dtype == "str"
     assert features[3].dtype == "bool"
     assert features[4].dtype == "list[int]"
-    assert features[5].dtype == "list[cat]"
+    assert features[5].dtype == "list[str]"
     assert features[6].dtype == "dict"
 
-    # do not convert str to cat
-    features = ln.Feature.from_dict(dict_data, str_as_cat=False)
+    # deprecated: convert str to cat
+    with pytest.warns(DeprecationWarning, match="str_as_cat.*deprecated"):
+        features = ln.Feature.from_dict(dict_data, str_as_cat=True)
+    assert len(features) == len(dict_data)
+    assert features[2].dtype == "cat"
+    assert features[5].dtype == "list[cat]"
+
+    # deprecated: do not convert str to cat
+    with pytest.warns(DeprecationWarning, match="str_as_cat.*deprecated"):
+        features = ln.Feature.from_dict(dict_data, str_as_cat=False)
     assert features[2].dtype == "str"
     assert features[5].dtype == "list[str]"
 
@@ -217,19 +216,17 @@ def test_feature_from_dict(dict_data):
     assert "field must be a Feature FieldAttr" in str(e.value)
 
     # Explicit field
-    features_with_field = ln.Feature.from_dict(
-        dict_data, field=ln.Feature.name, str_as_cat=False
-    )
+    features_with_field = ln.Feature.from_dict(dict_data, field=ln.Feature.name)
     assert len(features_with_field) == len(dict_data)
 
 
 def test_feature_from_dict_type(dict_data):
     feature_type = ln.Feature(name="Testdata_feature_type", is_type=True).save()
-    features = ln.Feature.from_dict(
-        dict_data, str_as_cat=True, type=feature_type
-    ).save()
+    with pytest.warns(DeprecationWarning, match="str_as_cat.*deprecated"):
+        features = ln.Feature.from_dict(
+            dict_data, str_as_cat=True, type=feature_type
+        ).save()
     for feature in features:
         assert feature.type.name == "Testdata_feature_type"
-
     ln.Feature.filter(type__isnull=False).delete(permanent=True)
     feature_type.delete(permanent=True)
