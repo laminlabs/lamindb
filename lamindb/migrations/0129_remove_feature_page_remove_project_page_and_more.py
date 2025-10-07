@@ -13,58 +13,6 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RemoveField(
-            model_name="feature",
-            name="page",
-        ),
-        migrations.RemoveField(
-            model_name="project",
-            name="page",
-        ),
-        migrations.RemoveField(
-            model_name="artifact",
-            name="page",
-        ),
-        migrations.RemoveField(
-            model_name="featurevalue",
-            name="page",
-        ),
-        migrations.RemoveField(
-            model_name="record",
-            name="page",
-        ),
-        migrations.RemoveField(
-            model_name="recordrecord",
-            name="page",
-        ),
-        migrations.RemoveField(
-            model_name="run",
-            name="page",
-        ),
-        migrations.RemoveField(
-            model_name="storage",
-            name="page",
-        ),
-        migrations.RemoveField(
-            model_name="reference",
-            name="page",
-        ),
-        migrations.RemoveField(
-            model_name="ulabel",
-            name="page",
-        ),
-        migrations.RemoveField(
-            model_name="transform",
-            name="page",
-        ),
-        migrations.RemoveField(
-            model_name="schema",
-            name="page",
-        ),
-        migrations.RemoveField(
-            model_name="collection",
-            name="page",
-        ),
         migrations.CreateModel(
             name="ArtifactBlock",
             fields=[
@@ -828,17 +776,4 @@ class Migration(migrations.Migration):
                 ),
             ],
         ),
-        migrations.DeleteModel(
-            name="Page",
-        ),
     ]
-
-
-# if "wetlab" in ln_setup.settings.instance.modules:
-#     Migration.dependencies.append(
-#         ("wetlab", "0045_remove_biologic_page_remove_biosample_page_and_more"),
-#     )
-# if "bionty" in ln_setup.settings.instance.modules:
-#     Migration.dependencies.append(
-#         ("bionty", "0061_remove_cellline_page_remove_cellmarker_page_and_more"),
-#     )
