@@ -15,29 +15,25 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
 ]
 dependencies = [
-    # Lamin PINNED packages
+    # LaminDB core modules
     "lamin_utils==0.15.0",
-    "lamin_cli==1.7.2",
-    "lamindb_setup[aws]==1.10.2",
-    # Lamin OPTIONAL packages, included to avoid users forgetting about passing extras,
-    # which has happened very often these past years
-    # these are small packages with few dependencies
-    "bionty>=1.7a1", # do NOT pin, is bounded in bionty
-    "wetlab>=1.5a1", # do NOT pin, is bounded in wetlab
-    # Jupyter -- these are also small packages with few & small dependencies
-    "nbproject==0.11.1",  # keep pinning
+    "lamin_cli==1.8.0",
+    "lamindb_setup[aws]==1.11.0",
+    # LaminDB optional modules, included to avoid users forgetting about extras
+    "bionty==1.8.1",
+    "wetlab==1.6.1",
+    "nbproject==0.11.1",
+    # Jupyter -- small packages with few & small dependencies
     "jupytext",
-    "nbconvert>=7.2.1", # avoid lxml[html_clean] dependency
-    "mistune!=3.1.0",  # there is a bug in it
+    "nbconvert>=7.2.1",  # avoid lxml[html_clean] dependency
     # Others
     "pyyaml",
     "pyarrow",
     "pandera>=0.24.0",
     "typing_extensions!=4.6.0",
     "python-dateutil",
-    "pandas>=2.0.0", # for .infer_objects(copy=False) in lamin-utils
-    # note: backed sparse is incompatible with scipy 1.15.0 for anndata 1.11.1
-    "anndata>=0.8.0,<=0.12.2",  # will upgrade to new anndata releases
+    "pandas>=2.0.0",  # for .infer_objects(copy=False) in lamin-utils
+    "anndata>=0.8.0,<=0.12.2",  # backed sparse is incompatible with scipy 1.15.0 for anndata 1.11.1
     "fsspec",
     "graphviz",
     "psycopg2-binary",
