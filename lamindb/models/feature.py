@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib
+import warnings
 from typing import TYPE_CHECKING, Any, get_args, overload
 
 import numpy as np
@@ -849,11 +850,20 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
         Args:
             dictionary: Source dictionary to extract key information from
             field: FieldAttr for Feature model validation, defaults to `Feature.name`
-            str_as_cat: Whether to interpret string values as categorical
+            str_as_cat: Deprecated. Will be removed in LaminDB 1.11.6.
+                Create features explicitly with dtype='cat' for categorical values.
             type: Feature type of all created features
             mute: Whether to mute dtype inference and feature creation warnings
         """
         from lamindb.models._feature_manager import infer_feature_type_convert_json
+
+        if str_as_cat is not None:
+            warnings.warn(
+                "`str_as_cat` is deprecated and will be removed in LaminDB 1.11.6. "
+                "Create features explicitly with dtype='cat' for categorical values.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
 
         field = Feature.name if field is None else field
         registry = field.field.model  # type: ignore
@@ -861,47 +871,19 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
             raise ValueError("field must be a Feature FieldAttr!")
 
         dtypes = {}
-        ambiguous_keys = []
         for key, value in dictionary.items():
             dtype, _, message = infer_feature_type_convert_json(key, value, mute=mute)
-
             if dtype == "cat ? str":
                 if str_as_cat is None:
-                    ambiguous_keys.append(
-                        (key, "str or cat", message.strip("# ") if message else "")
-                    )
-                    continue
-                if str_as_cat:
-                    dtype = "cat"
-                else:
                     dtype = "str"
-
+                else:
+                    dtype = "cat" if str_as_cat else "str"
             elif dtype == "list[cat ? str]":
                 if str_as_cat is None:
-                    ambiguous_keys.append(
-                        (
-                            key,
-                            "list[str] or list[cat]",
-                            message.strip("# ") if message else "",
-                        )
-                    )
-                    continue
-                if str_as_cat:
-                    dtype = "list[cat]"
-                else:
                     dtype = "list[str]"
-
+                else:
+                    dtype = "list[cat]" if str_as_cat else "list[str]"
             dtypes[key] = dtype
-
-        if ambiguous_keys:
-            error_msg = "Ambiguous dtypes detected. Please pass `str_as_cat` parameter or create features explicitly:\n"
-            for key, options, msg in ambiguous_keys:
-                error_msg += f"  '{key}': {options}"
-                if msg:
-                    error_msg += f" ({msg})"
-                error_msg += "\n"
-            error_msg += "\nUse `str_as_cat=True` to treat strings as categorical, or `str_as_cat=False` for plain strings."
-            raise ValueError(error_msg)
 
         if mute:
             original_verbosity = logger._verbosity
