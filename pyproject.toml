@@ -17,11 +17,11 @@ classifiers = [
 dependencies = [
     # LaminDB core modules
     "lamin_utils==0.15.0",
-    "lamin_cli==1.7.2",
-    "lamindb_setup[aws]==1.10.2",
+    "lamin_cli==1.8.0",
+    "lamindb_setup[aws]==1.11.0",
     # LaminDB optional modules, included to avoid users forgetting about extras
-    "bionty==1.8.0",
-    "wetlab==1.6.0",
+    "bionty==1.8.1",
+    "wetlab==1.6.1",
     "nbproject==0.11.1",
     # Jupyter -- small packages with few & small dependencies
     "jupytext",
