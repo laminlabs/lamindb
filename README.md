@@ -26,10 +26,10 @@ Moreover, it provides context through data lineage -- tracing data and code, sci
 **Highlights.**
 
 - **data lineage:** track inputs & outputs of notebooks, scripts, functions & pipelines with a single line of code
-- **unified infrastructure:** access diverse storage locations (local, S3, GCP, ...), SQL databases (Postgres, SQLite) & ontologies
-- **lakehouse capabilities**: manage, monitor & validate features, labels & dataset schemas; perform distributed queries and batch loading
-- **biological data formats:** validate & annotate formats like `DataFrame`, `AnnData`, `MuData`, ... backed by `parquet`, `zarr`, HDF5, LanceDB, DuckDB, ...
-- **biological entities**: organize experimental metadata & extensible ontologies in registries based on the Django ORM
+- **unified access:** storage locations (local, S3, GCP, ...), SQL databases (Postgres, SQLite) & ontologies
+- **lakehouse**: manage, monitor & validate features, labels & dataset schemas; distributed queries and batch loading
+- **biological formats:** validate & annotate `DataFrame`, `AnnData`, `SpatialData`, ... backed by `parquet`, `zarr`, HDF5, LanceDB, ...
+- **biological entities**: manage experimental metadata & ontologies based on the Django ORM
 - **reproducible & auditable:** auto-version & timestamp execution reports, source code & compute environments, attribute records to users
 - **zero lock-in & scalable:** runs in your infrastructure; is _not_ a client for a rate-limited REST API
 - **extendable:** create custom plug-ins for your own applications based on the Django ecosystem
