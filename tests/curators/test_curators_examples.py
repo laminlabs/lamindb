@@ -12,7 +12,6 @@ import pytest
 import tiledbsoma
 import tiledbsoma.io
 from lamindb.core import datasets
-from lamindb.core.types import FieldAttr
 from lamindb.errors import InvalidArgument, ValidationError
 
 
@@ -879,35 +878,6 @@ def test_spatialdata_curator(
     )
 
     artifact.delete(permanent=True)
-
-
-def test_soma_curator(curator_params: dict[str, str | FieldAttr]):
-    """Test SOMA curator implementation."""
-    adata = datasets.small_dataset1(otype="AnnData")
-    tiledbsoma.io.from_anndata(
-        "./small_dataset1.tiledbsoma", adata, measurement_name="RNA"
-    )
-
-    curator = ln.Curator.from_tiledbsoma(  # type: ignore
-        "./small_dataset1.tiledbsoma",
-        var_index={"RNA": ("var_id", bt.Gene.ensembl_gene_id)},
-        **curator_params,
-    )
-    artifact = curator.save_artifact(key="examples/dataset1.tiledbsoma")
-
-    assert set(artifact.features.get_values()["cell_type_by_expert"]) == {
-        "CD8-positive, alpha-beta T cell",
-        "B cell",
-    }
-    assert set(artifact.features.get_values()["cell_type_by_model"]) == {
-        "T cell",
-        "B cell",
-    }
-
-    assert artifact._key_is_virtual
-
-    artifact.delete(permanent=True)
-    shutil.rmtree("./small_dataset1.tiledbsoma")
 
 
 def test_tiledbsoma_curator(clean_soma_files):
