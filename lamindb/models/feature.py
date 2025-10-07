@@ -850,7 +850,7 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
         Args:
             dictionary: Source dictionary to extract key information from
             field: FieldAttr for Feature model validation, defaults to `Feature.name`
-            str_as_cat: Deprecated. Will be removed in LaminDB 1.12.3.
+            str_as_cat: Deprecated. Will be removed in LaminDB 2.0.0.
                 Create features explicitly with dtype='cat' for categorical values.
             type: Feature type of all created features
             mute: Whether to mute dtype inference and feature creation warnings
@@ -859,7 +859,7 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
 
         if str_as_cat is not None:
             warnings.warn(
-                "`str_as_cat` is deprecated and will be removed in LaminDB 1.12.3. "
+                "`str_as_cat` is deprecated and will be removed in LaminDB 2.0.0. "
                 "Create features explicitly with dtype='cat' for categorical values.",
                 DeprecationWarning,
                 stacklevel=2,
