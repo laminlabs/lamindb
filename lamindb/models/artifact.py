@@ -62,7 +62,7 @@ from ..core.storage.paths import (
     filepath_cache_key_from_artifact,
     filepath_from_artifact,
 )
-from ..errors import InvalidArgument, ValidationError
+from ..errors import InvalidArgument, NoStorageLocationForSpace, ValidationError
 from ..models._is_versioned import (
     create_uid,
 )
@@ -1611,11 +1611,19 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                     "storage argument ignored as storage information from space takes precedence"
                 )
             storage_locs_for_space = Storage.filter(space=space)
-            storage = storage_locs_for_space.first()
-            if len(storage_locs_for_space) > 1:
-                logger.warning(
-                    f"more than one storage location for space {space}, choosing {storage}"
+            n_storage_locs_for_space = len(storage_locs_for_space)
+            if n_storage_locs_for_space == 0:
+                raise NoStorageLocationForSpace(
+                    "No storage location found for space.\n"
+                    "Either create one via ln.Storage(root='create-s3', space=space).save()\n"
+                    "Or start managing access to an existing storage location via the space: storage_loc.space = space; storage.save()"
                 )
+            else:
+                storage = storage_locs_for_space.first()
+                if n_storage_locs_for_space > 1:
+                    logger.warning(
+                        f"more than one storage location for space {space}, choosing {storage}"
+                    )
         otype = kwargs.pop("otype") if "otype" in kwargs else None
         if isinstance(data, str) and data.startswith("s3:///"):
             # issue in Groovy / nf-lamin producing malformed S3 paths
