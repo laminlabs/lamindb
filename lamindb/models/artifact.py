@@ -3202,6 +3202,27 @@ def _track_run_input(
                 }
                 if (run_space := run.space) not in write_access_spaces:
                     no_write_access_spaces.add(run_space)
+
+                if not no_write_access_spaces:
+                    # if there are no unavailable spaces, then this should be due to locking
+                    locked_records = [
+                        data for data in input_data if getattr(data, "is_locked", False)
+                    ]
+                    if run.is_locked:
+                        locked_records.append(run)
+                    # if no unavailable spaces and no locked records, just raise the original error
+                    if not locked_records:
+                        raise e
+                    no_write_msg = (
+                        "It is not allowed to modify locked records: "
+                        + ", ".join(
+                            r.__class__.__name__ + f"(uid={r.uid})"
+                            for r in locked_records
+                        )
+                        + "."
+                    )
+                    raise NoWriteAccess(no_write_msg) from None
+
                 if len(no_write_access_spaces) > 1:
                     name_msg = ", ".join(
                         f"'{space.name}'" for space in no_write_access_spaces

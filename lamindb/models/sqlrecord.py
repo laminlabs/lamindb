@@ -964,7 +964,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                     )
                 ):
                     if is_locked:
-                        no_write_msg = "It is not allowed to modify or create locked ('is_locked=True') registries."
+                        no_write_msg = "It is not allowed to modify or create locked ('is_locked=True') records."
                     else:
                         no_write_msg = (
                             f"You're not allowed to write to the space '{self.space.name}'.\n"
