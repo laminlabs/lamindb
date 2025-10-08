@@ -168,6 +168,22 @@ def test_fine_grained_permissions_account():
     assert ulabel.projects.all().count() == 1
     # check select of a link table referencing unavailable rows
     assert ln.ULabel.get(name="select_ulabel").projects.all().count() == 0
+    # test RootBlock, can do due to write access to some spaces
+    root_block = ln.models.RootBlock(name="instance", content="test").save()
+    root_block.content = "test 2"
+    root_block.save()
+    # test SpaceBlock
+    space = ln.Space.get(name="select access")
+    with pytest.raises(ln.errors.NoWriteAccess):
+        ln.models.SpaceBlock(space=space, content="test").save()
+    # test ArtifactBlock, artifact is read-only
+    artifact = ln.Artifact.get(description="test tracking error")
+    with pytest.raises(ProgrammingError):
+        ln.models.ArtifactBlock(artifact=artifact, content="test").save()
+    # test BranchBlock, the account is read-only
+    branch = ln.Branch.get(1)  # main branch in all space
+    with pytest.raises(ProgrammingError):
+        ln.models.BranchBlock(branch=branch, content="test").save()
 
 
 def test_fine_grained_permissions_team():
@@ -314,6 +330,14 @@ def test_write_role():
         )
 
 
+def test_locking():
+    artifact = ln.Artifact.get(description="test locking")
+    artifact.description = "new description"
+    with pytest.raises(ln.errors.NoWriteAccess) as e:
+        artifact.save()
+    assert "It is not allowed to modify or create locked" in str(e)
+
+
 def test_tracking_error():
     # switch user role to write to create the transform and run
     with psycopg2.connect(pgurl) as conn, conn.cursor() as cur:
@@ -339,12 +363,19 @@ def test_tracking_error():
         _track_run_input(artifact, run)
     assert "You’re not allowed to write to the space " in str(e)
 
+    # this artifact is locked
+    artifact = ln.Artifact.get(description="test locking")
+    with pytest.raises(ln.errors.NoWriteAccess) as e:
+        _track_run_input(artifact, run)
+    assert "It is not allowed to modify locked records" in str(e)
+
     # switch user role back to read
     with psycopg2.connect(pgurl) as conn, conn.cursor() as cur:
         cur.execute(
             "UPDATE hubmodule_account SET role = 'read' WHERE id = %s", (user_uuid,)
         )
     # as the user is read-only now, 2 spaces are unavailable for writes (artifact.space, run.space)
+    artifact = ln.Artifact.get(description="test tracking error")
     with pytest.raises(ln.errors.NoWriteAccess) as e:
         _track_run_input(artifact, run)
     assert "You’re not allowed to write to the spaces " in str(e)
