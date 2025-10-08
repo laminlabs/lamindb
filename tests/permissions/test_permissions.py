@@ -180,6 +180,10 @@ def test_fine_grained_permissions_account():
     artifact = ln.Artifact.get(description="test tracking error")
     with pytest.raises(ProgrammingError):
         ln.models.ArtifactBlock(artifact=artifact, content="test").save()
+    # test BranchBlock, the account is read-only
+    branch = ln.Branch.get(1)  # main branch in all space
+    with pytest.raises(ProgrammingError):
+        ln.models.BranchBlock(branch=branch, content="test").save()
 
 
 def test_fine_grained_permissions_team():
