@@ -1,4 +1,5 @@
 import lamindb as ln
+import pytest
 from lamindb_setup.core._hub_core import select_space, select_storage
 
 
@@ -21,19 +22,23 @@ assert ln.setup.settings.instance.slug == "laminlabs/lamin-dev"
 # check that the rename resolves correctly (it was renamed)
 assert ln.Artifact.using("laminlabs/lamin-dev1072025").db == "default"
 
-# make a new storage location that's goverened by the space
 space_name = "Our test space for CI"
 space = ln.Space.get(name=space_name)
+
+# check that we throw an error if no storage location is managed by the space
+storage_loc = ln.Storage.filter(space=space).one_or_none()
+assert storage_loc is None, "there should be no storage location for the space yet"
+with pytest.raises(ln.errors.NoStorageLocationForSpace) as error:
+    ln.track(space=space_name)  # this fails to save the env artifact
+
+# now create the storage location in the space
 storage_loc = ln.Storage("create-s3", space=space).save()
-
 ln.track(space=space_name)
-
 try:
     assert ln.context.space.name == space_name
     ulabel = ln.ULabel(name="My test ulabel in test space").save()
     artifact = ln.Artifact(".gitignore", key="mytest").save()
 
-    # checks
     # check that exist
     ln.ULabel.get(name="My test ulabel in test space")
     ln.Artifact.get(key="mytest")

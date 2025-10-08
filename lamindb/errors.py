@@ -52,6 +52,12 @@ class UnknownStorageLocation(Exception):
     pass
 
 
+class NoStorageLocationForSpace(Exception):
+    """No storage location found for space."""
+
+    pass
+
+
 # equivalent to Django's DoesNotExist
 # and SQLAlchemy's NoResultFound
 class DoesNotExist(Exception):
