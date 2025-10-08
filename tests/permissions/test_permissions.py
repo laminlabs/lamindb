@@ -363,6 +363,12 @@ def test_tracking_error():
         _track_run_input(artifact, run)
     assert "You’re not allowed to write to the space " in str(e)
 
+    # this artifact is locked
+    artifact = ln.Artifact.get(description="test locking")
+    with pytest.raises(ln.errors.NoWriteAccess) as e:
+        _track_run_input(artifact, run)
+    assert "It is not allowed to modify locked records" in str(e)
+
     # switch user role back to read
     with psycopg2.connect(pgurl) as conn, conn.cursor() as cur:
         cur.execute(
