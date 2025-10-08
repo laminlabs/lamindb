@@ -959,8 +959,8 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                     isinstance(e, ProgrammingError)
                     and "new row violates row-level security policy" in error_msg
                     and (
-                        hasattr(self, "space")
-                        or (is_locked := getattr(self, "is_locked", False))
+                        (is_locked := getattr(self, "is_locked", False))
+                        or hasattr(self, "space")
                     )
                 ):
                     if is_locked:
