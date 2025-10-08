@@ -178,7 +178,8 @@ def test_fine_grained_permissions_account():
         ln.models.SpaceBlock(space=space, content="test").save()
     # test ArtifactBlock, artifact is read-only
     artifact = ln.Artifact.get(description="test tracking error")
-    ln.models.ArtifactBlock(artifact=artifact, content="test").save()
+    with pytest.raises(ProgrammingError):
+        ln.models.ArtifactBlock(artifact=artifact, content="test").save()
 
 
 def test_fine_grained_permissions_team():
