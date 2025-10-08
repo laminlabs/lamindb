@@ -333,7 +333,9 @@ def test_write_role():
 def test_locking():
     artifact = ln.Artifact.get(description="test locking")
     artifact.description = "new description"
-    artifact.save()
+    with pytest.raises(ln.errors.NoWriteAccess) as e:
+        artifact.save()
+    assert "It is not allowed to modify or create locked" in str(e)
 
 
 def test_tracking_error():

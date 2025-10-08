@@ -957,13 +957,20 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                     init_self_from_db(self, pre_existing_record)
                 elif (
                     isinstance(e, ProgrammingError)
-                    and hasattr(self, "space")
                     and "new row violates row-level security policy" in error_msg
+                    and (
+                        hasattr(self, "space")
+                        or (is_locked := getattr(self, "is_locked", False))
+                    )
                 ):
-                    raise NoWriteAccess(
-                        f"You're not allowed to write to the space '{self.space.name}'.\n"
-                        "Please contact administrators of the space if you need write access."
-                    ) from None
+                    if is_locked:
+                        no_write_msg = "It is not allowed to modify or create locked ('is_locked=True') registries."
+                    else:
+                        no_write_msg = (
+                            f"You're not allowed to write to the space '{self.space.name}'.\n"
+                            "Please contact administrators of the space if you need write access."
+                        )
+                    raise NoWriteAccess(no_write_msg) from None
                 else:
                     raise
             # call the below in case a user makes more updates to the record
