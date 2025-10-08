@@ -330,6 +330,12 @@ def test_write_role():
         )
 
 
+def test_locking():
+    artifact = ln.Artifact.get(description="test locking")
+    artifact.description = "new description"
+    artifact.save()
+
+
 def test_tracking_error():
     # switch user role to write to create the transform and run
     with psycopg2.connect(pgurl) as conn, conn.cursor() as cur:

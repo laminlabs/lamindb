@@ -110,9 +110,15 @@ feature = ln.Feature(name="team_access_feature", dtype=float)
 feature.space = team_access
 feature.save()
 
-# artifact for testing tracking error
+# artifact for testing tracking error and artifactblock
 artifact = ln.Artifact("README.md", description="test tracking error")
 artifact.space = select_access
+artifact.save()
+
+# artifact for testing tracking error and locking
+artifact = ln.Artifact(".gitignore", description="test locking")
+artifact.space = full_access
+artifact.is_locked = True
 artifact.save()
 
 print("Created models")
