@@ -176,6 +176,9 @@ def test_fine_grained_permissions_account():
     space = ln.Space.get(name="select access")
     with pytest.raises(ln.errors.NoWriteAccess):
         ln.models.SpaceBlock(space=space, content="test").save()
+    # test ArtifactBlock, artifact is read-only
+    artifact = ln.Artifact.get(description="test tracking error")
+    ln.models.ArtifactBlock(artifact=artifact, content="test").save()
 
 
 def test_fine_grained_permissions_team():
