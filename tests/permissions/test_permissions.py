@@ -375,6 +375,7 @@ def test_tracking_error():
             "UPDATE hubmodule_account SET role = 'read' WHERE id = %s", (user_uuid,)
         )
     # as the user is read-only now, 2 spaces are unavailable for writes (artifact.space, run.space)
+    artifact = ln.Artifact.get(description="test tracking error")
     with pytest.raises(ln.errors.NoWriteAccess) as e:
         _track_run_input(artifact, run)
     assert "You’re not allowed to write to the spaces " in str(e)
