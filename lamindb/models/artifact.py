@@ -3152,6 +3152,7 @@ def track_run_input(
             ):
                 is_valid = False
             if run.id == getattr(record, "_subsequent_run_id", None):
+                logger.debug(f"not tracking {record} as run input because re-created")
                 is_valid = False
             return is_valid
 
@@ -3180,9 +3181,7 @@ def track_run_input(
         return None
     if run is None:
         raise ValueError("No run context set. Call `ln.track()`.")
-    if run._state.adding:
-        # avoid adding the same run twice
-        run.save()
+    assert not run._state.adding, "save the run before tracking inputs to it"  # noqa: S101
     if record_class_name == "artifact":
         IsLink = run.input_artifacts.through
         links = [

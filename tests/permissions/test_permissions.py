@@ -348,7 +348,7 @@ def test_tracking_error():
     artifact = ln.Artifact.get(description="test tracking error")
 
     transform = ln.Transform(key="My transform").save()
-    run = ln.Run(transform)  # unsaved, this is saved inside track_run_input
+    run = ln.Run(transform).save()
 
     # this error because ln.setup.settings.instance._db_permissions is not jwt
     # it is None
