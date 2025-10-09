@@ -3100,6 +3100,11 @@ def track_run_input(
     is_run_input: bool | Run | None = None,
     run: Run | None = None,
 ) -> None:
+    """Links a record as an input to a run.
+
+    This function contains all validation logic to make decisions on whether a
+    record qualifies as an input or not.
+    """
     if is_run_input is False:
         return None
 
