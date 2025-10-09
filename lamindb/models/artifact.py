@@ -2718,7 +2718,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
                 access = _track_writes_factory(access, finalize)
         # only call if open is successfull
-        _track_run_input(self, is_run_input)
+        track_run_input(self, is_run_input)
         return access
 
     def load(
@@ -2797,7 +2797,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 )
                 access_memory = load_to_memory(cache_path, **kwargs)
         # only call if load is successfull
-        _track_run_input(self, is_run_input)
+        track_run_input(self, is_run_input)
 
         return access_memory
 
@@ -2832,7 +2832,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             filepath, cache_key=cache_key, **kwargs
         )
         # only call if sync is successfull
-        _track_run_input(self, is_run_input)
+        track_run_input(self, is_run_input)
         return cache_path
 
     def delete(
@@ -3093,7 +3093,7 @@ class ArtifactUser(BaseSQLRecord, IsLink, TracksRun):
         unique_together = ("artifact", "user", "feature")
 
 
-def _track_run_input(
+def track_run_input(
     data: (
         Artifact | Iterable[Artifact]
     ),  # can also be Collection | Iterable[Collection]

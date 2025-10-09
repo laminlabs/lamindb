@@ -11,7 +11,7 @@ from upath import UPath
 
 from ..core._mapped_collection import MappedCollection
 from ..core.storage._backed_access import _open_dataframe
-from .artifact import Artifact, _track_run_input
+from .artifact import Artifact, track_run_input
 from .collection import Collection, _load_concat_artifacts
 
 if TYPE_CHECKING:
@@ -55,7 +55,7 @@ class ArtifactSet(Iterable):
         artifacts: list[Artifact] = list(self)
         concat_object = _load_concat_artifacts(artifacts, join, **kwargs)
         # track only if successful
-        _track_run_input(artifacts, is_run_input)
+        track_run_input(artifacts, is_run_input)
         return concat_object
 
     @doc_args(Collection.open.__doc__)
@@ -74,7 +74,7 @@ class ArtifactSet(Iterable):
 
         dataframe = _open_dataframe(paths, engine=engine, **kwargs)
         # track only if successful
-        _track_run_input(artifacts, is_run_input)
+        track_run_input(artifacts, is_run_input)
         return dataframe
 
     @doc_args(Collection.mapped.__doc__)
@@ -122,7 +122,7 @@ class ArtifactSet(Iterable):
             dtype,
         )
         # track only if successful
-        _track_run_input(artifacts, is_run_input)
+        track_run_input(artifacts, is_run_input)
         return ds
 
 
