@@ -1478,7 +1478,10 @@ class CatVector:
                 if type_record is not None:
                     # if subtype_str is set, we need to set the type for new records
                     init_kwargs["type"] = type_record
-                non_validated_records.append(registry(**init_kwargs, **create_kwargs))
+                # here we create non-validated records skipping validation since we already ensured that they don't exist
+                non_validated_records.append(
+                    registry(**init_kwargs, **create_kwargs, _skip_validation=True)
+                )
         if len(non_validated_records) > 0:
             ln_save(non_validated_records)
             model_field = colors.italic(registry.__get_name_with_module__())
