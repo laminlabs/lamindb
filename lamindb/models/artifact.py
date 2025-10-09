@@ -648,7 +648,6 @@ def populate_subsequent_run(record: Union[Artifact, Collection], run: Run):
         record.run = run
     elif record.run != run:
         record._subsequent_runs.add(run)
-        print("setting _subsequent_run_id for", record)
         record._subsequent_run_id = run.id
 
 
@@ -3147,10 +3146,14 @@ def track_run_input(
                 is_valid = True
             # avoid cycles: record can't be both input and output
             if record.run_id == run.id:
-                logger.debug(f"not tracking {record} as run input because re-created")
+                logger.debug(
+                    f"not tracking {record} as input to run {run} because created by same run"
+                )
                 is_valid = False
             if run.id == getattr(record, "_subsequent_run_id", None):
-                logger.debug(f"not tracking {record} as run input because re-created")
+                logger.debug(
+                    f"not tracking {record} as input to run {run} because re-created in same run"
+                )
                 is_valid = False
             return is_valid
 
