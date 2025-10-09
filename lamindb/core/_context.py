@@ -465,10 +465,14 @@ class Context:
                 transform_exists = Transform.filter(id=transform.id).first()
             if transform_exists is None:
                 transform.save()
-                self._logging_message_track += f"created Transform('{transform.uid}')"
+                self._logging_message_track += (
+                    f"created Transform('{transform.uid}', key='{transform.key}')"
+                )
                 transform_exists = transform
             else:
-                self._logging_message_track += f"loaded Transform('{transform.uid}')"
+                self._logging_message_track += (
+                    f"loaded Transform('{transform.uid}', key='{transform.key}')"
+                )
             self._transform = transform_exists
 
         if new_run is None:  # for notebooks, default to loading latest runs
@@ -493,7 +497,7 @@ class Context:
             if run is not None:  # loaded latest run
                 run.started_at = datetime.now(timezone.utc)  # update run time
                 run._status_code = -2  # re-started
-                self._logging_message_track += f", re-started Run('{run.uid[:8]}...') at {format_field_value(run.started_at)}"
+                self._logging_message_track += f", re-started Run('{run.uid}') at {format_field_value(run.started_at)}"
 
         if run is None:  # create new run
             run = Run(  # type: ignore
@@ -502,7 +506,7 @@ class Context:
             )
             run.started_at = datetime.now(timezone.utc)
             run._status_code = -1  # started
-            self._logging_message_track += f", started new Run('{run.uid[:8]}...') at {format_field_value(run.started_at)}"
+            self._logging_message_track += f", started new Run('{run.uid}') at {format_field_value(run.started_at)}"
         # can only determine at ln.finish() if run was consecutive in
         # interactive session, otherwise, is consecutive
         run.is_consecutive = True if is_run_from_ipython else None
@@ -874,9 +878,7 @@ class Context:
                     if transform_hash != transform.hash:
                         bump_revision = True
                     else:
-                        self._logging_message_track += (
-                            f"loaded Transform('{transform.uid}')"
-                        )
+                        self._logging_message_track += f"loaded Transform('{transform.uid}', key='{transform.key}')"
                 if bump_revision:
                     change_type = (
                         "re-running notebook with already-saved source code"
@@ -890,7 +892,9 @@ class Context:
                         f'✗ {change_type}, please update the `uid` argument in `track()` to "{uid[:-4]}{increment_base62(uid[-4:])}"'
                     )
             else:
-                self._logging_message_track += f"loaded Transform('{transform.uid}')"
+                self._logging_message_track += (
+                    f"loaded Transform('{transform.uid}', key='{transform.key}')"
+                )
         self._transform = transform
 
     def _finish(self, ignore_non_consecutive: None | bool = None) -> None:

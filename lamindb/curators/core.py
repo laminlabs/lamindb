@@ -289,13 +289,7 @@ class Curator:
 
         artifact_info = ""
         if self._artifact is not None:
-            artifact_uid = getattr(self._artifact, "uid", str(self._artifact))
-            short_uid = (
-                str(artifact_uid)[:8] + "..."
-                if len(str(artifact_uid)) > 8
-                else str(artifact_uid)
-            )
-            artifact_info = f", artifact: {colors.italic(short_uid)}"
+            artifact_info = f", artifact: {colors.italic(self._artifact.uid)}"
 
         return (
             f"{cls_name}{artifact_info}(Schema: {schema_str}{extra_info}{status_str})"

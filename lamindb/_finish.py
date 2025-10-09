@@ -495,7 +495,7 @@ def save_context_core(
         )
 
         logger.important(
-            f"finished Run('{run.uid[:8]}') after {formatted_run_time} at {format_field_value(run.finished_at)}"
+            f"finished Run('{run.uid}') after {formatted_run_time} at {format_field_value(run.finished_at)}"
         )
     if ln_setup.settings.instance.is_on_hub:
         instance_slug = ln_setup.settings.instance.slug
