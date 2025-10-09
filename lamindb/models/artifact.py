@@ -419,7 +419,6 @@ def get_artifact_kwargs_from_data(
     overwrite_versions: bool | None = None,
     skip_hash_lookup: bool = False,
 ):
-    run = get_run(run)
     memory_rep, path, suffix, storage, use_existing_storage_key = process_data(
         provisional_uid,
         data,
@@ -455,8 +454,6 @@ def get_artifact_kwargs_from_data(
     )
     if isinstance(stat_or_artifact, Artifact):
         existing_artifact = stat_or_artifact
-        if run is not None:
-            existing_artifact._populate_subsequent_runs(run)
         return existing_artifact, None
     else:
         size, hash, hash_type, n_files, revises = stat_or_artifact
@@ -646,12 +643,14 @@ def _check_otype_artifact(
     return otype
 
 
-def _populate_subsequent_runs_(record: Union[Artifact, Collection], run: Run):
+def populate_subsequent_run(record: Union[Artifact, Collection], run: Run):
     if record.run is None:
         record.run = run
     elif record.run != run:
         record._subsequent_runs.add(run)
+        print("setting _subsequent_run_id")
         record._subsequent_run_id = run.id
+        print(record._subsequent_run_id)
 
 
 # also see current_run() in core._data
@@ -1682,6 +1681,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             is_automanaged_path = False
 
         provisional_uid, revises = create_uid(revises=revises, version=version)
+        run = get_run(run)
         kwargs_or_artifact, privates = get_artifact_kwargs_from_data(
             data=data,
             key=key,
@@ -1710,6 +1710,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                     f"key {self.key} on existing artifact differs from passed key {key}"
                 )
             update_attributes(self, attr_to_update)
+            if run is not None:
+                populate_subsequent_run(self, run)
             return None
         else:
             kwargs = kwargs_or_artifact
@@ -2472,6 +2474,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             However, it will update the suffix if it changes.
         """
         storage = settings.storage.record
+        run = get_run(run)
         kwargs, privates = get_artifact_kwargs_from_data(
             provisional_uid=self.uid,
             data=data,
@@ -3027,9 +3030,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         """
         return describe_artifact_collection(self, return_str=return_str)
 
-    def _populate_subsequent_runs(self, run: Run) -> None:
-        _populate_subsequent_runs_(self, run)
-
 
 # can't really just call .cache in .load because of double tracking
 def _synchronize_cleanup_on_error(
@@ -3121,7 +3121,6 @@ def _track_run_input(
     track_run_input = False
     input_data = []
     if run is not None:
-        subsequent_run_id = getattr(run, "_subsequent_run_id", None)
 
         def is_valid_input(data: Artifact | Collection):
             is_valid = False
@@ -3146,7 +3145,8 @@ def _track_run_input(
             data_run_id, run_id = data.run_id, run.id
             if data_run_id == run_id and data_run_id is not None and run_id is not None:
                 is_valid = False
-            if subsequent_run_id is not None and run_id == subsequent_run_id:
+            if run_id == getattr(data, "_subsequent_run_id", None):
+                print(f"not tracking {run_id} input because of subsequent run")
                 is_valid = False
             return is_valid
 

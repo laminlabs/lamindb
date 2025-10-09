@@ -25,10 +25,10 @@ from ..models._is_versioned import process_revises
 from ._is_versioned import IsVersioned
 from .artifact import (
     Artifact,
-    _populate_subsequent_runs_,
     _track_run_input,
     describe_artifact_collection,
     get_run,
+    populate_subsequent_run,
     save_schema_links,
 )
 from .has_parents import view_lineage
@@ -324,10 +324,9 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             logger.warning(
                 f"returning existing collection with same hash: {existing_collection}; if you intended to query to track this collection as an input, use: ln.Collection.get()"
             )
-            if run is not None:
-                existing_collection._populate_subsequent_runs(run)
             init_self_from_db(self, existing_collection)
             update_attributes(self, {"description": description, "key": key})
+            populate_subsequent_run(self, run)
         else:
             _skip_validation = revises is not None and key == revises.key
             super().__init__(  # type: ignore
@@ -663,9 +662,6 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             >>> artifact.describe()
         """
         return describe_artifact_collection(self)
-
-    def _populate_subsequent_runs(self, run: Run) -> None:
-        _populate_subsequent_runs_(self, run)
 
 
 # internal function, not exposed to user

@@ -83,6 +83,39 @@ Here is how to create a feature:
     ln.context._run = None
 
 
+def test_recreate_artifact_avoid_cycle():
+    # First run
+    ln.track()
+    previous_run = ln.context.run
+    artifact = ln.Artifact("README.md", key="README.md").save()
+    artifact.cache()
+    assert (
+        artifact not in ln.context.run.input_artifacts.all()
+    )  # avoid cycle with created artifact
+
+    # Second run
+    ln.track(new_run=True)
+    assert ln.context.run != previous_run
+    artifact = ln.Artifact("README.md", key="README.md").save()
+    assert ln.context.run in artifact._subsequent_runs.all()
+    assert artifact._subsequent_run_id == ln.context.run.id
+    artifact.cache()
+    assert (
+        artifact not in ln.context.run.input_artifacts.all()
+    )  # avoid cycle with re-created artifact
+
+    # Third run
+    ln.track(new_run=True)
+    assert ln.context.run != previous_run
+    artifact = ln.Artifact.get(key="README.md")
+    artifact.cache()
+    assert ln.context.run not in artifact._subsequent_runs.all()
+    assert not hasattr(artifact, "_subsequent_run_id")
+    assert artifact in ln.context.run.input_artifacts.all()  # regular input
+
+    artifact.delete(permanent=True)
+
+
 def test_track_notebook_colab():
     notebook_path = "/fileId=1KskciVXleoTeS_OGoJasXZJreDU9La_l"
     ln.context._track_notebook(path_str=notebook_path)
