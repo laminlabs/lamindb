@@ -212,10 +212,8 @@ def test_run_scripts():
         capture_output=True,
     )
     assert result.returncode == 0
-    assert (
-        "created Transform('Ro1gl7n8YrdH0000'), started new Run("
-        in result.stdout.decode()
-    )
+    assert "created Transform('Ro1gl7n8YrdH0000'" in result.stdout.decode()
+    assert "started new Run(" in result.stdout.decode()
 
     # updated key (filename change)
     result = subprocess.run(  # noqa: S602
@@ -245,10 +243,8 @@ def test_run_scripts():
         capture_output=True,
     )
     assert result.returncode == 0
-    assert (
-        "created Transform('Ro1gl7n8YrdH0002'), started new Run("
-        in result.stdout.decode()
-    )
+    assert "created Transform('Ro1gl7n8YrdH0002'" in result.stdout.decode()
+    assert "started new Run(" in result.stdout.decode()
     assert not ln.Transform.get("Ro1gl7n8YrdH0001").is_latest
     assert ln.Transform.get("Ro1gl7n8YrdH0002").is_latest
 

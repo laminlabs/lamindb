@@ -648,7 +648,6 @@ def populate_subsequent_run(record: Union[Artifact, Collection], run: Run):
         record.run = run
     elif record.run != run:
         record._subsequent_runs.add(run)
-        print("setting _subsequent_run_id for", record)
         record._subsequent_run_id = run.id
 
 
@@ -3124,6 +3123,7 @@ def track_run_input(
     )
     input_records = []
     if run is not None:
+        assert not run._state.adding, "Save the run before tracking its inputs."  # noqa: S101
 
         def is_valid_input(record: Artifact | Collection):
             is_valid = False
@@ -3140,19 +3140,20 @@ def track_run_input(
                 # we have to save the record into the current db with
                 # the run being attached to a transfer transform
                 logger.info(
-                    f"completing transfer to track {record.__class__.__name__}('{record.uid[:8]}...') as input"
+                    f"completing transfer to track {record.__class__.__name__}('{record.uid}') as input"
                 )
                 record.save()
                 is_valid = True
             # avoid cycles: record can't be both input and output
-            if (
-                record.run_id == run.id
-                and record.run_id is not None
-                and run.id is not None
-            ):
+            if record.run_id == run.id:
+                logger.debug(
+                    f"not tracking {record} as input to run {run} because created by same run"
+                )
                 is_valid = False
             if run.id == getattr(record, "_subsequent_run_id", None):
-                logger.debug(f"not tracking {record} as run input because re-created")
+                logger.debug(
+                    f"not tracking {record} as input to run {run} because re-created in same run"
+                )
                 is_valid = False
             return is_valid
 
@@ -3181,7 +3182,6 @@ def track_run_input(
         return None
     if run is None:
         raise ValueError("No run context set. Call `ln.track()`.")
-    assert not run._state.adding, "save the run before tracking inputs to it"  # noqa: S101
     if record_class_name == "artifact":
         IsLink = run.input_artifacts.through
         links = [
