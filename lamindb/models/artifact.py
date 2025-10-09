@@ -648,9 +648,8 @@ def populate_subsequent_run(record: Union[Artifact, Collection], run: Run):
         record.run = run
     elif record.run != run:
         record._subsequent_runs.add(run)
-        print("setting _subsequent_run_id")
+        print("setting _subsequent_run_id for", record)
         record._subsequent_run_id = run.id
-        print(record._subsequent_run_id)
 
 
 # also see current_run() in core._data
@@ -3154,7 +3153,6 @@ def track_run_input(
             ):
                 is_valid = False
             if run.id == getattr(record, "_subsequent_run_id", None):
-                print(f"not tracking {run.id} input because of subsequent run")
                 is_valid = False
             return is_valid
 
@@ -3177,82 +3175,80 @@ def track_run_input(
             track = True
     else:
         track = is_run_input
-    if track:
-        if run is None:
-            raise ValueError("No run context set. Call `ln.track()`.")
-        if run._state.adding:
-            # avoid adding the same run twice
-            run.save()
-        if record_class_name == "artifact":
-            IsLink = run.input_artifacts.through
-            links = [
-                IsLink(run_id=run.id, artifact_id=record_id)
-                for record_id in input_records_ids
-            ]
-        else:
-            IsLink = run.input_collections.through
-            links = [
-                IsLink(run_id=run.id, collection_id=record_id)
-                for record_id in input_records_ids
-            ]
-        try:
-            IsLink.objects.bulk_create(links, ignore_conflicts=True)
-        except ProgrammingError as e:
-            if "new row violates row-level security policy" in str(e):
-                instance = setup_settings.instance
-                available_spaces = instance.available_spaces
-                if available_spaces is None:
-                    raise NoWriteAccess(
-                        f"You’re not allowed to write to the instance {instance.slug}.\n"
-                        "Please contact administrators of the instance if you need write access."
-                    ) from None
-                write_access_spaces = (
-                    available_spaces["admin"] + available_spaces["write"]
-                )
-                no_write_access_spaces = {
-                    record_space
-                    for record in input_records
-                    if (record_space := record.space) not in write_access_spaces
-                }
-                if (run_space := run.space) not in write_access_spaces:
-                    no_write_access_spaces.add(run_space)
-
-                if not no_write_access_spaces:
-                    # if there are no unavailable spaces, then this should be due to locking
-                    locked_records = [
-                        record
-                        for record in input_records
-                        if getattr(record, "is_locked", False)
-                    ]
-                    if run.is_locked:
-                        locked_records.append(run)
-                    # if no unavailable spaces and no locked records, just raise the original error
-                    if not locked_records:
-                        raise e
-                    no_write_msg = (
-                        "It is not allowed to modify locked records: "
-                        + ", ".join(
-                            r.__class__.__name__ + f"(uid={r.uid})"
-                            for r in locked_records
-                        )
-                        + "."
-                    )
-                    raise NoWriteAccess(no_write_msg) from None
-
-                if len(no_write_access_spaces) > 1:
-                    name_msg = ", ".join(
-                        f"'{space.name}'" for space in no_write_access_spaces
-                    )
-                    space_msg = "spaces"
-                else:
-                    name_msg = f"'{no_write_access_spaces.pop().name}'"
-                    space_msg = "space"
+    if not track:
+        return None
+    if run is None:
+        raise ValueError("No run context set. Call `ln.track()`.")
+    if run._state.adding:
+        # avoid adding the same run twice
+        run.save()
+    if record_class_name == "artifact":
+        IsLink = run.input_artifacts.through
+        links = [
+            IsLink(run_id=run.id, artifact_id=record_id)
+            for record_id in input_records_ids
+        ]
+    else:
+        IsLink = run.input_collections.through
+        links = [
+            IsLink(run_id=run.id, collection_id=record_id)
+            for record_id in input_records_ids
+        ]
+    try:
+        IsLink.objects.bulk_create(links, ignore_conflicts=True)
+    except ProgrammingError as e:
+        if "new row violates row-level security policy" in str(e):
+            instance = setup_settings.instance
+            available_spaces = instance.available_spaces
+            if available_spaces is None:
                 raise NoWriteAccess(
-                    f"You’re not allowed to write to the {space_msg} {name_msg}.\n"
-                    f"Please contact administrators of the {space_msg} if you need write access."
+                    f"You’re not allowed to write to the instance {instance.slug}.\n"
+                    "Please contact administrators of the instance if you need write access."
                 ) from None
+            write_access_spaces = available_spaces["admin"] + available_spaces["write"]
+            no_write_access_spaces = {
+                record_space
+                for record in input_records
+                if (record_space := record.space) not in write_access_spaces
+            }
+            if (run_space := run.space) not in write_access_spaces:
+                no_write_access_spaces.add(run_space)
+
+            if not no_write_access_spaces:
+                # if there are no unavailable spaces, then this should be due to locking
+                locked_records = [
+                    record
+                    for record in input_records
+                    if getattr(record, "is_locked", False)
+                ]
+                if run.is_locked:
+                    locked_records.append(run)
+                # if no unavailable spaces and no locked records, just raise the original error
+                if not locked_records:
+                    raise e
+                no_write_msg = (
+                    "It is not allowed to modify locked records: "
+                    + ", ".join(
+                        r.__class__.__name__ + f"(uid={r.uid})" for r in locked_records
+                    )
+                    + "."
+                )
+                raise NoWriteAccess(no_write_msg) from None
+
+            if len(no_write_access_spaces) > 1:
+                name_msg = ", ".join(
+                    f"'{space.name}'" for space in no_write_access_spaces
+                )
+                space_msg = "spaces"
             else:
-                raise e
+                name_msg = f"'{no_write_access_spaces.pop().name}'"
+                space_msg = "space"
+            raise NoWriteAccess(
+                f"You’re not allowed to write to the {space_msg} {name_msg}.\n"
+                f"Please contact administrators of the {space_msg} if you need write access."
+            ) from None
+        else:
+            raise e
 
 
 # privates currently dealt with separately

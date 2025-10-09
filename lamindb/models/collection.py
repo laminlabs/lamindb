@@ -347,7 +347,7 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 _skip_validation=_skip_validation,
             )
         self._artifacts = artifacts
-        if revises is not None:
+        if revises is not None and revises.uid != self.uid:
             track_run_input(revises, run=run)
         track_run_input(artifacts, run=run)
 

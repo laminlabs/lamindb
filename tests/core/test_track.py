@@ -83,37 +83,62 @@ Here is how to create a feature:
     ln.context._run = None
 
 
-def test_recreate_artifact_avoid_cycle():
+@pytest.fixture
+def create_record():
+    """Factory fixture that returns a function to create records."""
+    created_records = []
+
+    def create(kind: str) -> ln.models.SQLRecord:
+        if kind == "artifact":
+            record = ln.Artifact("README.md", key="README.md").save()
+        elif kind == "collection":
+            a1 = ln.Artifact("README.md", key="README.md").save()
+            created_records.append(a1)
+            a2 = ln.Artifact("pyproject.toml", key="pyproject.toml").save()
+            created_records.append(a2)
+            record = ln.Collection([a1, a2], key="test-collection").save()
+        created_records.append(record)
+        return record
+
+    yield create
+
+    for record in created_records[::-1]:
+        record.delete(permanent=True)
+
+
+@pytest.mark.parametrize("kind", ["artifact", "collection"])
+def test_track_input_record(create_record, kind):
     # First run
     ln.track()
     previous_run = ln.context.run
-    artifact = ln.Artifact("README.md", key="README.md").save()
-    artifact.cache()
+    record = create_record(kind)
+    record.cache()
     assert (
-        artifact not in ln.context.run.input_artifacts.all()
+        record not in getattr(ln.context.run, f"input_{kind}s").all()
     )  # avoid cycle with created artifact
 
     # Second run
     ln.track(new_run=True)
     assert ln.context.run != previous_run
-    artifact = ln.Artifact("README.md", key="README.md").save()
-    assert ln.context.run in artifact._subsequent_runs.all()
-    assert artifact._subsequent_run_id == ln.context.run.id
-    artifact.cache()
+    record = create_record(kind)
+    assert ln.context.run in record._subsequent_runs.all()
+    assert record._subsequent_run_id == ln.context.run.id
+    record.cache()
     assert (
-        artifact not in ln.context.run.input_artifacts.all()
+        record not in getattr(ln.context.run, f"input_{kind}s").all()
     )  # avoid cycle with re-created artifact
 
     # Third run
     ln.track(new_run=True)
     assert ln.context.run != previous_run
-    artifact = ln.Artifact.get(key="README.md")
-    artifact.cache()
-    assert ln.context.run not in artifact._subsequent_runs.all()
-    assert not hasattr(artifact, "_subsequent_run_id")
-    assert artifact in ln.context.run.input_artifacts.all()  # regular input
-
-    artifact.delete(permanent=True)
+    if kind == "artifact":
+        record = ln.Artifact.get(key="README.md")
+    else:
+        record = ln.Collection.get(key="test-collection")
+    record.cache()
+    assert ln.context.run not in record._subsequent_runs.all()
+    assert not hasattr(record, "_subsequent_run_id")
+    assert record in getattr(ln.context.run, f"input_{kind}s").all()  # regular input
 
 
 def test_track_notebook_colab():
