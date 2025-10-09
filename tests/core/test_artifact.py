@@ -305,6 +305,15 @@ def test_revise_artifact(df):
     assert artifact_new.key == key  # old key
     assert artifact_new.description == "test1 updated"
 
+    # re-create while skipping hash lookup
+    artifact_new = ln.Artifact.from_dataframe(
+        df,
+        key="my-test-dataset1-new.parquet",
+        skip_hash_lookup=True,
+    )
+    assert artifact_new != artifact_r3
+    assert artifact_new.key == "my-test-dataset1-new.parquet"
+
     with pytest.raises(TypeError) as error:
         ln.Artifact.from_dataframe(
             df, description="test1a", revises=ln.Record(name="test")

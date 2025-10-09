@@ -301,6 +301,7 @@ def get_stat_or_artifact(
     check_hash: bool = True,
     is_replace: bool = False,
     instance: str | None = None,
+    skip_hash_lookup: bool = False,
 ) -> Union[tuple[int, str | None, str | None, int | None, Artifact | None], Artifact]:
     """Retrieves file statistics or an existing artifact based on the path, hash, and key."""
     n_files = None
@@ -328,31 +329,40 @@ def get_stat_or_artifact(
     if not check_hash:
         return size, hash, hash_type, n_files, None
     previous_artifact_version = None
-    if key is None or is_replace:
-        result = Artifact.objects.using(instance).filter(hash=hash).all()
-        artifact_with_same_hash_exists = len(result) > 0
+    if skip_hash_lookup:
+        artifact_with_same_hash_exists = False
+        hash_lookup_result = []
     else:
-        result = (
-            Artifact.objects.using(instance)
-            .filter(Q(hash=hash) | Q(key=key, storage=storage))
-            .order_by("-created_at")
-            .all()
-        )
-        artifact_with_same_hash_exists = result.filter(hash=hash).count() > 0
-        if not artifact_with_same_hash_exists and len(result) > 0:
+        if key is None or is_replace:
+            hash_lookup_result = (
+                Artifact.objects.using(instance).filter(hash=hash).all()
+            )
+            artifact_with_same_hash_exists = len(hash_lookup_result) > 0
+        else:
+            hash_lookup_result = (
+                Artifact.objects.using(instance)
+                .filter(Q(hash=hash) | Q(key=key, storage=storage))
+                .order_by("-created_at")
+                .all()
+            )
+            artifact_with_same_hash_exists = (
+                hash_lookup_result.filter(hash=hash).count() > 0
+            )
+    if key is not None and not is_replace:
+        if not artifact_with_same_hash_exists and len(hash_lookup_result) > 0:
             logger.important(
                 f"creating new artifact version for key='{key}' (storage: '{storage.root}')"
             )
-            previous_artifact_version = result[0]
+            previous_artifact_version = hash_lookup_result[0]
     if artifact_with_same_hash_exists:
         message = "returning existing artifact with same hash"
-        if result[0].branch_id == -1:
-            result[0].restore()
+        if hash_lookup_result[0].branch_id == -1:
+            hash_lookup_result[0].restore()
             message = "restored artifact with same hash from trash"
         logger.important(
-            f"{message}: {result[0]}; to track this artifact as an input, use: ln.Artifact.get()"
+            f"{message}: {hash_lookup_result[0]}; to track this artifact as an input, use: ln.Artifact.get()"
         )
-        return result[0]
+        return hash_lookup_result[0]
     else:
         return size, hash, hash_type, n_files, previous_artifact_version
 
@@ -407,6 +417,7 @@ def get_artifact_kwargs_from_data(
     is_replace: bool = False,
     skip_check_exists: bool = False,
     overwrite_versions: bool | None = None,
+    skip_hash_lookup: bool = False,
 ):
     run = get_run(run)
     memory_rep, path, suffix, storage, use_existing_storage_key = process_data(
@@ -440,6 +451,7 @@ def get_artifact_kwargs_from_data(
         key=key,
         instance=using_key,
         is_replace=is_replace,
+        skip_hash_lookup=skip_hash_lookup,
     )
     if isinstance(stat_or_artifact, Artifact):
         existing_artifact = stat_or_artifact
@@ -1136,6 +1148,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         space: `Space | None = None` The space of the artifact. If `None`, uses the current space.
         storage: `Storage | None = None` The storage location for the artifact. If `None`, uses the default storage location.
             You can see and set the default storage location in :attr:`~lamindb.core.Settings.storage`.
+        schema: A schema that defines how to validate & annotate.
+        features: Additional external features to link.
+        skip_hash_lookup: Skip the hash lookup so that a new artifact is created even if an identical artifact already exists.
 
     Examples:
 
@@ -1495,12 +1510,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     def __init__(
         self,
         # we're not choosing the name "path" for this arg because
-        # it'd be confusing with `artifact.path`, which is not the same
-        # so "data" conveys better that this is input data that's ingested
+        # it could be confused with `artifact.path`
+        # "data" conveys better that this is input data that's ingested
         # and will be moved to a target path at `artifact.path`
-        # also internally, we sometimes pass "data objects" like a DataFrame
-        # here; and we might refactor this but we might also keep that internal
-        # usage
         data: UPathStr,
         kind: ArtifactKind | str | None = None,
         key: str | None = None,
@@ -1511,6 +1523,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         storage: Storage | None = None,
         branch: Branch | None = None,
         space: Space | None = None,
+        schema: Schema | None = None,
+        features: dict[str, Any] | None = None,
+        skip_hash_lookup: bool = False,
     ): ...
 
     @overload
@@ -1542,9 +1557,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         revises: Artifact | None = kwargs.pop("revises", None)
         overwrite_versions: bool | None = kwargs.pop("overwrite_versions", None)
         version: str | None = kwargs.pop("version", None)
-
-        features: dict[str, Any] = kwargs.pop("features", None)
         schema: Schema | None = kwargs.pop("schema", None)
+        features: dict[str, Any] | None = kwargs.pop("features", None)
+        skip_hash_lookup: bool = kwargs.pop("skip_hash_lookup", False)
         if features is not None and schema is not None:
             from lamindb.curators import DataFrameCurator
 
@@ -1677,6 +1692,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             using_key=using_key,
             skip_check_exists=skip_check_exists,
             overwrite_versions=overwrite_versions,
+            skip_hash_lookup=skip_hash_lookup,
         )
 
         # an object with the same hash already exists
@@ -1940,7 +1956,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             revises: An old version of the artifact.
             run: The run that creates the artifact.
             schema: A schema that defines how to validate & annotate.
-            features: External features dict for additional annotation.
+            features: Additional external features to link.
 
         See Also:
             :meth:`~lamindb.Collection`
