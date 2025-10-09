@@ -839,7 +839,9 @@ class Context:
                 reference_type=transform_ref_type,
                 type=transform_type,
             ).save()
-            self._logging_message_track += f"created Transform('{transform.uid}')"
+            self._logging_message_track += (
+                f"created Transform('{transform.uid}', key='{transform.key}')"
+            )
         else:
             uid = transform.uid
             # transform was already saved via `finish()`
