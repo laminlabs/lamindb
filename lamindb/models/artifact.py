@@ -1764,43 +1764,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
         super().__init__(**kwargs)
 
-    @classmethod
-    def from_lazy(
-        cls,
-        suffix: str,
-        overwrite_versions: bool,
-        key: str | None = None,
-        description: str | None = None,
-        run: Run | None = None,
-        **kwargs,
-    ) -> LazyArtifact:
-        """Create a lazy artifact for streaming to auto-generated internal paths.
-
-        This is needed when it is desirable to stream to a `lamindb` auto-generated internal path
-        and register the path as an artifact.
-
-        The lazy artifact object (see :class:`~lamindb.models.LazyArtifact`) creates a real artifact
-        on `.save()` with the provided arguments.
-
-        Args:
-            suffix: The suffix for the auto-generated internal path
-            overwrite_versions: Whether to overwrite versions.
-            key: An optional key to reference the artifact.
-            description: A description.
-            run: The run that creates the artifact.
-            **kwargs: Other keyword arguments for the artifact to be created.
-
-        Examples:
-
-            Create a lazy artifact, write to the path and save to get a real artifact::
-
-                lazy = ln.Artifact.from_lazy(suffix=".zarr", overwrite_versions=True, key="mydata.zarr")
-                zarr.open(lazy.path, mode="w")["test"] = np.array(["test"]) # stream to the path
-                artifact = lazy.save()
-        """
-        args = {"key": key, "description": description, "run": run, **kwargs}
-        return LazyArtifact(suffix, overwrite_versions, **args)
-
     @property
     @deprecated("kind")
     def type(self) -> str:
@@ -1933,6 +1896,43 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         """
         # from Registry metaclass
         return type(cls).filter(cls, *queries, **expressions)
+
+    @classmethod
+    def from_lazy(
+        cls,
+        suffix: str,
+        overwrite_versions: bool,
+        key: str | None = None,
+        description: str | None = None,
+        run: Run | None = None,
+        **kwargs,
+    ) -> LazyArtifact:
+        """Create a lazy artifact for streaming to auto-generated internal paths.
+
+        This is needed when it is desirable to stream to a `lamindb` auto-generated internal path
+        and register the path as an artifact.
+
+        The lazy artifact object (see :class:`~lamindb.models.LazyArtifact`) creates a real artifact
+        on `.save()` with the provided arguments.
+
+        Args:
+            suffix: The suffix for the auto-generated internal path
+            overwrite_versions: Whether to overwrite versions.
+            key: An optional key to reference the artifact.
+            description: A description.
+            run: The run that creates the artifact.
+            **kwargs: Other keyword arguments for the artifact to be created.
+
+        Examples:
+
+            Create a lazy artifact, write to the path and save to get a real artifact::
+
+                lazy = ln.Artifact.from_lazy(suffix=".zarr", overwrite_versions=True, key="mydata.zarr")
+                zarr.open(lazy.path, mode="w")["test"] = np.array(["test"]) # stream to the path
+                artifact = lazy.save()
+        """
+        args = {"key": key, "description": description, "run": run, **kwargs}
+        return LazyArtifact(suffix, overwrite_versions, **args)
 
     @classmethod
     def from_dataframe(
