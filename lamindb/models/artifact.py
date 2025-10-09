@@ -3122,7 +3122,6 @@ def track_run_input(
     record_iter: Iterable[Artifact] | Iterable[Collection] = (
         [record] if isinstance(record, (Artifact, Collection)) else record
     )
-    track = False
     input_records = []
     if run is not None:
 
@@ -3164,6 +3163,7 @@ def track_run_input(
     # provide a boolean value for `is_run_input`
     # hence, we need to determine whether we actually want to
     # track a run or not
+    track = False
     if is_run_input is None and settings.track_run_inputs:
         if run is None:
             if not is_read_only_connection():
@@ -3175,7 +3175,7 @@ def track_run_input(
             track = True
     else:
         track = is_run_input
-    if not track:
+    if not track or not input_records:
         return None
     if run is None:
         raise ValueError("No run context set. Call `ln.track()`.")
