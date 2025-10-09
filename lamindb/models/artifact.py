@@ -3164,7 +3164,8 @@ def track_run_input(
     # hence, we need to determine whether we actually want to
     # track a run or not
     track = False
-    if is_run_input is None and settings.track_run_inputs:
+    is_run_input = settings.track_run_inputs if is_run_input is None else is_run_input
+    if is_run_input:
         if run is None:
             if not is_read_only_connection():
                 logger.warning(WARNING_NO_INPUT)
