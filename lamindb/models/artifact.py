@@ -3099,9 +3099,9 @@ def _track_run_input(
     ),  # can also be Collection | Iterable[Collection]
     is_run_input: bool | Run | None = None,
     run: Run | None = None,
-):
+) -> None:
     if is_run_input is False:
-        return
+        return None
 
     from .._tracked import get_current_tracked_run
     from ..core._context import context
@@ -3118,7 +3118,7 @@ def _track_run_input(
     data_iter: Iterable[Artifact] | Iterable[Collection] = (
         [data] if isinstance(data, (Artifact, Collection)) else data
     )
-    track_run_input = False
+    track = False
     input_data = []
     if run is not None:
 
@@ -3166,10 +3166,10 @@ def _track_run_input(
             logger.debug(
                 f"adding {data_class_name} ids {input_data_ids} as inputs for run {run.id}"
             )
-            track_run_input = True
+            track = True
     else:
-        track_run_input = is_run_input
-    if track_run_input:
+        track = is_run_input
+    if track:
         if run is None:
             raise ValueError("No run context set. Call `ln.track()`.")
         if run._state.adding:
