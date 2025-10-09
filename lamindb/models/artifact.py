@@ -419,7 +419,6 @@ def get_artifact_kwargs_from_data(
     overwrite_versions: bool | None = None,
     skip_hash_lookup: bool = False,
 ):
-    run = get_run(run)
     memory_rep, path, suffix, storage, use_existing_storage_key = process_data(
         provisional_uid,
         data,
@@ -455,8 +454,6 @@ def get_artifact_kwargs_from_data(
     )
     if isinstance(stat_or_artifact, Artifact):
         existing_artifact = stat_or_artifact
-        if run is not None:
-            existing_artifact._populate_subsequent_runs(run)
         return existing_artifact, None
     else:
         size, hash, hash_type, n_files, revises = stat_or_artifact
@@ -646,11 +643,13 @@ def _check_otype_artifact(
     return otype
 
 
-def _populate_subsequent_runs_(record: Union[Artifact, Collection], run: Run):
+def populate_subsequent_run(record: Union[Artifact, Collection], run: Run):
     if record.run is None:
         record.run = run
     elif record.run != run:
         record._subsequent_runs.add(run)
+        print("setting _subsequent_run_id for", record)
+        record._subsequent_run_id = run.id
 
 
 # also see current_run() in core._data
@@ -1681,6 +1680,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             is_automanaged_path = False
 
         provisional_uid, revises = create_uid(revises=revises, version=version)
+        run = get_run(run)
         kwargs_or_artifact, privates = get_artifact_kwargs_from_data(
             data=data,
             key=key,
@@ -1709,6 +1709,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                     f"key {self.key} on existing artifact differs from passed key {key}"
                 )
             update_attributes(self, attr_to_update)
+            if run is not None:
+                populate_subsequent_run(self, run)
             return None
         else:
             kwargs = kwargs_or_artifact
@@ -2471,6 +2473,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             However, it will update the suffix if it changes.
         """
         storage = settings.storage.record
+        run = get_run(run)
         kwargs, privates = get_artifact_kwargs_from_data(
             provisional_uid=self.uid,
             data=data,
@@ -2714,7 +2717,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
                 access = _track_writes_factory(access, finalize)
         # only call if open is successfull
-        _track_run_input(self, is_run_input)
+        track_run_input(self, is_run_input)
         return access
 
     def load(
@@ -2793,7 +2796,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 )
                 access_memory = load_to_memory(cache_path, **kwargs)
         # only call if load is successfull
-        _track_run_input(self, is_run_input)
+        track_run_input(self, is_run_input)
 
         return access_memory
 
@@ -2828,7 +2831,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             filepath, cache_key=cache_key, **kwargs
         )
         # only call if sync is successfull
-        _track_run_input(self, is_run_input)
+        track_run_input(self, is_run_input)
         return cache_path
 
     def delete(
@@ -3026,9 +3029,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         """
         return describe_artifact_collection(self, return_str=return_str)
 
-    def _populate_subsequent_runs(self, run: Run) -> None:
-        _populate_subsequent_runs_(self, run)
-
 
 # can't really just call .cache in .load because of double tracking
 def _synchronize_cleanup_on_error(
@@ -3092,15 +3092,20 @@ class ArtifactUser(BaseSQLRecord, IsLink, TracksRun):
         unique_together = ("artifact", "user", "feature")
 
 
-def _track_run_input(
-    data: (
+def track_run_input(
+    record: (
         Artifact | Iterable[Artifact]
     ),  # can also be Collection | Iterable[Collection]
     is_run_input: bool | Run | None = None,
     run: Run | None = None,
-):
+) -> None:
+    """Links a record as an input to a run.
+
+    This function contains all validation logic to make decisions on whether a
+    record qualifies as an input or not.
+    """
     if is_run_input is False:
-        return
+        return None
 
     from .._tracked import get_current_tracked_run
     from ..core._context import context
@@ -3113,154 +3118,137 @@ def _track_run_input(
         run = get_current_tracked_run()
         if run is None:
             run = context.run
-    # consider that data is an iterable of Data
-    data_iter: Iterable[Artifact] | Iterable[Collection] = (
-        [data] if isinstance(data, (Artifact, Collection)) else data
+    # consider that record is an iterable of Data
+    record_iter: Iterable[Artifact] | Iterable[Collection] = (
+        [record] if isinstance(record, (Artifact, Collection)) else record
     )
-    track_run_input = False
-    input_data = []
+    input_records = []
     if run is not None:
-        # avoid cycles: data can't be both input and output
-        def is_valid_input(data: Artifact | Collection):
+
+        def is_valid_input(record: Artifact | Collection):
             is_valid = False
-            if data._state.db == "default":
+            # if a record is not yet saved it has record._state.db = None
+            # then it can't be an input
+            # we silently ignore because what will happen is that
+            # the record either gets saved and then is tracked as an output
+            # or it won't get saved at all
+            if record._state.db == "default":
                 # things are OK if the record is on the default db
                 is_valid = True
-            elif data._state.db is None:
-                # if a record is not yet saved, it can't be an input
-                # we silently ignore because what likely happens is that
-                # the user works with an object that's about to be saved
-                # in the current Python session
-                is_valid = False
             else:
                 # record is on another db
                 # we have to save the record into the current db with
                 # the run being attached to a transfer transform
                 logger.info(
-                    f"completing transfer to track {data.__class__.__name__}('{data.uid[:8]}...') as input"
+                    f"completing transfer to track {record.__class__.__name__}('{record.uid[:8]}...') as input"
                 )
-                data.save()
+                record.save()
                 is_valid = True
-            data_run_id, run_id = data.run_id, run.id
-            different_runs = (data_run_id != run_id) or (
-                data_run_id is None and run_id is None
-            )
-            return (
-                different_runs
-                and not data._state.adding  # this seems duplicated with data._state.db is None
-                and is_valid
-            )
+            # avoid cycles: record can't be both input and output
+            if (
+                record.run_id == run.id
+                and record.run_id is not None
+                and run.id is not None
+            ):
+                is_valid = False
+            if run.id == getattr(record, "_subsequent_run_id", None):
+                logger.debug(f"not tracking {record} as run input because re-created")
+                is_valid = False
+            return is_valid
 
-        input_data = [data for data in data_iter if is_valid_input(data)]
-        input_data_ids = [data.id for data in input_data]
-    if input_data:
-        data_class_name = input_data[0].__class__.__name__.lower()
+        input_records = [record for record in record_iter if is_valid_input(record)]
+        input_records_ids = [record.id for record in input_records]
+    if input_records:
+        record_class_name = input_records[0].__class__.__name__.lower()
     # let us first look at the case in which the user does not
     # provide a boolean value for `is_run_input`
     # hence, we need to determine whether we actually want to
     # track a run or not
-    if is_run_input is None:
-        # we don't have a run record
+    track = False
+    is_run_input = settings.track_run_inputs if is_run_input is None else is_run_input
+    if is_run_input:
         if run is None:
-            if settings.track_run_inputs:
-                if not is_read_only_connection():
-                    logger.warning(WARNING_NO_INPUT)
-        # assume we have a run record
-        else:
-            # assume there is non-cyclic candidate input data
-            if input_data:
-                if settings.track_run_inputs:
-                    transform_note = ""
-                    if len(input_data) == 1:
-                        if input_data[0].transform is not None:
-                            transform_note = (
-                                ", adding parent transform"
-                                f" {input_data[0].transform.id}"
-                            )
-                    logger.info(
-                        f"adding {data_class_name} ids {input_data_ids} as inputs for run"
-                        f" {run.id}{transform_note}"
-                    )
-                    track_run_input = True
-                else:
-                    logger.hint(
-                        "track these data as a run input by passing `is_run_input=True`"
-                    )
+            if not is_read_only_connection():
+                logger.warning(WARNING_NO_INPUT)
+        elif input_records:
+            logger.debug(
+                f"adding {record_class_name} ids {input_records_ids} as inputs for run {run.id}"
+            )
+            track = True
     else:
-        track_run_input = is_run_input
-    if track_run_input:
-        if run is None:
-            raise ValueError("No run context set. Call `ln.track()`.")
-        if run._state.adding:
-            # avoid adding the same run twice
-            run.save()
-        if data_class_name == "artifact":
-            IsLink = run.input_artifacts.through
-            links = [
-                IsLink(run_id=run.id, artifact_id=data_id) for data_id in input_data_ids
-            ]
-        else:
-            IsLink = run.input_collections.through
-            links = [
-                IsLink(run_id=run.id, collection_id=data_id)
-                for data_id in input_data_ids
-            ]
-        try:
-            IsLink.objects.bulk_create(links, ignore_conflicts=True)
-        except ProgrammingError as e:
-            if "new row violates row-level security policy" in str(e):
-                instance = setup_settings.instance
-                available_spaces = instance.available_spaces
-                if available_spaces is None:
-                    raise NoWriteAccess(
-                        f"You’re not allowed to write to the instance {instance.slug}.\n"
-                        "Please contact administrators of the instance if you need write access."
-                    ) from None
-                write_access_spaces = (
-                    available_spaces["admin"] + available_spaces["write"]
-                )
-                no_write_access_spaces = {
-                    data_space
-                    for data in input_data
-                    if (data_space := data.space) not in write_access_spaces
-                }
-                if (run_space := run.space) not in write_access_spaces:
-                    no_write_access_spaces.add(run_space)
-
-                if not no_write_access_spaces:
-                    # if there are no unavailable spaces, then this should be due to locking
-                    locked_records = [
-                        data for data in input_data if getattr(data, "is_locked", False)
-                    ]
-                    if run.is_locked:
-                        locked_records.append(run)
-                    # if no unavailable spaces and no locked records, just raise the original error
-                    if not locked_records:
-                        raise e
-                    no_write_msg = (
-                        "It is not allowed to modify locked records: "
-                        + ", ".join(
-                            r.__class__.__name__ + f"(uid={r.uid})"
-                            for r in locked_records
-                        )
-                        + "."
-                    )
-                    raise NoWriteAccess(no_write_msg) from None
-
-                if len(no_write_access_spaces) > 1:
-                    name_msg = ", ".join(
-                        f"'{space.name}'" for space in no_write_access_spaces
-                    )
-                    space_msg = "spaces"
-                else:
-                    name_msg = f"'{no_write_access_spaces.pop().name}'"
-                    space_msg = "space"
+        track = is_run_input
+    if not track or not input_records:
+        return None
+    if run is None:
+        raise ValueError("No run context set. Call `ln.track()`.")
+    assert not run._state.adding, "save the run before tracking inputs to it"  # noqa: S101
+    if record_class_name == "artifact":
+        IsLink = run.input_artifacts.through
+        links = [
+            IsLink(run_id=run.id, artifact_id=record_id)
+            for record_id in input_records_ids
+        ]
+    else:
+        IsLink = run.input_collections.through
+        links = [
+            IsLink(run_id=run.id, collection_id=record_id)
+            for record_id in input_records_ids
+        ]
+    try:
+        IsLink.objects.bulk_create(links, ignore_conflicts=True)
+    except ProgrammingError as e:
+        if "new row violates row-level security policy" in str(e):
+            instance = setup_settings.instance
+            available_spaces = instance.available_spaces
+            if available_spaces is None:
                 raise NoWriteAccess(
-                    f"You’re not allowed to write to the {space_msg} {name_msg}.\n"
-                    f"Please contact administrators of the {space_msg} if you need write access."
+                    f"You’re not allowed to write to the instance {instance.slug}.\n"
+                    "Please contact administrators of the instance if you need write access."
                 ) from None
+            write_access_spaces = available_spaces["admin"] + available_spaces["write"]
+            no_write_access_spaces = {
+                record_space
+                for record in input_records
+                if (record_space := record.space) not in write_access_spaces
+            }
+            if (run_space := run.space) not in write_access_spaces:
+                no_write_access_spaces.add(run_space)
+
+            if not no_write_access_spaces:
+                # if there are no unavailable spaces, then this should be due to locking
+                locked_records = [
+                    record
+                    for record in input_records
+                    if getattr(record, "is_locked", False)
+                ]
+                if run.is_locked:
+                    locked_records.append(run)
+                # if no unavailable spaces and no locked records, just raise the original error
+                if not locked_records:
+                    raise e
+                no_write_msg = (
+                    "It is not allowed to modify locked records: "
+                    + ", ".join(
+                        r.__class__.__name__ + f"(uid={r.uid})" for r in locked_records
+                    )
+                    + "."
+                )
+                raise NoWriteAccess(no_write_msg) from None
+
+            if len(no_write_access_spaces) > 1:
+                name_msg = ", ".join(
+                    f"'{space.name}'" for space in no_write_access_spaces
+                )
+                space_msg = "spaces"
             else:
-                raise e
+                name_msg = f"'{no_write_access_spaces.pop().name}'"
+                space_msg = "space"
+            raise NoWriteAccess(
+                f"You’re not allowed to write to the {space_msg} {name_msg}.\n"
+                f"Please contact administrators of the {space_msg} if you need write access."
+            ) from None
+        else:
+            raise e
 
 
 # privates currently dealt with separately

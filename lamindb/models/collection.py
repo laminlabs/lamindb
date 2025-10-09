@@ -25,11 +25,11 @@ from ..models._is_versioned import process_revises
 from ._is_versioned import IsVersioned
 from .artifact import (
     Artifact,
-    _populate_subsequent_runs_,
-    _track_run_input,
     describe_artifact_collection,
     get_run,
+    populate_subsequent_run,
     save_schema_links,
+    track_run_input,
 )
 from .has_parents import view_lineage
 from .run import Run, TracksRun, TracksUpdates
@@ -324,10 +324,9 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             logger.warning(
                 f"returning existing collection with same hash: {existing_collection}; if you intended to query to track this collection as an input, use: ln.Collection.get()"
             )
-            if run is not None:
-                existing_collection._populate_subsequent_runs(run)
             init_self_from_db(self, existing_collection)
             update_attributes(self, {"description": description, "key": key})
+            populate_subsequent_run(self, run)
         else:
             _skip_validation = revises is not None and key == revises.key
             super().__init__(  # type: ignore
@@ -348,9 +347,9 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 _skip_validation=_skip_validation,
             )
         self._artifacts = artifacts
-        if revises is not None:
-            _track_run_input(revises, run=run)
-        _track_run_input(artifacts, run=run)
+        if revises is not None and revises.uid != self.uid:
+            track_run_input(revises, run=run)
+        track_run_input(artifacts, run=run)
 
     @classmethod
     def get(
@@ -440,7 +439,7 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
         dataframe = _open_dataframe(paths, engine=engine, **kwargs)
         # track only if successful
-        _track_run_input(self, is_run_input)
+        track_run_input(self, is_run_input)
         return dataframe
 
     def mapped(
@@ -540,7 +539,7 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             dtype,
         )
         # track only if successful
-        _track_run_input(self, is_run_input)
+        track_run_input(self, is_run_input)
         return ds
 
     def cache(self, is_run_input: bool | None = None) -> list[UPath]:
@@ -557,7 +556,7 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         for artifact in self.ordered_artifacts.all():
             # do not want to track data lineage on the artifact level
             path_list.append(artifact.cache(is_run_input=False))
-        _track_run_input(self, is_run_input)
+        track_run_input(self, is_run_input)
         return path_list
 
     def load(
@@ -570,11 +569,11 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
         Returns an in-memory concatenated `DataFrame` or `AnnData` object.
         """
-        # cannot call _track_run_input here, see comment further down
+        # cannot call track_run_input here, see comment further down
         artifacts = self.ordered_artifacts.all()
         concat_object = _load_concat_artifacts(artifacts, join, **kwargs)
         # only call it here because there might be errors during load or concat
-        _track_run_input(self, is_run_input)
+        track_run_input(self, is_run_input)
         return concat_object
 
     def save(self, using: str | None = None) -> Collection:
@@ -663,9 +662,6 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             >>> artifact.describe()
         """
         return describe_artifact_collection(self)
-
-    def _populate_subsequent_runs(self, run: Run) -> None:
-        _populate_subsequent_runs_(self, run)
 
 
 # internal function, not exposed to user
