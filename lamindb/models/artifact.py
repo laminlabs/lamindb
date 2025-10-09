@@ -3094,7 +3094,7 @@ class ArtifactUser(BaseSQLRecord, IsLink, TracksRun):
 
 
 def track_run_input(
-    data: (
+    record: (
         Artifact | Iterable[Artifact]
     ),  # can also be Collection | Iterable[Collection]
     is_run_input: bool | Run | None = None,
@@ -3119,22 +3119,22 @@ def track_run_input(
         run = get_current_tracked_run()
         if run is None:
             run = context.run
-    # consider that data is an iterable of Data
-    data_iter: Iterable[Artifact] | Iterable[Collection] = (
-        [data] if isinstance(data, (Artifact, Collection)) else data
+    # consider that record is an iterable of Data
+    record_iter: Iterable[Artifact] | Iterable[Collection] = (
+        [record] if isinstance(record, (Artifact, Collection)) else record
     )
     track = False
-    input_data = []
+    input_records = []
     if run is not None:
 
-        def is_valid_input(data: Artifact | Collection):
+        def is_valid_input(record: Artifact | Collection):
             is_valid = False
-            # if a record is not yet saved it has data._state.db = None
+            # if a record is not yet saved it has record._state.db = None
             # then it can't be an input
             # we silently ignore because what will happen is that
-            # the dataset either gets saved and then is tracked as an output
+            # the record either gets saved and then is tracked as an output
             # or it won't get saved at all
-            if data._state.db == "default":
+            if record._state.db == "default":
                 # things are OK if the record is on the default db
                 is_valid = True
             else:
@@ -3142,23 +3142,26 @@ def track_run_input(
                 # we have to save the record into the current db with
                 # the run being attached to a transfer transform
                 logger.info(
-                    f"completing transfer to track {data.__class__.__name__}('{data.uid[:8]}...') as input"
+                    f"completing transfer to track {record.__class__.__name__}('{record.uid[:8]}...') as input"
                 )
-                data.save()
+                record.save()
                 is_valid = True
-            # avoid cycles: data can't be both input and output
-            data_run_id, run_id = data.run_id, run.id
-            if data_run_id == run_id and data_run_id is not None and run_id is not None:
+            # avoid cycles: record can't be both input and output
+            if (
+                record.run_id == run.id
+                and record.run_id is not None
+                and run.id is not None
+            ):
                 is_valid = False
-            if run_id == getattr(data, "_subsequent_run_id", None):
-                print(f"not tracking {run_id} input because of subsequent run")
+            if run.id == getattr(record, "_subsequent_run_id", None):
+                print(f"not tracking {run.id} input because of subsequent run")
                 is_valid = False
             return is_valid
 
-        input_data = [data for data in data_iter if is_valid_input(data)]
-        input_data_ids = [data.id for data in input_data]
-    if input_data:
-        data_class_name = input_data[0].__class__.__name__.lower()
+        input_records = [record for record in record_iter if is_valid_input(record)]
+        input_records_ids = [record.id for record in input_records]
+    if input_records:
+        record_class_name = input_records[0].__class__.__name__.lower()
     # let us first look at the case in which the user does not
     # provide a boolean value for `is_run_input`
     # hence, we need to determine whether we actually want to
@@ -3167,9 +3170,9 @@ def track_run_input(
         if run is None:
             if not is_read_only_connection():
                 logger.warning(WARNING_NO_INPUT)
-        elif input_data:
+        elif input_records:
             logger.debug(
-                f"adding {data_class_name} ids {input_data_ids} as inputs for run {run.id}"
+                f"adding {record_class_name} ids {input_records_ids} as inputs for run {run.id}"
             )
             track = True
     else:
@@ -3180,16 +3183,17 @@ def track_run_input(
         if run._state.adding:
             # avoid adding the same run twice
             run.save()
-        if data_class_name == "artifact":
+        if record_class_name == "artifact":
             IsLink = run.input_artifacts.through
             links = [
-                IsLink(run_id=run.id, artifact_id=data_id) for data_id in input_data_ids
+                IsLink(run_id=run.id, artifact_id=record_id)
+                for record_id in input_records_ids
             ]
         else:
             IsLink = run.input_collections.through
             links = [
-                IsLink(run_id=run.id, collection_id=data_id)
-                for data_id in input_data_ids
+                IsLink(run_id=run.id, collection_id=record_id)
+                for record_id in input_records_ids
             ]
         try:
             IsLink.objects.bulk_create(links, ignore_conflicts=True)
@@ -3206,9 +3210,9 @@ def track_run_input(
                     available_spaces["admin"] + available_spaces["write"]
                 )
                 no_write_access_spaces = {
-                    data_space
-                    for data in input_data
-                    if (data_space := data.space) not in write_access_spaces
+                    record_space
+                    for record in input_records
+                    if (record_space := record.space) not in write_access_spaces
                 }
                 if (run_space := run.space) not in write_access_spaces:
                     no_write_access_spaces.add(run_space)
@@ -3216,7 +3220,9 @@ def track_run_input(
                 if not no_write_access_spaces:
                     # if there are no unavailable spaces, then this should be due to locking
                     locked_records = [
-                        data for data in input_data if getattr(data, "is_locked", False)
+                        record
+                        for record in input_records
+                        if getattr(record, "is_locked", False)
                     ]
                     if run.is_locked:
                         locked_records.append(run)
