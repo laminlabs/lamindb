@@ -651,6 +651,7 @@ def _populate_subsequent_runs_(record: Union[Artifact, Collection], run: Run):
         record.run = run
     elif record.run != run:
         record._subsequent_runs.add(run)
+        record._subsequent_run_id_cache(run.id)
 
 
 # also see current_run() in core._data
@@ -3120,18 +3121,18 @@ def _track_run_input(
     track_run_input = False
     input_data = []
     if run is not None:
-        # avoid cycles: data can't be both input and output
+        subsequent_run_ids_cache = getattr(run, "_subsequent_run_ids_cache", None)
+
         def is_valid_input(data: Artifact | Collection):
             is_valid = False
+            # if a record is not yet saved it has data._state.db = None
+            # then it can't be an input
+            # we silently ignore because what will happen is that
+            # the dataset either gets saved and then is tracked as an output
+            # or it won't get saved at all
             if data._state.db == "default":
                 # things are OK if the record is on the default db
                 is_valid = True
-            elif data._state.db is None:
-                # if a record is not yet saved, it can't be an input
-                # we silently ignore because what likely happens is that
-                # the user works with an object that's about to be saved
-                # in the current Python session
-                is_valid = False
             else:
                 # record is on another db
                 # we have to save the record into the current db with
@@ -3141,15 +3142,16 @@ def _track_run_input(
                 )
                 data.save()
                 is_valid = True
+            # avoid cycles: data can't be both input and output
             data_run_id, run_id = data.run_id, run.id
-            different_runs = (data_run_id != run_id) or (
-                data_run_id is None and run_id is None
-            )
-            return (
-                different_runs
-                and not data._state.adding  # this seems duplicated with data._state.db is None
-                and is_valid
-            )
+            if data_run_id == run_id and data_run_id is not None and run_id is not None:
+                is_valid = False
+            if (
+                subsequent_run_ids_cache is not None
+                and run_id in subsequent_run_ids_cache
+            ):
+                is_valid = False
+            return is_valid
 
         input_data = [data for data in data_iter if is_valid_input(data)]
         input_data_ids = [data.id for data in input_data]
@@ -3159,33 +3161,15 @@ def _track_run_input(
     # provide a boolean value for `is_run_input`
     # hence, we need to determine whether we actually want to
     # track a run or not
-    if is_run_input is None:
-        # we don't have a run record
+    if is_run_input is None and settings.track_run_inputs:
         if run is None:
-            if settings.track_run_inputs:
-                if not is_read_only_connection():
-                    logger.warning(WARNING_NO_INPUT)
-        # assume we have a run record
-        else:
-            # assume there is non-cyclic candidate input data
-            if input_data:
-                if settings.track_run_inputs:
-                    transform_note = ""
-                    if len(input_data) == 1:
-                        if input_data[0].transform is not None:
-                            transform_note = (
-                                ", adding parent transform"
-                                f" {input_data[0].transform.id}"
-                            )
-                    logger.info(
-                        f"adding {data_class_name} ids {input_data_ids} as inputs for run"
-                        f" {run.id}{transform_note}"
-                    )
-                    track_run_input = True
-                else:
-                    logger.hint(
-                        "track these data as a run input by passing `is_run_input=True`"
-                    )
+            if not is_read_only_connection():
+                logger.warning(WARNING_NO_INPUT)
+        elif input_data:
+            logger.debug(
+                f"adding {data_class_name} ids {input_data_ids} as inputs for run {run.id}"
+            )
+            track_run_input = True
     else:
         track_run_input = is_run_input
     if track_run_input:
