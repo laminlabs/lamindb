@@ -651,7 +651,7 @@ def _populate_subsequent_runs_(record: Union[Artifact, Collection], run: Run):
         record.run = run
     elif record.run != run:
         record._subsequent_runs.add(run)
-        record._subsequent_run_id_cache(run.id)
+        record._subsequent_run_id = run.id
 
 
 # also see current_run() in core._data
@@ -3121,7 +3121,7 @@ def _track_run_input(
     track_run_input = False
     input_data = []
     if run is not None:
-        subsequent_run_ids_cache = getattr(run, "_subsequent_run_ids_cache", None)
+        subsequent_run_id = getattr(run, "_subsequent_run_id", None)
 
         def is_valid_input(data: Artifact | Collection):
             is_valid = False
@@ -3146,10 +3146,7 @@ def _track_run_input(
             data_run_id, run_id = data.run_id, run.id
             if data_run_id == run_id and data_run_id is not None and run_id is not None:
                 is_valid = False
-            if (
-                subsequent_run_ids_cache is not None
-                and run_id in subsequent_run_ids_cache
-            ):
+            if subsequent_run_id is not None and run_id == subsequent_run_id:
                 is_valid = False
             return is_valid
 
