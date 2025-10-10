@@ -4,6 +4,16 @@ import lamindb as ln
 import pytest
 
 
+def test_transform_recovery_based_on_hash():
+    transform1 = ln.Transform(key="my-transform", source_code="1").save()
+    transform2 = ln.Transform(key="my-transform", source_code="1")
+    assert transform1 == transform2
+    transform1.delete()
+    transform2 = ln.Transform(key="my-transform", source_code="1")
+    assert transform1 != transform2
+    transform1.delete(permanent=True)
+
+
 def test_revise_transforms():
     # attempt to create a transform with an invalid version
     with pytest.raises(ValueError) as error:

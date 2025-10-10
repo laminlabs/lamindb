@@ -147,9 +147,14 @@ def test_from_consistent_artifacts(adata, adata2):
 
     # re-run with hash-based lookup
     collection2 = ln.Collection([artifact1, artifact2], key="My test 1", run=run)
-    assert not collection2._state.adding
-    assert collection2.id == collection.id
-    assert collection2.key == "My test 1"
+    assert collection2 == collection
+    assert collection2.key == "My test 1"  # key is updated
+
+    # move to trash and then re-run
+    collection.delete()
+    collection2 = ln.Collection([artifact1, artifact2], key="My test 2", run=run)
+    assert collection2 != collection
+    assert collection2.key == "My test 2"
 
     collection.delete(permanent=True)
     artifact1.delete(permanent=True)

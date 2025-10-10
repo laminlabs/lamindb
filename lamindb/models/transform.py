@@ -18,6 +18,7 @@ from lamindb.base.users import current_user_id
 
 from ..models._is_versioned import process_revises
 from ._is_versioned import IsVersioned
+from .query_set import get_default_branch_ids
 from .run import Run, User, delete_run_artifacts
 from .sqlrecord import SQLRecord, init_self_from_db, update_attributes
 
@@ -299,8 +300,11 @@ class Transform(SQLRecord, IsVersioned):
         hash = None
         if source_code is not None:
             hash = hash_string(source_code)
+
             transform_candidate = Transform.filter(
-                hash=hash, is_latest=True
+                hash=hash,
+                is_latest=True,
+                branch_id__in=get_default_branch_ids(),
             ).one_or_none()
             if transform_candidate is not None:
                 init_self_from_db(self, transform_candidate)
