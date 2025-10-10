@@ -949,7 +949,7 @@ def add_labels(
     else:
         validate_feature(feature, records)  # type:ignore
         records_by_registry = defaultdict(list)
-        feature_sets = self.feature_sets.filter(itype="Feature").all()
+        feature_sets = self.feature_sets.filter(itype="Feature")
         internal_features = set()  # type: ignore
         if len(feature_sets) > 0:
             for schema in feature_sets:
@@ -1315,7 +1315,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
         Similarly, you query based on these accessors::
 
-            ln.Artifact.filter(ulabels__name="Experiment 1").all()
+            ln.Artifact.filter(ulabels__name="Experiment 1")
 
         Unlike the registry-specific accessors, the `.labels` accessor provides
         a way of associating labels with features::

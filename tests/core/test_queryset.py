@@ -93,7 +93,7 @@ def test_one_first():
     qs = ln.User.filter(handle="test")
     with pytest.raises(DoesNotExist):
         qs.one()
-    qs = bt.Source.filter().all()
+    qs = bt.Source.filter()
     with pytest.raises(ln.errors.MultipleResultsFound):
         qs.one()
     with pytest.raises(ln.errors.MultipleResultsFound):
@@ -107,12 +107,12 @@ def test_filter_related_field_name():
             "Invalid lookup 'somelabel' for records. Did you mean records__name?"
         ),
     ):
-        ln.Artifact.filter(records="somelabel").all()
+        ln.Artifact.filter(records="somelabel")
 
 
 def test_filter_unknown_field():
     with pytest.raises(InvalidArgument) as error:
-        ln.Artifact.filter(nonexistent="value").all()
+        ln.Artifact.filter(nonexistent="value")
     assert error.exconly() == (
         "lamindb.errors.InvalidArgument: You can query either by available fields: blocks, branch, cell_lines, cell_markers, cell_types, collections, created_at, created_by, description, developmental_stages, diseases, ethnicities, experimental_factors, feature_sets, genes, hash, id, input_of_runs, is_latest, is_locked, key, kind, linked_in_records, n_files, n_observations, organisms, otype, pathways, phenotypes, projects, proteins, records, references, run, schema, size, space, storage, suffix, tissues, transform, uid, ulabels, updated_at, users, version, visibility\n"
         "Or fix invalid feature names: nonexistent"
@@ -133,7 +133,7 @@ def test_get_related_field_name():
             "Invalid lookup 'somelabel' for records. Did you mean records__name?"
         ),
     ):
-        ln.Artifact.get(records="somelabel").all()
+        ln.Artifact.get(records="somelabel")
 
 
 def test_get_unknown_field():
@@ -150,7 +150,7 @@ def test_search():
     label_names = [f"Record {i}" for i in range(3)]
     labels = [ln.Record(name=name) for name in label_names]
     ln.save(labels)
-    qs = ln.Record.filter(name__startswith="Record").all()
+    qs = ln.Record.filter(name__startswith="Record")
     assert qs.search("Record 1")[0].name == "Record 1"
     assert qs.search("Record 1", field=ln.Record.name)[0].name == "Record 1"
     for label in labels:
@@ -158,7 +158,7 @@ def test_search():
 
 
 def test_lookup():
-    qs = ln.User.filter(handle="testuser1").all()
+    qs = ln.User.filter(handle="testuser1")
     # pass str to field
     lookup = qs.lookup(field="handle")
     assert lookup.testuser1.handle == "testuser1"
@@ -172,7 +172,7 @@ def test_lookup():
 
 
 def test_inspect():
-    qs = ln.User.filter(handle="testuser1").all()
+    qs = ln.User.filter(handle="testuser1")
     assert qs.inspect(["user1", "user2"], "name")["validated"] == []
     assert ln.User.inspect(["user1", "user2"], "name")["validated"] == []
     assert ln.User.inspect(["user1", "user2"], ln.User.name)["validated"] == []
@@ -180,7 +180,7 @@ def test_inspect():
 
 
 def test_validate():
-    qs = ln.User.filter(handle="testuser1").all()
+    qs = ln.User.filter(handle="testuser1")
     assert qs.validate(["testuser1", "Test User1"], "handle").tolist() == [True, False]
     assert ln.User.validate(["testuser1", "Test User1"], "handle").tolist() == [
         True,
@@ -195,7 +195,7 @@ def test_validate():
 
 
 def test_map_synonyms():
-    qs = ln.User.filter(handle="testuser1").all()
+    qs = ln.User.filter(handle="testuser1")
     assert qs.standardize(["user1", "user2"]) == ["user1", "user2"]
 
 

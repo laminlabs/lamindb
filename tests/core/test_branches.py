@@ -14,15 +14,15 @@ def testbranch_id():
     # delete a collection will put both collection but not linked artifact in trash
     collection.delete()
     assert collection.ordered_artifacts[0].branch_id == 1
-    result = ln.Collection.filter(key="testbranch_id").all()
+    result = ln.Collection.filter(key="testbranch_id")
     assert len(result) == 0
-    result = ln.Collection.filter(key="testbranch_id", branch_id=1).all()
+    result = ln.Collection.filter(key="testbranch_id", branch_id=1)
     assert len(result) == 0
-    result = ln.Collection.filter(key="testbranch_id", visibility=1).all()
+    result = ln.Collection.filter(key="testbranch_id", visibility=1)
     assert len(result) == 0
-    result = ln.Collection.filter(key="testbranch_id", branch_id=None).all()
+    result = ln.Collection.filter(key="testbranch_id", branch_id=None)
     assert len(result) == 1
-    result = ln.Collection.filter(key="testbranch_id", visibility=None).all()
+    result = ln.Collection.filter(key="testbranch_id", visibility=None)
     assert len(result) == 1
 
     # restore
@@ -32,6 +32,6 @@ def testbranch_id():
 
     # permanent delete
     collection.delete(permanent=True)
-    result = ln.Artifact.filter(description="testbranch_id", branch_id=None).all()
+    result = ln.Artifact.filter(description="testbranch_id", branch_id=None)
     # also permanently deleted linked file
     assert len(result) == 1

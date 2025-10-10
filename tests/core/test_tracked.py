@@ -51,7 +51,7 @@ def test_tracked_parallel():
     # Each execution should have created its own artifact with unique run
     print(f"Created artifacts with keys: {chunk_keys}")
     artifacts = [ln.Artifact.get(key=key) for key in chunk_keys]
-    env_artifacts = ln.Artifact.filter(description="requirements.txt").all()
+    env_artifacts = ln.Artifact.filter(description="requirements.txt")
     print(env_artifacts.to_dataframe())
 
     # Check that we got the expected number of artifacts

@@ -237,7 +237,7 @@ class QueryManager(Manager):
     Examples:
 
         >>> ln.save(ln.ULabel.from_values(["ULabel1", "ULabel2", "ULabel3"], field="name"))  # noqa
-        >>> labels = ln.ULabel.filter(name__icontains = "label").all()
+        >>> labels = ln.ULabel.filter(name__icontains = "label")
         >>> ln.ULabel(name="ULabel1").save()
         >>> label = ln.ULabel.get(name="ULabel1")
         >>> label.parents.set(labels)
@@ -270,7 +270,7 @@ class QueryManager(Manager):
 
         Examples:
             >>> ln.save(ln.ULabel.from_values(["ULabel1", "ULabel2", "ULabel3"], field="name"))
-            >>> labels = ln.ULabel.filter(name__icontains="label").all()
+            >>> labels = ln.ULabel.filter(name__icontains="label")
             >>> ln.ULabel(name="ULabel1").save()
             >>> label = ln.ULabel.get(name="ULabel1")
             >>> label.parents.set(labels)

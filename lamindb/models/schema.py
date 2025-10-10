@@ -961,7 +961,7 @@ class Schema(SQLRecord, CanCurate, TracksRun):
             if validated_kwargs["hash"] != self.hash:
                 from .artifact import Artifact
 
-                datasets = Artifact.filter(schema=self).all()
+                datasets = Artifact.filter(schema=self)
                 if datasets.exists():
                     logger.warning(
                         f"you updated the schema hash and might invalidate datasets that were previously validated with this schema: {datasets.to_list('uid')}"
@@ -1157,7 +1157,7 @@ class Schema(SQLRecord, CanCurate, TracksRun):
         if self.itype == "Composite":
             self._slots = {
                 link.slot: link.component
-                for link in self.components.through.filter(composite_id=self.id).all()
+                for link in self.components.through.filter(composite_id=self.id)
             }
             return self._slots
         return {}
