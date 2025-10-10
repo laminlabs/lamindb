@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Any, Literal, overload
 import anndata as ad
 import pandas as pd
 from django.db import models
-from django.db.models import CASCADE, PROTECT
+from django.db.models import CASCADE, PROTECT, Q
 from lamin_utils import logger
 from lamindb_setup.core.hashing import HASH_LENGTH, hash_set
 
@@ -317,7 +317,10 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                     )
         # we ignore collections in trash containing the same hash
         if hash is not None:
-            existing_collection = Collection.filter(hash=hash).one_or_none()
+            existing_collection = Collection.filter(
+                ~Q(branch_id=-1),
+                hash=hash,
+            ).one_or_none()
         else:
             existing_collection = None
         if existing_collection is not None:

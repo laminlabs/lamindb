@@ -1,3 +1,5 @@
+import subprocess
+
 import lamindb as ln
 import pytest
 from lamindb_setup.core._hub_core import select_space, select_storage
@@ -60,6 +62,21 @@ try:
     response_storage = select_storage(lnid=storage_loc.uid)
     response_space = select_space(lnid=space2.uid)
     assert response_storage["space_id"] == response_space["id"]
+
+    # connect to the instance before saving
+    subprocess.run(  # noqa: S602
+        "lamin connect laminlabs/lamin-dev",
+        shell=True,
+        check=True,
+    )
+    result = subprocess.run(  # noqa: S602
+        "lamin save .gitignore --key mytest --space 'Our test space for CI 2'",
+        shell=True,
+        capture_output=True,
+    )
+    assert "key='mytest'" in result.stdout.decode()
+    assert "storage path:" in result.stdout.decode()
+    assert result.returncode == 0
 
 finally:
     cleanup(

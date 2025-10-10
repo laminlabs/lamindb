@@ -4,7 +4,7 @@ import warnings
 from typing import TYPE_CHECKING, overload
 
 from django.db import models
-from django.db.models import PROTECT
+from django.db.models import PROTECT, Q
 from lamin_utils import logger
 from lamindb_setup.core.hashing import HASH_LENGTH, hash_string
 
@@ -258,14 +258,14 @@ class Transform(SQLRecord, IsVersioned):
             # need to check uid before checking key
             if uid is not None:
                 revises = (
-                    Transform.objects.using(using_key)
+                    Transform.using(using_key)
                     .filter(uid__startswith=uid[:-4], is_latest=True)
                     .order_by("-created_at")
                     .first()
                 )
             elif key is not None:
                 candidate_for_revises = (
-                    Transform.objects.using(using_key)
+                    Transform.using(using_key)
                     .filter(key=key, is_latest=True)
                     .order_by("-created_at")
                     .first()
@@ -299,8 +299,11 @@ class Transform(SQLRecord, IsVersioned):
         hash = None
         if source_code is not None:
             hash = hash_string(source_code)
+
             transform_candidate = Transform.filter(
-                hash=hash, is_latest=True
+                ~Q(branch_id=-1),
+                hash=hash,
+                is_latest=True,
             ).one_or_none()
             if transform_candidate is not None:
                 init_self_from_db(self, transform_candidate)
