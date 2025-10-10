@@ -26,6 +26,8 @@ from .sqlrecord import Registry, SQLRecord
 if TYPE_CHECKING:
     from lamindb.base.types import ListLike, StrField
 
+    from .sqlrecord import Branch
+
 T = TypeVar("T")
 
 
@@ -60,7 +62,7 @@ def get_keys_from_df(data: list, registry: SQLRecord) -> list[str]:
     return keys
 
 
-def get_default_branch_ids() -> list[int]:
+def get_default_branch_ids(branch: Branch | None = None) -> list[int]:
     """Return branch IDs to include in default queries.
 
     By default, queries include records on the main branch (branch_id=1) but exclude trashed (branch_id=-1)
@@ -72,7 +74,10 @@ def get_default_branch_ids() -> list[int]:
     Returns:
         List containing the default branch and current branch if different.
     """
-    branch_id = setup_settings.branch.id
+    if branch is None:
+        branch_id = setup_settings.branch.id
+    else:
+        branch_id = branch.id
     branch_ids = [branch_id]
     if branch_id != 1:  # add the main branch by default
         branch_ids.append(1)

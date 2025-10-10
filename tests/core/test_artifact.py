@@ -223,6 +223,19 @@ def test_basic_validation():
     )
 
 
+def test_save_on_branch(df):
+    branch = ln.Branch(name="contrib1").save()
+    artifact1 = ln.Artifact.from_dataframe(df, key="test.parquet", branch=branch).save()
+    # check hash lookup on same branch
+    artifact2 = ln.Artifact.from_dataframe(
+        df, key="test1.parquet", branch=branch
+    ).save()
+    assert artifact1 == artifact2
+    # cleanup
+    artifact1.delete(permanent=True)
+    branch.delete(permanent=True)
+
+
 def test_revise_artifact(df):
     # attempt to create a file with an invalid version
     with pytest.raises(ValueError) as error:
