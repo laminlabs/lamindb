@@ -34,7 +34,7 @@ from lamindb.base.fields import (
     TextField,
 )
 from lamindb.errors import FieldValidationError, NoWriteAccess, UnknownStorageLocation
-from lamindb.models.query_set import QuerySet, get_default_branch_ids
+from lamindb.models.query_set import QuerySet
 
 from ..base.users import current_user_id
 from ..core._settings import is_read_only_connection, settings
@@ -302,7 +302,6 @@ def get_stat_or_artifact(
     is_replace: bool = False,
     instance: str | None = None,
     skip_hash_lookup: bool = False,
-    branch: Branch | None = None,
 ) -> Union[tuple[int, str | None, str | None, int | None, Artifact | None], Artifact]:
     """Retrieves file statistics or an existing artifact based on the path, hash, and key."""
     n_files = None
@@ -334,13 +333,10 @@ def get_stat_or_artifact(
         artifact_with_same_hash_exists = False
         hash_lookup_result = []
     else:
-        branch_ids = get_default_branch_ids(branch)
         if key is None or is_replace:
             hash_lookup_result = (
                 Artifact.using(instance)
-                .filter(
-                    hash=hash, branch_id__in=branch_ids, _skip_filter_with_features=True
-                )
+                .filter(~Q(branch_id=-1), hash=hash, _skip_filter_with_features=True)
                 .all()
             )
             artifact_with_same_hash_exists = len(hash_lookup_result) > 0
@@ -348,8 +344,8 @@ def get_stat_or_artifact(
             hash_lookup_result = (
                 Artifact.using(instance)
                 .filter(
+                    ~Q(branch_id=-1),
                     Q(hash=hash) | Q(key=key, storage=storage),
-                    branch_id__in=branch_ids,
                     _skip_filter_with_features=True,
                 )
                 .order_by("-created_at")
@@ -428,7 +424,6 @@ def get_artifact_kwargs_from_data(
     skip_check_exists: bool = False,
     overwrite_versions: bool | None = None,
     skip_hash_lookup: bool = False,
-    branch: Branch | None = None,
 ):
     memory_rep, path, suffix, storage, use_existing_storage_key = process_data(
         provisional_uid,
@@ -462,7 +457,6 @@ def get_artifact_kwargs_from_data(
         instance=using_key,
         is_replace=is_replace,
         skip_hash_lookup=skip_hash_lookup,
-        branch=branch,
     )
     if isinstance(stat_or_artifact, Artifact):
         existing_artifact = stat_or_artifact
@@ -1672,7 +1666,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             skip_check_exists=skip_check_exists,
             overwrite_versions=overwrite_versions,
             skip_hash_lookup=skip_hash_lookup,
-            branch=branch,
         )
 
         # an object with the same hash already exists

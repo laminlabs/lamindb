@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Any, Type, overload
 
 import numpy as np
 from django.db import models
-from django.db.models import CASCADE, PROTECT, ManyToManyField
+from django.db.models import CASCADE, PROTECT, ManyToManyField, Q
 from lamin_utils import logger
 from lamindb_setup.core import deprecated
 from lamindb_setup.core.hashing import HASH_LENGTH, hash_string
@@ -37,7 +37,6 @@ from .feature import (
     serialize_dtype,
     serialize_pandas_dtype,
 )
-from .query_set import QuerySet, SQLRecordList, get_default_branch_ids
 from .run import TracksRun, TracksUpdates
 from .sqlrecord import (
     BaseSQLRecord,
@@ -55,6 +54,7 @@ if TYPE_CHECKING:
 
     from .artifact import Artifact
     from .project import Project
+    from .query_set import QuerySet, SQLRecordList
     from .record import Record
 
 
@@ -586,8 +586,8 @@ class Schema(SQLRecord, CanCurate, TracksRun):
             schema = (
                 Schema.using(using)
                 .filter(
+                    ~Q(branch_id=-1),
                     hash=validated_kwargs["hash"],
-                    branch_id__in=get_default_branch_ids(),
                 )
                 .one_or_none()
             )
