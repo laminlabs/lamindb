@@ -334,13 +334,11 @@ def get_stat_or_artifact(
         hash_lookup_result = []
     else:
         if key is None or is_replace:
-            hash_lookup_result = (
-                Artifact.objects.using(instance).filter(hash=hash).all()
-            )
+            hash_lookup_result = Artifact.using(instance).filter(hash=hash).all()
             artifact_with_same_hash_exists = len(hash_lookup_result) > 0
         else:
             hash_lookup_result = (
-                Artifact.objects.using(instance)
+                Artifact.using(instance)
                 .filter(Q(hash=hash) | Q(key=key, storage=storage))
                 .order_by("-created_at")
                 .all()

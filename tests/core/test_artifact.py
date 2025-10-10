@@ -296,10 +296,20 @@ def test_revise_artifact(df):
     assert not artifact_r2.is_latest
 
     # re-create based on hash while providing a different key
+    artifact_r3.delete()
     artifact_new = ln.Artifact.from_dataframe(
         df,
-        description="test1 updated",
         key="my-test-dataset1.parquet",
+    )
+    assert artifact_new != artifact_r3
+    assert artifact_new.key == "my-test-dataset1.parquet"
+    artifact_r3.restore()  # restore from trash
+
+    # re-create based on hash while providing a different key
+    artifact_new = ln.Artifact.from_dataframe(
+        df,
+        key="my-test-dataset1.parquet",
+        description="test1 updated",
     )
     assert artifact_new == artifact_r3
     assert artifact_new.key == key  # old key
@@ -308,11 +318,11 @@ def test_revise_artifact(df):
     # re-create while skipping hash lookup
     artifact_new = ln.Artifact.from_dataframe(
         df,
-        key="my-test-dataset1-new.parquet",
+        key="my-test-dataset1.parquet",
         skip_hash_lookup=True,
     )
     assert artifact_new != artifact_r3
-    assert artifact_new.key == "my-test-dataset1-new.parquet"
+    assert artifact_new.key == "my-test-dataset1.parquet"
 
     with pytest.raises(TypeError) as error:
         ln.Artifact.from_dataframe(

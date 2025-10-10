@@ -416,6 +416,31 @@ def test_mini_immuno_schema_flexible(mini_immuno_schema_flexible):
     )
 
 
+def test_schema_recovery_based_on_hash(mini_immuno_schema_flexible: ln.Schema):
+    schema = ln.Schema(
+        features=[
+            ln.Feature.get(name="perturbation"),
+            ln.Feature.get(name="cell_type_by_model"),
+        ],
+    ).save()
+    schema2 = ln.Schema(
+        features=[
+            ln.Feature.get(name="perturbation"),
+            ln.Feature.get(name="cell_type_by_model"),
+        ],
+    )
+    assert schema == schema2
+    schema.delete()
+    schema2 = ln.Schema(
+        features=[
+            ln.Feature.get(name="perturbation"),
+            ln.Feature.get(name="cell_type_by_model"),
+        ],
+    )
+    assert schema != schema2
+    schema.delete(permanent=True)
+
+
 def test_schemas_dataframe():
     # test on the Python level after record creation -- no saving!
     schema = ln.Schema(name="valid_features", itype=ln.Feature)

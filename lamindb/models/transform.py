@@ -258,14 +258,14 @@ class Transform(SQLRecord, IsVersioned):
             # need to check uid before checking key
             if uid is not None:
                 revises = (
-                    Transform.objects.using(using_key)
+                    Transform.using(using_key)
                     .filter(uid__startswith=uid[:-4], is_latest=True)
                     .order_by("-created_at")
                     .first()
                 )
             elif key is not None:
                 candidate_for_revises = (
-                    Transform.objects.using(using_key)
+                    Transform.using(using_key)
                     .filter(key=key, is_latest=True)
                     .order_by("-created_at")
                     .first()
