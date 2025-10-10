@@ -258,14 +258,14 @@ class Transform(SQLRecord, IsVersioned):
             # need to check uid before checking key
             if uid is not None:
                 revises = (
-                    Transform.using(using_key)
+                    Transform.objects.using(using_key)
                     .filter(uid__startswith=uid[:-4], is_latest=True)
                     .order_by("-created_at")
                     .first()
                 )
             elif key is not None:
                 candidate_for_revises = (
-                    Transform.using(using_key)
+                    Transform.objects.using(using_key)
                     .filter(key=key, is_latest=True)
                     .order_by("-created_at")
                     .first()
@@ -300,7 +300,7 @@ class Transform(SQLRecord, IsVersioned):
         if source_code is not None:
             hash = hash_string(source_code)
 
-            transform_candidate = Transform.filter(
+            transform_candidate = Transform.objects.filter(
                 ~Q(branch_id=-1),
                 hash=hash,
                 is_latest=True,

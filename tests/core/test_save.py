@@ -13,11 +13,11 @@ def test_bulk_save_and_update():
     labels = [ln.Record(name=name) for name in label_names]
     # test bulk creation of new records
     ln.save(labels)
-    assert len(ln.Record.filter(name__in=label_names).distinct().all()) == 3
+    assert len(ln.Record.filter(name__in=label_names).distinct()) == 3
     labels[0].name = "Record 0 updated"
     # test bulk update of existing records
     ln.save(labels)
-    assert len(ln.Record.filter(name__in=label_names).distinct().all()) == 2
+    assert len(ln.Record.filter(name__in=label_names).distinct()) == 2
     assert ln.Record.get(name="Record 0 updated")
 
 

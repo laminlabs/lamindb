@@ -334,22 +334,18 @@ def get_stat_or_artifact(
         hash_lookup_result = []
     else:
         if key is None or is_replace:
-            hash_lookup_result = (
-                Artifact.using(instance)
-                .filter(~Q(branch_id=-1), hash=hash, _skip_filter_with_features=True)
-                .all()
+            hash_lookup_result = Artifact.objects.using(instance).filter(
+                ~Q(branch_id=-1), hash=hash
             )
             artifact_with_same_hash_exists = len(hash_lookup_result) > 0
         else:
             hash_lookup_result = (
-                Artifact.using(instance)
+                Artifact.objects.using(instance)
                 .filter(
                     ~Q(branch_id=-1),
                     Q(hash=hash) | Q(key=key, storage=storage),
-                    _skip_filter_with_features=True,
                 )
                 .order_by("-created_at")
-                .all()
             )
             artifact_with_same_hash_exists = (
                 hash_lookup_result.filter(hash=hash).count() > 0
@@ -953,7 +949,7 @@ def add_labels(
     else:
         validate_feature(feature, records)  # type:ignore
         records_by_registry = defaultdict(list)
-        feature_sets = self.feature_sets.filter(itype="Feature").all()
+        feature_sets = self.feature_sets.filter(itype="Feature")
         internal_features = set()  # type: ignore
         if len(feature_sets) > 0:
             for schema in feature_sets:
@@ -1319,7 +1315,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
         Similarly, you query based on these accessors::
 
-            ln.Artifact.filter(ulabels__name="Experiment 1").all()
+            ln.Artifact.filter(ulabels__name="Experiment 1")
 
         Unlike the registry-specific accessors, the `.labels` accessor provides
         a way of associating labels with features::
@@ -1565,7 +1561,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         self._external_features = features
 
         branch = kwargs.pop("branch", None)
-        assert "space_id" not in kwargs, "Please pass branch instead of branch_id."  # noqa: S101
+        assert "branch_id" not in kwargs, "Please pass branch instead of branch_id."  # noqa: S101
         space = kwargs.pop("space", None)
         assert "space_id" not in kwargs, "Please pass space instead of space_id."  # noqa: S101
         format = kwargs.pop("format", None)

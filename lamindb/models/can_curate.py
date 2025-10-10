@@ -356,7 +356,7 @@ def _add_or_remove_synonyms(
         from IPython.display import display
 
         syns_all = (
-            record.__class__.filter().exclude(synonyms="").exclude(synonyms=None).all()  # type: ignore
+            record.__class__.filter().exclude(synonyms="").exclude(synonyms=None)  # type: ignore
         )
         if len(syns_all) == 0:
             return
