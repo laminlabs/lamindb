@@ -416,29 +416,31 @@ def test_mini_immuno_schema_flexible(mini_immuno_schema_flexible):
     )
 
 
+def test_schema_recovery_based_on_name(mini_immuno_schema_flexible: ln.Schema):
+    feature1 = ln.Feature.get(name="perturbation")
+    feature2 = ln.Feature.get(name="cell_type_by_model")
+    schema1 = ln.Schema(name="My test schema X", features=[feature1, feature2]).save()
+    assert schema1.features.count() == 2
+    schema1.delete()
+    schema2 = ln.Schema(name="My test schema X", features=[feature1]).save()
+    assert schema1 == schema2
+    assert schema2.features.count() == 1
+    schema3 = ln.Schema(name="My test schema X", features=[feature2]).save()
+    assert schema2 == schema3
+    assert schema3.features.count() == 1
+
+    schema1.delete(permanent=True)
+    schema2.delete(permanent=True)
+
+
 def test_schema_recovery_based_on_hash(mini_immuno_schema_flexible: ln.Schema):
     feature1 = ln.Feature.get(name="perturbation")
     feature2 = ln.Feature.get(name="cell_type_by_model")
-    schema = ln.Schema(
-        features=[
-            feature1,
-            feature2,
-        ],
-    ).save()
-    schema2 = ln.Schema(
-        features=[
-            feature1,
-            feature2,
-        ],
-    )
+    schema = ln.Schema(features=[feature1, feature2]).save()
+    schema2 = ln.Schema(features=[feature1, feature2])
     assert schema == schema2
     schema.delete()
-    schema2 = ln.Schema(
-        features=[
-            feature1,
-            feature2,
-        ],
-    )
+    schema2 = ln.Schema(features=[feature1, feature2])
     assert schema != schema2
     schema.delete(permanent=True)
 
