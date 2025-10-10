@@ -702,7 +702,7 @@ def filter_with_features(
 
     if expressions:
         keys_normalized = [key.split("__")[0] for key in expressions]
-        field_or_feature_or_param = keys_normalized[0].split("__")[0]
+        field_or_feature_or_param = keys_normalized[0]
         if field_or_feature_or_param in registry.__get_available_fields__():
             qs = queryset.filter(*queries, **expressions, **filter_kwargs)
         elif all(
