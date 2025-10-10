@@ -235,6 +235,24 @@ def test_get_filter_branch():
     with pytest.raises(ln.Artifact.DoesNotExist):
         ln.Artifact.get(key="df_test_get.parquet")
     assert ln.Artifact.filter(key="df_test_get.parquet").count() == 0
+    # test by passing branch directly
+    assert (
+        ln.Artifact.filter(
+            branch=branch,
+            key="df_test_get.parquet",
+        ).count()
+        == 1
+    )
+    assert (
+        ln.Artifact.filter(branch_id=branch.id, key="df_test_get.parquet").count() == 1
+    )
+    assert (
+        ln.Artifact.filter(ln.Q(branch=branch), key="df_test_get.parquet").count() == 1
+    )
+    assert (
+        ln.Artifact.filter(ln.Q(branch_id=branch.id), key="df_test_get.parquet").count()
+        == 1
+    )
 
     # errors if doesn't find or multiple records found
     ln.Artifact.get(key="df_test_get.parquet", branch=branch)
