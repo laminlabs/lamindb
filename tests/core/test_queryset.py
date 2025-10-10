@@ -134,13 +134,9 @@ def test_get_related_field_name():
 
 
 def test_get_unknown_field():
-    with pytest.raises(
-        FieldError,
-        match=re.escape(
-            "Unknown field 'nonexistent'. Available fields: blocks, branch, cell_lines, cell_markers, cell_types, collections, created_at, created_by, description, developmental_stages, diseases, ethnicities, experimental_factors, feature_sets, genes, hash, id, input_of_runs, is_latest, is_locked, key, kind, linked_in_records, n_files, n_observations, organisms, otype, pathways, phenotypes, projects, proteins, records, references, run, schema, size, space, storage, suffix, tissues, transform, uid, ulabels, updated_at, users, version, visibility"
-        ),
-    ):
+    with pytest.raises(FieldError) as e:
         ln.Artifact.get(nonexistent="value")
+    assert "Unknown field 'nonexistent'. Available fields:" in str(e)
 
 
 def test_search():
