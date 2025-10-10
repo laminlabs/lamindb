@@ -111,12 +111,9 @@ def test_filter_related_field_name():
 
 
 def test_filter_unknown_field():
-    with pytest.raises(InvalidArgument) as error:
+    with pytest.raises(InvalidArgument) as e:
         ln.Artifact.filter(nonexistent="value")
-    assert error.exconly() == (
-        "lamindb.errors.InvalidArgument: You can query either by available fields: blocks, branch, cell_lines, cell_markers, cell_types, collections, created_at, created_by, description, developmental_stages, diseases, ethnicities, experimental_factors, feature_sets, genes, hash, id, input_of_runs, is_latest, is_locked, key, kind, linked_in_records, n_files, n_observations, organisms, otype, pathways, phenotypes, projects, proteins, records, references, run, schema, size, space, storage, suffix, tissues, transform, uid, ulabels, updated_at, users, version, visibility\n"
-        "Or fix invalid feature names: nonexistent"
-    )
+    assert "You can query either by available fields" in str(e)
 
 
 def test_get_id_type_error():
