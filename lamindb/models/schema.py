@@ -584,7 +584,7 @@ class Schema(SQLRecord, CanCurate, TracksRun):
             )
         if not is_type:
             schema = (
-                Schema.using(using)
+                Schema.objects.using(using)
                 .filter(
                     ~Q(branch_id=-1),
                     hash=validated_kwargs["hash"],

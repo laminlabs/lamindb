@@ -334,22 +334,18 @@ def get_stat_or_artifact(
         hash_lookup_result = []
     else:
         if key is None or is_replace:
-            hash_lookup_result = (
-                Artifact.using(instance)
-                .filter(~Q(branch_id=-1), hash=hash, _skip_filter_with_features=True)
-                .all()
+            hash_lookup_result = Artifact.objects.using(instance).filter(
+                ~Q(branch_id=-1), hash=hash
             )
             artifact_with_same_hash_exists = len(hash_lookup_result) > 0
         else:
             hash_lookup_result = (
-                Artifact.using(instance)
+                Artifact.objects.using(instance)
                 .filter(
                     ~Q(branch_id=-1),
                     Q(hash=hash) | Q(key=key, storage=storage),
-                    _skip_filter_with_features=True,
                 )
                 .order_by("-created_at")
-                .all()
             )
             artifact_with_same_hash_exists = (
                 hash_lookup_result.filter(hash=hash).count() > 0
@@ -1565,7 +1561,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         self._external_features = features
 
         branch = kwargs.pop("branch", None)
-        assert "space_id" not in kwargs, "Please pass branch instead of branch_id."  # noqa: S101
+        assert "branch_id" not in kwargs, "Please pass branch instead of branch_id."  # noqa: S101
         space = kwargs.pop("space", None)
         assert "space_id" not in kwargs, "Please pass space instead of space_id."  # noqa: S101
         format = kwargs.pop("format", None)
