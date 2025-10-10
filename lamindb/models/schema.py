@@ -536,7 +536,7 @@ class Schema(SQLRecord, CanCurate, TracksRun):
         ordered_set: bool = kwargs.pop("ordered_set", False)
         maximal_set: bool = kwargs.pop("maximal_set", False)
         coerce_dtype: bool | None = kwargs.pop("coerce_dtype", False)
-        kwargs.pop("using", None)
+        using: str | None = kwargs.pop("using", None)
         n_features: int | None = kwargs.pop("n", None)
         kwargs.pop("branch", None)
         kwargs.pop("branch_id", 1)
@@ -583,9 +583,14 @@ class Schema(SQLRecord, CanCurate, TracksRun):
                 "Please pass features or slots or itype or set is_type=True"
             )
         if not is_type:
-            schema = Schema.filter(
-                hash=validated_kwargs["hash"], branch_id__in=get_default_branch_ids()
-            ).one_or_none()
+            schema = (
+                Schema.using(using)
+                .filter(
+                    hash=validated_kwargs["hash"],
+                    branch_id__in=get_default_branch_ids(),
+                )
+                .one_or_none()
+            )
             if schema is not None:
                 logger.important(f"returning existing schema with same hash: {schema}")
                 init_self_from_db(self, schema)
