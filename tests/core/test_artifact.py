@@ -754,7 +754,7 @@ def test_from_dir_many_artifacts(get_test_filepaths, key):
     artifacts = ln.Artifact.from_dir(test_dirpath, key=key)
     assert len(artifacts) == 2
     assert len(set(artifacts)) == len(hashes)
-    queried_artifacts = ln.Artifact.filter(uid__in=uids).all()
+    queried_artifacts = ln.Artifact.filter(uid__in=uids)
     for artifact in queried_artifacts:
         artifact.delete(permanent=True, storage=False)
 

@@ -22,7 +22,7 @@ def df():
 def test_schema_from_values():
     gene_symbols = ["TCF7", "MYC"]
     bt.settings.organism = "human"
-    bt.Gene.filter(symbol__in=gene_symbols).all().delete(permanent=True)
+    bt.Gene.filter(symbol__in=gene_symbols).delete(permanent=True)
     with pytest.raises(ValidationError) as error:
         schema = ln.Schema.from_values(gene_symbols, bt.Gene.symbol, dtype=int)
     assert error.exconly().startswith(

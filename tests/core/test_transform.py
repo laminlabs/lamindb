@@ -159,5 +159,5 @@ def test_delete():
     transform.delete(permanent=True)
     assert not report_path.exists()
     assert not environment_path.exists()
-    assert len(ln.Artifact.filter(id__in=[report.id, environment.id]).all()) == 0
-    assert len(ln.Run.filter(id=run.id).all()) == 0
+    assert len(ln.Artifact.filter(id__in=[report.id, environment.id])) == 0
+    assert len(ln.Run.filter(id=run.id)) == 0

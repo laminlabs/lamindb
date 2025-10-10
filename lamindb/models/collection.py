@@ -317,7 +317,7 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                     )
         # we ignore collections in trash containing the same hash
         if hash is not None:
-            existing_collection = Collection.filter(
+            existing_collection = Collection.objects.filter(
                 ~Q(branch_id=-1),
                 hash=hash,
             ).one_or_none()
