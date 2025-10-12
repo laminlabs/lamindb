@@ -443,6 +443,32 @@ def test_add_list_of_str_features():
     assert ln.models.FeatureValue.filter(feature__name="list_of_str").count() == 0
 
 
+def test_add_list_of_cat_features():
+    type_1 = ln.ULabel(name="Type 1", is_type=True).save()
+    [
+        ln.ULabel(name=label, type=type_1).save()
+        for label in ["label 1", "label 2", "label 3"]
+    ]
+    feat1 = ln.Feature(
+        name="single_label_of_type1", dtype=type_1, nullable=False
+    ).save()
+    feat2 = ln.Feature(
+        name="list_of_labels_of_type1", dtype=list[type_1], nullable=False
+    ).save()
+
+    schema = ln.Schema(name="Test schema", features=[feat1, feat2]).save()
+
+    ln.Artifact(
+        ".gitignore",
+        key=".gitignore",
+        schema=schema,
+        features={
+            "single_label_of_type1": "label 1",
+            "list_of_labels_of_type1": ["label 1", "label 2"],
+        },
+    ).save()
+
+
 def test_add_labels_using_anndata(adata):
     organism = bt.Organism.from_source(name="mouse")
     cell_types = [bt.CellType(name=name) for name in adata.obs["cell_type"].unique()]

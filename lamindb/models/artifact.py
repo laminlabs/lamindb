@@ -1534,10 +1534,12 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         schema: Schema | None = kwargs.pop("schema", None)
         features: dict[str, Any] | None = kwargs.pop("features", None)
         skip_hash_lookup: bool = kwargs.pop("skip_hash_lookup", False)
+
+        # validate external features if passed with a schema
         if features is not None and schema is not None:
             from lamindb.curators import DataFrameCurator
+            from lamindb.curators.core import convert_dict_to_dataframe_for_validation
 
-            temp_df = pd.DataFrame([features])
             validation_schema = schema
             if schema.itype == "Composite" and schema.slots:
                 if len(schema.slots) > 1:
@@ -1551,10 +1553,13 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                     )
                 except StopIteration:
                     raise ValueError(
-                        "External feature validation requires a slot that starts with __external."
+                        "External feature validation requires a slot that starts with __external"
                     ) from None
 
-            external_curator = DataFrameCurator(temp_df, validation_schema)
+            df_for_validation = convert_dict_to_dataframe_for_validation(
+                features, validation_schema
+            )
+            external_curator = DataFrameCurator(df_for_validation, validation_schema)
             external_curator.validate()
             external_curator._artifact = self
 

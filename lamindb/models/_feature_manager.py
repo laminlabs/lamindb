@@ -929,10 +929,10 @@ class FeatureManager:
 
         if schema is not None:
             from lamindb.curators import DataFrameCurator
+            from lamindb.curators.core import convert_dict_to_dataframe_for_validation
 
-            temp_df = pd.DataFrame([values])
-            curator = DataFrameCurator(temp_df, schema)
-            curator.validate()
+            df_for_validation = convert_dict_to_dataframe_for_validation(values, schema)
+            DataFrameCurator(df_for_validation, schema).validate()
             records = schema.members.filter(name__in=keys)
         else:
             records = registry.from_values(keys, field=feature_field, mute=True)
@@ -994,7 +994,12 @@ class FeatureManager:
                 (feature.dtype == "str" and inferred_type != "cat ? str")
                 or (feature.dtype == "list[str]" and inferred_type != "list[cat ? str]")
                 or (
+                    feature.dtype.startswith("list[cat")
+                    and inferred_type != "list[cat ? str]"
+                )
+                or (
                     feature.dtype not in {"str", "list[str]"}
+                    and not feature.dtype.startswith("list[cat")
                     and feature.dtype != inferred_type
                 )
             ):

@@ -397,6 +397,16 @@ class SlotsCurator(Curator):
         )
 
 
+def convert_dict_to_dataframe_for_validation(d: dict, schema: Schema) -> pd.DataFrame:
+    """Convert a dictionary to a DataFrame for validation against a schema."""
+    df = pd.DataFrame([d])
+    for feature in schema.members:
+        if feature.dtype.startswith("cat"):
+            if feature.name in df.columns:
+                df[feature.name] = pd.Categorical(df[feature.name])
+    return df
+
+
 # This is also currently used as DictCurator by flattening dictionaries into wide DataFrames.
 # Such an approach was never intended and there is room for a DictCurator in the future.
 # For more context, read https://laminlabs.slack.com/archives/C07DB677JF6/p1753994077716099 and
