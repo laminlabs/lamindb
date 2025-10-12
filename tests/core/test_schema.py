@@ -379,7 +379,7 @@ def test_schema_components(mini_immuno_schema_flexible: ln.Schema):
 
     try:
         ln.Schema(
-            name="small_dataset1_anndata_schema",
+            name="mini_immuno_anndata_schema",
             otype="AnnData",
             slots={"obs": obs_schema, "var": var_schema},
         ).save()
@@ -390,7 +390,7 @@ def test_schema_components(mini_immuno_schema_flexible: ln.Schema):
         )
 
     anndata_schema = ln.Schema(
-        name="small_dataset1_anndata_schema",
+        name="mini_immuno_anndata_schema",
         otype="AnnData",
         slots={"obs": obs_schema, "var": var_schema},
     ).save()

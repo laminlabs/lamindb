@@ -1154,7 +1154,7 @@ class Schema(SQLRecord, CanCurate, TracksRun):
 
                 # define composite schema
                 anndata_schema = ln.Schema(
-                    name="small_dataset1_anndata_schema",
+                    name="mini_immuno_anndata_schema",
                     otype="AnnData",
                     slots={"obs": obs_schema, "var": var_schema},
                 ).save()

@@ -9,7 +9,7 @@ from _dataset_fixtures import (  # noqa
     get_mini_csv,
 )
 from lamindb.errors import DoesNotExist, ValidationError
-from lamindb.examples.datasets import small_dataset1
+from lamindb.examples.datasets import mini_immuno
 from lamindb.models._feature_manager import describe_features
 from lamindb.models._label_manager import format_rich_tree
 from lamindb.models.artifact import add_labels
@@ -25,7 +25,7 @@ def adata():
 
 
 def test_features_add():
-    df = small_dataset1(otype="DataFrame")
+    df = mini_immuno.get_dataset1(otype="DataFrame")
     artifact = ln.Artifact.from_dataframe(df, description="test dataset").save()
     with pytest.raises(ValidationError) as err:
         artifact.features.add_values({"perturbation": df.perturbation.unique()})
@@ -49,7 +49,7 @@ Here is how to create a feature:
 
 
 def test_features_add_external():
-    df = small_dataset1(otype="DataFrame")
+    df = mini_immuno.get_dataset1(otype="DataFrame")
     artifact = ln.Artifact.from_dataframe(df, description="test dataset").save()
 
     species = ln.Feature(name="species", dtype="str").save()
