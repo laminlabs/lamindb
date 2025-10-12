@@ -1980,7 +1980,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 artifact._external_features = features
 
             curator = DataFrameCurator(artifact, schema)
-            print("Validate within from_dataframe()")
             curator.validate()
             artifact.schema = schema
             artifact._curator = curator
@@ -2949,7 +2948,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             curator = self._curator
             delattr(self, "_curator")
             # just annotates this artifact
-            print("Save_artifact")
             curator.save_artifact()
 
         return self
