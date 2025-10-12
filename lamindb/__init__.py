@@ -1,4 +1,4 @@
-"""A data lakehouse for biology.
+"""A data framework for biology.
 
 Data lineage
 ============
