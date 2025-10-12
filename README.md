@@ -5,9 +5,9 @@
 [![pypi](https://img.shields.io/pypi/v/lamindb?color=blue&label=pypi%20package)](https://pypi.org/project/lamindb)
 [![PyPI Downloads](https://img.shields.io/pepy/dt/lamindb?logo=pypi)](https://pepy.tech/project/lamindb)
 
-# LaminDB - A data lakehouse for biology
+# LaminDB - A data framework for biology
 
-LaminDB organizes datasets through validation & annotation and provides data lineage, queryability & reproducibility on top of [FAIR](https://en.wikipedia.org/wiki/FAIR_data) data.
+Leverage queryable, traceable, reproducible, and [FAIR](https://en.wikipedia.org/wiki/FAIR_data) data. All in one: lakehouse, feature store, ontologies, lineage, LIMS, ELN.
 
 <details>
 <summary>Why?</summary>
@@ -25,18 +25,20 @@ Moreover, it provides context through data lineage -- tracing data and code, sci
 
 **Highlights.**
 
-- **data lineage:** track inputs & outputs of notebooks, scripts, functions & pipelines with a single line of code
-- **unified access:** storage locations (local, S3, GCP, ...), SQL databases (Postgres, SQLite) & ontologies
-- **lakehouse**: manage, monitor & validate features, labels & dataset schemas; distributed queries and batch loading
-- **biological formats:** validate & annotate `DataFrame`, `AnnData`, `SpatialData`, ... backed by `parquet`, `zarr`, HDF5, LanceDB, ...
-- **biological entities**: manage experimental metadata & ontologies based on the Django ORM
+- **lineage:** track inputs & outputs of notebooks, scripts, functions & pipelines with a single line of code
+- **unified:** access storage locations (local, S3, GCP, ...), SQL databases (Postgres, SQLite) & ontologies
+- **lakehouse**: manage, monitor & validate schemas; query across many datasets
+- **feature store**: manage features & labels; leverage batch loading
+- **FAIR bio datasets**: validate & annotate `DataFrame`, `AnnData`, `SpatialData`, ... backed by `parquet`, `zarr`, HDF5, ...
+- **LIMS**: manage experimental metadata & ontologies based on the Django ORM
 - **reproducible & auditable:** auto-version & timestamp execution reports, source code & compute environments, attribute records to users
 - **zero lock-in & scalable:** runs in your infrastructure; is _not_ a client for a rate-limited REST API
 - **extendable:** create custom plug-ins for your own applications based on the Django ecosystem
 - **integrations:** visualization tools like [vitessce](https://docs.lamin.ai/vitessce), workflow managers like [nextflow](https://docs.lamin.ai/nextflow) & [redun](https://docs.lamin.ai/redun), and [other tools](https://docs.lamin.ai/integrations)
+- **ELN**: attach versioned markdown pages to any entity
 - **production-ready:** used in BigPharma, BioTech, hospitals & top labs
 
-LaminDB can be connected to LaminHub to serve as a [LIMS](https://en.wikipedia.org/wiki/Laboratory_information_management_system) for wetlab scientists, closing the drylab-wetlab feedback loop: [lamin.ai](https://lamin.ai).
+If you want a GUI, connect your LaminDB instance to LaminHub and close the drylab-wetlab feedback loop: [lamin.ai](https://lamin.ai).
 
 ## Docs
 
