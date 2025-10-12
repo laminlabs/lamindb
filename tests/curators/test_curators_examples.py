@@ -275,7 +275,7 @@ Artifact .parquet · DataFrame · dataset
 
     # a second dataset with missing values
     ln.ULabel.from_values(["sample4", "sample5", "sample6"], create=True).save()
-    df = ln.examples.datasets.small_dataset2(
+    df = ln.examples.datasets.mini_immuno.get_dataset2(
         otype="DataFrame", gene_symbols_in_index=True
     )
     curator = ln.curators.DataFrameCurator(df, mini_immuno_schema)
