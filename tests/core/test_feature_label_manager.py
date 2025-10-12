@@ -445,10 +445,8 @@ def test_add_list_of_str_features():
 
 def test_add_list_of_cat_features():
     type_1 = ln.ULabel(name="Type 1", is_type=True).save()
-    [
+    for label in ["label 1", "label 2", "label 3"]:
         ln.ULabel(name=label, type=type_1).save()
-        for label in ["label 1", "label 2", "label 3"]
-    ]
     feat1 = ln.Feature(
         name="single_label_of_type1", dtype=type_1, nullable=False
     ).save()
