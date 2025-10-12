@@ -248,10 +248,10 @@ class SchemaOptionals:
                 )
 
 
-KNOWN_SCHEMAS = {
+KNOWN_SCHEMAS = {  # by hash
     "kMi7B_N88uu-YnbTLDU-DA": "0000000000000000",  # valid_features
     "1gocc_TJ1RU2bMwDRK-WUA": "0000000000000001",  # valid_ensembl_gene_ids
-    "GTxxM36n9tocphLfdbNt9g": "0000000000000002",  # anndata_ensembl_gene_ids_and_valid_features_in_obs
+    "UR_ozz2VI2sY8ckXop2RAg": "0000000000000002",  # anndata_ensembl_gene_ids_and_valid_features_in_obs
 }
 
 
