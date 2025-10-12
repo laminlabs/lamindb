@@ -109,7 +109,7 @@ You can organize datasets with validation & annotation of any kind of metadata t
 To annotate an artifact with a label, use:
 
 ```python
-my_experiment = ln.Record(name="My experiment").save()  # create a label in the universal label ontology
+my_experiment = ln.Record(name="My experiment").save()  # create a label record
 artifact.records.add(my_experiment)  # annotate the artifact with the label
 ```
 
