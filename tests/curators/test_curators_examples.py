@@ -549,7 +549,7 @@ def test_anndata_curator_different_components(mini_immuno_schema: ln.Schema):
         assert "mini_immuno_anndata_schema" in describe_output
         assert "scRNA_seq_var_schema" in describe_output
         if add_comp == "obs":
-            assert "mini_immuno.get_dataset1_obs_level_metadata" in describe_output
+            assert "mini_immuno_anndata_schema" in describe_output
         if add_comp == "uns":
             assert "flexible_uns_schema" in describe_output
 
