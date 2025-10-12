@@ -331,7 +331,7 @@ class SlotsCurator(Curator):
     def validate(self) -> None:
         """{}"""  # noqa: D415
         for slot, curator in self._slots.items():
-            logger.info(f"validating slot {slot} ...")
+            logger.debug(f"validating slot {slot} ...")
             curator.validate()
         # set _is_validated to True as no slot raised an error
         self._is_validated = True
@@ -706,13 +706,11 @@ class DataFrameCurator(SlotsCurator):
     ) -> None:
         super().__init__(dataset=dataset, schema=schema)
 
-        # Create atomic curator for features only
-        if len(self._schema.features.all()) > 0:
-            self._atomic_curator = ComponentCurator(
-                dataset=dataset,
-                schema=schema,
-                slot=slot,
-            )
+        self._atomic_curator = ComponentCurator(
+            dataset=dataset,
+            schema=schema,
+            slot=slot,
+        )
 
         # Handle (nested) attrs
         if slot is None and schema.slots:
@@ -728,11 +726,11 @@ class DataFrameCurator(SlotsCurator):
                             data = _resolve_schema_slot_path(
                                 attrs_dict, deeper_keys, slot_name, "attrs"
                             )
-                        df = pd.DataFrame([data])
+                        df = convert_dict_to_dataframe_for_validation(data, slot_schema)
                         self._slots[slot_name] = ComponentCurator(
                             df, slot_schema, slot=slot_name
                         )
-                else:
+                elif slot_name != "__external__":
                     raise ValueError(
                         f"Slot '{slot_name}' is not supported for DataFrameCurator. Must be 'attrs'."
                     )
@@ -827,13 +825,18 @@ def _resolve_schema_slot_path(
         base_path += f"['{key}']"
         try:
             current = current[key]
-        except KeyError:
+        except (
+            KeyError,
+            TypeError,
+        ):  # if not a dict, raises TypeError; if a dict and key not found, raises KeyError
             available = (
-                list(current.keys()) if isinstance(current, dict) else "not a dict"
+                list(current.keys())
+                if isinstance(current, dict)
+                else "none (not a dict)"
             )
             raise InvalidArgument(
                 f"Schema slot '{slot}' requires keys {base_path} but key '{key}' "
-                f"not found. Available keys at this level: {available}"
+                f"not found. Available keys at this level: {available}."
             ) from None
 
     return current

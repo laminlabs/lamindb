@@ -3,9 +3,15 @@ from pathlib import Path
 from subprocess import DEVNULL, run
 from time import perf_counter
 
+import anndata as ad
 import lamindb as ln
 import lamindb_setup as ln_setup
+import numpy as np
+import pandas as pd
 import pytest
+
+# for artifact fixtures
+import yaml  # type: ignore
 from lamin_utils import logger
 from laminci.db import setup_local_test_postgres
 
@@ -100,3 +106,71 @@ def get_test_filepaths(request):  # -> Tuple[bool, Path, Path, Path, str]
         hash_test_dir,
     )
     shutil.rmtree(test_dirpath)
+
+
+@pytest.fixture(scope="session")
+def df():
+    return pd.DataFrame({"feat1": [1, 2], "feat2": [3, 4]})
+
+
+@pytest.fixture(scope="session")
+def adata_file():
+    adata = ad.AnnData(
+        X=np.array([[1, 2, 3], [4, 5, 6]]),
+        obs={"feat1": ["A", "B"]},
+        var=pd.DataFrame(index=["MYC", "TCF7", "GATA1"]),
+        obsm={"X_pca": np.array([[1, 2], [3, 4]])},
+    )
+    filepath = Path("adata_file.h5ad")
+    adata.write(filepath)
+    yield "adata_file.h5ad"
+    filepath.unlink()
+
+
+@pytest.fixture(scope="session")
+def tsv_file():
+    filepath = Path("test.tsv")
+    pd.DataFrame([1, 2]).to_csv(filepath, sep="\t")
+    yield filepath
+    filepath.unlink()
+
+
+@pytest.fixture(scope="session")
+def zip_file():
+    filepath = Path("test.zip")
+    pd.DataFrame([1, 2]).to_csv(filepath, sep="\t")
+    yield filepath
+    filepath.unlink(missing_ok=True)
+
+
+@pytest.fixture(scope="session")
+def yaml_file():
+    filepath = Path("test.yaml")
+    dct = {"a": 1, "b": 2}
+    with open(filepath, "w") as f:
+        yaml.dump(dct, f)
+    yield filepath
+    filepath.unlink()
+
+
+@pytest.fixture(scope="session")
+def fcs_file():
+    fcs_path = ln.examples.datasets.file_fcs_alpert19()
+    yield fcs_path
+    fcs_path.unlink()
+
+
+@pytest.fixture(scope="session")
+def mudata_file(get_small_mdata):
+    filepath = Path("test.h5mu")
+    get_small_mdata.write(filepath)
+    yield filepath
+    filepath.unlink()
+
+
+@pytest.fixture(scope="session")
+def spatialdata_file(get_small_sdata):
+    filepath = Path("test.zarr")
+    get_small_sdata.write(filepath)
+    yield filepath
+    shutil.rmtree(filepath)

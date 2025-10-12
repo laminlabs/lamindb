@@ -248,10 +248,10 @@ class SchemaOptionals:
                 )
 
 
-KNOWN_SCHEMAS = {
+KNOWN_SCHEMAS = {  # by hash
     "kMi7B_N88uu-YnbTLDU-DA": "0000000000000000",  # valid_features
     "1gocc_TJ1RU2bMwDRK-WUA": "0000000000000001",  # valid_ensembl_gene_ids
-    "GTxxM36n9tocphLfdbNt9g": "0000000000000002",  # anndata_ensembl_gene_ids_and_valid_features_in_obs
+    "UR_ozz2VI2sY8ckXop2RAg": "0000000000000002",  # anndata_ensembl_gene_ids_and_valid_features_in_obs
 }
 
 
@@ -726,56 +726,56 @@ class Schema(SQLRecord, CanCurate, TracksRun):
 
         if aux_dict:
             validated_kwargs["_aux"] = aux_dict
+        HASH_CODE = {
+            "dtype": "a",
+            "itype": "b",
+            "minimal_set": "c",
+            "ordered_set": "d",
+            "maximal_set": "e",
+            "flexible": "f",
+            "coerce_dtype": "g",
+            "n": "h",
+            "optional": "i",
+            "features_hash": "j",
+            "index": "k",
+            "slots_hash": "l",
+        }
+        # we do not want pure informational annotations like otype, name, type, is_type, otype to be part of the hash
+        hash_args = ["dtype", "itype", "minimal_set", "ordered_set", "maximal_set"]
+        list_for_hashing = [
+            f"{HASH_CODE[arg]}={validated_kwargs[arg]}"
+            for arg in hash_args
+            if validated_kwargs[arg] is not None
+        ]
+        # only include in hash if not default so that it's backward compatible with records for which flexible was never set
+        if flexible != flexible_default:
+            list_for_hashing.append(f"{HASH_CODE['flexible']}={flexible}")
+        if coerce_dtype != coerce_dtype_default:
+            list_for_hashing.append(f"{HASH_CODE['coerce_dtype']}={coerce_dtype}")
+        if n_features != n_features_default:
+            list_for_hashing.append(f"{HASH_CODE['n']}={n_features}")
+        if index is not None:
+            list_for_hashing.append(f"{HASH_CODE['index']}={index.uid}")
+        if features:
+            if optional_features:
+                feature_list_for_hashing = [
+                    feature.uid
+                    if feature not in set(optional_features)
+                    else f"{feature.uid}({HASH_CODE['optional']})"
+                    for feature in features
+                ]
+            else:
+                feature_list_for_hashing = [feature.uid for feature in features]
+            if not ordered_set:  # order matters if ordered_set is True, if not sort
+                feature_list_for_hashing = sorted(feature_list_for_hashing)
+            features_hash = hash_string(":".join(feature_list_for_hashing))
+            list_for_hashing.append(f"{HASH_CODE['features_hash']}={features_hash}")
         if slots:
-            list_for_hashing = [component.hash for component in slots.values()]
-        else:
-            HASH_CODE = {
-                "dtype": "a",
-                "itype": "b",
-                "minimal_set": "c",
-                "ordered_set": "d",
-                "maximal_set": "e",
-                "flexible": "f",
-                "coerce_dtype": "g",
-                "n": "h",
-                "optional": "i",
-                "features_hash": "j",
-                "index": "k",
-            }
-            # we do not want pure informational annotations like otype, name, type, is_type, otype to be part of the hash
-            hash_args = ["dtype", "itype", "minimal_set", "ordered_set", "maximal_set"]
-            list_for_hashing = [
-                f"{HASH_CODE[arg]}={validated_kwargs[arg]}"
-                for arg in hash_args
-                if validated_kwargs[arg] is not None
-            ]
-            # only include in hash if not default so that it's backward compatible with records for which flexible was never set
-            if flexible != flexible_default:
-                list_for_hashing.append(f"{HASH_CODE['flexible']}={flexible}")
-            if coerce_dtype != coerce_dtype_default:
-                list_for_hashing.append(f"{HASH_CODE['coerce_dtype']}={coerce_dtype}")
-            if n_features != n_features_default:
-                list_for_hashing.append(f"{HASH_CODE['n']}={n_features}")
-            if index is not None:
-                list_for_hashing.append(f"{HASH_CODE['index']}={index.uid}")
-            if features:
-                if optional_features:
-                    feature_list_for_hashing = [
-                        feature.uid
-                        if feature not in set(optional_features)
-                        else f"{feature.uid}({HASH_CODE['optional']})"
-                        for feature in features
-                    ]
-                else:
-                    feature_list_for_hashing = [feature.uid for feature in features]
-                # order matters if ordered_set is True
-                if ordered_set:
-                    features_hash = hash_string(":".join(feature_list_for_hashing))
-                else:
-                    features_hash = hash_string(
-                        ":".join(sorted(feature_list_for_hashing))
-                    )
-                list_for_hashing.append(f"{HASH_CODE['features_hash']}={features_hash}")
+            slots_list_for_hashing = sorted(
+                [f"{key}={component.hash}" for key, component in slots.items()]
+            )
+            slots_hash = hash_string(":".join(slots_list_for_hashing))
+            list_for_hashing.append(f"{HASH_CODE['slots_hash']}={slots_hash}")
 
         if is_type:
             validated_kwargs["hash"] = None

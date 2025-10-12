@@ -704,28 +704,34 @@ def test_anndata_curator_nested_uns(study_metadata_schema, anndata_uns_schema):
     ].features.first() == ln.Feature.get(name="temperature")
 
     adata = datasets.mini_immuno.get_dataset1(otype="AnnData")
-    bad_schema = ln.Schema(
+    bad_schema1 = ln.Schema(
         otype="AnnData",
         slots={"uns:nonexistent": study_metadata_schema},
     ).save()
     with pytest.raises(InvalidArgument) as e:
-        ln.curators.AnnDataCurator(adata, bad_schema)
+        ln.curators.AnnDataCurator(adata, bad_schema1)
     assert (
-        "Schema slot 'uns:study_metadata' requires keys uns['study_metadata'] but key 'study_metadata' not found."
+        "Schema slot 'uns:nonexistent' requires keys uns['nonexistent'] but key 'nonexistent' not found."
         in str(e.value)
     )
 
     with pytest.raises(InvalidArgument) as e:
-        bad_schema = ln.Schema(
+        bad_schema2 = ln.Schema(
             otype="AnnData",
             slots={"uns:temperature:nonexistent_nested": study_metadata_schema},
         ).save()
-        ln.curators.AnnDataCurator(adata, bad_schema)
-    assert "key 'study_metadata' not found" in str(e.value)
+        ln.curators.AnnDataCurator(adata, bad_schema2)
+    assert (
+        "Schema slot 'uns:temperature:nonexistent_nested' requires keys uns['temperature']['nonexistent_nested'] but key 'nonexistent_nested' not found. Available keys at this level: none (not a dict)."
+        in str(e.value)
+    )
 
-    # Clean up
+    inferred_sets = artifact.feature_sets.all()
+    for inferred_set in inferred_sets:
+        artifact.feature_sets.remove(inferred_set)
     artifact.delete(permanent=True)
-    bad_schema.delete(permanent=True)
+    bad_schema1.delete(permanent=True)
+    bad_schema2.delete(permanent=True)
     anndata_uns_schema.delete(permanent=True)
 
 

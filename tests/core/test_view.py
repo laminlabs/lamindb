@@ -1,6 +1,6 @@
 import lamindb as ln
 
 
-def test_vew():
+def test_view():
     ln.view(modules="core")
     ln.view()

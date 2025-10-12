@@ -496,19 +496,23 @@ def test_schemas_anndata():
         slots={"obs": obs_schema, "var.T": varT_schema.save()},
     )
     assert schema._list_for_hashing == [
-        "1gocc_TJ1RU2bMwDRK-WUA",
-        "kMi7B_N88uu-YnbTLDU-DA",
+        "a=num",
+        "b=Composite",
+        "c=True",
+        "d=False",
+        "e=False",
+        "l=GPZ-TzvKRhdC1PQAhlFiow",
     ]
     assert schema.name == "anndata_ensembl_gene_ids_and_valid_features_in_obs"
     assert schema.itype == "Composite"
-    assert schema.hash == "GTxxM36n9tocphLfdbNt9g"
+    assert schema.hash == "UR_ozz2VI2sY8ckXop2RAg"
 
     # test the convenience function
     schema = ln.examples.schemas.anndata_ensembl_gene_ids_and_valid_features_in_obs()
     assert schema.uid == "0000000000000002"
     assert schema.name == "anndata_ensembl_gene_ids_and_valid_features_in_obs"
     assert schema.itype == "Composite"
-    assert schema.hash == "GTxxM36n9tocphLfdbNt9g"
+    assert schema.hash == "UR_ozz2VI2sY8ckXop2RAg"
     varT_schema = schema.slots["var.T"]
     assert varT_schema.uid == "0000000000000001"
     assert varT_schema.name == "valid_ensembl_gene_ids"
