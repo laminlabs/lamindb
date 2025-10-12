@@ -1,7 +1,6 @@
 # ruff: noqa: F811
 
 import datetime
-from pathlib import Path
 
 import bionty as bt
 import lamindb as ln
@@ -356,49 +355,6 @@ Here is how to create a feature:
     bt.Disease.filter().delete(permanent=True)
 
 
-# most underlying logic here is comprehensively tested in test_context
-def test_params_add():
-    path = Path("mymodel.pt")
-    path.touch()
-    artifact = ln.Artifact("mymodel.pt", kind="model", description="hello").save()
-    ln.Feature(name="learning_rate", dtype="float").save()
-    ln.Feature(name="quantification", dtype="dict").save()
-    artifact.features.add_values({"learning_rate": 0.01})
-    artifact.features.add_values(
-        {
-            "quantification": {
-                "name": "mcquant",
-                "container": "labsyspharm/quantification",
-            }
-        }
-    )
-    assert artifact.features.get_values() == {
-        "learning_rate": 0.01,
-        "quantification": {
-            "name": "mcquant",
-            "container": "labsyspharm/quantification",
-        },
-    }
-    # test describe params
-    tree = describe_features(artifact)
-    assert tree.label.plain == "Artifact .pt"
-    assert tree.children[0].label.plain == "Linked features"
-    assert len(tree.children[0].children[0].label.columns) == 3
-    assert tree.children[0].children[0].label.columns[0]._cells == [
-        "learning_rate",
-        "quantification",
-    ]
-    assert tree.children[0].children[0].label.columns[1]._cells[0].plain == "float"
-    assert tree.children[0].children[0].label.columns[1]._cells[1].plain == "dict"
-    assert tree.children[0].children[0].label.columns[2]._cells == [
-        "0.01",
-        "{'name': 'mcquant', 'container': 'labsyspharm/quantification'}",
-    ]
-    artifact.describe()
-    artifact.delete(permanent=True)
-    path.unlink()
-
-
 def test_labels_add(adata):
     label = ln.Record(name="Experiment 1")
     artifact = ln.Artifact.from_anndata(adata, description="test").save()
@@ -474,6 +430,17 @@ def test_labels_add(adata):
     ln.Schema.filter().delete(permanent=True)
     ln.Feature.filter().delete(permanent=True)
     ln.Record.filter().delete(permanent=True)
+
+
+def test_add_list_of_str_features():
+    feature = ln.Feature(name="list_of_str", dtype=list[str]).save()
+    artifact = ln.Artifact(".gitignore", key=".gitignore").save()
+    artifact.features.add_values({"list_of_str": ["1", "2", "3"]})
+    assert artifact.features.get_values() == {"list_of_str": ["1", "2", "3"]}
+    artifact.delete(permanent=True)
+    assert ln.models.FeatureValue.filter(feature__name="list_of_str").count() == 1
+    feature.delete(permanent=True)
+    assert ln.models.FeatureValue.filter(feature__name="list_of_str").count() == 0
 
 
 def test_add_labels_using_anndata(adata):
