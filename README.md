@@ -23,9 +23,9 @@ Moreover, it provides context through data lineage -- tracing data and code, sci
 
 </details>
 
-<img width="700px" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/BunYmHkyFLITlM5M0005.png">
+<img width="800px" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/BunYmHkyFLITlM5M0005.png">
 
-**Highlights.**
+Highlights:
 
 - **lineage:** track inputs & outputs of notebooks, scripts, functions & pipelines with a single line of code
 - **lakehouse**: manage, monitor & validate schemas; query across many datasets
