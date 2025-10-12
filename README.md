@@ -7,7 +7,7 @@
 
 # LaminDB - A data framework for biology
 
-Leverage queryable, traceable, reproducible, and [FAIR](https://en.wikipedia.org/wiki/FAIR_data) data. All in one: lakehouse, feature store, ontologies, lineage, LIMS, ELN.
+Makes your data queryable, traceable, reproducible, and FAIR. One API: lakehouse, lineage, feature store, ontologies, LIMS, ELN.
 
 <details>
 <summary>Why?</summary>
@@ -28,13 +28,13 @@ Morever, it provides context through data lineage -- tracing data and code, scie
 - **lineage:** track inputs & outputs of notebooks, scripts, functions & pipelines with a single line of code
 - **lakehouse**: manage, monitor & validate schemas; query across many datasets
 - **feature store**: manage features & labels; leverage batch loading
-- **FAIR bio datasets**: validate & annotate `DataFrame`, `AnnData`, `SpatialData`, ... backed by `parquet`, `zarr`, HDF5, ...
-- **LIMS & ELN**: manage experimental metadata, ontologies & markdown documentation based on Django the ORM
+- **FAIR datasets**: validate & annotate `DataFrame`, `AnnData`, `SpatialData`, `parquet`, `.h5ad`, `zarr`, ...
+- **LIMS & ELN**: manage experimental metadata, ontologies & markdown notes
 - **unified access:** storage locations (local, S3, GCP, ...), SQL databases (Postgres, SQLite) & ontologies
 - **reproducible & auditable:** auto-version & timestamp execution reports, source code & environments; attribute records to users
 - **integrations:** [vitessce](https://docs.lamin.ai/vitessce), [nextflow](https://docs.lamin.ai/nextflow), [redun](https://docs.lamin.ai/redun), and [more](https://docs.lamin.ai/integrations)
 - **zero lock-in & scalable:** runs in your infrastructure; not a client for a rate-limited REST API
-- **extendable:** create custom plug-ins based on the Django ecosystem
+- **extendable:** create custom plug-ins based on the Django ORM
 - **production-ready:** used in BigPharma, BioTech, hospitals & top labs
 
 If you want a GUI, you can connect your LaminDB instance to LaminHub and close the drylab-wetlab feedback loop: [lamin.ai](https://lamin.ai).
