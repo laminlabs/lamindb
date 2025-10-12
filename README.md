@@ -37,7 +37,7 @@ Morever, it provides context through data lineage -- tracing data and code, scie
 - **extendable:** create custom plug-ins based on the Django ecosystem
 - **production-ready:** used in BigPharma, BioTech, hospitals & top labs
 
-If you want a GUI, connect your LaminDB instance to LaminHub and close the drylab-wetlab feedback loop: [lamin.ai](https://lamin.ai).
+If you want a GUI, you can connect your LaminDB instance to LaminHub and close the drylab-wetlab feedback loop: [lamin.ai](https://lamin.ai).
 
 ## Docs
 
