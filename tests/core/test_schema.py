@@ -336,22 +336,29 @@ def test_schema_update(
     artifact.delete(permanent=True)
 
 
-def test_schema_mutations_feature_removal(mini_immuno_schema_flexible: ln.Schema):
+def test_schema_mutations_feature_removal(
+    mini_immuno_schema_flexible: ln.Schema, ccaplog
+):
     feature1 = ln.Feature.get(name="perturbation")
     feature2 = ln.Feature.get(name="cell_type_by_model")
-    schema1 = ln.Schema(name="My test schema X", features=[feature1, feature2]).save()
-    assert schema1.features.count() == 2
-    schema1.delete()
-    # because schema1 is in trash, name lookup doesn't trigger
-    schema2 = ln.Schema(name="My test schema X", features=[feature1, feature2]).save()
-    assert schema1 != schema2
-    assert schema2.features.count() == 2
-    schema3 = ln.Schema(name="My test schema X", features=[feature2]).save()
-    assert schema2 == schema3
-    assert schema3.features.count() == 1
-    assert schema3.features.first() == feature2
-    schema1.delete(permanent=True)
-    schema2.delete(permanent=True)
+    dummy_artifact = ln.Artifact(".gitignore", key=".gitignore").save()
+    # define the schema the first time
+    schema = ln.Schema(name="My test schema X", features=[feature1, feature2]).save()
+    assert schema.features.count() == 2
+    dummy_artifact.schema = schema  # pretend artifact was validated with this schema
+    dummy_artifact.save()
+    # define the schema the first time
+    schema1 = ln.Schema(name="My test schema X", features=[feature2]).save()
+    # retrieves same schema because of name equality
+    assert ccaplog.text.count("you're removing these features:") == 1
+    assert (
+        ccaplog.text.count("you updated the schema hash and might invalidate datasets")
+        == 1
+    )
+    assert schema1 == schema
+    assert schema1.features.count() == 1
+    dummy_artifact.delete(permanent=True)
+    schema.delete(permanent=True)
 
 
 def test_schema_components(mini_immuno_schema_flexible: ln.Schema):

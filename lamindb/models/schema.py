@@ -942,9 +942,6 @@ class Schema(SQLRecord, CanCurate, TracksRun):
                     features_to_delete = [
                         f for f in existing_features if f not in features
                     ]
-                    logger.warning(
-                        f"you updated the schema features and might invalidate datasets that were previously validated with these features: {features_to_delete}"
-                    )
             else:
                 features = existing_features
             index_feature = self.index
@@ -973,7 +970,10 @@ class Schema(SQLRecord, CanCurate, TracksRun):
                 datasets = Artifact.filter(schema=self)
                 if datasets.exists():
                     logger.warning(
-                        f"you updated the schema hash and might invalidate datasets that were previously validated with this schema: {datasets.to_list('uid')}"
+                        f"you're removing these features: {features_to_delete}"
+                    )
+                    logger.warning(
+                        f"you updated the schema hash and might invalidate datasets that were previously validated with this schema:\n{datasets.to_dataframe()}"
                     )
                 self.hash = validated_kwargs["hash"]
                 self.n = validated_kwargs["n"]
