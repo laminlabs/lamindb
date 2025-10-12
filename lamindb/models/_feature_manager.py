@@ -470,7 +470,7 @@ def describe_features(
         for child in int_features_tree_children:
             dataset_tree.add(child)
 
-    # Linked features
+    # External features
     ext_features_tree_children = []
     if external_data:
         ext_features_tree_children.append(
@@ -481,7 +481,7 @@ def describe_features(
             )
         )
     # ext_features_tree = None
-    ext_features_header = Text("Linked features", style="bold dark_orange")
+    ext_features_header = Text("External features", style="bold dark_orange")
     if ext_features_tree_children:
         ext_features_tree = tree.add(ext_features_header)
         for child in ext_features_tree_children:
@@ -1004,7 +1004,9 @@ class FeatureManager:
                 raise ValidationError(
                     f"Expected dtype for '{feature.name}' is '{feature.dtype}', got '{inferred_type}'"
                 )
-            if not feature.dtype.startswith("cat"):
+            if not (
+                feature.dtype.startswith("cat") or feature.dtype.startswith("list[cat")
+            ):
                 filter_kwargs = {model_name.lower(): feature, "value": converted_value}
                 feature_value, _ = value_model.get_or_create(**filter_kwargs)
                 _feature_values.append(feature_value)

@@ -248,7 +248,7 @@ Here is how to create a feature:
     # hard to test because of italic formatting
     tree = describe_features(artifact)
     format_rich_tree(tree)
-    assert tree.children[0].label.plain == "Linked features"
+    assert tree.children[0].label.plain == "External features"
     assert len(tree.children[0].children[0].label.columns) == 3
     assert len(tree.children[0].children[0].label.rows) == 10
     assert tree.children[0].children[0].label.columns[0]._cells == [
@@ -454,6 +454,8 @@ def test_add_list_of_cat_features():
         name="list_of_labels_of_type1", dtype=list[type_1], nullable=False
     ).save()
     schema = ln.Schema(name="Test schema", features=[feat1, feat2]).save()
+    # first end-to-end test of adding labels and passing a schema
+    # this calls features.add_values() under-the-hood
     artifact = ln.Artifact(
         ".gitignore",
         key=".gitignore",
@@ -463,6 +465,27 @@ def test_add_list_of_cat_features():
             "list_of_labels_of_type1": ["label 1", "label 2"],
         },
     ).save()
+    # now just use add_values()
+    with pytest.raises(ValidationError) as error:
+        artifact.features.add_values(
+            {
+                "single_label_of_type1": "invalid",
+            }
+        )
+    assert error.exconly().startswith(
+        "lamindb.errors.ValidationError: These values could not be validated: {'ULabel': ['invalid']}"
+    )
+    # now for list of labels
+    with pytest.raises(ValidationError) as error:
+        artifact.features.add_values(
+            {
+                "list_of_labels_of_type1": ["invalid", "invalid2"],
+            }
+        )
+    assert error.exconly().startswith(
+        "lamindb.errors.ValidationError: These values could not be validated: {'ULabel': ['invalid', 'invalid2']}"
+    )
+
     artifact.delete(permanent=True)
     schema.delete(permanent=True)
     feat1.delete(permanent=True)
