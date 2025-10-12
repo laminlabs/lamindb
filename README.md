@@ -26,16 +26,15 @@ Morever, it provides context through data lineage -- tracing data and code, scie
 **Highlights.**
 
 - **lineage:** track inputs & outputs of notebooks, scripts, functions & pipelines with a single line of code
-- **unified:** access storage locations (local, S3, GCP, ...), SQL databases (Postgres, SQLite) & ontologies
 - **lakehouse**: manage, monitor & validate schemas; query across many datasets
 - **feature store**: manage features & labels; leverage batch loading
 - **FAIR bio datasets**: validate & annotate `DataFrame`, `AnnData`, `SpatialData`, ... backed by `parquet`, `zarr`, HDF5, ...
-- **LIMS**: manage experimental metadata & ontologies based on the Django ORM
-- **reproducible & auditable:** auto-version & timestamp execution reports, source code & compute environments, attribute records to users
-- **zero lock-in & scalable:** runs in your infrastructure; is _not_ a client for a rate-limited REST API
-- **extendable:** create custom plug-ins for your own applications based on the Django ecosystem
-- **integrations:** visualization tools like [vitessce](https://docs.lamin.ai/vitessce), workflow managers like [nextflow](https://docs.lamin.ai/nextflow) & [redun](https://docs.lamin.ai/redun), and [other tools](https://docs.lamin.ai/integrations)
-- **ELN**: attach versioned markdown pages to any entity
+- **LIMS & ELN**: manage experimental metadata, ontologies & markdown documentation based on Django the ORM
+- **unified access:** storage locations (local, S3, GCP, ...), SQL databases (Postgres, SQLite) & ontologies
+- **reproducible & auditable:** auto-version & timestamp execution reports, source code & environments; attribute records to users
+- **integrations:** [vitessce](https://docs.lamin.ai/vitessce), [nextflow](https://docs.lamin.ai/nextflow), [redun](https://docs.lamin.ai/redun), and [more](https://docs.lamin.ai/integrations)
+- **zero lock-in & scalable:** runs in your infrastructure; not a client for a rate-limited REST API
+- **extendable:** create custom plug-ins based on the Django ecosystem
 - **production-ready:** used in BigPharma, BioTech, hospitals & top labs
 
 If you want a GUI, connect your LaminDB instance to LaminHub and close the drylab-wetlab feedback loop: [lamin.ai](https://lamin.ai).
