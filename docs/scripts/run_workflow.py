@@ -27,7 +27,7 @@ if __name__ == "__main__":
     ln.track(params=params)
 
     if args.subset:
-        df = ln.examples.datasets.small_dataset1(otype="DataFrame")
+        df = ln.examples.datasets.mini_immuno.get_dataset1(otype="DataFrame")
         artifact = ln.Artifact.from_dataframe(
             df, key="my_analysis/dataset.parquet"
         ).save()

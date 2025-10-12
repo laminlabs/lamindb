@@ -7,7 +7,7 @@ import pytest
 
 def pytest_sessionstart():
     t_execute_start = perf_counter()
-    ln_setup.init(storage="./testdb", modules="bionty,wetlab")
+    ln_setup.init(storage="./testdb", modules="bionty")
     total_time_elapsed = perf_counter() - t_execute_start
     print(f"time to setup the instance: {total_time_elapsed:.1f}s")
 

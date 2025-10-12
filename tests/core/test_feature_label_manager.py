@@ -1,7 +1,6 @@
 # ruff: noqa: F811
 
 import datetime
-from pathlib import Path
 
 import bionty as bt
 import lamindb as ln
@@ -10,7 +9,7 @@ from _dataset_fixtures import (  # noqa
     get_mini_csv,
 )
 from lamindb.errors import DoesNotExist, ValidationError
-from lamindb.examples.datasets import small_dataset1
+from lamindb.examples.datasets import mini_immuno
 from lamindb.models._feature_manager import describe_features
 from lamindb.models._label_manager import format_rich_tree
 from lamindb.models.artifact import add_labels
@@ -18,7 +17,7 @@ from lamindb.models.artifact import add_labels
 
 @pytest.fixture(scope="module")
 def adata():
-    adata = ln.core.datasets.anndata_with_obs()
+    adata = ln.examples.datasets.anndata_with_obs()
     # add another column
     adata.obs["cell_type_by_expert"] = adata.obs["cell_type"]
     adata.obs.loc["obs0", "cell_type_by_expert"] = "B cell"
@@ -26,7 +25,7 @@ def adata():
 
 
 def test_features_add():
-    df = small_dataset1(otype="DataFrame")
+    df = mini_immuno.get_dataset1(otype="DataFrame")
     artifact = ln.Artifact.from_dataframe(df, description="test dataset").save()
     with pytest.raises(ValidationError) as err:
         artifact.features.add_values({"perturbation": df.perturbation.unique()})
@@ -50,7 +49,7 @@ Here is how to create a feature:
 
 
 def test_features_add_external():
-    df = small_dataset1(otype="DataFrame")
+    df = mini_immuno.get_dataset1(otype="DataFrame")
     artifact = ln.Artifact.from_dataframe(df, description="test dataset").save()
 
     species = ln.Feature(name="species", dtype="str").save()
@@ -249,7 +248,7 @@ Here is how to create a feature:
     # hard to test because of italic formatting
     tree = describe_features(artifact)
     format_rich_tree(tree)
-    assert tree.children[0].label.plain == "Linked features"
+    assert tree.children[0].label.plain == "External features"
     assert len(tree.children[0].children[0].label.columns) == 3
     assert len(tree.children[0].children[0].label.rows) == 10
     assert tree.children[0].children[0].label.columns[0]._cells == [
@@ -356,49 +355,6 @@ Here is how to create a feature:
     bt.Disease.filter().delete(permanent=True)
 
 
-# most underlying logic here is comprehensively tested in test_context
-def test_params_add():
-    path = Path("mymodel.pt")
-    path.touch()
-    artifact = ln.Artifact("mymodel.pt", kind="model", description="hello").save()
-    ln.Feature(name="learning_rate", dtype="float").save()
-    ln.Feature(name="quantification", dtype="dict").save()
-    artifact.features.add_values({"learning_rate": 0.01})
-    artifact.features.add_values(
-        {
-            "quantification": {
-                "name": "mcquant",
-                "container": "labsyspharm/quantification",
-            }
-        }
-    )
-    assert artifact.features.get_values() == {
-        "learning_rate": 0.01,
-        "quantification": {
-            "name": "mcquant",
-            "container": "labsyspharm/quantification",
-        },
-    }
-    # test describe params
-    tree = describe_features(artifact)
-    assert tree.label.plain == "Artifact .pt"
-    assert tree.children[0].label.plain == "Linked features"
-    assert len(tree.children[0].children[0].label.columns) == 3
-    assert tree.children[0].children[0].label.columns[0]._cells == [
-        "learning_rate",
-        "quantification",
-    ]
-    assert tree.children[0].children[0].label.columns[1]._cells[0].plain == "float"
-    assert tree.children[0].children[0].label.columns[1]._cells[1].plain == "dict"
-    assert tree.children[0].children[0].label.columns[2]._cells == [
-        "0.01",
-        "{'name': 'mcquant', 'container': 'labsyspharm/quantification'}",
-    ]
-    artifact.describe()
-    artifact.delete(permanent=True)
-    path.unlink()
-
-
 def test_labels_add(adata):
     label = ln.Record(name="Experiment 1")
     artifact = ln.Artifact.from_anndata(adata, description="test").save()
@@ -474,6 +430,68 @@ def test_labels_add(adata):
     ln.Schema.filter().delete(permanent=True)
     ln.Feature.filter().delete(permanent=True)
     ln.Record.filter().delete(permanent=True)
+
+
+def test_add_list_of_str_features():
+    feature = ln.Feature(name="list_of_str", dtype=list[str]).save()
+    artifact = ln.Artifact(".gitignore", key=".gitignore").save()
+    artifact.features.add_values({"list_of_str": ["1", "2", "3"]})
+    assert artifact.features.get_values() == {"list_of_str": ["1", "2", "3"]}
+    artifact.delete(permanent=True)
+    assert ln.models.FeatureValue.filter(feature__name="list_of_str").count() == 1
+    feature.delete(permanent=True)
+    assert ln.models.FeatureValue.filter(feature__name="list_of_str").count() == 0
+
+
+def test_add_list_of_cat_features():
+    type_1 = ln.ULabel(name="Type 1", is_type=True).save()
+    for label in ["label 1", "label 2", "label 3"]:
+        ln.ULabel(name=label, type=type_1).save()
+    feat1 = ln.Feature(
+        name="single_label_of_type1", dtype=type_1, nullable=False
+    ).save()
+    feat2 = ln.Feature(
+        name="list_of_labels_of_type1", dtype=list[type_1], nullable=False
+    ).save()
+    schema = ln.Schema(name="Test schema", features=[feat1, feat2]).save()
+    # first end-to-end test of adding labels and passing a schema
+    # this calls features.add_values() under-the-hood
+    artifact = ln.Artifact(
+        ".gitignore",
+        key=".gitignore",
+        schema=schema,
+        features={
+            "single_label_of_type1": "label 1",
+            "list_of_labels_of_type1": ["label 1", "label 2"],
+        },
+    ).save()
+    # now just use add_values()
+    with pytest.raises(ValidationError) as error:
+        artifact.features.add_values(
+            {
+                "single_label_of_type1": "invalid",
+            }
+        )
+    assert error.exconly().startswith(
+        "lamindb.errors.ValidationError: These values could not be validated: {'ULabel': ['invalid']}"
+    )
+    # now for list of labels
+    with pytest.raises(ValidationError) as error:
+        artifact.features.add_values(
+            {
+                "list_of_labels_of_type1": ["invalid", "invalid2"],
+            }
+        )
+    assert error.exconly().startswith(
+        "lamindb.errors.ValidationError: These values could not be validated: {'ULabel': ['invalid', 'invalid2']}"
+    )
+
+    artifact.delete(permanent=True)
+    schema.delete(permanent=True)
+    feat1.delete(permanent=True)
+    feat2.delete(permanent=True)
+    type_1.ulabels.all().delete(permanent=True)
+    type_1.delete(permanent=True)
 
 
 def test_add_labels_using_anndata(adata):

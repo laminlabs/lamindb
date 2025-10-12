@@ -185,7 +185,7 @@ def test_curate_df():
 │       CD8A                num
 │       CD4                 num
 │       CD14                num
-└── Linked features
+└── External features
     └── experiment          cat[Record]             Experiment 1
         date_of_study       date                    2024-12-01
         study_metadata      dict                    {'detail1': '123', 'detail2…

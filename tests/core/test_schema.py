@@ -150,7 +150,7 @@ def test_edge_cases():
 
 @pytest.fixture(scope="module")
 def mini_immuno_schema_flexible():
-    schema = ln.core.datasets.mini_immuno.define_mini_immuno_schema_flexible()
+    schema = ln.examples.datasets.mini_immuno.define_mini_immuno_schema_flexible()
 
     yield schema
 
@@ -220,7 +220,7 @@ def test_schema_update_implicit_through_name_equality(
 
     assert schema.hash != orig_hash
     assert ccaplog.text.count(warning_message) == 3  # warning raised
-    ln.core.datasets.mini_immuno.define_mini_immuno_schema_flexible()
+    ln.examples.datasets.mini_immuno.define_mini_immuno_schema_flexible()
 
     artifact.delete(permanent=True)
 
@@ -336,6 +336,31 @@ def test_schema_update(
     artifact.delete(permanent=True)
 
 
+def test_schema_mutations_feature_removal(
+    mini_immuno_schema_flexible: ln.Schema, ccaplog
+):
+    feature1 = ln.Feature.get(name="perturbation")
+    feature2 = ln.Feature.get(name="cell_type_by_model")
+    dummy_artifact = ln.Artifact(".gitignore", key=".gitignore").save()
+    # define the schema the first time
+    schema = ln.Schema(name="My test schema X", features=[feature1, feature2]).save()
+    assert schema.features.count() == 2
+    dummy_artifact.schema = schema  # pretend artifact was validated with this schema
+    dummy_artifact.save()
+    # define the schema the first time
+    schema1 = ln.Schema(name="My test schema X", features=[feature2]).save()
+    # retrieves same schema because of name equality
+    assert ccaplog.text.count("you're removing these features:") == 1
+    assert (
+        ccaplog.text.count("you updated the schema hash and might invalidate datasets")
+        == 1
+    )
+    assert schema1 == schema
+    assert schema1.features.count() == 1
+    dummy_artifact.delete(permanent=True)
+    schema.delete(permanent=True)
+
+
 def test_schema_components(mini_immuno_schema_flexible: ln.Schema):
     obs_schema = mini_immuno_schema_flexible
     var_schema = ln.Schema(
@@ -354,7 +379,7 @@ def test_schema_components(mini_immuno_schema_flexible: ln.Schema):
 
     try:
         ln.Schema(
-            name="small_dataset1_anndata_schema",
+            name="mini_immuno_anndata_schema",
             otype="AnnData",
             slots={"obs": obs_schema, "var": var_schema},
         ).save()
@@ -365,7 +390,7 @@ def test_schema_components(mini_immuno_schema_flexible: ln.Schema):
         )
 
     anndata_schema = ln.Schema(
-        name="small_dataset1_anndata_schema",
+        name="mini_immuno_anndata_schema",
         otype="AnnData",
         slots={"obs": obs_schema, "var": var_schema},
     ).save()
@@ -419,26 +444,11 @@ def test_mini_immuno_schema_flexible(mini_immuno_schema_flexible):
 def test_schema_recovery_based_on_hash(mini_immuno_schema_flexible: ln.Schema):
     feature1 = ln.Feature.get(name="perturbation")
     feature2 = ln.Feature.get(name="cell_type_by_model")
-    schema = ln.Schema(
-        features=[
-            feature1,
-            feature2,
-        ],
-    ).save()
-    schema2 = ln.Schema(
-        features=[
-            feature1,
-            feature2,
-        ],
-    )
+    schema = ln.Schema(features=[feature1, feature2]).save()
+    schema2 = ln.Schema(features=[feature1, feature2])
     assert schema == schema2
     schema.delete()
-    schema2 = ln.Schema(
-        features=[
-            feature1,
-            feature2,
-        ],
-    )
+    schema2 = ln.Schema(features=[feature1, feature2])
     assert schema != schema2
     schema.delete(permanent=True)
 
@@ -486,19 +496,23 @@ def test_schemas_anndata():
         slots={"obs": obs_schema, "var.T": varT_schema.save()},
     )
     assert schema._list_for_hashing == [
-        "1gocc_TJ1RU2bMwDRK-WUA",
-        "kMi7B_N88uu-YnbTLDU-DA",
+        "a=num",
+        "b=Composite",
+        "c=True",
+        "d=False",
+        "e=False",
+        "l=GPZ-TzvKRhdC1PQAhlFiow",
     ]
     assert schema.name == "anndata_ensembl_gene_ids_and_valid_features_in_obs"
     assert schema.itype == "Composite"
-    assert schema.hash == "GTxxM36n9tocphLfdbNt9g"
+    assert schema.hash == "UR_ozz2VI2sY8ckXop2RAg"
 
     # test the convenience function
     schema = ln.examples.schemas.anndata_ensembl_gene_ids_and_valid_features_in_obs()
     assert schema.uid == "0000000000000002"
     assert schema.name == "anndata_ensembl_gene_ids_and_valid_features_in_obs"
     assert schema.itype == "Composite"
-    assert schema.hash == "GTxxM36n9tocphLfdbNt9g"
+    assert schema.hash == "UR_ozz2VI2sY8ckXop2RAg"
     varT_schema = schema.slots["var.T"]
     assert varT_schema.uid == "0000000000000001"
     assert varT_schema.name == "valid_ensembl_gene_ids"

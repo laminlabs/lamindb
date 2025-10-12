@@ -1534,31 +1534,15 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         schema: Schema | None = kwargs.pop("schema", None)
         features: dict[str, Any] | None = kwargs.pop("features", None)
         skip_hash_lookup: bool = kwargs.pop("skip_hash_lookup", False)
-        if features is not None and schema is not None:
-            from lamindb.curators import DataFrameCurator
 
-            temp_df = pd.DataFrame([features])
-            validation_schema = schema
-            if schema.itype == "Composite" and schema.slots:
-                if len(schema.slots) > 1:
-                    raise ValueError(
-                        f"Composite schema has {len(schema.slots)} slots. "
-                        "External feature validation only supports schemas with a single slot."
-                    )
-                try:
-                    validation_schema = next(
-                        k for k in schema.slots.keys() if k.startswith("__external")
-                    )
-                except StopIteration:
-                    raise ValueError(
-                        "External feature validation requires a slot that starts with __external."
-                    ) from None
+        # validate external features if passed with a schema
+        if features is not None:
+            self._external_features = features
+            if schema is not None:
+                from lamindb.curators.core import ExperimentalDictCurator
 
-            external_curator = DataFrameCurator(temp_df, validation_schema)
-            external_curator.validate()
-            external_curator._artifact = self
-
-        self._external_features = features
+                validation_schema = schema
+                ExperimentalDictCurator(features, validation_schema).validate()
 
         branch = kwargs.pop("branch", None)
         assert "branch_id" not in kwargs, "Please pass branch instead of branch_id."  # noqa: S101
@@ -1923,19 +1907,13 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             schema: A schema that defines how to validate & annotate.
             features: Additional external features to link.
 
-        See Also:
-            :meth:`~lamindb.Collection`
-                Track collections.
-            :class:`~lamindb.Feature`
-                Track features.
-
-        Example:
+        Examples:
 
             No validation and annotation::
 
                 import lamindb as ln
 
-                df = ln.core.datasets.mini_immuno.get_dataset1()
+                df = ln.examples.datasets.mini_immuno.get_dataset1()
                 artifact = ln.Artifact.from_dataframe(df, key="examples/dataset1.parquet").save()
 
             With validation and annotation.
@@ -1969,9 +1947,10 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             **kwargs,
         )
         artifact.n_observations = len(df)
-
+        if features is not None:
+            artifact._external_features = features
         if schema is not None:
-            from lamindb.curators.core import ComponentCurator
+            from lamindb.curators.core import DataFrameCurator, ExperimentalDictCurator
 
             if not artifact._state.adding and artifact.suffix != ".parquet":
                 logger.warning(
@@ -1980,31 +1959,14 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 )
                 return artifact
 
-            # Handle external features validation for Composite schemas
-            if schema.itype == "Composite" and features is not None:
-                try:
-                    external_slot = next(
-                        k for k in schema.slots.keys() if "__external__" in k
-                    )
-                    validation_schema = schema.slots[external_slot]
-                except StopIteration:
-                    raise ValueError(
-                        "External feature validation requires a slot __external__."
-                    ) from None
+            if features is not None and "__external__" in schema.slots:
+                validation_schema = schema.slots["__external__"]
+                ExperimentalDictCurator(features, validation_schema).validate()
 
-                external_curator = ComponentCurator(
-                    pd.DataFrame([features]), validation_schema
-                )
-                external_curator.validate()
-                artifact._external_features = features
-
-            # Validate main DataFrame if not Composite or if Composite has attrs
-            if schema.itype != "Composite" or "attrs" in schema.slots:
-                curator = ComponentCurator(artifact, schema)
-                curator.validate()
-                artifact.schema = schema
-                artifact._curator = curator
-
+            curator = DataFrameCurator(artifact, schema)
+            curator.validate()
+            artifact.schema = schema
+            artifact._curator = curator
         return artifact
 
     @classmethod
@@ -2065,7 +2027,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
                 import lamindb as ln
 
-                adata = ln.core.datasets.anndata_with_obs()
+                adata = ln.examples.datasets.anndata_with_obs()
                 artifact = ln.Artifact.from_anndata(adata, key="mini_anndata_with_obs.h5ad").save()
 
             With validation and annotation.
@@ -2153,7 +2115,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
             import lamindb as ln
 
-            mdata = ln.core.datasets.mudata_papalexi21_subset()
+            mdata = ln.examples.datasets.mudata_papalexi21_subset()
             artifact = ln.Artifact.from_mudata(mdata, key="mudata_papalexi21_subset.h5mu").save()
         """
         if not data_is_scversedatastructure(mdata, "MuData"):
@@ -2324,7 +2286,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
             import lamindb as ln
 
-            dir_path = ln.core.datasets.generate_cell_ranger_files("sample_001", ln.settings.storage)
+            dir_path = ln.examples.datasets.generate_cell_ranger_files("sample_001", ln.settings.storage)
             artifacts = ln.Artifact.from_dir(dir_path)
             ln.save(artifacts)
         """
@@ -2959,13 +2921,13 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             )
             logger.important(f"moved local artifact to cache: {local_path_cache}")
 
-        # Handle external features
-        if hasattr(self, "_external_features") and self._external_features is not None:
+        # annotate with external features
+        if hasattr(self, "_external_features"):
             external_features = self._external_features
             delattr(self, "_external_features")
             self.features.add_values(external_features)
 
-        # annotate Artifact
+        # annotate with internal features based on curator
         if hasattr(self, "_curator"):
             curator = self._curator
             delattr(self, "_curator")

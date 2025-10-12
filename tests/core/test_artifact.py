@@ -5,7 +5,6 @@ Also see `test_artifact_folders.py` for tests of folder-like artifacts.
 
 # ruff: noqa: F811
 
-import shutil
 import sys
 from pathlib import Path, PurePosixPath
 from types import ModuleType
@@ -15,10 +14,8 @@ import bionty as bt
 import lamindb as ln
 import lamindb_setup
 import mudata as md
-import numpy as np
 import pandas as pd
 import pytest
-import yaml  # type: ignore
 from _dataset_fixtures import (  # noqa
     get_mini_csv,
     get_small_adata,
@@ -58,80 +55,12 @@ ln.settings.verbosity = "success"
 bt.settings.organism = "human"
 
 
-@pytest.fixture(scope="module")
-def df():
-    return pd.DataFrame({"feat1": [1, 2], "feat2": [3, 4]})
-
-
-@pytest.fixture(scope="module")
-def adata_file():
-    adata = ad.AnnData(
-        X=np.array([[1, 2, 3], [4, 5, 6]]),
-        obs={"feat1": ["A", "B"]},
-        var=pd.DataFrame(index=["MYC", "TCF7", "GATA1"]),
-        obsm={"X_pca": np.array([[1, 2], [3, 4]])},
-    )
-    filepath = Path("adata_file.h5ad")
-    adata.write(filepath)
-    yield "adata_file.h5ad"
-    filepath.unlink()
-
-
 @pytest.fixture
 def data(request):
     if request.param == "get_small_adata":
         return request.getfixturevalue("get_small_adata")
     else:
         return request.param
-
-
-@pytest.fixture(scope="module")
-def tsv_file():
-    filepath = Path("test.tsv")
-    pd.DataFrame([1, 2]).to_csv(filepath, sep="\t")
-    yield filepath
-    filepath.unlink()
-
-
-@pytest.fixture(scope="module")
-def zip_file():
-    filepath = Path("test.zip")
-    pd.DataFrame([1, 2]).to_csv(filepath, sep="\t")
-    yield filepath
-    filepath.unlink()
-
-
-@pytest.fixture(scope="module")
-def yaml_file():
-    filepath = Path("test.yaml")
-    dct = {"a": 1, "b": 2}
-    with open(filepath, "w") as f:
-        yaml.dump(dct, f)
-    yield filepath
-    filepath.unlink()
-
-
-@pytest.fixture(scope="module")
-def fcs_file():
-    fcs_path = ln.core.datasets.file_fcs_alpert19()
-    yield fcs_path
-    fcs_path.unlink()
-
-
-@pytest.fixture(scope="module")
-def mudata_file(get_small_mdata):
-    filepath = Path("test.h5mu")
-    get_small_mdata.write(filepath)
-    yield filepath
-    filepath.unlink()
-
-
-@pytest.fixture(scope="module")
-def spatialdata_file(get_small_sdata):
-    filepath = Path("test.zarr")
-    get_small_sdata.write(filepath)
-    yield filepath
-    shutil.rmtree(filepath)
 
 
 @pytest.fixture(scope="function")
@@ -196,7 +125,7 @@ def test_data_is_soma_experiment(get_small_soma_experiment, clean_soma_files):
     assert data_is_soma_experiment(get_small_soma_experiment)
 
 
-def test_basic_validation():
+def test_basic_validation(df):
     # extra kwargs
     with pytest.raises(FieldValidationError):
         ln.Artifact("testpath.csv", description="test1b", extra_kwarg="extra")
@@ -367,70 +296,6 @@ def test_revise_recreate_artifact(df):
     assert artifact_from_trash.branch_id == -1
 
     artifact.delete(permanent=True)  # permanent deletion
-
-
-@pytest.mark.parametrize(
-    "schema",
-    [
-        ln.Schema(
-            features=[
-                ln.Feature(name="species", dtype=str).save(),
-                ln.Feature(name="split", dtype=str).save(),
-            ]
-        ),
-        None,
-    ],
-)
-def test_create_external_schema(tsv_file, schema):
-    if schema:
-        schema.save()
-    else:
-        (ln.Feature(name="split", dtype=str).save(),)
-        (ln.Feature(name="species", dtype=str).save(),)
-    artifact = ln.Artifact(
-        tsv_file,
-        features={"species": "bird", "split": "train"},
-        schema=schema,
-        description="test",
-    ).save()
-    assert artifact.features.get_values() == {"species": "bird", "split": "train"}
-
-    artifact.delete(permanent=True)
-    if schema:
-        schema.delete(permanent=True)
-    ln.Feature.get(name="species").delete(permanent=True)
-    ln.Feature.get(name="split").delete(permanent=True)
-
-
-def test_from_dataframe_external_schema(df):
-    species = ln.Feature(name="species", dtype="str").save()
-    split = ln.Feature(name="split", dtype="str").save()
-    external_schema = ln.Schema(itype=ln.Feature).save()
-
-    feat1 = ln.Feature(name="feat1", dtype="int").save()
-    feat2 = ln.Feature(name="feat2", dtype="int").save()
-    schema = ln.Schema(
-        features=[feat1, feat2],
-        slots={"__external__": external_schema},
-        otype="DataFrame",
-    ).save()
-
-    artifact = ln.Artifact.from_dataframe(
-        df,
-        features={"species": "bird", "split": "train"},
-        schema=schema,
-        description="test dataframe with external features",
-    ).save()
-
-    assert artifact.features.get_values() == {"species": "bird", "split": "train"}
-
-    # Cleanup
-    artifact.delete(permanent=True)
-    schema.delete(permanent=True)
-    external_schema.delete(permanent=True)
-
-    for feature in [species, split, feat1, feat2]:
-        feature.delete(permanent=True)
 
 
 def test_create_from_dataframe(df):
@@ -907,7 +772,7 @@ def test_check_path_is_child_of_root():
 
 
 def test_serialize_paths():
-    fp_str = ln.core.datasets.anndata_file_pbmc68k_test().as_posix()
+    fp_str = ln.examples.datasets.anndata_file_pbmc68k_test().as_posix()
     fp_path = Path(fp_str)
 
     up_str = "s3://lamindb-ci/test-unknown-storage-in-core-tests/test.csv"

@@ -331,7 +331,7 @@ class SlotsCurator(Curator):
     def validate(self) -> None:
         """{}"""  # noqa: D415
         for slot, curator in self._slots.items():
-            logger.info(f"validating slot {slot} ...")
+            logger.debug(f"validating slot {slot} ...")
             curator.validate()
         # set _is_validated to True as no slot raised an error
         self._is_validated = True
@@ -395,6 +395,16 @@ class SlotsCurator(Curator):
             curator=self,
             cat_vectors=cat_vectors,
         )
+
+
+def convert_dict_to_dataframe_for_validation(d: dict, schema: Schema) -> pd.DataFrame:
+    """Convert a dictionary to a DataFrame for validation against a schema."""
+    df = pd.DataFrame([d])
+    for feature in schema.members:
+        if feature.dtype.startswith("cat"):
+            if feature.name in df.columns:
+                df[feature.name] = pd.Categorical(df[feature.name])
+    return df
 
 
 # This is also currently used as DictCurator by flattening dictionaries into wide DataFrames.
@@ -696,13 +706,11 @@ class DataFrameCurator(SlotsCurator):
     ) -> None:
         super().__init__(dataset=dataset, schema=schema)
 
-        # Create atomic curator for features only
-        if len(self._schema.features.all()) > 0:
-            self._atomic_curator = ComponentCurator(
-                dataset=dataset,
-                schema=schema,
-                slot=slot,
-            )
+        self._atomic_curator = ComponentCurator(
+            dataset=dataset,
+            schema=schema,
+            slot=slot,
+        )
 
         # Handle (nested) attrs
         if slot is None and schema.slots:
@@ -718,11 +726,11 @@ class DataFrameCurator(SlotsCurator):
                             data = _resolve_schema_slot_path(
                                 attrs_dict, deeper_keys, slot_name, "attrs"
                             )
-                        df = pd.DataFrame([data])
+                        df = convert_dict_to_dataframe_for_validation(data, slot_schema)
                         self._slots[slot_name] = ComponentCurator(
                             df, slot_schema, slot=slot_name
                         )
-                else:
+                elif slot_name != "__external__":
                     raise ValueError(
                         f"Slot '{slot_name}' is not supported for DataFrameCurator. Must be 'attrs'."
                     )
@@ -777,6 +785,26 @@ class DataFrameCurator(SlotsCurator):
             )
 
 
+class ExperimentalDictCurator(DataFrameCurator):
+    """Curator for `dict` based on `DataFrameCurator`."""
+
+    def __init__(
+        self,
+        dataset: dict | Artifact,
+        schema: Schema,
+        slot: str | None = None,
+    ) -> None:
+        if not isinstance(dataset, dict) and not isinstance(dataset, Artifact):
+            raise InvalidArgument("The dataset must be a dict or dict-like artifact.")
+        if isinstance(dataset, Artifact):
+            assert dataset.otype == "dict", "Artifact must be of otype 'dict'."  # noqa: S101
+            d = dataset.load(is_run_input=False)
+        else:
+            d = dataset
+        df = convert_dict_to_dataframe_for_validation(d, schema)
+        super().__init__(df, schema, slot=slot)
+
+
 def _resolve_schema_slot_path(
     target_dict: dict[str, Any], slot_keys: Iterable[str], slot: str, base_path: str
 ) -> Any:
@@ -797,13 +825,18 @@ def _resolve_schema_slot_path(
         base_path += f"['{key}']"
         try:
             current = current[key]
-        except KeyError:
+        except (
+            KeyError,
+            TypeError,
+        ):  # if not a dict, raises TypeError; if a dict and key not found, raises KeyError
             available = (
-                list(current.keys()) if isinstance(current, dict) else "not a dict"
+                list(current.keys())
+                if isinstance(current, dict)
+                else "none (not a dict)"
             )
             raise InvalidArgument(
                 f"Schema slot '{slot}' requires keys {base_path} but key '{key}' "
-                f"not found. Available keys at this level: {available}"
+                f"not found. Available keys at this level: {available}."
             ) from None
 
     return current

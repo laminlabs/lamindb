@@ -248,10 +248,10 @@ class SchemaOptionals:
                 )
 
 
-KNOWN_SCHEMAS = {
+KNOWN_SCHEMAS = {  # by hash
     "kMi7B_N88uu-YnbTLDU-DA": "0000000000000000",  # valid_features
     "1gocc_TJ1RU2bMwDRK-WUA": "0000000000000001",  # valid_ensembl_gene_ids
-    "GTxxM36n9tocphLfdbNt9g": "0000000000000002",  # anndata_ensembl_gene_ids_and_valid_features_in_obs
+    "UR_ozz2VI2sY8ckXop2RAg": "0000000000000002",  # anndata_ensembl_gene_ids_and_valid_features_in_obs
 }
 
 
@@ -726,56 +726,56 @@ class Schema(SQLRecord, CanCurate, TracksRun):
 
         if aux_dict:
             validated_kwargs["_aux"] = aux_dict
+        HASH_CODE = {
+            "dtype": "a",
+            "itype": "b",
+            "minimal_set": "c",
+            "ordered_set": "d",
+            "maximal_set": "e",
+            "flexible": "f",
+            "coerce_dtype": "g",
+            "n": "h",
+            "optional": "i",
+            "features_hash": "j",
+            "index": "k",
+            "slots_hash": "l",
+        }
+        # we do not want pure informational annotations like otype, name, type, is_type, otype to be part of the hash
+        hash_args = ["dtype", "itype", "minimal_set", "ordered_set", "maximal_set"]
+        list_for_hashing = [
+            f"{HASH_CODE[arg]}={validated_kwargs[arg]}"
+            for arg in hash_args
+            if validated_kwargs[arg] is not None
+        ]
+        # only include in hash if not default so that it's backward compatible with records for which flexible was never set
+        if flexible != flexible_default:
+            list_for_hashing.append(f"{HASH_CODE['flexible']}={flexible}")
+        if coerce_dtype != coerce_dtype_default:
+            list_for_hashing.append(f"{HASH_CODE['coerce_dtype']}={coerce_dtype}")
+        if n_features != n_features_default:
+            list_for_hashing.append(f"{HASH_CODE['n']}={n_features}")
+        if index is not None:
+            list_for_hashing.append(f"{HASH_CODE['index']}={index.uid}")
+        if features:
+            if optional_features:
+                feature_list_for_hashing = [
+                    feature.uid
+                    if feature not in set(optional_features)
+                    else f"{feature.uid}({HASH_CODE['optional']})"
+                    for feature in features
+                ]
+            else:
+                feature_list_for_hashing = [feature.uid for feature in features]
+            if not ordered_set:  # order matters if ordered_set is True, if not sort
+                feature_list_for_hashing = sorted(feature_list_for_hashing)
+            features_hash = hash_string(":".join(feature_list_for_hashing))
+            list_for_hashing.append(f"{HASH_CODE['features_hash']}={features_hash}")
         if slots:
-            list_for_hashing = [component.hash for component in slots.values()]
-        else:
-            HASH_CODE = {
-                "dtype": "a",
-                "itype": "b",
-                "minimal_set": "c",
-                "ordered_set": "d",
-                "maximal_set": "e",
-                "flexible": "f",
-                "coerce_dtype": "g",
-                "n": "h",
-                "optional": "i",
-                "features_hash": "j",
-                "index": "k",
-            }
-            # we do not want pure informational annotations like otype, name, type, is_type, otype to be part of the hash
-            hash_args = ["dtype", "itype", "minimal_set", "ordered_set", "maximal_set"]
-            list_for_hashing = [
-                f"{HASH_CODE[arg]}={validated_kwargs[arg]}"
-                for arg in hash_args
-                if validated_kwargs[arg] is not None
-            ]
-            # only include in hash if not default so that it's backward compatible with records for which flexible was never set
-            if flexible != flexible_default:
-                list_for_hashing.append(f"{HASH_CODE['flexible']}={flexible}")
-            if coerce_dtype != coerce_dtype_default:
-                list_for_hashing.append(f"{HASH_CODE['coerce_dtype']}={coerce_dtype}")
-            if n_features != n_features_default:
-                list_for_hashing.append(f"{HASH_CODE['n']}={n_features}")
-            if index is not None:
-                list_for_hashing.append(f"{HASH_CODE['index']}={index.uid}")
-            if features:
-                if optional_features:
-                    feature_list_for_hashing = [
-                        feature.uid
-                        if feature not in set(optional_features)
-                        else f"{feature.uid}({HASH_CODE['optional']})"
-                        for feature in features
-                    ]
-                else:
-                    feature_list_for_hashing = [feature.uid for feature in features]
-                # order matters if ordered_set is True
-                if ordered_set:
-                    features_hash = hash_string(":".join(feature_list_for_hashing))
-                else:
-                    features_hash = hash_string(
-                        ":".join(sorted(feature_list_for_hashing))
-                    )
-                list_for_hashing.append(f"{HASH_CODE['features_hash']}={features_hash}")
+            slots_list_for_hashing = sorted(
+                [f"{key}={component.hash}" for key, component in slots.items()]
+            )
+            slots_hash = hash_string(":".join(slots_list_for_hashing))
+            list_for_hashing.append(f"{HASH_CODE['slots_hash']}={slots_hash}")
 
         if is_type:
             validated_kwargs["hash"] = None
@@ -932,12 +932,18 @@ class Schema(SQLRecord, CanCurate, TracksRun):
         """Save schema."""
         from .save import bulk_create
 
+        features_to_delete = []
+
         if self.pk is not None:
-            features = (
-                self._features[1]
-                if hasattr(self, "_features")
-                else (self.members.to_list() if self.members.exists() else [])
-            )
+            existing_features = self.members.to_list() if self.members.exists() else []
+            if hasattr(self, "_features"):
+                features = self._features[1]
+                if features != existing_features:
+                    features_to_delete = [
+                        f for f in existing_features if f not in features
+                    ]
+            else:
+                features = existing_features
             index_feature = self.index
             _, validated_kwargs, _, _, _ = self._validate_kwargs_calculate_hash(
                 features=[f for f in features if f != index_feature],  # type: ignore
@@ -964,7 +970,10 @@ class Schema(SQLRecord, CanCurate, TracksRun):
                 datasets = Artifact.filter(schema=self)
                 if datasets.exists():
                     logger.warning(
-                        f"you updated the schema hash and might invalidate datasets that were previously validated with this schema: {datasets.to_list('uid')}"
+                        f"you're removing these features: {features_to_delete}"
+                    )
+                    logger.warning(
+                        f"you updated the schema hash and might invalidate datasets that were previously validated with this schema:\n{datasets.to_dataframe()}"
                     )
                 self.hash = validated_kwargs["hash"]
                 self.n = validated_kwargs["n"]
@@ -987,8 +996,9 @@ class Schema(SQLRecord, CanCurate, TracksRun):
             using: bool | None = kwargs.pop("using", None)
             related_name, records = self._features
 
-            # .set() does not preserve the order but orders by the feature primary key
-            # only the following method preserves the order
+            # self.related_name.set(features) does **not** preserve the order
+            # but orders by the feature primary key
+            # hence we need the following more complicated logic
             through_model = getattr(self, related_name).through
             if self.itype == "Composite":
                 related_model_split = ["Feature"]
@@ -1006,6 +1016,7 @@ class Schema(SQLRecord, CanCurate, TracksRun):
                 for record in records
             ]
             through_model.objects.using(using).bulk_create(links, ignore_conflicts=True)
+            getattr(self, related_name).remove(*features_to_delete)
             delattr(self, "_features")
 
         return self
@@ -1143,7 +1154,7 @@ class Schema(SQLRecord, CanCurate, TracksRun):
 
                 # define composite schema
                 anndata_schema = ln.Schema(
-                    name="small_dataset1_anndata_schema",
+                    name="mini_immuno_anndata_schema",
                     otype="AnnData",
                     slots={"obs": obs_schema, "var": var_schema},
                 ).save()

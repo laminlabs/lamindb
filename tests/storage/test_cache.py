@@ -23,7 +23,7 @@ def test_local_cache():
     local_storage = Path("./default_storage_unit_storage").resolve().as_posix()
     assert ln.setup.settings.storage.root_as_str == local_storage
 
-    test_file = ln.core.datasets.anndata_file_pbmc68k_test()
+    test_file = ln.examples.datasets.anndata_file_pbmc68k_test()
     adata = load_h5ad(test_file)
 
     artifact = ln.Artifact.from_anndata(adata, key="test_cache.h5ad")
@@ -73,7 +73,7 @@ def test_cloud_cache(switch_storage):
     cache_dir = ln.setup.settings.cache_dir
     assert cache_dir is not None
 
-    test_file = ln.core.datasets.anndata_file_pbmc68k_test()
+    test_file = ln.examples.datasets.anndata_file_pbmc68k_test()
 
     # test cache for saving an in-memory object
     adata = load_h5ad(test_file)
@@ -139,7 +139,7 @@ def test_cloud_cache(switch_storage):
 
 
 def test_cloud_cache_versions(switch_storage):
-    adata = load_h5ad(ln.core.datasets.anndata_file_pbmc68k_test())
+    adata = load_h5ad(ln.examples.datasets.anndata_file_pbmc68k_test())
 
     cache_dir = ln.setup.settings.cache_dir
     assert cache_dir is not None
@@ -199,7 +199,7 @@ def test_cloud_cache_versions(switch_storage):
 
 
 def test_corrupted_cache_local():
-    filepath = ln.core.datasets.anndata_file_pbmc68k_test()
+    filepath = ln.examples.datasets.anndata_file_pbmc68k_test()
     artifact = ln.Artifact.from_anndata(filepath, key="test_corrupt_cache_local.h5ad")
     artifact.save()
     # corrupt cache
@@ -218,7 +218,7 @@ def test_corrupted_cache_cloud(switch_storage):
     # check that we have cloud storage
     assert ln.setup.settings.storage.root_as_str == switch_storage
 
-    filepath = ln.core.datasets.anndata_file_pbmc68k_test()
+    filepath = ln.examples.datasets.anndata_file_pbmc68k_test()
     artifact = ln.Artifact.from_anndata(filepath, key="test_corrupt_cache_cloud.h5ad")
     artifact.save()
     # corrupt cache
