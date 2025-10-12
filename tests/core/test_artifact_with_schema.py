@@ -48,20 +48,19 @@ def test_create_artifact_with_external_feature_annotations(
         schema.delete(permanent=True)
 
 
-def test_from_dataframe_external_schema(
+def test_from_dataframe_with_external_features_and_schema(
     df: pd.DataFrame,
     two_external_features: tuple[ln.Feature, ln.Feature],
     two_internal_features: tuple[ln.Feature, ln.Feature],
 ):
-    ln.settings.verbosity = "debug"
     feat1, feat2 = two_internal_features
     featA, featB = two_external_features
-    external_schema = ln.Schema(features=[featA, featB]).save()
+    schema_external = ln.Schema(features=[featA, featB]).save()
 
     # Case 1: wrong internal features for this dataframe
     schema_with_mistake = ln.Schema(
         features=[featA, featB],
-        slots={"__external__": external_schema},
+        slots={"__external__": schema_external},
         otype="DataFrame",
     ).save()
     with pytest.raises(ln.errors.ValidationError) as error:
@@ -85,14 +84,11 @@ def test_from_dataframe_external_schema(
     artifact.delete(permanent=True)
 
     # Case 3: correct external schema
-    print("FINAL ROUND")
     schema_correct_external = ln.Schema(
         features=[feat1, feat2],
-        slots={"__external__": external_schema},
+        slots={"__external__": schema_external},
         otype="DataFrame",
     ).save()
-    print(schema_correct_external.describe())
-    print(schema_correct_external.members.to_dataframe())
     artifact = ln.Artifact.from_dataframe(
         df,
         key="test_df_with_external_features.parquet",
@@ -101,8 +97,11 @@ def test_from_dataframe_external_schema(
     ).save()
     assert artifact.features.get_values() == {"species": "bird", "split": "train"}
 
+    inferred_schema = artifact.feature_sets.all()[0]
+    artifact.feature_sets.remove(inferred_schema.id)
+    inferred_schema.delete(permanent=True)
     artifact.delete(permanent=True)
     schema_with_mistake.delete(permanent=True)
     schema_no_external.delete(permanent=True)
     schema_correct_external.delete(permanent=True)
-    external_schema.delete(permanent=True)
+    schema_external.delete(permanent=True)

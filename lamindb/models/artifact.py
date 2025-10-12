@@ -1964,7 +1964,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         artifact.n_observations = len(df)
 
         if schema is not None:
-            from lamindb.curators.core import ComponentCurator, ExperimentalDictCurator
+            from lamindb.curators.core import DataFrameCurator, ExperimentalDictCurator
 
             if not artifact._state.adding and artifact.suffix != ".parquet":
                 logger.warning(
@@ -1973,28 +1973,17 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 )
                 return artifact
 
-            # Handle external features validation for Composite schemas
-            if schema.itype == "Composite" and features is not None:
-                try:
-                    external_slot = next(
-                        k for k in schema.slots.keys() if "__external__" in k
-                    )
-                    validation_schema = schema.slots[external_slot]
-                except StopIteration:
-                    raise ValueError(
-                        "External feature validation requires a slot __external__."
-                    ) from None
-
-                ExperimentalDictCurator(features, validation_schema).validate()
+            if features is not None:
+                if "__external__" in schema.slots:
+                    validation_schema = schema.slots["__external__"]
+                    ExperimentalDictCurator(features, validation_schema).validate()
                 artifact._external_features = features
 
-            # Validate main DataFrame if not Composite or if Composite has attrs
-            if schema.itype != "Composite" or "attrs" in schema.slots:
-                curator = ComponentCurator(artifact, schema)
-                curator.validate()
-                artifact.schema = schema
-                artifact._curator = curator
-
+            curator = DataFrameCurator(artifact, schema)
+            print("Validate within from_dataframe()")
+            curator.validate()
+            artifact.schema = schema
+            artifact._curator = curator
         return artifact
 
     @classmethod
@@ -2960,6 +2949,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             curator = self._curator
             delattr(self, "_curator")
             # just annotates this artifact
+            print("Save_artifact")
             curator.save_artifact()
 
         return self
