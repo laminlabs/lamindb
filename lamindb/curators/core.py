@@ -787,7 +787,7 @@ class DataFrameCurator(SlotsCurator):
             )
 
 
-class DictCurator(DataFrameCurator):
+class ExperimentalDictCurator(DataFrameCurator):
     """Curator for `dict` based on `DataFrameCurator`."""
 
     def __init__(

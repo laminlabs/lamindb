@@ -4,7 +4,6 @@
    :toctree: .
 
    DataFrameCurator
-   DictCurator
    AnnDataCurator
    MuDataCurator
    SpatialDataCurator
@@ -22,7 +21,6 @@ Modules.
 from .core import (
     AnnDataCurator,
     DataFrameCurator,
-    DictCurator,
     MuDataCurator,
     SpatialDataCurator,
     TiledbsomaExperimentCurator,
@@ -31,7 +29,6 @@ from .core import (
 __all__ = [
     "AnnDataCurator",
     "DataFrameCurator",
-    "DictCurator",
     "MuDataCurator",
     "SpatialDataCurator",
     "TiledbsomaExperimentCurator",

@@ -1537,7 +1537,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
         # validate external features if passed with a schema
         if features is not None and schema is not None:
-            from lamindb.curators import DictCurator
+            from lamindb.curators.core import ExperimentalDictCurator
 
             validation_schema = schema
             if schema.itype == "Composite" and schema.slots:
@@ -1555,9 +1555,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                         "External feature validation requires a slot that starts with __external"
                     ) from None
 
-            external_curator = DictCurator(features, validation_schema)
-            external_curator.validate()
-            external_curator._artifact = self
+            ExperimentalDictCurator(features, validation_schema).validate()
 
         self._external_features = features
 
@@ -1966,7 +1964,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         artifact.n_observations = len(df)
 
         if schema is not None:
-            from lamindb.curators import DictCurator
+            from lamindb.curators import ExperimentalDictCurator
             from lamindb.curators.core import ComponentCurator
 
             if not artifact._state.adding and artifact.suffix != ".parquet":
@@ -1988,7 +1986,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                         "External feature validation requires a slot __external__."
                     ) from None
 
-                DictCurator(features, validation_schema).validate()
+                ExperimentalDictCurator(features, validation_schema).validate()
                 artifact._external_features = features
 
             # Validate main DataFrame if not Composite or if Composite has attrs
