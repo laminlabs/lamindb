@@ -150,7 +150,7 @@ def test_edge_cases():
 
 @pytest.fixture(scope="module")
 def mini_immuno_schema_flexible():
-    schema = ln.core.datasets.mini_immuno.define_mini_immuno_schema_flexible()
+    schema = ln.examples.datasets.mini_immuno.define_mini_immuno_schema_flexible()
 
     yield schema
 
@@ -220,7 +220,7 @@ def test_schema_update_implicit_through_name_equality(
 
     assert schema.hash != orig_hash
     assert ccaplog.text.count(warning_message) == 3  # warning raised
-    ln.core.datasets.mini_immuno.define_mini_immuno_schema_flexible()
+    ln.examples.datasets.mini_immuno.define_mini_immuno_schema_flexible()
 
     artifact.delete(permanent=True)
 
@@ -379,7 +379,7 @@ def test_schema_components(mini_immuno_schema_flexible: ln.Schema):
 
     try:
         ln.Schema(
-            name="small_dataset1_anndata_schema",
+            name="mini_immuno_anndata_schema",
             otype="AnnData",
             slots={"obs": obs_schema, "var": var_schema},
         ).save()
@@ -390,7 +390,7 @@ def test_schema_components(mini_immuno_schema_flexible: ln.Schema):
         )
 
     anndata_schema = ln.Schema(
-        name="small_dataset1_anndata_schema",
+        name="mini_immuno_anndata_schema",
         otype="AnnData",
         slots={"obs": obs_schema, "var": var_schema},
     ).save()

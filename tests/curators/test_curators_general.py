@@ -323,7 +323,7 @@ def test_schema_ordered_set(df):
 @pytest.mark.parametrize("minimal_set", [True, False])
 def test_schema_minimal_set_var_allowed(minimal_set):
     """Independent of the value of minimal_set, invalid ensembl gene IDs are allowed."""
-    adata = ln.core.datasets.mini_immuno.get_dataset1(otype="AnnData")
+    adata = ln.examples.datasets.mini_immuno.get_dataset1(otype="AnnData")
     adata.var_names = [adata.var_names[0], adata.var_names[1], "NOT_VALID_ENSEMBL"]
 
     var_schema = ln.Schema(
@@ -340,7 +340,7 @@ def test_schema_minimal_set_var_allowed(minimal_set):
 
 def test_schema_maximal_set_var():
     """If maximal_set is True, invalid ensembl gene IDs are not allowed."""
-    adata = ln.core.datasets.mini_immuno.get_dataset1(otype="AnnData")
+    adata = ln.examples.datasets.mini_immuno.get_dataset1(otype="AnnData")
     adata.var_names = [adata.var_names[0], adata.var_names[1], "NOT_VALID_ENSEMBL"]
 
     var_schema = ln.Schema(itype=bt.Gene.ensembl_gene_id, maximal_set=True).save()

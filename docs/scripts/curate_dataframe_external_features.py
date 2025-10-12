@@ -1,6 +1,6 @@
 import lamindb as ln
 
-df = ln.examples.datasets.small_dataset1(otype="DataFrame")
+df = ln.examples.datasets.mini_immuno.get_dataset1(otype="DataFrame")
 
 species = ln.Feature(name="species", dtype="str").save()
 split = ln.Feature(name="split", dtype="str").save()

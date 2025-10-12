@@ -113,7 +113,7 @@ def yaml_file():
 
 @pytest.fixture(scope="module")
 def fcs_file():
-    fcs_path = ln.core.datasets.file_fcs_alpert19()
+    fcs_path = ln.examples.datasets.file_fcs_alpert19()
     yield fcs_path
     fcs_path.unlink()
 
@@ -907,7 +907,7 @@ def test_check_path_is_child_of_root():
 
 
 def test_serialize_paths():
-    fp_str = ln.core.datasets.anndata_file_pbmc68k_test().as_posix()
+    fp_str = ln.examples.datasets.anndata_file_pbmc68k_test().as_posix()
     fp_path = Path(fp_str)
 
     up_str = "s3://lamindb-ci/test-unknown-storage-in-core-tests/test.csv"
