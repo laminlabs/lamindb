@@ -33,3 +33,18 @@ def test_record_plural_type_warning(ccaplog):
         "name 'MyThings' for type ends with 's', in case you're naming with plural, consider the singular for a type name"
         in ccaplog.text
     )
+
+
+def test_name_lookup():
+    my_type = ln.Record(name="MyType", is_type=True).save()
+    label1 = ln.Record(name="label 1", type=my_type).save()
+    label2 = ln.Record(name="label 1", type=my_type)
+    assert label2 == label1
+    label2 = ln.Record(name="label 1")
+    assert label2 != label1
+    label2.save()
+    label3 = ln.Record(name="label 1")
+    assert label3 == label2
+    label2.delete(permanent=True)
+    label1.delete(permanent=True)
+    my_type.delete(permanent=True)

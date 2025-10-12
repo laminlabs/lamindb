@@ -306,8 +306,11 @@ def suggest_records_with_similar_names(
     # but this isn't reliable: https://laminlabs.slack.com/archives/C04FPE8V01W/p1737812808563409
     # the below needs to be .first() because there might be multiple records with the same
     # name field in case the record is versioned (e.g. for Transform key)
-    if hasattr(record, "type"):
-        subset = record.__class__.filter(type=record.type)
+    if hasattr(record.__class__, "type"):
+        if kwargs.get("type", None) is None:
+            subset = record.__class__.filter(type__isnull=True)
+        else:
+            subset = record.__class__.filter(type=kwargs["type"])
     else:
         subset = record.__class__
     exact_match = subset.filter(**{name_field: kwargs[name_field]}).first()
