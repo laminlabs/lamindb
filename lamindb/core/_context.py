@@ -373,9 +373,6 @@ class Context:
             save_context_core,
         )
 
-        if features is not None:
-            params = features
-
         # similar logic here: https://github.com/laminlabs/lamindb/pull/2527
         if is_read_only_connection():
             logger.warning("skipping track(), connected in read-only mode")
@@ -505,10 +502,7 @@ class Context:
                 self._logging_message_track += f", re-started Run('{run.uid}') at {format_field_value(run.started_at)}"
 
         if run is None:  # create new run
-            run = Run(  # type: ignore
-                transform=self._transform,
-                params=params,
-            )
+            run = Run(transform=self._transform)
             run.started_at = datetime.now(timezone.utc)
             run._status_code = -1  # started
             self._logging_message_track += f", started new Run('{run.uid}') at {format_field_value(run.started_at)}"
@@ -517,8 +511,13 @@ class Context:
         run.is_consecutive = True if is_run_from_ipython else None
         # need to save in all cases
         run.save()
+        if features is not None:
+            run.features.add_values(features)
+            self._logging_message_track += "\n→ features: " + ", ".join(
+                f"{key}={value}" for key, value in features.items()
+            )
         if params is not None:
-            run.features.add_values(params)
+            run.params = params
             self._logging_message_track += "\n→ params: " + ", ".join(
                 f"{key}={value}" for key, value in params.items()
             )

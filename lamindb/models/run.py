@@ -9,7 +9,6 @@ from django.db.models import (
 )
 from lamindb_setup import _check_instance_setup
 
-from lamindb.base import deprecated
 from lamindb.base.fields import (
     BooleanField,
     CharField,
@@ -407,29 +406,58 @@ class Run(SQLRecord):
         return status_dict.get(self._status_code, "unknown")
 
     @property
-    @deprecated("features")
-    def params(self) -> FeatureManager:
-        return self.features
-
-    @property
-    def features(self) -> FeatureManager:
-        """Features manager.
-
-        Run parameters are tracked via the `Feature` registry, just like all other variables.
+    def params(self) -> dict:
+        """JSON parameters.
 
         Guide: :ref:`track-run-parameters`
 
-        Example::
+        Example:
 
-            run.features.add_values({
-                "learning_rate": 0.01,
-                "input_dir": "s3://my-bucket/mydataset",
-                "downsample": True,
-                "preprocess_params": {
-                    "normalization_type": "cool",
-                    "subset_highlyvariable": True,
-                },
-            })
+            ::
+
+                run.params = {
+                    "learning_rate": 0.01,
+                    "input_dir": "s3://my-bucket/mydataset",
+                    "downsample": True,
+                    "preprocess_params": {
+                        "normalization_type": "cool",
+                        "subset_highlyvariable": True,
+                    },
+                }
+                run.save()
+
+        """
+        if self._aux is not None and "pm" in self._aux:
+            return self._aux["pm"]
+        else:
+            return {}
+
+    @params.setter
+    def params(self, value: dict) -> None:
+        self._aux = self._aux or {}
+        self._aux["pm"] = value
+
+    @property
+    def features(self) -> FeatureManager:
+        """Mange annotations with features.
+
+        In contrast to `.params`, features are indexed in the `Feature` registry.
+
+        Guide: :ref:`track-run-parameters`
+
+        Example:
+
+            ::
+
+                run.features.add_values({
+                    "learning_rate": 0.01,
+                    "input_dir": "s3://my-bucket/mydataset",
+                    "downsample": True,
+                    "preprocess_params": {
+                        "normalization_type": "cool",
+                        "subset_highlyvariable": True,
+                    },
+                })
         """
         from ._feature_manager import FeatureManager
 

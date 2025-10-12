@@ -702,8 +702,8 @@ def filter_with_features(
 
     if expressions:
         keys_normalized = [key.split("__")[0] for key in expressions]
-        field_or_feature_or_param = keys_normalized[0]
-        if field_or_feature_or_param in registry.__get_available_fields__():
+        field_or_feature = keys_normalized[0]
+        if field_or_feature in registry.__get_available_fields__():
             qs = queryset.filter(*queries, **expressions, **filter_kwargs)
         elif all(
             features_validated := Feature.objects.using(queryset.db).validate(
