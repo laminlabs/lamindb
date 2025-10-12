@@ -455,10 +455,8 @@ def test_add_list_of_cat_features():
     feat2 = ln.Feature(
         name="list_of_labels_of_type1", dtype=list[type_1], nullable=False
     ).save()
-
     schema = ln.Schema(name="Test schema", features=[feat1, feat2]).save()
-
-    ln.Artifact(
+    artifact = ln.Artifact(
         ".gitignore",
         key=".gitignore",
         schema=schema,
@@ -467,6 +465,12 @@ def test_add_list_of_cat_features():
             "list_of_labels_of_type1": ["label 1", "label 2"],
         },
     ).save()
+    artifact.delete(permanent=True)
+    schema.delete(permanent=True)
+    feat1.delete(permanent=True)
+    feat2.delete(permanent=True)
+    type_1.ulabels.all().delete(permanent=True)
+    type_1.delete(permanent=True)
 
 
 def test_add_labels_using_anndata(adata):
