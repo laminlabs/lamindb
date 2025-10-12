@@ -1536,28 +1536,13 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         skip_hash_lookup: bool = kwargs.pop("skip_hash_lookup", False)
 
         # validate external features if passed with a schema
-        if features is not None and schema is not None:
-            from lamindb.curators.core import ExperimentalDictCurator
+        if features is not None:
+            self._external_features = features
+            if schema is not None:
+                from lamindb.curators.core import ExperimentalDictCurator
 
-            validation_schema = schema
-            if schema.itype == "Composite" and schema.slots:
-                if len(schema.slots) > 1:
-                    raise ValueError(
-                        f"Composite schema has {len(schema.slots)} slots. "
-                        "External feature validation only supports schemas with a single slot."
-                    )
-                try:
-                    validation_schema = next(
-                        k for k in schema.slots.keys() if k.startswith("__external")
-                    )
-                except StopIteration:
-                    raise ValueError(
-                        "External feature validation requires a slot that starts with __external."
-                    ) from None
-
-            ExperimentalDictCurator(features, validation_schema).validate()
-
-        self._external_features = features
+                validation_schema = schema
+                ExperimentalDictCurator(features, validation_schema).validate()
 
         branch = kwargs.pop("branch", None)
         assert "branch_id" not in kwargs, "Please pass branch instead of branch_id."  # noqa: S101
@@ -1962,7 +1947,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             **kwargs,
         )
         artifact.n_observations = len(df)
-
+        if features is not None:
+            artifact._external_features = features
         if schema is not None:
             from lamindb.curators.core import DataFrameCurator, ExperimentalDictCurator
 
@@ -1973,11 +1959,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 )
                 return artifact
 
-            if features is not None:
-                if "__external__" in schema.slots:
-                    validation_schema = schema.slots["__external__"]
-                    ExperimentalDictCurator(features, validation_schema).validate()
-                artifact._external_features = features
+            if features is not None and "__external__" in schema.slots:
+                validation_schema = schema.slots["__external__"]
+                ExperimentalDictCurator(features, validation_schema).validate()
 
             curator = DataFrameCurator(artifact, schema)
             curator.validate()
@@ -2937,13 +2921,13 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             )
             logger.important(f"moved local artifact to cache: {local_path_cache}")
 
-        # Handle external features
-        if hasattr(self, "_external_features") and self._external_features is not None:
+        # annotate with external features
+        if hasattr(self, "_external_features"):
             external_features = self._external_features
             delattr(self, "_external_features")
             self.features.add_values(external_features)
 
-        # annotate Artifact
+        # annotate with internal features based on curator
         if hasattr(self, "_curator"):
             curator = self._curator
             delattr(self, "_curator")
