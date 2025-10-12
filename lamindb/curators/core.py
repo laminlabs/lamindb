@@ -706,12 +706,11 @@ class DataFrameCurator(SlotsCurator):
     ) -> None:
         super().__init__(dataset=dataset, schema=schema)
 
-        if self._schema.members.exists():
-            self._atomic_curator = ComponentCurator(
-                dataset=dataset,
-                schema=schema,
-                slot=slot,
-            )
+        self._atomic_curator = ComponentCurator(
+            dataset=dataset,
+            schema=schema,
+            slot=slot,
+        )
 
         # Handle (nested) attrs
         if slot is None and schema.slots:
@@ -826,13 +825,18 @@ def _resolve_schema_slot_path(
         base_path += f"['{key}']"
         try:
             current = current[key]
-        except KeyError:
+        except (
+            KeyError,
+            TypeError,
+        ):  # if not a dict, raises TypeError; if a dict and key not found, raises KeyError
             available = (
-                list(current.keys()) if isinstance(current, dict) else "not a dict"
+                list(current.keys())
+                if isinstance(current, dict)
+                else "none (not a dict)"
             )
             raise InvalidArgument(
                 f"Schema slot '{slot}' requires keys {base_path} but key '{key}' "
-                f"not found. Available keys at this level: {available}"
+                f"not found. Available keys at this level: {available}."
             ) from None
 
     return current
