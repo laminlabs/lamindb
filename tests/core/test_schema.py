@@ -336,6 +336,24 @@ def test_schema_update(
     artifact.delete(permanent=True)
 
 
+def test_schema_mutations_feature_removal(mini_immuno_schema_flexible: ln.Schema):
+    feature1 = ln.Feature.get(name="perturbation")
+    feature2 = ln.Feature.get(name="cell_type_by_model")
+    schema1 = ln.Schema(name="My test schema X", features=[feature1, feature2]).save()
+    assert schema1.features.count() == 2
+    schema1.delete()
+    # because schema1 is in trash, name lookup doesn't trigger
+    schema2 = ln.Schema(name="My test schema X", features=[feature1, feature2]).save()
+    assert schema1 != schema2
+    assert schema2.features.count() == 2
+    schema3 = ln.Schema(name="My test schema X", features=[feature2]).save()
+    assert schema2 == schema3
+    assert schema3.features.count() == 1
+    assert schema3.features.first() == feature2
+    schema1.delete(permanent=True)
+    schema2.delete(permanent=True)
+
+
 def test_schema_components(mini_immuno_schema_flexible: ln.Schema):
     obs_schema = mini_immuno_schema_flexible
     var_schema = ln.Schema(
@@ -414,23 +432,6 @@ def test_mini_immuno_schema_flexible(mini_immuno_schema_flexible):
             "j=HASH_OF_FEATURE_UIDS",  # this last hash is not deterministic in a unit test
         ][:6]
     )
-
-
-def test_schema_recovery_based_on_name(mini_immuno_schema_flexible: ln.Schema):
-    feature1 = ln.Feature.get(name="perturbation")
-    feature2 = ln.Feature.get(name="cell_type_by_model")
-    schema1 = ln.Schema(name="My test schema X", features=[feature1, feature2]).save()
-    assert schema1.features.count() == 2
-    schema1.delete()
-    schema2 = ln.Schema(name="My test schema X", features=[feature1]).save()
-    assert schema1 == schema2
-    assert schema2.features.count() == 1
-    schema3 = ln.Schema(name="My test schema X", features=[feature2]).save()
-    assert schema2 == schema3
-    assert schema3.features.count() == 1
-
-    schema1.delete(permanent=True)
-    schema2.delete(permanent=True)
 
 
 def test_schema_recovery_based_on_hash(mini_immuno_schema_flexible: ln.Schema):

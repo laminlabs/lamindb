@@ -932,12 +932,21 @@ class Schema(SQLRecord, CanCurate, TracksRun):
         """Save schema."""
         from .save import bulk_create
 
+        features_to_delete = []
+
         if self.pk is not None:
-            features = (
-                self._features[1]
-                if hasattr(self, "_features")
-                else (self.members.to_list() if self.members.exists() else [])
-            )
+            existing_features = self.members.to_list() if self.members.exists() else []
+            if hasattr(self, "_features"):
+                features = self._features[1]
+                if features != existing_features:
+                    features_to_delete = [
+                        f for f in existing_features if f not in features
+                    ]
+                    logger.warning(
+                        f"you updated the schema features and might invalidate datasets that were previously validated with these features: {features_to_delete}"
+                    )
+            else:
+                features = existing_features
             index_feature = self.index
             _, validated_kwargs, _, _, _ = self._validate_kwargs_calculate_hash(
                 features=[f for f in features if f != index_feature],  # type: ignore
@@ -987,8 +996,9 @@ class Schema(SQLRecord, CanCurate, TracksRun):
             using: bool | None = kwargs.pop("using", None)
             related_name, records = self._features
 
-            # .set() does not preserve the order but orders by the feature primary key
-            # only the following method preserves the order
+            # self.related_name.set(features) does **not** preserve the order
+            # but orders by the feature primary key
+            # hence we need the following more complicated logic
             through_model = getattr(self, related_name).through
             if self.itype == "Composite":
                 related_model_split = ["Feature"]
@@ -1006,6 +1016,7 @@ class Schema(SQLRecord, CanCurate, TracksRun):
                 for record in records
             ]
             through_model.objects.using(using).bulk_create(links, ignore_conflicts=True)
+            getattr(self, related_name).remove(*features_to_delete)
             delattr(self, "_features")
 
         return self
