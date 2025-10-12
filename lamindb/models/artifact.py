@@ -1552,7 +1552,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                     )
                 except StopIteration:
                     raise ValueError(
-                        "External feature validation requires a slot that starts with __external"
+                        "External feature validation requires a slot that starts with __external."
                     ) from None
 
             ExperimentalDictCurator(features, validation_schema).validate()
@@ -1964,8 +1964,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         artifact.n_observations = len(df)
 
         if schema is not None:
-            from lamindb.curators import ExperimentalDictCurator
-            from lamindb.curators.core import ComponentCurator
+            from lamindb.curators.core import ComponentCurator, ExperimentalDictCurator
 
             if not artifact._state.adding and artifact.suffix != ".parquet":
                 logger.warning(

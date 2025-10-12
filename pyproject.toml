@@ -196,7 +196,7 @@ testpaths = [
     "tests",
 ]
 filterwarnings = [
-    "ignore::SyntaxWarning:pronto.parsers.rdfxml",
+    "ignore::SyntaxWarning:pronto",
     "ignore:::pronto.ontology",
     "ignore::UserWarning:xarray_schema",
     "ignore::DeprecationWarning:botocore.*",
