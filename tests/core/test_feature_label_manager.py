@@ -17,7 +17,7 @@ from lamindb.models.artifact import add_labels
 
 @pytest.fixture(scope="module")
 def adata():
-    adata = ln.core.datasets.anndata_with_obs()
+    adata = ln.examples.datasets.anndata_with_obs()
     # add another column
     adata.obs["cell_type_by_expert"] = adata.obs["cell_type"]
     adata.obs.loc["obs0", "cell_type_by_expert"] = "B cell"

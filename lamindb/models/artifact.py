@@ -1928,7 +1928,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
                 import lamindb as ln
 
-                df = ln.core.datasets.mini_immuno.get_dataset1()
+                df = ln.examples.datasets.mini_immuno.get_dataset1()
                 artifact = ln.Artifact.from_dataframe(df, key="examples/dataset1.parquet").save()
 
             With validation and annotation.
@@ -2055,7 +2055,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
                 import lamindb as ln
 
-                adata = ln.core.datasets.anndata_with_obs()
+                adata = ln.examples.datasets.anndata_with_obs()
                 artifact = ln.Artifact.from_anndata(adata, key="mini_anndata_with_obs.h5ad").save()
 
             With validation and annotation.
@@ -2143,7 +2143,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
             import lamindb as ln
 
-            mdata = ln.core.datasets.mudata_papalexi21_subset()
+            mdata = ln.examples.datasets.mudata_papalexi21_subset()
             artifact = ln.Artifact.from_mudata(mdata, key="mudata_papalexi21_subset.h5mu").save()
         """
         if not data_is_scversedatastructure(mdata, "MuData"):
@@ -2314,7 +2314,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
             import lamindb as ln
 
-            dir_path = ln.core.datasets.generate_cell_ranger_files("sample_001", ln.settings.storage)
+            dir_path = ln.examples.datasets.generate_cell_ranger_files("sample_001", ln.settings.storage)
             artifacts = ln.Artifact.from_dir(dir_path)
             ln.save(artifacts)
         """

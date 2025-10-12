@@ -275,7 +275,9 @@ Artifact .parquet · DataFrame · dataset
 
     # a second dataset with missing values
     ln.ULabel.from_values(["sample4", "sample5", "sample6"], create=True).save()
-    df = ln.core.datasets.small_dataset2(otype="DataFrame", gene_symbols_in_index=True)
+    df = ln.examples.datasets.small_dataset2(
+        otype="DataFrame", gene_symbols_in_index=True
+    )
     curator = ln.curators.DataFrameCurator(df, small_dataset1_schema)
     try:
         curator.validate()
@@ -742,7 +744,7 @@ def test_mudata_curator(
     mudata_papalexi21_subset_schema: ln.Schema, small_dataset1_schema: ln.Schema
 ):
     mudata_schema = mudata_papalexi21_subset_schema
-    mdata = ln.core.datasets.mudata_papalexi21_subset()
+    mdata = ln.examples.datasets.mudata_papalexi21_subset()
     # TODO: refactor organism
     bt.settings.organism = "human"
     # wrong dataset
@@ -783,7 +785,7 @@ def test_mudata_curator_nested_uns(study_metadata_schema):
     This test verifies the behavior of both the MuData `.uns` slots and a `.uns` slot of
     an AnnData object inside the MuData object that gets specified using the key `:` syntax.
     """
-    mdata = ln.core.datasets.mudata_papalexi21_subset(with_uns=True)
+    mdata = ln.examples.datasets.mudata_papalexi21_subset(with_uns=True)
 
     site_uns_schema = ln.Schema(
         features=[
@@ -827,7 +829,7 @@ def test_mudata_curator_nested_uns(study_metadata_schema):
 def test_spatialdata_curator(
     spatialdata_blobs_schema: ln.Schema,
 ):
-    spatialdata = ln.core.datasets.spatialdata_blobs()
+    spatialdata = ln.examples.datasets.spatialdata_blobs()
 
     # wrong dataset
     with pytest.raises(InvalidArgument):
@@ -905,7 +907,7 @@ def test_tiledbsoma_curator(clean_soma_files):
     ).save()
 
     # Convert AnnData to SOMA format
-    adata = ln.core.datasets.small_dataset1(otype="AnnData")
+    adata = ln.examples.datasets.small_dataset1(otype="AnnData")
     tiledbsoma.io.from_anndata(
         "small_dataset.tiledbsoma", adata, measurement_name="RNA"
     )
@@ -949,7 +951,9 @@ def test_tiledbsoma_curator(clean_soma_files):
         }
 
     # Altered data (gene typo)
-    adata_typo = ln.core.datasets.small_dataset1(otype="AnnData", with_gene_typo=True)
+    adata_typo = ln.examples.datasets.small_dataset1(
+        otype="AnnData", with_gene_typo=True
+    )
     typo_soma_path = "./small_dataset1_typo.tiledbsoma"
     tiledbsoma.io.from_anndata(typo_soma_path, adata_typo, measurement_name="RNA")
     with tiledbsoma.Experiment.open(typo_soma_path) as experiment_typo:
