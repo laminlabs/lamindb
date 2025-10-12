@@ -140,7 +140,7 @@ def zip_file():
     filepath = Path("test.zip")
     pd.DataFrame([1, 2]).to_csv(filepath, sep="\t")
     yield filepath
-    filepath.unlink()
+    filepath.unlink(missing_ok=True)
 
 
 @pytest.fixture(scope="session")
