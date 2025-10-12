@@ -336,6 +336,31 @@ def test_schema_update(
     artifact.delete(permanent=True)
 
 
+def test_schema_mutations_feature_removal(
+    mini_immuno_schema_flexible: ln.Schema, ccaplog
+):
+    feature1 = ln.Feature.get(name="perturbation")
+    feature2 = ln.Feature.get(name="cell_type_by_model")
+    dummy_artifact = ln.Artifact(".gitignore", key=".gitignore").save()
+    # define the schema the first time
+    schema = ln.Schema(name="My test schema X", features=[feature1, feature2]).save()
+    assert schema.features.count() == 2
+    dummy_artifact.schema = schema  # pretend artifact was validated with this schema
+    dummy_artifact.save()
+    # define the schema the first time
+    schema1 = ln.Schema(name="My test schema X", features=[feature2]).save()
+    # retrieves same schema because of name equality
+    assert ccaplog.text.count("you're removing these features:") == 1
+    assert (
+        ccaplog.text.count("you updated the schema hash and might invalidate datasets")
+        == 1
+    )
+    assert schema1 == schema
+    assert schema1.features.count() == 1
+    dummy_artifact.delete(permanent=True)
+    schema.delete(permanent=True)
+
+
 def test_schema_components(mini_immuno_schema_flexible: ln.Schema):
     obs_schema = mini_immuno_schema_flexible
     var_schema = ln.Schema(
@@ -419,26 +444,11 @@ def test_mini_immuno_schema_flexible(mini_immuno_schema_flexible):
 def test_schema_recovery_based_on_hash(mini_immuno_schema_flexible: ln.Schema):
     feature1 = ln.Feature.get(name="perturbation")
     feature2 = ln.Feature.get(name="cell_type_by_model")
-    schema = ln.Schema(
-        features=[
-            feature1,
-            feature2,
-        ],
-    ).save()
-    schema2 = ln.Schema(
-        features=[
-            feature1,
-            feature2,
-        ],
-    )
+    schema = ln.Schema(features=[feature1, feature2]).save()
+    schema2 = ln.Schema(features=[feature1, feature2])
     assert schema == schema2
     schema.delete()
-    schema2 = ln.Schema(
-        features=[
-            feature1,
-            feature2,
-        ],
-    )
+    schema2 = ln.Schema(features=[feature1, feature2])
     assert schema != schema2
     schema.delete(permanent=True)
 
