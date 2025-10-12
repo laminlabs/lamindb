@@ -196,8 +196,11 @@ testpaths = [
     "tests",
 ]
 filterwarnings = [
-    "ignore::DeprecationWarning:botocore.*",
+    "ignore::SyntaxWarning:pronto.parsers.rdfxml",
+    "ignore::NotImplementedWarning:pronto.ontology",
+    "ignore::SyntaxWarning:pronto.ontology",
     "ignore::UserWarning:xarray_schema",
+    "ignore::DeprecationWarning:botocore.*",
     "ignore::DeprecationWarning:xarray_schema",
     "ignore::DeprecationWarning:geopandas",
     "ignore::DeprecationWarning:tiledbsoma",
