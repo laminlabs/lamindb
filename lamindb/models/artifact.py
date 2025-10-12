@@ -1537,8 +1537,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
         # validate external features if passed with a schema
         if features is not None and schema is not None:
-            from lamindb.curators import DataFrameCurator
-            from lamindb.curators.core import convert_dict_to_dataframe_for_validation
+            from lamindb.curators import DictCurator
 
             validation_schema = schema
             if schema.itype == "Composite" and schema.slots:
@@ -1556,10 +1555,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                         "External feature validation requires a slot that starts with __external"
                     ) from None
 
-            df_for_validation = convert_dict_to_dataframe_for_validation(
-                features, validation_schema
-            )
-            external_curator = DataFrameCurator(df_for_validation, validation_schema)
+            external_curator = DictCurator(features, validation_schema)
             external_curator.validate()
             external_curator._artifact = self
 
@@ -1928,13 +1924,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             schema: A schema that defines how to validate & annotate.
             features: Additional external features to link.
 
-        See Also:
-            :meth:`~lamindb.Collection`
-                Track collections.
-            :class:`~lamindb.Feature`
-                Track features.
-
-        Example:
+        Examples:
 
             No validation and annotation::
 
@@ -1976,6 +1966,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         artifact.n_observations = len(df)
 
         if schema is not None:
+            from lamindb.curators import DictCurator
             from lamindb.curators.core import ComponentCurator
 
             if not artifact._state.adding and artifact.suffix != ".parquet":
@@ -1997,10 +1988,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                         "External feature validation requires a slot __external__."
                     ) from None
 
-                external_curator = ComponentCurator(
-                    pd.DataFrame([features]), validation_schema
-                )
-                external_curator.validate()
+                DictCurator(features, validation_schema).validate()
                 artifact._external_features = features
 
             # Validate main DataFrame if not Composite or if Composite has attrs

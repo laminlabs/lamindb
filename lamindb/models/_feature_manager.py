@@ -928,11 +928,9 @@ class FeatureManager:
         model_name = "Feature"
 
         if schema is not None:
-            from lamindb.curators import DataFrameCurator
-            from lamindb.curators.core import convert_dict_to_dataframe_for_validation
+            from lamindb.curators import DictCurator
 
-            df_for_validation = convert_dict_to_dataframe_for_validation(values, schema)
-            DataFrameCurator(df_for_validation, schema).validate()
+            DictCurator(values, schema).validate()
             records = schema.members.filter(name__in=keys)
         else:
             records = registry.from_values(keys, field=feature_field, mute=True)

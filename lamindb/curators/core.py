@@ -787,6 +787,26 @@ class DataFrameCurator(SlotsCurator):
             )
 
 
+class DictCurator(DataFrameCurator):
+    """Curator for `dict` based on `DataFrameCurator`."""
+
+    def __init__(
+        self,
+        dataset: dict | Artifact,
+        schema: Schema,
+        slot: str | None = None,
+    ) -> None:
+        if not isinstance(dataset, dict) and not isinstance(dataset, Artifact):
+            raise InvalidArgument("The dataset must be a dict or dict-like artifact.")
+        if isinstance(dataset, Artifact):
+            assert dataset.otype == "dict", "Artifact must be of otype 'dict'."  # noqa: S101
+            d = dataset.load(is_run_input=False)
+        else:
+            d = dataset
+        df = convert_dict_to_dataframe_for_validation(d, schema)
+        super().__init__(df, schema, slot=slot)
+
+
 def _resolve_schema_slot_path(
     target_dict: dict[str, Any], slot_keys: Iterable[str], slot: str, base_path: str
 ) -> Any:
