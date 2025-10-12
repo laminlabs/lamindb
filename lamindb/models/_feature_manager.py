@@ -990,8 +990,13 @@ class FeatureManager:
                         raise TypeError(
                             f"Value for feature '{feature.name}' with dtype '{feature.dtype}' must be a string or record, but is {value} with dtype {inferred_type}"
                         )
-            elif (feature.dtype == "str" and feature.dtype not in inferred_type) or (
-                feature.dtype != "str" and feature.dtype != inferred_type
+            elif (
+                (feature.dtype == "str" and inferred_type != "cat ? str")
+                or (feature.dtype == "list[str]" and inferred_type != "list[cat ? str]")
+                or (
+                    feature.dtype not in {"str", "list[str]"}
+                    and feature.dtype != inferred_type
+                )
             ):
                 raise ValidationError(
                     f"Expected dtype for '{feature.name}' is '{feature.dtype}', got '{inferred_type}'"

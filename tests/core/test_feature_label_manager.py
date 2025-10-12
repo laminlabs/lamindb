@@ -476,6 +476,17 @@ def test_labels_add(adata):
     ln.Record.filter().delete(permanent=True)
 
 
+def test_add_list_features():
+    feature = ln.Feature(name="list_of_str", dtype=list[str]).save()
+    artifact = ln.Artifact(".gitignore", key=".gitignore").save()
+    artifact.features.add_values({"list_of_str": ["1", "2", "3"]})
+    assert artifact.features.get_values() == {"list_of_str": ["1", "2", "3"]}
+    artifact.delete(permanent=True)
+    assert ln.models.FeatureValue.filter(feature__name="list_of_str").count() == 1
+    feature.delete(permanent=True)
+    assert ln.models.FeatureValue.filter(feature__name="list_of_str").count() == 0
+
+
 def test_add_labels_using_anndata(adata):
     organism = bt.Organism.from_source(name="mouse")
     cell_types = [bt.CellType(name=name) for name in adata.obs["cell_type"].unique()]
