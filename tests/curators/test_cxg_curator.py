@@ -31,7 +31,6 @@ def cxg_schema_factory():
         entity.filter().delete(permanent=True)
 
 
-@pytest.mark.filterwarnings("ignore:SyntaxWarning")
 def test_cxg_curator_5(cxg_schema_factory):
     cxg_schema = cxg_schema_factory("5.2.0", field_types=["name", "ontology_id"])
 
@@ -92,7 +91,6 @@ def test_cxg_curator_5(cxg_schema_factory):
     artifact.delete(permanent=True)
 
 
-@pytest.mark.filterwarnings("ignore:SyntaxWarning")
 def test_cxg_curator_6_spatial(cxg_schema_factory):
     """Tests organism (in `uns` as of 6.x) and spatial slot validation of CELLxGENE 6.x."""
     cxg_schema = cxg_schema_factory(

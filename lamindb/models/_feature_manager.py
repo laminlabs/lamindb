@@ -470,7 +470,7 @@ def describe_features(
         for child in int_features_tree_children:
             dataset_tree.add(child)
 
-    # Linked features
+    # External features
     ext_features_tree_children = []
     if external_data:
         ext_features_tree_children.append(
@@ -481,7 +481,7 @@ def describe_features(
             )
         )
     # ext_features_tree = None
-    ext_features_header = Text("Linked features", style="bold dark_orange")
+    ext_features_header = Text("External features", style="bold dark_orange")
     if ext_features_tree_children:
         ext_features_tree = tree.add(ext_features_header)
         for child in ext_features_tree_children:
@@ -928,11 +928,9 @@ class FeatureManager:
         model_name = "Feature"
 
         if schema is not None:
-            from lamindb.curators import DataFrameCurator
+            from lamindb.curators.core import ExperimentalDictCurator
 
-            temp_df = pd.DataFrame([values])
-            curator = DataFrameCurator(temp_df, schema)
-            curator.validate()
+            ExperimentalDictCurator(values, schema).validate()
             records = schema.members.filter(name__in=keys)
         else:
             records = registry.from_values(keys, field=feature_field, mute=True)
@@ -994,14 +992,21 @@ class FeatureManager:
                 (feature.dtype == "str" and inferred_type != "cat ? str")
                 or (feature.dtype == "list[str]" and inferred_type != "list[cat ? str]")
                 or (
+                    feature.dtype.startswith("list[cat")
+                    and inferred_type != "list[cat ? str]"
+                )
+                or (
                     feature.dtype not in {"str", "list[str]"}
+                    and not feature.dtype.startswith("list[cat")
                     and feature.dtype != inferred_type
                 )
             ):
                 raise ValidationError(
                     f"Expected dtype for '{feature.name}' is '{feature.dtype}', got '{inferred_type}'"
                 )
-            if not feature.dtype.startswith("cat"):
+            if not (
+                feature.dtype.startswith("cat") or feature.dtype.startswith("list[cat")
+            ):
                 filter_kwargs = {model_name.lower(): feature, "value": converted_value}
                 feature_value, _ = value_model.get_or_create(**filter_kwargs)
                 _feature_values.append(feature_value)

@@ -397,6 +397,16 @@ class SlotsCurator(Curator):
         )
 
 
+def convert_dict_to_dataframe_for_validation(d: dict, schema: Schema) -> pd.DataFrame:
+    """Convert a dictionary to a DataFrame for validation against a schema."""
+    df = pd.DataFrame([d])
+    for feature in schema.members:
+        if feature.dtype.startswith("cat"):
+            if feature.name in df.columns:
+                df[feature.name] = pd.Categorical(df[feature.name])
+    return df
+
+
 # This is also currently used as DictCurator by flattening dictionaries into wide DataFrames.
 # Such an approach was never intended and there is room for a DictCurator in the future.
 # For more context, read https://laminlabs.slack.com/archives/C07DB677JF6/p1753994077716099 and
@@ -775,6 +785,26 @@ class DataFrameCurator(SlotsCurator):
             return self._atomic_curator.save_artifact(
                 key=key, description=description, revises=revises, run=run
             )
+
+
+class ExperimentalDictCurator(DataFrameCurator):
+    """Curator for `dict` based on `DataFrameCurator`."""
+
+    def __init__(
+        self,
+        dataset: dict | Artifact,
+        schema: Schema,
+        slot: str | None = None,
+    ) -> None:
+        if not isinstance(dataset, dict) and not isinstance(dataset, Artifact):
+            raise InvalidArgument("The dataset must be a dict or dict-like artifact.")
+        if isinstance(dataset, Artifact):
+            assert dataset.otype == "dict", "Artifact must be of otype 'dict'."  # noqa: S101
+            d = dataset.load(is_run_input=False)
+        else:
+            d = dataset
+        df = convert_dict_to_dataframe_for_validation(d, schema)
+        super().__init__(df, schema, slot=slot)
 
 
 def _resolve_schema_slot_path(
