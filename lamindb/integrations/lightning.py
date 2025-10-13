@@ -23,13 +23,13 @@ class Callback(pl.Callback):
     See also: :doc:`docs:mlflow` & :doc:`docs:wandb`.
 
     Args:
-        path: Path to the checkpoint
-        key: Artifact key
-        features: Additional feature values that every checkpoint gets annotated by.
+        path: A local path to the checkpoint.
+        key: The `key` for the checkpoint artifact.
+        features: Features to annotate the checkpoint.
 
     Examples:
 
-        Create a callback which creates artifacts for checkpoints and annotates them by the MLflow run ID::
+        Create a callback that creates artifacts for checkpoints and annotates them by the MLflow run ID::
 
             import lightning as pl
             from lamindb.integrations import lightning as ll
