@@ -16,6 +16,29 @@ def cleanup_checkpoints():
 
 
 @pytest.fixture
+def simple_model():
+    class SimpleModel(pl.LightningModule):
+        def __init__(self):
+            super().__init__()
+            self.layer = nn.Linear(10, 1)
+
+        def forward(self, x):
+            return self.layer(x)
+
+        def training_step(self, batch, batch_idx):
+            x, y = batch
+            loss = nn.functional.mse_loss(self(x), y)
+            self.log("train_loss", loss)
+            return loss
+
+        def configure_optimizers(self):
+            return torch.optim.Adam(self.parameters())
+
+    model = SimpleModel()
+    return model
+
+
+@pytest.fixture
 def torch_train_data_dataloader():
     train_data = DataLoader(
         TensorDataset(torch.randn(100, 10), torch.randn(100, 1)), batch_size=10
@@ -23,25 +46,7 @@ def torch_train_data_dataloader():
     return train_data
 
 
-class SimpleModel(pl.LightningModule):
-    def __init__(self):
-        super().__init__()
-        self.layer = nn.Linear(10, 1)
-
-    def forward(self, x):
-        return self.layer(x)
-
-    def training_step(self, batch, batch_idx):
-        x, y = batch
-        loss = nn.functional.mse_loss(self(x), y)
-        self.log("train_loss", loss)
-        return loss
-
-    def configure_optimizers(self):
-        return torch.optim.Adam(self.parameters())
-
-
-def test_callback_basic(cleanup_checkpoints, torch_train_data_dataloader):
+def test_callback_basic(cleanup_checkpoints, torch_train_data_dataloader, simple_model):
     """Callback should create artifacts for each training epoch."""
     artifact_key = "test/model.ckpt"
 
@@ -49,12 +54,10 @@ def test_callback_basic(cleanup_checkpoints, torch_train_data_dataloader):
         path="test_checkpoint.ckpt", key=artifact_key
     )
 
-    model = SimpleModel()
-
     trainer = pl.Trainer(
         max_epochs=2, callbacks=[callback], enable_checkpointing=False, logger=False
     )
-    trainer.fit(model, torch_train_data_dataloader)
+    trainer.fit(simple_model, torch_train_data_dataloader)
 
     artifacts = ln.Artifact.filter(key=artifact_key).all()
     assert len(artifacts) == 2
@@ -64,7 +67,9 @@ def test_callback_basic(cleanup_checkpoints, torch_train_data_dataloader):
         af.delete(permanent=True)
 
 
-def test_callback_with_features(cleanup_checkpoints, torch_train_data_dataloader):
+def test_callback_with_features(
+    cleanup_checkpoints, torch_train_data_dataloader, simple_model
+):
     """Callback should annotate artifacts with feature values."""
     ln.Feature(name="train_loss", dtype="float").save()
     ln.Feature(name="custom_param", dtype="str").save()
@@ -77,12 +82,10 @@ def test_callback_with_features(cleanup_checkpoints, torch_train_data_dataloader
         features={"train_loss": None, "custom_param": "test_value"},
     )
 
-    model = SimpleModel()
-
     trainer = pl.Trainer(
         max_epochs=2, callbacks=[callback], enable_checkpointing=False, logger=False
     )
-    trainer.fit(model, torch_train_data_dataloader)
+    trainer.fit(simple_model, torch_train_data_dataloader)
 
     artifacts = ln.Artifact.filter(key=artifact_key).all()
     assert len(artifacts) == 2
@@ -94,7 +97,9 @@ def test_callback_with_features(cleanup_checkpoints, torch_train_data_dataloader
         af.delete(permanent=True)
 
 
-def test_callback_missing_features(cleanup_checkpoints, torch_train_data_dataloader):
+def test_callback_missing_features(
+    cleanup_checkpoints, torch_train_data_dataloader, simple_model
+):
     """Callback should raise an error when specified features do not exist."""
     artifact_key = "test/model_missing.ckpt"
 
@@ -104,11 +109,9 @@ def test_callback_missing_features(cleanup_checkpoints, torch_train_data_dataloa
         features={"nonexistent_feature": None},
     )
 
-    model = SimpleModel()
-
     trainer = pl.Trainer(
         max_epochs=1, callbacks=[callback], enable_checkpointing=False, logger=False
     )
 
     with pytest.raises(ValueError, match="Feature nonexistent_feature missing"):
-        trainer.fit(model, torch_train_data_dataloader)
+        trainer.fit(simple_model, torch_train_data_dataloader)
