@@ -4,7 +4,7 @@ from contextvars import ContextVar
 from datetime import datetime, timezone
 from typing import Callable, ParamSpec, TypeVar
 
-from .core._context import context, serialize_params_to_json
+from .core._context import context
 from .models import Run, Transform
 
 P = ParamSpec("P")
@@ -98,7 +98,7 @@ def tracked(uid: str | None = None) -> Callable[[Callable[P, R]], Callable[P, R]
             params = dict(bound_args.arguments)
 
             # Add parameters to the run
-            run.params = serialize_params_to_json(params)
+            run.params = params
             run.save()
 
             # Set the run in context and execute function

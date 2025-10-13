@@ -7,7 +7,7 @@ import pytest
 
 
 @ln.tracked()
-def process_chunk(chunk_id: int, artifact_param: ln.Artifact) -> str:
+def process_chunk(chunk_id: int) -> str:
     # Create a simple DataFrame
     df = pd.DataFrame(
         {"id": range(chunk_id * 10, (chunk_id + 1) * 10), "value": range(10)}
@@ -22,6 +22,9 @@ def process_chunk(chunk_id: int, artifact_param: ln.Artifact) -> str:
 
 
 def test_tracked_parallel():
+    param_type = ln.Feature(name="Script[test_tracked.py]", is_type=True).save()
+    ln.Feature(name="chunk_id", dtype="int", type=param_type).save()
+
     with pytest.raises(RuntimeError) as err:
         process_chunk(4)
     assert (
@@ -35,14 +38,10 @@ def test_tracked_parallel():
     # Number of parallel executions
     n_parallel = 3
 
-    param_artifact = ln.Artifact(".gitignore", key="param_artifact").save()
-
     # Use ThreadPoolExecutor for parallel execution
     with concurrent.futures.ThreadPoolExecutor(max_workers=n_parallel) as executor:
         # Submit all tasks
-        futures = [
-            executor.submit(process_chunk, i, param_artifact) for i in range(n_parallel)
-        ]
+        futures = [executor.submit(process_chunk, i) for i in range(n_parallel)]
         # Get results as they complete
         chunk_keys = [
             future.result() for future in concurrent.futures.as_completed(futures)
@@ -73,14 +72,11 @@ def test_tracked_parallel():
         assert run.started_at < run.finished_at
         assert run.status == "completed"
         assert isinstance(run.params["chunk_id"], int)
-        assert run.params["artifact_param"].startswith("Artifact[")
 
     # Clean up test artifacts
     for artifact in artifacts:
         artifact.delete(permanent=True)
     env_artifacts[0].delete(permanent=True)
-
-    param_artifact.delete(permanent=True)
 
     ln.context._uid = None
     ln.context._run = None
