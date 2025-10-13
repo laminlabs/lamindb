@@ -198,7 +198,7 @@ class Run(SQLRecord):
     Args:
         transform: `Transform` A :class:`~lamindb.Transform` record.
         name: `str | None = None` An optional name.
-        params: `dict | None = None` Parameters passed to the transform.
+        params: `dict | None = None` A dictionary of parameters.
         reference: `str | None = None` For instance, an external ID or a download URL.
         reference_type: `str | None = None` For instance, `redun_id`, `nextflow_id` or `url`.
         initiated_by_run: `Run | None = None` The run that triggers this run.
