@@ -30,7 +30,7 @@ class Callback(pl.Callback):
         Create a callback which creates artifacts for checkpoints and annotates them by the MLflow run ID
 
             lamindb_callback = ln.integrations.lightning.Callback(
-                path=checkpoint_filename, key=artifact_key, annotate_by={ "mlflow_run_id": mlflow_run.info.run_id }
+                path=checkpoint_filename, key=artifact_key, features={ "mlflow_run_id": mlflow_run.info.run_id }
             )
             trainer = pl.Trainer(
                 callbacks=[lamindb_callback]

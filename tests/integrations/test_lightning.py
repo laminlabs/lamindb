@@ -1,9 +1,26 @@
+from pathlib import Path
+
 import lamindb as ln
 import lightning as pl
 import pytest
 import torch
 from torch import nn
 from torch.utils.data import DataLoader, TensorDataset
+
+
+@pytest.fixture(autouse=True)
+def cleanup_checkpoints():
+    yield
+    for path in Path().glob("test_checkpoint*.ckpt"):
+        path.unlink(missing_ok=True)
+
+
+@pytest.fixture
+def torch_train_data_dataloader():
+    train_data = DataLoader(
+        TensorDataset(torch.randn(100, 10), torch.randn(100, 1)), batch_size=10
+    )
+    return train_data
 
 
 class SimpleModel(pl.LightningModule):
@@ -24,7 +41,8 @@ class SimpleModel(pl.LightningModule):
         return torch.optim.Adam(self.parameters())
 
 
-def test_callback_basic():
+def test_callback_basic(cleanup_checkpoints, torch_train_data_dataloader):
+    """Verifies that the callback creates artifacts for each training epoch."""
     artifact_key = "test/model.ckpt"
 
     callback = ln.integrations.lightning.Callback(
@@ -32,14 +50,11 @@ def test_callback_basic():
     )
 
     model = SimpleModel()
-    train_data = DataLoader(
-        TensorDataset(torch.randn(100, 10), torch.randn(100, 1)), batch_size=10
-    )
 
     trainer = pl.Trainer(
         max_epochs=2, callbacks=[callback], enable_checkpointing=False, logger=False
     )
-    trainer.fit(model, train_data)
+    trainer.fit(model, torch_train_data_dataloader)
 
     artifacts = ln.Artifact.filter(key=artifact_key).all()
     assert len(artifacts) == 2
@@ -49,7 +64,8 @@ def test_callback_basic():
         af.delete(permanent=True)
 
 
-def test_callback_with_features():
+def test_callback_with_features(cleanup_checkpoints, torch_train_data_dataloader):
+    """Verifies that the callback annotates artifacts with feature values."""
     ln.Feature(name="train_loss", dtype="float").save()
     ln.Feature(name="custom_param", dtype="str").save()
 
@@ -62,14 +78,11 @@ def test_callback_with_features():
     )
 
     model = SimpleModel()
-    train_data = DataLoader(
-        TensorDataset(torch.randn(100, 10), torch.randn(100, 1)), batch_size=10
-    )
 
     trainer = pl.Trainer(
         max_epochs=2, callbacks=[callback], enable_checkpointing=False, logger=False
     )
-    trainer.fit(model, train_data)
+    trainer.fit(model, torch_train_data_dataloader)
 
     artifacts = ln.Artifact.filter(key=artifact_key).all()
     assert len(artifacts) == 2
@@ -81,7 +94,8 @@ def test_callback_with_features():
         af.delete(permanent=True)
 
 
-def test_callback_missing_features():
+def test_callback_missing_features(cleanup_checkpoints, torch_train_data_dataloader):
+    """Callback should raise an error when specified features do not exist."""
     artifact_key = "test/model_missing.ckpt"
 
     callback = ln.integrations.lightning.Callback(
@@ -91,13 +105,10 @@ def test_callback_missing_features():
     )
 
     model = SimpleModel()
-    train_data = DataLoader(
-        TensorDataset(torch.randn(100, 10), torch.randn(100, 1)), batch_size=10
-    )
 
     trainer = pl.Trainer(
         max_epochs=1, callbacks=[callback], enable_checkpointing=False, logger=False
     )
 
     with pytest.raises(ValueError, match="Feature nonexistent_feature missing"):
-        trainer.fit(model, train_data)
+        trainer.fit(model, torch_train_data_dataloader)
