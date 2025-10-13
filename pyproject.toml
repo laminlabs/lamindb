@@ -37,6 +37,7 @@ dependencies = [
     "fsspec",
     "graphviz",
     "psycopg2-binary",
+    "ipykernel<7.0.0"
 ]
 
 [project.urls]
