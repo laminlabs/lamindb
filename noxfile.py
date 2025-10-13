@@ -133,7 +133,7 @@ def install_ci(session, group):
         )
         run(session, "uv pip install --system tiledbsoma")
     elif group == "integrations":
-        run(session, "uv pip install --system pytorch-lightning")
+        run(session, "uv pip install --system lightning")
     elif group == "docs":
         extras += "zarr"
         # spatialdata dependency, specifying it here explicitly
