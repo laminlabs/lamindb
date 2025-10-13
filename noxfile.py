@@ -132,7 +132,7 @@ def install_ci(session, group):
             "uv pip install --system spatialdata",
         )
         run(session, "uv pip install --system tiledbsoma")
-    elif group == "lightning":
+    elif group == "integrations":
         run(session, "uv pip install --system pytorch-lightning")
     elif group == "docs":
         extras += "zarr"
