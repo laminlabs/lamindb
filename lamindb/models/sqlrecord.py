@@ -705,8 +705,6 @@ class Registry(ModelBase):
                 available_fields.add("visibility")  # backward compat
                 available_fields.add("_branch_code")  # backward compat
                 available_fields.add("transform")
-            if cls.__name__ == "Run":
-                available_fields.add("params")
             cls._available_fields = available_fields
         return cls._available_fields
 
