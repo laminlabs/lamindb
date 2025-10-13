@@ -42,7 +42,7 @@ class SimpleModel(pl.LightningModule):
 
 
 def test_callback_basic(cleanup_checkpoints, torch_train_data_dataloader):
-    """Verifies that the callback creates artifacts for each training epoch."""
+    """Callback should create artifacts for each training epoch."""
     artifact_key = "test/model.ckpt"
 
     callback = ln.integrations.lightning.Callback(
@@ -65,7 +65,7 @@ def test_callback_basic(cleanup_checkpoints, torch_train_data_dataloader):
 
 
 def test_callback_with_features(cleanup_checkpoints, torch_train_data_dataloader):
-    """Verifies that the callback annotates artifacts with feature values."""
+    """Callback should annotate artifacts with feature values."""
     ln.Feature(name="train_loss", dtype="float").save()
     ln.Feature(name="custom_param", dtype="str").save()
 
