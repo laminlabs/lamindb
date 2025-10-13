@@ -23,7 +23,8 @@ from ..errors import (
     TrackNotCalled,
     UpdateContext,
 )
-from ..models import Run, Transform, format_field_value
+from ..models import Run, SQLRecord, Transform, format_field_value
+from ..models._feature_manager import infer_feature_type_convert_json
 from ..models._is_versioned import bump_version as bump_version_function
 from ..models._is_versioned import (
     increment_base62,
@@ -233,6 +234,22 @@ class LogStreamTracker:
         except:  # noqa: E722, S110
             pass
         self.original_excepthook(exc_type, exc_value, exc_traceback)
+
+
+def serialize_params_to_json(params: dict) -> dict:
+    serialized_params = {}
+    for key, value in params.items():
+        if isinstance(value, SQLRecord):
+            value = f"{value.__class__.__get_name_with_module__()}[{value.uid}]"
+        else:
+            dtype, _, _ = infer_feature_type_convert_json(key, value)
+            if (dtype == "?" or dtype.startswith("cat")) and dtype != "cat ? str":
+                logger.warning(
+                    f"skipping param {key} because dtype not JSON serializable"
+                )
+                continue
+        serialized_params[key] = value
+    return serialized_params
 
 
 class Context:
@@ -510,9 +527,9 @@ class Context:
         # interactive session, otherwise, is consecutive
         run.is_consecutive = True if is_run_from_ipython else None
         if params is not None:
-            run.params = params
+            run.params = serialize_params_to_json(params)
             self._logging_message_track += "\n→ params: " + ", ".join(
-                f"{key}={value}" for key, value in params.items()
+                f"{key}={value}" for key, value in run.params.items()
             )
         run.save()  # need to save now
         if features is not None:
