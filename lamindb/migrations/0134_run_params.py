@@ -5,7 +5,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("lamindb", "0132_record_parents_record_reference_and_more"),
+        ("lamindb", "0133_artifactuser_artifact_users"),
     ]
 
     operations = [
