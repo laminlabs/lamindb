@@ -73,7 +73,7 @@ def install(session):
         "faq",
         "storage",
         "curator",
-        "lightning",
+        "integrations",
         "docs",
         "cli",
         "permissions",
@@ -226,7 +226,7 @@ def configure_coverage(session) -> None:
         "unit-core",
         "unit-storage",
         "curator",
-        "lightning",
+        "integrations",
         "tutorial",
         "guide",
         "biology",
@@ -274,8 +274,8 @@ def test(session, group):
             session,
             f"pytest {coverage_args} tests/curators {duration_args}",
         )
-    elif group == "lightning":
-        run(session, f"pytest -s {coverage_args} tests/integrations/test_lightning.py")
+    elif group == "integrations":
+        run(session, f"pytest -s {coverage_args} tests/integrations")
     elif group == "cli":
         run(
             session,
