@@ -73,6 +73,7 @@ def install(session):
         "faq",
         "storage",
         "curator",
+        "lightning",
         "docs",
         "cli",
         "permissions",
@@ -131,6 +132,8 @@ def install_ci(session, group):
             "uv pip install --system spatialdata",
         )
         run(session, "uv pip install --system tiledbsoma")
+    elif group == "lightning":
+        run(session, "uv pip install --system pytorch-lightning")
     elif group == "docs":
         extras += "zarr"
         # spatialdata dependency, specifying it here explicitly
@@ -221,6 +224,7 @@ def configure_coverage(session) -> None:
         "unit-core",
         "unit-storage",
         "curator",
+        "lightning",
         "tutorial",
         "guide",
         "biology",
@@ -268,6 +272,8 @@ def test(session, group):
             session,
             f"pytest {coverage_args} tests/curators {duration_args}",
         )
+    elif group == "lightning":
+        run(session, f"pytest -s {coverage_args} tests/integrations/test_lightning.py")
     elif group == "cli":
         run(
             session,
