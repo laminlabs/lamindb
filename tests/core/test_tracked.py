@@ -71,6 +71,7 @@ def test_tracked_parallel():
         assert run.finished_at is not None
         assert run.started_at < run.finished_at
         assert run.status == "completed"
+        assert isinstance(run.params["chunk_id"], int)
 
     # Clean up test artifacts
     for artifact in artifacts:

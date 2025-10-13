@@ -7,7 +7,6 @@ faq/pydantic-pandera
 faq/idempotency
 faq/acid
 faq/track-run-inputs
-faq/setup
 faq/curate-any
 faq/import-modules
 faq/reference-field
