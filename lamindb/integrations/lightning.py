@@ -1,4 +1,4 @@
-"""PyTorch Lightning integrations.
+"""PyTorch Lightning.
 
 .. autosummary::
     :toctree: .
