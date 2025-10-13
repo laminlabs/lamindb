@@ -509,17 +509,16 @@ class Context:
         # can only determine at ln.finish() if run was consecutive in
         # interactive session, otherwise, is consecutive
         run.is_consecutive = True if is_run_from_ipython else None
-        # need to save in all cases
-        run.save()
-        if features is not None:
-            run.features.add_values(features)
-            self._logging_message_track += "\n→ features: " + ", ".join(
-                f"{key}={value}" for key, value in features.items()
-            )
         if params is not None:
             run.params = params
             self._logging_message_track += "\n→ params: " + ", ".join(
                 f"{key}={value}" for key, value in params.items()
+            )
+        run.save()  # need to save now
+        if features is not None:
+            run.features.add_values(features)
+            self._logging_message_track += "\n→ features: " + ", ".join(
+                f"{key}={value}" for key, value in features.items()
             )
         self._run = run
         track_python_environment(run)

@@ -222,14 +222,6 @@ def process_expressions(queryset: QuerySet, queries: tuple, expressions: dict) -
                     expressions.pop("branch_id")
                 if "branch" in expressions and expressions["branch"] is None:
                     expressions.pop("branch")
-    if queryset.model.__get_name_with_module__() == "Run":
-        for key in list(expressions.keys()):
-            if key == "params":
-                expressions["_aux__pm"] = expressions.pop("params")
-            elif key.startswith("params__"):
-                expressions[f"_aux__{key.replace('params__', 'pm__')}"] = (
-                    expressions.pop(key)
-                )
 
     if queryset._db is not None:
         # only check for database mismatch if there is a defined database on the

@@ -72,6 +72,7 @@ Here is how to create a feature:
     # now use the params arg
     ln.track(transform=successor, params=params)
     assert ln.context.run.params == params
+    assert ln.Run.filter(params__param1=params["param1"]).count() == 1
 
     # test that run populates things like records
     record = ln.Record(name="my-label-in-track")
