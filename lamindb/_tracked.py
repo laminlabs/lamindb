@@ -6,7 +6,6 @@ from typing import Callable, ParamSpec, TypeVar
 
 from .core._context import context
 from .models import Run, Transform
-from .models._feature_manager import infer_feature_type_convert_json
 
 P = ParamSpec("P")
 R = TypeVar("R")
@@ -92,26 +91,15 @@ def tracked(uid: str | None = None) -> Callable[[Callable[P, R]], Callable[P, R]
             run = Run(transform=transform, initiated_by_run=initiated_by_run)  # type: ignore
             run.started_at = datetime.now(timezone.utc)
             run._status_code = -1  # started
-            run.save()
 
             # Bind arguments to get a mapping of parameter names to values
             bound_args = sig.bind(*args, **kwargs)
             bound_args.apply_defaults()
             params = dict(bound_args.arguments)
 
-            # Remove the run parameter if it exists (we'll inject our own)
-            params.pop("run", None)
-
-            # Deal with non-trivial parameter values
-            filtered_params = {}
-            for key, value in params.items():
-                dtype, _, _ = infer_feature_type_convert_json(key, value)
-                if (dtype == "?" or dtype.startswith("cat")) and dtype != "cat ? str":
-                    continue
-                filtered_params[key] = value
-
             # Add parameters to the run
-            run.features.add_values(filtered_params)
+            run.params = params
+            run.save()
 
             # Set the run in context and execute function
             token = current_tracked_run.set(run)

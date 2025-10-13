@@ -1,8 +1,6 @@
 import argparse
 import lamindb as ln
 
-ln.Param(name="run_workflow_subset", dtype=bool).save()
-
 
 @ln.tracked()
 def subset_dataframe(
@@ -22,7 +20,7 @@ if __name__ == "__main__":
     p.add_argument("--subset", action="store_true")
     args = p.parse_args()
 
-    params = {"run_workflow_subset": args.subset}
+    params = {"is_subset": args.subset}
 
     ln.track(params=params)
 
