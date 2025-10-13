@@ -62,7 +62,7 @@ from ..core.storage.paths import (
     filepath_cache_key_from_artifact,
     filepath_from_artifact,
 )
-from ..errors import InvalidArgument, ValidationError
+from ..errors import InvalidArgument, NoStorageLocationForSpace, ValidationError
 from ..models._is_versioned import (
     create_uid,
 )
@@ -301,6 +301,7 @@ def get_stat_or_artifact(
     check_hash: bool = True,
     is_replace: bool = False,
     instance: str | None = None,
+    skip_hash_lookup: bool = False,
 ) -> Union[tuple[int, str | None, str | None, int | None, Artifact | None], Artifact]:
     """Retrieves file statistics or an existing artifact based on the path, hash, and key."""
     n_files = None
@@ -328,31 +329,39 @@ def get_stat_or_artifact(
     if not check_hash:
         return size, hash, hash_type, n_files, None
     previous_artifact_version = None
-    if key is None or is_replace:
-        result = Artifact.objects.using(instance).filter(hash=hash).all()
-        artifact_with_same_hash_exists = len(result) > 0
+    if skip_hash_lookup:
+        artifact_with_same_hash_exists = False
+        hash_lookup_result = []
     else:
-        result = (
-            Artifact.objects.using(instance)
-            .filter(Q(hash=hash) | Q(key=key, storage=storage))
-            .order_by("-created_at")
-            .all()
-        )
-        artifact_with_same_hash_exists = result.filter(hash=hash).count() > 0
-        if not artifact_with_same_hash_exists and len(result) > 0:
+        if key is None or is_replace:
+            hash_lookup_result = Artifact.objects.using(instance).filter(
+                ~Q(branch_id=-1), hash=hash
+            )
+            artifact_with_same_hash_exists = len(hash_lookup_result) > 0
+        else:
+            hash_lookup_result = (
+                Artifact.objects.using(instance)
+                .filter(
+                    ~Q(branch_id=-1),
+                    Q(hash=hash) | Q(key=key, storage=storage),
+                )
+                .order_by("-created_at")
+            )
+            artifact_with_same_hash_exists = (
+                hash_lookup_result.filter(hash=hash).count() > 0
+            )
+    if key is not None and not is_replace:
+        if not artifact_with_same_hash_exists and len(hash_lookup_result) > 0:
             logger.important(
                 f"creating new artifact version for key='{key}' (storage: '{storage.root}')"
             )
-            previous_artifact_version = result[0]
+            previous_artifact_version = hash_lookup_result[0]
     if artifact_with_same_hash_exists:
         message = "returning existing artifact with same hash"
-        if result[0].branch_id == -1:
-            result[0].restore()
-            message = "restored artifact with same hash from trash"
         logger.important(
-            f"{message}: {result[0]}; to track this artifact as an input, use: ln.Artifact.get()"
+            f"{message}: {hash_lookup_result[0]}; to track this artifact as an input, use: ln.Artifact.get()"
         )
-        return result[0]
+        return hash_lookup_result[0]
     else:
         return size, hash, hash_type, n_files, previous_artifact_version
 
@@ -407,8 +416,8 @@ def get_artifact_kwargs_from_data(
     is_replace: bool = False,
     skip_check_exists: bool = False,
     overwrite_versions: bool | None = None,
+    skip_hash_lookup: bool = False,
 ):
-    run = get_run(run)
     memory_rep, path, suffix, storage, use_existing_storage_key = process_data(
         provisional_uid,
         data,
@@ -440,11 +449,10 @@ def get_artifact_kwargs_from_data(
         key=key,
         instance=using_key,
         is_replace=is_replace,
+        skip_hash_lookup=skip_hash_lookup,
     )
     if isinstance(stat_or_artifact, Artifact):
         existing_artifact = stat_or_artifact
-        if run is not None:
-            existing_artifact._populate_subsequent_runs(run)
         return existing_artifact, None
     else:
         size, hash, hash_type, n_files, revises = stat_or_artifact
@@ -634,11 +642,12 @@ def _check_otype_artifact(
     return otype
 
 
-def _populate_subsequent_runs_(record: Union[Artifact, Collection], run: Run):
+def populate_subsequent_run(record: Union[Artifact, Collection], run: Run):
     if record.run is None:
         record.run = run
     elif record.run != run:
         record._subsequent_runs.add(run)
+        record._subsequent_run_id = run.id
 
 
 # also see current_run() in core._data
@@ -696,29 +705,6 @@ def save_schema_links(self: Artifact) -> None:
             }
             links.append(Artifact.feature_sets.through(**kwargs))
         bulk_create(links, ignore_conflicts=True)
-
-
-# can restore later if needed
-# def format_provenance(self, fk_data, print_types):
-#     type_str = lambda attr: (
-#         f": {get_related_model(self.__class__, attr).__name__}" if print_types else ""
-#     )
-
-#     return "".join(
-#         [
-#             f"    .{field_name}{type_str(field_name)} = {format_field_value(value.get('name'))}\n"
-#             for field_name, value in fk_data.items()
-#             if value.get("name")
-#         ]
-#     )
-
-# can restore later if needed
-# def format_input_of_runs(self, print_types):
-#     if self.id is not None and self.input_of_runs.exists():
-#         values = [format_field_value(i.started_at) for i in self.input_of_runs.all()]
-#         type_str = ": Run" if print_types else ""  # type: ignore
-#         return f"    .input_of_runs{type_str} = {', '.join(values)}\n"
-#     return ""
 
 
 def _describe_postgres(self):  # for Artifact & Collection
@@ -963,7 +949,7 @@ def add_labels(
     else:
         validate_feature(feature, records)  # type:ignore
         records_by_registry = defaultdict(list)
-        feature_sets = self.feature_sets.filter(itype="Feature").all()
+        feature_sets = self.feature_sets.filter(itype="Feature")
         internal_features = set()  # type: ignore
         if len(feature_sets) > 0:
             for schema in feature_sets:
@@ -1136,6 +1122,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         space: `Space | None = None` The space of the artifact. If `None`, uses the current space.
         storage: `Storage | None = None` The storage location for the artifact. If `None`, uses the default storage location.
             You can see and set the default storage location in :attr:`~lamindb.core.Settings.storage`.
+        schema: A schema that defines how to validate & annotate.
+        features: Additional external features to link.
+        skip_hash_lookup: Skip the hash lookup so that a new artifact is created even if an identical artifact already exists.
 
     Examples:
 
@@ -1326,7 +1315,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
         Similarly, you query based on these accessors::
 
-            ln.Artifact.filter(ulabels__name="Experiment 1").all()
+            ln.Artifact.filter(ulabels__name="Experiment 1")
 
         Unlike the registry-specific accessors, the `.labels` accessor provides
         a way of associating labels with features::
@@ -1495,12 +1484,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     def __init__(
         self,
         # we're not choosing the name "path" for this arg because
-        # it'd be confusing with `artifact.path`, which is not the same
-        # so "data" conveys better that this is input data that's ingested
+        # it could be confused with `artifact.path`
+        # "data" conveys better that this is input data that's ingested
         # and will be moved to a target path at `artifact.path`
-        # also internally, we sometimes pass "data objects" like a DataFrame
-        # here; and we might refactor this but we might also keep that internal
-        # usage
         data: UPathStr,
         kind: ArtifactKind | str | None = None,
         key: str | None = None,
@@ -1511,6 +1497,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         storage: Storage | None = None,
         branch: Branch | None = None,
         space: Space | None = None,
+        schema: Schema | None = None,
+        features: dict[str, Any] | None = None,
+        skip_hash_lookup: bool = False,
     ): ...
 
     @overload
@@ -1542,48 +1531,23 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         revises: Artifact | None = kwargs.pop("revises", None)
         overwrite_versions: bool | None = kwargs.pop("overwrite_versions", None)
         version: str | None = kwargs.pop("version", None)
-
-        features: dict[str, Any] = kwargs.pop("features", None)
         schema: Schema | None = kwargs.pop("schema", None)
-        if features is not None and schema is not None:
-            from lamindb.curators import DataFrameCurator
+        features: dict[str, Any] | None = kwargs.pop("features", None)
+        skip_hash_lookup: bool = kwargs.pop("skip_hash_lookup", False)
 
-            temp_df = pd.DataFrame([features])
-            validation_schema = schema
-            if schema.itype == "Composite" and schema.slots:
-                if len(schema.slots) > 1:
-                    raise ValueError(
-                        f"Composite schema has {len(schema.slots)} slots. "
-                        "External feature validation only supports schemas with a single slot."
-                    )
-                try:
-                    validation_schema = next(
-                        k for k in schema.slots.keys() if k.startswith("__external")
-                    )
-                except StopIteration:
-                    raise ValueError(
-                        "External feature validation requires a slot that starts with __external."
-                    ) from None
+        # validate external features if passed with a schema
+        if features is not None:
+            self._external_features = features
+            if schema is not None:
+                from lamindb.curators.core import ExperimentalDictCurator
 
-            external_curator = DataFrameCurator(temp_df, validation_schema)
-            external_curator.validate()
-            external_curator._artifact = self
+                validation_schema = schema
+                ExperimentalDictCurator(features, validation_schema).validate()
 
-        self._external_features = features
-
-        branch_id: int | None = None
-        if "visibility" in kwargs:  # backward compat
-            branch_id = kwargs.pop("visibility")
-        if "_branch_code" in kwargs:  # backward compat
-            branch_id = kwargs.pop("_branch_code")
-        elif "branch_id" in kwargs:
-            branch_id = kwargs.pop("branch_id")
-        else:
-            branch_id = 1
         branch = kwargs.pop("branch", None)
-
+        assert "branch_id" not in kwargs, "Please pass branch instead of branch_id."  # noqa: S101
         space = kwargs.pop("space", None)
-        assert "space_id" not in kwargs, "please pass space instead"  # noqa: S101
+        assert "space_id" not in kwargs, "Please pass space instead of space_id."  # noqa: S101
         format = kwargs.pop("format", None)
         _is_internal_call = kwargs.pop("_is_internal_call", False)
         skip_check_exists = kwargs.pop("skip_check_exists", False)
@@ -1611,11 +1575,19 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                     "storage argument ignored as storage information from space takes precedence"
                 )
             storage_locs_for_space = Storage.filter(space=space)
-            storage = storage_locs_for_space.first()
-            if len(storage_locs_for_space) > 1:
-                logger.warning(
-                    f"more than one storage location for space {space}, choosing {storage}"
+            n_storage_locs_for_space = len(storage_locs_for_space)
+            if n_storage_locs_for_space == 0:
+                raise NoStorageLocationForSpace(
+                    "No storage location found for space.\n"
+                    "Either create one via ln.Storage(root='create-s3', space=space).save()\n"
+                    "Or start managing access to an existing storage location via the space: storage_loc.space = space; storage.save()"
                 )
+            else:
+                storage = storage_locs_for_space.first()
+                if n_storage_locs_for_space > 1:
+                    logger.warning(
+                        f"more than one storage location for space {space}, choosing {storage}"
+                    )
         otype = kwargs.pop("otype") if "otype" in kwargs else None
         if isinstance(data, str) and data.startswith("s3:///"):
             # issue in Groovy / nf-lamin producing malformed S3 paths
@@ -1658,6 +1630,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             is_automanaged_path = False
 
         provisional_uid, revises = create_uid(revises=revises, version=version)
+        run = get_run(run)
         kwargs_or_artifact, privates = get_artifact_kwargs_from_data(
             data=data,
             key=key,
@@ -1669,6 +1642,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             using_key=using_key,
             skip_check_exists=skip_check_exists,
             overwrite_versions=overwrite_versions,
+            skip_hash_lookup=skip_hash_lookup,
         )
 
         # an object with the same hash already exists
@@ -1685,6 +1659,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                     f"key {self.key} on existing artifact differs from passed key {key}"
                 )
             update_attributes(self, attr_to_update)
+            if run is not None:
+                populate_subsequent_run(self, run)
             return None
         else:
             kwargs = kwargs_or_artifact
@@ -1724,7 +1700,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         kwargs["version"] = version
         kwargs["description"] = description
         kwargs["branch"] = branch
-        kwargs["branch_id"] = branch_id
         kwargs["space"] = space
         kwargs["otype"] = otype
         kwargs["revises"] = revises
@@ -1738,43 +1713,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             raise ValueError("Pass one of key, run or description as a parameter")
 
         super().__init__(**kwargs)
-
-    @classmethod
-    def from_lazy(
-        cls,
-        suffix: str,
-        overwrite_versions: bool,
-        key: str | None = None,
-        description: str | None = None,
-        run: Run | None = None,
-        **kwargs,
-    ) -> LazyArtifact:
-        """Create a lazy artifact for streaming to auto-generated internal paths.
-
-        This is needed when it is desirable to stream to a `lamindb` auto-generated internal path
-        and register the path as an artifact.
-
-        The lazy artifact object (see :class:`~lamindb.models.LazyArtifact`) creates a real artifact
-        on `.save()` with the provided arguments.
-
-        Args:
-            suffix: The suffix for the auto-generated internal path
-            overwrite_versions: Whether to overwrite versions.
-            key: An optional key to reference the artifact.
-            description: A description.
-            run: The run that creates the artifact.
-            **kwargs: Other keyword arguments for the artifact to be created.
-
-        Examples:
-
-            Create a lazy artifact, write to the path and save to get a real artifact::
-
-                lazy = ln.Artifact.from_lazy(suffix=".zarr", overwrite_versions=True, key="mydata.zarr")
-                zarr.open(lazy.path, mode="w")["test"] = np.array(["test"]) # stream to the path
-                artifact = lazy.save()
-        """
-        args = {"key": key, "description": description, "run": run, **kwargs}
-        return LazyArtifact(suffix, overwrite_versions, **args)
 
     @property
     @deprecated("kind")
@@ -1876,8 +1814,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 artifact = ln.Arfifact.get(key="examples/my_file.parquet")
                 artifact = ln.Artifact.get(path="s3://bucket/folder/adata.h5ad")
         """
-        from .query_set import QuerySet
-
         return QuerySet(model=cls).get(idlike, is_run_input=is_run_input, **expressions)
 
     @classmethod
@@ -1910,6 +1846,43 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         return type(cls).filter(cls, *queries, **expressions)
 
     @classmethod
+    def from_lazy(
+        cls,
+        suffix: str,
+        overwrite_versions: bool,
+        key: str | None = None,
+        description: str | None = None,
+        run: Run | None = None,
+        **kwargs,
+    ) -> LazyArtifact:
+        """Create a lazy artifact for streaming to auto-generated internal paths.
+
+        This is needed when it is desirable to stream to a `lamindb` auto-generated internal path
+        and register the path as an artifact.
+
+        The lazy artifact object (see :class:`~lamindb.models.LazyArtifact`) creates a real artifact
+        on `.save()` with the provided arguments.
+
+        Args:
+            suffix: The suffix for the auto-generated internal path
+            overwrite_versions: Whether to overwrite versions.
+            key: An optional key to reference the artifact.
+            description: A description.
+            run: The run that creates the artifact.
+            **kwargs: Other keyword arguments for the artifact to be created.
+
+        Examples:
+
+            Create a lazy artifact, write to the path and save to get a real artifact::
+
+                lazy = ln.Artifact.from_lazy(suffix=".zarr", overwrite_versions=True, key="mydata.zarr")
+                zarr.open(lazy.path, mode="w")["test"] = np.array(["test"]) # stream to the path
+                artifact = lazy.save()
+        """
+        args = {"key": key, "description": description, "run": run, **kwargs}
+        return LazyArtifact(suffix, overwrite_versions, **args)
+
+    @classmethod
     def from_dataframe(
         cls,
         df: pd.DataFrame,
@@ -1932,21 +1905,15 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             revises: An old version of the artifact.
             run: The run that creates the artifact.
             schema: A schema that defines how to validate & annotate.
-            features: External features dict for additional annotation.
+            features: Additional external features to link.
 
-        See Also:
-            :meth:`~lamindb.Collection`
-                Track collections.
-            :class:`~lamindb.Feature`
-                Track features.
-
-        Example:
+        Examples:
 
             No validation and annotation::
 
                 import lamindb as ln
 
-                df = ln.core.datasets.mini_immuno.get_dataset1()
+                df = ln.examples.datasets.mini_immuno.get_dataset1()
                 artifact = ln.Artifact.from_dataframe(df, key="examples/dataset1.parquet").save()
 
             With validation and annotation.
@@ -1980,9 +1947,10 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             **kwargs,
         )
         artifact.n_observations = len(df)
-
+        if features is not None:
+            artifact._external_features = features
         if schema is not None:
-            from lamindb.curators.core import ComponentCurator
+            from lamindb.curators.core import DataFrameCurator, ExperimentalDictCurator
 
             if not artifact._state.adding and artifact.suffix != ".parquet":
                 logger.warning(
@@ -1991,31 +1959,14 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 )
                 return artifact
 
-            # Handle external features validation for Composite schemas
-            if schema.itype == "Composite" and features is not None:
-                try:
-                    external_slot = next(
-                        k for k in schema.slots.keys() if "__external__" in k
-                    )
-                    validation_schema = schema.slots[external_slot]
-                except StopIteration:
-                    raise ValueError(
-                        "External feature validation requires a slot __external__."
-                    ) from None
+            if features is not None and "__external__" in schema.slots:
+                validation_schema = schema.slots["__external__"]
+                ExperimentalDictCurator(features, validation_schema).validate()
 
-                external_curator = ComponentCurator(
-                    pd.DataFrame([features]), validation_schema
-                )
-                external_curator.validate()
-                artifact._external_features = features
-
-            # Validate main DataFrame if not Composite or if Composite has attrs
-            if schema.itype != "Composite" or "attrs" in schema.slots:
-                curator = ComponentCurator(artifact, schema)
-                curator.validate()
-                artifact.schema = schema
-                artifact._curator = curator
-
+            curator = DataFrameCurator(artifact, schema)
+            curator.validate()
+            artifact.schema = schema
+            artifact._curator = curator
         return artifact
 
     @classmethod
@@ -2076,7 +2027,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
                 import lamindb as ln
 
-                adata = ln.core.datasets.anndata_with_obs()
+                adata = ln.examples.datasets.anndata_with_obs()
                 artifact = ln.Artifact.from_anndata(adata, key="mini_anndata_with_obs.h5ad").save()
 
             With validation and annotation.
@@ -2164,7 +2115,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
             import lamindb as ln
 
-            mdata = ln.core.datasets.mudata_papalexi21_subset()
+            mdata = ln.examples.datasets.mudata_papalexi21_subset()
             artifact = ln.Artifact.from_mudata(mdata, key="mudata_papalexi21_subset.h5mu").save()
         """
         if not data_is_scversedatastructure(mdata, "MuData"):
@@ -2335,7 +2286,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
             import lamindb as ln
 
-            dir_path = ln.core.datasets.generate_cell_ranger_files("sample_001", ln.settings.storage)
+            dir_path = ln.examples.datasets.generate_cell_ranger_files("sample_001", ln.settings.storage)
             artifacts = ln.Artifact.from_dir(dir_path)
             ln.save(artifacts)
         """
@@ -2447,6 +2398,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             However, it will update the suffix if it changes.
         """
         storage = settings.storage.record
+        run = get_run(run)
         kwargs, privates = get_artifact_kwargs_from_data(
             provisional_uid=self.uid,
             data=data,
@@ -2690,7 +2642,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
                 access = _track_writes_factory(access, finalize)
         # only call if open is successfull
-        _track_run_input(self, is_run_input)
+        track_run_input(self, is_run_input)
         return access
 
     def load(
@@ -2769,7 +2721,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 )
                 access_memory = load_to_memory(cache_path, **kwargs)
         # only call if load is successfull
-        _track_run_input(self, is_run_input)
+        track_run_input(self, is_run_input)
 
         return access_memory
 
@@ -2804,7 +2756,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             filepath, cache_key=cache_key, **kwargs
         )
         # only call if sync is successfull
-        _track_run_input(self, is_run_input)
+        track_run_input(self, is_run_input)
         return cache_path
 
     def delete(
@@ -2969,13 +2921,13 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             )
             logger.important(f"moved local artifact to cache: {local_path_cache}")
 
-        # Handle external features
-        if hasattr(self, "_external_features") and self._external_features is not None:
+        # annotate with external features
+        if hasattr(self, "_external_features"):
             external_features = self._external_features
             delattr(self, "_external_features")
             self.features.add_values(external_features)
 
-        # annotate Artifact
+        # annotate with internal features based on curator
         if hasattr(self, "_curator"):
             curator = self._curator
             delattr(self, "_curator")
@@ -3001,9 +2953,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             return_str: Return a string instead of printing.
         """
         return describe_artifact_collection(self, return_str=return_str)
-
-    def _populate_subsequent_runs(self, run: Run) -> None:
-        _populate_subsequent_runs_(self, run)
 
 
 # can't really just call .cache in .load because of double tracking
@@ -3068,15 +3017,20 @@ class ArtifactUser(BaseSQLRecord, IsLink, TracksRun):
         unique_together = ("artifact", "user", "feature")
 
 
-def _track_run_input(
-    data: (
+def track_run_input(
+    record: (
         Artifact | Iterable[Artifact]
     ),  # can also be Collection | Iterable[Collection]
     is_run_input: bool | Run | None = None,
     run: Run | None = None,
-):
+) -> None:
+    """Links a record as an input to a run.
+
+    This function contains all validation logic to make decisions on whether a
+    record qualifies as an input or not.
+    """
     if is_run_input is False:
-        return
+        return None
 
     from .._tracked import get_current_tracked_run
     from ..core._context import context
@@ -3089,154 +3043,138 @@ def _track_run_input(
         run = get_current_tracked_run()
         if run is None:
             run = context.run
-    # consider that data is an iterable of Data
-    data_iter: Iterable[Artifact] | Iterable[Collection] = (
-        [data] if isinstance(data, (Artifact, Collection)) else data
+    # consider that record is an iterable of Data
+    record_iter: Iterable[Artifact] | Iterable[Collection] = (
+        [record] if isinstance(record, (Artifact, Collection)) else record
     )
-    track_run_input = False
-    input_data = []
+    input_records = []
     if run is not None:
-        # avoid cycles: data can't be both input and output
-        def is_valid_input(data: Artifact | Collection):
+        assert not run._state.adding, "Save the run before tracking its inputs."  # noqa: S101
+
+        def is_valid_input(record: Artifact | Collection):
             is_valid = False
-            if data._state.db == "default":
+            # if a record is not yet saved it has record._state.db = None
+            # then it can't be an input
+            # we silently ignore because what will happen is that
+            # the record either gets saved and then is tracked as an output
+            # or it won't get saved at all
+            if record._state.db == "default":
                 # things are OK if the record is on the default db
                 is_valid = True
-            elif data._state.db is None:
-                # if a record is not yet saved, it can't be an input
-                # we silently ignore because what likely happens is that
-                # the user works with an object that's about to be saved
-                # in the current Python session
-                is_valid = False
             else:
                 # record is on another db
                 # we have to save the record into the current db with
                 # the run being attached to a transfer transform
                 logger.info(
-                    f"completing transfer to track {data.__class__.__name__}('{data.uid[:8]}...') as input"
+                    f"completing transfer to track {record.__class__.__name__}('{record.uid}') as input"
                 )
-                data.save()
+                record.save()
                 is_valid = True
-            data_run_id, run_id = data.run_id, run.id
-            different_runs = (data_run_id != run_id) or (
-                data_run_id is None and run_id is None
-            )
-            return (
-                different_runs
-                and not data._state.adding  # this seems duplicated with data._state.db is None
-                and is_valid
-            )
+            # avoid cycles: record can't be both input and output
+            if record.run_id == run.id:
+                logger.debug(
+                    f"not tracking {record} as input to run {run} because created by same run"
+                )
+                is_valid = False
+            if run.id == getattr(record, "_subsequent_run_id", None):
+                logger.debug(
+                    f"not tracking {record} as input to run {run} because re-created in same run"
+                )
+                is_valid = False
+            return is_valid
 
-        input_data = [data for data in data_iter if is_valid_input(data)]
-        input_data_ids = [data.id for data in input_data]
-    if input_data:
-        data_class_name = input_data[0].__class__.__name__.lower()
+        input_records = [record for record in record_iter if is_valid_input(record)]
+        input_records_ids = [record.id for record in input_records]
+    if input_records:
+        record_class_name = input_records[0].__class__.__name__.lower()
     # let us first look at the case in which the user does not
     # provide a boolean value for `is_run_input`
     # hence, we need to determine whether we actually want to
     # track a run or not
-    if is_run_input is None:
-        # we don't have a run record
+    track = False
+    is_run_input = settings.track_run_inputs if is_run_input is None else is_run_input
+    if is_run_input:
         if run is None:
-            if settings.track_run_inputs:
-                if not is_read_only_connection():
-                    logger.warning(WARNING_NO_INPUT)
-        # assume we have a run record
-        else:
-            # assume there is non-cyclic candidate input data
-            if input_data:
-                if settings.track_run_inputs:
-                    transform_note = ""
-                    if len(input_data) == 1:
-                        if input_data[0].transform is not None:
-                            transform_note = (
-                                ", adding parent transform"
-                                f" {input_data[0].transform.id}"
-                            )
-                    logger.info(
-                        f"adding {data_class_name} ids {input_data_ids} as inputs for run"
-                        f" {run.id}{transform_note}"
-                    )
-                    track_run_input = True
-                else:
-                    logger.hint(
-                        "track these data as a run input by passing `is_run_input=True`"
-                    )
+            if not is_read_only_connection():
+                logger.warning(WARNING_NO_INPUT)
+        elif input_records:
+            logger.debug(
+                f"adding {record_class_name} ids {input_records_ids} as inputs for run {run.id}"
+            )
+            track = True
     else:
-        track_run_input = is_run_input
-    if track_run_input:
-        if run is None:
-            raise ValueError("No run context set. Call `ln.track()`.")
-        if run._state.adding:
-            # avoid adding the same run twice
-            run.save()
-        if data_class_name == "artifact":
-            IsLink = run.input_artifacts.through
-            links = [
-                IsLink(run_id=run.id, artifact_id=data_id) for data_id in input_data_ids
-            ]
-        else:
-            IsLink = run.input_collections.through
-            links = [
-                IsLink(run_id=run.id, collection_id=data_id)
-                for data_id in input_data_ids
-            ]
-        try:
-            IsLink.objects.bulk_create(links, ignore_conflicts=True)
-        except ProgrammingError as e:
-            if "new row violates row-level security policy" in str(e):
-                instance = setup_settings.instance
-                available_spaces = instance.available_spaces
-                if available_spaces is None:
-                    raise NoWriteAccess(
-                        f"You’re not allowed to write to the instance {instance.slug}.\n"
-                        "Please contact administrators of the instance if you need write access."
-                    ) from None
-                write_access_spaces = (
-                    available_spaces["admin"] + available_spaces["write"]
-                )
-                no_write_access_spaces = {
-                    data_space
-                    for data in input_data
-                    if (data_space := data.space) not in write_access_spaces
-                }
-                if (run_space := run.space) not in write_access_spaces:
-                    no_write_access_spaces.add(run_space)
-
-                if not no_write_access_spaces:
-                    # if there are no unavailable spaces, then this should be due to locking
-                    locked_records = [
-                        data for data in input_data if getattr(data, "is_locked", False)
-                    ]
-                    if run.is_locked:
-                        locked_records.append(run)
-                    # if no unavailable spaces and no locked records, just raise the original error
-                    if not locked_records:
-                        raise e
-                    no_write_msg = (
-                        "It is not allowed to modify locked records: "
-                        + ", ".join(
-                            r.__class__.__name__ + f"(uid={r.uid})"
-                            for r in locked_records
-                        )
-                        + "."
-                    )
-                    raise NoWriteAccess(no_write_msg) from None
-
-                if len(no_write_access_spaces) > 1:
-                    name_msg = ", ".join(
-                        f"'{space.name}'" for space in no_write_access_spaces
-                    )
-                    space_msg = "spaces"
-                else:
-                    name_msg = f"'{no_write_access_spaces.pop().name}'"
-                    space_msg = "space"
+        track = is_run_input
+    if not track or not input_records:
+        return None
+    if run is None:
+        raise ValueError("No run context set. Call `ln.track()`.")
+    if record_class_name == "artifact":
+        IsLink = run.input_artifacts.through
+        links = [
+            IsLink(run_id=run.id, artifact_id=record_id)
+            for record_id in input_records_ids
+        ]
+    else:
+        IsLink = run.input_collections.through
+        links = [
+            IsLink(run_id=run.id, collection_id=record_id)
+            for record_id in input_records_ids
+        ]
+    try:
+        IsLink.objects.bulk_create(links, ignore_conflicts=True)
+    except ProgrammingError as e:
+        if "new row violates row-level security policy" in str(e):
+            instance = setup_settings.instance
+            available_spaces = instance.available_spaces
+            if available_spaces is None:
                 raise NoWriteAccess(
-                    f"You’re not allowed to write to the {space_msg} {name_msg}.\n"
-                    f"Please contact administrators of the {space_msg} if you need write access."
+                    f"You’re not allowed to write to the instance {instance.slug}.\n"
+                    "Please contact administrators of the instance if you need write access."
                 ) from None
+            write_access_spaces = available_spaces["admin"] + available_spaces["write"]
+            no_write_access_spaces = {
+                record_space
+                for record in input_records
+                if (record_space := record.space) not in write_access_spaces
+            }
+            if (run_space := run.space) not in write_access_spaces:
+                no_write_access_spaces.add(run_space)
+
+            if not no_write_access_spaces:
+                # if there are no unavailable spaces, then this should be due to locking
+                locked_records = [
+                    record
+                    for record in input_records
+                    if getattr(record, "is_locked", False)
+                ]
+                if run.is_locked:
+                    locked_records.append(run)
+                # if no unavailable spaces and no locked records, just raise the original error
+                if not locked_records:
+                    raise e
+                no_write_msg = (
+                    "It is not allowed to modify locked records: "
+                    + ", ".join(
+                        r.__class__.__name__ + f"(uid={r.uid})" for r in locked_records
+                    )
+                    + "."
+                )
+                raise NoWriteAccess(no_write_msg) from None
+
+            if len(no_write_access_spaces) > 1:
+                name_msg = ", ".join(
+                    f"'{space.name}'" for space in no_write_access_spaces
+                )
+                space_msg = "spaces"
             else:
-                raise e
+                name_msg = f"'{no_write_access_spaces.pop().name}'"
+                space_msg = "space"
+            raise NoWriteAccess(
+                f"You’re not allowed to write to the {space_msg} {name_msg}.\n"
+                f"Please contact administrators of the {space_msg} if you need write access."
+            ) from None
+        else:
+            raise e
 
 
 # privates currently dealt with separately

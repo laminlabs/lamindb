@@ -33,7 +33,7 @@ from lamindb.integrations import save_tiledbsoma_experiment
 
 @pytest.fixture
 def bad_adata_path():
-    fp = ln.core.datasets.anndata_file_pbmc68k_test()
+    fp = ln.examples.datasets.anndata_file_pbmc68k_test()
     adata = load_h5ad(fp)
     to = fp.with_name("pbmc68k_bad.h5ad")
     shutil.copy(fp, to)
@@ -59,7 +59,7 @@ def bad_adata_path():
 
 
 def test_anndata_io():
-    test_file = ln.core.datasets.anndata_file_pbmc68k_test()
+    test_file = ln.examples.datasets.anndata_file_pbmc68k_test()
 
     adata = load_h5ad(test_file)
 
@@ -75,7 +75,7 @@ def test_anndata_io():
 
 @pytest.mark.parametrize("adata_format", ["h5ad", "zarr"])
 def test_backed_access(adata_format):
-    fp = ln.core.datasets.anndata_file_pbmc68k_test()
+    fp = ln.examples.datasets.anndata_file_pbmc68k_test()
     if adata_format == "zarr":
         adata = load_h5ad(fp)
 
@@ -172,7 +172,7 @@ def test_add_column():
     previous_storage = ln.setup.settings.storage.root_as_str
     ln.settings.storage = "s3://lamindb-test/storage"
 
-    adata = load_h5ad(ln.core.datasets.anndata_file_pbmc68k_test())
+    adata = load_h5ad(ln.examples.datasets.anndata_file_pbmc68k_test())
     zarr_path = "adata_write_mode.zarr"
     adata.write_zarr(zarr_path)
 
@@ -261,7 +261,7 @@ def test_backed_zarr_not_adata():
 
 
 def test_anndata_open_mode():
-    fp = ln.core.datasets.anndata_file_pbmc68k_test()
+    fp = ln.examples.datasets.anndata_file_pbmc68k_test()
     artifact = ln.Artifact(fp, key="test_adata.h5ad").save()
 
     with artifact.open(mode="r") as access:
@@ -305,7 +305,7 @@ def test_write_read_tiledbsoma(storage):
         previous_storage = ln.setup.settings.storage.root_as_str
         ln.settings.storage = storage
 
-    test_file = ln.core.datasets.anndata_file_pbmc68k_test()
+    test_file = ln.examples.datasets.anndata_file_pbmc68k_test()
     adata = load_h5ad(test_file)
     # write less
     adata = adata[:5, :2].copy()
@@ -455,7 +455,7 @@ def test_write_read_tiledbsoma(storage):
 
 
 def test_from_tiledbsoma():
-    test_file = ln.core.datasets.anndata_file_pbmc68k_test()
+    test_file = ln.examples.datasets.anndata_file_pbmc68k_test()
     soma_path = "mystore.tiledbsoma"
     tiledbsoma.io.from_h5ad(soma_path, test_file, measurement_name="RNA")
     # wrong suffix
@@ -573,7 +573,7 @@ def test_open_dataframe_collection():
     assert _flat_suffixes([shard1, ln.UPath("some.csv")]) == {".parquet", ".csv"}
     assert _open_pyarrow_dataset([shard1, shard2]).to_table().to_pandas().equals(df)
 
-    ln.core.datasets.file_mini_csv()
+    ln.examples.datasets.file_mini_csv()
 
     artifact1 = ln.Artifact(shard1, key="df1.parquet").save()
     artifact2 = ln.Artifact(shard2, key="df2.parquet").save()
@@ -657,7 +657,7 @@ def test_anndata_n_observations(bad_adata_path):
     assert _anndata_n_observations(corrupted_path) is None
     corrupted_path.unlink()
 
-    adata = ln.core.datasets.anndata_pbmc68k_reduced()
+    adata = ln.examples.datasets.anndata_pbmc68k_reduced()
     assert _anndata_n_observations(adata) == adata.n_obs
     zarr_path = "./test_adata_n_obs.zarr"
     adata.write_zarr(zarr_path)
@@ -676,7 +676,7 @@ def _compress(input_filepath, output_filepath):
 
 
 def test_compressed():
-    adata_f = ln.core.datasets.anndata_file_pbmc68k_test()
+    adata_f = ln.examples.datasets.anndata_file_pbmc68k_test()
     adata_gz = adata_f.with_suffix(adata_f.suffix + ".gz")
     _compress(adata_f, adata_gz)
 

@@ -31,12 +31,11 @@ def cxg_schema_factory():
         entity.filter().delete(permanent=True)
 
 
-@pytest.mark.filterwarnings("ignore:SyntaxWarning")
 def test_cxg_curator_5(cxg_schema_factory):
     cxg_schema = cxg_schema_factory("5.2.0", field_types=["name", "ontology_id"])
 
     # test invalid var index and typo in obs column
-    adata = ln.core.datasets.small_dataset3_cellxgene(
+    adata = ln.examples.datasets.small_dataset3_cellxgene(
         with_obs_defaults=True, with_obs_typo=True, with_var_typo=True
     )
     curator = ln.curators.AnnDataCurator(adata, cxg_schema)
@@ -67,7 +66,7 @@ def test_cxg_curator_5(cxg_schema_factory):
     artifact = curator.save_artifact(key="examples/dataset-curated-against-cxg-5.h5ad")
 
     # test missing obs columns
-    adata = ln.core.datasets.small_dataset3_cellxgene(with_obs_defaults=False)
+    adata = ln.examples.datasets.small_dataset3_cellxgene(with_obs_defaults=False)
     adata = adata[:, ~adata.var.index.isin({"invalid_ensembl_id"})].copy()
     curator = ln.curators.AnnDataCurator(adata, cxg_schema)
     with pytest.raises(ln.errors.ValidationError) as e:
@@ -92,14 +91,13 @@ def test_cxg_curator_5(cxg_schema_factory):
     artifact.delete(permanent=True)
 
 
-@pytest.mark.filterwarnings("ignore:SyntaxWarning")
 def test_cxg_curator_6_spatial(cxg_schema_factory):
     """Tests organism (in `uns` as of 6.x) and spatial slot validation of CELLxGENE 6.x."""
     cxg_schema = cxg_schema_factory(
         "6.0.0", spatial_library_id="library_123", field_types="ontology_id"
     )
 
-    adata = ln.core.datasets.small_dataset3_cellxgene(
+    adata = ln.examples.datasets.small_dataset3_cellxgene(
         with_obs_defaults=True, with_uns_organism=True, with_uns_spatial=True
     )
     # delete a necessary component from uns["spatial"]

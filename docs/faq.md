@@ -11,7 +11,7 @@ faq/setup
 faq/curate-any
 faq/import-modules
 faq/reference-field
-faq/visibility
+faq/trash-archive
 faq/delete
 faq/keep-artifacts-local
 faq/validate-fields

@@ -26,6 +26,8 @@ from .sqlrecord import Registry, SQLRecord
 if TYPE_CHECKING:
     from lamindb.base.types import ListLike, StrField
 
+    from .sqlrecord import Branch
+
 T = TypeVar("T")
 
 
@@ -60,7 +62,7 @@ def get_keys_from_df(data: list, registry: SQLRecord) -> list[str]:
     return keys
 
 
-def get_default_branch_ids() -> list[int]:
+def get_default_branch_ids(branch: Branch | None = None) -> list[int]:
     """Return branch IDs to include in default queries.
 
     By default, queries include records on the main branch (branch_id=1) but exclude trashed (branch_id=-1)
@@ -72,7 +74,10 @@ def get_default_branch_ids() -> list[int]:
     Returns:
         List containing the default branch and current branch if different.
     """
-    branch_id = setup_settings.branch.id
+    if branch is None:
+        branch_id = setup_settings.branch.id
+    else:
+        branch_id = branch.id
     branch_ids = [branch_id]
     if branch_id != 1:  # add the main branch by default
         branch_ids.append(1)
@@ -142,7 +147,7 @@ def get_backward_compat_filter_kwargs(queryset, expressions):
     return list(mapped.keys()) if was_list else mapped
 
 
-def process_expressions(queryset: QuerySet, expressions: dict) -> dict:
+def process_expressions(queryset: QuerySet, queries: tuple, expressions: dict) -> dict:
     def _map_databases(value: Any, key: str, target_db: str) -> tuple[str, Any]:
         if isinstance(value, SQLRecord):
             if value._state.db != target_db:
@@ -170,6 +175,28 @@ def process_expressions(queryset: QuerySet, expressions: dict) -> dict:
 
         return key, value
 
+    branch_fields = {"branch", "branch_id"}
+    branch_prefixes = ("branch__", "branch_id__")
+
+    def queries_contain_branch(queries: tuple) -> bool:
+        """Check if any Q object in queries references branch or branch_id."""
+
+        def check_q_object(q: Q) -> bool:
+            # Q objects store their conditions in q.children
+            for child in q.children:
+                if isinstance(child, tuple) and len(child) == 2:
+                    # Normal condition: (key, value)
+                    key = child[0]
+                    if key in branch_fields or key.startswith(branch_prefixes):
+                        return True
+                elif isinstance(child, Q):
+                    # Nested Q object
+                    if check_q_object(child):
+                        return True
+            return False
+
+        return any(check_q_object(q) for q in queries if isinstance(q, Q))
+
     expressions = get_backward_compat_filter_kwargs(
         queryset,
         expressions,
@@ -179,15 +206,13 @@ def process_expressions(queryset: QuerySet, expressions: dict) -> dict:
         id_uid_hash = {"id", "uid", "hash", "id__in", "uid__in", "hash__in"}
         if not any(expression in id_uid_hash for expression in expressions):
             expressions_have_branch = False
-            branch_branch_id = {"branch", "branch_id"}
-            branch_branch_id__ = ("branch__", "branch_id__")
             for expression in expressions:
-                if expression in branch_branch_id or expression.startswith(
-                    branch_branch_id__
+                if expression in branch_fields or expression.startswith(
+                    branch_prefixes
                 ):
                     expressions_have_branch = True
                     break
-            if not expressions_have_branch:
+            if not expressions_have_branch and not queries_contain_branch(queries):
                 expressions["branch_id__in"] = get_default_branch_ids()
             else:
                 # if branch_id is None, do not apply a filter
@@ -254,7 +279,7 @@ def get(
             return one_helper(qs, DOESNOTEXIST_MSG)
     else:
         assert idlike is None  # noqa: S101
-        expressions = process_expressions(qs, expressions)
+        expressions = process_expressions(qs, [], expressions)
         # inject is_latest for consistency with idlike
         is_latest_was_not_in_expressions = "is_latest" not in expressions
         if issubclass(registry, IsVersioned) and is_latest_was_not_in_expressions:
@@ -1022,11 +1047,11 @@ class QuerySet(BasicQuerySet):
             raise  # pragma: no cover
 
         if is_run_input is not False:  # might be None or True or Run
-            from .artifact import Artifact, _track_run_input
+            from .artifact import Artifact, track_run_input
             from .collection import Collection
 
             if isinstance(record, (Artifact, Collection)):
-                _track_run_input(record, is_run_input)
+                track_run_input(record, is_run_input)
 
         return record
 
@@ -1059,7 +1084,7 @@ class QuerySet(BasicQuerySet):
                         f"Invalid lookup '{value}' for {field}. Did you mean {field}__name?"
                     )
 
-        expressions = process_expressions(self, expressions)
+        expressions = process_expressions(self, queries, expressions)
         # need to run a query if queries or expressions are not empty
         if queries or expressions:
             try:

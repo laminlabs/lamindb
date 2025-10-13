@@ -133,7 +133,7 @@ def test_transform_versioning_based_on_revises():
 
     # add another transform with the same description that's not part of this family
     # but will also be a hit for the query
-    assert len(ln.Transform.filter(description="Introduction").all()) == 3
+    assert len(ln.Transform.filter(description="Introduction")) == 3
     assert len(ln.Transform.filter(description="Introduction").latest_version()) == 2
     transform_v4.delete(permanent=True)
     assert ln.Transform.get(description="Introduction") == transform_v3

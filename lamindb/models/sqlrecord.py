@@ -23,6 +23,7 @@ import lamindb_setup as ln_setup
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import IntegrityError, ProgrammingError, connections, models, transaction
 from django.db.models import CASCADE, PROTECT, Field, Manager, QuerySet
+from django.db.models import ForeignKey as django_ForeignKey
 from django.db.models.base import ModelBase
 from django.db.models.fields.related import (
     ManyToManyField,
@@ -305,11 +306,18 @@ def suggest_records_with_similar_names(
     # but this isn't reliable: https://laminlabs.slack.com/archives/C04FPE8V01W/p1737812808563409
     # the below needs to be .first() because there might be multiple records with the same
     # name field in case the record is versioned (e.g. for Transform key)
-    exact_match = record.__class__.filter(**{name_field: kwargs[name_field]}).first()
+    if hasattr(record.__class__, "type"):
+        if kwargs.get("type", None) is None:
+            subset = record.__class__.filter(type__isnull=True)
+        else:
+            subset = record.__class__.filter(type=kwargs["type"])
+    else:
+        subset = record.__class__
+    exact_match = subset.filter(**{name_field: kwargs[name_field]}).first()
     if exact_match is not None:
         return exact_match
     queryset = _search(
-        record.__class__,
+        subset,
         kwargs[name_field],
         field=name_field,
         truncate_string=True,
@@ -687,17 +695,17 @@ class Registry(ModelBase):
 
     def __get_available_fields__(cls) -> set[str]:
         if cls._available_fields is None:
-            cls._available_fields = {
-                f.name
-                for f in cls._meta.get_fields()
-                if not f.name.startswith("_")
-                and not f.name.startswith("links_")
-                and not f.name.endswith("_id")
-            }
+            available_fields = set()
+            for field in cls._meta.get_fields():
+                if not (field_name := field.name).startswith(("_", "links_")):
+                    available_fields.add(field_name)
+                    if isinstance(field, django_ForeignKey):
+                        available_fields.add(field_name + "_id")
             if cls.__name__ == "Artifact":
-                cls._available_fields.add("visibility")  # backward compat
-                cls._available_fields.add("_branch_code")  # backward compat
-                cls._available_fields.add("transform")
+                available_fields.add("visibility")  # backward compat
+                available_fields.add("_branch_code")  # backward compat
+                available_fields.add("transform")
+            cls._available_fields = available_fields
         return cls._available_fields
 
 

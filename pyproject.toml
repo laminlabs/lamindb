@@ -196,8 +196,10 @@ testpaths = [
     "tests",
 ]
 filterwarnings = [
-    "ignore::DeprecationWarning:botocore.*",
+    "ignore::SyntaxWarning:pronto",
+    "ignore:::pronto.ontology",
     "ignore::UserWarning:xarray_schema",
+    "ignore::DeprecationWarning:botocore.*",
     "ignore::DeprecationWarning:xarray_schema",
     "ignore::DeprecationWarning:geopandas",
     "ignore::DeprecationWarning:tiledbsoma",
@@ -219,7 +221,7 @@ exclude_lines = [
 ]
 
 [tool.coverage.run]
-omit = ["**/core/datasets/*", "**/migrations/*", "**/core/_compat.py", "**/core/types.py"]
+omit = ["**/core/datasets/*", "**/migrations/*", "**/curators/_legacy.py", "**/core/_compat.py", "**/core/types.py"]
 
 [tool.flit.sdist]
 exclude = [

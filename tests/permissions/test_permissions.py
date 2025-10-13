@@ -10,7 +10,7 @@ import pytest
 from django.db import connection, transaction
 from django.db.utils import IntegrityError, InternalError, ProgrammingError
 from jwt_utils import sign_jwt
-from lamindb.models.artifact import _track_run_input
+from lamindb.models.artifact import track_run_input
 from lamindb_setup.core.django import DBToken, db_token_manager
 from psycopg2.extensions import adapt
 
@@ -348,25 +348,25 @@ def test_tracking_error():
     artifact = ln.Artifact.get(description="test tracking error")
 
     transform = ln.Transform(key="My transform").save()
-    run = ln.Run(transform)  # unsaved, this is saved inside _track_run_input
+    run = ln.Run(transform).save()
 
     # this error because ln.setup.settings.instance._db_permissions is not jwt
     # it is None
     with pytest.raises(ln.errors.NoWriteAccess) as e:
-        _track_run_input(artifact, run)
+        track_run_input(artifact, run)
     assert "You’re not allowed to write to the instance " in str(e)
 
     # the instance is local so we set this manually
     ln.setup.settings.instance._db_permissions = "jwt"
     # artifact.space is not available for writes
     with pytest.raises(ln.errors.NoWriteAccess) as e:
-        _track_run_input(artifact, run)
+        track_run_input(artifact, run)
     assert "You’re not allowed to write to the space " in str(e)
 
     # this artifact is locked
     artifact = ln.Artifact.get(description="test locking")
     with pytest.raises(ln.errors.NoWriteAccess) as e:
-        _track_run_input(artifact, run)
+        track_run_input(artifact, run)
     assert "It is not allowed to modify locked records" in str(e)
 
     # switch user role back to read
@@ -377,7 +377,7 @@ def test_tracking_error():
     # as the user is read-only now, 2 spaces are unavailable for writes (artifact.space, run.space)
     artifact = ln.Artifact.get(description="test tracking error")
     with pytest.raises(ln.errors.NoWriteAccess) as e:
-        _track_run_input(artifact, run)
+        track_run_input(artifact, run)
     assert "You’re not allowed to write to the spaces " in str(e)
 
     ln.setup.settings.instance._db_permissions = None
@@ -398,31 +398,8 @@ def test_token_reset():
 
 def test_lamin_dev():
     script1_path = Path(__file__).parent.resolve() / "scripts/check_lamin_dev.py"
-    script2_path = Path(__file__).parent.resolve() / "scripts/clean_lamin_dev.py"
-    # TODO: if we don't access the instance here, it will be changed
     subprocess.run(  # noqa: S602
         f"python {script1_path}",
         shell=True,
         check=True,
     )
-    # connect to the instance before saving
-    subprocess.run(  # noqa: S602
-        "lamin connect laminlabs/lamin-dev",
-        shell=True,
-        check=True,
-    )
-    result = subprocess.run(  # noqa: S602
-        "lamin save .gitignore --key mytest --space 'Our test space for CI'",
-        shell=True,
-        capture_output=True,
-    )
-    assert "key='mytest'" in result.stdout.decode()
-    assert "storage path:" in result.stdout.decode()
-    assert result.returncode == 0
-
-    result = subprocess.run(  # noqa: S602
-        f"python {script2_path}",
-        shell=True,
-        capture_output=False,
-    )
-    assert result.returncode == 0

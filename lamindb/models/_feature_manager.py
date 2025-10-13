@@ -345,7 +345,7 @@ def describe_features(
 
     internal_feature_names: dict[str, str] = {}
     if isinstance(self, Artifact):
-        feature_sets = self.feature_sets.filter(itype="Feature").all()
+        feature_sets = self.feature_sets.filter(itype="Feature")
         internal_feature_names = {}
         if len(feature_sets) > 0:
             for schema in feature_sets:
@@ -470,7 +470,7 @@ def describe_features(
         for child in int_features_tree_children:
             dataset_tree.add(child)
 
-    # Linked features
+    # External features
     ext_features_tree_children = []
     if external_data:
         ext_features_tree_children.append(
@@ -481,7 +481,7 @@ def describe_features(
             )
         )
     # ext_features_tree = None
-    ext_features_header = Text("Linked features", style="bold dark_orange")
+    ext_features_header = Text("External features", style="bold dark_orange")
     if ext_features_tree_children:
         ext_features_tree = tree.add(ext_features_header)
         for child in ext_features_tree_children:
@@ -584,7 +584,7 @@ def filter_base(
                 f"Some keys in the filter expression are not registered as features: {np.array(keys_normalized)[~validated]}"
             )
     new_expression = {}
-    features = model.using(db).filter(name__in=keys_normalized).all().distinct()
+    features = model.using(db).filter(name__in=keys_normalized).distinct()
     feature_param = "feature"
     for key, value in expression.items():
         split_key = key.split("__")
@@ -650,7 +650,7 @@ def filter_base(
                     # we need the comparator here because users might query like so
                     # ln.Artifact.filter(experiment__contains="Experi")
                     expression = {f"{field_name}{comparator}": value}
-                    labels = result["registry"].using(db).filter(**expression).all()
+                    labels = result["registry"].using(db).filter(**expression)
                     if len(labels) == 0:
                         raise DoesNotExist(
                             f"Did not find a {label_registry.__name__} matching `{field_name}{comparator}={value}`"
@@ -702,7 +702,7 @@ def filter_with_features(
 
     if expressions:
         keys_normalized = [key.split("__")[0] for key in expressions]
-        field_or_feature_or_param = keys_normalized[0].split("__")[0]
+        field_or_feature_or_param = keys_normalized[0]
         if field_or_feature_or_param in registry.__get_available_fields__():
             qs = queryset.filter(*queries, **expressions, **filter_kwargs)
         elif all(
@@ -896,7 +896,7 @@ class FeatureManager:
                     "feature_id": None,
                     f"{field_name}__in": [l.id for _, l in registry_features_labels],
                 }
-            ).all().delete()
+            ).delete()
 
     def add_values(
         self,
@@ -928,11 +928,9 @@ class FeatureManager:
         model_name = "Feature"
 
         if schema is not None:
-            from lamindb.curators import DataFrameCurator
+            from lamindb.curators.core import ExperimentalDictCurator
 
-            temp_df = pd.DataFrame([values])
-            curator = DataFrameCurator(temp_df, schema)
-            curator.validate()
+            ExperimentalDictCurator(values, schema).validate()
             records = schema.members.filter(name__in=keys)
         else:
             records = registry.from_values(keys, field=feature_field, mute=True)
@@ -990,13 +988,25 @@ class FeatureManager:
                         raise TypeError(
                             f"Value for feature '{feature.name}' with dtype '{feature.dtype}' must be a string or record, but is {value} with dtype {inferred_type}"
                         )
-            elif (feature.dtype == "str" and feature.dtype not in inferred_type) or (
-                feature.dtype != "str" and feature.dtype != inferred_type
+            elif (
+                (feature.dtype == "str" and inferred_type != "cat ? str")
+                or (feature.dtype == "list[str]" and inferred_type != "list[cat ? str]")
+                or (
+                    feature.dtype.startswith("list[cat")
+                    and inferred_type != "list[cat ? str]"
+                )
+                or (
+                    feature.dtype not in {"str", "list[str]"}
+                    and not feature.dtype.startswith("list[cat")
+                    and feature.dtype != inferred_type
+                )
             ):
                 raise ValidationError(
                     f"Expected dtype for '{feature.name}' is '{feature.dtype}', got '{inferred_type}'"
                 )
-            if not feature.dtype.startswith("cat"):
+            if not (
+                feature.dtype.startswith("cat") or feature.dtype.startswith("list[cat")
+            ):
                 filter_kwargs = {model_name.lower(): feature, "value": converted_value}
                 feature_value, _ = value_model.get_or_create(**filter_kwargs)
                 _feature_values.append(feature_value)
@@ -1078,7 +1088,7 @@ class FeatureManager:
                     f"{model_name.lower()}__in": dict_typed_features,
                 }
                 try:
-                    value_model.filter(**kwargs).all().delete()
+                    value_model.filter(**kwargs).delete()
                 except ProtectedError:
                     pass
             # add new feature links
@@ -1140,7 +1150,7 @@ class FeatureManager:
                     if obj.related_model.__get_name_with_module__()
                     in link_models_on_models
                 }.pop()
-            getattr(self._host, link_attribute).filter(**filter_kwargs).all().delete()
+            getattr(self._host, link_attribute).filter(**filter_kwargs).delete()
         else:
             if value is not None:
                 filter_kwargs["value"] = value
@@ -1215,7 +1225,7 @@ class FeatureManager:
                 member_uids = list(members.values_list(field, flat=True))
                 validated = registry.validate(member_uids, field=field, mute=True)
                 new_members_uids = list(compress(member_uids, ~validated))
-                new_members = members.filter(**{f"{field}__in": new_members_uids}).all()
+                new_members = members.filter(**{f"{field}__in": new_members_uids})
                 n_new_members = len(new_members)
                 if len(members) > settings.annotation.n_max_records:
                     logger.warning(
@@ -1275,9 +1285,9 @@ class FeatureManager:
         """
         if not isinstance(feature, Feature):
             raise TypeError("feature must be a Feature record!")
-        feature_sets = Schema.filter(features=feature).all()
+        feature_sets = Schema.filter(features=feature)
         for fs in feature_sets:
-            f = Feature.filter(uid=feature.uid).all()
+            f = Feature.filter(uid=feature.uid)
             features_updated = fs.members.difference(f)
             if len(features_updated) > 0:
                 # re-compute the hash of feature sets based on the updated members

@@ -231,7 +231,7 @@ class LabelManager:
             >>> artifact2 = ln.Artifact(pd.DataFrame(index=[2, 3])).save()
             >>> ulabels = ln.ULabel.from_values(["Label1", "Label2"], field="name")
             >>> ln.save(ulabels)
-            >>> labels = ln.ULabel.filter(name__icontains = "label").all()
+            >>> labels = ln.ULabel.filter(name__icontains = "label")
             >>> artifact1.ulabels.set(labels)
             >>> artifact2.labels.add_from(artifact1)
         """
@@ -260,10 +260,8 @@ class LabelManager:
                     key = None
                     keys.append(key)
                 else:
-                    links = (
-                        getattr(label, f"links_{data_name_lower}")
-                        .filter(**{f"{data_name_lower}_id": data.id})
-                        .all()
+                    links = getattr(label, f"links_{data_name_lower}").filter(
+                        **{f"{data_name_lower}_id": data.id}
                     )
                     for link in links:
                         if link.feature is not None:

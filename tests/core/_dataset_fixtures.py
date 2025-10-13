@@ -65,7 +65,7 @@ def get_small_sdata():
 
 @pytest.fixture(scope="session")
 def get_small_soma_experiment():
-    adata = ln.core.datasets.mini_immuno.get_dataset1(otype="AnnData")
+    adata = ln.examples.datasets.mini_immuno.get_dataset1(otype="AnnData")
     tiledbsoma.io.from_anndata("test.tiledbsoma", adata, measurement_name="RNA")
 
     exp = tiledbsoma.Experiment.open("test.tiledbsoma")
@@ -76,7 +76,7 @@ def get_small_soma_experiment():
 
 @pytest.fixture(scope="session")
 def get_mini_csv() -> Generator[Path, None, None]:
-    csv_path = ln.core.datasets.file_mini_csv()
+    csv_path = ln.examples.datasets.file_mini_csv()
     yield csv_path
 
     Path("mini.csv").unlink(missing_ok=True)

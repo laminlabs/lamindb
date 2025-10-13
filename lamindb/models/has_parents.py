@@ -550,9 +550,7 @@ def _get_all_child_runs(data: Artifact | Collection) -> list:
         runs.update(
             {
                 f.run
-                for f in data.run.output_collections.all()
-                .filter(branch_id__in=[0, 1])
-                .all()
+                for f in data.run.output_collections.all().filter(branch_id__in=[0, 1])
             }
         )
     while runs.difference(all_runs):
