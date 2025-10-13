@@ -325,6 +325,7 @@ class Context:
         project: str | Project | None = None,
         space: str | Space | None = None,
         branch: str | Branch | None = None,
+        features: dict | None = None,
         params: dict | None = None,
         new_run: bool | None = None,
         path: str | None = None,
@@ -343,7 +344,8 @@ class Context:
                 Default: the `"all"` space. Note that bionty entities ignore this setting and always get written to the `"all"` space.
                 If you want to manually move entities to a different space, set the `.space` field (:doc:`docs:access`).
             branch: A branch (or its `name` or `uid`) on which to store records.
-            params: A dictionary of parameters to track for the run.
+            features: A dictionary of features & values to track for the run.
+            params: A dictionary of params & values to track for the run.
             new_run: If `False`, loads the latest run of transform
                 (default notebook), if `True`, creates new run (default non-notebook).
             path: Filepath of notebook or script. Only needed if it can't be
@@ -500,22 +502,23 @@ class Context:
                 self._logging_message_track += f", re-started Run('{run.uid}') at {format_field_value(run.started_at)}"
 
         if run is None:  # create new run
-            run = Run(  # type: ignore
-                transform=self._transform,
-                params=params,
-            )
+            run = Run(transform=self._transform)
             run.started_at = datetime.now(timezone.utc)
             run._status_code = -1  # started
             self._logging_message_track += f", started new Run('{run.uid}') at {format_field_value(run.started_at)}"
         # can only determine at ln.finish() if run was consecutive in
         # interactive session, otherwise, is consecutive
         run.is_consecutive = True if is_run_from_ipython else None
-        # need to save in all cases
-        run.save()
         if params is not None:
-            run.features.add_values(params)
+            run.params = params
             self._logging_message_track += "\n→ params: " + ", ".join(
                 f"{key}={value}" for key, value in params.items()
+            )
+        run.save()  # need to save now
+        if features is not None:
+            run.features.add_values(features)
+            self._logging_message_track += "\n→ features: " + ", ".join(
+                f"{key}={value}" for key, value in features.items()
             )
         self._run = run
         track_python_environment(run)

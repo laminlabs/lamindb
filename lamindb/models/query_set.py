@@ -222,6 +222,7 @@ def process_expressions(queryset: QuerySet, queries: tuple, expressions: dict) -
                     expressions.pop("branch_id")
                 if "branch" in expressions and expressions["branch"] is None:
                     expressions.pop("branch")
+
     if queryset._db is not None:
         # only check for database mismatch if there is a defined database on the
         # queryset
