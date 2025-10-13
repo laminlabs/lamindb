@@ -1,4 +1,4 @@
-"""PyTorch Lightning integrations.
+"""PyTorch Lightning.
 
 .. autosummary::
     :toctree: .
@@ -20,21 +20,24 @@ class Callback(pl.Callback):
 
     Creates version families of artifacts for given `key` (relative file path).
 
+    See also: :doc:`docs:mlflow` & :doc:`docs:wandb`.
+
     Args:
-        path: Path to the checkpoint
-        key: Artifact key
-        features: Additional feature values that every checkpoint gets annotated by.
+        path: A local path to the checkpoint.
+        key: The `key` for the checkpoint artifact.
+        features: Features to annotate the checkpoint.
 
     Examples:
 
-        Create a callback which creates artifacts for checkpoints and annotates them by the MLflow run ID
+        Create a callback that creates artifacts for checkpoints and annotates them by the MLflow run ID::
 
-            lamindb_callback = ln.integrations.lightning.Callback(
-                path=checkpoint_filename, key=artifact_key, annotate_by={ "mlflow_run_id": mlflow_run.info.run_id }
+            import lightning as pl
+            from lamindb.integrations import lightning as ll
+
+            lamindb_callback = ll.Callback(
+                path=checkpoint_filename, key=artifact_key, features={"mlflow_run_id": mlflow_run.info.run_id}
             )
-            trainer = pl.Trainer(
-                callbacks=[lamindb_callback]
-            )
+            trainer = pl.Trainer(callbacks=[lamindb_callback])
     """
 
     def __init__(
