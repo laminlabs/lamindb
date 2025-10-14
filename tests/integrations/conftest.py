@@ -7,14 +7,14 @@ import pytest
 
 def pytest_sessionstart():
     t_execute_start = perf_counter()
-    ln_setup.init(storage="./testdb", modules="bionty")
+    ln_setup.init(storage="./testdb-integrations")
     total_time_elapsed = perf_counter() - t_execute_start
     print(f"time to setup the instance: {total_time_elapsed:.1f}s")
 
 
 def pytest_sessionfinish(session: pytest.Session):
-    shutil.rmtree("./testdb")
-    ln_setup.delete("testdb", force=True)
+    shutil.rmtree("./testdb-integrations")
+    ln_setup.delete("testdb-integrations", force=True)
 
 
 @pytest.fixture

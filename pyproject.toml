@@ -210,7 +210,8 @@ filterwarnings = [
     "ignore::FutureWarning:spatialdata",
     "ignore::FutureWarning:mudata",
     "ignore::UserWarning:anndata",
-    "ignore:Jupyter is migrating its paths to use standard platformdirs:DeprecationWarning"
+    "ignore:Jupyter is migrating its paths to use standard platformdirs:DeprecationWarning",
+    "ignore:The 'train_dataloader' does not have many workers:UserWarning",
 ]
 markers = [
     "pg_integration: tests that require an external PostgreSQL instance"
