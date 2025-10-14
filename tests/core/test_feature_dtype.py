@@ -47,9 +47,11 @@ def test_seralize_pandas_numpy_dtypes():
 
 def test_serialize_record_objects():
     # labs under department 1
-    record_type_pdp = ln.Record(name="Department 1", is_type=True).save()
-    record_type_lab = ln.Record(name="Lab", type=record_type_pdp, is_type=True).save()
-    assert serialize_dtype(record_type_lab) == "cat[Record[Department 1[Lab]]]"
+    record_type_dpt = ln.Record(name="Department1", is_type=True).save()
+    record_type_lab = ln.Record(
+        name="Instrument", type=record_type_dpt, is_type=True
+    ).save()
+    assert serialize_dtype(record_type_lab) == "cat[Record[Department1[Instrument]]]"
 
 
 # -----------------------------------------------------------------------------
