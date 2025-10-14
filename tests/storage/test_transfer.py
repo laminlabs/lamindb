@@ -173,3 +173,17 @@ def test_using_record_organism():
 
 def test_using_query_by_feature():
     assert ln.Artifact.using("laminlabs/cellxgene").filter(n_of_donors__gte=100)
+
+
+def test_transfer_features_uid():
+    """Test that a new feature is created based on uid."""
+    existing_tissue_feature = ln.Feature.get(name="tissue")
+    artifact = ln.Artifact.using("laminlabs/pertdata").get(
+        key="scperturb/obs/tian19_iPSC.parquet"
+    )
+    artifact.save(transfer="annotations")
+    # now a new feature called "tissue" is created because the uid is different
+    newly_transferred_tissue_feature = ln.Feature.get(
+        name="tissue", schemas__artifacts__uid=artifact.uid
+    )
+    assert existing_tissue_feature.uid != newly_transferred_tissue_feature.uid

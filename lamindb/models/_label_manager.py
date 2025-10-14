@@ -129,6 +129,7 @@ def describe_labels(
 def _save_validated_records(
     labels: QuerySet | list | dict,
 ) -> list[str]:
+    """Save validated records from public based on ontology_id_fields."""
     if not labels:
         return []
     registry = labels[0].__class__
@@ -159,15 +160,15 @@ def _save_validated_records(
 
 
 def save_validated_records(
-    labels: QuerySet | list | dict,
+    records: QuerySet | list | dict,
 ) -> list[str] | dict[str, list[str]]:
-    """Save validated labels from public based on ontology_id_fields."""
-    if isinstance(labels, dict):
+    """Save validated records from public based on ontology_id_fields."""
+    if isinstance(records, dict):
         return {
-            registry: _save_validated_records(registry_labels)
-            for registry, registry_labels in labels.items()
+            registry: _save_validated_records(registry_records)
+            for registry, registry_records in records.items()
         }
-    return _save_validated_records(labels)
+    return _save_validated_records(records)
 
 
 class LabelManager:

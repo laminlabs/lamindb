@@ -1448,7 +1448,7 @@ def add_db_connection(db: str, using: str):
     connections.settings[using] = db_config
 
 
-REGISTRY_UNIQUE_FIELD = {"storage": "root", "feature": "name", "ulabel": "name"}
+REGISTRY_UNIQUE_FIELD = {"storage": "root", "ulabel": "name"}
 
 
 def update_fk_to_default_db(
