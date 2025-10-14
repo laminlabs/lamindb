@@ -143,6 +143,7 @@ def _save_validated_records(
     )
     # if the field value is None, use uid field
     record_uids = [getattr(record, field) for record in records if record is not None]
+
     # save records from ontology_ids
     if hasattr(registry, "_ontology_id_field") and record_uids:
         try:
@@ -152,7 +153,6 @@ def _save_validated_records(
             pass
         field = "uid"
         record_uids = [record.uid for record in records if record is not None]
-
     if issubclass(registry, CanCurate):
         validated = registry.validate(record_uids, field=field, mute=True)
         new_records = [
