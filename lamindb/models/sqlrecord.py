@@ -820,7 +820,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                             existing_record = exact_match
                         if existing_record is not None:
                             logger.important(
-                                f"returning {self.__class__.__name__} record with same"
+                                f"returning {self.__class__.__name__.lower()} with same"
                                 f" {name_field}{version_comment}: '{kwargs[name_field]}'"
                             )
                             init_self_from_db(self, existing_record)
