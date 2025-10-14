@@ -70,8 +70,8 @@ def test_callback_with_features(
     cleanup_checkpoints, torch_train_data_dataloader, simple_model
 ):
     """Callback should annotate artifacts with feature values."""
-    ln.Feature(name="train_loss", dtype="float").save()
-    ln.Feature(name="custom_param", dtype="str").save()
+    train_loss = ln.Feature(name="train_loss", dtype="float").save()
+    custom_param = ln.Feature(name="custom_param", dtype="str").save()
 
     artifact_key = "test/model_features.ckpt"
 
@@ -94,6 +94,9 @@ def test_callback_with_features(
         assert "train_loss" in values
         assert values["custom_param"] == "test_value"
         af.delete(permanent=True)
+
+    train_loss.delete(permanent=True)
+    custom_param.delete(permanent=True)
 
 
 def test_callback_missing_features(
