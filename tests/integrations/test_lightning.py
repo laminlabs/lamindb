@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Callable
 
 import lamindb as ln
 import lightning as pl
@@ -17,7 +18,7 @@ def cleanup_checkpoints():
 
 
 @pytest.fixture
-def simple_model():
+def simple_model() -> pl.LightningModule:
     class SimpleModel(pl.LightningModule):
         def __init__(self):
             super().__init__()
@@ -40,14 +41,18 @@ def simple_model():
 
 
 @pytest.fixture
-def torch_train_data_dataloader():
+def torch_train_data_dataloader() -> DataLoader:
     train_data = DataLoader(
         TensorDataset(torch.randn(100, 10), torch.randn(100, 1)), batch_size=10
     )
     return train_data
 
 
-def test_callback_basic(cleanup_checkpoints, torch_train_data_dataloader, simple_model):
+def test_callback_basic(
+    cleanup_checkpoints: Callable,
+    torch_train_data_dataloader: DataLoader,
+    simple_model: pl.LightningModule,
+):
     """Callback should create artifacts for each training epoch."""
     artifact_key = "test/model.ckpt"
 
@@ -67,7 +72,9 @@ def test_callback_basic(cleanup_checkpoints, torch_train_data_dataloader, simple
 
 
 def test_callback_with_features(
-    cleanup_checkpoints, torch_train_data_dataloader, simple_model
+    cleanup_checkpoints: Callable,
+    torch_train_data_dataloader: DataLoader,
+    simple_model: pl.LightningModule,
 ):
     """Callback should annotate artifacts with feature values."""
     train_loss = ln.Feature(name="train_loss", dtype="float").save()
@@ -100,7 +107,9 @@ def test_callback_with_features(
 
 
 def test_callback_missing_features(
-    cleanup_checkpoints, torch_train_data_dataloader, simple_model
+    cleanup_checkpoints: Callable,
+    torch_train_data_dataloader: DataLoader,
+    simple_model: pl.LightningModule,
 ):
     """Callback should raise an error when specified features do not exist."""
     artifact_key = "test/model_missing.ckpt"
@@ -115,5 +124,6 @@ def test_callback_missing_features(
         max_epochs=1, callbacks=[callback], enable_checkpointing=False, logger=False
     )
 
-    with pytest.raises(ValueError, match="Feature nonexistent_feature missing"):
+    with pytest.raises(ValueError) as e:
         trainer.fit(simple_model, torch_train_data_dataloader)
+    assert "Feature nonexistent_feature missing" in str(e.value)
