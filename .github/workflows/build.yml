@@ -24,19 +24,31 @@ jobs:
               - 'lamindb/curators/**'
               - 'lamindb/examples/cellxgene/**'
               - 'tests/curators/**'
+            integrations:
+              - 'lamindb/integrations/**'
+              - 'tests/integrations/**'
 
       - id: set-matrix
         shell: bash
         run: |
-          BASE_GROUPS=$(jq -n -c '["unit-core", "unit-storage", "tutorial", "guide", "biology", "faq", "storage", "cli", "permissions", "integrations"]')
+          BASE_GROUPS=$(jq -n -c '["unit-core", "unit-storage", "tutorial", "guide", "biology", "faq", "storage", "cli", "permissions"]')
+          ADDITIONAL_GROUPS=[]
 
-          if [[ "${{ github.event_name }}" == "push" || "${{ steps.changes.outputs.curator }}" == "true" ]]; then
-            # Run everything on push or when curator paths change
-            MATRIX=$(jq -n -c --argjson groups "$BASE_GROUPS" '{group: ($groups + ["curator"])}')
+          if [[ "${{ github.event_name }}" == "push" || "${{ github.event_name }}" == "repository_dispatch" ]]; then
+            # Run everything on push and dispatch
+            ADDITIONAL_GROUPS=$(jq -n -c '["curator", "integrations"]')
           else
-            # Otherwise only run base groups
-            MATRIX=$(jq -n -c --argjson groups "$BASE_GROUPS" '{group: $groups}')
+            # Otherwise check which paths changed
+            if [[ "${{ steps.changes.outputs.curator }}" == "true" ]]; then
+              ADDITIONAL_GROUPS=$(jq -n -c --argjson groups "$ADDITIONAL_GROUPS" '$groups + ["curator"]')
+            fi
+            if [[ "${{ steps.changes.outputs.integrations }}" == "true" ]]; then
+              ADDITIONAL_GROUPS=$(jq -n -c --argjson groups "$ADDITIONAL_GROUPS" '$groups + ["integrations"]')
+            fi
           fi
+
+          # Combine base groups with any additional groups
+          MATRIX=$(jq -n -c --argjson base "$BASE_GROUPS" --argjson additional "$ADDITIONAL_GROUPS" '{group: ($base + $additional)}')
 
           # Output as single line for GitHub Actions
           echo "matrix=$(echo "$MATRIX" | jq -c .)" >> $GITHUB_OUTPUT
