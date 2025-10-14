@@ -127,47 +127,51 @@ def describe_labels(
 
 
 def _save_validated_records(
-    labels: QuerySet | list | dict,
+    records: QuerySet | list | dict,
 ) -> list[str]:
-    if not labels:
+    """Save validated records from public based on ontology_id_fields.
+
+    Returns list of non-validated records.
+    """
+    if not records:
         return []
-    registry = labels[0].__class__
+    registry = records[0].__class__
     field = (
         REGISTRY_UNIQUE_FIELD.get(registry.__name__.lower(), "uid")
         if not hasattr(registry, "_ontology_id_field")
         else registry._ontology_id_field
     )
     # if the field value is None, use uid field
-    label_uids = [getattr(label, field) for label in labels if label is not None]
-    # save labels from ontology_ids
-    if hasattr(registry, "_ontology_id_field") and label_uids:
+    record_uids = [getattr(record, field) for record in records if record is not None]
+    # save records from ontology_ids
+    if hasattr(registry, "_ontology_id_field") and record_uids:
         try:
-            records = registry.from_values(label_uids, field=field, mute=True)
+            records = registry.from_values(record_uids, field=field, mute=True)
             save([r for r in records if r._state.adding])
         except Exception:  # noqa: S110
             pass
         field = "uid"
-        label_uids = [label.uid for label in labels if label is not None]
+        record_uids = [record.uid for record in records if record is not None]
 
     if issubclass(registry, CanCurate):
-        validated = registry.validate(label_uids, field=field, mute=True)
-        new_labels = [
-            label for label, is_valid in zip(labels, validated) if not is_valid
+        validated = registry.validate(record_uids, field=field, mute=True)
+        new_records = [
+            record for record, is_valid in zip(records, validated) if not is_valid
         ]
-        return new_labels
-    return list(labels)
+        return new_records
+    return list(records)
 
 
 def save_validated_records(
-    labels: QuerySet | list | dict,
+    records: QuerySet | list | dict,
 ) -> list[str] | dict[str, list[str]]:
-    """Save validated labels from public based on ontology_id_fields."""
-    if isinstance(labels, dict):
+    """Save validated records from public based on ontology_id_fields."""
+    if isinstance(records, dict):
         return {
-            registry: _save_validated_records(registry_labels)
-            for registry, registry_labels in labels.items()
+            registry: _save_validated_records(registry_records)
+            for registry, registry_records in records.items()
         }
-    return _save_validated_records(labels)
+    return _save_validated_records(records)
 
 
 class LabelManager:
