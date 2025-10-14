@@ -86,6 +86,9 @@ def test_serialize_record_objects():
     ).save()
     serialized_str = "cat[Record[Institute1[Department1[Instrument]]]]"
     assert serialize_dtype(record_type_lab) == serialized_str
+    record_type_lab.delete(permanent=True)
+    record_type_dpt1.delete(permanent=True)
+    record_type_ist1.delete(permanent=True)
 
 
 def test_serialize_union_of_registries():

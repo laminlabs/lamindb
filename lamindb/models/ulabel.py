@@ -18,7 +18,7 @@ from lamindb.errors import FieldValidationError
 from ..base.ids import base62_8
 from .can_curate import CanCurate
 from .feature import Feature
-from .has_parents import HasParents
+from .has_parents import HasParents, _query_ancestors_of_fk
 from .run import Run, TracksRun, TracksUpdates, User, current_user_id
 from .sqlrecord import BaseSQLRecord, IsLink, SQLRecord, _get_record_kwargs
 from .transform import Transform
@@ -29,6 +29,7 @@ if TYPE_CHECKING:
     from .artifact import Artifact
     from .collection import Collection
     from .project import Project
+    from .query_set import SQLRecordList
 
 
 class ULabel(SQLRecord, HasParents, CanCurate, TracksRun, TracksUpdates):
@@ -184,6 +185,14 @@ class ULabel(SQLRecord, HasParents, CanCurate, TracksRun, TracksUpdates):
             _skip_validation=_skip_validation,
             _aux=_aux,
         )
+
+    def query_types(self) -> SQLRecordList:
+        """Query types of a ulabel recursively.
+
+        While `.type` retrieves the direct type, this method
+        retrieves all ancestors of that `type`.
+        """
+        return _query_ancestors_of_fk(self, "type")  # type: ignore
 
     @property
     @deprecated("ulabels")

@@ -340,7 +340,7 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates, HasParents):
         """Query types of a record recursively.
 
         While `.type` retrieves the direct type, this method
-        retrieves all ascendants of a record.
+        retrieves all ancestors of that `type`.
         """
         return _query_ancestors_of_fk(self, "type")  # type: ignore
 
