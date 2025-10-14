@@ -187,7 +187,7 @@ def update_attributes(record: SQLRecord, attributes: dict[str, str]):
                     if key == "hash"
                     else f"keeping {getattr(record, key)}"
                 )
-                logger.warning(
+                logger.debug(
                     f"ignoring tentative value {value} for {key}, {hash_message}"
                 )
 
