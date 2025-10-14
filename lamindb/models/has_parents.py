@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Literal
 import lamindb_setup as ln_setup
 from lamin_utils import logger
 
+from .query_set import QuerySet, SQLRecordList
 from .run import Run
 from .sqlrecord import format_field_value, get_name_field
 
@@ -17,7 +18,6 @@ if TYPE_CHECKING:
 
     from .artifact import Artifact
     from .collection import Collection
-    from .query_set import QuerySet
     from .sqlrecord import SQLRecord
     from .transform import Transform
 
@@ -58,6 +58,20 @@ def _query_relatives(
         return relatives
 
     return query_relatives_on_branches(records, attr, cls)
+
+
+def _query_ancestors_of_fk(record: SQLRecord, attr: str) -> SQLRecordList:
+    from .query_set import get_default_branch_ids
+
+    branch_ids = get_default_branch_ids()
+    ancestors = []
+
+    current = getattr(record, attr)
+    while current is not None and current.branch_id in branch_ids:
+        ancestors.append(current)
+        current = getattr(current, attr)
+
+    return SQLRecordList(ancestors)
 
 
 class HasParents:

@@ -1,3 +1,5 @@
+import datetime
+
 import bionty as bt
 import lamindb as ln
 import pandas as pd
@@ -39,19 +41,71 @@ def organism():
 # -----------------------------------------------------------------------------
 
 
+def test_serialize_basic_dtypes():
+    assert serialize_dtype(int) == "int"
+    assert serialize_dtype(float) == "float"
+    assert serialize_dtype(str) == "str"
+    assert serialize_dtype(bool) == "bool"
+    assert serialize_dtype(dict) == "dict"
+    # assert serialize_dtype(bytes) == "bytes"  # not yet supported
+    assert serialize_dtype(datetime.datetime) == "datetime"
+    assert serialize_dtype(datetime.date) == "date"
+
+
+def test_serialize_basic_list_dtypes():
+    assert serialize_dtype(list[int]) == "list[int]"
+    assert serialize_dtype(list[float]) == "list[float]"
+    assert serialize_dtype(list[str]) == "list[str]"
+    assert serialize_dtype(list[bool]) == "list[bool]"
+    assert serialize_dtype(list[dict]) == "list[dict]"
+    assert serialize_dtype(list[datetime.datetime]) == "list[datetime]"
+    assert serialize_dtype(list[datetime.date]) == "list[date]"
+
+
 def test_seralize_pandas_numpy_dtypes():
     series = pd.Series([1, 4, 0, 10, 9], dtype="uint")
     assert series.dtype.name == "uint64"
     assert serialize_dtype(series.dtype) == "int"
 
 
+def test_serialize_user():
+    feature = ln.Feature(
+        name="user_feat", dtype="cat[User]"
+    )  # calls parse_dtype() to verify
+    feature = ln.Feature(name="user_feat", dtype=ln.User)  # calls serialize_dtype()
+    assert feature.dtype == "cat[User]"
+
+
 def test_serialize_record_objects():
-    # labs under department 1
-    record_type_dpt = ln.Record(name="Department1", is_type=True).save()
-    record_type_lab = ln.Record(
-        name="Instrument", type=record_type_dpt, is_type=True
+    record_type_ist1 = ln.Record(name="Institute1", is_type=True).save()
+    record_type_dpt1 = ln.Record(
+        name="Department1", type=record_type_ist1, is_type=True
     ).save()
-    assert serialize_dtype(record_type_lab) == "cat[Record[Department1[Instrument]]]"
+    record_type_lab = ln.Record(
+        name="Instrument", type=record_type_dpt1, is_type=True
+    ).save()
+    serialized_str = "cat[Record[Institute1[Department1[Instrument]]]]"
+    assert serialize_dtype(record_type_lab) == serialized_str
+
+
+def test_serialize_union_of_registries():
+    serialized_str = "cat[Record|bionty.Gene]"
+    assert serialize_dtype([ln.Record, bt.Gene]) == serialized_str
+    serialized_str = "cat[bionty.CellType|bionty.CellLine]"
+    assert serialize_dtype([bt.CellType, bt.CellLine]) == serialized_str
+
+
+def test_serialize_with_field_information():
+    serialized_str = "cat[bionty.Gene.ensembl_gene_id]"
+    assert serialize_dtype(bt.Gene.ensembl_gene_id) == serialized_str
+    serialized_str = "cat[bionty.CellType.uid|bionty.CellLine.uid]"
+    assert serialize_dtype([bt.CellType.uid, bt.CellLine.uid]) == serialized_str
+
+
+def test_serialize_with_additional_filters():
+    pass
+    # see parse_dtype
+    # see parse_dtype
 
 
 # -----------------------------------------------------------------------------

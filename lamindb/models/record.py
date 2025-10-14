@@ -20,8 +20,8 @@ from ..base.ids import base62_16
 from .artifact import Artifact
 from .can_curate import CanCurate
 from .feature import Feature
-from .has_parents import HasParents, _query_relatives
-from .query_set import reorder_subset_columns_in_df
+from .has_parents import HasParents, _query_ancestors_of_fk, _query_relatives
+from .query_set import SQLRecordList, reorder_subset_columns_in_df
 from .run import Run, TracksRun, TracksUpdates, User, current_run
 from .sqlrecord import BaseSQLRecord, IsLink, SQLRecord, _get_record_kwargs
 from .transform import Transform
@@ -312,8 +312,16 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates, HasParents):
         """Check if record is a form (a record type with a validating schema)."""
         return self.schema is not None and self.is_type
 
+    def query_parents(self) -> QuerySet:
+        """Query all parents of a record recursively.
+
+        While `.parents` retrieves the direct parents, this method
+        retrieves all ancestors of a record type.
+        """
+        return _query_relatives([self], "parents", self.__class__)  # type: ignore
+
     def query_children(self) -> QuerySet:
-        """Query all children of a record.
+        """Query all children of a record recursively.
 
         While `.children` retrieves the direct children, this method
         retrieves all descendants of a record type.
@@ -321,12 +329,20 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates, HasParents):
         return _query_relatives([self], "children", self.__class__)  # type: ignore
 
     def query_records(self) -> QuerySet:
-        """Query all records of a type.
+        """Query all records of a type recursively.
 
         While `.records` retrieves the direct children, this method
         retrieves all descendants of a record type.
         """
         return _query_relatives([self], "records", self.__class__)  # type: ignore
+
+    def query_types(self) -> SQLRecordList:
+        """Query types of a record recursively.
+
+        While `.type` retrieves the direct type, this method
+        retrieves all ascendants of a record.
+        """
+        return _query_ancestors_of_fk(self, "type")  # type: ignore
 
     def type_to_dataframe(self) -> pd.DataFrame:
         """Export all instances of this record type to a pandas DataFrame."""
