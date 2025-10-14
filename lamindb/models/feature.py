@@ -355,10 +355,13 @@ def serialize_dtype(
                 assert one_dtype.is_type, (  # noqa: S101
                     f"{one_dtype_name} has to be a type if acting as dtype, {one_dtype} has `is_type` False"
                 )
+                nested_string = f"[{one_dtype.name}]"
+                for t in one_dtype.query_types():
+                    nested_string = f"[{t.name}{nested_string}]"
                 if isinstance(one_dtype, ULabel):
-                    dtype_str += f"ULabel[{one_dtype.name}]"
+                    dtype_str += f"ULabel{nested_string}"
                 else:
-                    dtype_str += f"Record[{one_dtype.name}]"
+                    dtype_str += f"Record{nested_string}"
             else:
                 name = one_dtype.field.name
                 field_ext = f".{name}" if name != "name" else ""
