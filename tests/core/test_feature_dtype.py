@@ -39,14 +39,17 @@ def organism():
 # -----------------------------------------------------------------------------
 
 
-def test_seralize_dtypes():
-    df = pd.DataFrame(
-        {
-            "column1": pd.Series([1, 4, 0, 10, 9], dtype="uint"),
-        }
-    )
-    assert df.column1.dtype.name == "uint64"
-    assert serialize_dtype(df.column1.dtype) == "int"
+def test_seralize_pandas_numpy_dtypes():
+    series = pd.Series([1, 4, 0, 10, 9], dtype="uint")
+    assert series.dtype.name == "uint64"
+    assert serialize_dtype(series.dtype) == "int"
+
+
+def test_serialize_record_objects():
+    # labs under department 1
+    record_type_pdp = ln.Record(name="Department 1", is_type=True).save()
+    record_type_lab = ln.Record(name="Lab", type=record_type_pdp, is_type=True).save()
+    assert serialize_dtype(record_type_lab) == "cat[Record[Department 1[Lab]]]"
 
 
 # -----------------------------------------------------------------------------
