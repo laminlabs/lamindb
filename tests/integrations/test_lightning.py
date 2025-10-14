@@ -4,6 +4,7 @@ import lamindb as ln
 import lightning as pl
 import pytest
 import torch
+from lamindb.integrations import lightning as ll
 from torch import nn
 from torch.utils.data import DataLoader, TensorDataset
 
@@ -50,9 +51,7 @@ def test_callback_basic(cleanup_checkpoints, torch_train_data_dataloader, simple
     """Callback should create artifacts for each training epoch."""
     artifact_key = "test/model.ckpt"
 
-    callback = ln.integrations.lightning.Callback(
-        path="test_checkpoint.ckpt", key=artifact_key
-    )
+    callback = ll.Callback(path="test_checkpoint.ckpt", key=artifact_key)
 
     trainer = pl.Trainer(
         max_epochs=2, callbacks=[callback], enable_checkpointing=False, logger=False
@@ -76,7 +75,7 @@ def test_callback_with_features(
 
     artifact_key = "test/model_features.ckpt"
 
-    callback = ln.integrations.lightning.Callback(
+    callback = ll.Callback(
         path="test_checkpoint_features.ckpt",
         key=artifact_key,
         features={"train_loss": None, "custom_param": "test_value"},
@@ -103,7 +102,7 @@ def test_callback_missing_features(
     """Callback should raise an error when specified features do not exist."""
     artifact_key = "test/model_missing.ckpt"
 
-    callback = ln.integrations.lightning.Callback(
+    callback = ll.Callback(
         path="test_checkpoint_missing.ckpt",
         key=artifact_key,
         features={"nonexistent_feature": None},
