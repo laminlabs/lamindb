@@ -351,8 +351,9 @@ def serialize_dtype(
             if isinstance(one_dtype, Registry):
                 dtype_str += one_dtype.__get_name_with_module__() + "|"
             elif isinstance(one_dtype, (ULabel, Record)):
+                one_dtype_name = one_dtype.__class__.__get_name_with_module__()
                 assert one_dtype.is_type, (  # noqa: S101
-                    f"ulabel has to be a type if acting as dtype, {one_dtype} has `is_type` False"
+                    f"{one_dtype_name} has to be a type if acting as dtype, {one_dtype} has `is_type` False"
                 )
                 if isinstance(one_dtype, ULabel):
                     dtype_str += f"ULabel[{one_dtype.name}]"

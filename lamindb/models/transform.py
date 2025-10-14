@@ -275,7 +275,7 @@ class Transform(SQLRecord, IsVersioned):
                     if candidate_for_revises.source_code is None:
                         # no source code was yet saved, return the same transform
                         logger.important(
-                            "no source code was yet saved, returning existing transform with same key"
+                            "no source code was yet saved, returning transform with same key"
                         )
                         uid = revises.uid
         if revises is not None and uid is not None and uid == revises.uid:

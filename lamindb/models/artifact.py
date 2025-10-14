@@ -357,7 +357,7 @@ def get_stat_or_artifact(
             )
             previous_artifact_version = hash_lookup_result[0]
     if artifact_with_same_hash_exists:
-        message = "returning existing artifact with same hash"
+        message = "returning artifact with same hash"
         logger.important(
             f"{message}: {hash_lookup_result[0]}; to track this artifact as an input, use: ln.Artifact.get()"
         )

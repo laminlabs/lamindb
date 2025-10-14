@@ -325,7 +325,7 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             existing_collection = None
         if existing_collection is not None:
             logger.warning(
-                f"returning existing collection with same hash: {existing_collection}; if you intended to query to track this collection as an input, use: ln.Collection.get()"
+                f"returning collection with same hash: {existing_collection}; if you intended to query to track this collection as an input, use: ln.Collection.get()"
             )
             init_self_from_db(self, existing_collection)
             update_attributes(self, {"description": description, "key": key})

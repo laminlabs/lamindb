@@ -592,7 +592,7 @@ class Schema(SQLRecord, CanCurate, TracksRun):
                 .one_or_none()
             )
             if schema is not None:
-                logger.important(f"returning existing schema with same hash: {schema}")
+                logger.important(f"returning schema with same hash: {schema}")
                 init_self_from_db(self, schema)
                 update_attributes(self, validated_kwargs)
                 self.optionals.set(optional_features)

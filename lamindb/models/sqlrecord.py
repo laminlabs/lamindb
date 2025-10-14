@@ -187,7 +187,7 @@ def update_attributes(record: SQLRecord, attributes: dict[str, str]):
                     if key == "hash"
                     else f"keeping {getattr(record, key)}"
                 )
-                logger.warning(
+                logger.debug(
                     f"ignoring tentative value {value} for {key}, {hash_message}"
                 )
 
@@ -820,7 +820,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                             existing_record = exact_match
                         if existing_record is not None:
                             logger.important(
-                                f"returning existing {self.__class__.__name__} record with same"
+                                f"returning {self.__class__.__name__.lower()} with same"
                                 f" {name_field}{version_comment}: '{kwargs[name_field]}'"
                             )
                             init_self_from_db(self, existing_record)
@@ -950,7 +950,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                     )
                     if pre_existing_record.branch_id == 1:
                         logger.warning(
-                            f"returning existing {self.__class__.__name__} record with same {', '.join(constraint_fields)}: '{', '.join([str(getattr(self, f)) for f in constraint_fields])}'"
+                            f"returning {self.__class__.__name__} record with same {', '.join(constraint_fields)}: '{', '.join([str(getattr(self, f)) for f in constraint_fields])}'"
                         )
                     else:
                         # modifies the fields of the existing record with new values of self
