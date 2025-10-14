@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Generator
 
 import lamindb as ln
 import lightning as pl
@@ -11,7 +11,7 @@ from torch.utils.data import DataLoader, TensorDataset
 
 
 @pytest.fixture(autouse=True)
-def cleanup_checkpoints():
+def cleanup_checkpoints() -> Generator[None, None, None]:
     yield
     for path in Path().glob("test_checkpoint*.ckpt"):
         path.unlink(missing_ok=True)
