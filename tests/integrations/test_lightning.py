@@ -58,7 +58,7 @@ def test_callback_basic(cleanup_checkpoints, torch_train_data_dataloader, simple
     )
     trainer.fit(simple_model, torch_train_data_dataloader)
 
-    artifacts = ln.Artifact.filter(key=artifact_key).all()
+    artifacts = ln.Artifact.filter(key=artifact_key)
     assert len(artifacts) == 2
 
     for af in artifacts:
@@ -86,7 +86,7 @@ def test_callback_with_features(
     )
     trainer.fit(simple_model, torch_train_data_dataloader)
 
-    artifacts = ln.Artifact.filter(key=artifact_key).all()
+    artifacts = ln.Artifact.filter(key=artifact_key)
     assert len(artifacts) == 2
 
     for af in artifacts:
