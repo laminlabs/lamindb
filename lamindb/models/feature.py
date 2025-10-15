@@ -161,8 +161,8 @@ def parse_nested_brackets(dtype_str: str) -> dict[str, str]:
     Examples:
         "A" -> {"registry": "A", "subtype": "", "field": ""}
         "A.field" -> {"registry": "A", "subtype": "", "field": "field"}
-        "A[B]" -> {"registry": "A", "subtype": "B", "field": ""}
-        "A[B].field" -> {"registry": "A", "subtype": "B", "field": "field"}
+        "A[B]" -> {"registry": "A", "subtype": "B", "field": "", "nested_subtypes": ["B"]}
+        "A[B].field" -> {"registry": "A", "subtype": "B", "field": "field", "nested_subtypes": ["B"]}
         "A[B[C]]" -> {"registry": "A", "subtype": "B[C]", "field": "", "nested_subtypes": ["B", "C"]}
         "A[B[C]].field" -> {"registry": "A", "subtype": "B[C]", "field": "field", "nested_subtypes": ["B", "C"]}
 
@@ -240,8 +240,8 @@ def parse_nested_brackets(dtype_str: str) -> dict[str, str]:
 
     result = {"registry": registry_part, "subtype": subtype_part, "field": field_part}
 
-    # If subtype contains brackets, extract nested subtypes for reference
-    if "[" in subtype_part:
+    # Always extract nested subtypes when subtype exists
+    if subtype_part:
         nested_subtypes = extract_nested_subtypes(subtype_part)
         if nested_subtypes:
             result["nested_subtypes"] = nested_subtypes  # type: ignore
@@ -253,6 +253,7 @@ def extract_nested_subtypes(subtype_str: str) -> list[str]:
     """Extract all nested subtype levels from a nested subtype string.
 
     Examples:
+        "B" -> ["B"]
         "B[C]" -> ["B", "C"]
         "B[C[D]]" -> ["B", "C", "D"]
         "B[C[D[E]]]" -> ["B", "C", "D", "E"]

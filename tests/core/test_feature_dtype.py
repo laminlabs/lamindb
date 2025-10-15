@@ -126,6 +126,7 @@ def test_simple_record_with_subtype_and_field():
         "field_str": "name",
         "registry": Record,
         "field": Record.name,
+        "nested_subtypes": ["Customer"],
     }
 
 
@@ -139,6 +140,7 @@ def test_multiple_records_with_subtypes_and_fields():
         "field_str": "name",
         "registry": Record,
         "field": Record.name,
+        "nested_subtypes": ["Customer"],
     }
     assert result[1] == {
         "registry_str": "Record",
@@ -146,6 +148,7 @@ def test_multiple_records_with_subtypes_and_fields():
         "field_str": "name",
         "registry": Record,
         "field": Record.name,
+        "nested_subtypes": ["Supplier"],
     }
 
 
@@ -233,6 +236,7 @@ def test_registry_with_subtype_no_field():
         "field_str": "name",
         "registry": Record,
         "field": Record.name,
+        "nested_subtypes": ["Customer"],
     }
 
 
@@ -246,6 +250,7 @@ def test_list_of_dtypes():
         "field_str": "name",
         "registry": Record,
         "field": Record.name,
+        "nested_subtypes": ["Customer"],
         "list": True,
     }
     assert serialize_dtype(list[bt.CellLine]) == "list[cat[bionty.CellLine]]"

@@ -50,3 +50,48 @@ def test_curator_df_multivalue(df, lists_schema):
     assert df["tissue"].tolist() == [["blood", "lung"], ["blood"], ["lung"]]
 
     assert curator.validate() is None
+
+
+def test_curators_df_nested_cat():
+    schema = ln.Schema(
+        name="schema_with_nested_cat",
+        features=[
+            ln.Feature(name="customer_id", dtype=str).save(),
+            ln.Feature(
+                name="us_customer_name", dtype="cat[Record[UScustomer[Customer]]]"
+            ).save(),
+        ],
+        coerce_dtype=True,
+    ).save()
+
+    # Create hierarchical Record types and some Records
+    UScustomer = ln.Record(name="UScustomer", is_type=True).save()
+    Customer = ln.Record(name="Customer", is_type=True, type=UScustomer).save()
+    for name in ["Alice", "Bob", "Charlie", "David"]:
+        ln.Record(name=name, type=Customer).save()
+    EUcustomer = ln.Record(name="EUcustomer", is_type=True).save()
+    Customer = ln.Record(
+        name="Customer", is_type=True, type=EUcustomer, _skip_validation=True
+    ).save()
+    for name in ["Eve", "Frank"]:
+        ln.Record(name=name, type=Customer).save()
+
+    # "test_customer" is not a UScustomer, so it should not be validated
+    df = pd.DataFrame(
+        {
+            "customer_id": ["C1", "C2", "C3", "C4", "C5", "C6"],
+            "us_customer_name": ["Alice", "Bob", "Charlie", "David", "Eve", "Frank"],
+        }
+    )
+
+    with pytest.raises(ValidationError):
+        curator = ln.curators.DataFrameCurator(df, schema)
+        curator.validate()
+
+    assert len(curator.cat._cat_vectors["us_customer_name"]._validated) == 4
+    assert len(curator.cat._cat_vectors["us_customer_name"]._non_validated) == 2
+
+    schema.delete(permanent=True)
+    ln.Feature.filter().delete(permanent=True)
+    ln.Record.filter().update(type=None)
+    ln.Record.filter().delete(permanent=True)
