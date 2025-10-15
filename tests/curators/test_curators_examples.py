@@ -247,8 +247,6 @@ def test_dataframe_curator(mini_immuno_schema: ln.Schema):
 
     assert artifact.schema == mini_immuno_schema
     assert artifact.features.slots["columns"].n == 5
-    print("describe output:")
-    print(artifact.features.describe(return_str=True))
     assert (
         artifact.features.describe(return_str=True)
         == """\
