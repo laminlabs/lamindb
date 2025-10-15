@@ -158,7 +158,7 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         constraints = [
             models.UniqueConstraint(
                 fields=["key", "hash"],
-                name="unique_artifact_storage_key_hash_not_null",
+                name="unique_collection_key_hash_not_null",
             )
         ]
 

@@ -5430,7 +5430,7 @@ class Migration(migrations.Migration):
         migrations.AddConstraint(
             model_name="collection",
             constraint=models.UniqueConstraint(
-                fields=("key", "hash"), name="unique_artifact_storage_key_hash_not_null"
+                fields=("key", "hash"), name="unique_collection_key_hash_not_null"
             ),
         ),
         migrations.AddConstraint(
