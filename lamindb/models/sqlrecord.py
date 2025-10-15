@@ -1239,6 +1239,11 @@ class SQLRecord(BaseSQLRecord, metaclass=Registry):
     def _branch_code(self, value: int):
         self.branch_id = value
 
+    def restore(self) -> None:
+        """Restore from trash onto the main branch."""
+        self.branch_id = 1
+        self.save()
+
     def delete(self, permanent: bool | None = None, **kwargs) -> None:
         """Delete record.
 
