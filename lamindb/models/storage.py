@@ -293,7 +293,8 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
         hub_message = ""
         if setup_settings.instance.is_on_hub and is_managed_by_current_instance:
             instance_owner = setup_settings.instance.owner
-            hub_message = f", see: https://lamin.ai/{instance_owner}/infrastructure"
+            ui_url = setup_settings.instance.ui_url
+            hub_message = f", see: {ui_url}/{instance_owner}/infrastructure"
         managed_message = (
             "created managed"
             if is_managed_by_current_instance
