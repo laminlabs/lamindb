@@ -1264,12 +1264,12 @@ class CatVector:
         source: SQLRecord | None = None,  # The ontology source to validate against.
         feature: Feature | None = None,
         cat_manager: DataFrameCatManager | None = None,
-        subtype_str: str = "",
-        nested_subtypes: list[str] = None,
+        filter_str: str = "",
+        subtypes_list: list[str] = None,
         maximal_set: bool = True,  # whether unvalidated categoricals cause validation failure.
     ) -> None:
-        if nested_subtypes is None:
-            nested_subtypes = []
+        if subtypes_list is None:
+            subtypes_list = []
         self._values_getter = values_getter
         self._values_setter = values_setter
         self._field = field
@@ -1279,8 +1279,8 @@ class CatVector:
         self._validated: None | list[str] = None
         self._non_validated: None | list[str] = None
         self._synonyms: None | dict[str, str] = None
-        self._subtype_str = subtype_str
-        self._nested_subtypes = nested_subtypes
+        self._filter_str = filter_str
+        self._subtypes_list = subtypes_list
         self._subtype_query_set = None
         self._cat_manager = cat_manager
         self.feature = feature
@@ -1290,20 +1290,18 @@ class CatVector:
 
         self._all_filters = {"source": self._source, "organism": self._organism}
 
-        if self._subtype_str and "=" in self._subtype_str:
+        if self._filter_str:
             self._all_filters.update(
                 resolve_relation_filters(
-                    parse_filter_string(self._subtype_str), self._field.field.model
+                    parse_filter_string(self._filter_str), self._field.field.model
                 )  # type: ignore
             )
 
         # get the dtype associated record based on the nested subtypes
-        if self._nested_subtypes:
-            type_filters = {"name": self._nested_subtypes[-1]}
-            if len(self._nested_subtypes) > 1:
-                for i, nested_subtype in enumerate(
-                    reversed(self._nested_subtypes[:-1])
-                ):
+        if self._subtypes_list:
+            type_filters = {"name": self._subtypes_list[-1]}
+            if len(self._subtypes_list) > 1:
+                for i, nested_subtype in enumerate(reversed(self._subtypes_list[:-1])):
                     filter_key = f"{'type__' * (i + 1)}name"
                     type_filters[filter_key] = nested_subtype
             try:
@@ -1432,7 +1430,7 @@ class CatVector:
         str_values = _flatten_unique(values)
 
         # inspect the default instance and save validated records from public
-        if self._subtype_str != "" and "=" not in self._subtype_str:
+        if self._subtypes_list and not self._filter_str:
             related_name = registry._meta.get_field("type").remote_field.related_name
             if registry.__name__ == "Record":
                 self._subtype_query_set = self._type_record.query_records()
@@ -1520,7 +1518,7 @@ class CatVector:
                 if registry == Feature:
                     init_kwargs["dtype"] = "cat" if dtype is None else dtype
                 if self._type_record is not None:
-                    # if subtype_str is set, we need to set the type for new records
+                    # if type_record is set, we need to set the type for new records
                     init_kwargs["type"] = self._type_record
                 # here we create non-validated records skipping validation since we already ensured that they don't exist
                 non_validated_records.append(
@@ -1621,7 +1619,7 @@ class CatVector:
                         check_organism = f"fix organism '{organism}', "
                 warning_message += f"    → {check_organism}fix typos, remove non-existent values, or save terms via: {colors.cyan(non_validated_hint_print)}"
                 if self._subtype_query_set is not None:
-                    warning_message += f"\n    → a valid label for subtype '{self._subtype_str}' has to be one of {self._subtype_query_set.to_list('name')}"
+                    warning_message += f"\n    → a valid label for subtype '{self._filter_str}' has to be one of {self._subtype_query_set.to_list('name')}"
             logger.info(f'mapping "{self._key}" on {colors.italic(model_field)}')
             logger.warning(warning_message)
             if self._cat_manager is not None:
@@ -1739,8 +1737,8 @@ class DataFrameCatManager:
                 source=self._sources.get(key),
                 feature=feature,
                 cat_manager=self,
-                subtype_str=result["subtype_str"],
-                nested_subtypes=result.get("nested_subtypes", []),
+                filter_str=result["filter_str"],
+                subtypes_list=result["subtypes_list"],
             )
         if index is not None and index.dtype.startswith("cat"):
             result = parse_dtype(index.dtype)[0]
@@ -1754,8 +1752,8 @@ class DataFrameCatManager:
                 key=key,
                 feature=index,
                 cat_manager=self,
-                subtype_str=result["subtype_str"],
-                nested_subtypes=result.get("nested_subtypes", []),
+                filter_str=result["filter_str"],
+                subtypes_list=result["subtypes_list"],
             )
 
     @property

@@ -21,8 +21,15 @@ def lists_df():
 def nested_cat_df():
     return pd.DataFrame(
         {
-            "customer_id": ["C1", "C2", "C3", "C4", "C5", "C6"],
-            "us_customer_name": ["Alice", "Bob", "Charlie", "David", "Eve", "Frank"],
+            "sample_id": ["S1", "S2", "S3", "S4", "S5", "S6"],
+            "sample_name": [
+                "sample1",
+                "sample2",
+                "sample3",
+                "sample4",
+                "sample5",
+                "sample6",
+            ],
         }
     )
 
@@ -51,10 +58,8 @@ def nested_cat_schema():
     schema = ln.Schema(
         name="schema_with_nested_cat",
         features=[
-            ln.Feature(name="customer_id", dtype=str).save(),
-            ln.Feature(
-                name="us_customer_name", dtype="cat[Record[UScustomer[Customer]]]"
-            ).save(),
+            ln.Feature(name="sample_id", dtype=str).save(),
+            ln.Feature(name="sample_name", dtype="cat[Record[LabA[Sample]]]").save(),
         ],
         coerce_dtype=True,
     ).save()
@@ -84,22 +89,23 @@ def test_curator_df_multivalue(lists_df, lists_schema):
 
 
 def test_curators_df_nested_cat(nested_cat_df, nested_cat_schema):
-    # Create hierarchical Record types and some Records
-    UScustomer = ln.Record(name="UScustomer", is_type=True).save()
-    Customer = ln.Record(name="Customer", is_type=True, type=UScustomer).save()
-    for name in ["Alice", "Bob", "Charlie", "David"]:
-        ln.Record(name=name, type=Customer).save()
-    EUcustomer = ln.Record(name="EUcustomer", is_type=True).save()
-    Customer = ln.Record(
-        name="Customer", is_type=True, type=EUcustomer, _skip_validation=True
-    ).save()
-    for name in ["Eve", "Frank"]:
-        ln.Record(name=name, type=Customer).save()
+    # note that there are two type records both called "Sample" but having different parent types
+    # first we create LabA->Sample
+    LabA = ln.Record(name="LabA", is_type=True).save()
+    Sample = ln.Record(name="Sample", is_type=True, type=LabA).save()
+    for name in ["sample1", "sample2", "sample3", "sample4"]:
+        ln.Record(name=name, type=Sample).save()
 
-    # "test_customer" is not a UScustomer, so it should not be validated
+    # then we create LabB->Sample
+    LabB = ln.Record(name="LabB", is_type=True).save()
+    Sample = ln.Record(name="Sample", is_type=True, type=LabB).save()
+    for name in ["sample5", "sample6"]:
+        ln.Record(name=name, type=Sample).save()
+
+    # "sample5" is not part of LabA, so it should not be validated
     with pytest.raises(ValidationError):
         curator = ln.curators.DataFrameCurator(nested_cat_df, nested_cat_schema)
         curator.validate()
 
-    assert len(curator.cat._cat_vectors["us_customer_name"]._validated) == 4
-    assert len(curator.cat._cat_vectors["us_customer_name"]._non_validated) == 2
+    assert len(curator.cat._cat_vectors["sample_name"]._validated) == 4
+    assert len(curator.cat._cat_vectors["sample_name"]._non_validated) == 2
