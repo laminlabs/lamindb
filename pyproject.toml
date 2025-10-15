@@ -17,8 +17,8 @@ classifiers = [
 dependencies = [
     # LaminDB core modules
     "lamin_utils==0.15.0",
-    "lamin_cli==1.8.1",
-    "lamindb_setup[aws]==1.12.0",
+    "lamin_cli==1.8.2",
+    "lamindb_setup[aws]==1.12.1",
     # LaminDB optional modules, included to avoid users forgetting about extras
     "bionty==1.8.1",
     "wetlab==1.6.1",
