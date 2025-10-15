@@ -21,8 +21,8 @@ def lists_df():
 def nested_cat_df():
     return pd.DataFrame(
         {
-            "sample_id": ["S1", "S2", "S3", "S4", "S5", "S6"],
-            "sample_name": [
+            "biosample_id": ["S1", "S2", "S3", "S4", "S5", "S6"],
+            "biosample_name": [
                 "sample1",
                 "sample2",
                 "sample3",
@@ -58,8 +58,8 @@ def nested_cat_schema():
     schema = ln.Schema(
         name="schema_with_nested_cat",
         features=[
-            ln.Feature(name="sample_id", dtype=str).save(),
-            ln.Feature(name="sample_name", dtype="cat[Record[LabA[Sample]]]").save(),
+            ln.Feature(name="biosample_id", dtype=str).save(),
+            ln.Feature(name="biosample_name", dtype="cat[Record[LabA[Sample]]]").save(),
         ],
         coerce_dtype=True,
     ).save()
@@ -107,5 +107,5 @@ def test_curators_df_nested_cat(nested_cat_df, nested_cat_schema):
         curator = ln.curators.DataFrameCurator(nested_cat_df, nested_cat_schema)
         curator.validate()
 
-    assert len(curator.cat._cat_vectors["sample_name"]._validated) == 4
-    assert len(curator.cat._cat_vectors["sample_name"]._non_validated) == 2
+    assert len(curator.cat._cat_vectors["biosample_name"]._validated) == 4
+    assert len(curator.cat._cat_vectors["biosample_name"]._non_validated) == 2

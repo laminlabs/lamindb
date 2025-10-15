@@ -324,6 +324,7 @@ def test_feature_dtype():
         "field_str": "name",
         "registry": bt.Disease,
         "field": bt.Disease.name,
+        "subtypes_list": [],
     }
 
     feature.delete(permanent=True)
