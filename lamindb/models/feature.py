@@ -240,8 +240,8 @@ def parse_nested_brackets(dtype_str: str) -> dict[str, str]:
 
     result = {"registry": registry_part, "subtype": subtype_part, "field": field_part}
 
-    # Always extract nested subtypes when subtype exists
-    if subtype_part:
+    # Always extract nested subtypes when subtype exists and doesn't contain filters
+    if subtype_part and "=" not in subtype_part:
         nested_subtypes = extract_nested_subtypes(subtype_part)
         if nested_subtypes:
             result["nested_subtypes"] = nested_subtypes  # type: ignore
@@ -252,11 +252,14 @@ def parse_nested_brackets(dtype_str: str) -> dict[str, str]:
 def extract_nested_subtypes(subtype_str: str) -> list[str]:
     """Extract all nested subtype levels from a nested subtype string.
 
+    Skips any parts that contain '=' (filters).
+
     Examples:
         "B" -> ["B"]
         "B[C]" -> ["B", "C"]
         "B[C[D]]" -> ["B", "C", "D"]
         "B[C[D[E]]]" -> ["B", "C", "D", "E"]
+        "B[filter='value']" -> []
 
     Args:
         subtype_str: The subtype string with potential nesting
@@ -270,7 +273,11 @@ def extract_nested_subtypes(subtype_str: str) -> list[str]:
     while "[" in current:
         # Find the first part before the bracket
         bracket_pos = current.index("[")
-        subtypes.append(current[:bracket_pos])
+        part = current[:bracket_pos]
+
+        # Only add if it doesn't contain a filter
+        if part and "=" not in part:
+            subtypes.append(part)
 
         # Find the matching closing bracket
         bracket_count = 0
@@ -291,8 +298,8 @@ def extract_nested_subtypes(subtype_str: str) -> list[str]:
         # Move to the content inside the brackets
         current = current[bracket_pos + 1 : closing_pos]
 
-    # Add the final innermost subtype
-    if current:
+    # Add the final innermost subtype if it doesn't contain a filter
+    if current and "=" not in current:
         subtypes.append(current)
 
     return subtypes
