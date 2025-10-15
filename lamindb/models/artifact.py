@@ -2936,16 +2936,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
         return self
 
-    def restore(self) -> None:
-        """Restore from trash.
-
-        Example::
-
-            artifact.restore()
-        """
-        self.branch_id = 1
-        self.save()
-
     def describe(self, return_str: bool = False) -> None:
         """Describe record including linked records.
 

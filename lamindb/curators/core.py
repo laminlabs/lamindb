@@ -2025,7 +2025,8 @@ def annotate_artifact(
 
     slug = ln_setup.settings.instance.slug
     if ln_setup.settings.instance.is_remote:  # pdagma: no cover
-        logger.important(f"go to https://lamin.ai/{slug}/artifact/{artifact.uid}")
+        ui_url = ln_setup.settings.instance.ui_url
+        logger.important(f"go to {ui_url}/{slug}/artifact/{artifact.uid}")
     return artifact
 
 
