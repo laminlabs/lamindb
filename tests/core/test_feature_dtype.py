@@ -122,10 +122,11 @@ def test_simple_record_with_subtype_and_field():
     assert len(result) == 1
     assert result[0] == {
         "registry_str": "Record",
-        "subtype_str": "Customer",
+        "filter_str": "",
         "field_str": "name",
         "registry": Record,
         "field": Record.name,
+        "subtypes_list": ["Customer"],
     }
 
 
@@ -135,17 +136,19 @@ def test_multiple_records_with_subtypes_and_fields():
     assert len(result) == 2
     assert result[0] == {
         "registry_str": "Record",
-        "subtype_str": "Customer",
+        "filter_str": "",
         "field_str": "name",
         "registry": Record,
         "field": Record.name,
+        "subtypes_list": ["Customer"],
     }
     assert result[1] == {
         "registry_str": "Record",
-        "subtype_str": "Supplier",
+        "filter_str": "",
         "field_str": "name",
         "registry": Record,
         "field": Record.name,
+        "subtypes_list": ["Supplier"],
     }
 
 
@@ -155,10 +158,11 @@ def test_bionty_celltype_with_field():
     assert len(result) == 1
     assert result[0] == {
         "registry_str": "bionty.CellType",
-        "subtype_str": "",
+        "filter_str": "",
         "field_str": "ontology_id",
         "registry": bt.CellType,
         "field": bt.CellType.ontology_id,
+        "subtypes_list": [],
     }
 
 
@@ -168,17 +172,19 @@ def test_bionty_perturbations_with_field():
     assert len(result) == 2
     assert result[0] == {
         "registry_str": "bionty.CellType",
-        "subtype_str": "",
+        "filter_str": "",
         "field_str": "uid",
         "registry": bt.CellType,
         "field": bt.CellType.uid,
+        "subtypes_list": [],
     }
     assert result[1] == {
         "registry_str": "bionty.CellLine",
-        "subtype_str": "",
+        "filter_str": "",
         "field_str": "uid",
         "registry": bt.CellLine,
         "field": bt.CellLine.uid,
+        "subtypes_list": [],
     }
 
 
@@ -216,10 +222,11 @@ def test_simple_registry_without_field():
     assert len(result) == 1
     assert result[0] == {
         "registry_str": "Record",
-        "subtype_str": "",
+        "filter_str": "",
         "field_str": "name",
         "registry": Record,
         "field": Record.name,
+        "subtypes_list": [],
     }
 
 
@@ -229,10 +236,11 @@ def test_registry_with_subtype_no_field():
     assert len(result) == 1
     assert result[0] == {
         "registry_str": "Record",
-        "subtype_str": "Customer",
+        "filter_str": "",
         "field_str": "name",
         "registry": Record,
         "field": Record.name,
+        "subtypes_list": ["Customer"],
     }
 
 
@@ -242,27 +250,14 @@ def test_list_of_dtypes():
     assert len(result) == 1
     assert result[0] == {
         "registry_str": "Record",
-        "subtype_str": "Customer",
+        "filter_str": "",
         "field_str": "name",
         "registry": Record,
         "field": Record.name,
+        "subtypes_list": ["Customer"],
         "list": True,
     }
     assert serialize_dtype(list[bt.CellLine]) == "list[cat[bionty.CellLine]]"
-
-
-def test_nested_cat_dtypes():
-    dtype_str = "cat[Record[Customer[UScustomer]].name]"
-    result = parse_dtype(dtype_str)
-    assert len(result) == 1
-    assert result[0] == {
-        "registry_str": "Record",
-        "subtype_str": "Customer[UScustomer]",
-        "field_str": "name",
-        "registry": Record,
-        "field": Record.name,
-        "nested_subtypes": ["Customer", "UScustomer"],
-    }
 
 
 def test_registry_with_filter():
@@ -271,10 +266,39 @@ def test_registry_with_filter():
     assert len(result) == 1
     assert result[0] == {
         "registry_str": "bionty.Gene",
-        "subtype_str": "source__id='abcd'",
+        "filter_str": "source__id='abcd'",
         "field_str": "ensembl_gene_id",
         "registry": bt.Gene,
         "field": bt.Gene.ensembl_gene_id,
+        "subtypes_list": [],
+    }
+
+
+def test_nested_cat_dtypes():
+    dtype_str = "cat[Record[Customer[UScustomer]].name]"
+    result = parse_dtype(dtype_str)
+    assert len(result) == 1
+    assert result[0] == {
+        "registry_str": "Record",
+        "filter_str": "",
+        "field_str": "name",
+        "registry": Record,
+        "field": Record.name,
+        "subtypes_list": ["Customer", "UScustomer"],
+    }
+
+
+def test_nested_cat_with_filter():
+    dtype_str = "cat[Record[Customer[UScustomer[region='US']]].description]"
+    result = parse_dtype(dtype_str)
+    assert len(result) == 1
+    assert result[0] == {
+        "registry_str": "Record",
+        "filter_str": "region='US'",
+        "field_str": "description",
+        "registry": Record,
+        "field": Record.description,
+        "subtypes_list": ["Customer", "UScustomer"],
     }
 
 
@@ -296,10 +320,11 @@ def test_feature_dtype():
     assert len(result) == 1
     assert result[0] == {
         "registry_str": "bionty.Disease",
-        "subtype_str": "source__uid='4a3ejKuf'",
+        "filter_str": "source__uid='4a3ejKuf'",
         "field_str": "name",
         "registry": bt.Disease,
         "field": bt.Disease.name,
+        "subtypes_list": [],
     }
 
     feature.delete(permanent=True)

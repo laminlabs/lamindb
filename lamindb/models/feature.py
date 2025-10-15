@@ -105,7 +105,7 @@ def parse_cat_dtype(
     parsed = parse_nested_brackets(dtype_str)
 
     registry_str = parsed["registry"]
-    sub_type_str = parsed["subtype"]
+    filter_str = parsed["filter_str"]
     field_str = parsed["field"]
 
     if not is_itype:
@@ -131,9 +131,12 @@ def parse_cat_dtype(
         module = importlib.import_module(module_name)
         registry = getattr(module, class_name)
 
-    if sub_type_str != "":
+    if parsed.get("subtypes_list"):
         pass
-        # validate that the subtype is a record in the registry with is_type = True
+        # validate that the subtypes are records in the registry with is_type = True
+    if filter_str != "":
+        pass
+        # validate or process filter string
     if field_str != "":
         pass
         # validate that field_str is an actual field of the module
@@ -143,14 +146,11 @@ def parse_cat_dtype(
     result = {
         "registry": registry,  # should be typed as CanCurate
         "registry_str": registry_str,
-        "subtype_str": sub_type_str,
+        "filter_str": filter_str,
         "field_str": field_str,
         "field": getattr(registry, field_str),
+        "subtypes_list": parsed.get("subtypes_list", []),
     }
-
-    # Add nested subtype information if present
-    if parsed.get("nested_subtypes"):
-        result["nested_subtypes"] = parsed["nested_subtypes"]
 
     return result
 
@@ -159,12 +159,14 @@ def parse_nested_brackets(dtype_str: str) -> dict[str, str]:
     """Parse dtype string with potentially nested brackets.
 
     Examples:
-        "A" -> {"registry": "A", "subtype": "", "field": ""}
-        "A.field" -> {"registry": "A", "subtype": "", "field": "field"}
-        "A[B]" -> {"registry": "A", "subtype": "B", "field": ""}
-        "A[B].field" -> {"registry": "A", "subtype": "B", "field": "field"}
-        "A[B[C]]" -> {"registry": "A", "subtype": "B[C]", "field": "", "nested_subtypes": ["B", "C"]}
-        "A[B[C]].field" -> {"registry": "A", "subtype": "B[C]", "field": "field", "nested_subtypes": ["B", "C"]}
+        "A" -> {"registry": "A", "filter_str": "", "field": ""}
+        "A.field" -> {"registry": "A", "filter_str": "", "field": "field"}
+        "A[B]" -> {"registry": "A", "filter_str": "", "field": "", "subtypes_list": ["B"]}
+        "A[B].field" -> {"registry": "A", "filter_str": "", "field": "field", "subtypes_list": ["B"]}
+        "A[B[C]]" -> {"registry": "A", "filter_str": "", "field": "", "subtypes_list": ["B", "C"]}
+        "A[B[C]].field" -> {"registry": "A", "filter_str": "", "field": "field", "subtypes_list": ["B", "C"]}
+        "bionty.Gene.ensembl_gene_id[source__id='abcd']" -> {"registry": "bionty.Gene", "filter_str": "source__id='abcd'", "field": "ensembl_gene_id"}
+        "Record[Customer[UScustomer[region='US']]].name" -> {"registry": "Record", "filter_str": "region='US'", "field": "name", "subtypes_list": ["Customer", "UScustomer"]}
 
     Args:
         dtype_str: The dtype string to parse
@@ -178,20 +180,20 @@ def parse_nested_brackets(dtype_str: str) -> dict[str, str]:
             parts = dtype_str.split(".")
             if len(parts) == 2 and parts[1][0].isupper():
                 # bionty.CellType
-                return {"registry": dtype_str, "subtype": "", "field": ""}
+                return {"registry": dtype_str, "filter_str": "", "field": ""}
             elif len(parts) == 3:
                 # bionty.CellType.name
                 return {
                     "registry": f"{parts[0]}.{parts[1]}",
-                    "subtype": "",
+                    "filter_str": "",
                     "field": parts[2],
                 }
             else:
                 # ULabel.name
-                return {"registry": parts[0], "subtype": "", "field": parts[1]}
+                return {"registry": parts[0], "filter_str": "", "field": parts[1]}
         else:
             # Simple registry name
-            return {"registry": dtype_str, "subtype": "", "field": ""}
+            return {"registry": dtype_str, "filter_str": "", "field": ""}
 
     # Find the first opening bracket
     first_bracket = dtype_str.index("[")
@@ -225,8 +227,8 @@ def parse_nested_brackets(dtype_str: str) -> dict[str, str]:
     if closing_bracket_pos == -1:
         raise ValueError(f"Unmatched brackets in dtype string: {dtype_str}")
 
-    # Extract subtype (everything between first [ and matching ])
-    subtype_part = dtype_str[first_bracket + 1 : closing_bracket_pos]
+    # Extract content between brackets
+    bracket_content = dtype_str[first_bracket + 1 : closing_bracket_pos]
 
     # Check for field after the closing bracket
     field_part = ""
@@ -238,38 +240,59 @@ def parse_nested_brackets(dtype_str: str) -> dict[str, str]:
     if not field_part and pre_bracket_field:
         field_part = pre_bracket_field
 
-    result = {"registry": registry_part, "subtype": subtype_part, "field": field_part}
+    # Extract subtypes and filter from bracket content
+    subtypes_and_filter = extract_subtypes_and_filter(bracket_content)
 
-    # If subtype contains brackets, extract nested subtypes for reference
-    if "[" in subtype_part:
-        nested_subtypes = extract_nested_subtypes(subtype_part)
-        if nested_subtypes:
-            result["nested_subtypes"] = nested_subtypes  # type: ignore
+    result = {
+        "registry": registry_part,
+        "filter_str": subtypes_and_filter["filter_str"],
+        "field": field_part,
+        "subtypes_list": subtypes_and_filter["subtypes_list"],
+    }
 
     return result
 
 
-def extract_nested_subtypes(subtype_str: str) -> list[str]:
-    """Extract all nested subtype levels from a nested subtype string.
+def extract_subtypes_and_filter(subtype_str: str) -> dict[str, Any]:
+    """Extract nested subtypes and optional filter from a nested subtype string.
 
     Examples:
-        "B[C]" -> ["B", "C"]
-        "B[C[D]]" -> ["B", "C", "D"]
-        "B[C[D[E]]]" -> ["B", "C", "D", "E"]
+        "B" -> {"subtypes_list": ["B"], "filter_str": ""}
+        "B[C]" -> {"subtypes_list": ["B", "C"], "filter_str": ""}
+        "B[C[filter='<value>']]" -> {"subtypes_list": ["B", "C"], "filter_str": "filter='<value>'"}
+        "B[C[D]]" -> {"subtypes_list": ["B", "C", "D"], "filter_str": ""}
+        "B[C[D[E]]]" -> {"subtypes_list": ["B", "C", "D", "E"], "filter_str": ""}
+        "B[filter='value']" -> {"subtypes_list": ["B"], "filter_str": "filter='value'"}
+        "Customer[UScustomer[region='US']]" -> {"subtypes_list": ["Customer", "UScustomer"], "filter_str": "region='US'"}
 
     Args:
         subtype_str: The subtype string with potential nesting
 
     Returns:
-        List of subtype levels from outermost to innermost
+        Dictionary with subtypes_list and filter_str
     """
     subtypes = []
+    filter_str = ""
     current = subtype_str
 
-    while "[" in current:
+    while current:
+        if "[" not in current:
+            # No more brackets
+            if current and "=" not in current:
+                # It's a subtype name
+                subtypes.append(current)
+            elif current and "=" in current:
+                # It's a filter
+                filter_str = current
+            break
+
         # Find the first part before the bracket
         bracket_pos = current.index("[")
-        subtypes.append(current[:bracket_pos])
+        part = current[:bracket_pos]
+
+        # Add the part (it's a subtype name)
+        if part:
+            subtypes.append(part)
 
         # Find the matching closing bracket
         bracket_count = 0
@@ -290,11 +313,7 @@ def extract_nested_subtypes(subtype_str: str) -> list[str]:
         # Move to the content inside the brackets
         current = current[bracket_pos + 1 : closing_pos]
 
-    # Add the final innermost subtype
-    if current:
-        subtypes.append(current)
-
-    return subtypes
+    return {"subtypes_list": subtypes, "filter_str": filter_str}
 
 
 def serialize_dtype(
