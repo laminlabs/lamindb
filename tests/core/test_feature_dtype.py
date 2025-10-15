@@ -162,6 +162,7 @@ def test_bionty_celltype_with_field():
         "field_str": "ontology_id",
         "registry": bt.CellType,
         "field": bt.CellType.ontology_id,
+        "subtypes_list": [],
     }
 
 
@@ -175,6 +176,7 @@ def test_bionty_perturbations_with_field():
         "field_str": "uid",
         "registry": bt.CellType,
         "field": bt.CellType.uid,
+        "subtypes_list": [],
     }
     assert result[1] == {
         "registry_str": "bionty.CellLine",
@@ -182,6 +184,7 @@ def test_bionty_perturbations_with_field():
         "field_str": "uid",
         "registry": bt.CellLine,
         "field": bt.CellLine.uid,
+        "subtypes_list": [],
     }
 
 
@@ -223,6 +226,7 @@ def test_simple_registry_without_field():
         "field_str": "name",
         "registry": Record,
         "field": Record.name,
+        "subtypes_list": [],
     }
 
 
@@ -266,6 +270,7 @@ def test_registry_with_filter():
         "field_str": "ensembl_gene_id",
         "registry": bt.Gene,
         "field": bt.Gene.ensembl_gene_id,
+        "subtypes_list": [],
     }
 
 

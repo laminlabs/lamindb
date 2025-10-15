@@ -149,11 +149,8 @@ def parse_cat_dtype(
         "filter_str": filter_str,
         "field_str": field_str,
         "field": getattr(registry, field_str),
+        "subtypes_list": parsed.get("subtypes_list", []),
     }
-
-    # Add nested subtype information if present
-    if parsed.get("subtypes_list"):
-        result["subtypes_list"] = parsed["subtypes_list"]
 
     return result
 

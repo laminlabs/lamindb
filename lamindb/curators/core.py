@@ -1430,7 +1430,7 @@ class CatVector:
         str_values = _flatten_unique(values)
 
         # inspect the default instance and save validated records from public
-        if self._subtypes_list and not self._filter_str:
+        if self._type_record is not None:
             related_name = registry._meta.get_field("type").remote_field.related_name
             if registry.__name__ == "Record":
                 self._subtype_query_set = self._type_record.query_records()
