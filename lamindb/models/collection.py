@@ -155,6 +155,12 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     class Meta(SQLRecord.Meta, IsVersioned.Meta, TracksRun.Meta, TracksUpdates.Meta):
         abstract = False
         app_label = "lamindb"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["key", "hash"],
+                name="unique_collection_key_hash_not_null",
+            )
+        ]
 
     _len_full_uid: int = 20
     _len_stem_uid: int = 16
@@ -178,7 +184,9 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     description: str | None = TextField(null=True)
     """A description or title."""
     hash: str | None = CharField(
-        max_length=HASH_LENGTH, db_index=True, null=True, unique=True
+        max_length=HASH_LENGTH,
+        db_index=True,
+        null=True,
     )
     """Hash of collection content."""
     reference: str | None = CharField(max_length=255, db_index=True, null=True)
@@ -189,7 +197,7 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     ulabels: ULabel = models.ManyToManyField(
         "ULabel", through="CollectionULabel", related_name="collections"
     )
-    """ULabels sampled in the collection (see :class:`~lamindb.Feature`)."""
+    """ULabels annotating the collection (see :class:`~lamindb.Feature`)."""
     run: Run | None = ForeignKey(
         Run, PROTECT, related_name="output_collections", null=True, default=None
     )
@@ -239,6 +247,7 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         reference_type: str | None = None,
         run: Run | None = None,
         revises: Collection | None = None,
+        skip_hash_lookup: bool = False,
     ): ...
 
     @overload
@@ -269,6 +278,7 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         run: Run | None = kwargs.pop("run", None)
         revises: Collection | None = kwargs.pop("revises", None)
         version: str | None = kwargs.pop("version", None)
+        skip_hash_lookup: bool = kwargs.pop("skip_hash_lookup", False)
         branch = kwargs.pop("branch", None)
         branch_id = kwargs.pop("branch_id", 1)
         space = kwargs.pop("space", None)
@@ -316,7 +326,7 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                         "Save meta_artifact artifact before creating collection!"
                     )
         # we ignore collections in trash containing the same hash
-        if hash is not None:
+        if hash is not None and not skip_hash_lookup:
             existing_collection = Collection.objects.filter(
                 ~Q(branch_id=-1),
                 hash=hash,

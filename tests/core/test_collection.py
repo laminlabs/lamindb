@@ -70,7 +70,7 @@ def test_edge_cases(df):
     with pytest.raises(
         FieldValidationError,
         match=re.escape(
-            "Only artifacts, key, description, meta, reference, reference_type, run, revises can be passed"
+            "Only artifacts, key, description, meta, reference, reference_type, run, revises, skip_hash_lookup can be passed"
         ),
     ) as error:
         ln.Collection(df, invalid_param=1)
@@ -133,7 +133,8 @@ def test_from_consistent_artifacts(adata, adata2):
     artifact2 = ln.Artifact.from_anndata(adata2, key="my_test.h5ad").save()
     transform = ln.Transform(key="My test transform").save()
     run = ln.Run(transform).save()
-    collection = ln.Collection([artifact1, artifact2], key="My test", run=run)
+    initial_key = "My test"
+    collection = ln.Collection([artifact1, artifact2], key=initial_key, run=run)
     assert collection._state.adding
     collection.save()
     assert set(collection.run.input_artifacts.all()) == {artifact1, artifact2}
@@ -149,6 +150,18 @@ def test_from_consistent_artifacts(adata, adata2):
     collection2 = ln.Collection([artifact1, artifact2], key="My test 1", run=run)
     assert collection2 == collection
     assert collection2.key == "My test 1"  # key is updated
+
+    # skip hash lookup
+    collection2 = ln.Collection(
+        [artifact1, artifact2], key="My test 1", run=run, skip_hash_lookup=True
+    )
+    assert collection2 != collection
+
+    # let hash uniqueness constraint fail and database return the existing record
+    collection2 = ln.Collection(
+        [artifact1, artifact2], key=initial_key, run=run, skip_hash_lookup=True
+    ).save()
+    assert collection2 == collection
 
     # move to trash and then re-run
     collection.delete()
