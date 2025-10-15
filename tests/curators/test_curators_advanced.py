@@ -41,7 +41,7 @@ def lists_schema():
 
     yield schema
 
-    schema.delete(permanent=True)
+    ln.Schema.filter().delete(permanent=True)
     ln.Feature.filter().delete(permanent=True)
     bt.Tissue.filter().delete(permanent=True)
 
@@ -61,7 +61,7 @@ def nested_cat_schema():
 
     yield schema
 
-    schema.delete(permanent=True)
+    ln.Schema.filter().delete(permanent=True)
     ln.Feature.filter().delete(permanent=True)
     ln.Record.filter().update(type=None)
     ln.Record.filter().delete(permanent=True)
