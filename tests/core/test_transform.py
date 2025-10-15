@@ -14,6 +14,16 @@ def test_transform_recovery_based_on_hash():
     transform1.delete(permanent=True)
 
 
+def test_transform_recovery_based_on_key():
+    transform1 = ln.Transform(key="my-transform").save()
+    transform2 = ln.Transform(key="my-transform")
+    assert transform1 == transform2
+    transform1.delete()
+    transform2 = ln.Transform(key="my-transform")
+    assert transform1 != transform2
+    transform1.delete(permanent=True)
+
+
 def test_revise_transforms():
     # attempt to create a transform with an invalid version
     with pytest.raises(ValueError) as error:
