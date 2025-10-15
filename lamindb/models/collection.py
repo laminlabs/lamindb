@@ -155,6 +155,12 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     class Meta(SQLRecord.Meta, IsVersioned.Meta, TracksRun.Meta, TracksUpdates.Meta):
         abstract = False
         app_label = "lamindb"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["key", "hash"],
+                name="unique_artifact_storage_key_hash_not_null",
+            )
+        ]
 
     _len_full_uid: int = 20
     _len_stem_uid: int = 16
@@ -178,7 +184,9 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     description: str | None = TextField(null=True)
     """A description or title."""
     hash: str | None = CharField(
-        max_length=HASH_LENGTH, db_index=True, null=True, unique=True
+        max_length=HASH_LENGTH,
+        db_index=True,
+        null=True,
     )
     """Hash of collection content."""
     reference: str | None = CharField(max_length=255, db_index=True, null=True)
@@ -189,7 +197,7 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     ulabels: ULabel = models.ManyToManyField(
         "ULabel", through="CollectionULabel", related_name="collections"
     )
-    """ULabels sampled in the collection (see :class:`~lamindb.Feature`)."""
+    """ULabels annotating the collection (see :class:`~lamindb.Feature`)."""
     run: Run | None = ForeignKey(
         Run, PROTECT, related_name="output_collections", null=True, default=None
     )
