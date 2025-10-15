@@ -266,7 +266,7 @@ class Transform(SQLRecord, IsVersioned):
             elif key is not None:
                 candidate_for_revises = (
                     Transform.objects.using(using_key)
-                    .filter(key=key, is_latest=True)
+                    .filter(~Q(branch_id=-1), key=key, is_latest=True)
                     .order_by("-created_at")
                     .first()
                 )
@@ -275,7 +275,7 @@ class Transform(SQLRecord, IsVersioned):
                     if candidate_for_revises.source_code is None:
                         # no source code was yet saved, return the same transform
                         logger.important(
-                            "no source code was yet saved, returning transform with same key"
+                            "no source code was yet saved, returning existing transform with same key"
                         )
                         uid = revises.uid
         if revises is not None and uid is not None and uid == revises.uid:
