@@ -239,6 +239,7 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         reference_type: str | None = None,
         run: Run | None = None,
         revises: Collection | None = None,
+        skip_hash_lookup: bool = False,
     ): ...
 
     @overload
@@ -269,6 +270,7 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         run: Run | None = kwargs.pop("run", None)
         revises: Collection | None = kwargs.pop("revises", None)
         version: str | None = kwargs.pop("version", None)
+        skip_hash_lookup: bool = kwargs.pop("skip_hash_lookup", False)
         branch = kwargs.pop("branch", None)
         branch_id = kwargs.pop("branch_id", 1)
         space = kwargs.pop("space", None)
@@ -316,7 +318,7 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                         "Save meta_artifact artifact before creating collection!"
                     )
         # we ignore collections in trash containing the same hash
-        if hash is not None:
+        if hash is not None and not skip_hash_lookup:
             existing_collection = Collection.objects.filter(
                 ~Q(branch_id=-1),
                 hash=hash,
