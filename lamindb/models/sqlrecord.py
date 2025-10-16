@@ -979,6 +979,19 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                             "Please contact administrators of the space if you need write access."
                         )
                     raise NoWriteAccess(no_write_msg) from None
+                elif (
+                    isinstance(e, ProgrammingError)
+                    and "permission denied for table" in error_msg
+                    and (isettings := setup_settings.instance)._db_permissions
+                    == "public"
+                ):
+                    slug = isettings.slug
+                    raise NoWriteAccess(
+                        f"You are trying to write to '{slug}' with public (read-only) permissions.\n"
+                        "Please contact administrators to make you a collaborator if you need write access.\n"
+                        f"If you are already a collaborator, please do 'lamin connect {slug}' in console, "
+                        "restart the python session and try again."
+                    ) from None
                 else:
                     raise
             # call the below in case a user makes more updates to the record
