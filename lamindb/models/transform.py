@@ -360,11 +360,28 @@ class Transform(SQLRecord, IsVersioned):
 
         Examples:
 
-            Create from a Nextflow repo::
+            Create from a Nextflow repo and auto-infer the commit hash from its latest version::
 
                 transform = ln.Transform.from_git(
                     url="https://github.com/openproblems-bio/task_batch_integration",
                     path="main.nf"
+                ).save()
+
+            Create from a Nextflow repo and checkout a specific version::
+
+                transform = ln.Transform.from_git(
+                    url="https://github.com/openproblems-bio/task_batch_integration",
+                    path="main.nf",
+                    version="v2.0.0"
+                ).save()
+
+            Create a sliding transform from a Nextflow repo's `dev` branch::
+
+                transform = ln.Transform.from_git(
+                    url="https://github.com/openproblems-bio/task_batch_integration",
+                    path="main.nf",
+                    branch="dev",
+                    version="dev",
                 ).save()
 
         """

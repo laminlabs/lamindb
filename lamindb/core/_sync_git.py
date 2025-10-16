@@ -11,7 +11,11 @@ from ..core._settings import sanitize_git_repo_url, settings
 from ..errors import BlobHashNotFound
 
 
-def get_git_repo_from_remote(url: str | None = None) -> Path:
+def get_git_repo_from_remote(url: str | None = None, depth: int | None = 10) -> Path:
+    """Clone the git repository if not already cloned.
+
+    If `depth` is provided, a shallow clone is performed and no tags are fetched.
+    """
     repo_url = url or settings.sync_git_repo
     repo_dir = setup_settings.cache_dir / repo_url.split("/")[-1]
     if repo_dir.exists():
@@ -20,8 +24,12 @@ def get_git_repo_from_remote(url: str | None = None) -> Path:
     logger.important(
         f"running outside of synched git repo, cloning {repo_url} into {repo_dir}"
     )
+    args = ["git", "clone", f"{repo_url}.git"]
+    if depth is not None:
+        # if depth is provided, will not fetch tags
+        args += ["--depth", f"{depth}"]
     result = subprocess.run(
-        ["git", "clone", "--depth", "10", f"{repo_url}.git"],
+        args,
         capture_output=True,
         cwd=setup_settings.cache_dir,
     )
@@ -209,7 +217,7 @@ def get_and_validate_git_metadata(
         FileNotFoundError: If the specified path does not exist in the repository
     """
     url = sanitize_git_repo_url(url)
-    repo_dir = get_git_repo_from_remote(url)
+    repo_dir = get_git_repo_from_remote(url, depth=None)
 
     # Determine the branch to use
     if branch is None:
