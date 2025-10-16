@@ -371,7 +371,6 @@ class Transform(SQLRecord, IsVersioned):
         from ..core._sync_git import get_and_validate_git_metadata
 
         valid = get_and_validate_git_metadata(url, path, version, branch)
-
         if key is None:
             key = url.split("/")[-2] + "/" + url.split("/")[-1].replace(".git", "")
             and_path = ""
@@ -379,22 +378,25 @@ class Transform(SQLRecord, IsVersioned):
                 key += "/" + path
                 and_path = "& path"
             logger.important(f"inferred key '{key}' from url {and_path}")
-
-        if version != branch:
-            source_code = f"repo: {valid['url']}\ncommit: {valid['commit']}\npath: {valid['path']}"
-            if entrypoint is not None:
-                source_code += f"\nentrypoint: {entrypoint}"
+        source_code = f"repo: {valid['url']}\npath: {valid['path']}"
+        if entrypoint is not None:
+            source_code += f"\nentrypoint: {entrypoint}"
+        if branch is not None and version == branch:
+            # sliding transform, no defined source code state
+            source_code += f"\nbranch: {valid['branch']}"
+            reference = None
+            reference_type = None
         else:
-            source_code = None
-
-        reference = f"{valid['url']}/blob/{valid['commit']}/{valid['path']}"
-
+            # regular transform, defined source code state
+            source_code += f"\ncommit: {valid['commit']}"
+            reference = f"{valid['url']}/blob/{valid['commit']}/{valid['path']}"
+            reference_type = "url"
         return Transform(
             key=key,
             type="pipeline",
             version=version,
             reference=reference,
-            reference_type="url",
+            reference_type=reference_type,
             source_code=source_code,
         )
 
