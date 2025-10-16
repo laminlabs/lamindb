@@ -98,19 +98,21 @@ def view(
     limit: int = 7,
     modules: str | None = None,
     registries: list[str] | None = None,
+    branch: SQLRecord | None = None,
 ) -> None:
-    """View metadata.
+    """View stored records.
 
     Args:
         df: A DataFrame to display.
         limit: Display the latest `n` records
-        modules: schema module to view. Default's to
-            `None` and displays all registry modules.
-        registries: List of SQLRecord names. Defaults to
-            `None` and lists all registries.
+        modules: schema module to view. Default's to `None` and displays all registry modules.
+        registries: List of SQLRecord names. Defaults to `None` and lists all registries.
+        branch: Branch to filter for. Defaults to current branch if not set.
 
     Examples:
-        >>> ln.view()
+        >>> ln.view()  # all registries, current branch
+        >>> ln.view(limit=10, modules='bionty')  # bionty registries only
+        >>> ln.view(registries=['Dataset', 'Transform'])  # specific registries
     """
     if df is not None:
         descriptions = {
@@ -134,8 +136,7 @@ def view(
 
     for module_name in module_names:
         schema_module = importlib.import_module(get_schema_module_name(module_name))
-        # the below is necessary because a schema module might not have been
-        # explicitly accessed
+        # the below is necessary because a schema module might not have been explicitly accessed
         importlib.reload(schema_module)
 
         all_registries = {
@@ -162,7 +163,8 @@ def view(
             logger.print(section)
             logger.print("*" * len(section_no_color))
         for registry in sorted(filtered_registries, key=lambda x: x.__name__):
-            df = registry.to_dataframe(limit=limit)
+            branch_id = settings.branch.id if branch is None else branch.id
+            df = registry.filter(branch__id=branch_id).to_dataframe().head(n=limit)
             if df.shape[0] > 0:
                 logger.print(colors.blue(colors.bold(registry.__name__)))
                 show(df)
