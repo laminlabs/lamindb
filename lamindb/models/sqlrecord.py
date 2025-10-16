@@ -982,9 +982,10 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                 elif (
                     isinstance(e, ProgrammingError)
                     and "permission denied for table" in error_msg
-                    and setup_settings.instance._db_permissions == "public"
+                    and (isettings := setup_settings.instance)._db_permissions
+                    == "public"
                 ):
-                    slug = setup_settings.instance.slug
+                    slug = isettings.slug
                     raise NoWriteAccess(
                         f"You are trying to write to '{slug}' with public (read-only) permissions.\n"
                         "Please contact administrators to make you a collaborator if you need write access.\n"
