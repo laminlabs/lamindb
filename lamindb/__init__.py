@@ -110,7 +110,7 @@ Backwards compatibility.
 
 # ruff: noqa: I001
 # denote a release candidate for 0.1.0 with 0.1rc1, 0.1a1, 0.1b1, etc.
-__version__ = "1.13.0"
+__version__ = "1.13.1"
 
 import warnings as _warnings
 
