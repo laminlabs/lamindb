@@ -187,7 +187,7 @@ def get_and_validate_git_metadata(
     path: str,
     version: str | None = None,
     branch: str | None = None,
-) -> dict[str, str]:
+) -> tuple[str, str]:
     """Get metadata from a git repository.
 
     Args:
@@ -283,10 +283,4 @@ def get_and_validate_git_metadata(
         raise FileNotFoundError(
             f"Path '{path}' exists but is not a file in repository {url}"
         )
-    metadata = {
-        "commit": commit_hash,
-        "url": url,
-        "path": path,
-        "branch": branch,
-    }
-    return metadata
+    return url, commit_hash
