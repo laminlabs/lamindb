@@ -8,6 +8,7 @@ from django.db.models import PROTECT, Q
 from lamin_utils import logger
 from lamindb_setup.core.hashing import HASH_LENGTH, hash_string
 
+from lamindb.base import deprecated
 from lamindb.base.fields import (
     CharField,
     DateTimeField,
@@ -67,19 +68,25 @@ class Transform(SQLRecord, IsVersioned):
 
         If you switch on
         :attr:`~lamindb.core.Settings.sync_git_repo` a script-like transform is
-        synched to its hashed state in a git repository upon calling `ln.track()`.
+        synched to its hashed state in a git repository upon calling `ln.track()`::
 
-        >>> ln.settings.sync_git_repo = "https://github.com/laminlabs/lamindb"
-        >>> ln.track()
+            ln.settings.sync_git_repo = "https://github.com/laminlabs/lamindb"
+            ln.track()
+
+        Alternatively, you create transforms that map pipelines via `Transform.from_git()`.
 
     The definition of transforms and runs is consistent the OpenLineage
     specification where a :class:`~lamindb.Transform` record would be called a
     "job" and a :class:`~lamindb.Run` record a "run".
 
     Args:
-        name: `str` A name or title.
         key: `str | None = None` A short name or path-like semantic key.
         type: `TransformType | None = "pipeline"` See :class:`~lamindb.base.types.TransformType`.
+        version: `str | None = None` A version string.
+        description: `str | None = None` A description.
+        reference: `str | None = None` A reference, e.g., a URL.
+        reference_type: `str | None = None` A reference type, e.g., 'url'.
+        source_code: `str | None = None` Source code of the transform.
         revises: `Transform | None = None` An old version of the transform.
 
     See Also:
@@ -90,7 +97,6 @@ class Transform(SQLRecord, IsVersioned):
 
     Notes:
         - :doc:`docs:track`
-        - :doc:`docs:data-flow`
         - :doc:`docs:redun`
         - :doc:`docs:nextflow`
         - :doc:`docs:snakemake`
@@ -196,9 +202,13 @@ class Transform(SQLRecord, IsVersioned):
     @overload
     def __init__(
         self,
-        name: str,
         key: str | None = None,
         type: TransformType | None = None,
+        version: str | None = None,
+        description: str | None = None,
+        reference: str | None = None,
+        reference_type: str | None = None,
+        source_code: str | None = None,
         revises: Transform | None = None,
     ): ...
 
@@ -216,6 +226,10 @@ class Transform(SQLRecord, IsVersioned):
         if len(args) == len(self._meta.concrete_fields):
             super().__init__(*args, **kwargs)
             return None
+        if args:
+            raise ValueError(
+                "Please only use keyword arguments to construct a Transform"
+            )
         key: str | None = kwargs.pop("key", None)
         description: str | None = kwargs.pop("description", None)
         revises: Transform | None = kwargs.pop("revises", None)
@@ -328,12 +342,119 @@ class Transform(SQLRecord, IsVersioned):
         )
 
     @property
+    @deprecated
     def name(self) -> str:
         """Name of the transform.
 
         Splits `key` on `/` and returns the last element.
         """
         return self.key.split("/")[-1]
+
+    @classmethod
+    def from_git(
+        cls,
+        url: str,
+        path: str,
+        key: str | None = None,
+        version: str | None = None,
+        entrypoint: str | None = None,
+        branch: str | None = None,
+    ) -> Transform:
+        """Create a transform from a path in a git repository.
+
+        Args:
+            url: URL of the git repository.
+            path: Path to the file within the repository.
+            key: Optional key for the transform.
+            version: Optional version tag to checkout in the repository.
+            entrypoint: Optional entrypoint for the transform.
+            branch: Optional branch to checkout.
+
+        Examples:
+
+            Create from a Nextflow repo and auto-infer the commit hash from its latest version::
+
+                transform = ln.Transform.from_git(
+                    url="https://github.com/openproblems-bio/task_batch_integration",
+                    path="main.nf"
+                ).save()
+
+            Create from a Nextflow repo and checkout a specific version::
+
+                transform = ln.Transform.from_git(
+                    url="https://github.com/openproblems-bio/task_batch_integration",
+                    path="main.nf",
+                    version="v2.0.0"
+                ).save()
+                assert transform.version == "v2.0.0"
+
+            Create a *sliding transform* from a Nextflow repo's `dev` branch.
+            Unlike a regular transform, a sliding transform doesn't pin a specific source code state,
+            but adapts to whatever the referenced state on the branch is::
+
+                transform = ln.Transform.from_git(
+                    url="https://github.com/openproblems-bio/task_batch_integration",
+                    path="main.nf",
+                    branch="dev",
+                    version="dev",
+                ).save()
+
+        Notes:
+
+            A regular transform pins a specific source code state through its commit hash::
+
+                transform.source_code
+                #> repo: https://github.com/openproblems-bio/task_batch_integration
+                #> path: main.nf
+                #> commit: 68eb2ecc52990617dbb6d1bb5c7158d9893796bb
+
+            A sliding transform infers the source code state from a branch::
+
+                transform.source_code
+                #> repo: https://github.com/openproblems-bio/task_batch_integration
+                #> path: main.nf
+                #> branch: dev
+
+            If an entrypoint is provided, it is added to the source code below the path, e.g.::
+
+                transform.source_code
+                #> repo: https://github.com/openproblems-bio/task_batch_integration
+                #> path: main.nf
+                #> entrypoint: myentrypoint
+                #> commit: 68eb2ecc52990617dbb6d1bb5c7158d9893796bb
+
+        """
+        from ..core._sync_git import get_and_validate_git_metadata
+
+        url, commit_hash = get_and_validate_git_metadata(url, path, version, branch)
+        if key is None:
+            key = (
+                url.split("/")[-2]
+                + "/"
+                + url.split("/")[-1].replace(".git", "")
+                + "/"
+                + path
+            )
+            logger.important(f"inferred key '{key}' from url & path")
+        source_code = f"repo: {url}\npath: {path}"
+        if entrypoint is not None:
+            source_code += f"\nentrypoint: {entrypoint}"
+        if branch is not None and version == branch:
+            # sliding transform, no defined source code state
+            source_code += f"\nbranch: {branch}"
+            reference, reference_type = None, None
+        else:
+            # regular transform, defined source code state
+            source_code += f"\ncommit: {commit_hash}"
+            reference, reference_type = f"{url}/blob/{commit_hash}/{path}", "url"
+        return Transform(
+            key=key,
+            type="pipeline",
+            version=version,
+            reference=reference,
+            reference_type=reference_type,
+            source_code=source_code,
+        )
 
     @property
     def latest_run(self) -> Run:

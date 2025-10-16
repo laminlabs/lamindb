@@ -189,20 +189,13 @@ def view_digraph(u: Digraph):
 def view_lineage(
     data: Artifact | Collection, with_children: bool = True, return_graph: bool = False
 ) -> Digraph | None:
-    """Graph of data flow.
-
-    Notes:
-        For more info, see use cases: :doc:`docs:data-flow`.
-
-    Examples:
-        >>> collection.view_lineage()
-        >>> artifact.view_lineage()
-    """
+    """View data lineage graph."""
     if ln_setup.settings.instance.is_on_hub:
         instance_slug = ln_setup.settings.instance.slug
+        ui_url = ln_setup.settings.instance.ui_url
         entity_slug = data.__class__.__name__.lower()
         logger.important(
-            f"explore at: https://lamin.ai/{instance_slug}/{entity_slug}/{data.uid}"
+            f"explore at: {ui_url}/{instance_slug}/{entity_slug}/{data.uid}"
         )
 
     import graphviz

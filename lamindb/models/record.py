@@ -21,7 +21,7 @@ from .artifact import Artifact
 from .can_curate import CanCurate
 from .feature import Feature
 from .has_parents import HasParents, _query_ancestors_of_fk, _query_relatives
-from .query_set import SQLRecordList, reorder_subset_columns_in_df
+from .query_set import QuerySet, SQLRecordList, reorder_subset_columns_in_df
 from .run import Run, TracksRun, TracksUpdates, User, current_run
 from .sqlrecord import BaseSQLRecord, IsLink, SQLRecord, _get_record_kwargs
 from .transform import Transform
@@ -32,7 +32,6 @@ if TYPE_CHECKING:
 
     from .blocks import RunBlock
     from .project import Project, Reference
-    from .query_set import QuerySet
     from .schema import Schema
 
 

@@ -1,7 +1,6 @@
 """Errors.
 
-.. autosummary::
-   :toctree: .
+::
 
    ValidationError
    InvalidArgument
@@ -14,8 +13,13 @@
    FieldValidationError
    SQLRecordNameChangeIntegrityError
    NoWriteAccess
+   BlobHashNotFound
 
 """
+# we do not want to use autosummary because it makes stub pages, which are unnecessary here
+# when using .. autoclass:: the page looks strange, and we'd need to invest in design; not easy
+# we want minimal docs with a minimal toctree where only important concepts get their own page
+
 
 # inheriting from SystemExit has the sole purpose of suppressing
 # the traceback - this isn't optimal but the current best solution
@@ -113,6 +117,12 @@ class MissingContextUID(SystemExit):
 
 class UpdateContext(SystemExit):
     """Transform settings require update."""
+
+    pass
+
+
+class BlobHashNotFound(Exception):
+    """Blob hash not found in git or storage."""
 
     pass
 
