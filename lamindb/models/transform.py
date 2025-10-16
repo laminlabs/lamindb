@@ -8,6 +8,7 @@ from django.db.models import PROTECT, Q
 from lamin_utils import logger
 from lamindb_setup.core.hashing import HASH_LENGTH, hash_string
 
+from lamindb.base import deprecated
 from lamindb.base.fields import (
     CharField,
     DateTimeField,
@@ -77,7 +78,6 @@ class Transform(SQLRecord, IsVersioned):
     "job" and a :class:`~lamindb.Run` record a "run".
 
     Args:
-        name: `str` A name or title.
         key: `str | None = None` A short name or path-like semantic key.
         type: `TransformType | None = "pipeline"` See :class:`~lamindb.base.types.TransformType`.
         revises: `Transform | None = None` An old version of the transform.
@@ -196,9 +196,13 @@ class Transform(SQLRecord, IsVersioned):
     @overload
     def __init__(
         self,
-        name: str,
         key: str | None = None,
         type: TransformType | None = None,
+        version: str | None = None,
+        description: str | None = None,
+        reference: str | None = None,
+        reference_type: str | None = None,
+        source_code: str | None = None,
         revises: Transform | None = None,
     ): ...
 
@@ -216,6 +220,10 @@ class Transform(SQLRecord, IsVersioned):
         if len(args) == len(self._meta.concrete_fields):
             super().__init__(*args, **kwargs)
             return None
+        if args:
+            raise ValueError(
+                "Please only use keyword arguments to construct a Transform"
+            )
         key: str | None = kwargs.pop("key", None)
         description: str | None = kwargs.pop("description", None)
         revises: Transform | None = kwargs.pop("revises", None)
@@ -328,12 +336,67 @@ class Transform(SQLRecord, IsVersioned):
         )
 
     @property
+    @deprecated
     def name(self) -> str:
         """Name of the transform.
 
         Splits `key` on `/` and returns the last element.
         """
         return self.key.split("/")[-1]
+
+    @classmethod
+    def from_git(
+        cls,
+        url: str,
+        path: str,
+        key: str | None = None,
+        version: str | None = None,
+        entrypoint: str | None = None,
+        branch: str | None = None,
+    ) -> Transform:
+        """Create a transform record from a path in a git repository.
+
+        This is particularly useful for Nextflow pipelines.
+
+        Examples:
+
+            Create from a Nextflow repo::
+
+                transform = ln.Transform.from_git(
+                    url="https://github.com/openproblems-bio/task_batch_integration",
+                    path="main.nf"
+                ).save()
+
+        """
+        from ..core._sync_git import get_and_validate_git_metadata
+
+        valid = get_and_validate_git_metadata(url, path, version, branch)
+
+        if key is None:
+            key = url.split("/")[-2] + "/" + url.split("/")[-1].replace(".git", "")
+            and_path = ""
+            if "main" in path:
+                key += "/" + path
+                and_path = "& path"
+            logger.important(f"inferred key '{key}' from url {and_path}")
+
+        if version != branch:
+            source_code = f"repo: {valid['url']}\ncommit: {valid['commit']}\npath: {valid['path']}"
+            if entrypoint is not None:
+                source_code += f"\nentrypoint: {entrypoint}"
+        else:
+            source_code = None
+
+        reference = f"{valid['url']}/blob/{valid['commit']}/{valid['path']}"
+
+        return Transform(
+            key=key,
+            type="pipeline",
+            version=version,
+            reference=reference,
+            reference_type="url",
+            source_code=source_code,
+        )
 
     @property
     def latest_run(self) -> Run:

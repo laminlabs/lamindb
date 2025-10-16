@@ -1,7 +1,6 @@
 """Errors.
 
 .. autosummary::
-   :toctree: .
 
    ValidationError
    InvalidArgument
@@ -14,6 +13,7 @@
    FieldValidationError
    SQLRecordNameChangeIntegrityError
    NoWriteAccess
+   BlobHashNotFound
 
 """
 
@@ -114,6 +114,10 @@ class MissingContextUID(SystemExit):
 class UpdateContext(SystemExit):
     """Transform settings require update."""
 
+    pass
+
+
+class BlobHashNotFound(Exception):
     pass
 
 
