@@ -8,8 +8,8 @@ def is_list_of_type(value: Any, expected_type: Any) -> bool:
     """Helper function to check if a value is either of expected_type or a list of that type, or a mix of both in a nested structure."""
     if isinstance(value, Iterable) and not isinstance(value, (str, bytes)):
         # handle nested lists recursively
-        return all(is_list_of_type(item, expected_type) for item in value)
-    return isinstance(value, expected_type)
+        return all(isinstance(item, expected_type) for item in value)
+    return False
 
 
 def check_dtype(expected_type: Any) -> Callable:
