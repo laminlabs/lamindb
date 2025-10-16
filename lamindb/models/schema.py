@@ -172,7 +172,7 @@ def describe_schema(self: Schema) -> Tree:
                 ),  # needs to be wrapped in Text to display correctly
                 "✓" if optionals.filter(uid=member.uid).exists() else "✗",
                 "✓" if member.nullable else "✗",
-                "✓" if member.coerce_dtype else "✗",
+                "✓" if self.coerce_dtype or member.coerce_dtype else "✗",
                 str(member.default_value) if member.default_value else "unset",
             )
 
