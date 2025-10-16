@@ -18,6 +18,18 @@ def lists_df():
 
 
 @pytest.fixture(scope="module")
+def cat_df():
+    return pd.DataFrame(
+        {
+            "sample_id": [["sample1", "sample2"], ["sample2"], ["sample3"]],
+            "dose": [[1.2, 2.3], [1.2], [2.3]],
+            "cell_type": [["B cell", "T cell"], ["B cell"], ["T cell"]],
+            "tissue": ["blood", "blood", "lung"],
+        }
+    )
+
+
+@pytest.fixture(scope="module")
 def nested_cat_df():
     return pd.DataFrame(
         {
@@ -72,7 +84,7 @@ def nested_cat_schema():
     ln.Record.filter().delete(permanent=True)
 
 
-def test_curator_df_multivalue(lists_df, lists_schema):
+def test_curator_df_multivalue(lists_df, lists_schema, cat_df):
     curator = ln.curators.DataFrameCurator(lists_df, lists_schema)
     with pytest.raises(ValidationError):
         curator.validate()
@@ -86,6 +98,11 @@ def test_curator_df_multivalue(lists_df, lists_schema):
     assert lists_df["tissue"].tolist() == [["blood", "lung"], ["blood"], ["lung"]]
 
     assert curator.validate() is None
+
+    # test with cat_df which has a non-list tissue
+    curator = ln.curators.DataFrameCurator(cat_df, lists_schema)
+    with pytest.raises(ValidationError):
+        curator.validate()
 
 
 def test_curators_df_nested_cat(nested_cat_df, nested_cat_schema):
