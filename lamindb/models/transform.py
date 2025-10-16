@@ -68,10 +68,12 @@ class Transform(SQLRecord, IsVersioned):
 
         If you switch on
         :attr:`~lamindb.core.Settings.sync_git_repo` a script-like transform is
-        synched to its hashed state in a git repository upon calling `ln.track()`.
+        synched to its hashed state in a git repository upon calling `ln.track()`::
 
-        >>> ln.settings.sync_git_repo = "https://github.com/laminlabs/lamindb"
-        >>> ln.track()
+            ln.settings.sync_git_repo = "https://github.com/laminlabs/lamindb"
+            ln.track()
+
+        Alternatively, you create transforms that map pipelines via `Transform.from_git()`.
 
     The definition of transforms and runs is consistent the OpenLineage
     specification where a :class:`~lamindb.Transform` record would be called a
@@ -95,7 +97,6 @@ class Transform(SQLRecord, IsVersioned):
 
     Notes:
         - :doc:`docs:track`
-        - :doc:`docs:data-flow`
         - :doc:`docs:redun`
         - :doc:`docs:nextflow`
         - :doc:`docs:snakemake`
@@ -387,7 +388,7 @@ class Transform(SQLRecord, IsVersioned):
                 ).save()
                 assert transform.version == "v2.0.0"
 
-            Create a _sliding_ transform from a Nextflow repo's `dev` branch.
+            Create a *sliding transform* from a Nextflow repo's `dev` branch.
             Unlike a regular transform, a sliding transform doesn't pin a specific source code state,
             but adapts to whatever the referenced state on the branch is::
 
