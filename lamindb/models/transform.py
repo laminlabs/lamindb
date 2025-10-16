@@ -80,6 +80,11 @@ class Transform(SQLRecord, IsVersioned):
     Args:
         key: `str | None = None` A short name or path-like semantic key.
         type: `TransformType | None = "pipeline"` See :class:`~lamindb.base.types.TransformType`.
+        version: `str | None = None` A version string.
+        description: `str | None = None` A description.
+        reference: `str | None = None` A reference, e.g., a URL.
+        reference_type: `str | None = None` A reference type, e.g., 'url'.
+        source_code: `str | None = None` Source code of the transform.
         revises: `Transform | None = None` An old version of the transform.
 
     See Also:
@@ -354,9 +359,15 @@ class Transform(SQLRecord, IsVersioned):
         entrypoint: str | None = None,
         branch: str | None = None,
     ) -> Transform:
-        """Create a transform record from a path in a git repository.
+        """Create a transform from a path in a git repository.
 
-        This is particularly useful for Nextflow pipelines.
+        Args:
+            url: URL of the git repository.
+            path: Path to the file within the repository.
+            key: Optional key for the transform.
+            version: Optional version tag to checkout in the repository.
+            entrypoint: Optional entrypoint for the transform.
+            branch: Optional branch to checkout.
 
         Examples:
 
@@ -374,8 +385,11 @@ class Transform(SQLRecord, IsVersioned):
                     path="main.nf",
                     version="v2.0.0"
                 ).save()
+                assert transform.version == "v2.0.0"
 
-            Create a sliding transform from a Nextflow repo's `dev` branch::
+            Create a _sliding_ transform from a Nextflow repo's `dev` branch.
+            Unlike a regular transform, a sliding transform doesn't pin a specific source code state,
+            but adapts to whatever the referenced state on the branch is::
 
                 transform = ln.Transform.from_git(
                     url="https://github.com/openproblems-bio/task_batch_integration",
@@ -384,30 +398,54 @@ class Transform(SQLRecord, IsVersioned):
                     version="dev",
                 ).save()
 
+        Notes:
+
+            A regular transform pins a specific source code state through its commit hash::
+
+                transform.source_code
+                #> repo: https://github.com/openproblems-bio/task_batch_integration
+                #> path: main.nf
+                #> commit: 68eb2ecc52990617dbb6d1bb5c7158d9893796bb
+
+            A sliding transform infers the source code state from a branch::
+
+                transform.source_code
+                #> repo: https://github.com/openproblems-bio/task_batch_integration
+                #> path: main.nf
+                #> branch: dev
+
+            If an entrypoint is provided, it is added to the source code below the path, e.g.::
+
+                transform.source_code
+                #> repo: https://github.com/openproblems-bio/task_batch_integration
+                #> path: main.nf
+                #> entrypoint: myentrypoint
+                #> commit: 68eb2ecc52990617dbb6d1bb5c7158d9893796bb
+
         """
         from ..core._sync_git import get_and_validate_git_metadata
 
         url, commit_hash = get_and_validate_git_metadata(url, path, version, branch)
         if key is None:
-            key = url.split("/")[-2] + "/" + url.split("/")[-1].replace(".git", "")
-            and_path = ""
-            if "main" in path:
-                key += "/" + path
-                and_path = "& path"
-            logger.important(f"inferred key '{key}' from url {and_path}")
+            key = (
+                url.split("/")[-2]
+                + "/"
+                + url.split("/")[-1].replace(".git", "")
+                + "/"
+                + path
+            )
+            logger.important(f"inferred key '{key}' from url & path")
         source_code = f"repo: {url}\npath: {path}"
         if entrypoint is not None:
             source_code += f"\nentrypoint: {entrypoint}"
         if branch is not None and version == branch:
             # sliding transform, no defined source code state
             source_code += f"\nbranch: {branch}"
-            reference = None
-            reference_type = None
+            reference, reference_type = None, None
         else:
             # regular transform, defined source code state
             source_code += f"\ncommit: {commit_hash}"
-            reference = f"{url}/blob/{commit_hash}/{path}"
-            reference_type = "url"
+            reference, reference_type = f"{url}/blob/{commit_hash}/{path}", "url"
         return Transform(
             key=key,
             type="pipeline",

@@ -250,7 +250,7 @@ def get_and_validate_git_metadata(
             cwd=repo_dir,
         )
         if result.returncode != 0:
-            raise RuntimeError(
+            raise ValueError(
                 f"Failed to checkout version {version}: {result.stderr.decode()}"
             )
         logger.info(f"checked out version {version}")
@@ -262,7 +262,7 @@ def get_and_validate_git_metadata(
             cwd=repo_dir,
         )
         if result.returncode != 0:
-            raise RuntimeError(
+            raise ValueError(
                 f"Failed to checkout branch {branch}: {result.stderr.decode()}"
             )
         logger.info(f"checked out branch {branch}")
@@ -279,9 +279,9 @@ def get_and_validate_git_metadata(
 
     commit_hash = result_str.stdout.strip()
 
-    # Verify the commit hash is valid (40 characters)
-    if len(commit_hash) != 40:
-        raise RuntimeError(f"Invalid commit hash: {commit_hash}")
+    assert (  # noqa: S101
+        len(commit_hash) == 40
+    ), f"commit hash |{commit_hash}| is not 40 characters long"
 
     # Verify that the path exists as a file in the repository
     file_path = repo_dir / path
