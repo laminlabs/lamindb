@@ -43,6 +43,12 @@ Here is how to create a feature:
     assert artifact in ln.Artifact.filter(perturbation__isnull=False)
     assert artifact not in ln.Artifact.filter(perturbation__isnull=True)
 
+    # list of bionty features
+    ln.Feature(name="organisms", dtype=list[bt.Organism]).save()
+    mouse = bt.Organism.from_source(name="mouse").save()
+    artifact.features.add_values({"organisms": [mouse]})
+    assert artifact.features.get_values()["organisms"] == ["mouse"]
+
     artifact.delete(permanent=True)
     ln.Record.filter().delete(permanent=True)
     ln.Feature.filter().delete(permanent=True)
@@ -144,7 +150,7 @@ Here is how to create a feature:
 
   ln.Feature(name='organism', dtype='cat[bionty.Organism]').save()"""
     )
-    ln.Feature(name="organism", dtype="cat[bionty.Organism]").save()
+    ln.Feature(name="organism", dtype=bt.Organism).save()
     with pytest.raises(ValidationError) as error:
         artifact.features.add_values({"organism": mouse})
     assert (
