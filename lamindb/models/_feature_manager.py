@@ -370,6 +370,16 @@ def describe_features(
         self,
     )
 
+    def strip_cat(feature_dtype: str) -> str:
+        if "cat[" in feature_dtype:
+            parts = feature_dtype.split("cat[")
+            dtype_stripped_cat = "".join(
+                part[:-1] if i != 0 else part for i, part in enumerate(parts)
+            )
+        else:
+            dtype_stripped_cat = feature_dtype
+        return dtype_stripped_cat
+
     # Process all Features containing labels and sort into internal/external
     internal_feature_labels = {}
     external_data = []
@@ -395,16 +405,9 @@ def describe_features(
             )
 
             # Sort into internal/external
-            if "cat[" in feature_dtype:
-                parts = feature_dtype.split("cat[")
-                dtype_stripped_cat = "".join(
-                    part.replace("cat[", "").rstrip("]") for part in parts
-                )
-            else:
-                dtype_stripped_cat = feature_dtype
             feature_info = (
                 feature_name,
-                Text(dtype_stripped_cat, style="dim"),
+                Text(strip_cat(feature_dtype), style="dim"),
                 printed_values,
             )
             if feature_name in internal_feature_names:
@@ -436,7 +439,8 @@ def describe_features(
                     (
                         feature_name,
                         Text(
-                            str(internal_feature_names.get(feature_name)), style="dim"
+                            strip_cat(internal_feature_names.get(feature_name)),
+                            style="dim",
                         ),
                         "",
                     )
@@ -449,7 +453,7 @@ def describe_features(
                     (
                         feature_name,
                         Text(
-                            str(
+                            strip_cat(
                                 internal_feature_names.get(feature_name)
                                 if feature_name in internal_feature_names
                                 else schema.dtype
@@ -461,14 +465,14 @@ def describe_features(
                     for feature_name in feature_names
                     if feature_name
                 ]
+        schema_itype = f" {schema.itype}" if schema.itype != "Feature" else ""
         int_features_tree_children.append(
             _create_feature_table(
                 Text.assemble(
                     (slot, "violet"),
-                    (" • ", "dim"),
-                    (str(schema.n), "pink1"),
+                    (f" [{schema.n}{schema_itype}]", "violet"),
                 ),
-                Text.assemble((f"[{schema.itype}]", "pink1")),
+                "",
                 feature_rows,
                 show_header=True,
             )
