@@ -176,12 +176,12 @@ def test_curate_df():
         artifact.features.describe(return_str=True)
         == """Artifact .h5ad · AnnData · dataset
 ├── Dataset features
-│   ├── obs • 4             [Feature]
+│   ├── obs (4)
 │   │   cell_type_by_expe…  bionty.CellType         B cell, CD8-positive, alpha…
 │   │   cell_type_by_model  bionty.CellType         B cell, T cell
 │   │   perturbation        Record                  DMSO, IFNG
 │   │   sample_note         str
-│   └── var.T • 3           [bionty.Gene.ensembl_…
+│   └── var.T (3 bionty.G…
 │       CD8A                num
 │       CD4                 num
 │       CD14                num
