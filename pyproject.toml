@@ -26,9 +26,6 @@ dependencies = [
     # Jupyter -- small packages with few & small dependencies
     "jupytext",
     "nbconvert>=7.2.1",  # avoid lxml[html_clean] dependency
-    # ipykernel 7.0.0 makes each jupyter cell use a separate async task
-    # this results in django making a new database wrapper for each cell
-    "ipykernel<7.0.0",
     # Others
     "pyyaml",
     "pyarrow",
