@@ -470,7 +470,7 @@ def describe_features(
             _create_feature_table(
                 Text.assemble(
                     (slot, "violet"),
-                    (f" [{schema.n}{schema_itype}]", "violet"),
+                    (f" ({schema.n}{schema_itype})", "dim"),
                 ),
                 "",
                 feature_rows,
