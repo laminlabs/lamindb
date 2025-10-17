@@ -79,15 +79,23 @@ def test_bulk_resave_trashed_records():
 
     # first create records from public source
     records = bt.Ethnicity.from_values(["asian", "white"]).save()
-    # soft delete the records
-    for r in records:
-        r.delete()
-    # now create them again from public source
-    # note the new records will now have the same uid as it's hashed from the ontology_id
-    assert records[0].branch_id == -1
-    new_records = bt.Ethnicity.from_values(["asian", "white"])
+    # one parent is also created
+    ethnicities = bt.Ethnicity.filter()
+    assert ethnicities.count() == 3
+    # soft delete the records including parent
+    ethnicities.delete()
+    # then create them again from public source
+    # the new records will now have the same uids as they are hashed from the ontology_ids
+    assert bt.Ethnicity.filter().count() == 0
+    new_records = bt.Ethnicity.from_values(["asian", "white", "african"])
     assert new_records[0].branch_id == 1
     assert new_records[0].uid == records[0].uid
     # after saving, the trashed records should be restored
-    ln.save(new_records)
+    new_records.save()
     assert new_records[0].branch_id == 1
+    ethnicities = bt.Ethnicity.filter()
+    # the parent should also be restored
+    assert ethnicities.count() == 4
+
+    # clean up
+    ethnicities.delete(permanent=True)
