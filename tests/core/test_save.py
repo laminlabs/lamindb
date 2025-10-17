@@ -72,3 +72,22 @@ def test_save_batch_size():
     # test bulk creation of new records with batch size
     ln.save(labels, batch_size=2)
     assert ln.Record.filter(name__in=label_names).distinct().count() == 3
+
+
+def test_bulk_resave_trashed_records():
+    import bionty as bt
+
+    # first create records from public source
+    records = bt.Ethnicity.from_values(["asian", "white"]).save()
+    # soft delete the records
+    for r in records:
+        r.delete()
+    # now create them again from public source
+    # note the new records will now have the same uid as it's hashed from the ontology_id
+    assert records[0].branch_id == -1
+    new_records = bt.Ethnicity.from_values(["asian", "white"])
+    assert new_records[0].branch_id == 1
+    assert new_records[0].uid == records[0].uid
+    # after saving, the trashed records should be restored
+    ln.save(new_records)
+    assert new_records[0].branch_id == 1
