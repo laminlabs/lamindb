@@ -37,15 +37,24 @@ Here is how to create a feature:
   ln.Feature(name='perturbation', dtype='cat').save()"""
     )
 
-    ln.Feature(name="perturbation", dtype=ln.Record).save()
-    ln.Record.from_values(["DMSO", "IFNG"], create=True).save()
+    perturbation_feature = ln.Feature(name="perturbation", dtype=ln.Record).save()
+    records = ln.Record.from_values(["DMSO", "IFNG"], create=True).save()
     artifact.features.add_values({"perturbation": df.perturbation.unique()})
     assert artifact in ln.Artifact.filter(perturbation__isnull=False)
     assert artifact not in ln.Artifact.filter(perturbation__isnull=True)
 
+    # list of bionty features
+    organisms_feature = ln.Feature(name="organisms", dtype=list[bt.Organism]).save()
+    mouse = bt.Organism.from_source(name="mouse").save()
+    artifact.features.add_values({"organisms": [mouse]})
+    assert artifact.features.get_values()["organisms"] == ["mouse"]
+
     artifact.delete(permanent=True)
-    ln.Record.filter().delete(permanent=True)
-    ln.Feature.filter().delete(permanent=True)
+    organisms_feature.delete(permanent=True)
+    mouse.delete(permanent=True)
+    perturbation_feature.delete(permanent=True)
+    for record in records:
+        record.delete(permanent=True)
 
 
 def test_features_add_external():
@@ -144,7 +153,7 @@ Here is how to create a feature:
 
   ln.Feature(name='organism', dtype='cat[bionty.Organism]').save()"""
     )
-    ln.Feature(name="organism", dtype="cat[bionty.Organism]").save()
+    ln.Feature(name="organism", dtype=bt.Organism).save()
     with pytest.raises(ValidationError) as error:
         artifact.features.add_values({"organism": mouse})
     assert (

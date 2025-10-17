@@ -377,7 +377,13 @@ def describe_features(
         for (feature_name, feature_dtype), values in sorted(features.items()):
             # Handle dictionary conversion
             if to_dict:
-                dict_value = values if len(values) > 1 else next(iter(values))
+                # say we serialize a list of values as a json, then we should not
+                # convert it to a list again
+                # but if we store a number of categoricals then we have to convert
+                if feature_dtype.startswith("list") and not isinstance(values, list):
+                    dict_value = list(values)
+                else:
+                    dict_value = values if len(values) > 1 else next(iter(values))
                 dictionary[feature_name] = dict_value
                 continue
 
@@ -528,6 +534,8 @@ def infer_feature_type_convert_json(
             return dt_type, sanitized_value, message  # type: ignore
         else:
             return "cat ? str", value, message
+    elif isinstance(value, SQLRecord):
+        return (f"cat[{value.__class__.__get_name_with_module__()}]", value, message)
     elif isinstance(value, Iterable) and not isinstance(value, (str, bytes)):
         if isinstance(value, (pd.Series, np.ndarray, pd.Categorical)):
             dtype = serialize_pandas_dtype(value.dtype)
@@ -545,7 +553,9 @@ def infer_feature_type_convert_json(
         if isinstance(value, dict):
             return "dict", value, message
         if len(value) > 0:  # type: ignore
-            first_element_type = type(next(iter(value)))
+            first_element = next(iter(value))
+            first_element_type = type(first_element)
+            # check that all elements are of the same type
             if all(isinstance(elem, first_element_type) for elem in value):
                 if first_element_type is bool:
                     return "list[bool]", value, message
@@ -555,14 +565,12 @@ def infer_feature_type_convert_json(
                     return "list[float]", value, message
                 elif first_element_type is str:
                     return ("list[cat ? str]", value, message)
-                elif first_element_type == SQLRecord:
+                elif isinstance(first_element, SQLRecord):
                     return (
                         f"list[cat[{first_element_type.__get_name_with_module__()}]]",
                         value,
                         message,
                     )
-    elif isinstance(value, SQLRecord):
-        return (f"cat[{value.__class__.__get_name_with_module__()}]", value, message)
     if not mute:
         logger.warning(f"cannot infer feature type of: {value}, returning '?")
     return "?", value, message
@@ -823,13 +831,17 @@ class FeatureManager:
         return self.describe(return_str=True)  # type: ignore
 
     def describe(self, return_str: bool = False) -> str | None:
+        """Pretty print features.
+
+        This is what `artifact.describe()` calls under the hood.
+        """
         tree = describe_features(self._host)  # type: ignore
         return format_rich_tree(
             tree, fallback="no linked features", return_str=return_str
         )
 
     def get_values(self) -> dict[str, Any]:
-        """Get feature values as a dictionary."""
+        """Get features as a dictionary."""
         return describe_features(self._host, to_dict=True)  # type: ignore
 
     @deprecated("slots[slot].members")
@@ -846,7 +858,7 @@ class FeatureManager:
 
     @property
     def slots(self) -> dict[str, Schema]:
-        """Schema by slot.
+        """Features by schema slot.
 
         Example::
 
@@ -911,11 +923,11 @@ class FeatureManager:
         feature_field: FieldAttr = Feature.name,
         schema: Schema = None,
     ) -> None:
-        """Curate artifact with features & values.
+        """Annotate an artifact with features.
 
         Args:
             values: A dictionary of keys (features) & values (labels, numbers, booleans).
-            feature_field: The field of a reference registry to map keys of the dictionary.
+            feature_field: The field of a registry to map the keys of `values`.
             schema: Schema to validate against.
         """
         from lamindb.base.dtypes import is_iterable_of_sqlrecord
@@ -1000,7 +1012,7 @@ class FeatureManager:
                 or (feature.dtype == "list[str]" and inferred_type != "list[cat ? str]")
                 or (
                     feature.dtype.startswith("list[cat")
-                    and inferred_type != "list[cat ? str]"
+                    and not inferred_type.startswith("list[cat")
                 )
                 or (
                     feature.dtype not in {"str", "list[str]"}
@@ -1118,12 +1130,11 @@ class FeatureManager:
         *,
         value: Any | None = None,
     ) -> None:
-        """Remove value annotations for a given feature.
+        """Remove a feature annotation.
 
         Args:
             feature: The feature for which to remove values.
             value: An optional value to restrict removal to a single value.
-
         """
         from .artifact import Artifact
 
@@ -1284,11 +1295,13 @@ class FeatureManager:
                 self._host.features._add_schema(schema_self, slot)
 
     def make_external(self, feature: Feature) -> None:
-        """Make a feature external, aka, remove feature from feature sets.
+        """Make a feature external.
+
+        This removes a feature from `artifact.feature_sets` and thereby no longer marks it
+        as a dataset feature, but as an external feature.
 
         Args:
-            feature: `Feature` A feature record.
-
+            feature: A feature.
         """
         if not isinstance(feature, Feature):
             raise TypeError("feature must be a Feature record!")
