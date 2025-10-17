@@ -177,16 +177,16 @@ def test_curate_df():
         == """Artifact .h5ad · AnnData · dataset
 ├── Dataset features
 │   ├── obs • 4             [Feature]
-│   │   cell_type_by_expe…  cat[bionty.CellType]    B cell, CD8-positive, alpha…
-│   │   cell_type_by_model  cat[bionty.CellType]    B cell, T cell
-│   │   perturbation        cat[Record]             DMSO, IFNG
+│   │   cell_type_by_expe…  bionty.CellType         B cell, CD8-positive, alpha…
+│   │   cell_type_by_model  bionty.CellType         B cell, T cell
+│   │   perturbation        Record                  DMSO, IFNG
 │   │   sample_note         str
 │   └── var.T • 3           [bionty.Gene.ensembl_…
 │       CD8A                num
 │       CD4                 num
 │       CD14                num
 └── External features
-    └── experiment          cat[Record]             Experiment 1
+    └── experiment          Record                  Experiment 1
         date_of_study       date                    2024-12-01
         study_metadata      dict                    {'detail1': '123', 'detail2…
         study_note          str                     We had a great time perform…

@@ -389,9 +389,16 @@ def describe_features(
             )
 
             # Sort into internal/external
+            if "cat[" in feature_dtype:
+                parts = feature_dtype.split("cat[")
+                dtype_stripped_cat = "".join(
+                    part.replace("cat[", "").rstrip("]") for part in parts
+                )
+            else:
+                dtype_stripped_cat = feature_dtype
             feature_info = (
                 feature_name,
-                Text(feature_dtype, style="dim"),
+                Text(dtype_stripped_cat, style="dim"),
                 printed_values,
             )
             if feature_name in internal_feature_names:
