@@ -821,13 +821,17 @@ class FeatureManager:
         return self.describe(return_str=True)  # type: ignore
 
     def describe(self, return_str: bool = False) -> str | None:
+        """Pretty print features.
+
+        This is what `artifact.describe()` calls under the hood.
+        """
         tree = describe_features(self._host)  # type: ignore
         return format_rich_tree(
             tree, fallback="no linked features", return_str=return_str
         )
 
     def get_values(self) -> dict[str, Any]:
-        """Get feature values as a dictionary."""
+        """Get features as a dictionary."""
         return describe_features(self._host, to_dict=True)  # type: ignore
 
     @deprecated("slots[slot].members")
@@ -844,7 +848,7 @@ class FeatureManager:
 
     @property
     def slots(self) -> dict[str, Schema]:
-        """Schema by slot.
+        """Features by schema slot.
 
         Example::
 
@@ -909,11 +913,11 @@ class FeatureManager:
         feature_field: FieldAttr = Feature.name,
         schema: Schema = None,
     ) -> None:
-        """Curate artifact with features & values.
+        """Annotate an artifact with features.
 
         Args:
             values: A dictionary of keys (features) & values (labels, numbers, booleans).
-            feature_field: The field of a reference registry to map keys of the dictionary.
+            feature_field: The field of a registry to map the keys of `values`.
             schema: Schema to validate against.
         """
         from lamindb.base.dtypes import is_iterable_of_sqlrecord
@@ -1116,12 +1120,11 @@ class FeatureManager:
         *,
         value: Any | None = None,
     ) -> None:
-        """Remove value annotations for a given feature.
+        """Remove a feature annotation.
 
         Args:
             feature: The feature for which to remove values.
             value: An optional value to restrict removal to a single value.
-
         """
         from .artifact import Artifact
 
@@ -1282,11 +1285,13 @@ class FeatureManager:
                 self._host.features._add_schema(schema_self, slot)
 
     def make_external(self, feature: Feature) -> None:
-        """Make a feature external, aka, remove feature from feature sets.
+        """Make a feature external.
+
+        This removes a feature from `artifact.feature_sets` and thereby no longer marks it
+        as a dataset feature, but as an external feature.
 
         Args:
-            feature: `Feature` A feature record.
-
+            feature: A feature.
         """
         if not isinstance(feature, Feature):
             raise TypeError("feature must be a Feature record!")
