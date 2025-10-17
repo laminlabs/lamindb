@@ -263,14 +263,16 @@ Here is how to create a feature:
         "is_validated",
         "temperature",
     ]
-    types = [i.plain for i in tree.children[0].children[0].label.columns[1]._cells]
-    assert types == [
-        "cat[bionty.CellType]",
-        "cat[bionty.Disease]",
-        "cat[Record]",
-        "cat[Record]",
-        "cat[bionty.Organism]",
-        "cat[Record]",
+    dtypes_display = [
+        i.plain for i in tree.children[0].children[0].label.columns[1]._cells
+    ]
+    assert dtypes_display == [
+        "bionty.CellType",
+        "bionty.Disease",
+        "Record",
+        "Record",
+        "bionty.Organism",
+        "Record",
         "date",
         "datetime",
         "bool",
