@@ -182,7 +182,9 @@ class Curator:
         - :class:`~lamindb.curators.TiledbsomaExperimentCurator`
     """
 
-    def __init__(self, dataset: Any, schema: Schema | None = None):
+    def __init__(
+        self, dataset: Any, schema: Schema | None = None, open_or_load: bool = True
+    ):
         if not isinstance(schema, Schema):
             raise InvalidArgument("schema argument must be a Schema record.")
 
@@ -190,32 +192,39 @@ class Curator:
             raise ValueError(
                 "Schema must be saved before curation. Please save it using '.save()'."
             )
-
-        self._artifact: Artifact = None  # pass the dataset as an artifact
-        self._dataset: Any = dataset  # pass the dataset as a UPathStr or data object
-        if isinstance(self._dataset, Artifact):
-            self._artifact = self._dataset
-            if self._artifact.otype in {
-                "DataFrame",
-                "AnnData",
-                "MuData",
-                "SpatialData",
-            }:
-                # Open remote AnnData Artifacts
-                if not isinstance(self._artifact.path, LocalPathClasses):
-                    if self._artifact.otype in {
-                        "AnnData",
-                    }:
+        self._artifact: Artifact | None = None
+        self._dataset: Any = None
+        if isinstance(dataset, Artifact):
+            self._artifact = dataset
+            if open_or_load:
+                if self._artifact.otype in {
+                    "DataFrame",
+                    "AnnData",
+                    "MuData",
+                    "SpatialData",
+                }:
+                    if (
+                        not isinstance(self._artifact.path, LocalPathClasses)
+                        and self._artifact.otype == "AnnData"
+                    ):
                         try:
-                            self._dataset = self._dataset.open(mode="r")
-                        # open can raise various errors. Fall back to loading into memory if open fails
+                            self._dataset = self._artifact.open(mode="r")
+                            logger.important(
+                                "opened remote artifact for streaming during validation"
+                            )
                         except Exception as e:
                             logger.warning(
-                                f"Unable to open remote AnnData Artifact: {e}. Falling back to loading into memory."
+                                f"unable to open remote AnnData Artifact: {e}, falling back to loading into memory"
                             )
-                            self._dataset = self._dataset.load(is_run_input=False)
+                    if self._dataset is None:
+                        logger.important("loading artifact into memory for validation")
+                        self._dataset = self._artifact.load(is_run_input=False)
                 else:
-                    self._dataset = self._dataset.load(is_run_input=False)
+                    raise InvalidArgument(
+                        f"Cannot load or open artifact of this type: {self._artifact}"
+                    )
+        else:
+            self._dataset = dataset
         self._schema: Schema | None = schema
         self._is_validated: bool = False
 
@@ -312,7 +321,7 @@ class SlotsCurator(Curator):
         dataset: Artifact | ScverseDataStructures | SOMAExperiment,
         schema: Schema,
     ) -> None:
-        super().__init__(dataset=dataset, schema=schema)
+        super().__init__(dataset=dataset, schema=schema, open_or_load=False)
         self._slots: dict[str, ComponentCurator] = {}
 
         # used for multimodal data structures (not AnnData)
@@ -704,8 +713,9 @@ class DataFrameCurator(SlotsCurator):
         schema: Schema,
         slot: str | None = None,
     ) -> None:
+        # we do not call super() here because we want to avoid loading an artifact
+        # into memory both here and in the component curators
         super().__init__(dataset=dataset, schema=schema)
-
         self._atomic_curator = ComponentCurator(
             dataset=dataset,
             schema=schema,
