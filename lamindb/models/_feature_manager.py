@@ -377,7 +377,10 @@ def describe_features(
         for (feature_name, feature_dtype), values in sorted(features.items()):
             # Handle dictionary conversion
             if to_dict:
-                if feature_dtype.startswith("list"):
+                # say we serialize a list of values as a json, then we should not
+                # convert it to a list again
+                # but if we store a number of categoricals then we have to convert
+                if feature_dtype.startswith("list") and not isinstance(values, list):
                     dict_value = list(values)
                 else:
                     dict_value = values if len(values) > 1 else next(iter(values))
