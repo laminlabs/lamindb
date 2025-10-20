@@ -1967,6 +1967,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             curator.validate()
             artifact.schema = schema
             artifact._curator = curator
+            print("artifact", curator._artifact)
         return artifact
 
     @classmethod

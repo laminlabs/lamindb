@@ -355,6 +355,8 @@ class SlotsCurator(Curator):
         if not self._is_validated:
             self.validate()
 
+        print("artifact now", self._artifact)
+
         if self._artifact is None:
             type_mapping = [
                 (
@@ -640,35 +642,6 @@ class ComponentCurator(Curator):
         else:
             self._cat_manager_validate()
 
-    @doc_args(SAVE_ARTIFACT_DOCSTRING)
-    def save_artifact(
-        self,
-        *,
-        key: str | None = None,
-        description: str | None = None,
-        revises: Artifact | None = None,
-        run: Run | None = None,
-    ) -> Artifact:
-        """{}"""  # noqa: D415
-        if not self._is_validated:
-            self.validate()  # raises ValidationError if doesn't validate
-        if self._artifact is None:
-            self._artifact = Artifact.from_dataframe(
-                self._dataset,
-                key=key,
-                description=description,
-                revises=revises,
-                run=run,
-                format=".csv" if key is not None and key.endswith(".csv") else None,
-            )
-
-        self._artifact.schema = self._schema
-        self._artifact.save()
-        return annotate_artifact(  # type: ignore
-            self._artifact,
-            cat_vectors=self.cat._cat_vectors,
-        )
-
 
 class DataFrameCurator(SlotsCurator):
     # the example in the docstring is tested in test_curators_quickstart_example
@@ -778,18 +751,13 @@ class DataFrameCurator(SlotsCurator):
         if not self._is_validated:
             self.validate()
 
-        if self._slots:
-            self._slots["columns"] = self._atomic_curator
-            try:
-                return super().save_artifact(
-                    key=key, description=description, revises=revises, run=run
-                )
-            finally:
-                del self._slots["columns"]
-        else:
-            return self._atomic_curator.save_artifact(
+        self._slots["columns"] = self._atomic_curator
+        try:
+            return super().save_artifact(
                 key=key, description=description, revises=revises, run=run
             )
+        finally:
+            del self._slots["columns"]
 
 
 class ExperimentalDictCurator(DataFrameCurator):
