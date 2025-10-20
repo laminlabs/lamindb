@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING, TextIO
 
 import lamindb_setup as ln_setup
 from django.db.models import Func, IntegerField, Q
-from lamin_utils import logger
+from lamin_utils import logger, set_handler
 from lamindb_setup.core import deprecated
 from lamindb_setup.core.hashing import hash_file
 
@@ -183,6 +183,8 @@ class LogStreamTracker:
             signal.signal(signal.SIGINT, self.cleanup)
         # handle exceptions
         sys.excepthook = self.handle_exception
+        # reset handler for lamin logger because sys.stdout has been replaced
+        set_handler(logger)
 
     def finish(self):
         if self.original_stdout:
