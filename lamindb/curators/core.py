@@ -182,16 +182,16 @@ class Curator:
         - :class:`~lamindb.curators.TiledbsomaExperimentCurator`
     """
 
-    def __init__(self, dataset: Any, schema: Schema | None = None):
+    def __init__(self, dataset: Any, schema: Schema):
         if not isinstance(schema, Schema):
             raise InvalidArgument("schema argument must be a Schema record.")
-
         if schema.pk is None:
             raise ValueError(
                 "Schema must be saved before curation. Please save it using '.save()'."
             )
         self._artifact: Artifact | None = None
         self._dataset: Any = None
+        # self._dataset is set below, it is opened or loaded if dataset is an Artifact
         if isinstance(dataset, Artifact):
             self._artifact = dataset
             if self._artifact.otype in {
@@ -222,7 +222,7 @@ class Curator:
                 )
         else:
             self._dataset = dataset
-        self._schema: Schema | None = schema
+        self._schema: Schema = schema
         self._is_validated: bool = False
 
     @doc_args(VALIDATE_DOCSTRING)
@@ -640,35 +640,6 @@ class ComponentCurator(Curator):
         else:
             self._cat_manager_validate()
 
-    @doc_args(SAVE_ARTIFACT_DOCSTRING)
-    def save_artifact(
-        self,
-        *,
-        key: str | None = None,
-        description: str | None = None,
-        revises: Artifact | None = None,
-        run: Run | None = None,
-    ) -> Artifact:
-        """{}"""  # noqa: D415
-        if not self._is_validated:
-            self.validate()  # raises ValidationError if doesn't validate
-        if self._artifact is None:
-            self._artifact = Artifact.from_dataframe(
-                self._dataset,
-                key=key,
-                description=description,
-                revises=revises,
-                run=run,
-                format=".csv" if key is not None and key.endswith(".csv") else None,
-            )
-
-        self._artifact.schema = self._schema
-        self._artifact.save()
-        return annotate_artifact(  # type: ignore
-            self._artifact,
-            cat_vectors=self.cat._cat_vectors,
-        )
-
 
 class DataFrameCurator(SlotsCurator):
     # the example in the docstring is tested in test_curators_quickstart_example
@@ -710,9 +681,11 @@ class DataFrameCurator(SlotsCurator):
         schema: Schema,
         slot: str | None = None,
     ) -> None:
+        # loads or opens dataset, dataset may be an artifact
         super().__init__(dataset=dataset, schema=schema)
+        # uses open dataset at self._dataset
         self._atomic_curator = ComponentCurator(
-            dataset=dataset,
+            dataset=self._dataset,
             schema=schema,
             slot=slot,
         )
@@ -776,18 +749,13 @@ class DataFrameCurator(SlotsCurator):
         if not self._is_validated:
             self.validate()
 
-        if self._slots:
-            self._slots["columns"] = self._atomic_curator
-            try:
-                return super().save_artifact(
-                    key=key, description=description, revises=revises, run=run
-                )
-            finally:
-                del self._slots["columns"]
-        else:
-            return self._atomic_curator.save_artifact(
+        self._slots["columns"] = self._atomic_curator
+        try:
+            return super().save_artifact(
                 key=key, description=description, revises=revises, run=run
             )
+        finally:
+            del self._slots["columns"]
 
 
 class ExperimentalDictCurator(DataFrameCurator):

@@ -1936,6 +1936,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             .. literalinclude:: scripts/curate_dataframe_external_features.py
                :language: python
         """
+        if "format" not in kwargs and key is not None and key.endswith(".csv"):
+            kwargs["format"] = ".csv"
         artifact = Artifact(  # type: ignore
             data=df,
             key=key,
