@@ -10,6 +10,7 @@ from lamindb_setup.core import deprecated
 from lamindb.base.fields import (
     BooleanField,
     CharField,
+    DateTimeField,
     ForeignKey,
     JSONField,
     TextField,
@@ -22,12 +23,14 @@ from .can_curate import CanCurate
 from .feature import Feature
 from .has_parents import HasParents, _query_ancestors_of_fk, _query_relatives
 from .query_set import QuerySet, SQLRecordList, reorder_subset_columns_in_df
-from .run import Run, TracksRun, TracksUpdates, User, current_run
+from .run import Run, TracksRun, TracksUpdates, User, current_run, current_user_id
 from .sqlrecord import BaseSQLRecord, IsLink, SQLRecord, _get_record_kwargs
 from .transform import Transform
 from .ulabel import ULabel
 
 if TYPE_CHECKING:
+    from datetime import datetime
+
     import pandas as pd
 
     from .blocks import RunBlock
@@ -197,6 +200,8 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates, HasParents):
         Artifact, through="ArtifactRecord", related_name="records"
     )
     """Artifacts annotated by this record."""
+    runs: Run = models.ManyToManyField(Run, through="RunRecord", related_name="records")
+    """Runs annotated by this record."""
     projects: Project
     """Projects that annotate this record."""
     references: Reference
@@ -218,7 +223,7 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates, HasParents):
     values_project: Project
     """Project values with their features."""
     linked_runs: Run = models.ManyToManyField(
-        Run, through="RecordRun", related_name="records"
+        Run, through="RecordRun", related_name="linked_in_records"
     )
     """Runs linked in this record as values."""
     linked_users: User = models.ManyToManyField(
@@ -404,7 +409,7 @@ class RecordJson(BaseSQLRecord, IsLink):
         unique_together = ("record", "feature")  # a list is modeled as a list in json
 
 
-class RecordRecord(SQLRecord, IsLink):
+class RecordRecord(BaseSQLRecord, IsLink):
     id: int = models.BigAutoField(primary_key=True)
     record: Record = ForeignKey(
         Record, CASCADE, related_name="values_record"
@@ -447,12 +452,29 @@ class RecordRun(BaseSQLRecord, IsLink):
     id: int = models.BigAutoField(primary_key=True)
     record: Record = ForeignKey(Record, CASCADE, related_name="values_run")
     feature: Feature = ForeignKey(Feature, PROTECT, related_name="links_recordrun")
-    value: Run = ForeignKey(Run, PROTECT, related_name="links_record")
+    value: Run = ForeignKey(Run, PROTECT, related_name="links_in_record")
 
     class Meta:
         # allows linking several records to a single run for the same feature because we'll likely need this
         app_label = "lamindb"
         unique_together = ("record", "feature", "value")
+
+
+class RunRecord(BaseSQLRecord, IsLink):
+    id: int = models.BigAutoField(primary_key=True)
+    run: Run = ForeignKey(Run, CASCADE, related_name="links_record")
+    record: Record = ForeignKey(Record, PROTECT, related_name="links_run")
+    feature: Feature = ForeignKey(Feature, PROTECT, related_name="links_runrecord")
+    created_at: datetime = DateTimeField(
+        editable=False, db_default=models.functions.Now(), db_index=True
+    )
+    created_by: User = ForeignKey(
+        "lamindb.User", PROTECT, default=current_user_id, related_name="+"
+    )
+
+    class Meta:
+        app_label = "lamindb"
+        unique_together = ("run", "record", "feature")
 
 
 class RecordArtifact(BaseSQLRecord, IsLink):
@@ -468,7 +490,7 @@ class RecordArtifact(BaseSQLRecord, IsLink):
 
 
 # like ArtifactULabel, for annotation
-class ArtifactRecord(BaseSQLRecord, IsLink):
+class ArtifactRecord(BaseSQLRecord, IsLink, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
     artifact: Artifact = ForeignKey(Artifact, CASCADE, related_name="links_record")
     record: Record = ForeignKey(Record, PROTECT, related_name="links_artifact")

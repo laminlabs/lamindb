@@ -346,6 +346,8 @@ class Run(SQLRecord):
     """Blocks that annotate this run."""
     records: Record
     """Records that annotate this run."""
+    linked_in_records: Record
+    """This run is linked in these records as a value."""
     _is_consecutive: bool | None = BooleanField(null=True)
     """Indicates whether code was consecutively executed. Is relevant for notebooks."""
     _status_code: int = models.SmallIntegerField(
