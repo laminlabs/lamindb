@@ -98,7 +98,8 @@ jobs:
         with:
           path: ~/postgres.tar
           key: cache-postgres-0
-          restore-keys: cache-postgres-0 # looks in other branches, too
+          restore-keys: |
+            cache-postgres-
       - name: cache postgres miss
         if: ${{ steps.cache-postgres.outputs.cache-hit != 'true' }}
         run: docker pull postgres:latest && docker image save postgres:latest --output ~/postgres.tar
