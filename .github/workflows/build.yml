@@ -101,10 +101,10 @@ jobs:
           restore-keys: |
             cache-postgres-
       - name: cache postgres miss
-        if: ${{ steps.cache-postgres.outputs.cache-hit != 'true' }}
+        if: ${{ (matrix.group == 'faq' || matrix.group == 'unit-core' || matrix.group == 'unit-storage' || matrix.group == 'permissions') && steps.cache-postgres.outputs.cache-hit != 'true' }}
         run: docker pull postgres:latest && docker image save postgres:latest --output ~/postgres.tar
       - name: cache postgres use
-        if: ${{ steps.cache-postgres.outputs.cache-hit == 'true' }}
+        if: ${{ (matrix.group == 'faq' || matrix.group == 'unit-core' || matrix.group == 'unit-storage' || matrix.group == 'permissions') && steps.cache-postgres.outputs.cache-hit == 'true' }}
         run: docker image load --input ~/postgres.tar
 
       - run: pip install "laminci@git+https://github.com/laminlabs/laminci"
