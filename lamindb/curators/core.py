@@ -182,16 +182,16 @@ class Curator:
         - :class:`~lamindb.curators.TiledbsomaExperimentCurator`
     """
 
-    def __init__(self, dataset: Any, schema: Schema | None = None):
+    def __init__(self, dataset: Any, schema: Schema):
         if not isinstance(schema, Schema):
             raise InvalidArgument("schema argument must be a Schema record.")
-
         if schema.pk is None:
             raise ValueError(
                 "Schema must be saved before curation. Please save it using '.save()'."
             )
         self._artifact: Artifact | None = None
         self._dataset: Any = None
+        # self._dataset is set below, it is opened or loaded if dataset is an Artifact
         if isinstance(dataset, Artifact):
             self._artifact = dataset
             if self._artifact.otype in {
@@ -222,7 +222,7 @@ class Curator:
                 )
         else:
             self._dataset = dataset
-        self._schema: Schema | None = schema
+        self._schema: Schema = schema
         self._is_validated: bool = False
 
     @doc_args(VALIDATE_DOCSTRING)
@@ -710,9 +710,11 @@ class DataFrameCurator(SlotsCurator):
         schema: Schema,
         slot: str | None = None,
     ) -> None:
+        # loads or opens dataset, dataset may be an artifact
         super().__init__(dataset=dataset, schema=schema)
+        # uses open dataset at self._dataset
         self._atomic_curator = ComponentCurator(
-            dataset=dataset,
+            dataset=self._dataset,
             schema=schema,
             slot=slot,
         )
