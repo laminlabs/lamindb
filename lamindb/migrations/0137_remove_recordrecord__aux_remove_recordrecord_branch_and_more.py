@@ -132,4 +132,20 @@ class Migration(migrations.Migration):
             },
             bases=(models.Model, lamindb.models.sqlrecord.IsLink),
         ),
+        migrations.AddField(
+            model_name="record",
+            name="runs",
+            field=models.ManyToManyField(
+                related_name="records", through="lamindb.RunRecord", to="lamindb.run"
+            ),
+        ),
+        migrations.AlterField(
+            model_name="record",
+            name="linked_runs",
+            field=models.ManyToManyField(
+                related_name="linked_in_records",
+                through="lamindb.RecordRun",
+                to="lamindb.run",
+            ),
+        ),
     ]
