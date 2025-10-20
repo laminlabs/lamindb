@@ -636,10 +636,6 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
                 name="unique_feature_name_type_space",
                 condition=~models.Q(branch_id=-1),
             ),
-            models.CheckConstraint(
-                condition=models.Q(type__isnull=True) | models.Q(type__is_type=True),
-                name="feature_type_must_have_is_type_true",
-            ),
         ]
 
     _name_field: str = "name"

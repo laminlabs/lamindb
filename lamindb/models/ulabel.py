@@ -78,11 +78,7 @@ class ULabel(SQLRecord, HasParents, CanCurate, TracksRun, TracksUpdates):
                 fields=["name", "type", "space"],
                 name="unique_ulabel_name_type_space",
                 condition=~models.Q(branch_id=-1),
-            ),
-            models.CheckConstraint(
-                condition=models.Q(type__isnull=True) | models.Q(type__is_type=True),
-                name="ulabel_type_must_have_is_type_true",
-            ),
+            )
         ]
 
     _name_field: str = "name"

@@ -61,11 +61,7 @@ class Reference(SQLRecord, CanCurate, TracksRun, TracksUpdates, ValidateFields):
                 fields=["name", "type", "space"],
                 name="unique_reference_name_type_space",
                 condition=~models.Q(branch_id=-1),
-            ),
-            models.CheckConstraint(
-                condition=models.Q(type__isnull=True) | models.Q(type__is_type=True),
-                name="reference_type_must_have_is_type_true",
-            ),
+            )
         ]
 
     id: int = models.AutoField(primary_key=True)
@@ -185,11 +181,7 @@ class Project(SQLRecord, CanCurate, TracksRun, TracksUpdates, ValidateFields):
                 fields=["name", "type", "space"],
                 name="unique_project_name_type_space",
                 condition=~models.Q(branch_id=-1),
-            ),
-            models.CheckConstraint(
-                condition=models.Q(type__isnull=True) | models.Q(type__is_type=True),
-                name="project_type_must_have_is_type_true",
-            ),
+            )
         ]
 
     id: int = models.AutoField(primary_key=True)
