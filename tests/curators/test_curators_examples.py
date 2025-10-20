@@ -252,11 +252,11 @@ def test_dataframe_curator(mini_immuno_schema: ln.Schema):
         == """\
 Artifact .parquet · DataFrame · dataset
 └── Dataset features
-    └── columns • 5         [Feature]
-        cell_type_by_expe…  cat[bionty.CellType]    B cell, CD8-positive, alpha…
-        cell_type_by_model  cat[bionty.CellType]    B cell, T cell
-        perturbation        cat[ULabel[Perturbati…  DMSO, IFNG
-        sample_label        cat[ULabel]             sample1, sample2, sample3
+    └── columns (5)
+        cell_type_by_expe…  bionty.CellType         B cell, CD8-positive, alpha…
+        cell_type_by_model  bionty.CellType         B cell, T cell
+        perturbation        ULabel[Perturbation]    DMSO, IFNG
+        sample_label        ULabel                  sample1, sample2, sample3
         sample_note         str"""
     )
     assert set(artifact.features.get_values()["sample_label"]) == {
@@ -871,22 +871,21 @@ def test_spatialdata_curator(
         "tables:table:var.T",
     }
     assert artifact.features.get_values()["disease"] == "Alzheimer disease"
-
     assert (
         artifact.features.describe(return_str=True)
         == """Artifact .zarr · SpatialData · dataset
 └── Dataset features
-    ├── attrs:bio • 2       [Feature]
-    │   developmental_sta…  cat[bionty.Developmen…  adult stage
-    │   disease             cat[bionty.Disease]     Alzheimer disease
-    ├── attrs:tech • 1      [Feature]
-    │   assay               cat[bionty.Experiment…  Visium Spatial Gene Express…
-    ├── attrs • 2           [Feature]
+    ├── attrs:bio (2)
+    │   developmental_sta…  bionty.DevelopmentalS…  adult stage
+    │   disease             bionty.Disease          Alzheimer disease
+    ├── attrs:tech (1)
+    │   assay               bionty.ExperimentalFa…  Visium Spatial Gene Express…
+    ├── attrs (2)
     │   bio                 dict
     │   tech                dict
-    ├── tables:table:obs …  [Feature]
+    ├── tables:table:obs …
     │   sample_region       str
-    └── tables:table:var.…  [bionty.Gene.ensembl_…
+    └── tables:table:var.…
         BRCA2               num
         BRAF                num"""
     )

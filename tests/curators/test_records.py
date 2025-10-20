@@ -118,10 +118,10 @@ treatment1,HEK293T cell,2025-06-01 05:00:00,Project 1""")
         == """\
 Artifact .csv · DataFrame · dataset
 └── Dataset features
-    └── columns • 4         [Feature]
-        cell_line           cat[bionty.CellLine]    HEK293T cell
-        project             cat[Project]            Project 1
-        treatment           cat[Record[Treatment]]  treatment1, treatment2
+    └── columns (4)
+        cell_line           bionty.CellLine         HEK293T cell
+        project             Project                 Project 1
+        treatment           Record[Treatment]       treatment1, treatment2
         preparation_date    datetime"""
     )
     # re-run the export which triggers hash lookup
@@ -192,7 +192,6 @@ def test_nextflow_sheet_with_samples(
         "fastq_2",
         "expected_cells",
     ]
-    print(artifact.path.read_text())
     print(artifact.features.describe(return_str=True))
     assert artifact.path.read_text().startswith("""\
 sample,fastq_1,fastq_2,expected_cells,__lamindb_record_uid__,__lamindb_record_name__
@@ -202,8 +201,8 @@ Sample_X,https://raw.githubusercontent.com/nf-core/test-datasets/scrnaseq/testda
         == """\
 Artifact .csv · DataFrame · dataset
 └── Dataset features
-    └── columns • 4         [Feature]
-        sample              cat[Record[BioSample]]  Sample_X, Sample_Y
+    └── columns (4)
+        sample              Record[BioSample]       Sample_X, Sample_Y
         fastq_1             str
         fastq_2             str
         expected_cells      int"""
