@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING, TextIO
 
 import lamindb_setup as ln_setup
 from django.db.models import Func, IntegerField, Q
-from lamin_utils import logger, set_handler
+from lamin_utils._logger import logger, set_handler
 from lamindb_setup.core import deprecated
 from lamindb_setup.core.hashing import hash_file
 
