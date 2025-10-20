@@ -895,27 +895,44 @@ class FeatureManager:
             related_name = related_names[class_name]  # e.g., "ulabels"
             IsLink = getattr(self._host, related_name).through
             field_name = f"{get_link_attr(IsLink, self._host)}_id"  # e.g., ulabel_id
-            links = [
-                IsLink(
-                    **{
-                        "artifact_id": self._host.id,
-                        "feature_id": feature.id,
-                        field_name: label.id,
-                        "feature_ref_is_name": feature_ref_is_name,
-                        "label_ref_is_name": label_ref_is_name,
-                    }
-                )
-                for (feature, label) in registry_features_labels
-            ]
+            if self._host.__class__.__name__ == "Artifact":
+                links = [
+                    IsLink(
+                        **{
+                            "artifact_id": self._host.id,
+                            "feature_id": feature.id,
+                            field_name: label.id,
+                            "feature_ref_is_name": feature_ref_is_name,
+                            "label_ref_is_name": label_ref_is_name,
+                        }
+                    )
+                    for (feature, label) in registry_features_labels
+                ]
+            else:  # Run
+                links = [
+                    IsLink(
+                        **{
+                            "run_id": self._host.id,
+                            "feature_id": feature.id,
+                            field_name: label.id,
+                        }
+                    )
+                    for (feature, label) in registry_features_labels
+                ]
             # a link might already exist
             try:
                 save(links, ignore_conflicts=False)
             except Exception:
                 save(links, ignore_conflicts=True)
             # now delete links that were previously saved without a feature
+            host_id_field = (
+                "artifact_id"
+                if self._host.__class__.__name__ == "Artifact"
+                else "run_id"
+            )
             IsLink.filter(
                 **{
-                    "artifact_id": self._host.id,
+                    host_id_field: self._host.id,
                     "feature_id": None,
                     f"{field_name}__in": [l.id for _, l in registry_features_labels],
                 }
