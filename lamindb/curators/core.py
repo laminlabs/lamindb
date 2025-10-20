@@ -355,8 +355,6 @@ class SlotsCurator(Curator):
         if not self._is_validated:
             self.validate()
 
-        print("artifact now", self._artifact)
-
         if self._artifact is None:
             type_mapping = [
                 (
