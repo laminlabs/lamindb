@@ -321,7 +321,7 @@ class SlotsCurator(Curator):
         dataset: Artifact | ScverseDataStructures | SOMAExperiment,
         schema: Schema,
     ) -> None:
-        super().__init__(dataset=dataset, schema=schema, open_or_load=False)
+        super().__init__(dataset=dataset, schema=schema, open_or_load=True)
         self._slots: dict[str, ComponentCurator] = {}
 
         # used for multimodal data structures (not AnnData)
