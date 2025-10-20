@@ -26,10 +26,15 @@ def test_delete_record():
     record2 = ln.Record(name="test_record", type=record_type).save()
     assert record == record2
     with pytest.raises(IntegrityError):
+        # raise the unique constraint error when trying to create a duplicate record
         ln.Record(name="test_record", type=record_type, _skip_validation=True).save()
     record.delete()
+    # because `record` is now in trash, we can create a new record with the same name and type
     record2 = ln.Record(name="test_record", type=record_type).save()
     assert record != record2
+    record2.delete(permanent=True)
+    record.delete(permanent=True)
+    record_type.delete(permanent=True)
 
 
 def test_recreate_soft_deleted_record():
