@@ -167,6 +167,10 @@ class LogStreamTracker:
             ln_setup.settings.cache_dir / f"run_logs_{self.run.uid}.txt"
         )
         self.log_file = open(self.log_file_path, "w")
+        # the instance that's connected is important information
+        self.log_file.write(
+            f"\x1b[92m→\x1b[0m connected lamindb: {ln_setup.settings.instance.slug}\n"
+        )
         # use buffering for correct handling of carriage returns
         sys.stdout = LogStreamHandler(
             self.original_stdout, self.log_file, use_buffer=True
@@ -531,13 +535,13 @@ class Context:
         if params is not None:
             run.params = serialize_params_to_json(params)
             self._logging_message_track += "\n→ params: " + ", ".join(
-                f"{key}={value}" for key, value in run.params.items()
+                f"{key}={value!r}" for key, value in run.params.items()
             )
         run.save()  # need to save now
         if features is not None:
             run.features.add_values(features)
             self._logging_message_track += "\n→ features: " + ", ".join(
-                f"{key}={value}" for key, value in features.items()
+                f"{key}={value!r}" for key, value in features.items()
             )
         self._run = run
         track_python_environment(run)
