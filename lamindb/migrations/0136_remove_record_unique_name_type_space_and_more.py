@@ -2,6 +2,49 @@
 
 from django.db import migrations, models
 
+CREATE_FUNCTION_SQL = """
+CREATE OR REPLACE FUNCTION is_valid_record_type(record_type_id INTEGER, record_is_type BOOLEAN)
+RETURNS BOOLEAN AS $$
+BEGIN
+    -- Record with no type is valid
+    IF record_type_id IS NULL THEN
+        RETURN TRUE;
+    END IF;
+
+    -- If current record is a type, it can only reference schema-less types
+    IF record_is_type THEN
+        RETURN EXISTS (
+            SELECT 1 FROM lamindb_record r
+            WHERE r.id = record_type_id AND r.is_type AND r.schema_id IS NULL
+        );
+    END IF;
+
+    -- Regular records can reference any type
+    RETURN EXISTS (
+        SELECT 1 FROM lamindb_record r
+        WHERE r.id = record_type_id AND r.is_type
+    );
+END;
+$$ LANGUAGE plpgsql;
+"""
+
+ADD_CONSTRAINT_SQL = """
+ALTER TABLE lamindb_record
+ADD CONSTRAINT record_type_is_valid_fk
+CHECK (is_valid_record_type(type_id, is_type));
+"""
+
+DROP_CONSTRAINT_SQL = (
+    "ALTER TABLE lamindb_record DROP CONSTRAINT IF EXISTS record_type_is_valid_fk;"
+)
+DROP_FUNCTION_SQL = "DROP FUNCTION IF EXISTS is_valid_record_type(INTEGER, BOOLEAN);"
+
+
+def revert_postgres_constraint(apps, schema_editor):
+    if schema_editor.connection.vendor == "postgresql":
+        schema_editor.execute(DROP_CONSTRAINT_SQL)
+        schema_editor.execute(DROP_FUNCTION_SQL)
+
 
 class Migration(migrations.Migration):
     dependencies = [
@@ -9,6 +52,7 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
+        migrations.RunPython(revert_postgres_constraint),
         migrations.RemoveConstraint(
             model_name="record",
             name="unique_name_type_space",
@@ -59,6 +103,73 @@ class Migration(migrations.Migration):
                 condition=models.Q(("branch_id", -1), _negated=True),
                 fields=("name", "type", "space"),
                 name="unique_ulabel_name_type_space",
+            ),
+        ),
+        # second set of contstraints
+        migrations.AddConstraint(
+            model_name="feature",
+            constraint=models.CheckConstraint(
+                condition=models.Q(
+                    ("type__isnull", True), ("type__is_type", True), _connector="OR"
+                ),
+                name="feature_type_must_have_is_type_true",
+            ),
+        ),
+        migrations.AddConstraint(
+            model_name="project",
+            constraint=models.CheckConstraint(
+                condition=models.Q(
+                    ("type__isnull", True), ("type__is_type", True), _connector="OR"
+                ),
+                name="project_type_must_have_is_type_true",
+            ),
+        ),
+        migrations.AddConstraint(
+            model_name="record",
+            constraint=models.CheckConstraint(
+                condition=models.Q(
+                    ("type__isnull", True), ("type__is_type", True), _connector="OR"
+                ),
+                name="record_type_must_have_is_type_true",
+            ),
+        ),
+        migrations.AddConstraint(
+            model_name="record",
+            constraint=models.CheckConstraint(
+                condition=models.Q(
+                    ("is_type", False),
+                    ("type__isnull", True),
+                    ("type__schema__isnull", True),
+                    _connector="OR",
+                ),
+                name="record_type_schema_must_be_null_when_is_type_true",
+            ),
+        ),
+        migrations.AddConstraint(
+            model_name="reference",
+            constraint=models.CheckConstraint(
+                condition=models.Q(
+                    ("type__isnull", True), ("type__is_type", True), _connector="OR"
+                ),
+                name="reference_type_must_have_is_type_true",
+            ),
+        ),
+        migrations.AddConstraint(
+            model_name="schema",
+            constraint=models.CheckConstraint(
+                condition=models.Q(
+                    ("type__isnull", True), ("type__is_type", True), _connector="OR"
+                ),
+                name="schema_type_must_have_is_type_true",
+            ),
+        ),
+        migrations.AddConstraint(
+            model_name="ulabel",
+            constraint=models.CheckConstraint(
+                condition=models.Q(
+                    ("type__isnull", True), ("type__is_type", True), _connector="OR"
+                ),
+                name="ulabel_type_must_have_is_type_true",
             ),
         ),
     ]
