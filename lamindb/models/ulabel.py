@@ -73,6 +73,14 @@ class ULabel(SQLRecord, HasParents, CanCurate, TracksRun, TracksUpdates):
     class Meta(SQLRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
         abstract = False
         app_label = "lamindb"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["name", "type", "space"],
+                name="unique_ulabel_name_type_space",
+                condition=~models.Q(branch_id=-1),
+            )
+            # also see raw SQL constraints for `is_type` and `type` FK validity in migrations
+        ]
 
     _name_field: str = "name"
 

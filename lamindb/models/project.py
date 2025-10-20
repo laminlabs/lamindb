@@ -56,6 +56,14 @@ class Reference(SQLRecord, CanCurate, TracksRun, TracksUpdates, ValidateFields):
     class Meta(SQLRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
         abstract = False
         app_label = "lamindb"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["name", "type", "space"],
+                name="unique_reference_name_type_space",
+                condition=~models.Q(branch_id=-1),
+            )
+            # also see raw SQL constraints for `is_type` and `type` FK validity in migrations
+        ]
 
     id: int = models.AutoField(primary_key=True)
     """Internal id, valid only in one DB instance."""
@@ -169,6 +177,14 @@ class Project(SQLRecord, CanCurate, TracksRun, TracksUpdates, ValidateFields):
     class Meta(SQLRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
         abstract = False
         app_label = "lamindb"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["name", "type", "space"],
+                name="unique_project_name_type_space",
+                condition=~models.Q(branch_id=-1),
+            )
+            # also see raw SQL constraints for `is_type` and `type` FK validity in migrations
+        ]
 
     id: int = models.AutoField(primary_key=True)
     """Internal id, valid only in one DB instance."""

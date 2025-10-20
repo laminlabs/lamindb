@@ -630,7 +630,13 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
             models.CheckConstraint(
                 condition=models.Q(is_type=True) | models.Q(dtype__isnull=False),
                 name="dtype_not_null_when_is_type_false",
-            )
+            ),
+            models.UniqueConstraint(
+                fields=["name", "type", "space"],
+                name="unique_feature_name_type_space",
+                condition=~models.Q(branch_id=-1),
+            ),
+            # also see raw SQL constraints for `is_type` and `type` FK validity in migrations
         ]
 
     _name_field: str = "name"

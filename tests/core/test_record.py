@@ -2,6 +2,7 @@ import re
 
 import lamindb as ln
 import pytest
+from django.db import IntegrityError
 from lamindb.errors import FieldValidationError
 
 
@@ -48,3 +49,18 @@ def test_name_lookup():
     label2.delete(permanent=True)
     label1.delete(permanent=True)
     my_type.delete(permanent=True)
+
+
+def test_invalid_type_record_with_schema():
+    schema = ln.Schema(name="test_schema", itype=ln.Feature).save()
+
+    record_type_with_schema = ln.Record(
+        name="TypeWithSchema", is_type=True, schema=schema
+    ).save()
+
+    with pytest.raises(IntegrityError) as error:
+        ln.Record(name="InvalidType", is_type=True, type=record_type_with_schema).save()
+    assert "record_type_is_valid_fk" in error.exconly()
+
+    record_type_with_schema.delete(permanent=True)
+    schema.delete(permanent=True)
