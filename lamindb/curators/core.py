@@ -710,8 +710,6 @@ class DataFrameCurator(SlotsCurator):
         schema: Schema,
         slot: str | None = None,
     ) -> None:
-        # we do not call super() here because we want to avoid loading an artifact
-        # into memory both here and in the component curators
         super().__init__(dataset=dataset, schema=schema)
         self._atomic_curator = ComponentCurator(
             dataset=dataset,

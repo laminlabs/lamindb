@@ -237,9 +237,11 @@ def configure_coverage(session) -> None:
     ],
 )
 def test(session, group):
-    if group not in {"curator", "biology"}:
+    # we likely don't need auth in many other groups, but have to carefully expand this
+    if group not in {"curator"}:
         login_testuser2(session)
         login_testuser1(session)
+    # this is mostly needed for the docs so that we don't render Django's entire public API
     run(session, "lamin settings set private-django-api true")
     coverage_args = "--cov=lamindb --cov-config=pyproject.toml --cov-append --cov-report=term-missing"
     duration_args = "--durations=10"
