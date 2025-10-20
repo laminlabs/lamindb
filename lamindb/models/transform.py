@@ -440,9 +440,14 @@ class Transform(SQLRecord, IsVersioned):
         if entrypoint is not None:
             source_code += f"\nentrypoint: {entrypoint}"
         if branch is not None and version == branch:
+            from urllib.parse import quote
+
             # sliding transform, no defined source code state
             source_code += f"\nbranch: {branch}"
-            reference, reference_type = None, None
+            reference, reference_type = (
+                f"{url}/tree/{quote(branch, safe='')}/{path}",
+                "url",
+            )
         else:
             # regular transform, defined source code state
             source_code += f"\ncommit: {commit_hash}"

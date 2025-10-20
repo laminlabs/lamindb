@@ -34,6 +34,8 @@ commit:""")
 repo: {TEST_URL}
 path: main.nf
 branch:""")
+    assert transform3.reference == f"{TEST_URL}/tree/main/main.nf"
+    assert transform3.reference_type == "url"
 
 
 def test_transform_from_git_with_entrypoint():
