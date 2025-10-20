@@ -155,7 +155,6 @@ def bulk_create(
                 )
             try:
                 registry.objects.bulk_create(batch, ignore_conflicts=ignore_conflicts)
-                # records[:] = created  # In-place list update; does not seem to be necessary
             # handle unique constraint violations due to non-default branches
             except IntegrityError as e:
                 error_msg = str(e)
