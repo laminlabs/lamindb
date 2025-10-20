@@ -135,6 +135,25 @@ def unique_constraint_error_in_error_message(error_msg: str) -> bool:
     )
 
 
+def parse_violated_field_from_error_message(error_msg: str) -> str | None:
+    # Even if the model has multiple fields with unique=True,
+    # Django will only raise an IntegrityError for one field at a time
+    # - whichever constraint is violated first during the database insert/update operation.
+    if unique_constraint_error_in_error_message(error_msg):
+        if "UNIQUE constraint failed" in error_msg:  # sqlite
+            constraint_field = (
+                error_msg.removeprefix("UNIQUE constraint failed: ")
+                .split(", ")[0]
+                .split(".")[-1]
+            )
+        else:  # postgres
+            constraint_field = (
+                error_msg.split('"')[1].removesuffix("_key").split("_")[-1]
+            )
+        return constraint_field
+    return None
+
+
 FieldAttr.__repr__ = deferred_attribute__repr__  # type: ignore
 
 
@@ -898,9 +917,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                     super().save(*args, **kwargs)
             except (IntegrityError, ProgrammingError) as e:
                 error_msg = str(e)
-                # two possible error messages for hash duplication
-                # "duplicate key value violates unique constraint"
-                # "UNIQUE constraint failed"
+                # error for hash/uid duplication
                 if (
                     self.__class__.__name__ in {"Transform", "Artifact", "Collection"}
                     and isinstance(e, IntegrityError)
@@ -913,49 +930,30 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                     )
                     init_self_from_db(self, pre_existing_record)
                 elif (
-                    self.__class__.__name__ == "Storage"
-                    and isinstance(e, IntegrityError)
-                    and ("root" in error_msg or "uid" in error_msg)
-                    and unique_constraint_error_in_error_message(error_msg)
-                ):
-                    # even if uid was in the error message, we can retrieve based on
-                    # the root because it's going to be the same root
-                    pre_existing_record = self.__class__.get(root=self.root)
-                    init_self_from_db(self, pre_existing_record)
-                elif (
                     isinstance(e, IntegrityError)
-                    and ("ontology_id" in error_msg or "uid" in error_msg)
+                    # for Storageeven if uid was in the error message, we can retrieve based on
+                    # the root because it's going to be the same root
+                    and any(
+                        field in error_msg for field in ("root", "ontology_id", "uid")
+                    )
                     and (
                         "UNIQUE constraint failed" in error_msg
                         or "duplicate key value violates unique constraint" in error_msg
                     )
                 ):
-                    if "UNIQUE constraint failed" in error_msg:  # sqlite
-                        constraint_fields = [
-                            f.split(".")[-1]
-                            for f in error_msg.removeprefix(
-                                "UNIQUE constraint failed: "
-                            ).split(", ")
-                        ]
-                    else:  # postgres
-                        constraint_fields = [
-                            error_msg.split('"')[1]
-                            .split('"')[0]
-                            .removesuffix("_key")
-                            .split("_")[-1]  # field name
-                        ]
+                    unique_field = parse_violated_field_from_error_message(error_msg)
                     # here we query against the all branches with .objects
                     pre_existing_record = self.__class__.objects.get(
-                        **{f: getattr(self, f) for f in constraint_fields}
+                        **{unique_field: getattr(self, unique_field)}
                     )
+                    # if the existing record is in the default branch, we just return it
                     if pre_existing_record.branch_id == 1:
                         logger.warning(
-                            f"returning {self.__class__.__name__} record with same {', '.join(constraint_fields)}: '{', '.join([str(getattr(self, f)) for f in constraint_fields])}'"
+                            f"returning {self.__class__.__name__} record with same {unique_field}: '{getattr(self, unique_field)}'"
                         )
+                    # if the existing record is in a different branch, we move it to the default branch and update its fields
                     else:
                         # modifies the fields of the existing record with new values of self
-                        # TODO: parents should be properly dealt with
-                        self._parents: list = []
                         field_names = [i.name for i in self.__class__._meta.fields]
                         update_attributes(
                             pre_existing_record,

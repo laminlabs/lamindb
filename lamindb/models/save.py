@@ -8,7 +8,7 @@ from collections import defaultdict
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.utils.functional import partition
 from lamin_utils import logger
 from lamindb_setup.core.upath import LocalPathClasses, UPath
@@ -21,7 +21,7 @@ from ..core.storage.paths import (
     delete_storage_using_key,
     store_file_or_folder,
 )
-from .sqlrecord import SQLRecord
+from .sqlrecord import SQLRecord, parse_violated_field_from_error_message
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -153,8 +153,50 @@ def bulk_create(
                 logger.info(
                     f"Processing batch {batch_num}/{total_batches} for {model_name}: {len(batch)} records"
                 )
-            registry.objects.bulk_create(batch, ignore_conflicts=ignore_conflicts)
-            # records[:] = created  # In-place list update; does not seem to be necessary
+            try:
+                registry.objects.bulk_create(batch, ignore_conflicts=ignore_conflicts)
+            # handle unique constraint violations due to non-default branches
+            except IntegrityError as e:
+                error_msg = str(e)
+                if any(
+                    field in error_msg for field in ("root", "ontology_id", "uid")
+                ) and (
+                    "UNIQUE constraint failed" in error_msg
+                    or "duplicate key value violates unique constraint" in error_msg
+                ):
+                    unique_field = parse_violated_field_from_error_message(error_msg)
+                    unique_field_values = [getattr(r, unique_field) for r in batch]
+                    # here we query against non-default branches
+                    pre_existing_values_not_main_branch = (
+                        registry.objects.filter(
+                            **{f"{unique_field}__in": unique_field_values}
+                        )
+                        .exclude(branch_id=1)
+                        .values_list(unique_field, flat=True)
+                    )
+                    # the rest of the records can be saved normally
+                    records_main_branch = [
+                        r
+                        for r in batch
+                        if getattr(r, unique_field)
+                        not in pre_existing_values_not_main_branch
+                    ]
+                    save(records_main_branch)
+                    # now move the pre-existing records to the main branch
+                    if pre_existing_values_not_main_branch.exists():
+                        logger.warning(
+                            f"Some {model_name} records with the same {unique_field}s already exist in non-default branches. Moving them to the default branch."
+                        )
+                        pre_existing_records_not_main_branch = [
+                            r
+                            for r in batch
+                            if getattr(r, unique_field)
+                            in pre_existing_values_not_main_branch
+                        ]
+                        for record in pre_existing_records_not_main_branch:
+                            record.save()
+                else:
+                    raise e
 
 
 def bulk_update(
