@@ -636,6 +636,7 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
                 name="unique_feature_name_type_space",
                 condition=~models.Q(branch_id=-1),
             ),
+            # also see raw SQL constraints for `is_type` and `type` FK validity in migrations
         ]
 
     _name_field: str = "name"

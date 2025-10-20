@@ -14,7 +14,7 @@ import lamindb.models.has_parents
 import lamindb.models.run
 import lamindb.models.sqlrecord
 
-CREATE_FUNCTION_SQL = """
+CREATE_IS_VALID_RECORD_TYPE_FUNCTION = """
 CREATE OR REPLACE FUNCTION is_valid_record_type(record_type_id INTEGER, record_is_type BOOLEAN)
 RETURNS BOOLEAN AS $$
 BEGIN
@@ -40,28 +40,144 @@ END;
 $$ LANGUAGE plpgsql;
 """
 
-ADD_CONSTRAINT_SQL = """
+CREATE_IS_VALID_RECORD_TYPE_CONSTRAINT = """
 ALTER TABLE lamindb_record
 ADD CONSTRAINT record_type_is_valid_fk
 CHECK (is_valid_record_type(type_id, is_type));
 """
 
-DROP_CONSTRAINT_SQL = (
-    "ALTER TABLE lamindb_record DROP CONSTRAINT IF EXISTS record_type_is_valid_fk;"
-)
-DROP_FUNCTION_SQL = "DROP FUNCTION IF EXISTS is_valid_record_type(INTEGER, BOOLEAN);"
+
+CREATE_IS_VALID_FEATURE_TYPE_FUNCTION = """
+CREATE OR REPLACE FUNCTION is_valid_feature_type(feature_type_id INTEGER)
+RETURNS BOOLEAN AS $$
+BEGIN
+    -- Feature with no type is valid
+    IF feature_type_id IS NULL THEN
+        RETURN TRUE;
+    END IF;
+
+    -- Type must have is_type = TRUE
+    RETURN EXISTS (
+        SELECT 1 FROM lamindb_feature f
+        WHERE f.id = feature_type_id AND f.is_type
+    );
+END;
+$$ LANGUAGE plpgsql;
+"""
+
+CREATE_IS_VALID_FEATURE_TYPE_CONSTRAINT = """
+ALTER TABLE lamindb_feature
+ADD CONSTRAINT feature_type_is_valid_fk
+CHECK (is_valid_feature_type(type_id));
+"""
 
 
-def apply_postgres_constraint(apps, schema_editor):
+CREATE_IS_VALID_SCHEMA_TYPE_FUNCTION = """
+CREATE OR REPLACE FUNCTION is_valid_schema_type(schema_type_id INTEGER)
+RETURNS BOOLEAN AS $$
+BEGIN
+    IF schema_type_id IS NULL THEN
+        RETURN TRUE;
+    END IF;
+
+    RETURN EXISTS (
+        SELECT 1 FROM lamindb_schema s
+        WHERE s.id = schema_type_id AND s.is_type
+    );
+END;
+$$ LANGUAGE plpgsql;
+"""
+
+CREATE_IS_VALID_SCHEMA_TYPE_CONSTRAINT = """
+ALTER TABLE lamindb_schema
+ADD CONSTRAINT schema_type_is_valid_fk
+CHECK (is_valid_schema_type(type_id));
+"""
+
+
+CREATE_IS_VALID_PROJECT_TYPE_FUNCTION = """
+CREATE OR REPLACE FUNCTION is_valid_project_type(project_type_id INTEGER)
+RETURNS BOOLEAN AS $$
+BEGIN
+    IF project_type_id IS NULL THEN
+        RETURN TRUE;
+    END IF;
+
+    RETURN EXISTS (
+        SELECT 1 FROM lamindb_project p
+        WHERE p.id = project_type_id AND p.is_type
+    );
+END;
+$$ LANGUAGE plpgsql;
+"""
+
+CREATE_IS_VALID_PROJECT_TYPE_CONSTRAINT = """
+ALTER TABLE lamindb_project
+ADD CONSTRAINT project_type_is_valid_fk
+CHECK (is_valid_project_type(type_id));
+"""
+
+
+CREATE_IS_VALID_REFERENCE_TYPE_FUNCTION = """
+CREATE OR REPLACE FUNCTION is_valid_reference_type(reference_type_id INTEGER)
+RETURNS BOOLEAN AS $$
+BEGIN
+    IF reference_type_id IS NULL THEN
+        RETURN TRUE;
+    END IF;
+
+    RETURN EXISTS (
+        SELECT 1 FROM lamindb_reference r
+        WHERE r.id = reference_type_id AND r.is_type
+    );
+END;
+$$ LANGUAGE plpgsql;
+"""
+
+CREATE_IS_VALID_REFERENCE_TYPE_CONSTRAINT = """
+ALTER TABLE lamindb_reference
+ADD CONSTRAINT reference_type_is_valid_fk
+CHECK (is_valid_reference_type(type_id));
+"""
+
+
+CREATE_IS_VALID_ULABEL_TYPE_FUNCTION = """
+CREATE OR REPLACE FUNCTION is_valid_ulabel_type(ulabel_type_id INTEGER)
+RETURNS BOOLEAN AS $$
+BEGIN
+    IF ulabel_type_id IS NULL THEN
+        RETURN TRUE;
+    END IF;
+
+    RETURN EXISTS (
+        SELECT 1 FROM lamindb_ulabel u
+        WHERE u.id = ulabel_type_id AND u.is_type
+    );
+END;
+$$ LANGUAGE plpgsql;
+"""
+
+CREATE_IS_VALID_ULABEL_TYPE_CONSTRAINT = """
+ALTER TABLE lamindb_ulabel
+ADD CONSTRAINT ulabel_type_is_valid_fk
+CHECK (is_valid_ulabel_type(type_id));
+"""
+
+
+def apply_constraints(apps, schema_editor):
     if schema_editor.connection.vendor == "postgresql":
-        schema_editor.execute(CREATE_FUNCTION_SQL)
-        schema_editor.execute(ADD_CONSTRAINT_SQL)
-
-
-def revert_postgres_constraint(apps, schema_editor):
-    if schema_editor.connection.vendor == "postgresql":
-        schema_editor.execute(DROP_CONSTRAINT_SQL)
-        schema_editor.execute(DROP_FUNCTION_SQL)
+        schema_editor.execute(CREATE_IS_VALID_RECORD_TYPE_FUNCTION)
+        schema_editor.execute(CREATE_IS_VALID_RECORD_TYPE_CONSTRAINT)
+        schema_editor.execute(CREATE_IS_VALID_FEATURE_TYPE_FUNCTION)
+        schema_editor.execute(CREATE_IS_VALID_FEATURE_TYPE_CONSTRAINT)
+        schema_editor.execute(CREATE_IS_VALID_SCHEMA_TYPE_FUNCTION)
+        schema_editor.execute(CREATE_IS_VALID_SCHEMA_TYPE_CONSTRAINT)
+        schema_editor.execute(CREATE_IS_VALID_PROJECT_TYPE_FUNCTION)
+        schema_editor.execute(CREATE_IS_VALID_PROJECT_TYPE_CONSTRAINT)
+        schema_editor.execute(CREATE_IS_VALID_REFERENCE_TYPE_FUNCTION)
+        schema_editor.execute(CREATE_IS_VALID_REFERENCE_TYPE_CONSTRAINT)
+        schema_editor.execute(CREATE_IS_VALID_ULABEL_TYPE_FUNCTION)
+        schema_editor.execute(CREATE_IS_VALID_ULABEL_TYPE_CONSTRAINT)
 
 
 class Migration(migrations.Migration):
@@ -5526,4 +5642,5 @@ class Migration(migrations.Migration):
                 name="unique_artifact_storage_hash_null_key",
             ),
         ),
+        migrations.RunPython(apply_constraints),
     ]
