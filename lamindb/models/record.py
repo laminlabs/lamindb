@@ -112,7 +112,9 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates, HasParents):
         app_label = "lamindb"
         constraints = [
             models.UniqueConstraint(
-                fields=["name", "type", "space"], name="unique_name_type_space"
+                fields=["name", "type", "space"],
+                name="unique_record_name_type_space",
+                condition=~models.Q(branch_id=-1),
             )
         ]
 

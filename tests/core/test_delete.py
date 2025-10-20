@@ -1,6 +1,7 @@
 import bionty as bt
 import lamindb as ln
 import pytest
+from django.db import IntegrityError
 
 
 @pytest.mark.parametrize("permanent", [True, False])
@@ -17,6 +18,18 @@ def test_delete_qs(permanent):
         0 if permanent else 3
     )
     assert ln.ULabel.filter(name__startswith="label_").count() == 0
+
+
+def test_delete_record():
+    record_type = ln.Record(name="TestType", is_type=True).save()
+    record = ln.Record(name="test_record", type=record_type).save()
+    record2 = ln.Record(name="test_record", type=record_type).save()
+    assert record == record2
+    with pytest.raises(IntegrityError):
+        ln.Record(name="test_record", type=record_type, _skip_validation=True).save()
+    record.delete()
+    record2 = ln.Record(name="test_record", type=record_type).save()
+    assert record != record2
 
 
 def test_recreate_soft_deleted_record():
