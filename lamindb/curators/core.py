@@ -182,9 +182,7 @@ class Curator:
         - :class:`~lamindb.curators.TiledbsomaExperimentCurator`
     """
 
-    def __init__(
-        self, dataset: Any, schema: Schema | None = None, open_or_load: bool = True
-    ):
+    def __init__(self, dataset: Any, schema: Schema | None = None):
         if not isinstance(schema, Schema):
             raise InvalidArgument("schema argument must be a Schema record.")
 
@@ -196,33 +194,32 @@ class Curator:
         self._dataset: Any = None
         if isinstance(dataset, Artifact):
             self._artifact = dataset
-            if open_or_load:
-                if self._artifact.otype in {
-                    "DataFrame",
-                    "AnnData",
-                    "MuData",
-                    "SpatialData",
-                }:
-                    if (
-                        not isinstance(self._artifact.path, LocalPathClasses)
-                        and self._artifact.otype == "AnnData"
-                    ):
-                        try:
-                            self._dataset = self._artifact.open(mode="r")
-                            logger.important(
-                                "opened remote artifact for streaming during validation"
-                            )
-                        except Exception as e:
-                            logger.warning(
-                                f"unable to open remote AnnData Artifact: {e}, falling back to loading into memory"
-                            )
-                    if self._dataset is None:
-                        logger.important("loading artifact into memory for validation")
-                        self._dataset = self._artifact.load(is_run_input=False)
-                else:
-                    raise InvalidArgument(
-                        f"Cannot load or open artifact of this type: {self._artifact}"
-                    )
+            if self._artifact.otype in {
+                "DataFrame",
+                "AnnData",
+                "MuData",
+                "SpatialData",
+            }:
+                if (
+                    not isinstance(self._artifact.path, LocalPathClasses)
+                    and self._artifact.otype == "AnnData"
+                ):
+                    try:
+                        self._dataset = self._artifact.open(mode="r")
+                        logger.important(
+                            "opened remote artifact for streaming during validation"
+                        )
+                    except Exception as e:
+                        logger.warning(
+                            f"unable to open remote AnnData Artifact: {e}, falling back to loading into memory"
+                        )
+                if self._dataset is None:
+                    logger.important("loading artifact into memory for validation")
+                    self._dataset = self._artifact.load(is_run_input=False)
+            else:
+                raise InvalidArgument(
+                    f"Cannot load or open artifact of this type: {self._artifact}"
+                )
         else:
             self._dataset = dataset
         self._schema: Schema | None = schema
@@ -321,7 +318,7 @@ class SlotsCurator(Curator):
         dataset: Artifact | ScverseDataStructures | SOMAExperiment,
         schema: Schema,
     ) -> None:
-        super().__init__(dataset=dataset, schema=schema, open_or_load=True)
+        super().__init__(dataset=dataset, schema=schema)
         self._slots: dict[str, ComponentCurator] = {}
 
         # used for multimodal data structures (not AnnData)
