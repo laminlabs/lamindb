@@ -237,7 +237,7 @@ def configure_coverage(session) -> None:
     ],
 )
 def test(session, group):
-    if group not in {"unit-core", "curators"}:
+    if group not in {"unit-core", "curator"}:
         login_testuser2(session)
         login_testuser1(session)
     run(session, "lamin settings set private-django-api true")
