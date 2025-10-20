@@ -6,7 +6,6 @@ import nox
 from laminci import upload_docs_artifact
 from laminci.nox import (
     build_docs,
-    login_testuser1,
     login_testuser2,
     run,
     run_pre_commit,
@@ -237,8 +236,8 @@ def configure_coverage(session) -> None:
     ],
 )
 def test(session, group):
-    login_testuser2(session)
-    login_testuser1(session)
+    # login_testuser2(session)
+    # login_testuser1(session)
     run(session, "lamin settings set private-django-api true")
     coverage_args = "--cov=lamindb --cov-config=pyproject.toml --cov-append --cov-report=term-missing"
     duration_args = "--durations=10"
