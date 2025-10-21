@@ -614,7 +614,7 @@ def test_from_dir_many_artifacts(get_test_filepaths, key):
     assert len(set(hashes)) == len(hashes)
     ln.UPath(test_dirpath).view_tree()
     # now save
-    ln.save(artifacts)
+    artifacts.save()
     # now run again, because now we'll have hash-based lookup!
     artifacts = ln.Artifact.from_dir(test_dirpath, key=key)
     assert len(artifacts) == 2
