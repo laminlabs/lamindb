@@ -182,7 +182,7 @@ def get_transform_reference_from_git_repo(path: Path) -> str:
         if repo_dir is None:
             repo_dir = Path.cwd()
         raise BlobHashNotFound(
-            f"❌ Did not find blob hash {blob_hash} in git repo ({settings.sync_git_repo}) {repo_dir}\n"
+            f"❌ Did not find blob hash {blob_hash} in git repo: {settings.sync_git_repo}\n"
             f"Did you commit & push the script to the remote repo? -> {path}"
         )
     gitpath = get_filepath_within_git_repo(commit_hash, blob_hash, repo_dir)
