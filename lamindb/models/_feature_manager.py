@@ -1156,10 +1156,12 @@ class FeatureManager:
         from .artifact import Artifact
 
         if isinstance(feature, str):
-            feature = Feature.get(name=feature)
-        filter_kwargs = {"feature": feature}
-        if feature.dtype.startswith("cat["):  # type: ignore
-            feature_registry = feature.dtype.replace("cat[", "").replace("]", "")  # type: ignore
+            feature_record = Feature.get(name=feature)
+        else:
+            feature_record = feature
+        filter_kwargs = {"feature": feature_record}
+        if feature_record.dtype.startswith("cat["):  # type: ignore
+            feature_registry = parse_dtype(feature_record.dtype)[0]["registry_str"]
             if value is not None:
                 assert isinstance(value, SQLRecord)  # noqa: S101
                 # the below uses our convention for field names in link models
@@ -1169,22 +1171,18 @@ class FeatureManager:
                     else feature_registry
                 ).lower()
                 filter_kwargs[link_name] = value
-            if feature_registry == "ULabel":
-                link_attribute = "links_ulabel"
-            else:
-                link_models_on_models = {
-                    getattr(
-                        Artifact, obj.related_name
-                    ).through.__get_name_with_module__(): obj.related_model.__get_name_with_module__()
-                    for obj in Artifact._meta.related_objects
-                    if obj.related_model.__get_name_with_module__() == feature_registry
-                }
-                link_attribute = {
-                    obj.related_name
-                    for obj in Artifact._meta.related_objects
-                    if obj.related_model.__get_name_with_module__()
-                    in link_models_on_models
-                }.pop()
+            link_models_on_models = {
+                getattr(
+                    Artifact, obj.related_name
+                ).through.__get_name_with_module__(): obj.related_model.__get_name_with_module__()
+                for obj in Artifact._meta.related_objects
+                if obj.related_model.__get_name_with_module__() == feature_registry
+            }
+            link_attribute = {
+                obj.related_name
+                for obj in Artifact._meta.related_objects
+                if obj.related_model.__get_name_with_module__() in link_models_on_models
+            }.pop()
             getattr(self._host, link_attribute).filter(**filter_kwargs).delete()
         else:
             if value is not None:
