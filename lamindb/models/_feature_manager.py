@@ -142,7 +142,7 @@ def _get_categoricals_postgres(
 ) -> dict[tuple[str, str], set[str]]:
     """Get categorical features and their values using PostgreSQL-specific optimizations."""
     if not related_data:
-        if self.__class__.__name__ == "Artifact":
+        if self.__class__.__name__ == "Artifact" or self.__class__.__name__ == "Run":
             artifact_meta = get_artifact_with_related(
                 self, include_feature_link=True, include_m2m=True
             )
@@ -258,18 +258,6 @@ def _get_non_categoricals(
     return non_categoricals
 
 
-def _get_schemas_postgres(
-    self: Artifact | Collection,
-    related_data: dict | None = None,
-) -> dict:
-    if not related_data:
-        artifact_meta = get_artifact_with_related(self, include_schema=True)
-        related_data = artifact_meta.get("related_data", {})
-
-    fs_data = related_data.get("schemas", {}) if related_data else {}
-    return fs_data
-
-
 def _create_feature_table(
     name: str, registry_str: str, data: list, show_header: bool = False
 ) -> Table:
@@ -288,7 +276,7 @@ def _create_feature_table(
 
 
 def describe_features(
-    self: Artifact,
+    self: Artifact | Run,
     related_data: dict | None = None,
     to_dict: bool = False,
     tree: Tree | None = None,
@@ -309,9 +297,12 @@ def describe_features(
     # feature sets
     schema_data: dict[str, tuple[str, list[str]]] = {}
     feature_data: dict[str, tuple[str, list[str]]] = {}
-    if not to_dict:
+    if not to_dict and isinstance(self, Artifact):
         if self.id is not None and connections[self._state.db].vendor == "postgresql":
-            fs_data = _get_schemas_postgres(self, related_data=related_data)
+            if not related_data:
+                artifact_meta = get_artifact_with_related(self, include_schema=True)
+                related_data = artifact_meta.get("related_data", {})
+            fs_data = related_data.get("schemas", {}) if related_data else {}
             for fs_id, (slot, data) in fs_data.items():
                 for registry_str, feature_names in data.items():
                     # prevent projects show up as features
@@ -497,8 +488,8 @@ def describe_features(
                 external_data,
             )
         )
-    # ext_features_tree = None
-    ext_features_header = Text("External features", style="bold dark_orange")
+    features_text = "External features" if isinstance(self, Artifact) else "Features"
+    ext_features_header = Text(features_text, style="bold dark_orange")
     if ext_features_tree_children:
         ext_features_tree = tree.add(ext_features_header)
         for child in ext_features_tree_children:

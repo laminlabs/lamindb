@@ -95,6 +95,7 @@ from .record import (
     RecordRecord,
     RecordULabel,
     RecordRun,
+    RunRecord,
     RecordUser,
     RecordArtifact,
     ArtifactRecord,

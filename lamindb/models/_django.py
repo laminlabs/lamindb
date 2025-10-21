@@ -140,17 +140,18 @@ def get_artifact_with_related(
 
     for link in link_tables:
         link_model = getattr(model, link).rel.related_model
-        if (
-            not hasattr(link_model, "feature")
-            or link_model.__name__ == "RecordArtifact"
-        ):
+        if not hasattr(link_model, "feature") or link_model.__name__ in {
+            "RecordArtifact",
+            "RecordRun",
+        }:
             continue
         label_field = link.removeprefix("links_").replace("_", "")
         related_model = link_model._meta.get_field(label_field).related_model
         name_field = get_name_field(related_model)
         label_field_name = f"{label_field}__{name_field}"
+        entity_name = "artifact" if artifact.__class__.__name__ == "Artifact" else "run"
         annotations[f"linkfield_{link}"] = Subquery(
-            link_model.objects.filter(artifact=OuterRef("pk"))
+            link_model.objects.filter(**{entity_name: OuterRef("pk")})
             .annotate(
                 data=JSONObject(
                     id=F("id"),
@@ -159,7 +160,7 @@ def get_artifact_with_related(
                     **{label_field + "_display": F(label_field_name)},
                 )
             )
-            .values("artifact")
+            .values(entity_name)
             .annotate(json_agg=ArrayAgg("data"))
             .values("json_agg")
         )
@@ -174,7 +175,7 @@ def get_artifact_with_related(
                     schema=F("schema"),
                 )
             )
-            .values("artifact")
+            .values(entity_name)
             .annotate(json_agg=ArrayAgg("data"))
             .values("json_agg")
         )
