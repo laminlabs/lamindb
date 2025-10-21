@@ -14,6 +14,7 @@ from .schema import Schema
 
 if TYPE_CHECKING:
     from .artifact import Artifact, Collection
+    from .run import Run
 
 
 def patch_many_to_many_descriptor() -> None:
@@ -76,8 +77,8 @@ def get_related_model(model, field_name):
         return f"Error: {str(e)}"
 
 
-def get_artifact_with_related(
-    artifact: Artifact,
+def get_artifact_or_run_with_related(
+    record: Artifact | Run,
     include_fk: bool = False,
     include_m2m: bool = False,
     include_feature_link: bool = False,
@@ -87,8 +88,11 @@ def get_artifact_with_related(
     from ._label_manager import EXCLUDE_LABELS
     from .can_curate import get_name_field
 
-    model = artifact.__class__
-    schema_modules = get_schema_modules(artifact._state.db)
+    model = record.__class__
+    entity_field_name = "artifact" if record.__class__.__name__ == "Artifact" else "run"
+    if entity_field_name == "run" and include_schema:
+        include_schema = False  # runs do not have feature sets
+    schema_modules = get_schema_modules(record._state.db)
 
     foreign_key_fields = [
         f.name
@@ -101,9 +105,7 @@ def get_artifact_with_related(
     # {'Ulabel': 'ulabels', 'CellType': 'cell_types'}
     m2m_model_to_field_map = {}
     if include_m2m:
-        full_map = dict_related_model_to_related_name(
-            model, instance=artifact._state.db
-        )
+        full_map = dict_related_model_to_related_name(model, instance=record._state.db)
         m2m_model_to_field_map = {
             model_cls: field_name
             for model_cls, field_name in full_map.items()
@@ -114,7 +116,7 @@ def get_artifact_with_related(
         if not include_feature_link
         else list(
             dict_related_model_to_related_name(
-                model, links=True, instance=artifact._state.db
+                model, links=True, instance=record._state.db
             ).values()
         )
     )
@@ -140,17 +142,17 @@ def get_artifact_with_related(
 
     for link in link_tables:
         link_model = getattr(model, link).rel.related_model
-        if (
-            not hasattr(link_model, "feature")
-            or link_model.__name__ == "RecordArtifact"
-        ):
+        if not hasattr(link_model, "feature") or link_model.__name__ in {
+            "RecordArtifact",
+            "RecordRun",
+        }:
             continue
         label_field = link.removeprefix("links_").replace("_", "")
         related_model = link_model._meta.get_field(label_field).related_model
         name_field = get_name_field(related_model)
         label_field_name = f"{label_field}__{name_field}"
         annotations[f"linkfield_{link}"] = Subquery(
-            link_model.objects.filter(artifact=OuterRef("pk"))
+            link_model.objects.filter(**{entity_field_name: OuterRef("pk")})
             .annotate(
                 data=JSONObject(
                     id=F("id"),
@@ -159,7 +161,7 @@ def get_artifact_with_related(
                     **{label_field + "_display": F(label_field_name)},
                 )
             )
-            .values("artifact")
+            .values(entity_field_name)
             .annotate(json_agg=ArrayAgg("data"))
             .values("json_agg")
         )
@@ -174,24 +176,24 @@ def get_artifact_with_related(
                     schema=F("schema"),
                 )
             )
-            .values("artifact")
+            .values(entity_field_name)
             .annotate(json_agg=ArrayAgg("data"))
             .values("json_agg")
         )
 
-    artifact_meta = (
-        model.objects.using(artifact._state.db)
-        .filter(uid=artifact.uid)
+    record_meta = (
+        model.objects.using(record._state.db)
+        .filter(uid=record.uid)
         .annotate(**annotations)
         .values(*["id", "uid"], *annotations.keys())
         .first()
     )
 
-    if not artifact_meta:
+    if not record_meta:
         return None
 
     related_data: dict = {"m2m": {}, "fk": {}, "link": {}, "schemas": {}}
-    for k, v in artifact_meta.items():
+    for k, v in record_meta.items():
         if k.startswith("fkfield_") and v is not None:
             related_data["fk"][k[8:]] = v
         elif k.startswith("linkfield_") and v is not None:
@@ -199,7 +201,7 @@ def get_artifact_with_related(
         elif k == "schemas":
             if v:
                 related_data["schemas"] = get_schema_m2m_relations(
-                    artifact, {i["schema"]: i["slot"] for i in v}
+                    record, {i["schema"]: i["slot"] for i in v}
                 )
 
     def convert_link_data_to_m2m(
@@ -228,7 +230,7 @@ def get_artifact_with_related(
         related_data["link"], model=model, m2m_model_map=m2m_model_to_field_map
     )
     return {
-        **{name: artifact_meta[name] for name in ["id", "uid"]},
+        **{name: record_meta[name] for name in ["id", "uid"]},
         "related_data": related_data,
     }
 

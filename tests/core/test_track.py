@@ -36,9 +36,9 @@ def test_track_basic_invocation():
     successor.predecessors.set([predecessor1, predecessor2])
 
     # first invocation using features
-    params = {"param1": 1, "param2": "my-string", "param3": 3.14}
+    kwargs = {"param1": 1, "param2": "my-string", "param3": 3.14}
     with pytest.raises(ValidationError) as exc:
-        ln.track(transform=successor, features=params)
+        ln.track(transform=successor, features=kwargs)
     assert (
         exc.exconly()
         == """lamindb.errors.ValidationError: These keys could not be validated: ['param1', 'param2', 'param3']
@@ -48,16 +48,31 @@ Here is how to create a feature:
   ln.Feature(name='param2', dtype='cat ? str').save()
   ln.Feature(name='param3', dtype='float').save()"""
     )
-    ln.Feature(name="param1", dtype="int").save()
-    ln.Feature(name="param2", dtype="str").save()
-    ln.Feature(name="param3", dtype="float").save()
-    ln.track(transform=successor, features=params)
-    assert ln.context.run.features.get_values() == params
-    # second invocation using features
-    params = {"param1": 1, "param2": "my-string", "param3": 3.14, "param4": [1, 2]}
+    ln.Feature(name="param1", dtype=int).save()
+    ln.Feature(name="param2", dtype=str).save()
+    ln.Feature(name="param3", dtype=float).save()
+    ln.Feature(name="label_param", dtype=ln.Record).save()
+    ln.Record(name="my_label").save()
+    kwargs["label_param"] = "my_label"
+    ln.track(transform=successor, features=kwargs)
+    assert ln.context.run.features.get_values() == kwargs
+    assert (
+        ln.context.run.features.describe(return_str=True)
+        == """\
+Run
+└── Features
+    └── label_param         Record                  my_label
+        param1              int                     1
+        param2              str                     my-string
+        param3              float                   3.14"""
+    )
+    # also call describe() plainly without further checks
+    ln.context.run.describe()
+    # second invocation
+    kwargs = {"param1": 1, "param2": "my-string", "param3": 3.14, "param4": [1, 2]}
     param4 = ln.Feature(name="param4", dtype="int").save()
     with pytest.raises(ValidationError) as exc:
-        ln.track(transform=successor, features=params)
+        ln.track(transform=successor, features=kwargs)
     assert (
         exc.exconly()
         == """lamindb.errors.ValidationError: Expected dtype for 'param4' is 'int', got 'list[int]'"""
@@ -66,13 +81,13 @@ Here is how to create a feature:
     param4.dtype = "list[int]"
     param4.save()
     # re-run
-    ln.track(transform=successor, features=params)
-    assert ln.context.run.features.get_values() == params
+    ln.track(transform=successor, features=kwargs)
+    assert ln.context.run.features.get_values() == kwargs
 
     # now use the params arg
-    ln.track(transform=successor, params=params)
-    assert ln.context.run.params == params
-    assert ln.Run.filter(params__param1=params["param1"]).count() == 1
+    ln.track(transform=successor, params=kwargs)
+    assert ln.context.run.params == kwargs
+    assert ln.Run.filter(params__param1=kwargs["param1"]).count() == 1
 
     # test that run populates things like records
     record = ln.Record(name="my-label-in-track")

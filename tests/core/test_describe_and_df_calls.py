@@ -2,7 +2,7 @@ import bionty as bt
 import lamindb as ln
 import numpy as np
 import pandas as pd
-from lamindb.models.artifact import _describe_postgres
+from lamindb.models._describe import describe_postgres
 
 
 def _check_df_equality(actual_df: pd.DataFrame, expected_df: pd.DataFrame) -> bool:
@@ -112,7 +112,7 @@ def test_curate_df():
 
     # expected output has italicized elements that can't be tested
     # hence testing is restricted to section content, not headings
-    description_tree = _describe_postgres(artifact)
+    description_tree = describe_postgres(artifact)
 
     # general section
     assert (
@@ -172,6 +172,8 @@ def test_curate_df():
     assert found_created_at, "Created at should be present in the general section"
 
     # dataset section
+    # print(artifact.features.get_values())
+    print(artifact.features.describe(return_str=True))
     assert (
         artifact.features.describe(return_str=True)
         == """Artifact .h5ad · AnnData · dataset

@@ -3,7 +3,7 @@ from unittest.mock import patch
 import bionty as bt
 import lamindb as ln
 import pytest
-from lamindb.models._django import get_artifact_with_related
+from lamindb.models._django import get_artifact_or_run_with_related
 
 
 def test_transfer_from_remote_to_local(ccaplog):
@@ -21,7 +21,7 @@ def test_transfer_from_remote_to_local(ccaplog):
     artifact1 = ln.Artifact.using("laminlabs/lamin-dev").get("livFRRpM")
 
     # test describe postgres
-    result = get_artifact_with_related(
+    result = get_artifact_or_run_with_related(
         artifact1,
         include_m2m=True,
         include_fk=True,

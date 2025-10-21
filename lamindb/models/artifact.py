@@ -10,7 +10,7 @@ import fsspec
 import lamindb_setup as ln_setup
 import pandas as pd
 from anndata import AnnData
-from django.db import ProgrammingError, connections, models
+from django.db import ProgrammingError, models
 from django.db.models import CASCADE, PROTECT, Q
 from django.db.models.functions import Length
 from lamin_utils import colors, logger
@@ -66,7 +66,6 @@ from ..errors import InvalidArgument, NoStorageLocationForSpace, ValidationError
 from ..models._is_versioned import (
     create_uid,
 )
-from ._django import get_artifact_with_related, get_collection_with_related
 from ._feature_manager import (
     FeatureManager,
     get_label_links,
@@ -86,7 +85,6 @@ from .sqlrecord import (
     IsLink,
     SQLRecord,
     _get_record_kwargs,
-    record_repr,
 )
 from .storage import Storage
 from .ulabel import ULabel
@@ -705,117 +703,6 @@ def save_schema_links(self: Artifact) -> None:
             }
             links.append(Artifact.feature_sets.through(**kwargs))
         bulk_create(links, ignore_conflicts=True)
-
-
-def _describe_postgres(self):  # for Artifact & Collection
-    from ._describe import (
-        describe_artifact_general,
-        describe_collection_general,
-        describe_header,
-    )
-    from ._feature_manager import describe_features
-
-    model_name = self.__class__.__name__
-    msg = f"{colors.green(model_name)}{record_repr(self, include_foreign_keys=False).lstrip(model_name)}\n"
-    if self._state.db is not None and self._state.db != "default":
-        msg += f"  {colors.italic('Database instance')}\n"
-        msg += f"    slug: {self._state.db}\n"
-
-    if model_name == "Artifact":
-        result = get_artifact_with_related(
-            self,
-            include_feature_link=True,
-            include_fk=True,
-            include_m2m=True,
-            include_schema=True,
-        )
-    else:
-        result = get_artifact_with_related(self, include_fk=True, include_m2m=True)
-    related_data = result.get("related_data", {})
-    if model_name == "Artifact":
-        tree = describe_artifact_general(self, foreign_key_data=related_data["fk"])
-        return describe_features(
-            self,
-            tree=tree,
-            related_data=related_data,
-            with_labels=True,
-        )
-    elif model_name == "Collection":
-        result = get_collection_with_related(self, include_fk=True)
-        tree = describe_collection_general(
-            self, foreign_key_data=related_data.get("fk", {})
-        )
-        return tree
-    else:
-        tree = describe_header(self)
-        return tree
-
-
-def _describe_sqlite(self, print_types: bool = False):  # for artifact & collection
-    from ._describe import (
-        describe_artifact_general,
-        describe_collection_general,
-        describe_header,
-    )
-    from ._feature_manager import describe_features
-    from .collection import Collection
-
-    model_name = self.__class__.__name__
-    msg = f"{colors.green(model_name)}{record_repr(self, include_foreign_keys=False).lstrip(model_name)}\n"
-    if self._state.db is not None and self._state.db != "default":
-        msg += f"  {colors.italic('Database instance')}\n"
-        msg += f"    slug: {self._state.db}\n"
-
-    fields = self._meta.fields
-    direct_fields = []
-    foreign_key_fields = []
-    for f in fields:
-        if f.is_relation:
-            foreign_key_fields.append(f.name)
-        else:
-            direct_fields.append(f.name)
-    if not self._state.adding:
-        # prefetch foreign key relationships
-        self = (
-            self.__class__.objects.using(self._state.db)
-            .select_related(*foreign_key_fields)
-            .get(id=self.id)
-        )
-        # prefetch m-2-m relationships
-        many_to_many_fields = []
-        if isinstance(self, (Collection, Artifact)):
-            many_to_many_fields.append("input_of_runs")
-        if isinstance(self, Artifact):
-            many_to_many_fields.append("feature_sets")
-        self = (
-            self.__class__.objects.using(self._state.db)
-            .prefetch_related(*many_to_many_fields)
-            .get(id=self.id)
-        )
-    if model_name == "Artifact":
-        tree = describe_artifact_general(self)
-        return describe_features(
-            self,
-            tree=tree,
-            with_labels=True,
-        )
-    elif model_name == "Collection":
-        tree = describe_collection_general(self)
-        return tree
-    else:
-        tree = describe_header(self)
-        return tree
-
-
-def describe_artifact_collection(self, return_str: bool = False) -> str | None:
-    from ._describe import format_rich_tree
-
-    if not self._state.adding and connections[self._state.db].vendor == "postgresql":
-        tree = _describe_postgres(self)
-    else:
-        tree = _describe_sqlite(self)
-
-    return format_rich_tree(tree, return_str=return_str)
 
 
 def validate_feature(feature: Feature, records: list[SQLRecord]) -> None:
@@ -2938,13 +2825,15 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
         return self
 
-    def describe(self, return_str: bool = False) -> None:
-        """Describe record including linked records.
+    def describe(self, return_str: bool = False) -> None | str:
+        """Describe record including relations.
 
         Args:
             return_str: Return a string instead of printing.
         """
-        return describe_artifact_collection(self, return_str=return_str)
+        from ._describe import describe_postgres_sqlite
+
+        return describe_postgres_sqlite(self, return_str=return_str)
 
 
 # can't really just call .cache in .load because of double tracking
