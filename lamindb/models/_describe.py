@@ -475,6 +475,7 @@ def describe_postgres(self):
         )
     elif model_name == "Collection":
         result = get_collection_with_related(self, include_fk=True)
+        related_data = result.get("related_data", {})
         tree = describe_collection_general(
             self, foreign_key_data=related_data.get("fk", {})
         )
