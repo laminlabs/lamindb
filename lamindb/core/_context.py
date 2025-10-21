@@ -982,8 +982,12 @@ class Context:
                 return None
         else:
             self.run.finished_at = datetime.now(timezone.utc)
+            instance_slug = ln_setup.settings.instance.slug
+            ui_url = ln_setup.settings.instance.ui_url
+            logger.important(
+                f"go to: {ui_url}/{instance_slug}/transform/{self.transform.uid}"
+            )
             save_run_logs(self.run, save_run=True)
-        if self.transform.type != "notebook":
             self._stream_tracker.finish()
         # reset the context attributes so that somebody who runs `track()` after finish
         # starts fresh
