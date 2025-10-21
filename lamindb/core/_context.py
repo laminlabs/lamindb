@@ -197,6 +197,8 @@ class LogStreamTracker:
             sys.stdout = self.original_stdout
             sys.stderr = self.original_stderr
             self.log_file.close()
+            # reset handler for lamin logger because sys.stdout has been replaced
+            set_handler(logger)
 
     def cleanup(self, signo=None, frame=None):
         try:
