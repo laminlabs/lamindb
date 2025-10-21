@@ -9,12 +9,10 @@ from lamin_utils import colors, logger
 from rich.text import Text
 from rich.tree import Tree
 
-from lamindb.models import Artifact
-
 from .sqlrecord import record_repr
 
 if TYPE_CHECKING:
-    from lamindb.models import Collection, Run
+    from lamindb.models import Artifact, Collection, Run
 
 
 def highlight_time(iso: str):
@@ -391,7 +389,6 @@ def describe_postgres(self):  # for Artifact & Collection
 
 def describe_sqlite(self, print_types: bool = False):  # for artifact & collection
     from ._feature_manager import describe_features
-    from .collection import Collection
 
     model_name = self.__class__.__name__
     msg = f"{colors.green(model_name)}{record_repr(self, include_foreign_keys=False).lstrip(model_name)}\n"
@@ -416,9 +413,9 @@ def describe_sqlite(self, print_types: bool = False):  # for artifact & collecti
         )
         # prefetch m-2-m relationships
         many_to_many_fields = []
-        if isinstance(self, (Collection, Artifact)):
+        if model_name in {"Artifact", "Collection"}:
             many_to_many_fields.append("input_of_runs")
-        if isinstance(self, Artifact):
+        if model_name == "Artifact":
             many_to_many_fields.append("feature_sets")
         self = (
             self.__class__.objects.using(self._state.db)
