@@ -66,7 +66,7 @@ from ..errors import InvalidArgument, NoStorageLocationForSpace, ValidationError
 from ..models._is_versioned import (
     create_uid,
 )
-from ._django import get_artifact_with_related, get_collection_with_related
+from ._django import get_artifact_or_run_with_related, get_collection_with_related
 from ._feature_manager import (
     FeatureManager,
     get_label_links,
@@ -722,7 +722,7 @@ def _describe_postgres(self):  # for Artifact & Collection
         msg += f"    slug: {self._state.db}\n"
 
     if model_name == "Artifact":
-        result = get_artifact_with_related(
+        result = get_artifact_or_run_with_related(
             self,
             include_feature_link=True,
             include_fk=True,
@@ -730,7 +730,9 @@ def _describe_postgres(self):  # for Artifact & Collection
             include_schema=True,
         )
     else:
-        result = get_artifact_with_related(self, include_fk=True, include_m2m=True)
+        result = get_artifact_or_run_with_related(
+            self, include_fk=True, include_m2m=True
+        )
     related_data = result.get("related_data", {})
     if model_name == "Artifact":
         tree = describe_artifact_general(self, foreign_key_data=related_data["fk"])

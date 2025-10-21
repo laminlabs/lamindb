@@ -46,7 +46,7 @@ from ._describe import (
     describe_header,
     format_rich_tree,
 )
-from ._django import get_artifact_with_related
+from ._django import get_artifact_or_run_with_related
 from ._label_manager import _get_labels, describe_labels
 from ._relations import (
     dict_related_model_to_related_name,
@@ -143,7 +143,7 @@ def _get_categoricals_postgres(
     """Get categorical features and their values using PostgreSQL-specific optimizations."""
     if not related_data:
         if self.__class__.__name__ == "Artifact" or self.__class__.__name__ == "Run":
-            artifact_meta = get_artifact_with_related(
+            artifact_meta = get_artifact_or_run_with_related(
                 self, include_feature_link=True, include_m2m=True
             )
             related_data = artifact_meta.get("related_data", {})
@@ -300,7 +300,9 @@ def describe_features(
     if not to_dict and isinstance(self, Artifact):
         if self.id is not None and connections[self._state.db].vendor == "postgresql":
             if not related_data:
-                artifact_meta = get_artifact_with_related(self, include_schema=True)
+                artifact_meta = get_artifact_or_run_with_related(
+                    self, include_schema=True
+                )
                 related_data = artifact_meta.get("related_data", {})
             fs_data = related_data.get("schemas", {}) if related_data else {}
             for fs_id, (slot, data) in fs_data.items():

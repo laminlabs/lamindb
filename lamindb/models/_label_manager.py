@@ -26,7 +26,7 @@ from ._describe import (
     describe_header,
     format_rich_tree,
 )
-from ._django import get_artifact_with_related, get_related_model
+from ._django import get_artifact_or_run_with_related, get_related_model
 from ._relations import dict_related_model_to_related_name
 
 if TYPE_CHECKING:
@@ -65,7 +65,7 @@ def _get_labels_postgres(
     This is a postgres-specific approach that uses django Subquery.
     """
     if m2m_data is None:
-        artifact_meta = get_artifact_with_related(self, include_m2m=True)
+        artifact_meta = get_artifact_or_run_with_related(self, include_m2m=True)
         m2m_data = artifact_meta.get("related_data", {}).get("m2m", {})
     return m2m_data
 
