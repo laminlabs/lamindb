@@ -25,7 +25,6 @@ from ..models._is_versioned import process_revises
 from ._is_versioned import IsVersioned
 from .artifact import (
     Artifact,
-    describe_artifact_collection,
     get_run,
     populate_subsequent_run,
     save_schema_links,
@@ -669,11 +668,9 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         return self.artifacts.first()
 
     def describe(self) -> None:
-        """Describe relations of record.
+        """Describe relations of record."""
+        from ._describe import describe_artifact_collection
 
-        Examples:
-            >>> artifact.describe()
-        """
         return describe_artifact_collection(self)
 
 
