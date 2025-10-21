@@ -438,7 +438,7 @@ def describe_run_general(
             # Single item (odd number)
             general.add(two_column_items[i])
     if self.params:
-        params = tree.add(Text("Params", style="bold bright_cyan"))
+        params = tree.add(Text("Params", style="bold yellow"))
         for key, value in self.params.items():
             params.add(f"{key}: {value}")
     return tree
