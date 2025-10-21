@@ -142,7 +142,7 @@ def _get_categoricals_postgres(
 ) -> dict[tuple[str, str], set[str]]:
     """Get categorical features and their values using PostgreSQL-specific optimizations."""
     if not related_data:
-        if self.__class__.__name__ == "Artifact" or self.__class__.__name__ == "Run":
+        if self.__class__.__name__ in {"Artifact", "Run"}:
             artifact_meta = get_artifact_or_run_with_related(
                 self, include_feature_link=True, include_m2m=True
             )
@@ -301,7 +301,10 @@ def describe_features(
         if self.id is not None and connections[self._state.db].vendor == "postgresql":
             if not related_data:
                 artifact_meta = get_artifact_or_run_with_related(
-                    self, include_schema=True
+                    self,
+                    include_schema=True,
+                    include_m2m=True,
+                    include_feature_link=True,
                 )
                 related_data = artifact_meta.get("related_data", {})
             fs_data = related_data.get("schemas", {}) if related_data else {}

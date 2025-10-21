@@ -172,6 +172,7 @@ def test_curate_df():
     assert found_created_at, "Created at should be present in the general section"
 
     # dataset section
+    # print(artifact.features.get_values())
     print(artifact.features.describe(return_str=True))
     assert (
         artifact.features.describe(return_str=True)
