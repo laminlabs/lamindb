@@ -265,18 +265,18 @@ def describe_collection_general(
 
     two_column_items.append(Text.assemble(("uid: ", "dim"), f"{self.uid}"))
 
-    transform_name = (
+    transform_key = (
         foreign_key_data["transform"]["name"]
         if foreign_key_data and "transform" in foreign_key_data
-        else self.transform.name
+        else self.transform.key
         if self.transform
         else None
     )
-    if transform_name:
+    if transform_key:
         two_column_items.append(
             Text.assemble(
                 ("transform: ", "dim"),
-                (f"{transform_name}", "cyan3"),
+                (f"{transform_key}", "cyan3"),
             )
         )
 
@@ -345,6 +345,102 @@ def describe_collection_general(
     return tree
 
 
+def describe_run_general(
+    self: Collection,
+    tree: Tree | None = None,
+    foreign_key_data: dict[str, dict[str, int | str]] | None = None,
+) -> Tree:
+    if tree is None:
+        tree = describe_header(self)
+
+    # add general information (order is the same as in API docs)
+    general = tree.add(Text("General", style="bold bright_cyan"))
+
+    if self.name:
+        general.add(Text.assemble(("name: ", "dim"), (f"{self.name}", "cyan3")))
+
+    # Two column items (short content)
+    two_column_items = []
+
+    two_column_items.append(Text.assemble(("uid: ", "dim"), f"{self.uid}"))
+
+    transform_key = (
+        foreign_key_data["transform"]["name"]
+        if foreign_key_data and "transform" in foreign_key_data
+        else self.transform.key
+        if self.transform
+        else None
+    )
+    if transform_key:
+        two_column_items.append(
+            Text.assemble(
+                ("transform: ", "dim"),
+                (f"{transform_key}", "cyan3"),
+            )
+        )
+
+    space_name = (
+        foreign_key_data["space"]["name"]
+        if foreign_key_data and "space" in foreign_key_data
+        else self.space.name
+        if self.space
+        else None
+    )
+    if space_name:
+        two_column_items.append(Text.assemble(("space: ", "dim"), space_name))
+
+    branch_name = (
+        foreign_key_data["branch"]["name"]
+        if foreign_key_data and "branch" in foreign_key_data
+        else self.branch.name
+        if self.branch
+        else None
+    )
+    if branch_name:
+        two_column_items.append(Text.assemble(("branch: ", "dim"), branch_name))
+
+    created_by_handle = (
+        foreign_key_data["created_by"]["name"]
+        if foreign_key_data and "created_by" in foreign_key_data
+        else self.created_by.handle
+        if self.created_by
+        else None
+    )
+    if created_by_handle:
+        two_column_items.append(
+            Text.assemble(
+                ("created_by: ", "dim"),
+                (created_by_handle),
+            )
+        )
+
+    if self.created_at:
+        two_column_items.append(
+            Text.assemble(("created_at: ", "dim"), highlight_time(str(self.created_at)))
+        )
+
+    # Add two-column items in pairs
+    for i in range(0, len(two_column_items), 2):
+        if i + 1 < len(two_column_items):
+            # Two items side by side
+            left_item = two_column_items[i]
+            right_item = two_column_items[i + 1]
+
+            # Create padded version by calculating the plain text length
+            left_plain_text = (
+                left_item.plain if hasattr(left_item, "plain") else str(left_item)
+            )
+            padding_needed = max(0, 45 - len(left_plain_text))
+            padding = " " * padding_needed
+
+            general.add(Text.assemble(left_item, padding, right_item))
+        else:
+            # Single item (odd number)
+            general.add(two_column_items[i])
+
+    return tree
+
+
 def describe_postgres(self):
     from ._django import get_artifact_or_run_with_related, get_collection_with_related
     from ._feature_manager import describe_features
@@ -367,7 +463,7 @@ def describe_postgres(self):
         if model_name == "Artifact":
             tree = describe_artifact_general(self, foreign_key_data=related_data["fk"])
         else:
-            tree = describe_header(self)
+            tree = describe_run_general(self, foreign_key_data=related_data["fk"])
         return describe_features(
             self,
             tree=tree,
@@ -424,7 +520,7 @@ def describe_sqlite(self, print_types: bool = False):
         if model_name == "Artifact":
             tree = describe_artifact_general(self)
         else:
-            tree = describe_header(self)
+            tree = describe_run_general(self)
         return describe_features(
             self,
             tree=tree,
