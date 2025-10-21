@@ -346,7 +346,7 @@ def describe_collection_general(
 
 
 def describe_run_general(
-    self: Collection,
+    self: Run,
     tree: Tree | None = None,
     foreign_key_data: dict[str, dict[str, int | str]] | None = None,
 ) -> Tree:
@@ -437,7 +437,10 @@ def describe_run_general(
         else:
             # Single item (odd number)
             general.add(two_column_items[i])
-
+    if self.params:
+        params = tree.add(Text("Params", style="bold bright_cyan"))
+        for key, value in self.params.items():
+            params.add(f"{key}: {value}")
     return tree
 
 

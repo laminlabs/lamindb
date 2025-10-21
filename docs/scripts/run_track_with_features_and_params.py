@@ -11,7 +11,7 @@ if __name__ == "__main__":
         "s3_folder": args.s3_folder,
         "experiment": args.experiment,
     }
-    ln.track(features=features)
+    ln.track(features=features, params={"example_param": 42})
 
     # your code
 
