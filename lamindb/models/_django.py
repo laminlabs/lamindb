@@ -89,7 +89,7 @@ def get_artifact_or_run_with_related(
     from .can_curate import get_name_field
 
     model = record.__class__
-    entity_name = "artifact" if record.__class__.__name__ == "Artifact" else "run"
+    entity_field_name = "artifact" if record.__class__.__name__ == "Artifact" else "run"
     schema_modules = get_schema_modules(record._state.db)
 
     foreign_key_fields = [
@@ -150,7 +150,7 @@ def get_artifact_or_run_with_related(
         name_field = get_name_field(related_model)
         label_field_name = f"{label_field}__{name_field}"
         annotations[f"linkfield_{link}"] = Subquery(
-            link_model.objects.filter(**{entity_name: OuterRef("pk")})
+            link_model.objects.filter(**{entity_field_name: OuterRef("pk")})
             .annotate(
                 data=JSONObject(
                     id=F("id"),
@@ -159,7 +159,7 @@ def get_artifact_or_run_with_related(
                     **{label_field + "_display": F(label_field_name)},
                 )
             )
-            .values(entity_name)
+            .values(entity_field_name)
             .annotate(json_agg=ArrayAgg("data"))
             .values("json_agg")
         )
@@ -174,7 +174,7 @@ def get_artifact_or_run_with_related(
                     schema=F("schema"),
                 )
             )
-            .values(entity_name)
+            .values(entity_field_name)
             .annotate(json_agg=ArrayAgg("data"))
             .values("json_agg")
         )
