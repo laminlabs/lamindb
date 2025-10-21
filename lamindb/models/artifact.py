@@ -2825,15 +2825,15 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
         return self
 
-    def describe(self, return_str: bool = False) -> None:
-        """Describe record including linked records.
+    def describe(self, return_str: bool = False) -> None | str:
+        """Describe record including relations.
 
         Args:
             return_str: Return a string instead of printing.
         """
-        from ._describe import describe_artifact_collection
+        from ._describe import describe_postgres_sqlite
 
-        return describe_artifact_collection(self, return_str=return_str)
+        return describe_postgres_sqlite(self, return_str=return_str)
 
 
 # can't really just call .cache in .load because of double tracking

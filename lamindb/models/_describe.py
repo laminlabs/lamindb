@@ -345,7 +345,7 @@ def describe_collection_general(
     return tree
 
 
-def describe_postgres(self):  # for Artifact & Collection
+def describe_postgres(self):
     from ._django import get_artifact_or_run_with_related, get_collection_with_related
     from ._feature_manager import describe_features
 
@@ -355,7 +355,7 @@ def describe_postgres(self):  # for Artifact & Collection
         msg += f"  {colors.italic('Database instance')}\n"
         msg += f"    slug: {self._state.db}\n"
 
-    if model_name == "Artifact":
+    if model_name in {"Artifact", "Run"}:
         result = get_artifact_or_run_with_related(
             self,
             include_feature_link=True,
@@ -363,13 +363,11 @@ def describe_postgres(self):  # for Artifact & Collection
             include_m2m=True,
             include_schema=True,
         )
-    else:
-        result = get_artifact_or_run_with_related(
-            self, include_fk=True, include_m2m=True
-        )
-    related_data = result.get("related_data", {})
-    if model_name == "Artifact":
-        tree = describe_artifact_general(self, foreign_key_data=related_data["fk"])
+        related_data = result.get("related_data", {})
+        if model_name == "Artifact":
+            tree = describe_artifact_general(self, foreign_key_data=related_data["fk"])
+        else:
+            tree = describe_header(self)
         return describe_features(
             self,
             tree=tree,
@@ -387,7 +385,7 @@ def describe_postgres(self):  # for Artifact & Collection
         return tree
 
 
-def describe_sqlite(self, print_types: bool = False):  # for artifact & collection
+def describe_sqlite(self, print_types: bool = False):
     from ._feature_manager import describe_features
 
     model_name = self.__class__.__name__
@@ -422,8 +420,11 @@ def describe_sqlite(self, print_types: bool = False):  # for artifact & collecti
             .prefetch_related(*many_to_many_fields)
             .get(id=self.id)
         )
-    if model_name == "Artifact":
-        tree = describe_artifact_general(self)
+    if model_name in {"Artifact", "Run"}:
+        if model_name == "Artifact":
+            tree = describe_artifact_general(self)
+        else:
+            tree = describe_header(self)
         return describe_features(
             self,
             tree=tree,
@@ -437,7 +438,7 @@ def describe_sqlite(self, print_types: bool = False):  # for artifact & collecti
         return tree
 
 
-def describe_artifact_collection(self, return_str: bool = False) -> str | None:
+def describe_postgres_sqlite(self, return_str: bool = False) -> str | None:
     from ._describe import format_rich_tree
 
     if not self._state.adding and connections[self._state.db].vendor == "postgresql":

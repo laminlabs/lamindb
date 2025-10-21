@@ -90,6 +90,8 @@ def get_artifact_or_run_with_related(
 
     model = record.__class__
     entity_field_name = "artifact" if record.__class__.__name__ == "Artifact" else "run"
+    if entity_field_name == "run" and include_schema:
+        include_schema = False  # runs do not have feature sets
     schema_modules = get_schema_modules(record._state.db)
 
     foreign_key_fields = [

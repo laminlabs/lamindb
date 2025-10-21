@@ -441,6 +441,16 @@ class Run(SQLRecord):
 
         return FeatureManager(self)
 
+    def describe(self, return_str: bool = False) -> None | str:
+        """Describe record including relations.
+
+        Args:
+            return_str: Return a string instead of printing.
+        """
+        from ._describe import describe_postgres_sqlite
+
+        return describe_postgres_sqlite(self, return_str=return_str)
+
     @classmethod
     def filter(
         cls,

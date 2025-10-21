@@ -667,11 +667,15 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         """
         return self.artifacts.first()
 
-    def describe(self) -> None:
-        """Describe relations of record."""
-        from ._describe import describe_artifact_collection
+    def describe(self, return_str: bool = False) -> None | str:
+        """Describe record including relations.
 
-        return describe_artifact_collection(self)
+        Args:
+            return_str: Return a string instead of printing.
+        """
+        from ._describe import describe_postgres_sqlite
+
+        return describe_postgres_sqlite(self, return_str=return_str)
 
 
 # internal function, not exposed to user

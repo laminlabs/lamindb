@@ -66,6 +66,8 @@ Run
         param2              str                     my-string
         param3              float                   3.14"""
     )
+    # also call describe() plainly without further checks
+    ln.context.run.describe()
     # second invocation
     kwargs = {"param1": 1, "param2": "my-string", "param3": 3.14, "param4": [1, 2]}
     param4 = ln.Feature(name="param4", dtype="int").save()
