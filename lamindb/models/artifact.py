@@ -34,7 +34,7 @@ from lamindb.base.fields import (
     TextField,
 )
 from lamindb.errors import FieldValidationError, NoWriteAccess, UnknownStorageLocation
-from lamindb.models.query_set import QuerySet
+from lamindb.models.query_set import QuerySet, SQLRecordList
 
 from ..base.users import current_user_id
 from ..core._settings import is_read_only_connection, settings
@@ -2155,7 +2155,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         *,
         key: str | None = None,
         run: Run | None = None,
-    ) -> list[Artifact]:
+    ) -> SQLRecordList:
         """Create a list of :class:`~lamindb.Artifact` objects from a directory.
 
         Hint:
@@ -2176,8 +2176,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             import lamindb as ln
 
             dir_path = ln.examples.datasets.generate_cell_ranger_files("sample_001", ln.settings.storage)
-            artifacts = ln.Artifact.from_dir(dir_path)
-            ln.save(artifacts)
+            ln.Artifact.from_dir(dir_path).save()  # creates one artifact per file in dir_path
         """
         folderpath: UPath = create_path(path)  # returns Path for local
         storage = settings.storage.record
@@ -2226,7 +2225,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         uids = artifacts_dict.keys()
         n_unique_hashes = len(set(hashes))
         if n_unique_hashes == len(hashes):
-            artifacts = list(artifacts_dict.values())
+            artifacts = SQLRecordList(artifacts_dict.values())
         else:
             # consider exact duplicates (same id, same hash)
             # below can't happen anymore because artifacts is a dict now
@@ -2249,11 +2248,13 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                     f" {len(non_unique_artifacts)} duplicates out of"
                     f" {len(artifacts_dict)} artifacts:\n    {display_non_unique}"
                 )
-                artifacts = [
-                    artifact
-                    for artifact in artifacts_dict.values()
-                    if artifact not in non_unique_artifacts.values()
-                ]
+                artifacts = SQLRecordList(
+                    [
+                        artifact
+                        for artifact in artifacts_dict.values()
+                        if artifact not in non_unique_artifacts.values()
+                    ]
+                )
         logger.success(
             f"created {len(artifacts)} artifacts from directory using storage"
             f" {storage.root} and key = {folder_key}/"
