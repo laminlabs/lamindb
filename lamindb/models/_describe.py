@@ -93,24 +93,15 @@ def describe_header(self: Artifact | Collection | Run) -> Tree:
         logger.warning(
             f"This is not the latest version of the {self.__class__.__name__}."
         )
-    if hasattr(self, "branch_id"):
-        if self.branch_id == 0:  # type: ignore
-            logger.warning("This artifact is archived.")
-        elif self.branch_id == -1:  # type: ignore
-            logger.warning("This artifact is in the trash.")
-    # initialize tree
-    suffix = self.suffix if hasattr(self, "suffix") and self.suffix else ""
-    accessor = self.otype if hasattr(self, "otype") and self.otype else ""
-    kind = f" · {self.kind}" if hasattr(self, "kind") and self.kind else ""
-    suffix_accessor = (
-        f"{suffix} · {accessor}{kind}"
-        if suffix and accessor
-        else suffix or accessor or ""
-    )
-
+    if self.branch_id == 0:  # type: ignore
+        logger.warning("This artifact is archived.")
+    elif self.branch_id == -1:  # type: ignore
+        logger.warning("This artifact is in the trash.")
+    title = self.key if hasattr(self, "key") else self.name
     tree = Tree(
         Text.assemble(
-            (self.__class__.__name__, "bold"), (f" {suffix_accessor}", "bold dim")
+            (f"{self.__class__.__name__}: ", "bold"),
+            (f"{title}", "cyan3"),
         ),
         guide_style="dim",  # dim the connecting lines
     )
@@ -141,9 +132,6 @@ def describe_artifact(
 
     # add general information (order is the same as in API docs)
     general = tree.add(Text("General", style="bold bright_cyan"))
-
-    if self.key:
-        general.add(Text.assemble(("key: ", "dim"), (f"{self.key}", "cyan3")))
     if self.description:
         general.add(
             Text.assemble(
@@ -151,15 +139,9 @@ def describe_artifact(
                 f"{self.description}",
             )
         )
-
-    # Two column items (short content)
+    # two column items
     two_column_items = []
-
     two_column_items.append(Text.assemble(("uid: ", "dim"), f"{self.uid}"))
-    two_column_items.append(Text.assemble(("hash: ", "dim"), f"{self.hash}"))
-    two_column_items.append(
-        Text.assemble(("size: ", "dim"), f"{format_bytes(self.size)}")
-    )
     transform_key = (
         foreign_key_data["run"]["transform_key"]
         if foreign_key_data
@@ -172,6 +154,12 @@ def describe_artifact(
             ("transform: ", "dim"),
             (f"{transform_key}", "cyan3"),
         )
+    )
+    two_column_items.append(Text.assemble(("kind: ", "dim"), f"{self.kind}"))
+    two_column_items.append(Text.assemble(("otype: ", "dim"), f"{self.otype}"))
+    two_column_items.append(Text.assemble(("hash: ", "dim"), f"{self.hash}"))
+    two_column_items.append(
+        Text.assemble(("size: ", "dim"), f"{format_bytes(self.size)}")
     )
     space_name = (
         foreign_key_data["space"]["name"] if foreign_key_data else self.space.name
@@ -250,9 +238,6 @@ def describe_collection(
 
     # add general information (order is the same as in API docs)
     general = tree.add(Text("General", style="bold bright_cyan"))
-
-    if self.key:
-        general.add(Text.assemble(("key: ", "dim"), (f"{self.key}", "cyan3")))
     if self.description:
         general.add(
             Text.assemble(
@@ -261,11 +246,9 @@ def describe_collection(
             )
         )
 
-    # Two column items (short content)
+    # two-column items
     two_column_items = []
-
     two_column_items.append(Text.assemble(("uid: ", "dim"), f"{self.uid}"))
-
     transform_key = (
         foreign_key_data["transform"]["name"]
         if foreign_key_data and "transform" in foreign_key_data
@@ -356,9 +339,6 @@ def describe_run(
 
     # add general information (order is the same as in API docs)
     general = tree.add(Text("General", style="bold bright_cyan"))
-
-    if self.name:
-        general.add(Text.assemble(("name: ", "dim"), (f"{self.name}", "cyan3")))
 
     # Two column items (short content)
     two_column_items = []
