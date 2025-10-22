@@ -889,7 +889,7 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
         if str_as_cat is not None:
             warnings.warn(
                 "`str_as_cat` is deprecated and will be removed in LaminDB 2.0.0. "
-                "Create features explicitly with dtype='cat' for categorical values.",
+                "Create features explicitly with dtype=ln.Record for categorical values.",
                 DeprecationWarning,
                 stacklevel=2,
             )

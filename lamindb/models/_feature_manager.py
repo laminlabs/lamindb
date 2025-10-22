@@ -1,6 +1,7 @@
 # ruff: noqa: TC004
 from __future__ import annotations
 
+import warnings
 from collections import defaultdict
 from collections.abc import Iterable
 from datetime import date, datetime
@@ -1066,6 +1067,12 @@ class FeatureManager:
                     else:
                         values = value  # type: ignore
                     if feature.dtype == "cat":
+                        warnings.warn(
+                            "Dtype `cat` is deprecated and will be removed in LaminDB 2.0.0. "
+                            "Please use `Record` instead.",
+                            DeprecationWarning,
+                            stacklevel=2,
+                        )
                         feature.dtype += "[ULabel]"
                         feature.save()
                         result = {
@@ -1093,7 +1100,7 @@ class FeatureManager:
         if not_validated_values:
             hint = ""
             for key, values_list in not_validated_values.items():
-                key_str = "ln.ULabel" if key == "ULabel" else key
+                key_str = "ln.Record" if key == "Record" else key
                 hint += f"  records = {key_str}.from_values({values_list}, create=True).save()\n"
             msg = (
                 f"These values could not be validated: {dict(not_validated_values)}\n"
