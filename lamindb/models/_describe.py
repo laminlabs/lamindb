@@ -337,7 +337,7 @@ def describe_run(
     two_column_items = []
     two_column_items.append(Text.assemble(("uid: ", "dim"), f"{self.uid}"))
     transform_key = (
-        foreign_key_data["transform"]["key"]
+        foreign_key_data["transform"]["name"]  # "name" holds key, is display name
         if foreign_key_data and "transform" in foreign_key_data
         else self.transform.key
         if self.transform
