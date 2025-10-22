@@ -550,11 +550,30 @@ def analyze_lookup_cardinality(
 def reorder_subset_columns_in_df(
     df: pd.DataFrame, column_order: list[str], position=3
 ) -> pd.DataFrame:
+    """Reorder subset of columns in dataframe to specified position."""
     valid_columns = [col for col in column_order if col in df.columns]
     all_cols = df.columns.tolist()
     remaining_cols = [col for col in all_cols if col not in valid_columns]
     new_order = remaining_cols[:position] + valid_columns + remaining_cols[position:]
     return df[new_order]
+
+
+def _field_encoder(field_name: str) -> str:
+    """Encode laminDB specific fields in dataframe with __lamindb_record_{field_name}__."""
+    return f"__lamindb_record_{field_name}__"
+
+
+def _encode_lamindb_fields(
+    registry: Registry, fields: str | list[str]
+) -> dict[str, str]:
+    """Encode laminDB specific fields in dataframe with __lamindb_record_{field_name}__."""
+    fields = [fields] if isinstance(fields, str) else fields
+    registry_field_names = {field.name for field in registry._meta.concrete_fields}
+    return {
+        field: _field_encoder(field)
+        for field in fields
+        if field in registry_field_names
+    }
 
 
 # https://lamin.ai/laminlabs/lamindata/transform/BblTiuKxsb2g0003
@@ -584,7 +603,9 @@ def reshape_annotate_result(
 
     # initialize result with basic fields, need a copy as we're modifying it
     # will give us warnings otherwise
-    result = df[field_names].copy()
+    fields_map = _encode_lamindb_fields(registry, df.columns)
+    result = df[field_names].copy().rename(columns=fields_map)
+    df_encoded = df.rename(columns=fields_map)
     # process features if requested
     if feature_names:
         # handle json values
@@ -592,21 +613,21 @@ def reshape_annotate_result(
             f"{json_values_attribute}__feature__name",
             f"{json_values_attribute}__value",
         ]
-        if all(col in df.columns for col in feature_cols):
+        if all(col in df_encoded.columns for col in feature_cols):
             # Create two separate dataframes - one for dict values and one for non-dict values
-            is_dict = df[f"{json_values_attribute}__value"].apply(
+            is_dict = df_encoded[f"{json_values_attribute}__value"].apply(
                 lambda x: isinstance(x, dict)
             )
-            dict_df, non_dict_df = df[is_dict], df[~is_dict]
+            dict_df, non_dict_df = df_encoded[is_dict], df_encoded[~is_dict]
 
             # Process non-dict values using set aggregation
             non_dict_features = non_dict_df.groupby(
-                ["id", f"{json_values_attribute}__feature__name"]
+                ["__lamindb_record_id__", f"{json_values_attribute}__feature__name"]
             )[f"{json_values_attribute}__value"].agg(set)
 
             # Process dict values using first aggregation
             dict_features = dict_df.groupby(
-                ["id", f"{json_values_attribute}__feature__name"]
+                ["__lamindb_record_id__", f"{json_values_attribute}__feature__name"]
             )[f"{json_values_attribute}__value"].agg("first")
 
             # Combine the results
@@ -616,8 +637,8 @@ def reshape_annotate_result(
             feature_values = combined_features.unstack().reset_index()
             if not feature_values.empty:
                 result = result.join(
-                    feature_values.set_index("id"),
-                    on="id",
+                    feature_values.set_index("__lamindb_record_id__"),
+                    on="__lamindb_record_id__",
                 )
 
         # handle categorical features
@@ -629,7 +650,9 @@ def reshape_annotate_result(
         ]
 
         if links_features:
-            result = process_links_features(df, result, links_features, feature_names)
+            result = process_links_features(
+                df_encoded, result, links_features, feature_names
+            )
 
         def extract_single_element(s):
             if not hasattr(s, "__len__"):  # is NaN or other scalar
@@ -669,8 +692,12 @@ def reshape_annotate_result(
 
     if cols_from_include:
         result = process_cols_from_include(df, result, cols_from_include)
-
-    return result.drop_duplicates(subset=["id"])
+    # here we revert the field encoding
+    # but in cases when the result already has a column with the field name (like a feature also called 'id'),
+    # we don't revert and keep the field encoded name
+    return result.drop_duplicates(subset=["__lamindb_record_id__"]).rename(
+        columns={v: k for k, v in fields_map.items() if k not in result.columns}
+    )
 
 
 def process_links_features(
@@ -705,10 +732,14 @@ def process_links_features(
         if isinstance(features, list):
             feature_names = [f for f in feature_names if f in features]
 
+        id_field = (
+            "__lamindb_record_id__" if "__lamindb_record_id__" in df.columns else "id"
+        )
+
         for feature_name in feature_names:
             mask = df[feature_col] == feature_name
-            feature_values = df[mask].groupby("id")[value_col].agg(set)
-            result.insert(3, feature_name, result["id"].map(feature_values))
+            feature_values = df[mask].groupby(id_field)[value_col].agg(set)
+            result.insert(3, feature_name, result[id_field].map(feature_values))
 
     return result
 
@@ -845,9 +876,13 @@ class BasicQuerySet(models.QuerySet):
         )
         time = logger.debug("finished reshape_annotate_result", time=time)
         pk_name = self.model._meta.pk.name
-        pk_column_name = pk_name if pk_name in df.columns else f"{pk_name}_id"
-        if pk_column_name in df_reshaped.columns:
-            df_reshaped = df_reshaped.set_index(pk_column_name)
+        encoded_pk_name = _field_encoder(pk_name)
+        if encoded_pk_name in df_reshaped.columns:
+            df_reshaped = df_reshaped.set_index(encoded_pk_name)
+        else:
+            pk_column_name = pk_name if pk_name in df.columns else f"{pk_name}_id"
+            if pk_column_name in df_reshaped.columns:
+                df_reshaped = df_reshaped.set_index(pk_column_name)
         time = logger.debug("finished", time=time)
         return df_reshaped
 

@@ -70,17 +70,25 @@ def test_record_example_compound_treatment(
     }
 
     df = sample_sheet1.type_to_dataframe()
+    assert df.index.name == "__lamindb_record_id__"
     dictionary = df[
-        ["cell_line", "__lamindb_record_name__", "treatment", "preparation_date"]
+        [
+            "id",
+            "uid",
+            "name",
+            "cell_line",
+            "treatment",
+            "preparation_date",
+            "__lamindb_record_name__",
+        ]
     ].to_dict(orient="list")
     assert dictionary == {
+        "id": [1, 2],
+        "uid": ["S1", "S2"],
+        "name": ["Sample 1", "Sample 2"],
         "cell_line": [
             "HEK293T cell",
             "HEK293T cell",
-        ],
-        "__lamindb_record_name__": [
-            "sample1",
-            "sample2",
         ],
         "preparation_date": [
             pd.to_datetime("2025-06-01T05:00:00"),
@@ -89,6 +97,10 @@ def test_record_example_compound_treatment(
         "treatment": [
             "treatment1",
             "treatment2",
+        ],
+        "__lamindb_record_name__": [
+            "sample1",
+            "sample2",
         ],
     }
 

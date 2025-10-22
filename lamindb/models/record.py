@@ -355,8 +355,8 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates, HasParents):
         """Export all instances of this record type to a pandas DataFrame."""
         assert self.is_type, "Only types can be exported as dataframes"  # noqa: S101
         df = self.query_records().to_dataframe(features="queryset")
-        df.columns.values[0] = "__lamindb_record_uid__"
-        df.columns.values[1] = "__lamindb_record_name__"
+        # df.columns.values[0] = "__lamindb_record_uid__"
+        # df.columns.values[1] = "__lamindb_record_name__"
         if self.schema is not None:
             desired_order = self.schema.members.to_list(
                 "name"
