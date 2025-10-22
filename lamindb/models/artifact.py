@@ -327,20 +327,17 @@ def get_stat_or_artifact(
     if not check_hash:
         return size, hash, hash_type, n_files, None
     previous_artifact_version = None
+    artifacts_qs = Artifact.objects.using(instance)
     if skip_hash_lookup:
         artifact_with_same_hash_exists = False
         if key is not None and not is_replace:
             # only search for a previous version of the artifact
             # ignoring hash
-            lookup_result = (
-                Artifact.objects.using(instance)
-                .filter(
-                    ~Q(branch_id=-1),
-                    key=key,
-                    storage=storage,
-                )
-                .order_by("-created_at")
-            )
+            lookup_result = artifacts_qs.filter(
+                ~Q(branch_id=-1),
+                key=key,
+                storage=storage,
+            ).order_by("-created_at")
         else:
             lookup_result = []
     else:
@@ -350,9 +347,7 @@ def get_stat_or_artifact(
         # storage locations and keys
         # if this is not desired, set skip_hash_lookup=True
         if key is None or is_replace:
-            lookup_result = Artifact.objects.using(instance).filter(
-                ~Q(branch_id=-1), hash=hash
-            )
+            lookup_result = artifacts_qs.filter(~Q(branch_id=-1), hash=hash)
             artifact_with_same_hash_exists = len(lookup_result) > 0
         else:
             # the following query achieves one more thing beyond hash lookup
@@ -360,14 +355,10 @@ def get_stat_or_artifact(
             # matching key & storage even if the hash is different
             # we do this here so that we don't have to do an additional query later
             # see the `previous_artifact_version` variable below
-            lookup_result = (
-                Artifact.objects.using(instance)
-                .filter(
-                    ~Q(branch_id=-1),
-                    Q(hash=hash) | Q(key=key, storage=storage),
-                )
-                .order_by("-created_at")
-            )
+            lookup_result = artifacts_qs.filter(
+                ~Q(branch_id=-1),
+                Q(hash=hash) | Q(key=key, storage=storage),
+            ).order_by("-created_at")
             artifact_with_same_hash_exists = lookup_result.filter(hash=hash).count() > 0
     if key is not None and not is_replace:
         if not artifact_with_same_hash_exists and len(lookup_result) > 0:
