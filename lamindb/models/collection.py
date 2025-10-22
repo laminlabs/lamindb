@@ -326,10 +326,15 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                     )
         # we ignore collections in trash containing the same hash
         if hash is not None and not skip_hash_lookup:
+            # this purposefully leaves out the key that we have
+            # in the hard database unique constraint
+            # so that the user is able to find collections with the same hash across
+            # keys
+            # if this is not desired, set skip_hash_lookup=True
             existing_collection = Collection.objects.filter(
                 ~Q(branch_id=-1),
                 hash=hash,
-            ).one_or_none()
+            ).first()
         else:
             existing_collection = None
         if existing_collection is not None:

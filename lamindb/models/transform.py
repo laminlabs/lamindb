@@ -53,13 +53,12 @@ def delete_transform_relations(transform: Transform):
 class Transform(SQLRecord, IsVersioned):
     """Data transformations such as scripts, notebooks, functions, or pipelines.
 
-    A "transform" can refer to a Python function, a script, a notebook, or a
+    A `transform` can be a function, a script, a notebook, or a
     pipeline. If you execute a transform, you generate a run
     (:class:`~lamindb.Run`). A run has inputs and outputs.
 
-    A pipeline is typically created with a workflow tool (Nextflow, Snakemake,
-    Prefect, Flyte, MetaFlow, redun, Airflow, ...) and stored in a versioned
-    repository.
+    Pipelines are typically created with a workflow tool (Nextflow, Snakemake,
+    Prefect, Flyte, Dagster, redun, Airflow, ...).
 
     Transforms are versioned so that a given transform version maps on a given
     source code version.
@@ -75,9 +74,8 @@ class Transform(SQLRecord, IsVersioned):
 
         Alternatively, you create transforms that map pipelines via `Transform.from_git()`.
 
-    The definition of transforms and runs is consistent the OpenLineage
-    specification where a :class:`~lamindb.Transform` record would be called a
-    "job" and a :class:`~lamindb.Run` record a "run".
+    The definition of transforms and runs is consistent with the OpenLineage
+    specification where a `transform` would be called a "job" and a `run` a "run".
 
     Args:
         key: `str | None = None` A short name or path-like semantic key.
@@ -91,7 +89,7 @@ class Transform(SQLRecord, IsVersioned):
 
     See Also:
         :func:`~lamindb.track`
-            Globally track a script or notebook run.
+            Track a script or notebook run.
         :class:`~lamindb.Run`
             Executions of transforms.
 
@@ -103,17 +101,14 @@ class Transform(SQLRecord, IsVersioned):
 
     Examples:
 
-        Create a transform for a pipeline:
+        Create a transform for a pipeline::
 
-        >>> transform = ln.Transform(key="Cell Ranger", version="7.2.0", type="pipeline").save()
+            transform = ln.Transform(key="Cell Ranger", version="7.2.0", type="pipeline").save()
 
-        Create a transform from a notebook:
+        Create a transform from a notebook::
 
-        >>> ln.track()
+            ln.track()
 
-        View predecessors of a transform:
-
-        >>> transform.view_lineage()
     """
 
     class Meta(SQLRecord.Meta, IsVersioned.Meta):
@@ -313,12 +308,11 @@ class Transform(SQLRecord, IsVersioned):
         hash = None
         if source_code is not None:
             hash = hash_string(source_code)
-
             transform_candidate = Transform.objects.filter(
                 ~Q(branch_id=-1),
                 hash=hash,
                 is_latest=True,
-            ).one_or_none()
+            ).first()
             if transform_candidate is not None:
                 init_self_from_db(self, transform_candidate)
                 update_attributes(self, {"key": key, "description": description})
