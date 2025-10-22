@@ -606,6 +606,7 @@ def reshape_annotate_result(
     fields_map = _encode_lamindb_fields(registry, df.columns)
     result = df[field_names].copy().rename(columns=fields_map)
     df_encoded = df.rename(columns=fields_map)
+    cols_from_include = {fields_map.get(k, k): v for k, v in cols_from_include.items()}
     # process features if requested
     if feature_names:
         # handle json values
@@ -691,7 +692,7 @@ def reshape_annotate_result(
         result = reorder_subset_columns_in_df(result, feature_names)
 
     if cols_from_include:
-        result = process_cols_from_include(df, result, cols_from_include)
+        result = process_cols_from_include(df_encoded, result, cols_from_include)
     # here we revert the field encoding
     # but in cases when the result already has a column with the field name (like a feature also called 'id'),
     # we don't revert and keep the field encoded name
