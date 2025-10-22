@@ -98,6 +98,8 @@ def describe_header(self: Artifact | Collection | Run) -> Tree:
     elif self.branch_id == -1:  # type: ignore
         logger.warning("This artifact is in the trash.")
     title = self.key if hasattr(self, "key") else self.name
+    if title is None:
+        title = ""
     tree = Tree(
         Text.assemble(
             (f"{self.__class__.__name__}: ", "bold"),
