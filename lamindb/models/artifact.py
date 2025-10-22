@@ -2325,7 +2325,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         )
 
         # this artifact already exists
-        if privates is None:
+        if isinstance(kwargs, Artifact):
             return kwargs
 
         check_path_in_storage = privates["check_path_in_storage"]
