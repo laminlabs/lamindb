@@ -329,29 +329,58 @@ def get_stat_or_artifact(
     previous_artifact_version = None
     if skip_hash_lookup:
         artifact_with_same_hash_exists = False
-        hash_lookup_result = []
+        if key is not None and not is_replace:
+            # only search for a previous version of the artifact
+            # ignoring hash
+            lookup_result = (
+                Artifact.objects.using(instance)
+                .filter(
+                    ~Q(branch_id=-1),
+                    key=key,
+                    storage=storage,
+                )
+                .order_by("-created_at")
+            )
+        else:
+            lookup_result = []
     else:
         # this purposefully leaves out the storage location and key that we have
         # in the hard database unique constraints
         # so that the user is able to find artifacts with the same hash across
         # storage locations and keys
         # if this is not desired, set skip_hash_lookup=True
-        hash_lookup_result = Artifact.objects.using(instance).filter(
-            ~Q(branch_id=-1), hash=hash
-        )
-        artifact_with_same_hash_exists = len(hash_lookup_result) > 0
-    if key is not None and not is_replace:
-        if not artifact_with_same_hash_exists and len(hash_lookup_result) > 0:
-            logger.important(
-                f"creating new artifact version for key='{key}' (storage: '{storage.root}')"
+        if key is None or is_replace:
+            lookup_result = Artifact.objects.using(instance).filter(
+                ~Q(branch_id=-1), hash=hash
             )
-            previous_artifact_version = hash_lookup_result[0]
+            artifact_with_same_hash_exists = len(lookup_result) > 0
+        else:
+            # the following query achieves one more thing beyond hash lookup
+            # it allows us to find a previous version of the artifact based on
+            # matching key & storage even if the hash is different
+            # we do this here so that we don't have to do an additional query later
+            # see the `previous_artifact_version` variable below
+            lookup_result = (
+                Artifact.objects.using(instance)
+                .filter(
+                    ~Q(branch_id=-1),
+                    Q(hash=hash) | Q(key=key, storage=storage),
+                )
+                .order_by("-created_at")
+            )
+            artifact_with_same_hash_exists = lookup_result.filter(hash=hash).count() > 0
+    if key is not None and not is_replace:
+        if not artifact_with_same_hash_exists and len(lookup_result) > 0:
+            logger.important(
+                f"creating new artifact version for key '{key}' in storage '{storage.root}'"
+            )
+            previous_artifact_version = lookup_result[0]
     if artifact_with_same_hash_exists:
         message = "returning artifact with same hash"
         logger.important(
-            f"{message}: {hash_lookup_result[0]}; to track this artifact as an input, use: ln.Artifact.get()"
+            f"{message}: {lookup_result[0]}; to track this artifact as an input, use: ln.Artifact.get()"
         )
-        return hash_lookup_result[0]
+        return lookup_result[0]
     else:
         return size, hash, hash_type, n_files, previous_artifact_version
 
