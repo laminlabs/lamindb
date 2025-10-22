@@ -457,26 +457,29 @@ def describe_schema(self: Schema, slot: str | None = None) -> Tree:
     else:
         name = "unnamed"
 
+    # header
     header = "Schema:" if slot is None else f"{slot}:"
-
     tree = Tree(
         Text.assemble((header, "bold"), (f"{prefix}", "dim"), (f"{name}", "cyan3")),
         guide_style="dim",
     )
-
     general = tree.add(Text("General", style="bold bright_cyan"))
-
     if self.description:
         general.add(Text.assemble(("description: ", "dim"), f"{self.description}"))
 
-    # Two column items
+    # two column items
     two_column_items = []
-
     two_column_items.append(Text.assemble(("uid: ", "dim"), f"{self.uid}"))
-    if self.itype:
-        two_column_items.append(Text.assemble(("itype: ", "dim"), f"{self.itype}"))
-    if self.otype:
-        two_column_items.append(Text.assemble(("otype: ", "dim"), f"{self.otype}"))
+    transform_key = self.run.transform.key if self.run_id is not None else None
+    two_column_items.append(
+        Text.assemble(
+            ("transform: ", "dim"),
+            (f"{transform_key}", "cyan3"),
+        )
+    )
+    two_column_items.append(Text.assemble(("itype: ", "dim"), f"{self.itype}"))
+    two_column_items.append(Text.assemble(("otype: ", "dim"), f"{self.otype}"))
+    two_column_items.append(Text.assemble(("hash: ", "dim"), f"{self.hash}"))
     two_column_items.append(
         Text.assemble(("ordered_set: ", "dim"), f"{self.ordered_set}")
     )
@@ -486,17 +489,16 @@ def describe_schema(self: Schema, slot: str | None = None) -> Tree:
     two_column_items.append(
         Text.assemble(("minimal_set: ", "dim"), f"{self.minimal_set}")
     )
-    if hasattr(self, "created_by") and self.created_by:
-        created_by_text = (
-            self.created_by.handle
-            if self.created_by.name is None
-            else f"{self.created_by.handle} ({self.created_by.name})"
-        )
-        two_column_items.append(Text.assemble(("created_by: ", "dim"), created_by_text))
-    if hasattr(self, "created_at") and self.created_at:
-        two_column_items.append(
-            Text.assemble(("created_at: ", "dim"), highlight_time(str(self.created_at)))
-        )
+    space_name = self.space.name if self.space else None
+    two_column_items.append(Text.assemble(("space: ", "dim"), space_name))
+    branch_name = self.branch.name if self.branch else None
+    two_column_items.append(Text.assemble(("branch: ", "dim"), branch_name))
+    two_column_items.append(
+        Text.assemble(("created_by: ", "dim"), self.created_by.name)
+    )
+    two_column_items.append(
+        Text.assemble(("created_at: ", "dim"), highlight_time(str(self.created_at)))
+    )
 
     # Add two-column items in pairs
     for i in range(0, len(two_column_items), 2):
