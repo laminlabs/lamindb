@@ -335,19 +335,18 @@ def describe_run(
     two_column_items = []
     two_column_items.append(Text.assemble(("uid: ", "dim"), f"{self.uid}"))
     transform_key = (
-        foreign_key_data["transform"]["name"]
+        foreign_key_data["transform"]["key"]
         if foreign_key_data and "transform" in foreign_key_data
         else self.transform.key
         if self.transform
         else ""
     )
-    if transform_key:
-        two_column_items.append(
-            Text.assemble(
-                ("transform: ", "dim"),
-                (f"{transform_key}", "cyan3"),
-            )
+    two_column_items.append(
+        Text.assemble(
+            ("transform: ", "dim"),
+            (f"{transform_key}", "cyan3"),
         )
+    )
     space_name = (
         foreign_key_data["space"]["name"]
         if foreign_key_data and "space" in foreign_key_data
@@ -356,7 +355,6 @@ def describe_run(
         else None
     )
     two_column_items.append(Text.assemble(("space: ", "dim"), space_name))
-
     branch_name = (
         foreign_key_data["branch"]["name"]
         if foreign_key_data and "branch" in foreign_key_data
