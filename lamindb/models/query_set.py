@@ -754,8 +754,10 @@ def process_cols_from_include(
         if col in result.columns:
             continue
 
-        values = df.groupby("id")[col].agg(set if col_type == "many" else "first")
-        result.insert(3, col, result["id"].map(values))
+        id_encoded = _field_encoder("id")
+        id_field = id_encoded if id_encoded in df.columns else "id"
+        values = df.groupby(id_field)[col].agg(set if col_type == "many" else "first")
+        result.insert(3, col, result[id_field].map(values))
 
     return result
 
