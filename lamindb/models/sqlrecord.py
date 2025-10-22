@@ -924,9 +924,14 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                     and "hash" in error_msg
                     and unique_constraint_error_in_error_message(error_msg)
                 ):
-                    pre_existing_record = self.__class__.get(hash=self.hash)
+                    # we also need to include the key here because hash can be the same across keys
+                    query_fields = {"hash": self.hash, "key": self.key}
+                    if self.__class__.__name__ == "Artifact":
+                        # in case of artifact, also storage is needed
+                        query_fields["storage"] = self.storage
+                    pre_existing_record = self.__class__.get(**query_fields)
                     logger.warning(
-                        f"returning {self.__class__.__name__.lower()} with same hash: {pre_existing_record}"
+                        f"returning {self.__class__.__name__.lower()} with same hash & key: {pre_existing_record}"
                     )
                     init_self_from_db(self, pre_existing_record)
                 elif (
