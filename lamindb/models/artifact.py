@@ -463,7 +463,7 @@ def get_artifact_kwargs_from_data(
     )
     if isinstance(stat_or_artifact, Artifact):
         existing_artifact = stat_or_artifact
-        return existing_artifact, None
+        return existing_artifact, key
     else:
         size, hash, hash_type, n_files, revises = stat_or_artifact
 
@@ -1549,14 +1549,26 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             from .sqlrecord import init_self_from_db, update_attributes
 
             init_self_from_db(self, kwargs_or_artifact)
+            # update key from inferred value
+            key = privates
             # adding "key" here is dangerous because key might be auto-populated
             attr_to_update = {"description": description}
             if kwargs_or_artifact._key_is_virtual and kwargs_or_artifact.key is None:
                 attr_to_update["key"] = key
             elif self.key != key and key is not None:
-                logger.warning(
-                    f"key {self.key} on existing artifact differs from passed key {key}"
-                )
+                if not self.path.exists():
+                    logger.warning(f"updating previous key {self.key} to new key {key}")
+                    self.key = key
+                    assert self.path.exists(), (  # noqa: S101
+                        f"The underlying file for artifact {self} does not exist anymore, clean up the artifact record."
+                    )  # noqa: S101
+                    self._skip_key_change_check = (
+                        True  # otherwise not allowed to change real keys
+                    )
+                else:
+                    logger.warning(
+                        f"key {self.key} on existing artifact differs from passed key {key}, keeping original key; update manually if needed or pass skip_hash_lookup if you want to duplicate the artifact"
+                    )
             update_attributes(self, attr_to_update)
             if run is not None:
                 populate_subsequent_run(self, run)
@@ -2313,7 +2325,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         )
 
         # this artifact already exists
-        if privates is None:
+        if isinstance(kwargs, Artifact):
             return kwargs
 
         check_path_in_storage = privates["check_path_in_storage"]

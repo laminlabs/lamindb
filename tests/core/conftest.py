@@ -68,8 +68,6 @@ def ccaplog(caplog):
     ],
 )
 def get_test_filepaths(request):  # -> Tuple[bool, Path, Path, Path, str]
-    import lamindb as ln
-
     is_in_registered_storage: bool = request.param[0]
     root_dir: Path = Path(request.param[1])
     suffix: str = request.param[2]

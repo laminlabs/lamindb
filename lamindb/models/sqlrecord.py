@@ -1717,6 +1717,8 @@ def check_key_change(record: Union[Artifact, Transform]):
 
     if not isinstance(record, Artifact) or not hasattr(record, "_old_key"):
         return
+    if hasattr(record, "_skip_key_change_check") and record._skip_key_change_check:
+        return
     if record._old_suffix != record.suffix:  # type: ignore
         raise InvalidArgument(
             f"Changing the `.suffix` of an artifact is not allowed! You tried to change it from '{record._old_suffix}' to '{record.suffix}'."  # type: ignore

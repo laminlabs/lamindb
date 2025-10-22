@@ -659,6 +659,19 @@ def test_delete_storage():
         delete_storage(ln.settings.storage.root / "test-delete-storage")
 
 
+def test_recreate_after_artifact_moved_in_storage(ccaplog):
+    # this needs to be in a registered storage location
+    Path("./default_storage_unit_core/test_file.txt").write_text("test content")
+    artifact = ln.Artifact("./default_storage_unit_core/test_file.txt").save()
+    # now rename the file within the storage location
+    Path("./default_storage_unit_core/test_file.txt").rename(
+        "./default_storage_unit_core/moved_file.txt"
+    )
+    ln.Artifact("./default_storage_unit_core/moved_file.txt").save()
+    assert "updating previous key" in ccaplog.text
+    artifact.delete(permanent=True, storage=True)
+
+
 # -------------------------------------------------------------------------------------
 # Storage
 # -------------------------------------------------------------------------------------
