@@ -220,7 +220,7 @@ def bulk_update(
         model_name = registry.__name__
         if total_records > batch_size:
             logger.warning(
-                f"Starting bulk_update for {total_records} {model_name} records in batches of {batch_size}"
+                f"starting bulk_update for {total_records} {model_name} records in batches of {batch_size}"
             )
 
         field_names = [
@@ -237,7 +237,7 @@ def bulk_update(
 
             if total_records > batch_size:
                 logger.info(
-                    f"Processing batch {batch_num}/{total_batches} for {model_name}: {len(batch)} records"
+                    f"processing batch {batch_num}/{total_batches} for {model_name}: {len(batch)} records"
                 )
             registry.objects.bulk_update(batch, field_names)
 

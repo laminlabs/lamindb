@@ -6,13 +6,14 @@ from typing import TYPE_CHECKING
 
 from django.db import connections
 from lamin_utils import colors, logger
+from rich.table import Table
 from rich.text import Text
 from rich.tree import Tree
 
 from .sqlrecord import record_repr
 
 if TYPE_CHECKING:
-    from lamindb.models import Artifact, Collection, Run
+    from lamindb.models import Artifact, Collection, Run, Schema
 
 
 def highlight_time(iso: str):
@@ -441,6 +442,84 @@ def describe_run_general(
         params = tree.add(Text("Params", style="bold yellow"))
         for key, value in self.params.items():
             params.add(f"{key}: {value}")
+    return tree
+
+
+def describe_schema(self: Schema) -> Tree:
+    """Create a rich tree visualization of a Schema with its features."""
+    otype = self.otype if hasattr(self, "otype") and self.otype else ""
+    tree = Tree(
+        Text.assemble((self.__class__.__name__, "bold"), (f" {otype}", "bold dim")),
+        guide_style="dim",  # dim the connecting lines
+    )
+
+    tree.add(f".uid = '{self.uid}'")
+    tree.add(f".name = '{self.name}'")
+    if self.description:
+        tree.add(f".description = '{self.description}'")
+    if self.itype:
+        tree.add(f".itype = '{self.itype}'")
+    if self.type:
+        tree.add(f".type = '{self.type}'")
+    tree.add(f".ordered_set = {self.ordered_set}")
+    tree.add(f".maximal_set = {self.maximal_set}")
+    tree.add(f".minimal_set = {self.minimal_set}")
+    if hasattr(self, "created_by") and self.created_by:
+        tree.add(
+            Text.assemble(
+                ".created_by = ",
+                (
+                    self.created_by.handle
+                    if self.created_by.name is None
+                    else f"{self.created_by.handle} ({self.created_by.name})"
+                ),
+            )
+        )
+    if hasattr(self, "created_at") and self.created_at:
+        tree.add(Text.assemble(".created_at = ", highlight_time(str(self.created_at))))
+
+    members = self.members
+
+    # Add features section
+    features = tree.add(
+        Text.assemble(
+            (self.itype, "violet"),
+            (" • ", "dim"),
+            (str(members.count()), "pink1"),
+        )
+    )
+
+    if hasattr(self, "members") and self.members.count() > 0:
+        # create a table for the features
+        feature_table = Table(
+            show_header=True, header_style="dim", box=None, pad_edge=False
+        )
+
+        # Add columns
+        feature_table.add_column("name", style="", no_wrap=True)
+        feature_table.add_column("dtype", style="", no_wrap=True)
+        feature_table.add_column("optional", style="", no_wrap=True)
+        feature_table.add_column("nullable", style="", no_wrap=True)
+        feature_table.add_column("coerce_dtype", style="", no_wrap=True)
+        feature_table.add_column("default_value", style="", no_wrap=True)
+
+        # Add rows for each member
+        optionals = self.optionals.get()
+        for member in self.members:
+            feature_table.add_row(
+                member.name,
+                Text(
+                    str(member.dtype)
+                ),  # needs to be wrapped in Text to display correctly
+                "✓" if optionals.filter(uid=member.uid).exists() else "✗",
+                "✓" if member.nullable else "✗",
+                "✓" if self.coerce_dtype or member.coerce_dtype else "✗",
+                str(member.default_value) if member.default_value else "unset",
+            )
+
+        # Add the table to the features branch
+        features.add(feature_table)
+
     return tree
 
 
