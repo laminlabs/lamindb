@@ -166,6 +166,8 @@ lint.ignore = [
     "TID252",
     # Standard pseudo-random generators are not suitable for cryptographic purposes
     "S311",
+    # Starting a process with a shell: seems safe, but may be changed in the future; consider rewriting without `shell`
+    "S605",
     # All of the below TODO 3.10 refactor, temporarily disable
     "UP007",
     "UP038",
