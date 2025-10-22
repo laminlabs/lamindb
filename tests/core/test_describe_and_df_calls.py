@@ -126,7 +126,7 @@ def test_curate_df():
 
     # Check that uid appears in the first two-column row
     first_row = general_node.children[0].label.plain
-    assert f"key: {artifact.key}" in first_row
+    assert "uid:" in first_row
 
     # Check that hash appears somewhere in the two-column section
     found_hash = False
@@ -150,15 +150,12 @@ def test_curate_df():
     )
 
     # Check single-column items (these appear after the two-column items)
-    found_key = False
     found_path = False
     found_created_by = False
     found_created_at = False
 
     for child in general_node.children:
         child_text = child.label.plain
-        if "key: examples/dataset1.h5ad" in child_text:
-            found_key = True
         if "storage path: " in child_text:
             found_path = True
         if "created_by: " in child_text:
@@ -166,7 +163,6 @@ def test_curate_df():
         if "created_at: " in child_text:
             found_created_at = True
 
-    assert found_key, "Key should be present in the general section"
     assert found_path, "Storage path should be present in the general section"
     assert found_created_by, "Created by should be present in the general section"
     assert found_created_at, "Created at should be present in the general section"
@@ -176,7 +172,7 @@ def test_curate_df():
     print(artifact.features.describe(return_str=True))
     assert (
         artifact.features.describe(return_str=True)
-        == """Artifact .h5ad · AnnData · dataset
+        == """Artifact: examples/dataset1.h5ad
 ├── Dataset features
 │   ├── obs (4)
 │   │   cell_type_by_expe…  bionty.CellType         B cell, CD8-positive, alpha…

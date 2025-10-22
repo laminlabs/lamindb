@@ -186,12 +186,18 @@ def is_approx_pascal_case(s):
 
 
 def init_self_from_db(self: SQLRecord, existing_record: SQLRecord):
+    from .run import current_run
+
     new_args = [
         getattr(existing_record, field.attname) for field in self._meta.concrete_fields
     ]
     super(self.__class__, self).__init__(*new_args)
     self._state.adding = False  # mimic from_db
     self._state.db = "default"
+    # if run was not set on the existing record, set it to the current_run
+    if hasattr(self, "run_id") and self.run_id is None:
+        logger.warning(f"run was not set on {self}, setting to current run")
+        self.run = current_run()
 
 
 def update_attributes(record: SQLRecord, attributes: dict[str, str]):

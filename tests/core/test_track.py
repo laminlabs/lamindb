@@ -59,7 +59,7 @@ Here is how to create a feature:
     assert (
         ln.context.run.features.describe(return_str=True)
         == """\
-Run
+Run:
 └── Features
     └── label_param         Record                  my_label
         param1              int                     1
