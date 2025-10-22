@@ -147,7 +147,7 @@ def describe_artifact(
         if foreign_key_data
         else self.transform.key
         if self.transform
-        else None
+        else ""
     )
     two_column_items.append(
         Text.assemble(
@@ -171,7 +171,7 @@ def describe_artifact(
     two_column_items.append(Text.assemble(("branch: ", "dim"), branch_name))
     # actually not name field here, but handle
     created_by_handle = (
-        foreign_key_data["created_by"]["name"]
+        foreign_key_data["created_by"]["handle"]
         if foreign_key_data
         else self.created_by.handle
     )
@@ -254,16 +254,14 @@ def describe_collection(
         if foreign_key_data and "transform" in foreign_key_data
         else self.transform.key
         if self.transform
-        else None
+        else ""
     )
-    if transform_key:
-        two_column_items.append(
-            Text.assemble(
-                ("transform: ", "dim"),
-                (f"{transform_key}", "cyan3"),
-            )
+    two_column_items.append(
+        Text.assemble(
+            ("transform: ", "dim"),
+            (f"{transform_key}", "cyan3"),
         )
-
+    )
     space_name = (
         foreign_key_data["space"]["name"]
         if foreign_key_data and "space" in foreign_key_data
@@ -271,9 +269,7 @@ def describe_collection(
         if self.space
         else None
     )
-    if space_name:
-        two_column_items.append(Text.assemble(("space: ", "dim"), space_name))
-
+    two_column_items.append(Text.assemble(("space: ", "dim"), space_name))
     branch_name = (
         foreign_key_data["branch"]["name"]
         if foreign_key_data and "branch" in foreign_key_data
@@ -281,28 +277,23 @@ def describe_collection(
         if self.branch
         else None
     )
-    if branch_name:
-        two_column_items.append(Text.assemble(("branch: ", "dim"), branch_name))
-
+    two_column_items.append(Text.assemble(("branch: ", "dim"), branch_name))
     created_by_handle = (
-        foreign_key_data["created_by"]["name"]
+        foreign_key_data["created_by"]["handle"]
         if foreign_key_data and "created_by" in foreign_key_data
         else self.created_by.handle
         if self.created_by
         else None
     )
-    if created_by_handle:
-        two_column_items.append(
-            Text.assemble(
-                ("created_by: ", "dim"),
-                (created_by_handle),
-            )
+    two_column_items.append(
+        Text.assemble(
+            ("created_by: ", "dim"),
+            (created_by_handle),
         )
-
-    if self.created_at:
-        two_column_items.append(
-            Text.assemble(("created_at: ", "dim"), highlight_time(str(self.created_at)))
-        )
+    )
+    two_column_items.append(
+        Text.assemble(("created_at: ", "dim"), highlight_time(str(self.created_at)))
+    )
 
     if self.version:
         two_column_items.append(Text.assemble(("version: ", "dim"), f"{self.version}"))
@@ -342,15 +333,13 @@ def describe_run(
 
     # Two column items (short content)
     two_column_items = []
-
     two_column_items.append(Text.assemble(("uid: ", "dim"), f"{self.uid}"))
-
     transform_key = (
         foreign_key_data["transform"]["name"]
         if foreign_key_data and "transform" in foreign_key_data
         else self.transform.key
         if self.transform
-        else None
+        else ""
     )
     if transform_key:
         two_column_items.append(
@@ -359,7 +348,6 @@ def describe_run(
                 (f"{transform_key}", "cyan3"),
             )
         )
-
     space_name = (
         foreign_key_data["space"]["name"]
         if foreign_key_data and "space" in foreign_key_data
@@ -367,8 +355,7 @@ def describe_run(
         if self.space
         else None
     )
-    if space_name:
-        two_column_items.append(Text.assemble(("space: ", "dim"), space_name))
+    two_column_items.append(Text.assemble(("space: ", "dim"), space_name))
 
     branch_name = (
         foreign_key_data["branch"]["name"]
@@ -377,28 +364,23 @@ def describe_run(
         if self.branch
         else None
     )
-    if branch_name:
-        two_column_items.append(Text.assemble(("branch: ", "dim"), branch_name))
-
+    two_column_items.append(Text.assemble(("branch: ", "dim"), branch_name))
     created_by_handle = (
-        foreign_key_data["created_by"]["name"]
+        foreign_key_data["created_by"]["handle"]
         if foreign_key_data and "created_by" in foreign_key_data
         else self.created_by.handle
         if self.created_by
         else None
     )
-    if created_by_handle:
-        two_column_items.append(
-            Text.assemble(
-                ("created_by: ", "dim"),
-                (created_by_handle),
-            )
+    two_column_items.append(
+        Text.assemble(
+            ("created_by: ", "dim"),
+            (created_by_handle),
         )
-
-    if self.created_at:
-        two_column_items.append(
-            Text.assemble(("created_at: ", "dim"), highlight_time(str(self.created_at)))
-        )
+    )
+    two_column_items.append(
+        Text.assemble(("created_at: ", "dim"), highlight_time(str(self.created_at)))
+    )
 
     # Add two-column items in pairs
     for i in range(0, len(two_column_items), 2):
@@ -451,7 +433,7 @@ def describe_schema(self: Schema, slot: str | None = None) -> Tree:
     # two column items
     two_column_items = []
     two_column_items.append(Text.assemble(("uid: ", "dim"), f"{self.uid}"))
-    transform_key = self.run.transform.key if self.run_id is not None else None
+    transform_key = self.run.transform.key if self.run_id is not None else ""
     two_column_items.append(
         Text.assemble(
             ("transform: ", "dim"),
@@ -475,7 +457,7 @@ def describe_schema(self: Schema, slot: str | None = None) -> Tree:
     branch_name = self.branch.name if self.branch else None
     two_column_items.append(Text.assemble(("branch: ", "dim"), branch_name))
     two_column_items.append(
-        Text.assemble(("created_by: ", "dim"), self.created_by.name)
+        Text.assemble(("created_by: ", "dim"), self.created_by.handle)
     )
     two_column_items.append(
         Text.assemble(("created_at: ", "dim"), highlight_time(str(self.created_at)))
