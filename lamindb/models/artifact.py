@@ -919,7 +919,9 @@ def delete_permanently(artifact: Artifact, storage: bool, using_key: str):
             logger.warning(
                 "storage argument is ignored; can't delete store of a previous version if overwrite_versions is True"
             )
-    elif artifact.key is None or artifact._key_is_virtual:
+    elif artifact.key is None or (
+        artifact._key_is_virtual and artifact._real_key is None
+    ):
         # do not ask for confirmation also if storage is None
         delete_in_storage = storage is None or storage
     else:
