@@ -246,6 +246,7 @@ def save_context_core(
     from_cli: bool = False,
     is_retry: bool = False,
     notebook_runner: str | None = None,
+    message_prefix: str = "go to",
 ) -> str | None:
     import lamindb as ln
     from lamindb.models import (
@@ -502,7 +503,7 @@ def save_context_core(
         if save_source_code_and_report:
             ui_url = ln_setup.settings.instance.ui_url
             logger.important(
-                f"go to: {ui_url}/{instance_slug}/transform/{transform.uid}"
+                f"{message_prefix}: {ui_url}/{instance_slug}/transform/{transform.uid}"
             )
         if finished_at and not from_cli and save_source_code_and_report:
             thing = "notebook" if (is_ipynb or is_r_notebook) else "script"

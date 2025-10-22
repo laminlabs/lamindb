@@ -19,7 +19,7 @@ def get_git_repo_from_remote(url: str | None = None, depth: int | None = 10) -> 
     repo_url = url or settings.sync_git_repo
     repo_dir = setup_settings.cache_dir / repo_url.split("/")[-1]
     if repo_dir.exists():
-        logger.warning(f"git repo {repo_dir} already exists locally")
+        logger.debug(f"git repo {repo_dir} already exists locally")
         return repo_dir
     logger.important(
         f"running outside of synched git repo, cloning {repo_url} into {repo_dir}"
