@@ -459,11 +459,12 @@ def describe_schema(self: Schema, slot: str | None = None) -> Tree:
 
     # header
     header = "Schema:" if slot is None else f"{slot}:"
+    bold_subheader = "bold" if slot is None else ""
     tree = Tree(
         Text.assemble((header, "bold"), (f"{prefix}", "dim"), (f"{name}", "cyan3")),
         guide_style="dim",
     )
-    general = tree.add(Text("General", style="bold bright_cyan"))
+    general = tree.add(Text("General", style=f"{bold_subheader} bright_cyan"))
     if self.description:
         general.add(Text.assemble(("description: ", "dim"), f"{self.description}"))
 
@@ -519,40 +520,44 @@ def describe_schema(self: Schema, slot: str | None = None) -> Tree:
     members = self.members
 
     # Add features section
-    if members.count() > 0:
+    members_count = self.n
+    members_count_display = f" ({members_count})" if members_count > 0 else ""
+    if self.itype != "Composite" and (members_count > 0 or self.dtype):
         features = tree.add(
             Text.assemble(
                 (
                     "Features" if self.itype == "Feature" else self.itype,
-                    "bold bright_magenta",
+                    f"{bold_subheader} bright_magenta",
                 ),
-                (f" ({members.count()})", "bold dim"),
+                (members_count_display, f"{bold_subheader} dim"),
             )
         )
-
-        feature_table = Table(
-            show_header=True, header_style="dim", box=None, pad_edge=False
-        )
-
-        feature_table.add_column("name", style="", no_wrap=True)
-        feature_table.add_column("dtype", style="", no_wrap=True)
-        feature_table.add_column("optional", style="", no_wrap=True)
-        feature_table.add_column("nullable", style="", no_wrap=True)
-        feature_table.add_column("coerce_dtype", style="", no_wrap=True)
-        feature_table.add_column("default_value", style="", no_wrap=True)
-
-        optionals = self.optionals.get()
-        for member in members:
-            feature_table.add_row(
-                member.name,
-                Text(strip_cat(member.dtype)),
-                "✓" if optionals.filter(uid=member.uid).exists() else "✗",
-                "✓" if member.nullable else "✗",
-                "✓" if self.coerce_dtype or member.coerce_dtype else "✗",
-                str(member.default_value) if member.default_value else "unset",
+        if members_count > 0:
+            feature_table = Table(
+                show_header=True, header_style="dim", box=None, pad_edge=False
             )
 
-        features.add(feature_table)
+            feature_table.add_column("name", style="", no_wrap=True)
+            feature_table.add_column("dtype", style="", no_wrap=True)
+            feature_table.add_column("optional", style="", no_wrap=True)
+            feature_table.add_column("nullable", style="", no_wrap=True)
+            feature_table.add_column("coerce_dtype", style="", no_wrap=True)
+            feature_table.add_column("default_value", style="", no_wrap=True)
+
+            optionals = self.optionals.get()
+            for member in members:
+                feature_table.add_row(
+                    member.name,
+                    Text(strip_cat(member.dtype)),
+                    "✓" if optionals.filter(uid=member.uid).exists() else "✗",
+                    "✓" if member.nullable else "✗",
+                    "✓" if self.coerce_dtype or member.coerce_dtype else "✗",
+                    str(member.default_value) if member.default_value else "unset",
+                )
+
+            features.add(feature_table)
+        elif self.dtype:
+            features.add(Text.assemble(("dtype: ", "dim"), f"{self.dtype}"))
 
     return tree
 
