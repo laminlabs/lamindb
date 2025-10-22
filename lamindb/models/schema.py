@@ -1142,23 +1142,12 @@ class Schema(SQLRecord, CanCurate, TracksRun):
         """Describe schema."""
         if self.pk is None:
             raise ValueError("Schema must be saved before describing")
-
-        message = str(self)
-        # display slots for composite schemas
-        if self.itype == "Composite":
-            message + "\nslots:"
-            for slot, schema in self.slots.items():
-                message += f"\n    {slot}: " + str(schema)
-        else:
-            tree = describe_schema(self)
-            return format_rich_tree(
-                tree, fallback="no linked features", return_str=return_str
-            )
-        if return_str:
-            return message
-        else:
-            print(message)
-            return None
+        tree = describe_schema(self)
+        for slot, schema in self.slots.items():
+            tree.add(describe_schema(schema, slot=slot))
+        return format_rich_tree(
+            tree, fallback="no linked features", return_str=return_str
+        )
 
 
 def get_type_str(dtype: str | None) -> str | None:

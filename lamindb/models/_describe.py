@@ -445,7 +445,7 @@ def describe_run(
     return tree
 
 
-def describe_schema(self: Schema) -> Tree:
+def describe_schema(self: Schema, slot: str | None = None) -> Tree:
     from ._feature_manager import strip_cat
 
     if self.type:
@@ -457,8 +457,10 @@ def describe_schema(self: Schema) -> Tree:
     else:
         name = "unnamed"
 
+    header = "Schema:" if slot is None else f"{slot}:"
+
     tree = Tree(
-        Text.assemble(("Schema:", "bold"), (f"{prefix}", "dim"), (f"{name}", "cyan3")),
+        Text.assemble((header, "bold"), (f"{prefix}", "dim"), (f"{name}", "cyan3")),
         guide_style="dim",
     )
 
@@ -473,6 +475,8 @@ def describe_schema(self: Schema) -> Tree:
     two_column_items.append(Text.assemble(("uid: ", "dim"), f"{self.uid}"))
     if self.itype:
         two_column_items.append(Text.assemble(("itype: ", "dim"), f"{self.itype}"))
+    if self.otype:
+        two_column_items.append(Text.assemble(("otype: ", "dim"), f"{self.otype}"))
     two_column_items.append(
         Text.assemble(("ordered_set: ", "dim"), f"{self.ordered_set}")
     )
