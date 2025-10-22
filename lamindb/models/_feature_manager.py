@@ -1093,7 +1093,7 @@ class FeatureManager:
         if not_validated_values:
             hint = ""
             for key, values_list in not_validated_values.items():
-                key_str = "ln.ULabel" if key == "ULabel" else key
+                key_str = "ln.Record" if key == "Record" else key
                 hint += f"  records = {key_str}.from_values({values_list}, create=True).save()\n"
             msg = (
                 f"These values could not be validated: {dict(not_validated_values)}\n"

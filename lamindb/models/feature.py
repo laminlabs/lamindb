@@ -768,6 +768,13 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
         self.nullable = nullable
         self.coerce_dtype = coerce_dtype
         dtype_str = kwargs.pop("dtype", None)
+        if dtype_str == "cat":
+            warnings.warn(
+                "dtype `cat` is deprecated and will be removed in LaminDB v2 - "
+                "please use `ln.Record` instead",
+                DeprecationWarning,
+                stacklevel=2,
+            )
         if cat_filters:
             if "|" in dtype_str:
                 raise ValidationError(
@@ -889,7 +896,7 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
         if str_as_cat is not None:
             warnings.warn(
                 "`str_as_cat` is deprecated and will be removed in LaminDB 2.0.0. "
-                "Create features explicitly with dtype='cat' for categorical values.",
+                "Create features explicitly with dtype=ln.Record for categorical values.",
                 DeprecationWarning,
                 stacklevel=2,
             )
