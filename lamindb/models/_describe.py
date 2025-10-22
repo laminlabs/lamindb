@@ -171,7 +171,7 @@ def describe_artifact(
     two_column_items.append(Text.assemble(("branch: ", "dim"), branch_name))
     # actually not name field here, but handle
     created_by_handle = (
-        foreign_key_data["created_by"]["handle"]
+        foreign_key_data["created_by"]["name"]  # "name" holds handle, is display name
         if foreign_key_data
         else self.created_by.handle
     )
@@ -279,7 +279,7 @@ def describe_collection(
     )
     two_column_items.append(Text.assemble(("branch: ", "dim"), branch_name))
     created_by_handle = (
-        foreign_key_data["created_by"]["handle"]
+        foreign_key_data["created_by"]["name"]  # "name" holds handle, is display name
         if foreign_key_data and "created_by" in foreign_key_data
         else self.created_by.handle
         if self.created_by
@@ -364,7 +364,7 @@ def describe_run(
     )
     two_column_items.append(Text.assemble(("branch: ", "dim"), branch_name))
     created_by_handle = (
-        foreign_key_data["created_by"]["handle"]
+        foreign_key_data["created_by"]["name"]  # "name" holds handle, is display name
         if foreign_key_data and "created_by" in foreign_key_data
         else self.created_by.handle
         if self.created_by
