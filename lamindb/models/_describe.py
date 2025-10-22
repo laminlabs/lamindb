@@ -131,7 +131,7 @@ def format_bytes(bytes_value):
         return f"{bytes_value / (1024**4):.1f} TB"
 
 
-def describe_artifact_general(
+def describe_artifact(
     self: Artifact,
     tree: Tree | None = None,
     foreign_key_data: dict[str, dict[str, int | str]] | None = None,
@@ -240,7 +240,7 @@ def describe_artifact_general(
     return tree
 
 
-def describe_collection_general(
+def describe_collection(
     self: Collection,
     tree: Tree | None = None,
     foreign_key_data: dict[str, dict[str, int | str]] | None = None,
@@ -346,7 +346,7 @@ def describe_collection_general(
     return tree
 
 
-def describe_run_general(
+def describe_run(
     self: Run,
     tree: Tree | None = None,
     foreign_key_data: dict[str, dict[str, int | str]] | None = None,
@@ -571,9 +571,9 @@ def describe_postgres(self):
         )
         related_data = result.get("related_data", {})
         if model_name == "Artifact":
-            tree = describe_artifact_general(self, foreign_key_data=related_data["fk"])
+            tree = describe_artifact(self, foreign_key_data=related_data["fk"])
         else:
-            tree = describe_run_general(self, foreign_key_data=related_data["fk"])
+            tree = describe_run(self, foreign_key_data=related_data["fk"])
         return describe_features(
             self,
             tree=tree,
@@ -583,9 +583,7 @@ def describe_postgres(self):
     elif model_name == "Collection":
         result = get_collection_with_related(self, include_fk=True)
         related_data = result.get("related_data", {})
-        tree = describe_collection_general(
-            self, foreign_key_data=related_data.get("fk", {})
-        )
+        tree = describe_collection(self, foreign_key_data=related_data.get("fk", {}))
         return tree
     else:
         tree = describe_header(self)
@@ -629,16 +627,16 @@ def describe_sqlite(self, print_types: bool = False):
         )
     if model_name in {"Artifact", "Run"}:
         if model_name == "Artifact":
-            tree = describe_artifact_general(self)
+            tree = describe_artifact(self)
         else:
-            tree = describe_run_general(self)
+            tree = describe_run(self)
         return describe_features(
             self,
             tree=tree,
             with_labels=True,
         )
     elif model_name == "Collection":
-        tree = describe_collection_general(self)
+        tree = describe_collection(self)
         return tree
     else:
         tree = describe_header(self)
