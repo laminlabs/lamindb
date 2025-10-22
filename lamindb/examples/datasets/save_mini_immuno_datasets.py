@@ -1,5 +1,6 @@
-import lamindb as ln
 import bionty as bt
+
+import lamindb as ln
 
 # observation-level metadata
 ln.Feature(name="perturbation", dtype="cat[Record]").save()

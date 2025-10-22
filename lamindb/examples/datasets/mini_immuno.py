@@ -13,8 +13,6 @@
 
 from __future__ import annotations
 
-import sys
-from pathlib import Path
 from typing import TYPE_CHECKING, Literal
 
 import anndata as ad
@@ -30,11 +28,7 @@ def define_features_labels() -> None:
     .. literalinclude:: scripts/define_mini_immuno_features_labels.py
         :language: python
     """
-    docs_path = Path(__file__).parent.parent.parent.parent / "docs" / "scripts"
-    if str(docs_path) not in sys.path:
-        sys.path.append(str(docs_path))
-
-    import define_mini_immuno_features_labels  # noqa
+    from . import define_mini_immuno_features_labels  # noqa
 
 
 def define_mini_immuno_schema_flexible() -> Schema:
@@ -45,12 +39,8 @@ def define_mini_immuno_schema_flexible() -> Schema:
     """
     from lamindb.models import Schema
 
-    docs_path = Path(__file__).parent.parent.parent.parent / "docs" / "scripts"
-    if str(docs_path) not in sys.path:
-        sys.path.append(str(docs_path))
-
     define_features_labels()
-    import define_mini_immuno_schema_flexible  # noqa
+    from . import define_mini_immuno_schema_flexible  # noqa
 
     return Schema.get(name="Mini immuno schema")
 
@@ -61,11 +51,7 @@ def save_mini_immuno_datasets():
     .. literalinclude:: scripts/save_mini_immuno_datasets.py
         :language: python
     """
-    docs_path = Path(__file__).parent.parent.parent.parent / "docs" / "scripts"
-    if str(docs_path) not in sys.path:
-        sys.path.append(str(docs_path))
-
-    import save_mini_immuno_datasets  # noqa
+    from . import save_mini_immuno_datasets  # noqa
 
 
 def get_dataset1(
