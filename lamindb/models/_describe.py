@@ -446,56 +446,88 @@ def describe_run_general(
 
 
 def describe_schema(self: Schema) -> Tree:
-    """Create a rich tree visualization of a Schema with its features."""
-    otype = self.otype if hasattr(self, "otype") and self.otype else ""
+    from ._feature_manager import strip_cat
+
+    if self.type:
+        prefix = f" {self.type.name} · "
+    else:
+        prefix = " "
+    if self.name:
+        name = self.name
+    else:
+        name = "unnamed"
+
     tree = Tree(
-        Text.assemble((self.__class__.__name__, "bold"), (f" {otype}", "bold dim")),
-        guide_style="dim",  # dim the connecting lines
+        Text.assemble(("Schema:", "bold"), (f"{prefix}", "dim"), (f"{name}", "cyan3")),
+        guide_style="dim",
     )
 
-    tree.add(f".uid = '{self.uid}'")
-    tree.add(f".name = '{self.name}'")
+    general = tree.add(Text("General", style="bold bright_cyan"))
+
     if self.description:
-        tree.add(f".description = '{self.description}'")
+        general.add(Text.assemble(("description: ", "dim"), f"{self.description}"))
+
+    # Two column items
+    two_column_items = []
+
+    two_column_items.append(Text.assemble(("uid: ", "dim"), f"{self.uid}"))
     if self.itype:
-        tree.add(f".itype = '{self.itype}'")
-    if self.type:
-        tree.add(f".type = '{self.type}'")
-    tree.add(f".ordered_set = {self.ordered_set}")
-    tree.add(f".maximal_set = {self.maximal_set}")
-    tree.add(f".minimal_set = {self.minimal_set}")
+        two_column_items.append(Text.assemble(("itype: ", "dim"), f"{self.itype}"))
+    two_column_items.append(
+        Text.assemble(("ordered_set: ", "dim"), f"{self.ordered_set}")
+    )
+    two_column_items.append(
+        Text.assemble(("maximal_set: ", "dim"), f"{self.maximal_set}")
+    )
+    two_column_items.append(
+        Text.assemble(("minimal_set: ", "dim"), f"{self.minimal_set}")
+    )
     if hasattr(self, "created_by") and self.created_by:
-        tree.add(
-            Text.assemble(
-                ".created_by = ",
-                (
-                    self.created_by.handle
-                    if self.created_by.name is None
-                    else f"{self.created_by.handle} ({self.created_by.name})"
-                ),
-            )
+        created_by_text = (
+            self.created_by.handle
+            if self.created_by.name is None
+            else f"{self.created_by.handle} ({self.created_by.name})"
         )
+        two_column_items.append(Text.assemble(("created_by: ", "dim"), created_by_text))
     if hasattr(self, "created_at") and self.created_at:
-        tree.add(Text.assemble(".created_at = ", highlight_time(str(self.created_at))))
+        two_column_items.append(
+            Text.assemble(("created_at: ", "dim"), highlight_time(str(self.created_at)))
+        )
+
+    # Add two-column items in pairs
+    for i in range(0, len(two_column_items), 2):
+        if i + 1 < len(two_column_items):
+            left_item = two_column_items[i]
+            right_item = two_column_items[i + 1]
+
+            left_plain_text = (
+                left_item.plain if hasattr(left_item, "plain") else str(left_item)
+            )
+            padding_needed = max(0, 35 - len(left_plain_text))
+            padding = " " * padding_needed
+
+            general.add(Text.assemble(left_item, padding, right_item))
+        else:
+            general.add(two_column_items[i])
 
     members = self.members
 
     # Add features section
-    features = tree.add(
-        Text.assemble(
-            (self.itype, "violet"),
-            (" • ", "dim"),
-            (str(members.count()), "pink1"),
+    if members.count() > 0:
+        features = tree.add(
+            Text.assemble(
+                (
+                    "Features" if self.itype == "Feature" else self.itype,
+                    "bold bright_magenta",
+                ),
+                (f" ({members.count()})", "bold dim"),
+            )
         )
-    )
 
-    if hasattr(self, "members") and self.members.count() > 0:
-        # create a table for the features
         feature_table = Table(
             show_header=True, header_style="dim", box=None, pad_edge=False
         )
 
-        # Add columns
         feature_table.add_column("name", style="", no_wrap=True)
         feature_table.add_column("dtype", style="", no_wrap=True)
         feature_table.add_column("optional", style="", no_wrap=True)
@@ -503,21 +535,17 @@ def describe_schema(self: Schema) -> Tree:
         feature_table.add_column("coerce_dtype", style="", no_wrap=True)
         feature_table.add_column("default_value", style="", no_wrap=True)
 
-        # Add rows for each member
         optionals = self.optionals.get()
-        for member in self.members:
+        for member in members:
             feature_table.add_row(
                 member.name,
-                Text(
-                    str(member.dtype)
-                ),  # needs to be wrapped in Text to display correctly
+                Text(strip_cat(member.dtype)),
                 "✓" if optionals.filter(uid=member.uid).exists() else "✗",
                 "✓" if member.nullable else "✗",
                 "✓" if self.coerce_dtype or member.coerce_dtype else "✗",
                 str(member.default_value) if member.default_value else "unset",
             )
 
-        # Add the table to the features branch
         features.add(feature_table)
 
     return tree

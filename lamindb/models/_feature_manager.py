@@ -123,6 +123,17 @@ def get_link_attr(link: IsLink | type[IsLink], data: Artifact | Collection) -> s
     return link_model_name.replace(data.__class__.__name__, "").lower()
 
 
+def strip_cat(feature_dtype: str) -> str:
+    if "cat[" in feature_dtype:
+        parts = feature_dtype.split("cat[")
+        dtype_stripped_cat = "".join(
+            part[:-1] if i != 0 else part for i, part in enumerate(parts)
+        )
+    else:
+        dtype_stripped_cat = feature_dtype
+    return dtype_stripped_cat
+
+
 # Custom aggregation for SQLite
 class GroupConcat(Aggregate):
     function = "GROUP_CONCAT"
@@ -365,16 +376,6 @@ def describe_features(
     non_categoricals = _get_non_categoricals(
         self,
     )
-
-    def strip_cat(feature_dtype: str) -> str:
-        if "cat[" in feature_dtype:
-            parts = feature_dtype.split("cat[")
-            dtype_stripped_cat = "".join(
-                part[:-1] if i != 0 else part for i, part in enumerate(parts)
-            )
-        else:
-            dtype_stripped_cat = feature_dtype
-        return dtype_stripped_cat
 
     # Process all Features containing labels and sort into internal/external
     internal_feature_labels = {}
