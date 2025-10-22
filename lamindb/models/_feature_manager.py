@@ -1,7 +1,6 @@
 # ruff: noqa: TC004
 from __future__ import annotations
 
-import warnings
 from collections import defaultdict
 from collections.abc import Iterable
 from datetime import date, datetime
@@ -1067,12 +1066,6 @@ class FeatureManager:
                     else:
                         values = value  # type: ignore
                     if feature.dtype == "cat":
-                        warnings.warn(
-                            "Dtype `cat` is deprecated and will be removed in LaminDB 2.0.0. "
-                            "Please use `Record` instead.",
-                            DeprecationWarning,
-                            stacklevel=2,
-                        )
                         feature.dtype += "[ULabel]"
                         feature.save()
                         result = {
