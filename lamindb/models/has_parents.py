@@ -442,6 +442,8 @@ def _record_label(record: SQLRecord, field: str | None = None):
             rf" created_by: {record.created_by.handle}<BR/>created_at: {format_field_value(record.created_at)}</FONT>>"
         )
     else:
+        if field is None:
+            field = get_name_field(record)
         title = record.__getattribute__(field)
         return (
             rf'<{title}<BR/><FONT COLOR="GREY" POINT-SIZE="10"'
