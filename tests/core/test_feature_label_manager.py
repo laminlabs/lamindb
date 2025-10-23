@@ -11,7 +11,6 @@ from _dataset_fixtures import (  # noqa
 from lamindb.errors import DoesNotExist, ValidationError
 from lamindb.examples.datasets import mini_immuno
 from lamindb.models._feature_manager import describe_features
-from lamindb.models._label_manager import format_rich_tree
 from lamindb.models.artifact import add_labels
 
 
@@ -255,12 +254,11 @@ Here is how to create a feature:
         "datetime_of_experiment": datetime.datetime(2024, 12, 1, 0, 0, 0),
     }
     # hard to test because of italic formatting
-    tree = describe_features(artifact)
-    format_rich_tree(tree)
-    assert tree.children[0].label.plain == "External features"
-    assert len(tree.children[0].children[0].label.columns) == 3
-    assert len(tree.children[0].children[0].label.rows) == 10
-    assert tree.children[0].children[0].label.columns[0]._cells == [
+    _, external_features_tree = describe_features(artifact)
+    assert external_features_tree.label.plain == "Features"
+    assert len(external_features_tree.children[0].label.columns) == 3
+    assert len(external_features_tree.children[0].label.rows) == 10
+    assert external_features_tree.children[0].label.columns[0]._cells == [
         "cell_type_by_expert",
         "disease",
         "donor",
@@ -273,7 +271,7 @@ Here is how to create a feature:
         "temperature",
     ]
     dtypes_display = [
-        i.plain for i in tree.children[0].children[0].label.columns[1]._cells
+        i.plain for i in external_features_tree.children[0].label.columns[1]._cells
     ]
     assert dtypes_display == [
         "bionty.CellType",
@@ -287,7 +285,7 @@ Here is how to create a feature:
         "bool",
         "num",
     ]
-    assert tree.children[0].children[0].label.columns[2]._cells == [
+    assert external_features_tree.children[0].label.columns[2]._cells == [
         "T cell",
         "Alzheimer disease, atopic eczema",
         "U0123",
