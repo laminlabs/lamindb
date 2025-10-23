@@ -147,8 +147,9 @@ def format_bytes(bytes_value):
         return f"{bytes_value / (1024**4):.1f} TB"
 
 
-def append_uid_run(record: TracksRun, two_column_items, fk_data=None):
-    two_column_items.append(Text.assemble(("uid: ", "dim"), f"{record.uid}"))
+def append_uid_run(
+    record: TracksRun, two_column_items: list, tree: Tree, fk_data=None
+) -> Tree:
     if fk_data and "run" in fk_data and fk_data["run"] and fk_data["run"]["id"]:
         run, transform_key = (
             SimpleNamespace(**fk_data["run"]),
@@ -158,12 +159,18 @@ def append_uid_run(record: TracksRun, two_column_items, fk_data=None):
         run, transform_key = record.run, record.run.transform.key
     else:
         run, transform_key = None, None
-    two_column_items.append(
-        Text.assemble(
-            ("run: ", "dim"),
-            format_run_title(run, transform_key=transform_key),
-        )
+    text_uid = Text.assemble(("uid: ", "dim"), f"{record.uid}")
+    text_run = Text.assemble(
+        ("run: ", "dim"), format_run_title(run, transform_key=transform_key)
     )
+    # if the key is very long, we need to put it in its own row
+    if transform_key is not None and len(transform_key) > 30:
+        tree.add(text_uid)
+        tree.add(text_run)
+    else:
+        two_column_items.append(text_uid)
+        two_column_items.append(text_run)
+    return tree
 
 
 def append_branch_space_created_at_created_by(
@@ -235,7 +242,7 @@ def describe_artifact(
         general = tree
     add_description(record, general)
     two_column_items = []  # type: ignore
-    append_uid_run(record, two_column_items, fk_data)
+    general = append_uid_run(record, two_column_items, general, fk_data)
     if record.kind or record.otype:
         two_column_items.append(Text.assemble(("kind: ", "dim"), f"{record.kind}"))
         two_column_items.append(Text.assemble(("otype: ", "dim"), f"{record.otype}"))
@@ -295,7 +302,7 @@ def describe_collection(
     general = tree.add(Text("General", style="bold cyan3"))
     add_description(record, general)
     two_column_items = []  # type: ignore
-    append_uid_run(record, two_column_items, fk_data)
+    general = append_uid_run(record, two_column_items, general, fk_data)
     append_branch_space_created_at_created_by(record, two_column_items, fk_data)
     add_two_column_items_to_tree(general, two_column_items)
     return tree
@@ -380,7 +387,7 @@ def describe_schema(record: Schema, slot: str | None = None) -> Tree:
     general = tree.add(Text("General", style=f"{bold_subheader} cyan"))
     add_description(record, general)
     two_column_items = []  # type: ignore
-    append_uid_run(record, two_column_items)
+    general = append_uid_run(record, two_column_items, general)
     two_column_items.append(Text.assemble(("itype: ", "dim"), f"{record.itype}"))
     two_column_items.append(Text.assemble(("otype: ", "dim"), f"{record.otype}"))
     two_column_items.append(Text.assemble(("hash: ", "dim"), f"{record.hash}"))
