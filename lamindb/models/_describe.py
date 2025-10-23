@@ -149,7 +149,7 @@ def format_bytes(bytes_value):
 
 def append_uid_run(record: TracksRun, two_column_items, fk_data=None):
     two_column_items.append(Text.assemble(("uid: ", "dim"), f"{record.uid}"))
-    if fk_data and "run" in fk_data:
+    if fk_data and "run" in fk_data and fk_data["run"] and fk_data["run"]["id"]:
         run, transform_key = (
             SimpleNamespace(**fk_data["run"]),
             fk_data["run"]["transform_key"],
