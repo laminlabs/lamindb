@@ -216,8 +216,7 @@ def describe_artifact(
         self,
         related_data=related_data,
     )
-    labels_data = related_data.get("m2m") if related_data is not None else None
-    labels_tree = describe_labels(self, labels_data=labels_data)
+    labels_tree = describe_labels(self, related_data=related_data)
     if dataset_features_tree or external_features_tree or labels_tree:
         general = tree.add(Text("General", style="bold bright_cyan"))
     else:
