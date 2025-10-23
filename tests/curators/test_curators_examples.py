@@ -250,7 +250,7 @@ def test_dataframe_curator(mini_immuno_schema: ln.Schema):
     assert (
         artifact.features.describe(return_str=True)
         == """\
-Artifact .parquet · DataFrame · dataset
+Artifact: examples/dataset1.parquet
 └── Dataset features
     └── columns (5)
         cell_type_by_expe…  bionty.CellType         B cell, CD8-positive, alpha…
@@ -873,7 +873,7 @@ def test_spatialdata_curator(
     assert artifact.features.get_values()["disease"] == "Alzheimer disease"
     assert (
         artifact.features.describe(return_str=True)
-        == """Artifact .zarr · SpatialData · dataset
+        == """Artifact: examples/spatialdata1.zarr
 └── Dataset features
     ├── attrs:bio (2)
     │   developmental_sta…  bionty.DevelopmentalS…  adult stage
