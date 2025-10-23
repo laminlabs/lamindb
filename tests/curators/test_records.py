@@ -267,4 +267,4 @@ def test_annotate_with_user_feature():
         "__lamindb_record_uid__",
         "__lamindb_record_name__",
     ]
-    assert df.iloc[0]["created_by"] == "abcdefgh"
+    assert df.iloc[0]["created_by"] == "test-user"

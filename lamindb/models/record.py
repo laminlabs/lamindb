@@ -231,10 +231,6 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates, HasParents):
         Run, through="RecordRun", related_name="linked_in_records"
     )
     """Runs linked in this record as values."""
-    linked_users: User = models.ManyToManyField(
-        User, through="RecordUser", related_name="records"
-    )
-    """Users linked in this record as values."""
     linked_ulabels: ULabel = models.ManyToManyField(
         ULabel,
         through="RecordULabel",
