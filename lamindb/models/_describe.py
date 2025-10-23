@@ -11,11 +11,12 @@ from rich.tree import Tree
 
 from lamindb.models import Run
 
-from .run import TracksRun
 from .sqlrecord import SQLRecord, format_field_value, record_repr
 
 if TYPE_CHECKING:
     from lamindb.models import Artifact, Collection, Schema
+
+    from .run import TracksRun
 
 
 # Define consistent column widths for use in other modules
@@ -113,37 +114,21 @@ def format_bytes(bytes_value):
         return f"{bytes_value / (1024**4):.1f} TB"
 
 
-def append_uid_transform(record: SQLRecord, two_column_items, fk_data=None):
+def append_uid_run(record: TracksRun, two_column_items, fk_data=None):
     two_column_items.append(Text.assemble(("uid: ", "dim"), f"{record.uid}"))
-    if isinstance(record, TracksRun):
-        transform_key = (
-            fk_data["run"]["transform_key"]  # "transform_key" has special logic
-            if fk_data and "run" in fk_data
-            else record.run.transform.key
-            if record.run is not None
-            else ""
+    transform_key = (
+        fk_data["run"]["transform_key"]  # "transform_key" has special logic
+        if fk_data and "run" in fk_data
+        else record.run.transform.key
+        if record.run is not None
+        else ""
+    )
+    two_column_items.append(
+        Text.assemble(
+            ("run: ", "dim"),
+            (f"{transform_key}", "cyan3"),
         )
-        two_column_items.append(
-            Text.assemble(
-                ("run: ", "dim"),
-                (f"{transform_key}", "cyan3"),
-            )
-        )
-    else:
-        assert isinstance(record, Run), f"cannot display record {record}"
-        transform_key = (
-            fk_data["transform"]["name"]  # "name" holds key, is display name
-            if fk_data and "transform" in fk_data
-            else record.transform.key
-            if record.transform
-            else ""
-        )
-        two_column_items.append(
-            Text.assemble(
-                ("transform: ", "dim"),
-                (f"{transform_key}", "cyan3"),
-            )
-        )
+    )
 
 
 def append_branch_space_created_at_created_by(
@@ -200,9 +185,9 @@ def describe_artifact(
     from ._label_manager import describe_labels
 
     if related_data is not None:
-        foreign_key_data = related_data.get("fk", {})
+        fk_data = related_data.get("fk", {})
     else:
-        foreign_key_data = {}
+        fk_data = {}
     tree = describe_header(self)
     dataset_features_tree, external_features_tree = describe_features(
         self,
@@ -215,14 +200,14 @@ def describe_artifact(
         general = tree
     add_description(self, general)
     two_column_items = []  # type: ignore
-    append_uid_transform(self, two_column_items, foreign_key_data)
+    append_uid_run(self, two_column_items, fk_data)
     two_column_items.append(Text.assemble(("kind: ", "dim"), f"{self.kind}"))
     two_column_items.append(Text.assemble(("otype: ", "dim"), f"{self.otype}"))
     two_column_items.append(Text.assemble(("hash: ", "dim"), f"{self.hash}"))
     two_column_items.append(
         Text.assemble(("size: ", "dim"), f"{format_bytes(self.size)}")
     )
-    append_branch_space_created_at_created_by(self, two_column_items, foreign_key_data)
+    append_branch_space_created_at_created_by(self, two_column_items, fk_data)
     if self.n_files:
         two_column_items.append(Text.assemble(("n_files: ", "dim"), f"{self.n_files}"))
     if self.n_observations:
@@ -232,9 +217,7 @@ def describe_artifact(
     if self.version:
         two_column_items.append(Text.assemble(("version: ", "dim"), f"{self.version}"))
     add_two_column_items_to_tree(general, two_column_items)
-    storage_root = (
-        foreign_key_data["storage"]["name"] if foreign_key_data else self.storage.root
-    )
+    storage_root = fk_data["storage"]["name"] if fk_data else self.storage.root
     storage_key = (
         self.key
         if self._key_is_virtual
@@ -269,14 +252,14 @@ def describe_collection(
 ) -> Tree:
     tree = describe_header(self)
     if related_data is not None:
-        foreign_key_data = related_data.get("fk", {})
+        fk_data = related_data.get("fk", {})
     else:
-        foreign_key_data = {}
+        fk_data = {}
     general = tree.add(Text("General", style="bold bright_cyan"))
     add_description(self, general)
     two_column_items = []  # type: ignore
-    append_uid_transform(self, two_column_items, foreign_key_data)
-    append_branch_space_created_at_created_by(self, two_column_items, foreign_key_data)
+    append_uid_run(self, two_column_items, fk_data)
+    append_branch_space_created_at_created_by(self, two_column_items, fk_data)
 
     if self.version:
         two_column_items.append(Text.assemble(("version: ", "dim"), f"{self.version}"))
@@ -295,9 +278,9 @@ def describe_run(
 
     tree = describe_header(self)
     if related_data is not None:
-        foreign_key_data = related_data.get("fk", {})
+        fk_data = related_data.get("fk", {})
     else:
-        foreign_key_data = {}
+        fk_data = {}
     _, features_tree = describe_features(
         self,
         related_data=related_data,
@@ -307,7 +290,20 @@ def describe_run(
     else:
         general = tree
     two_column_items = []  # type: ignore
-    append_uid_transform(self, two_column_items, foreign_key_data)
+    transform_key = (
+        fk_data["transform"]["name"]  # "name" holds key, is display name
+        if fk_data and "transform" in fk_data
+        else self.transform.key
+        if self.transform
+        else ""
+    )
+    two_column_items.append(
+        Text.assemble(
+            ("transform: ", "dim"),
+            (f"{transform_key}", "cyan3"),
+        )
+    )
+
     two_column_items.append(Text.assemble(("status: ", "dim"), self.status))
     two_column_items.append(
         Text.assemble(("reference: ", "dim"), self.reference if self.reference else "")
@@ -318,7 +314,7 @@ def describe_run(
     two_column_items.append(
         Text.assemble(("finished_at: ", "dim"), format_field_value(self.finished_at))
     )
-    append_branch_space_created_at_created_by(self, two_column_items, foreign_key_data)
+    append_branch_space_created_at_created_by(self, two_column_items, fk_data)
     add_two_column_items_to_tree(general, two_column_items)
     if self.params:
         params = tree.add(Text("Params", style="bold yellow"))
@@ -349,7 +345,7 @@ def describe_schema(self: Schema, slot: str | None = None) -> Tree:
     general = tree.add(Text("General", style=f"{bold_subheader} bright_cyan"))
     add_description(self, general)
     two_column_items = []  # type: ignore
-    append_uid_transform(self, two_column_items)
+    append_uid_run(self, two_column_items)
     two_column_items.append(Text.assemble(("itype: ", "dim"), f"{self.itype}"))
     two_column_items.append(Text.assemble(("otype: ", "dim"), f"{self.otype}"))
     two_column_items.append(Text.assemble(("hash: ", "dim"), f"{self.hash}"))
