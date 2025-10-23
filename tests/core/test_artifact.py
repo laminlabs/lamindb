@@ -163,7 +163,7 @@ def test_save_on_branch(df):
     branch.delete(permanent=True)
 
 
-def test_revise_recreate_artifact(df):
+def test_revise_recreate_artifact(df, ccaplog):
     # attempt to create a file with an invalid version
     with pytest.raises(ValueError) as error:
         artifact = ln.Artifact.from_dataframe(df, description="test", version=0)
@@ -258,30 +258,42 @@ def test_revise_recreate_artifact(df):
     assert artifact_new.description == "test1 updated"
 
     # re-create while skipping hash lookup with different key
+    artifact_v4 = ln.Artifact.from_dataframe(
+        df,
+        key="my-test-dataset1.parquet",
+        skip_hash_lookup=True,
+    )
+    assert artifact_v4.uid != artifact_r3.uid
+    assert artifact_v4.hash == artifact_r3.hash
+    assert artifact_v4.key == "my-test-dataset1.parquet"
+    artifact_v4.save()  # this just saves a duplicated file
+
+    # re-create while skipping hash lookup with same key
     artifact_new = ln.Artifact.from_dataframe(
         df,
         key="my-test-dataset1.parquet",
         skip_hash_lookup=True,
     )
-    assert artifact_new.uid != artifact_r3.uid
-    assert artifact_new.hash == artifact_r3.hash
-    assert artifact_new.key == "my-test-dataset1.parquet"
-    artifact_new.save()  # this just saves a duplicated file
-    artifact_new_queried = ln.Artifact.filter(uid=artifact_new.uid).one_or_none()
-    assert artifact_new_queried.uid != artifact_r3.uid
+    assert artifact_new.uid != artifact_v4.uid
+    assert artifact_new.stem_uid == artifact_v4.stem_uid
+    assert artifact_new.hash == artifact_v4.hash
+    artifact_new.save()  # should now violate unique constraint, falls back artifact_v4
+    assert artifact_new.uid == artifact_v4.uid
 
-    # re-create while skipping hash lookup with same key
+    # re-create while skipping hash lookup artifact, move to trash before
+    artifact_v4.delete()
     artifact_new = ln.Artifact.from_dataframe(
         df,
-        key="my-test-dataset.parquet",
+        key="my-test-dataset1.parquet",
         skip_hash_lookup=True,
     )
-    assert artifact_new.uid != artifact_r3.uid
-    assert artifact_new.hash == artifact_r3.hash
-    assert artifact_new.key == "my-test-dataset.parquet"
-    artifact_new.save()  # should now violate unique constraint
-    artifact_new_queried = ln.Artifact.filter(uid=artifact_new.uid).one_or_none()
-    assert artifact_new_queried.uid != artifact_r3.uid
+    assert artifact_new.uid != artifact_v4.uid
+    assert artifact_new.key == "my-test-dataset1.parquet"
+    assert "returning artifact from trash" not in ccaplog.text
+    artifact_new.save()  # should now violate unique constraint, retrieve artifact_v4 from trash
+    assert "returning artifact from trash" in ccaplog.text
+    assert artifact_new.uid == artifact_v4.uid
+    assert artifact_new.branch_id == 1  # restored to default branch
 
     with pytest.raises(TypeError) as error:
         ln.Artifact.from_dataframe(
