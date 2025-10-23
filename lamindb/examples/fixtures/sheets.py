@@ -46,9 +46,11 @@ def populate_sheets_compound_treatment():
 
     # Samples ---------------------------
 
+    # features named id, uid or name conflict with django field names, we test them here
     id_feature = ln.Feature(name="id", dtype=int).save()
     uid_feature = ln.Feature(name="uid", dtype=str).save()
     name_feature = ln.Feature(name="name", dtype=str).save()
+
     project = ln.Feature(name="project", dtype=ln.Project).save()
     project1 = ln.Project(name="Project 1").save()
     sample_type = ln.Record(name="BioSample", is_type=True).save()
