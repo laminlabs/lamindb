@@ -190,8 +190,6 @@ def view_lineage(
         df_values += _get_all_child_runs(data)
     df_edges = _df_edges_from_runs(df_values)
 
-    data_label = _record_label(data)
-
     def add_node(
         record: Run | Artifact | Collection,
         node_id: str,
@@ -230,7 +228,7 @@ def view_lineage(
 
     u.node(
         f"{data._meta.model_name}_{data.uid}",
-        label=data_label,
+        label=get_record_label(data),
         style="rounded,filled",
         fillcolor="white",
         shape="box",
@@ -314,7 +312,7 @@ def view_parents(
     )
     u.node(
         record.uid,
-        label=(_record_label(record)),
+        label=(get_record_label(record)),
         fillcolor=LAMIN_GREEN_LIGHTER,
     )
     if df_edges is not None:
@@ -399,21 +397,21 @@ def _df_edges_from_parents(
     df_edges["source_record"] = df_edges["source"].apply(lambda x: all.get(id=x))
     df_edges["target_record"] = df_edges["target"].apply(lambda x: all.get(id=x))
     if record.__class__.__name__ == "Transform":
-        df_edges["source_label"] = df_edges["source_record"].apply(_record_label)
-        df_edges["target_label"] = df_edges["target_record"].apply(_record_label)
+        df_edges["source_label"] = df_edges["source_record"].apply(get_record_label)
+        df_edges["target_label"] = df_edges["target_record"].apply(get_record_label)
     else:
         df_edges["source_label"] = df_edges["source_record"].apply(
-            lambda x: _record_label(x, field)
+            lambda x: get_record_label(x, field)
         )
         df_edges["target_label"] = df_edges["target_record"].apply(
-            lambda x: _record_label(x, field)
+            lambda x: get_record_label(x, field)
         )
     df_edges["source"] = df_edges["source_record"].apply(lambda x: x.uid)
     df_edges["target"] = df_edges["target_record"].apply(lambda x: x.uid)
     return df_edges
 
 
-def _record_label(record: SQLRecord, field: str | None = None):
+def get_record_label(record: SQLRecord, field: str | None = None):
     from .artifact import Artifact
     from .collection import Collection
     from .transform import Transform
@@ -561,6 +559,6 @@ def _df_edges_from_runs(df_values: list):
     df = df.drop_duplicates().dropna()
     df["source"] = [f"{i._meta.model_name}_{i.uid}" for i in df["source_record"]]
     df["target"] = [f"{i._meta.model_name}_{i.uid}" for i in df["target_record"]]
-    df["source_label"] = df["source_record"].apply(_record_label)
-    df["target_label"] = df["target_record"].apply(_record_label)
+    df["source_label"] = df["source_record"].apply(get_record_label)
+    df["target_label"] = df["target_record"].apply(get_record_label)
     return df
