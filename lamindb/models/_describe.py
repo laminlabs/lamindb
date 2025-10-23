@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import datetime
 import re
 from typing import TYPE_CHECKING
 
@@ -13,29 +12,13 @@ from rich.tree import Tree
 from lamindb.models import Run
 
 from .run import TracksRun
-from .sqlrecord import SQLRecord, record_repr
+from .sqlrecord import SQLRecord, format_field_value, record_repr
 
 if TYPE_CHECKING:
     from lamindb.models import Artifact, Collection, Schema
 
 
-def highlight_time(iso: str):
-    try:
-        tz = datetime.datetime.now().astimezone().tzinfo
-        res = (
-            datetime.datetime.fromisoformat(iso)
-            .replace(tzinfo=datetime.timezone.utc)
-            .astimezone(tz)
-            .strftime("%Y-%m-%d %H:%M:%S")
-        )
-    except ValueError:
-        # raises ValueError: Invalid isoformat string: '<django.db.models.expressions.DatabaseDefault object at 0x1128ac440>'
-        # but can't be caught with `isinstance(iso, DatabaseDefault)` for unkown reasons
-        return Text("timestamp of unsaved record not available", style="dim")
-    return Text(res)
-
-
-# Define consistent column widths
+# Define consistent column widths for use in other modules
 NAME_WIDTH = 30
 TYPE_WIDTH = 35  # types can get long, e.g. cat[Record[Treatment]]
 VALUES_WIDTH = 40
@@ -100,9 +83,12 @@ def describe_header(self: Artifact | Collection | Run) -> Tree:
         logger.warning("This artifact is archived.")
     elif self.branch_id == -1:  # type: ignore
         logger.warning("This artifact is in the trash.")
-    title = self.key if hasattr(self, "key") else self.name
-    if title is None:
-        title = ""
+    if isinstance(self, Run):
+        title = (
+            self.name if self.name is not None else format_field_value(self.started_at)
+        )
+    else:
+        title = self.key if self.key is not None else ""
     tree = Tree(
         Text.assemble(
             (f"{self.__class__.__name__}: ", "bold"),
@@ -137,6 +123,12 @@ def append_uid_transform(record: SQLRecord, two_column_items, fk_data=None):
             if record.run is not None
             else ""
         )
+        two_column_items.append(
+            Text.assemble(
+                ("run: ", "dim"),
+                (f"{transform_key}", "cyan3"),
+            )
+        )
     else:
         assert isinstance(record, Run), f"cannot display record {record}"
         transform_key = (
@@ -146,12 +138,12 @@ def append_uid_transform(record: SQLRecord, two_column_items, fk_data=None):
             if record.transform
             else ""
         )
-    two_column_items.append(
-        Text.assemble(
-            ("transform: ", "dim"),
-            (f"{transform_key}", "cyan3"),
+        two_column_items.append(
+            Text.assemble(
+                ("transform: ", "dim"),
+                (f"{transform_key}", "cyan3"),
+            )
         )
-    )
 
 
 def append_branch_space_created_at_created_by(
@@ -165,7 +157,7 @@ def append_branch_space_created_at_created_by(
     two_column_items.append(Text.assemble(("space: ", "dim"), space_name))
     # created_at
     two_column_items.append(
-        Text.assemble(("created_at: ", "dim"), highlight_time(str(record.created_at)))
+        Text.assemble(("created_at: ", "dim"), format_field_value(record.created_at))
     )
     # created_by / "name" in fk_data holds handle, is display name
     created_by_handle = (
@@ -243,9 +235,17 @@ def describe_artifact(
     storage_root = (
         foreign_key_data["storage"]["name"] if foreign_key_data else self.storage.root
     )
-    storage_key = self.key if self.key else self.uid
-    if not self.key and self.overwrite_versions > 0:
-        storage_key = storage_key[:-4]
+    storage_key = (
+        self.key
+        if self._key_is_virtual
+        else self._real_key
+        if self._real_key
+        else self.uid
+    )
+    if storage_key == self.uid:
+        if self.overwrite_versions:
+            storage_key = storage_key[:-4]
+        storage_key = f"{storage_key}{self.suffix}"
     general.add(
         Text.assemble(
             ("storage path: ", "dim"),
@@ -298,19 +298,32 @@ def describe_run(
         foreign_key_data = related_data.get("fk", {})
     else:
         foreign_key_data = {}
-    general = tree.add(Text("General", style="bold bright_cyan"))
+    _, features_tree = describe_features(
+        self,
+        related_data=related_data,
+    )
+    if features_tree or self.params:
+        general = tree.add(Text("General", style="bold bright_cyan"))
+    else:
+        general = tree
     two_column_items = []  # type: ignore
     append_uid_transform(self, two_column_items, foreign_key_data)
+    two_column_items.append(Text.assemble(("status: ", "dim"), self.status))
+    two_column_items.append(
+        Text.assemble(("reference: ", "dim"), self.reference if self.reference else "")
+    )
+    two_column_items.append(
+        Text.assemble(("started_at: ", "dim"), format_field_value(self.started_at))
+    )
+    two_column_items.append(
+        Text.assemble(("finished_at: ", "dim"), format_field_value(self.finished_at))
+    )
     append_branch_space_created_at_created_by(self, two_column_items, foreign_key_data)
     add_two_column_items_to_tree(general, two_column_items)
     if self.params:
         params = tree.add(Text("Params", style="bold yellow"))
         for key, value in self.params.items():
             params.add(f"{key}: {value}")
-    _, features_tree = describe_features(
-        self,
-        related_data=related_data,
-    )
     if features_tree:
         tree.add(features_tree)
     return tree
