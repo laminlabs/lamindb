@@ -417,7 +417,7 @@ def describe_features(
         slot, _ = feature_data.get(feature_name)
         internal_feature_labels_slot.setdefault(slot, []).append(feature_row)
 
-    int_features_tree_children = []
+    dataset_features_tree_children = []
     for slot, (schema, feature_names_or_n) in schema_data.items():
         if isinstance(feature_names_or_n, int):
             feature_rows = []
@@ -458,7 +458,7 @@ def describe_features(
                     if feature_name
                 ]
         schema_itype = f" {schema.itype}" if schema.itype != "Feature" else ""
-        int_features_tree_children.append(
+        dataset_features_tree_children.append(
             _create_feature_table(
                 Text.assemble(
                     (slot, "violet"),
@@ -470,9 +470,9 @@ def describe_features(
             )
         )
     # external features
-    ext_features_tree_children = []
+    external_features_tree_children = []
     if external_data:
-        ext_features_tree_children.append(
+        external_features_tree_children.append(
             _create_feature_table(
                 "",
                 "",
@@ -481,20 +481,24 @@ def describe_features(
         )
 
     # trees
-    int_features_tree = None
-    if int_features_tree_children:
-        int_features_tree = Tree(Text("Dataset features", style="bold bright_magenta"))
-        for child in int_features_tree_children:
-            int_features_tree.add(child)
-    ext_features_tree = None
-    if ext_features_tree_children:
-        ext_features_text = (
+    dataset_features_tree = None
+    if dataset_features_tree_children:
+        dataset_features_tree = Tree(
+            Text("Dataset features", style="bold bright_magenta")
+        )
+        for child in dataset_features_tree_children:
+            dataset_features_tree.add(child)
+    external_features_tree = None
+    if external_features_tree_children:
+        external_features_text = (
             "External features" if isinstance(self, Artifact) else "Features"
         )
-        ext_features_tree = Tree(Text(ext_features_text, style="bold dark_orange"))
-        for child in ext_features_tree_children:
-            ext_features_tree.add(child)
-    return int_features_tree, ext_features_tree
+        external_features_tree = Tree(
+            Text(external_features_text, style="bold dark_orange")
+        )
+        for child in external_features_tree_children:
+            external_features_tree.add(child)
+    return dataset_features_tree, external_features_tree
 
 
 def infer_feature_type_convert_json(
@@ -823,12 +827,12 @@ class FeatureManager:
 
         This is what `artifact.describe()` calls under the hood.
         """
-        int_features_tree, ext_features_tree = describe_features(self._host)  # type: ignore
+        dataset_features_tree, external_features_tree = describe_features(self._host)  # type: ignore
         tree = describe_header(self._host)
-        if int_features_tree:
-            tree.add(int_features_tree)
-        if ext_features_tree:
-            tree.add(ext_features_tree)
+        if dataset_features_tree:
+            tree.add(dataset_features_tree)
+        if external_features_tree:
+            tree.add(external_features_tree)
         return format_rich_tree(
             tree, fallback="no linked features", return_str=return_str
         )
