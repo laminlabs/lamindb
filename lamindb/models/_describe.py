@@ -236,10 +236,7 @@ def describe_artifact(
         related_data=related_data,
     )
     labels_tree = describe_labels(record, related_data=related_data)
-    if dataset_features_tree or external_features_tree or labels_tree:
-        general = tree.add(Text("General", style="bold cyan3"))
-    else:
-        general = tree
+    general = tree
     add_description(record, general)
     two_column_items = []  # type: ignore
     general = append_uid_run(record, two_column_items, general, fk_data)
@@ -299,7 +296,7 @@ def describe_collection(
         fk_data = related_data.get("fk", {})
     else:
         fk_data = {}
-    general = tree.add(Text("General", style="bold cyan3"))
+    general = tree
     add_description(record, general)
     two_column_items = []  # type: ignore
     general = append_uid_run(record, two_column_items, general, fk_data)
@@ -324,10 +321,7 @@ def describe_run(
         record,
         related_data=related_data,
     )
-    if features_tree or record.params:
-        general = tree.add(Text("General", style="bold cyan3"))
-    else:
-        general = tree
+    general = tree
     two_column_items = []  # type: ignore
     two_column_items.append(Text.assemble(("uid: ", "dim"), f"{record.uid}"))
     if fk_data and "transform" in fk_data:
@@ -384,7 +378,7 @@ def describe_schema(record: Schema, slot: str | None = None) -> Tree:
         Text.assemble((header, "bold"), (f"{prefix}", "dim"), (f"{name}", "cyan3")),
         guide_style="dim",
     )
-    general = tree.add(Text("General", style=f"{bold_subheader} cyan"))
+    general = tree
     add_description(record, general)
     two_column_items = []  # type: ignore
     general = append_uid_run(record, two_column_items, general)
