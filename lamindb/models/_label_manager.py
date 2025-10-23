@@ -75,10 +75,14 @@ def describe_labels(
 ) -> Tree | None:
     """Describe labels."""
     labels_data = related_data.get("m2m") if related_data is not None else None
-    if not self._state.adding and connections[self._state.db].vendor == "postgresql":
-        labels_data = _get_labels_postgres(self, labels_data)
-    if not labels_data:
-        labels_data = _get_labels(self, instance=self._state.db)
+    if labels_data is None:
+        if (
+            not self._state.adding
+            and connections[self._state.db].vendor == "postgresql"
+        ):
+            labels_data = _get_labels_postgres(self, labels_data)
+        if not labels_data:
+            labels_data = _get_labels(self, instance=self._state.db)
     if not labels_data:
         return None
     labels_table = Table(
