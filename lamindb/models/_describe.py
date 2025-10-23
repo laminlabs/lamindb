@@ -75,28 +75,32 @@ def format_rich_tree(
     return None
 
 
-def format_run_title(self: Run) -> str:
-    title = self.name if self.name is not None else format_field_value(self.started_at)
-    title += f" ({self.transform.key})"
+def format_run_title(record: Run) -> str:
+    title = (
+        record.name
+        if record.name is not None
+        else format_field_value(record.started_at)
+    )
+    title += f" ({record.transform.key})"
     return title
 
 
-def describe_header(self: Artifact | Collection | Run) -> Tree:
-    if hasattr(self, "is_latest") and not self.is_latest:
+def describe_header(record: Artifact | Collection | Run) -> Tree:
+    if hasattr(record, "is_latest") and not record.is_latest:
         logger.warning(
-            f"This is not the latest version of the {self.__class__.__name__}."
+            f"This is not the latest version of the {record.__class__.__name__}."
         )
-    if self.branch_id == 0:  # type: ignore
+    if record.branch_id == 0:  # type: ignore
         logger.warning("This artifact is archived.")
-    elif self.branch_id == -1:  # type: ignore
+    elif record.branch_id == -1:  # type: ignore
         logger.warning("This artifact is in the trash.")
-    if isinstance(self, Run):
-        title = format_run_title(self)
+    if isinstance(record, Run):
+        title = format_run_title(record)
     else:
-        title = self.key if self.key is not None else ""
+        title = record.key if record.key is not None else ""
     tree = Tree(
         Text.assemble(
-            (f"{self.__class__.__name__}: ", "bold"),
+            (f"{record.__class__.__name__}: ", "bold"),
             (f"{title}", "cyan3"),
         ),
         guide_style="dim",  # dim the connecting lines
@@ -181,7 +185,7 @@ def add_two_column_items_to_tree(tree, two_column_items):
 
 
 def describe_artifact(
-    self: Artifact,
+    record: Artifact,
     tree: Tree | None = None,
     related_data: dict | None = None,
 ) -> Tree:
@@ -192,47 +196,51 @@ def describe_artifact(
         fk_data = related_data.get("fk", {})
     else:
         fk_data = {}
-    tree = describe_header(self)
+    tree = describe_header(record)
     dataset_features_tree, external_features_tree = describe_features(
-        self,
+        record,
         related_data=related_data,
     )
-    labels_tree = describe_labels(self, related_data=related_data)
+    labels_tree = describe_labels(record, related_data=related_data)
     if dataset_features_tree or external_features_tree or labels_tree:
         general = tree.add(Text("General", style="bold bright_cyan"))
     else:
         general = tree
-    add_description(self, general)
+    add_description(record, general)
     two_column_items = []  # type: ignore
-    append_uid_run(self, two_column_items, fk_data)
-    two_column_items.append(Text.assemble(("kind: ", "dim"), f"{self.kind}"))
-    two_column_items.append(Text.assemble(("otype: ", "dim"), f"{self.otype}"))
-    two_column_items.append(Text.assemble(("hash: ", "dim"), f"{self.hash}"))
+    append_uid_run(record, two_column_items, fk_data)
+    two_column_items.append(Text.assemble(("kind: ", "dim"), f"{record.kind}"))
+    two_column_items.append(Text.assemble(("otype: ", "dim"), f"{record.otype}"))
+    two_column_items.append(Text.assemble(("hash: ", "dim"), f"{record.hash}"))
     two_column_items.append(
-        Text.assemble(("size: ", "dim"), f"{format_bytes(self.size)}")
+        Text.assemble(("size: ", "dim"), f"{format_bytes(record.size)}")
     )
-    append_branch_space_created_at_created_by(self, two_column_items, fk_data)
-    if self.n_files:
-        two_column_items.append(Text.assemble(("n_files: ", "dim"), f"{self.n_files}"))
-    if self.n_observations:
+    append_branch_space_created_at_created_by(record, two_column_items, fk_data)
+    if record.n_files:
         two_column_items.append(
-            Text.assemble(("n_observations: ", "dim"), f"{self.n_observations}")
+            Text.assemble(("n_files: ", "dim"), f"{record.n_files}")
         )
-    if self.version:
-        two_column_items.append(Text.assemble(("version: ", "dim"), f"{self.version}"))
+    if record.n_observations:
+        two_column_items.append(
+            Text.assemble(("n_observations: ", "dim"), f"{record.n_observations}")
+        )
+    if record.version:
+        two_column_items.append(
+            Text.assemble(("version: ", "dim"), f"{record.version}")
+        )
     add_two_column_items_to_tree(general, two_column_items)
-    storage_root = fk_data["storage"]["name"] if fk_data else self.storage.root
+    storage_root = fk_data["storage"]["name"] if fk_data else record.storage.root
     storage_key = (
-        self.key
-        if self._key_is_virtual
-        else self._real_key
-        if self._real_key
-        else self.uid
+        record.key
+        if record._key_is_virtual
+        else record._real_key
+        if record._real_key
+        else record.uid
     )
-    if storage_key == self.uid:
-        if self.overwrite_versions:
+    if storage_key == record.uid:
+        if record.overwrite_versions:
             storage_key = storage_key[:-4]
-        storage_key = f"{storage_key}{self.suffix}"
+        storage_key = f"{storage_key}{record.suffix}"
     general.add(
         Text.assemble(
             ("storage path: ", "dim"),
@@ -250,23 +258,25 @@ def describe_artifact(
 
 
 def describe_collection(
-    self: Collection,
+    record: Collection,
     tree: Tree | None = None,
     related_data: dict | None = None,
 ) -> Tree:
-    tree = describe_header(self)
+    tree = describe_header(record)
     if related_data is not None:
         fk_data = related_data.get("fk", {})
     else:
         fk_data = {}
     general = tree.add(Text("General", style="bold bright_cyan"))
-    add_description(self, general)
+    add_description(record, general)
     two_column_items = []  # type: ignore
-    append_uid_run(self, two_column_items, fk_data)
-    append_branch_space_created_at_created_by(self, two_column_items, fk_data)
+    append_uid_run(record, two_column_items, fk_data)
+    append_branch_space_created_at_created_by(record, two_column_items, fk_data)
 
-    if self.version:
-        two_column_items.append(Text.assemble(("version: ", "dim"), f"{self.version}"))
+    if record.version:
+        two_column_items.append(
+            Text.assemble(("version: ", "dim"), f"{record.version}")
+        )
 
     add_two_column_items_to_tree(general, two_column_items)
 
@@ -274,32 +284,32 @@ def describe_collection(
 
 
 def describe_run(
-    self: Run,
+    record: Run,
     tree: Tree | None = None,
     related_data: dict | None = None,
 ) -> Tree:
     from ._feature_manager import describe_features
 
-    tree = describe_header(self)
+    tree = describe_header(record)
     if related_data is not None:
         fk_data = related_data.get("fk", {})
     else:
         fk_data = {}
     _, features_tree = describe_features(
-        self,
+        record,
         related_data=related_data,
     )
-    if features_tree or self.params:
+    if features_tree or record.params:
         general = tree.add(Text("General", style="bold bright_cyan"))
     else:
         general = tree
     two_column_items = []  # type: ignore
-    two_column_items.append(Text.assemble(("uid: ", "dim"), f"{self.uid}"))
+    two_column_items.append(Text.assemble(("uid: ", "dim"), f"{record.uid}"))
     transform_key = (
         fk_data["transform"]["name"]  # "name" holds key, is display name
         if fk_data and "transform" in fk_data
-        else self.transform.key
-        if self.transform
+        else record.transform.key
+        if record.transform
         else ""
     )
     two_column_items.append(
@@ -309,36 +319,38 @@ def describe_run(
         )
     )
 
-    two_column_items.append(Text.assemble(("status: ", "dim"), self.status))
+    two_column_items.append(Text.assemble(("status: ", "dim"), record.status))
     two_column_items.append(
-        Text.assemble(("reference: ", "dim"), self.reference if self.reference else "")
+        Text.assemble(
+            ("reference: ", "dim"), record.reference if record.reference else ""
+        )
     )
     two_column_items.append(
-        Text.assemble(("started_at: ", "dim"), format_field_value(self.started_at))
+        Text.assemble(("started_at: ", "dim"), format_field_value(record.started_at))
     )
     two_column_items.append(
-        Text.assemble(("finished_at: ", "dim"), format_field_value(self.finished_at))
+        Text.assemble(("finished_at: ", "dim"), format_field_value(record.finished_at))
     )
-    append_branch_space_created_at_created_by(self, two_column_items, fk_data)
+    append_branch_space_created_at_created_by(record, two_column_items, fk_data)
     add_two_column_items_to_tree(general, two_column_items)
-    if self.params:
+    if record.params:
         params = tree.add(Text("Params", style="bold yellow"))
-        for key, value in self.params.items():
+        for key, value in record.params.items():
             params.add(f"{key}: {value}")
     if features_tree:
         tree.add(features_tree)
     return tree
 
 
-def describe_schema(self: Schema, slot: str | None = None) -> Tree:
+def describe_schema(record: Schema, slot: str | None = None) -> Tree:
     from ._feature_manager import strip_cat
 
-    if self.type:
-        prefix = f" {self.type.name} · "
+    if record.type:
+        prefix = f" {record.type.name} · "
     else:
         prefix = " "
-    if self.name:
-        name = self.name
+    if record.name:
+        name = record.name
     else:
         name = "unnamed"
     header = "Schema:" if slot is None else f"{slot}:"
@@ -348,32 +360,32 @@ def describe_schema(self: Schema, slot: str | None = None) -> Tree:
         guide_style="dim",
     )
     general = tree.add(Text("General", style=f"{bold_subheader} bright_cyan"))
-    add_description(self, general)
+    add_description(record, general)
     two_column_items = []  # type: ignore
-    append_uid_run(self, two_column_items)
-    two_column_items.append(Text.assemble(("itype: ", "dim"), f"{self.itype}"))
-    two_column_items.append(Text.assemble(("otype: ", "dim"), f"{self.otype}"))
-    two_column_items.append(Text.assemble(("hash: ", "dim"), f"{self.hash}"))
+    append_uid_run(record, two_column_items)
+    two_column_items.append(Text.assemble(("itype: ", "dim"), f"{record.itype}"))
+    two_column_items.append(Text.assemble(("otype: ", "dim"), f"{record.otype}"))
+    two_column_items.append(Text.assemble(("hash: ", "dim"), f"{record.hash}"))
     two_column_items.append(
-        Text.assemble(("ordered_set: ", "dim"), f"{self.ordered_set}")
+        Text.assemble(("ordered_set: ", "dim"), f"{record.ordered_set}")
     )
     two_column_items.append(
-        Text.assemble(("maximal_set: ", "dim"), f"{self.maximal_set}")
+        Text.assemble(("maximal_set: ", "dim"), f"{record.maximal_set}")
     )
     two_column_items.append(
-        Text.assemble(("minimal_set: ", "dim"), f"{self.minimal_set}")
+        Text.assemble(("minimal_set: ", "dim"), f"{record.minimal_set}")
     )
-    append_branch_space_created_at_created_by(self, two_column_items)
+    append_branch_space_created_at_created_by(record, two_column_items)
     add_two_column_items_to_tree(general, two_column_items)
 
     # Add features section
-    members_count = self.n
+    members_count = record.n
     members_count_display = f" ({members_count})" if members_count > 0 else ""
-    if self.itype != "Composite" and (members_count > 0 or self.dtype):
+    if record.itype != "Composite" and (members_count > 0 or record.dtype):
         features = tree.add(
             Text.assemble(
                 (
-                    "Features" if self.itype == "Feature" else self.itype,
+                    "Features" if record.itype == "Feature" else record.itype,
                     f"{bold_subheader} bright_magenta",
                 ),
                 (members_count_display, f"{bold_subheader} dim"),
@@ -391,35 +403,35 @@ def describe_schema(self: Schema, slot: str | None = None) -> Tree:
             feature_table.add_column("coerce_dtype", style="", no_wrap=True)
             feature_table.add_column("default_value", style="", no_wrap=True)
 
-            optionals = self.optionals.get()
-            for member in self.members:
+            optionals = record.optionals.get()
+            for member in record.members:
                 feature_table.add_row(
                     member.name,
                     Text(strip_cat(member.dtype)),
                     "✓" if optionals.filter(uid=member.uid).exists() else "✗",
                     "✓" if member.nullable else "✗",
-                    "✓" if self.coerce_dtype or member.coerce_dtype else "✗",
+                    "✓" if record.coerce_dtype or member.coerce_dtype else "✗",
                     str(member.default_value) if member.default_value else "unset",
                 )
 
             features.add(feature_table)
-        elif self.dtype:
-            features.add(Text.assemble(("dtype: ", "dim"), f"{self.dtype}"))
+        elif record.dtype:
+            features.add(Text.assemble(("dtype: ", "dim"), f"{record.dtype}"))
 
     return tree
 
 
-def describe_postgres(self):
+def describe_postgres(record):
     from ._django import get_artifact_or_run_with_related, get_collection_with_related
 
-    model_name = self.__class__.__name__
-    msg = f"{colors.green(model_name)}{record_repr(self, include_foreign_keys=False).lstrip(model_name)}\n"
-    if self._state.db is not None and self._state.db != "default":
+    model_name = record.__class__.__name__
+    msg = f"{colors.green(model_name)}{record_repr(record, include_foreign_keys=False).lstrip(model_name)}\n"
+    if record._state.db is not None and record._state.db != "default":
         msg += f"  {colors.italic('Database instance')}\n"
-        msg += f"    slug: {self._state.db}\n"
+        msg += f"    slug: {record._state.db}\n"
     if model_name in {"Artifact", "Run"}:
         result = get_artifact_or_run_with_related(
-            self,
+            record,
             include_feature_link=True,
             include_fk=True,
             include_m2m=True,
@@ -427,26 +439,26 @@ def describe_postgres(self):
         )
         related_data = result.get("related_data", {})
         if model_name == "Artifact":
-            tree = describe_artifact(self, related_data=related_data)
+            tree = describe_artifact(record, related_data=related_data)
         else:
-            tree = describe_run(self, related_data=related_data)
+            tree = describe_run(record, related_data=related_data)
     elif model_name == "Collection":
-        result = get_collection_with_related(self, include_fk=True)
+        result = get_collection_with_related(record, include_fk=True)
         related_data = result.get("related_data", {})
-        tree = describe_collection(self, related_data=related_data)
+        tree = describe_collection(record, related_data=related_data)
     else:
-        tree = describe_header(self)
+        tree = describe_header(record)
     return tree
 
 
-def describe_sqlite(self):
-    model_name = self.__class__.__name__
-    msg = f"{colors.green(model_name)}{record_repr(self, include_foreign_keys=False).lstrip(model_name)}\n"
-    if self._state.db is not None and self._state.db != "default":
+def describe_sqlite(record):
+    model_name = record.__class__.__name__
+    msg = f"{colors.green(model_name)}{record_repr(record, include_foreign_keys=False).lstrip(model_name)}\n"
+    if record._state.db is not None and record._state.db != "default":
         msg += f"  {colors.italic('Database instance')}\n"
-        msg += f"    slug: {self._state.db}\n"
+        msg += f"    slug: {record._state.db}\n"
 
-    fields = self._meta.fields
+    fields = record._meta.fields
     direct_fields = []
     foreign_key_fields = []
     for f in fields:
@@ -454,12 +466,12 @@ def describe_sqlite(self):
             foreign_key_fields.append(f.name)
         else:
             direct_fields.append(f.name)
-    if not self._state.adding:
+    if not record._state.adding:
         # prefetch foreign key relationships
-        self = (
-            self.__class__.objects.using(self._state.db)
+        record = (
+            record.__class__.objects.using(record._state.db)
             .select_related(*foreign_key_fields)
-            .get(id=self.id)
+            .get(id=record.id)
         )
         # prefetch m-2-m relationships
         many_to_many_fields = []
@@ -467,29 +479,32 @@ def describe_sqlite(self):
             many_to_many_fields.append("input_of_runs")
         if model_name == "Artifact":
             many_to_many_fields.append("feature_sets")
-        self = (
-            self.__class__.objects.using(self._state.db)
+        record = (
+            record.__class__.objects.using(record._state.db)
             .prefetch_related(*many_to_many_fields)
-            .get(id=self.id)
+            .get(id=record.id)
         )
     if model_name in {"Artifact", "Run"}:
         if model_name == "Artifact":
-            tree = describe_artifact(self)
+            tree = describe_artifact(record)
         else:
-            tree = describe_run(self)
+            tree = describe_run(record)
     elif model_name == "Collection":
-        tree = describe_collection(self)
+        tree = describe_collection(record)
     else:
-        tree = describe_header(self)
+        tree = describe_header(record)
     return tree
 
 
-def describe_postgres_sqlite(self, return_str: bool = False) -> str | None:
+def describe_postgres_sqlite(record, return_str: bool = False) -> str | None:
     from ._describe import format_rich_tree
 
-    if not self._state.adding and connections[self._state.db].vendor == "postgresql":
-        tree = describe_postgres(self)
+    if (
+        not record._state.adding
+        and connections[record._state.db].vendor == "postgresql"
+    ):
+        tree = describe_postgres(record)
     else:
-        tree = describe_sqlite(self)
+        tree = describe_sqlite(record)
 
     return format_rich_tree(tree, return_str=return_str)
