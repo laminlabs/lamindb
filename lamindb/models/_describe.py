@@ -244,12 +244,12 @@ def describe_artifact(
             f"/{storage_key}",
         )
     )
-    tree = describe_features(
+    features_tree = describe_features(
         self,
-        tree=tree,
         related_data=related_data,
         with_labels=True,
     )
+    tree.add(features_tree)
     return tree
 
 

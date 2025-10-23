@@ -296,10 +296,6 @@ def describe_features(
     """Describe features of an artifact or collection."""
     from .artifact import Artifact
 
-    # initialize tree
-    if tree is None:
-        tree = describe_header(self)
-
     dictionary: dict[str, Any] = {}
 
     if self._state.adding:
@@ -474,17 +470,7 @@ def describe_features(
                 show_header=True,
             )
         )
-    ## internal features from the non-`Feature` registry
-    if int_features_tree_children:
-        dataset_tree = tree.add(
-            Text.assemble(
-                ("Dataset features", "bold bright_magenta"),
-            )
-        )
-        for child in int_features_tree_children:
-            dataset_tree.add(child)
-
-    # External features
+    # external features
     ext_features_tree_children = []
     if external_data:
         ext_features_tree_children.append(
@@ -494,10 +480,21 @@ def describe_features(
                 external_data,
             )
         )
-    features_text = "External features" if isinstance(self, Artifact) else "Features"
-    ext_features_header = Text(features_text, style="bold dark_orange")
+
+    # assemble tree
+    if tree is None:
+        tree = describe_header(self)
+    if int_features_tree_children:
+        int_features_tree = tree.add(
+            Text("Dataset features", style="bold bright_magenta")
+        )
+        for child in int_features_tree_children:
+            int_features_tree.add(child)
     if ext_features_tree_children:
-        ext_features_tree = tree.add(ext_features_header)
+        ext_features_text = (
+            "External features" if isinstance(self, Artifact) else "Features"
+        )
+        ext_features_tree = tree.add(Text(ext_features_text, style="bold dark_orange"))
         for child in ext_features_tree_children:
             ext_features_tree.add(child)
     if with_labels:
@@ -506,7 +503,6 @@ def describe_features(
         labels_tree = describe_labels(self, labels_data=labels_data, as_subtree=True)
         if labels_tree:
             tree.add(labels_tree)
-
     return tree
 
 
