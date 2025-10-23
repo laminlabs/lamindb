@@ -132,7 +132,7 @@ def append_uid_transform(record: SQLRecord, two_column_items, fk_data=None):
     if isinstance(record, TracksRun):
         transform_key = (
             fk_data["run"]["transform_key"]  # "transform_key" has special logic
-            if "run" in fk_data
+            if fk_data and "run" in fk_data
             else record.run.transform.key
             if record.run is not None
             else ""
@@ -167,28 +167,16 @@ def append_branch_space_created_at_created_by(
     two_column_items.append(
         Text.assemble(("created_at: ", "dim"), highlight_time(str(record.created_at)))
     )
-    # created_by
+    # created_by / "name" in fk_data holds handle, is display name
     created_by_handle = (
-        fk_data["created_by"]["name"]  # "name" holds handle, is display name
-        if fk_data
-        else record.created_by.handle
+        fk_data["created_by"]["name"] if fk_data else record.created_by.handle
     )
-    two_column_items.append(
-        Text.assemble(
-            ("created_by: ", "dim"),
-            (created_by_handle),
-        )
-    )
+    two_column_items.append(Text.assemble(("created_by: ", "dim"), created_by_handle))
 
 
 def add_description(record: SQLRecord, tree):
     if record.description:
-        tree.add(
-            Text.assemble(
-                ("description: ", "dim"),
-                f"{record.description}",
-            )
-        )
+        tree.add(Text.assemble(("description: ", "dim"), record.description))
 
 
 def add_two_column_items_to_tree(tree, two_column_items):
