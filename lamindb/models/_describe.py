@@ -75,13 +75,22 @@ def format_rich_tree(
     return None
 
 
-def format_run_title(record: Run) -> str:
-    title = (
-        record.name
+def format_run_title(
+    record: Run, transform_key: str | None = None, dim: bool = False
+) -> Text:
+    display_name = (
+        Text(record.name, style="")
         if record.name is not None
-        else format_field_value(record.started_at)
+        else Text(record.uid, style="dim" if dim else "")
     )
-    title += f" ({record.transform.key})"
+    if transform_key is None:
+        transform_key = record.transform.key
+    title = Text.assemble(
+        display_name,
+        (" (", "dim"),
+        (transform_key, "cyan3"),
+        (")", "dim"),
+    )
     return title
 
 
@@ -95,13 +104,14 @@ def describe_header(record: Artifact | Collection | Run) -> Tree:
     elif record.branch_id == -1:  # type: ignore
         logger.warning("This artifact is in the trash.")
     if isinstance(record, Run):
-        title = format_run_title(record)
+        title = format_run_title(record, dim=True)  # dim makes the uid grey
     else:
-        title = record.key if record.key is not None else ""
+        title_str = record.key if record.key is not None else ""
+        title = Text(title_str, style="cyan3")
     tree = Tree(
         Text.assemble(
             (f"{record.__class__.__name__}: ", "bold"),
-            (f"{title}", "cyan3"),
+            title,
         ),
         guide_style="dim",  # dim the connecting lines
     )
@@ -129,12 +139,12 @@ def append_uid_run(record: TracksRun, two_column_items, fk_data=None):
         if fk_data and "run" in fk_data
         else record.run.transform.key
         if record.run is not None
-        else ""
+        else None
     )
     two_column_items.append(
         Text.assemble(
             ("run: ", "dim"),
-            (f"{transform_key}", "cyan3"),
+            format_run_title(record.run, transform_key=transform_key),
         )
     )
 
@@ -203,7 +213,7 @@ def describe_artifact(
     )
     labels_tree = describe_labels(record, related_data=related_data)
     if dataset_features_tree or external_features_tree or labels_tree:
-        general = tree.add(Text("General", style="bold bright_cyan"))
+        general = tree.add(Text("General", style="bold cyan3"))
     else:
         general = tree
     add_description(record, general)
@@ -267,7 +277,7 @@ def describe_collection(
         fk_data = related_data.get("fk", {})
     else:
         fk_data = {}
-    general = tree.add(Text("General", style="bold bright_cyan"))
+    general = tree.add(Text("General", style="bold cyan3"))
     add_description(record, general)
     two_column_items = []  # type: ignore
     append_uid_run(record, two_column_items, fk_data)
@@ -300,7 +310,7 @@ def describe_run(
         related_data=related_data,
     )
     if features_tree or record.params:
-        general = tree.add(Text("General", style="bold bright_cyan"))
+        general = tree.add(Text("General", style="bold cyan3"))
     else:
         general = tree
     two_column_items = []  # type: ignore
@@ -334,7 +344,7 @@ def describe_run(
     append_branch_space_created_at_created_by(record, two_column_items, fk_data)
     add_two_column_items_to_tree(general, two_column_items)
     if record.params:
-        params = tree.add(Text("Params", style="bold yellow"))
+        params = tree.add(Text("Params", style="bold dark_orange"))
         for key, value in record.params.items():
             params.add(f"{key}: {value}")
     if features_tree:
@@ -359,7 +369,7 @@ def describe_schema(record: Schema, slot: str | None = None) -> Tree:
         Text.assemble((header, "bold"), (f"{prefix}", "dim"), (f"{name}", "cyan3")),
         guide_style="dim",
     )
-    general = tree.add(Text("General", style=f"{bold_subheader} bright_cyan"))
+    general = tree.add(Text("General", style=f"{bold_subheader} cyan"))
     add_description(record, general)
     two_column_items = []  # type: ignore
     append_uid_run(record, two_column_items)
