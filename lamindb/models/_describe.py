@@ -168,7 +168,7 @@ def describe_artifact(
     )
     two_column_items.append(Text.assemble(("space: ", "dim"), space_name))
     branch_name = (
-        foreign_key_data["branch"]["name"] if foreign_key_data else self.space.name
+        foreign_key_data["branch"]["name"] if foreign_key_data else self.branch.name
     )
     two_column_items.append(Text.assemble(("branch: ", "dim"), branch_name))
     # actually not name field here, but handle
