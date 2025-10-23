@@ -2,7 +2,7 @@ import bionty as bt
 import lamindb as ln
 import numpy as np
 import pandas as pd
-from lamindb.models._describe import describe_postgres
+from lamindb.models._describe import describe_postgres, format_rich_tree
 
 
 def _check_df_equality(actual_df: pd.DataFrame, expected_df: pd.DataFrame) -> bool:
@@ -113,6 +113,8 @@ def test_curate_df():
     # expected output has italicized elements that can't be tested
     # hence testing is restricted to section content, not headings
     description_tree = describe_postgres(artifact)
+
+    print(format_rich_tree(description_tree))
 
     # general section
     assert (
