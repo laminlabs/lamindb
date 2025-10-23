@@ -158,7 +158,7 @@ def test_curate_df():
 
     for child in general_node.children:
         child_text = child.label.plain
-        if "storage path: " in child_text:
+        if "storage/path: " in child_text:
             found_path = True
         if "created_by: " in child_text:
             found_created_by = True

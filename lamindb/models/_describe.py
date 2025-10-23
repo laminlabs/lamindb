@@ -255,7 +255,7 @@ def describe_artifact(
         storage_key = f"{storage_key}{record.suffix}"
     general.add(
         Text.assemble(
-            ("storage path: ", "dim"),
+            ("storage/path: ", "dim"),
             (storage_root, "cyan3"),
             f"/{storage_key}",
         )
