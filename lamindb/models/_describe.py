@@ -10,10 +10,13 @@ from rich.table import Table
 from rich.text import Text
 from rich.tree import Tree
 
+from lamindb.models import Run
+
+from .run import TracksRun
 from .sqlrecord import SQLRecord, record_repr
 
 if TYPE_CHECKING:
-    from lamindb.models import Artifact, Collection, Run, Schema
+    from lamindb.models import Artifact, Collection, Schema
 
 
 def highlight_time(iso: str):
@@ -124,6 +127,33 @@ def format_bytes(bytes_value):
         return f"{bytes_value / (1024**4):.1f} TB"
 
 
+def append_uid_transform(record: SQLRecord, two_column_items, fk_data=None):
+    two_column_items.append(Text.assemble(("uid: ", "dim"), f"{record.uid}"))
+    if isinstance(record, TracksRun):
+        transform_key = (
+            fk_data["run"]["transform_key"]  # "transform_key" has special logic
+            if "run" in fk_data
+            else record.run.transform.key
+            if record.run is not None
+            else ""
+        )
+    else:
+        assert isinstance(record, Run), f"cannot display record {record}"
+        transform_key = (
+            fk_data["transform"]["name"]  # "name" holds key, is display name
+            if fk_data and "transform" in fk_data
+            else record.transform.key
+            if record.transform
+            else ""
+        )
+    two_column_items.append(
+        Text.assemble(
+            ("transform: ", "dim"),
+            (f"{transform_key}", "cyan3"),
+        )
+    )
+
+
 def append_branch_space_created_at_created_by(
     record: SQLRecord, two_column_items, fk_data=None
 ):
@@ -151,6 +181,36 @@ def append_branch_space_created_at_created_by(
     )
 
 
+def add_description(record: SQLRecord, tree):
+    if record.description:
+        tree.add(
+            Text.assemble(
+                ("description: ", "dim"),
+                f"{record.description}",
+            )
+        )
+
+
+def add_two_column_items_to_tree(tree, two_column_items):
+    for i in range(0, len(two_column_items), 2):
+        if i + 1 < len(two_column_items):
+            # Two items side by side
+            left_item = two_column_items[i]
+            right_item = two_column_items[i + 1]
+
+            # Create padded version by calculating the plain text length
+            left_plain_text = (
+                left_item.plain if hasattr(left_item, "plain") else str(left_item)
+            )
+            padding_needed = max(0, 45 - len(left_plain_text))
+            padding = " " * padding_needed
+
+            tree.add(Text.assemble(left_item, padding, right_item))
+        else:
+            # Single item (odd number)
+            tree.add(two_column_items[i])
+
+
 def describe_artifact(
     self: Artifact,
     tree: Tree | None = None,
@@ -163,32 +223,10 @@ def describe_artifact(
         foreign_key_data = related_data.get("fk", {})
     else:
         foreign_key_data = {}
-
-    # add general information (order is the same as in API docs)
     general = tree.add(Text("General", style="bold bright_cyan"))
-    if self.description:
-        general.add(
-            Text.assemble(
-                ("description: ", "dim"),
-                f"{self.description}",
-            )
-        )
-    # two column items
-    two_column_items = []
-    two_column_items.append(Text.assemble(("uid: ", "dim"), f"{self.uid}"))
-    transform_key = (
-        foreign_key_data["run"]["transform_key"]
-        if foreign_key_data
-        else self.transform.key
-        if self.transform
-        else ""
-    )
-    two_column_items.append(
-        Text.assemble(
-            ("transform: ", "dim"),
-            (f"{transform_key}", "cyan3"),
-        )
-    )
+    add_description(self, general)
+    two_column_items = []  # type: ignore
+    append_uid_transform(self, two_column_items, foreign_key_data)
     two_column_items.append(Text.assemble(("kind: ", "dim"), f"{self.kind}"))
     two_column_items.append(Text.assemble(("otype: ", "dim"), f"{self.otype}"))
     two_column_items.append(Text.assemble(("hash: ", "dim"), f"{self.hash}"))
@@ -204,26 +242,7 @@ def describe_artifact(
         )
     if self.version:
         two_column_items.append(Text.assemble(("version: ", "dim"), f"{self.version}"))
-
-    # Add two-column items in pairs
-    for i in range(0, len(two_column_items), 2):
-        if i + 1 < len(two_column_items):
-            # Two items side by side
-            left_item = two_column_items[i]
-            right_item = two_column_items[i + 1]
-
-            # Create padded version by calculating the plain text length
-            left_plain_text = (
-                left_item.plain if hasattr(left_item, "plain") else str(left_item)
-            )
-            padding_needed = max(0, 35 - len(left_plain_text))
-            padding = " " * padding_needed
-
-            general.add(Text.assemble(left_item, padding, right_item))
-        else:
-            # Single item (odd number)
-            general.add(two_column_items[i])
-
+    add_two_column_items_to_tree(general, two_column_items)
     storage_root = (
         foreign_key_data["storage"]["name"] if foreign_key_data else self.storage.root
     )
@@ -256,56 +275,16 @@ def describe_collection(
         foreign_key_data = related_data.get("fk", {})
     else:
         foreign_key_data = {}
-
-    # add general information (order is the same as in API docs)
     general = tree.add(Text("General", style="bold bright_cyan"))
-    if self.description:
-        general.add(
-            Text.assemble(
-                ("description: ", "dim"),
-                f"{self.description}",
-            )
-        )
-
-    # two-column items
-    two_column_items = []
-    two_column_items.append(Text.assemble(("uid: ", "dim"), f"{self.uid}"))
-    transform_key = (
-        foreign_key_data["transform"]["key"]
-        if foreign_key_data and "transform" in foreign_key_data
-        else self.transform.key
-        if self.transform
-        else ""
-    )
-    two_column_items.append(
-        Text.assemble(
-            ("transform: ", "dim"),
-            (f"{transform_key}", "cyan3"),
-        )
-    )
+    add_description(self, general)
+    two_column_items = []  # type: ignore
+    append_uid_transform(self, two_column_items, foreign_key_data)
     append_branch_space_created_at_created_by(self, two_column_items, foreign_key_data)
 
     if self.version:
         two_column_items.append(Text.assemble(("version: ", "dim"), f"{self.version}"))
 
-    # Add two-column items in pairs
-    for i in range(0, len(two_column_items), 2):
-        if i + 1 < len(two_column_items):
-            # Two items side by side
-            left_item = two_column_items[i]
-            right_item = two_column_items[i + 1]
-
-            # Create padded version by calculating the plain text length
-            left_plain_text = (
-                left_item.plain if hasattr(left_item, "plain") else str(left_item)
-            )
-            padding_needed = max(0, 45 - len(left_plain_text))
-            padding = " " * padding_needed
-
-            general.add(Text.assemble(left_item, padding, right_item))
-        else:
-            # Single item (odd number)
-            general.add(two_column_items[i])
+    add_two_column_items_to_tree(general, two_column_items)
 
     return tree
 
@@ -322,46 +301,11 @@ def describe_run(
         foreign_key_data = related_data.get("fk", {})
     else:
         foreign_key_data = {}
-
-    # add general information (order is the same as in API docs)
     general = tree.add(Text("General", style="bold bright_cyan"))
-
-    # Two column items (short content)
-    two_column_items = []
-    two_column_items.append(Text.assemble(("uid: ", "dim"), f"{self.uid}"))
-    transform_key = (
-        foreign_key_data["transform"]["name"]  # "name" holds key, is display name
-        if foreign_key_data and "transform" in foreign_key_data
-        else self.transform.key
-        if self.transform
-        else ""
-    )
-    two_column_items.append(
-        Text.assemble(
-            ("transform: ", "dim"),
-            (f"{transform_key}", "cyan3"),
-        )
-    )
+    two_column_items = []  # type: ignore
+    append_uid_transform(self, two_column_items, foreign_key_data)
     append_branch_space_created_at_created_by(self, two_column_items, foreign_key_data)
-
-    # Add two-column items in pairs
-    for i in range(0, len(two_column_items), 2):
-        if i + 1 < len(two_column_items):
-            # Two items side by side
-            left_item = two_column_items[i]
-            right_item = two_column_items[i + 1]
-
-            # Create padded version by calculating the plain text length
-            left_plain_text = (
-                left_item.plain if hasattr(left_item, "plain") else str(left_item)
-            )
-            padding_needed = max(0, 45 - len(left_plain_text))
-            padding = " " * padding_needed
-
-            general.add(Text.assemble(left_item, padding, right_item))
-        else:
-            # Single item (odd number)
-            general.add(two_column_items[i])
+    add_two_column_items_to_tree(general, two_column_items)
     if self.params:
         params = tree.add(Text("Params", style="bold yellow"))
         for key, value in self.params.items():
@@ -386,8 +330,6 @@ def describe_schema(self: Schema, slot: str | None = None) -> Tree:
         name = self.name
     else:
         name = "unnamed"
-
-    # header
     header = "Schema:" if slot is None else f"{slot}:"
     bold_subheader = "bold" if slot is None else ""
     tree = Tree(
@@ -395,19 +337,9 @@ def describe_schema(self: Schema, slot: str | None = None) -> Tree:
         guide_style="dim",
     )
     general = tree.add(Text("General", style=f"{bold_subheader} bright_cyan"))
-    if self.description:
-        general.add(Text.assemble(("description: ", "dim"), f"{self.description}"))
-
-    # two column items
-    two_column_items = []
-    two_column_items.append(Text.assemble(("uid: ", "dim"), f"{self.uid}"))
-    transform_key = self.run.transform.key if self.run_id is not None else ""
-    two_column_items.append(
-        Text.assemble(
-            ("transform: ", "dim"),
-            (f"{transform_key}", "cyan3"),
-        )
-    )
+    add_description(self, general)
+    two_column_items = []  # type: ignore
+    append_uid_transform(self, two_column_items)
     two_column_items.append(Text.assemble(("itype: ", "dim"), f"{self.itype}"))
     two_column_items.append(Text.assemble(("otype: ", "dim"), f"{self.otype}"))
     two_column_items.append(Text.assemble(("hash: ", "dim"), f"{self.hash}"))
@@ -421,24 +353,7 @@ def describe_schema(self: Schema, slot: str | None = None) -> Tree:
         Text.assemble(("minimal_set: ", "dim"), f"{self.minimal_set}")
     )
     append_branch_space_created_at_created_by(self, two_column_items)
-
-    # Add two-column items in pairs
-    for i in range(0, len(two_column_items), 2):
-        if i + 1 < len(two_column_items):
-            left_item = two_column_items[i]
-            right_item = two_column_items[i + 1]
-
-            left_plain_text = (
-                left_item.plain if hasattr(left_item, "plain") else str(left_item)
-            )
-            padding_needed = max(0, 35 - len(left_plain_text))
-            padding = " " * padding_needed
-
-            general.add(Text.assemble(left_item, padding, right_item))
-        else:
-            general.add(two_column_items[i])
-
-    members = self.members
+    add_two_column_items_to_tree(general, two_column_items)
 
     # Add features section
     members_count = self.n
@@ -466,7 +381,7 @@ def describe_schema(self: Schema, slot: str | None = None) -> Tree:
             feature_table.add_column("default_value", style="", no_wrap=True)
 
             optionals = self.optionals.get()
-            for member in members:
+            for member in self.members:
                 feature_table.add_row(
                     member.name,
                     Text(strip_cat(member.dtype)),
