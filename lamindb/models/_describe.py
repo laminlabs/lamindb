@@ -75,6 +75,12 @@ def format_rich_tree(
     return None
 
 
+def format_run_title(self: Run) -> str:
+    title = self.name if self.name is not None else format_field_value(self.started_at)
+    title += f" ({self.transform.key})"
+    return title
+
+
 def describe_header(self: Artifact | Collection | Run) -> Tree:
     if hasattr(self, "is_latest") and not self.is_latest:
         logger.warning(
@@ -85,9 +91,7 @@ def describe_header(self: Artifact | Collection | Run) -> Tree:
     elif self.branch_id == -1:  # type: ignore
         logger.warning("This artifact is in the trash.")
     if isinstance(self, Run):
-        title = (
-            self.name if self.name is not None else format_field_value(self.started_at)
-        )
+        title = format_run_title(self)
     else:
         title = self.key if self.key is not None else ""
     tree = Tree(
@@ -290,6 +294,7 @@ def describe_run(
     else:
         general = tree
     two_column_items = []  # type: ignore
+    two_column_items.append(Text.assemble(("uid: ", "dim"), f"{self.uid}"))
     transform_key = (
         fk_data["transform"]["name"]  # "name" holds key, is display name
         if fk_data and "transform" in fk_data
