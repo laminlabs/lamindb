@@ -221,8 +221,9 @@ def describe_artifact(
     add_description(record, general)
     two_column_items = []  # type: ignore
     append_uid_run(record, two_column_items, fk_data)
-    two_column_items.append(Text.assemble(("kind: ", "dim"), f"{record.kind}"))
-    two_column_items.append(Text.assemble(("otype: ", "dim"), f"{record.otype}"))
+    if record.kind or record.otype:
+        two_column_items.append(Text.assemble(("kind: ", "dim"), f"{record.kind}"))
+        two_column_items.append(Text.assemble(("otype: ", "dim"), f"{record.otype}"))
     two_column_items.append(Text.assemble(("hash: ", "dim"), f"{record.hash}"))
     two_column_items.append(
         Text.assemble(("size: ", "dim"), f"{format_bytes(record.size)}")
