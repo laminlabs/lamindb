@@ -244,12 +244,12 @@ def describe_artifact(
     storage_root = fk_data["storage"]["name"] if fk_data else record.storage.root
     storage_key = (
         record.key
-        if record._key_is_virtual
+        if not record._key_is_virtual
         else record._real_key
         if record._real_key
-        else record.uid
+        else f".lamindb/{record.uid}"
     )
-    if storage_key == record.uid:
+    if record.uid in storage_key:
         if record.overwrite_versions:
             storage_key = storage_key[:-4]
         storage_key = f"{storage_key}{record.suffix}"
