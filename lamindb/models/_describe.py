@@ -127,10 +127,13 @@ def format_bytes(bytes_value):
 def describe_artifact(
     self: Artifact,
     tree: Tree | None = None,
-    foreign_key_data: dict[str, dict[str, int | str]] | None = None,
+    related_data: dict | None = None,
 ) -> Tree:
-    if tree is None:
-        tree = describe_header(self)
+    from ._feature_manager import describe_features
+
+    tree = describe_header(self)
+    if related_data is not None:
+        foreign_key_data = related_data.get("fk", {})
 
     # add general information (order is the same as in API docs)
     general = tree.add(Text("General", style="bold bright_cyan"))
@@ -227,16 +230,23 @@ def describe_artifact(
             f"/{storage_key}",
         )
     )
+    tree = describe_features(
+        self,
+        tree=tree,
+        related_data=related_data,
+        with_labels=True,
+    )
     return tree
 
 
 def describe_collection(
     self: Collection,
     tree: Tree | None = None,
-    foreign_key_data: dict[str, dict[str, int | str]] | None = None,
+    related_data: dict | None = None,
 ) -> Tree:
-    if tree is None:
-        tree = describe_header(self)
+    tree = describe_header(self)
+    if related_data is not None:
+        foreign_key_data = related_data.get("fk", {})
 
     # add general information (order is the same as in API docs)
     general = tree.add(Text("General", style="bold bright_cyan"))
@@ -325,10 +335,13 @@ def describe_collection(
 def describe_run(
     self: Run,
     tree: Tree | None = None,
-    foreign_key_data: dict[str, dict[str, int | str]] | None = None,
+    related_data: dict | None = None,
 ) -> Tree:
-    if tree is None:
-        tree = describe_header(self)
+    from ._feature_manager import describe_features
+
+    tree = describe_header(self)
+    if related_data is not None:
+        foreign_key_data = related_data.get("fk", {})
 
     # add general information (order is the same as in API docs)
     general = tree.add(Text("General", style="bold bright_cyan"))
@@ -404,6 +417,12 @@ def describe_run(
         params = tree.add(Text("Params", style="bold yellow"))
         for key, value in self.params.items():
             params.add(f"{key}: {value}")
+    tree = describe_features(
+        self,
+        tree=tree,
+        related_data=related_data,
+        with_labels=True,
+    )
     return tree
 
 
@@ -526,7 +545,6 @@ def describe_schema(self: Schema, slot: str | None = None) -> Tree:
 
 def describe_postgres(self):
     from ._django import get_artifact_or_run_with_related, get_collection_with_related
-    from ._feature_manager import describe_features
 
     model_name = self.__class__.__name__
     msg = f"{colors.green(model_name)}{record_repr(self, include_foreign_keys=False).lstrip(model_name)}\n"
@@ -544,26 +562,19 @@ def describe_postgres(self):
         )
         related_data = result.get("related_data", {})
         if model_name == "Artifact":
-            tree = describe_artifact(self, foreign_key_data=related_data["fk"])
+            tree = describe_artifact(self, related_data=related_data)
         else:
-            tree = describe_run(self, foreign_key_data=related_data["fk"])
-        return describe_features(
-            self,
-            tree=tree,
-            related_data=related_data,
-            with_labels=True,
-        )
+            tree = describe_run(self, related_data=related_data)
     elif model_name == "Collection":
         result = get_collection_with_related(self, include_fk=True)
         related_data = result.get("related_data", {})
-        tree = describe_collection(self, foreign_key_data=related_data.get("fk", {}))
-        return tree
+        tree = describe_collection(self, related_data=related_data)
     else:
         tree = describe_header(self)
-        return tree
+    return tree
 
 
-def describe_sqlite(self, print_types: bool = False):
+def describe_sqlite(self):
     from ._feature_manager import describe_features
 
     model_name = self.__class__.__name__
