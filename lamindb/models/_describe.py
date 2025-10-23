@@ -205,6 +205,7 @@ def describe_artifact(
     related_data: dict | None = None,
 ) -> Tree:
     from ._feature_manager import describe_features
+    from ._label_manager import describe_labels
 
     tree = describe_header(self)
     if related_data is not None:
@@ -244,12 +245,18 @@ def describe_artifact(
             f"/{storage_key}",
         )
     )
-    tree = describe_features(
+    int_features_tree, ext_features_tree = describe_features(
         self,
-        tree=tree,
         related_data=related_data,
-        with_labels=True,
     )
+    if int_features_tree:
+        tree.add(int_features_tree)
+    if ext_features_tree:
+        tree.add(ext_features_tree)
+    labels_data = related_data.get("m2m") if related_data is not None else None
+    labels_tree = describe_labels(self, labels_data=labels_data)
+    if labels_tree:
+        tree.add(labels_tree)
     return tree
 
 
@@ -298,12 +305,12 @@ def describe_run(
         params = tree.add(Text("Params", style="bold yellow"))
         for key, value in self.params.items():
             params.add(f"{key}: {value}")
-    tree = describe_features(
+    _, features_tree = describe_features(
         self,
-        tree=tree,
         related_data=related_data,
-        with_labels=True,
     )
+    if features_tree:
+        tree.add(features_tree)
     return tree
 
 

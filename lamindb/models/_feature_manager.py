@@ -21,6 +21,7 @@ from lamindb_setup.core.upath import create_path
 from lamindb_setup.errors import ModuleWasntConfigured
 from rich.table import Column, Table
 from rich.text import Text
+from rich.tree import Tree
 
 from lamindb.core.storage import LocalPathClasses
 from lamindb.errors import DoesNotExist, InvalidArgument, ValidationError
@@ -47,7 +48,7 @@ from ._describe import (
     format_rich_tree,
 )
 from ._django import get_artifact_or_run_with_related
-from ._label_manager import _get_labels, describe_labels
+from ._label_manager import _get_labels
 from ._relations import (
     dict_related_model_to_related_name,
 )
@@ -290,16 +291,14 @@ def describe_features(
     self: Artifact | Run,
     related_data: dict | None = None,
     to_dict: bool = False,
-    tree: Tree | None = None,
-    with_labels: bool = False,
-):
+) -> dict | tuple[Tree | None, Tree | None]:
     """Describe features of an artifact or collection."""
     from .artifact import Artifact
 
     dictionary: dict[str, Any] = {}
 
     if self._state.adding:
-        return dictionary if to_dict else tree
+        return dictionary if to_dict else (None, None)
 
     # feature sets
     schema_data: dict[str, tuple[str, list[str]]] = {}
@@ -481,29 +480,21 @@ def describe_features(
             )
         )
 
-    # assemble tree
-    if tree is None:
-        tree = describe_header(self)
+    # trees
+    int_features_tree = None
     if int_features_tree_children:
-        int_features_tree = tree.add(
-            Text("Dataset features", style="bold bright_magenta")
-        )
+        int_features_tree = Tree(Text("Dataset features", style="bold bright_magenta"))
         for child in int_features_tree_children:
             int_features_tree.add(child)
+    ext_features_tree = None
     if ext_features_tree_children:
         ext_features_text = (
             "External features" if isinstance(self, Artifact) else "Features"
         )
-        ext_features_tree = tree.add(Text(ext_features_text, style="bold dark_orange"))
+        ext_features_tree = Tree(Text(ext_features_text, style="bold dark_orange"))
         for child in ext_features_tree_children:
             ext_features_tree.add(child)
-    if with_labels:
-        # avoid querying the db if the labels were queried already
-        labels_data = related_data.get("m2m") if related_data is not None else None
-        labels_tree = describe_labels(self, labels_data=labels_data)
-        if labels_tree:
-            tree.add(labels_tree)
-    return tree
+    return int_features_tree, ext_features_tree
 
 
 def infer_feature_type_convert_json(
@@ -832,7 +823,12 @@ class FeatureManager:
 
         This is what `artifact.describe()` calls under the hood.
         """
-        tree = describe_features(self._host)  # type: ignore
+        int_features_tree, ext_features_tree = describe_features(self._host)  # type: ignore
+        tree = describe_header(self._host)
+        if int_features_tree:
+            tree.add(int_features_tree)
+        if ext_features_tree:
+            tree.add(ext_features_tree)
         return format_rich_tree(
             tree, fallback="no linked features", return_str=return_str
         )

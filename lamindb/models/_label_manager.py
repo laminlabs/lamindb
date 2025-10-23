@@ -72,7 +72,7 @@ def _get_labels_postgres(
 def describe_labels(
     self: Artifact | Collection,
     labels_data: dict | None = None,
-):
+) -> Tree | None:
     """Describe labels."""
     if not self._state.adding and connections[self._state.db].vendor == "postgresql":
         labels_data = _get_labels_postgres(self, labels_data)
