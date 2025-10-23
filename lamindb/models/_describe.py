@@ -245,14 +245,14 @@ def describe_artifact(
             f"/{storage_key}",
         )
     )
-    int_features_tree, ext_features_tree = describe_features(
+    dataset_features_tree, external_features_tree = describe_features(
         self,
         related_data=related_data,
     )
-    if int_features_tree:
-        tree.add(int_features_tree)
-    if ext_features_tree:
-        tree.add(ext_features_tree)
+    if dataset_features_tree:
+        tree.add(dataset_features_tree)
+    if external_features_tree:
+        tree.add(external_features_tree)
     labels_data = related_data.get("m2m") if related_data is not None else None
     labels_tree = describe_labels(self, labels_data=labels_data)
     if labels_tree:
