@@ -252,10 +252,6 @@ def describe_artifact(
         two_column_items.append(
             Text.assemble(("n_observations: ", "dim"), f"{record.n_observations}")
         )
-    if record.version:
-        two_column_items.append(
-            Text.assemble(("version: ", "dim"), f"{record.version}")
-        )
     add_two_column_items_to_tree(general, two_column_items)
     storage_root = fk_data["storage"]["name"] if fk_data else record.storage.root
     storage_key = (
@@ -301,14 +297,7 @@ def describe_collection(
     two_column_items = []  # type: ignore
     append_uid_run(record, two_column_items, fk_data)
     append_branch_space_created_at_created_by(record, two_column_items, fk_data)
-
-    if record.version:
-        two_column_items.append(
-            Text.assemble(("version: ", "dim"), f"{record.version}")
-        )
-
     add_two_column_items_to_tree(general, two_column_items)
-
     return tree
 
 
