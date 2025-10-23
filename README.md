@@ -33,11 +33,10 @@ Highlights:
 - **FAIR datasets** → validate & annotate `DataFrame`, `AnnData`, `SpatialData`, `parquet`, `.h5ad`, `zarr`, ...
 - **LIMS & ELN** → manage experimental metadata, ontologies & markdown notes
 - **unified access** → storage locations (local, S3, GCP, ...), SQL databases (Postgres, SQLite) & ontologies
-- **reproducible & auditable** → auto-version & timestamp execution reports, source code & environments; attribute records to users
-- **integrations** → [vitessce](https://docs.lamin.ai/vitessce), [nextflow](https://docs.lamin.ai/nextflow), [redun](https://docs.lamin.ai/redun), and [more](https://docs.lamin.ai/integrations)
+- **reproducible** → auto-version & timestamp execution reports, source code & environments
 - **zero lock-in & scalable** → runs in your infrastructure; not a client for a rate-limited REST API
+- **integrations** → [vitessce](https://docs.lamin.ai/vitessce), [nextflow](https://docs.lamin.ai/nextflow), [redun](https://docs.lamin.ai/redun), and [more](https://docs.lamin.ai/integrations)
 - **extendable** → create custom plug-ins based on the Django ORM
-- **production-ready** → used in BigPharma, BioTech, hospitals & top labs
 
 If you want a GUI, you can connect your LaminDB instance to LaminHub and close the drylab-wetlab feedback loop: [lamin.ai](https://lamin.ai).
 
@@ -69,9 +68,7 @@ lamin connect account/name
 
 ## Quickstart
 
-<!-- copied from preface.md -->
-
-Track a script or notebook run with source code, inputs, outputs, logs, and environment.
+Track a script or notebook run with source code, inputs, outputs, logs, and environment:
 
 <!-- copied from py-quickstart.py -->
 
@@ -84,10 +81,7 @@ ln.Artifact("sample.fasta", key="sample.fasta").save()  # create an artifact
 ln.finish()  # finish the run
 ```
 
-<!-- from here on, slight deviation from preface.md, where all this is treated in the walk through in more depth -->
-
-This code snippet creates an artifact, which can store a dataset or model as a file or folder in various formats.
-Running the snippet as a script (`python create-fasta.py`) produces the following data lineage.
+Running this snippet as a script (`python create-fasta.py`) produces the following data lineage.
 
 ```python
 artifact = ln.Artifact.get(key="sample.fasta")  # query artifact by key
