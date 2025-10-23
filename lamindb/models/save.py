@@ -139,8 +139,8 @@ def bulk_create(
         total_records = len(records_list)
         model_name = registry.__name__
         if total_records > batch_size:
-            logger.warning(
-                f"Starting bulk_create for {total_records} {model_name} records in batches of {batch_size}"
+            logger.important(
+                f"starting creation of {total_records} {model_name} records in batches of {batch_size}"
             )
 
         # Process records in batches
@@ -151,7 +151,7 @@ def bulk_create(
 
             if total_records > batch_size:
                 logger.info(
-                    f"Processing batch {batch_num}/{total_batches} for {model_name}: {len(batch)} records"
+                    f"processing batch {batch_num}/{total_batches} for {model_name}: {len(batch)} records"
                 )
             try:
                 registry.objects.bulk_create(batch, ignore_conflicts=ignore_conflicts)
@@ -185,7 +185,7 @@ def bulk_create(
                     # now move the pre-existing records to the main branch
                     if pre_existing_values_not_main_branch.exists():
                         logger.warning(
-                            f"Some {model_name} records with the same {unique_field}s already exist in non-default branches. Moving them to the default branch."
+                            f"some {model_name} records with the same {unique_field}s already exist in non-default branches - moving them to the default branch"
                         )
                         pre_existing_records_not_main_branch = [
                             r
@@ -220,7 +220,7 @@ def bulk_update(
         model_name = registry.__name__
         if total_records > batch_size:
             logger.warning(
-                f"starting bulk_update for {total_records} {model_name} records in batches of {batch_size}"
+                f"starting update for {total_records} {model_name} records in batches of {batch_size}"
             )
 
         field_names = [
