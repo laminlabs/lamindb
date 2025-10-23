@@ -1763,7 +1763,7 @@ def check_key_change(record: Union[Artifact, Transform]):
             )
 
 
-def format_field_value(value: datetime | str | Any, none: str = "None") -> Any:
+def format_field_value(value: datetime | str | Any, none: str = "None") -> str:
     from datetime import datetime
 
     if isinstance(value, datetime):
@@ -1777,7 +1777,7 @@ def format_field_value(value: datetime | str | Any, none: str = "None") -> Any:
         return f"'{value}'"
     if value is None:
         return none
-    return value
+    return str(value)
 
 
 class SQLRecordInfo:
