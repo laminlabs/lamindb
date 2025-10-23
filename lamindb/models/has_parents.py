@@ -19,19 +19,11 @@ if TYPE_CHECKING:
     from .artifact import Artifact
     from .collection import Collection
     from .sqlrecord import SQLRecord
-    from .transform import Transform
 
 LAMIN_GREEN_LIGHTER = "#10b981"
 LAMIN_GREEN_DARKER = "#065f46"
+TRANSFORM_VIOLET = "#eff2ff"
 GREEN_FILL = "honeydew"
-TRANSFORM_EMOJIS = {
-    "notebook": "📔",
-    "upload": "🖥️",
-    "pipeline": "🧩",
-    "script": "📝",
-    "function": "🔧",
-    "linker": "🧲",
-}
 is_run_from_ipython = getattr(builtins, "__IPYTHON__", False)
 
 
@@ -154,13 +146,6 @@ class HasParents:
         return _query_relatives([self], "children", self.__class__)  # type: ignore
 
 
-def _transform_emoji(transform: Transform):
-    if transform is not None:
-        return TRANSFORM_EMOJIS.get(transform.type, "💫")
-    else:
-        return TRANSFORM_EMOJIS["pipeline"]
-
-
 def view_digraph(u: Digraph):
     from graphviz.backend import ExecutableNotFound
 
@@ -214,9 +199,9 @@ def view_lineage(
         u: graphviz.Digraph,
     ):
         if isinstance(record, Run):
-            fillcolor = "gainsboro"
+            fillcolor = TRANSFORM_VIOLET
         else:
-            fillcolor = GREEN_FILL
+            fillcolor = "white"
         u.node(
             node_id,
             label=node_label,
@@ -228,8 +213,8 @@ def view_lineage(
     u = graphviz.Digraph(
         f"{data._meta.model_name}_{data.uid}",
         node_attr={
-            "fillcolor": GREEN_FILL,
-            "color": LAMIN_GREEN_DARKER,
+            "fillcolor": "white",
+            "color": "darkgrey",
             "fontname": "Helvetica",
             "fontsize": "10",
         },
@@ -242,12 +227,12 @@ def view_lineage(
             add_node(row["target_record"], row["target"], row["target_label"], u)
 
         u.edge(row["source"], row["target"], color="dimgrey")
-    # label the searched file
+
     u.node(
         f"{data._meta.model_name}_{data.uid}",
         label=data_label,
         style="rounded,filled",
-        fillcolor=LAMIN_GREEN_LIGHTER,
+        fillcolor="white",
         shape="box",
     )
 
@@ -315,8 +300,6 @@ def view_parents(
     else:
         return None
 
-    record_label = _record_label(record, field)
-
     u = graphviz.Digraph(
         record.uid,
         node_attr={
@@ -331,11 +314,7 @@ def view_parents(
     )
     u.node(
         record.uid,
-        label=(
-            _record_label(record)
-            if record.__class__.__name__ == "Transform"
-            else _add_emoji(record, record_label)
-        ),
+        label=(_record_label(record)),
         fillcolor=LAMIN_GREEN_LIGHTER,
     )
     if df_edges is not None:
@@ -440,61 +419,34 @@ def _record_label(record: SQLRecord, field: str | None = None):
     from .transform import Transform
 
     if isinstance(record, Artifact):
-        if record.description is None:
-            name = record.key
-        else:
-            name = record.description.replace("&", "&amp;")
-
-        return (
-            rf'<📄 {name}<BR/><FONT COLOR="GREY" POINT-SIZE="10"'
-            rf' FACE="Monospace">uid={record.uid}<BR/>suffix={record.suffix}</FONT>>'
-        )
+        title = record.key.replace("&", "&amp;")
+        return rf"<{title}>"
     elif isinstance(record, Collection):
-        name = record.name.replace("&", "&amp;")
+        title = record.key.replace("&", "&amp;")
         return (
-            rf'<🍱 {name}<BR/><FONT COLOR="GREY" POINT-SIZE="10"'
-            rf' FACE="Monospace">uid={record.uid}<BR/>version={record.version}</FONT>>'
+            rf'<{title}<BR/><FONT COLOR="GREY" POINT-SIZE="10"'
+            rf' FACE="Monospace">version={record.version}</FONT>>'
         )
     elif isinstance(record, Run):
-        if record.transform.description:
-            name = f"{record.transform.description.replace('&', '&amp;')}"
-        elif record.transform.key:
-            name = f"{record.transform.key.replace('&', '&amp;')}"
-        else:
-            name = f"{record.transform.uid}"
-        user_display = (
-            record.created_by.handle
-            if record.created_by.name is None
-            else record.created_by.name
-        )
+        title = record.transform.key.replace("&", "&amp;")
         return (
-            rf'<{TRANSFORM_EMOJIS.get(str(record.transform.type), "💫")} {name}<BR/><FONT COLOR="GREY" POINT-SIZE="10"'
-            rf' FACE="Monospace">uid={record.transform.uid}<BR/>type={record.transform.type},'
-            rf" user={user_display}<BR/>run={format_field_value(record.started_at)}</FONT>>"
+            rf'<{title}<BR/><FONT COLOR="GREY" POINT-SIZE="10"'
+            rf">"
+            rf"run at {format_field_value(record.started_at)}</FONT>>"
         )
     elif isinstance(record, Transform):
-        name = f"{record.name.replace('&', '&amp;')}"
+        title = f"{record.key.replace('&', '&amp;')}"
         return (
-            rf'<{TRANSFORM_EMOJIS.get(str(record.type), "💫")} {name}<BR/><FONT COLOR="GREY" POINT-SIZE="10"'
-            rf' FACE="Monospace">uid={record.uid}<BR/>type={record.type},'
-            rf" user={record.created_by.name}<BR/>updated_at={format_field_value(record.updated_at)}</FONT>>"
+            rf'<{title}<BR/><FONT COLOR="GREY" POINT-SIZE="10"'
+            rf' FACE="Monospace">'
+            rf" created_by: {record.created_by.handle}<BR/>created_at: {format_field_value(record.created_at)}</FONT>>"
         )
     else:
-        name = record.__getattribute__(field)
+        title = record.__getattribute__(field)
         return (
-            rf'<{name}<BR/><FONT COLOR="GREY" POINT-SIZE="10"'
-            rf' FACE="Monospace">uid={record.uid}</FONT>>'
+            rf'<{title}<BR/><FONT COLOR="GREY" POINT-SIZE="10"'
+            rf' FACE="Monospace">created_by: {record.created_by.handle}</FONT>>'
         )
-
-
-def _add_emoji(record: SQLRecord, label: str):
-    if record.__class__.__name__ == "Transform":
-        emoji = TRANSFORM_EMOJIS.get(record.type, "💫")
-    elif record.__class__.__name__ == "Run":
-        emoji = TRANSFORM_EMOJIS.get(record.transform.type, "💫")
-    else:
-        emoji = ""
-    return f"{emoji} {label}"
 
 
 def _get_all_parent_runs(data: Artifact | Collection) -> list:
