@@ -195,7 +195,7 @@ def init_self_from_db(self: SQLRecord, existing_record: SQLRecord):
     self._state.adding = False  # mimic from_db
     self._state.db = "default"
     # if run was not set on the existing record, set it to the current_run
-    if hasattr(self, "run_id") and self.run_id is None:
+    if hasattr(self, "run_id") and self.run_id is None and current_run() is not None:
         logger.warning(f"run was not set on {self}, setting to current run")
         self.run = current_run()
 
@@ -935,9 +935,15 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                     if self.__class__.__name__ == "Artifact":
                         # in case of artifact, also storage is needed
                         query_fields["storage"] = self.storage
+                    # the get here is Django's get and not aware of the trash or other branches
+                    # but generally we bypass branch_id in queries for hash also in LaminDB's get()
                     pre_existing_record = self.__class__.get(**query_fields)
+                    from_trash = (
+                        "from trash" if pre_existing_record.branch_id == -1 else ""
+                    )
+                    pre_existing_record.branch_id = 1  # move to default branch
                     logger.warning(
-                        f"returning {self.__class__.__name__.lower()} with same hash & key: {pre_existing_record}"
+                        f"returning {self.__class__.__name__.lower()} {from_trash} with same hash & key: {pre_existing_record}"
                     )
                     init_self_from_db(self, pre_existing_record)
                 elif (
