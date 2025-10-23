@@ -154,9 +154,11 @@ def append_uid_run(record: TracksRun, two_column_items, fk_data=None):
             "transform_key"
         ]  # "transform_key" has special logic
         run = SimpleNamespace(**fk_data["run"])
-    else:
+    elif record.run is not None:
         transform_key = record.run.transform.key
         run = record.run
+    else:
+        run = None
     two_column_items.append(
         Text.assemble(
             ("run: ", "dim"),
