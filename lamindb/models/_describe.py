@@ -134,6 +134,8 @@ def describe_artifact(
     tree = describe_header(self)
     if related_data is not None:
         foreign_key_data = related_data.get("fk", {})
+    else:
+        foreign_key_data = {}
 
     # add general information (order is the same as in API docs)
     general = tree.add(Text("General", style="bold bright_cyan"))
@@ -247,6 +249,8 @@ def describe_collection(
     tree = describe_header(self)
     if related_data is not None:
         foreign_key_data = related_data.get("fk", {})
+    else:
+        foreign_key_data = {}
 
     # add general information (order is the same as in API docs)
     general = tree.add(Text("General", style="bold bright_cyan"))
@@ -342,6 +346,8 @@ def describe_run(
     tree = describe_header(self)
     if related_data is not None:
         foreign_key_data = related_data.get("fk", {})
+    else:
+        foreign_key_data = {}
 
     # add general information (order is the same as in API docs)
     general = tree.add(Text("General", style="bold bright_cyan"))
