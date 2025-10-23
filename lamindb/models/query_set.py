@@ -558,19 +558,19 @@ def reorder_subset_columns_in_df(
     return df[new_order]
 
 
-def _field_encoder(field_name: str) -> str:
+def encode_field_as_column_name(field_name: str) -> str:
     """Encode laminDB specific fields in dataframe with __lamindb_record_{field_name}__."""
     return f"__lamindb_record_{field_name}__"
 
 
-def _encode_lamindb_fields(
+def encode_lamindb_fields_as_columns(
     registry: Registry, fields: str | list[str]
 ) -> dict[str, str]:
     """Encode laminDB specific fields in dataframe with __lamindb_record_{field_name}__."""
     fields = [fields] if isinstance(fields, str) else fields
     registry_field_names = {field.name for field in registry._meta.concrete_fields}
     return {
-        field: _field_encoder(field)
+        field: encode_field_as_column_name(field)
         for field in fields
         if field in registry_field_names
     }
@@ -603,12 +603,15 @@ def reshape_annotate_result(
 
     # initialize result with basic fields, need a copy as we're modifying it
     # will give us warnings otherwise
-    fields_map = _encode_lamindb_fields(registry, df.columns)
-    result = df[field_names].copy().rename(columns=fields_map)
-    df_encoded = df.rename(columns=fields_map)
-    cols_from_include = {fields_map.get(k, k): v for k, v in cols_from_include.items()}
+    # at this point, the only columns that df contains are Django fields
+    result = df[field_names].copy()
     # process features if requested
     if feature_names:
+        # here we encode the django fields to avoid name clashes with features names
+        fields_map = encode_lamindb_fields_as_columns(registry, df.columns)
+        df_encoded = df.rename(columns=fields_map)
+        result_encoded = result.rename(columns=fields_map)
+
         # handle json values
         feature_cols = [
             f"{json_values_attribute}__feature__name",
@@ -637,7 +640,7 @@ def reshape_annotate_result(
             # Unstack and reset index
             feature_values = combined_features.unstack().reset_index()
             if not feature_values.empty:
-                result = result.join(
+                result_encoded = result_encoded.join(
                     feature_values.set_index("__lamindb_record_id__"),
                     on="__lamindb_record_id__",
                 )
@@ -651,8 +654,8 @@ def reshape_annotate_result(
         ]
 
         if links_features:
-            result = process_links_features(
-                df_encoded, result, links_features, feature_names
+            result_encoded = process_links_features(
+                df_encoded, result_encoded, links_features, feature_names
             )
 
         def extract_single_element(s):
@@ -667,38 +670,55 @@ def reshape_annotate_result(
             return next(iter(s))
 
         for feature in feature_qs:
-            if feature.name in result.columns:
+            if feature.name in result_encoded.columns:
                 # TODO: make dependent on feature._expect_many through
                 # lambda x: extract_single_element(x, feature)
-                result[feature.name] = result[feature.name].apply(
+                result_encoded[feature.name] = result_encoded[feature.name].apply(
                     extract_single_element
                 )
                 if feature.dtype.startswith("cat"):
                     try:
                         # Try to convert to category - this will fail if complex objects remain
-                        result[feature.name] = result[feature.name].astype("category")
+                        result_encoded[feature.name] = result_encoded[
+                            feature.name
+                        ].astype("category")
                     except (TypeError, ValueError):
                         # If conversion fails, the column still contains complex objects
                         pass
                 if feature.dtype.startswith("datetime"):
                     try:
                         # Try to convert to category - this will fail if complex objects remain
-                        result[feature.name] = pd.to_datetime(result[feature.name])
+                        result_encoded[feature.name] = pd.to_datetime(
+                            result_encoded[feature.name]
+                        )
                     except (TypeError, ValueError):
                         # If conversion fails, the column still contains complex objects
                         pass
 
         # sort columns
-        result = reorder_subset_columns_in_df(result, feature_names)
+        result_encoded = reorder_subset_columns_in_df(result_encoded, feature_names)
 
-    if cols_from_include:
-        result = process_cols_from_include(df_encoded, result, cols_from_include)
-    # here we revert the field encoding
-    # but in cases when the result already has a column with the field name (like a feature also called 'id'),
-    # we don't revert and keep the field encoded name
-    return result.drop_duplicates(subset=["__lamindb_record_id__"]).rename(
-        columns={v: k for k, v in fields_map.items() if k not in result.columns}
-    )
+        if cols_from_include:
+            # also encode cols_from_include to avoid name clashes when features are present
+            cols_from_include = {
+                fields_map.get(k, k): v for k, v in cols_from_include.items()
+            }
+            result_encoded = process_cols_from_include(
+                df_encoded, result_encoded, cols_from_include
+            )
+        # here we revert the field encoding
+        # but in cases when the result already has a column with the field name (like a feature also called 'id'),
+        # we don't revert and keep the field encoded name
+        return result_encoded.drop_duplicates(subset=["__lamindb_record_id__"]).rename(
+            columns={
+                v: k for k, v in fields_map.items() if k not in result_encoded.columns
+            }
+        )
+    else:
+        fields_map = {}
+        if cols_from_include:
+            result = process_cols_from_include(df, result, cols_from_include)
+        return result.drop_duplicates(subset=["id"])
 
 
 def process_links_features(
@@ -755,7 +775,7 @@ def process_cols_from_include(
         if col in result.columns:
             continue
 
-        id_encoded = _field_encoder("id")
+        id_encoded = encode_field_as_column_name("id")
         id_field = id_encoded if id_encoded in df.columns else "id"
         values = df.groupby(id_field)[col].agg(set if col_type == "many" else "first")
         result.insert(3, col, result[id_field].map(values))
@@ -879,7 +899,7 @@ class BasicQuerySet(models.QuerySet):
         )
         time = logger.debug("finished reshape_annotate_result", time=time)
         pk_name = self.model._meta.pk.name
-        encoded_pk_name = _field_encoder(pk_name)
+        encoded_pk_name = encode_field_as_column_name(pk_name)
         if encoded_pk_name in df_reshaped.columns:
             df_reshaped = df_reshaped.set_index(encoded_pk_name)
         else:
