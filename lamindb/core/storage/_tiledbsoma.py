@@ -221,7 +221,7 @@ def save_tiledbsoma_experiment(
         assert len(adata_objects) == 1  # noqa: S101
         n_observations = adata_objects[0].n_obs
 
-    logger.important(f"Writing the tiledbsoma store to {storepath_str}")
+    logger.important(f"writing the tiledbsoma store to {storepath_str}")
     experiment_exists: bool | None = None
     for adata_obj in adata_objects:
         # do not recheck if True
