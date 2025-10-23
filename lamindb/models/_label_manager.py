@@ -105,8 +105,10 @@ def describe_labels(
             labels_table.add_row(
                 f".{related_name}", Text(type_str, style="dim"), print_values
             )
-    tree = Tree(Text("Labels", style="bold green_yellow"), guide_style="dim")
-    tree.add(labels_table)
+    tree = None
+    if labels_table.rows:  # we might not have rows even if labels_data was non-empty
+        tree = Tree(Text("Labels", style="bold green_yellow"), guide_style="dim")
+        tree.add(labels_table)
     return tree
 
 

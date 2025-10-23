@@ -403,7 +403,6 @@ def describe_postgres(self):
     if self._state.db is not None and self._state.db != "default":
         msg += f"  {colors.italic('Database instance')}\n"
         msg += f"    slug: {self._state.db}\n"
-
     if model_name in {"Artifact", "Run"}:
         result = get_artifact_or_run_with_related(
             self,
@@ -427,8 +426,6 @@ def describe_postgres(self):
 
 
 def describe_sqlite(self):
-    from ._feature_manager import describe_features
-
     model_name = self.__class__.__name__
     msg = f"{colors.green(model_name)}{record_repr(self, include_foreign_keys=False).lstrip(model_name)}\n"
     if self._state.db is not None and self._state.db != "default":
@@ -466,17 +463,11 @@ def describe_sqlite(self):
             tree = describe_artifact(self)
         else:
             tree = describe_run(self)
-        return describe_features(
-            self,
-            tree=tree,
-            with_labels=True,
-        )
     elif model_name == "Collection":
         tree = describe_collection(self)
-        return tree
     else:
         tree = describe_header(self)
-        return tree
+    return tree
 
 
 def describe_postgres_sqlite(self, return_str: bool = False) -> str | None:
