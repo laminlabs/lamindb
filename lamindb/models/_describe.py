@@ -10,7 +10,7 @@ from rich.table import Table
 from rich.text import Text
 from rich.tree import Tree
 
-from .sqlrecord import record_repr
+from .sqlrecord import SQLRecord, record_repr
 
 if TYPE_CHECKING:
     from lamindb.models import Artifact, Collection, Run, Schema
@@ -124,6 +124,33 @@ def format_bytes(bytes_value):
         return f"{bytes_value / (1024**4):.1f} TB"
 
 
+def append_branch_space_created_at_created_by(
+    record: SQLRecord, two_column_items, fk_data=None
+):
+    # branch
+    branch_name = fk_data["branch"]["name"] if fk_data else record.branch.name
+    two_column_items.append(Text.assemble(("branch: ", "dim"), branch_name))
+    # space
+    space_name = fk_data["space"]["name"] if fk_data else record.space.name
+    two_column_items.append(Text.assemble(("space: ", "dim"), space_name))
+    # created_at
+    two_column_items.append(
+        Text.assemble(("created_at: ", "dim"), highlight_time(str(record.created_at)))
+    )
+    # created_by
+    created_by_handle = (
+        fk_data["created_by"]["name"]  # "name" holds handle, is display name
+        if fk_data
+        else record.created_by.handle
+    )
+    two_column_items.append(
+        Text.assemble(
+            ("created_by: ", "dim"),
+            (created_by_handle),
+        )
+    )
+
+
 def describe_artifact(
     self: Artifact,
     tree: Tree | None = None,
@@ -168,29 +195,7 @@ def describe_artifact(
     two_column_items.append(
         Text.assemble(("size: ", "dim"), f"{format_bytes(self.size)}")
     )
-    space_name = (
-        foreign_key_data["space"]["name"] if foreign_key_data else self.space.name
-    )
-    two_column_items.append(Text.assemble(("space: ", "dim"), space_name))
-    branch_name = (
-        foreign_key_data["branch"]["name"] if foreign_key_data else self.branch.name
-    )
-    two_column_items.append(Text.assemble(("branch: ", "dim"), branch_name))
-    # actually not name field here, but handle
-    created_by_handle = (
-        foreign_key_data["created_by"]["name"]  # "name" holds handle, is display name
-        if foreign_key_data
-        else self.created_by.handle
-    )
-    two_column_items.append(
-        Text.assemble(
-            ("created_by: ", "dim"),
-            (created_by_handle),
-        )
-    )
-    two_column_items.append(
-        Text.assemble(("created_at: ", "dim"), highlight_time(str(self.created_at)))
-    )
+    append_branch_space_created_at_created_by(self, two_column_items, foreign_key_data)
     if self.n_files:
         two_column_items.append(Text.assemble(("n_files: ", "dim"), f"{self.n_files}"))
     if self.n_observations:
@@ -278,38 +283,7 @@ def describe_collection(
             (f"{transform_key}", "cyan3"),
         )
     )
-    space_name = (
-        foreign_key_data["space"]["name"]
-        if foreign_key_data and "space" in foreign_key_data
-        else self.space.name
-        if self.space
-        else None
-    )
-    two_column_items.append(Text.assemble(("space: ", "dim"), space_name))
-    branch_name = (
-        foreign_key_data["branch"]["name"]
-        if foreign_key_data and "branch" in foreign_key_data
-        else self.branch.name
-        if self.branch
-        else None
-    )
-    two_column_items.append(Text.assemble(("branch: ", "dim"), branch_name))
-    created_by_handle = (
-        foreign_key_data["created_by"]["name"]  # "name" holds handle, is display name
-        if foreign_key_data and "created_by" in foreign_key_data
-        else self.created_by.handle
-        if self.created_by
-        else None
-    )
-    two_column_items.append(
-        Text.assemble(
-            ("created_by: ", "dim"),
-            (created_by_handle),
-        )
-    )
-    two_column_items.append(
-        Text.assemble(("created_at: ", "dim"), highlight_time(str(self.created_at)))
-    )
+    append_branch_space_created_at_created_by(self, two_column_items, foreign_key_data)
 
     if self.version:
         two_column_items.append(Text.assemble(("version: ", "dim"), f"{self.version}"))
@@ -368,38 +342,7 @@ def describe_run(
             (f"{transform_key}", "cyan3"),
         )
     )
-    space_name = (
-        foreign_key_data["space"]["name"]
-        if foreign_key_data and "space" in foreign_key_data
-        else self.space.name
-        if self.space
-        else None
-    )
-    two_column_items.append(Text.assemble(("space: ", "dim"), space_name))
-    branch_name = (
-        foreign_key_data["branch"]["name"]
-        if foreign_key_data and "branch" in foreign_key_data
-        else self.branch.name
-        if self.branch
-        else None
-    )
-    two_column_items.append(Text.assemble(("branch: ", "dim"), branch_name))
-    created_by_handle = (
-        foreign_key_data["created_by"]["name"]  # "name" holds handle, is display name
-        if foreign_key_data and "created_by" in foreign_key_data
-        else self.created_by.handle
-        if self.created_by
-        else None
-    )
-    two_column_items.append(
-        Text.assemble(
-            ("created_by: ", "dim"),
-            (created_by_handle),
-        )
-    )
-    two_column_items.append(
-        Text.assemble(("created_at: ", "dim"), highlight_time(str(self.created_at)))
-    )
+    append_branch_space_created_at_created_by(self, two_column_items, foreign_key_data)
 
     # Add two-column items in pairs
     for i in range(0, len(two_column_items), 2):
@@ -477,16 +420,7 @@ def describe_schema(self: Schema, slot: str | None = None) -> Tree:
     two_column_items.append(
         Text.assemble(("minimal_set: ", "dim"), f"{self.minimal_set}")
     )
-    space_name = self.space.name if self.space else None
-    two_column_items.append(Text.assemble(("space: ", "dim"), space_name))
-    branch_name = self.branch.name if self.branch else None
-    two_column_items.append(Text.assemble(("branch: ", "dim"), branch_name))
-    two_column_items.append(
-        Text.assemble(("created_by: ", "dim"), self.created_by.handle)
-    )
-    two_column_items.append(
-        Text.assemble(("created_at: ", "dim"), highlight_time(str(self.created_at)))
-    )
+    append_branch_space_created_at_created_by(self, two_column_items)
 
     # Add two-column items in pairs
     for i in range(0, len(two_column_items), 2):
