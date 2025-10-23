@@ -419,7 +419,9 @@ def _record_label(record: SQLRecord, field: str | None = None):
     from .transform import Transform
 
     if isinstance(record, Artifact):
-        title = record.key.replace("&", "&amp;")
+        title = (
+            record.key.replace("&", "&amp;") if record.key is not None else record.uid
+        )
         return rf"<{title}>"
     elif isinstance(record, Collection):
         title = record.key.replace("&", "&amp;")
@@ -430,25 +432,17 @@ def _record_label(record: SQLRecord, field: str | None = None):
     elif isinstance(record, Run):
         title = record.transform.key.replace("&", "&amp;")
         return (
-            rf'<{title}<BR/><FONT COLOR="GREY" POINT-SIZE="10"'
-            rf">"
+            rf'<{title}<BR/><FONT COLOR="GREY" POINT-SIZE="10">'
             rf"run at {format_field_value(record.started_at)}</FONT>>"
         )
     elif isinstance(record, Transform):
-        title = f"{record.key.replace('&', '&amp;')}"
-        return (
-            rf'<{title}<BR/><FONT COLOR="GREY" POINT-SIZE="10"'
-            rf' FACE="Monospace">'
-            rf" created_by: {record.created_by.handle}<BR/>created_at: {format_field_value(record.created_at)}</FONT>>"
-        )
+        title = record.key.replace("&", "&amp;")
+        return rf"<{title}>"
     else:
         if field is None:
             field = get_name_field(record)
         title = record.__getattribute__(field)
-        return (
-            rf'<{title}<BR/><FONT COLOR="GREY" POINT-SIZE="10"'
-            rf' FACE="Monospace">created_by: {record.created_by.handle}</FONT>>'
-        )
+        return rf"<{title}>"
 
 
 def _get_all_parent_runs(data: Artifact | Collection) -> list:
