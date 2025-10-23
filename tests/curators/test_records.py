@@ -245,3 +245,26 @@ def test_record_soft_deleted_recreate():
     assert record.branch_id == 1
     assert record.name == "test_record 2"
     ln.Record.objects.filter().delete()
+
+
+def test_annotate_with_user_feature():
+    """Test that annotating with a user feature works as expected."""
+    user_feature = ln.Feature(name="created_by", dtype=ln.User).save()
+    schema = ln.Schema(
+        name="test_schema_user_feature",
+        features=[user_feature],
+        coerce_dtype=True,
+    ).save()
+    sheet = ln.Record(name="A sheet with users", is_type=True, schema=schema).save()
+    record = ln.Record(name="first user", type=sheet).save()
+    user = ln.User(uid="abcdefgh", handle="test-user").save()
+    ln.models.RecordUser(record=record, feature=user_feature, value=user).save()
+
+    df = sheet.type_to_dataframe()
+    assert df.index.name == "__lamindb_record_id__"
+    assert df.columns.to_list() == [
+        "created_by",
+        "__lamindb_record_uid__",
+        "__lamindb_record_name__",
+    ]
+    assert df.iloc[0]["created_by"] == "abcdefgh"

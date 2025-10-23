@@ -153,6 +153,10 @@ class User(BaseSQLRecord, CanCurate):
     """User handle, valid across DB instances (required)."""
     name: str | None = CharField(max_length=150, db_index=True, null=True)
     """Full name (optional)."""  # has to match hub specification, where it's also optional
+    linked_in_records: Record = models.ManyToManyField(
+        "Record", through="RecordUser", related_name="linked_users"
+    )
+    """Records linked in this user."""
     created_artifacts: Artifact
     """Artifacts created by user."""
     created_transforms: Transform

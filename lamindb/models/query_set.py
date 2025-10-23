@@ -446,14 +446,18 @@ def get_feature_annotate_kwargs(
     link_models_on_models = {
         getattr(
             registry, obj.related_name
-        ).through.__get_name_with_module__(): obj.related_model.__get_name_with_module__()
+        ).through.__get_name_with_module__(): obj.related_model
         for obj in registry._meta.related_objects
         if obj.related_model.__get_name_with_module__() in cat_feature_types
     }
     if registry is Artifact:
-        link_models_on_models["ArtifactULabel"] = "ULabel"
+        from .ulabel import (
+            ULabel,  # needs to be imported here to avoid circular imports
+        )
+
+        link_models_on_models["ArtifactULabel"] = ULabel
     else:
-        link_models_on_models["RecordRecord"] = "Record"
+        link_models_on_models["RecordRecord"] = Record
     link_attributes_on_models = {
         obj.related_name: link_models_on_models[
             obj.related_model.__get_name_with_module__()
@@ -470,7 +474,8 @@ def get_feature_annotate_kwargs(
     }
     # Prepare Django's annotate for features
     annotate_kwargs = {}
-    for link_attr, feature_type in link_attributes_on_models.items():
+    for link_attr, feature_type_model in link_attributes_on_models.items():
+        feature_type = feature_type_model.__get_name_with_module__()
         if link_attr == "links_project" and registry is Record:
             # we're only interested in _values_project when "annotating" records
             continue
@@ -484,7 +489,7 @@ def get_feature_annotate_kwargs(
         else:
             field_name = "value"
         annotate_kwargs[f"{link_attr}__{field_name}__name"] = F(
-            f"{link_attr}__{field_name}__name"
+            f"{link_attr}__{field_name}__{getattr(feature_type_model, '_name_field', 'name')}"
         )
     json_values_attribute = "_feature_values" if registry is Artifact else "values_json"
     annotate_kwargs[f"{json_values_attribute}__feature__name"] = F(
@@ -760,7 +765,6 @@ def process_links_features(
         # Filter features if specific ones requested
         if isinstance(features, list):
             feature_names = [f for f in feature_names if f in features]
-
         for feature_name in feature_names:
             mask = df[feature_col] == feature_name
             feature_values = df[mask].groupby(pk_name)[value_col].agg(set)
