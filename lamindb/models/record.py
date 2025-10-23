@@ -22,7 +22,12 @@ from .artifact import Artifact
 from .can_curate import CanCurate
 from .feature import Feature
 from .has_parents import HasParents, _query_ancestors_of_fk, _query_relatives
-from .query_set import QuerySet, SQLRecordList, reorder_subset_columns_in_df
+from .query_set import (
+    QuerySet,
+    SQLRecordList,
+    encode_field_as_column_name,
+    reorder_subset_columns_in_df,
+)
 from .run import Run, TracksRun, TracksUpdates, User, current_run, current_user_id
 from .sqlrecord import BaseSQLRecord, IsLink, SQLRecord, _get_record_kwargs
 from .transform import Transform
@@ -355,12 +360,13 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates, HasParents):
         """Export all instances of this record type to a pandas DataFrame."""
         assert self.is_type, "Only types can be exported as dataframes"  # noqa: S101
         df = self.query_records().to_dataframe(features="queryset")
-        if "uid" in df.columns and "__lamindb_record_uid__" not in df.columns:
-            df = df.rename(columns={"uid": "__lamindb_record_uid__"})
-        if "name" in df.columns and "__lamindb_record_name__" not in df.columns:
-            df = df.rename(columns={"name": "__lamindb_record_name__"})
-        # df.columns.values[0] = "__lamindb_record_uid__"
-        # df.columns.values[1] = "__lamindb_record_name__"
+        encoded_uid = encode_field_as_column_name(self.__class__, "uid")
+        encoded_name = encode_field_as_column_name(self.__class__, "name")
+        # encode the django uid and name fields
+        if "uid" in df.columns and encoded_uid not in df.columns:
+            df = df.rename(columns={"uid": encoded_uid})
+        if "name" in df.columns and encoded_name not in df.columns:
+            df = df.rename(columns={"name": encoded_name})
         if self.schema is not None:
             desired_order = self.schema.members.to_list(
                 "name"

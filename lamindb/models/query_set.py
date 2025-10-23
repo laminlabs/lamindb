@@ -558,9 +558,9 @@ def reorder_subset_columns_in_df(
     return df[new_order]
 
 
-def encode_field_as_column_name(field_name: str) -> str:
+def encode_field_as_column_name(registry: Registry, field_name: str) -> str:
     """Encode laminDB specific fields in dataframe with __lamindb_record_{field_name}__."""
-    return f"__lamindb_record_{field_name}__"
+    return f"__lamindb_{registry._meta.model_name}_{field_name}__"
 
 
 def encode_lamindb_fields_as_columns(
@@ -570,7 +570,7 @@ def encode_lamindb_fields_as_columns(
     fields = [fields] if isinstance(fields, str) else fields
     registry_field_names = {field.name for field in registry._meta.concrete_fields}
     return {
-        field: encode_field_as_column_name(field)
+        field: encode_field_as_column_name(registry, field)
         for field in fields
         if field in registry_field_names
     }
@@ -589,136 +589,140 @@ def reshape_annotate_result(
     """Reshapes tidy table to wide format.
 
     Args:
-        field_names: List of basic fields to include in result
+        registry: The registry model (e.g., Artifact)
         df: Input dataframe with experimental data
-        extra_columns: Dict specifying additional columns to process with types ('one' or 'many')
-            e.g., {'ulabels__name': 'many', 'created_by__name': 'one'}
-        feature_names: Feature names.
+        field_names: List of basic fields to include in result
+        cols_from_include: Dict specifying additional columns to process with types
+            ('one' or 'many'), e.g., {'ulabels__name': 'many', 'created_by__name': 'one'}
+        feature_names: Feature names to include
+        feature_qs: QuerySet of features for type conversion
     """
     from lamindb.models import Artifact
 
     cols_from_include = cols_from_include or {}
 
-    json_values_attribute = "_feature_values" if registry is Artifact else "values_json"
-
-    # initialize result with basic fields, need a copy as we're modifying it
-    # will give us warnings otherwise
-    # at this point, the only columns that df contains are Django fields
+    # Initialize result with basic fields (need a copy since we're modifying it)
     result = df[field_names].copy()
-    # process features if requested
-    if feature_names:
-        # here we encode the django fields to avoid name clashes with features names
-        fields_map = encode_lamindb_fields_as_columns(registry, df.columns)
-        df_encoded = df.rename(columns=fields_map)
-        result_encoded = result.rename(columns=fields_map)
+    pk_name = registry._meta.pk.name
 
-        # handle json values
-        feature_cols = [
-            f"{json_values_attribute}__feature__name",
-            f"{json_values_attribute}__value",
-        ]
-        if all(col in df_encoded.columns for col in feature_cols):
-            # Create two separate dataframes - one for dict values and one for non-dict values
-            is_dict = df_encoded[f"{json_values_attribute}__value"].apply(
-                lambda x: isinstance(x, dict)
-            )
-            dict_df, non_dict_df = df_encoded[is_dict], df_encoded[~is_dict]
-
-            # Process non-dict values using set aggregation
-            non_dict_features = non_dict_df.groupby(
-                ["__lamindb_record_id__", f"{json_values_attribute}__feature__name"]
-            )[f"{json_values_attribute}__value"].agg(set)
-
-            # Process dict values using first aggregation
-            dict_features = dict_df.groupby(
-                ["__lamindb_record_id__", f"{json_values_attribute}__feature__name"]
-            )[f"{json_values_attribute}__value"].agg("first")
-
-            # Combine the results
-            combined_features = pd.concat([non_dict_features, dict_features])
-
-            # Unstack and reset index
-            feature_values = combined_features.unstack().reset_index()
-            if not feature_values.empty:
-                result_encoded = result_encoded.join(
-                    feature_values.set_index("__lamindb_record_id__"),
-                    on="__lamindb_record_id__",
-                )
-
-        # handle categorical features
-        links_prefix = "links_" if registry is Artifact else ("links_", "values_")
-        links_features = [
-            col
-            for col in df.columns
-            if "feature__name" in col and col.startswith(links_prefix)
-        ]
-
-        if links_features:
-            result_encoded = process_links_features(
-                df_encoded, result_encoded, links_features, feature_names
-            )
-
-        def extract_single_element(s):
-            if not hasattr(s, "__len__"):  # is NaN or other scalar
-                return s
-            if len(s) != 1:
-                # TODO: below should depend on feature._expect_many
-                # logger.warning(
-                #     f"expected single value because `feature._expect_many is False` but got set {len(s)} elements: {s}"
-                # )
-                return s
-            return next(iter(s))
-
-        for feature in feature_qs:
-            if feature.name in result_encoded.columns:
-                # TODO: make dependent on feature._expect_many through
-                # lambda x: extract_single_element(x, feature)
-                result_encoded[feature.name] = result_encoded[feature.name].apply(
-                    extract_single_element
-                )
-                if feature.dtype.startswith("cat"):
-                    try:
-                        # Try to convert to category - this will fail if complex objects remain
-                        result_encoded[feature.name] = result_encoded[
-                            feature.name
-                        ].astype("category")
-                    except (TypeError, ValueError):
-                        # If conversion fails, the column still contains complex objects
-                        pass
-                if feature.dtype.startswith("datetime"):
-                    try:
-                        # Try to convert to category - this will fail if complex objects remain
-                        result_encoded[feature.name] = pd.to_datetime(
-                            result_encoded[feature.name]
-                        )
-                    except (TypeError, ValueError):
-                        # If conversion fails, the column still contains complex objects
-                        pass
-
-        # sort columns
-        result_encoded = reorder_subset_columns_in_df(result_encoded, feature_names)
-
-        if cols_from_include:
-            # also encode cols_from_include to avoid name clashes when features are present
-            cols_from_include = {
-                fields_map.get(k, k): v for k, v in cols_from_include.items()
-            }
-            result_encoded = process_cols_from_include(
-                df_encoded, result_encoded, cols_from_include
-            )
-        # here we revert the field encoding
-        # but in cases when the result already has a column with the field name (like a feature also called 'id'),
-        # we don't revert and keep the field encoded name
-        return result_encoded.drop_duplicates(subset=["__lamindb_record_id__"]).rename(
-            columns={
-                v: k for k, v in fields_map.items() if k not in result_encoded.columns
-            }
-        )
-    else:
-        fields_map = {}
+    # ========== no features requested ==========
+    if not feature_names:
         if cols_from_include:
             result = process_cols_from_include(df, result, cols_from_include)
         return result.drop_duplicates(subset=["id"])
+
+    # ========== process features ==========
+
+    # Encode Django field names to avoid conflicts with feature names
+    fields_map = encode_lamindb_fields_as_columns(registry, df.columns)
+    df_encoded = df.rename(columns=fields_map)
+    result_encoded = result.rename(columns=fields_map)
+    pk_name_encoded = fields_map.get(pk_name)
+
+    # --- Process JSON-stored feature values ---
+    json_values_attribute = "_feature_values" if registry is Artifact else "values_json"
+    feature_name_col = f"{json_values_attribute}__feature__name"
+    feature_value_col = f"{json_values_attribute}__value"
+
+    if all(col in df_encoded.columns for col in [feature_name_col, feature_value_col]):
+        # Separate dict and non-dict values for different aggregation strategies
+        is_dict = df_encoded[feature_value_col].apply(lambda x: isinstance(x, dict))
+        dict_df = df_encoded[is_dict]
+        non_dict_df = df_encoded[~is_dict]
+
+        # Aggregate: sets for non-dict values, first for dict values
+        groupby_cols = [pk_name_encoded, feature_name_col]
+        non_dict_features = non_dict_df.groupby(groupby_cols)[feature_value_col].agg(
+            set
+        )
+        dict_features = dict_df.groupby(groupby_cols)[feature_value_col].agg("first")
+
+        # Combine and pivot to wide format
+        combined_features = pd.concat([non_dict_features, dict_features])
+        feature_values = combined_features.unstack().reset_index()
+
+        if not feature_values.empty:
+            result_encoded = result_encoded.join(
+                feature_values.set_index(pk_name_encoded),
+                on=pk_name_encoded,
+            )
+
+    # --- Process categorical/linked features ---
+    links_prefix = "links_" if registry is Artifact else ("links_", "values_")
+    links_features = [
+        col
+        for col in df.columns
+        if "feature__name" in col and col.startswith(links_prefix)
+    ]
+
+    if links_features:
+        result_encoded = process_links_features(
+            df_encoded, result_encoded, links_features, feature_names
+        )
+
+    # --- Apply type conversions based on feature metadata ---
+    def extract_single_element(value):
+        """Extract single element from set/collection if it contains exactly one item."""
+        if not hasattr(value, "__len__"):  # NaN or other scalar
+            return value
+        if len(value) != 1:
+            # TODO: Make this dependent on feature._expect_many
+            return value
+        return next(iter(value))
+
+    for feature in feature_qs:
+        if feature.name not in result_encoded.columns:
+            continue
+
+        # Extract single values from sets where appropriate
+        # TODO: Make dependent on feature._expect_many
+        result_encoded[feature.name] = result_encoded[feature.name].apply(
+            extract_single_element
+        )
+
+        # Convert to categorical dtype if specified
+        if feature.dtype.startswith("cat"):
+            try:
+                result_encoded[feature.name] = result_encoded[feature.name].astype(
+                    "category"
+                )
+            except (TypeError, ValueError):
+                pass  # Keep original if conversion fails
+
+        # Convert to datetime if specified
+        if feature.dtype.startswith("datetime"):
+            try:
+                result_encoded[feature.name] = pd.to_datetime(
+                    result_encoded[feature.name]
+                )
+            except (TypeError, ValueError):
+                pass  # Keep original if conversion fails
+
+    # --- Finalize result ---
+
+    # Reorder columns to prioritize features
+    result_encoded = reorder_subset_columns_in_df(result_encoded, feature_names)
+
+    # Process additional included columns
+    if cols_from_include:
+        cols_from_include_encoded = {
+            fields_map.get(k, k): v for k, v in cols_from_include.items()
+        }
+        result_encoded = process_cols_from_include(
+            df_encoded, result_encoded, cols_from_include_encoded
+        )
+
+    # Decode field names back to original, except where conflicts exist
+    # (e.g., if a feature is also named 'id', keep the encoded field name)
+    decode_map = {
+        encoded: original
+        for original, encoded in fields_map.items()
+        if original not in result_encoded.columns
+    }
+
+    return result_encoded.drop_duplicates(subset=[pk_name_encoded]).rename(
+        columns=decode_map
+    )
 
 
 def process_links_features(
@@ -766,7 +770,10 @@ def process_links_features(
 
 
 def process_cols_from_include(
-    df: pd.DataFrame, result: pd.DataFrame, extra_columns: dict[str, str]
+    df: pd.DataFrame,
+    result: pd.DataFrame,
+    extra_columns: dict[str, str],
+    pk_name: str = "id",
 ) -> pd.DataFrame:
     """Process additional columns based on their specified types."""
     for col, col_type in extra_columns.items():
@@ -775,10 +782,8 @@ def process_cols_from_include(
         if col in result.columns:
             continue
 
-        id_encoded = encode_field_as_column_name("id")
-        id_field = id_encoded if id_encoded in df.columns else "id"
-        values = df.groupby(id_field)[col].agg(set if col_type == "many" else "first")
-        result.insert(3, col, result[id_field].map(values))
+        values = df.groupby(pk_name)[col].agg(set if col_type == "many" else "first")
+        result.insert(3, col, result[pk_name].map(values))
 
     return result
 
@@ -899,7 +904,7 @@ class BasicQuerySet(models.QuerySet):
         )
         time = logger.debug("finished reshape_annotate_result", time=time)
         pk_name = self.model._meta.pk.name
-        encoded_pk_name = encode_field_as_column_name(pk_name)
+        encoded_pk_name = encode_field_as_column_name(self.model, pk_name)
         if encoded_pk_name in df_reshaped.columns:
             df_reshaped = df_reshaped.set_index(encoded_pk_name)
         else:
