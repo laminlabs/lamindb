@@ -109,7 +109,10 @@ def describe_header(record: Artifact | Collection | Run) -> Tree:
         title = format_run_title(record, dim=True)  # dim makes the uid grey
     else:
         title_str = record.key if record.key is not None else ""
-        title = Text(title_str, style="cyan3")
+        title = Text.assemble(
+            (title_str, "cyan3"),
+            (f" ({record.version if record.version else record.uid[-4:]})", "dim"),
+        )
     tree = Tree(
         Text.assemble(
             (f"{record.__class__.__name__}: ", "bold"),

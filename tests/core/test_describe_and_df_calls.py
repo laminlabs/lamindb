@@ -174,7 +174,7 @@ def test_curate_df():
     print(artifact.features.describe(return_str=True))
     assert (
         artifact.features.describe(return_str=True)
-        == """Artifact: examples/dataset1.h5ad
+        == """Artifact: examples/dataset1.h5ad (0000)
 ├── Dataset features
 │   ├── obs (4)
 │   │   cell_type_by_expe…  bionty.CellType         B cell, CD8-positive, alpha…
