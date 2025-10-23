@@ -500,7 +500,7 @@ def describe_features(
     if with_labels:
         # avoid querying the db if the labels were queried already
         labels_data = related_data.get("m2m") if related_data is not None else None
-        labels_tree = describe_labels(self, labels_data=labels_data, as_subtree=True)
+        labels_tree = describe_labels(self, labels_data=labels_data)
         if labels_tree:
             tree.add(labels_tree)
     return tree

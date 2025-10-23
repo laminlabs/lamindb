@@ -23,7 +23,6 @@ from ._describe import (
     NAME_WIDTH,
     TYPE_WIDTH,
     VALUES_WIDTH,
-    describe_header,
     format_rich_tree,
 )
 from ._django import get_artifact_or_run_with_related, get_related_model
@@ -73,21 +72,14 @@ def _get_labels_postgres(
 def describe_labels(
     self: Artifact | Collection,
     labels_data: dict | None = None,
-    tree: Tree | None = None,
-    as_subtree: bool = False,
 ):
-    """Describe labels associated with an artifact or collection."""
+    """Describe labels."""
     if not self._state.adding and connections[self._state.db].vendor == "postgresql":
         labels_data = _get_labels_postgres(self, labels_data)
     if not labels_data:
         labels_data = _get_labels(self, instance=self._state.db)
-
-    # initialize tree
-    if tree is None:
-        tree = describe_header(self)
     if not labels_data:
-        return tree
-
+        return None
     labels_table = Table(
         Column("", style="", no_wrap=True, width=NAME_WIDTH),
         Column("", style="dim", no_wrap=True, width=TYPE_WIDTH),
@@ -112,18 +104,9 @@ def describe_labels(
             labels_table.add_row(
                 f".{related_name}", Text(type_str, style="dim"), print_values
             )
-
-    labels_header = Text("Labels", style="bold green_yellow")
-    if as_subtree:
-        if labels_table.rows:
-            labels_tree = Tree(labels_header, guide_style="dim")
-            labels_tree.add(labels_table)
-            return labels_tree
-    else:
-        if labels_table.rows:
-            labels_tree = tree.add(labels_header)
-            labels_tree.add(labels_table)
-        return tree
+    tree = Tree(Text("Labels", style="bold green_yellow"), guide_style="dim")
+    tree.add(labels_table)
+    return tree
 
 
 def _save_validated_records(
