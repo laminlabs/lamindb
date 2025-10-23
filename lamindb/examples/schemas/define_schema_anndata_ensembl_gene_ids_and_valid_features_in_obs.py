@@ -1,5 +1,6 @@
-import lamindb as ln
 import bionty as bt
+
+import lamindb as ln
 
 obs_schema = ln.examples.schemas.valid_features()
 varT_schema = ln.Schema(

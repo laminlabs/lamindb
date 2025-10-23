@@ -1,5 +1,6 @@
-import lamindb as ln
 import bionty as bt
+
+import lamindb as ln
 
 # define valid labels
 perturbation_type = ln.Record(name="Perturbation", is_type=True).save()

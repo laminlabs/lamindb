@@ -384,5 +384,18 @@ def docs(session):
         session,
         "lamin init --storage ./docsbuild --modules bionty,wetlab",
     )
+    os.system("cp ./lamindb/examples/schemas/define_valid_features.py ./docs/scripts/")
+    os.system(
+        "cp ./lamindb/examples/schemas/define_schema_anndata_ensembl_gene_ids_and_valid_features_in_obs.py ./docs/scripts/"
+    )
+    os.system(
+        "cp ./lamindb/examples/datasets/define_mini_immuno_features_labels.py ./docs/scripts/"
+    )
+    os.system(
+        "cp ./lamindb/examples/datasets/define_mini_immuno_schema_flexible.py ./docs/scripts/"
+    )
+    os.system(
+        "cp ./lamindb/examples/datasets/save_mini_immuno_datasets.py ./docs/scripts/"
+    )
     build_docs(session, strip_prefix=True, strict=False)
     upload_docs_artifact(aws=True)

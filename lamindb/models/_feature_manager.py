@@ -123,6 +123,17 @@ def get_link_attr(link: IsLink | type[IsLink], data: Artifact | Collection) -> s
     return link_model_name.replace(data.__class__.__name__, "").lower()
 
 
+def strip_cat(feature_dtype: str) -> str:
+    if "cat[" in feature_dtype:
+        parts = feature_dtype.split("cat[")
+        dtype_stripped_cat = "".join(
+            part[:-1] if i != 0 else part for i, part in enumerate(parts)
+        )
+    else:
+        dtype_stripped_cat = feature_dtype
+    return dtype_stripped_cat
+
+
 # Custom aggregation for SQLite
 class GroupConcat(Aggregate):
     function = "GROUP_CONCAT"
@@ -365,16 +376,6 @@ def describe_features(
     non_categoricals = _get_non_categoricals(
         self,
     )
-
-    def strip_cat(feature_dtype: str) -> str:
-        if "cat[" in feature_dtype:
-            parts = feature_dtype.split("cat[")
-            dtype_stripped_cat = "".join(
-                part[:-1] if i != 0 else part for i, part in enumerate(parts)
-            )
-        else:
-            dtype_stripped_cat = feature_dtype
-        return dtype_stripped_cat
 
     # Process all Features containing labels and sort into internal/external
     internal_feature_labels = {}
@@ -1093,7 +1094,7 @@ class FeatureManager:
         if not_validated_values:
             hint = ""
             for key, values_list in not_validated_values.items():
-                key_str = "ln.ULabel" if key == "ULabel" else key
+                key_str = "ln.Record" if key == "Record" else key
                 hint += f"  records = {key_str}.from_values({values_list}, create=True).save()\n"
             msg = (
                 f"These values could not be validated: {dict(not_validated_values)}\n"

@@ -585,7 +585,12 @@ class Context:
                 f'recommendation: to identify the {notebook_or_script} across renames, pass the uid: ln{r_or_python}track("{self.transform.uid[:-4]}"{kwargs_str})'
             )
         if self.transform.type == "script":
-            save_context_core(run=run, transform=self.transform, filepath=self._path)
+            save_context_core(
+                run=run,
+                transform=self.transform,
+                filepath=self._path,
+                message_prefix="monitor at",
+            )
 
     def _track_source_code(
         self,
