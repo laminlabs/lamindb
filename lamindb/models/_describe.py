@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from types import SimpleNamespace
 from typing import TYPE_CHECKING
 
 from django.db import connections
@@ -76,7 +77,9 @@ def format_rich_tree(
 
 
 def format_run_title(
-    record: Run | None, transform_key: str | None = None, dim: bool = False
+    record: Run | SimpleNamespace | None,
+    transform_key: str | None = None,
+    dim: bool = False,
 ) -> Text:
     if record is None:
         return Text("")
@@ -139,17 +142,18 @@ def format_bytes(bytes_value):
 
 def append_uid_run(record: TracksRun, two_column_items, fk_data=None):
     two_column_items.append(Text.assemble(("uid: ", "dim"), f"{record.uid}"))
-    transform_key = (
-        fk_data["run"]["transform_key"]  # "transform_key" has special logic
-        if fk_data and "run" in fk_data
-        else record.run.transform.key
-        if record.run is not None
-        else None
-    )
+    if fk_data and "run" in fk_data:
+        transform_key = fk_data["run"][
+            "transform_key"
+        ]  # "transform_key" has special logic
+        run = SimpleNamespace(**fk_data["run"])
+    else:
+        transform_key = record.run.transform.key
+        run = record.run
     two_column_items.append(
         Text.assemble(
             ("run: ", "dim"),
-            format_run_title(record.run, transform_key=transform_key),
+            format_run_title(run, transform_key=transform_key),
         )
     )
 
