@@ -286,6 +286,7 @@ def process_data(
             format.pop("suffix", None)
         else:
             format = {}
+        logger.important("writing the in-memory object into cache")
         write_to_disk(data, path, **format)
         use_existing_storage_key = False
 
