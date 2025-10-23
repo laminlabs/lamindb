@@ -76,8 +76,10 @@ def format_rich_tree(
 
 
 def format_run_title(
-    record: Run, transform_key: str | None = None, dim: bool = False
+    record: Run | None, transform_key: str | None = None, dim: bool = False
 ) -> Text:
+    if record is None:
+        return Text("")
     display_name = (
         Text(record.name, style="")
         if record.name is not None
@@ -336,10 +338,14 @@ def describe_run(
         )
     )
     two_column_items.append(
-        Text.assemble(("started_at: ", "dim"), format_field_value(record.started_at))
+        Text.assemble(
+            ("started_at: ", "dim"), format_field_value(record.started_at, none="")
+        )
     )
     two_column_items.append(
-        Text.assemble(("finished_at: ", "dim"), format_field_value(record.finished_at))
+        Text.assemble(
+            ("finished_at: ", "dim"), format_field_value(record.finished_at, none="")
+        )
     )
     append_branch_space_created_at_created_by(record, two_column_items, fk_data)
     add_two_column_items_to_tree(general, two_column_items)

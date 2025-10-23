@@ -56,10 +56,11 @@ Here is how to create a feature:
     kwargs["label_param"] = "my_label"
     ln.track(transform=successor, features=kwargs)
     assert ln.context.run.features.get_values() == kwargs
+    print(ln.context.run.features.describe(return_str=True))
     assert (
         ln.context.run.features.describe(return_str=True)
-        == """\
-Run:
+        == f"""\
+Run: {ln.context.run.uid} ({ln.context.run.transform.key})
 └── Features
     └── label_param         Record                  my_label
         param1              int                     1

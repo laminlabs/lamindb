@@ -491,7 +491,9 @@ def describe_features(
     external_features_tree = None
     if external_features_tree_children:
         external_features_text = (
-            "External features" if isinstance(self, Artifact) else "Features"
+            "External features"
+            if (isinstance(self, Artifact) and dataset_features_tree_children)
+            else "Features"
         )
         external_features_tree = Tree(
             Text(external_features_text, style="bold dark_orange")
