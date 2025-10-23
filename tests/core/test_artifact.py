@@ -235,13 +235,14 @@ def test_revise_recreate_artifact(df):
     artifact_r2 = ln.Artifact.get(artifact_r2.uid)
     assert not artifact_r2.is_latest
 
-    # re-create based on hash while providing a different key
+    # re-create based on hash when artifact_r3 is in trash
     artifact_r3.delete()
     artifact_new = ln.Artifact.from_dataframe(
         df,
         key="my-test-dataset1.parquet",
     )
     assert artifact_new != artifact_r3
+    assert artifact_new.hash == artifact_r3.hash
     assert artifact_new.key == "my-test-dataset1.parquet"
     artifact_r3.restore()  # restore from trash
 
@@ -252,17 +253,35 @@ def test_revise_recreate_artifact(df):
         description="test1 updated",
     )
     assert artifact_new == artifact_r3
+    assert artifact_new.hash == artifact_r3.hash
     assert artifact_new.key == key  # old key
     assert artifact_new.description == "test1 updated"
 
-    # re-create while skipping hash lookup
+    # re-create while skipping hash lookup with different key
     artifact_new = ln.Artifact.from_dataframe(
         df,
         key="my-test-dataset1.parquet",
         skip_hash_lookup=True,
     )
-    assert artifact_new != artifact_r3
+    assert artifact_new.uid != artifact_r3.uid
+    assert artifact_new.hash == artifact_r3.hash
     assert artifact_new.key == "my-test-dataset1.parquet"
+    artifact_new.save()  # this just saves a duplicated file
+    artifact_new_queried = ln.Artifact.filter(uid=artifact_new.uid).one_or_none()
+    assert artifact_new_queried.uid != artifact_r3.uid
+
+    # re-create while skipping hash lookup with same key
+    artifact_new = ln.Artifact.from_dataframe(
+        df,
+        key="my-test-dataset.parquet",
+        skip_hash_lookup=True,
+    )
+    assert artifact_new.uid != artifact_r3.uid
+    assert artifact_new.hash == artifact_r3.hash
+    assert artifact_new.key == "my-test-dataset.parquet"
+    artifact_new.save()  # should now violate unique constraint
+    artifact_new_queried = ln.Artifact.filter(uid=artifact_new.uid).one_or_none()
+    assert artifact_new_queried.uid != artifact_r3.uid
 
     with pytest.raises(TypeError) as error:
         ln.Artifact.from_dataframe(

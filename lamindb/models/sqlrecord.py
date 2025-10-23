@@ -195,7 +195,7 @@ def init_self_from_db(self: SQLRecord, existing_record: SQLRecord):
     self._state.adding = False  # mimic from_db
     self._state.db = "default"
     # if run was not set on the existing record, set it to the current_run
-    if hasattr(self, "run_id") and self.run_id is None:
+    if hasattr(self, "run_id") and self.run_id is None and current_run() is not None:
         logger.warning(f"run was not set on {self}, setting to current run")
         self.run = current_run()
 
