@@ -46,6 +46,11 @@ def populate_sheets_compound_treatment():
 
     # Samples ---------------------------
 
+    # features named id, uid or name conflict with django field names, we test them here
+    id_feature = ln.Feature(name="id", dtype=int).save()
+    uid_feature = ln.Feature(name="uid", dtype=str).save()
+    name_feature = ln.Feature(name="name", dtype=str).save()
+
     project = ln.Feature(name="project", dtype=ln.Project).save()
     project1 = ln.Project(name="Project 1").save()
     sample_type = ln.Record(name="BioSample", is_type=True).save()
@@ -54,18 +59,29 @@ def populate_sheets_compound_treatment():
     preparation_date = ln.Feature(name="preparation_date", dtype="datetime").save()
     cell_line.dtype = "cat[bionty.CellLine]"  # might have previously been set to "cat"
     cell_line.save()
-    schema1 = ln.Schema(
+    sample_schema1 = ln.Schema(
         name="My samples schema 2025-06",
-        features=[treatment, cell_line, preparation_date, project],
+        features=[
+            id_feature,
+            uid_feature,
+            name_feature,
+            treatment,
+            cell_line,
+            preparation_date,
+            project,
+        ],
     ).save()
     sample_sheet1 = ln.Record(
-        name="My samples 2025-06", schema=schema1, type=sample_type
+        name="My samples 2025-06", schema=sample_schema1, type=sample_type
     ).save()
     # values for cell lines
     hek293t = bt.CellLine.from_source(name="HEK293T").save()
 
     # populate sample1
     sample1 = ln.Record(name="sample1", type=sample_sheet1).save()
+    ln.models.RecordJson(record=sample1, feature=id_feature, value=1).save()
+    ln.models.RecordJson(record=sample1, feature=uid_feature, value="S1").save()
+    ln.models.RecordJson(record=sample1, feature=name_feature, value="Sample 1").save()
     ln.models.RecordRecord(record=sample1, feature=treatment, value=treatment1).save()
     bt.models.RecordCellLine(record=sample1, feature=cell_line, value=hek293t).save()
     ln.models.RecordJson(
@@ -74,6 +90,9 @@ def populate_sheets_compound_treatment():
     ln.models.RecordProject(record=sample1, feature=project, value=project1).save()
     # populate sample2
     sample2 = ln.Record(name="sample2", type=sample_sheet1).save()
+    ln.models.RecordJson(record=sample2, feature=id_feature, value=2).save()
+    ln.models.RecordJson(record=sample2, feature=uid_feature, value="S2").save()
+    ln.models.RecordJson(record=sample2, feature=name_feature, value="Sample 2").save()
     ln.models.RecordRecord(record=sample2, feature=treatment, value=treatment2).save()
     bt.models.RecordCellLine(record=sample2, feature=cell_line, value=hek293t).save()
     ln.models.RecordJson(
@@ -83,13 +102,13 @@ def populate_sheets_compound_treatment():
 
     # another sheet for samples
     sample_note = ln.Feature(name="sample_note", dtype="str").save()
-    schema2 = ln.Schema(
+    sample_schema2 = ln.Schema(
         name="My samples schema 2025-07",
         features=[treatment, cell_line, sample_note, project],
     ).save()
     # the sheet
     sample_sheet2 = ln.Record(
-        name="My samples 2025-07", schema=schema2, type=sample_type
+        name="My samples 2025-07", schema=sample_schema2, type=sample_type
     ).save()
     # populate sample3
     sample3 = ln.Record(type=sample_sheet2).save()  # no name
@@ -113,13 +132,13 @@ def populate_sheets_compound_treatment():
     sample4.delete()
     sample3.delete()
     sample_sheet2.delete()
-    schema2.delete()
+    sample_schema2.delete()
     sample_note.delete()
     sample2.delete()
     sample1.delete()
     # hek293t.delete()  # not for now
     sample_sheet1.delete()
-    schema1.delete()
+    sample_schema1.delete()
     preparation_date.delete()
     cell_line.delete()
     # sample_type.delete()   # not for now
