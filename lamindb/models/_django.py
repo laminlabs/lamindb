@@ -136,6 +136,13 @@ def get_artifact_or_run_with_related(
                     uid=F(f"{fk}__uid"),
                     transform_key=F(f"{fk}__transform__key"),
                 )
+            elif fk == "transform":
+                annotations[f"fkfield_{fk}"] = JSONObject(
+                    id=F(f"{fk}__id"),
+                    key=F(f"{fk}__key"),
+                    uid=F(f"{fk}__uid"),
+                    version=F(f"{fk}__version"),
+                )
             elif fk == "created_by":
                 annotations[f"fkfield_{fk}"] = JSONObject(
                     id=F(f"{fk}__id"), name=F(f"{fk}__{name_field}")

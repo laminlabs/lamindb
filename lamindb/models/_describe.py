@@ -15,7 +15,7 @@ from lamindb.models import Run
 from .sqlrecord import SQLRecord, format_field_value, record_repr
 
 if TYPE_CHECKING:
-    from lamindb.models import Artifact, Collection, Schema
+    from lamindb.models import Artifact, Collection, Schema, Transform
 
     from .run import TracksRun
 
@@ -99,6 +99,17 @@ def format_run_title(
     return title
 
 
+def format_title_with_version(
+    record: Artifact | Collection | Transform | SimpleNamespace,
+) -> Text:
+    title_str = record.key if record.key is not None else ""
+    title = Text.assemble(
+        (title_str, "cyan3"),
+        (f" ({record.version if record.version else record.uid[-4:]})", "dim"),
+    )
+    return title
+
+
 def describe_header(record: Artifact | Collection | Run) -> Tree:
     if hasattr(record, "is_latest") and not record.is_latest:
         logger.warning(
@@ -111,11 +122,7 @@ def describe_header(record: Artifact | Collection | Run) -> Tree:
     if isinstance(record, Run):
         title = format_run_title(record, dim=True)  # dim makes the uid grey
     else:
-        title_str = record.key if record.key is not None else ""
-        title = Text.assemble(
-            (title_str, "cyan3"),
-            (f" ({record.version if record.version else record.uid[-4:]})", "dim"),
-        )
+        title = format_title_with_version(record)
     tree = Tree(
         Text.assemble(
             (f"{record.__class__.__name__}: ", "bold"),
@@ -326,17 +333,14 @@ def describe_run(
         general = tree
     two_column_items = []  # type: ignore
     two_column_items.append(Text.assemble(("uid: ", "dim"), f"{record.uid}"))
-    transform_key = (
-        fk_data["transform"]["name"]  # "name" holds key, is display name
-        if fk_data and "transform" in fk_data
-        else record.transform.key
-        if record.transform
-        else ""
-    )
+    if fk_data and "transform" in fk_data:
+        transform = SimpleNamespace(**fk_data["transform"])
+    else:
+        transform = record.transform
     two_column_items.append(
         Text.assemble(
             ("transform: ", "dim"),
-            (f"{transform_key}", "cyan3"),
+            format_title_with_version(transform),
         )
     )
     two_column_items.append(
