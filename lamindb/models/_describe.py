@@ -258,7 +258,8 @@ def describe_artifact(
         Text.assemble(
             ("storage/path: ", "dim"),
             (storage_root, "cyan3"),
-            f"/{storage_key}",
+            ("/", "dim"),
+            storage_key,
         )
     )
     if dataset_features_tree:
@@ -331,13 +332,6 @@ def describe_run(
             (f"{transform_key}", "cyan3"),
         )
     )
-
-    two_column_items.append(Text.assemble(("status: ", "dim"), record.status))
-    two_column_items.append(
-        Text.assemble(
-            ("reference: ", "dim"), record.reference if record.reference else ""
-        )
-    )
     two_column_items.append(
         Text.assemble(
             ("started_at: ", "dim"), format_field_value(record.started_at, none="")
@@ -346,6 +340,12 @@ def describe_run(
     two_column_items.append(
         Text.assemble(
             ("finished_at: ", "dim"), format_field_value(record.finished_at, none="")
+        )
+    )
+    two_column_items.append(Text.assemble(("status: ", "dim"), record.status))
+    two_column_items.append(
+        Text.assemble(
+            ("reference: ", "dim"), record.reference if record.reference else ""
         )
     )
     append_branch_space_created_at_created_by(record, two_column_items, fk_data)
