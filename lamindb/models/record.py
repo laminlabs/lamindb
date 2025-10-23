@@ -25,7 +25,7 @@ from .has_parents import HasParents, _query_ancestors_of_fk, _query_relatives
 from .query_set import (
     QuerySet,
     SQLRecordList,
-    encode_field_as_column_name,
+    encode_lamindb_fields_as_columns,
     reorder_subset_columns_in_df,
 )
 from .run import Run, TracksRun, TracksUpdates, User, current_run, current_user_id
@@ -360,8 +360,8 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates, HasParents):
         """Export all instances of this record type to a pandas DataFrame."""
         assert self.is_type, "Only types can be exported as dataframes"  # noqa: S101
         df = self.query_records().to_dataframe(features="queryset")
-        encoded_uid = encode_field_as_column_name(self.__class__, "uid")
-        encoded_name = encode_field_as_column_name(self.__class__, "name")
+        encoded_uid = encode_lamindb_fields_as_columns(self.__class__, "uid")
+        encoded_name = encode_lamindb_fields_as_columns(self.__class__, "name")
         # encode the django uid and name fields
         if "uid" in df.columns and encoded_uid not in df.columns:
             df = df.rename(columns={"uid": encoded_uid})

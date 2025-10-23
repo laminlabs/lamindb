@@ -558,22 +558,24 @@ def reorder_subset_columns_in_df(
     return df[new_order]
 
 
-def encode_field_as_column_name(registry: Registry, field_name: str) -> str:
-    """Encode laminDB specific fields in dataframe with __lamindb_record_{field_name}__."""
-    return f"__lamindb_{registry._meta.model_name}_{field_name}__"
-
-
 def encode_lamindb_fields_as_columns(
     registry: Registry, fields: str | list[str]
-) -> dict[str, str]:
-    """Encode laminDB specific fields in dataframe with __lamindb_record_{field_name}__."""
-    fields = [fields] if isinstance(fields, str) else fields
+) -> str | dict[str, str]:
+    """Encode laminDB specific fields in dataframe with __lamindb_{model_name}_{field_name}__.
+
+    This is needed when reshaping dataframes with features to avoid conflicts between
+    laminDB fields and feature names.
+    """
+
+    def encode(field: str) -> str:
+        return f"__lamindb_{registry._meta.model_name}_{field}__"
+
     registry_field_names = {field.name for field in registry._meta.concrete_fields}
-    return {
-        field: encode_field_as_column_name(registry, field)
-        for field in fields
-        if field in registry_field_names
-    }
+
+    if isinstance(fields, str):
+        return encode(fields) if fields in registry_field_names else fields
+
+    return {field: encode(field) for field in fields if field in registry_field_names}
 
 
 # https://lamin.ai/laminlabs/lamindata/transform/BblTiuKxsb2g0003
@@ -608,8 +610,8 @@ def reshape_annotate_result(
     # ========== no features requested ==========
     if not feature_names:
         if cols_from_include:
-            result = process_cols_from_include(df, result, cols_from_include)
-        return result.drop_duplicates(subset=["id"])
+            result = process_cols_from_include(df, result, cols_from_include, pk_name)
+        return result.drop_duplicates(subset=[pk_name])
 
     # ========== process features ==========
 
@@ -617,7 +619,7 @@ def reshape_annotate_result(
     fields_map = encode_lamindb_fields_as_columns(registry, df.columns)
     df_encoded = df.rename(columns=fields_map)
     result_encoded = result.rename(columns=fields_map)
-    pk_name_encoded = fields_map.get(pk_name)
+    pk_name_encoded = fields_map.get(pk_name)  # type: ignore
 
     # --- Process JSON-stored feature values ---
     json_values_attribute = "_feature_values" if registry is Artifact else "values_json"
@@ -657,7 +659,7 @@ def reshape_annotate_result(
 
     if links_features:
         result_encoded = process_links_features(
-            df_encoded, result_encoded, links_features, feature_names
+            df_encoded, result_encoded, links_features, feature_names, pk_name_encoded
         )
 
     # --- Apply type conversions based on feature metadata ---
@@ -706,17 +708,18 @@ def reshape_annotate_result(
     # Process additional included columns
     if cols_from_include:
         cols_from_include_encoded = {
-            fields_map.get(k, k): v for k, v in cols_from_include.items()
+            fields_map.get(k, k): v  # type: ignore
+            for k, v in cols_from_include.items()
         }
         result_encoded = process_cols_from_include(
-            df_encoded, result_encoded, cols_from_include_encoded
+            df_encoded, result_encoded, cols_from_include_encoded, pk_name_encoded
         )
 
     # Decode field names back to original, except where conflicts exist
     # (e.g., if a feature is also named 'id', keep the encoded field name)
     decode_map = {
         encoded: original
-        for original, encoded in fields_map.items()
+        for original, encoded in fields_map.items()  # type: ignore
         if original not in result_encoded.columns
     }
 
@@ -730,6 +733,7 @@ def process_links_features(
     result: pd.DataFrame,
     feature_cols: list[str],
     features: bool | list[str],
+    pk_name: str = "id",
 ) -> pd.DataFrame:
     """Process links_XXX feature columns."""
     # this loops over different entities that might be linked under a feature
@@ -757,14 +761,10 @@ def process_links_features(
         if isinstance(features, list):
             feature_names = [f for f in feature_names if f in features]
 
-        id_field = (
-            "__lamindb_record_id__" if "__lamindb_record_id__" in df.columns else "id"
-        )
-
         for feature_name in feature_names:
             mask = df[feature_col] == feature_name
-            feature_values = df[mask].groupby(id_field)[value_col].agg(set)
-            result.insert(3, feature_name, result[id_field].map(feature_values))
+            feature_values = df[mask].groupby(pk_name)[value_col].agg(set)
+            result.insert(3, feature_name, result[pk_name].map(feature_values))
 
     return result
 
@@ -904,7 +904,7 @@ class BasicQuerySet(models.QuerySet):
         )
         time = logger.debug("finished reshape_annotate_result", time=time)
         pk_name = self.model._meta.pk.name
-        encoded_pk_name = encode_field_as_column_name(self.model, pk_name)
+        encoded_pk_name = encode_lamindb_fields_as_columns(self.model, pk_name)
         if encoded_pk_name in df_reshaped.columns:
             df_reshaped = df_reshaped.set_index(encoded_pk_name)
         else:
