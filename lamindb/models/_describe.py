@@ -207,12 +207,21 @@ def describe_artifact(
     from ._feature_manager import describe_features
     from ._label_manager import describe_labels
 
-    tree = describe_header(self)
     if related_data is not None:
         foreign_key_data = related_data.get("fk", {})
     else:
         foreign_key_data = {}
-    general = tree.add(Text("General", style="bold bright_cyan"))
+    tree = describe_header(self)
+    dataset_features_tree, external_features_tree = describe_features(
+        self,
+        related_data=related_data,
+    )
+    labels_data = related_data.get("m2m") if related_data is not None else None
+    labels_tree = describe_labels(self, labels_data=labels_data)
+    if dataset_features_tree or external_features_tree or labels_tree:
+        general = tree.add(Text("General", style="bold bright_cyan"))
+    else:
+        general = tree
     add_description(self, general)
     two_column_items = []  # type: ignore
     append_uid_transform(self, two_column_items, foreign_key_data)
@@ -245,16 +254,10 @@ def describe_artifact(
             f"/{storage_key}",
         )
     )
-    dataset_features_tree, external_features_tree = describe_features(
-        self,
-        related_data=related_data,
-    )
     if dataset_features_tree:
         tree.add(dataset_features_tree)
     if external_features_tree:
         tree.add(external_features_tree)
-    labels_data = related_data.get("m2m") if related_data is not None else None
-    labels_tree = describe_labels(self, labels_data=labels_data)
     if labels_tree:
         tree.add(labels_tree)
     return tree
