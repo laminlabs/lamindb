@@ -101,7 +101,7 @@ artifact.versions    # access all versions
 artifact.describe()  # describe metadata
 ```
 
-<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/BOTCBgHDAvwglN3U0003.png" width="550">
+<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/BOTCBgHDAvwglN3U0004.png" width="550">
 
 Here is how to access the content of the artifact:
 
@@ -114,15 +114,15 @@ accessor = artifact.open()     # return a streaming accessor
 And here is how to access its data lineage context:
 
 ```python
-run = artifact.run                  # get the run record
-transform = artifact.run.transform  # get the transform record
+run = artifact.run         # get the run record
+transform = run.transform  # get the transform record
 ```
 
 Runs & transforms are `SQLRecord` objects, like artifacts and
 
 `run.describe()` | `transform.describe()`
 --- | ---
-<img src="https://github.com/user-attachments/assets/0443be28-76b1-4e69-9fbf-ecbd5f0fe98f" width="550" /> | ...
+<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/rJrHr3XaITVS4wVJ0000.png" width="400" /> | <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/rJrHr3XaITVS4wVJ0000.png" width="350" />
 
 You can organize datasets with validation & annotation of any kind of metadata to then access them via queries & search. Here is a more [comprehensive example](https://lamin.ai/laminlabs/lamindata/artifact/9K1dteZ6Qx0EXK8g):
 
