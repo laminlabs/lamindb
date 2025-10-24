@@ -406,14 +406,15 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates, HasParents):
             run=run,
         ).save()
 
-    def to_featureframe(self, **kwargs) -> pd.DataFrame:
+    @classmethod
+    def to_featureframe(cls, **kwargs) -> pd.DataFrame:
         """Convert to DataFrame with columns mapping on features.
 
         Is equivalent to `.to_dataframe(features=True)`.
         """
         if not kwargs:
             kwargs = {"features": True}
-        return self.to_dataframe(**kwargs)
+        return cls.to_dataframe(**kwargs)
 
 
 class RecordJson(BaseSQLRecord, IsLink):
