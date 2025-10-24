@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Any
 
 from django.contrib.postgres.aggregates import ArrayAgg
 from django.db import connection
-from django.db.models import F, OuterRef, Q, Subquery
+from django.db.models import CharField, F, OuterRef, Q, Subquery
 from django.db.models.fields.related import ForeignKey, ManyToManyField
 from django.db.models.fields.reverse_related import ManyToManyRel, ManyToOneRel
 from django.db.models.functions import JSONObject
@@ -161,7 +161,13 @@ def get_artifact_or_run_with_related(
             continue
         label_field = link.removeprefix("links_").replace("_", "")
         related_model = link_model._meta.get_field(label_field).related_model
+        char_field_names = [
+            field.name
+            for field in related_model._meta.concrete_fields
+            if isinstance(field, CharField)
+        ]
         name_field = get_name_field(related_model)
+
         label_field_name = f"{label_field}__{name_field}"
         annotations[f"linkfield_{link}"] = Subquery(
             link_model.objects.filter(**{entity_field_name: OuterRef("pk")})
@@ -170,7 +176,10 @@ def get_artifact_or_run_with_related(
                     id=F("id"),
                     feature=F("feature"),
                     **{label_field: F(label_field)},
-                    **{label_field + "_display": F(label_field_name)},
+                    **{
+                        label_field + "_display": F(label_field_name)
+                    },  # display field is the name field
+                    **{uf: F(f"{label_field}__{uf}") for uf in char_field_names},
                 )
             )
             .values(entity_field_name)
@@ -222,6 +231,7 @@ def get_artifact_or_run_with_related(
         m2m_model_map: dict,  # The pre-computed map from Step 1
     ) -> dict:
         """Converts link data to M2M-style data using a pre-computed model-to-field-name map."""
+        # link_data: {'links_tissue': [{'id': 1, 'uid': '1fIFAQJY', 'abbr': None, 'name': 'brain', 'tissue': 1, 'feature': 1, 'ontology_id': 'UBERON:0000955', 'tissue_display': 'brain'}, {'id': 2, 'uid': '7Tt4iEKc', 'abbr': None, 'name': 'lung', 'tissue': 10, 'feature': 1, 'ontology_id': 'UBERON:0002048', 'tissue_display': 'lung'}], 'links_cell_type': [{'id': 1, 'uid': '3QnZfoBk', 'abbr': None, 'name': 'neuron', 'feature': 2, 'celltype': 1, 'ontology_id': 'CL:0000540', 'celltype_display': 'neuron'}]}
         m2m_data = {}
         for link_name, records in link_data.items():
             if not records:
@@ -232,9 +242,8 @@ def get_artifact_or_run_with_related(
             m2m_field_name = m2m_model_map.get(
                 final_target_model.__get_name_with_module__()
             )
-            display_field_name = f"{id_field_name}_display"
             m2m_data[m2m_field_name] = {
-                record[id_field_name]: record[display_field_name] for record in records
+                record[id_field_name]: record for record in records
             }
         return m2m_data
 

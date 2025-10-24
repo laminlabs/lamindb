@@ -168,9 +168,14 @@ Here is how to create a feature:
         ["MONDO:0004975", "MONDO:0004980"], field=bt.Disease.ontology_id
     )
     ln.save(diseases)
-    ln.Feature(name="disease", dtype="cat[bionty.Disease]").save()
+    ln.Feature(name="disease", dtype="cat[bionty.Disease.ontology_id]").save()
     artifact.features.add_values({"disease": diseases})
     assert len(artifact.diseases.filter()) == 2
+    # check get_values returns ontology_ids as specified in the feature dtype
+    assert artifact.features.get_values()["disease"] == {
+        "MONDO:0004975",
+        "MONDO:0004980",
+    }
 
     # big dictionary of everything
     features = {
@@ -242,7 +247,7 @@ Here is how to create a feature:
     assert ln.Artifact.get(_feature_values__value=27.2)
 
     assert artifact.features.get_values() == {
-        "disease": {"Alzheimer disease", "atopic eczema"},
+        "disease": {"MONDO:0004975", "MONDO:0004980"},
         "experiment": {"Experiment 1", "Experiment 2"},
         "project": "project_1",
         "cell_type_by_expert": "T cell",
@@ -287,7 +292,7 @@ Here is how to create a feature:
     ]
     assert external_features_tree.children[0].label.columns[2]._cells == [
         "T cell",
-        "Alzheimer disease, atopic eczema",
+        "MONDO:0004975, MONDO:0004980",
         "U0123",
         "Experiment 1, Experiment 2",
         "mouse",
@@ -348,7 +353,7 @@ Here is how to create a feature:
     artifact.features.remove_values("disease", value=alzheimer)
     values = artifact.features.get_values()
     assert "date_of_experiment" not in values
-    assert "Alzheimer disease" not in values["disease"]
+    assert "MONDO:0004975" not in values["disease"]
 
     # test annotate with dictionaries multiple times
     ln.Feature(name="study_metadata", dtype=dict).save()
