@@ -26,6 +26,12 @@ TYPE_WIDTH = 35  # types can get long, e.g. cat[Record[Treatment]]
 VALUES_WIDTH = 40
 
 
+def strip_ansi_from_string(text: str) -> str:
+    """Remove ANSI escape sequences from a string."""
+    ansi_escape = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
+    return ansi_escape.sub("", text)
+
+
 def format_rich_tree(
     tree: Tree, fallback: str = "", return_str: bool = False, strip_ansi: bool = True
 ) -> str | None:
@@ -48,8 +54,7 @@ def format_rich_tree(
         str_console.print(tree)
         result = string_io.getvalue()
         if strip_ansi:
-            ansi_escape = re.compile(r"\x1b(?:\[[0-9;]*[a-zA-Z]|\(B)")
-            result = ansi_escape.sub("", result)
+            result = strip_ansi_from_string(result)
         # rstrip trailing whitespace on every line
         result = "\n".join(line.rstrip() for line in result.splitlines())
         return result

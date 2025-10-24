@@ -2,7 +2,7 @@ import bionty as bt
 import lamindb as ln
 import numpy as np
 import pandas as pd
-from lamindb.models._describe import describe_postgres, format_rich_tree
+from lamindb.models._describe import describe_postgres
 
 
 def _check_df_equality(actual_df: pd.DataFrame, expected_df: pd.DataFrame) -> bool:
@@ -112,52 +112,15 @@ def test_curate_df():
 
     # expected output has italicized elements that can't be tested
     # hence testing is restricted to section content, not headings
-    description_tree = describe_postgres(artifact)
-
-    print(format_rich_tree(description_tree))
-
-    # general section
-    # Check that uid appears in the first two-column row
-    first_row = description_tree.children[0].label.plain
-    assert "uid:" in first_row
-
-    # Check that hash appears somewhere in the two-column section
-    found_hash = False
-    found_size = False
-    found_n_observations = False
-    found_path = False
-    found_created_by = False
-    found_created_at = False
-
-    for child in description_tree.children:
-        if not hasattr(child.label, "plain"):
-            continue
-        child_text = child.label.plain
-        if "hash: " in child_text:
-            found_hash = True
-        if "size: " in child_text:
-            found_size = True
-        if "n_observations: 3" in child_text:
-            found_n_observations = True
-        if "storage/path: " in child_text:
-            found_path = True
-        if "created_by: " in child_text:
-            found_created_by = True
-        if "created_at: " in child_text:
-            found_created_at = True
-
-    assert found_hash, "Hash should be present in the general section"
-    assert found_size, "Size should be present in the general section"
-    assert found_n_observations, (
-        "n_observations should be present in the general section"
-    )
-    assert found_path, "Storage path should be present in the general section"
-    assert found_created_by, "Created by should be present in the general section"
-    assert found_created_at, "Created at should be present in the general section"
+    output = artifact.describe(return_str=True)
+    assert "hash:" in output
+    assert "size:" in output
+    assert "n_observations: 3" in output
+    assert "storage/path:" in output
+    assert "created_by:" in output
+    assert "created_at:" in output
 
     # dataset section
-    # print(artifact.features.get_values())
-    print(artifact.features.describe(return_str=True))
     assert (
         artifact.features.describe(return_str=True)
         == """Artifact: examples/dataset1.h5ad (0000)
@@ -180,6 +143,7 @@ def test_curate_df():
     )
 
     # labels section
+    description_tree = describe_postgres(artifact)
     labels_node = description_tree.children[-1].label
     assert labels_node.label.plain == "Labels"
     assert len(labels_node.children[0].label.columns) == 3
