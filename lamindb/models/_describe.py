@@ -190,7 +190,7 @@ def add_description(record: SQLRecord, tree):
         tree.add(Text.assemble(("description: ", "dim"), record.description))
 
 
-def add_two_column_items_to_tree(tree, two_column_items):
+def add_two_column_items_to_tree(tree: Tree, two_column_items: list) -> None:
     table = Table(
         Column("", no_wrap=True),
         Column("", no_wrap=True),
@@ -200,17 +200,8 @@ def add_two_column_items_to_tree(tree, two_column_items):
     )
     for i in range(0, len(two_column_items), 2):
         if i + 1 < len(two_column_items):
-            # Two items side by side
             left_item = two_column_items[i]
             right_item = two_column_items[i + 1]
-
-            # Create padded version by calculating the plain text length
-            left_plain_text = (
-                left_item.plain if hasattr(left_item, "plain") else str(left_item)
-            )
-            padding_needed = max(0, 45 - len(left_plain_text))
-            " " * padding_needed
-
             table.add_row(left_item, right_item)
         else:
             table.add_row(two_column_items[i], "")
@@ -351,6 +342,10 @@ def describe_run(
     )
     append_branch_space_created_at_created_by(record, two_column_items, fk_data)
     add_two_column_items_to_tree(general, two_column_items)
+    # if display_report:
+    #     report_tree = tree.add(Text("report:", style="dim"))
+    #     report_content = Text.from_ansi(record.report.cache().read_text())
+    #     report_tree.add(report_content)
     if record.params:
         params = tree.add(Text("Params", style="bold dark_orange"))
         for key, value in record.params.items():
@@ -372,7 +367,6 @@ def describe_schema(record: Schema, slot: str | None = None) -> Tree:
     else:
         name = "unnamed"
     header = "Schema:" if slot is None else f"{slot}:"
-    bold_subheader = "bold" if slot is None else ""
     tree = Tree(
         Text.assemble((header, "bold"), (f"{prefix}", "dim"), (f"{name}", "cyan3")),
         guide_style="dim",
@@ -404,9 +398,9 @@ def describe_schema(record: Schema, slot: str | None = None) -> Tree:
             Text.assemble(
                 (
                     "Features" if record.itype == "Feature" else record.itype,
-                    f"{bold_subheader} bright_magenta",
+                    "bold bright_magenta",
                 ),
-                (members_count_display, f"{bold_subheader} dim"),
+                (members_count_display, "bold dim"),
             )
         )
         if members_count > 0:

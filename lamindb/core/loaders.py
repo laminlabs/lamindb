@@ -144,6 +144,11 @@ def load_svg(path: UPathStr) -> None | UPathStr:
         return path
 
 
+def load_txt(path: Path) -> str:
+    """Load `.txt` file to `str`."""
+    return path.read_text(encoding="utf-8")
+
+
 def load_rds(path: UPathStr) -> UPathStr:
     """Just warn when trying to load `.rds`."""
     logger.warning("Please use `laminr` to load `.rds` files")
@@ -170,6 +175,8 @@ FILE_LOADERS = {
     ".png": load_image,
     ".svg": load_svg,
     ".rds": load_rds,
+    ".txt": load_txt,
+    ".fasta": load_txt,
 }
 
 SUPPORTED_SUFFIXES = [sfx for sfx in FILE_LOADERS.keys() if sfx != ".rds"]
