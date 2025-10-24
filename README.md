@@ -107,7 +107,7 @@ Here is how to access the content of the artifact:
 
 ```python
 local_path = artifact.cache()  # return a local path from a cache
-obj = artifact.load()  # load object into memory
+object = artifact.load()  # load object into memory
 accessor = artifact.stream()  # return a streaming accessor
 ```
 
