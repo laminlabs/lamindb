@@ -84,17 +84,21 @@ ln.finish()  # finish the run
 Running this snippet as a script (`python create-fasta.py`) produces the following data lineage.
 
 ```python
-af = ln.Artifact.get(key="sample.fasta")  # get artifact by key
-af.view_lineage()
+artifact = ln.Artifact.get(key="sample.fasta")  # get artifact by key
+artifact.view_lineage()
 ```
 
 <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/EkQATsQL5wqC95Wj0006.png" width="200">
 
-You'll know how that artifact was created and what it's used for. You also captured basic metadata:
+You'll know how that artifact was created and what it's used for. Basic metadata was captured in fields:
 
 ```python
-af.describe()  # describe metadata
-
+artifact.size  # access the size
+artifact.created_at  # access the timestamp
+artifact.created_by  # access the creator
+artifact.versions  # access all versions
+# etc.
+artifact.describe()  # describe metadata
 ```
 
 <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/BOTCBgHDAvwglN3U0003.png" width="550">
@@ -102,14 +106,21 @@ af.describe()  # describe metadata
 Here is how to access the content of the artifact:
 
 ```python
-local_path = af.cache()  # return a local path from a cache
-obj = af.load()  # load object into memory
-accessor = af.stream()  # return a streaming accessor
+local_path = artifact.cache()  # return a local path from a cache
+obj = artifact.load()  # load object into memory
+accessor = artifact.stream()  # return a streaming accessor
 ```
 
 And here is how to access its data lineage context:
 
-`af.run.describe()` | `af.run.transform.describe()`
+```python
+run = artifact.run  # get the run record
+transform = artifact.run.transform  # get the transform record
+```
+
+Runs & transforms are `SQLRecord` objects, like artifacts and
+
+`run.describe()` | `transform.describe()`
 --- | ---
 <img src="https://github.com/user-attachments/assets/0443be28-76b1-4e69-9fbf-ecbd5f0fe98f" width="550" /> | ...
 
