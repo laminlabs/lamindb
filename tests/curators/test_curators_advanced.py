@@ -130,12 +130,20 @@ def test_curators_df_nested_cat(nested_cat_df, nested_cat_schema):
 
 def test_curators_list_feature_nullable_empty_list():
     """Test that a list feature that is nullable can accept empty lists."""
-    feature = ln.Feature(
+    feature_list = ln.Feature(
         name="list_tissue", dtype=list[bt.Tissue.ontology_id], nullable=True
     ).save()
+    feature_int = ln.Feature(name="feature int", dtype=int, nullable=True).save()
     schema = ln.Schema(
-        name="test_list_feature_schema", features=[feature], coerce_dtype=True
+        name="test_list_feature_schema",
+        features=[feature_list, feature_int],
+        coerce_dtype=True,
     ).save()
 
-    df = pd.DataFrame({"list_tissue": []})
+    df = pd.DataFrame({"list_tissue": [], "feature int": []})
     ln.curators.DataFrameCurator(df, schema).validate()
+
+    # clean up
+    schema.delete(permanent=True)
+    feature_list.delete(permanent=True)
+    feature_int.delete(permanent=True)
