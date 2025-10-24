@@ -333,6 +333,7 @@ class Migration(migrations.Migration):
             "lamindb",
             "0137_remove_recordrecord__aux_remove_recordrecord_branch_and_more",
         ),
+        ("lamindb", "0138_remove_record_linked_users_user_linked_in_records"),
     ]
 
     dependencies = []  # type: ignore
