@@ -89,9 +89,9 @@ def format_run_title(
     if record is None:
         return Text("")
     display_name = (
-        Text(record.name, style="")
+        Text(record.name, style="cyan3")
         if record.name is not None
-        else Text(record.uid, style="dim" if dim else "")
+        else Text(record.uid[:7], style="cyan3")
     )
     if transform_key is None:
         transform_key = record.transform.key
@@ -115,7 +115,7 @@ def format_title_with_version(
     return title
 
 
-def describe_header(record: Artifact | Collection | Run) -> Tree:
+def describe_header(record: Artifact | Collection | Run | Transform) -> Tree:
     if hasattr(record, "is_latest") and not record.is_latest:
         logger.warning(
             f"This is not the latest version of the {record.__class__.__name__}."
@@ -296,6 +296,24 @@ def describe_collection(
     return tree
 
 
+def display_text(
+    text: str, title: str, tree: Tree, max_lines: int = 30, uid: str = ""
+) -> None:
+    # Split the code into lines and add dim vertical bars
+    lines = text.split("\n")
+    end_parts = [("\n│ …", "dim")] if len(lines) > max_lines else []
+    parts = [(title + ": ", "purple")]
+    parts.append((uid, ""))
+    max_length = 80
+    for line in lines[:max_lines]:
+        parts.append(("\n│ ", "dim"))
+        parts.append((line[:max_length], "grey30"))
+        if len(line) > max_length:
+            parts.append((" …", "grey30"))
+    parts.extend(end_parts)
+    tree.add(Text.assemble(*parts))
+
+
 def describe_run(
     record: Run,
     related_data: dict | None = None,
@@ -340,12 +358,6 @@ def describe_run(
         else Text("")
     )
     append_branch_space_created_at_created_by(record, two_column_items, fk_data)
-    two_column_items.append(
-        Text.assemble(("report: ", "dim"), (".report.load()", "italic"))
-    )
-    two_column_items.append(
-        Text.assemble(("environment: ", "dim"), (".environment.load()", "italic"))
-    )
     add_two_column_items_to_tree(tree, two_column_items)
     if record.params:
         params = tree.add(Text("Params", style="bold dark_orange"))
@@ -353,6 +365,22 @@ def describe_run(
             params.add(f"{key}: {value}")
     if features_tree:
         tree.add(features_tree)
+    if record.report_id:
+        display_text(
+            strip_ansi_from_string(record.report.load(is_run_input=False).strip()),
+            "report",
+            tree,
+            max_lines=4,
+            uid=record.report.uid[:7],
+        )
+    if record.environment_id:
+        display_text(
+            record.environment.load(is_run_input=False).strip(),
+            "environment",
+            tree,
+            max_lines=4,
+            uid=record.environment.uid[:7],
+        )
     return tree
 
 
@@ -378,16 +406,7 @@ def describe_transform(
     append_branch_space_created_at_created_by(record, two_column_items, fk_data)
     add_two_column_items_to_tree(tree, two_column_items)
     if record.source_code:
-        # Split the code into lines and add dim vertical bars
-        lines = record.source_code.strip().split("\n")
-        max_lines = 30
-        end_parts = [("│ ...", "dim")] if len(lines) > max_lines else []
-        parts = [("source_code:\n\n", "purple")]
-        for line in lines[:max_lines]:
-            parts.append(("│ ", "dim"))
-            parts.append((line + "\n", "grey23"))
-        parts.extend(end_parts)
-        tree.add(Text.assemble(*parts))
+        display_text(record.source_code.strip(), "source_code", tree)
     return tree
 
 
