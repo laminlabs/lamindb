@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 from django.db import connections
 from lamin_utils import colors, logger
-from rich.table import Table
+from rich.table import Column, Table
 from rich.text import Text
 from rich.tree import Tree
 
@@ -147,9 +147,7 @@ def format_bytes(bytes_value):
         return f"{bytes_value / (1024**4):.1f} TB"
 
 
-def append_uid_run(
-    record: TracksRun, two_column_items: list, tree: Tree, fk_data=None
-) -> Tree:
+def append_uid_run(record: TracksRun, two_column_items: list, fk_data=None) -> None:
     if fk_data and "run" in fk_data and fk_data["run"] and fk_data["run"]["id"]:
         run, transform_key = (
             SimpleNamespace(**fk_data["run"]),
@@ -163,14 +161,8 @@ def append_uid_run(
     text_run = Text.assemble(
         ("run: ", "dim"), format_run_title(run, transform_key=transform_key)
     )
-    # if the key is very long, we need to put it in its own row
-    if transform_key is not None and len(transform_key) > 30:
-        tree.add(text_uid)
-        tree.add(text_run)
-    else:
-        two_column_items.append(text_uid)
-        two_column_items.append(text_run)
-    return tree
+    two_column_items.append(text_uid)
+    two_column_items.append(text_run)
 
 
 def append_branch_space_created_at_created_by(
@@ -199,6 +191,13 @@ def add_description(record: SQLRecord, tree):
 
 
 def add_two_column_items_to_tree(tree, two_column_items):
+    table = Table(
+        Column("", no_wrap=True),
+        Column("", no_wrap=True),
+        show_header=False,
+        box=None,
+        pad_edge=False,
+    )
     for i in range(0, len(two_column_items), 2):
         if i + 1 < len(two_column_items):
             # Two items side by side
@@ -210,12 +209,12 @@ def add_two_column_items_to_tree(tree, two_column_items):
                 left_item.plain if hasattr(left_item, "plain") else str(left_item)
             )
             padding_needed = max(0, 45 - len(left_plain_text))
-            padding = " " * padding_needed
+            " " * padding_needed
 
-            tree.add(Text.assemble(left_item, padding, right_item))
+            table.add_row(left_item, right_item)
         else:
-            # Single item (odd number)
-            tree.add(two_column_items[i])
+            table.add_row(two_column_items[i], "")
+    tree.add(table)
 
 
 def describe_artifact(
@@ -239,7 +238,7 @@ def describe_artifact(
     general = tree
     add_description(record, general)
     two_column_items = []  # type: ignore
-    general = append_uid_run(record, two_column_items, general, fk_data)
+    append_uid_run(record, two_column_items, fk_data)
     if record.kind or record.otype:
         two_column_items.append(Text.assemble(("kind: ", "dim"), f"{record.kind}"))
         two_column_items.append(Text.assemble(("otype: ", "dim"), f"{record.otype}"))
@@ -299,7 +298,7 @@ def describe_collection(
     general = tree
     add_description(record, general)
     two_column_items = []  # type: ignore
-    general = append_uid_run(record, two_column_items, general, fk_data)
+    append_uid_run(record, two_column_items, fk_data)
     append_branch_space_created_at_created_by(record, two_column_items, fk_data)
     add_two_column_items_to_tree(general, two_column_items)
     return tree
@@ -381,7 +380,7 @@ def describe_schema(record: Schema, slot: str | None = None) -> Tree:
     general = tree
     add_description(record, general)
     two_column_items = []  # type: ignore
-    general = append_uid_run(record, two_column_items, general)
+    append_uid_run(record, two_column_items)
     two_column_items.append(Text.assemble(("itype: ", "dim"), f"{record.itype}"))
     two_column_items.append(Text.assemble(("otype: ", "dim"), f"{record.otype}"))
     two_column_items.append(Text.assemble(("hash: ", "dim"), f"{record.hash}"))
