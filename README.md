@@ -206,12 +206,57 @@ artifact = ln.Artifact.get(key="sample.fasta")  # get artifact by key
 artifact.versions.to_dataframe()                # see all versions of that artifact
 ```
 
-You can organize datasets by annotating them. [an example](https://lamin.ai/laminlabs/lamindata/artifact/lXmgHRUFufX439eI) from [Schmidt _el al._ (2022)](https://pubmed.ncbi.nlm.nih.gov/35113687/):
+### Ontologies
+
+Everything we saw also works for public ontologies. Plugin `bionty` gives you >20 of them.
+
+```python
+import bionty as bt
+
+bt.CellType.import_source()  # import the default ontology
+bt.CellType.to_dataframe()   # your extendable cell type ontology in a simple registry
+```
+
+### Lakehouse ♾️ feature store
+
+You can also manage structured data:
+
+```python
+df = ln.examples.datasets.mini_immuno.get_dataset1(with_typo=True)
+artifact = ln.Artifact.from_dataframe(df, key="my_datasets/rnaseq1.parquet").save()
+artifact.describe()
+```
+
+But how do you manage large amounts of structured data? You'd like to ensure that their schemas and conent harmonize so that your distributed queries and batch loading will work out.
+
+So, let's define a schema based on the columns of this dataframe we care about.
+
+```python
+import bionty as bt  # <-- use bionty to access registries with imported public ontologies
+
+# define a few more valid labels
+ln.Record(name="DMSO").save()
+ln.Record(name="IFNG").save()
+
+# define more valid features
+ln.Feature(name="perturbation", dtype=ln.Record).save()
+ln.Feature(name="cell_type_by_model", dtype=bt.CellType).save()
+ln.Feature(name="cell_type_by_expert", dtype=bt.CellType).save()
+ln.Feature(name="assay_oid", dtype=bt.ExperimentalFactor.ontology_id).save()
+ln.Feature(name="donor", dtype=str, nullable=True).save()
+ln.Feature(name="concentration", dtype=str).save()
+ln.Feature(name="treatment_time_h", dtype="num", coerce_dtype=True).save()
+```
+
+If we now pass the schema to the `Artifact` constructor, the dataframe will be automatically validated & annotated.
+
+```
+artifact = ln.Artifact.from_dataframe(df, key="my_datasets/rnaseq1.parquet", schema=schema)
+artifact.describe()
+```
+
+### More examples
+
+Here is a more comprehensive [example](https://lamin.ai/laminlabs/lamindata/artifact/lXmgHRUFufX439eI) from [Schmidt _el al._ (2022)](https://pubmed.ncbi.nlm.nih.gov/35113687/), in which several workflows, scripts, and notebooks are used: https://github.com/laminlabs/schmidt22
 
 <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/JvLaK9Icj11eswQn0000.png" width="850">
-
-
-If you have a structured dataset like a `DataFrame`, an `AnnData`, or another array, you can validate the content of the dataset (and parse annotations).
-Here is [an example for a dataframe](https://docs.lamin.ai/tutorial#validate-an-artifact).
-
-With a large body of validated datasets, you can then access data through distributed queries & batch streaming, see here: [docs.lamin.ai/arrays](https://docs.lamin.ai/arrays).
