@@ -215,7 +215,6 @@ def add_two_column_items_to_tree(tree: Tree, two_column_items: list) -> None:
 
 def describe_artifact(
     record: Artifact,
-    tree: Tree | None = None,
     related_data: dict | None = None,
 ) -> Tree:
     from ._feature_manager import describe_features
@@ -231,8 +230,7 @@ def describe_artifact(
         related_data=related_data,
     )
     labels_tree = describe_labels(record, related_data=related_data)
-    general = tree
-    add_description(record, general)
+    add_description(record, tree)
     two_column_items = []  # type: ignore
     append_uid_run(record, two_column_items, fk_data)
     if record.kind or record.otype:
@@ -251,7 +249,7 @@ def describe_artifact(
         two_column_items.append(
             Text.assemble(("n_observations: ", "dim"), f"{record.n_observations}")
         )
-    add_two_column_items_to_tree(general, two_column_items)
+    add_two_column_items_to_tree(tree, two_column_items)
     storage_root = fk_data["storage"]["name"] if fk_data else record.storage.root
     storage_key = (
         record.key
@@ -264,7 +262,7 @@ def describe_artifact(
         if record.overwrite_versions:
             storage_key = storage_key[:-4]
         storage_key = f"{storage_key}{record.suffix}"
-    general.add(
+    tree.add(
         Text.assemble(
             ("storage/path: ", "dim"),
             (storage_root, "cyan3"),
@@ -283,7 +281,6 @@ def describe_artifact(
 
 def describe_collection(
     record: Collection,
-    tree: Tree | None = None,
     related_data: dict | None = None,
 ) -> Tree:
     tree = describe_header(record)
@@ -291,18 +288,16 @@ def describe_collection(
         fk_data = related_data.get("fk", {})
     else:
         fk_data = {}
-    general = tree
-    add_description(record, general)
+    add_description(record, tree)
     two_column_items = []  # type: ignore
     append_uid_run(record, two_column_items, fk_data)
     append_branch_space_created_at_created_by(record, two_column_items, fk_data)
-    add_two_column_items_to_tree(general, two_column_items)
+    add_two_column_items_to_tree(tree, two_column_items)
     return tree
 
 
 def describe_run(
     record: Run,
-    tree: Tree | None = None,
     related_data: dict | None = None,
 ) -> Tree:
     from ._feature_manager import describe_features
@@ -316,7 +311,6 @@ def describe_run(
         record,
         related_data=related_data,
     )
-    general = tree
     two_column_items = []  # type: ignore
     two_column_items.append(Text.assemble(("uid: ", "dim"), f"{record.uid}"))
     if fk_data and "transform" in fk_data:
@@ -346,7 +340,7 @@ def describe_run(
         )
     )
     append_branch_space_created_at_created_by(record, two_column_items, fk_data)
-    add_two_column_items_to_tree(general, two_column_items)
+    add_two_column_items_to_tree(tree, two_column_items)
     # if display_report:
     #     report_tree = tree.add(Text("report:", style="dim"))
     #     report_content = Text.from_ansi(record.report.cache().read_text())
@@ -376,8 +370,7 @@ def describe_schema(record: Schema, slot: str | None = None) -> Tree:
         Text.assemble((header, "bold"), (f"{prefix}", "dim"), (f"{name}", "cyan3")),
         guide_style="dim",
     )
-    general = tree
-    add_description(record, general)
+    add_description(record, tree)
     two_column_items = []  # type: ignore
     append_uid_run(record, two_column_items)
     two_column_items.append(Text.assemble(("itype: ", "dim"), f"{record.itype}"))
@@ -393,7 +386,7 @@ def describe_schema(record: Schema, slot: str | None = None) -> Tree:
         Text.assemble(("minimal_set: ", "dim"), f"{record.minimal_set}")
     )
     append_branch_space_created_at_created_by(record, two_column_items)
-    add_two_column_items_to_tree(general, two_column_items)
+    add_two_column_items_to_tree(tree, two_column_items)
 
     # Add features section
     members_count = record.n
