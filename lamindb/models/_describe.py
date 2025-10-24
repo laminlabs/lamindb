@@ -335,16 +335,18 @@ def describe_run(
     )
     two_column_items.append(Text.assemble(("status: ", "dim"), record.status))
     two_column_items.append(
-        Text.assemble(
-            ("reference: ", "dim"), record.reference if record.reference else ""
-        )
+        Text.assemble(("reference: ", "dim"), record.reference)
+        if record.reference
+        else Text("")
     )
     append_branch_space_created_at_created_by(record, two_column_items, fk_data)
+    two_column_items.append(
+        Text.assemble(("report: ", "dim"), (".report.load()", "italic"))
+    )
+    two_column_items.append(
+        Text.assemble(("environment: ", "dim"), (".environment.load()", "italic"))
+    )
     add_two_column_items_to_tree(tree, two_column_items)
-    # if display_report:
-    #     report_tree = tree.add(Text("report:", style="dim"))
-    #     report_content = Text.from_ansi(record.report.cache().read_text())
-    #     report_tree.add(report_content)
     if record.params:
         params = tree.add(Text("Params", style="bold dark_orange"))
         for key, value in record.params.items():
