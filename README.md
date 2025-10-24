@@ -84,15 +84,15 @@ ln.finish()  # finish the run
 Running this snippet as a script (`python create-fasta.py`) produces the following data lineage.
 
 ```python
-artifact = ln.Artifact.get(key="sample.fasta")  # get artifact by key
-artifact.view_lineage()
+af = ln.Artifact.get(key="sample.fasta")  # get artifact by key
+af.view_lineage()
 ```
 
 <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/EkQATsQL5wqC95Wj0006.png" width="250">
 
 You'll know how that artifact was created and what it's used for. You also captured basic metadata:
 
-| `artifact.describe()`                                                                                 | `artifact.run.describe()`                                                                                  | --- |
+| `af.describe()`                                                                                       | `af.run.describe()`                                                                                        | --- |
 | ----------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- | --- |
 | <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/BOTCBgHDAvwglN3U0003.png" height="200"> | <img height="200" src="https://github.com/user-attachments/assets/0443be28-76b1-4e69-9fbf-ecbd5f0fe98f" /> | ... |
 
