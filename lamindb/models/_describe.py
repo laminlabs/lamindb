@@ -356,6 +356,42 @@ def describe_run(
     return tree
 
 
+def describe_transform(
+    record: Transform,
+    related_data: dict | None = None,
+) -> Tree:
+    tree = describe_header(record)
+    add_description(record, tree)
+    if related_data is not None:
+        fk_data = related_data.get("fk", {})
+    else:
+        fk_data = {}
+    two_column_items = []  # type: ignore
+    two_column_items.append(Text.assemble(("uid: ", "dim"), f"{record.uid}"))
+    two_column_items.append(
+        Text.assemble(("reference: ", "dim"), record.reference)
+        if record.reference
+        else Text("")
+    )
+    two_column_items.append(Text.assemble(("hash: ", "dim"), f"{record.hash}"))
+    two_column_items.append(Text.assemble(("type: ", "dim"), f"{record.type}"))
+    append_branch_space_created_at_created_by(record, two_column_items, fk_data)
+    add_two_column_items_to_tree(tree, two_column_items)
+    if record.source_code:
+        # Split the code into lines and add dim vertical bars
+        lines = record.source_code.strip().split("\n")
+        parts = [("source_code:\n", "dim")]
+        parts.append(("┌─", "dim"))
+        parts.append((lines[0] + "\n", "grey23"))
+        for line in lines[1:-1]:
+            parts.append(("│ ", "dim"))
+            parts.append((line + "\n", "grey23"))
+        parts.append(("└─", "dim"))
+        parts.append((lines[-1], "grey23"))
+        tree.add(Text.assemble(*parts))
+    return tree
+
+
 def describe_schema(record: Schema, slot: str | None = None) -> Tree:
     from ._feature_manager import strip_cat
 
@@ -458,6 +494,8 @@ def describe_postgres(record):
         result = get_collection_with_related(record, include_fk=True)
         related_data = result.get("related_data", {})
         tree = describe_collection(record, related_data=related_data)
+    elif model_name == "Transform":
+        tree = describe_transform(record)
     else:
         tree = describe_header(record)
     return tree
@@ -503,6 +541,8 @@ def describe_sqlite(record):
             tree = describe_run(record)
     elif model_name == "Collection":
         tree = describe_collection(record)
+    elif model_name == "Transform":
+        tree = describe_transform(record)
     else:
         tree = describe_header(record)
     return tree
