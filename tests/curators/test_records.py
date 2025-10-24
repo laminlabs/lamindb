@@ -132,7 +132,7 @@ id,uid,name,treatment,cell_line,preparation_date,project,__lamindb_record_uid__,
     assert (
         artifact.features.describe(return_str=True)
         == """\
-Artifact: sheet_exports/My samples 2025-06.csv
+Artifact: sheet_exports/My samples 2025-06.csv (0000)
 └── Dataset features
     └── columns (7)
         cell_line           bionty.CellLine         HEK293T cell
@@ -217,7 +217,7 @@ Sample_X,https://raw.githubusercontent.com/nf-core/test-datasets/scrnaseq/testda
     assert (
         artifact.features.describe(return_str=True)
         == """\
-Artifact: sheet_exports/RNA-seq nextflow samplesheet 001.csv
+Artifact: sheet_exports/RNA-seq nextflow samplesheet 001.csv (0000)
 └── Dataset features
     └── columns (4)
         sample              Record[BioSample]       Sample_X, Sample_Y

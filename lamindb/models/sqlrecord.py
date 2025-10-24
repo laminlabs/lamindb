@@ -1763,12 +1763,11 @@ def check_key_change(record: Union[Artifact, Transform]):
             )
 
 
-def format_field_value(value: datetime | str | Any) -> Any:
+def format_field_value(value: datetime | str | Any, none: str = "None") -> str:
     from datetime import datetime
 
     if isinstance(value, datetime):
         return value.strftime("%Y-%m-%d %H:%M:%S %Z")
-
     if isinstance(value, str):
         try:
             value = datetime.fromisoformat(value)
@@ -1776,8 +1775,9 @@ def format_field_value(value: datetime | str | Any) -> Any:
         except ValueError:
             pass
         return f"'{value}'"
-    else:
-        return value
+    if value is None:
+        return none
+    return str(value)
 
 
 class SQLRecordInfo:

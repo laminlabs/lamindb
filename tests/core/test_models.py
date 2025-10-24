@@ -1,15 +1,9 @@
-import re
 import textwrap
 
 import lamindb as ln
 import pandas as pd
 import pytest
-
-
-def _strip_ansi(text: str) -> str:
-    """Remove ANSI escape sequences from a string."""
-    ansi_escape = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
-    return ansi_escape.sub("", text)
+from lamindb.models._describe import strip_ansi_from_string as _strip_ansi
 
 
 def test_registry__repr__feature():
