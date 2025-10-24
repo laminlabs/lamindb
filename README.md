@@ -84,19 +84,17 @@ ln.finish()  # finish the run
 Running this snippet as a script (`python create-fasta.py`) produces the following data lineage.
 
 ```python
-artifact = ln.Artifact.get(key="sample.fasta")  # query artifact by key
+artifact = ln.Artifact.get(key="sample.fasta")  # get artifact by key
 artifact.view_lineage()
 ```
 
-<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/EkQATsQL5wqC95Wj0005.png" width="250">
+<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/EkQATsQL5wqC95Wj0006.png" width="250">
 
-You'll know how that artifact was created and what it's used for ([interactive visualization](https://lamin.ai/laminlabs/lamindata/artifact/8incOOgjn6F0K1TS)) in addition to capturing basic metadata:
+You'll know how that artifact was created and what it's used for. You also captured basic metadata:
 
-```python
-artifact.describe()
-```
-
-<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/BOTCBgHDAvwglN3U0002.png" width="550">
+| `artifact.describe()`                                                                                | `artifact.run.describe()`                                                                                 | --- |
+| ---------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- | --- |
+| <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/BOTCBgHDAvwglN3U0003.png" width="550"> | <img width="550" src="https://github.com/user-attachments/assets/0443be28-76b1-4e69-9fbf-ecbd5f0fe98f" /> | ... |
 
 You can organize datasets with validation & annotation of any kind of metadata to then access them via queries & search. Here is a more [comprehensive example](https://lamin.ai/laminlabs/lamindata/artifact/9K1dteZ6Qx0EXK8g):
 
