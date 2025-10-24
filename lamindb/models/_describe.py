@@ -297,7 +297,7 @@ def display_text(
 ) -> None:
     # Split the code into lines and add dim vertical bars
     lines = text.split("\n")
-    end_parts = [("\n│ …", "dim")] if len(lines) > max_lines else []
+    end_parts = [("\n│ …", "grey30")] if len(lines) > max_lines else []
     parts = [(title + ": ", "purple")]
     parts.append((uid, ""))
     max_length = 80
@@ -328,7 +328,7 @@ def describe_run(
     two_column_items = []  # type: ignore
     two_column_items.append(Text.assemble(("uid: ", "dim"), f"{record.uid}"))
     if fk_data and "transform" in fk_data:
-        transform = SimpleNamespace(**fk_data["transform"])
+        transform = SimpleNamespace(**fk_data["transform"], description="")
     else:
         transform = record.transform
     two_column_items.append(
