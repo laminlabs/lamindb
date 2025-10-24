@@ -28,7 +28,7 @@ dependencies = [
     "nbconvert>=7.2.1",  # avoid lxml[html_clean] dependency
     # Others
     "pyyaml",
-    "pyarrow",
+    "pyarrow<22.0.0",  # 22.0.0 breaks saving spatialdata objects
     "pandera>=0.24.0",
     "typing_extensions!=4.6.0",
     "python-dateutil",

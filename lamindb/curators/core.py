@@ -494,7 +494,7 @@ class ComponentCurator(Curator):
                     pandera_columns[feature.name] = pandera.Column(
                         dtype=None,
                         checks=pandera.Check(
-                            check_dtype(feature.dtype),
+                            check_dtype(feature.dtype, feature.nullable),
                             element_wise=False,
                             error=f"Column '{feature.name}' failed dtype check for '{feature.dtype}': got {dtype}",
                         ),
