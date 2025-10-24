@@ -289,7 +289,7 @@ class QueryManager(Manager):
         return self.to_list(field)
 
     def to_dataframe(self, **kwargs):
-        """Convert to DataFrame with columns mapping on fields.
+        """Convert to DataFrame.
 
         For `**kwargs`, see :meth:`lamindb.models.QuerySet.to_dataframe`.
         """
