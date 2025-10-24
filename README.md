@@ -109,7 +109,9 @@ accessor = af.stream()  # return a streaming accessor
 
 And here is how to access its data lineage context:
 
-<img src="https://github.com/user-attachments/assets/0443be28-76b1-4e69-9fbf-ecbd5f0fe98f" width="550" />
+`af.run.describe()` | `af.run.transform.describe()`
+--- | ---
+<img src="https://github.com/user-attachments/assets/0443be28-76b1-4e69-9fbf-ecbd5f0fe98f" width="550" /> | ...
 
 You can organize datasets with validation & annotation of any kind of metadata to then access them via queries & search. Here is a more [comprehensive example](https://lamin.ai/laminlabs/lamindata/artifact/9K1dteZ6Qx0EXK8g):
 
