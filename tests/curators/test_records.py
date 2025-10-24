@@ -268,3 +268,12 @@ def test_annotate_with_user_feature():
         "__lamindb_record_name__",
     ]
     assert df.iloc[0]["created_by"] == "test-user"
+
+    # clean up
+    record.type = None
+    record.save()
+    record.delete(permanent=True)
+    sheet.delete(permanent=True)
+    schema.delete(permanent=True)
+    user_feature.delete(permanent=True)
+    user.delete(permanent=True)

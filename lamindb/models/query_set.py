@@ -393,6 +393,7 @@ def get_feature_annotate_kwargs(
         Feature,
         Record,
         RecordJson,
+        ULabel,
     )
 
     if registry not in {Artifact, Record}:
@@ -451,10 +452,6 @@ def get_feature_annotate_kwargs(
         if obj.related_model.__get_name_with_module__() in cat_feature_types
     }
     if registry is Artifact:
-        from .ulabel import (
-            ULabel,  # needs to be imported here to avoid circular imports
-        )
-
         link_models_on_models["ArtifactULabel"] = ULabel
     else:
         link_models_on_models["RecordRecord"] = Record
