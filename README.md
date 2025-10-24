@@ -108,7 +108,8 @@ Here is how to access the content of the artifact:
 ```python
 local_path = artifact.cache()  # return a local path from a cache
 object = artifact.load()  # load object into memory
-accessor = artifact.stream()  # return a streaming accessor
+with artifact.open() as accessor:  # return a streaming accessor
+# ...
 ```
 
 And here is how to access its data lineage context:
