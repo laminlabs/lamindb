@@ -49,7 +49,7 @@ class HasFeaturesSet(Iterable):
         Is equivalent to `.to_dataframe(features=True)`.
         """
         if not kwargs:
-            kwargs = {"features": True}
+            kwargs = {"features": True}  # should be changed to 'queryset' in the future
         return self.to_dataframe(**kwargs)  # type: ignore
 
 

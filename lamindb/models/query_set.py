@@ -435,7 +435,7 @@ def get_feature_annotate_kwargs(
         )
         feature_names = feature_qs.to_list("name")
         logger.important(
-            f"queried for all categorical features with dtype ULabel or Record and non-categorical features: ({len(feature_names)}) {feature_names}"
+            f"queried for all categorical features with dtype Record and non-categorical features: ({len(feature_names)}) {feature_names}"
         )
     # Get the categorical features
     cat_feature_types = {
