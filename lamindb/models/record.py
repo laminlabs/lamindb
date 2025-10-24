@@ -231,10 +231,6 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates, HasParents):
         Run, through="RecordRun", related_name="linked_in_records"
     )
     """Runs linked in this record as values."""
-    linked_users: User = models.ManyToManyField(
-        User, through="RecordUser", related_name="records"
-    )
-    """Users linked in this record as values."""
     linked_ulabels: ULabel = models.ManyToManyField(
         ULabel,
         through="RecordULabel",
@@ -360,9 +356,12 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates, HasParents):
         """Export all instances of this record type to a pandas DataFrame."""
         assert self.is_type, "Only types can be exported as dataframes"  # noqa: S101
         df = self.query_records().to_dataframe(features="queryset")
+        encoded_id = encode_lamindb_fields_as_columns(self.__class__, "id")
         encoded_uid = encode_lamindb_fields_as_columns(self.__class__, "uid")
         encoded_name = encode_lamindb_fields_as_columns(self.__class__, "name")
-        # encode the django uid and name fields
+        # encode the django id, uid and name fields
+        if df.index.name == "id":
+            df.index.name = encoded_id
         if "uid" in df.columns and encoded_uid not in df.columns:
             df = df.rename(columns={"uid": encoded_uid})
         if "name" in df.columns and encoded_name not in df.columns:

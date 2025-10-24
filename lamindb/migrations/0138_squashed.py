@@ -5711,4 +5711,17 @@ class Migration(migrations.Migration):
             ),
         ),
         migrations.RunPython(apply_constraints),
+        migrations.RemoveField(
+            model_name="record",
+            name="linked_users",
+        ),
+        migrations.AddField(
+            model_name="user",
+            name="linked_in_records",
+            field=models.ManyToManyField(
+                related_name="linked_users",
+                through="lamindb.RecordUser",
+                to="lamindb.record",
+            ),
+        ),
     ]
