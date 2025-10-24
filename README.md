@@ -92,9 +92,17 @@ af.view_lineage()
 
 You'll know how that artifact was created and what it's used for. You also captured basic metadata:
 
-| `af.describe()`                                                                                       | `af.run.describe()`                                                                                        | --- |
-| ----------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- | --- |
-| <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/BOTCBgHDAvwglN3U0003.png" height="200"> | <img height="200" src="https://github.com/user-attachments/assets/0443be28-76b1-4e69-9fbf-ecbd5f0fe98f" /> | ... |
+```python
+af.describe()
+```
+
+<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/BOTCBgHDAvwglN3U0003.png" height="200">
+
+```python
+af.run.describe()
+```
+
+<img height="200" src="https://github.com/user-attachments/assets/0443be28-76b1-4e69-9fbf-ecbd5f0fe98f" />
 
 You can organize datasets with validation & annotation of any kind of metadata to then access them via queries & search. Here is a more [comprehensive example](https://lamin.ai/laminlabs/lamindata/artifact/9K1dteZ6Qx0EXK8g):
 
