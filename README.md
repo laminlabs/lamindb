@@ -66,7 +66,7 @@ Or if you have write access to an instance, connect to it:
 lamin connect account/name
 ```
 
-## Quickstarts
+## Quickstart
 
 ### Data lineage
 
@@ -124,7 +124,7 @@ Just like artifacts, runs & transforms are `SQLRecord` objects and follow the sa
 
 ### Data lake: annotation, validation, queries
 
-You can annotate datasets and samples with _features_. Let's define some:
+You can annotate datasets and samples with features. Let's define some:
 
 ```python
 from datetime import date
@@ -134,7 +134,7 @@ ln.Feature(name="experiment_note", dtype=str).save()
 ln.Feature(name="experiment_date", dtype=date).save()
 ```
 
-Annotate -- in case of typos in feature names or invalid data types, you'd run into a `ln.errors.ValidationError`.
+During annotation, feature names and data types are validated against these definitions:
 
 ```python
 artifact.features.add_values({
@@ -160,8 +160,8 @@ ln.Artifact.filter(size__gt=1e6).to_dataframe()                # query all artif
 
 ### Data lake ♾️ LIMS ♾️ Sheets
 
-You can maintain records for the entities underlying your experiments: samples, perturbations, instruments, etc.
-Let's create one:
+You can maintain records for the entities underlying your experiments: samples, perturbations, instruments, etc..
+Here is an example:
 
 ```python
 sample_type = ln.Record(name="Sample", is_type=True).  # a sample type
@@ -177,7 +177,7 @@ ln.Feature(name="design_sample", dtype=sample_type).save()
 artifact.features.add_values("design_sample": "P53mutant1")
 ```
 
-You can query & search the `Record` registry in the same way as `Artifact`, `Run`, or `Transform`.
+You can query & search the `Record` registry in the same way as `Artifact` or `Run`.
 
 ```python
 ln.Record.search("p53").to_dataframe()
@@ -199,7 +199,7 @@ ln.Artifact("sample.fasta", key="sample.fasta", features={"design_sample": "P53m
 ln.finish()
 ```
 
-If you
+If you now query by `key`, you'll get the latest version of this artifact.
 
 ```python
 artifact = ln.Artifact.get(key="sample.fasta")  # get artifact by key
