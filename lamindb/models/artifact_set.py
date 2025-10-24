@@ -28,8 +28,33 @@ UNORDERED_WARNING = (
 )
 
 
+class HasFeaturesSet(Iterable):
+    """Abstract class representing sets of artifacts/records/runs returned by queries.
+
+    This class automatically extends :class:`~lamindb.models.BasicQuerySet`
+    and :class:`~lamindb.models.QuerySet` when the base model is `Artifact`, `Record`, or `Run`.
+
+    Examples:
+
+        >>> artifacts = ln.Artifact.filter(otype="AnnData")
+        >>> artifacts # an instance of ArtifactQuerySet inheriting from ArtifactSet
+    """
+
+    def to_featureframe(
+        self,
+        **kwargs,
+    ) -> DataFrame:
+        """Convert to DataFrame with columns mapping on features.
+
+        Is equivalent to `.to_dataframe(features=True)`.
+        """
+        if not kwargs:
+            kwargs = {"features": True}
+        return self.to_dataframe(**kwargs)  # type: ignore
+
+
 # maybe make this abstract
-class ArtifactSet(Iterable):
+class ArtifactSet(HasFeaturesSet):
     """Abstract class representing sets of artifacts returned by queries.
 
     This class automatically extends :class:`~lamindb.models.BasicQuerySet`
