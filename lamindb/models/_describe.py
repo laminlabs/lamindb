@@ -111,6 +111,9 @@ def format_title_with_version(
     title = Text.assemble(
         (title_str, "cyan3"),
         (f" ({record.version if record.version else record.uid[-4:]})", "dim"),
+        Text.assemble(("\n|   description: ", "dim"), record.description)
+        if record.description
+        else Text(""),
     )
     return title
 
@@ -190,11 +193,6 @@ def append_branch_space_created_at_created_by(
     two_column_items.append(Text.assemble(("created_by: ", "dim"), created_by_handle))
 
 
-def add_description(record: SQLRecord, tree):
-    if record.description:
-        tree.add(Text.assemble(("description: ", "dim"), record.description))
-
-
 def add_two_column_items_to_tree(tree: Tree, two_column_items: list) -> None:
     table = Table(
         Column("", no_wrap=True),
@@ -230,7 +228,6 @@ def describe_artifact(
         related_data=related_data,
     )
     labels_tree = describe_labels(record, related_data=related_data)
-    add_description(record, tree)
     two_column_items = []  # type: ignore
     append_uid_run(record, two_column_items, fk_data)
     if record.kind or record.otype:
@@ -288,7 +285,6 @@ def describe_collection(
         fk_data = related_data.get("fk", {})
     else:
         fk_data = {}
-    add_description(record, tree)
     two_column_items = []  # type: ignore
     append_uid_run(record, two_column_items, fk_data)
     append_branch_space_created_at_created_by(record, two_column_items, fk_data)
@@ -389,7 +385,6 @@ def describe_transform(
     related_data: dict | None = None,
 ) -> Tree:
     tree = describe_header(record)
-    add_description(record, tree)
     if related_data is not None:
         fk_data = related_data.get("fk", {})
     else:
@@ -422,11 +417,17 @@ def describe_schema(record: Schema, slot: str | None = None) -> Tree:
     else:
         name = "unnamed"
     header = "Schema:" if slot is None else f"{slot}:"
+    description = (
+        Text.assemble(("\n|   description: ", "dim"), record.description)
+        if record.description
+        else Text("")
+    )
     tree = Tree(
-        Text.assemble((header, "bold"), (f"{prefix}", "dim"), (f"{name}", "cyan3")),
+        Text.assemble(
+            (header, "bold"), (f"{prefix}", "dim"), (f"{name}", "cyan3"), description
+        ),
         guide_style="dim",
     )
-    add_description(record, tree)
     two_column_items = []  # type: ignore
     append_uid_run(record, two_column_items)
     two_column_items.append(Text.assemble(("itype: ", "dim"), f"{record.itype}"))
