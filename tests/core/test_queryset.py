@@ -302,3 +302,22 @@ def test_queryset_soft_delete_error():
 
     with pytest.raises(ValueError):
         ln.Branch.filter().delete(permanent=False)
+
+
+def test_encode_lamindb_fields_as_columns():
+    from lamindb.models.query_set import encode_lamindb_fields_as_columns
+
+    assert encode_lamindb_fields_as_columns(
+        ln.Artifact, ["uid", "name", "created_by", "key", "tissues"]
+    ) == {
+        "uid": "__lamindb_artifact_uid__",
+        "created_by": "__lamindb_artifact_created_by__",
+        "key": "__lamindb_artifact_key__",
+    }
+    assert encode_lamindb_fields_as_columns(
+        ln.Record, ["uid", "name", "created_by", "key", "tissues"]
+    ) == {
+        "uid": "__lamindb_record_uid__",
+        "name": "__lamindb_record_name__",
+        "created_by": "__lamindb_record_created_by__",
+    }

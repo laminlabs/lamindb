@@ -50,7 +50,7 @@ def test_record_example_compound_treatment(
     dictionary = (
         ln.Record.filter(type=sample_sheet1)
         .to_dataframe(features=["cell_line", "treatment"])[
-            ["cell_line", "name", "treatment"]
+            ["cell_line", "__lamindb_record_name__", "treatment"]
         ]
         .to_dict(orient="list")
     )
@@ -59,7 +59,7 @@ def test_record_example_compound_treatment(
             "HEK293T cell",
             "HEK293T cell",
         ],
-        "name": [
+        "__lamindb_record_name__": [
             "sample1",
             "sample2",
         ],
@@ -70,17 +70,25 @@ def test_record_example_compound_treatment(
     }
 
     df = sample_sheet1.type_to_dataframe()
+    assert df.index.name == "__lamindb_record_id__"
     dictionary = df[
-        ["cell_line", "__lamindb_record_name__", "treatment", "preparation_date"]
+        [
+            "id",  # a feature
+            "uid",  # a feature
+            "name",  # a feature
+            "cell_line",
+            "treatment",
+            "preparation_date",
+            "__lamindb_record_name__",
+        ]
     ].to_dict(orient="list")
     assert dictionary == {
+        "id": [1, 2],
+        "uid": ["S1", "S2"],
+        "name": ["Sample 1", "Sample 2"],
         "cell_line": [
             "HEK293T cell",
             "HEK293T cell",
-        ],
-        "__lamindb_record_name__": [
-            "sample1",
-            "sample2",
         ],
         "preparation_date": [
             pd.to_datetime("2025-06-01T05:00:00"),
@@ -90,10 +98,17 @@ def test_record_example_compound_treatment(
             "treatment1",
             "treatment2",
         ],
+        "__lamindb_record_name__": [
+            "sample1",
+            "sample2",
+        ],
     }
 
     artifact = sample_sheet1.to_artifact()
     assert sample_sheet1.schema.members.to_list("name") == [
+        "id",
+        "uid",
+        "name",
         "treatment",
         "cell_line",
         "preparation_date",
@@ -102,26 +117,30 @@ def test_record_example_compound_treatment(
     assert artifact.run.input_records.count() == 1
     assert artifact.transform.type == "function"
     # looks something like this:
-    # treatment,cell_line,preparation_date,__lamindb_record_uid__,__lamindb_record_name__
-    # treatment1,HEK293T cell,2025-06-01 05:00:00,iCwgKgZELoLtIoGy,sample1
-    # treatment2,HEK293T cell,2025-06-01 06:00:00,qvU9m7VF6fSdsqJs,sample2
+    # id,uid,name,treatment,cell_line,preparation_date,__lamindb_record_uid__,__lamindb_record_name__
+    # 1,S1,Sample 1,treatment1,HEK293T cell,2025-06-01 05:00:00,iCwgKgZELoLtIoGy,sample1
+    # 2,S2,Sample 2,treatment2,HEK293T cell,2025-06-01 06:00:00,qvU9m7VF6fSdsqJs,sample2
     assert len(artifact.load()) == 2  # two rows in the dataframe
     assert artifact.path.read_text().startswith("""\
-treatment,cell_line,preparation_date,project,__lamindb_record_uid__,__lamindb_record_name__
-treatment1,HEK293T cell,2025-06-01 05:00:00,Project 1""")
+id,uid,name,treatment,cell_line,preparation_date,project,__lamindb_record_uid__,__lamindb_record_name__
+1,S1,Sample 1,treatment1,HEK293T cell,2025-06-01 05:00:00,Project 1""")
     assert artifact.key == f"sheet_exports/{sample_sheet1.name}.csv"
     assert artifact.description.startswith(f"Export of sheet {sample_sheet1.uid}")
     assert artifact._state.adding is False
     assert ln.models.ArtifactRecord.filter(artifact=artifact).count() == 2
+    print(artifact.features.describe(return_str=True))
     assert (
         artifact.features.describe(return_str=True)
         == """\
-Artifact .csv · DataFrame · dataset
+Artifact: sheet_exports/My samples 2025-06.csv (0000)
 └── Dataset features
-    └── columns (4)
+    └── columns (7)
         cell_line           bionty.CellLine         HEK293T cell
         project             Project                 Project 1
         treatment           Record[Treatment]       treatment1, treatment2
+        id                  int
+        uid                 str
+        name                str
         preparation_date    datetime"""
     )
     # re-run the export which triggers hash lookup
@@ -192,14 +211,13 @@ def test_nextflow_sheet_with_samples(
         "fastq_2",
         "expected_cells",
     ]
-    print(artifact.features.describe(return_str=True))
     assert artifact.path.read_text().startswith("""\
 sample,fastq_1,fastq_2,expected_cells,__lamindb_record_uid__,__lamindb_record_name__
 Sample_X,https://raw.githubusercontent.com/nf-core/test-datasets/scrnaseq/testdata/cellranger/Sample_X_S1_L001_R1_001.fastq.gz,https://raw.githubusercontent.com/nf-core/test-datasets/scrnaseq/testdata/cellranger/Sample_X_S1_L001_R2_001.fastq.gz,5000,""")
     assert (
         artifact.features.describe(return_str=True)
         == """\
-Artifact .csv · DataFrame · dataset
+Artifact: sheet_exports/RNA-seq nextflow samplesheet 001.csv (0000)
 └── Dataset features
     └── columns (4)
         sample              Record[BioSample]       Sample_X, Sample_Y

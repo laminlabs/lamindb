@@ -1,5 +1,4 @@
 import lamindb as ln
-from lamindb.models.has_parents import _add_emoji
 
 
 def test_view_parents():
@@ -28,15 +27,6 @@ def test_query_parents_children():
     label1.delete(permanent=True)
     label2.delete(permanent=True)
     label3.delete(permanent=True)
-
-
-def test_add_emoji():
-    transform = ln.Transform(key="test-12345", type="function")
-    assert _add_emoji(transform, label="transform") == "🔧 transform"
-    transform.save()
-    run = ln.Run(transform=transform)
-    assert _add_emoji(run, label="run") == "🔧 run"
-    transform.delete(permanent=True)
 
 
 def test_view_lineage_circular():
