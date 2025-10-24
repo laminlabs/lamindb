@@ -93,10 +93,10 @@ artifact.view_lineage()
 You'll know how that artifact was created and what it's used for. Basic metadata was captured in fields:
 
 ```python
-artifact.size  # access the size
+artifact.size        # access the size
 artifact.created_at  # access the timestamp
 artifact.created_by  # access the creator
-artifact.versions  # access all versions
+artifact.versions    # access all versions
 # etc.
 artifact.describe()  # describe metadata
 ```
@@ -107,8 +107,8 @@ Here is how to access the content of the artifact:
 
 ```python
 local_path = artifact.cache()  # return a local path from a cache
-object = artifact.load()  # load object into memory
-accessor = artifact.open() # return a streaming accessor
+object = artifact.load()       # load object into memory
+accessor = artifact.open()     # return a streaming accessor
 ```
 
 And here is how to access its data lineage context:
