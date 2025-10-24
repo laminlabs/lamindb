@@ -122,7 +122,7 @@ Runs & transforms are `SQLRecord` objects, like artifacts and
 
 `run.describe()` | `transform.describe()`
 --- | ---
-<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/rJrHr3XaITVS4wVJ0000.png" width="400" /> | <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/rJrHr3XaITVS4wVJ0000.png" width="350" />
+<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/rJrHr3XaITVS4wVJ0000.png" width="400" /> | <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/JYwmHBbgf2MRCfgL0000.png" width="350" />
 
 You can organize datasets with validation & annotation of any kind of metadata to then access them via queries & search. Here is a more [comprehensive example](https://lamin.ai/laminlabs/lamindata/artifact/9K1dteZ6Qx0EXK8g):
 
