@@ -66,19 +66,19 @@ Or if you have write access to an instance, connect to it:
 lamin connect account/name
 ```
 
-## Quickstart
+## Quickstarts
 
-Track a script or notebook run with source code, inputs, outputs, logs, and environment:
+### Data lineage
 
-<!-- copied from py-quickstart.py -->
+Create a dataset while tracking source code, inputs, outputs, logs, and environment:
 
 ```python
 import lamindb as ln
 
-ln.track()  # track a run
-open("sample.fasta", "w").write(">seq1\nACGT\n")
-ln.Artifact("sample.fasta", key="sample.fasta").save()  # create an artifact
-ln.finish()  # finish the run
+ln.track()  # track execution of source code as a run
+open("sample.fasta", "w").write(">seq1\nACGT\n")  # create a dataset
+ln.Artifact("sample.fasta", key="sample.fasta").save()  # save dataset as an artifact
+ln.finish()  # mark the run as finished
 ```
 
 Running this snippet as a script (`python create-fasta.py`) produces the following data lineage.
@@ -95,8 +95,6 @@ You'll know how that artifact was created and what it's used for. Basic metadata
 ```python
 artifact.size        # access the size
 artifact.created_at  # access the timestamp
-artifact.created_by  # access the creator
-artifact.versions    # access all versions
 # etc.
 artifact.describe()  # describe metadata
 ```
@@ -118,29 +116,100 @@ run = artifact.run         # get the run record
 transform = run.transform  # get the transform record
 ```
 
-Runs & transforms are `SQLRecord` objects, like artifacts and
+Just like artifacts, runs & transforms are `SQLRecord` objects and follow the same API, just with different fields.
 
 `run.describe()` | `transform.describe()`
 --- | ---
 <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/rJrHr3XaITVS4wVJ0000.png" width="400" /> | <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/JYwmHBbgf2MRCfgL0000.png" width="350" />
 
-You can organize datasets with validation & annotation of any kind of metadata to then access them via queries & search. Here is a more [comprehensive example](https://lamin.ai/laminlabs/lamindata/artifact/9K1dteZ6Qx0EXK8g):
+### Data lake: annotation, validation, queries
 
-<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/6sofuDVvTANB0f480002.png" width="850">
-
-To annotate an artifact with a label, use:
+You can annotate datasets and samples with _features_. Let's define some:
 
 ```python
-my_experiment = ln.Record(name="My experiment").save()  # create a label record
-artifact.records.add(my_experiment)  # annotate the artifact with the label
+from datetime import date
+
+ln.Feature(name="gc_content", dtype=float).save()
+ln.Feature(name="experiment_note", dtype=str).save()
+ln.Feature(name="experiment_date", dtype=date).save()
 ```
 
-To query for a set of artifacts, use the `filter()` statement.
+Annotate -- in case of typos in feature names or invalid data types, you'd run into a `ln.errors.ValidationError`.
 
 ```python
-ln.Artifact.filter(records=my_experiment, suffix=".fasta").to_dataframe()  # query by suffix and the ulabel we just created
-ln.Artifact.filter(transform__key="create-fasta.py").to_dataframe()  # query by the name of the script we just ran
+artifact.features.add_values({
+    "gc_content": 0.55,
+    "experiment_note": "Looks great",
+    "experiment_date": "2025-10-24",
+})
 ```
+
+Now that the data is annotated, you can query for it:
+
+```python
+ln.Artifact.filter(experiment_date="2025-10-14").to_dataframe()  # query all artifacts annotated with experiment date
+```
+
+You can also query by the metadata that lamindb automatically collects:
+
+```python
+ln.Artifact.filter(run=run).to_dataframe()                     # query all artifacts created by a run
+ln.Artifact.filter(run__transform=transform).to_dataframe()    # query all artifacts created by a transform
+ln.Artifact.filter(size__gt=1e6).to_dataframe()                # query all artifacts bigger than 1MB
+```
+
+### Data lake ♾️ LIMS ♾️ Sheets
+
+You can maintain records for the entities underlying your experiments: samples, perturbations, instruments, etc.
+Let's create one:
+
+```python
+sample_type = ln.Record(name="Sample", is_type=True).  # a sample type
+ln.Record(name="P53mutant1", type=sample_type).save()  # sample 1
+ln.Record(name="P53mutant2", type=sample_type).save()  # sample 2
+```
+
+Define the corresponding features and annotate:
+
+```python
+
+ln.Feature(name="design_sample", dtype=sample_type).save()
+artifact.features.add_values("design_sample": "P53mutant1")
+```
+
+You can query & search the `Record` registry in the same way as `Artifact`, `Run`, or `Transform`.
+
+```python
+ln.Record.search("p53").to_dataframe()
+```
+
+You can also create relationships of entities and -- if you connect your LaminDB instance to LaminHub -- edit them like Excel sheets in a GUI.
+
+### Data lake: versioning
+
+If you change source code or datasets, LaminDB manages their versioning for you.
+Assume you run the new script.
+
+```python
+import lamindb as ln
+
+ln.track()
+open("sample.fasta", "w").write(">seq1\nTGCA\n")  # a new sequence
+ln.Artifact("sample.fasta", key="sample.fasta", features={"design_sample": "P53mutant1"}).save()  # annotate with the new sample
+ln.finish()
+```
+
+If you
+
+```python
+artifact = ln.Artifact.get(key="sample.fasta")  # get artifact by key
+artifact.versions.to_dataframe()                # see all versions of that artifact
+```
+
+You can organize datasets by annotating them. [an example](https://lamin.ai/laminlabs/lamindata/artifact/lXmgHRUFufX439eI) from [Schmidt _el al._ (2022)](https://pubmed.ncbi.nlm.nih.gov/35113687/):
+
+<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/JvLaK9Icj11eswQn0000.png" width="850">
+
 
 If you have a structured dataset like a `DataFrame`, an `AnnData`, or another array, you can validate the content of the dataset (and parse annotations).
 Here is [an example for a dataframe](https://docs.lamin.ai/tutorial#validate-an-artifact).
