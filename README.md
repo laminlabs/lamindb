@@ -93,14 +93,21 @@ af.view_lineage()
 You'll know how that artifact was created and what it's used for. You also captured basic metadata:
 
 ```python
-af.describe()
+af.describe()  # describe metadata
+
 ```
 
 <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/BOTCBgHDAvwglN3U0003.png" width="550">
 
+Here is how to access the content of the artifact:
+
 ```python
-af.run.describe()
+local_path = af.cache()  # return a local path from a cache
+obj = af.load()  # load object into memory
+accessor = af.stream()  # return a streaming accessor
 ```
+
+And here is how to access its data lineage context:
 
 <img src="https://github.com/user-attachments/assets/0443be28-76b1-4e69-9fbf-ecbd5f0fe98f" width="550" />
 
