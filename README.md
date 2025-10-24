@@ -114,7 +114,7 @@ accessor = artifact.open()     # return a streaming accessor
 And here is how to access its data lineage context:
 
 ```python
-run = artifact.run  # get the run record
+run = artifact.run                  # get the run record
 transform = artifact.run.transform  # get the transform record
 ```
 
