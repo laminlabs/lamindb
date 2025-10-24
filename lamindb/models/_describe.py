@@ -89,9 +89,9 @@ def format_run_title(
     if record is None:
         return Text("")
     display_name = (
-        Text(record.name, style="")
+        Text(record.name, style="cyan3")
         if record.name is not None
-        else Text(record.uid, style="dim" if dim else "")
+        else Text(record.uid[:7], style="cyan3")
     )
     if transform_key is None:
         transform_key = record.transform.key
@@ -111,11 +111,14 @@ def format_title_with_version(
     title = Text.assemble(
         (title_str, "cyan3"),
         (f" ({record.version if record.version else record.uid[-4:]})", "dim"),
+        Text.assemble(("\n|   description: ", "dim"), record.description)
+        if record.description
+        else Text(""),
     )
     return title
 
 
-def describe_header(record: Artifact | Collection | Run) -> Tree:
+def describe_header(record: Artifact | Collection | Run | Transform) -> Tree:
     if hasattr(record, "is_latest") and not record.is_latest:
         logger.warning(
             f"This is not the latest version of the {record.__class__.__name__}."
@@ -190,11 +193,6 @@ def append_branch_space_created_at_created_by(
     two_column_items.append(Text.assemble(("created_by: ", "dim"), created_by_handle))
 
 
-def add_description(record: SQLRecord, tree):
-    if record.description:
-        tree.add(Text.assemble(("description: ", "dim"), record.description))
-
-
 def add_two_column_items_to_tree(tree: Tree, two_column_items: list) -> None:
     table = Table(
         Column("", no_wrap=True),
@@ -230,7 +228,6 @@ def describe_artifact(
         related_data=related_data,
     )
     labels_tree = describe_labels(record, related_data=related_data)
-    add_description(record, tree)
     two_column_items = []  # type: ignore
     append_uid_run(record, two_column_items, fk_data)
     if record.kind or record.otype:
@@ -288,12 +285,29 @@ def describe_collection(
         fk_data = related_data.get("fk", {})
     else:
         fk_data = {}
-    add_description(record, tree)
     two_column_items = []  # type: ignore
     append_uid_run(record, two_column_items, fk_data)
     append_branch_space_created_at_created_by(record, two_column_items, fk_data)
     add_two_column_items_to_tree(tree, two_column_items)
     return tree
+
+
+def display_text(
+    text: str, title: str, tree: Tree, max_lines: int = 30, uid: str = ""
+) -> None:
+    # Split the code into lines and add dim vertical bars
+    lines = text.split("\n")
+    end_parts = [("\n│ …", "grey30")] if len(lines) > max_lines else []
+    parts = [(title + ": ", "purple")]
+    parts.append((uid, ""))
+    max_length = 80
+    for line in lines[:max_lines]:
+        parts.append(("\n│ ", "dim"))
+        parts.append((line[:max_length], "grey30"))
+        if len(line) > max_length:
+            parts.append((" …", "grey30"))
+    parts.extend(end_parts)
+    tree.add(Text.assemble(*parts))
 
 
 def describe_run(
@@ -314,7 +328,7 @@ def describe_run(
     two_column_items = []  # type: ignore
     two_column_items.append(Text.assemble(("uid: ", "dim"), f"{record.uid}"))
     if fk_data and "transform" in fk_data:
-        transform = SimpleNamespace(**fk_data["transform"])
+        transform = SimpleNamespace(**fk_data["transform"], description="")
     else:
         transform = record.transform
     two_column_items.append(
@@ -335,22 +349,59 @@ def describe_run(
     )
     two_column_items.append(Text.assemble(("status: ", "dim"), record.status))
     two_column_items.append(
-        Text.assemble(
-            ("reference: ", "dim"), record.reference if record.reference else ""
-        )
+        Text.assemble(("reference: ", "dim"), record.reference)
+        if record.reference
+        else Text("")
     )
     append_branch_space_created_at_created_by(record, two_column_items, fk_data)
     add_two_column_items_to_tree(tree, two_column_items)
-    # if display_report:
-    #     report_tree = tree.add(Text("report:", style="dim"))
-    #     report_content = Text.from_ansi(record.report.cache().read_text())
-    #     report_tree.add(report_content)
     if record.params:
         params = tree.add(Text("Params", style="bold dark_orange"))
         for key, value in record.params.items():
             params.add(f"{key}: {value}")
     if features_tree:
         tree.add(features_tree)
+    if record.report_id:
+        display_text(
+            strip_ansi_from_string(record.report.load(is_run_input=False).strip()),
+            "report",
+            tree,
+            max_lines=4,
+            uid=record.report.uid[:7],
+        )
+    if record.environment_id:
+        display_text(
+            record.environment.load(is_run_input=False).strip(),
+            "environment",
+            tree,
+            max_lines=4,
+            uid=record.environment.uid[:7],
+        )
+    return tree
+
+
+def describe_transform(
+    record: Transform,
+    related_data: dict | None = None,
+) -> Tree:
+    tree = describe_header(record)
+    if related_data is not None:
+        fk_data = related_data.get("fk", {})
+    else:
+        fk_data = {}
+    two_column_items = []  # type: ignore
+    two_column_items.append(Text.assemble(("uid: ", "dim"), f"{record.uid}"))
+    two_column_items.append(
+        Text.assemble(("reference: ", "dim"), record.reference)
+        if record.reference
+        else Text("")
+    )
+    two_column_items.append(Text.assemble(("hash: ", "dim"), f"{record.hash}"))
+    two_column_items.append(Text.assemble(("type: ", "dim"), f"{record.type}"))
+    append_branch_space_created_at_created_by(record, two_column_items, fk_data)
+    add_two_column_items_to_tree(tree, two_column_items)
+    if record.source_code:
+        display_text(record.source_code.strip(), "source_code", tree)
     return tree
 
 
@@ -366,11 +417,17 @@ def describe_schema(record: Schema, slot: str | None = None) -> Tree:
     else:
         name = "unnamed"
     header = "Schema:" if slot is None else f"{slot}:"
+    description = (
+        Text.assemble(("\n|   description: ", "dim"), record.description)
+        if record.description
+        else Text("")
+    )
     tree = Tree(
-        Text.assemble((header, "bold"), (f"{prefix}", "dim"), (f"{name}", "cyan3")),
+        Text.assemble(
+            (header, "bold"), (f"{prefix}", "dim"), (f"{name}", "cyan3"), description
+        ),
         guide_style="dim",
     )
-    add_description(record, tree)
     two_column_items = []  # type: ignore
     append_uid_run(record, two_column_items)
     two_column_items.append(Text.assemble(("itype: ", "dim"), f"{record.itype}"))
@@ -456,6 +513,8 @@ def describe_postgres(record):
         result = get_collection_with_related(record, include_fk=True)
         related_data = result.get("related_data", {})
         tree = describe_collection(record, related_data=related_data)
+    elif model_name == "Transform":
+        tree = describe_transform(record)
     else:
         tree = describe_header(record)
     return tree
@@ -501,6 +560,8 @@ def describe_sqlite(record):
             tree = describe_run(record)
     elif model_name == "Collection":
         tree = describe_collection(record)
+    elif model_name == "Transform":
+        tree = describe_transform(record)
     else:
         tree = describe_header(record)
     return tree

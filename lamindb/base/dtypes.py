@@ -12,7 +12,7 @@ def is_list_of_type(value: Any, expected_type: Any) -> bool:
     return False
 
 
-def check_dtype(expected_type: Any) -> Callable:
+def check_dtype(expected_type: Any, nullable: bool) -> Callable:
     """Creates a check function for Pandera that validates a column's dtype.
 
     Supports both standard dtype checking and mixed list/single values for the same type.
@@ -26,6 +26,11 @@ def check_dtype(expected_type: Any) -> Callable:
     """
 
     def check_function(series):
+        # empty series are considered valid if feature is nullable
+        # the issue is that nullable in Pandera controls whether None/NaN values are allowed in the column, not whether the column can be empty (0 rows).
+        # so "col": [1, 2, None, 4] is correctly handled by pandera nullable=True, but an empty column "col": [] is not.
+        if nullable and series.isnull().all():
+            return True
         # first check if the series is entirely of the expected dtype (fast path)
         if expected_type == "int" and pd.api.types.is_integer_dtype(series.dtype):
             return True

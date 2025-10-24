@@ -333,6 +333,7 @@ class Migration(migrations.Migration):
             "lamindb",
             "0137_remove_recordrecord__aux_remove_recordrecord_branch_and_more",
         ),
+        ("lamindb", "0138_remove_record_linked_users_user_linked_in_records"),
     ]
 
     dependencies = []  # type: ignore
@@ -5711,4 +5712,17 @@ class Migration(migrations.Migration):
             ),
         ),
         migrations.RunPython(apply_constraints),
+        migrations.RemoveField(
+            model_name="record",
+            name="linked_users",
+        ),
+        migrations.AddField(
+            model_name="user",
+            name="linked_in_records",
+            field=models.ManyToManyField(
+                related_name="linked_users",
+                through="lamindb.RecordUser",
+                to="lamindb.record",
+            ),
+        ),
     ]
