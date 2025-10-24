@@ -380,10 +380,13 @@ def describe_transform(
     if record.source_code:
         # Split the code into lines and add dim vertical bars
         lines = record.source_code.strip().split("\n")
-        parts = [("source_code:\n\n", "medium_orchid3")]
-        for line in lines:
+        max_lines = 30
+        end_parts = [("│ ...", "dim")] if len(lines) > max_lines else []
+        parts = [("source_code:\n\n", "purple")]
+        for line in lines[:max_lines]:
             parts.append(("│ ", "dim"))
             parts.append((line + "\n", "grey23"))
+        parts.extend(end_parts)
         tree.add(Text.assemble(*parts))
     return tree
 
