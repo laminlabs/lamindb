@@ -158,10 +158,17 @@ ln.Artifact.filter(run__transform=transform).to_dataframe()    # query all artif
 ln.Artifact.filter(size__gt=1e6).to_dataframe()                # query all artifacts bigger than 1MB
 ```
 
+If you want to include more information into the resulting dataframe, pass `include`.
+
+```python
+ln.Artifact.to_dataframe(include="features")  # include the feature annotations
+ln.Artifact.to_dataframe(include=["created_by__name", "storage__root"])  # include fields from related registries
+```
+
 ### Data lake ♾️ LIMS ♾️ Sheets
 
-You can maintain records for the entities underlying your experiments: samples, perturbations, instruments, etc..
-Here is an example:
+You can create records for the entities underlying your experiments: samples, perturbations, instruments, etc..
+For example:
 
 ```python
 sample_type = ln.Record(name="Sample", is_type=True).  # a sample type
@@ -206,47 +213,21 @@ artifact = ln.Artifact.get(key="sample.fasta")  # get artifact by key
 artifact.versions.to_dataframe()                # see all versions of that artifact
 ```
 
-### Ontologies
-
-Everything we saw also works for public ontologies. Plugin `bionty` gives you >20 of them.
-
-```python
-import bionty as bt
-
-bt.CellType.import_source()  # import the default ontology
-bt.CellType.to_dataframe()   # your extendable cell type ontology in a simple registry
-```
-
 ### Lakehouse ♾️ feature store
 
-You can also manage structured data:
+Ingesting structured data without validation works like ingesting files & folders through `Artifact()`:
 
 ```python
-df = ln.examples.datasets.mini_immuno.get_dataset1(with_typo=True)
-artifact = ln.Artifact.from_dataframe(df, key="my_datasets/rnaseq1.parquet").save()
-artifact.describe()
+df = pd.DataFrame(
+    "sequence_str": ["ACGT", "TGCA"],
+    "gc_content": [0.55, 0.54],
+    "experiment_note": ["Looks great", "Ok"],
+    "experiment_date": ["2025-10-24", "2025-10-25"],
+)
+ln.Artifact.from_dataframe(df, key="my_datasets/sequences.parquet").save()
 ```
 
-But how do you manage large amounts of structured data? You'd like to ensure that their schemas and conent harmonize so that your distributed queries and batch loading will work out.
-
-So, let's define a schema based on the columns of this dataframe we care about.
-
-```python
-import bionty as bt  # <-- use bionty to access registries with imported public ontologies
-
-# define a few more valid labels
-ln.Record(name="DMSO").save()
-ln.Record(name="IFNG").save()
-
-# define more valid features
-ln.Feature(name="perturbation", dtype=ln.Record).save()
-ln.Feature(name="cell_type_by_model", dtype=bt.CellType).save()
-ln.Feature(name="cell_type_by_expert", dtype=bt.CellType).save()
-ln.Feature(name="assay_oid", dtype=bt.ExperimentalFactor.ontology_id).save()
-ln.Feature(name="donor", dtype=str, nullable=True).save()
-ln.Feature(name="concentration", dtype=str).save()
-ln.Feature(name="treatment_time_h", dtype="num", coerce_dtype=True).save()
-```
+When managing a high number of datasets, it's better to ensure that their schemas harmonize so that distributed queries and batch loading will work!
 
 If we now pass the schema to the `Artifact` constructor, the dataframe will be automatically validated & annotated.
 
@@ -255,7 +236,18 @@ artifact = ln.Artifact.from_dataframe(df, key="my_datasets/rnaseq1.parquet", sch
 artifact.describe()
 ```
 
-### More examples
+### Ontologies
+
+Plugin `bionty` gives you >20 of them in the same `SQLRecord` registries you already know by this time.
+
+```python
+import bionty as bt
+
+bt.CellType.import_source()  # import the default ontology
+bt.CellType.to_dataframe()   # your extendable cell type ontology in a simple registry
+```
+
+## Read on
 
 Here is a more comprehensive [example](https://lamin.ai/laminlabs/lamindata/artifact/lXmgHRUFufX439eI) from [Schmidt _el al._ (2022)](https://pubmed.ncbi.nlm.nih.gov/35113687/), in which several workflows, scripts, and notebooks are used: https://github.com/laminlabs/schmidt22
 
