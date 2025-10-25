@@ -33,11 +33,10 @@ Highlights:
 - **FAIR datasets** → validate & annotate `DataFrame`, `AnnData`, `SpatialData`, `parquet`, `.h5ad`, `zarr`, ...
 - **LIMS & ELN** → manage experimental metadata, ontologies & markdown notes
 - **unified access** → storage locations (local, S3, GCP, ...), SQL databases (Postgres, SQLite) & ontologies
-- **reproducible & auditable** → auto-version & timestamp execution reports, source code & environments; attribute records to users
-- **integrations** → [vitessce](https://docs.lamin.ai/vitessce), [nextflow](https://docs.lamin.ai/nextflow), [redun](https://docs.lamin.ai/redun), and [more](https://docs.lamin.ai/integrations)
+- **reproducible** → auto-version & timestamp execution reports, source code & environments
 - **zero lock-in & scalable** → runs in your infrastructure; not a client for a rate-limited REST API
+- **integrations** → [vitessce](https://docs.lamin.ai/vitessce), [nextflow](https://docs.lamin.ai/nextflow), [redun](https://docs.lamin.ai/redun), and [more](https://docs.lamin.ai/integrations)
 - **extendable** → create custom plug-ins based on the Django ORM
-- **production-ready** → used in BigPharma, BioTech, hospitals & top labs
 
 If you want a GUI, you can connect your LaminDB instance to LaminHub and close the drylab-wetlab feedback loop: [lamin.ai](https://lamin.ai).
 
@@ -69,60 +68,193 @@ lamin connect account/name
 
 ## Quickstart
 
-<!-- copied from preface.md -->
+### Data lineage
 
-Track a script or notebook run with source code, inputs, outputs, logs, and environment.
-
-<!-- copied from py-quickstart.py -->
+Create a dataset while tracking source code, inputs, outputs, logs, and environment:
 
 ```python
 import lamindb as ln
 
-ln.track()  # track a run
-open("sample.fasta", "w").write(">seq1\nACGT\n")
-ln.Artifact("sample.fasta", key="sample.fasta").save()  # create an artifact
-ln.finish()  # finish the run
+ln.track()  # track execution of source code as a run
+open("sample.fasta", "w").write(">seq1\nACGT\n")  # create a dataset
+ln.Artifact("sample.fasta", key="sample.fasta").save()  # save dataset as an artifact
+ln.finish()  # mark the run as finished
 ```
 
-<!-- from here on, slight deviation from preface.md, where all this is treated in the walk through in more depth -->
-
-This code snippet creates an artifact, which can store a dataset or model as a file or folder in various formats.
-Running the snippet as a script (`python create-fasta.py`) produces the following data lineage.
+Running this snippet as a script (`python create-fasta.py`) produces the following data lineage.
 
 ```python
-artifact = ln.Artifact.get(key="sample.fasta")  # query artifact by key
+artifact = ln.Artifact.get(key="sample.fasta")  # get artifact by key
 artifact.view_lineage()
 ```
 
-<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/EkQATsQL5wqC95Wj0005.png" width="250">
+<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/EkQATsQL5wqC95Wj0006.png" width="200">
 
-You'll know how that artifact was created and what it's used for ([interactive visualization](https://lamin.ai/laminlabs/lamindata/artifact/8incOOgjn6F0K1TS)) in addition to capturing basic metadata:
+You'll know how that artifact was created and what it's used for. Basic metadata was captured in fields:
 
 ```python
+artifact.size        # access the size
+artifact.created_at  # access the timestamp
+# etc.
+artifact.describe()  # describe metadata
+```
+
+<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/BOTCBgHDAvwglN3U0004.png" width="550">
+
+Here is how to access the content of the artifact:
+
+```python
+local_path = artifact.cache()  # return a local path from a cache
+object = artifact.load()       # load object into memory
+accessor = artifact.open()     # return a streaming accessor
+```
+
+And here is how to access its data lineage context:
+
+```python
+run = artifact.run         # get the run record
+transform = run.transform  # get the transform record
+```
+
+Just like artifacts, runs & transforms are `SQLRecord` objects and follow the same API, just with different fields.
+
+`run.describe()` | `transform.describe()`
+--- | ---
+<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/rJrHr3XaITVS4wVJ0000.png" width="400" /> | <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/JYwmHBbgf2MRCfgL0000.png" width="350" />
+
+### Data lake: annotation, validation, queries
+
+You can annotate datasets and samples with features. Let's define some:
+
+```python
+from datetime import date
+
+ln.Feature(name="gc_content", dtype=float).save()
+ln.Feature(name="experiment_note", dtype=str).save()
+ln.Feature(name="experiment_date", dtype=date).save()
+```
+
+During annotation, feature names and data types are validated against these definitions:
+
+```python
+artifact.features.add_values({
+    "gc_content": 0.55,
+    "experiment_note": "Looks great",
+    "experiment_date": "2025-10-24",
+})
+```
+
+Now that the data is annotated, you can query for it:
+
+```python
+ln.Artifact.filter(experiment_date="2025-10-14").to_dataframe()  # query all artifacts annotated with experiment date
+```
+
+You can also query by the metadata that lamindb automatically collects:
+
+```python
+ln.Artifact.filter(run=run).to_dataframe()                     # query all artifacts created by a run
+ln.Artifact.filter(run__transform=transform).to_dataframe()    # query all artifacts created by a transform
+ln.Artifact.filter(size__gt=1e6).to_dataframe()                # query all artifacts bigger than 1MB
+```
+
+If you want to include more information into the resulting dataframe, pass `include`.
+
+```python
+ln.Artifact.to_dataframe(include="features")  # include the feature annotations
+ln.Artifact.to_dataframe(include=["created_by__name", "storage__root"])  # include fields from related registries
+```
+
+### Data lake ♾️ LIMS ♾️ Sheets
+
+You can create records for the entities underlying your experiments: samples, perturbations, instruments, etc..
+For example:
+
+```python
+sample_type = ln.Record(name="Sample", is_type=True).  # a sample type
+ln.Record(name="P53mutant1", type=sample_type).save()  # sample 1
+ln.Record(name="P53mutant2", type=sample_type).save()  # sample 2
+```
+
+Define the corresponding features and annotate:
+
+```python
+
+ln.Feature(name="design_sample", dtype=sample_type).save()
+artifact.features.add_values("design_sample": "P53mutant1")
+```
+
+You can query & search the `Record` registry in the same way as `Artifact` or `Run`.
+
+```python
+ln.Record.search("p53").to_dataframe()
+```
+
+You can also create relationships of entities and -- if you connect your LaminDB instance to LaminHub -- edit them like Excel sheets in a GUI.
+
+### Data lake: versioning
+
+If you change source code or datasets, LaminDB manages their versioning for you.
+Assume you run the new script.
+
+```python
+import lamindb as ln
+
+ln.track()
+open("sample.fasta", "w").write(">seq1\nTGCA\n")  # a new sequence
+ln.Artifact("sample.fasta", key="sample.fasta", features={"design_sample": "P53mutant1"}).save()  # annotate with the new sample
+ln.finish()
+```
+
+If you now query by `key`, you'll get the latest version of this artifact.
+
+```python
+artifact = ln.Artifact.get(key="sample.fasta")  # get artifact by key
+artifact.versions.to_dataframe()                # see all versions of that artifact
+```
+
+### Lakehouse ♾️ feature store
+
+Here is how you ingest a `DataFrame`:
+
+```python
+df = pd.DataFrame(
+    "sequence_str": ["ACGT", "TGCA"],
+    "gc_content": [0.55, 0.54],
+    "experiment_note": ["Looks great", "Ok"],
+    "experiment_date": ["2025-10-24", "2025-10-25"],
+)
+ln.Artifact.from_dataframe(df, key="my_datasets/sequences.parquet").save()  # no validation
+```
+
+To validate & annotate by the content of the dataframe, pass `schema`:
+
+```python
+artifact = ln.Artifact.from_dataframe(df, key="my_datasets/rnaseq1.parquet", schema="valid_features")  # validate columns against features
 artifact.describe()
 ```
 
-<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/BOTCBgHDAvwglN3U0002.png" width="550">
+Now you know which schema the dataset satisfies. You can filter for datasets with harmonizing schemas and then launch distributed queries and batch loading!
 
-You can organize datasets with validation & annotation of any kind of metadata to then access them via queries & search. Here is a more [comprehensive example](https://lamin.ai/laminlabs/lamindata/artifact/9K1dteZ6Qx0EXK8g):
+### Ontologies
 
-<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/6sofuDVvTANB0f480002.png" width="850">
-
-To annotate an artifact with a label, use:
+Plugin `bionty` gives you >20 of them in the same `SQLRecord` registries you already know by this time.
 
 ```python
-my_experiment = ln.Record(name="My experiment").save()  # create a label record
-artifact.records.add(my_experiment)  # annotate the artifact with the label
+import bionty as bt
+
+bt.CellType.import_source()  # import the default ontology
+bt.CellType.to_dataframe()   # your extendable cell type ontology in a simple registry
 ```
 
-To query for a set of artifacts, use the `filter()` statement.
+### Workflow managers
 
-```python
-ln.Artifact.filter(records=my_experiment, suffix=".fasta").to_dataframe()  # query by suffix and the ulabel we just created
-ln.Artifact.filter(transform__key="create-fasta.py").to_dataframe()  # query by the name of the script we just ran
-```
+LaminDB is not a workflow manager, but it integrates well with existing workflow managers and can subsitute them in some settings.
 
-If you have a structured dataset like a `DataFrame`, an `AnnData`, or another array, you can validate the content of the dataset (and parse annotations).
-Here is [an example for a dataframe](https://docs.lamin.ai/tutorial#validate-an-artifact).
+In this repository (https://github.com/laminlabs/schmidt22) we manage several workflows, scripts, and notebooks to re-construct the project of [Schmidt _el al._ (2022)](https://pubmed.ncbi.nlm.nih.gov/35113687/). A phenotypic CRISPRa screening result (see below) is integrated with scRNA-seq data. Here is one of the input artifacts:
 
-With a large body of validated datasets, you can then access data through distributed queries & batch streaming, see here: [docs.lamin.ai/arrays](https://docs.lamin.ai/arrays).
+<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/JvLaK9Icj11eswQn0000.png" width="850">
+
+And here is the lineage of the final result:
+
+<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/b0geN1HDHXlORqMO0001.png" width="850">
