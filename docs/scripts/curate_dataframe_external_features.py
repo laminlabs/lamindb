@@ -1,9 +1,10 @@
 import lamindb as ln
+from datetime import date
 
 df = ln.examples.datasets.mini_immuno.get_dataset1(otype="DataFrame")
 
-temperature = ln.Feature(name="temperature", dtype="str").save()
-date_of_study = ln.Feature(name="date_of_study", dtype="str").save()
+temperature = ln.Feature(name="temperature", dtype=float).save()
+date_of_study = ln.Feature(name="date_of_study", dtype=date).save()
 external_schema = ln.Schema(features=[temperature, date_of_study]).save()
 
 concentration = ln.Feature(name="concentration", dtype=str).save()
