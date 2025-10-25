@@ -266,7 +266,7 @@ class Schema(SQLRecord, CanCurate, TracksRun):
                 ],
             ).save()
 
-        Alternative constructors (:meth:`~lamindb.Schema.from_values`, :meth:`~lamindb.Schema.from_df`)::
+        Alternative constructors (:meth:`~lamindb.Schema.from_values`, :meth:`~lamindb.Schema.from_dataframe`)::
 
             # parse & validate identifier values
             schema = ln.Schema.from_values(
