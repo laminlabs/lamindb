@@ -569,7 +569,8 @@ class Registry(ModelBase):
                 Only available for `Artifact`, `Record`, and `Run`.
             limit: Maximum number of rows to display. If `None`, includes all results.
             order_by: Field name to order the records by. Prefix with '-' for descending order.
-                Defaults to '-id' to get the most recent records, ordered by primary key.
+                Defaults to '-id' to get the most recent records. This argument is ignored
+                if the queryset is already ordered or if the specified field does not exist.
 
         Examples:
 

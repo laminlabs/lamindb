@@ -845,10 +845,15 @@ class BasicQuerySet(models.QuerySet):
         order_by: str | None = "-id",
     ) -> pd.DataFrame:
         """{}"""  # noqa: D415
-        if order_by is not None and hasattr(self.model, order_by.lstrip("-")):
+        # check if queryset is already ordered
+        is_ordered = bool(self.query.order_by)
+        # Only apply order_by if not already ordered and order_by is specified
+        if not is_ordered and order_by is not None:
             subset = self.order_by(order_by)
+        else:
+            subset = self
         if limit is not None:
-            subset = self[:limit]
+            subset = subset[:limit]
         if include is None:
             include_input = []
         elif isinstance(include, str):
