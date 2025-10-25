@@ -181,34 +181,34 @@ class Schema(SQLRecord, CanCurate, TracksRun):
 
     To create a schema, at least one of the following arguments must be passed:
 
-    - `features`: A list of :class:`~lamindb.Feature` records, e.g., `[Feature(...), Feature(...)]`.
-    - `itype`: A registry field, e.g., `Feature` or `bionty.Gene.ensembl_gene_id`, to constrain feature identifiers to be valid identifiers of the registry.
-    - `slots`: A dictionary mapping slot names to :class:`~lamindb.Schema` objects, e.g., `{"obs": Schema(...), "var.T": Schema(...), "obsm": Schema(...)}`.
+    - `features`: A list of :class:`~lamindb.Feature` records.
+    - `itype`: A registry or field to constrain feature identifiers, e.g., `ln.Feature` or `bt.Gene.ensembl_gene_id`.
+    - `slots`: A dictionary mapping slot names to :class:`~lamindb.Schema` objects, e.g., for an `AnnData`, `{"obs": Schema(...), "var.T": Schema(...), "obsm": Schema(...)}`.
     - `is_type=True`: To create a schema type, e.g., `ln.Schema(name="ProteinPanel", is_type=True)`.
 
     Args:
         features: `list[SQLRecord] | list[tuple[Feature, dict]] | None = None` Feature
             records, e.g., `[Feature(...), Feature(...)]` or features with their config, e.g., `[Feature(...).with_config(optional=True)]`.
-        index: `Feature | None = None` A `Feature` record to validate an index of a `DataFrame` and therefore also, e.g., `AnnData` obs and var indices.
         slots: `dict[str, Schema] | None = None` A dictionary mapping slot names to :class:`~lamindb.Schema` objects.
-        name: `str | None = None` Name of the Schema.
-        description: `str | None = None` Description of the Schema.
-        flexible: `bool | None = None` Whether to include any feature of the same `itype` in validation
-            and annotation. If no features are passed, defaults to `True`, otherwise to `False`.
-            This means that if you explicitly pass features, any additional features will be disregarded during validation & annotation.
-        type: `Schema | None = None` Type of Schema to group measurements by.
-            Define types like `ln.Schema(name="ProteinPanel", is_type=True)`.
-        is_type: `bool = False` Whether the Schema is a Type.
-        itype: `str | None = None` Feature identifier type to validate against. Must match registry type of provided features.
-        otype: `str | None = None` An object type to define the structure of a composite schema (e.g., DataFrame, AnnData).
-        dtype: `str | None = None` The simple type (e.g., "num", "float", "int").
-            Defaults to `None` for sets of `Feature` records and to `"num"` (e.g., for sets of :class:`~bionty.Gene`) otherwise.
+        name: `str | None = None` Name of the schema.
+        description: `str | None = None` Description of the schema.
+        itype: `str | None = None` Feature identifier type to validate against, e.g., `ln.Feature` or `bt.Gene.ensembl_gene_id`.
+        type: `Schema | None = None` Define schema types like `ln.Schema(name="ProteinPanel", is_type=True)`.
+        is_type: `bool = False` Whether the schema is a type.
+        index: `Feature | None = None` A `Feature` record to validate an index of a `DataFrame` and therefore also, e.g., `AnnData` obs and var indices.
+        flexible: `bool | None = None` Whether to include any feature of the same `itype` during validation
+            & annotation. If `features` is passed, defaults to `False` so that, e.g., additional columns of a `DataFrame` encountered during validation are disregarded.
+            If `features` is not passed, defaults to `True`.
+        otype: `str | None = None` An object type to define the structure of a composite schema, e.g., `"DataFrame"`, `"AnnData"`.
+        dtype: `str | None = None` A `dtype` to assume for all features in the schema (e.g., "num", float, int).
+            Defaults to `None` if `itype` is `Feature`. Otherwise to `"num"`, e.g., if `itype` is `bt.Gene.ensembl_gene_id`.
         minimal_set: `bool = True` Whether all passed features are required by default.
             See :attr:`~lamindb.Schema.optionals` for more-fine-grained control.
         maximal_set: `bool = False` Whether additional features are allowed.
         ordered_set: `bool = False` Whether features are required to be ordered.
         coerce_dtype: `bool = False` When True, attempts to coerce values to the specified dtype
             during validation, see :attr:`~lamindb.Schema.coerce_dtype`.
+        n: `int | None = None` A manual way of specifying the number of features in the schema. Is inferred from `features` if passed.
 
     See Also:
         :meth:`~lamindb.Artifact.from_dataframe`
@@ -413,19 +413,20 @@ class Schema(SQLRecord, CanCurate, TracksRun):
         | SQLRecordList
         | list[tuple[Feature, dict]]
         | None = None,
-        index: Feature | None = None,
+        *,
         slots: dict[str, Schema] | None = None,
         name: str | None = None,
         description: str | None = None,
         itype: str | Registry | FieldAttr | None = None,
-        flexible: bool | None = None,
         type: Schema | None = None,
         is_type: bool = False,
+        index: Feature | None = None,
+        flexible: bool | None = None,
         otype: str | None = None,
         dtype: str | Type[int | float | str] | None = None,  # noqa
-        ordered_set: bool = False,
         minimal_set: bool = True,
         maximal_set: bool = False,
+        ordered_set: bool = False,
         coerce_dtype: bool = False,
         n: int | None = None,
     ): ...
