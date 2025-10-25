@@ -94,23 +94,21 @@ def display_df_with_descriptions(
 
 
 def view(
-    df: pd.DataFrame | None = None,
+    *,
     limit: int = 7,
     modules: str | None = None,
     registries: list[str] | None = None,
+    df: pd.DataFrame | None = None,
 ) -> None:
     """View metadata.
 
     Args:
-        df: A DataFrame to display.
         limit: Display the latest `n` records
         modules: schema module to view. Default's to
             `None` and displays all registry modules.
         registries: List of SQLRecord names. Defaults to
             `None` and lists all registries.
-
-    Examples:
-        >>> ln.view()
+        df: A DataFrame to display.
     """
     if df is not None:
         descriptions = {

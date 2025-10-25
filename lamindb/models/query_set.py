@@ -4,7 +4,6 @@ import re
 from collections import UserList
 from collections.abc import Iterable
 from collections.abc import Iterable as IterableType
-from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Generic, NamedTuple, TypeVar
 
 import pandas as pd
@@ -32,12 +31,6 @@ T = TypeVar("T")
 
 
 pd.set_option("display.max_columns", 200)
-
-
-# def format_and_convert_to_local_time(series: pd.Series):
-#     tzinfo = datetime.now().astimezone().tzinfo
-#     timedelta = tzinfo.utcoffset(datetime.now())  # type: ignore
-#     return (series + timedelta).dt.strftime("%Y-%m-%d %H:%M:%S %Z")
 
 
 def get_keys_from_df(data: list, registry: SQLRecord) -> list[str]:
@@ -342,34 +335,34 @@ def get_basic_field_names(
     features_input: bool | list[str] | str,
 ) -> list[str]:
     exclude_field_names = ["updated_at"]
+    include_private_fields = False
+    if "privates" in include:
+        include_private_fields = True
+        include.remove("privates")
     field_names = [
         field.name
         for field in qs.model._meta.fields
         if (
             not isinstance(field, models.ForeignKey)
             and field.name not in exclude_field_names
+            and (not field.name.startswith("_") or include_private_fields)
         )
-    ]
-    field_names += [
-        f"{field.name}_id"
-        for field in qs.model._meta.fields
-        if isinstance(field, models.ForeignKey)
     ]
     for field_name in [
         "version",
         "is_latest",
         "is_locked",
-        "run_id",
         "created_at",
-        "created_by_id",
         "updated_at",
-        "_aux",
-        "_real_key",
-        "branch_id",
     ]:
         if field_name in field_names:
             field_names.remove(field_name)
             field_names.append(field_name)
+    field_names += [
+        f"{field.name}_id"
+        for field in qs.model._meta.fields
+        if isinstance(field, models.ForeignKey)
+    ]
     if field_names[0] != "uid" and "uid" in field_names:
         field_names.remove("uid")
         field_names.insert(0, "uid")
@@ -435,7 +428,7 @@ def get_feature_annotate_kwargs(
         )
         feature_names = feature_qs.to_list("name")
         logger.important(
-            f"queried for all categorical features with dtype ULabel or Record and non-categorical features: ({len(feature_names)}) {feature_names}"
+            f"queried for all categorical features with dtype Record and non-categorical features: ({len(feature_names)}) {feature_names}"
         )
     # Get the categorical features
     cat_feature_types = {
@@ -806,7 +799,6 @@ def _queryset_class_factory(
         )
     else:
         new_cls = queryset_cls
-
     return new_cls
 
 
@@ -846,64 +838,73 @@ class BasicQuerySet(models.QuerySet):
     @doc_args(SQLRecord.to_dataframe.__doc__)
     def to_dataframe(
         self,
+        *,
         include: str | list[str] | None = None,
-        features: bool | list[str] | str | None = None,
+        features: str | list[str] | None = None,
+        limit: int | None = 100,
+        order_by: str | None = "-id",
     ) -> pd.DataFrame:
         """{}"""  # noqa: D415
-        time = datetime.now(timezone.utc)
+        # check if queryset is already ordered
+        is_ordered = bool(self.query.order_by)
+        # Only apply order_by if not already ordered and order_by is specified
+        if not is_ordered and order_by is not None:
+            subset = self.order_by(order_by)
+        else:
+            subset = self
+        if limit is not None:
+            subset = subset[:limit]
         if include is None:
             include_input = []
         elif isinstance(include, str):
             include_input = [include]
         else:
             include_input = include
+        if "features" in include_input:
+            include_input.remove("features")
+            if features is None:
+                # indicate the default features with True
+                # should refactor this in the future
+                features = True  # type: ignore
         features_input = [] if features is None else features
-        include = get_backward_compat_filter_kwargs(self, include_input)
-        field_names = get_basic_field_names(self, include_input, features_input)
+        include = get_backward_compat_filter_kwargs(subset, include_input)
+        field_names = get_basic_field_names(subset, include_input, features_input)
 
         annotate_kwargs = {}
         feature_names: list[str] = []
         feature_qs = None
         if features:
             feature_annotate_kwargs, feature_names, feature_qs = (
-                get_feature_annotate_kwargs(self.model, features, self)
+                get_feature_annotate_kwargs(subset.model, features, subset)
             )
-            time = logger.debug("finished feature_annotate_kwargs", time=time)
             annotate_kwargs.update(feature_annotate_kwargs)
         if include_input:
             include_input = include_input.copy()[::-1]  # type: ignore
             include_kwargs = {s: F(s) for s in include_input if s not in field_names}
             annotate_kwargs.update(include_kwargs)
         if annotate_kwargs:
-            id_subquery = self.values("id")
-            time = logger.debug("finished get id values", time=time)
+            id_subquery = subset.values("id")
             # for annotate, we want the queryset without filters so that joins don't affect the annotations
-            query_set_without_filters = self.model.objects.using(self._db).filter(
+            query_set_without_filters = subset.model.objects.using(subset._db).filter(
                 id__in=Subquery(id_subquery)
             )
-            time = logger.debug("finished get query_set_without_filters", time=time)
-            if self.query.order_by:
+            if subset.query.order_by:
                 # Apply the same ordering to the new queryset
                 query_set_without_filters = query_set_without_filters.order_by(
-                    *self.query.order_by
+                    *subset.query.order_by
                 )
-                time = logger.debug("finished order by", time=time)
             queryset = query_set_without_filters.annotate(**annotate_kwargs)
-            time = logger.debug("finished annotate", time=time)
         else:
-            queryset = self
+            queryset = subset
 
         df = pd.DataFrame(queryset.values(*field_names, *list(annotate_kwargs.keys())))
         if len(df) == 0:
             df = pd.DataFrame({}, columns=field_names)
             return df
-        time = logger.debug("finished creating first dataframe", time=time)
         cols_from_include = analyze_lookup_cardinality(self.model, include_input)  # type: ignore
-        time = logger.debug("finished analyze_lookup_cardinality", time=time)
         df_reshaped = reshape_annotate_result(
             self.model, df, field_names, cols_from_include, feature_names, feature_qs
         )
-        time = logger.debug("finished reshape_annotate_result", time=time)
         pk_name = self.model._meta.pk.name
         encoded_pk_name = encode_lamindb_fields_as_columns(self.model, pk_name)
         if encoded_pk_name in df_reshaped.columns:
@@ -912,7 +913,6 @@ class BasicQuerySet(models.QuerySet):
             pk_column_name = pk_name if pk_name in df.columns else f"{pk_name}_id"
             if pk_column_name in df_reshaped.columns:
                 df_reshaped = df_reshaped.set_index(pk_column_name)
-        time = logger.debug("finished", time=time)
         return df_reshaped
 
     @deprecated(new_name="to_dataframe")
