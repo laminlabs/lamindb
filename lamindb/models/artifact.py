@@ -1004,7 +1004,6 @@ class LazyArtifact:
 
 
 class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
-    # Note that this docstring has to be consistent with Curator.save_artifact()
     """Datasets & models stored as files, folders, or arrays.
 
     Artifacts manage data in local or remote storage.
@@ -1014,10 +1013,12 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
     Args:
         data: `UPathStr` A path to a local or remote folder or file.
-        kind: `Literal["dataset", "model"] | str | None = None` Distinguish models from datasets from other files & folders.
         key: `str | None = None` A path-like key to reference artifact in default storage, e.g., `"myfolder/myfile.fcs"`. Artifacts with the same key form a version family.
         description: `str | None = None` A description.
-        revises: `Artifact | None = None` Previous version of the artifact. Is an alternative way to passing `key` to trigger a new version.
+        kind: `Literal["dataset", "model"] | str | None = None` Distinguish models from datasets from other files & folders.
+        features: `dict | None = None` External features to annotate the artifact with.
+        schema: `Schema | None = None` A schema to validate features.
+        revises: `Artifact | None = None` Previous version of the artifact. An alternative to passing `key` when creating a new version.
         overwrite_versions: `bool | None = None` Whether to overwrite versions. Defaults to `True` for folders and `False` for files.
         run: `Run | bool | None = None` The run that creates the artifact. If `False`, surpress tracking the run.
             If `None`, infer the run from the global run context.
@@ -1025,8 +1026,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         space: `Space | None = None` The space of the artifact. If `None`, uses the current space.
         storage: `Storage | None = None` The storage location for the artifact. If `None`, uses the default storage location.
             You can see and set the default storage location in :attr:`~lamindb.core.Settings.storage`.
-        schema: A schema that defines how to validate & annotate.
-        features: Additional external features to link.
         skip_hash_lookup: Skip the hash lookup so that a new artifact is created even if an identical artifact already exists.
 
     Examples:
@@ -1391,17 +1390,18 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         # "data" conveys better that this is input data that's ingested
         # and will be moved to a target path at `artifact.path`
         data: UPathStr,
-        kind: ArtifactKind | str | None = None,
+        *,
         key: str | None = None,
         description: str | None = None,
+        kind: ArtifactKind | str | None = None,
+        features: dict[str, Any] | None = None,
+        schema: Schema | None = None,
         revises: Artifact | None = None,
         overwrite_versions: bool | None = None,
         run: Run | False | None = None,
         storage: Storage | None = None,
         branch: Branch | None = None,
         space: Space | None = None,
-        schema: Schema | None = None,
-        features: dict[str, Any] | None = None,
         skip_hash_lookup: bool = False,
     ): ...
 
@@ -2288,16 +2288,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             f" {storage.root} and key = {folder_key}/"
         )
         return artifacts
-
-    @classmethod
-    def to_featureframe(cls, **kwargs) -> pd.DataFrame:
-        """Convert to DataFrame with columns mapping on features.
-
-        Is equivalent to `.to_dataframe(features=True)`.
-        """
-        if not kwargs:
-            kwargs = {"features": True}
-        return cls.to_dataframe(**kwargs)
 
     def replace(
         self,

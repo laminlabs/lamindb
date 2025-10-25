@@ -406,16 +406,6 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates, HasParents):
             run=run,
         ).save()
 
-    @classmethod
-    def to_featureframe(cls, **kwargs) -> pd.DataFrame:
-        """Convert to DataFrame with columns mapping on features.
-
-        Is equivalent to `.to_dataframe(features=True)`.
-        """
-        if not kwargs:
-            kwargs = {"features": True}
-        return cls.to_dataframe(**kwargs)
-
 
 class RecordJson(BaseSQLRecord, IsLink):
     id: int = models.BigAutoField(primary_key=True)

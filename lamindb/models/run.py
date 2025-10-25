@@ -24,8 +24,6 @@ from .sqlrecord import BaseSQLRecord, IsLink, SQLRecord
 if TYPE_CHECKING:
     from datetime import datetime
 
-    import pandas as pd
-
     from ._feature_manager import FeatureManager
     from .artifact import Artifact
     from .block import RunBlock
@@ -484,16 +482,6 @@ class Run(SQLRecord):
         """
         # from Registry metaclass
         return type(cls).filter(cls, *queries, **expressions)
-
-    @classmethod
-    def to_featureframe(cls, **kwargs) -> pd.DataFrame:
-        """Convert to DataFrame with columns mapping on features.
-
-        Is equivalent to `.to_dataframe(features=True)`.
-        """
-        if not kwargs:
-            kwargs = {"features": True}
-        return cls.to_dataframe(**kwargs)
 
 
 def delete_run_artifacts(run: Run) -> None:

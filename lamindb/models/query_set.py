@@ -4,7 +4,6 @@ import re
 from collections import UserList
 from collections.abc import Iterable
 from collections.abc import Iterable as IterableType
-from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Generic, NamedTuple, TypeVar
 
 import pandas as pd
@@ -32,12 +31,6 @@ T = TypeVar("T")
 
 
 pd.set_option("display.max_columns", 200)
-
-
-# def format_and_convert_to_local_time(series: pd.Series):
-#     tzinfo = datetime.now().astimezone().tzinfo
-#     timedelta = tzinfo.utcoffset(datetime.now())  # type: ignore
-#     return (series + timedelta).dt.strftime("%Y-%m-%d %H:%M:%S %Z")
 
 
 def get_keys_from_df(data: list, registry: SQLRecord) -> list[str]:
@@ -792,7 +785,7 @@ def process_cols_from_include(
 def _queryset_class_factory(
     registry: Registry, queryset_cls: type[models.QuerySet]
 ) -> type[models.QuerySet]:
-    from lamindb.models import Artifact, ArtifactSet, HasFeaturesSet, Record, Run
+    from lamindb.models import Artifact, ArtifactSet
 
     # If the model is Artifact, create a new class
     # for BasicQuerySet or QuerySet that inherits from ArtifactSet.
@@ -804,15 +797,8 @@ def _queryset_class_factory(
         new_cls = type(
             "Artifact" + queryset_cls.__name__, (queryset_cls, ArtifactSet), {}
         )
-    elif registry in {Record, Run} and not issubclass(queryset_cls, HasFeaturesSet):
-        new_cls = type(
-            registry.__name__ + queryset_cls.__name__,
-            (queryset_cls, HasFeaturesSet),
-            {},
-        )
     else:
         new_cls = queryset_cls
-
     return new_cls
 
 
@@ -852,64 +838,68 @@ class BasicQuerySet(models.QuerySet):
     @doc_args(SQLRecord.to_dataframe.__doc__)
     def to_dataframe(
         self,
+        *,
         include: str | list[str] | None = None,
-        features: bool | list[str] | str | None = None,
+        features: str | list[str] | None = None,
+        limit: int | None = 100,
+        order_by: str | None = "-id",
     ) -> pd.DataFrame:
         """{}"""  # noqa: D415
-        time = datetime.now(timezone.utc)
+        if order_by is not None and hasattr(self.model, order_by.lstrip("-")):
+            subset = self.order_by(order_by)
+        if limit is not None:
+            subset = self[:limit]
         if include is None:
             include_input = []
         elif isinstance(include, str):
             include_input = [include]
         else:
             include_input = include
+        if "features" in include_input:
+            include_input.remove("features")
+            if features is None:
+                # indicate the default features with True
+                # should refactor this in the future
+                features = True  # type: ignore
         features_input = [] if features is None else features
-        include = get_backward_compat_filter_kwargs(self, include_input)
-        field_names = get_basic_field_names(self, include_input, features_input)
+        include = get_backward_compat_filter_kwargs(subset, include_input)
+        field_names = get_basic_field_names(subset, include_input, features_input)
 
         annotate_kwargs = {}
         feature_names: list[str] = []
         feature_qs = None
         if features:
             feature_annotate_kwargs, feature_names, feature_qs = (
-                get_feature_annotate_kwargs(self.model, features, self)
+                get_feature_annotate_kwargs(subset.model, features, subset)
             )
-            time = logger.debug("finished feature_annotate_kwargs", time=time)
             annotate_kwargs.update(feature_annotate_kwargs)
         if include_input:
             include_input = include_input.copy()[::-1]  # type: ignore
             include_kwargs = {s: F(s) for s in include_input if s not in field_names}
             annotate_kwargs.update(include_kwargs)
         if annotate_kwargs:
-            id_subquery = self.values("id")
-            time = logger.debug("finished get id values", time=time)
+            id_subquery = subset.values("id")
             # for annotate, we want the queryset without filters so that joins don't affect the annotations
-            query_set_without_filters = self.model.objects.using(self._db).filter(
+            query_set_without_filters = subset.model.objects.using(subset._db).filter(
                 id__in=Subquery(id_subquery)
             )
-            time = logger.debug("finished get query_set_without_filters", time=time)
-            if self.query.order_by:
+            if subset.query.order_by:
                 # Apply the same ordering to the new queryset
                 query_set_without_filters = query_set_without_filters.order_by(
-                    *self.query.order_by
+                    *subset.query.order_by
                 )
-                time = logger.debug("finished order by", time=time)
             queryset = query_set_without_filters.annotate(**annotate_kwargs)
-            time = logger.debug("finished annotate", time=time)
         else:
-            queryset = self
+            queryset = subset
 
         df = pd.DataFrame(queryset.values(*field_names, *list(annotate_kwargs.keys())))
         if len(df) == 0:
             df = pd.DataFrame({}, columns=field_names)
             return df
-        time = logger.debug("finished creating first dataframe", time=time)
         cols_from_include = analyze_lookup_cardinality(self.model, include_input)  # type: ignore
-        time = logger.debug("finished analyze_lookup_cardinality", time=time)
         df_reshaped = reshape_annotate_result(
             self.model, df, field_names, cols_from_include, feature_names, feature_qs
         )
-        time = logger.debug("finished reshape_annotate_result", time=time)
         pk_name = self.model._meta.pk.name
         encoded_pk_name = encode_lamindb_fields_as_columns(self.model, pk_name)
         if encoded_pk_name in df_reshaped.columns:
@@ -918,7 +908,6 @@ class BasicQuerySet(models.QuerySet):
             pk_column_name = pk_name if pk_name in df.columns else f"{pk_name}_id"
             if pk_column_name in df_reshaped.columns:
                 df_reshaped = df_reshaped.set_index(pk_column_name)
-        time = logger.debug("finished", time=time)
         return df_reshaped
 
     @deprecated(new_name="to_dataframe")
