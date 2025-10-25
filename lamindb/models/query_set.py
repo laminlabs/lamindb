@@ -335,34 +335,34 @@ def get_basic_field_names(
     features_input: bool | list[str] | str,
 ) -> list[str]:
     exclude_field_names = ["updated_at"]
+    include_private_fields = False
+    if "privates" in include:
+        include_private_fields = True
+        include.remove("privates")
     field_names = [
         field.name
         for field in qs.model._meta.fields
         if (
             not isinstance(field, models.ForeignKey)
             and field.name not in exclude_field_names
+            and (not field.name.startswith("_") or include_private_fields)
         )
-    ]
-    field_names += [
-        f"{field.name}_id"
-        for field in qs.model._meta.fields
-        if isinstance(field, models.ForeignKey)
     ]
     for field_name in [
         "version",
         "is_latest",
         "is_locked",
-        "run_id",
         "created_at",
-        "created_by_id",
         "updated_at",
-        "_aux",
-        "_real_key",
-        "branch_id",
     ]:
         if field_name in field_names:
             field_names.remove(field_name)
             field_names.append(field_name)
+    field_names += [
+        f"{field.name}_id"
+        for field in qs.model._meta.fields
+        if isinstance(field, models.ForeignKey)
+    ]
     if field_names[0] != "uid" and "uid" in field_names:
         field_names.remove("uid")
         field_names.insert(0, "uid")
