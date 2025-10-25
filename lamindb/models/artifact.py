@@ -1841,8 +1841,12 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             .. literalinclude:: scripts/curate_dataframe_external_features.py
                :language: python
         """
+        from lamindb import examples
+
         if "format" not in kwargs and key is not None and key.endswith(".csv"):
             kwargs["format"] = ".csv"
+        if schema == "valid_features":
+            schema = examples.schemas.valid_features()
         artifact = Artifact(  # type: ignore
             data=df,
             key=key,
