@@ -1806,7 +1806,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         description: str | None = None,
         run: Run | None = None,
         revises: Artifact | None = None,
-        schema: Schema | None = None,
+        schema: Schema | Literal["valid_features"] | None = None,
         features: dict[str, Any] | None = None,
         **kwargs,
     ) -> Artifact:
@@ -1826,33 +1826,27 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
             No validation and annotation::
 
-                import lamindb as ln
+                ln.Artifact.from_dataframe(df, key="examples/dataset1.parquet").save()
 
-                df = ln.examples.datasets.mini_immuno.get_dataset1()
-                artifact = ln.Artifact.from_dataframe(df, key="examples/dataset1.parquet").save()
+            With validation and annotation::
 
-            With validation and annotation.
+                ln.Artifact.from_dataframe(df, key="examples/dataset1.parquet", schema="valid_features").save()
 
-            .. literalinclude:: scripts/curate_dataframe_flexible.py
-               :language: python
+            Under-the-hood, this uses the following build-in schema::
 
-            Under-the-hood, this used the following schema.
-
-            .. literalinclude:: scripts/define_valid_features.py
-               :language: python
-
-            Valid features & labels were defined as:
-
-            .. literalinclude:: scripts/define_mini_immuno_features_labels.py
-               :language: python
+                schema = ln.Schema(name="valid_features", itype="Feature").save()
 
             External features:
 
             .. literalinclude:: scripts/curate_dataframe_external_features.py
                :language: python
         """
+        from lamindb import examples
+
         if "format" not in kwargs and key is not None and key.endswith(".csv"):
             kwargs["format"] = ".csv"
+        if schema == "valid_features":
+            schema = examples.schemas.valid_features()
         artifact = Artifact(  # type: ignore
             data=df,
             key=key,
