@@ -215,7 +215,7 @@ artifact.versions.to_dataframe()                # see all versions of that artif
 
 ### Lakehouse ♾️ feature store
 
-Ingesting structured data without validation works like ingesting files & folders through `Artifact()`:
+Here is how you ingest a `DataFrame`:
 
 ```python
 df = pd.DataFrame(
@@ -224,17 +224,17 @@ df = pd.DataFrame(
     "experiment_note": ["Looks great", "Ok"],
     "experiment_date": ["2025-10-24", "2025-10-25"],
 )
-ln.Artifact.from_dataframe(df, key="my_datasets/sequences.parquet").save()
+ln.Artifact.from_dataframe(df, key="my_datasets/sequences.parquet").save()  # no validation
 ```
 
-When managing a high number of datasets, it's better to ensure that their schemas harmonize so that distributed queries and batch loading will work!
+To validate & annotate by the content of the dataframe, pass `schema`:
 
-If we now pass the schema to the `Artifact` constructor, the dataframe will be automatically validated & annotated.
-
-```
-artifact = ln.Artifact.from_dataframe(df, key="my_datasets/rnaseq1.parquet", schema=schema)
+```python
+artifact = ln.Artifact.from_dataframe(df, key="my_datasets/rnaseq1.parquet", schema="valid_features")  # validate columns against features
 artifact.describe()
 ```
+
+Now you know which schema the dataset satisfies. You can filter for datasets with harmonizing schemas and then launch distributed queries and batch loading!
 
 ### Ontologies
 
@@ -247,8 +247,14 @@ bt.CellType.import_source()  # import the default ontology
 bt.CellType.to_dataframe()   # your extendable cell type ontology in a simple registry
 ```
 
-## Read on
+### Workflow managers
 
-Here is a more comprehensive [example](https://lamin.ai/laminlabs/lamindata/artifact/lXmgHRUFufX439eI) from [Schmidt _el al._ (2022)](https://pubmed.ncbi.nlm.nih.gov/35113687/), in which several workflows, scripts, and notebooks are used: https://github.com/laminlabs/schmidt22
+LaminDB is not a workflow manager, but it integrates well with existing workflow managers and can subsitute them in some settings.
+
+In this repository (https://github.com/laminlabs/schmidt22) we manage several workflows, scripts, and notebooks to re-construct the project of [Schmidt _el al._ (2022)](https://pubmed.ncbi.nlm.nih.gov/35113687/). A phenotypic CRISPRa screening result (see below) is integrated with scRNA-seq data. Here is one of the input artifacts:
 
 <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/JvLaK9Icj11eswQn0000.png" width="850">
+
+And here is the lineage of the final result:
+
+<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/b0geN1HDHXlORqMO0001.png" width="850">
