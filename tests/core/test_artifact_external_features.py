@@ -43,6 +43,7 @@ def test_create_artifact_with_external_feature_annotations(
         schema=schema,
     ).save()
     assert artifact.features.get_values() == {"species": "bird", "split": "train"}
+    assert artifact.schema == schema
     artifact.delete(permanent=True)
     if use_schema:
         schema.delete(permanent=True)
