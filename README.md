@@ -40,6 +40,20 @@ Highlights:
 
 If you want a GUI, you can connect your LaminDB instance to LaminHub and close the drylab-wetlab feedback loop: [lamin.ai](https://lamin.ai).
 
+<details>
+<summary>Who uses it?</summary>
+
+Scientists & engineers in pharma, biotech, and academia, including:
+
+- Pfizer – A global BigPharma company with headquarters in the US
+- Ensocell Therapeutics – A BioTech with offices in Cambridge, UK, and California
+- DZNE – The National Research Center for Neuro-Degenerative Diseases in Germany
+- Helmholtz Munich – The National Research Center for Environmental Health in Germany
+- scverse – An international non-profit consortium for open-source omics data tools
+- The Global Immunological Swarm Learning Network – Research hospitals at U Bonn, Harvard, MIT, Stanford, ETH Zürich, Charite, Mount Sinai, and others
+
+</details>
+
 ## Docs
 
 Copy [summary.md](https://docs.lamin.ai/summary.md) into an LLM chat and let AI explain or read the [docs](https://docs.lamin.ai).
