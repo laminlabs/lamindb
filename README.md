@@ -234,18 +234,19 @@ Here is how you ingest a `DataFrame`:
 ```python
 import pandas as pd
 
-df = pd.DataFrame(
+df = pd.DataFrame({
     "sequence_str": ["ACGT", "TGCA"],
     "gc_content": [0.55, 0.54],
     "experiment_note": ["Looks great", "Ok"],
     "experiment_date": ["2025-10-24", "2025-10-25"],
-)
+})
 ln.Artifact.from_dataframe(df, key="my_datasets/sequences.parquet").save()  # no validation
 ```
 
 To validate & annotate the content of the dataframe, use a built-in `schema`:
 
 ```python
+ln.Feature(name="sequence_str", dtype=str).save()  # define a remaining feature
 artifact = ln.Artifact.from_dataframe(df, key="my_datasets/sequences.parquet", schema="valid_features")  # validate columns against features
 artifact.describe()
 ```
@@ -285,6 +286,14 @@ import bionty as bt
 
 bt.CellType.import_source()  # import the default ontology
 bt.CellType.to_dataframe()   # your extendable cell type ontology in a simple registry
+```
+
+### CLI
+
+Most of the functionality that's available in Python is also available on the command line (and in `R` through `LaminR`). For instance, to upload a file or folder, run:
+
+```shell
+lamin save myfile.txt --key examples/myfile.txt
 ```
 
 ### Workflow managers
