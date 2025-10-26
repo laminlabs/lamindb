@@ -181,7 +181,7 @@ Define the corresponding features and annotate:
 ```python
 
 ln.Feature(name="design_sample", dtype=sample_type).save()
-artifact.features.add_values("design_sample": "P53mutant1")
+artifact.features.add_values({"design_sample": "P53mutant1"})
 ```
 
 You can query & search the `Record` registry in the same way as `Artifact` or `Run`.
