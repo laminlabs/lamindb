@@ -1557,6 +1557,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             key = privates
             # adding "key" here is dangerous because key might be auto-populated
             attr_to_update = {"description": description}
+            if schema is not None:
+                attr_to_update["schema"] = schema
             if kwargs_or_artifact._key_is_virtual and kwargs_or_artifact.key is None:
                 attr_to_update["key"] = key
             elif self.key != key and key is not None:
@@ -1579,6 +1581,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             return None
         else:
             kwargs = kwargs_or_artifact
+            kwargs["schema"] = schema
 
         if revises is None:
             revises = kwargs_or_artifact.pop("revises")
