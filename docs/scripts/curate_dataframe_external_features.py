@@ -18,7 +18,7 @@ schema = ln.Schema(
 artifact = ln.Artifact.from_dataframe(
     df,
     key="examples/dataset1.parquet",
-    features={"temperature": 21.6, "date_of_study": "2024-12-01"},
+    features={"temperature": 21.6, "date_of_study": date(2024, 10, 1)},
     schema=schema,
 ).save()
 artifact.describe()
