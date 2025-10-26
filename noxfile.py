@@ -371,7 +371,15 @@ def clidocs(session):
 
 @nox.session
 def cp_scripts(session):
-    os.system("jupytext README.md --to notebook --output ./docs/README.ipynb")
+    content = open("README.md").read()
+    open("README_stripped.md", "w").write(
+        "\n".join(
+            line
+            for line in content.split("\n")
+            if not line.strip().startswith("accessor = artifact.open()")
+        )
+    )
+    os.system("jupytext README_stripped.md --to notebook --output ./docs/README.ipynb")
     os.system("cp ./lamindb/examples/schemas/define_valid_features.py ./docs/scripts/")
     os.system(
         "cp ./lamindb/examples/schemas/define_schema_anndata_ensembl_gene_ids_and_valid_features_in_obs.py ./docs/scripts/"
