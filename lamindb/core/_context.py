@@ -899,6 +899,13 @@ class Context:
                 raise UpdateContext(
                     f'{transform.created_by.name} ({transform.created_by.handle}) already works on this draft {transform.type}.\n\nPlease create a revision via `ln.track("{uid[:-4]}{increment_base62(uid[-4:])}")` or a new transform with a *different* key and `ln.track("{base62_12()}0000")`.'
                 )
+            if transform.reference != transform_ref:
+                transform.reference = transform_ref
+                transform.reference_type = transform_ref_type
+                transform.save()
+                self._logging_message_track += (
+                    "updated transform reference, "  # white space on purpose
+                )
             # check whether transform source code was already saved
             if transform_was_saved:
                 bump_revision = False
