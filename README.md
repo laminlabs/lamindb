@@ -167,9 +167,9 @@ ln.Artifact.filter(experiment_date="2025-10-14").to_dataframe()  # query all art
 You can also query by the metadata that lamindb automatically collects:
 
 ```python
-ln.Artifact.filter(run=run).to_dataframe()                     # query all artifacts created by a run
-ln.Artifact.filter(run__transform=transform).to_dataframe()    # query all artifacts created by a transform
-ln.Artifact.filter(size__gt=1e6).to_dataframe()                # query all artifacts bigger than 1MB
+ln.Artifact.filter(run=run).to_dataframe()                # query all artifacts created by a run
+ln.Artifact.filter(transform=transform).to_dataframe()    # query all artifacts created by a transform
+ln.Artifact.filter(size__gt=1e6).to_dataframe()           # query all artifacts bigger than 1MB
 ```
 
 If you want to include more information into the resulting dataframe, pass `include`.
