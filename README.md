@@ -18,7 +18,7 @@ Even maintaining an overview of a project's datasets & analyses is more difficul
 
 Biological datasets are typically managed with versioned storage systems, GUI-focused platforms, structureless data lakes, rigid data warehouses (SQL, monolithic arrays), or tabular lakehouses.
 
-LaminDB extends the lakehouse architecture to biological registries & datasets beyond tables (`DataFrame`, `AnnData`, `.zarr`, `.tiledbsoma`, ...) with enough structure to enable queries and enough freedom to keep the pace of R&D high.
+LaminDB extends the lakehouse architecture to biological registries & datasets beyond tables (`DataFrame`, `AnnData`, `.zarr`, `.tiledbsoma`, …) with enough structure to enable queries and enough freedom to keep the pace of R&D high.
 Moreover, it provides context through data lineage -- tracing data and code, scientists and models -- and abstractions for biological domain knowledge and experimental metadata.
 
 </details>
@@ -30,9 +30,9 @@ Highlights:
 - **lineage** → track inputs & outputs of notebooks, scripts, functions & pipelines with a single line of code
 - **lakehouse** → manage, monitor & validate schemas; query across many datasets
 - **feature store** → manage features & labels; leverage batch loading
-- **FAIR datasets** → validate & annotate `DataFrame`, `AnnData`, `SpatialData`, `parquet`, `.h5ad`, `zarr`, ...
+- **FAIR datasets** → validate & annotate `DataFrame`, `AnnData`, `SpatialData`, `parquet`, `zarr`, …
 - **LIMS & ELN** → manage experimental metadata, ontologies & markdown notes
-- **unified access** → storage locations (local, S3, GCP, ...), SQL databases (Postgres, SQLite) & ontologies
+- **unified access** → storage locations (local, S3, GCP, …), SQL databases (Postgres, SQLite) & ontologies
 - **reproducible** → auto-version & timestamp execution reports, source code & environments
 - **zero lock-in & scalable** → runs in your infrastructure; not a client for a rate-limited REST API
 - **integrations** → [vitessce](https://docs.lamin.ai/vitessce), [nextflow](https://docs.lamin.ai/nextflow), [redun](https://docs.lamin.ai/redun), and [more](https://docs.lamin.ai/integrations)
@@ -82,7 +82,7 @@ lamin connect account/name
 
 ## Quickstart
 
-### Data lineage
+### Lineage
 
 Create a dataset while tracking source code, inputs, outputs, logs, and environment:
 
@@ -136,7 +136,7 @@ Just like artifacts, runs & transforms are `SQLRecord` objects and follow the sa
 --- | ---
 <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/rJrHr3XaITVS4wVJ0000.png" width="400" /> | <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/JYwmHBbgf2MRCfgL0000.png" width="350" />
 
-### Data lake: annotation, validation, queries
+### Lake: annotation & queries
 
 You can annotate datasets and samples with features. Let's define some:
 
@@ -161,7 +161,7 @@ artifact.features.add_values({
 Now that the data is annotated, you can query for it:
 
 ```python
-ln.Artifact.filter(experiment_date="2025-10-14").to_dataframe()  # query all artifacts annotated with experiment date
+ln.Artifact.filter(experiment_date="2025-10-14").to_dataframe()  # query all artifacts annotated with `experiment_date`
 ```
 
 You can also query by the metadata that lamindb automatically collects:
@@ -179,7 +179,7 @@ ln.Artifact.to_dataframe(include="features")  # include the feature annotations
 ln.Artifact.to_dataframe(include=["created_by__name", "storage__root"])  # include fields from related registries
 ```
 
-### Data lake ♾️ LIMS ♾️ Sheets
+### Lake ♾️ LIMS ♾️ Sheets
 
 You can create records for the entities underlying your experiments: samples, perturbations, instruments, etc..
 For example:
@@ -206,7 +206,7 @@ ln.Record.search("p53").to_dataframe()
 
 You can also create relationships of entities and -- if you connect your LaminDB instance to LaminHub -- edit them like Excel sheets in a GUI.
 
-### Data lake: versioning
+### Lake: versioning
 
 If you change source code or datasets, LaminDB manages their versioning for you.
 Assume you run the new script.

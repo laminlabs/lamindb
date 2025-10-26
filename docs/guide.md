@@ -2,9 +2,15 @@
 
 ```{toctree}
 :hidden:
-:caption: "How to"
+:caption: "Overview"
 
 README
+```
+
+```{toctree}
+:hidden:
+:caption: "How to"
+
 query-search
 track
 curate
