@@ -1,5 +1,6 @@
 import concurrent.futures
 from pathlib import Path
+from typing import Iterable
 
 import lamindb as ln
 import pandas as pd
@@ -7,7 +8,9 @@ import pytest
 
 
 @ln.tracked()
-def process_chunk(chunk_id: int, artifact_param: ln.Artifact) -> str:
+def process_chunk(
+    chunk_id: int, artifact_param: ln.Artifact, records_params: Iterable[ln.Record]
+) -> str:
     # Create a simple DataFrame
     df = pd.DataFrame(
         {"id": range(chunk_id * 10, (chunk_id + 1) * 10), "value": range(10)}
@@ -36,12 +39,15 @@ def test_tracked_parallel():
     n_parallel = 3
 
     param_artifact = ln.Artifact(".gitignore", key="param_artifact").save()
+    ln.Record(name="record1").save(), ln.Record(name="record2").save()
+    records_params = ln.Record.filter(name__startswith="record")
 
     # Use ThreadPoolExecutor for parallel execution
     with concurrent.futures.ThreadPoolExecutor(max_workers=n_parallel) as executor:
         # Submit all tasks
         futures = [
-            executor.submit(process_chunk, i, param_artifact) for i in range(n_parallel)
+            executor.submit(process_chunk, i, param_artifact, records_params)
+            for i in range(n_parallel)
         ]
         # Get results as they complete
         chunk_keys = [
@@ -73,7 +79,12 @@ def test_tracked_parallel():
         assert run.started_at < run.finished_at
         assert run.status == "completed"
         assert isinstance(run.params["chunk_id"], int)
-        assert run.params["artifact_param"].startswith("Artifact[")
+        assert run.params["artifact_param"].startswith(
+            f"Artifact[{param_artifact.uid}]"
+        )
+        assert run.params["records_params"] == [
+            f"Record[{record.uid}]" for record in records_params
+        ]
 
     # Clean up test artifacts
     for artifact in artifacts:

@@ -244,19 +244,32 @@ class LogStreamTracker:
         self.original_excepthook(exc_type, exc_value, exc_traceback)
 
 
+# see test_tracked.py for tests
 def serialize_params_to_json(params: dict) -> dict:
     serialized_params = {}
     for key, value in params.items():
-        if isinstance(value, SQLRecord):
-            value = f"{value.__class__.__get_name_with_module__()}[{value.uid}]"
-        else:
-            dtype, _, _ = infer_feature_type_convert_json(key, value)
-            if (dtype == "?" or dtype.startswith("cat")) and dtype != "cat ? str":
-                logger.warning(
-                    f"skipping param {key} because dtype not JSON serializable"
+        dtype, converted_value, _ = infer_feature_type_convert_json(key, value)
+        if (
+            dtype == "?"
+            or dtype.startswith("cat")
+            or dtype.startswith("list[cat")
+            and dtype != "cat ? str"
+        ):
+            if isinstance(value, SQLRecord):
+                serialized_params[key] = (
+                    f"{value.__class__.__get_name_with_module__()}[{value.uid}]"
                 )
-                continue
-        serialized_params[key] = value
+            elif dtype.startswith("list[cat"):
+                items = list(value)
+                if items and all(isinstance(item, SQLRecord) for item in items):
+                    serialized_params[key] = [  # type: ignore
+                        f"{item.__class__.__get_name_with_module__()}[{item.uid}]"
+                        for item in items
+                    ]
+        else:
+            serialized_params[key] = converted_value
+        if key not in serialized_params:
+            logger.warning(f"skipping param {key} because dtype not JSON serializable")
     return serialized_params
 
 
