@@ -24,7 +24,7 @@ CI = os.environ.get("CI")
 
 GROUPS = {}
 GROUPS["tutorial"] = [
-    "transfer.ipynb",
+    "README.ipynbtransfer.ipynb",
     "arrays.ipynb",
     "registries.ipynb",
 ]
@@ -370,6 +370,7 @@ def clidocs(session):
 
 @nox.session
 def cp_scripts(session):
+    os.system("jupytext README.md --to notebook --output ./docs/README.ipynb")
     os.system("cp ./lamindb/examples/schemas/define_valid_features.py ./docs/scripts/")
     os.system(
         "cp ./lamindb/examples/schemas/define_schema_anndata_ensembl_gene_ids_and_valid_features_in_obs.py ./docs/scripts/"

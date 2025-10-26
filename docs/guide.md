@@ -4,6 +4,7 @@
 :hidden:
 :caption: "How to"
 
+README
 query-search
 track
 curate
