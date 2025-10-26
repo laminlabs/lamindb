@@ -15,9 +15,9 @@ def process_chunk(
     df = pd.DataFrame(
         {"id": range(chunk_id * 10, (chunk_id + 1) * 10), "value": range(10)}
     )
-    env_file = Path("tmp_requirements.txt")
+    env_file = Path("file_with_same_hash.txt")
     env_file.write_text("1")
-    ln.Artifact(env_file, description="requirements.txt").save()
+    ln.Artifact(env_file, description="file_with_same_hash").save()
     # Save it as an artifact
     key = f"chunk_{chunk_id}.parquet"
     artifact = ln.Artifact.from_dataframe(df, key=key).save()
@@ -58,12 +58,13 @@ def test_tracked_parallel():
     # Each execution should have created its own artifact with unique run
     print(f"Created artifacts with keys: {chunk_keys}")
     artifacts = [ln.Artifact.get(key=key) for key in chunk_keys]
-    env_artifacts = ln.Artifact.filter(description="requirements.txt")
-    print(env_artifacts.to_dataframe())
+    same_hash_artifacts = ln.Artifact.filter(description="file_with_same_hash")
 
     # Check that we got the expected number of artifacts
     assert len(artifacts) == n_parallel
-    assert len(env_artifacts) == 1
+    assert (
+        len(same_hash_artifacts) == 1
+    )  # only one artifact with the same hash should exist
 
     # Verify each artifact has its own unique run
     runs = [artifact.run for artifact in artifacts]
@@ -87,11 +88,14 @@ def test_tracked_parallel():
         ]
 
     # Clean up test artifacts
+    runs = []
     for artifact in artifacts:
+        runs.append(artifact.run)
         artifact.delete(permanent=True)
-    env_artifacts[0].delete(permanent=True)
-
     param_artifact.delete(permanent=True)
+    same_hash_artifacts[0].delete(permanent=True)
+    for run in runs:
+        run.delete(permanent=True)
 
     ln.context._uid = None
     ln.context._run = None
