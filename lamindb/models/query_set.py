@@ -403,12 +403,9 @@ def get_feature_annotate_kwargs(
             link_model = getattr(registry, obj.related_name).through
             if link_model.__name__ == "Record_parents":
                 continue
-            print(registry.__name__.lower())
             links = link_model.filter(
                 **{registry.__name__.lower() + "_id__in": ids_list}
             )
-            print(links.all())
-            print(links.to_dataframe(include="feature__name"))
             feature_names_for_link_model = links.values_list("feature__name", flat=True)
             feature_names += feature_names_for_link_model
         if registry is Record:
