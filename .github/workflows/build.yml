@@ -1,0 +1,237 @@
+name: build
+
+on:
+  push:
+    branches: [release]
+  pull_request:
+
+jobs:
+  pre-filter:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: dorny/paths-filter@v3
+        id: changes
+        if: github.event_name != 'push'
+        with:
+          filters: |
+            curator:
+              - 'lamindb/curators/**'
+              - 'lamindb/examples/cellxgene/**'
+              - 'tests/curators/**'
+            integrations:
+              - 'lamindb/integrations/**'
+              - 'tests/integrations/**'
+
+      - id: set-matrix
+        shell: bash
+        run: |
+          BASE_GROUPS=$(jq -n -c '["unit-core", "unit-storage", "tutorial", "guide", "biology", "faq", "storage", "cli", "permissions"]')
+          ADDITIONAL_GROUPS=[]
+
+          if [[ "${{ github.event_name }}" == "push" || "${{ github.event_name }}" == "repository_dispatch" ]]; then
+            # Run everything on push and dispatch
+            ADDITIONAL_GROUPS=$(jq -n -c '["curator", "integrations"]')
+          else
+            # Otherwise check which paths changed
+            if [[ "${{ steps.changes.outputs.curator }}" == "true" ]]; then
+              ADDITIONAL_GROUPS=$(jq -n -c --argjson groups "$ADDITIONAL_GROUPS" '$groups + ["curator"]')
+            fi
+            if [[ "${{ steps.changes.outputs.integrations }}" == "true" ]]; then
+              ADDITIONAL_GROUPS=$(jq -n -c --argjson groups "$ADDITIONAL_GROUPS" '$groups + ["integrations"]')
+            fi
+          fi
+
+          # Combine base groups with any additional groups
+          MATRIX=$(jq -n -c --argjson base "$BASE_GROUPS" --argjson additional "$ADDITIONAL_GROUPS" '{group: ($base + $additional)}')
+
+          # Output as single line for GitHub Actions
+          echo "matrix=$(echo "$MATRIX" | jq -c .)" >> $GITHUB_OUTPUT
+
+          # Pretty print for debugging
+          echo "Generated matrix:"
+          echo "$MATRIX" | jq .
+
+  test:
+    needs: pre-filter
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix: ${{fromJson(needs.pre-filter.outputs.matrix)}}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - uses: actions/checkout@v4
+        if: ${{ matrix.group == 'permissions' }}
+        with:
+          repository: laminlabs/laminhub
+          token: ${{ secrets.GH_TOKEN_DEPLOY_LAMINAPP }}
+          path: laminhub
+          ref: main
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: |
+            ${{ github.ref == 'refs/heads/release' && '3.11' ||
+                '3.13'
+                }}
+
+      - name: cache pre-commit
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pre-commit
+          key: pre-commit-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
+
+      - name: cache postgres
+        if: ${{ matrix.group == 'faq' || matrix.group == 'unit-core' || matrix.group == 'unit-storage' || matrix.group == 'permissions'}}
+        id: cache-postgres
+        uses: actions/cache@v4
+        with:
+          path: ~/postgres.tar
+          key: cache-postgres-0
+          restore-keys: |
+            cache-postgres-
+      - name: cache postgres miss
+        if: ${{ (matrix.group == 'faq' || matrix.group == 'unit-core' || matrix.group == 'unit-storage' || matrix.group == 'permissions') && steps.cache-postgres.outputs.cache-hit != 'true' }}
+        run: docker pull postgres:latest && docker image save postgres:latest --output ~/postgres.tar
+      - name: cache postgres use
+        if: ${{ (matrix.group == 'faq' || matrix.group == 'unit-core' || matrix.group == 'unit-storage' || matrix.group == 'permissions') && steps.cache-postgres.outputs.cache-hit == 'true' }}
+        run: docker image load --input ~/postgres.tar
+
+      - run: pip install "laminci@git+https://github.com/laminlabs/laminci"
+
+      - run: nox -s configure_coverage -- '${{needs.pre-filter.outputs.matrix}}'
+
+      - name: install postgres
+        if: ${{ matrix.group == 'faq' }}
+        run: sudo apt-get install libpq-dev
+
+      - name: install graphviz
+        if: ${{ matrix.group == 'tutorial' || matrix.group == 'guide' || matrix.group == 'biology' || matrix.group == 'faq'}}
+        run: sudo apt-get -y install graphviz
+
+      # - run: nox -s lint
+      #   if: ${{ matrix.group == 'tutorial' }}
+
+      - run: nox -s "install_ci(group='${{ matrix.group }}')"
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - run: nox -s "test(group='${{ matrix.group }}')"
+
+      - name: upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage--${{ matrix.group }}
+          path: .coverage
+          include-hidden-files: true
+
+      - name: upload docs
+        if: ${{ matrix.group == 'tutorial' || matrix.group == 'guide' || matrix.group == 'biology' || matrix.group == 'faq' || matrix.group == 'storage' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: docs-${{ matrix.group }}
+          path: ./docs/${{ matrix.group }}
+
+  docs:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: checkout lndocs
+        uses: actions/checkout@v4
+        with:
+          repository: laminlabs/lndocs
+          ssh-key: ${{ secrets.READ_LNDOCS }}
+          path: lndocs
+          ref: main
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - run: pip install "laminci@git+https://x-access-token:${{ secrets.LAMIN_BUILD_DOCS }}@github.com/laminlabs/laminci"
+      - run: nox -s "install_ci(group='docs')"
+      - uses: actions/download-artifact@v4
+      - run: nox -s clidocs
+      - run: nox -s cp_scripts
+      - run: nox -s docs
+      - run: rm -r ./_build/html/.doctrees # do not want to deploy with cloudflare
+      - uses: cloudflare/wrangler-action@v3
+        id: cloudflare
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: 472bdad691b4483dea759eadb37110bd
+          command: pages deploy "_build/html" --project-name=lamindb
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
+      - uses: edumserrano/find-create-or-update-comment@v2
+        if: github.event_name == 'pull_request'
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          body-includes: "Deployment URL"
+          comment-author: "github-actions[bot]"
+          body: |
+            Deployment URL: ${{ steps.cloudflare.outputs.deployment-url }}
+          edit-mode: replace
+
+      - uses: peter-evans/repository-dispatch@v2
+        if: ${{ github.event_name == 'push' }}
+        with:
+          token: ${{ secrets.LAMIN_BUILD_DOCS }}
+          repository: "laminlabs/lamin-docs"
+          event-type: build
+
+  coverage:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - run: |
+          python -m pip install -U uv
+          uv pip install --system coverage[toml]
+          uv pip install --system --no-deps .
+
+      - uses: actions/download-artifact@v4
+      - name: run coverage
+        run: |
+          coverage combine coverage--*/.coverage*
+          coverage report --fail-under=0
+          coverage xml
+      - uses: codecov/codecov-action@v2
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+  dispatch:
+    if: ${{ github.event_name == 'push' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: peter-evans/repository-dispatch@v2
+        with:
+          token: ${{ secrets.LAMIN_BUILD_DOCS }}
+          repository: "laminlabs/lamindb-dispatch"
+          event-type: build
