@@ -262,8 +262,8 @@ import anndata as ad
 import numpy as np
 
 adata = ad.AnnData(
-    X=pd.DataFrame([[1]*10]*20).values,
-    obs=pd.DataFrame({'cell_type_by_model': ['T cell', 'B cell', 'NK cell'] * 7}[:20]),
+    X=pd.DataFrame([[1]*10]*21).values,
+    obs=pd.DataFrame({'cell_type_by_model': ['T cell', 'B cell', 'NK cell'] * 7}),
     var=pd.DataFrame(index=[f'ENSG{i:011d}' for i in range(10)])
 )
 
@@ -306,4 +306,4 @@ In this repository (https://github.com/laminlabs/schmidt22) we manage several wo
 
 And here is the lineage of the final result:
 
-<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/b0geN1HDHXlORqMO0001.png" width="850">
+<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/b0geN1HDHXlORqMO0001.png" width="450">
