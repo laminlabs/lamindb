@@ -209,7 +209,7 @@ You can also create relationships of entities and -- if you connect your LaminDB
 ### Lake: versioning
 
 If you change source code or datasets, LaminDB manages their versioning for you.
-Assume you run the new script.
+Assume you run a new version of our `create-fasta.py` script to create a new version of `sample.fasta`.
 
 ```python
 import lamindb as ln
@@ -247,7 +247,11 @@ To validate & annotate the content of the dataframe, use a built-in `schema`:
 
 ```python
 ln.Feature(name="sequence_str", dtype=str).save()  # define a remaining feature
-artifact = ln.Artifact.from_dataframe(df, key="my_datasets/sequences.parquet", schema="valid_features")  # validate columns against features
+artifact = ln.Artifact.from_dataframe(
+    df,
+    key="my_datasets/sequences.parquet",
+    schema="valid_features"  # validate columns against features
+)
 artifact.describe()
 ```
 
@@ -300,7 +304,7 @@ lamin save myfile.txt --key examples/myfile.txt
 
 LaminDB is not a workflow manager, but it integrates well with existing workflow managers and can subsitute them in some settings.
 
-In this repository (https://github.com/laminlabs/schmidt22) we manage several workflows, scripts, and notebooks to re-construct the project of [Schmidt _el al._ (2022)](https://pubmed.ncbi.nlm.nih.gov/35113687/). A phenotypic CRISPRa screening result is integrated with scRNA-seq data. Here is one of the input artifacts:
+In [github.com/laminlabs/schmidt22](https://github.com/laminlabs/schmidt22) we manage several workflows, scripts, and notebooks to re-construct the project of [Schmidt _el al._ (2022)](https://pubmed.ncbi.nlm.nih.gov/35113687/). A phenotypic CRISPRa screening result is integrated with scRNA-seq data. Here is one of the input artifacts:
 
 <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/JvLaK9Icj11eswQn0000.png" width="850">
 
