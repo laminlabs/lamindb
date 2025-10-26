@@ -24,7 +24,8 @@ CI = os.environ.get("CI")
 
 GROUPS = {}
 GROUPS["tutorial"] = [
-    "README.ipynbtransfer.ipynb",
+    "transfer.ipynb",
+    "README.ipynb",
     "arrays.ipynb",
     "registries.ipynb",
 ]

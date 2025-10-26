@@ -57,7 +57,7 @@ pip install lamindb
 Create a LaminDB instance:
 
 ```shell
-lamin init --storage ./quickstart-data  # or s3://my-bucket, gs://my-bucket
+lamin init --modules bionty --storage ./quickstart-data  # or s3://my-bucket, gs://my-bucket
 ```
 
 Or if you have write access to an instance, connect to it:
@@ -218,6 +218,8 @@ artifact.versions.to_dataframe()                # see all versions of that artif
 Here is how you ingest a `DataFrame`:
 
 ```python
+import pandas as pd
+
 df = pd.DataFrame(
     "sequence_str": ["ACGT", "TGCA"],
     "gc_content": [0.55, 0.54],
@@ -227,18 +229,42 @@ df = pd.DataFrame(
 ln.Artifact.from_dataframe(df, key="my_datasets/sequences.parquet").save()  # no validation
 ```
 
-To validate & annotate by the content of the dataframe, pass `schema`:
+To validate & annotate the content of the dataframe, use a built-in `schema`:
 
 ```python
-artifact = ln.Artifact.from_dataframe(df, key="my_datasets/rnaseq1.parquet", schema="valid_features")  # validate columns against features
+artifact = ln.Artifact.from_dataframe(df, key="my_datasets/sequences.parquet", schema="valid_features")  # validate columns against features
 artifact.describe()
 ```
 
-Now you know which schema the dataset satisfies. You can filter for datasets with harmonizing schemas and then launch distributed queries and batch loading!
+Now you know which schema the dataset satisfies. You can filter for datasets by schema and then launch distributed queries and batch loading.
+
+### Lakehouse beyond tables
+
+To validate an `AnnData` with a built-in `schema` call:
+
+```python
+import anndata as ad
+import numpy as np
+
+adata = ad.AnnData(
+    X=pd.DataFrame([[1]*10]*20).values,
+    obs=pd.DataFrame({'cell_type_by_model': ['T cell', 'B cell', 'NK cell'] * 7}[:20]),
+    var=pd.DataFrame(index=[f'ENSG{i:011d}' for i in range(10)])
+)
+
+artifact = ln.Artifact.from_dataframe(
+    adata,
+    key="my_datasets/scrna.h5ad",
+    schema="ensembl_gene_ids_and_valid_features_in_obs"
+)
+artifact.describe()
+```
+
+To validate a `spatialdata` or any other array-like dataset, you need to construct a `Schema`. You can do this by composing the schema of a complicated object from simple `pandera`/`pydantic`-like schemas: [docs.lamin.ai/curate](https://docs.lamin.ai/curate).
 
 ### Ontologies
 
-Plugin `bionty` gives you >20 of them in the same `SQLRecord` registries you already know by this time.
+Plugin `bionty` gives you >20 of them as `SQLRecord` registries. This was used to validate the `ENSG` ids in the `adata` just before.
 
 ```python
 import bionty as bt
