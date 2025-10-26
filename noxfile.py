@@ -25,6 +25,7 @@ CI = os.environ.get("CI")
 GROUPS = {}
 GROUPS["tutorial"] = [
     "transfer.ipynb",
+    "README.ipynb",
     "arrays.ipynb",
     "registries.ipynb",
 ]
@@ -369,6 +370,32 @@ def clidocs(session):
 
 
 @nox.session
+def cp_scripts(session):
+    content = open("README.md").read()
+    open("README_stripped.md", "w").write(
+        "\n".join(
+            line
+            for line in content.split("\n")
+            if not line.strip().startswith("accessor = artifact.open()")
+        )
+    )
+    os.system("jupytext README_stripped.md --to notebook --output ./docs/README.ipynb")
+    os.system("cp ./lamindb/examples/schemas/define_valid_features.py ./docs/scripts/")
+    os.system(
+        "cp ./lamindb/examples/schemas/define_schema_anndata_ensembl_gene_ids_and_valid_features_in_obs.py ./docs/scripts/"
+    )
+    os.system(
+        "cp ./lamindb/examples/datasets/define_mini_immuno_features_labels.py ./docs/scripts/"
+    )
+    os.system(
+        "cp ./lamindb/examples/datasets/define_mini_immuno_schema_flexible.py ./docs/scripts/"
+    )
+    os.system(
+        "cp ./lamindb/examples/datasets/save_mini_immuno_datasets.py ./docs/scripts/"
+    )
+
+
+@nox.session
 def docs(session):
     # move artifacts into right place
     for group in ["tutorial", "guide", "biology", "faq", "storage"]:
@@ -383,19 +410,6 @@ def docs(session):
     run(
         session,
         "lamin init --storage ./docsbuild --modules bionty,wetlab",
-    )
-    os.system("cp ./lamindb/examples/schemas/define_valid_features.py ./docs/scripts/")
-    os.system(
-        "cp ./lamindb/examples/schemas/define_schema_anndata_ensembl_gene_ids_and_valid_features_in_obs.py ./docs/scripts/"
-    )
-    os.system(
-        "cp ./lamindb/examples/datasets/define_mini_immuno_features_labels.py ./docs/scripts/"
-    )
-    os.system(
-        "cp ./lamindb/examples/datasets/define_mini_immuno_schema_flexible.py ./docs/scripts/"
-    )
-    os.system(
-        "cp ./lamindb/examples/datasets/save_mini_immuno_datasets.py ./docs/scripts/"
     )
     build_docs(session, strip_prefix=True, strict=False)
     upload_docs_artifact(aws=True)

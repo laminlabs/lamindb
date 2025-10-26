@@ -546,56 +546,62 @@ class Registry(ModelBase):
 
     def to_dataframe(
         cls,
+        *,
         include: str | list[str] | None = None,
-        features: bool | list[str] | str = False,
-        limit: int = 100,
+        features: str | list[str] | None = None,
+        limit: int | None = 100,
+        order_by: str | None = "-id",
     ) -> pd.DataFrame:
-        """Convert to `pd.DataFrame`.
+        """Evaluate and convert to `pd.DataFrame`.
 
-        By default, shows all direct fields, except `updated_at`.
+        By default, maps simple fields and foreign keys onto `DataFrame` columns.
 
-        Use arguments `include` or `feature` to include other data.
+        Guide: :doc:`docs:registries`
 
         Args:
-            include: Related fields to include as columns. Takes strings of
-                form `"ulabels__name"`, `"cell_types__name"`, etc. or a list
-                of such strings.
-            features: If a list of feature names, filters
-                :class:`~lamindb.Feature` down to these features.
-                If `True`, prints all features with dtypes in the core schema module.
-                If `"queryset"`, infers the features used within the set of artifacts or records.
-                Only available for `Artifact` and `Record`.
-            limit: Maximum number of rows to display from a Pandas DataFrame.
-                Defaults to 100 to reduce database load.
+            include: Related data to include as columns. Takes strings of
+                form `"records__name"`, `"cell_types__name"`, etc. or a list
+                of such strings. For `Artifact`, `Record`, and `Run`, can also pass `"features"`
+                to include features with data types pointing to entities in the core schema.
+                If `"privates"`, includes private fields (fields starting with `_`).
+            features: Configure the features to include. Can be a feature name or a list of such names.
+                If `"queryset"`, infers the features used within the current queryset.
+                Only available for `Artifact`, `Record`, and `Run`.
+            limit: Maximum number of rows to display. If `None`, includes all results.
+            order_by: Field name to order the records by. Prefix with '-' for descending order.
+                Defaults to '-id' to get the most recent records. This argument is ignored
+                if the queryset is already ordered or if the specified field does not exist.
 
         Examples:
 
-            Include the name of the creator in the `DataFrame`:
+            Include the name of the creator::
 
-            >>> ln.ULabel.to_dataframe(include="created_by__name"])
+                ln.Record.to_dataframe(include="created_by__name"])
 
-            Include display of features for `Artifact`:
+            Include features::
 
-            >>> df = ln.Artifact.to_dataframe(features=True)
-            >>> ln.view(df)  # visualize with type annotations
+                ln.Artifact.to_dataframe(include="features")
 
-            Only include select features:
+            Include selected features::
 
-            >>> df = ln.Artifact.to_dataframe(features=["cell_type_by_expert", "cell_type_by_model"])
+                ln.Artifact.to_dataframe(features=["cell_type_by_expert", "cell_type_by_model"])
         """
-        query_set = cls.filter()
-        if hasattr(cls, "updated_at"):
-            query_set = query_set.order_by("-updated_at")
-        return query_set[:limit].to_dataframe(include=include, features=features)
+        return cls.filter().to_dataframe(
+            include=include, features=features, order_by=order_by, limit=limit
+        )
 
     @deprecated(new_name="to_dataframe")
     def df(
         cls,
+        *,
         include: str | list[str] | None = None,
-        features: bool | list[str] | str = False,
-        limit: int = 100,
+        features: str | list[str] | None = None,
+        limit: int | None = 100,
+        order_by: str | None = "-id",
     ) -> pd.DataFrame:
-        return cls.to_dataframe(include, features, limit)
+        return cls.to_dataframe(
+            include=include, features=features, limit=limit, order_by=order_by
+        )
 
     @doc_args(_search.__doc__)
     def search(
