@@ -1004,7 +1004,6 @@ class LazyArtifact:
 
 
 class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
-    # Note that this docstring has to be consistent with Curator.save_artifact()
     """Datasets & models stored as files, folders, or arrays.
 
     Artifacts manage data in local or remote storage.
@@ -1014,10 +1013,12 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
     Args:
         data: `UPathStr` A path to a local or remote folder or file.
-        kind: `Literal["dataset", "model"] | str | None = None` Distinguish models from datasets from other files & folders.
         key: `str | None = None` A path-like key to reference artifact in default storage, e.g., `"myfolder/myfile.fcs"`. Artifacts with the same key form a version family.
         description: `str | None = None` A description.
-        revises: `Artifact | None = None` Previous version of the artifact. Is an alternative way to passing `key` to trigger a new version.
+        kind: `Literal["dataset", "model"] | str | None = None` Distinguish models from datasets from other files & folders.
+        features: `dict | None = None` External features to annotate the artifact with.
+        schema: `Schema | None = None` A schema to validate features.
+        revises: `Artifact | None = None` Previous version of the artifact. An alternative to passing `key` when creating a new version.
         overwrite_versions: `bool | None = None` Whether to overwrite versions. Defaults to `True` for folders and `False` for files.
         run: `Run | bool | None = None` The run that creates the artifact. If `False`, surpress tracking the run.
             If `None`, infer the run from the global run context.
@@ -1025,8 +1026,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         space: `Space | None = None` The space of the artifact. If `None`, uses the current space.
         storage: `Storage | None = None` The storage location for the artifact. If `None`, uses the default storage location.
             You can see and set the default storage location in :attr:`~lamindb.core.Settings.storage`.
-        schema: A schema that defines how to validate & annotate.
-        features: Additional external features to link.
         skip_hash_lookup: Skip the hash lookup so that a new artifact is created even if an identical artifact already exists.
 
     Examples:
@@ -1391,17 +1390,18 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         # "data" conveys better that this is input data that's ingested
         # and will be moved to a target path at `artifact.path`
         data: UPathStr,
-        kind: ArtifactKind | str | None = None,
+        *,
         key: str | None = None,
         description: str | None = None,
+        kind: ArtifactKind | str | None = None,
+        features: dict[str, Any] | None = None,
+        schema: Schema | None = None,
         revises: Artifact | None = None,
         overwrite_versions: bool | None = None,
         run: Run | False | None = None,
         storage: Storage | None = None,
         branch: Branch | None = None,
         space: Space | None = None,
-        schema: Schema | None = None,
-        features: dict[str, Any] | None = None,
         skip_hash_lookup: bool = False,
     ): ...
 
@@ -1806,7 +1806,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         description: str | None = None,
         run: Run | None = None,
         revises: Artifact | None = None,
-        schema: Schema | None = None,
+        schema: Schema | Literal["valid_features"] | None = None,
         features: dict[str, Any] | None = None,
         **kwargs,
     ) -> Artifact:
@@ -1826,33 +1826,27 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
             No validation and annotation::
 
-                import lamindb as ln
+                ln.Artifact.from_dataframe(df, key="examples/dataset1.parquet").save()
 
-                df = ln.examples.datasets.mini_immuno.get_dataset1()
-                artifact = ln.Artifact.from_dataframe(df, key="examples/dataset1.parquet").save()
+            With validation and annotation::
 
-            With validation and annotation.
+                ln.Artifact.from_dataframe(df, key="examples/dataset1.parquet", schema="valid_features").save()
 
-            .. literalinclude:: scripts/curate_dataframe_flexible.py
-               :language: python
+            Under-the-hood, this uses the following build-in schema (:func:`~lamindb.examples.schemas.valid_features`)::
 
-            Under-the-hood, this used the following schema.
-
-            .. literalinclude:: scripts/define_valid_features.py
-               :language: python
-
-            Valid features & labels were defined as:
-
-            .. literalinclude:: scripts/define_mini_immuno_features_labels.py
-               :language: python
+                schema = ln.Schema(name="valid_features", itype="Feature").save()
 
             External features:
 
             .. literalinclude:: scripts/curate_dataframe_external_features.py
                :language: python
         """
+        from lamindb import examples
+
         if "format" not in kwargs and key is not None and key.endswith(".csv"):
             kwargs["format"] = ".csv"
+        if schema == "valid_features":
+            schema = examples.schemas.valid_features()
         artifact = Artifact(  # type: ignore
             data=df,
             key=key,
@@ -1918,7 +1912,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         description: str | None = None,
         run: Run | None = None,
         revises: Artifact | None = None,
-        schema: Schema | None = None,
+        schema: Schema
+        | Literal["ensembl_gene_ids_and_valid_features_in_obs"]
+        | None = None,
         **kwargs,
     ) -> Artifact:
         """Create from `AnnData`, optionally validate & annotate.
@@ -1942,31 +1938,33 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
             No validation and annotation::
 
-                import lamindb as ln
+                ln.Artifact.from_anndata(adata, key="examples/dataset1.h5ad").save()
 
-                adata = ln.examples.datasets.anndata_with_obs()
-                artifact = ln.Artifact.from_anndata(adata, key="mini_anndata_with_obs.h5ad").save()
+            With validation and annotation::
 
-            With validation and annotation.
+                ln.Artifact.from_dataframe(adata, key="examples/dataset1.h5ad", schema="ensembl_gene_ids_and_valid_features_in_obs").save()
 
-            .. literalinclude:: scripts/curate_anndata_flexible.py
-               :language: python
-
-            Under-the-hood, this used the following schema.
+            Under-the-hood, this uses the following build-in schema (:func:`~lamindb.examples.schemas.anndata_ensembl_gene_ids_and_valid_features_in_obs`):
 
             .. literalinclude:: scripts/define_schema_anndata_ensembl_gene_ids_and_valid_features_in_obs.py
                :language: python
 
-            This schema tranposes the `var` DataFrame during curation, so that one validates and annotates the `var.T` schema, i.e., `[ENSG00000153563, ENSG00000010610, ENSG00000170458]`.
-            If one doesn't transpose, one would annotate with the schema of `var`, i.e., `[gene_symbol, gene_type]`.
+            This schema tranposes the `var` DataFrame during curation, so that one validates and annotates the columns of `var.T`, i.e., `[ENSG00000153563, ENSG00000010610, ENSG00000170458]`.
+            If one doesn't transpose, one would annotate the columns of `var`, i.e., `[gene_symbol, gene_type]`.
 
             .. image:: https://lamin-site-assets.s3.amazonaws.com/.lamindb/gLyfToATM7WUzkWW0001.png
                :width: 800px
 
         """
+        from lamindb import examples
+
         if not data_is_scversedatastructure(adata, "AnnData"):
             raise ValueError(
                 "data has to be an AnnData object or a path to AnnData-like"
+            )
+        if schema == "ensembl_gene_ids_and_valid_features_in_obs":
+            schema = (
+                examples.schemas.anndata_ensembl_gene_ids_and_valid_features_in_obs()
             )
         _anndata_n_observations(adata)
         artifact = Artifact(  # type: ignore
