@@ -171,7 +171,7 @@ You can create records for the entities underlying your experiments: samples, pe
 For example:
 
 ```python
-sample_type = ln.Record(name="Sample", is_type=True).  # a sample type
+sample_type = ln.Record(name="Sample", is_type=True).save()  # a sample type
 ln.Record(name="P53mutant1", type=sample_type).save()  # sample 1
 ln.Record(name="P53mutant2", type=sample_type).save()  # sample 2
 ```
