@@ -309,3 +309,5 @@ And here is the lineage of the final result:
 <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/KQmzmmLOeBN0C8Yk0004.png" width="450">
 
 You can explore it [here](https://lamin.ai/laminlabs/lamindata/artifact/W1AiST5wLrbNEyVq0001).
+
+If you'd like to integrate with Nextflow, Snakemake, or redun, see here: [docs.lamin.ai/pipelines](https://docs.lamin.ai/pipelines)
