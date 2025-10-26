@@ -267,7 +267,7 @@ adata = ad.AnnData(
     var=pd.DataFrame(index=[f'ENSG{i:011d}' for i in range(10)])
 )
 
-artifact = ln.Artifact.from_dataframe(
+artifact = ln.Artifact.from_anndata(
     adata,
     key="my_datasets/scrna.h5ad",
     schema="ensembl_gene_ids_and_valid_features_in_obs"
