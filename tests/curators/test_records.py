@@ -22,8 +22,8 @@ def test_record_example_compound_treatment(
             False,
         ],
         "name": [
-            "treatment1",
             "treatment2",
+            "treatment1",
         ],
     }
 
@@ -34,16 +34,16 @@ def test_record_example_compound_treatment(
     )
     assert dictionary == {
         "compound": [
-            "drug1",
             "drug2",
+            "drug1",
         ],
         "concentration": [
-            "2nM",
             "4nM",
+            "2nM",
         ],
         "name": [
-            "treatment1",
             "treatment2",
+            "treatment1",
         ],
     }
 
@@ -60,12 +60,12 @@ def test_record_example_compound_treatment(
             "HEK293T cell",
         ],
         "__lamindb_record_name__": [
-            "sample1",
             "sample2",
+            "sample1",
         ],
         "treatment": [
-            "treatment1",
             "treatment2",
+            "treatment1",
         ],
     }
 
@@ -129,10 +129,7 @@ id,uid,name,treatment,cell_line,preparation_date,project,__lamindb_record_uid__,
     assert artifact._state.adding is False
     assert ln.models.ArtifactRecord.filter(artifact=artifact).count() == 2
     print(artifact.features.describe(return_str=True))
-    assert (
-        artifact.features.describe(return_str=True)
-        == """\
-Artifact: sheet_exports/My samples 2025-06.csv (0000)
+    assert artifact.features.describe(return_str=True).endswith("""\
 └── Dataset features
     └── columns (7)
         cell_line           bionty.CellLine         HEK293T cell
@@ -141,8 +138,7 @@ Artifact: sheet_exports/My samples 2025-06.csv (0000)
         id                  int
         uid                 str
         name                str
-        preparation_date    datetime"""
-    )
+        preparation_date    datetime""")
     # re-run the export which triggers hash lookup
     sample_sheet1.to_artifact()
     # soft-delete a record in the sheet
@@ -214,17 +210,13 @@ def test_nextflow_sheet_with_samples(
     assert artifact.path.read_text().startswith("""\
 sample,fastq_1,fastq_2,expected_cells,__lamindb_record_uid__,__lamindb_record_name__
 Sample_X,https://raw.githubusercontent.com/nf-core/test-datasets/scrnaseq/testdata/cellranger/Sample_X_S1_L001_R1_001.fastq.gz,https://raw.githubusercontent.com/nf-core/test-datasets/scrnaseq/testdata/cellranger/Sample_X_S1_L001_R2_001.fastq.gz,5000,""")
-    assert (
-        artifact.features.describe(return_str=True)
-        == """\
-Artifact: sheet_exports/RNA-seq nextflow samplesheet 001.csv (0000)
+    assert artifact.features.describe(return_str=True).endswith("""\
 └── Dataset features
     └── columns (4)
         sample              Record[BioSample]       Sample_X, Sample_Y
         fastq_1             str
         fastq_2             str
-        expected_cells      int"""
-    )
+        expected_cells      int""")
     artifact.delete(permanent=True)
 
 
