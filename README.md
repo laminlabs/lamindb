@@ -306,4 +306,4 @@ In this repository (https://github.com/laminlabs/schmidt22) we manage several wo
 
 And here is the lineage of the final result:
 
-<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/b0geN1HDHXlORqMO0001.png" width="450">
+<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/KQmzmmLOeBN0C8Yk0004.png" width="450">
