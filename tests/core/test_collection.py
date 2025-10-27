@@ -66,7 +66,7 @@ def test_from_single_artifact(adata):
     assert ln.Artifact.filter(id=artifact.id).one_or_none() is None
 
 
-def test_edge_cases(df):
+def test_edge_cases(df, ccaplog):
     with pytest.raises(
         FieldValidationError,
         match=re.escape(
@@ -89,12 +89,8 @@ def test_edge_cases(df):
         "ValueError: Not all artifacts are yet saved, please save them"
     )
     artifact.save()
-    with pytest.raises(ValueError) as error:
-        ln.Collection([artifact, artifact])
-    assert str(error.exconly()).startswith(
-        "ValueError: Please pass artifacts with distinct hashes: these ones are"
-        " non-unique"
-    )
+    ln.Collection([artifact, artifact], key="test-collection")
+    assert "your collection contains artifacts with non-unique hashes:" in ccaplog.text
     artifact.delete(permanent=True)
 
 

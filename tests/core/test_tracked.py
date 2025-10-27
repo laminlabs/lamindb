@@ -1,5 +1,6 @@
 import concurrent.futures
 from pathlib import Path
+from typing import Iterable
 
 import lamindb as ln
 import pandas as pd
@@ -7,14 +8,16 @@ import pytest
 
 
 @ln.tracked()
-def process_chunk(chunk_id: int, artifact_param: ln.Artifact) -> str:
+def process_chunk(
+    chunk_id: int, artifact_param: ln.Artifact, records_params: Iterable[ln.Record]
+) -> str:
     # Create a simple DataFrame
     df = pd.DataFrame(
         {"id": range(chunk_id * 10, (chunk_id + 1) * 10), "value": range(10)}
     )
-    env_file = Path("tmp_requirements.txt")
+    env_file = Path("file_with_same_hash.txt")
     env_file.write_text("1")
-    ln.Artifact(env_file, description="requirements.txt").save()
+    ln.Artifact(env_file, description="file_with_same_hash").save()
     # Save it as an artifact
     key = f"chunk_{chunk_id}.parquet"
     artifact = ln.Artifact.from_dataframe(df, key=key).save()
@@ -36,12 +39,15 @@ def test_tracked_parallel():
     n_parallel = 3
 
     param_artifact = ln.Artifact(".gitignore", key="param_artifact").save()
+    ln.Record(name="record1").save(), ln.Record(name="record2").save()
+    records_params = ln.Record.filter(name__startswith="record")
 
     # Use ThreadPoolExecutor for parallel execution
     with concurrent.futures.ThreadPoolExecutor(max_workers=n_parallel) as executor:
         # Submit all tasks
         futures = [
-            executor.submit(process_chunk, i, param_artifact) for i in range(n_parallel)
+            executor.submit(process_chunk, i, param_artifact, records_params)
+            for i in range(n_parallel)
         ]
         # Get results as they complete
         chunk_keys = [
@@ -52,12 +58,13 @@ def test_tracked_parallel():
     # Each execution should have created its own artifact with unique run
     print(f"Created artifacts with keys: {chunk_keys}")
     artifacts = [ln.Artifact.get(key=key) for key in chunk_keys]
-    env_artifacts = ln.Artifact.filter(description="requirements.txt")
-    print(env_artifacts.to_dataframe())
+    same_hash_artifacts = ln.Artifact.filter(description="file_with_same_hash")
 
     # Check that we got the expected number of artifacts
     assert len(artifacts) == n_parallel
-    assert len(env_artifacts) == 1
+    assert (
+        len(same_hash_artifacts) == 1
+    )  # only one artifact with the same hash should exist
 
     # Verify each artifact has its own unique run
     runs = [artifact.run for artifact in artifacts]
@@ -73,14 +80,22 @@ def test_tracked_parallel():
         assert run.started_at < run.finished_at
         assert run.status == "completed"
         assert isinstance(run.params["chunk_id"], int)
-        assert run.params["artifact_param"].startswith("Artifact[")
+        assert run.params["artifact_param"].startswith(
+            f"Artifact[{param_artifact.uid}]"
+        )
+        assert run.params["records_params"] == [
+            f"Record[{record.uid}]" for record in records_params
+        ]
 
     # Clean up test artifacts
+    runs = []
     for artifact in artifacts:
+        runs.append(artifact.run)
         artifact.delete(permanent=True)
-    env_artifacts[0].delete(permanent=True)
-
     param_artifact.delete(permanent=True)
+    same_hash_artifacts[0].delete(permanent=True)
+    for run in runs:
+        run.delete(permanent=True)
 
     ln.context._uid = None
     ln.context._run = None

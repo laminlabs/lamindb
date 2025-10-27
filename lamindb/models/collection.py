@@ -695,9 +695,8 @@ def from_artifacts(artifacts: Iterable[Artifact]) -> tuple[str, dict[str, str]]:
     if len(hashes) != len(hashes_set):
         seen = set()
         non_unique = [x for x in hashes if x in seen or seen.add(x)]  # type: ignore
-        raise ValueError(
-            "Please pass artifacts with distinct hashes: these ones are non-unique"
-            f" {non_unique}"
+        logger.warning(
+            f"your collection contains artifacts with non-unique hashes:  {non_unique}"
         )
     hash = hash_set(hashes_set)
     return hash

@@ -921,7 +921,7 @@ class BasicQuerySet(models.QuerySet):
         include: str | list[str] | None = None,
         features: bool | list[str] | str | None = None,
     ) -> pd.DataFrame:
-        return self.to_dataframe(include, features)
+        return self.to_dataframe(include=include, features=features)
 
     def delete(self, *args, permanent: bool | None = None, **kwargs):
         """Delete all records in the query set.

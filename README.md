@@ -167,9 +167,9 @@ ln.Artifact.filter(experiment_date="2025-10-14").to_dataframe()  # query all art
 You can also query by the metadata that lamindb automatically collects:
 
 ```python
-ln.Artifact.filter(run=run).to_dataframe()                     # query all artifacts created by a run
-ln.Artifact.filter(run__transform=transform).to_dataframe()    # query all artifacts created by a transform
-ln.Artifact.filter(size__gt=1e6).to_dataframe()                # query all artifacts bigger than 1MB
+ln.Artifact.filter(run=run).to_dataframe()                # query all artifacts created by a run
+ln.Artifact.filter(transform=transform).to_dataframe()    # query all artifacts created by a transform
+ln.Artifact.filter(size__gt=1e6).to_dataframe()           # query all artifacts bigger than 1MB
 ```
 
 If you want to include more information into the resulting dataframe, pass `include`.
@@ -209,7 +209,7 @@ You can also create relationships of entities and -- if you connect your LaminDB
 ### Lake: versioning
 
 If you change source code or datasets, LaminDB manages their versioning for you.
-Assume you run the new script.
+Assume you run a new version of our `create-fasta.py` script to create a new version of `sample.fasta`.
 
 ```python
 import lamindb as ln
@@ -247,7 +247,11 @@ To validate & annotate the content of the dataframe, use a built-in `schema`:
 
 ```python
 ln.Feature(name="sequence_str", dtype=str).save()  # define a remaining feature
-artifact = ln.Artifact.from_dataframe(df, key="my_datasets/sequences.parquet", schema="valid_features")  # validate columns against features
+artifact = ln.Artifact.from_dataframe(
+    df,
+    key="my_datasets/sequences.parquet",
+    schema="valid_features"  # validate columns against features
+)
 artifact.describe()
 ```
 
@@ -300,13 +304,13 @@ lamin save myfile.txt --key examples/myfile.txt
 
 LaminDB is not a workflow manager, but it integrates well with existing workflow managers and can subsitute them in some settings.
 
-In this repository (https://github.com/laminlabs/schmidt22) we manage several workflows, scripts, and notebooks to re-construct the project of [Schmidt _el al._ (2022)](https://pubmed.ncbi.nlm.nih.gov/35113687/). A phenotypic CRISPRa screening result is integrated with scRNA-seq data. Here is one of the input artifacts:
+In [github.com/laminlabs/schmidt22](https://github.com/laminlabs/schmidt22) we manage several workflows, scripts, and notebooks to re-construct the project of [Schmidt _el al._ (2022)](https://pubmed.ncbi.nlm.nih.gov/35113687/). A phenotypic CRISPRa screening result is integrated with scRNA-seq data. Here is one of the input artifacts:
 
 <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/JvLaK9Icj11eswQn0000.png" width="850">
 
 And here is the lineage of the final result:
 
-<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/KQmzmmLOeBN0C8Yk0004.png" width="450">
+<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/KQmzmmLOeBN0C8Yk0004.png" width="850">
 
 You can explore it [here](https://lamin.ai/laminlabs/lamindata/artifact/W1AiST5wLrbNEyVq0001).
 
