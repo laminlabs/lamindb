@@ -33,6 +33,7 @@ def _query_relatives(
     records: QuerySet | list[SQLRecord],
     attr: str,
     cls: type[HasParents],
+    is_type: bool = False,
 ) -> QuerySet:
     from .query_set import get_default_branch_ids
 
@@ -43,6 +44,9 @@ def _query_relatives(
         if len(records) == 0:
             return relatives
         for record in records:
+            # no need to query for children of non-type records, these aren't allowed
+            if is_type and not record.is_type:
+                continue
             more_relatives = getattr(record, attr).filter(branch_id__in=branch_ids)
             # avoid unnecessary union calls, say something has 30 children these grow a lot
             # this is a database request but still faster than union calls
