@@ -1827,7 +1827,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             schema: A schema that defines how to validate & annotate.
             features: Additional external features to link.
             parquet_kwargs: Additional keyword arguments passed to the
-                `pandas.DataFrame.to_parquet` method.
+                `pandas.DataFrame.to_parquet` method, which are passed
+                on to `pyarrow.parquet.ParquetWriter`.
 
         Examples:
 
