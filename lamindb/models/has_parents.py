@@ -48,12 +48,14 @@ def _query_relatives(
             if is_type and not record.is_type:
                 continue
             more_relatives = getattr(record, attr).filter(branch_id__in=branch_ids)
-            # avoid unnecessary union calls, say something has 30 children these grow a lot
-            # this is a database request but still faster than union calls
-            # we never ran into an issue for Postgres, but for SQLite
+            # it's tempting to avoid unnecessary union calls below
+            # say something has 30 children these grow a lot
+            # we never ran into an issue for Postgres, but for SQLite this can be a problem
             # it might be that Postgres is smart enough to optimize this away
-            if more_relatives.exists():
-                relatives = relatives.union(more_relatives)
+            # however, the folowing .exists() is a database request that just takes time
+            # so, we'll keep it commented out
+            # if more_relatives.exists():
+            relatives = relatives.union(more_relatives)
         relatives = relatives.union(query_relatives_on_branches(relatives, attr, cls))
         return relatives
 
