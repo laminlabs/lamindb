@@ -355,7 +355,7 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates, HasParents):
     def type_to_dataframe(self) -> pd.DataFrame:
         """Export all instances of this record type to a pandas DataFrame."""
         assert self.is_type, "Only types can be exported as dataframes"  # noqa: S101
-        df = self.query_records().to_dataframe(features="queryset")
+        df = self.query_records().to_dataframe(features="queryset", order_by="id")
         encoded_id = encode_lamindb_fields_as_columns(self.__class__, "id")
         encoded_uid = encode_lamindb_fields_as_columns(self.__class__, "uid")
         encoded_name = encode_lamindb_fields_as_columns(self.__class__, "name")

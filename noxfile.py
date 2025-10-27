@@ -162,17 +162,6 @@ def install_ci(session, group):
     extras = "," + extras if extras != "" else extras
     run(session, f"uv pip install --system -e .[dev{extras}]")
 
-    if group == "permissions":
-        # have to install after lamindb installation
-        # because lamindb downgrades django
-        run(
-            session,
-            "uv pip install --system sentry_sdk line_profiler setuptools wheel==0.45.1 flit",
-        )
-        run(
-            session,
-            "uv pip install --system -e ./laminhub/rest-hub --no-build-isolation",
-        )
     # needed here till the next release of lamindb-setup
     run(session, "uv pip install --system httpx_retries")
     # on the release branch, do not use submodules but run with pypi install
@@ -183,7 +172,18 @@ def install_ci(session, group):
     if IS_PR or group == "docs":
         run(
             session,
-            "uv pip install --system --no-deps ./sub/lamindb-setup ./sub/lamin-cli ./sub/bionty",
+            "uv pip install --system ./sub/lamindb-setup ./sub/lamin-cli ./sub/bionty",
+        )
+    if group == "permissions":
+        # have to install after lamindb installation
+        # because lamindb downgrades django
+        run(
+            session,
+            "uv pip install --system sentry_sdk line_profiler setuptools wheel==0.45.1 flit",
+        )
+        run(
+            session,
+            "uv pip install --system -e ./laminhub/rest-hub --no-build-isolation",
         )
 
 
