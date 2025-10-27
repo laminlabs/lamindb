@@ -164,6 +164,9 @@ def _get_categoricals_postgres(
 
     # Process m2m data
     m2m_data = related_data.get("m2m", {}) if related_data else {}
+    # e.g. m2m_data = {'tissues': {1: {'id': 1, 'uid': '1fIFAQJY', 'abbr': None, 'name': 'brain', 'tissue': 1, 'feature': 1, 'ontology_id': 'UBERON:0000955', 'tissue_display': 'brain'}, 10: {'id': 2, 'uid': '7Tt4iEKc', 'abbr': None, 'name': 'lung', 'tissue': 10, 'feature': 1, 'ontology_id': 'UBERON:0002048', 'tissue_display': 'lung'}}, 'cell_types': {1: {'id': 1, 'uid': '3QnZfoBk', 'abbr': None, 'name': 'neuron', 'feature': 2, 'celltype': 1, 'ontology_id': 'CL:0000540', 'celltype_display': 'neuron'}}}
+    # e.g. {'tissue': {1: {'id': 1, 'uid': '1fIFAQJY', 'abbr': None, 'name': 'brain', 'tissue': 1, 'feature': 1, 'ontology_id': 'UBERON:0000955', 'tissue_display': 'brain'}, 10: {'id': 2, 'uid': '7Tt4iEKc', 'abbr': None, 'name': 'lung', 'tissue': 10, 'feature': 1, 'ontology_id': 'UBERON:0002048', 'tissue_display': 'lung'}}, 'celltype': {1: {'id': 1, 'uid': '3QnZfoBk', 'abbr': None, 'name': 'neuron', 'feature': 2, 'celltype': 1, 'ontology_id': 'CL:0000540', 'celltype_display': 'neuron'}}}
+    # integers are the ids of the related labels
     m2m_name = {}
     for related_name, values in m2m_data.items():
         link_model = getattr(self.__class__, related_name).through
@@ -174,6 +177,7 @@ def _get_categoricals_postgres(
 
     # Get feature information
     links_data = related_data.get("link", {}) if related_data else {}
+    # e.g. feature_dict = {1: ('tissue', 'cat[bionty.Tissue.ontology_id]'), 2: ('cell_type', 'cat[bionty.CellType]')}
     feature_dict = {
         id: (name, dtype)
         for id, name, dtype in Feature.objects.using(self._state.db).values_list(
@@ -194,8 +198,9 @@ def _get_categoricals_postgres(
                 continue
 
             feature_name, feature_dtype = feature_dict.get(feature_id)
+            feature_field = parse_dtype(feature_dtype)[0]["field_str"]
             label_id = link_value.get(related_name)
-            label_name = m2m_name.get(related_name, {}).get(label_id)
+            label_name = m2m_name.get(related_name, {}).get(label_id).get(feature_field)
             if label_name:
                 result[(feature_name, feature_dtype)].add(label_name)
 
@@ -211,12 +216,10 @@ def _get_categoricals(
         for link in links:
             if hasattr(link, "feature_id") and link.feature_id is not None:
                 feature = Feature.objects.using(self._state.db).get(id=link.feature_id)
+                feature_field = parse_dtype(feature.dtype)[0]["field_str"]
                 link_attr = get_link_attr(link, self)
                 label = getattr(link, link_attr)
-                name_attr = (
-                    "name" if hasattr(label, "name") else label.__class__._name_field
-                )
-                label_name = getattr(label, name_attr)
+                label_name = getattr(label, feature_field)
                 result[(feature.name, feature.dtype)].add(label_name)
 
     return dict(result)
@@ -357,6 +360,7 @@ def describe_features(
 
     # categorical feature values
     # Get the categorical data using the appropriate method
+    # e.g. categoricals = {('tissue', 'cat[bionty.Tissue.ontology_id]'): {'brain'}, ('cell_type', 'cat[bionty.CellType]'): {'neuron'}}
     if not self._state.adding and connections[self._state.db].vendor == "postgresql":
         categoricals = _get_categoricals_postgres(
             self,
@@ -393,7 +397,7 @@ def describe_features(
             printed_values = (
                 _format_values(sorted(values), n=10, quotes=False)
                 if not is_list_type or not feature_dtype.startswith("list")
-                else sorted(values)
+                else str(sorted(values))  # need to convert to string
             )
 
             # Sort into internal/external

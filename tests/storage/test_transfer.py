@@ -28,12 +28,41 @@ def test_transfer_from_remote_to_local(ccaplog):
         include_feature_link=True,
         include_schema=True,
     )
-    assert result["related_data"]["m2m"]["tissues"] == {2: "cortex of kidney"}
+    assert result["related_data"]["m2m"]["tissues"] == {
+        2: {
+            "id": 2,
+            "uid": "6VHBo6Xs",
+            "abbr": None,
+            "name": "cortex of kidney",
+            "tissue": 2,
+            "feature": None,
+            "ontology_id": "UBERON:0001225",
+            "tissue_display": "cortex of kidney",
+        }
+    }
     assert sorted(
         result["related_data"]["link"]["links_ulabel"], key=lambda d: d["id"]
     ) == [
-        {"id": 7, "ulabel": 15, "feature": 1, "ulabel_display": "donor_24"},
-        {"id": 8, "ulabel": 10, "feature": 10, "ulabel_display": "na"},
+        {
+            "id": 7,
+            "uid": "ydyPUMjh",
+            "name": "donor_24",
+            "ulabel": 15,
+            "feature": 1,
+            "reference": None,
+            "reference_type": None,
+            "ulabel_display": "donor_24",
+        },
+        {
+            "id": 8,
+            "uid": "JJ3d8a2v",
+            "name": "na",
+            "ulabel": 10,
+            "feature": 10,
+            "reference": None,
+            "reference_type": None,
+            "ulabel_display": "na",
+        },
     ]
     assert result["related_data"]["schemas"][615][0] == "obs"
     assert result["related_data"]["schemas"][615][1] == {
