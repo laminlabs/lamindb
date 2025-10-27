@@ -43,9 +43,13 @@ def _query_relatives(
         if len(records) == 0:
             return relatives
         for record in records:
-            relatives = relatives.union(
-                getattr(record, attr).filter(branch_id__in=branch_ids)
-            )
+            more_relatives = getattr(record, attr).filter(branch_id__in=branch_ids)
+            # avoid unnecessary union calls, say something has 30 children these grow a lot
+            # this is a database request but still faster than union calls
+            # we never ran into an issue for Postgres, but for SQLite
+            # it might be that Postgres is smart enough to optimize this away
+            if more_relatives.exists():
+                relatives = relatives.union(more_relatives)
         relatives = relatives.union(query_relatives_on_branches(relatives, attr, cls))
         return relatives
 
