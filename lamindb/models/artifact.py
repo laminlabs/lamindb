@@ -284,6 +284,8 @@ def process_data(
     if memory_rep is not None:
         path = settings.cache_dir / f"{provisional_uid}{suffix}"
         logger.important("writing the in-memory object into cache")
+        if parquet_kwargs is None:
+            parquet_kwargs = {}
         write_to_disk(data, path, **parquet_kwargs)
         use_existing_storage_key = False
 
