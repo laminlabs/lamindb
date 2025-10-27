@@ -280,7 +280,7 @@ Here is how to create a feature:
     ]
     assert dtypes_display == [
         "bionty.CellType",
-        "bionty.Disease",
+        "bionty.Disease.ontology_id",
         "Record",
         "Record",
         "bionty.Organism",
@@ -327,9 +327,9 @@ Here is how to create a feature:
         artifact == ln.Artifact.filter(disease=diseases[0]).one()
     )  # value is a record
     assert (
-        artifact == ln.Artifact.filter(disease="Alzheimer disease").one()
+        artifact == ln.Artifact.filter(disease="MONDO:0004975").one()
     )  # value is a string
-    assert artifact == ln.Artifact.filter(disease__contains="Alzheimer").one()
+    assert artifact == ln.Artifact.filter(disease__contains="0004975").one()
 
     # test not finding the Record
     with pytest.raises(DoesNotExist) as error:

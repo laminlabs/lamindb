@@ -397,7 +397,7 @@ def describe_features(
             printed_values = (
                 _format_values(sorted(values), n=10, quotes=False)
                 if not is_list_type or not feature_dtype.startswith("list")
-                else sorted(values)
+                else str(sorted(values))  # need to convert to string
             )
 
             # Sort into internal/external
