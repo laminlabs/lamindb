@@ -225,6 +225,7 @@ def process_data(
     using_key: str | None,
     skip_existence_check: bool = False,
     is_replace: bool = False,
+    parquet_kwargs: dict[str, Any] | None = None,
 ) -> tuple[Any, Path | UPath, str, Storage, bool]:
     """Serialize a data object that's provided as file or in memory.
 
@@ -282,12 +283,8 @@ def process_data(
     # in case we have an in-memory representation, we need to write it to disk
     if memory_rep is not None:
         path = settings.cache_dir / f"{provisional_uid}{suffix}"
-        if isinstance(format, dict):
-            format.pop("suffix", None)
-        else:
-            format = {}
         logger.important("writing the in-memory object into cache")
-        write_to_disk(data, path, **format)
+        write_to_disk(data, path, **parquet_kwargs)
         use_existing_storage_key = False
 
     return memory_rep, path, suffix, storage, use_existing_storage_key
@@ -428,6 +425,7 @@ def get_artifact_kwargs_from_data(
     skip_check_exists: bool = False,
     overwrite_versions: bool | None = None,
     skip_hash_lookup: bool = False,
+    parquet_kwargs: dict[str, Any] | None = None,
 ):
     memory_rep, path, suffix, storage, use_existing_storage_key = process_data(
         provisional_uid,
@@ -438,6 +436,7 @@ def get_artifact_kwargs_from_data(
         using_key,
         skip_check_exists,
         is_replace=is_replace,
+        parquet_kwargs=parquet_kwargs,
     )
 
     check_path_in_storage = False
@@ -1437,6 +1436,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         schema: Schema | None = kwargs.pop("schema", None)
         features: dict[str, Any] | None = kwargs.pop("features", None)
         skip_hash_lookup: bool = kwargs.pop("skip_hash_lookup", False)
+        parquet_kwargs: dict[str, Any] | None = kwargs.pop("parquet_kwargs", None)
 
         # validate external features if passed with a schema
         if features is not None:
@@ -1546,6 +1546,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             skip_check_exists=skip_check_exists,
             overwrite_versions=overwrite_versions,
             skip_hash_lookup=skip_hash_lookup,
+            parquet_kwargs=parquet_kwargs,
         )
 
         # an object with the same hash already exists
@@ -1811,6 +1812,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         revises: Artifact | None = None,
         schema: Schema | Literal["valid_features"] | None = None,
         features: dict[str, Any] | None = None,
+        parquet_kwargs: dict[str, Any] | None = None,
         **kwargs,
     ) -> Artifact:
         """Create from `DataFrame`, optionally validate & annotate.
@@ -1824,6 +1826,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             run: The run that creates the artifact.
             schema: A schema that defines how to validate & annotate.
             features: Additional external features to link.
+            parquet_kwargs: Additional keyword arguments passed to the
+                `pandas.DataFrame.to_parquet` method.
 
         Examples:
 
@@ -1843,6 +1847,11 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
             .. literalinclude:: scripts/curate_dataframe_external_features.py
                :language: python
+
+            Parquet kwargs:
+
+            .. literalinclude:: scripts/test_artifact_parquet.py
+               :language: python
         """
         from lamindb import examples
 
@@ -1858,6 +1867,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             revises=revises,
             otype="DataFrame",
             kind="dataset",
+            parquet_kwargs=parquet_kwargs,
             **kwargs,
         )
         artifact.n_observations = len(df)
