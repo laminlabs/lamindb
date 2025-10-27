@@ -30,7 +30,7 @@ def populate_sheets_compound_treatment():
     concentration = ln.Feature(name="concentration", dtype="num").save()
     # a sheet for treatments
     treatments_sheet = ln.Record(
-        name="My treatments 2025-05", type=treatment_type
+        name="My treatments 2025-05", type=treatment_type, is_type=True
     ).save()  # sheet without validating schema
 
     # populate treatment1
