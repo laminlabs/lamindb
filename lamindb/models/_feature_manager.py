@@ -1163,7 +1163,7 @@ class FeatureManager:
         else:
             feature_record = feature
         filter_kwargs = {"feature": feature_record}
-        if feature_record.dtype.startswith("cat["):  # type: ignore
+        if feature_record.dtype.startswith(("cat[", "list[cat")):  # type: ignore
             feature_registry = parse_dtype(feature_record.dtype)[0]["registry_str"]
             if value is not None:
                 assert isinstance(value, SQLRecord)  # noqa: S101
