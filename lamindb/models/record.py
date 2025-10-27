@@ -342,7 +342,7 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates, HasParents):
         While `.records` retrieves the direct children, this method
         retrieves all descendants of a record type.
         """
-        return _query_relatives([self], "records", self.__class__)  # type: ignore
+        return _query_relatives([self], "records", self.__class__, is_type=True)  # type: ignore
 
     def query_types(self) -> SQLRecordList:
         """Query types of a record recursively.
