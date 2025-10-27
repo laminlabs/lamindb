@@ -73,6 +73,14 @@ def test_from_dataframe_with_external_features_and_schema(
         ).save()
     assert "COLUMN_NOT_IN_DATAFRAME" in error.exconly()
 
+    # alternative via DataFrameCurator directly
+    with pytest.raises(ln.errors.ValidationError) as error:
+        ln.curators.DataFrameCurator(
+            df,
+            schema=schema_with_mistake,
+        ).validate()
+    assert "COLUMN_NOT_IN_DATAFRAME" in error.exconly()
+
     # Case 2: no schema for external features provided
     schema_no_external = ln.Schema(features=[feat1, feat2]).save()
     artifact = ln.Artifact.from_dataframe(
@@ -80,6 +88,18 @@ def test_from_dataframe_with_external_features_and_schema(
         key="test_df_with_external_features.parquet",
         features={"species": "bird", "split": "train"},
         schema=schema_no_external,
+    ).save()
+    assert artifact.features.get_values() == {"species": "bird", "split": "train"}
+    artifact.delete(permanent=True)
+
+    # alternative via DataFrameCurator directly
+    curator = ln.curators.DataFrameCurator(
+        df,
+        schema=schema_no_external,
+        features={"species": "bird", "split": "train"},
+    )
+    artifact = curator.save_artifact(
+        key="test_df_with_external_features.parquet",
     ).save()
     assert artifact.features.get_values() == {"species": "bird", "split": "train"}
     artifact.delete(permanent=True)
@@ -97,7 +117,20 @@ def test_from_dataframe_with_external_features_and_schema(
         schema=schema_correct_external,
     ).save()
     assert artifact.features.get_values() == {"species": "bird", "split": "train"}
+    artifact.delete(permanent=True)
 
+    # alternative via DataFrameCurator directly
+    curator = ln.curators.DataFrameCurator(
+        df,
+        schema=schema_correct_external,
+        features={"species": "bird", "split": "train"},
+    )
+    artifact = curator.save_artifact(
+        key="test_df_with_external_features.parquet",
+    ).save()
+    assert artifact.features.get_values() == {"species": "bird", "split": "train"}
+
+    # clean up everything
     inferred_schema = artifact.feature_sets.all()[0]
     artifact.feature_sets.remove(inferred_schema.id)
     inferred_schema.delete(permanent=True)
