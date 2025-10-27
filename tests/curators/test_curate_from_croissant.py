@@ -4,7 +4,7 @@ import lamindb as ln
 import pytest
 
 
-@pytest.mark.parametrize("filepath_prefix", [None, "testdb/"])
+@pytest.mark.parametrize("filepath_prefix", [None, "test-curators-db/"])
 def test_curate_artifact_from_croissant(filepath_prefix: str | None):
     croissant_path, dataset1_path = ln.examples.croissant.mini_immuno(
         n_files=1, filepath_prefix=filepath_prefix
