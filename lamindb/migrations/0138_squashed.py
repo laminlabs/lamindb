@@ -5473,7 +5473,10 @@ class Migration(migrations.Migration):
             model_name="artifact",
             name="users",
             field=models.ManyToManyField(
-                related_name="+", through="lamindb.ArtifactUser", to="lamindb.user"
+                related_name="+",
+                through="lamindb.ArtifactUser",
+                to="lamindb.user",
+                through_fields=("artifact", "user"),
             ),
         ),
         migrations.CreateModel(
