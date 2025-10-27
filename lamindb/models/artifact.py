@@ -1864,7 +1864,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         if features is not None:
             artifact._external_features = features
         if schema is not None:
-            from lamindb.curators.core import DataFrameCurator, ExperimentalDictCurator
+            from lamindb.curators.core import DataFrameCurator
 
             if not artifact._state.adding and artifact.suffix != ".parquet":
                 logger.warning(
@@ -1873,11 +1873,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 )
                 return artifact
 
-            if features is not None and "__external__" in schema.slots:
-                validation_schema = schema.slots["__external__"]
-                ExperimentalDictCurator(features, validation_schema).validate()
-
-            curator = DataFrameCurator(artifact, schema)
+            curator = DataFrameCurator(artifact, schema, features=features)
             curator.validate()
             artifact.schema = schema
             artifact._curator = curator
@@ -2843,16 +2839,15 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         # annotate with external features
         if hasattr(self, "_external_features"):
             external_features = self._external_features
-            delattr(self, "_external_features")
             self.features.add_values(external_features)
-
         # annotate with internal features based on curator
         if hasattr(self, "_curator"):
             curator = self._curator
             delattr(self, "_curator")
             # just annotates this artifact
             curator.save_artifact()
-
+        if hasattr(self, "_external_features"):
+            delattr(self, "_external_features")
         return self
 
     def describe(self, return_str: bool = False) -> None | str:
