@@ -96,8 +96,14 @@ def describe_labels(
     for related_name, labels in labels_data.items():
         if not labels or related_name == "feature_sets":
             continue
-        if isinstance(labels, dict):  # postgres, labels are a dict[id, name]
-            print_values = _format_values(labels.values(), n=10, quotes=False)
+        if isinstance(labels, dict):
+            displays = [
+                d[key]
+                for d in labels.values()
+                for key in d.keys()
+                if key.endswith("_display")
+            ]
+            print_values = _format_values(displays, n=10, quotes=False)
         else:  # labels are a QuerySet
             field = get_name_field(labels)
             print_values = _format_values(
