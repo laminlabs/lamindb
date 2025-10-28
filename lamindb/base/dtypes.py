@@ -1,3 +1,9 @@
+"""Dtype utils.
+
+.. autofunction:: check_dtype
+
+"""
+
 from datetime import datetime
 from typing import Any, Callable, Iterable
 

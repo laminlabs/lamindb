@@ -1,5 +1,7 @@
 """Fields.
 
+Django fields with modified default arguments.
+
 .. autoclass:: CharField
 .. autoclass:: TextField
 .. autoclass:: ForeignKey
