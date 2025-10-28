@@ -1,10 +1,7 @@
 """Example schemas.
 
-.. autosummary::
-   :toctree: .
-
-   valid_features
-   anndata_ensembl_gene_ids_and_valid_features_in_obs
+.. autofunction:: valid_features
+.. autofunction:: anndata_ensembl_gene_ids_and_valid_features_in_obs
 
 """
 

@@ -1,28 +1,44 @@
 """Models library.
 
-.. autosummary::
-   :toctree: .
+Central registry classes
+--------------------
 
-   BaseSQLRecord
-   SQLRecord
-   Registry
-   BasicQuerySet
-   QuerySet
-   ArtifactSet
-   LazyArtifact
-   QueryManager
-   SQLRecordList
-   FeatureManager
-   LabelManager
-   IsVersioned
-   CanCurate
-   HasParents
-   TracksRun
-   TracksUpdates
-   FeatureValue
-   InspectResult
-   ValidateFields
-   SchemaOptionals
+.. autoclass:: BaseSQLRecord
+.. autoclass:: SQLRecord
+.. autoclass:: Registry
+
+Mixins for registries
+---------------------
+
+.. autoclass:: IsVersioned
+.. autoclass:: CanCurate
+.. autoclass:: HasParents
+.. autoclass:: TracksRun
+.. autoclass:: TracksUpdates
+
+Query sets & managers
+---------------------
+
+.. autoclass:: BasicQuerySet
+.. autoclass:: QuerySet
+.. autoclass:: ArtifactSet
+.. autoclass:: QueryManager
+.. autoclass:: FeatureManager
+.. autoclass:: LabelManager
+
+Storage of feature values
+-------------------------
+
+.. autoclass:: FeatureValue
+
+Utility classes
+---------------
+
+.. autoclass:: LazyArtifact
+.. autoclass:: SQLRecordList
+.. autoclass:: InspectResult
+.. autoclass:: ValidateFields
+.. autoclass:: SchemaOptionals
 
 """
 
