@@ -462,6 +462,7 @@ class RecordUser(BaseSQLRecord, IsLink):
         unique_together = ("record", "feature", "value")
 
 
+# for storing run-like values in records
 class RecordRun(BaseSQLRecord, IsLink):
     id: int = models.BigAutoField(primary_key=True)
     record: Record = ForeignKey(Record, CASCADE, related_name="values_run")
@@ -474,6 +475,7 @@ class RecordRun(BaseSQLRecord, IsLink):
         unique_together = ("record", "feature", "value")
 
 
+# for annotating runs with records
 class RunRecord(BaseSQLRecord, IsLink):
     id: int = models.BigAutoField(primary_key=True)
     run: Run = ForeignKey(Run, CASCADE, related_name="links_record")
@@ -491,6 +493,7 @@ class RunRecord(BaseSQLRecord, IsLink):
         unique_together = ("run", "record", "feature")
 
 
+# for storing artifact-like values in records
 class RecordArtifact(BaseSQLRecord, IsLink):
     id: int = models.BigAutoField(primary_key=True)
     record: Record = ForeignKey(Record, CASCADE, related_name="values_artifact")
@@ -503,7 +506,7 @@ class RecordArtifact(BaseSQLRecord, IsLink):
         unique_together = ("record", "feature", "value")
 
 
-# like ArtifactULabel, for annotation
+# for annotating artifacts with records
 class ArtifactRecord(BaseSQLRecord, IsLink, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
     artifact: Artifact = ForeignKey(Artifact, CASCADE, related_name="links_record")
