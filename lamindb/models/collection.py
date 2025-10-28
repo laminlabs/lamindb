@@ -384,7 +384,7 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             expressions: Fields and values passed as Django query expressions.
 
         Raises:
-            :exc:`docs:lamindb.errors.DoesNotExist`: In case no matching record is found.
+            :exc:`lamindb.errors.DoesNotExist`: In case no matching record is found.
 
         See Also:
             - Method in `SQLRecord` base class: :meth:`~lamindb.models.SQLRecord.get`
