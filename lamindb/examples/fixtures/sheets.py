@@ -229,8 +229,10 @@ def populate_nextflow_sheet_with_samples():
     df = pd.DataFrame(sample_data)
 
     features = ln.Feature.lookup()
+    nextflow_samples = []
     for _, row in df.iterrows():
         sample = ln.Record(type=nextflow_sheet).save()
+        nextflow_samples.append(sample)
         ln.models.RecordRecord(
             record=sample,
             feature=features.sample,
@@ -247,3 +249,38 @@ def populate_nextflow_sheet_with_samples():
         ).save()
 
     yield nextflow_sheet
+
+    # Delete in reverse order of creation
+    # Delete nextflow samples
+    for sample in reversed(nextflow_samples):
+        sample.delete(permanent=True)
+
+    # Delete nextflow sheet and schema
+    nextflow_sheet.delete(permanent=True)
+    nextflowsample_type.delete(permanent=True)
+    nextflow_schema.delete(permanent=True)
+
+    # Delete nextflow schema features
+    features = ln.Feature.lookup()
+    features.seq_center.delete(permanent=True)
+    features.expected_cells.delete(permanent=True)
+    features.fastq_2.delete(permanent=True)
+    features.fastq_1.delete(permanent=True)
+    features.sample.delete(permanent=True)
+
+    # Delete biosamples
+    sample_y.delete(permanent=True)
+    sample_x.delete(permanent=True)
+
+    # Delete samples sheet and schema
+    samples_sheet.delete(permanent=True)
+    # biosample_type.delete(permanent=True)  # not for now (shared with first fixture)
+    samples_schema.delete(permanent=True)
+
+    # Delete biosample schema features
+    features.tissue.delete(permanent=True)
+    features.cell_type.delete(permanent=True)
+    features.species.delete(permanent=True)
+
+    # Note: organism_human, celltype_tcell, tissue_blood are from bionty
+    # and might be shared, so not deleting them (similar to hek293t in first fixture)
