@@ -1881,6 +1881,16 @@ class SQLRecordInfo:
             class_specific_relational_fields + filtered_non_class_specific
         )
 
+        # For Record class, move linked_in fields to the end
+        if self.registry.__name__ == "Record":
+            linked_in_fields = [
+                f for f in ordered_relational_fields if f.name.startswith("linked_")
+            ]
+            other_fields = [
+                f for f in ordered_relational_fields if not f.name.startswith("linked_")
+            ]
+            ordered_relational_fields = other_fields + linked_in_fields
+
         core_module_fields = []
         external_modules_fields = []
         for field in ordered_relational_fields:
