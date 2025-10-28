@@ -1,5 +1,3 @@
-import bionty as bt
-
 import lamindb as ln
 
 # observation-level metadata
@@ -17,7 +15,6 @@ ln.Feature(name="study_metadata", dtype=dict).save()
 ## Permissible values for categoricals
 ln.Record.from_values(["DMSO", "IFNG"], create=True).save()
 ln.Record.from_values(["Experiment 1", "Experiment 2"], create=True).save()
-bt.CellType.from_values(["B cell", "T cell"], create=True).save()
 
 schema = ln.examples.schemas.anndata_ensembl_gene_ids_and_valid_features_in_obs()
 
