@@ -336,7 +336,7 @@ class Transform(SQLRecord, IsVersioned):
         )
 
     @property
-    @deprecated
+    @deprecated("key")
     def name(self) -> str:
         """Name of the transform.
 
