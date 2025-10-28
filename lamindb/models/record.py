@@ -232,6 +232,8 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates, HasParents):
     """References linked in this record as values."""
     linked_users: User
     """Users linked in this record as values."""
+    blocks: RunBlock
+    """Blocks that annotate this record."""
     values_json: RecordJson
     """JSON values (for lists, dicts, etc.)."""
     values_record: RecordRecord
@@ -248,8 +250,6 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates, HasParents):
     """Reference values with their features."""
     values_project: Project
     """Project values with their features."""
-    blocks: RunBlock
-    """Blocks that annotate this record."""
 
     @overload
     def __init__(
