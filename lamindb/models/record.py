@@ -38,6 +38,7 @@ if TYPE_CHECKING:
 
     import pandas as pd
 
+    from ._feature_manager import FeatureManager
     from .blocks import RunBlock
     from .project import Project, Reference
     from .schema import Schema
@@ -211,22 +212,6 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates, HasParents):
     """Projects that annotate this record."""
     references: Reference
     """References that annotate this record."""
-    values_json: RecordJson
-    """JSON values (for lists, dicts, etc.)."""
-    values_record: RecordRecord
-    """Record values with their features."""
-    values_ulabel: RecordULabel
-    """ULabel values with their features."""
-    values_user: RecordUser
-    """User values with their features."""
-    values_run: RecordRun
-    """Run values with their features."""
-    values_artifact: RecordArtifact
-    """Artifact values with their features."""
-    values_reference: Reference
-    """Reference values with their features."""
-    values_project: Project
-    """Project values with their features."""
     linked_runs: Run = models.ManyToManyField(
         Run, through="RecordRun", related_name="linked_in_records"
     )
@@ -245,6 +230,22 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates, HasParents):
     """Projects linked in this record as values."""
     linked_references: Reference
     """References linked in this record as values."""
+    values_json: RecordJson
+    """JSON values (for lists, dicts, etc.)."""
+    values_record: RecordRecord
+    """Record values with their features (the links)."""
+    values_ulabel: RecordULabel
+    """ULabel values with their features."""
+    values_user: RecordUser
+    """User values with their features."""
+    values_run: RecordRun
+    """Run values with their features."""
+    values_artifact: RecordArtifact
+    """Artifact values with their features."""
+    values_reference: Reference
+    """Reference values with their features."""
+    values_project: Project
+    """Project values with their features."""
     blocks: RunBlock
     """Blocks that annotate this record."""
 
@@ -314,6 +315,13 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates, HasParents):
             _skip_validation=_skip_validation,
             _aux=_aux,
         )
+
+    @property
+    def features(self) -> FeatureManager:
+        """Manage annotations with features."""
+        from ._feature_manager import FeatureManager
+
+        return FeatureManager(self)
 
     @property
     def is_form(self) -> bool:
