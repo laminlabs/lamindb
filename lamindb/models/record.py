@@ -38,7 +38,6 @@ if TYPE_CHECKING:
 
     import pandas as pd
 
-    from ._feature_manager import FeatureManager
     from .blocks import RunBlock
     from .project import Project, Reference
     from .schema import Schema
@@ -315,13 +314,6 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates, HasParents):
             _skip_validation=_skip_validation,
             _aux=_aux,
         )
-
-    @property
-    def features(self) -> FeatureManager:
-        """Manage annotations with features."""
-        from ._feature_manager import FeatureManager
-
-        return FeatureManager(self)
 
     @property
     def is_form(self) -> bool:

@@ -1096,7 +1096,7 @@ class FeatureManager:
             hint = ""
             for key, (field, values_list) in not_validated_values.items():
                 key_str = "ln.Record" if key == "Record" else key
-                create_true = ", create=True" if "bionty." in key else ""
+                create_true = ", create=True" if "bionty." not in key else ""
                 hint += f"  records = {key_str}.from_values({values_list}, field='{field}'{create_true}).save()\n"
             msg = (
                 f"These values could not be validated: {dict(not_validated_values)}\n"

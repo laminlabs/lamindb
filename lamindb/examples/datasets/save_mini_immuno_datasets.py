@@ -1,4 +1,11 @@
+import bionty as bt
+
 import lamindb as ln
+
+## define valid labels
+ln.Record.from_values(["DMSO", "IFNG"], create=True).save()
+ln.Record.from_values(["Experiment 1", "Experiment 2"], create=True).save()
+bt.CellType.from_values(["B cell", "T cell"]).save()
 
 # observation-level metadata
 ln.Feature(name="perturbation", dtype="cat[Record]").save()
@@ -11,10 +18,6 @@ ln.Feature(name="experiment", dtype="cat[Record]").save()
 ln.Feature(name="date_of_study", dtype="date").save()
 ln.Feature(name="study_note", dtype="str").save()
 ln.Feature(name="study_metadata", dtype=dict).save()
-
-## Permissible values for categoricals
-ln.Record.from_values(["DMSO", "IFNG"], create=True).save()
-ln.Record.from_values(["Experiment 1", "Experiment 2"], create=True).save()
 
 schema = ln.examples.schemas.anndata_ensembl_gene_ids_and_valid_features_in_obs()
 

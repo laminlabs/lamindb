@@ -483,9 +483,9 @@ def test_add_remove_list_features(ccaplog):
 
 
 def test_add_list_of_cat_features():
-    type_1 = ln.ULabel(name="Type 1", is_type=True).save()
+    type_1 = ln.Record(name="Type 1", is_type=True).save()
     for label in ["label 1", "label 2", "label 3"]:
-        ln.ULabel(name=label, type=type_1).save()
+        ln.Record(name=label, type=type_1).save()
     feat1 = ln.Feature(
         name="single_label_of_type1", dtype=type_1, nullable=False
     ).save()
@@ -511,8 +511,9 @@ def test_add_list_of_cat_features():
                 "single_label_of_type1": "invalid",
             }
         )
+    print(error.exconly())
     assert error.exconly().startswith(
-        "lamindb.errors.ValidationError: These values could not be validated: {'ULabel': ['invalid']}"
+        "lamindb.errors.ValidationError: These values could not be validated: {'Record': ('name', ['invalid'])}"
     )
     # now for list of labels
     with pytest.raises(ValidationError) as error:
@@ -521,15 +522,16 @@ def test_add_list_of_cat_features():
                 "list_of_labels_of_type1": ["invalid", "invalid2"],
             }
         )
+    print(error.exconly())
     assert error.exconly().startswith(
-        "lamindb.errors.ValidationError: These values could not be validated: {'ULabel': ['invalid', 'invalid2']}"
+        "lamindb.errors.ValidationError: These values could not be validated: {'Record': ('name', ['invalid', 'invalid2'])}"
     )
 
     artifact.delete(permanent=True)
     schema.delete(permanent=True)
     feat1.delete(permanent=True)
     feat2.delete(permanent=True)
-    type_1.ulabels.all().delete(permanent=True)
+    type_1.records.all().delete(permanent=True)
     type_1.delete(permanent=True)
 
 
