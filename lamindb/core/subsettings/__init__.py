@@ -1,10 +1,7 @@
 """Sub settings.
 
-.. autosummary::
-   :toctree: .
-
-   CreationSettings
-   AnnotationSettings
+.. autoclass:: CreationSettings
+.. autoclass:: AnnotationSettings
 
 """
 

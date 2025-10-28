@@ -1,24 +1,19 @@
 """Universal IDs.
 
-Base generators:
+Base generators
+===============
 
-.. autosummary::
-   :toctree: .
+.. autofunction:: base26
+.. autofunction:: base62
+.. autofunction:: base64
 
-   base26
-   base62
-   base64
+UID generators
+================
 
-`uid` generators:
-
-.. autosummary::
-   :toctree: .
-
-   base62_8
-   base62_12
-   base62_16
-   base62_20
-
+.. autofunction:: base62_8
+.. autofunction:: base62_12
+.. autofunction:: base62_16
+.. autofunction:: base62_20
 
 Collision probabilities
 =======================

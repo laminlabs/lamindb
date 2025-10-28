@@ -1,23 +1,19 @@
 """Types.
 
-Central object types.
+Central object types
+--------------------
 
-.. autosummary::
-   :toctree: .
+.. autoclass:: ArtifactKind
+.. autoclass:: TransformType
+.. autoclass:: Dtype
 
-   ArtifactKind
-   TransformType
-   Dtype
+Basic types
+-----------
 
-Basic types.
-
-.. autosummary::
-   :toctree: .
-
-   UPathStr
-   StrField
-   ListLike
-   FieldAttr
+.. autoclass:: UPathStr
+.. autoclass:: StrField
+.. autoclass:: ListLike
+.. autoclass:: FieldAttr
 """
 
 from __future__ import annotations

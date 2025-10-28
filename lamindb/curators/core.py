@@ -1,14 +1,11 @@
 """Curator utilities.
 
-.. autosummary::
-   :toctree: .
-
-   Curator
-   SlotsCurator
-   ComponentCurator
-   CatVector
-   CatLookup
-   DataFrameCatManager
+.. autoclass:: Curator
+.. autoclass:: SlotsCurator
+.. autoclass:: ComponentCurator
+.. autoclass:: CatVector
+.. autoclass:: CatLookup
+.. autoclass:: DataFrameCatManager
 
 """
 
@@ -182,7 +179,9 @@ class Curator:
         - :class:`~lamindb.curators.TiledbsomaExperimentCurator`
     """
 
-    def __init__(self, dataset: Any, schema: Schema):
+    def __init__(
+        self, dataset: Any, schema: Schema, *, features: dict[str, Any] | None = None
+    ) -> None:
         if not isinstance(schema, Schema):
             raise InvalidArgument("schema argument must be a Schema record.")
         if schema.pk is None:
@@ -223,6 +222,7 @@ class Curator:
         else:
             self._dataset = dataset
         self._schema: Schema = schema
+        self._external_features: dict[str, Any] = features or {}
         self._is_validated: bool = False
 
     @doc_args(VALIDATE_DOCSTRING)
@@ -317,8 +317,10 @@ class SlotsCurator(Curator):
         self,
         dataset: Artifact | ScverseDataStructures | SOMAExperiment,
         schema: Schema,
+        *,
+        features: dict[str, Any] | None = None,
     ) -> None:
-        super().__init__(dataset=dataset, schema=schema)
+        super().__init__(dataset=dataset, schema=schema, features=features)
         self._slots: dict[str, ComponentCurator] = {}
 
         # used for multimodal data structures (not AnnData)
@@ -336,6 +338,11 @@ class SlotsCurator(Curator):
     @doc_args(VALIDATE_DOCSTRING)
     def validate(self) -> None:
         """{}"""  # noqa: D415
+        if self._external_features is not None and "__external__" in self._schema.slots:
+            validation_schema = self._schema.slots["__external__"]
+            ExperimentalDictCurator(
+                self._external_features, validation_schema
+            ).validate()
         for slot, curator in self._slots.items():
             logger.debug(f"validating slot {slot} ...")
             curator.validate()
@@ -380,6 +387,7 @@ class SlotsCurator(Curator):
 
             for type_check, af_constructor in type_mapping:
                 if type_check(self._dataset):
+                    # not all Artifact constructors support `features` yet
                     self._artifact = af_constructor(  # type: ignore
                         self._dataset,
                         key=key,
@@ -387,6 +395,7 @@ class SlotsCurator(Curator):
                         revises=revises,
                         run=run,
                     )
+                    self._artifact._external_features = self._external_features
                     break
 
         cat_vectors = {}
@@ -395,6 +404,8 @@ class SlotsCurator(Curator):
                 cat_vectors[key] = cat_vector
 
         self._artifact.schema = self._schema
+        if self._external_features:
+            assert self._artifact._external_features == self._external_features
         self._artifact.save()
         return annotate_artifact(  # type: ignore
             self._artifact,
@@ -679,17 +690,18 @@ class DataFrameCurator(SlotsCurator):
         self,
         dataset: pd.DataFrame | Artifact,
         schema: Schema,
+        *,
         slot: str | None = None,
+        features: dict[str, Any] | None = None,
     ) -> None:
         # loads or opens dataset, dataset may be an artifact
-        super().__init__(dataset=dataset, schema=schema)
+        super().__init__(dataset=dataset, schema=schema, features=features)
         # uses open dataset at self._dataset
         self._atomic_curator = ComponentCurator(
             dataset=self._dataset,
             schema=schema,
             slot=slot,
         )
-
         # Handle (nested) attrs
         if slot is None and schema.slots:
             for slot_name, slot_schema in schema.slots.items():

@@ -1,6 +1,8 @@
 __MACOSX/
 
 # LaminDB
+README_stripped.md
+docs/scripts/test_artifact_parquet.py
 README.ipynb
 docs/sample.fasta
 docs/scripts/define_mini_immuno_features_labels.py

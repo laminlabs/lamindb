@@ -1,7 +1,7 @@
 """A data framework for biology.
 
-Data lineage
-============
+Lineage
+=======
 
 Track inputs, outputs & environment of a notebook or script run.
 
@@ -18,20 +18,32 @@ Decorate a function with `@tracked()` to track inputs, outputs & environment of 
 
    tracked
 
-Registries
-==========
+Artifacts & storage locations
+=============================
 
-Manage artifacts and transforms.
+Files, folders & arrays and their storage locations.
 
 .. autosummary::
    :toctree: .
 
    Artifact
    Storage
+
+Transforms & runs
+=================
+
+Data transformations and their executions.
+
+.. autosummary::
+   :toctree: .
+
    Transform
    Run
 
-Create labels and manage sheets with flexible records, e.g., for samples or donors.
+Records, features & schemas
+===========================
+
+Create labels and manage flexible records, e.g., for samples or donors.
 
 .. autosummary::
    :toctree: .
@@ -46,7 +58,8 @@ Define features & schemas to validate artifacts & records.
    Feature
    Schema
 
-Manage projects.
+Project management
+==================
 
 .. autosummary::
    :toctree: .
@@ -58,10 +71,10 @@ Manage projects.
    Branch
    Reference
 
-Other
-=====
+Basic utilities
+===============
 
-Functions and classes.
+Connecting, viewing database content, accessing settings & run context.
 
 .. autosummary::
    :toctree: .
@@ -73,7 +86,8 @@ Functions and classes.
    settings
    context
 
-Curators and integrations.
+Curators and integrations
+=========================
 
 .. autosummary::
    :toctree: .
@@ -81,7 +95,8 @@ Curators and integrations.
    curators
    integrations
 
-Examples, errors, and setup.
+Examples, errors & setup
+========================
 
 .. autosummary::
    :toctree: .
@@ -90,7 +105,8 @@ Examples, errors, and setup.
    errors
    setup
 
-Low-level functionality.
+Developer API
+=============
 
 .. autosummary::
    :toctree: .

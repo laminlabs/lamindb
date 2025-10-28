@@ -1,9 +1,6 @@
 """Examples for MLCommons Croissant files, which are used to store metadata about datasets.
 
-.. autosummary::
-   :toctree: .
-
-   mini_immuno
+.. autofunction:: mini_immuno
 
 """
 

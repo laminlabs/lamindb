@@ -1,17 +1,14 @@
 """Loaders in :class:`lamindb.Artifact.load`.
 
-.. autosummary::
-   :toctree: .
-
-   SUPPORTED_SUFFIXES
-   load_fcs
-   load_tsv
-   load_h5ad
-   load_h5mu
-   load_html
-   load_json
-   load_image
-   load_svg
+.. autodata:: SUPPORTED_SUFFIXES
+.. autofunction:: load_fcs
+.. autofunction:: load_tsv
+.. autofunction:: load_h5ad
+.. autofunction:: load_h5mu
+.. autofunction:: load_html
+.. autofunction:: load_json
+.. autofunction:: load_image
+.. autofunction:: load_svg
 
 """
 

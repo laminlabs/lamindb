@@ -72,7 +72,7 @@ if TYPE_CHECKING:
     import pandas as pd
 
     from .artifact import Artifact
-    from .blocks import Block
+    from .block import BranchBlock, SpaceBlock
     from .run import Run, User
     from .transform import Transform
 
@@ -527,10 +527,10 @@ class Registry(ModelBase):
             expressions: Fields and values passed as Django query expressions.
 
         Raises:
-            :exc:`docs:lamindb.errors.DoesNotExist`: In case no matching record is found.
+            :exc:`lamindb.errors.DoesNotExist`: In case no matching record is found.
 
         See Also:
-            - Guide: :doc:`docs:registries`
+            - Guide: :doc:`registries`
             - Django documentation: `Queries <https://docs.djangoproject.com/en/stable/topics/db/queries/>`__
 
         Examples:
@@ -1108,7 +1108,7 @@ class Space(BaseSQLRecord):
         "User", CASCADE, default=None, related_name="+", null=True
     )
     """Creator of space."""
-    blocks: Block
+    blocks: SpaceBlock
     """Blocks that annotate this space."""
 
     @overload
@@ -1200,7 +1200,7 @@ class Branch(BaseSQLRecord):
         "User", CASCADE, default=None, related_name="+", null=True
     )
     """Creator of branch."""
-    blocks: Block
+    blocks: BranchBlock
     """Blocks that annotate this branch."""
 
     @overload

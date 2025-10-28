@@ -1,33 +1,30 @@
 """Fields.
 
-.. autosummary::
-   :toctree: .
+Django fields with modified default arguments.
 
-   CharField
-   TextField
-   ForeignKey
-   BooleanField
-   DateField
-   DateTimeField
-   BigIntegerField
-   IntegerField
-   OneToOneField
-   FloatField
-   DecimalField
-   BinaryField
-   JSONField
-   EmailField
-   TimeField
-   SlugField
-   URLField
-   UUIDField
-   PositiveIntegerField
-   PositiveSmallIntegerField
-   SmallIntegerField
-   GenericIPAddressField
-   DurationField
-   CharField
-   TextField
+.. autoclass:: CharField
+.. autoclass:: TextField
+.. autoclass:: ForeignKey
+.. autoclass:: BooleanField
+.. autoclass:: DateField
+.. autoclass:: DateTimeField
+.. autoclass:: BigIntegerField
+.. autoclass:: IntegerField
+.. autoclass:: OneToOneField
+.. autoclass:: FloatField
+.. autoclass:: DecimalField
+.. autoclass:: BinaryField
+.. autoclass:: JSONField
+.. autoclass:: EmailField
+.. autoclass:: TimeField
+.. autoclass:: SlugField
+.. autoclass:: URLField
+.. autoclass:: UUIDField
+.. autoclass:: PositiveIntegerField
+.. autoclass:: PositiveSmallIntegerField
+.. autoclass:: SmallIntegerField
+.. autoclass:: GenericIPAddressField
+.. autoclass:: DurationField
 """
 
 from django.db import models
