@@ -1721,10 +1721,10 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 Use `path=...` to get an artifact for a local or remote filepath if exists.
 
         Raises:
-            :exc:`docs:lamindb.errors.DoesNotExist`: In case no matching record is found.
+            :exc:`lamindb.errors.DoesNotExist`: In case no matching record is found.
 
         See Also:
-            - Guide: :doc:`docs:registries`
+            - Guide: :doc:`registries`
             - Method in `SQLRecord` base class: :meth:`~lamindb.models.SQLRecord.get`
 
         Examples:

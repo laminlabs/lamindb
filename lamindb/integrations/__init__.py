@@ -1,11 +1,18 @@
 """Integrations.
 
+Functions
+---------
+
+.. autofunction:: save_vitessce_config
+.. autofunction:: save_tiledbsoma_experiment
+.. autofunction:: curate_from_croissant
+
+Modules
+-------
+
 .. autosummary::
    :toctree: .
 
-   save_vitessce_config
-   save_tiledbsoma_experiment
-   curate_from_croissant
    lightning
 """
 

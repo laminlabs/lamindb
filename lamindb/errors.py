@@ -1,24 +1,19 @@
 """Errors.
 
-::
-
-   ValidationError
-   InvalidArgument
-   DoesNotExist
-   NotebookNotSaved
-   UnknownStorageLocation
-   MissingContextUID
-   UpdateContext
-   IntegrityError
-   FieldValidationError
-   SQLRecordNameChangeIntegrityError
-   NoWriteAccess
-   BlobHashNotFound
+.. autoexception:: ValidationError
+.. autoexception:: InvalidArgument
+.. autoexception:: DoesNotExist
+.. autoexception:: NotebookNotSaved
+.. autoexception:: UnknownStorageLocation
+.. autoexception:: MissingContextUID
+.. autoexception:: UpdateContext
+.. autoexception:: IntegrityError
+.. autoexception:: FieldValidationError
+.. autoexception:: SQLRecordNameChangeIntegrityError
+.. autoexception:: NoWriteAccess
+.. autoexception:: BlobHashNotFound
 
 """
-# we do not want to use autosummary because it makes stub pages, which are unnecessary here
-# when using .. autoclass:: the page looks strange, and we'd need to invest in design; not easy
-# we want minimal docs with a minimal toctree where only important concepts get their own page
 
 
 # inheriting from SystemExit has the sole purpose of suppressing

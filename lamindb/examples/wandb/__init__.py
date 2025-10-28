@@ -1,9 +1,6 @@
 """Examples and utilities for Weights & Biases.
 
-.. autosummary::
-   :toctree: .
-
-   save_wandb_features
+.. autofunction:: save_wandb_features
 """
 
 import lamindb as ln

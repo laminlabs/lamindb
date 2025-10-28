@@ -1,9 +1,6 @@
 """Examples and utilities for Mlflow.
 
-.. autosummary::
-   :toctree: .
-
-   save_mlflow_features
+.. autofunction:: save_mlflow_features
 """
 
 import lamindb as ln

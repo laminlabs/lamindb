@@ -1,10 +1,7 @@
 """CELLxGENE utilities.
 
-.. autosummary::
-   :toctree: .
-
-   save_cellxgene_defaults
-   create_cellxgene_schema
+.. autofunction:: save_cellxgene_defaults
+.. autofunction:: create_cellxgene_schema
 
 """
 

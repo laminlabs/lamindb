@@ -2,7 +2,8 @@
 
 Is available also when no instance is setup.
 
-Modules:
+Modules
+------
 
 .. autosummary::
    :toctree: .
@@ -12,13 +13,11 @@ Modules:
    fields
    dtypes
 
-Utils:
+Utils
+-----
 
-.. autosummary::
-   :toctree: .
-
-   doc_args
-   deprecated
+.. autodecorator:: doc_args
+.. autodecorator:: deprecated
 
 """
 

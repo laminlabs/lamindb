@@ -1,9 +1,6 @@
 """PyTorch Lightning.
 
-.. autosummary::
-    :toctree: .
-
-    Callback
+.. autoclass:: Callback
 """
 
 from pathlib import Path
