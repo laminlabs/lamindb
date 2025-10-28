@@ -129,29 +129,29 @@ def populate_sheets_compound_treatment():
 
     yield treatments_sheet, sample_sheet1
 
-    sample4.delete()
-    sample3.delete()
-    sample_sheet2.delete()
-    sample_schema2.delete()
-    sample_note.delete()
-    sample2.delete()
-    sample1.delete()
-    # hek293t.delete()  # not for now
-    sample_sheet1.delete()
-    sample_schema1.delete()
-    preparation_date.delete()
-    cell_line.delete()
-    # sample_type.delete()   # not for now
-    treatment2.delete()
-    treatment1.delete()
-    treatments_sheet.delete()
-    treatment_type.delete()
-    concentration.delete()
-    drug2.delete()
-    drug1.delete()
-    structure.delete()
-    compound.delete()
-    compound_type.delete()
+    sample4.delete(permanent=True)
+    sample3.delete(permanent=True)
+    sample_sheet2.delete(permanent=True)
+    sample_schema2.delete(permanent=True)
+    sample_note.delete(permanent=True)
+    sample2.delete(permanent=True)
+    sample1.delete(permanent=True)
+    # hek293t.delete(permanent=True)  # not for now
+    sample_sheet1.delete(permanent=True)
+    sample_schema1.delete(permanent=True)
+    preparation_date.delete(permanent=True)
+    cell_line.delete(permanent=True)
+    # sample_type.delete(permanent=True)   # not for now
+    treatment2.delete(permanent=True)
+    treatment1.delete(permanent=True)
+    treatments_sheet.delete(permanent=True)
+    treatment_type.delete(permanent=True)
+    concentration.delete(permanent=True)
+    drug2.delete(permanent=True)
+    drug1.delete(permanent=True)
+    structure.delete(permanent=True)
+    compound.delete(permanent=True)
+    compound_type.delete(permanent=True)
 
 
 @pytest.fixture(scope="module")
