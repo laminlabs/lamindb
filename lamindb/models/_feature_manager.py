@@ -1000,7 +1000,7 @@ class FeatureManager:
 
         features_labels = defaultdict(list)
         feature_json_values = []
-        not_validated_values: dict[str, list[str]] = defaultdict(list)
+        not_validated_values: dict[str, tuple[str, list[str]]] = {}
         for feature in records:
             value = dictionary[feature.name]
             inferred_type, converted_value, _ = infer_feature_type_convert_json(
@@ -1080,10 +1080,12 @@ class FeatureManager:
                     )
                     values_array = np.array(values)
                     validated_values = values_array[validated]
+                    key = result["registry_str"]
                     if validated.sum() != len(values):
-                        not_validated_values[result["registry_str"]] += values_array[  # type: ignore
-                            ~validated
-                        ].tolist()
+                        not_validated_values[result["registry_str"]] = (  # type: ignore
+                            result["field_str"],
+                            values_array[~validated].tolist(),
+                        )
                     label_records = result["registry"].from_values(  # type: ignore
                         validated_values, field=result["field"], mute=True
                     )
@@ -1092,9 +1094,10 @@ class FeatureManager:
                     ]
         if not_validated_values:
             hint = ""
-            for key, values_list in not_validated_values.items():
+            for key, (field, values_list) in not_validated_values.items():
                 key_str = "ln.Record" if key == "Record" else key
-                hint += f"  records = {key_str}.from_values({values_list}, create=True).save()\n"
+                create_true = ", create=True" if "bionty." in key else ""
+                hint += f"  records = {key_str}.from_values({values_list}, field='{field}'{create_true}).save()\n"
             msg = (
                 f"These values could not be validated: {dict(not_validated_values)}\n"
                 f"Here is how to create records for them:\n\n{hint}"
