@@ -162,11 +162,10 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates, HasParents):
     schema: Schema | None = ForeignKey(
         "Schema", CASCADE, null=True, related_name="records"
     )
-    """A schema to enforce for a type (optional).
+    """A schema to enforce for a type.
 
-    This is mostly parallel to the `schema` attribute of `Artifact`.
-
-    If `is_type` is `True`, the schema is used to enforce certain features for each records of this type.
+    This is analogous to the `schema` attribute of an `Artifact`.
+    If `is_type` is `True`, the schema is used to enforce features for each record of this type.
     """
     # naming convention in analogy to Schema
     components: Record = models.ManyToManyField(  # rename to linked_records
