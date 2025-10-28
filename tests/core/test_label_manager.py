@@ -1,6 +1,11 @@
+from pathlib import Path
+
 import bionty as bt
 import lamindb as ln
 import pytest
+from _dataset_fixtures import (  # noqa
+    get_mini_csv,
+)
 from lamindb.errors import ValidationError
 from lamindb.models.artifact import add_labels
 
@@ -285,11 +290,11 @@ def test_labels_add_using_anndata(adata):
     ln.Record.filter().delete(permanent=True)
 
 
-def test_labels_get(get_mini_csv):
+def test_labels_get(get_mini_csv: Path):  # noqa: F811
     artifact = ln.Artifact(get_mini_csv, description="test")
     # feature doesn't exist
     with pytest.raises(TypeError):
-        artifact.labels.get("x")
+        artifact.labels.get("x")  # type: ignore
     # no linked labels
     feature_name_feature = ln.Feature(name="feature name", dtype="cat")
     feature_name_feature.save()
