@@ -365,7 +365,7 @@ Here is how to create a feature:
     assert artifact.features.get_values()["list_of_numbers"] == [1.0, 2.0, 3.0]
     artifact.features.remove_values("list_of_numbers")
     # remove a non-linked value, this should do nothing but print a warning
-    artifact.features.add_values({"list_of_numbers": 1.0})
+    artifact.features.remove_values({"list_of_numbers": 1.0})
     assert "list_of_numbers" not in artifact.features.get_values()
     ln.Feature(name="cell_types", dtype="list[cat[bionty.CellType]]").save()
     bt.CellType.from_values(["T cell", "B cell"]).save()
