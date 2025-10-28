@@ -390,8 +390,6 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates, HasParents):
             file_suffix = ".csv"
             key = f"sheet_exports/{self.name}{file_suffix}"
         description = f": {self.description}" if self.description is not None else ""
-        format: dict[str, Any] = {"suffix": ".csv"} if key.endswith(".csv") else {}
-        format["index"] = False
         transform, _ = Transform.objects.get_or_create(
             key="__lamindb_record_export__", type="function"
         )
@@ -402,7 +400,7 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates, HasParents):
             key=key,
             description=f"Export of sheet {self.uid}{description}",
             schema=self.schema,
-            format=format,
+            csv_kwargs={"index": False},
             run=run,
         ).save()
 

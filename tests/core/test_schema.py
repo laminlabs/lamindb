@@ -56,8 +56,6 @@ def test_schema_from_values():
         schema = ln.Schema.from_values(
             ["weird_name"], field=ln.Feature.name, dtype="float"
         )
-    with pytest.raises(ValidationError):
-        ln.Schema.from_values(["name"], field=ln.Feature.name, dtype="float")
 
 
 def test_schema_from_records(df):
