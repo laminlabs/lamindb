@@ -67,6 +67,7 @@ if TYPE_CHECKING:
     )
     from lamindb.models.query_set import BasicQuerySet
 
+    from .record import Record
     from .run import Run
 
 
@@ -820,7 +821,7 @@ def parse_staged_feature_sets_from_anndata(
 class FeatureManager:
     """Feature manager."""
 
-    def __init__(self, host: Artifact | Run):
+    def __init__(self, host: Artifact | Run | Record):
         self._host = host
         self._slots: dict[str, Schema] | None = None
         self._accessor_by_registry_ = None
@@ -947,7 +948,7 @@ class FeatureManager:
 
         Args:
             values: A dictionary of keys (features) & values (labels, numbers, booleans).
-            feature_field: The field of a registry to map the keys of `values`.
+            feature_field: The field of a registry to map the keys of the `values` dictionary.
             schema: Schema to validate against.
         """
         from lamindb.base.dtypes import is_iterable_of_sqlrecord
@@ -961,11 +962,7 @@ class FeatureManager:
             keys = list(keys)  # type: ignore
         # deal with other cases later
         assert all(isinstance(key, str) for key in keys)  # noqa: S101
-
         registry = feature_field.field.model
-        value_model = FeatureValue
-        model_name = "Feature"
-
         if schema is not None:
             from lamindb.curators.core import ExperimentalDictCurator
 
@@ -984,20 +981,20 @@ class FeatureManager:
                 run = get_current_tracked_run()
                 if run is not None:
                     name = f"{run.transform.type}[{run.transform.key}]"
-                    type_hint = f"""  {model_name.lower()}_type = ln.{model_name}(name='{name}', is_type=True).save()"""
+                    type_hint = f"""  feature_type = ln.Feature(name='{name}', is_type=True).save()"""
                     elements = [type_hint]
-                    type_kwarg = f", type={model_name.lower()}_type"
+                    type_kwarg = ", type=feature_type"
                 else:
                     elements = []
                     type_kwarg = ""
                 elements += [
-                    f"  ln.{model_name}(name='{key}', dtype='{dtype}'{type_kwarg}).save(){message}"
+                    f"  ln.Feature(name='{key}', dtype='{dtype}'{type_kwarg}).save(){message}"
                     for key, (dtype, _, message) in not_validated_keys_dtype_message
                 ]
                 hint = "\n".join(elements)
                 msg = (
                     f"These keys could not be validated: {not_validated_keys}\n"
-                    f"Here is how to create a {model_name.lower()}:\n\n{hint}"
+                    f"Here is how to create a feature:\n\n{hint}"
                 )
                 raise ValidationError(msg)
 
@@ -1046,8 +1043,8 @@ class FeatureManager:
             if not (
                 feature.dtype.startswith("cat") or feature.dtype.startswith("list[cat")
             ):
-                filter_kwargs = {model_name.lower(): feature, "value": converted_value}
-                feature_value, _ = value_model.get_or_create(**filter_kwargs)
+                filter_kwargs = {"feature": feature, "value": converted_value}
+                feature_value, _ = FeatureValue.get_or_create(**filter_kwargs)
                 _feature_values.append(feature_value)
             else:
                 if isinstance(value, SQLRecord) or is_iterable_of_sqlrecord(value):
@@ -1113,9 +1110,9 @@ class FeatureManager:
             if to_insert_feature_values:
                 save(to_insert_feature_values)
             dict_typed_features = [
-                getattr(record, model_name.lower())
+                record.feature
                 for record in _feature_values
-                if getattr(record, model_name.lower()).dtype == "dict"
+                if record.feature.dtype == "dict"
             ]
             IsLink = self._host._feature_values.through
             valuefield_id = "featurevalue_id"
@@ -1124,10 +1121,10 @@ class FeatureManager:
                 # delete all previously existing anotations with dictionaries
                 kwargs = {
                     f"links_{host_class_lower}__{host_class_lower}_id": self._host.id,
-                    f"{model_name.lower()}__in": dict_typed_features,
+                    "feature__in": dict_typed_features,
                 }
                 try:
-                    value_model.filter(**kwargs).delete()
+                    FeatureValue.filter(**kwargs).delete()
                 except ProtectedError:
                     pass
             # add new feature links
