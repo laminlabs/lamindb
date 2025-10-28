@@ -129,29 +129,29 @@ def populate_sheets_compound_treatment():
 
     yield treatments_sheet, sample_sheet1
 
-    sample4.delete()
-    sample3.delete()
-    sample_sheet2.delete()
-    sample_schema2.delete()
-    sample_note.delete()
-    sample2.delete()
-    sample1.delete()
-    # hek293t.delete()  # not for now
-    sample_sheet1.delete()
-    sample_schema1.delete()
-    preparation_date.delete()
-    cell_line.delete()
-    # sample_type.delete()   # not for now
-    treatment2.delete()
-    treatment1.delete()
-    treatments_sheet.delete()
-    treatment_type.delete()
-    concentration.delete()
-    drug2.delete()
-    drug1.delete()
-    structure.delete()
-    compound.delete()
-    compound_type.delete()
+    sample4.delete(permanent=True)
+    sample3.delete(permanent=True)
+    sample_sheet2.delete(permanent=True)
+    sample_schema2.delete(permanent=True)
+    sample_note.delete(permanent=True)
+    sample2.delete(permanent=True)
+    sample1.delete(permanent=True)
+    # hek293t.delete(permanent=True)  # not for now
+    sample_sheet1.delete(permanent=True)
+    sample_schema1.delete(permanent=True)
+    preparation_date.delete(permanent=True)
+    cell_line.delete(permanent=True)
+    # sample_type.delete(permanent=True)   # not for now
+    treatment2.delete(permanent=True)
+    treatment1.delete(permanent=True)
+    treatments_sheet.delete(permanent=True)
+    treatment_type.delete(permanent=True)
+    concentration.delete(permanent=True)
+    drug2.delete(permanent=True)
+    drug1.delete(permanent=True)
+    structure.delete(permanent=True)
+    compound.delete(permanent=True)
+    compound_type.delete(permanent=True)
 
 
 @pytest.fixture(scope="module")
@@ -229,8 +229,10 @@ def populate_nextflow_sheet_with_samples():
     df = pd.DataFrame(sample_data)
 
     features = ln.Feature.lookup()
+    nextflow_samples = []
     for _, row in df.iterrows():
         sample = ln.Record(type=nextflow_sheet).save()
+        nextflow_samples.append(sample)
         ln.models.RecordRecord(
             record=sample,
             feature=features.sample,
@@ -247,3 +249,41 @@ def populate_nextflow_sheet_with_samples():
         ).save()
 
     yield nextflow_sheet
+
+    # Delete in reverse order of creation
+    # Delete nextflow samples
+    for sample in reversed(nextflow_samples):
+        sample.delete(permanent=True)
+
+    # Delete nextflow sheet and schema
+    nextflow_sheet.delete(permanent=True)
+    nextflowsample_type.delete(permanent=True)
+    nextflow_schema.delete(permanent=True)
+
+    # Delete samples sheet and schema
+    samples_sheet.records.all().delete(permanent=True)
+    samples_sheet.delete(permanent=True)
+    # biosample_type.delete(permanent=True)  # not for now (shared with first fixture)
+    samples_schema.delete(permanent=True)
+
+    print(ln.Schema.to_dataframe())
+
+    # Delete nextflow schema features
+    features = ln.Feature.lookup()
+    features.seq_center.delete(permanent=True)
+    features.expected_cells.delete(permanent=True)
+    features.fastq_2.delete(permanent=True)
+    features.fastq_1.delete(permanent=True)
+    features.sample.delete(permanent=True)
+
+    # Delete biosamples
+    sample_y.delete(permanent=True)
+    sample_x.delete(permanent=True)
+
+    # Delete biosample schema features
+    features.tissue.delete(permanent=True)
+    features.cell_type.delete(permanent=True)
+    features.species.delete(permanent=True)
+
+    # Note: organism_human, celltype_tcell, tissue_blood are from bionty
+    # and might be shared, so not deleting them (similar to hek293t in first fixture)

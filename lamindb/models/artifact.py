@@ -225,7 +225,7 @@ def process_data(
     using_key: str | None,
     skip_existence_check: bool = False,
     is_replace: bool = False,
-    parquet_kwargs: dict[str, Any] | None = None,
+    to_disk_kwargs: dict[str, Any] | None = None,
 ) -> tuple[Any, Path | UPath, str, Storage, bool]:
     """Serialize a data object that's provided as file or in memory.
 
@@ -284,9 +284,9 @@ def process_data(
     if memory_rep is not None:
         path = settings.cache_dir / f"{provisional_uid}{suffix}"
         logger.important("writing the in-memory object into cache")
-        if parquet_kwargs is None:
-            parquet_kwargs = {}
-        write_to_disk(data, path, **parquet_kwargs)
+        if to_disk_kwargs is None:
+            to_disk_kwargs = {}
+        write_to_disk(data, path, **to_disk_kwargs)
         use_existing_storage_key = False
 
     return memory_rep, path, suffix, storage, use_existing_storage_key
@@ -427,7 +427,7 @@ def get_artifact_kwargs_from_data(
     skip_check_exists: bool = False,
     overwrite_versions: bool | None = None,
     skip_hash_lookup: bool = False,
-    parquet_kwargs: dict[str, Any] | None = None,
+    to_disk_kwargs: dict[str, Any] | None = None,
 ):
     memory_rep, path, suffix, storage, use_existing_storage_key = process_data(
         provisional_uid,
@@ -438,7 +438,7 @@ def get_artifact_kwargs_from_data(
         using_key,
         skip_check_exists,
         is_replace=is_replace,
-        parquet_kwargs=parquet_kwargs,
+        to_disk_kwargs=to_disk_kwargs,
     )
 
     check_path_in_storage = False
@@ -1438,7 +1438,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         schema: Schema | None = kwargs.pop("schema", None)
         features: dict[str, Any] | None = kwargs.pop("features", None)
         skip_hash_lookup: bool = kwargs.pop("skip_hash_lookup", False)
-        parquet_kwargs: dict[str, Any] | None = kwargs.pop("parquet_kwargs", None)
+        to_disk_kwargs: dict[str, Any] | None = kwargs.pop("to_disk_kwargs", None)
 
         # validate external features if passed with a schema
         if features is not None:
@@ -1548,7 +1548,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             skip_check_exists=skip_check_exists,
             overwrite_versions=overwrite_versions,
             skip_hash_lookup=skip_hash_lookup,
-            parquet_kwargs=parquet_kwargs,
+            to_disk_kwargs=to_disk_kwargs,
         )
 
         # an object with the same hash already exists
@@ -1815,6 +1815,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         schema: Schema | Literal["valid_features"] | None = None,
         features: dict[str, Any] | None = None,
         parquet_kwargs: dict[str, Any] | None = None,
+        csv_kwargs: dict[str, Any] | None = None,
         **kwargs,
     ) -> Artifact:
         """Create from `DataFrame`, optionally validate & annotate.
@@ -1831,6 +1832,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             parquet_kwargs: Additional keyword arguments passed to the
                 `pandas.DataFrame.to_parquet` method, which are passed
                 on to `pyarrow.parquet.ParquetWriter`.
+            csv_kwargs: Additional keyword arguments passed to the
+                `pandas.DataFrame.to_csv` method.
 
         Examples:
 
@@ -1862,6 +1865,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             kwargs["format"] = ".csv"
         if schema == "valid_features":
             schema = examples.schemas.valid_features()
+        to_disk_kwargs: dict[str, Any] = parquet_kwargs or csv_kwargs
         artifact = Artifact(  # type: ignore
             data=df,
             key=key,
@@ -1870,7 +1874,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             revises=revises,
             otype="DataFrame",
             kind="dataset",
-            parquet_kwargs=parquet_kwargs,
+            to_disk_kwargs=to_disk_kwargs,
             **kwargs,
         )
         artifact.n_observations = len(df)
