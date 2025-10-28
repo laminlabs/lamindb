@@ -79,7 +79,7 @@ def test_features_add_external():
 
 
 # below the test for annotating with feature values
-def test_features_add_remove(adata):
+def test_features_add_remove(adata, ccaplog):
     artifact = ln.Artifact.from_anndata(adata, description="test").save()
     with pytest.raises(ValidationError) as error:
         artifact.features.add_values({"experiment": "Experiment 1"})
@@ -365,12 +365,13 @@ Here is how to create a feature:
     assert artifact.features.get_values()["list_of_numbers"] == [1.0, 2.0, 3.0]
     artifact.features.remove_values("list_of_numbers")
     # remove a non-linked value, this should do nothing but print a warning
-    artifact.features.remove_values({"list_of_numbers": 1.0})
+    artifact.features.remove_values("list_of_numbers", value=1.0)
+    assert "no feature 'list_of_numbers' with value '1.0' found" in ccaplog.text
     assert "list_of_numbers" not in artifact.features.get_values()
     ln.Feature(name="cell_types", dtype="list[cat[bionty.CellType]]").save()
     bt.CellType.from_values(["T cell", "B cell"]).save()
     artifact.features.add_values({"cell_types": ["T cell", "B cell"]})
-    assert artifact.features.get_values()["cell_types"] == ["T cell", "B cell"]
+    assert set(artifact.features.get_values()["cell_types"]) == {"B cell", "T cell"}
     # passing value works here because we are linking each of the cell types in the list individually
     # in comparison to passing a list of numbers above
     t_cell = bt.CellType.get(name="T cell")
@@ -378,6 +379,7 @@ Here is how to create a feature:
     assert artifact.features.get_values()["cell_types"] == ["B cell"]
     # remove a non-linked value, this should print a warning but do nothing
     artifact.features.remove_values("cell_types", value=t_cell.parents.first())
+    assert "no feature 'cell_types' with value 'CellType(" in ccaplog.text
 
     # delete everything we created
     artifact.delete(permanent=True)
