@@ -147,7 +147,7 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates, HasParents):
     Allows to group records by type, e.g., all samples, all donors, all cells, all compounds, all sequences.
     """
     records: Record
-    """Records of this type (can only be non-empty if `is_type` is `True`)."""
+    """If a type (`is_type=True`), records of this `type`."""
     is_type: bool = BooleanField(default=False, db_index=True)
     """Indicates if record is a `type`.
 
@@ -169,20 +169,18 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates, HasParents):
     If `is_type` is `True`, the schema is used to enforce certain features for each records of this type.
     """
     # naming convention in analogy to Schema
-    components: Record = models.ManyToManyField(
+    components: Record = models.ManyToManyField(  # rename to linked_records
         "Record", through="RecordRecord", symmetrical=False, related_name="composites"
     )
-    """Record-like components of this record."""
-    composites: Record
-    """Record-like composites of this record."""
+    """Records linked in this record as a value."""
+    composites: Record  # rename to linked_in_records
+    """Records linking this record as a value."""
     parents: Record = models.ManyToManyField(
         "self", symmetrical=False, related_name="children"
     )
     """Parent entities of this record.
 
-    For advanced use cases, you can build an ontology under a given `type`.
-
-    Say, if you modeled `CellType` as a `Record`, you would introduce a type `CellType` and model the hiearchy of cell types under it.
+    You can build an ontology under a given `type`. For example, introduce a type `CellType` and model the hiearchy of cell types under it via `parents` and `children`.
     """
     children: Record
     """Child entities of this record.
