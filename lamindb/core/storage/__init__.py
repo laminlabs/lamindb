@@ -2,19 +2,13 @@
 
 Valid suffixes.
 
-.. autosummary::
-   :toctree: .
-
-   VALID_SUFFIXES
+.. autodata:: VALID_SUFFIXES
 
 Array accessors.
 
-.. autosummary::
-   :toctree: .
-
-   AnnDataAccessor
-   SpatialDataAccessor
-   BackedAccessor
+.. autoclass:: AnnDataAccessor
+.. autoclass:: SpatialDataAccessor
+.. autoclass:: BackedAccessor
 """
 
 from lamindb_setup.core.upath import LocalPathClasses, UPath, infer_filesystem
