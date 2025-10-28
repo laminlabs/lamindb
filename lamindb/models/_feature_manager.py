@@ -999,7 +999,7 @@ class FeatureManager:
                 raise ValidationError(msg)
 
         features_labels = defaultdict(list)
-        _feature_values = []
+        feature_json_values = []
         not_validated_values: dict[str, list[str]] = defaultdict(list)
         for feature in records:
             value = dictionary[feature.name]
@@ -1045,7 +1045,7 @@ class FeatureManager:
             ):
                 filter_kwargs = {"feature": feature, "value": converted_value}
                 feature_value, _ = FeatureValue.get_or_create(**filter_kwargs)
-                _feature_values.append(feature_value)
+                feature_json_values.append(feature_value)
             else:
                 if isinstance(value, SQLRecord) or is_iterable_of_sqlrecord(value):
                     if isinstance(value, SQLRecord):
@@ -1103,39 +1103,39 @@ class FeatureManager:
 
         if features_labels:
             self._add_label_feature_links(features_labels)
-        if _feature_values:
+        if feature_json_values:
             to_insert_feature_values = [
-                record for record in _feature_values if record._state.adding
+                record for record in feature_json_values if record._state.adding
             ]
             if to_insert_feature_values:
                 save(to_insert_feature_values)
             dict_typed_features = [
                 record.feature
-                for record in _feature_values
+                for record in feature_json_values
                 if record.feature.dtype == "dict"
             ]
-            IsLink = self._host._feature_values.through
             valuefield_id = "featurevalue_id"
             host_class_lower = self._host.__class__.__get_name_with_module__().lower()
             if dict_typed_features:
                 # delete all previously existing anotations with dictionaries
+                # to save storage space in the database
                 kwargs = {
                     f"links_{host_class_lower}__{host_class_lower}_id": self._host.id,
                     "feature__in": dict_typed_features,
                 }
                 try:
-                    FeatureValue.filter(**kwargs).delete()
+                    FeatureValue.filter(**kwargs).delete(permanent=True)
                 except ProtectedError:
                     pass
             # add new feature links
             links = [
-                IsLink(
+                self._host._feature_values.through(
                     **{
                         f"{host_class_lower}_id": self._host.id,
-                        valuefield_id: feature_value.id,
+                        valuefield_id: json_value.id,
                     }
                 )
-                for feature_value in _feature_values
+                for json_value in feature_json_values
             ]
             # a link might already exist, to avoid raising a unique constraint
             # error, ignore_conflicts
