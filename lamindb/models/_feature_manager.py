@@ -1190,25 +1190,19 @@ class FeatureManager:
                 if obj.related_model.__get_name_with_module__() in link_models_on_models
             }.pop()
             feature_values = getattr(self._host, link_attribute).filter(**filter_kwargs)
-            if not feature_values.exists():
-                logger.warning(
-                    f"no feature '{feature_record.name}' with value '{value}' found on artifact '{self._host.uid}'!"
-                )
-                return
-            feature_values.delete()
         else:
             if value is not None:
                 filter_kwargs["value"] = value
             feature_values = self._host._feature_values.filter(**filter_kwargs)
-            if not feature_values.exists():
-                logger.warning(
-                    f"no feature '{feature_record.name}' with value '{value}' found on artifact '{self._host.uid}'!"
-                )
-                return
-            self._host._feature_values.remove(*feature_values)
-            # this might leave a dangling feature_value record
-            # but we don't want to pay the price of making another query just to remove this annotation
-            # we can clean the FeatureValue registry periodically if we want to
+        if not feature_values.exists():
+            logger.warning(
+                f"no feature '{feature_record.name}' with value '{value}' found on artifact '{self._host.uid}'!"
+            )
+            return
+        feature_values.delete()
+        # this might leave a dangling feature_value record
+        # but we don't want to pay the price of making another query just to remove this annotation
+        # we can clean the FeatureValue registry periodically if we want to
 
     def _add_schema(self, schema: Schema, slot: str) -> None:
         """Annotate artifact with a schema.

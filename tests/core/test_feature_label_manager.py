@@ -359,28 +359,6 @@ Here is how to create a feature:
     ln.Feature(name="study_metadata", dtype=dict).save()
     artifact.features.add_values({"study_metadata": {"detail1": "123", "detail2": 1}})
 
-    # test add/remove a list feature
-    ln.Feature(name="list_of_numbers", dtype=list[float]).save()
-    artifact.features.add_values({"list_of_numbers": [1.0, 2.0, 3.0]})
-    assert artifact.features.get_values()["list_of_numbers"] == [1.0, 2.0, 3.0]
-    artifact.features.remove_values("list_of_numbers")
-    # remove a non-linked value, this should do nothing but print a warning
-    artifact.features.remove_values("list_of_numbers", value=1.0)
-    assert "no feature 'list_of_numbers' with value '1.0' found" in ccaplog.text
-    assert "list_of_numbers" not in artifact.features.get_values()
-    ln.Feature(name="cell_types", dtype="list[cat[bionty.CellType]]").save()
-    bt.CellType.from_values(["T cell", "B cell"]).save()
-    artifact.features.add_values({"cell_types": ["T cell", "B cell"]})
-    assert set(artifact.features.get_values()["cell_types"]) == {"B cell", "T cell"}
-    # passing value works here because we are linking each of the cell types in the list individually
-    # in comparison to passing a list of numbers above
-    t_cell = bt.CellType.get(name="T cell")
-    artifact.features.remove_values("cell_types", value=t_cell)
-    assert artifact.features.get_values()["cell_types"] == ["B cell"]
-    # remove a non-linked value, this should print a warning but do nothing
-    artifact.features.remove_values("cell_types", value=t_cell.parents.first())
-    assert "no feature 'cell_types' with value 'CellType(" in ccaplog.text
-
     # delete everything we created
     artifact.delete(permanent=True)
     ln.Record.filter().delete(permanent=True)
@@ -389,7 +367,6 @@ Here is how to create a feature:
     bt.Gene.filter().delete(permanent=True)
     bt.Organism.filter().delete(permanent=True)
     bt.Disease.filter().delete(permanent=True)
-    bt.CellType.filter().delete(permanent=True)
 
 
 def test_labels_add(adata):
@@ -469,15 +446,40 @@ def test_labels_add(adata):
     ln.Record.filter().delete(permanent=True)
 
 
-def test_add_list_of_str_features():
+def test_add_remove_list_features(ccaplog):
     feature = ln.Feature(name="list_of_str", dtype=list[str]).save()
     artifact = ln.Artifact(".gitignore", key=".gitignore").save()
     artifact.features.add_values({"list_of_str": ["1", "2", "3"]})
     assert artifact.features.get_values() == {"list_of_str": ["1", "2", "3"]}
+    # remove a non-linked value, this should do nothing but print a warning
+    artifact.features.remove_values("list_of_str", value="4")
+    assert "no feature 'list_of_str' with value '4' found" in ccaplog.text
+    # list of categories feature
+    cell_types_feature = ln.Feature(
+        name="cell_types", dtype="list[cat[bionty.CellType]]"
+    ).save()
+    bt.CellType.from_values(["T cell", "B cell"]).save()
+    artifact.features.add_values({"cell_types": ["T cell", "B cell"]})
+    assert set(artifact.features.get_values()["cell_types"]) == {"B cell", "T cell"}
+    # passing value works here because we are linking each of the cell types in the list individually
+    # in comparison to passing a list of numbers above
+    t_cell = bt.CellType.get(name="T cell")
+    artifact.features.remove_values("cell_types", value=t_cell)
+    assert artifact.features.get_values()["cell_types"] == ["B cell"]
+    # remove a non-linked value, this should print a warning but do nothing
+    artifact.features.remove_values("cell_types", value=t_cell.parents.first())
+    assert "no feature 'cell_types' with value 'CellType(" in ccaplog.text
+    # remove the entire linked feature
+    artifact.features.remove_values("cell_types")
+    assert "cell_types" not in artifact.features.get_values()
+
+    # clean up
     artifact.delete(permanent=True)
     assert ln.models.FeatureValue.filter(feature__name="list_of_str").count() == 1
     feature.delete(permanent=True)
     assert ln.models.FeatureValue.filter(feature__name="list_of_str").count() == 0
+    cell_types_feature.delete(permanent=True)
+    bt.CellType.filter().delete(permanent=True)
 
 
 def test_add_list_of_cat_features():
