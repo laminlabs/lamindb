@@ -175,7 +175,7 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates, HasParents):
     """Record-like components of this record."""
     composites: Record
     """Record-like composites of this record."""
-    parents: ULabel = models.ManyToManyField(
+    parents: Record = models.ManyToManyField(
         "self", symmetrical=False, related_name="children"
     )
     """Parent entities of this record.
@@ -184,7 +184,7 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates, HasParents):
 
     Say, if you modeled `CellType` as a `Record`, you would introduce a type `CellType` and model the hiearchy of cell types under it.
     """
-    children: ULabel
+    children: Record
     """Child entities of this record.
 
     Reverse accessor for parents.
@@ -230,6 +230,8 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates, HasParents):
     """Projects linked in this record as values."""
     linked_references: Reference
     """References linked in this record as values."""
+    linked_users: User
+    """Users linked in this record as values."""
     values_json: RecordJson
     """JSON values (for lists, dicts, etc.)."""
     values_record: RecordRecord
