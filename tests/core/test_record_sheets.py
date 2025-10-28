@@ -217,6 +217,11 @@ Sample_X,https://raw.githubusercontent.com/nf-core/test-datasets/scrnaseq/testda
         fastq_1             str
         fastq_2             str
         expected_cells      int""")
+
+    related_schemas = list(artifact.feature_sets.all())
+    artifact.feature_sets.clear()
+    for schema in related_schemas:
+        schema.delete(permanent=True)
     artifact.delete(permanent=True)
 
 

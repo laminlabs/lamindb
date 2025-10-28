@@ -260,6 +260,14 @@ def populate_nextflow_sheet_with_samples():
     nextflowsample_type.delete(permanent=True)
     nextflow_schema.delete(permanent=True)
 
+    # Delete samples sheet and schema
+    samples_sheet.records.all().delete(permanent=True)
+    samples_sheet.delete(permanent=True)
+    # biosample_type.delete(permanent=True)  # not for now (shared with first fixture)
+    samples_schema.delete(permanent=True)
+
+    print(ln.Schema.to_dataframe())
+
     # Delete nextflow schema features
     features = ln.Feature.lookup()
     features.seq_center.delete(permanent=True)
@@ -271,11 +279,6 @@ def populate_nextflow_sheet_with_samples():
     # Delete biosamples
     sample_y.delete(permanent=True)
     sample_x.delete(permanent=True)
-
-    # Delete samples sheet and schema
-    samples_sheet.delete(permanent=True)
-    # biosample_type.delete(permanent=True)  # not for now (shared with first fixture)
-    samples_schema.delete(permanent=True)
 
     # Delete biosample schema features
     features.tissue.delete(permanent=True)
