@@ -1041,24 +1041,24 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
             artifact = ln.Artifact("s3://my_bucket/my_folder/my_file.csv").save()
 
-        If you want to **validate & annotate** an array, pass a `schema` to one of the `.from_dataframe()`, `.from_anndata()`, ... constructors::
+        If you want to **validate & annotate** a dataframe or an array, pass `schema` to one of the `.from_dataframe()`, `.from_anndata()`, ... constructors::
 
-            schema = ln.Schema(itype=ln.Feature)  # a schema that merely enforces that feature names exist in the Feature registry
-            artifact = ln.Artifact.from_dataframe("./my_file.parquet", key="my_dataset.parquet", schema=schema).save()  # validated and annotated
+            artifact = ln.Artifact.from_dataframe(
+                "./my_file.parquet",
+                key="my_dataset.parquet",
+                schema="valid_features"
+            ).save()
 
         To annotate by **external features**::
 
-            schema = ln.examples.schemas.valid_features()
-            artifact = ln.Artifact("./my_file.parquet", features={"species": "bird"}).save()
-
-        A `schema` can be optionally passed to also validate the features.
+            artifact = ln.Artifact("./my_file.parquet", features={"cell_type_by_model": "T cell"}).save()
 
         You can make a **new version** of an artifact by passing an existing `key`::
 
             artifact_v2 = ln.Artifact("./my_file.parquet", key="examples/my_file.parquet").save()
             artifact_v2.versions.to_dataframe()  # see all versions
 
-        You can write artifacts to other storage locations by switching the current default storage location (:attr:`~lamindb.core.Settings.storage`)::
+        You can write artifacts to other storage locations by switching the current default storage location (:attr:`~lamindb.core.Settings.storage`) or by passing the `storage` argument::
 
             ln.settings.storage = "s3://some-bucket"
 
@@ -1210,25 +1210,15 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     def labels(self) -> LabelManager:
         """Label manager.
 
-        To annotate with labels, you typically use the registry-specific accessors,
-        for instance :attr:`~lamindb.Artifact.ulabels`::
+        A way to access all label annotations of an artifact, irrespective of their type.
 
-            experiment = ln.ULabel(name="Experiment 1").save()
-            artifact.ulabels.add(experiment)
+        To annotate with labels, use the type-specific accessor,
+        for example::
 
-        Similarly, you query based on these accessors::
-
-            ln.Artifact.filter(ulabels__name="Experiment 1")
-
-        Unlike the registry-specific accessors, the `.labels` accessor provides
-        a way of associating labels with features::
-
-            experiment = ln.Feature(name="experiment", dtype="cat").save()
-            artifact.labels.add(experiment, feature=study)
-
-        Note that the above is equivalent to::
-
-            artifact.features.add_values({"experiment": experiment})
+            experiment = ln.Record(name="Experiment 1").save()
+            artifact.records.add(experiment)
+            project = ln.Project(name="Project A").save()
+            artifact.projects.add(project)
         """
         from ._label_manager import LabelManager
 
