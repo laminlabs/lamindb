@@ -1,14 +1,11 @@
 """Curator utilities.
 
-.. autosummary::
-   :toctree: .
-
-   Curator
-   SlotsCurator
-   ComponentCurator
-   CatVector
-   CatLookup
-   DataFrameCatManager
+.. autoclass:: Curator
+.. autoclass:: SlotsCurator
+.. autoclass:: ComponentCurator
+.. autoclass:: CatVector
+.. autoclass:: CatLookup
+.. autoclass:: DataFrameCatManager
 
 """
 
