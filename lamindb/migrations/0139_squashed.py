@@ -334,6 +334,7 @@ class Migration(migrations.Migration):
             "0137_remove_recordrecord__aux_remove_recordrecord_branch_and_more",
         ),
         ("lamindb", "0138_remove_record_linked_users_user_linked_in_records"),
+        ("lamindb", "0139_alter_reference_text"),
     ]
 
     dependencies = []  # type: ignore
@@ -1976,9 +1977,7 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "text",
-                    lamindb.base.fields.TextField(
-                        blank=True, db_index=True, default=None, null=True
-                    ),
+                    lamindb.base.fields.TextField(blank=True, default=None, null=True),
                 ),
                 (
                     "date",
