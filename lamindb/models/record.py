@@ -113,6 +113,23 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates, HasParents):
 
         You can constrain which features can be added under a `type` by defining a schema.
 
+            schema = ln.Schema(
+                [
+                    ln.Feature.get(name="feature_str"),
+                    ln.Feature.get(name="feature_int"),
+                ],
+                name="test_schema",
+            ).save()
+            test_form = ln.Record(name="TestForm", is_type=True, schema=schema).save()
+            test_record_in_form = ln.Record(name="test_record_in_form", type=test_form).save()
+            with pytest.raises(ln.errors.ValidationError) as error:
+                test_record_in_form.features.add_values(
+                    {
+                        "feature_dict": {"key": "value", "number": 123, "list": [1, 2, 3]},
+                        "feature_type1": record_entity1.name,
+                    }
+                )
+
         Records can also model flexible ontologies through their parents/children fields::
 
             cell_type = Record(name="CellType", is_type=True).save()

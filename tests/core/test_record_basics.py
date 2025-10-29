@@ -103,10 +103,12 @@ def test_record_features_add_values():
     assert test_record.features.get_values() == test_values
 
     # schema validation
+    feature_str = ln.Feature.get(name="feature_str")
+    feature_int = ln.Feature.get(name="feature_int")
     schema = ln.Schema(
         [
-            ln.Feature.get(name="feature_str"),
-            ln.Feature.get(name="feature_int"),
+            feature_str,
+            feature_int,
         ],
         name="test_schema",
     ).save()

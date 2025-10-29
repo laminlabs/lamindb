@@ -989,10 +989,10 @@ class FeatureManager:
         if (
             host_is_record
             and self._host.type is not None
-            and self._host.type.schema is not None
+            and self._host.type.schema is not None  # type: ignore
         ):
             assert schema is None, "Cannot pass schema if record.type has schema."
-            schema = self._host.type.schema
+            schema = self._host.type.schema  # type: ignore
         if schema is not None:
             from lamindb.curators.core import ExperimentalDictCurator
 
