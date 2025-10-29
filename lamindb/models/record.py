@@ -38,8 +38,9 @@ if TYPE_CHECKING:
 
     import pandas as pd
 
+    from ._feature_manager import FeatureManager
     from .blocks import RunBlock
-    from .project import Project, Reference
+    from .project import Project, RecordProject, RecordReference, Reference
     from .schema import Schema
 
 
@@ -146,7 +147,7 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates, HasParents):
     Allows to group records by type, e.g., all samples, all donors, all cells, all compounds, all sequences.
     """
     records: Record
-    """Records of this type (can only be non-empty if `is_type` is `True`)."""
+    """If a type (`is_type=True`), records of this `type`."""
     is_type: bool = BooleanField(default=False, db_index=True)
     """Indicates if record is a `type`.
 
@@ -161,33 +162,28 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates, HasParents):
     schema: Schema | None = ForeignKey(
         "Schema", CASCADE, null=True, related_name="records"
     )
-    """A schema to enforce for a type (optional).
+    """A schema to enforce for a type.
 
-    This is mostly parallel to the `schema` attribute of `Artifact`.
-
-    If `is_type` is `True`, the schema is used to enforce certain features for each records of this type.
+    This is analogous to the `schema` attribute of an `Artifact`.
+    If `is_type` is `True`, the schema is used to enforce features for each record of this type.
     """
-    # naming convention in analogy to Schema
+    # naming convention in analogy to Schema, but probably better would linked_records in analogy with other
+    # record relationships
     components: Record = models.ManyToManyField(
         "Record", through="RecordRecord", symmetrical=False, related_name="composites"
     )
-    """Record-like components of this record."""
-    composites: Record
-    """Record-like composites of this record."""
-    parents: ULabel = models.ManyToManyField(
+    """Records linked in this record as a value."""
+    composites: Record  # consider renaming to linked_in_records in LaminDB 2
+    """Records linking this record as a value. Is reverse accessor for `components`."""
+    parents: Record = models.ManyToManyField(
         "self", symmetrical=False, related_name="children"
     )
-    """Parent entities of this record.
+    """Ontological parents of this record.
 
-    For advanced use cases, you can build an ontology under a given `type`.
-
-    Say, if you modeled `CellType` as a `Record`, you would introduce a type `CellType` and model the hiearchy of cell types under it.
+    You can build an ontology under a given `type`. For example, introduce a type `CellType` and model the hiearchy of cell types under it via `parents` and `children`.
     """
-    children: ULabel
-    """Child entities of this record.
-
-    Reverse accessor for parents.
-    """
+    children: Record
+    """Ontological children of this record. Is reverse accessor for `parents`."""
     # this is handled manually here because we want to se the related_name attribute
     # (this doesn't happen via inheritance of TracksRun, everything else is the same)
     run: Run | None = ForeignKey(
@@ -211,22 +207,6 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates, HasParents):
     """Projects that annotate this record."""
     references: Reference
     """References that annotate this record."""
-    values_json: RecordJson
-    """JSON values (for lists, dicts, etc.)."""
-    values_record: RecordRecord
-    """Record values with their features."""
-    values_ulabel: RecordULabel
-    """ULabel values with their features."""
-    values_user: RecordUser
-    """User values with their features."""
-    values_run: RecordRun
-    """Run values with their features."""
-    values_artifact: RecordArtifact
-    """Artifact values with their features."""
-    values_reference: Reference
-    """Reference values with their features."""
-    values_project: Project
-    """Project values with their features."""
     linked_runs: Run = models.ManyToManyField(
         Run, through="RecordRun", related_name="linked_in_records"
     )
@@ -245,8 +225,26 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates, HasParents):
     """Projects linked in this record as values."""
     linked_references: Reference
     """References linked in this record as values."""
+    linked_users: User
+    """Users linked in this record as values."""
     blocks: RunBlock
     """Blocks that annotate this record."""
+    values_json: RecordJson
+    """JSON values `(record_id, feature_id, value)`."""
+    values_record: RecordRecord
+    """Record values with their features `(record_id, feature_id, value_id)`."""
+    values_ulabel: RecordULabel
+    """ULabel values with their features `(record_id, feature_id, value_id)`."""
+    values_user: RecordUser
+    """User values with their features `(record_id, feature_id, value_id)`."""
+    values_run: RecordRun
+    """Run values with their features `(record_id, feature_id, value_id)`."""
+    values_artifact: RecordArtifact
+    """Artifact values with their features `(record_id, feature_id, value_id)`."""
+    values_reference: RecordReference
+    """Reference values with their features `(record_id, feature_id, value_id)`."""
+    values_project: RecordProject
+    """Project values with their features `(record_id, feature_id, value_id)`."""
 
     @overload
     def __init__(
@@ -314,6 +312,13 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates, HasParents):
             _skip_validation=_skip_validation,
             _aux=_aux,
         )
+
+    @property
+    def features(self) -> FeatureManager:
+        """Manage annotations with features."""
+        from ._feature_manager import FeatureManager
+
+        return FeatureManager(self)
 
     @property
     def is_form(self) -> bool:
@@ -455,6 +460,7 @@ class RecordUser(BaseSQLRecord, IsLink):
         unique_together = ("record", "feature", "value")
 
 
+# for storing run-like values in records
 class RecordRun(BaseSQLRecord, IsLink):
     id: int = models.BigAutoField(primary_key=True)
     record: Record = ForeignKey(Record, CASCADE, related_name="values_run")
@@ -467,6 +473,7 @@ class RecordRun(BaseSQLRecord, IsLink):
         unique_together = ("record", "feature", "value")
 
 
+# for annotating runs with records
 class RunRecord(BaseSQLRecord, IsLink):
     id: int = models.BigAutoField(primary_key=True)
     run: Run = ForeignKey(Run, CASCADE, related_name="links_record")
@@ -484,6 +491,7 @@ class RunRecord(BaseSQLRecord, IsLink):
         unique_together = ("run", "record", "feature")
 
 
+# for storing artifact-like values in records
 class RecordArtifact(BaseSQLRecord, IsLink):
     id: int = models.BigAutoField(primary_key=True)
     record: Record = ForeignKey(Record, CASCADE, related_name="values_artifact")
@@ -496,7 +504,7 @@ class RecordArtifact(BaseSQLRecord, IsLink):
         unique_together = ("record", "feature", "value")
 
 
-# like ArtifactULabel, for annotation
+# for annotating artifacts with records
 class ArtifactRecord(BaseSQLRecord, IsLink, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
     artifact: Artifact = ForeignKey(Artifact, CASCADE, related_name="links_record")

@@ -30,6 +30,7 @@ if TYPE_CHECKING:
     from .collection import Collection
     from .project import Project
     from .query_set import SQLRecordList
+    from .record import Record
 
 
 class ULabel(SQLRecord, HasParents, CanCurate, TracksRun, TracksUpdates):
@@ -134,6 +135,8 @@ class ULabel(SQLRecord, HasParents, CanCurate, TracksRun, TracksUpdates):
     """Linked collections."""
     projects: Project
     """Linked projects."""
+    linked_in_records: Record
+    """Records linking this ulabel as a value."""
 
     @overload
     def __init__(

@@ -496,16 +496,13 @@ class Registry(ModelBase):
             queries: One or multiple `Q` objects.
             expressions: Fields and values passed as Django query expressions.
 
-        Returns:
-            A :class:`~lamindb.models.QuerySet`.
-
         See Also:
             - Guide: :doc:`docs:registries`
             - Django documentation: `Queries <https://docs.djangoproject.com/en/stable/topics/db/queries/>`__
 
         Examples:
-            >>> ln.ULabel(name="my label").save()
-            >>> ln.ULabel.filter(name__startswith="my").to_dataframe()
+            >>> ln.Project(name="my label").save()
+            >>> ln.Project.filter(name__startswith="my").to_dataframe()
         """
         from .query_set import QuerySet
 
@@ -1880,6 +1877,21 @@ class SQLRecordInfo:
         ordered_relational_fields = (
             class_specific_relational_fields + filtered_non_class_specific
         )
+
+        # For Record class, move linked_in fields to the end
+        if self.registry.__name__ == "Record":
+            regular_fields = [
+                f
+                for f in ordered_relational_fields
+                if not f.name.startswith(("linked_", "values_"))
+            ]
+            linked_fields = [
+                f for f in ordered_relational_fields if f.name.startswith("linked_")
+            ]
+            values_fields = [
+                f for f in ordered_relational_fields if f.name.startswith("values_")
+            ]
+            ordered_relational_fields = regular_fields + linked_fields + values_fields
 
         core_module_fields = []
         external_modules_fields = []
