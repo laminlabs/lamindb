@@ -70,7 +70,7 @@ def test_invalid_type_record_with_schema():
 def test_record_features_add_values():
     record_type1 = ln.Record(name="RecordType1", is_type=True).save()
     record_entity1 = ln.Record(name="entity1", type=record_type1).save()
-    ln.Record(name="entity2", type=record_type1).save()
+    record_entity2 = ln.Record(name="entity2", type=record_type1).save()
 
     feature_str = ln.Feature(name="feature_str", dtype=str).save()
     feature_int = ln.Feature(name="feature_int", dtype=int).save()
@@ -127,6 +127,7 @@ def test_record_features_add_values():
     feature_project.delete(permanent=True)
     feature_dict.delete(permanent=True)
     record_entity1.delete(permanent=True)
+    record_entity2.delete(permanent=True)
     record_type1.delete(permanent=True)
     test_project.delete(permanent=True)
     feature_cell_line.delete(permanent=True)

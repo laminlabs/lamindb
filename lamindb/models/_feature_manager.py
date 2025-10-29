@@ -195,11 +195,11 @@ def _get_categoricals_postgres(
         related_name = link_name.removeprefix("links_").replace("_", "")
         if not link_values:
             continue
-        for link_value in link_values:
+        # sort by the order on the link table, important for list dtypes
+        for link_value in sorted(link_values, key=lambda x: x.get("id")):
             feature_id = link_value.get("feature")
             if feature_id is None:
                 continue
-
             feature_name, feature_dtype = feature_dict.get(feature_id)
             feature_field = parse_dtype(feature_dtype)[0]["field_str"]
             if not self.__class__.__name__ == "Record":
@@ -411,7 +411,7 @@ def describe_features(
             printed_values = (
                 _format_values(sorted(values), n=10, quotes=False)
                 if not is_list_type or not feature_dtype.startswith("list")
-                else str(sorted(values))  # need to convert to string
+                else str(values)  # need to convert to string
             )
 
             # Sort into internal/external
