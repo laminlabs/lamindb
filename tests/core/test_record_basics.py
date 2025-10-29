@@ -105,13 +105,7 @@ def test_record_features_add_values():
     # schema validation
     feature_str = ln.Feature.get(name="feature_str")
     feature_int = ln.Feature.get(name="feature_int")
-    schema = ln.Schema(
-        [
-            feature_str,
-            feature_int,
-        ],
-        name="test_schema",
-    ).save()
+    schema = ln.Schema([feature_str, feature_int], name="test_schema").save()
     test_form = ln.Record(name="TestForm", is_type=True, schema=schema).save()
     test_record_in_form = ln.Record(name="test_record_in_form", type=test_form).save()
     with pytest.raises(ln.errors.ValidationError) as error:
