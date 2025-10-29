@@ -430,7 +430,7 @@ def get_feature_annotate_kwargs(
             )
         features = list(set(feature_names))  # remove duplicates
 
-    feature_qs = Feature.using(qs.db if qs is not None else None).filter(
+    feature_qs = Feature.using(None if qs is None else qs.db).filter(
         dtype__isnull=False
     )
     if isinstance(features, list):
@@ -901,7 +901,7 @@ class BasicQuerySet(models.QuerySet):
         if annotate_kwargs:
             id_subquery = subset.values("id")
             # for annotate, we want the queryset without filters so that joins don't affect the annotations
-            query_set_without_filters = subset.model.objects.using(subset._db).filter(
+            query_set_without_filters = subset.model.objects.using(subset.db).filter(
                 id__in=Subquery(id_subquery)
             )
             if subset.query.order_by:
