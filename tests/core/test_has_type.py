@@ -6,6 +6,13 @@ from django.db import IntegrityError
 def test_invalid_type_record():
     # also see test_invalid_type_record_with_schema in test_record.py
     no_record_type = ln.Record(name="no_type").save()
+    with pytest.raises(ValueError) as error:
+        ln.Record(name="with_invalid_type", type=no_record_type).save()
+    assert error.exconly().startswith(
+        "ValueError: You can only assign a record of `is_type=True` as `type` to another record"
+    )
+    # test at the database level
+    no_record_type.is_type = True
     with pytest.raises(IntegrityError) as error:
         ln.Record(name="with_invalid_type", type=no_record_type).save()
     assert "record_type_is_valid_fk" in error.exconly()

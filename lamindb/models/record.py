@@ -305,7 +305,7 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates, HasParents):
             )
         if type and not type.is_type:
             raise ValueError(
-                "You can only assign a record of `is_type=True` as `type` to another record."
+                f"You can only assign a record of `is_type=True` as `type` to another record, but this doesn't have it: {type}"
             )
         if schema and not is_type:
             logger.important("passing schema, treating as type")
