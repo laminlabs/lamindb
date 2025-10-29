@@ -496,16 +496,13 @@ class Registry(ModelBase):
             queries: One or multiple `Q` objects.
             expressions: Fields and values passed as Django query expressions.
 
-        Returns:
-            A :class:`~lamindb.models.QuerySet`.
-
         See Also:
             - Guide: :doc:`docs:registries`
             - Django documentation: `Queries <https://docs.djangoproject.com/en/stable/topics/db/queries/>`__
 
         Examples:
-            >>> ln.ULabel(name="my label").save()
-            >>> ln.ULabel.filter(name__startswith="my").to_dataframe()
+            >>> ln.Project(name="my label").save()
+            >>> ln.Project.filter(name__startswith="my").to_dataframe()
         """
         from .query_set import QuerySet
 

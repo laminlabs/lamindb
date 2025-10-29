@@ -230,21 +230,21 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates, HasParents):
     blocks: RunBlock
     """Blocks that annotate this record."""
     values_json: RecordJson
-    """JSON values (for lists, dicts, etc.)."""
+    """JSON values `(record_id, feature_id, value)`."""
     values_record: RecordRecord
-    """Record values with their features. Has form `(record_id, feature_id, value_id)`."""
+    """Record values with their features `(record_id, feature_id, value_id)`."""
     values_ulabel: RecordULabel
-    """ULabel values with their features. Has form `(record_id, feature_id, value_id)`."""
+    """ULabel values with their features `(record_id, feature_id, value_id)`."""
     values_user: RecordUser
-    """User values with their features. Has form `(record_id, feature_id, value_id)`."""
+    """User values with their features `(record_id, feature_id, value_id)`."""
     values_run: RecordRun
-    """Run values with their features. Has form `(record_id, feature_id, value_id)`."""
+    """Run values with their features `(record_id, feature_id, value_id)`."""
     values_artifact: RecordArtifact
-    """Artifact values with their features. Has form `(record_id, feature_id, value_id)`."""
+    """Artifact values with their features `(record_id, feature_id, value_id)`."""
     values_reference: RecordReference
-    """Reference values with their features. Has form `(record_id, feature_id, value_id)`."""
+    """Reference values with their features `(record_id, feature_id, value_id)`."""
     values_project: RecordProject
-    """Project values with their features. Has form `(record_id, feature_id, value_id)`."""
+    """Project values with their features `(record_id, feature_id, value_id)`."""
 
     @overload
     def __init__(
