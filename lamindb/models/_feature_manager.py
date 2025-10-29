@@ -986,6 +986,13 @@ class FeatureManager:
         # deal with other cases later
         assert all(isinstance(key, str) for key in keys)  # noqa: S101
         registry = feature_field.field.model
+        if (
+            host_is_record
+            and self._host.type is not None
+            and self._host.type.schema is not None
+        ):
+            assert schema is None, "Cannot pass schema if record.type has schema."
+            schema = self._host.type.schema
         if schema is not None:
             from lamindb.curators.core import ExperimentalDictCurator
 

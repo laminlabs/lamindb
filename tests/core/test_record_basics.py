@@ -86,6 +86,8 @@ def test_record_features_add_values():
     test_project = ln.Project(name="test_project").save()
     hek293 = bt.CellLine.from_source(name="HEK293").save()
 
+    # no schema validation
+
     test_values = {
         "feature_str": "a string value",
         "feature_int": 42,
@@ -100,6 +102,28 @@ def test_record_features_add_values():
     test_record.features.add_values(test_values)
     assert test_record.features.get_values() == test_values
 
+    # schema validation
+    schema = ln.Schema(
+        [
+            ln.Feature.get(name="feature_str"),
+            ln.Feature.get(name="feature_int"),
+        ],
+        name="test_schema",
+    ).save()
+    test_form = ln.Record(name="TestForm", is_type=True, schema=schema).save()
+    test_record_in_form = ln.Record(name="test_record_in_form", type=test_form).save()
+    with pytest.raises(ln.errors.ValidationError) as error:
+        test_record_in_form.features.add_values(
+            {
+                "feature_dict": {"key": "value", "number": 123, "list": [1, 2, 3]},
+                "feature_type1": record_entity1.name,
+            }
+        )
+    assert "COLUMN_NOT_IN_DATAFRAME" in error.exconly()
+
+    test_record_in_form.delete(permanent=True)
+    test_form.delete(permanent=True)
+    schema.delete(permanent=True)
     test_record.delete(permanent=True)
     feature_str.delete(permanent=True)
     feature_int.delete(permanent=True)

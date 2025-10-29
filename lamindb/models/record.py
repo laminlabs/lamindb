@@ -111,6 +111,8 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates, HasParents):
             my_record.features.add_values(my_features)
             assert my_record.features.get_values() == my_features
 
+        You can constrain which features can be added under a `type` by defining a schema.
+
         Records can also model flexible ontologies through their parents/children fields::
 
             cell_type = Record(name="CellType", is_type=True).save()
