@@ -65,89 +65,64 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates, HasParents):
 
     Examples:
 
-        Create a **record type** and instances of that type::
+        Create a **record** and label an artifact::
+
+            experiment1 = Record(name="Experiment 1", type=sample_type).save()
+            artifact.records.add(experiment1)        # annotate artifact with experiment1
+            ln.Artifact.filter(records=experiment1)  # query artifacts annotated with experiment1
+
+        Group several records under a **record type**::
 
             sample_type = Record(name="Sample", is_type=True).save()
             sample1 = Record(name="Sample 1", type=sample_type).save()
             sample2 = Record(name="Sample 2", type=sample_type).save()
 
-        You can then annotate artifacts and other entities, e.g.::
+        You can add **additional metadata** to records if you define **features**::
 
-            artifact.records.add(sample1)       # annotate artifact with sample1
-            ln.Artifact.filter(records=sample1) # query artifacts annotated with sample1
+            ln.Feature(name="gc_content", dtype=float).save()
+            ln.Feature(name="sample_note", dtype=str).save()
+            ln.Feature(name="feature_sample", dtype=sample_type).save()
 
-        You can add features to records to store additional metadata::
-
-            # create labels
-            ln.Project(name="test_project").save()
-            bt.CellLine.from_source(name="HEK293").save()
-            record_type1 = ln.Record(name="RecordType1", is_type=True).save()
-            ln.Record(name="entity1", type=record_type1).save()
-
-            # create features
-            ln.Feature(name="feature_str", dtype=str).save()
-            ln.Feature(name="feature_int", dtype=int).save()
-            ln.Feature(name="feature_dict", dtype=dict).save()
-            ln.Feature(name="feature_type1", dtype=record_type1).save()
-            ln.Feature(name="feature_user", dtype=ln.User).save()
-            ln.Feature(name="feature_project", dtype=ln.Project).save()
-            ln.Feature(name="feature_cell_line", dtype=bt.CellLine).save()
-            ln.Feature(name="feature_cl_ontology_id", dtype=bt.CellLine.ontology_id).save()
-
-            # create a record
-            my_record = ln.Record(name="my_record").save()
-
-            # my features
-            my_features = {
-                "feature_str": "a string value",
-                "feature_int": 42,
-                "feature_dict": {"key": "value", "number": 123, "list": [1, 2, 3]},
-                "feature_type1": "entity1",
-                "feature_user": "yourhandle",
-                "feature_project": "test_project",
-                "feature_cell_line": "HEK293",
-                "feature_cl_ontology_id": "CLO:0001230",
+            my_metadata = {
+                "gc_content": 0.5,
+                "sample_note": "This sample is great!",
+                "experiment1": "Experiment 1",
             }
-            my_record.features.add_values(my_features)
-            assert my_record.features.get_values() == my_features
+            sample1.features.add_values(my_metadata)      # add values to sample1
+            sample1.features.get_values() == my_metadata  # retrieve values from sample1
 
-        You can constrain which features can be added under a `type` by defining a schema::
+        The record type behaves like a **sheet** with flexible columns::
+
+            sample_type.type_to_dataframe()  # export all samples of this type as a DataFrame
+
+        To **constrain metadata in a sheet**, add a `schema` to the corresponding type::
 
             feature_str = ln.Feature.get(name="feature_str")
             feature_int = ln.Feature.get(name="feature_int")
             schema = ln.Schema([feature_str, feature_int], name="test_schema").save()
             test_form = ln.Record(name="TestForm", is_type=True, schema=schema).save()
             test_record_in_form = ln.Record(name="test_record_in_form", type=test_form).save()
-            with pytest.raises(ln.errors.ValidationError) as error:
+            try:
                 test_record_in_form.features.add_values({"feature_type1": "entity1"})
+            except ln.errors.ValidationError as error:
+                print("Validation error:", error)  # prints a missing column error
 
-        Records can also model flexible ontologies through their parents/children fields::
+        Records can also model **ontologies** through their parents/children attributes::
 
             cell_type = Record(name="CellType", is_type=True).save()
             t_cell = Record(name="T Cell", type=cell_type).save()
             cd4_t_cell = Record(name="CD4+ T Cell", type=cell_type).save()
             t_cell.children.add(cd4_t_cell)
 
-        Often, a label is measured *within* a dataset. For instance, an artifact
-        might characterize 2 species of the Iris flower (`"setosa"` &
-        `"versicolor"`) measured by a `"species"` feature. For such cases, you can use
-        :class:`~lamindb.curators.DataFrameCurator` to automatically parse, validate, and
-        annotate with labels that are contained in `DataFrame` objects.
+        However, if you work with biological entities like cell lines, cell types, tissues,
+        consider using the pre-defined biological registries in :mod:`bionty`.
 
-    .. note::
+    .. dropdown:: `Record` vs. `SQLRecord`
 
-        If you work with complex entities like cell lines, cell types, tissues,
-        etc., consider using the pre-defined biological registries in
-        :mod:`bionty` to label artifacts & collections.
+        The features of a `Record` are flexible: you can dynamically define features and add features to a record.
+        The fields of a `SQLRecord` are fixed: you need to define them in code and then migrate the underlying database.
 
-        If you work with biological samples, likely, the only sustainable way of
-        tracking metadata, is to create a custom schema module.
-
-    .. note::
-
-        A `Record` has a flexible schema: it can store data for arbitrary features.
-        By contrast, if you want to change the fields of a :class:`~lamindb.models.SQLRecord`, you need to modify the columns of the underlying table in the database.
-        The latter is more efficient for large datasets and you can customize it through modules like the `bionty` or `wetlab` module.
+        You can configure a `SQLRecord` by subclassing it in a custom schema, for example, as done here: `github.com/laminlabs/wetlab <https://github.com/laminlabs/wetlab>`__
 
     """
 
@@ -320,14 +295,16 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates, HasParents):
         branch_id = kwargs.pop("branch_id", 1)
         space = kwargs.pop("space", None)
         space_id = kwargs.pop("space_id", 1)
-        _skip_validation = kwargs.pop(
-            "_skip_validation", False
-        )  # should not validate records
+        _skip_validation = kwargs.pop("_skip_validation", False)
         _aux = kwargs.pop("_aux", None)
         if len(kwargs) > 0:
             valid_keywords = ", ".join([val[0] for val in _get_record_kwargs(Record)])
             raise FieldValidationError(
                 f"Only {valid_keywords} are valid keyword arguments"
+            )
+        if type and not type.is_type:
+            raise ValueError(
+                "You can only assign a record of `is_type=True` as `type` to another record."
             )
         if schema and not is_type:
             logger.important("passing schema, treating as type")
@@ -357,7 +334,7 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates, HasParents):
 
     @property
     def is_form(self) -> bool:
-        """Check if record is a form (a record type with a validating schema)."""
+        """Check if record is a form, i.e., `self.is_type and self.schema is not None`."""
         return self.schema is not None and self.is_type
 
     def query_parents(self) -> QuerySet:
@@ -392,10 +369,19 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates, HasParents):
         """
         return _query_ancestors_of_fk(self, "type")  # type: ignore
 
-    def type_to_dataframe(self) -> pd.DataFrame:
-        """Export all instances of this record type to a pandas DataFrame."""
+    def type_to_dataframe(self, recurse: bool = False) -> pd.DataFrame:
+        """Export all instances of this record type to a pandas DataFrame.
+
+        This is roughly equivalent to::
+
+            ln.Record.filter(type=sample_type).to_dataframe(include="features")
+
+        Args:
+            recurse: `bool = False` Whether to include records of sub-types recursively.
+        """
         assert self.is_type, "Only types can be exported as dataframes"  # noqa: S101
-        df = self.query_records().to_dataframe(features="queryset", order_by="id")
+        qs = self.query_records() if recurse else self.records
+        df = qs.to_dataframe(features="queryset", order_by="id")
         encoded_id = encode_lamindb_fields_as_columns(self.__class__, "id")
         encoded_uid = encode_lamindb_fields_as_columns(self.__class__, "uid")
         encoded_name = encode_lamindb_fields_as_columns(self.__class__, "name")
