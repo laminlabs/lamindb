@@ -654,9 +654,7 @@ def _check_otype_artifact(
     return otype
 
 
-def populate_subsequent_run(
-    record: Union[Artifact, Collection], run: Run | None
-) -> None:
+def populate_subsequent_run(record: Artifact | Collection, run: Run | None) -> None:
     if run is None:
         return
     if record.run is None:

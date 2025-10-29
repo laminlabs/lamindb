@@ -55,46 +55,10 @@ if TYPE_CHECKING:
     from .ulabel import ULabel
 
 
-# below is a draft for the future, see also the tests in test_collection.py
-#
-# class CollectionFeatureManager:
-#     """Query features of artifact in collection."""
-
-#     def __init__(self, collection: Collection):
-#         self._collection = collection
-
-#     def _get_staged_feature_sets_union(self) -> dict[str, Schema]:
-#         links_schema_artifact = Artifact.feature_sets.through.objects.filter(
-#             artifact_id__in=self._collection.artifacts.values_list("id", flat=True)
-#         )
-#         feature_sets_by_slots = defaultdict(list)
-#         for link in links_schema_artifact:
-#             feature_sets_by_slots[link.slot].append(link.schema_id)
-#         feature_sets_union = {}
-#         for slot, schema_ids_slot in feature_sets_by_slots.items():
-#             schema_1 = Schema.get(id=schema_ids_slot[0])
-#             related_name = schema_1._get_related_name()
-#             features_registry = getattr(Schema, related_name).field.model
-#             # this way of writing the __in statement turned out to be the fastest
-#             # evaluated on a link table with 16M entries connecting 500 feature sets with
-#             # 60k genes
-#             feature_ids = (
-#                 features_registry.schemas.through.objects.filter(
-#                     schema_id__in=schema_ids_slot
-#                 )
-#                 .values(f"{features_registry.__name__.lower()}_id")
-#                 .distinct()
-#             )
-#             features = features_registry.filter(id__in=feature_ids)
-#             feature_sets_union[slot] = Schema(features, dtype=schema_1.dtype)
-#         return feature_sets_union
-
-
 def _load_concat_artifacts(
     artifacts: list[Artifact], join: Literal["inner", "outer"] = "outer", **kwargs
 ) -> pd.DataFrame | ad.AnnData:
     suffixes = {artifact.suffix for artifact in artifacts}
-    # Why is that? - Sergei
     if len(suffixes) != 1:
         raise ValueError(
             "Can only load collections where all artifacts have the same suffix"
@@ -141,13 +105,13 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
     Examples:
 
-        Create a collection from a list of :class:`~lamindb.Artifact` objects:
+        Create a collection from a list of :class:`~lamindb.Artifact` objects::
 
-        >>> collection = ln.Collection([artifact1, artifact2], key="my_project/my_collection")
+            collection = ln.Collection([artifact1, artifact2], key="my_project/my_collection")
 
-        Create a collection that groups a data & a metadata artifact (e.g., here :doc:`docs:rxrx`):
+        Create a collection that groups a data & a metadata artifact (e.g., here :doc:`docs:rxrx`)::
 
-        >>> collection = ln.Collection(data_artifact, key="my_project/my_collection", meta=metadata_artifact)
+            collection = ln.Collection(data_artifact, key="my_project/my_collection", meta=metadata_artifact)
 
     """
 
