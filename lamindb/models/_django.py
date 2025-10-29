@@ -14,6 +14,7 @@ from .schema import Schema
 
 if TYPE_CHECKING:
     from .artifact import Artifact, Collection
+    from .record import Record
     from .run import Run
 
 
@@ -78,7 +79,7 @@ def get_related_model(model, field_name):
 
 
 def get_artifact_or_run_with_related(
-    record: Artifact | Run,
+    record: Artifact | Run | Record,
     include_fk: bool = False,
     include_m2m: bool = False,
     include_feature_link: bool = False,
@@ -89,8 +90,9 @@ def get_artifact_or_run_with_related(
     from .can_curate import get_name_field
 
     model = record.__class__
-    entity_field_name = "artifact" if record.__class__.__name__ == "Artifact" else "run"
-    if entity_field_name == "run" and include_schema:
+    is_record = record.__class__.__name__ == "Record"
+    entity_field_name = record.__class__.__name__.lower()
+    if entity_field_name in {"run", "record"} and include_schema:
         include_schema = False  # runs do not have feature sets
     schema_modules = get_schema_modules(record._state.db)
 
@@ -154,12 +156,25 @@ def get_artifact_or_run_with_related(
 
     for link in link_tables:
         link_model = getattr(model, link).rel.related_model
-        if not hasattr(link_model, "feature") or link_model.__name__ in {
+        if not hasattr(link_model, "feature"):
+            continue
+        if not is_record and link_model.__name__ in {
             "RecordArtifact",
             "RecordRun",
         }:
             continue
-        label_field = link.removeprefix("links_").replace("_", "")
+        if is_record and (
+            not link_model.__name__.startswith("Record")
+            or link_model.__name__
+            in {
+                "RecordJson",
+            }
+        ):
+            continue
+        if not is_record:
+            label_field = link.removeprefix("links_").replace("_", "")
+        else:
+            label_field = "value"
         related_model = link_model._meta.get_field(label_field).related_model
         char_field_names = [
             field.name
@@ -167,7 +182,6 @@ def get_artifact_or_run_with_related(
             if isinstance(field, CharField)
         ]
         name_field = get_name_field(related_model)
-
         label_field_name = f"{label_field}__{name_field}"
         annotations[f"linkfield_{link}"] = Subquery(
             link_model.objects.filter(**{entity_field_name: OuterRef("pk")})
@@ -237,7 +251,10 @@ def get_artifact_or_run_with_related(
             if not records:
                 continue
             link_model = getattr(model, link_name).rel.related_model
-            id_field_name = link_name.removeprefix("links_").replace("_", "")
+            if not is_record:
+                id_field_name = link_name.removeprefix("links_").replace("_", "")
+            else:
+                id_field_name = "value"
             final_target_model = link_model._meta.get_field(id_field_name).related_model
             m2m_field_name = m2m_model_map.get(
                 final_target_model.__get_name_with_module__()

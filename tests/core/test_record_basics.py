@@ -1,5 +1,6 @@
 import re
 
+import bionty as bt
 import lamindb as ln
 import pytest
 from django.db import IntegrityError
@@ -64,3 +65,51 @@ def test_invalid_type_record_with_schema():
 
     record_type_with_schema.delete(permanent=True)
     schema.delete(permanent=True)
+
+
+def test_record_features_add_values():
+    record_type1 = ln.Record(name="RecordType1", is_type=True).save()
+    record_entity1 = ln.Record(name="entity1", type=record_type1).save()
+
+    feature_str = ln.Feature(name="feature_str", dtype=str).save()
+    feature_int = ln.Feature(name="feature_int", dtype=int).save()
+    feature_dict = ln.Feature(name="feature_dict", dtype=dict).save()
+    feature_type1 = ln.Feature(name="feature_type1", dtype=record_type1).save()
+    feature_user = ln.Feature(name="feature_user", dtype=ln.User).save()
+    feature_project = ln.Feature(name="feature_project", dtype=ln.Project).save()
+    feature_cell_line = ln.Feature(name="feature_cell_line", dtype=bt.CellLine).save()
+    feature_cl_ontology_id = ln.Feature(
+        name="feature_cl_ontology_id", dtype=bt.CellLine.ontology_id
+    ).save()
+
+    test_record = ln.Record(name="test_record").save()
+    test_project = ln.Project(name="test_project").save()
+    hek293 = bt.CellLine.from_source(name="HEK293").save()
+
+    test_values = {
+        "feature_str": "a string value",
+        "feature_int": 42,
+        "feature_dict": {"key": "value", "number": 123, "list": [1, 2, 3]},
+        "feature_type1": record_entity1.name,
+        "feature_user": ln.setup.settings.user.handle,
+        "feature_project": "test_project",
+        "feature_cell_line": "HEK293",
+        "feature_cl_ontology_id": "CLO:0001230",
+    }
+
+    test_record.features.add_values(test_values)
+    assert test_record.features.get_values() == test_values
+
+    test_record.delete(permanent=True)
+    feature_str.delete(permanent=True)
+    feature_int.delete(permanent=True)
+    feature_type1.delete(permanent=True)
+    feature_user.delete(permanent=True)
+    feature_project.delete(permanent=True)
+    feature_dict.delete(permanent=True)
+    record_entity1.delete(permanent=True)
+    record_type1.delete(permanent=True)
+    test_project.delete(permanent=True)
+    feature_cell_line.delete(permanent=True)
+    feature_cl_ontology_id.delete(permanent=True)
+    hek293.delete(permanent=True)

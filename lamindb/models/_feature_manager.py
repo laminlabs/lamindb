@@ -155,7 +155,7 @@ def _get_categoricals_postgres(
 ) -> dict[tuple[str, str], set[str]]:
     """Get categorical features and their values using PostgreSQL-specific optimizations."""
     if related_data is None:
-        if self.__class__.__name__ in {"Artifact", "Run"}:
+        if self.__class__.__name__ in {"Artifact", "Run", "Record"}:
             artifact_meta = get_artifact_or_run_with_related(
                 self, include_feature_link=True, include_m2m=True
             )
@@ -169,12 +169,15 @@ def _get_categoricals_postgres(
     # e.g. {'tissue': {1: {'id': 1, 'uid': '1fIFAQJY', 'abbr': None, 'name': 'brain', 'tissue': 1, 'feature': 1, 'ontology_id': 'UBERON:0000955', 'tissue_display': 'brain'}, 10: {'id': 2, 'uid': '7Tt4iEKc', 'abbr': None, 'name': 'lung', 'tissue': 10, 'feature': 1, 'ontology_id': 'UBERON:0002048', 'tissue_display': 'lung'}}, 'celltype': {1: {'id': 1, 'uid': '3QnZfoBk', 'abbr': None, 'name': 'neuron', 'feature': 2, 'celltype': 1, 'ontology_id': 'CL:0000540', 'celltype_display': 'neuron'}}}
     # integers are the ids of the related labels
     m2m_name = {}
-    for related_name, values in m2m_data.items():
-        link_model = getattr(self.__class__, related_name).through
-        related_model_name = link_model.__name__.replace(
-            self.__class__.__name__, ""
-        ).lower()
-        m2m_name[related_model_name] = values
+    if not self.__class__.__name__ == "Record":
+        for related_name, values in m2m_data.items():
+            link_model = getattr(self.__class__, related_name).through
+            related_model_name = link_model.__name__.replace(
+                self.__class__.__name__, ""
+            ).lower()
+            m2m_name[related_model_name] = values
+    else:
+        m2m_name = related_data.get("m2m", {})
 
     # Get feature information
     links_data = related_data.get("link", {}) if related_data else {}
@@ -192,7 +195,6 @@ def _get_categoricals_postgres(
         related_name = link_name.removeprefix("links_").replace("_", "")
         if not link_values:
             continue
-
         for link_value in link_values:
             feature_id = link_value.get("feature")
             if feature_id is None:
@@ -200,11 +202,15 @@ def _get_categoricals_postgres(
 
             feature_name, feature_dtype = feature_dict.get(feature_id)
             feature_field = parse_dtype(feature_dtype)[0]["field_str"]
-            label_id = link_value.get(related_name)
-            label_name = m2m_name.get(related_name, {}).get(label_id).get(feature_field)
+            if not self.__class__.__name__ == "Record":
+                label_id = link_value.get(related_name)
+                label_name = (
+                    m2m_name.get(related_name, {}).get(label_id).get(feature_field)
+                )
+            else:
+                label_name = link_value.get(feature_field)
             if label_name:
                 result[(feature_name, feature_dtype)].add(label_name)
-
     return dict(result)
 
 
@@ -231,23 +237,30 @@ def _get_non_categoricals(
 ) -> dict[tuple[str, str], set[Any]]:
     """Get non-categorical features and their values."""
     from .artifact import Artifact
+    from .record import Record
     from .run import Run
 
     non_categoricals = {}
 
-    if self.id is not None and isinstance(self, (Artifact, Run)):
-        attr_name = "feature"
-        _feature_values = (
-            getattr(self, f"_{attr_name}_values")
-            .values(f"{attr_name}__name", f"{attr_name}__dtype")
-            .annotate(values=custom_aggregate("value", self._state.db))
-            .order_by(f"{attr_name}__name")
-        )
+    if self.id is not None and isinstance(self, (Artifact, Run, Record)):
+        if isinstance(self, Record):
+            _feature_values = self.values_json.values(
+                "feature__name", "feature__dtype", "value"
+            ).order_by("feature__name")
+        else:
+            _feature_values = (
+                self._feature_values.values("feature__name", "feature__dtype")
+                .annotate(values=custom_aggregate("value", self._state.db))
+                .order_by("feature__name")
+            )
 
         for fv in _feature_values:
-            feature_name = fv[f"{attr_name}__name"]
-            feature_dtype = fv[f"{attr_name}__dtype"]
-            values = fv["values"]
+            feature_name = fv["feature__name"]
+            feature_dtype = fv["feature__dtype"]
+            if isinstance(self, Record):
+                values = fv["value"]
+            else:
+                values = fv["values"]
 
             # Convert single values to sets
             if not isinstance(values, (list, dict, set)):
@@ -292,7 +305,7 @@ def _create_feature_table(
 
 
 def describe_features(
-    self: Artifact | Run,
+    self: Artifact | Run | Record,
     related_data: dict | None = None,
     to_dict: bool = False,
 ) -> dict | tuple[Tree | None, Tree | None]:
@@ -887,15 +900,26 @@ class FeatureManager:
         label_ref_is_name: bool | None = None,
         feature_ref_is_name: bool | None = None,
     ):
+        host_name = self._host.__class__.__name__.lower()
+        host_is_record = host_name == "record"
         if list(features_labels.keys()) != ["ULabel"]:
             related_names = dict_related_model_to_related_name(self._host.__class__)
         else:
             related_names = {"ULabel": "ulabels"}
+        if host_is_record:
+            # the related model to related name is ambiguous if two M2M exist
+            related_names["Record"] = "components"
+            related_names["Project"] = "linked_projects"
         for class_name, registry_features_labels in features_labels.items():
             related_name = related_names[class_name]  # e.g., "ulabels"
             IsLink = getattr(self._host, related_name).through
-            field_name = f"{get_link_attr(IsLink, self._host)}_id"  # e.g., ulabel_id
-            if self._host.__class__.__name__ == "Artifact":
+            if host_is_record:
+                field_name = "value_id"
+            else:
+                field_name = (
+                    f"{get_link_attr(IsLink, self._host)}_id"  # e.g., ulabel_id
+                )
+            if host_name == "artifact":
                 links = [
                     IsLink(
                         **{
@@ -912,7 +936,7 @@ class FeatureManager:
                 links = [
                     IsLink(
                         **{
-                            "run_id": self._host.id,
+                            f"{host_name}_id": self._host.id,
                             "feature_id": feature.id,
                             field_name: label.id,
                         }
@@ -925,18 +949,16 @@ class FeatureManager:
             except Exception:
                 save(links, ignore_conflicts=True)
             # now delete links that were previously saved without a feature
-            host_id_field = (
-                "artifact_id"
-                if self._host.__class__.__name__ == "Artifact"
-                else "run_id"
-            )
-            IsLink.filter(
-                **{
-                    host_id_field: self._host.id,
-                    "feature_id": None,
-                    f"{field_name}__in": [l.id for _, l in registry_features_labels],
-                }
-            ).delete()
+            if not host_is_record:
+                IsLink.filter(
+                    **{
+                        f"{host_name}_id": self._host.id,
+                        "feature_id": None,
+                        f"{field_name}__in": [
+                            l.id for _, l in registry_features_labels
+                        ],
+                    }
+                ).delete()
 
     def add_values(
         self,
@@ -951,10 +973,11 @@ class FeatureManager:
             feature_field: The field of a registry to map the keys of the `values` dictionary.
             schema: Schema to validate against.
         """
-        from lamindb.base.dtypes import is_iterable_of_sqlrecord
-
         from .._tracked import get_current_tracked_run
+        from ..base.dtypes import is_iterable_of_sqlrecord
+        from .record import Record, RecordJson
 
+        host_is_record = isinstance(self._host, Record)
         # rename to distinguish from the values inside the dict
         dictionary = values
         keys = dictionary.keys()
@@ -1044,7 +1067,11 @@ class FeatureManager:
                 feature.dtype.startswith("cat") or feature.dtype.startswith("list[cat")
             ):
                 filter_kwargs = {"feature": feature, "value": converted_value}
-                feature_value, _ = FeatureValue.get_or_create(**filter_kwargs)
+                if host_is_record:
+                    filter_kwargs["record"] = self._host
+                    feature_value = RecordJson(**filter_kwargs)
+                else:
+                    feature_value, _ = FeatureValue.get_or_create(**filter_kwargs)
                 feature_json_values.append(feature_value)
             else:
                 if isinstance(value, SQLRecord) or is_iterable_of_sqlrecord(value):
@@ -1106,7 +1133,9 @@ class FeatureManager:
 
         if features_labels:
             self._add_label_feature_links(features_labels)
-        if feature_json_values:
+        if feature_json_values and host_is_record:
+            save(feature_json_values)
+        elif feature_json_values:
             to_insert_feature_values = [
                 record for record in feature_json_values if record._state.adding
             ]

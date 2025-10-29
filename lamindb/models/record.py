@@ -65,28 +65,53 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates, HasParents):
 
     Examples:
 
-        Create a record type and then instances of that type::
+        Create a **record type** and instances of that type::
 
             sample_type = Record(name="Sample", is_type=True).save()
             sample1 = Record(name="Sample 1", type=sample_type).save()
             sample2 = Record(name="Sample 2", type=sample_type).save()
 
-        You can then annotate artifacts and other entities with these records, e.g.::
+        You can then annotate artifacts and other entities, e.g.::
 
-            artifact.records.add(sample1)
+            artifact.records.add(sample1)       # annotate artifact with sample1
+            ln.Artifact.filter(records=sample1) # query artifacts annotated with sample1
 
-        To query artifacts by records::
+        You can add features to records to store additional metadata::
 
-            ln.Artifact.filter(records=sample1).to_dataframe()
+            # create labels
+            ln.Project(name="test_project").save()
+            bt.CellLine.from_source(name="HEK293").save()
+            record_type1 = ln.Record(name="RecordType1", is_type=True).save()
+            ln.Record(name="entity1", type=record_type1).save()
 
-        Through the UI can assign attributes to records in form of features. The Python API also allows to
-        assign features programmatically, but is currently still low-level::
+            # create features
+            ln.Feature(name="feature_str", dtype=str).save()
+            ln.Feature(name="feature_int", dtype=int).save()
+            ln.Feature(name="feature_dict", dtype=dict).save()
+            ln.Feature(name="feature_type1", dtype=record_type1).save()
+            ln.Feature(name="feature_user", dtype=ln.User).save()
+            ln.Feature(name="feature_project", dtype=ln.Project).save()
+            ln.Feature(name="feature_cell_line", dtype=bt.CellLine).save()
+            ln.Feature(name="feature_cl_ontology_id", dtype=bt.CellLine.ontology_id).save()
 
-            feature = ln.Feature(name="age", type="int").save()
-            sample1.values_record.create(feature=feature, value=42)
-            sample2.values_record.create(feature=feature, value=23)
+            # create a record
+            my_record = ln.Record(name="my_record").save()
 
-        Records can also model flexible ontologies through their parents-children relationships::
+            # my features
+            my_features = {
+                "feature_str": "a string value",
+                "feature_int": 42,
+                "feature_dict": {"key": "value", "number": 123, "list": [1, 2, 3]},
+                "feature_type1": "entity1",
+                "feature_user": "yourhandle",
+                "feature_project": "test_project",
+                "feature_cell_line": "HEK293",
+                "feature_cl_ontology_id": "CLO:0001230",
+            }
+            my_record.features.add_values(my_features)
+            assert my_record.features.get_values() == my_features
+
+        Records can also model flexible ontologies through their parents/children fields::
 
             cell_type = Record(name="CellType", is_type=True).save()
             t_cell = Record(name="T Cell", type=cell_type).save()
