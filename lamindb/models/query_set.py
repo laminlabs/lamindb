@@ -403,7 +403,7 @@ def get_feature_annotate_kwargs(
             link_model = getattr(registry, obj.related_name).through
             if link_model.__name__ == "Record_parents":
                 continue
-            links = link_model.filter(
+            links = link_model.objects.filter(
                 **{registry.__name__.lower() + "_id__in": ids_list}
             )
             feature_names_for_link_model = links.values_list("feature__name", flat=True)
@@ -416,7 +416,7 @@ def get_feature_annotate_kwargs(
             )
         features = list(set(feature_names))  # remove duplicates
 
-    feature_qs = Feature.filter()
+    feature_qs = Feature.filter(dtype__isnull=False)
     if isinstance(features, list):
         feature_qs = feature_qs.filter(name__in=features)
         feature_names = features
