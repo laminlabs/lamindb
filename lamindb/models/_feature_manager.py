@@ -405,11 +405,8 @@ def describe_features(
         for (feature_name, feature_dtype), values in sorted(features.items()):
             # Handle dictionary conversion
             if to_dict:
-                # say we serialize a list of values as a json, then we should not
-                # convert it to a list again
-                # but if we store a number of categoricals then we have to convert
-                if feature_dtype.startswith("list") and not isinstance(values, list):
-                    dict_value = list(values)
+                if feature_dtype.startswith("list[cat"):
+                    dict_value = values  # is already a list
                 else:
                     dict_value = values if len(values) > 1 else next(iter(values))
                 dictionary[feature_name] = dict_value
@@ -1228,6 +1225,7 @@ class FeatureManager:
                 if (
                     obj.many_to_many
                     and hasattr(obj.related_model, "__get_name_with_module__")
+                    and hasattr(self._host.__class__, obj.related_name)
                     and hasattr(
                         getattr(self._host.__class__, obj.related_name).through,
                         "__get_name_with_module__",
@@ -1235,13 +1233,19 @@ class FeatureManager:
                     and obj.related_model.__get_name_with_module__() == feature_registry
                 )
             }
-            link_attribute = {
+            link_attributes = {
                 obj.related_name
                 for obj in self._host.__class__._meta.related_objects
                 if obj.related_model.__get_name_with_module__() in link_models_on_models
-            }.pop()
-
-            link_records = getattr(self._host, link_attribute).filter(**filter_kwargs)
+            }
+            if len(link_attributes) > 1 and self._host.__class__.__name__ == "Record":
+                link_attributes = {
+                    v for v in link_attributes if v.startswith("values_")
+                }
+            assert len(link_attributes) == 1
+            link_records = getattr(self._host, link_attributes.pop()).filter(
+                **filter_kwargs
+            )
             if not link_records.exists():
                 logger.warning(
                     f"no feature '{feature_record.name}' {none_message}found on {self._host.__class__.__name__.lower()} '{self._host.uid}'!"
