@@ -111,7 +111,7 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates, HasParents):
             my_record.features.add_values(my_features)
             assert my_record.features.get_values() == my_features
 
-        You can constrain which features can be added under a `type` by defining a schema.
+        You can constrain which features can be added under a `type` by defining a schema::
 
             feature_str = ln.Feature.get(name="feature_str")
             feature_int = ln.Feature.get(name="feature_int")
