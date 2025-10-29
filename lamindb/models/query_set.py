@@ -398,7 +398,6 @@ def get_feature_annotate_kwargs(
         ids_list = qs.values_list("id", flat=True)
         feature_names = []
         for obj in registry._meta.related_objects:
-            print(obj.related_name)
             related_name_attr = getattr(registry, obj.related_name, None)
             if related_name_attr is None or not hasattr(related_name_attr, "through"):
                 continue

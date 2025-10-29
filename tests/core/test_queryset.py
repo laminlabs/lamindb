@@ -84,6 +84,12 @@ def test_df():
     assert qs.to_dataframe().iloc[0]["handle"] == "testuser1"
 
 
+def test_complex_df_with_features():
+    # should not fail
+    ln.Artifact.using("laminlabs/lamindata").to_dataframe(include="features")
+    ln.Artifact.using("laminlabs/lamindata").to_dataframe(fetures="queryset")
+
+
 def test_one_first():
     qs = ln.User.objects.all()
     assert qs.one().handle == "testuser1"
