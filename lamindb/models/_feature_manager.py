@@ -190,7 +190,7 @@ def _get_categoricals_postgres(
     }
 
     # Build result dictionary
-    result = defaultdict(set)
+    result = {}  # type: ignore
     for link_name, link_values in links_data.items():
         related_name = link_name.removeprefix("links_").replace("_", "")
         if not link_values:
@@ -210,7 +210,15 @@ def _get_categoricals_postgres(
             else:
                 label_name = link_value.get(feature_field)
             if label_name:
-                result[(feature_name, feature_dtype)].add(label_name)
+                dict_key = (feature_name, feature_dtype)
+                if dict_key not in result:
+                    result[dict_key] = (
+                        set() if not feature_dtype.startswith("list[cat") else []
+                    )
+                if feature_dtype.startswith("list[cat"):
+                    result[dict_key].append(label_name)
+                else:
+                    result[dict_key].add(label_name)
     return dict(result)
 
 
@@ -1192,13 +1200,12 @@ class FeatureManager:
             feature: The feature for which to remove values.
             value: An optional value to restrict removal to a single value.
         """
-        from .artifact import Artifact
-
         if isinstance(feature, str):
             feature_record = Feature.get(name=feature)
         else:
             feature_record = feature
         filter_kwargs = {"feature": feature_record}
+        none_message = f"with value {value!r} " if value is not None else ""
         if feature_record.dtype.startswith(("cat[", "list[cat")):  # type: ignore
             feature_registry = parse_dtype(feature_record.dtype)[0]["registry_str"]
             if value is not None:
@@ -1215,35 +1222,48 @@ class FeatureManager:
                 filter_kwargs[link_name] = value
             link_models_on_models = {
                 getattr(
-                    Artifact, obj.related_name
+                    self._host.__class__, obj.related_name
                 ).through.__get_name_with_module__(): obj.related_model.__get_name_with_module__()
-                for obj in Artifact._meta.related_objects
-                if obj.related_model.__get_name_with_module__() == feature_registry
+                for obj in self._host.__class__._meta.related_objects
+                if (
+                    obj.many_to_many
+                    and hasattr(obj.related_model, "__get_name_with_module__")
+                    and hasattr(
+                        getattr(self._host.__class__, obj.related_name).through,
+                        "__get_name_with_module__",
+                    )
+                    and obj.related_model.__get_name_with_module__() == feature_registry
+                )
             }
             link_attribute = {
                 obj.related_name
-                for obj in Artifact._meta.related_objects
+                for obj in self._host.__class__._meta.related_objects
                 if obj.related_model.__get_name_with_module__() in link_models_on_models
             }.pop()
 
             link_records = getattr(self._host, link_attribute).filter(**filter_kwargs)
             if not link_records.exists():
                 logger.warning(
-                    f"no feature '{feature_record.name}' with value '{value}' found on artifact '{self._host.uid}'!"
+                    f"no feature '{feature_record.name}' {none_message}found on {self._host.__class__.__name__.lower()} '{self._host.uid}'!"
                 )
                 return
             link_records.delete()
         else:
             if value is not None:
                 filter_kwargs["value"] = value
-
-            feature_values = self._host._feature_values.filter(**filter_kwargs)
+            if self._host.__class__.__name__ == "Record":
+                feature_values = self._host.values_json.filter(**filter_kwargs)
+            else:
+                feature_values = self._host._feature_values.filter(**filter_kwargs)
             if not feature_values.exists():
                 logger.warning(
-                    f"no feature '{feature_record.name}' with value '{value}' found on artifact '{self._host.uid}'!"
+                    f"no feature '{feature_record.name}' {none_message}found on {self._host.__class__.__name__.lower()} '{self._host.uid}'!"
                 )
                 return
-            self._host._feature_values.remove(*feature_values)
+            if self._host.__class__.__name__ == "Record":
+                feature_values.delete(permanent=True)
+            else:
+                self._host._feature_values.remove(*feature_values)
             # this might leave a dangling feature_value record
             # but we don't want to pay the price of making another query just to remove this annotation
             # we can clean the FeatureValue registry periodically if we want to

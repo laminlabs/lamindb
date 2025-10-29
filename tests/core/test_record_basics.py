@@ -67,7 +67,7 @@ def test_invalid_type_record_with_schema():
     schema.delete(permanent=True)
 
 
-def test_record_features_add_values():
+def test_record_features_add_remove_values():
     record_type1 = ln.Record(name="RecordType1", is_type=True).save()
     record_entity1 = ln.Record(name="entity1", type=record_type1).save()
     record_entity2 = ln.Record(name="entity2", type=record_type1).save()
@@ -103,6 +103,29 @@ def test_record_features_add_values():
     }
 
     test_record.features.add_values(test_values)
+    print(test_record.features.get_values())
+    assert test_record.features.get_values() == test_values
+
+    # remove values
+
+    test_record.features.remove_values("feature_int")
+    test_values.pop("feature_int")
+    assert test_record.features.get_values() == test_values
+
+    test_record.features.remove_values("feature_type1")
+    test_values.pop("feature_type1")
+    assert test_record.features.get_values() == test_values
+
+    test_record.features.remove_values("feature_type2")
+    test_values.pop("feature_type2")
+    assert test_record.features.get_values() == test_values
+
+    test_record.features.remove_values("feature_cell_line")
+    test_values.pop("feature_cell_line")
+    assert test_record.features.get_values() == test_values
+
+    test_record.features.remove_values("feature_user")
+    test_values.pop("feature_user")
     assert test_record.features.get_values() == test_values
 
     # schema validation
