@@ -13,7 +13,7 @@ import pandas as pd
 from anndata import AnnData
 from django.contrib.postgres.aggregates import ArrayAgg
 from django.db import connections
-from django.db.models import Aggregate, ProtectedError, Subquery
+from django.db.models import Aggregate, Subquery
 from django.db.utils import IntegrityError
 from lamin_utils import logger
 from lamindb_setup.core.hashing import hash_set
@@ -907,14 +907,13 @@ class FeatureManager:
     ):
         host_name = self._host.__class__.__name__.lower()
         host_is_record = host_name == "record"
-        if list(features_labels.keys()) != ["ULabel"]:
-            related_names = dict_related_model_to_related_name(self._host.__class__)
-        else:
-            related_names = {"ULabel": "ulabels"}
+        related_names = dict_related_model_to_related_name(self._host.__class__)
         if host_is_record:
             # the related model to related name is ambiguous if two M2M exist
             related_names["Record"] = "components"
             related_names["Project"] = "linked_projects"
+            related_names["Artifact"] = "linked_artifacts"
+            related_names["Run"] = "linked_runs"
         for class_name, registry_features_labels in features_labels.items():
             related_name = related_names[class_name]  # e.g., "ulabels"
             IsLink = getattr(self._host, related_name).through
@@ -953,17 +952,6 @@ class FeatureManager:
                 save(links, ignore_conflicts=False)
             except Exception:
                 save(links, ignore_conflicts=True)
-            # now delete links that were previously saved without a feature
-            if not host_is_record:
-                IsLink.filter(
-                    **{
-                        f"{host_name}_id": self._host.id,
-                        "feature_id": None,
-                        f"{field_name}__in": [
-                            l.id for _, l in registry_features_labels
-                        ],
-                    }
-                ).delete()
 
     def add_values(
         self,
@@ -980,6 +968,7 @@ class FeatureManager:
         """
         from .._tracked import get_current_tracked_run
         from ..base.dtypes import is_iterable_of_sqlrecord
+        from .can_curate import CanCurate
         from .record import Record, RecordJson
 
         host_is_record = isinstance(self._host, Record)
@@ -1114,20 +1103,29 @@ class FeatureManager:
                         }
                     else:
                         result = parse_dtype(feature.dtype)[0]
-                    validated = result["registry"].validate(  # type: ignore
-                        values, field=result["field"], mute=True
-                    )
-                    values_array = np.array(values)
-                    validated_values = values_array[validated]
-                    key = result["registry_str"]
-                    if validated.sum() != len(values):
-                        not_validated_values[result["registry_str"]] = (  # type: ignore
-                            result["field_str"],
-                            values_array[~validated].tolist(),
+                    if issubclass(result["registry"], CanCurate):  # type: ignore
+                        validated = result["registry"].validate(  # type: ignore
+                            values, field=result["field"], mute=True
                         )
-                    label_records = result["registry"].from_values(  # type: ignore
-                        validated_values, field=result["field"], mute=True
-                    )
+                        values_array = np.array(values)
+                        validated_values = values_array[validated]
+                        key = result["registry_str"]
+                        if validated.sum() != len(values):
+                            not_validated_values[result["registry_str"]] = (  # type: ignore
+                                result["field_str"],
+                                values_array[~validated].tolist(),
+                            )
+                        label_records = result["registry"].from_values(  # type: ignore
+                            validated_values, field=result["field"], mute=True
+                        )
+                    else:
+                        label_records = result["registry"].filter(  # type: ignore
+                            **{f"{result['field_str']}__in": values}
+                        )
+                        if len(label_records) != len(values):
+                            raise ValidationError(
+                                f"Some of these values for {result['registry_str']} do not exist: {values}"
+                            )
                     features_labels[result["registry_str"]] += [  # type: ignore
                         (feature, label_record) for label_record in label_records
                     ]
@@ -1142,7 +1140,6 @@ class FeatureManager:
                 f"Here is how to create records for them:\n\n{hint}"
             )
             raise ValidationError(msg)
-
         if features_labels:
             self._add_label_feature_links(features_labels)
         if feature_json_values and host_is_record:
@@ -1153,36 +1150,16 @@ class FeatureManager:
             ]
             if to_insert_feature_values:
                 save(to_insert_feature_values)
-            dict_typed_features = [
-                record.feature
-                for record in feature_json_values
-                if record.feature.dtype == "dict"
-            ]
-            valuefield_id = "featurevalue_id"
-            host_class_lower = self._host.__class__.__get_name_with_module__().lower()
-            if dict_typed_features:
-                # delete all previously existing anotations with dictionaries
-                # to save storage space in the database
-                kwargs = {
-                    f"links_{host_class_lower}__{host_class_lower}_id": self._host.id,
-                    "feature__in": dict_typed_features,
-                }
-                try:
-                    FeatureValue.filter(**kwargs).delete(permanent=True)
-                except ProtectedError:
-                    pass
-            # add new feature links
             links = [
                 self._host._feature_values.through(
                     **{
-                        f"{host_class_lower}_id": self._host.id,
-                        valuefield_id: json_value.id,
+                        f"{self._host.__class__.__name__.lower()}_id": self._host.id,
+                        "featurevalue_id": json_value.id,
                     }
                 )
                 for json_value in feature_json_values
             ]
-            # a link might already exist, to avoid raising a unique constraint
-            # error, ignore_conflicts
+            # a link might already exist, hence ignore_conflicts is needed
             save(links, ignore_conflicts=True)
 
     def remove_values(
@@ -1191,7 +1168,7 @@ class FeatureManager:
         *,
         value: Any | None = None,
     ) -> None:
-        """Remove a feature annotation.
+        """Remove a values for a feature.
 
         Args:
             feature: The feature for which to remove values.
@@ -1217,31 +1194,41 @@ class FeatureManager:
                     else feature_registry
                 ).lower()
                 filter_kwargs[link_name] = value
-            link_models_on_models = {
-                getattr(
-                    self._host.__class__, obj.related_name
-                ).through.__get_name_with_module__(): obj.related_model.__get_name_with_module__()
-                for obj in self._host.__class__._meta.related_objects
-                if (
-                    obj.many_to_many
-                    and hasattr(obj.related_model, "__get_name_with_module__")
-                    and hasattr(self._host.__class__, obj.related_name)
-                    and hasattr(
-                        getattr(self._host.__class__, obj.related_name).through,
-                        "__get_name_with_module__",
+            if feature_registry == "Artifact":
+                link_attributes = {"values_artifact"}
+            elif feature_registry == "Run":
+                link_attributes = {"values_run"}
+            else:
+                link_models_on_models = {
+                    getattr(
+                        self._host.__class__, obj.related_name
+                    ).through.__get_name_with_module__(): obj.related_model.__get_name_with_module__()
+                    for obj in self._host.__class__._meta.related_objects
+                    if (
+                        obj.many_to_many
+                        and hasattr(obj.related_model, "__get_name_with_module__")
+                        and hasattr(self._host.__class__, obj.related_name)
+                        and hasattr(
+                            getattr(self._host.__class__, obj.related_name).through,
+                            "__get_name_with_module__",
+                        )
+                        and obj.related_model.__get_name_with_module__()
+                        == feature_registry
                     )
-                    and obj.related_model.__get_name_with_module__() == feature_registry
-                )
-            }
-            link_attributes = {
-                obj.related_name
-                for obj in self._host.__class__._meta.related_objects
-                if obj.related_model.__get_name_with_module__() in link_models_on_models
-            }
-            if len(link_attributes) > 1 and self._host.__class__.__name__ == "Record":
-                link_attributes = {
-                    v for v in link_attributes if v.startswith("values_")
                 }
+                link_attributes = {
+                    obj.related_name
+                    for obj in self._host.__class__._meta.related_objects
+                    if obj.related_model.__get_name_with_module__()
+                    in link_models_on_models
+                }
+                if (
+                    len(link_attributes) > 1
+                    and self._host.__class__.__name__ == "Record"
+                ):
+                    link_attributes = {
+                        v for v in link_attributes if v.startswith("values_")
+                    }
             assert len(link_attributes) == 1
             link_records = getattr(self._host, link_attributes.pop()).filter(
                 **filter_kwargs

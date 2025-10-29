@@ -88,12 +88,7 @@ def test_features_add_remove(adata, ccaplog):
     assert error.exconly().startswith(
         "lamindb.errors.ValidationError: These values could not be validated:"
     )
-    experiment_label = ln.Record(name="Experiment 1").save()
-    # add the label without the feature first
-    artifact.records.add(experiment_label)
-    assert artifact.links_record.get().record.name == "Experiment 1"
-    assert artifact.links_record.get().feature is None
-
+    ln.Record(name="Experiment 1").save()
     # now add the label with the feature and make sure that it has the feature annotation
     artifact.features.add_values({"experiment": "Experiment 1"})
     assert artifact.links_record.get().record.name == "Experiment 1"
