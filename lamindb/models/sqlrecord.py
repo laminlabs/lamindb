@@ -1858,14 +1858,14 @@ class SQLRecordInfo:
             field
             for field in self.registry._meta.fields + self.registry._meta.many_to_many
             if isinstance(field, relational_fields)
-            and not field.name.startswith(("links_", "_", "values_"))
+            and not field.name.startswith(("links_", "_"))
         ]
 
         non_class_specific_relational_fields = [
             field
             for field in self.registry._meta.get_fields()
             if isinstance(field, relational_fields)
-            and not field.name.startswith(("links_", "_", "values_"))
+            and not field.name.startswith(("links_", "_"))
         ]
         non_class_specific_relational_fields = self._reorder_fields_by_class(
             non_class_specific_relational_fields
@@ -1883,13 +1883,18 @@ class SQLRecordInfo:
 
         # For Record class, move linked_in fields to the end
         if self.registry.__name__ == "Record":
-            linked_in_fields = [
+            regular_fields = [
+                f
+                for f in ordered_relational_fields
+                if not f.name.startswith(("linked_", "values_"))
+            ]
+            linked_fields = [
                 f for f in ordered_relational_fields if f.name.startswith("linked_")
             ]
-            other_fields = [
-                f for f in ordered_relational_fields if not f.name.startswith("linked_")
+            values_fields = [
+                f for f in ordered_relational_fields if f.name.startswith("values_")
             ]
-            ordered_relational_fields = other_fields + linked_in_fields
+            ordered_relational_fields = regular_fields + linked_fields + values_fields
 
         core_module_fields = []
         external_modules_fields = []

@@ -40,7 +40,7 @@ if TYPE_CHECKING:
 
     from ._feature_manager import FeatureManager
     from .blocks import RunBlock
-    from .project import Project, Reference
+    from .project import Project, RecordProject, RecordReference, Reference
     from .schema import Schema
 
 
@@ -167,25 +167,23 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates, HasParents):
     This is analogous to the `schema` attribute of an `Artifact`.
     If `is_type` is `True`, the schema is used to enforce features for each record of this type.
     """
-    # naming convention in analogy to Schema
-    components: Record = models.ManyToManyField(  # rename to linked_records
+    # naming convention in analogy to Schema, but probably better would linked_records in analogy with other
+    # record relationships
+    components: Record = models.ManyToManyField(
         "Record", through="RecordRecord", symmetrical=False, related_name="composites"
     )
     """Records linked in this record as a value."""
-    composites: Record  # rename to linked_in_records
-    """Records linking this record as a value."""
+    composites: Record  # consider renaming to linked_in_records in LaminDB 2
+    """Records linking this record as a value. Is reverse accessor for `components`."""
     parents: Record = models.ManyToManyField(
         "self", symmetrical=False, related_name="children"
     )
-    """Parent entities of this record.
+    """Ontological parents of this record.
 
     You can build an ontology under a given `type`. For example, introduce a type `CellType` and model the hiearchy of cell types under it via `parents` and `children`.
     """
     children: Record
-    """Child entities of this record.
-
-    Reverse accessor for parents.
-    """
+    """Ontological children of this record. Is reverse accessor for `parents`."""
     # this is handled manually here because we want to se the related_name attribute
     # (this doesn't happen via inheritance of TracksRun, everything else is the same)
     run: Run | None = ForeignKey(
@@ -234,19 +232,19 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates, HasParents):
     values_json: RecordJson
     """JSON values (for lists, dicts, etc.)."""
     values_record: RecordRecord
-    """Record values with their features (the links)."""
+    """Record values with their features. Has form `(record_id, feature_id, value_id)`."""
     values_ulabel: RecordULabel
-    """ULabel values with their features."""
+    """ULabel values with their features. Has form `(record_id, feature_id, value_id)`."""
     values_user: RecordUser
-    """User values with their features."""
+    """User values with their features. Has form `(record_id, feature_id, value_id)`."""
     values_run: RecordRun
-    """Run values with their features."""
+    """Run values with their features. Has form `(record_id, feature_id, value_id)`."""
     values_artifact: RecordArtifact
-    """Artifact values with their features."""
-    values_reference: Reference
-    """Reference values with their features."""
-    values_project: Project
-    """Project values with their features."""
+    """Artifact values with their features. Has form `(record_id, feature_id, value_id)`."""
+    values_reference: RecordReference
+    """Reference values with their features. Has form `(record_id, feature_id, value_id)`."""
+    values_project: RecordProject
+    """Project values with their features. Has form `(record_id, feature_id, value_id)`."""
 
     @overload
     def __init__(
