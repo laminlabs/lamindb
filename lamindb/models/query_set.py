@@ -398,14 +398,27 @@ def get_feature_annotate_kwargs(
         ids_list = qs.values_list("id", flat=True)
         feature_names = []
         for obj in registry._meta.related_objects:
-            if not hasattr(getattr(registry, obj.related_name), "through"):
+            print(obj.related_name)
+            related_name_attr = getattr(registry, obj.related_name, None)
+            if related_name_attr is None or not hasattr(related_name_attr, "through"):
                 continue
-            link_model = getattr(registry, obj.related_name).through
-            if link_model.__name__ == "Record_parents":
+            link_model = related_name_attr.through
+            if (
+                not hasattr(link_model, "feature")
+                or link_model.__name__ == "Record_parents"
+            ):
                 continue
-            links = link_model.objects.filter(
-                **{registry.__name__.lower() + "_id__in": ids_list}
-            )
+            filter_field = registry.__name__.lower()
+            if not hasattr(link_model, filter_field):
+                potential_fields = []
+                for field in link_model._meta.get_fields():
+                    if field.is_relation and field.related_model is registry:
+                        potential_fields.append(field.name)
+                if len(potential_fields) == 1:
+                    filter_field = potential_fields[0]
+                else:
+                    continue
+            links = link_model.objects.filter(**{filter_field + "_id__in": ids_list})
             feature_names_for_link_model = links.values_list("feature__name", flat=True)
             feature_names += feature_names_for_link_model
         if registry is Record:
@@ -422,7 +435,7 @@ def get_feature_annotate_kwargs(
         feature_names = features
     else:  # features is True -- only consider categorical features from ULabel and non-categorical features
         feature_qs = feature_qs.filter(
-            Q(~Q(dtype__startswith="cat["))
+            ~Q(dtype__startswith="cat[")
             | Q(dtype__startswith="cat[ULabel")
             | Q(dtype__startswith="cat[Record")
         )
