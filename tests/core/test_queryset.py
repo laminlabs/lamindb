@@ -87,7 +87,7 @@ def test_df():
 def test_complex_df_with_features():
     # should not fail
     ln.Artifact.using("laminlabs/lamindata").to_dataframe(include="features")
-    ln.Artifact.using("laminlabs/lamindata").to_dataframe(fetures="queryset")
+    ln.Artifact.using("laminlabs/lamindata").to_dataframe(features="queryset")
 
 
 def test_one_first():
