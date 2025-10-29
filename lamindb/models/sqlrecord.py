@@ -637,12 +637,12 @@ class Registry(ModelBase):
         """
         from .query_set import QuerySet
 
-        # connection already established
-        if instance in connections:
-            return QuerySet(model=cls, using=instance)
         # we're in the default instance
         if instance is None or instance == "default":
             return QuerySet(model=cls, using=None)
+        # connection already established
+        if instance in connections:
+            return QuerySet(model=cls, using=instance)
 
         owner, name = get_owner_name_from_identifier(instance)
         current_instance_owner_name: list[str] = setup_settings.instance.slug.split("/")

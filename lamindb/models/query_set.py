@@ -417,7 +417,9 @@ def get_feature_annotate_kwargs(
                     filter_field = potential_fields[0]
                 else:
                     continue
-            links = link_model.objects.filter(**{filter_field + "_id__in": ids_list})
+            links = link_model.objects.using(qs.db).filter(
+                **{filter_field + "_id__in": ids_list}
+            )
             feature_names_for_link_model = links.values_list("feature__name", flat=True)
             feature_names += feature_names_for_link_model
         if registry is Record:
@@ -428,7 +430,9 @@ def get_feature_annotate_kwargs(
             )
         features = list(set(feature_names))  # remove duplicates
 
-    feature_qs = Feature.filter(dtype__isnull=False)
+    feature_qs = Feature.using(qs.db if qs is not None else None).filter(
+        dtype__isnull=False
+    )
     if isinstance(features, list):
         feature_qs = feature_qs.filter(name__in=features)
         feature_names = features
