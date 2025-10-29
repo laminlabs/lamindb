@@ -208,7 +208,7 @@ def _get_categoricals_postgres(
                     m2m_name.get(related_name, {}).get(label_id).get(feature_field)
                 )
             else:
-                label_name = link_value.get("value_display")
+                label_name = link_value.get(feature_field)
             if label_name:
                 result[(feature_name, feature_dtype)].add(label_name)
     return dict(result)

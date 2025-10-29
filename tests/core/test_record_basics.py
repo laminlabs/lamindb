@@ -98,7 +98,6 @@ def test_record_features_add_values():
     }
 
     test_record.features.add_values(test_values)
-    print(test_record.features.get_values())
     assert test_record.features.get_values() == test_values
 
     test_record.delete(permanent=True)
