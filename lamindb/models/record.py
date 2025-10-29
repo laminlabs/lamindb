@@ -26,6 +26,7 @@ from .query_set import (
     QuerySet,
     SQLRecordList,
     encode_lamindb_fields_as_columns,
+    get_default_branch_ids,
     reorder_subset_columns_in_df,
 )
 from .run import Run, TracksRun, TracksUpdates, User, current_run, current_user_id
@@ -380,7 +381,13 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates, HasParents):
             recurse: `bool = False` Whether to include records of sub-types recursively.
         """
         assert self.is_type, "Only types can be exported as dataframes"  # noqa: S101
-        qs = self.query_records() if recurse else self.records
+
+        branch_ids = get_default_branch_ids()
+        qs = (
+            self.query_records()
+            if recurse
+            else self.records.filter(branch_id__in=branch_ids)
+        )
         df = qs.to_dataframe(features="queryset", order_by="id")
         encoded_id = encode_lamindb_fields_as_columns(self.__class__, "id")
         encoded_uid = encode_lamindb_fields_as_columns(self.__class__, "uid")

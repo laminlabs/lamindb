@@ -128,7 +128,6 @@ id,uid,name,treatment,cell_line,preparation_date,project,__lamindb_record_uid__,
     assert artifact.description.startswith(f"Export of sheet {sample_sheet1.uid}")
     assert artifact._state.adding is False
     assert ln.models.ArtifactRecord.filter(artifact=artifact).count() == 2
-    print(artifact.features.describe(return_str=True))
     assert artifact.features.describe(return_str=True).endswith("""\
 └── Dataset features
     └── columns (7)
@@ -145,6 +144,7 @@ id,uid,name,treatment,cell_line,preparation_date,project,__lamindb_record_uid__,
     sample_sheet1.records.first().delete()
     assert ln.Record.filter(type=sample_sheet1).count() == 1
     df = sample_sheet1.type_to_dataframe()
+    print(df)
     assert len(df) == 1  # one row in the dataframe
 
     artifact.delete(permanent=True)
