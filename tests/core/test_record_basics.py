@@ -67,14 +67,16 @@ def test_invalid_type_record_with_schema():
     schema.delete(permanent=True)
 
 
-def test_record_features_add_values():
+def test_record_features_add_remove_values():
     record_type1 = ln.Record(name="RecordType1", is_type=True).save()
     record_entity1 = ln.Record(name="entity1", type=record_type1).save()
+    record_entity2 = ln.Record(name="entity2", type=record_type1).save()
 
     feature_str = ln.Feature(name="feature_str", dtype=str).save()
     feature_int = ln.Feature(name="feature_int", dtype=int).save()
     feature_dict = ln.Feature(name="feature_dict", dtype=dict).save()
     feature_type1 = ln.Feature(name="feature_type1", dtype=record_type1).save()
+    ln.Feature(name="feature_type2", dtype=list[record_type1]).save()
     feature_user = ln.Feature(name="feature_user", dtype=ln.User).save()
     feature_project = ln.Feature(name="feature_project", dtype=ln.Project).save()
     feature_cell_line = ln.Feature(name="feature_cell_line", dtype=bt.CellLine).save()
@@ -86,11 +88,14 @@ def test_record_features_add_values():
     test_project = ln.Project(name="test_project").save()
     hek293 = bt.CellLine.from_source(name="HEK293").save()
 
+    # no schema validation
+
     test_values = {
         "feature_str": "a string value",
         "feature_int": 42,
         "feature_dict": {"key": "value", "number": 123, "list": [1, 2, 3]},
-        "feature_type1": record_entity1.name,
+        "feature_type1": "entity1",
+        "feature_type2": ["entity1", "entity2"],
         "feature_user": ln.setup.settings.user.handle,
         "feature_project": "test_project",
         "feature_cell_line": "HEK293",
@@ -98,8 +103,45 @@ def test_record_features_add_values():
     }
 
     test_record.features.add_values(test_values)
+    print(test_record.features.get_values())
     assert test_record.features.get_values() == test_values
 
+    # remove values
+
+    test_record.features.remove_values("feature_int")
+    test_values.pop("feature_int")
+    assert test_record.features.get_values() == test_values
+
+    test_record.features.remove_values("feature_type1")
+    test_values.pop("feature_type1")
+    assert test_record.features.get_values() == test_values
+
+    test_record.features.remove_values("feature_type2")
+    test_values.pop("feature_type2")
+    assert test_record.features.get_values() == test_values
+
+    test_record.features.remove_values("feature_cell_line")
+    test_values.pop("feature_cell_line")
+    assert test_record.features.get_values() == test_values
+
+    test_record.features.remove_values("feature_user")
+    test_values.pop("feature_user")
+    assert test_record.features.get_values() == test_values
+
+    # schema validation
+
+    feature_str = ln.Feature.get(name="feature_str")
+    feature_int = ln.Feature.get(name="feature_int")
+    schema = ln.Schema([feature_str, feature_int], name="test_schema").save()
+    test_form = ln.Record(name="TestForm", is_type=True, schema=schema).save()
+    test_record_in_form = ln.Record(name="test_record_in_form", type=test_form).save()
+    with pytest.raises(ln.errors.ValidationError) as error:
+        test_record_in_form.features.add_values({"feature_type1": "entity1"})
+    assert "COLUMN_NOT_IN_DATAFRAME" in error.exconly()
+
+    test_record_in_form.delete(permanent=True)
+    test_form.delete(permanent=True)
+    schema.delete(permanent=True)
     test_record.delete(permanent=True)
     feature_str.delete(permanent=True)
     feature_int.delete(permanent=True)
@@ -108,6 +150,7 @@ def test_record_features_add_values():
     feature_project.delete(permanent=True)
     feature_dict.delete(permanent=True)
     record_entity1.delete(permanent=True)
+    record_entity2.delete(permanent=True)
     record_type1.delete(permanent=True)
     test_project.delete(permanent=True)
     feature_cell_line.delete(permanent=True)

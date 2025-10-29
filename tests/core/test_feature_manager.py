@@ -387,7 +387,7 @@ def test_add_remove_list_features(ccaplog):
     assert artifact.features.get_values()["cell_types"] == ["B cell"]
     # remove a non-linked value, this should print a warning but do nothing
     artifact.features.remove_values("cell_types", value=t_cell.parents.first())
-    assert "no feature 'cell_types' with value 'CellType(" in ccaplog.text
+    assert "no feature 'cell_types' with value CellType(" in ccaplog.text
     # remove the entire linked feature
     artifact.features.remove_values("cell_types")
     assert "cell_types" not in artifact.features.get_values()
