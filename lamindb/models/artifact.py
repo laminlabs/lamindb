@@ -1160,6 +1160,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     }
     _len_full_uid: int = 20
     _len_stem_uid: int = 16
+    _name_field: str = "key"
 
     @property
     def features(self) -> FeatureManager:
