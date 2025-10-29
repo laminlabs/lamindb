@@ -70,11 +70,13 @@ def test_invalid_type_record_with_schema():
 def test_record_features_add_values():
     record_type1 = ln.Record(name="RecordType1", is_type=True).save()
     record_entity1 = ln.Record(name="entity1", type=record_type1).save()
+    ln.Record(name="entity2", type=record_type1).save()
 
     feature_str = ln.Feature(name="feature_str", dtype=str).save()
     feature_int = ln.Feature(name="feature_int", dtype=int).save()
     feature_dict = ln.Feature(name="feature_dict", dtype=dict).save()
     feature_type1 = ln.Feature(name="feature_type1", dtype=record_type1).save()
+    ln.Feature(name="feature_type2", dtype=list[record_type1]).save()
     feature_user = ln.Feature(name="feature_user", dtype=ln.User).save()
     feature_project = ln.Feature(name="feature_project", dtype=ln.Project).save()
     feature_cell_line = ln.Feature(name="feature_cell_line", dtype=bt.CellLine).save()
@@ -93,6 +95,7 @@ def test_record_features_add_values():
         "feature_int": 42,
         "feature_dict": {"key": "value", "number": 123, "list": [1, 2, 3]},
         "feature_type1": "entity1",
+        "feature_type2": ["entity1", "entity2"],
         "feature_user": ln.setup.settings.user.handle,
         "feature_project": "test_project",
         "feature_cell_line": "HEK293",
