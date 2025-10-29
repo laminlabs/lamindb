@@ -654,7 +654,11 @@ def _check_otype_artifact(
     return otype
 
 
-def populate_subsequent_run(record: Union[Artifact, Collection], run: Run):
+def populate_subsequent_run(
+    record: Union[Artifact, Collection], run: Run | None
+) -> None:
+    if run is None:
+        return
     if record.run is None:
         record.run = run
     elif record.run != run:
@@ -1569,8 +1573,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                         f"key {self.key} on existing artifact differs from passed key {key}, keeping original key; update manually if needed or pass skip_hash_lookup if you want to duplicate the artifact"
                     )
             update_attributes(self, attr_to_update)
-            if run is not None:
-                populate_subsequent_run(self, run)
+            populate_subsequent_run(self, run)
             return None
         else:
             kwargs = kwargs_or_artifact

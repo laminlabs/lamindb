@@ -1,7 +1,7 @@
 """Models library.
 
 Central registry classes
---------------------
+------------------------
 
 .. autoclass:: BaseSQLRecord
 .. autoclass:: SQLRecord
