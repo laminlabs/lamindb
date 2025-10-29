@@ -78,37 +78,38 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates, HasParents):
 
         You can add features to records to store additional metadata::
 
+            # create labels
+            ln.Project(name="test_project").save()
+            bt.CellLine.from_source(name="HEK293").save()
             record_type1 = ln.Record(name="RecordType1", is_type=True).save()
-            record_entity1 = ln.Record(name="entity1", type=record_type1).save()
+            ln.Record(name="entity1", type=record_type1).save()
 
-            feature_str = ln.Feature(name="feature_str", dtype=str).save()
-            feature_int = ln.Feature(name="feature_int", dtype=int).save()
-            feature_dict = ln.Feature(name="feature_dict", dtype=dict).save()
-            feature_type1 = ln.Feature(name="feature_type1", dtype=record_type1).save()
-            feature_user = ln.Feature(name="feature_user", dtype=ln.User).save()
-            feature_project = ln.Feature(name="feature_project", dtype=ln.Project).save()
-            feature_cell_line = ln.Feature(name="feature_cell_line", dtype=bt.CellLine).save()
-            feature_cl_ontology_id = ln.Feature(
-                name="feature_cl_ontology_id", dtype=bt.CellLine.ontology_id
-            ).save()
+            # create features
+            ln.Feature(name="feature_str", dtype=str).save()
+            ln.Feature(name="feature_int", dtype=int).save()
+            ln.Feature(name="feature_dict", dtype=dict).save()
+            ln.Feature(name="feature_type1", dtype=record_type1).save()
+            ln.Feature(name="feature_user", dtype=ln.User).save()
+            ln.Feature(name="feature_project", dtype=ln.Project).save()
+            ln.Feature(name="feature_cell_line", dtype=bt.CellLine).save()
+            ln.Feature(name="feature_cl_ontology_id", dtype=bt.CellLine.ontology_id).save()
 
-            test_record = ln.Record(name="test_record").save()
-            test_project = ln.Project(name="test_project").save()
-            hek293 = bt.CellLine.from_source(name="HEK293").save()
+            # create a record
+            my_record = ln.Record(name="my_record").save()
 
-            test_values = {
+            # my features
+            my_features = {
                 "feature_str": "a string value",
                 "feature_int": 42,
                 "feature_dict": {"key": "value", "number": 123, "list": [1, 2, 3]},
-                "feature_type1": record_entity1.name,
-                "feature_user": ln.setup.settings.user.handle,
+                "feature_type1": "entity1",
+                "feature_user": "yourhandle",
                 "feature_project": "test_project",
                 "feature_cell_line": "HEK293",
                 "feature_cl_ontology_id": "CLO:0001230",
             }
-
-            test_record.features.add_values(test_values)
-            assert test_record.features.get_values() == test_values
+            my_record.features.add_values(my_features)
+            assert my_record.features.get_values() == my_features
 
         Records can also model flexible ontologies through their parents/children fields::
 
