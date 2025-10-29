@@ -92,7 +92,7 @@ def test_record_features_add_values():
         "feature_str": "a string value",
         "feature_int": 42,
         "feature_dict": {"key": "value", "number": 123, "list": [1, 2, 3]},
-        "feature_type1": record_entity1.name,
+        "feature_type1": "entity1",
         "feature_user": ln.setup.settings.user.handle,
         "feature_project": "test_project",
         "feature_cell_line": "HEK293",
@@ -109,12 +109,7 @@ def test_record_features_add_values():
     test_form = ln.Record(name="TestForm", is_type=True, schema=schema).save()
     test_record_in_form = ln.Record(name="test_record_in_form", type=test_form).save()
     with pytest.raises(ln.errors.ValidationError) as error:
-        test_record_in_form.features.add_values(
-            {
-                "feature_dict": {"key": "value", "number": 123, "list": [1, 2, 3]},
-                "feature_type1": record_entity1.name,
-            }
-        )
+        test_record_in_form.features.add_values({"feature_type1": "entity1"})
     assert "COLUMN_NOT_IN_DATAFRAME" in error.exconly()
 
     test_record_in_form.delete(permanent=True)
