@@ -761,8 +761,8 @@ class Context:
             aux_transform = None
 
         # determine the transform key
-        if ln_setup.settings.work_dir is not None:
-            key = self._path.relative_to(ln_setup.settings.work_dir).as_posix()
+        if ln_setup.settings.dev_dir is not None:
+            key = self._path.relative_to(ln_setup.settings.dev_dir).as_posix()
         else:
             key = self._path.name
         # if the user did not pass a uid and there is no matching aux_transform
