@@ -31,7 +31,7 @@ jobs:
       - id: set-matrix
         shell: bash
         run: |
-          BASE_GROUPS=$(jq -n -c '["unit-core", "unit-storage", "tutorial", "guide", "biology", "faq", "storage", "cli", "permissions"]')
+          BASE_GROUPS=$(jq -n -c '["permissions"]')
           ADDITIONAL_GROUPS=[]
 
           if [[ "${{ github.event_name }}" == "push" || "${{ github.event_name }}" == "repository_dispatch" ]]; then
@@ -76,7 +76,7 @@ jobs:
           repository: laminlabs/laminhub
           token: ${{ secrets.GH_TOKEN_DEPLOY_LAMINAPP }}
           path: laminhub
-          ref: main
+          ref: improve_link_rls_
 
       - uses: actions/setup-python@v6
         with:
