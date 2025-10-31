@@ -66,45 +66,37 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates, HasParents):
 
     Examples:
 
-        Create a **record** and label an artifact::
+        Create a **record** and annotate an artifact::
 
-            experiment1 = Record(name="Experiment 1", type=sample_type).save()
-            artifact.records.add(experiment1)        # annotate artifact with experiment1
-            ln.Artifact.filter(records=experiment1)  # query artifacts annotated with experiment1
+            sample1 = ln.Record(name="Sample 1").save()
+            artifact.records.add(sample1)
 
         Group several records under a **record type**::
 
-            sample_type = Record(name="Sample", is_type=True).save()
-            sample1 = Record(name="Sample 1", type=sample_type).save()
-            sample2 = Record(name="Sample 2", type=sample_type).save()
+            experiment = ln.Record(name="Experiment", is_type=True).save()
+            experiment1 = ln.Record(name="Experiment 1", type=experiment).save()
+            experiment2 = ln.Record(name="Experiment 2", type=experiment).save()
 
-        You can add **additional metadata** to records if you define **features**::
+        Add **features** to records::
 
-            ln.Feature(name="gc_content", dtype=float).save()
-            ln.Feature(name="sample_note", dtype=str).save()
-            ln.Feature(name="feature_sample", dtype=sample_type).save()
-
-            my_metadata = {
+            gc_content = ln.Feature(name="gc_content", dtype=float).save()
+            experiment = ln.Feature(name="experiment", dtype=experiment).save()
+            sample1.features.add_values({
                 "gc_content": 0.5,
-                "sample_note": "This sample is great!",
-                "experiment1": "Experiment 1",
-            }
-            sample1.features.add_values(my_metadata)      # add values to sample1
-            sample1.features.get_values() == my_metadata  # retrieve values from sample1
+                "experiment": "Experiment 1",
+            })
 
-        The record type behaves like a **sheet** with flexible columns::
+        A record type behaves like a **sheet** with features representing columns::
 
-            sample_type.type_to_dataframe()  # export all samples of this type as a DataFrame
+            experiment.type_to_dataframe()  # export experiments as a DataFrame
 
-        To **constrain metadata in a sheet**, add a `schema` to the corresponding type::
+        To **constrain metadata for a type**, add a `schema`::
 
-            feature_str = ln.Feature.get(name="feature_str")
-            feature_int = ln.Feature.get(name="feature_int")
-            schema = ln.Schema([feature_str, feature_int], name="test_schema").save()
-            test_form = ln.Record(name="TestForm", is_type=True, schema=schema).save()
-            test_record_in_form = ln.Record(name="test_record_in_form", type=test_form).save()
+            schema = ln.Schema([gc_content, experiment], name="sample_schema").save()
+            sample = ln.Record(name="Sample", is_type=True, schema=schema).save()
+            sample2 = ln.Record(name="Sample 2", type=sample).save()
             try:
-                test_record_in_form.features.add_values({"feature_type1": "entity1"})
+                sample2.features.add_values({"gc_content": 0.6})
             except ln.errors.ValidationError as error:
                 print("Validation error:", error)  # prints a missing column error
 
@@ -115,7 +107,7 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates, HasParents):
             cd4_t_cell = Record(name="CD4+ T Cell", type=cell_type).save()
             t_cell.children.add(cd4_t_cell)
 
-        However, if you work with biological entities like cell lines, cell types, tissues,
+        However, if you work with standard biological entities like cell lines, cell types, tissues,
         consider using the pre-defined biological registries in :mod:`bionty`.
 
     .. dropdown:: `Record` vs. `SQLRecord`

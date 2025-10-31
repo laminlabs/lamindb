@@ -181,19 +181,17 @@ ln.Artifact.to_dataframe(include=["created_by__name", "storage__root"])  # inclu
 
 ### Lake ♾️ LIMS ♾️ Sheets
 
-You can create records for the entities underlying your experiments: samples, perturbations, instruments, etc..
-For example:
+You can create records for the entities underlying your experiments: samples, perturbations, instruments, etc., for example:
 
 ```python
-sample_type = ln.Record(name="Sample", is_type=True).save()  # a sample type
-ln.Record(name="P53mutant1", type=sample_type).save()  # sample 1
-ln.Record(name="P53mutant2", type=sample_type).save()  # sample 2
+sample = ln.Record(name="Sample", is_type=True).save()  # type sample
+ln.Record(name="P53mutant1", type=sample_type).save()        # sample 1
+ln.Record(name="P53mutant2", type=sample_type).save()        # sample 2
 ```
 
 Define the corresponding features and annotate:
 
 ```python
-
 ln.Feature(name="design_sample", dtype=sample_type).save()
 artifact.features.add_values({"design_sample": "P53mutant1"})
 ```
