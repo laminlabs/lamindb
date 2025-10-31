@@ -185,14 +185,14 @@ You can create records for the entities underlying your experiments: samples, pe
 
 ```python
 sample = ln.Record(name="Sample", is_type=True).save()  # type sample
-ln.Record(name="P53mutant1", type=sample_type).save()        # sample 1
-ln.Record(name="P53mutant2", type=sample_type).save()        # sample 2
+ln.Record(name="P53mutant1", type=sample).save()        # sample 1
+ln.Record(name="P53mutant2", type=sample).save()        # sample 2
 ```
 
 Define the corresponding features and annotate:
 
 ```python
-ln.Feature(name="design_sample", dtype=sample_type).save()
+ln.Feature(name="design_sample", dtype=sample).save()
 artifact.features.add_values({"design_sample": "P53mutant1"})
 ```
 
