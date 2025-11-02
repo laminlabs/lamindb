@@ -181,13 +181,20 @@ def create_uid(
     """
     if revises is not None:
         if not revises.is_latest:
-            # need one more request
-            revises = revises.__class__.objects.get(
-                is_latest=True, uid__startswith=revises.stem_uid
-            )
-            logger.warning(
-                f"didn't pass the latest version in `revises`, retrieved it: {revises}"
-            )
+            try:
+                revises = revises.__class__.objects.get(
+                    is_latest=True, uid__startswith=revises.stem_uid
+                )
+                logger.warning(
+                    f"didn't pass the latest version in `revises`, retrieved it: {revises}"
+                )
+            except revises.__class__.DoesNotExist:
+                revises = (
+                    revises.__class__.objects.filter(uid__startswith=revises.stem_uid)
+                    .order_by("id")
+                    .last()
+                )
+                logger.warning("didn't find a version marked with `is_latest=True`")
         suid = revises.stem_uid
         vuid = increment_base62(revises.uid[-4:])  # type: ignore
     else:
