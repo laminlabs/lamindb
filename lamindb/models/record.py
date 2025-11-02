@@ -66,7 +66,7 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates, HasParents):
 
     Examples:
 
-        Create a **record** and annotate an artifact::
+        Create a **record** and annotate an :class:`~lamindb.Artifact`::
 
             sample1 = ln.Record(name="Sample 1").save()
             artifact.records.add(sample1)
@@ -77,7 +77,12 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates, HasParents):
             experiment1 = ln.Record(name="Experiment 1", type=experiment).save()
             experiment2 = ln.Record(name="Experiment 2", type=experiment).save()
 
-        Add **features** to records::
+            experiment.records.to_dataframe()
+            #>             name
+            #>      Experiment1
+            #>      Experiment2
+
+        Add **features** to a record::
 
             gc_content = ln.Feature(name="gc_content", dtype=float).save()
             experiment = ln.Feature(name="experiment", dtype=experiment).save()
@@ -86,19 +91,17 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates, HasParents):
                 "experiment": "Experiment 1",
             })
 
-        A record type behaves like a **sheet** with features representing columns::
+            ln.Record.to_dataframe(include="features")
+            #>          name    gc_content      experiment
+            #>      Sample 1           0.5    Experiment 1
 
-            experiment.type_to_dataframe()  # export experiments as a DataFrame
-
-        To **constrain metadata for a type**, add a `schema`::
+        **Constrain metadata** by using a :class:`~lamindb.Schema`::
 
             schema = ln.Schema([gc_content, experiment], name="sample_schema").save()
             sample = ln.Record(name="Sample", is_type=True, schema=schema).save()
             sample2 = ln.Record(name="Sample 2", type=sample).save()
-            try:
-                sample2.features.add_values({"gc_content": 0.6})
-            except ln.errors.ValidationError as error:
-                print("Validation error:", error)  # prints a missing column error
+
+            sample2.features.add_values({"gc_content": 0.6})  # raises ValidationError because experiment is missing
 
         Records can also model **ontologies** through their parents/children attributes::
 
