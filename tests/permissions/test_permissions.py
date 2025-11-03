@@ -110,6 +110,19 @@ def test_authentication():
     assert result[0] == (1, "read", "space")
 
 
+def test_select_without_db_token():
+    # with db token can be read in the default space
+    with connection.cursor() as cur:
+        cur.execute("SELECT * FROM lamindb_record")
+        results = cur.fetchall()
+    assert len(results) == 1
+    # the same
+    assert ln.Record.filter().count() == 1
+    # no db token
+    with connection.connection.cursor() as cur:
+        cur.execute("SELECT * FROM lamindb_record")
+
+
 def test_fine_grained_permissions_account():
     # check select
     assert ln.ULabel.filter().count() == 3
