@@ -110,6 +110,51 @@ def test_authentication():
     assert result[0] == (1, "read", "space")
 
 
+def test_select_without_db_token():
+    # with db token can be read in the default space
+    with connection.cursor() as cur:
+        cur.execute("SELECT * FROM lamindb_record;")
+        results = cur.fetchall()
+    assert len(results) == 1
+    # the same
+    assert ln.Record.filter().count() == 1
+    # errors if can't select
+    ln.Record.get(1)
+    # no db token, everything in the default space
+    with (
+        pytest.raises(psycopg2.errors.RaiseException),
+        connection.connection.cursor() as cur,
+    ):
+        cur.execute("SELECT * FROM lamindb_record;")
+    with (
+        pytest.raises(psycopg2.errors.RaiseException),
+        connection.connection.cursor() as cur,
+    ):
+        cur.execute("SELECT * FROM lamindb_record WHERE id = 1;")
+    # no db token, in different spaces
+    with (
+        pytest.raises(psycopg2.errors.RaiseException),
+        connection.connection.cursor() as cur,
+    ):
+        cur.execute("SELECT * FROM lamindb_artifact;")
+    with (
+        pytest.raises(psycopg2.errors.RaiseException),
+        connection.connection.cursor() as cur,
+    ):
+        cur.execute("SELECT * FROM lamindb_ulabel;")
+    # no db token, utility tables
+    with (
+        pytest.raises(psycopg2.errors.RaiseException),
+        connection.connection.cursor() as cur,
+    ):
+        cur.execute("SELECT * FROM lamindb_user;")
+    with (
+        pytest.raises(psycopg2.errors.RaiseException),
+        connection.connection.cursor() as cur,
+    ):
+        cur.execute("SELECT * FROM lamindb_space;")
+
+
 def test_fine_grained_permissions_account():
     # check select
     assert ln.ULabel.filter().count() == 3

@@ -121,6 +121,10 @@ artifact.space = full_access
 artifact.is_locked = True
 artifact.save()
 
+# create a single record in the default space
+record = ln.Record(name="test-record", is_type=False).save()
+assert record.space_id == 1
+
 print("Created models")
 
 # save jwt db connection
