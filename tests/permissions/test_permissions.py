@@ -118,12 +118,19 @@ def test_select_without_db_token():
     assert len(results) == 1
     # the same
     assert ln.Record.filter().count() == 1
+    # errors if can't select
+    ln.Record.get(1)
     # no db token, everything in the default space
     with (
         pytest.raises(psycopg2.errors.RaiseException),
         connection.connection.cursor() as cur,
     ):
         cur.execute("SELECT * FROM lamindb_record;")
+    with (
+        pytest.raises(psycopg2.errors.RaiseException),
+        connection.connection.cursor() as cur,
+    ):
+        cur.execute("SELECT * FROM lamindb_record WHERE id = 1;")
     # no db token, in different spaces
     with (
         pytest.raises(psycopg2.errors.RaiseException),
