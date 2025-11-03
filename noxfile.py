@@ -83,7 +83,7 @@ def install(session):
 def install_ci(session, group):
     extras = ""
     if group == "unit-core":
-        extras += "zarr,fcs"
+        extras += "fcs"
         # tiledbsoma dependency, specifying it here explicitly
         # otherwise there are problems with uv resolver
         run(session, "uv pip install --system scanpy")
@@ -103,7 +103,7 @@ def install_ci(session, group):
         run(session, "uv pip install --system polars")
     elif group == "tutorial":
         # anndata here to prevent installing older version on release
-        run(session, "uv pip install --system huggingface_hub polars anndata==0.12.1")
+        run(session, "uv pip install --system huggingface_hub polars anndata==0.12.2")
     elif group == "guide":
         extras += "zarr"
         run(session, "uv pip install --system scanpy mudata spatialdata tiledbsoma")
