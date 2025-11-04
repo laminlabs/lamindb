@@ -1,16 +1,16 @@
 from __future__ import annotations
 
+from importlib.metadata import version as get_version
 from typing import TYPE_CHECKING, Literal
 
 import zarr
-from anndata import __version__ as anndata_version
 from lamin_utils import logger
 from lamindb_setup.core.upath import LocalPathClasses, S3FSMap, UPath, create_mapper
 from packaging import version
 
 from lamindb.core._compat import with_package
 
-if version.parse(anndata_version) < version.parse("0.11.0"):
+if version.parse(get_version("anndata")) < version.parse("0.11.0"):
     from anndata._io import read_zarr as read_anndata_zarr
 else:
     from anndata.io import read_zarr as read_anndata_zarr
