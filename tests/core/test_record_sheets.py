@@ -16,6 +16,9 @@ def test_float_int_casting():
     record_json = ln.models.RecordJson.get(record=record, feature=feature_float)
     record_json.value = 3
     record_json.save()
+    df = sheet.type_to_dataframe()
+    assert df["feature_int"].dtype.name == "int64"
+    assert df["feature_float"].dtype.name == "float64"
     sheet.to_artifact()
 
 

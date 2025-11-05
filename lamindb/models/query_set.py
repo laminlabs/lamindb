@@ -933,15 +933,16 @@ class BasicQuerySet(models.QuerySet):
         # cast floats and ints where appropriate
         if feature_qs is not None:
             for feature in feature_qs:
+                print("Feature", feature)
                 if feature.name in df_reshaped.columns:
                     current_dtype = df_reshaped[feature.name].dtype
-                    if feature.dtype == "int" and pd.api.types.is_integer_dtype(
+                    if feature.dtype == "int" and not pd.api.types.is_integer_dtype(
                         current_dtype
                     ):
                         df_reshaped[feature.name] = df_reshaped[feature.name].astype(
                             int
                         )
-                    elif feature.dtype == "float" and pd.api.types.is_float_dtype(
+                    elif feature.dtype == "float" and not pd.api.types.is_float_dtype(
                         current_dtype
                     ):
                         df_reshaped[feature.name] = df_reshaped[feature.name].astype(
