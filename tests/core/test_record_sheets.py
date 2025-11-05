@@ -6,6 +6,19 @@ from lamindb.examples.fixtures.sheets import (
 )
 
 
+def test_float_int_casting():
+    feature_int = ln.Feature(name="feature_int", dtype=int).save()
+    feature_float = ln.Feature(name="feature_float", dtype=float).save()
+    test_schema = ln.Schema([feature_int, feature_float], name="test_schema").save()
+    sheet = ln.Record(name="TestSheet", is_type=True, schema=test_schema).save()
+    record = ln.Record(name="test_record", type=sheet).save()
+    record.features.add_values({"feature_int": 5, "feature_float": 3.0})
+    record_json = ln.models.RecordJson.get(record=record, feature=feature_float)
+    record_json.value = 3
+    record_json.save()
+    sheet.to_artifact()
+
+
 def test_record_example_compound_treatment(
     populate_sheets_compound_treatment: tuple[ln.Record, ln.Record],  # noqa: F811
 ):
