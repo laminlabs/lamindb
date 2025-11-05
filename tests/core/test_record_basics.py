@@ -142,6 +142,12 @@ def test_record_features_add_remove_values():
     test_values.pop("feature_run")
     assert test_record.features.get_values() == test_values
 
+    # test passing None has no effect, does not lead to annotation
+
+    test_record.features.add_values({"feature_int": None, "feature_type1": None})
+
+    assert test_record.features.get_values() == test_values
+
     # schema validation
 
     feature_str = ln.Feature.get(name="feature_str")
