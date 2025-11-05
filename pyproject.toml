@@ -18,7 +18,7 @@ dependencies = [
     # LaminDB core modules
     "lamin_utils==0.15.0",
     "lamin_cli==1.9.0",
-    "lamindb_setup[aws]==1.14.1",
+    "lamindb_setup[aws]==1.15.0",
     # LaminDB optional modules, included to avoid users forgetting about extras
     "bionty==1.8.1",
     "wetlab==1.6.1",
