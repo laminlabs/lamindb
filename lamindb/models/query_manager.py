@@ -249,13 +249,16 @@ class QueryManager(Manager):
 
     Examples:
 
-            ln.save(ln.ULabel.from_values(["ULabel1", "ULabel2", "ULabel3"], field="name"))  # noqa
-            labels = ln.ULabel.filter(name__icontains = "label")
-            ln.ULabel(name="ULabel1").save()
-            label = ln.ULabel.get(name="ULabel1")
-            label.parents.set(labels)
-            manager = label.parents
-            manager.to_dataframe()
+        Populate the `.parents` ManyToMany relationship (a `QueryManager`)::
+
+            ln.Record.from_values(["Label1", "Label2", "Label3"], field="name")).save()
+            labels = ln.Record.filter(name__icontains="label")
+            label1 = ln.Record.get(name="Label1")
+            label1.parents.set(labels)
+
+        Convert all linked parents to a `DataFrame`::
+
+            label1.parents.to_dataframe()
     """
 
     def track_run_input_manager(self):
@@ -279,18 +282,7 @@ class QueryManager(Manager):
                 track_run_input(self.instance)
 
     def to_list(self, field: str | None = None):
-        """Populate a list with the results.
-
-        Examples:
-                ln.save(ln.ULabel.from_values(["ULabel1", "ULabel2", "ULabel3"], field="name"))
-                labels = ln.ULabel.filter(name__icontains="label")
-                ln.ULabel(name="ULabel1").save()
-                label = ln.ULabel.get(name="ULabel1")
-                label.parents.set(labels)
-                label.parents.to_list()
-                label.parents.to_list("name")
-            ['ULabel1', 'ULabel2', 'ULabel3']
-        """
+        """Populate a list."""
         if field is None:
             return list(self.all())
         else:
