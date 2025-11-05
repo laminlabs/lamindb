@@ -929,6 +929,27 @@ class BasicQuerySet(models.QuerySet):
             pk_column_name = pk_name if pk_name in df.columns else f"{pk_name}_id"
             if pk_column_name in df_reshaped.columns:
                 df_reshaped = df_reshaped.set_index(pk_column_name)
+
+        # cast floats and ints where appropriate
+        # this is currently needed because the UI writes into the JSON field through JS
+        # and thus a `10` might be a float, not an int
+        if feature_qs is not None:
+            for feature in feature_qs:
+                print("Feature", feature)
+                if feature.name in df_reshaped.columns:
+                    current_dtype = df_reshaped[feature.name].dtype
+                    if feature.dtype == "int" and not pd.api.types.is_integer_dtype(
+                        current_dtype
+                    ):
+                        df_reshaped[feature.name] = df_reshaped[feature.name].astype(
+                            int
+                        )
+                    elif feature.dtype == "float" and not pd.api.types.is_float_dtype(
+                        current_dtype
+                    ):
+                        df_reshaped[feature.name] = df_reshaped[feature.name].astype(
+                            float
+                        )
         return df_reshaped
 
     @deprecated(new_name="to_dataframe")

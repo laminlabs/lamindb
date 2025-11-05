@@ -6,6 +6,36 @@ from lamindb.examples.fixtures.sheets import (
 )
 
 
+def test_float_int_casting():
+    # this test is only needed for as long as we let JS write data into RecordJson
+    # for JS a 3 is a valid float even though any python json parser interprets it as an int
+    feature_int = ln.Feature(name="feature_int", dtype=int).save()
+    feature_float = ln.Feature(name="feature_float", dtype=float).save()
+    test_schema = ln.Schema([feature_int, feature_float], name="test_schema").save()
+    sheet = ln.Record(name="TestSheet", is_type=True, schema=test_schema).save()
+    record = ln.Record(name="test_record", type=sheet).save()
+    record.features.add_values({"feature_int": 5, "feature_float": 3.0})
+    record_json = ln.models.RecordJson.get(record=record, feature=feature_float)
+    record_json.value = 3
+    record_json.save()
+    df = sheet.type_to_dataframe()
+    assert df["feature_int"].dtype.name == "int64"
+    assert df["feature_float"].dtype.name == "float64"
+    # this export call would error if we didn't have type casting
+    artifact = sheet.to_artifact()
+
+    related_schemas = list(artifact.feature_sets.all())
+    artifact.feature_sets.clear()
+    artifact.delete(permanent=True)
+    record.delete(permanent=True)
+    sheet.delete(permanent=True)
+    for schema in related_schemas:
+        schema.delete(permanent=True)
+    # schema.delete(permanent=True), not necessary because already deleted above
+    feature_float.delete(permanent=True)
+    feature_int.delete(permanent=True)
+
+
 def test_record_example_compound_treatment(
     populate_sheets_compound_treatment: tuple[ln.Record, ln.Record],  # noqa: F811
 ):
