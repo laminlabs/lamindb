@@ -399,6 +399,7 @@ def cp_scripts(session):
 @nox.session
 def docs(session):
     # move artifacts into right place
+    run(session, "lamin settings set private-django-api true")
     for group in ["tutorial", "guide", "biology", "faq", "storage"]:
         if Path(f"./docs-{group}").exists():
             if Path(f"./docs/{group}").exists():

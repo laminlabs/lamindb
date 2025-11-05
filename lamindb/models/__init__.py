@@ -1,7 +1,13 @@
 """Models library.
 
-Central registry classes
-------------------------
+Feature and label managers
+--------------------------
+
+.. autoclass:: FeatureManager
+.. autoclass:: LabelManager
+
+Registry base classes
+---------------------
 
 .. autoclass:: BaseSQLRecord
 .. autoclass:: SQLRecord
@@ -23,8 +29,6 @@ Query sets & managers
 .. autoclass:: QuerySet
 .. autoclass:: ArtifactSet
 .. autoclass:: QueryManager
-.. autoclass:: FeatureManager
-.. autoclass:: LabelManager
 
 Storage of feature values
 -------------------------
