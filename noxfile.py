@@ -120,7 +120,6 @@ def install_ci(session, group):
         )
         run(session, "uv pip install --system vitessce")
     elif group == "curator":
-        extras += "zarr"
         run(
             session,
             "uv pip install --system --no-deps ./sub/wetlab",
