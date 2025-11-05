@@ -931,6 +931,8 @@ class BasicQuerySet(models.QuerySet):
                 df_reshaped = df_reshaped.set_index(pk_column_name)
 
         # cast floats and ints where appropriate
+        # this is currently needed because the UI writes into the JSON field through JS
+        # and thus a `10` might be a float, not an int
         if feature_qs is not None:
             for feature in feature_qs:
                 print("Feature", feature)
