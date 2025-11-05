@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import inspect
 from functools import cached_property
+from importlib.metadata import version as get_version
 from itertools import chain
 from typing import TYPE_CHECKING, Callable, Literal, Union
 
@@ -9,7 +10,6 @@ import h5py
 import numpy as np
 import pandas as pd
 from anndata import AnnData
-from anndata import __version__ as anndata_version
 from anndata._core.index import _normalize_indices
 from anndata._core.views import _resolve_idx
 from anndata._io.h5ad import read_dataframe_legacy as read_dataframe_legacy_h5
@@ -35,8 +35,7 @@ if TYPE_CHECKING:
 
     from lamindb import Artifact
 
-
-anndata_version_parse = version.parse(anndata_version)
+anndata_version_parse = version.parse(get_version("anndata"))
 
 if anndata_version_parse < version.parse("0.9.0"):
     from anndata._core.index import Index
