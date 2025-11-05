@@ -424,8 +424,6 @@ def convert_dict_to_dataframe_for_validation(d: dict, schema: Schema) -> pd.Data
     return df
 
 
-# This is also currently used as DictCurator by flattening dictionaries into wide DataFrames.
-# Such an approach was never intended and there is room for a DictCurator in the future.
 # For more context, read https://laminlabs.slack.com/archives/C07DB677JF6/p1753994077716099 and
 # https://www.notion.so/laminlabs/Add-a-DictCurator-2422aeaa55e180b9a513f91d13970836
 class ComponentCurator(Curator):
@@ -478,6 +476,7 @@ class ComponentCurator(Curator):
             assert schema.itype is not None  # noqa: S101
 
         pandera_columns = {}
+        self._pandera_schema = None
         if features or schema._index_feature_uid is not None:
             # populate features
             if schema.minimal_set:
@@ -635,7 +634,7 @@ class ComponentCurator(Curator):
     @doc_args(VALIDATE_DOCSTRING)
     def validate(self) -> None:
         """{}"""  # noqa: D415
-        if self._schema.n > 0:
+        if self._pandera_schema is not None:
             try:
                 # first validate through pandera
                 self._pandera_schema.validate(self._dataset, lazy=True)
