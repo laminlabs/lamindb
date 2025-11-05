@@ -534,8 +534,8 @@ class Registry(ModelBase):
 
             ::
 
-                ulabel = ln.ULabel.get("FvtpPJLJ")
-                ulabel = ln.ULabel.get(name="my-label")
+                record = ln.Record.get("FvtpPJLJ")
+                record = ln.Record.get(name="my-label")
         """
         from .query_set import QuerySet
 
@@ -628,12 +628,10 @@ class Registry(ModelBase):
             instance: An instance identifier of form "account_handle/instance_name".
 
         Examples:
-            >>> ln.ULabel.using("account_handle/instance_name").search("ULabel7", field="name")
-                        uid    score
-            name
-            ULabel7  g7Hk9b2v  100.0
-            ULabel5  t4Jm6s0q   75.0
-            ULabel6  r2Xw8p1z   75.0
+
+            ::
+
+                ln.Record.using("account_handle/instance_name").search("label7", field="name")
         """
         from .query_set import QuerySet
 
