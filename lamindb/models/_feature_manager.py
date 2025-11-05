@@ -538,10 +538,10 @@ def infer_feature_type_convert_json(
         return "int", value, message
     elif isinstance(value, float):
         return "float", value, message
-    elif isinstance(value, date):
-        return "date", value.isoformat(), message
     elif isinstance(value, datetime):
         return "datetime", value.isoformat(), message
+    elif isinstance(value, date):
+        return "date", value.isoformat(), message
     elif isinstance(value, str):
         if datetime_str := is_valid_datetime_str(value):
             dt_type = (

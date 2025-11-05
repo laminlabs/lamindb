@@ -3,7 +3,7 @@
 Is available also when no instance is setup.
 
 Modules
-------
+-------
 
 .. autosummary::
    :toctree: .
