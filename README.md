@@ -161,7 +161,7 @@ artifact.features.add_values({
 Now that the data is annotated, you can query for it:
 
 ```python
-ln.Artifact.filter(experiment_date="2025-10-14").to_dataframe()  # query all artifacts annotated with `experiment_date`
+ln.Artifact.filter(experiment_date="2025-10-24").to_dataframe()  # query all artifacts annotated with `experiment_date`
 ```
 
 You can also query by the metadata that lamindb automatically collects:
@@ -236,7 +236,7 @@ df = pd.DataFrame({
     "sequence_str": ["ACGT", "TGCA"],
     "gc_content": [0.55, 0.54],
     "experiment_note": ["Looks great", "Ok"],
-    "experiment_date": ["2025-10-24", "2025-10-25"],
+    "experiment_date": [date(2025, 10, 24), date(2025, 10, 25)],
 })
 ln.Artifact.from_dataframe(df, key="my_datasets/sequences.parquet").save()  # no validation
 ```
@@ -249,7 +249,7 @@ artifact = ln.Artifact.from_dataframe(
     df,
     key="my_datasets/sequences.parquet",
     schema="valid_features"  # validate columns against features
-)
+).save()
 artifact.describe()
 ```
 

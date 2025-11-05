@@ -224,13 +224,15 @@ class LabelManager:
         """Add labels from an artifact or collection to another artifact or collection.
 
         Examples:
-            >>> artifact1 = ln.Artifact(pd.DataFrame(index=[0, 1])).save()
-            >>> artifact2 = ln.Artifact(pd.DataFrame(index=[2, 3])).save()
-            >>> ulabels = ln.ULabel.from_values(["Label1", "Label2"], field="name")
-            >>> ln.save(ulabels)
-            >>> labels = ln.ULabel.filter(name__icontains = "label")
-            >>> artifact1.ulabels.set(labels)
-            >>> artifact2.labels.add_from(artifact1)
+
+            ::
+
+                artifact1 = ln.Artifact(pd.DataFrame(index=[0, 1])).save()
+                artifact2 = ln.Artifact(pd.DataFrame(index=[2, 3])).save()
+                records = ln.Record.from_values(["Label1", "Label2"], field="name").save()
+                labels = ln.Record.filter(name__icontains = "label")
+                artifact1.records.set(labels)
+                artifact2.labels.add_from(artifact1)
         """
         if transfer_logs is None:
             transfer_logs = {"mapped": [], "transferred": [], "run": None}

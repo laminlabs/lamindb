@@ -538,10 +538,10 @@ def infer_feature_type_convert_json(
         return "int", value, message
     elif isinstance(value, float):
         return "float", value, message
-    elif isinstance(value, date):
-        return "date", value.isoformat(), message
     elif isinstance(value, datetime):
         return "datetime", value.isoformat(), message
+    elif isinstance(value, date):
+        return "date", value.isoformat(), message
     elif isinstance(value, str):
         if datetime_str := is_valid_datetime_str(value):
             dt_type = (
@@ -959,10 +959,11 @@ class FeatureManager:
         feature_field: FieldAttr = Feature.name,
         schema: Schema = None,
     ) -> None:
-        """Annotate an artifact with features.
+        """Add values for features.
 
         Args:
-            values: A dictionary of keys (features) & values (labels, numbers, booleans).
+            values: A dictionary of keys (features) & values (labels, strings, numbers, booleans, datetimes, etc.).
+                If a value is `None`, it will be skipped.
             feature_field: The field of a registry to map the keys of the `values` dictionary.
             schema: Schema to validate against.
         """
@@ -1027,6 +1028,8 @@ class FeatureManager:
         not_validated_values: dict[str, tuple[str, list[str]]] = {}
         for feature in records:
             value = dictionary[feature.name]
+            if value is None:
+                continue
             inferred_type, converted_value, _ = infer_feature_type_convert_json(
                 feature.name,
                 value,

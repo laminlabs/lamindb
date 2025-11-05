@@ -1,4 +1,5 @@
 import re
+from datetime import date, datetime
 
 import bionty as bt
 import lamindb as ln
@@ -77,6 +78,8 @@ def test_record_features_add_remove_values():
 
     feature_str = ln.Feature(name="feature_str", dtype=str).save()
     feature_int = ln.Feature(name="feature_int", dtype=int).save()
+    feature_datetime = ln.Feature(name="feature_datetime", dtype=datetime).save()
+    feature_date = ln.Feature(name="feature_date", dtype=datetime.date).save()
     feature_dict = ln.Feature(name="feature_dict", dtype=dict).save()
     feature_type1 = ln.Feature(name="feature_type1", dtype=record_type1).save()
     feature_type2 = ln.Feature(name="feature_type2", dtype=list[record_type1]).save()
@@ -98,6 +101,8 @@ def test_record_features_add_remove_values():
     test_values = {
         "feature_str": "a string value",
         "feature_int": 42,
+        "feature_datetime": datetime(2024, 1, 1, 12, 0, 0),
+        "feature_date": date(2024, 1, 1),
         "feature_dict": {"key": "value", "number": 123, "list": [1, 2, 3]},
         "feature_type1": "entity1",
         "feature_type2": ["entity1", "entity2"],
@@ -116,6 +121,10 @@ def test_record_features_add_remove_values():
 
     test_record.features.remove_values("feature_int")
     test_values.pop("feature_int")
+    assert test_record.features.get_values() == test_values
+
+    test_record.features.remove_values("feature_date")
+    test_values.pop("feature_date")
     assert test_record.features.get_values() == test_values
 
     test_record.features.remove_values("feature_type1")
@@ -142,6 +151,17 @@ def test_record_features_add_remove_values():
     test_values.pop("feature_run")
     assert test_record.features.get_values() == test_values
 
+    # test passing None has no effect, does not lead to annotation
+
+    test_record.features.add_values({"feature_int": None, "feature_type1": None})
+    assert test_record.features.get_values() == test_values
+
+    # test passing ISO-format date string for date
+
+    test_record.features.add_values({"feature_date": "2024-01-01"})
+    test_values["feature_date"] = date(2024, 1, 1)
+    assert test_record.features.get_values() == test_values
+
     # schema validation
 
     feature_str = ln.Feature.get(name="feature_str")
@@ -159,6 +179,8 @@ def test_record_features_add_remove_values():
     test_record.delete(permanent=True)
     feature_str.delete(permanent=True)
     feature_int.delete(permanent=True)
+    feature_datetime.delete(permanent=True)
+    feature_date.delete(permanent=True)
     feature_type1.delete(permanent=True)
     feature_type2.delete(permanent=True)
     feature_user.delete(permanent=True)
