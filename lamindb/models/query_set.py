@@ -935,7 +935,6 @@ class BasicQuerySet(models.QuerySet):
         # and thus a `10` might be a float, not an int
         if feature_qs is not None:
             for feature in feature_qs:
-                print("Feature", feature)
                 if feature.name in df_reshaped.columns:
                     current_dtype = df_reshaped[feature.name].dtype
                     if feature.dtype == "int" and not pd.api.types.is_integer_dtype(
