@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Literal
 import lamindb_setup as ln_setup
 from lamin_utils import logger
 
-from .query_set import QuerySet, SQLRecordList
+from .query_set import BasicQuerySet, QuerySet, SQLRecordList, get_default_branch_ids
 from .run import Run
 from .sqlrecord import format_field_value, get_name_field
 
@@ -30,36 +30,39 @@ is_run_from_ipython = getattr(builtins, "__IPYTHON__", False)
 # this is optimized to have fewer recursive calls
 # also len of QuerySet can be costly at times
 def _query_relatives(
-    records: QuerySet | list[SQLRecord],
-    attr: str,
-    cls: type[HasParents],
-    is_type: bool = False,
+    records: BasicQuerySet | list[SQLRecord],
+    attr: Literal["children", "parents", "records"],
 ) -> QuerySet:
-    from .query_set import get_default_branch_ids
-
     branch_ids = get_default_branch_ids()
 
-    def query_relatives_on_branches(records, attr, cls) -> QuerySet:
-        relatives = cls.objects.none()  # type: ignore
-        if len(records) == 0:
-            return relatives
-        for record in records:
-            # no need to query for children of non-type records, these aren't allowed
-            if is_type and not record.is_type:
-                continue
-            more_relatives = getattr(record, attr).filter(branch_id__in=branch_ids)
-            # it's tempting to avoid unnecessary union calls below
-            # say something has 30 children these grow a lot
-            # we never ran into an issue for Postgres, but for SQLite this can be a problem
-            # it might be that Postgres is smart enough to optimize this away
-            # however, the folowing .exists() is a database request that just takes time
-            # so, we'll keep it commented out
-            # if more_relatives.exists():
-            relatives = relatives.union(more_relatives)
-        relatives = relatives.union(query_relatives_on_branches(relatives, attr, cls))
-        return relatives
+    if hasattr(records, "values_list"):
+        model = records.model  # type: ignore
+        frontier_ids = set(records.values_list("id", flat=True))
+    else:
+        model = records[0].__class__
+        frontier_ids = {r.id for r in records}
 
-    return query_relatives_on_branches(records, attr, cls)
+    if attr == "records":
+        attr_filter = "type__id__in"
+    elif attr == "children":
+        attr_filter = "parents__id__in"
+    else:
+        attr_filter = "children__id__in"
+
+    seen_ids = set(frontier_ids)  # copies
+    results = set()
+
+    while frontier_ids:
+        relatives_qs = model.filter(
+            branch_id__in=branch_ids, **{attr_filter: frontier_ids}
+        )
+        next_ids = set(relatives_qs.values_list("id", flat=True)) - seen_ids
+        if not next_ids:
+            break
+        results.update(next_ids)
+        frontier_ids = next_ids
+
+    return model.filter(id__in=results)
 
 
 def _query_ancestors_of_fk(record: SQLRecord, attr: str) -> SQLRecordList:
@@ -149,11 +152,11 @@ class HasParents:
 
     def query_parents(self) -> QuerySet:
         """Query parents in an ontology."""
-        return _query_relatives([self], "parents", self.__class__)  # type: ignore
+        return _query_relatives([self], "parents")  # type: ignore
 
     def query_children(self) -> QuerySet:
         """Query children in an ontology."""
-        return _query_relatives([self], "children", self.__class__)  # type: ignore
+        return _query_relatives([self], "children")  # type: ignore
 
 
 def view_digraph(u: Digraph):
