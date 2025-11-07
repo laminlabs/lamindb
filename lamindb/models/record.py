@@ -40,7 +40,7 @@ if TYPE_CHECKING:
     import pandas as pd
 
     from ._feature_manager import FeatureManager
-    from .blocks import RunBlock
+    from .block import RunBlock
     from .project import Project, RecordProject, RecordReference, Reference
     from .schema import Schema
 
@@ -339,7 +339,7 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates, HasParents):
         While `.parents` retrieves the direct parents, this method
         retrieves all ancestors of a record type.
         """
-        return _query_relatives([self], "parents", self.__class__)  # type: ignore
+        return _query_relatives([self], "parents")  # type: ignore
 
     def query_children(self) -> QuerySet:
         """Query all children of a record recursively.
@@ -347,7 +347,7 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates, HasParents):
         While `.children` retrieves the direct children, this method
         retrieves all descendants of a record type.
         """
-        return _query_relatives([self], "children", self.__class__)  # type: ignore
+        return _query_relatives([self], "children")  # type: ignore
 
     def query_records(self) -> QuerySet:
         """Query all records of a type recursively.
@@ -355,7 +355,7 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates, HasParents):
         While `.records` retrieves the direct children, this method
         retrieves all descendants of a record type.
         """
-        return _query_relatives([self], "records", self.__class__, is_type=True)  # type: ignore
+        return _query_relatives([self], "records")  # type: ignore
 
     def query_types(self) -> SQLRecordList:
         """Query types of a record recursively.
