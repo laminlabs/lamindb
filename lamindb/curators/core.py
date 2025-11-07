@@ -417,10 +417,15 @@ class SlotsCurator(Curator):
 def convert_dict_to_dataframe_for_validation(d: dict, schema: Schema) -> pd.DataFrame:
     """Convert a dictionary to a DataFrame for validation against a schema."""
     df = pd.DataFrame([d])
+    print(df)
+    print(df.dtypes)
     for feature in schema.members:
-        if feature.dtype.startswith("cat"):
+        print(feature)
+        if feature.dtype.startswith("cat") or feature.dtype.startswith("list[cat"):
+            print(feature.dtype)
             if feature.name in df.columns:
                 df[feature.name] = pd.Categorical(df[feature.name])
+    print(df.dtypes)
     return df
 
 
