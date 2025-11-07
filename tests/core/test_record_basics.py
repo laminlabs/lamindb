@@ -82,12 +82,15 @@ def test_record_features_add_remove_values():
     feature_date = ln.Feature(name="feature_date", dtype=datetime.date).save()
     feature_dict = ln.Feature(name="feature_dict", dtype=dict).save()
     feature_type1 = ln.Feature(name="feature_type1", dtype=record_type1).save()
-    feature_type2 = ln.Feature(name="feature_type2", dtype=list[record_type1]).save()
+    feature_type1s = ln.Feature(name="feature_type1s", dtype=list[record_type1]).save()
     feature_user = ln.Feature(name="feature_user", dtype=ln.User).save()
     feature_project = ln.Feature(name="feature_project", dtype=ln.Project).save()
     feature_artifact = ln.Feature(name="feature_artifact", dtype=ln.Artifact).save()
     feature_run = ln.Feature(name="feature_run", dtype=ln.Run.uid).save()
     feature_cell_line = ln.Feature(name="feature_cell_line", dtype=bt.CellLine).save()
+    feature_cell_lines = ln.Feature(
+        name="feature_cell_lines", dtype=list[bt.CellLine]
+    ).save()
     feature_cl_ontology_id = ln.Feature(
         name="feature_cl_ontology_id", dtype=bt.CellLine.ontology_id
     ).save()
@@ -95,6 +98,7 @@ def test_record_features_add_remove_values():
     test_record = ln.Record(name="test_record").save()
     test_project = ln.Project(name="test_project").save()
     hek293 = bt.CellLine.from_source(name="HEK293").save()
+    a549 = bt.CellLine.from_source(name="A549 cell").save()
 
     # no schema validation
 
@@ -105,10 +109,11 @@ def test_record_features_add_remove_values():
         "feature_date": date(2024, 1, 1),
         "feature_dict": {"key": "value", "number": 123, "list": [1, 2, 3]},
         "feature_type1": "entity1",
-        "feature_type2": ["entity1", "entity2"],
+        "feature_type1s": ["entity1", "entity2"],
         "feature_user": ln.setup.settings.user.handle,
         "feature_project": "test_project",
         "feature_cell_line": "HEK293",
+        "feature_cell_lines": ["HEK293", "A549 cell"],
         "feature_cl_ontology_id": "CLO:0001230",
         "feature_artifact": "test-artifact",
         "feature_run": run.uid,
@@ -131,8 +136,8 @@ def test_record_features_add_remove_values():
     test_values.pop("feature_type1")
     assert test_record.features.get_values() == test_values
 
-    test_record.features.remove_values("feature_type2")
-    test_values.pop("feature_type2")
+    test_record.features.remove_values("feature_type1s")
+    test_values.pop("feature_type1s")
     assert test_record.features.get_values() == test_values
 
     test_record.features.remove_values("feature_cell_line")
@@ -172,22 +177,47 @@ def test_record_features_add_remove_values():
     with pytest.raises(ln.errors.ValidationError) as error:
         test_record_in_form.features.add_values({"feature_type1": "entity1"})
     assert "COLUMN_NOT_IN_DATAFRAME" in error.exconly()
-
     test_record_in_form.delete(permanent=True)
     test_form.delete(permanent=True)
     schema.delete(permanent=True)
+
+    # test with list of strings
+
+    schema = ln.Schema([feature_cell_lines], name="test_schema2").save()
+    test_form = ln.Record(name="TestForm", is_type=True, schema=schema).save()
+    test_record_in_form = ln.Record(name="test_record_in_form", type=test_form).save()
+    test_record_in_form.features.add_values(
+        {"feature_cell_lines": ["HEK293", "A549 cell"]}
+    )
+    test_record_in_form.delete(permanent=True)
+    test_form.delete(permanent=True)
+    schema.delete(permanent=True)
+
+    # test with list of records (rather than passing strings)
+
+    schema = ln.Schema([feature_cell_lines], name="test_schema2").save()
+    test_form = ln.Record(name="TestForm", is_type=True, schema=schema).save()
+    test_record_in_form = ln.Record(name="test_record_in_form", type=test_form).save()
+    test_record_in_form.features.add_values({"feature_cell_lines": [a549, hek293]})
+    test_record_in_form.delete(permanent=True)
+    test_form.delete(permanent=True)
+    schema.delete(permanent=True)
+
+    # clean up rest
+
     test_record.delete(permanent=True)
     feature_str.delete(permanent=True)
     feature_int.delete(permanent=True)
     feature_datetime.delete(permanent=True)
     feature_date.delete(permanent=True)
     feature_type1.delete(permanent=True)
-    feature_type2.delete(permanent=True)
+    feature_type1s.delete(permanent=True)
     feature_user.delete(permanent=True)
     feature_project.delete(permanent=True)
     feature_dict.delete(permanent=True)
     feature_artifact.delete(permanent=True)
     feature_run.delete(permanent=True)
+    feature_cell_lines.delete(permanent=True)
     record_entity1.delete(permanent=True)
     record_entity2.delete(permanent=True)
     record_type1.delete(permanent=True)
@@ -195,6 +225,7 @@ def test_record_features_add_remove_values():
     feature_cell_line.delete(permanent=True)
     feature_cl_ontology_id.delete(permanent=True)
     hek293.delete(permanent=True)
+    a549.delete(permanent=True)
     artifact.delete(permanent=True)
     run.delete(permanent=True)
     transform.delete(permanent=True)
