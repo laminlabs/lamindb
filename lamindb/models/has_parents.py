@@ -60,6 +60,7 @@ def _query_relatives(
         if not next_ids:
             break
         results.update(next_ids)
+        seen_ids.update(next_ids)
         frontier_ids = next_ids
 
     return model.filter(id__in=results)
