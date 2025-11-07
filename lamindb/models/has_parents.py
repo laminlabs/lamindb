@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Literal
 import lamindb_setup as ln_setup
 from lamin_utils import logger
 
-from .query_set import BasicQuerySet, QuerySet, SQLRecordList, get_default_branch_ids
+from .query_set import SQLRecordList, get_default_branch_ids
 from .run import Run
 from .sqlrecord import format_field_value, get_name_field
 
@@ -18,6 +18,7 @@ if TYPE_CHECKING:
 
     from .artifact import Artifact
     from .collection import Collection
+    from .query_set import BasicQuerySet, QuerySet
     from .sqlrecord import SQLRecord
 
 LAMIN_GREEN_LIGHTER = "#10b981"
@@ -30,7 +31,7 @@ is_run_from_ipython = getattr(builtins, "__IPYTHON__", False)
 # this is optimized to have fewer recursive calls
 # also len of QuerySet can be costly at times
 def _query_relatives(
-    records: BasicQuerySet | list[SQLRecord],
+    records: BasicQuerySet | list[HasParents],
     attr: Literal["children", "parents", "records"],
 ) -> QuerySet:
     branch_ids = get_default_branch_ids()
@@ -40,7 +41,7 @@ def _query_relatives(
         frontier_ids = set(records.values_list("id", flat=True))
     else:
         model = records[0].__class__
-        frontier_ids = {r.id for r in records}
+        frontier_ids = {r.id for r in records}  # type: ignore
 
     if attr == "records":
         attr_filter = "type__id__in"

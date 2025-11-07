@@ -40,7 +40,7 @@ if TYPE_CHECKING:
     import pandas as pd
 
     from ._feature_manager import FeatureManager
-    from .blocks import RunBlock
+    from .block import RunBlock
     from .project import Project, RecordProject, RecordReference, Reference
     from .schema import Schema
 
