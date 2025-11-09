@@ -565,13 +565,15 @@ class ComponentCurator(Curator):
                 ordered=schema.ordered_set,
                 index=index,
             )
-        # in the DataFrameCatManager, we use the
-        # actual columns of the dataset, not the pandera columns
-        # the pandera columns might have additional optional columns
-        if schema.itype == "Composite":
+        if (
+            schema.itype == "Composite"
+        ):  # backward compat, should be migrated to Feature.name
             columns_field = Feature.name
         else:
             columns_field = parse_cat_dtype(schema.itype, is_itype=True)["field"]
+        # in the DataFrameCatManager, we use the
+        # actual columns of the dataset, not the pandera columns
+        # the pandera columns might have additional optional columns
         self._cat_manager = DataFrameCatManager(
             self._dataset,
             columns_field=columns_field,
@@ -740,9 +742,7 @@ class DataFrameCurator(SlotsCurator):
     @property
     def cat(self) -> DataFrameCatManager:
         """Manage categoricals by updating registries."""
-        if hasattr(self, "_atomic_curator"):
-            return self._atomic_curator.cat
-        raise AttributeError("cat is only available for slots DataFrameCurator")
+        return self._atomic_curator.cat
 
     def standardize(self) -> None:
         """Standardize the dataset.
@@ -750,20 +750,16 @@ class DataFrameCurator(SlotsCurator):
         - Adds missing columns for features
         - Fills missing values for features with default values
         """
-        if hasattr(self, "_atomic_curator"):
-            self._atomic_curator.standardize()
-        else:
-            for slot_curator in self._slots.values():
-                slot_curator.standardize()
+        self._atomic_curator.standardize()
+        for slot_curator in self._slots.values():
+            slot_curator.standardize()
 
     @doc_args(VALIDATE_DOCSTRING)
     def validate(self) -> None:
         """{}."""
-        if hasattr(self, "_atomic_curator"):
-            self._atomic_curator.validate()
-            self._is_validated = self._atomic_curator._is_validated
-        if self._schema.itype == "Composite":
-            super().validate()
+        self._atomic_curator.validate()
+        self._is_validated = self._atomic_curator._is_validated
+        super().validate()
 
     @doc_args(SAVE_ARTIFACT_DOCSTRING)
     def save_artifact(
@@ -772,7 +768,6 @@ class DataFrameCurator(SlotsCurator):
         """{}."""
         if not self._is_validated:
             self.validate()
-
         self._slots["columns"] = self._atomic_curator
         try:
             return super().save_artifact(
@@ -1978,7 +1973,7 @@ def annotate_artifact(
                 )
                 itype = (
                     Feature.name
-                    if artifact.schema.itype == "Composite"
+                    if artifact.schema.itype == "Composite"  # backward compat
                     else parse_cat_dtype(artifact.schema.itype, is_itype=True)["field"]
                 )
                 feature_set = Schema(itype=itype, n=len(features))
@@ -2017,7 +2012,8 @@ def annotate_artifact(
                 )
                 itype = (
                     Feature.name
-                    if artifact.schema.slots[slot].itype == "Composite"
+                    if artifact.schema.slots[slot].itype
+                    == "Composite"  # backward compat
                     else parse_cat_dtype(
                         artifact.schema.slots[slot].itype, is_itype=True
                     )["field"]
