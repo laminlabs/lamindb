@@ -171,7 +171,8 @@ class SchemaOptionals:
 KNOWN_SCHEMAS = {  # by hash
     "kMi7B_N88uu-YnbTLDU-DA": "0000000000000000",  # valid_features
     "1gocc_TJ1RU2bMwDRK-WUA": "0000000000000001",  # valid_ensembl_gene_ids
-    "UR_ozz2VI2sY8ckXop2RAg": "0000000000000002",  # anndata_ensembl_gene_ids_and_valid_features_in_obs
+    "UR_ozz2VI2sY8ckXop2RAg": "0000000000000002",  # anndata_ensembl_gene_ids_and_valid_features_in_obs (itype='Composite')
+    "aqGWHvyY49W_PHELUMiBMw": "0000000000000002",  # anndata_ensembl_gene_ids_and_valid_features_in_obs (itype=None)
 }
 
 
@@ -1090,17 +1091,15 @@ class Schema(SQLRecord, CanCurate, TracksRun):
 
                 # access slots
                 anndata_schema.slots
-                # {'obs': <Schema: obs_schema>, 'var': <Schema: var_schema>}
+                #> {'obs': <Schema: obs_schema>, 'var': <Schema: var_schema>}
         """
         if hasattr(self, "_slots"):
             return self._slots
-        if self.itype == "Composite":
-            self._slots = {
-                link.slot: link.component
-                for link in self.components.through.filter(composite_id=self.id)
-            }
-            return self._slots
-        return {}
+        self._slots = {
+            link.slot: link.component
+            for link in self.components.through.filter(composite_id=self.id)
+        }
+        return self._slots
 
     @property
     def optionals(self) -> SchemaOptionals:
