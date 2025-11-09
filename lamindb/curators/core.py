@@ -417,15 +417,11 @@ class SlotsCurator(Curator):
 def convert_dict_to_dataframe_for_validation(d: dict, schema: Schema) -> pd.DataFrame:
     """Convert a dictionary to a DataFrame for validation against a schema."""
     df = pd.DataFrame([d])
-    print(df)
-    print(df.dtypes)
     for feature in schema.members:
-        print(feature)
-        if feature.dtype.startswith("cat") or feature.dtype.startswith("list[cat"):
-            print(feature.dtype)
+        # we cannot cast a `list[cat[...]]]` to categorical because lists are not hashable
+        if feature.dtype.startswith("cat"):
             if feature.name in df.columns:
                 df[feature.name] = pd.Categorical(df[feature.name])
-    print(df.dtypes)
     return df
 
 
@@ -492,7 +488,14 @@ class ComponentCurator(Curator):
                 else:
                     required = False
                 # series.dtype is "object" if the column has lists types, e.g. [["a", "b"], ["a"], ["b"]]
-                if feature.dtype in {
+                if feature.dtype.startswith("list[cat"):
+                    pandera_columns[feature.name] = pandera.Column(
+                        dtype="object",
+                        nullable=feature.nullable,
+                        coerce=feature.coerce_dtype,
+                        required=required,
+                    )
+                elif feature.dtype in {
                     "int",
                     "float",
                     "num",
@@ -1417,6 +1420,15 @@ class CatVector:
 
         # if a value is a list, we need to flatten it
         str_values = _flatten_unique(values)
+
+        # if values are SQLRecord, we don't need to validate them
+        if all(isinstance(v, SQLRecord) for v in str_values):
+            assert all(v._state.adding is False for v in str_values), (
+                "All records must be saved."
+            )
+            self.records = str_values  # type: ignore
+            validated_labels = str_values  # type: ignore
+            return validated_labels, []
 
         # inspect the default instance and save validated records from public
         if self._type_record is not None:
