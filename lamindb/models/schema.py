@@ -610,8 +610,6 @@ class Schema(SQLRecord, CanCurate, TracksRun):
         if slots:
             if otype is None:
                 raise InvalidArgument("Please pass otype != None for composite schemas")
-        else:
-            assert itype is not None or is_type, "Please pass itype != None"  # noqa: S101
         flexible_default = n_features < 0
         if flexible is None:
             flexible = flexible_default

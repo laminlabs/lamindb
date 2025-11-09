@@ -448,7 +448,7 @@ def describe_schema(record: Schema, slot: str | None = None) -> Tree:
     # Add features section
     members_count = record.n
     members_count_display = f" ({members_count})" if members_count > 0 else ""
-    if members_count > 0 or record.dtype:
+    if members_count > 0 or (record.dtype and record.itype is not None):
         features = tree.add(
             Text.assemble(
                 (
