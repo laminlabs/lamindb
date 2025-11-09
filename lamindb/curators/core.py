@@ -490,7 +490,12 @@ class ComponentCurator(Curator):
                 # series.dtype is "object" if the column has lists types, e.g. [["a", "b"], ["a"], ["b"]]
                 if feature.dtype.startswith("list[cat"):
                     pandera_columns[feature.name] = pandera.Column(
-                        dtype="object",
+                        dtype=None,
+                        checks=pandera.Check(
+                            check_dtype("list", feature.nullable),
+                            element_wise=False,
+                            error=f"Column '{feature.name}' failed dtype check for '{feature.dtype}'",
+                        ),
                         nullable=feature.nullable,
                         coerce=feature.coerce_dtype,
                         required=required,
