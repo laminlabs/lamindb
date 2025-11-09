@@ -66,6 +66,8 @@ def check_dtype(expected_type: Any, nullable: bool) -> Callable:
                 or expected_type_member.startswith("cat[")
             ):
                 return series.apply(lambda x: is_list_of_type(x, str)).all()
+            elif expected_type_member == "list":
+                return series.apply(lambda x: isinstance(x, list)).all()
 
         # if we get here, the validation failed
         return False
