@@ -381,7 +381,11 @@ def test_dataframe_attrs_validation(study_metadata_schema, include_attrs_slot):
             otype="DataFrame",
         ).save()
 
-    bad_schema = ln.Schema(slots={"doesnotexist": schema}, otype="DataFrame").save()
+    bad_schema = ln.Schema(
+        features=[perturbation_feature],
+        slots={"doesnotexist": schema},
+        otype="DataFrame",
+    ).save()
 
     with pytest.raises(ValueError) as e:
         curator = ln.curators.DataFrameCurator(df, schema=bad_schema)
