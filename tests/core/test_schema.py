@@ -495,21 +495,21 @@ def test_schemas_anndata():
     )
     assert schema._list_for_hashing == [
         "a=num",
-        "b=Composite",
+        "b=None",
         "c=True",
         "d=False",
         "e=False",
         "l=GPZ-TzvKRhdC1PQAhlFiow",
     ]
     assert schema.name == "anndata_ensembl_gene_ids_and_valid_features_in_obs"
-    assert schema.itype == "Composite"
+    assert schema.itype == "None"
     assert schema.hash == "UR_ozz2VI2sY8ckXop2RAg"
 
     # test the convenience function
     schema = ln.examples.schemas.anndata_ensembl_gene_ids_and_valid_features_in_obs()
     assert schema.uid == "0000000000000002"
     assert schema.name == "anndata_ensembl_gene_ids_and_valid_features_in_obs"
-    assert schema.itype == "Composite"
+    assert schema.itype is None
     assert schema.hash == "UR_ozz2VI2sY8ckXop2RAg"
     varT_schema = schema.slots["var.T"]
     assert varT_schema.uid == "0000000000000001"

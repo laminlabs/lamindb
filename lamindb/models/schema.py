@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import warnings
 from typing import TYPE_CHECKING, Any, Type, overload
 
 import numpy as np
@@ -193,6 +194,7 @@ class Schema(SQLRecord, CanCurate, TracksRun):
         name: `str | None = None` Name of the schema.
         description: `str | None = None` Description of the schema.
         itype: `str | None = None` Feature identifier type to validate against, e.g., `ln.Feature` or `bt.Gene.ensembl_gene_id`.
+            Is automatically set to the type of the passed `features`.
         type: `Schema | None = None` Define schema types like `ln.Schema(name="ProteinPanel", is_type=True)`.
         is_type: `bool = False` Whether the schema is a type.
         index: `Feature | None = None` A `Feature` record to validate an index of a `DataFrame` and therefore also, e.g., `AnnData` obs and var indices.
@@ -567,30 +569,25 @@ class Schema(SQLRecord, CanCurate, TracksRun):
     ) -> tuple[list[Feature], dict[str, Any], list[Feature], Registry, bool]:
         optional_features = []
         features_registry: Registry = None
-
         if itype is not None:
             if itype != "Composite":
                 itype = serialize_dtype(itype, is_itype=True)
-
+            else:
+                warnings.warn(
+                    "please do not pass the deprecated itype='Composite'", stacklevel=2
+                )
         if index is not None:
             if not isinstance(index, Feature):
                 raise TypeError("index must be a Feature")
             features.insert(0, index)
-
-        if slots:
-            itype = "Composite"
-            if otype is None:
-                raise InvalidArgument("Please pass otype != None for composite schemas")
-
         if features:
             features, configs = get_features_config(features)
             features_registry = validate_features(features)
-            if itype != "Composite":
-                itype_compare = features_registry.__get_name_with_module__()
-                if itype is not None:
-                    assert itype.startswith(itype_compare), str(itype_compare)  # noqa: S101
-                else:
-                    itype = itype_compare
+            itype_compare = features_registry.__get_name_with_module__()
+            if itype is not None:
+                assert itype.startswith(itype_compare), str(itype_compare)  # noqa: S101
+            else:
+                itype = itype_compare
             if n_features is not None:
                 if n_features != len(features):
                     logger.important(f"updating to n {len(features)} features")
@@ -609,11 +606,14 @@ class Schema(SQLRecord, CanCurate, TracksRun):
             dtype = None if itype is not None and itype == "Feature" else NUMBER_TYPE
         else:
             dtype = get_type_str(dtype)
+        if slots:
+            if otype is None:
+                raise InvalidArgument("Please pass otype != None for composite schemas")
+        else:
+            assert itype is not None or is_type, "Please pass itype != None"  # noqa: S101
         flexible_default = n_features < 0
-
         if flexible is None:
             flexible = flexible_default
-
         if itype is not None and not isinstance(itype, str):
             itype_str = serialize_dtype(itype, is_itype=True)
         else:
