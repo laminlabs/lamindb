@@ -76,11 +76,11 @@ def test_registry__repr__artifact():
         .created_by: User
         .input_of_runs: Run
         .feature_sets: Schema
-        .ulabels: ULabel
+        .linked_in_records: Record
         .users: User
+        .ulabels: ULabel
         .collections: Collection
         .records: Record
-        .linked_in_records: Record
         .references: Reference
         .projects: Project
         .blocks: Block

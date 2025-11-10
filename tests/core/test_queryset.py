@@ -15,7 +15,7 @@ from lamindb.models.query_set import DoesNotExist
 
 
 # please also see the test_curate_df.py tests
-def test_df():
+def test_to_dataframe():
     project_label = ln.Record(name="project").save()
     project_names = [f"Project {i}" for i in range(3)]
     labels = ln.Record.from_values(project_names, create=True).save()
@@ -56,7 +56,7 @@ def test_df():
 
     # raise error for non many-to-many
     df = ln.Record.filter(name="Project 0").to_dataframe(include="created_by__name")
-    assert df["created_by__name"].iloc[0] == "Test User1"
+    assert df["created_by__name"].iloc[0] == ln.setup.settings.user.name
 
     # do not return fields with no data in the registry
     # does not make sense in Alex's opinion
@@ -81,7 +81,7 @@ def test_df():
 
     # call it from a non-select-derived queryset
     qs = ln.User.objects.all()
-    assert qs.to_dataframe().iloc[0]["handle"] == "testuser1"
+    assert qs.to_dataframe().iloc[0]["handle"] == ln.setup.settings.user.handle
 
 
 def test_complex_df_with_features():

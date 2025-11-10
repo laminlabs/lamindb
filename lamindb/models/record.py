@@ -213,19 +213,11 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates, HasParents):
     """Projects that annotate this record."""
     references: Reference
     """References that annotate this record."""
-    linked_runs: Run = models.ManyToManyField(
-        Run, through="RecordRun", related_name="linked_in_records"
-    )
+    linked_runs: Run
     """Runs linked in this record as values."""
-    linked_ulabels: ULabel = models.ManyToManyField(
-        ULabel,
-        through="RecordULabel",
-        related_name="linked_in_records",
-    )
+    linked_ulabels: ULabel
     """ULabels linked in this record as values."""
-    linked_artifacts: Artifact = models.ManyToManyField(
-        Artifact, through="RecordArtifact", related_name="linked_in_records"
-    )
+    linked_artifacts: Artifact
     """Artifacts linked in this record as values."""
     linked_projects: Project
     """Projects linked in this record as values."""

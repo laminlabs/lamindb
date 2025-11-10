@@ -126,16 +126,22 @@ class ULabel(SQLRecord, HasParents, CanCurate, TracksRun, TracksUpdates):
     Reverse accessor for parents.
     """
     transforms: Transform
-    """Linked transforms."""
+    """The transforms annotated by this ulabel."""
     runs: Run
-    """Linked runs."""
-    artifacts: Artifact
-    """Linked artifacts."""
+    """The runs annotated by this ulabel."""
+    artifacts: Artifact = models.ManyToManyField(
+        "Artifact", through="ArtifactULabel", related_name="ulabels"
+    )
+    """The artifacts annotated by this ulabel."""
     collections: Collection
-    """Linked collections."""
+    """The collections annotated by this ulabel."""
     projects: Project
-    """Linked projects."""
-    linked_in_records: Record
+    """The projects annotated by this ulabel."""
+    linked_in_records: Record = models.ManyToManyField(
+        "Record",
+        through="RecordULabel",
+        related_name="linked_ulabels",
+    )
     """Records linking this ulabel as a value."""
 
     @overload

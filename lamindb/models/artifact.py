@@ -1354,16 +1354,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     """Creator of record."""
     _overwrite_versions: bool = BooleanField(default=None)
     """See corresponding property `overwrite_versions`."""
-    ulabels: ULabel = models.ManyToManyField(
-        ULabel, through="ArtifactULabel", related_name="artifacts"
-    )
+    ulabels: ULabel
     """The ulabels annotating this artifact."""
-    users: User = models.ManyToManyField(
-        User,
-        through="ArtifactUser",
-        through_fields=("artifact", "user"),
-        related_name="+",
-    )
+    users: User
     """The users annotating this artifact."""
     projects: Project
     """The projects annotating this artifact."""
@@ -1371,7 +1364,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     """The references annotating this artifact."""
     records: Record
     """The records annotating this artifact."""
-    linked_in_records: Record
+    linked_in_records: Record = models.ManyToManyField(
+        "Record", through="RecordArtifact", related_name="linked_artifacts"
+    )
     """This artifact is linked in these records as a value."""
     blocks: ArtifactBlock
     """The blocks that annotate this artifact."""
