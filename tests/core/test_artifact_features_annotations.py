@@ -10,15 +10,6 @@ from lamindb.examples.datasets import mini_immuno
 from lamindb.models._feature_manager import describe_features
 
 
-@pytest.fixture(scope="module")
-def adata():
-    adata = ln.examples.datasets.anndata_with_obs()
-    # add another column
-    adata.obs["cell_type_by_expert"] = adata.obs["cell_type"]
-    adata.obs.loc["obs0", "cell_type_by_expert"] = "B cell"
-    return adata
-
-
 def test_features_add():
     df = mini_immuno.get_dataset1(otype="DataFrame")
     artifact = ln.Artifact.from_dataframe(df, description="test dataset").save()
@@ -74,8 +65,11 @@ def test_features_add_external():
     ln.Feature.filter().delete(permanent=True)
 
 
-# below the test for annotating with feature values
-def test_features_add_remove(adata, ccaplog):
+def test_features_add_remove(ccaplog):
+    adata = ln.examples.datasets.anndata_with_obs()
+    adata.obs["cell_type_by_expert"] = adata.obs["cell_type"]
+    adata.obs.loc["obs0", "cell_type_by_expert"] = "B cell"
+
     artifact = ln.Artifact.from_anndata(adata, description="test").save()
     with pytest.raises(ValidationError) as error:
         artifact.features.add_values({"experiment": "Experiment 1"})
@@ -425,7 +419,6 @@ def test_add_list_of_cat_features():
                 "single_label_of_type1": "invalid",
             }
         )
-    print(error.exconly())
     assert error.exconly().startswith(
         "lamindb.errors.ValidationError: These values could not be validated: {'Record': ('name', ['invalid'])}"
     )
@@ -436,7 +429,6 @@ def test_add_list_of_cat_features():
                 "list_of_labels_of_type1": ["invalid", "invalid2"],
             }
         )
-    print(error.exconly())
     assert error.exconly().startswith(
         "lamindb.errors.ValidationError: These values could not be validated: {'Record': ('name', ['invalid', 'invalid2'])}"
     )
