@@ -1226,11 +1226,6 @@ class FeatureManager:
                 link_attributes = {
                     v for v in link_attributes if not v.startswith("links_in_")
                 }
-            if len(link_attributes) > 1:
-                print(link_attributes)
-            if len(link_attributes) == 0:
-                print("link_models_on_models", link_models_on_models)
-                print("feature_registry", feature_registry)
             assert len(link_attributes) == 1
             link_records = getattr(self._host, link_attributes.pop()).filter(
                 **filter_kwargs
