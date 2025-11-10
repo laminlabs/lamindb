@@ -75,7 +75,7 @@ def populate_sheets_compound_treatment():
         name="My samples 2025-06", schema=sample_schema1, type=sample_type
     ).save()
     # values for cell lines
-    hek293t = bt.CellLine.from_source(name="HEK293T").save()
+    hek293t = bt.CellLine.from_source("HEK293T").save()
 
     # populate sample1
     sample1 = ln.Record(name="sample1", type=sample_sheet1).save()
