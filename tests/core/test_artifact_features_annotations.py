@@ -1,6 +1,6 @@
 # ruff: noqa: F811
 
-import datetime
+from datetime import date, datetime
 
 import bionty as bt
 import lamindb as ln
@@ -10,40 +10,170 @@ from lamindb.examples.datasets import mini_immuno
 from lamindb.models._feature_manager import describe_features
 
 
-def test_features_add():
-    df = mini_immuno.get_dataset1(otype="DataFrame")
-    artifact = ln.Artifact.from_dataframe(df, description="test dataset").save()
-    with pytest.raises(ValidationError) as err:
-        artifact.features.add_values({"perturbation": df.perturbation.unique()})
-    assert (
-        err.exconly()
-        == """lamindb.errors.ValidationError: These keys could not be validated: ['perturbation']
-Here is how to create a feature:
+# see test_record_basics.py for similar test for records
+def test_artifact_features_add_remove_values():
+    record_type1 = ln.Record(name="RecordType1", is_type=True).save()
+    record_entity1 = ln.Record(name="entity1", type=record_type1).save()
+    record_entity2 = ln.Record(name="entity2", type=record_type1).save()
+    ulabel = ln.ULabel(name="test-ulabel").save()
+    artifact = ln.Artifact(".gitignore", key="test-artifact").save()
+    transform = ln.Transform(key="test-transform").save()
+    run = ln.Run(transform, name="test-run").save()
 
-  ln.Feature(name='perturbation', dtype='cat').save()"""
+    feature_str = ln.Feature(name="feature_str", dtype=str).save()
+    feature_int = ln.Feature(name="feature_int", dtype=int).save()
+    feature_datetime = ln.Feature(name="feature_datetime", dtype=datetime).save()
+    feature_date = ln.Feature(name="feature_date", dtype=datetime.date).save()
+    feature_dict = ln.Feature(name="feature_dict", dtype=dict).save()
+    feature_type1 = ln.Feature(name="feature_type1", dtype=record_type1).save()
+    feature_type1s = ln.Feature(name="feature_type1s", dtype=list[record_type1]).save()
+    feature_ulabel = ln.Feature(name="feature_ulabel", dtype=ln.ULabel).save()
+    feature_user = ln.Feature(name="feature_user", dtype=ln.User).save()
+    feature_project = ln.Feature(name="feature_project", dtype=ln.Project).save()
+    # feature_artifact = ln.Feature(name="feature_artifact", dtype=ln.Artifact).save()
+    # feature_run = ln.Feature(name="feature_run", dtype=ln.Run.uid).save()
+    feature_cell_line = ln.Feature(name="feature_cell_line", dtype=bt.CellLine).save()
+    feature_cell_lines = ln.Feature(
+        name="feature_cell_lines", dtype=list[bt.CellLine]
+    ).save()
+    feature_cl_ontology_id = ln.Feature(
+        name="feature_cl_ontology_id", dtype=bt.CellLine.ontology_id
+    ).save()
+
+    test_artifact = ln.Artifact(".gitignore", key="test_artifact").save()
+    test_project = ln.Project(name="test_project").save()
+    hek293 = bt.CellLine.from_source(name="HEK293").save()
+    a549 = bt.CellLine.from_source(name="A549 cell").save()
+
+    # no schema validation
+
+    test_values = {
+        "feature_str": "a string value",
+        "feature_int": 42,
+        "feature_datetime": datetime(2024, 1, 1, 12, 0, 0),
+        "feature_date": date(2024, 1, 1),
+        "feature_dict": {"key": "value", "number": 123, "list": [1, 2, 3]},
+        "feature_type1": "entity1",
+        "feature_type1s": ["entity1", "entity2"],
+        "feature_ulabel": "test-ulabel",
+        "feature_user": ln.setup.settings.user.handle,
+        "feature_project": "test_project",
+        "feature_cell_line": "HEK293",
+        "feature_cell_lines": ["HEK293", "A549 cell"],
+        "feature_cl_ontology_id": "CLO:0001230",
+        # "feature_artifact": "test-artifact",
+        # "feature_run": run.uid,
+    }
+
+    test_artifact.features.add_values(test_values)
+    assert test_artifact.features.get_values() == test_values
+
+    # remove values
+
+    test_artifact.features.remove_values("feature_int")
+    test_values.pop("feature_int")
+    assert test_artifact.features.get_values() == test_values
+
+    test_artifact.features.remove_values("feature_date")
+    test_values.pop("feature_date")
+    assert test_artifact.features.get_values() == test_values
+
+    test_artifact.features.remove_values("feature_type1")
+    test_values.pop("feature_type1")
+    assert test_artifact.features.get_values() == test_values
+
+    test_artifact.features.remove_values("feature_type1s")
+    test_values.pop("feature_type1s")
+    assert test_artifact.features.get_values() == test_values
+
+    test_artifact.features.remove_values("feature_ulabel")
+    test_values.pop("feature_ulabel")
+    assert test_artifact.features.get_values() == test_values
+
+    test_artifact.features.remove_values("feature_cell_line")
+    test_values.pop("feature_cell_line")
+    assert test_artifact.features.get_values() == test_values
+
+    test_artifact.features.remove_values("feature_user")
+    test_values.pop("feature_user")
+    assert test_artifact.features.get_values() == test_values
+
+    # test_artifact.features.remove_values("feature_artifact")
+    # test_values.pop("feature_artifact")
+    # assert test_artifact.features.get_values() == test_values
+
+    # test_artifact.features.remove_values("feature_run")
+    # test_values.pop("feature_run")
+    # assert test_artifact.features.get_values() == test_values
+
+    # test passing None has no effect, does not lead to annotation
+
+    test_artifact.features.add_values({"feature_int": None, "feature_type1": None})
+    assert test_artifact.features.get_values() == test_values
+
+    # test passing ISO-format date string for date
+
+    test_artifact.features.add_values({"feature_date": "2024-01-01"})
+    test_values["feature_date"] = date(2024, 1, 1)
+    assert test_artifact.features.get_values() == test_values
+
+    # schema validation
+
+    feature_str = ln.Feature.get(name="feature_str")
+    feature_int = ln.Feature.get(name="feature_int")
+    schema = ln.Schema([feature_str, feature_int], name="test_schema").save()
+    with pytest.raises(ln.errors.ValidationError) as error:
+        test_artifact.features.add_values({"feature_type1": "entity1"}, schema=schema)
+    assert "COLUMN_NOT_IN_DATAFRAME" in error.exconly()
+    schema.delete(permanent=True)
+
+    # test with list of strings
+
+    schema = ln.Schema([feature_cell_lines], name="test_schema2").save()
+    test_artifact.features.add_values(
+        {"feature_cell_lines": ["HEK293", "A549 cell"]}, schema=schema
     )
+    schema.delete(permanent=True)
 
-    perturbation_feature = ln.Feature(name="perturbation", dtype=ln.Record).save()
-    records = ln.Record.from_values(["DMSO", "IFNG"], create=True).save()
-    artifact.features.add_values({"perturbation": df.perturbation.unique()})
-    assert artifact in ln.Artifact.filter(perturbation__isnull=False)
-    assert artifact not in ln.Artifact.filter(perturbation__isnull=True)
+    # test with list of records (rather than passing strings)
 
-    # list of bionty features
-    organisms_feature = ln.Feature(name="organisms", dtype=list[bt.Organism]).save()
-    mouse = bt.Organism.from_source(name="mouse").save()
-    artifact.features.add_values({"organisms": [mouse]})
-    assert artifact.features.get_values()["organisms"] == ["mouse"]
+    schema = ln.Schema([feature_cell_lines], name="test_schema2").save()
+    test_artifact.features.add_values(
+        {"feature_cell_lines": [a549, hek293]}, schema=schema
+    )
+    schema.delete(permanent=True)
 
+    # clean up rest
+
+    test_artifact.delete(permanent=True)
+    feature_str.delete(permanent=True)
+    feature_int.delete(permanent=True)
+    feature_datetime.delete(permanent=True)
+    feature_date.delete(permanent=True)
+    feature_type1.delete(permanent=True)
+    feature_type1s.delete(permanent=True)
+    feature_user.delete(permanent=True)
+    feature_project.delete(permanent=True)
+    feature_dict.delete(permanent=True)
+    # feature_artifact.delete(permanent=True)
+    # feature_run.delete(permanent=True)
+    feature_ulabel.delete(permanent=True)
+    feature_cell_lines.delete(permanent=True)
+    record_entity1.delete(permanent=True)
+    record_entity2.delete(permanent=True)
+    record_type1.delete(permanent=True)
+    test_project.delete(permanent=True)
+    feature_cell_line.delete(permanent=True)
+    feature_cl_ontology_id.delete(permanent=True)
+    hek293.delete(permanent=True)
+    a549.delete(permanent=True)
+    ulabel.delete(permanent=True)
     artifact.delete(permanent=True)
-    organisms_feature.delete(permanent=True)
-    mouse.delete(permanent=True)
-    perturbation_feature.delete(permanent=True)
-    for record in records:
-        record.delete(permanent=True)
+    run.delete(permanent=True)
+    transform.delete(permanent=True)
 
 
-def test_features_add_external():
+def test_features_add_with_schema():
     df = mini_immuno.get_dataset1(otype="DataFrame")
     artifact = ln.Artifact.from_dataframe(df, description="test dataset").save()
 
@@ -65,16 +195,17 @@ def test_features_add_external():
     ln.Feature.filter().delete(permanent=True)
 
 
-def test_features_add_remove(ccaplog):
+def test_features_add_remove_error_behavior():
     adata = ln.examples.datasets.anndata_with_obs()
-    adata.obs["cell_type_by_expert"] = adata.obs["cell_type"]
-    adata.obs.loc["obs0", "cell_type_by_expert"] = "B cell"
-
     artifact = ln.Artifact.from_anndata(adata, description="test").save()
     with pytest.raises(ValidationError) as error:
         artifact.features.add_values({"experiment": "Experiment 1"})
-    assert error.exconly().startswith(
-        "lamindb.errors.ValidationError: These keys could not be validated:"
+    assert (
+        error.exconly()
+        == """lamindb.errors.ValidationError: These keys could not be validated: ['experiment']
+Here is how to create a feature:
+
+  ln.Feature(name='experiment', dtype='cat ? str').save()"""
     )
     ln.Feature(name="experiment", dtype=ln.Record).save()
     with pytest.raises(ValidationError) as error:
@@ -240,8 +371,8 @@ Here is how to create a feature:
         "organism": "mouse",
         "is_validated": True,
         "temperature": {27.2, 100.0},
-        "date_of_experiment": datetime.date(2024, 12, 1),
-        "datetime_of_experiment": datetime.datetime(2024, 12, 1, 0, 0, 0),
+        "date_of_experiment": date(2024, 12, 1),
+        "datetime_of_experiment": datetime(2024, 12, 1, 0, 0, 0),
     }
     # hard to test because of italic formatting
     _, external_features_tree = describe_features(artifact)

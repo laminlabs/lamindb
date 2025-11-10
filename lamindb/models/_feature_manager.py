@@ -905,6 +905,8 @@ class FeatureManager:
         label_ref_is_name: bool | None = None,
         feature_ref_is_name: bool | None = None,
     ):
+        from lamindb.models.artifact import ArtifactUser
+
         host_name = self._host.__class__.__name__.lower()
         host_is_record = host_name == "record"
         related_names = dict_related_model_to_related_name(self._host.__class__)
@@ -916,7 +918,10 @@ class FeatureManager:
             related_names["Run"] = "linked_runs"
         for class_name, registry_features_labels in features_labels.items():
             related_name = related_names[class_name]  # e.g., "ulabels"
-            IsLink = getattr(self._host, related_name).through
+            if class_name == "User" and related_name == "users" and not host_is_record:
+                IsLink = ArtifactUser
+            else:
+                IsLink = getattr(self._host, related_name).through
             if host_is_record:
                 field_name = "value_id"
             else:
@@ -1232,6 +1237,18 @@ class FeatureManager:
                     link_attributes = {
                         v for v in link_attributes if v.startswith("values_")
                     }
+                if (
+                    len(link_attributes) > 1
+                    and self._host.__class__.__name__ == "Artifact"
+                ):
+                    link_attributes = {
+                        v for v in link_attributes if not v.startswith("links_in_")
+                    }
+            if len(link_attributes) > 1:
+                print(link_attributes)
+            if len(link_attributes) == 0:
+                print("link_models_on_models", link_models_on_models)
+                print("feature_registry", feature_registry)
             assert len(link_attributes) == 1
             link_records = getattr(self._host, link_attributes.pop()).filter(
                 **filter_kwargs

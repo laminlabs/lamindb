@@ -5713,7 +5713,6 @@ class Migration(migrations.Migration):
                 name="unique_artifact_storage_hash_null_key",
             ),
         ),
-        migrations.RunPython(apply_constraints),
         migrations.RemoveField(
             model_name="record",
             name="linked_users",
@@ -5727,4 +5726,70 @@ class Migration(migrations.Migration):
                 to="lamindb.record",
             ),
         ),
+        migrations.RemoveField(
+            model_name="artifact",
+            name="ulabels",
+        ),
+        migrations.RemoveField(
+            model_name="artifact",
+            name="users",
+        ),
+        migrations.AddField(
+            model_name="ulabel",
+            name="artifacts",
+            field=models.ManyToManyField(
+                related_name="ulabels",
+                through="lamindb.ArtifactULabel",
+                to="lamindb.artifact",
+            ),
+        ),
+        migrations.AddField(
+            model_name="user",
+            name="artifacts",
+            field=models.ManyToManyField(
+                related_name="users",
+                through="lamindb.ArtifactUser",
+                to="lamindb.artifact",
+            ),
+        ),
+        migrations.RemoveField(
+            model_name="record",
+            name="linked_artifacts",
+        ),
+        migrations.RemoveField(
+            model_name="record",
+            name="linked_runs",
+        ),
+        migrations.RemoveField(
+            model_name="record",
+            name="linked_ulabels",
+        ),
+        migrations.AddField(
+            model_name="artifact",
+            name="linked_in_records",
+            field=models.ManyToManyField(
+                related_name="linked_artifacts",
+                through="lamindb.RecordArtifact",
+                to="lamindb.record",
+            ),
+        ),
+        migrations.AddField(
+            model_name="run",
+            name="linked_in_records",
+            field=models.ManyToManyField(
+                related_name="linked_runs",
+                through="lamindb.RecordRun",
+                to="lamindb.record",
+            ),
+        ),
+        migrations.AddField(
+            model_name="ulabel",
+            name="linked_in_records",
+            field=models.ManyToManyField(
+                related_name="linked_ulabels",
+                through="lamindb.RecordULabel",
+                to="lamindb.record",
+            ),
+        ),
+        migrations.RunPython(apply_constraints),
     ]

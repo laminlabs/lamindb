@@ -68,12 +68,14 @@ def test_invalid_type_record_with_schema():
     schema.delete(permanent=True)
 
 
+# see test_artifact_features_annotations.py for similar test for Artifacts
 def test_record_features_add_remove_values():
     record_type1 = ln.Record(name="RecordType1", is_type=True).save()
     record_entity1 = ln.Record(name="entity1", type=record_type1).save()
     record_entity2 = ln.Record(name="entity2", type=record_type1).save()
+    ulabel = ln.ULabel(name="test-ulabel").save()
     artifact = ln.Artifact(".gitignore", key="test-artifact").save()
-    transform = ln.Transform(name="test-transform").save()
+    transform = ln.Transform(key="test-transform").save()
     run = ln.Run(transform, name="test-run").save()
 
     feature_str = ln.Feature(name="feature_str", dtype=str).save()
@@ -84,6 +86,7 @@ def test_record_features_add_remove_values():
     feature_type1 = ln.Feature(name="feature_type1", dtype=record_type1).save()
     feature_type1s = ln.Feature(name="feature_type1s", dtype=list[record_type1]).save()
     feature_user = ln.Feature(name="feature_user", dtype=ln.User).save()
+    feature_ulabel = ln.Feature(name="feature_ulabel", dtype=ln.ULabel).save()
     feature_project = ln.Feature(name="feature_project", dtype=ln.Project).save()
     feature_artifact = ln.Feature(name="feature_artifact", dtype=ln.Artifact).save()
     feature_run = ln.Feature(name="feature_run", dtype=ln.Run.uid).save()
@@ -110,6 +113,7 @@ def test_record_features_add_remove_values():
         "feature_dict": {"key": "value", "number": 123, "list": [1, 2, 3]},
         "feature_type1": "entity1",
         "feature_type1s": ["entity1", "entity2"],
+        "feature_ulabel": "test-ulabel",
         "feature_user": ln.setup.settings.user.handle,
         "feature_project": "test_project",
         "feature_cell_line": "HEK293",
@@ -138,6 +142,10 @@ def test_record_features_add_remove_values():
 
     test_record.features.remove_values("feature_type1s")
     test_values.pop("feature_type1s")
+    assert test_record.features.get_values() == test_values
+
+    test_record.features.remove_values("feature_ulabel")
+    test_values.pop("feature_ulabel")
     assert test_record.features.get_values() == test_values
 
     test_record.features.remove_values("feature_cell_line")
@@ -212,6 +220,7 @@ def test_record_features_add_remove_values():
     feature_date.delete(permanent=True)
     feature_type1.delete(permanent=True)
     feature_type1s.delete(permanent=True)
+    feature_ulabel.delete(permanent=True)
     feature_user.delete(permanent=True)
     feature_project.delete(permanent=True)
     feature_dict.delete(permanent=True)
@@ -226,6 +235,7 @@ def test_record_features_add_remove_values():
     feature_cl_ontology_id.delete(permanent=True)
     hek293.delete(permanent=True)
     a549.delete(permanent=True)
+    ulabel.delete(permanent=True)
     artifact.delete(permanent=True)
     run.delete(permanent=True)
     transform.delete(permanent=True)
