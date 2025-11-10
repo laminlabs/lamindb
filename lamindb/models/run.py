@@ -160,7 +160,7 @@ class User(BaseSQLRecord, CanCurate):
     artifacts: Artifact = models.ManyToManyField(
         "Artifact",
         through="ArtifactUser",
-        through_fields=("artifact", "user"),
+        through_fields=("user", "artifact"),
         related_name="users",
     )
     """Artifacts annotated with this user."""

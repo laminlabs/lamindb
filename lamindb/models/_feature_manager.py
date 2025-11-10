@@ -905,8 +905,6 @@ class FeatureManager:
         label_ref_is_name: bool | None = None,
         feature_ref_is_name: bool | None = None,
     ):
-        from lamindb.models.artifact import ArtifactUser
-
         host_name = self._host.__class__.__name__.lower()
         host_is_record = host_name == "record"
         related_names = dict_related_model_to_related_name(self._host.__class__)
@@ -918,10 +916,7 @@ class FeatureManager:
             related_names["Run"] = "linked_runs"
         for class_name, registry_features_labels in features_labels.items():
             related_name = related_names[class_name]  # e.g., "ulabels"
-            if class_name == "User" and related_name == "users" and not host_is_record:
-                IsLink = ArtifactUser
-            else:
-                IsLink = getattr(self._host, related_name).through
+            IsLink = getattr(self._host, related_name).through
             if host_is_record:
                 field_name = "value_id"
             else:
