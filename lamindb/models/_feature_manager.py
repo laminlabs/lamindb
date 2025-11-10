@@ -1177,6 +1177,11 @@ class FeatureManager:
             feature: The feature for which to remove values.
             value: An optional value to restrict removal to a single value.
         """
+        from django.apps import apps
+
+        host_name = self._host.__class__.__name__.lower()
+        host_is_record = host_name == "record"
+
         if isinstance(feature, str):
             feature_record = Feature.get(name=feature)
         else:
@@ -1185,54 +1190,31 @@ class FeatureManager:
         none_message = f"with value {value!r} " if value is not None else ""
         if feature_record.dtype.startswith(("cat[", "list[cat")):  # type: ignore
             feature_registry = parse_dtype(feature_record.dtype)[0]["registry_str"]
+            if "." in feature_registry:
+                parts = feature_registry.split(".")
+                app_label = parts[0]
+                entity_name = parts[-1]
+            else:
+                app_label = "lamindb"
+                entity_name = feature_registry
+            host_name = self._host.__class__.__name__
+            link_model_name = f"{host_name}{entity_name}"
+            link_model = apps.get_model(app_label, link_model_name)
+            filter_kwargs[host_name.lower()] = self._host
             if value is not None:
                 if not isinstance(value, SQLRecord):
                     raise TypeError(
-                        f"Expected a record for removing categorical feature value, got {value} of type {type(value)}"
+                        f"Expected a record for removing categorical feature value, "
+                        f"got {value} of type {type(value)}"
                     )
-                # the below uses our convention for field names in link models
-                link_name = (
-                    feature_registry.split(".")[1]
-                    if "." in feature_registry
-                    else feature_registry
-                ).lower()
-                filter_kwargs[link_name] = value
-            link_models_on_models = {
-                getattr(
-                    self._host.__class__, obj.related_name
-                ).through.__get_name_with_module__(): obj.related_model.__get_name_with_module__()
-                for obj in self._host.__class__._meta.related_objects
-                if (
-                    obj.many_to_many
-                    and hasattr(obj.related_model, "__get_name_with_module__")
-                    and hasattr(self._host.__class__, obj.related_name)
-                    and hasattr(
-                        getattr(self._host.__class__, obj.related_name).through,
-                        "__get_name_with_module__",
-                    )
-                    and obj.related_model.__get_name_with_module__() == feature_registry
-                )
-            }
-            link_attributes = {
-                obj.related_name
-                for obj in self._host.__class__._meta.related_objects
-                if obj.related_model.__get_name_with_module__() in link_models_on_models
-            }
-            if len(link_attributes) > 1 and self._host.__class__.__name__ == "Record":
-                link_attributes = {
-                    v for v in link_attributes if v.startswith("values_")
-                }
-            if len(link_attributes) > 1 and self._host.__class__.__name__ == "Artifact":
-                link_attributes = {
-                    v for v in link_attributes if not v.startswith("links_in_")
-                }
-            assert len(link_attributes) == 1
-            link_records = getattr(self._host, link_attributes.pop()).filter(
-                **filter_kwargs
-            )
+                assert not host_is_record, "Only artifacts support passing a value."
+                filter_kwargs[entity_name.lower()] = value
+            link_records = link_model.objects.filter(**filter_kwargs)
             if not link_records.exists():
+                value_msg = f"with value {value!r} " if value is not None else ""
                 logger.warning(
-                    f"no feature '{feature_record.name}' {none_message}found on {self._host.__class__.__name__.lower()} '{self._host.uid}'!"
+                    f"no feature '{feature_record.name}' {value_msg}found on "
+                    f"{host_name.lower()} '{self._host.uid}'!"
                 )
                 return
             link_records.delete()
