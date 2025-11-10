@@ -1179,6 +1179,9 @@ class FeatureManager:
         """
         from django.apps import apps
 
+        host_name = self._host.__class__.__name__.lower()
+        host_is_record = host_name == "record"
+
         if isinstance(feature, str):
             feature_record = Feature.get(name=feature)
         else:
@@ -1204,9 +1207,7 @@ class FeatureManager:
                         f"Expected a record for removing categorical feature value, "
                         f"got {value} of type {type(value)}"
                     )
-                assert isinstance(self._host, Artifact), (
-                    "only artifacts support passing a value"
-                )
+                assert not host_is_record, "Only artifacts support passing a value."
                 filter_kwargs[entity_name.lower()] = value
             link_records = link_model.objects.filter(**filter_kwargs)
             if not link_records.exists():
