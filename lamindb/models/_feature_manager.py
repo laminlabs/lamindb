@@ -1197,48 +1197,35 @@ class FeatureManager:
                     else feature_registry
                 ).lower()
                 filter_kwargs[link_name] = value
-            if feature_registry == "Artifact":
-                link_attributes = {"values_artifact"}
-            elif feature_registry == "Run":
-                link_attributes = {"values_run"}
-            else:
-                link_models_on_models = {
-                    getattr(
-                        self._host.__class__, obj.related_name
-                    ).through.__get_name_with_module__(): obj.related_model.__get_name_with_module__()
-                    for obj in self._host.__class__._meta.related_objects
-                    if (
-                        obj.many_to_many
-                        and hasattr(obj.related_model, "__get_name_with_module__")
-                        and hasattr(self._host.__class__, obj.related_name)
-                        and hasattr(
-                            getattr(self._host.__class__, obj.related_name).through,
-                            "__get_name_with_module__",
-                        )
-                        and obj.related_model.__get_name_with_module__()
-                        == feature_registry
+            link_models_on_models = {
+                getattr(
+                    self._host.__class__, obj.related_name
+                ).through.__get_name_with_module__(): obj.related_model.__get_name_with_module__()
+                for obj in self._host.__class__._meta.related_objects
+                if (
+                    obj.many_to_many
+                    and hasattr(obj.related_model, "__get_name_with_module__")
+                    and hasattr(self._host.__class__, obj.related_name)
+                    and hasattr(
+                        getattr(self._host.__class__, obj.related_name).through,
+                        "__get_name_with_module__",
                     )
-                }
+                    and obj.related_model.__get_name_with_module__() == feature_registry
+                )
+            }
+            link_attributes = {
+                obj.related_name
+                for obj in self._host.__class__._meta.related_objects
+                if obj.related_model.__get_name_with_module__() in link_models_on_models
+            }
+            if len(link_attributes) > 1 and self._host.__class__.__name__ == "Record":
                 link_attributes = {
-                    obj.related_name
-                    for obj in self._host.__class__._meta.related_objects
-                    if obj.related_model.__get_name_with_module__()
-                    in link_models_on_models
+                    v for v in link_attributes if v.startswith("values_")
                 }
-                if (
-                    len(link_attributes) > 1
-                    and self._host.__class__.__name__ == "Record"
-                ):
-                    link_attributes = {
-                        v for v in link_attributes if v.startswith("values_")
-                    }
-                if (
-                    len(link_attributes) > 1
-                    and self._host.__class__.__name__ == "Artifact"
-                ):
-                    link_attributes = {
-                        v for v in link_attributes if not v.startswith("links_in_")
-                    }
+            if len(link_attributes) > 1 and self._host.__class__.__name__ == "Artifact":
+                link_attributes = {
+                    v for v in link_attributes if not v.startswith("links_in_")
+                }
             if len(link_attributes) > 1:
                 print(link_attributes)
             if len(link_attributes) == 0:
