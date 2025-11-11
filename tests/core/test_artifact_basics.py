@@ -163,6 +163,173 @@ def test_save_on_branch():
     branch.delete(permanent=True)
 
 
+def test_revise_recreate_artifact(example_dataframe: pd.DataFrame, ccaplog):
+    df = example_dataframe
+    # attempt to create a file with an invalid version
+    with pytest.raises(ValueError) as error:
+        artifact = ln.Artifact.from_dataframe(df, description="test", version=0)
+    assert (
+        error.exconly()
+        == "ValueError: `version` parameter must be `None` or `str`, e.g., '0.1', '1',"
+        " '2', etc."
+    )
+
+    # create a file and tag it with a version
+    key = "my-test-dataset.parquet"
+    artifact = ln.Artifact.from_dataframe(df, key=key, description="test", version="1")
+    assert artifact.version == "1"
+    assert artifact.uid.endswith("0000")
+    assert artifact.path.exists()  # because of cache file already exists
+    artifact.save()
+    assert artifact.path.exists()
+    assert artifact.suffix == ".parquet"
+
+    with pytest.raises(ValueError) as error:
+        artifact_r2 = ln.Artifact.from_dataframe(df, revises=artifact, version="1")
+    assert (
+        error.exconly()
+        == "ValueError: Please change the version tag or leave it `None`, '1' is already taken"
+    )
+
+    # create new file from old file
+    df.iloc[0, 0] = 99  # mutate dataframe so that hash lookup doesn't trigger
+    artifact_r2 = ln.Artifact.from_dataframe(df, revises=artifact)
+    assert artifact_r2.stem_uid == artifact.stem_uid
+    assert artifact_r2.uid.endswith("0001")
+    # call this again
+    artifact_r2 = ln.Artifact.from_dataframe(df, revises=artifact)
+    assert artifact_r2.uid.endswith("0001")
+    assert artifact_r2.stem_uid == artifact.stem_uid
+    assert artifact_r2.version is None
+    assert artifact_r2.key == key
+    assert artifact.suffix == ".parquet"
+    assert artifact_r2.description == "test"
+    assert artifact_r2._revises is not None
+    artifact_r2.save()
+    assert artifact_r2.path.exists()
+    assert artifact_r2._revises is None
+
+    # create new file from newly versioned file
+    df.iloc[0, 0] = 0  # mutate dataframe so that hash lookup doesn't trigger
+    artifact_r3 = ln.Artifact.from_dataframe(
+        df, description="test1", revises=artifact_r2, version="2"
+    )
+    assert artifact_r3.uid.endswith("0002")
+    assert artifact_r3.stem_uid == artifact.stem_uid
+    assert artifact_r3.version == "2"
+    assert artifact_r3.description == "test1"
+
+    # revise by matching on `key`
+    df.iloc[0, 0] = 100  # mutate dataframe so that hash lookup doesn't trigger
+    artifact_r3 = ln.Artifact.from_dataframe(
+        df, description="test1", key=key, version="2"
+    )
+    assert artifact_r3.uid.endswith("0002")
+    assert artifact_r3.stem_uid == artifact.stem_uid
+    assert artifact_r3.key == key
+    assert artifact_r3.version == "2"
+    assert artifact_r3.description == "test1"
+    assert artifact_r3.is_latest
+    assert artifact_r2.is_latest
+    artifact_r3.save()
+    # now r2 is no longer the latest version, but need to re-fresh from db
+    artifact_r2 = ln.Artifact.get(artifact_r2.uid)
+    assert not artifact_r2.is_latest
+
+    # re-create based on hash when artifact_r3 is in trash
+    artifact_r3.delete()
+    artifact_new = ln.Artifact.from_dataframe(
+        df,
+        key="my-test-dataset1.parquet",
+    )
+    assert artifact_new != artifact_r3
+    assert artifact_new.hash == artifact_r3.hash
+    assert artifact_new.key == "my-test-dataset1.parquet"
+    artifact_r3.restore()  # restore from trash
+
+    # re-create based on hash while providing a different key
+    artifact_new = ln.Artifact.from_dataframe(
+        df,
+        key="my-test-dataset1.parquet",
+        description="test1 updated",
+    )
+    assert artifact_new == artifact_r3
+    assert artifact_new.hash == artifact_r3.hash
+    assert artifact_new.key == key  # old key
+    assert artifact_new.description == "test1 updated"
+
+    # re-create while skipping hash lookup with different key
+    artifact_v4 = ln.Artifact.from_dataframe(
+        df,
+        key="my-test-dataset1.parquet",
+        skip_hash_lookup=True,
+    )
+    assert artifact_v4.uid != artifact_r3.uid
+    assert artifact_v4.hash == artifact_r3.hash
+    assert artifact_v4.key == "my-test-dataset1.parquet"
+    artifact_v4.save()  # this just saves a duplicated file
+
+    # re-create while skipping hash lookup with same key
+    artifact_new = ln.Artifact.from_dataframe(
+        df,
+        key="my-test-dataset1.parquet",
+        skip_hash_lookup=True,
+    )
+    assert artifact_new.uid != artifact_v4.uid
+    assert artifact_new.stem_uid == artifact_v4.stem_uid
+    assert artifact_new.hash == artifact_v4.hash
+    artifact_new.save()  # should now violate unique constraint, falls back artifact_v4
+    assert artifact_new.uid == artifact_v4.uid
+
+    # re-create while skipping hash lookup artifact, move to trash before
+    artifact_v4.delete()
+    artifact_new = ln.Artifact.from_dataframe(
+        df,
+        key="my-test-dataset1.parquet",
+        skip_hash_lookup=True,
+    )
+    assert artifact_new.uid != artifact_v4.uid
+    assert artifact_new.key == "my-test-dataset1.parquet"
+    assert "returning artifact from trash" not in ccaplog.text
+    artifact_new.save()  # should now violate unique constraint, retrieve artifact_v4 from trash
+    assert "returning artifact from trash" in ccaplog.text
+    assert artifact_new.uid == artifact_v4.uid
+    assert artifact_new.branch_id == 1  # restored to default branch
+
+    with pytest.raises(TypeError) as error:
+        ln.Artifact.from_dataframe(
+            df, description="test1a", revises=ln.Record(name="test")
+        )
+    assert error.exconly() == "TypeError: `revises` has to be of type `Artifact`"
+
+    artifact_r3.delete(permanent=True)
+    artifact_r2.delete(permanent=True)
+    artifact.delete(permanent=True)
+
+    # unversioned file
+    artifact = ln.Artifact.from_dataframe(df, description="test2")
+    assert artifact.version is None
+
+    # what happens if we don't save the old file?
+    # add a test for it!
+    artifact.save()
+
+    # create new file from old file
+    df.iloc[0, 0] = 101  # mutate dataframe so that hash lookup doesn't trigger
+    new_artifact = ln.Artifact.from_dataframe(df, revises=artifact)
+    assert artifact.version is None
+    assert new_artifact.stem_uid == artifact.stem_uid
+    assert new_artifact.version is None
+    assert new_artifact.description == artifact.description
+
+    artifact.delete()
+
+    artifact_from_trash = ln.Artifact.get(artifact.uid[:-4])  # query with stem uid
+    assert artifact_from_trash.branch_id == -1
+
+    artifact.delete(permanent=True)  # permanent deletion
+
+
 def test_create_from_anndata(get_small_adata, adata_file, example_dataframe):
     with pytest.raises(ValueError) as error:
         ln.Artifact.from_anndata(example_dataframe, description="test1")
@@ -402,7 +569,8 @@ def test_from_dir_many_artifacts(get_test_filepaths, key):
         artifact.delete(permanent=True, storage=False)
 
 
-def test_delete_and_restore_artifact(df):
+def test_delete_and_restore_artifact(example_dataframe: pd.DataFrame):
+    df = example_dataframe
     artifact = ln.Artifact.from_dataframe(
         df, description="My test file to delete"
     ).save()
@@ -650,18 +818,6 @@ def test_describe_artifact(get_mini_csv, capsys):
     assert "artifact" in captured.out.lower()
 
 
-def test_df_suffix(df):
-    artifact = ln.Artifact.from_dataframe(df, key="test_.parquet")
-    assert artifact.suffix == ".parquet"
-
-    with pytest.raises(InvalidArgument) as error:
-        artifact = ln.Artifact.from_dataframe(df, key="test_.def")
-    assert (
-        error.exconly().partition(",")[0]
-        == "lamindb.errors.InvalidArgument: The passed key's suffix '.def' must match the passed path's suffix '.parquet'."
-    )
-
-
 def test_adata_suffix(get_small_adata):
     artifact = ln.Artifact.from_anndata(get_small_adata, key="test_.h5ad")
     assert artifact.suffix == ".h5ad"
@@ -733,11 +889,13 @@ def test_bulk_delete():
 
 
 @pytest.mark.parametrize("module_name", ["mudata", "spatialdata"])
-def test_no_unnecessary_imports(df, module_name: str) -> None:
+def test_no_unnecessary_imports(
+    example_dataframe: pd.DataFrame, module_name: str
+) -> None:
     if module_name in sys.modules:
         del sys.modules[module_name]
 
-    af = ln.Artifact.from_dataframe(df, description="to delete").save()
+    af = ln.Artifact.from_dataframe(example_dataframe, description="to delete").save()
 
     loaded_packages = []
     for name, module in sys.modules.items():
@@ -753,8 +911,8 @@ def test_no_unnecessary_imports(df, module_name: str) -> None:
     import spatialdata  # noqa
 
 
-def test_artifact_get_tracking(df):
-    artifact = ln.Artifact.from_dataframe(df, key="df.parquet").save()
+def test_artifact_get_tracking(example_dataframe: pd.DataFrame):
+    artifact = ln.Artifact.from_dataframe(example_dataframe, key="df.parquet").save()
 
     transform = ln.Transform(key="test track artifact via get").save()
     run = ln.Run(transform).save()
@@ -767,8 +925,8 @@ def test_artifact_get_tracking(df):
     transform.delete(permanent=True)
 
 
-def test_get_by_path(df):
-    artifact = ln.Artifact.from_dataframe(df, key="df.parquet").save()
+def test_get_by_path(example_dataframe: pd.DataFrame):
+    artifact = ln.Artifact.from_dataframe(example_dataframe, key="df.parquet").save()
     artifact_path = artifact.path
 
     assert ln.Artifact.get(path=artifact_path) == artifact
@@ -800,28 +958,3 @@ def test_get_by_path(df):
     artifact.delete(permanent=True, storage=False)
 
     storage.delete()
-
-
-def test_artifact_dataframe_with_features(df):
-    """Test column names encoding when features with the same names are present."""
-    artifact = ln.Artifact.from_dataframe(df, key="df.parquet").save()
-    id_feature = ln.Feature(name="id", dtype="int").save()
-    uid_feature = ln.Feature(name="uid", dtype="str").save()
-    artifact.features.add_values({"id": 1, "uid": "test-uid"})
-    df = ln.Artifact.filter(key="df.parquet").to_dataframe(
-        include=["description"], features=True
-    )
-    assert df.index.name == "__lamindb_artifact_id__"
-    assert df.columns.tolist() == [
-        "__lamindb_artifact_uid__",
-        "key",
-        "id",
-        "uid",
-        "description",
-    ]
-    assert df.iloc[0]["id"] == 1
-    assert df.iloc[0]["uid"] == "test-uid"
-
-    artifact.delete(permanent=True)
-    id_feature.delete(permanent=True)
-    uid_feature.delete(permanent=True)
