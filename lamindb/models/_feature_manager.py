@@ -312,12 +312,11 @@ def _create_feature_table(
     return table
 
 
-def describe_features(
+def get_features_data(
     self: Artifact | Run | Record,
     related_data: dict | None = None,
     to_dict: bool = False,
-) -> dict | tuple[Tree | None, Tree | None]:
-    """Describe features of an artifact or collection."""
+):
     from .artifact import Artifact
 
     dictionary: dict[str, Any] = {}
@@ -432,6 +431,31 @@ def describe_features(
 
     if to_dict:
         return dictionary
+    else:
+        return (
+            internal_feature_labels,
+            feature_data,
+            schema_data,
+            internal_feature_names,
+            external_data,
+        )
+
+
+def describe_features(
+    self: Artifact | Run | Record,
+    related_data: dict | None = None,
+) -> tuple[Tree | None, Tree | None]:
+    """Describe features of an artifact or collection."""
+    (
+        internal_feature_labels,
+        feature_data,
+        schema_data,
+        internal_feature_names,
+        external_data,
+    ) = get_features_data(
+        self,
+        related_data=related_data,
+    )
 
     # Dataset features section
     # internal features that contain labels (only `Feature` features contain labels)
@@ -515,7 +539,9 @@ def describe_features(
     if external_features_tree_children:
         external_features_text = (
             "External features"
-            if (isinstance(self, Artifact) and dataset_features_tree_children)
+            if (
+                self.__class__.__name__ == "Artifact" and dataset_features_tree_children
+            )
             else "Features"
         )
         external_features_tree = Tree(
@@ -864,7 +890,7 @@ class FeatureManager:
 
     def get_values(self) -> dict[str, Any]:
         """Get features as a dictionary."""
-        return describe_features(self._host, to_dict=True)  # type: ignore
+        return get_features_data(self._host, to_dict=True)  # type: ignore
 
     @deprecated("slots[slot].members")
     def __getitem__(self, slot) -> BasicQuerySet:
