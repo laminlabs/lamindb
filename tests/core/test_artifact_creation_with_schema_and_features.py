@@ -42,6 +42,15 @@ def test_create_artifact_with_external_feature_annotations(
     ).save()
     assert artifact.features.get_values() == {"feature_a": "x", "feature_b": "y"}
     assert artifact.schema == schema
+    # repeat to check idempotency (requires set_values() instead of add_values())
+    artifact = ln.Artifact(
+        ".gitignore",
+        key="test_file",
+        features={"feature_a": "x", "feature_b": "y"},
+        schema=schema,
+    ).save()
+    assert artifact.features.get_values() == {"feature_a": "x", "feature_b": "y"}
+    assert artifact.schema == schema
     if use_schema:
         with pytest.raises(ValueError) as error:
             artifact.features.remove_values("feature_a", value="x")
