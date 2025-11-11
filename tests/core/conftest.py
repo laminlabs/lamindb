@@ -105,7 +105,7 @@ def get_test_filepaths(request):  # -> Tuple[bool, Path, Path, Path, str]
 
 
 @pytest.fixture(scope="session")
-def df():
+def example_dataframe():
     return pd.DataFrame({"feat1": [1, 2], "feat2": [3, 4]})
 
 
