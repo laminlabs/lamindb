@@ -545,16 +545,9 @@ def test_add_list_of_cat_features():
         name="list_of_labels_of_type1", dtype=list[type_1], nullable=False
     ).save()
     schema = ln.Schema(name="Test schema", features=[feat1, feat2]).save()
-    # first end-to-end test of adding labels and passing a schema
-    # this calls features.add_values() under-the-hood
     artifact = ln.Artifact(
         ".gitignore",
         key=".gitignore",
-        schema=schema,
-        features={
-            "single_label_of_type1": "label 1",
-            "list_of_labels_of_type1": ["label 1", "label 2"],
-        },
     ).save()
     # now just use add_values()
     with pytest.raises(ValidationError) as error:
@@ -576,6 +569,24 @@ def test_add_list_of_cat_features():
     assert error.exconly().startswith(
         "lamindb.errors.ValidationError: These values could not be validated: {'Record': ('name', ['invalid', 'invalid2'])}"
     )
+    artifact.delete(permanent=True)
+    # now with schema
+    artifact = ln.Artifact(
+        ".gitignore",
+        key=".gitignore",
+        schema=schema,
+        features={
+            "single_label_of_type1": "label 1",
+            "list_of_labels_of_type1": ["label 1", "label 2"],
+        },
+    ).save()
+    with pytest.raises(ValueError) as error:
+        artifact.features.add_values(
+            {
+                "single_label_of_type1": "invalid",
+            }
+        )
+    assert "Cannot add values if artifact has external schema." in error.exconly()
 
     artifact.delete(permanent=True)
     schema.delete(permanent=True)

@@ -988,6 +988,41 @@ class FeatureManager:
             except Exception:
                 save(links, ignore_conflicts=True)
 
+    def _get_feature_records(self, dictionary, feature_field):
+        from .._tracked import get_current_tracked_run
+
+        registry = feature_field.field.model
+        keys = list(dictionary.keys())
+        feature_records = registry.from_values(keys, field=feature_field, mute=True)
+        if len(feature_records) != len(keys):
+            not_validated_keys = [
+                key for key in keys if key not in feature_records.to_list("name")
+            ]
+            not_validated_keys_dtype_message = [
+                (key, infer_feature_type_convert_json(key, dictionary[key]))
+                for key in not_validated_keys
+            ]
+            run = get_current_tracked_run()
+            if run is not None:
+                name = f"{run.transform.type}[{run.transform.key}]"
+                type_hint = f"""  feature_type = ln.Feature(name='{name}', is_type=True).save()"""
+                elements = [type_hint]
+                type_kwarg = ", type=feature_type"
+            else:
+                elements = []
+                type_kwarg = ""
+            elements += [
+                f"  ln.Feature(name='{key}', dtype='{dtype}'{type_kwarg}).save(){message}"
+                for key, (dtype, _, message) in not_validated_keys_dtype_message
+            ]
+            hint = "\n".join(elements)
+            msg = (
+                f"These keys could not be validated: {not_validated_keys}\n"
+                f"Here is how to create a feature:\n\n{hint}"
+            )
+            raise ValidationError(msg)
+        return feature_records
+
     def add_values(
         self,
         values: dict[str, str | int | float | bool],
@@ -1002,10 +1037,7 @@ class FeatureManager:
             feature_field: The field of a registry to map the keys of the `values` dictionary.
             schema: Schema to validate against.
         """
-        from .._tracked import get_current_tracked_run
-        from ..base.dtypes import is_iterable_of_sqlrecord
-        from .can_curate import CanCurate
-        from .record import RecordJson
+        from lamindb.curators.core import ExperimentalDictCurator
 
         host_is_record = self._host.__class__.__name__ == "Record"
         host_is_artifact = self._host.__class__.__name__ == "Artifact"
@@ -1016,7 +1048,6 @@ class FeatureManager:
             keys = list(keys)  # type: ignore
         # deal with other cases later
         assert all(isinstance(key, str) for key in keys)  # noqa: S101
-        registry = feature_field.field.model
         if (
             host_is_record
             and self._host.type is not None
@@ -1024,43 +1055,22 @@ class FeatureManager:
         ):
             assert schema is None, "Cannot pass schema if record.type has schema."
             schema = self._host.type.schema  # type: ignore
-        if schema is None and host_is_artifact:
-            schema = self._get_external_schema()
+        if host_is_artifact:
+            if self._get_external_schema():
+                raise ValueError("Cannot add values if artifact has external schema.")
         if schema is not None:
-            from lamindb.curators.core import ExperimentalDictCurator
-
             ExperimentalDictCurator(values, schema).validate()
             feature_records = schema.members.filter(name__in=keys)
         else:
-            feature_records = registry.from_values(keys, field=feature_field, mute=True)
-            if len(feature_records) != len(keys):
-                not_validated_keys = [
-                    key for key in keys if key not in feature_records.to_list("name")
-                ]
-                not_validated_keys_dtype_message = [
-                    (key, infer_feature_type_convert_json(key, dictionary[key]))
-                    for key in not_validated_keys
-                ]
-                run = get_current_tracked_run()
-                if run is not None:
-                    name = f"{run.transform.type}[{run.transform.key}]"
-                    type_hint = f"""  feature_type = ln.Feature(name='{name}', is_type=True).save()"""
-                    elements = [type_hint]
-                    type_kwarg = ", type=feature_type"
-                else:
-                    elements = []
-                    type_kwarg = ""
-                elements += [
-                    f"  ln.Feature(name='{key}', dtype='{dtype}'{type_kwarg}).save(){message}"
-                    for key, (dtype, _, message) in not_validated_keys_dtype_message
-                ]
-                hint = "\n".join(elements)
-                msg = (
-                    f"These keys could not be validated: {not_validated_keys}\n"
-                    f"Here is how to create a feature:\n\n{hint}"
-                )
-                raise ValidationError(msg)
+            feature_records = self._get_feature_records(dictionary, feature_field)
+        return self._add_values(feature_records, dictionary)
 
+    def _add_values(self, feature_records, dictionary):
+        from ..base.dtypes import is_iterable_of_sqlrecord
+        from .can_curate import CanCurate
+        from .record import RecordJson
+
+        host_is_record = self._host.__class__.__name__ == "Record"
         features_labels = defaultdict(list)
         feature_json_values = []
         not_validated_values: dict[str, tuple[str, list[str]]] = {}
@@ -1219,11 +1229,35 @@ class FeatureManager:
             feature_field: The field of a registry to map the keys of the `values` dictionary.
             schema: Schema to validate against.
         """
+        from lamindb.curators.core import ExperimentalDictCurator
+
+        host_is_record = self._host.__class__.__name__ == "Record"
+        host_is_artifact = self._host.__class__.__name__ == "Artifact"
+        # rename to distinguish from the values inside the dict
+        dictionary = values
+        keys = dictionary.keys()
+        if isinstance(keys, DICT_KEYS_TYPE):
+            keys = list(keys)  # type: ignore
+        # deal with other cases later
+        assert all(isinstance(key, str) for key in keys)  # noqa: S101
+        if (
+            host_is_record
+            and self._host.type is not None
+            and self._host.type.schema is not None  # type: ignore
+        ):
+            assert schema is None, "Cannot pass schema if record.type has schema."
+            schema = self._host.type.schema  # type: ignore
+        if host_is_artifact:
+            schema = self._get_external_schema()
+        if schema is not None:
+            ExperimentalDictCurator(values, schema).validate()
+            feature_records = schema.members.filter(name__in=keys)
+        else:
+            feature_records = self._get_feature_records(dictionary, feature_field)
         self._remove_values()
-        self.add_values(
-            values,
-            feature_field=feature_field,
-            schema=schema,
+        self._add_values(
+            feature_records,
+            dictionary=dictionary,
         )
 
     def _get_external_schema(self) -> Schema | None:

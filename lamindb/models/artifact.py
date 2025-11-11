@@ -2843,7 +2843,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         # annotate with external features
         if hasattr(self, "_external_features"):
             external_features = self._external_features
-            self.features.add_values(external_features)
+            self.features.set_values(external_features)
         # annotate with internal features based on curator
         if hasattr(self, "_curator"):
             curator = self._curator
