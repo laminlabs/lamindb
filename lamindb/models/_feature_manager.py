@@ -322,7 +322,10 @@ def get_features_data(
     dictionary: dict[str, Any] = {}
 
     if self._state.adding:
-        return dictionary if to_dict else (None, None)
+        if to_dict:
+            return dictionary
+        else:
+            raise NotImplementedError
 
     # feature sets
     schema_data: dict[str, tuple[str, list[str]]] = {}
@@ -446,6 +449,8 @@ def describe_features(
     related_data: dict | None = None,
 ) -> tuple[Tree | None, Tree | None]:
     """Describe features of an artifact or collection."""
+    if self._state.adding:
+        return None, None
     (
         internal_feature_labels,
         feature_data,
