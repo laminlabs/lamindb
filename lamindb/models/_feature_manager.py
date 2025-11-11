@@ -1358,7 +1358,7 @@ class FeatureManager:
         """Make a feature external.
 
         This removes a feature from `artifact.feature_sets` and thereby no longer marks it
-        as a dataset feature, but as an external feature.
+        as a dataset feature.
 
         Args:
             feature: A feature.
