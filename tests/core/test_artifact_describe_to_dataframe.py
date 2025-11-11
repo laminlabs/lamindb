@@ -142,8 +142,6 @@ def test_curate_df():
         temperature         float                   21.6"""
     )
 
-    print(artifact.describe())
-
     # labels section
     description_tree = describe_postgres(artifact)
     labels_node = description_tree.children[-1].label
