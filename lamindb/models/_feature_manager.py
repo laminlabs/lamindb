@@ -1171,10 +1171,11 @@ class FeatureManager:
         *,
         value: Any | None = None,
     ) -> None:
-        """Remove a values for a feature.
+        """Remove values for features.
 
         Args:
-            feature: The feature for which to remove values.
+            feature: Indicate one or several features for which to remove values.
+                If `None`, values for all external features will be removed.
             value: An optional value to restrict removal to a single value.
         """
         from django.apps import apps

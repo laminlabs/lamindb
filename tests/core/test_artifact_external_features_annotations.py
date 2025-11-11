@@ -90,11 +90,10 @@ def test_artifact_features_add_remove_values():
     test_values.pop("feature_ulabel")
     assert test_artifact.features.get_values() == test_values
 
-    test_artifact.features.remove_values("feature_cell_line")
-    test_values.pop("feature_cell_line")
-    assert test_artifact.features.get_values() == test_values
+    # test passing a list
 
-    test_artifact.features.remove_values("feature_user")
+    test_artifact.features.remove_values(["feature_cell_line", "feature_user"])
+    test_values.pop("feature_cell_line")
     test_values.pop("feature_user")
     assert test_artifact.features.get_values() == test_values
 
@@ -109,6 +108,20 @@ def test_artifact_features_add_remove_values():
     # test passing None has no effect, does not lead to annotation
 
     test_artifact.features.add_values({"feature_int": None, "feature_type1": None})
+    assert test_artifact.features.get_values() == test_values
+
+    # test bulk removal
+
+    assert list(test_values.keys()) == [
+        "feature_str",
+        "feature_datetime",
+        "feature_dict",
+        "feature_project",
+        "feature_cell_lines",
+        "feature_cl_ontology_id",
+    ]
+    test_artifact.features.remove_values()
+    test_values = {}
     assert test_artifact.features.get_values() == test_values
 
     # test passing ISO-format date string for date
