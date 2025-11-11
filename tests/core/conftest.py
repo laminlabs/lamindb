@@ -56,7 +56,7 @@ def ccaplog(caplog):
 
 
 @pytest.fixture(
-    scope="module",
+    scope="function",
     params=[
         # tuple of is_in_registered_storage, path, suffix, hash of test_dir
         (True, "./default_storage_unit_core/", ".csv", "iGtHiFEBV3r1_TFovdQCgw"),
