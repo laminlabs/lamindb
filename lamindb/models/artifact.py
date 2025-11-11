@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import shutil
+import warnings
 from collections import defaultdict
 from pathlib import Path, PurePath, PurePosixPath
 from typing import TYPE_CHECKING, Any, Literal, Union, overload
@@ -1009,14 +1010,11 @@ class LazyArtifact:
 class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     """Datasets & models stored as files, folders, or arrays.
 
-    Artifacts manage data in local or remote storage.
-
-    Some artifacts are array-like, e.g., when stored as `.parquet`, `.h5ad`,
-    `.zarr`, or `.tiledb`.
+    Some artifacts are table- or array-like, e.g., when stored as `.parquet`, `.h5ad`, `.zarr`, or `.tiledb`.
 
     Args:
-        data: `UPathStr` A path to a local or remote folder or file.
-        key: `str | None = None` A path-like key to reference artifact in default storage, e.g., `"myfolder/myfile.fcs"`. Artifacts with the same key form a version family.
+        path: `UPathStr` A path to a local or remote folder or file from which to create the artifact.
+        key: `str | None = None` A key within the storage location, e.g., `"myfolder/myfile.fcs"`. Artifacts with the same key form a version family.
         description: `str | None = None` A description.
         kind: `Literal["dataset", "model"] | str | None = None` Distinguish models from datasets from other files & folders.
         features: `dict | None = None` External features to annotate the artifact with via :class:`~lamindb.models.FeatureManager.set_values`.
@@ -1411,9 +1409,17 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             return None
         # now proceed with the user-facing constructor
         if len(args) > 1:
-            raise ValueError("Only one non-keyword arg allowed: data")
+            raise ValueError("Only one non-keyword arg allowed: path")
 
-        data: str | Path = kwargs.pop("data") if len(args) == 0 else args[0]
+        if "data" in kwargs:
+            warnings.warn(
+                "`data` argument will be renamed to `path` in a future release.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            path = kwargs.pop("data")
+        else:
+            path = kwargs.pop("path") if len(args) == 0 else args[0]
         kind: str = kwargs.pop("kind", None)
         key: str | None = kwargs.pop("key", None)
         run_id: int | None = kwargs.pop("run_id", None)  # for REST API
@@ -1482,12 +1488,12 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                         f"more than one storage location for space {space}, choosing {storage}"
                     )
         otype = kwargs.pop("otype") if "otype" in kwargs else None
-        if isinstance(data, str) and data.startswith("s3:///"):
+        if isinstance(path, str) and path.startswith("s3:///"):
             # issue in Groovy / nf-lamin producing malformed S3 paths
             # https://laminlabs.slack.com/archives/C08J590666Q/p1751315027830849?thread_ts=1751039961.479259&cid=C08J590666Q
-            data = data.replace("s3:///", "s3://")
+            path = path.replace("s3:///", "s3://")
         otype = _check_otype_artifact(
-            data=data, otype=otype, cloud_warning=not _is_internal_call
+            data=path, otype=otype, cloud_warning=not _is_internal_call
         )
         if "type" in kwargs:
             logger.warning("`type` will be removed soon, please use `kind`")
@@ -1510,7 +1516,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             )
         # below is for internal calls that require defining the storage location
         # ahead of constructing the Artifact
-        if isinstance(data, (str, Path)) and AUTO_KEY_PREFIX in str(data):
+        if isinstance(path, (str, Path)) and AUTO_KEY_PREFIX in str(path):
             if _is_internal_call:
                 is_automanaged_path = True
                 user_provided_key = key
@@ -1525,7 +1531,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         provisional_uid, revises = create_uid(revises=revises, version=version)
         run = get_run(run)
         kwargs_or_artifact, privates = get_artifact_kwargs_from_data(
-            data=data,
+            data=path,
             key=key,
             run=run,
             format=format,
@@ -1576,7 +1582,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         if revises is None:
             revises = kwargs_or_artifact.pop("revises")
 
-        if data is not None:
+        if path is not None:
             self._local_filepath = privates["local_filepath"]
             self._cloud_filepath = privates["cloud_filepath"]
             self._memory_rep = privates["memory_rep"]
