@@ -63,7 +63,7 @@ def test_create_from_dataframe(example_dataframe: pd.DataFrame):
         == "lamindb.errors.InvalidArgument: The suffix '' of the provided key is incorrect, it should be '.parquet'."
     )
 
-    # try a joint update where both suffix and key are changed, this previously enabled to create a corrupted state
+    # try a joint update where both suffix and key are changed
     artifact.key = "my-test-dataset"
     artifact.suffix = ""
     with pytest.raises(ln.errors.InvalidArgument) as error:

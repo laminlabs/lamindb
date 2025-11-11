@@ -50,10 +50,11 @@ def test_create_artifact_with_external_feature_annotations(
 
 
 def test_from_dataframe_with_external_features_and_schema(
-    df: pd.DataFrame,
+    example_dataframe: pd.DataFrame,
     two_external_features: tuple[ln.Feature, ln.Feature],
     two_internal_features: tuple[ln.Feature, ln.Feature],
 ):
+    df = example_dataframe
     feat1, feat2 = two_internal_features
     featA, featB = two_external_features
     schema_external = ln.Schema(features=[featA, featB]).save()
