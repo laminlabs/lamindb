@@ -1167,7 +1167,7 @@ class FeatureManager:
 
     def remove_values(
         self,
-        feature: str | Feature = None,
+        feature: str | Feature | list[str | Feature] = None,
         *,
         value: Any | None = None,
     ) -> None:
@@ -1192,66 +1192,71 @@ class FeatureManager:
                 raise ValueError(
                     "Cannot remove values if artifact has external schema."
                 )
-        if isinstance(feature, str):
-            feature_record = Feature.get(name=feature)
+        if feature is None:
+            features = list(self._host.features.get_values().keys())
+        elif not isinstance(feature, list):
+            features = [feature]
         else:
-            feature_record = feature
-
-        for schema in self.slots.values():
-            if feature_record in schema.members:
-                raise ValueError("Cannot remove values for dataset features.")
-
-        filter_kwargs = {"feature": feature_record}
-        none_message = f"with value {value!r} " if value is not None else ""
-        if feature_record.dtype.startswith(("cat[", "list[cat")):  # type: ignore
-            feature_registry = parse_dtype(feature_record.dtype)[0]["registry_str"]
-            if "." in feature_registry:
-                parts = feature_registry.split(".")
-                app_label = parts[0]
-                entity_name = parts[-1]
+            features = feature
+        for feature in features:
+            if isinstance(feature, str):
+                feature_record = Feature.get(name=feature)
             else:
-                app_label = "lamindb"
-                entity_name = feature_registry
-            host_name = self._host.__class__.__name__
-            link_model_name = f"{host_name}{entity_name}"
-            link_model = apps.get_model(app_label, link_model_name)
-            filter_kwargs[host_name.lower()] = self._host
-            if value is not None:
-                if not isinstance(value, SQLRecord):
-                    raise TypeError(
-                        f"Expected a record for removing categorical feature value, "
-                        f"got {value} of type {type(value)}"
+                feature_record = feature
+            for schema in self.slots.values():
+                if feature_record in schema.members:
+                    raise ValueError("Cannot remove values for dataset features.")
+            filter_kwargs = {"feature": feature_record}
+            none_message = f"with value {value!r} " if value is not None else ""
+            if feature_record.dtype.startswith(("cat[", "list[cat")):  # type: ignore
+                feature_registry = parse_dtype(feature_record.dtype)[0]["registry_str"]
+                if "." in feature_registry:
+                    parts = feature_registry.split(".")
+                    app_label = parts[0]
+                    entity_name = parts[-1]
+                else:
+                    app_label = "lamindb"
+                    entity_name = feature_registry
+                host_name = self._host.__class__.__name__
+                link_model_name = f"{host_name}{entity_name}"
+                link_model = apps.get_model(app_label, link_model_name)
+                filter_kwargs[host_name.lower()] = self._host
+                if value is not None:
+                    if not isinstance(value, SQLRecord):
+                        raise TypeError(
+                            f"Expected a record for removing categorical feature value, "
+                            f"got {value} of type {type(value)}"
+                        )
+                    assert not host_is_record, "Only artifacts support passing a value."
+                    filter_kwargs[entity_name.lower()] = value
+                link_records = link_model.objects.filter(**filter_kwargs)
+                if not link_records.exists():
+                    value_msg = f"with value {value!r} " if value is not None else ""
+                    logger.warning(
+                        f"no feature '{feature_record.name}' {value_msg}found on "
+                        f"{host_name.lower()} '{self._host.uid}'!"
                     )
-                assert not host_is_record, "Only artifacts support passing a value."
-                filter_kwargs[entity_name.lower()] = value
-            link_records = link_model.objects.filter(**filter_kwargs)
-            if not link_records.exists():
-                value_msg = f"with value {value!r} " if value is not None else ""
-                logger.warning(
-                    f"no feature '{feature_record.name}' {value_msg}found on "
-                    f"{host_name.lower()} '{self._host.uid}'!"
-                )
-                return
-            link_records.delete()
-        else:
-            if value is not None:
-                filter_kwargs["value"] = value
-            if self._host.__class__.__name__ == "Record":
-                feature_values = self._host.values_json.filter(**filter_kwargs)
+                    return
+                link_records.delete()
             else:
-                feature_values = self._host._feature_values.filter(**filter_kwargs)
-            if not feature_values.exists():
-                logger.warning(
-                    f"no feature '{feature_record.name}' {none_message}found on {self._host.__class__.__name__.lower()} '{self._host.uid}'!"
-                )
-                return
-            if self._host.__class__.__name__ == "Record":
-                feature_values.delete(permanent=True)
-            else:
-                self._host._feature_values.remove(*feature_values)
-            # this might leave a dangling feature_value record
-            # but we don't want to pay the price of making another query just to remove this annotation
-            # we can clean the FeatureValue registry periodically if we want to
+                if value is not None:
+                    filter_kwargs["value"] = value
+                if host_is_record:
+                    feature_values = self._host.values_json.filter(**filter_kwargs)
+                else:
+                    feature_values = self._host._feature_values.filter(**filter_kwargs)
+                if not feature_values.exists():
+                    logger.warning(
+                        f"no feature '{feature_record.name}' {none_message}found on {self._host.__class__.__name__.lower()} '{self._host.uid}'!"
+                    )
+                    return
+                if host_is_record:
+                    feature_values.delete(permanent=True)
+                else:
+                    # the below might leave a dangling feature_value record
+                    # but we don't want to pay the price of making another query just to remove this annotation
+                    # we can clean the FeatureValue registry periodically if we want to
+                    self._host._feature_values.remove(*feature_values)
 
     def _add_schema(self, schema: Schema, slot: str) -> None:
         """Annotate artifact with a schema.
