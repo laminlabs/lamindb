@@ -171,6 +171,18 @@ def test_from_dataframe_with_external_schema(
         schema=schema_correct_external,
     ).save()
     assert artifact.features.get_values() == {"feature_a": "x", "feature_b": "y"}
+    assert (
+        artifact.features.describe(return_str=True)
+        == """\
+Artifact: test_df_with_external_features.parquet (0000)
+├── Dataset features
+│   └── columns (2)
+│       feat1               int
+│       feat2               int
+└── External features
+    └── feature_a           str                     x
+        feature_b           str                     y"""
+    )
     artifact.delete(permanent=True)
 
     # alternative via DataFrameCurator directly
