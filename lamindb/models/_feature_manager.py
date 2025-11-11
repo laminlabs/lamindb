@@ -316,6 +316,7 @@ def get_features_data(
     self: Artifact | Run | Record,
     related_data: dict | None = None,
     to_dict: bool = False,
+    external_only: bool = False,
 ):
     from .artifact import Artifact
 
@@ -372,12 +373,11 @@ def get_features_data(
                 else:
                     schema_data[slot] = (schema, schema.n)
 
-    internal_feature_names: dict[str, str] = {}
+    internal_feature_names = {}
     if isinstance(self, Artifact):
-        feature_sets = self.feature_sets.filter(itype="Feature")
-        internal_feature_names = {}
-        if len(feature_sets) > 0:
-            for schema in feature_sets:
+        inferred_schemas = self.feature_sets.filter(itype="Feature")
+        if len(inferred_schemas) > 0:
+            for schema in inferred_schemas:
                 internal_feature_names.update(
                     dict(schema.members.values_list("name", "dtype"))
                 )
@@ -400,7 +400,6 @@ def get_features_data(
         self,
     )
 
-    # Process all Features containing labels and sort into internal/external
     internal_feature_labels = {}
     external_data = []
     for features, is_list_type in [(categoricals, False), (non_categoricals, True)]:
@@ -433,7 +432,12 @@ def get_features_data(
                 external_data.append(feature_info)
 
     if to_dict:
-        return dictionary
+        if external_only:
+            return {
+                k: v for k, v in dictionary.items() if k not in internal_feature_names
+            }
+        else:
+            return dictionary
     else:
         return (
             internal_feature_labels,
@@ -1226,7 +1230,9 @@ class FeatureManager:
                     "Cannot remove values if artifact has external schema."
                 )
         if feature is None:
-            features = list(self._host.features.get_values().keys())
+            features = get_features_data(
+                self._host, to_dict=True, external_only=True
+            ).keys()
         elif not isinstance(feature, list):
             features = [feature]
         else:

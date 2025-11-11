@@ -181,6 +181,16 @@ def test_describe_to_dataframe_example_dataset():
         "alpha-beta T cell",
     }
 
+    # test that only external feature are removed upon artifact.features.remove_values()
+    before = artifact.features.get_values()
+    adata = artifact.load()
+    just_internal = {}
+    for col in adata.obs.columns:
+        if col in before:
+            just_internal[col] = before[col]
+    artifact.features.remove_values()
+    assert just_internal == artifact.features.get_values()
+
     artifact.delete(permanent=True)
     artifact2.delete(permanent=True)
     ln.Schema.get(name="anndata_ensembl_gene_ids_and_valid_features_in_obs").delete(
