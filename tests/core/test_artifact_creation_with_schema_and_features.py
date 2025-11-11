@@ -1,6 +1,5 @@
 # Note: Almost all logic for schema-based validation is handled in the curators test suite
 # This here only covers external feature annotation and validation
-from pathlib import Path
 
 import lamindb as ln
 import pandas as pd
@@ -18,16 +17,15 @@ def two_internal_features():
 
 @pytest.fixture(scope="module")
 def two_external_features():
-    featA = ln.Feature(name="species", dtype=str).save()
-    featB = ln.Feature(name="split", dtype=str).save()
-    yield featA, featB
-    featA.delete(permanent=True)
-    featB.delete(permanent=True)
+    feature_a = ln.Feature(name="feature_a", dtype=str).save()
+    feature_b = ln.Feature(name="feature_b", dtype=str).save()
+    yield feature_a, feature_b
+    feature_a.delete(permanent=True)
+    feature_b.delete(permanent=True)
 
 
 @pytest.mark.parametrize("use_schema", [True, False])
 def test_create_artifact_with_external_feature_annotations(
-    tsv_file: Path,
     use_schema: bool,
     two_external_features: tuple[ln.Feature, ln.Feature],
 ):
@@ -37,23 +35,79 @@ def test_create_artifact_with_external_feature_annotations(
     else:
         schema = None
     artifact = ln.Artifact(
-        tsv_file,
-        key="test.tsv",
-        features={"species": "bird", "split": "train"},
+        ".gitignore",
+        key="test_file",
+        features={"feature_a": "x", "feature_b": "y"},
         schema=schema,
     ).save()
-    assert artifact.features.get_values() == {"species": "bird", "split": "train"}
+    assert artifact.features.get_values() == {"feature_a": "x", "feature_b": "y"}
     assert artifact.schema == schema
+    # inferred schema should annotate
+    # if use_schema:
+    #     inferred_schema_link = artifact.feature_sets.through.get(
+    #         artifact_id=artifact.id
+    #     )
+    #     assert inferred_schema_link.slot == "__external__"
+    #     assert inferred_schema_link.schema.members.count() == 2
+    #     assert feat1 in inferred_schema_link.schema.members
+    #     assert feat2 in inferred_schema_link.schema.members
+    #     inferred_schema = inferred_schema_link.schema
+    #     inferred_schema_link.delete()
+    #     inferred_schema.delete(permanent=True)
     artifact.delete(permanent=True)
     if use_schema:
         schema.delete(permanent=True)
 
 
-def test_from_dataframe_with_external_features_and_schema(
-    df: pd.DataFrame,
+def test_artifact_from_dataframe_with_schema(example_dataframe: pd.DataFrame):
+    df = example_dataframe
+    feat1 = ln.Feature(name="feat1", dtype=int).save()
+    artifact = ln.Artifact.from_dataframe(
+        df, key="test_df.parquet", schema="valid_features"
+    ).save()
+    assert artifact.schema == ln.examples.schemas.valid_features()
+    inferred_schema_link = artifact.feature_sets.through.get(artifact_id=artifact.id)
+    assert inferred_schema_link.slot == "columns"
+    assert inferred_schema_link.schema.members.count() == 1
+    assert inferred_schema_link.schema.members.first() == feat1
+    inferred_schema = inferred_schema_link.schema
+    inferred_schema_link.delete()
+    inferred_schema.delete(permanent=True)
+    feat1.delete(permanent=True)
+    artifact.delete(permanent=True)
+
+
+def test_artifact_dataframe_with_features(example_dataframe: pd.DataFrame):
+    """Test column names encoding when features with the same names are present."""
+    artifact = ln.Artifact.from_dataframe(example_dataframe, key="df.parquet").save()
+    id_feature = ln.Feature(name="id", dtype="int").save()
+    uid_feature = ln.Feature(name="uid", dtype="str").save()
+    artifact.features.add_values({"id": 1, "uid": "test-uid"})
+    df = ln.Artifact.filter(key="df.parquet").to_dataframe(
+        include=["description"], features=True
+    )
+    assert df.index.name == "__lamindb_artifact_id__"
+    assert df.columns.tolist() == [
+        "__lamindb_artifact_uid__",
+        "key",
+        "id",
+        "uid",
+        "description",
+    ]
+    assert df.iloc[0]["id"] == 1
+    assert df.iloc[0]["uid"] == "test-uid"
+
+    artifact.delete(permanent=True)
+    id_feature.delete(permanent=True)
+    uid_feature.delete(permanent=True)
+
+
+def test_from_dataframe_with_external_schema(
+    example_dataframe: pd.DataFrame,
     two_external_features: tuple[ln.Feature, ln.Feature],
     two_internal_features: tuple[ln.Feature, ln.Feature],
 ):
+    df = example_dataframe
     feat1, feat2 = two_internal_features
     featA, featB = two_external_features
     schema_external = ln.Schema(features=[featA, featB]).save()
@@ -68,7 +122,7 @@ def test_from_dataframe_with_external_features_and_schema(
         artifact = ln.Artifact.from_dataframe(
             df,
             key="test_df_with_external_features.parquet",
-            features={"species": "bird", "split": "train"},
+            features={"feature_a": "x", "feature_b": "y"},
             schema=schema_with_mistake,
         ).save()
     assert "COLUMN_NOT_IN_DATAFRAME" in error.exconly()
@@ -86,22 +140,22 @@ def test_from_dataframe_with_external_features_and_schema(
     artifact = ln.Artifact.from_dataframe(
         df,
         key="test_df_with_external_features.parquet",
-        features={"species": "bird", "split": "train"},
+        features={"feature_a": "x", "feature_b": "y"},
         schema=schema_no_external,
     ).save()
-    assert artifact.features.get_values() == {"species": "bird", "split": "train"}
+    assert artifact.features.get_values() == {"feature_a": "x", "feature_b": "y"}
     artifact.delete(permanent=True)
 
     # alternative via DataFrameCurator directly
     curator = ln.curators.DataFrameCurator(
         df,
         schema=schema_no_external,
-        features={"species": "bird", "split": "train"},
+        features={"feature_a": "x", "feature_b": "y"},
     )
     artifact = curator.save_artifact(
         key="test_df_with_external_features.parquet",
     ).save()
-    assert artifact.features.get_values() == {"species": "bird", "split": "train"}
+    assert artifact.features.get_values() == {"feature_a": "x", "feature_b": "y"}
     artifact.delete(permanent=True)
 
     # Case 3: correct external schema
@@ -113,22 +167,22 @@ def test_from_dataframe_with_external_features_and_schema(
     artifact = ln.Artifact.from_dataframe(
         df,
         key="test_df_with_external_features.parquet",
-        features={"species": "bird", "split": "train"},
+        features={"feature_a": "x", "feature_b": "y"},
         schema=schema_correct_external,
     ).save()
-    assert artifact.features.get_values() == {"species": "bird", "split": "train"}
+    assert artifact.features.get_values() == {"feature_a": "x", "feature_b": "y"}
     artifact.delete(permanent=True)
 
     # alternative via DataFrameCurator directly
     curator = ln.curators.DataFrameCurator(
         df,
         schema=schema_correct_external,
-        features={"species": "bird", "split": "train"},
+        features={"feature_a": "x", "feature_b": "y"},
     )
     artifact = curator.save_artifact(
         key="test_df_with_external_features.parquet",
     ).save()
-    assert artifact.features.get_values() == {"species": "bird", "split": "train"}
+    assert artifact.features.get_values() == {"feature_a": "x", "feature_b": "y"}
 
     # clean up everything
     inferred_schema = artifact.feature_sets.all()[0]

@@ -56,7 +56,7 @@ def ccaplog(caplog):
 
 
 @pytest.fixture(
-    scope="module",
+    scope="function",
     params=[
         # tuple of is_in_registered_storage, path, suffix, hash of test_dir
         (True, "./default_storage_unit_core/", ".csv", "iGtHiFEBV3r1_TFovdQCgw"),
@@ -105,7 +105,7 @@ def get_test_filepaths(request):  # -> Tuple[bool, Path, Path, Path, str]
 
 
 @pytest.fixture(scope="session")
-def df():
+def example_dataframe():
     return pd.DataFrame({"feat1": [1, 2], "feat2": [3, 4]})
 
 
