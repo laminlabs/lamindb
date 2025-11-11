@@ -312,18 +312,21 @@ def _create_feature_table(
     return table
 
 
-def describe_features(
+def get_features_data(
     self: Artifact | Run | Record,
     related_data: dict | None = None,
     to_dict: bool = False,
-) -> dict | tuple[Tree | None, Tree | None]:
-    """Describe features of an artifact or collection."""
+    external_only: bool = False,
+):
     from .artifact import Artifact
 
     dictionary: dict[str, Any] = {}
 
     if self._state.adding:
-        return dictionary if to_dict else (None, None)
+        if to_dict:
+            return dictionary
+        else:
+            raise NotImplementedError
 
     # feature sets
     schema_data: dict[str, tuple[str, list[str]]] = {}
@@ -370,12 +373,11 @@ def describe_features(
                 else:
                     schema_data[slot] = (schema, schema.n)
 
-    internal_feature_names: dict[str, str] = {}
+    internal_feature_names = {}
     if isinstance(self, Artifact):
-        feature_sets = self.feature_sets.filter(itype="Feature")
-        internal_feature_names = {}
-        if len(feature_sets) > 0:
-            for schema in feature_sets:
+        inferred_schemas = self.feature_sets.filter(itype="Feature")
+        if len(inferred_schemas) > 0:
+            for schema in inferred_schemas:
                 internal_feature_names.update(
                     dict(schema.members.values_list("name", "dtype"))
                 )
@@ -398,7 +400,6 @@ def describe_features(
         self,
     )
 
-    # Process all Features containing labels and sort into internal/external
     internal_feature_labels = {}
     external_data = []
     for features, is_list_type in [(categoricals, False), (non_categoricals, True)]:
@@ -431,7 +432,39 @@ def describe_features(
                 external_data.append(feature_info)
 
     if to_dict:
-        return dictionary
+        if external_only:
+            return {
+                k: v for k, v in dictionary.items() if k not in internal_feature_names
+            }
+        else:
+            return dictionary
+    else:
+        return (
+            internal_feature_labels,
+            feature_data,
+            schema_data,
+            internal_feature_names,
+            external_data,
+        )
+
+
+def describe_features(
+    self: Artifact | Run | Record,
+    related_data: dict | None = None,
+) -> tuple[Tree | None, Tree | None]:
+    """Describe features of an artifact or collection."""
+    if self._state.adding:
+        return None, None
+    (
+        internal_feature_labels,
+        feature_data,
+        schema_data,
+        internal_feature_names,
+        external_data,
+    ) = get_features_data(
+        self,
+        related_data=related_data,
+    )
 
     # Dataset features section
     # internal features that contain labels (only `Feature` features contain labels)
@@ -515,7 +548,9 @@ def describe_features(
     if external_features_tree_children:
         external_features_text = (
             "External features"
-            if (isinstance(self, Artifact) and dataset_features_tree_children)
+            if (
+                self.__class__.__name__ == "Artifact" and dataset_features_tree_children
+            )
             else "Features"
         )
         external_features_tree = Tree(
@@ -864,7 +899,7 @@ class FeatureManager:
 
     def get_values(self) -> dict[str, Any]:
         """Get features as a dictionary."""
-        return describe_features(self._host, to_dict=True)  # type: ignore
+        return get_features_data(self._host, to_dict=True)  # type: ignore
 
     @deprecated("slots[slot].members")
     def __getitem__(self, slot) -> BasicQuerySet:
@@ -953,6 +988,41 @@ class FeatureManager:
             except Exception:
                 save(links, ignore_conflicts=True)
 
+    def _get_feature_records(self, dictionary, feature_field):
+        from .._tracked import get_current_tracked_run
+
+        registry = feature_field.field.model
+        keys = list(dictionary.keys())
+        feature_records = registry.from_values(keys, field=feature_field, mute=True)
+        if len(feature_records) != len(keys):
+            not_validated_keys = [
+                key for key in keys if key not in feature_records.to_list("name")
+            ]
+            not_validated_keys_dtype_message = [
+                (key, infer_feature_type_convert_json(key, dictionary[key]))
+                for key in not_validated_keys
+            ]
+            run = get_current_tracked_run()
+            if run is not None:
+                name = f"{run.transform.type}[{run.transform.key}]"
+                type_hint = f"""  feature_type = ln.Feature(name='{name}', is_type=True).save()"""
+                elements = [type_hint]
+                type_kwarg = ", type=feature_type"
+            else:
+                elements = []
+                type_kwarg = ""
+            elements += [
+                f"  ln.Feature(name='{key}', dtype='{dtype}'{type_kwarg}).save(){message}"
+                for key, (dtype, _, message) in not_validated_keys_dtype_message
+            ]
+            hint = "\n".join(elements)
+            msg = (
+                f"These keys could not be validated: {not_validated_keys}\n"
+                f"Here is how to create a feature:\n\n{hint}"
+            )
+            raise ValidationError(msg)
+        return feature_records
+
     def add_values(
         self,
         values: dict[str, str | int | float | bool],
@@ -967,12 +1037,10 @@ class FeatureManager:
             feature_field: The field of a registry to map the keys of the `values` dictionary.
             schema: Schema to validate against.
         """
-        from .._tracked import get_current_tracked_run
-        from ..base.dtypes import is_iterable_of_sqlrecord
-        from .can_curate import CanCurate
-        from .record import Record, RecordJson
+        from lamindb.curators.core import ExperimentalDictCurator
 
-        host_is_record = isinstance(self._host, Record)
+        host_is_record = self._host.__class__.__name__ == "Record"
+        host_is_artifact = self._host.__class__.__name__ == "Artifact"
         # rename to distinguish from the values inside the dict
         dictionary = values
         keys = dictionary.keys()
@@ -980,7 +1048,6 @@ class FeatureManager:
             keys = list(keys)  # type: ignore
         # deal with other cases later
         assert all(isinstance(key, str) for key in keys)  # noqa: S101
-        registry = feature_field.field.model
         if (
             host_is_record
             and self._host.type is not None
@@ -988,45 +1055,26 @@ class FeatureManager:
         ):
             assert schema is None, "Cannot pass schema if record.type has schema."
             schema = self._host.type.schema  # type: ignore
+        if host_is_artifact:
+            if self._get_external_schema():
+                raise ValueError("Cannot add values if artifact has external schema.")
         if schema is not None:
-            from lamindb.curators.core import ExperimentalDictCurator
-
             ExperimentalDictCurator(values, schema).validate()
-            records = schema.members.filter(name__in=keys)
+            feature_records = schema.members.filter(name__in=keys)
         else:
-            records = registry.from_values(keys, field=feature_field, mute=True)
-            if len(records) != len(keys):
-                not_validated_keys = [
-                    key for key in keys if key not in records.to_list("name")
-                ]
-                not_validated_keys_dtype_message = [
-                    (key, infer_feature_type_convert_json(key, dictionary[key]))
-                    for key in not_validated_keys
-                ]
-                run = get_current_tracked_run()
-                if run is not None:
-                    name = f"{run.transform.type}[{run.transform.key}]"
-                    type_hint = f"""  feature_type = ln.Feature(name='{name}', is_type=True).save()"""
-                    elements = [type_hint]
-                    type_kwarg = ", type=feature_type"
-                else:
-                    elements = []
-                    type_kwarg = ""
-                elements += [
-                    f"  ln.Feature(name='{key}', dtype='{dtype}'{type_kwarg}).save(){message}"
-                    for key, (dtype, _, message) in not_validated_keys_dtype_message
-                ]
-                hint = "\n".join(elements)
-                msg = (
-                    f"These keys could not be validated: {not_validated_keys}\n"
-                    f"Here is how to create a feature:\n\n{hint}"
-                )
-                raise ValidationError(msg)
+            feature_records = self._get_feature_records(dictionary, feature_field)
+        return self._add_values(feature_records, dictionary)
 
+    def _add_values(self, feature_records, dictionary):
+        from ..base.dtypes import is_iterable_of_sqlrecord
+        from .can_curate import CanCurate
+        from .record import RecordJson
+
+        host_is_record = self._host.__class__.__name__ == "Record"
         features_labels = defaultdict(list)
         feature_json_values = []
         not_validated_values: dict[str, tuple[str, list[str]]] = {}
-        for feature in records:
+        for feature in feature_records:
             value = dictionary[feature.name]
             if value is None:
                 continue
@@ -1165,78 +1213,168 @@ class FeatureManager:
             # a link might already exist, hence ignore_conflicts is needed
             save(links, ignore_conflicts=True)
 
+    def set_values(
+        self,
+        values: dict[str, str | int | float | bool],
+        feature_field: FieldAttr = Feature.name,
+        schema: Schema = None,
+    ) -> None:
+        """Set values for features.
+
+        Like `add_values`, but first removes all existing external feature annotations.
+
+        Args:
+            values: A dictionary of keys (features) & values (labels, strings, numbers, booleans, datetimes, etc.).
+                If a value is `None`, it will be skipped.
+            feature_field: The field of a registry to map the keys of the `values` dictionary.
+            schema: Schema to validate against.
+        """
+        from lamindb.curators.core import ExperimentalDictCurator
+
+        host_is_record = self._host.__class__.__name__ == "Record"
+        host_is_artifact = self._host.__class__.__name__ == "Artifact"
+        # rename to distinguish from the values inside the dict
+        dictionary = values
+        keys = dictionary.keys()
+        if isinstance(keys, DICT_KEYS_TYPE):
+            keys = list(keys)  # type: ignore
+        # deal with other cases later
+        assert all(isinstance(key, str) for key in keys)  # noqa: S101
+        if (
+            host_is_record
+            and self._host.type is not None
+            and self._host.type.schema is not None  # type: ignore
+        ):
+            assert schema is None, "Cannot pass schema if record.type has schema."
+            schema = self._host.type.schema  # type: ignore
+        if host_is_artifact:
+            schema = self._get_external_schema()
+        if schema is not None:
+            ExperimentalDictCurator(values, schema).validate()
+            feature_records = schema.members.filter(name__in=keys)
+        else:
+            feature_records = self._get_feature_records(dictionary, feature_field)
+        self._remove_values()
+        self._add_values(
+            feature_records,
+            dictionary=dictionary,
+        )
+
+    def _get_external_schema(self) -> Schema | None:
+        external_schema = None
+        if self._host.otype is None:
+            external_schema = self._host.schema
+        elif self._host.schema is not None:
+            external_schema = self._host.schema.slots.get("__external__", None)
+        return external_schema
+
     def remove_values(
         self,
-        feature: str | Feature,
+        feature: str | Feature | list[str | Feature] = None,
         *,
         value: Any | None = None,
     ) -> None:
-        """Remove a values for a feature.
+        """Remove values for features.
 
         Args:
-            feature: The feature for which to remove values.
+            feature: Indicate one or several features for which to remove values.
+                If `None`, values for all external features will be removed.
             value: An optional value to restrict removal to a single value.
         """
+        host_name = self._host.__class__.__name__.lower()
+        host_is_artifact = host_name == "artifact"
+
+        if host_is_artifact:
+            external_schema = self._get_external_schema()
+            if external_schema is not None:
+                raise ValueError(
+                    "Cannot remove values if artifact has external schema."
+                )
+        return self._remove_values(
+            feature,
+            value=value,
+        )
+
+    def _remove_values(
+        self,
+        feature: str | Feature | list[str | Feature] = None,
+        *,
+        value: Any | None = None,
+    ) -> None:
         from django.apps import apps
 
         host_name = self._host.__class__.__name__.lower()
         host_is_record = host_name == "record"
+        host_is_artifact = host_name == "artifact"
 
-        if isinstance(feature, str):
-            feature_record = Feature.get(name=feature)
+        if feature is None:
+            features = get_features_data(
+                self._host, to_dict=True, external_only=True
+            ).keys()
+        elif not isinstance(feature, list):
+            features = [feature]
         else:
-            feature_record = feature
-        filter_kwargs = {"feature": feature_record}
-        none_message = f"with value {value!r} " if value is not None else ""
-        if feature_record.dtype.startswith(("cat[", "list[cat")):  # type: ignore
-            feature_registry = parse_dtype(feature_record.dtype)[0]["registry_str"]
-            if "." in feature_registry:
-                parts = feature_registry.split(".")
-                app_label = parts[0]
-                entity_name = parts[-1]
+            features = feature
+        for feature in features:
+            if isinstance(feature, str):
+                feature_record = Feature.get(name=feature)
             else:
-                app_label = "lamindb"
-                entity_name = feature_registry
-            host_name = self._host.__class__.__name__
-            link_model_name = f"{host_name}{entity_name}"
-            link_model = apps.get_model(app_label, link_model_name)
-            filter_kwargs[host_name.lower()] = self._host
-            if value is not None:
-                if not isinstance(value, SQLRecord):
-                    raise TypeError(
-                        f"Expected a record for removing categorical feature value, "
-                        f"got {value} of type {type(value)}"
+                feature_record = feature
+            if host_is_artifact:
+                for schema in self.slots.values():
+                    if feature_record in schema.members:
+                        raise ValueError("Cannot remove values for dataset features.")
+            filter_kwargs = {"feature": feature_record}
+            none_message = f"with value {value!r} " if value is not None else ""
+            if feature_record.dtype.startswith(("cat[", "list[cat")):  # type: ignore
+                feature_registry = parse_dtype(feature_record.dtype)[0]["registry_str"]
+                if "." in feature_registry:
+                    parts = feature_registry.split(".")
+                    app_label = parts[0]
+                    entity_name = parts[-1]
+                else:
+                    app_label = "lamindb"
+                    entity_name = feature_registry
+                host_name = self._host.__class__.__name__
+                link_model_name = f"{host_name}{entity_name}"
+                link_model = apps.get_model(app_label, link_model_name)
+                filter_kwargs[host_name.lower()] = self._host
+                if value is not None:
+                    if not isinstance(value, SQLRecord):
+                        raise TypeError(
+                            f"Expected a record for removing categorical feature value, "
+                            f"got {value} of type {type(value)}"
+                        )
+                    assert not host_is_record, "Only artifacts support passing a value."
+                    filter_kwargs[entity_name.lower()] = value
+                link_records = link_model.objects.filter(**filter_kwargs)
+                if not link_records.exists():
+                    value_msg = f"with value {value!r} " if value is not None else ""
+                    logger.warning(
+                        f"no feature '{feature_record.name}' {value_msg}found on "
+                        f"{host_name.lower()} '{self._host.uid}'!"
                     )
-                assert not host_is_record, "Only artifacts support passing a value."
-                filter_kwargs[entity_name.lower()] = value
-            link_records = link_model.objects.filter(**filter_kwargs)
-            if not link_records.exists():
-                value_msg = f"with value {value!r} " if value is not None else ""
-                logger.warning(
-                    f"no feature '{feature_record.name}' {value_msg}found on "
-                    f"{host_name.lower()} '{self._host.uid}'!"
-                )
-                return
-            link_records.delete()
-        else:
-            if value is not None:
-                filter_kwargs["value"] = value
-            if self._host.__class__.__name__ == "Record":
-                feature_values = self._host.values_json.filter(**filter_kwargs)
+                    return
+                link_records.delete()
             else:
-                feature_values = self._host._feature_values.filter(**filter_kwargs)
-            if not feature_values.exists():
-                logger.warning(
-                    f"no feature '{feature_record.name}' {none_message}found on {self._host.__class__.__name__.lower()} '{self._host.uid}'!"
-                )
-                return
-            if self._host.__class__.__name__ == "Record":
-                feature_values.delete(permanent=True)
-            else:
-                self._host._feature_values.remove(*feature_values)
-            # this might leave a dangling feature_value record
-            # but we don't want to pay the price of making another query just to remove this annotation
-            # we can clean the FeatureValue registry periodically if we want to
+                if value is not None:
+                    filter_kwargs["value"] = value
+                if host_is_record:
+                    feature_values = self._host.values_json.filter(**filter_kwargs)
+                else:
+                    feature_values = self._host._feature_values.filter(**filter_kwargs)
+                if not feature_values.exists():
+                    logger.warning(
+                        f"no feature '{feature_record.name}' {none_message}found on {self._host.__class__.__name__.lower()} '{self._host.uid}'!"
+                    )
+                    return
+                if host_is_record:
+                    feature_values.delete(permanent=True)
+                else:
+                    # the below might leave a dangling feature_value record
+                    # but we don't want to pay the price of making another query just to remove this annotation
+                    # we can clean the FeatureValue registry periodically if we want to
+                    self._host._feature_values.remove(*feature_values)
 
     def _add_schema(self, schema: Schema, slot: str) -> None:
         """Annotate artifact with a schema.

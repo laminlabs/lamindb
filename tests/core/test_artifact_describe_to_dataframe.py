@@ -2,6 +2,7 @@ import bionty as bt
 import lamindb as ln
 import numpy as np
 import pandas as pd
+import pytest
 from lamindb.models._describe import describe_postgres
 
 
@@ -57,6 +58,10 @@ def test_describe_to_dataframe_example_dataset():
     ln.examples.datasets.mini_immuno.save_mini_immuno_datasets()
     artifact = ln.Artifact.get(key="examples/dataset1.h5ad")
     artifact2 = ln.Artifact.get(key="examples/dataset2.h5ad")
+
+    with pytest.raises(ValueError) as error:
+        artifact.features.remove_values("cell_type_by_expert")
+    assert "Cannot remove values for dataset features." in error.exconly()
 
     # Test df(include=[...])
     df = (
@@ -175,6 +180,16 @@ def test_describe_to_dataframe_example_dataset():
         "CD8-positive",
         "alpha-beta T cell",
     }
+
+    # test that only external feature are removed upon artifact.features.remove_values()
+    before = artifact.features.get_values()
+    adata = artifact.load()
+    just_internal = {}
+    for col in adata.obs.columns:
+        if col in before:
+            just_internal[col] = before[col]
+    artifact.features.remove_values()
+    assert just_internal == artifact.features.get_values()
 
     artifact.delete(permanent=True)
     artifact2.delete(permanent=True)

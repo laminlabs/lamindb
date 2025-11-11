@@ -90,11 +90,10 @@ def test_artifact_features_add_remove_values():
     test_values.pop("feature_ulabel")
     assert test_artifact.features.get_values() == test_values
 
-    test_artifact.features.remove_values("feature_cell_line")
-    test_values.pop("feature_cell_line")
-    assert test_artifact.features.get_values() == test_values
+    # test passing a list
 
-    test_artifact.features.remove_values("feature_user")
+    test_artifact.features.remove_values(["feature_cell_line", "feature_user"])
+    test_values.pop("feature_cell_line")
     test_values.pop("feature_user")
     assert test_artifact.features.get_values() == test_values
 
@@ -111,10 +110,39 @@ def test_artifact_features_add_remove_values():
     test_artifact.features.add_values({"feature_int": None, "feature_type1": None})
     assert test_artifact.features.get_values() == test_values
 
+    # test bulk removal
+
+    assert list(test_values.keys()) == [
+        "feature_str",
+        "feature_datetime",
+        "feature_dict",
+        "feature_project",
+        "feature_cell_lines",
+        "feature_cl_ontology_id",
+    ]
+    test_artifact.features.remove_values()
+    test_values = {}
+    assert test_artifact.features.get_values() == test_values
+
     # test passing ISO-format date string for date
 
     test_artifact.features.add_values({"feature_date": "2024-01-01"})
     test_values["feature_date"] = date(2024, 1, 1)
+    assert test_artifact.features.get_values() == test_values
+
+    # test add_values() when there is already something there
+
+    test_artifact.features.add_values({"feature_date": "2024-02-01"})
+    test_values["feature_date"] = {date(2024, 1, 1), date(2024, 2, 1)}
+    test_artifact.features.add_values({"feature_str": "a string value"})
+    test_values["feature_str"] = "a string value"
+    assert test_artifact.features.get_values() == test_values
+
+    # test set_values()
+
+    test_values = {}
+    test_values["feature_date"] = date(2024, 3, 1)
+    test_artifact.features.set_values({"feature_date": "2024-03-01"})
     assert test_artifact.features.get_values() == test_values
 
     # schema validation
@@ -532,16 +560,9 @@ def test_add_list_of_cat_features():
         name="list_of_labels_of_type1", dtype=list[type_1], nullable=False
     ).save()
     schema = ln.Schema(name="Test schema", features=[feat1, feat2]).save()
-    # first end-to-end test of adding labels and passing a schema
-    # this calls features.add_values() under-the-hood
     artifact = ln.Artifact(
         ".gitignore",
         key=".gitignore",
-        schema=schema,
-        features={
-            "single_label_of_type1": "label 1",
-            "list_of_labels_of_type1": ["label 1", "label 2"],
-        },
     ).save()
     # now just use add_values()
     with pytest.raises(ValidationError) as error:
@@ -563,6 +584,24 @@ def test_add_list_of_cat_features():
     assert error.exconly().startswith(
         "lamindb.errors.ValidationError: These values could not be validated: {'Record': ('name', ['invalid', 'invalid2'])}"
     )
+    artifact.delete(permanent=True)
+    # now with schema
+    artifact = ln.Artifact(
+        ".gitignore",
+        key=".gitignore",
+        schema=schema,
+        features={
+            "single_label_of_type1": "label 1",
+            "list_of_labels_of_type1": ["label 1", "label 2"],
+        },
+    ).save()
+    with pytest.raises(ValueError) as error:
+        artifact.features.add_values(
+            {
+                "single_label_of_type1": "invalid",
+            }
+        )
+    assert "Cannot add values if artifact has external schema." in error.exconly()
 
     artifact.delete(permanent=True)
     schema.delete(permanent=True)
