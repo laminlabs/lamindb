@@ -130,6 +130,21 @@ def test_artifact_features_add_remove_values():
     test_values["feature_date"] = date(2024, 1, 1)
     assert test_artifact.features.get_values() == test_values
 
+    # test add_values() when there is already something there
+
+    test_artifact.features.add_values({"feature_date": "2024-02-01"})
+    test_values["feature_date"] = {date(2024, 1, 1), date(2024, 2, 1)}
+    test_artifact.features.add_values({"feature_str": "a string value"})
+    test_values["feature_str"] = "a string value"
+    assert test_artifact.features.get_values() == test_values
+
+    # test set_values()
+
+    test_values = {}
+    test_values["feature_date"] = date(2024, 3, 1)
+    test_artifact.features.set_values({"feature_date": "2024-03-01"})
+    assert test_artifact.features.get_values() == test_values
+
     # schema validation
 
     feature_str = ln.Feature.get(name="feature_str")
