@@ -179,6 +179,7 @@ def create_records_from_source(
     field: FieldAttr,
     organism: SQLRecord | None = None,
     source: SQLRecord | None = None,
+    inspect_synonyms: bool = True,
     msg: str = "",
     mute: bool = False,
 ) -> tuple[list, pd.Index]:
@@ -206,7 +207,6 @@ def create_records_from_source(
 
     # standardize in the public reference
     # do not inspect synonyms if the field is not name field
-    inspect_synonyms = True
     if hasattr(model, "_name_field") and field.field.name != model._name_field:  # type: ignore
         inspect_synonyms = False
     result = public_ontology.inspect(
