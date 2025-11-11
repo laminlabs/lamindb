@@ -125,7 +125,7 @@ def test_data_is_soma_experiment(get_small_soma_experiment, clean_soma_files):
     assert data_is_soma_experiment(get_small_soma_experiment)
 
 
-def test_basic_validation(df):
+def test_basic_validation():
     # extra kwargs
     with pytest.raises(FieldValidationError):
         ln.Artifact("testpath.csv", description="test1b", extra_kwarg="extra")
@@ -152,11 +152,11 @@ def test_basic_validation(df):
     )
 
 
-def test_save_on_branch(df):
+def test_save_on_branch():
     branch = ln.Branch(name="contrib1").save()
-    artifact1 = ln.Artifact.from_dataframe(df, key="test.parquet", branch=branch).save()
+    artifact1 = ln.Artifact(".gitignore", key="test", branch=branch).save()
     # check hash lookup on different branch
-    artifact2 = ln.Artifact.from_dataframe(df, key="test1.parquet")
+    artifact2 = ln.Artifact(".gitignore", key="test1")
     assert artifact1 == artifact2
     # cleanup
     artifact1.delete(permanent=True)
