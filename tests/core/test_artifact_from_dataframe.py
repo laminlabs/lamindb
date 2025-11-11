@@ -3,6 +3,94 @@ import pandas as pd
 import pytest
 
 
+def test_create_from_dataframe(example_dataframe: pd.DataFrame):
+    df = example_dataframe
+    artifact = ln.Artifact.from_dataframe(df, description="test1")
+    assert artifact.description == "test1"
+    assert artifact.key is None
+    assert artifact.otype == "DataFrame"
+    assert artifact.kind == "dataset"
+    assert artifact.n_observations == 2
+    assert hasattr(artifact, "_local_filepath")
+    artifact.key = "my-test-dataset"  # try changing key
+    with pytest.raises(ln.errors.InvalidArgument) as error:
+        artifact.save()
+    assert (
+        error.exconly()
+        == "lamindb.errors.InvalidArgument: The suffix '' of the provided key is incorrect, it should be '.parquet'."
+    )
+    artifact.key = None  # restore
+    artifact.suffix = ".whatever"  # try changing suffix
+    with pytest.raises(ln.errors.InvalidArgument) as error:
+        artifact.save()
+    assert (
+        error.exconly()
+        == "lamindb.errors.InvalidArgument: Changing the `.suffix` of an artifact is not allowed! You tried to change it from '.parquet' to '.whatever'."
+    )
+    artifact.suffix = ".parquet"
+    artifact.save()
+    # check that the local filepath has been cleared
+    assert not hasattr(artifact, "_local_filepath")
+    del artifact
+
+    # now get an artifact from the database
+    artifact = ln.Artifact.get(description="test1")
+
+    artifact.suffix = ".whatever"  # try changing suffix
+    with pytest.raises(ln.errors.InvalidArgument) as error:
+        artifact.save()
+    assert (
+        error.exconly()
+        == "lamindb.errors.InvalidArgument: Changing the `.suffix` of an artifact is not allowed! You tried to change it from '.parquet' to '.whatever'."
+    )
+    artifact.suffix = ".parquet"
+
+    # coming from `key is None` that setting a key with different suffix is not allowed
+    artifact.key = "my-test-dataset.suffix"
+    with pytest.raises(ln.errors.InvalidArgument) as error:
+        artifact.save()
+    assert (
+        error.exconly()
+        == "lamindb.errors.InvalidArgument: The suffix '.suffix' of the provided key is incorrect, it should be '.parquet'."
+    )
+
+    # coming from `key is None` test with no suffix
+    artifact.key = "my-test-dataset"
+    with pytest.raises(ln.errors.InvalidArgument) as error:
+        artifact.save()
+    assert (
+        error.exconly()
+        == "lamindb.errors.InvalidArgument: The suffix '' of the provided key is incorrect, it should be '.parquet'."
+    )
+
+    # try a joint update where both suffix and key are changed, this previously enabled to create a corrupted state
+    artifact.key = "my-test-dataset"
+    artifact.suffix = ""
+    with pytest.raises(ln.errors.InvalidArgument) as error:
+        artifact.save()
+    assert (
+        error.exconly()
+        == "lamindb.errors.InvalidArgument: Changing the `.suffix` of an artifact is not allowed! You tried to change it from '.parquet' to ''."
+    )
+
+    # because this is a parquet artifact, we can set a key with a .parquet suffix
+    artifact.suffix = ".parquet"  # restore proper suffix
+    artifact.key = "my-test-dataset.parquet"
+    artifact.save()
+    assert artifact.key == "my-test-dataset.parquet"
+
+    # coming from a .parquet key, test changing the key to no suffix
+    artifact.key = "my-test-dataset"
+    with pytest.raises(ln.errors.InvalidArgument) as error:
+        artifact.save()
+    assert (
+        error.exconly()
+        == "lamindb.errors.InvalidArgument: The suffix '' of the provided key is incorrect, it should be '.parquet'."
+    )
+
+    artifact.delete(permanent=True)
+
+
 def test_revise_recreate_artifact(example_dataframe: pd.DataFrame, ccaplog):
     df = example_dataframe
     # attempt to create a file with an invalid version
@@ -168,90 +256,3 @@ def test_revise_recreate_artifact(example_dataframe: pd.DataFrame, ccaplog):
     assert artifact_from_trash.branch_id == -1
 
     artifact.delete(permanent=True)  # permanent deletion
-
-
-def test_create_from_dataframe(df):
-    artifact = ln.Artifact.from_dataframe(df, description="test1")
-    assert artifact.description == "test1"
-    assert artifact.key is None
-    assert artifact.otype == "DataFrame"
-    assert artifact.kind == "dataset"
-    assert artifact.n_observations == 2
-    assert hasattr(artifact, "_local_filepath")
-    artifact.key = "my-test-dataset"  # try changing key
-    with pytest.raises(ln.errors.InvalidArgument) as error:
-        artifact.save()
-    assert (
-        error.exconly()
-        == "lamindb.errors.InvalidArgument: The suffix '' of the provided key is incorrect, it should be '.parquet'."
-    )
-    artifact.key = None  # restore
-    artifact.suffix = ".whatever"  # try changing suffix
-    with pytest.raises(ln.errors.InvalidArgument) as error:
-        artifact.save()
-    assert (
-        error.exconly()
-        == "lamindb.errors.InvalidArgument: Changing the `.suffix` of an artifact is not allowed! You tried to change it from '.parquet' to '.whatever'."
-    )
-    artifact.suffix = ".parquet"
-    artifact.save()
-    # check that the local filepath has been cleared
-    assert not hasattr(artifact, "_local_filepath")
-    del artifact
-
-    # now get an artifact from the database
-    artifact = ln.Artifact.get(description="test1")
-
-    artifact.suffix = ".whatever"  # try changing suffix
-    with pytest.raises(ln.errors.InvalidArgument) as error:
-        artifact.save()
-    assert (
-        error.exconly()
-        == "lamindb.errors.InvalidArgument: Changing the `.suffix` of an artifact is not allowed! You tried to change it from '.parquet' to '.whatever'."
-    )
-    artifact.suffix = ".parquet"
-
-    # coming from `key is None` that setting a key with different suffix is not allowed
-    artifact.key = "my-test-dataset.suffix"
-    with pytest.raises(ln.errors.InvalidArgument) as error:
-        artifact.save()
-    assert (
-        error.exconly()
-        == "lamindb.errors.InvalidArgument: The suffix '.suffix' of the provided key is incorrect, it should be '.parquet'."
-    )
-
-    # coming from `key is None` test with no suffix
-    artifact.key = "my-test-dataset"
-    with pytest.raises(ln.errors.InvalidArgument) as error:
-        artifact.save()
-    assert (
-        error.exconly()
-        == "lamindb.errors.InvalidArgument: The suffix '' of the provided key is incorrect, it should be '.parquet'."
-    )
-
-    # try a joint update where both suffix and key are changed, this previously enabled to create a corrupted state
-    artifact.key = "my-test-dataset"
-    artifact.suffix = ""
-    with pytest.raises(ln.errors.InvalidArgument) as error:
-        artifact.save()
-    assert (
-        error.exconly()
-        == "lamindb.errors.InvalidArgument: Changing the `.suffix` of an artifact is not allowed! You tried to change it from '.parquet' to ''."
-    )
-
-    # because this is a parquet artifact, we can set a key with a .parquet suffix
-    artifact.suffix = ".parquet"  # restore proper suffix
-    artifact.key = "my-test-dataset.parquet"
-    artifact.save()
-    assert artifact.key == "my-test-dataset.parquet"
-
-    # coming from a .parquet key, test changing the key to no suffix
-    artifact.key = "my-test-dataset"
-    with pytest.raises(ln.errors.InvalidArgument) as error:
-        artifact.save()
-    assert (
-        error.exconly()
-        == "lamindb.errors.InvalidArgument: The suffix '' of the provided key is incorrect, it should be '.parquet'."
-    )
-
-    artifact.delete(permanent=True)
