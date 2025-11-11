@@ -1183,9 +1183,10 @@ class FeatureManager:
         host_is_record = host_name == "record"
 
         if hasattr(self._host, "schema_id"):
+            external_schema = None
             if self._host.otype is None:
                 external_schema = self._host.schema
-            else:
+            elif self._host.schema is not None:
                 external_schema = self._host.schema.slots.get("__external__", None)
             if external_schema is not None:
                 raise ValueError(
