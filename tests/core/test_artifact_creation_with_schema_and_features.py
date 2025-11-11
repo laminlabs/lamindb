@@ -49,7 +49,50 @@ def test_create_artifact_with_external_feature_annotations(
         schema.delete(permanent=True)
 
 
-def test_from_dataframe_with_external_features_and_schema(
+def test_artifact_from_dataframe_with_schema(example_dataframe: pd.DataFrame):
+    df = example_dataframe
+    feat1 = ln.Feature(name="feat1", dtype=int).save()
+    artifact = ln.Artifact.from_dataframe(
+        df, key="test_df.parquet", schema="valid_features"
+    ).save()
+    assert artifact.schema == ln.examples.schemas.valid_features()
+    inferred_schema_link = artifact.feature_sets.through.get(artifact_id=artifact.id)
+    assert inferred_schema_link.slot == "columns"
+    assert inferred_schema_link.schema.members.count() == 1
+    assert inferred_schema_link.schema.members.first() == feat1
+    inferred_schema = inferred_schema_link.schema
+    inferred_schema_link.delete()
+    inferred_schema.delete(permanent=True)
+    feat1.delete(permanent=True)
+    artifact.delete(permanent=True)
+
+
+def test_artifact_dataframe_with_features(example_dataframe: pd.DataFrame):
+    """Test column names encoding when features with the same names are present."""
+    artifact = ln.Artifact.from_dataframe(example_dataframe, key="df.parquet").save()
+    id_feature = ln.Feature(name="id", dtype="int").save()
+    uid_feature = ln.Feature(name="uid", dtype="str").save()
+    artifact.features.add_values({"id": 1, "uid": "test-uid"})
+    df = ln.Artifact.filter(key="df.parquet").to_dataframe(
+        include=["description"], features=True
+    )
+    assert df.index.name == "__lamindb_artifact_id__"
+    assert df.columns.tolist() == [
+        "__lamindb_artifact_uid__",
+        "key",
+        "id",
+        "uid",
+        "description",
+    ]
+    assert df.iloc[0]["id"] == 1
+    assert df.iloc[0]["uid"] == "test-uid"
+
+    artifact.delete(permanent=True)
+    id_feature.delete(permanent=True)
+    uid_feature.delete(permanent=True)
+
+
+def test_from_dataframe_with_external_schema(
     example_dataframe: pd.DataFrame,
     two_external_features: tuple[ln.Feature, ln.Feature],
     two_internal_features: tuple[ln.Feature, ln.Feature],

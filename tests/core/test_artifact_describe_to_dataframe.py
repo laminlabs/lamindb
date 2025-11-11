@@ -42,9 +42,18 @@ def _check_df_equality(actual_df: pd.DataFrame, expected_df: pd.DataFrame) -> bo
     return True
 
 
+def test_describe_artifact_from_remote_instance(capsys):
+    # test describing from a remote instance with less modules
+    artifact = ln.Artifact.using("laminlabs/lamin-site-assets").first()
+    artifact.describe()
+    captured = capsys.readouterr()
+    assert len(captured.out) > 50
+    assert "artifact" in captured.out.lower()
+
+
 # parallels the `registries` guide
 # please also see the test_querset.py tests
-def test_curate_df():
+def test_describe_to_dataframe_example_dataset():
     ln.examples.datasets.mini_immuno.save_mini_immuno_datasets()
     artifact = ln.Artifact.get(key="examples/dataset1.h5ad")
     artifact2 = ln.Artifact.get(key="examples/dataset2.h5ad")
