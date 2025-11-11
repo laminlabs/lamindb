@@ -42,18 +42,15 @@ def test_create_artifact_with_external_feature_annotations(
     ).save()
     assert artifact.features.get_values() == {"feature_a": "x", "feature_b": "y"}
     assert artifact.schema == schema
-    # inferred schema should annotate
-    # if use_schema:
-    #     inferred_schema_link = artifact.feature_sets.through.get(
-    #         artifact_id=artifact.id
-    #     )
-    #     assert inferred_schema_link.slot == "__external__"
-    #     assert inferred_schema_link.schema.members.count() == 2
-    #     assert feat1 in inferred_schema_link.schema.members
-    #     assert feat2 in inferred_schema_link.schema.members
-    #     inferred_schema = inferred_schema_link.schema
-    #     inferred_schema_link.delete()
-    #     inferred_schema.delete(permanent=True)
+    if use_schema:
+        with pytest.raises(ValueError) as error:
+            artifact.features.remove_values("feature_a", value="x")
+        assert (
+            "Cannot remove values if artifact has external schema." in error.exconly()
+        )
+    else:
+        artifact.features.remove_values("feature_a", value="x")
+        assert artifact.features.get_values() == {"feature_b": "y"}
     artifact.delete(permanent=True)
     if use_schema:
         schema.delete(permanent=True)
@@ -183,6 +180,9 @@ Artifact: test_df_with_external_features.parquet (0000)
     └── feature_a           str                     x
         feature_b           str                     y"""
     )
+    with pytest.raises(ValueError) as error:
+        artifact.features.remove_values("feature_a", value="x")
+    assert "Cannot remove values if artifact has external schema." in error.exconly()
     artifact.delete(permanent=True)
 
     # alternative via DataFrameCurator directly

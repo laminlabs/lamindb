@@ -1167,7 +1167,7 @@ class FeatureManager:
 
     def remove_values(
         self,
-        feature: str | Feature,
+        feature: str | Feature = None,
         *,
         value: Any | None = None,
     ) -> None:
@@ -1182,10 +1182,24 @@ class FeatureManager:
         host_name = self._host.__class__.__name__.lower()
         host_is_record = host_name == "record"
 
+        if hasattr(self._host, "schema_id"):
+            if self._host.otype is None:
+                external_schema = self._host.schema
+            else:
+                external_schema = self._host.schema.slots.get("__external__", None)
+            if external_schema is not None:
+                raise ValueError(
+                    "Cannot remove values if artifact has external schema."
+                )
         if isinstance(feature, str):
             feature_record = Feature.get(name=feature)
         else:
             feature_record = feature
+
+        for schema in self.slots.values():
+            if feature_record in schema.members:
+                raise ValueError("Cannot remove values for dataset features.")
+
         filter_kwargs = {"feature": feature_record}
         none_message = f"with value {value!r} " if value is not None else ""
         if feature_record.dtype.startswith(("cat[", "list[cat")):  # type: ignore
