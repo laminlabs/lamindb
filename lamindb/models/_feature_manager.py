@@ -1182,8 +1182,9 @@ class FeatureManager:
 
         host_name = self._host.__class__.__name__.lower()
         host_is_record = host_name == "record"
+        host_is_artifact = host_name == "artifact"
 
-        if hasattr(self._host, "schema_id"):
+        if host_is_artifact:
             external_schema = None
             if self._host.otype is None:
                 external_schema = self._host.schema
@@ -1204,9 +1205,10 @@ class FeatureManager:
                 feature_record = Feature.get(name=feature)
             else:
                 feature_record = feature
-            for schema in self.slots.values():
-                if feature_record in schema.members:
-                    raise ValueError("Cannot remove values for dataset features.")
+            if host_is_artifact:
+                for schema in self.slots.values():
+                    if feature_record in schema.members:
+                        raise ValueError("Cannot remove values for dataset features.")
             filter_kwargs = {"feature": feature_record}
             none_message = f"with value {value!r} " if value is not None else ""
             if feature_record.dtype.startswith(("cat[", "list[cat")):  # type: ignore
