@@ -1,6 +1,5 @@
 # Note: Almost all logic for schema-based validation is handled in the curators test suite
 # This here only covers external feature annotation and validation
-from pathlib import Path
 
 import lamindb as ln
 import pandas as pd
@@ -27,7 +26,6 @@ def two_external_features():
 
 @pytest.mark.parametrize("use_schema", [True, False])
 def test_create_artifact_with_external_feature_annotations(
-    tsv_file: Path,
     use_schema: bool,
     two_external_features: tuple[ln.Feature, ln.Feature],
 ):
@@ -37,8 +35,8 @@ def test_create_artifact_with_external_feature_annotations(
     else:
         schema = None
     artifact = ln.Artifact(
-        tsv_file,
-        key="test.tsv",
+        ".gitignore",
+        key="test_file",
         features={"feature_a": "x", "feature_b": "y"},
         schema=schema,
     ).save()
