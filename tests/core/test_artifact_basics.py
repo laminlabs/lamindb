@@ -137,7 +137,7 @@ def test_basic_validation(df):
 
     # AUTO_KEY_PREFIX in key
     with pytest.raises(ValueError) as error:
-        ln.Artifact.from_dataframe(df, key=".lamindb/test_df.parquet")
+        ln.Artifact(".gitignore", key=".lamindb/test_df.parquet")
     assert (
         error.exconly()
         == f"ValueError: Do not pass key that contains a managed storage path in `{AUTO_KEY_PREFIX}`"
