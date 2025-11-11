@@ -44,6 +44,18 @@ def test_create_artifact_with_external_feature_annotations(
     ).save()
     assert artifact.features.get_values() == {"feature_a": "x", "feature_b": "y"}
     assert artifact.schema == schema
+    # inferred schema should annotate
+    # if use_schema:
+    #     inferred_schema_link = artifact.feature_sets.through.get(
+    #         artifact_id=artifact.id
+    #     )
+    #     assert inferred_schema_link.slot == "__external__"
+    #     assert inferred_schema_link.schema.members.count() == 2
+    #     assert feat1 in inferred_schema_link.schema.members
+    #     assert feat2 in inferred_schema_link.schema.members
+    #     inferred_schema = inferred_schema_link.schema
+    #     inferred_schema_link.delete()
+    #     inferred_schema.delete(permanent=True)
     artifact.delete(permanent=True)
     if use_schema:
         schema.delete(permanent=True)
