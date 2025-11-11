@@ -1200,6 +1200,14 @@ class FeatureManager:
             # a link might already exist, hence ignore_conflicts is needed
             save(links, ignore_conflicts=True)
 
+    def set_values(
+        self,
+        values: dict[str, str | int | float | bool],
+        feature_field: FieldAttr = Feature.name,
+        schema: Schema = None,
+    ) -> None:
+        """Set values for features."""
+
     def remove_values(
         self,
         feature: str | Feature | list[str | Feature] = None,
@@ -1213,10 +1221,7 @@ class FeatureManager:
                 If `None`, values for all external features will be removed.
             value: An optional value to restrict removal to a single value.
         """
-        from django.apps import apps
-
         host_name = self._host.__class__.__name__.lower()
-        host_is_record = host_name == "record"
         host_is_artifact = host_name == "artifact"
 
         if host_is_artifact:
@@ -1229,6 +1234,23 @@ class FeatureManager:
                 raise ValueError(
                     "Cannot remove values if artifact has external schema."
                 )
+        return self._remove_values(
+            feature,
+            value=value,
+        )
+
+    def _remove_values(
+        self,
+        feature: str | Feature | list[str | Feature] = None,
+        *,
+        value: Any | None = None,
+    ) -> None:
+        from django.apps import apps
+
+        host_name = self._host.__class__.__name__.lower()
+        host_is_record = host_name == "record"
+        host_is_artifact = host_name == "artifact"
+
         if feature is None:
             features = get_features_data(
                 self._host, to_dict=True, external_only=True
