@@ -45,23 +45,22 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
 
     A storage location is either a directory (local or a folder in the cloud) or
     an entire S3/GCP bucket.
-    A LaminDB instance can manage and read from multiple storage locations. But any
-    storage location is managed by *at most one* LaminDB instance.
+    A LaminDB instance can write to and read from multiple storage locations. But any
+    storage location is writable by *at most one* LaminDB instance.
 
-    .. dropdown:: Managed vs. read-only storage locations
+    .. dropdown:: Writable vs. read-only storage locations
 
-        A LaminDB instance can only write artifacts to its managed storage
-        locations.
+        A LaminDB instance can write artifacts only to its writable storage locations.
 
-        The :attr:`~lamindb.Storage.instance_uid` field defines the managing LaminDB instance of a storage location.
-        You can access the `instance_uid` of your current instance through `ln.setup.settings.instance_uid`.
+        The :attr:`~lamindb.Storage.instance_uid` field defines the LaminDB instance that writes to the storage location.
+        You can access the `instance_uid` of your current instance through `ln.settings.instance_uid`.
 
         Here is an example (`source <https://lamin.ai/laminlabs/lamindata/transform/dPco79GYgzag0000>`__).
 
         .. image:: https://lamin-site-assets.s3.amazonaws.com/.lamindb/eHDmIOAxLEoqZ2oK0000.png
            :width: 400px
 
-        Some public storage locations are not be managed by any LaminDB instance: their `instance_uid` is `None`.
+        Some public storage locations are not written to by any LaminDB instance, hence, their `instance_uid` is `None`.
 
     .. dropdown:: Managing access to storage locations across instances
 
@@ -80,7 +79,7 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
         want to further restrict access to a storage location, you can move it into a space::
 
             space = ln.Space.get(name="my-space")
-            storage_loc = ln.Storage.get(root="s3://my-storace-location")
+            storage_loc = ln.Storage.get(root="s3://my-storage-location")
             storage_loc.space = space
             storage_loc.save()
 
@@ -90,7 +89,8 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
         root: `str` The root path of the storage location, e.g., `"./mydir"`, `"s3://my-bucket"`, `"s3://my-bucket/myfolder"`, `"gs://my-bucket/myfolder"`, `"/nfs/shared/datasets/genomics"`, `"/weka/shared/models/"`, ...
         description: `str | None = None` An optional description.
         space: `Space | None = None` A space to restrict access permissions to the storage location.
-        host: `str | None = None` For local storage locations, pass a globally unique host identifier, e.g. `"my-institute-cluster-1"`, `"my-server-abcd"`, ...
+        host: `str | None = None` For local storage locations, a globally unique identifier for the physical machine/server hosting the storage.
+            This distinguishes storage locations that may have the same local path but exist on different servers, e.g. `"my-institute-cluster-1"`, `"my-server-abcd"`.
 
     See Also:
         :attr:`lamindb.core.Settings.storage`
