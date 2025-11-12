@@ -62,7 +62,7 @@ def test_to_dataframe():
     # does not make sense in Alex's opinion
     # too much magic; got removed in https://github.com/laminlabs/lamindb/pull/2238
     # df = (
-    #     ln.Artifact.using("laminlabs/cellxgene")
+    #     ln.Artifact.connect("laminlabs/cellxgene")
     #     .filter(suffix=".h5ad")
     #     .to_dataframe(include=["tissues__name", "pathways__name"])
     # )
@@ -86,8 +86,8 @@ def test_to_dataframe():
 
 def test_complex_df_with_features():
     # should not fail
-    ln.Artifact.using("laminlabs/lamindata").to_dataframe(include="features")
-    ln.Artifact.using("laminlabs/lamindata").to_dataframe(features="queryset")
+    ln.Artifact.connect("laminlabs/lamindata").to_dataframe(include="features")
+    ln.Artifact.connect("laminlabs/lamindata").to_dataframe(features="queryset")
 
 
 def test_one_first():

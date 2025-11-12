@@ -507,7 +507,7 @@ def test_open_dataframe_artifact():
     previous_storage = ln.setup.settings.storage.root_as_str
     ln.settings.storage = "s3://lamindb-test/storage"
     # open from managed bucket
-    artifact_remote = ln.Artifact.using("laminlabs/lamin-dev").get(
+    artifact_remote = ln.Artifact.connect("laminlabs/lamin-dev").get(
         "iw9RRhFApeJVHC1L0001"
     )
     with artifact_remote.open(engine="polars") as ldf:

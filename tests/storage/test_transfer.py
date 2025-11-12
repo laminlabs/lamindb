@@ -18,7 +18,7 @@ def test_transfer_from_remote_to_local(ccaplog):
     # we also made sure that the artifact here has a wetlab label attached
 
     # transfer 1st artifact
-    artifact1 = ln.Artifact.using("laminlabs/lamin-dev").get("livFRRpM")
+    artifact1 = ln.Artifact.connect("laminlabs/lamin-dev").get("livFRRpM")
 
     # test describe postgres
     result = get_artifact_or_run_with_related(
@@ -106,7 +106,7 @@ def test_transfer_from_remote_to_local(ccaplog):
     assert organism.created_at != organism_remote.created_at
 
     # now check that this is idempotent and we can run it again
-    artifact_repeat = ln.Artifact.using("laminlabs/lamin-dev").get(
+    artifact_repeat = ln.Artifact.connect("laminlabs/lamin-dev").get(
         "livFRRpMaOgb3y8U2mK2"
     )
     artifact_repeat.save(transfer="annotations")
@@ -118,7 +118,7 @@ def test_transfer_from_remote_to_local(ccaplog):
     feature.save()
 
     # transfer 2nd artifact
-    artifact2 = ln.Artifact.using("laminlabs/lamin-dev").get("qz35YaRk")
+    artifact2 = ln.Artifact.connect("laminlabs/lamin-dev").get("qz35YaRk")
     artifact2.save(transfer="annotations")
 
     # check the feature name
@@ -127,7 +127,7 @@ def test_transfer_from_remote_to_local(ccaplog):
     assert artifact1.features["obs"].get(name="organism").uid == "existing"
 
     # test transfer from an instance with fewer modules (laminlabs/lamin-site-assets)
-    artifact3 = ln.Artifact.using("laminlabs/lamin-site-assets").get("lgRNHNtM")
+    artifact3 = ln.Artifact.connect("laminlabs/lamin-site-assets").get("lgRNHNtM")
     # test that implicit saving through `load()` works (also occurs for `cache()` or `open()` for run input tracking)
     artifact3.load()
 
@@ -141,7 +141,7 @@ def test_transfer_from_remote_to_local(ccaplog):
 
 def test_transfer_into_space():
     # grab any ulabel from the default space
-    ulabel = ln.ULabel.using("laminlabs/lamin-dev").filter(space__id=1).first()
+    ulabel = ln.ULabel.connect("laminlabs/lamin-dev").filter(space__id=1).first()
 
     space = ln.Space(name="space for transfer", uid="00000123").save()
     with patch.object(ln.context, "_space", new=space):
@@ -156,21 +156,21 @@ def test_using_record_organism():
     """Test passing record and organism to the using_key instance."""
     import bionty as bt
 
-    release_110_cxg = bt.Source.using("laminlabs/lamin-dev").get(
+    release_110_cxg = bt.Source.connect("laminlabs/lamin-dev").get(
         organism="mouse", entity="bionty.Gene", version="release-110"
     )
-    release_112_cxg = bt.Source.using("laminlabs/lamin-dev").get(
+    release_112_cxg = bt.Source.connect("laminlabs/lamin-dev").get(
         organism="mouse", entity="bionty.Gene", version="release-112"
     )
     release_110 = release_110_cxg.save()  # transfer source record
     release_110_cxg = (  # re-fetch
-        bt.Source.using("laminlabs/lamin-dev").get(
+        bt.Source.connect("laminlabs/lamin-dev").get(
             organism="mouse", entity="bionty.Gene", version="release-110"
         )
     )
 
     # passing the wrong source
-    inspector = bt.Gene.using("laminlabs/lamin-dev").inspect(
+    inspector = bt.Gene.connect("laminlabs/lamin-dev").inspect(
         ["ENSMUSG00000102862", "ENSMUSG00000084826"],
         field=bt.Gene.ensembl_gene_id,
         source=release_112_cxg,
@@ -179,7 +179,7 @@ def test_using_record_organism():
     assert len(inspector.validated) == 0
 
     # passing the correct source
-    inspector = bt.Gene.using("laminlabs/lamin-dev").inspect(
+    inspector = bt.Gene.connect("laminlabs/lamin-dev").inspect(
         ["ENSMUSG00000102862", "ENSMUSG00000084826"],
         field=bt.Gene.ensembl_gene_id,
         source=release_110_cxg,
@@ -189,7 +189,7 @@ def test_using_record_organism():
 
     # passing the correct source but from the wrong instance
     with pytest.raises(ValueError) as error:
-        inspector = bt.Gene.using("laminlabs/lamin-dev").inspect(
+        inspector = bt.Gene.connect("laminlabs/lamin-dev").inspect(
             ["ENSMUSG00000102862", "ENSMUSG00000084826"],
             field=bt.Gene.ensembl_gene_id,
             source=release_110,
@@ -201,13 +201,13 @@ def test_using_record_organism():
 
 
 def test_using_query_by_feature():
-    assert ln.Artifact.using("laminlabs/cellxgene").filter(n_of_donors__gte=100)
+    assert ln.Artifact.connect("laminlabs/cellxgene").filter(n_of_donors__gte=100)
 
 
 def test_transfer_features_uid():
     """Test that a new feature is created based on uid."""
     existing_tissue_feature = ln.Feature.get(name="tissue")
-    artifact = ln.Artifact.using("laminlabs/pertdata").get(
+    artifact = ln.Artifact.connect("laminlabs/pertdata").get(
         key="scperturb/obs/tian19_iPSC.parquet"
     )
     artifact.save(transfer="annotations")

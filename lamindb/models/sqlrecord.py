@@ -618,11 +618,20 @@ class Registry(ModelBase):
             case_sensitive=case_sensitive,
         )
 
+    @deprecated(new_name="connect")
     def using(
         cls,
         instance: str | None,
     ) -> QuerySet:
-        """Use a non-default LaminDB instance.
+        return cls.connect(
+            instance=instance,
+        )
+
+    def connect(
+        cls,
+        instance: str | None,
+    ) -> QuerySet:
+        """Query a non-default LaminDB instance.
 
         Args:
             instance: An instance identifier of form "account_handle/instance_name".
@@ -631,7 +640,7 @@ class Registry(ModelBase):
 
             ::
 
-                ln.Record.using("account_handle/instance_name").search("label7", field="name")
+                ln.Record.connect("account_handle/instance_name").search("label7", field="name")
         """
         from .query_set import QuerySet
 
@@ -1555,7 +1564,7 @@ def get_transfer_run(record) -> Run:
         ln_setup.settings.cache_dir / f"instance--{owner}--{name}--uid.txt"
     )
     if not cache_using_filepath.exists():
-        raise SystemExit("Need to call .using() before")
+        raise SystemExit("Need to call .connect() before")
     instance_uid = cache_using_filepath.read_text().split("\n")[0]
     key = f"__lamindb_transfer__/{instance_uid}"
     uid = instance_uid + "0000"

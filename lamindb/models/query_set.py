@@ -430,7 +430,7 @@ def get_feature_annotate_kwargs(
             )
         features = list(set(feature_names))  # remove duplicates
 
-    feature_qs = Feature.using(None if qs is None else qs.db).filter(
+    feature_qs = Feature.connect(None if qs is None else qs.db).filter(
         dtype__isnull=False
     )
     if isinstance(features, list):

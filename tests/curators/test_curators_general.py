@@ -90,7 +90,7 @@ def df_disease() -> pd.DataFrame:
 @pytest.fixture
 def disease_ontology_old() -> bt.Source:
     return bt.Disease.add_source(
-        bt.Source.using("laminlabs/bionty-assets")
+        bt.Source.connect("laminlabs/bionty-assets")
         .get(entity="bionty.Disease", version="2024-08-06", organism="all")
         .save()
     )

@@ -195,12 +195,12 @@ def test_get_name_field():
 
 def test_using():
     # the two below calls error if the records aren't found
-    ln.Artifact.using("laminlabs/lamin-site-assets").get(1)
-    ln.Artifact.using("laminlabs/lamin-site-assets").get(uid="MqEaGU7fXvxNy61R0000")
+    ln.Artifact.connect("laminlabs/lamin-site-assets").get(1)
+    ln.Artifact.connect("laminlabs/lamin-site-assets").get(uid="MqEaGU7fXvxNy61R0000")
     # cross-database query
     hemangioblast = bt.CellType.from_source(name="hemangioblast").save()
     artifact = (
-        ln.Artifact.using("laminlabs/lamin-dev")
+        ln.Artifact.connect("laminlabs/lamin-dev")
         .filter(cell_types=hemangioblast)
         .first()
     )
@@ -210,16 +210,17 @@ def test_using():
     assert hemangioblast_dev.id != hemangioblast.id
     # query via list
     artifact_ref = (
-        ln.Artifact.using("laminlabs/lamin-dev")
+        ln.Artifact.connect("laminlabs/lamin-dev")
         .filter(cell_types__in=[hemangioblast])
         .first()
     )
     assert artifact == artifact_ref
     # check that .using provided with the current intance does nothing
-    assert ln.User.using("lamindb-unit-tests-core").first()._state.db == "default"
+    assert ln.User.connect("lamindb-unit-tests-core").first()._state.db == "default"
     user = ln.setup.settings.user.handle
     assert (
-        ln.User.using(f"{user}/lamindb-unit-tests-core").first()._state.db == "default"
+        ln.User.connect(f"{user}/lamindb-unit-tests-core").first()._state.db
+        == "default"
     )
 
 

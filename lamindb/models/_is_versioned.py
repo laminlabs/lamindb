@@ -74,7 +74,7 @@ class IsVersioned(models.Model):
         >>> new_artifact.versions()
         """
         return (
-            self.__class__.using(self._state.db)
+            self.__class__.connect(self._state.db)
             .filter(uid__startswith=self.stem_uid)
             .order_by("-created_at")
         )
