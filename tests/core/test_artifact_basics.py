@@ -76,7 +76,7 @@ def test_basic_validation():
     # > 1 args
     with pytest.raises(ValueError) as error:
         ln.Artifact("testpath.csv", "testpath.csv")
-    assert error.exconly() == "ValueError: Only one non-keyword arg allowed: data"
+    assert error.exconly() == "ValueError: Only one non-keyword arg allowed: path"
 
     # AUTO_KEY_PREFIX in key
     with pytest.raises(ValueError) as error:
