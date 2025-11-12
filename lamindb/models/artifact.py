@@ -1413,7 +1413,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
         if "data" in kwargs:
             warnings.warn(
-                "`data` argument will be renamed to `path` in a future release.",
+                "`data` argument was renamed to `path` and will be removed in a future release.",
                 DeprecationWarning,
                 stacklevel=2,
             )
