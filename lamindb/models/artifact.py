@@ -1021,7 +1021,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         schema: `Schema | None = None` A schema to validate features.
         revises: `Artifact | None = None` Previous version of the artifact. An alternative to passing `key` when creating a new version.
         overwrite_versions: `bool | None = None` Whether to overwrite versions. Defaults to `True` for folders and `False` for files.
-        run: `Run | bool | None = None` The run that creates the artifact. If `False`, surpress tracking the run.
+        run: `Run | bool | None = None` The run that creates the artifact. If `False`, suppress tracking the run.
             If `None`, infer the run from the global run context.
         branch: `Branch | None = None` The branch of the artifact. If `None`, uses the current branch.
         space: `Space | None = None` The space of the artifact. If `None`, uses the current space.
@@ -1069,9 +1069,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             artifact_v2 = ln.Artifact("./my_file.parquet", key="examples/my_file.parquet").save()
             artifact_v2.versions.to_dataframe()  # see all versions
 
-        You can write artifacts to other storage locations than the default storage location of the instance by passing the `storage` argument::
+        You can write artifacts to **non-default storage locations** by passing the `storage` argument::
 
-            storage_loc = ln.Storage.get(root="s3://my_bucket")
+            storage_loc = ln.Storage.get(root="s3://my_bucket")  # get storage location, or create via ln.Storage(root="s3://my_bucket").save()
             ln.Artifact("./my_file.parquet", key="examples/my_file.parquet", storage=storage_loc).save()  # upload to s3://my_bucket
 
         Sometimes you want to **avoid mapping the artifact into a path hierarchy**, and you only pass `description`::
