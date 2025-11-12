@@ -618,11 +618,20 @@ class Registry(ModelBase):
             case_sensitive=case_sensitive,
         )
 
+    @deprecated(new_name="connect")
+    def using(
+        cls,
+        instance: str | None,
+    ) -> QuerySet:
+        return cls.connect(
+            instance=instance,
+        )
+
     def connect(
         cls,
         instance: str | None,
     ) -> QuerySet:
-        """Use a non-default LaminDB instance.
+        """Query a non-default LaminDB instance.
 
         Args:
             instance: An instance identifier of form "account_handle/instance_name".
