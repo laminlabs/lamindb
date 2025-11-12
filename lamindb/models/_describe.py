@@ -355,12 +355,13 @@ def describe_run(
     )
     append_branch_space_created_at_created_by(record, two_column_items, fk_data)
     add_two_column_items_to_tree(tree, two_column_items)
-    if record.params:
-        params = tree.add(Text("Params", style="bold dark_orange"))
-        for key, value in record.params.items():
-            params.add(f"{key}: {value}")
-    if features_tree:
-        tree.add(features_tree)
+    if record.cli_args:
+        display_text(
+            record.cli_args.strip(),
+            "cli_args",
+            tree,
+            max_lines=4,
+        )
     if record.report_id:
         display_text(
             strip_ansi_from_string(record.report.load(is_run_input=False).strip()),
@@ -377,6 +378,12 @@ def describe_run(
             max_lines=4,
             uid=record.environment.uid[:7],
         )
+    if record.params:
+        params = tree.add(Text("Params", style="bold dark_orange"))
+        for key, value in record.params.items():
+            params.add(f"{key}: {value}")
+    if features_tree:
+        tree.add(features_tree)
     return tree
 
 
