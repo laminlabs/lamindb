@@ -1037,11 +1037,22 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             artifact = ln.Artifact("./my_folder", key="project1/my_folder").save()
 
         Calling `.save()` copies or uploads the file to the default storage location of your lamindb instance.
-        If you create an artifact **from a remote file or folder**, lamindb merely registers the S3 `key` and avoids copying the data::
+        If you create an artifact **from a remote file or folder**, lamindb registers the S3 `key` and avoids copying the data::
 
             artifact = ln.Artifact("s3://my_bucket/my_folder/my_file.csv").save()
 
-        If you want to **validate & annotate** a dataframe or an array, pass `schema` to one of the `.from_dataframe()`, `.from_anndata()`, ... constructors::
+        If you then want to query & access the artifact later on, this is how you do it::
+
+            artifact = ln.Artifact.get(key="examples/my_file.parquet")
+            cached_path = artifact.cache()  # sync to local cache & get local path
+
+        If the storage format supports it, you can load the artifact directly into memory or query it through a streaming interface, e.g., for parquet files::
+
+            df = artifact.load()               # load parquet file as DataFrame
+            pyarrow_dataset = artifact.open()  # open a streaming file-like object
+
+        If you want to **validate & annotate** a dataframe or an array using the feature & label registries,
+        pass `schema` to one of the `.from_dataframe()`, `.from_anndata()`, ... constructors::
 
             artifact = ln.Artifact.from_dataframe(
                 "./my_file.parquet",
@@ -1058,9 +1069,10 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             artifact_v2 = ln.Artifact("./my_file.parquet", key="examples/my_file.parquet").save()
             artifact_v2.versions.to_dataframe()  # see all versions
 
-        You can write artifacts to other storage locations by switching the current default storage location (:attr:`~lamindb.core.Settings.storage`) or by passing the `storage` argument::
+        You can write artifacts to other storage locations than the default storage location of the instance by passing the `storage` argument::
 
-            ln.settings.storage = "s3://some-bucket"
+            storage_loc = ln.Storage.get(root="s3://my_bucket")
+            ln.Artifact("./my_file.parquet", key="examples/my_file.parquet", storage=storage_loc).save()  # upload to s3://my_bucket
 
         Sometimes you want to **avoid mapping the artifact into a path hierarchy**, and you only pass `description`::
 
@@ -1084,7 +1096,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             - VCF: `.vcf` ⟷ /
             - QC: `.html` ⟷ /
 
-            You'll find these values in the `suffix` & `accessor` fields.
+            You'll find these values in the `suffix` & `otype` (object type) fields.
 
             LaminDB makes some default choices (e.g., serialize a `DataFrame` as a `.parquet` file).
 
@@ -1702,6 +1714,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         cls,
         idlike: int | str | None = None,
         *,
+        key: str | None = None,
+        path: str | None = None,
         is_run_input: bool | Run = False,
         **expressions,
     ) -> Artifact:
@@ -1709,9 +1723,10 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
         Args:
             idlike: Either a uid stub, uid or an integer id.
+            key: An optional key to query for.
+            path: An optional full path to query for, including the storage root.
             is_run_input: Whether to track this artifact as run input.
-            expressions: Fields and values passed as Django query expressions.
-                Use `path=...` to get an artifact for a local or remote filepath if exists.
+            expressions: Other fields and values passed as Django query expressions.
 
         Raises:
             :exc:`lamindb.errors.DoesNotExist`: In case no matching record is found.
@@ -1724,10 +1739,16 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
             ::
 
-                artifact = ln.Artifact.get("tCUkRcaEjTjhtozp0000")
-                artifact = ln.Arfifact.get(key="examples/my_file.parquet")
+                artifact = ln.Artifact.get("tCUkRcaEjTjhtozp")       # gets latest version for family tCUkRcaEjTjhtozp
+                artifact = ln.Artifact.get("tCUkRcaEjTjhtozp0005")   # gets version 0005 for family tCUkRcaEjTjhtozp
+                artifact = ln.Artifact.get(key="examples/my_file.parquet")               # gets latest version for a key
+                artifact = ln.Artifact.get(key="examples/my_file.parquet", version="2")  # pass a version tag
                 artifact = ln.Artifact.get(path="s3://bucket/folder/adata.h5ad")
         """
+        if key is not None:
+            expressions["key"] = key
+        if path is not None:
+            expressions["path"] = path
         return QuerySet(model=cls).get(idlike, is_run_input=is_run_input, **expressions)
 
     @classmethod
