@@ -46,9 +46,9 @@ if TYPE_CHECKING:
 
 
 class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates, HasParents):
-    """Metadata records for labeling and organizing entities in sheets.
+    """Flexible metadata records for labeling and organizing entities.
 
-    Is useful to manage samples, donors, cells, compounds, sequences.
+    Useful for managing samples, donors, cells, compounds, sequences, and other custom entities.
 
     Args:
         name: `str` A name.
@@ -56,7 +56,7 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates, HasParents):
         type: `Record | None = None` The type of this record.
         is_type: `bool = False` Whether this record is a type (a record that
             classifies other records).
-        schema: `Schema | None = None` A schema to enforce for a type (optional).
+        schema: `Schema | None = None` A schema defining allowed features for records of this type. Only applicable when `is_type=True`.
         reference: `str | None = None` For instance, an external ID or a URL.
         reference_type: `str | None = None` For instance, `"url"`.
 
@@ -77,17 +77,17 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates, HasParents):
             experiment1 = ln.Record(name="Experiment 1", type=experiment_type).save()
             experiment2 = ln.Record(name="Experiment 2", type=experiment_type).save()
 
-        Export all records of a that type to dataframe::
+        Export all records of that type to dataframe::
 
             experiment_type.records.to_dataframe()
-            #>             name   ...
-            #>      Experiment1   ...
-            #>      Experiment2   ...
+            #>              name   ...
+            #>      Experiment 1   ...
+            #>      Experiment 2   ...
 
         Add **features** to a record::
 
             gc_content = ln.Feature(name="gc_content", dtype=float).save()
-            experiment = ln.Feature(name="experiment", dtype=experiment).save()
+            experiment = ln.Feature(name="experiment", dtype=experiment_type).save()
             sample1.features.add_values({
                 "gc_content": 0.5,
                 "experiment": "Experiment 1",
