@@ -119,22 +119,32 @@ Here is how to access the content of the artifact:
 
 ```python
 local_path = artifact.cache()  # return a local path from a cache
-object = artifact.load()       # load object into memory
-accessor = artifact.open()     # return a streaming accessor
+object = artifact.load()       # if available for the format, load object into memory
+accessor = artifact.open()     # if available for the format, return a streaming accessor
 ```
 
 And here is how to access its data lineage context:
 
 ```python
-run = artifact.run         # get the run record
-transform = run.transform  # get the transform record
+run = artifact.run                  # get the run record
+transform = artifact.run.transform  # get the transform record
 ```
 
-Just like artifacts, runs & transforms are `SQLRecord` objects and follow the same API, just with different fields.
+<details>
+<summary>Just like artifacts, runs & transforms are `SQLRecord` objects and follow the same API.</summary>
 
-`run.describe()` | `transform.describe()`
---- | ---
-<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/rJrHr3XaITVS4wVJ0000.png" width="400" /> | <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/JYwmHBbgf2MRCfgL0000.png" width="350" />
+```
+run.describe()
+```
+
+<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/rJrHr3XaITVS4wVJ0000.png" width="550" />
+
+```
+transform.describe()
+```
+
+<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/JYwmHBbgf2MRCfgL0000.png" width="550" />
+</details>
 
 ### Lake: annotation & queries
 
