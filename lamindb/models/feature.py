@@ -528,20 +528,10 @@ def process_init_feature_param(args, kwargs, is_param: bool = False):
 
 
 class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
-    """Variables, such as dataframe columns or run parameters.
+    """Dimensions of measurement such as dataframe columns or dictionary keys.
 
-    A feature often represents a dimension of a dataset, such as a column in a `DataFrame`.
-    The `Feature` registry organizes metadata of features.
-
-    The `Feature` registry helps you organize and query datasets based on their
-    features and corresponding label annotations. For instance, when working
-    with a "T cell" label, it could be measured through different features
-    such as `"cell_type_by_expert"` where an expert manually classified the
-    cell, or `"cell_type_by_model"` where a computational model made the classification.
-
-    The two most important metadata of a feature are its `name` and the `dtype`.
-    In addition to typical data types, LaminDB has a `"num"` `dtype` to
-    concisely denote the union of all numerical types.
+    Features represent *what* is measured in a dataset—the variables or dimensions along which data is organized.
+    They enable you to query datasets based on their structure and corresponding label annotations.
 
     Args:
         name: `str` Name of the feature, typically a column name.
@@ -571,51 +561,73 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
         :class:`~lamindb.ULabel`
             Universal labels.
         :class:`~lamindb.Schema`
-            Feature sets.
+            Sets of features.
 
     Example:
 
-        A simple `"str"` feature.::
+        Features with simple data types::
 
             ln.Feature(name="sample_note", dtype=str).save()
+            ln.Feature(name="temperature_in_celsius", dtype=float).save()
+            ln.Feature(name="read_count", dtype=int).save()
 
-        A dtype `"cat[ULabel]"` can be more easily passed as below.::
+        A categorical feature measuring labels managed in the `Record` registry::
 
-            ln.Feature(name="project", dtype=ln.ULabel).save()
+            ln.Feature(name="sample", dtype=ln.Record).save()
 
-        A dtype `"cat[ULabel|bionty.CellType]"` can be more easily passed as below.::
+        The same for the `bt.CellType` registry::
 
-            ln.Feature(
-                name="cell_type",
-                dtype=[ln.ULabel, bt.CellType],
-            ).save()
+            ln.Feature(name="cell_type_by_expert", dtype=bt.CellType).save()  # expert annotation
+            ln.Feature(name="cell_type_by_model", dtype=bt.CellType).save()   # model annotation
 
-        A multivalue feature with a list of cell types.::
+        Scope a feature with a **feature type** to distinguish the same feature name across different contexts::
+
+            abc_feature_type = ln.Feature(name="ABC", is_type=True).save()  # ABC could reference a schema, a project, a team, etc.
+            ln.Feature(name="concentration_nM", dtype=float, type=abc_feature_type).save()
+
+            xyz_feature_type = ln.Feature(name="XYZ", is_type=True).save()  # XYZ could reference a schema, a project, a team, etc.
+            ln.Feature(name="concentration_nM", dtype=float, type=xyz_feature_type).save()
+
+            # calling .save() again with the same name and type returns the existing feature
+            ln.Feature(name="concentration_nM", dtype=float, type=xyz_feature_type).save()
+
+        Annotate an artifact with features (works identically for records and runs)::
+
+            artifact.features.add_values({
+                "temperature_in_celsius": 37.5,
+                "sample_note": "Control sample",
+            })
+
+        Query artifacts/records/runs by features::
+
+            ln.Artifact.filter(features__name="temperature_in_celsius")  # artifacts with this feature
+            ln.Artifact.filter(temperature_in_celsius__gt=37)            # artifacts where temperature > 37
+
+        A list dtype::
 
             ln.Feature(
                 name="cell_types",
                 dtype=list[bt.CellType],  # or list[str] for a list of strings
             ).save()
 
-        A path feature.::
+        A path feature::
 
             ln.Feature(
                 name="image_path",
                 dtype="path",   # will be validated as `str`
             ).save()
 
-    Hint:
+    Note:
 
         *Features* and *labels* denote two ways of using entities to organize data:
 
         1. A feature qualifies *what* is measured, i.e., a numerical or categorical random variable
         2. A label *is* a measured value, i.e., a category
 
-        Consider annotating a dataset by that it measured expression of 30k
-        genes: genes relate to the dataset as feature identifiers through a
-        feature set with 30k members. Now consider annotating the artifact by
-        whether that it measured the knock-out of 3 genes: here, the 3 genes act
-        as labels of the dataset.
+        Example: When annotating a dataset that measured expression of 30k genes,
+        those genes serve as feature identifiers.
+        When annotating a dataset whose experiment knocked out 3 specific genes,
+        those genes serve as labels.
 
         Re-shaping data can introduce ambiguity among features & labels. If this
         happened, ask yourself what the joint measurement was: a feature

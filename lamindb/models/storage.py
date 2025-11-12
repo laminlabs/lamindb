@@ -45,23 +45,23 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
 
     A storage location is either a directory (local or a folder in the cloud) or
     an entire S3/GCP bucket.
-    A LaminDB instance can manage and read from multiple storage locations. But any
-    storage location is managed by *at most one* LaminDB instance.
 
-    .. dropdown:: Managed vs. read-only storage locations
+    Each storage location is written to by at most one LaminDB instance.
+    However, a LaminDB instance can write to and read from multiple storage locations.
 
-        A LaminDB instance can only write artifacts to its managed storage
-        locations.
+    .. dropdown:: Writable vs. read-only storage locations
 
-        The :attr:`~lamindb.Storage.instance_uid` field defines the managing LaminDB instance of a storage location.
-        You can access the `instance_uid` of your current instance through `ln.setup.settings.instance_uid`.
+        The `instance_uid` field of a storage location defines the LaminDB instance that writes to that location.
+
+        If a storage location's `instance_uid` does **not** match your current instance (`ln.settings.instance_uid`),
+        you can only read from it.
 
         Here is an example (`source <https://lamin.ai/laminlabs/lamindata/transform/dPco79GYgzag0000>`__).
 
         .. image:: https://lamin-site-assets.s3.amazonaws.com/.lamindb/eHDmIOAxLEoqZ2oK0000.png
            :width: 400px
 
-        Some public storage locations are not be managed by any LaminDB instance: their `instance_uid` is `None`.
+        Some public storage locations are not written to by any LaminDB instance, hence, their `instance_uid` is `None`.
 
     .. dropdown:: Managing access to storage locations across instances
 
@@ -69,18 +69,18 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
         through AWS policies that you attach to your S3 bucket.
 
         To enable access management via LaminHub, head over to `https://lamin.ai/{account}/infrastructure`.
-        By clicking the green button that says "Connect S3 bucket", LaminDB will start connecting through federated S3 tokens
-        so that your collaborators access data based on their permissions in LaminHub.
+        By clicking the green button that says "Connect S3 bucket", your collaborators will access data
+        based on their LaminHub permissions.
         :doc:`docs:access` has more details.
 
         .. image:: https://lamin-site-assets.s3.amazonaws.com/.lamindb/ze8hkgVxVptSSZEU0000.png
            :width: 800px
 
-        By default, access permissions to a storage location are governed by the access permissions of its managing instance. If you
+        By default, a storage location inherits the access permissions of its instance. If you
         want to further restrict access to a storage location, you can move it into a space::
 
             space = ln.Space.get(name="my-space")
-            storage_loc = ln.Storage.get(root="s3://my-storace-location")
+            storage_loc = ln.Storage.get(root="s3://my-storage-location")
             storage_loc.space = space
             storage_loc.save()
 
@@ -90,7 +90,8 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
         root: `str` The root path of the storage location, e.g., `"./mydir"`, `"s3://my-bucket"`, `"s3://my-bucket/myfolder"`, `"gs://my-bucket/myfolder"`, `"/nfs/shared/datasets/genomics"`, `"/weka/shared/models/"`, ...
         description: `str | None = None` An optional description.
         space: `Space | None = None` A space to restrict access permissions to the storage location.
-        host: `str | None = None` For local storage locations, pass a globally unique host identifier, e.g. `"my-institute-cluster-1"`, `"my-server-abcd"`, ...
+        host: `str | None = None` For local storage locations, a globally unique identifier for the physical machine/server hosting the storage.
+            This distinguishes storage locations that may have the same local path but exist on different servers, e.g. `"my-institute-cluster-1"`, `"my-server-abcd"`.
 
     See Also:
         :attr:`lamindb.core.Settings.storage`
@@ -152,7 +153,7 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
 
             1. Copy or move artifacts into the desired new storage location
             2. Adapt the corresponding record in the {class}`~lamindb.Storage` registry by setting the `root` field to the new location
-            3. If your LaminDB storage location is managed through the hub, you also need to update the storage record on the hub -- contact support
+            3. If your LaminDB storage location is connected to the hub, you also need to update the storage record on the hub
 
     """
 
@@ -177,7 +178,11 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
     region: str | None = CharField(max_length=64, db_index=True, null=True)
     """Storage region for cloud storage locations. Host identifier for local storage locations."""
     instance_uid: str | None = CharField(max_length=12, db_index=True, null=True)
-    """Instance that manages this storage location."""
+    """The writing instance.
+
+    Only the LaminDB instance with this `uid` can write to this storage location.
+    This instance also governs the access permissions of the storage location unless the location is moved into a space.
+    """
     artifacts: Artifact
     """Artifacts contained in this storage location."""
 

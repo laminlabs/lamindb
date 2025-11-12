@@ -38,7 +38,7 @@ Highlights:
 - **integrations** → [vitessce](https://docs.lamin.ai/vitessce), [nextflow](https://docs.lamin.ai/nextflow), [redun](https://docs.lamin.ai/redun), and [more](https://docs.lamin.ai/integrations)
 - **extendable** → create custom plug-ins based on the Django ORM
 
-If you want a GUI, you can connect your LaminDB instance to LaminHub and close the drylab-wetlab feedback loop: [lamin.ai](https://lamin.ai).
+If you want a GUI: [LaminHub](https://lamin.ai) is a data collaboration hub built on LaminDB similar to how GitHub is built on git.
 
 <details>
 <summary>Who uses it?</summary>
@@ -49,7 +49,7 @@ Scientists & engineers in pharma, biotech, and academia, including:
 - Ensocell Therapeutics – A BioTech with offices in Cambridge, UK, and California
 - DZNE – The National Research Center for Neuro-Degenerative Diseases in Germany
 - Helmholtz Munich – The National Research Center for Environmental Health in Germany
-- scverse – An international non-profit consortium for open-source omics data tools
+- scverse – An international non-profit for open-source omics data tools
 - The Global Immunological Swarm Learning Network – Research hospitals at U Bonn, Harvard, MIT, Stanford, ETH Zürich, Charite, Mount Sinai, and others
 
 </details>

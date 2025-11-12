@@ -129,15 +129,13 @@ class User(BaseSQLRecord, CanCurate):
 
     Every :class:`~lamindb.models.SQLRecord` has a `created_by` field that links to the creating user.
 
-    All data in this registry is synchronized from LaminHub to ensure a universal
-    user identity.
+    This registry is automatically populated with user identities from LaminHub in case the user authenticates.
 
     Examples:
 
-        Query a user by handle:
+        Query a user by handle::
 
-        >>> user = ln.User.get(handle="testuser1")
-        >>> user
+            user = ln.User.get(handle="testuser1")
     """
 
     class Meta:

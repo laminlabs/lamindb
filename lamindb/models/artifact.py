@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import shutil
+import warnings
 from collections import defaultdict
 from pathlib import Path, PurePath, PurePosixPath
 from typing import TYPE_CHECKING, Any, Literal, Union, overload
@@ -1009,21 +1010,18 @@ class LazyArtifact:
 class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     """Datasets & models stored as files, folders, or arrays.
 
-    Artifacts manage data in local or remote storage.
-
-    Some artifacts are array-like, e.g., when stored as `.parquet`, `.h5ad`,
-    `.zarr`, or `.tiledb`.
+    Some artifacts are table- or array-like, e.g., when stored as `.parquet`, `.h5ad`, `.zarr`, or `.tiledb`.
 
     Args:
-        data: `UPathStr` A path to a local or remote folder or file.
-        key: `str | None = None` A path-like key to reference artifact in default storage, e.g., `"myfolder/myfile.fcs"`. Artifacts with the same key form a version family.
+        path: `UPathStr` A path to a local or remote folder or file from which to create the artifact.
+        key: `str | None = None` A key within the storage location, e.g., `"myfolder/myfile.fcs"`. Artifacts with the same key form a version family.
         description: `str | None = None` A description.
         kind: `Literal["dataset", "model"] | str | None = None` Distinguish models from datasets from other files & folders.
         features: `dict | None = None` External features to annotate the artifact with via :class:`~lamindb.models.FeatureManager.set_values`.
         schema: `Schema | None = None` A schema to validate features.
         revises: `Artifact | None = None` Previous version of the artifact. An alternative to passing `key` when creating a new version.
         overwrite_versions: `bool | None = None` Whether to overwrite versions. Defaults to `True` for folders and `False` for files.
-        run: `Run | bool | None = None` The run that creates the artifact. If `False`, surpress tracking the run.
+        run: `Run | bool | None = None` The run that creates the artifact. If `False`, suppress tracking the run.
             If `None`, infer the run from the global run context.
         branch: `Branch | None = None` The branch of the artifact. If `None`, uses the current branch.
         space: `Space | None = None` The space of the artifact. If `None`, uses the current space.
@@ -1039,11 +1037,22 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             artifact = ln.Artifact("./my_folder", key="project1/my_folder").save()
 
         Calling `.save()` copies or uploads the file to the default storage location of your lamindb instance.
-        If you create an artifact **from a remote file or folder**, lamindb merely registers the S3 `key` and avoids copying the data::
+        If you create an artifact **from a remote file or folder**, lamindb registers the S3 `key` and avoids copying the data::
 
             artifact = ln.Artifact("s3://my_bucket/my_folder/my_file.csv").save()
 
-        If you want to **validate & annotate** a dataframe or an array, pass `schema` to one of the `.from_dataframe()`, `.from_anndata()`, ... constructors::
+        If you then want to query & access the artifact later on, this is how you do it::
+
+            artifact = ln.Artifact.get(key="examples/my_file.parquet")
+            cached_path = artifact.cache()  # sync to local cache & get local path
+
+        If the storage format supports it, you can load the artifact directly into memory or query it through a streaming interface, e.g., for parquet files::
+
+            df = artifact.load()               # load parquet file as DataFrame
+            pyarrow_dataset = artifact.open()  # open a streaming file-like object
+
+        If you want to **validate & annotate** a dataframe or an array using the feature & label registries,
+        pass `schema` to one of the `.from_dataframe()`, `.from_anndata()`, ... constructors::
 
             artifact = ln.Artifact.from_dataframe(
                 "./my_file.parquet",
@@ -1060,9 +1069,10 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             artifact_v2 = ln.Artifact("./my_file.parquet", key="examples/my_file.parquet").save()
             artifact_v2.versions.to_dataframe()  # see all versions
 
-        You can write artifacts to other storage locations by switching the current default storage location (:attr:`~lamindb.core.Settings.storage`) or by passing the `storage` argument::
+        You can write artifacts to **non-default storage locations** by passing the `storage` argument::
 
-            ln.settings.storage = "s3://some-bucket"
+            storage_loc = ln.Storage.get(root="s3://my_bucket")  # get storage location, or create via ln.Storage(root="s3://my_bucket").save()
+            ln.Artifact("./my_file.parquet", key="examples/my_file.parquet", storage=storage_loc).save()  # upload to s3://my_bucket
 
         Sometimes you want to **avoid mapping the artifact into a path hierarchy**, and you only pass `description`::
 
@@ -1086,7 +1096,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             - VCF: `.vcf` ⟷ /
             - QC: `.html` ⟷ /
 
-            You'll find these values in the `suffix` & `accessor` fields.
+            You'll find these values in the `suffix` & `otype` (object type) fields.
 
             LaminDB makes some default choices (e.g., serialize a `DataFrame` as a `.parquet` file).
 
@@ -1411,9 +1421,17 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             return None
         # now proceed with the user-facing constructor
         if len(args) > 1:
-            raise ValueError("Only one non-keyword arg allowed: data")
+            raise ValueError("Only one non-keyword arg allowed: path")
 
-        data: str | Path = kwargs.pop("data") if len(args) == 0 else args[0]
+        if "data" in kwargs:
+            warnings.warn(
+                "`data` argument was renamed to `path` and will be removed in a future release.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            path = kwargs.pop("data")
+        else:
+            path = kwargs.pop("path") if len(args) == 0 else args[0]
         kind: str = kwargs.pop("kind", None)
         key: str | None = kwargs.pop("key", None)
         run_id: int | None = kwargs.pop("run_id", None)  # for REST API
@@ -1482,12 +1500,12 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                         f"more than one storage location for space {space}, choosing {storage}"
                     )
         otype = kwargs.pop("otype") if "otype" in kwargs else None
-        if isinstance(data, str) and data.startswith("s3:///"):
+        if isinstance(path, str) and path.startswith("s3:///"):
             # issue in Groovy / nf-lamin producing malformed S3 paths
             # https://laminlabs.slack.com/archives/C08J590666Q/p1751315027830849?thread_ts=1751039961.479259&cid=C08J590666Q
-            data = data.replace("s3:///", "s3://")
+            path = path.replace("s3:///", "s3://")
         otype = _check_otype_artifact(
-            data=data, otype=otype, cloud_warning=not _is_internal_call
+            data=path, otype=otype, cloud_warning=not _is_internal_call
         )
         if "type" in kwargs:
             logger.warning("`type` will be removed soon, please use `kind`")
@@ -1510,7 +1528,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             )
         # below is for internal calls that require defining the storage location
         # ahead of constructing the Artifact
-        if isinstance(data, (str, Path)) and AUTO_KEY_PREFIX in str(data):
+        if isinstance(path, (str, Path)) and AUTO_KEY_PREFIX in str(path):
             if _is_internal_call:
                 is_automanaged_path = True
                 user_provided_key = key
@@ -1525,7 +1543,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         provisional_uid, revises = create_uid(revises=revises, version=version)
         run = get_run(run)
         kwargs_or_artifact, privates = get_artifact_kwargs_from_data(
-            data=data,
+            data=path,
             key=key,
             run=run,
             format=format,
@@ -1576,7 +1594,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         if revises is None:
             revises = kwargs_or_artifact.pop("revises")
 
-        if data is not None:
+        if path is not None:
             self._local_filepath = privates["local_filepath"]
             self._cloud_filepath = privates["cloud_filepath"]
             self._memory_rep = privates["memory_rep"]
@@ -1696,6 +1714,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         cls,
         idlike: int | str | None = None,
         *,
+        key: str | None = None,
+        path: str | None = None,
         is_run_input: bool | Run = False,
         **expressions,
     ) -> Artifact:
@@ -1703,9 +1723,10 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
         Args:
             idlike: Either a uid stub, uid or an integer id.
+            key: An optional key to query for.
+            path: An optional full path to query for, including the storage root.
             is_run_input: Whether to track this artifact as run input.
-            expressions: Fields and values passed as Django query expressions.
-                Use `path=...` to get an artifact for a local or remote filepath if exists.
+            expressions: Other fields and values passed as Django query expressions.
 
         Raises:
             :exc:`lamindb.errors.DoesNotExist`: In case no matching record is found.
@@ -1718,10 +1739,16 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
             ::
 
-                artifact = ln.Artifact.get("tCUkRcaEjTjhtozp0000")
-                artifact = ln.Arfifact.get(key="examples/my_file.parquet")
+                artifact = ln.Artifact.get("tCUkRcaEjTjhtozp")       # gets latest version for family tCUkRcaEjTjhtozp
+                artifact = ln.Artifact.get("tCUkRcaEjTjhtozp0005")   # gets version 0005 for family tCUkRcaEjTjhtozp
+                artifact = ln.Artifact.get(key="examples/my_file.parquet")               # gets latest version for a key
+                artifact = ln.Artifact.get(key="examples/my_file.parquet", version="2")  # pass a version tag
                 artifact = ln.Artifact.get(path="s3://bucket/folder/adata.h5ad")
         """
+        if key is not None:
+            expressions["key"] = key
+        if path is not None:
+            expressions["path"] = path
         return QuerySet(model=cls).get(idlike, is_run_input=is_run_input, **expressions)
 
     @classmethod

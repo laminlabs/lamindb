@@ -41,16 +41,18 @@ class Reference(SQLRecord, CanCurate, TracksRun, TracksUpdates, ValidateFields):
     """References such as internal studies, papers, documents, or URLs.
 
     Example:
-        >>> reference = Reference(
-        ...     name="A Paper Title",
-        ...     abbr="APT",
-        ...     url="https://doi.org/10.1000/xyz123",
-        ...     pubmed_id=12345678,
-        ...     doi="10.1000/xyz123",
-        ...     description="Good paper.",
-        ...     text="Some text I want to be searchable.",
-        ...     date=date(2023, 11, 21),
-        ... ).save()
+
+        ::
+            reference = Reference(
+                name="A Paper Title",
+                abbr="APT",
+                url="https://doi.org/10.1000/xyz123",
+                pubmed_id=12345678,
+                doi="10.1000/xyz123",
+                description="Good paper.",
+                text="Some text I want to be searchable.",
+                date=date(2023, 11, 21),
+            ).save()
     """
 
     class Meta(SQLRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
@@ -115,11 +117,11 @@ class Reference(SQLRecord, CanCurate, TracksRun, TracksUpdates, ValidateFields):
         Artifact, through="ArtifactReference", related_name="references"
     )
     """Annotated artifacts."""
-    transforms: Artifact = models.ManyToManyField(
+    transforms: Transform = models.ManyToManyField(
         Transform, through="TransformReference", related_name="references"
     )
     """Annotated transforms."""
-    collections: Artifact = models.ManyToManyField(
+    collections: Collection = models.ManyToManyField(
         Collection, through="CollectionReference", related_name="references"
     )
     """Annotated collections."""
@@ -160,17 +162,19 @@ class Reference(SQLRecord, CanCurate, TracksRun, TracksUpdates, ValidateFields):
 
 
 class Project(SQLRecord, CanCurate, TracksRun, TracksUpdates, ValidateFields):
-    """Projects to label artifacts, transforms, and runs.
+    """Projects to label artifacts, transforms, records, and runs.
 
-    Example::
+    Example:
 
-        project = Project(
-           name="My Project Name",
-           abbr="MPN",
-           url="https://example.com/my_project",
-        ).save()
-        artifact.projects.add(project)  # <-- labels the artifact with the project
-        ln.track(project=project)       # <-- automtically labels entities during the run
+        ::
+
+            project = Project(
+            name="My Project Name",
+            abbr="MPN",
+            url="https://example.com/my_project",
+            ).save()
+            artifact.projects.add(project)  # <-- labels the artifact with the project
+            ln.track(project=project)       # <-- automtically labels entities during the run
 
     """
 
@@ -246,11 +250,11 @@ class Project(SQLRecord, CanCurate, TracksRun, TracksUpdates, ValidateFields):
         ULabel, through="ULabelProject", related_name="projects"
     )
     """Annotated ulabels."""
-    features: ULabel = models.ManyToManyField(
+    features: Feature = models.ManyToManyField(
         Feature, through="FeatureProject", related_name="projects"
     )
     """Annotated features."""
-    schemas: ULabel = models.ManyToManyField(
+    schemas: Schema = models.ManyToManyField(
         Schema, through="SchemaProject", related_name="projects"
     )
     """Annotated schemas."""
