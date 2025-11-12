@@ -676,8 +676,23 @@ class Registry(ModelBase):
             source_modules = set(  # noqa
                 [mod for mod in iresult["schema_str"].split(",") if mod != ""]
             )
-            # this just retrives the full connection string from iresult
-            db = update_db_using_local(iresult, settings_file)
+
+            # TODO explanation
+            # TODO check for public instance
+            if 1 == 1:
+                local_sqlite_path = ln_setup.settings.instance._sqlite_file_local
+
+                # TODO make this update safe -> should update again if the timestamp has changed
+                if not local_sqlite_path.exists():
+                    local_sqlite_path.parent.mkdir(parents=True, exist_ok=True)
+                    cloud_db_path = ln_setup.settings.instance._sqlite_file
+                    cloud_db_path.download_to(local_sqlite_path)
+
+                db = f"sqlite:///{local_sqlite_path}"
+            else:
+                # this just retrives the full connection string from iresult
+                db = update_db_using_local(iresult, settings_file)
+
             cache_using_filepath.write_text(
                 f"{iresult['lnid']}\n{iresult['schema_str']}", encoding="utf-8"
             )
@@ -690,7 +705,21 @@ class Registry(ModelBase):
         else:
             isettings = load_instance_settings(settings_file)
             source_modules = isettings.modules
-            db = isettings.db
+
+            # TODO check for public instance
+            if 1 == 1:
+                local_sqlite_path = ln_setup.settings.instance._sqlite_file_local
+
+                # TODO make this update safe -> should update again if the timestamp has changed
+                if not local_sqlite_path.exists():
+                    local_sqlite_path.parent.mkdir(parents=True, exist_ok=True)
+                    cloud_db_path = ln_setup.settings.instance._sqlite_file
+                    cloud_db_path.download_to(local_sqlite_path)
+
+                db = f"sqlite:///{local_sqlite_path}"
+            else:
+                db = isettings.db
+
             cache_using_filepath.write_text(
                 f"{isettings.uid}\n{','.join(source_modules)}", encoding="utf-8"
             )
