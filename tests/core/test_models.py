@@ -124,7 +124,7 @@ def test_unsaved_relationship_modification_attempts():
 
 
 def test_unsaved_model_different_instance():
-    af = ln.Artifact.using("laminlabs/lamindata").get(
+    af = ln.Artifact.connect("laminlabs/lamindata").get(
         key="scrna/micro-macfarland2020.h5ad"
     )
 

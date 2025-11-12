@@ -90,7 +90,7 @@ def attempt_accessing_path(
             )
     else:
         if artifact._state.db not in ("default", None) and using_key is None:
-            storage = Storage.using(artifact._state.db).get(id=artifact.storage_id)
+            storage = Storage.connect(artifact._state.db).get(id=artifact.storage_id)
         else:
             storage = Storage.objects.using(using_key).get(id=artifact.storage_id)
         # find a better way than passing None to instance_settings in the future!

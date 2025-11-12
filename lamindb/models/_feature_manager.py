@@ -645,13 +645,13 @@ def filter_base(
     value_model = FeatureValue
     keys_normalized = [key.split("__")[0] for key in expression]
     if not _skip_validation:
-        validated = model.using(db).validate(keys_normalized, field="name", mute=True)
+        validated = model.connect(db).validate(keys_normalized, field="name", mute=True)
         if sum(validated) != len(keys_normalized):
             raise ValidationError(
                 f"Some keys in the filter expression are not registered as features: {np.array(keys_normalized)[~validated]}"
             )
     new_expression = {}
-    features = model.using(db).filter(name__in=keys_normalized).distinct()
+    features = model.connect(db).filter(name__in=keys_normalized).distinct()
     feature_param = "feature"
     for key, value in expression.items():
         split_key = key.split("__")
@@ -717,7 +717,7 @@ def filter_base(
                     # we need the comparator here because users might query like so
                     # ln.Artifact.filter(experiment__contains="Experi")
                     expression = {f"{field_name}{comparator}": value}
-                    labels = result["registry"].using(db).filter(**expression)
+                    labels = result["registry"].connect(db).filter(**expression)
                     if len(labels) == 0:
                         raise DoesNotExist(
                             f"Did not find a {label_registry.__name__} matching `{field_name}{comparator}={value}`"
