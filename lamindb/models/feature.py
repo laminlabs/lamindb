@@ -528,13 +528,10 @@ def process_init_feature_param(args, kwargs, is_param: bool = False):
 
 
 class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
-    """Variables representing dataset dimensions such as dataframe columns or dictionary keys.
+    """Dimensions of measurement such as dataframe columns or dictionary keys.
 
-    The `Feature` registry helps you organize and query datasets based on their
-    features and corresponding label annotations. For instance, when working
-    with a "T cell" label, it could be measured through different features
-    such as `"cell_type_by_expert"` where an expert manually classified the
-    cell, or `"cell_type_by_model"` where a computational model made the classification.
+    Features represent *what* is measured in a dataset—the variables or dimensions along which data is organized.
+    They enable you to query datasets based on their structure and corresponding label annotations.
 
     Args:
         name: `str` Name of the feature, typically a column name.
@@ -568,29 +565,35 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
 
     Example:
 
-        A simple `"str"` feature.::
+        A simple `str` feature::
 
             ln.Feature(name="sample_note", dtype=str).save()
 
-        A dtype `"cat[ULabel]"` can be more easily passed as below.::
+        A categorical feature measuring labels managed in the `Record` registry::
 
-            ln.Feature(name="project", dtype=ln.ULabel).save()
+            ln.Feature(name="sample", dtype=ln.Record).save()
 
-        A dtype `"cat[ULabel|bionty.CellType]"` can be more easily passed as below.::
+        The same for the `bt.CellType` registry::
 
-            ln.Feature(
-                name="cell_type",
-                dtype=[ln.ULabel, bt.CellType],
-            ).save()
+            ln.Feature(name="cell_type_by_expert", dtype=bt.CellType).save()  # expert annotation
+            ln.Feature(name="cell_type_by_model", dtype=bt.CellType).save()   # model annotation
 
-        A multivalue feature with a list of cell types.::
+        Scope a feature by a type::
+
+            abc_feature_type = ln.Feature(name="ABC", is_type=True).save()  # ABC could reference a schema, a project, a team, etc.
+            ln.Feature(name="concentration_nM", dtype=float, type=abc_feature_type).save()
+
+            xyz_feature_type = ln.Feature(name="XYZ", is_type=True).save()  # XYZ could reference a schema, a project, a team, etc.
+            ln.Feature(name="concentration_nM", dtype=float, type=xyz_feature_type).save()
+
+        A list dtype::
 
             ln.Feature(
                 name="cell_types",
                 dtype=list[bt.CellType],  # or list[str] for a list of strings
             ).save()
 
-        A path feature.::
+        A path feature::
 
             ln.Feature(
                 name="image_path",
