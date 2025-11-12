@@ -561,13 +561,15 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
         :class:`~lamindb.ULabel`
             Universal labels.
         :class:`~lamindb.Schema`
-            Feature sets.
+            Sets of features.
 
     Example:
 
-        A simple `str` feature::
+        Features with simple data types::
 
             ln.Feature(name="sample_note", dtype=str).save()
+            ln.Feature(name="temperature_in_celsius", dtype=float).save()
+            ln.Feature(name="read_count", dtype=int).save()
 
         A categorical feature measuring labels managed in the `Record` registry::
 
@@ -578,13 +580,28 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
             ln.Feature(name="cell_type_by_expert", dtype=bt.CellType).save()  # expert annotation
             ln.Feature(name="cell_type_by_model", dtype=bt.CellType).save()   # model annotation
 
-        Scope a feature by a type::
+        Scope a feature with a **feature type** to distinguish the same feature name across different contexts::
 
             abc_feature_type = ln.Feature(name="ABC", is_type=True).save()  # ABC could reference a schema, a project, a team, etc.
             ln.Feature(name="concentration_nM", dtype=float, type=abc_feature_type).save()
 
             xyz_feature_type = ln.Feature(name="XYZ", is_type=True).save()  # XYZ could reference a schema, a project, a team, etc.
             ln.Feature(name="concentration_nM", dtype=float, type=xyz_feature_type).save()
+
+            # calling .save() again with the same name and type returns the existing feature
+            ln.Feature(name="concentration_nM", dtype=float, type=xyz_feature_type).save()
+
+        Annotate an artifact with features (works identically for records and runs)::
+
+            artifact.features.add_values({
+                "temperature_in_celsius": 37.5,
+                "sample_note": "Control sample",
+            })
+
+        Query artifacts/records/runs by features::
+
+            ln.Artifact.filter(features__name="temperature_in_celsius")  # artifacts with this feature
+            ln.Artifact.filter(temperature_in_celsius__gt=37)            # artifacts where temperature > 37
 
         A list dtype::
 
@@ -600,18 +617,17 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
                 dtype="path",   # will be validated as `str`
             ).save()
 
-    Hint:
+    Note:
 
         *Features* and *labels* denote two ways of using entities to organize data:
 
         1. A feature qualifies *what* is measured, i.e., a numerical or categorical random variable
         2. A label *is* a measured value, i.e., a category
 
-        Consider annotating a dataset by that it measured expression of 30k
-        genes: genes relate to the dataset as feature identifiers through a
-        feature set with 30k members. Now consider annotating the artifact by
-        whether that it measured the knock-out of 3 genes: here, the 3 genes act
-        as labels of the dataset.
+        Example: When annotating a dataset that measured expression of 30k genes,
+        those genes serve as feature identifiers.
+        When annotating a dataset whose experiment knocked out 3 specific genes,
+        those genes serve as labels.
 
         Re-shaping data can introduce ambiguity among features & labels. If this
         happened, ask yourself what the joint measurement was: a feature
