@@ -528,20 +528,13 @@ def process_init_feature_param(args, kwargs, is_param: bool = False):
 
 
 class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
-    """Variables, such as dataframe columns or run parameters.
-
-    A feature often represents a dimension of a dataset, such as a column in a `DataFrame`.
-    The `Feature` registry organizes metadata of features.
+    """Variables representing dataset dimensions such as dataframe columns or dictionary keys.
 
     The `Feature` registry helps you organize and query datasets based on their
     features and corresponding label annotations. For instance, when working
     with a "T cell" label, it could be measured through different features
     such as `"cell_type_by_expert"` where an expert manually classified the
     cell, or `"cell_type_by_model"` where a computational model made the classification.
-
-    The two most important metadata of a feature are its `name` and the `dtype`.
-    In addition to typical data types, LaminDB has a `"num"` `dtype` to
-    concisely denote the union of all numerical types.
 
     Args:
         name: `str` Name of the feature, typically a column name.
