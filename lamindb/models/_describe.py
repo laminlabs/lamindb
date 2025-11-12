@@ -363,13 +363,15 @@ def describe_run(
             max_lines=4,
         )
     if record.report_id:
-        display_text(
-            strip_ansi_from_string(record.report.load(is_run_input=False).strip()),
-            "report",
-            tree,
-            max_lines=4,
-            uid=record.report.uid[:7],
-        )
+        report = record.report.load(is_run_input=False)
+        if report:
+            display_text(
+                strip_ansi_from_string(report.strip()),
+                "report",
+                tree,
+                max_lines=4,
+                uid=record.report.uid[:7],
+            )
     if record.environment_id:
         display_text(
             record.environment.load(is_run_input=False).strip(),
