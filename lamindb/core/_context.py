@@ -88,6 +88,18 @@ def get_notebook_key_colab() -> str:
     return key
 
 
+def get_cli_args() -> str | None:
+    """Returns the CLI arguments used to invoke a script.
+
+    Returns None if not run as a script (e.g., in Jupyter, interactive shell).
+    """
+    # check if run as a script (not interactive/notebook/imported)
+    # and whether arguments have been passed
+    if len(sys.argv) > 1 and sys.argv[0] and sys.argv[0].endswith(".py"):
+        return " ".join(sys.argv[1:])
+    return None
+
+
 def pretty_pypackages(dependencies: dict) -> str:
     deps_list = []
     for pkg, ver in dependencies.items():
@@ -549,6 +561,10 @@ class Context:
             self._logging_message_track += "\n→ params: " + ", ".join(
                 f"{key}={value!r}" for key, value in run.params.items()
             )
+        cli_args = get_cli_args()
+        if cli_args:
+            logger.important(f"script invoked with: {cli_args}")
+            run.cli_args = cli_args
         run.save()  # need to save now
         if features is not None:
             run.features.add_values(features)

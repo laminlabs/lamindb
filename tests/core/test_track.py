@@ -227,13 +227,15 @@ def test_create_or_load_transform():
 def test_run_scripts():
     # regular execution
     result = subprocess.run(  # noqa: S602
-        f"python {SCRIPTS_DIR / 'script-to-test-versioning.py'}",
+        f"python {SCRIPTS_DIR / 'script-to-test-versioning.py --param 42'}",
         shell=True,
         capture_output=True,
     )
     assert result.returncode == 0
     assert "created Transform('Ro1gl7n8YrdH0000'" in result.stdout.decode()
     assert "started new Run(" in result.stdout.decode()
+    transform = ln.Transform.get("Ro1gl7n8YrdH0000")
+    assert transform.latest_run.cli_args == "--param 42"
 
     # updated key (filename change)
     result = subprocess.run(  # noqa: S602
@@ -243,6 +245,8 @@ def test_run_scripts():
     )
     assert result.returncode == 0
     assert "renaming transform" in result.stdout.decode()
+    transform = ln.Transform.get(key="script-to-test-filename-change.py")
+    assert transform.latest_run.cli_args is None
 
     # version already taken
     result = subprocess.run(  # noqa: S602
