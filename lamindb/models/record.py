@@ -73,14 +73,16 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates, HasParents):
 
         Group several records under a **record type**::
 
-            experiment = ln.Record(name="Experiment", is_type=True).save()
-            experiment1 = ln.Record(name="Experiment 1", type=experiment).save()
-            experiment2 = ln.Record(name="Experiment 2", type=experiment).save()
+            experiment_type = ln.Record(name="Experiment", is_type=True).save()
+            experiment1 = ln.Record(name="Experiment 1", type=experiment_type).save()
+            experiment2 = ln.Record(name="Experiment 2", type=experiment_type).save()
 
-            experiment.records.to_dataframe()
-            #>             name
-            #>      Experiment1
-            #>      Experiment2
+        Export all records of a that type to dataframe::
+
+            experiment_type.records.to_dataframe()
+            #>             name   ...
+            #>      Experiment1   ...
+            #>      Experiment2   ...
 
         Add **features** to a record::
 
@@ -91,29 +93,30 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates, HasParents):
                 "experiment": "Experiment 1",
             })
 
-            ln.Record.to_dataframe(include="features")
-            #>          name    gc_content      experiment
-            #>      Sample 1           0.5    Experiment 1
-
-        **Constrain metadata** by using a :class:`~lamindb.Schema`::
+        **Constrain features** by using a :class:`~lamindb.Schema`, creating a **sheet**::
 
             schema = ln.Schema([gc_content, experiment], name="sample_schema").save()
-            sample = ln.Record(name="Sample", is_type=True, schema=schema).save()
-            sample2 = ln.Record(name="Sample 2", type=sample).save()
-
+            sheet = ln.Record(name="Sample", is_type=True, schema=schema).save()  # add schema to type
+            sample2 = ln.Record(name="Sample 2", type=sheet).save()
             sample2.features.add_values({"gc_content": 0.6})  # raises ValidationError because experiment is missing
 
-        Records can also model **ontologies** through their parents/children attributes::
+        Query records by features::
 
-            cell_type = Record(name="CellType", is_type=True).save()
-            t_cell = Record(name="T Cell", type=cell_type).save()
-            cd4_t_cell = Record(name="CD4+ T Cell", type=cell_type).save()
+            ln.Record.filter(gc_content=0.55)     # exact match
+            ln.Record.filter(gc_content__gt=0.5)  # greater than
+            ln.Record.filter(type=sheet)          # just the record on the sheet
+
+        Model **custom ontologies** through their parents/children attributes::
+
+            cell_type = ln.Record(name="CellType", is_type=True).save()
+            t_cell = ln.Record(name="T Cell", type=cell_type).save()
+            cd4_t_cell = ln.Record(name="CD4+ T Cell", type=cell_type).save()
             t_cell.children.add(cd4_t_cell)
 
-        However, if you work with standard biological entities like cell lines, cell types, tissues,
-        consider using the pre-defined biological registries in :mod:`bionty`.
+        If you work with basic biological entities like cell lines, cell types, tissues,
+        consider building on the public biological ontologies in :mod:`bionty`.
 
-    .. dropdown:: `Record` vs. `SQLRecord`
+    .. dropdown:: What is the difference between `Record` and `SQLRecord`?
 
         The features of a `Record` are flexible: you can dynamically define features and add features to a record.
         The fields of a `SQLRecord` are fixed: you need to define them in code and then migrate the underlying database.
@@ -360,9 +363,11 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates, HasParents):
     def type_to_dataframe(self, recurse: bool = False) -> pd.DataFrame:
         """Export all instances of this record type to a pandas DataFrame.
 
-        This is roughly equivalent to::
+        This is almost equivalent to::
 
             ln.Record.filter(type=sample_type).to_dataframe(include="features")
+
+        `type_to_dataframe()` ensures that the columns are ordered according to the schema of the type and encodes fields like `uid` and `name`.
 
         Args:
             recurse: `bool = False` Whether to include records of sub-types recursively.
