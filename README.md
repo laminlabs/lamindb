@@ -131,15 +131,15 @@ transform = artifact.run.transform  # get the transform record
 ```
 
 <details>
-<summary>Just like artifacts, runs & transforms are `SQLRecord` objects and follow the same API.</summary>
+<summary>Examples for run & transform.</summary>
 
-```
+```python
 run.describe()
 ```
 
 <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/rJrHr3XaITVS4wVJ0000.png" width="550" />
 
-```
+```python
 transform.describe()
 ```
 
