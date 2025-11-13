@@ -222,7 +222,7 @@ class Curator:
         else:
             self._dataset = dataset
         self._schema: Schema = schema
-        self._external_features: dict[str, Any] = features or {}
+        self._external_features: dict[str, Any] = features
         self._is_validated: bool = False
 
     @doc_args(VALIDATE_DOCSTRING)
@@ -338,8 +338,20 @@ class SlotsCurator(Curator):
     @doc_args(VALIDATE_DOCSTRING)
     def validate(self) -> None:
         """{}"""  # noqa: D415
-        if self._external_features is not None and "__external__" in self._schema.slots:
+        if "__external__" in self._schema.slots:
             validation_schema = self._schema.slots["__external__"]
+            if not self._external_features:
+                if self._artifact is not None and not self._artifact._state.adding:
+                    logger.important(
+                        "no new external features provided, using existing external features of artifact for validation"
+                    )
+                    self._external_features = self._artifact.features.get_values(
+                        external_only=True
+                    )
+                else:
+                    raise ValidationError(
+                        "External features slot is defined in schema but no external features were provided."
+                    )
             ExperimentalDictCurator(
                 self._external_features, validation_schema
             ).validate()

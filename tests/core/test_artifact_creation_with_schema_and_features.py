@@ -170,6 +170,34 @@ def test_from_dataframe_with_external_schema(
         slots={"__external__": schema_external},
         otype="DataFrame",
     ).save()
+
+    # Case 3a: user passes no external features
+    with pytest.raises(ln.errors.ValidationError) as error:
+        artifact = ln.Artifact.from_dataframe(
+            df,
+            key="test_df_with_external_features.parquet",
+            schema=schema_correct_external,
+        ).save()
+    assert (
+        "External features slot is defined in schema but no external features were provided."
+        in error.exconly()
+    )
+
+    # alternative via DataFrameCurator directly
+    with pytest.raises(ln.errors.ValidationError) as error:
+        curator = ln.curators.DataFrameCurator(
+            df,
+            schema=schema_correct_external,
+        )
+        artifact = curator.save_artifact(
+            key="test_df_with_external_features.parquet",
+        ).save()
+    assert (
+        "External features slot is defined in schema but no external features were provided."
+        in error.exconly()
+    )
+
+    # Case 3b: user provides external features
     artifact = ln.Artifact.from_dataframe(
         df,
         key="test_df_with_external_features.parquet",
@@ -210,6 +238,16 @@ Artifact: test_df_with_external_features.parquet (0000)
         artifact,
         schema=schema_correct_external,
         features={"feature_a": "z", "feature_b": "y"},
+    )
+    artifact = curator.save_artifact(
+        key="test_df_with_external_features.parquet",
+    ).save()
+    assert artifact.features.get_values() == {"feature_a": "z", "feature_b": "y"}
+
+    # call this again without passing features explicitly (they're already part of the artifact)
+    curator = ln.curators.DataFrameCurator(
+        artifact,
+        schema=schema_correct_external,
     )
     artifact = curator.save_artifact(
         key="test_df_with_external_features.parquet",
