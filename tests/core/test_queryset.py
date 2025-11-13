@@ -330,13 +330,16 @@ def test_encode_lamindb_fields_as_columns():
 
 
 def test_connect_public_clone_instance():
+    from django.db import connections
+
+    if "laminlabs/lamindata" in connections:
+        del connections.databases["laminlabs/lamindata"]
+
     qs = ln.Artifact.connect("laminlabs/lamindata")
 
     assert qs.db == "laminlabs/lamindata"
 
     # Verify the connection is SQLite, not Postgres
-    from django.db import connections
-
     assert "sqlite" in connections.databases["laminlabs/lamindata"]["ENGINE"]
 
     # Verify we can actually query it
