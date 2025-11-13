@@ -715,7 +715,7 @@ class Registry(ModelBase):
             )
 
             if (
-                "public" in iresult["db_user_name"]
+                "jwt" in iresult["db_user_name"]
                 and "postgresql" in iresult["db_scheme"]
             ):
                 db = _synchronize_clone(storage["root"])
@@ -744,7 +744,7 @@ class Registry(ModelBase):
             isettings = load_instance_settings(settings_file)
             source_modules = isettings.modules
 
-            if "public" in isettings.db and isettings.dialect == "postgresql":
+            if "jwt" in isettings.db and isettings.dialect == "postgresql":
                 db = _synchronize_clone(isettings.storage.root_as_str)
                 is_fine_grained_access = False
             else:

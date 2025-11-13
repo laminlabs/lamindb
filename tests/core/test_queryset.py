@@ -1,7 +1,9 @@
 # .latest_version is tested in test_versioning.py
 
 
+import os
 import re
+import subprocess
 from contextlib import contextmanager
 
 import bionty as bt
@@ -330,30 +332,28 @@ def test_encode_lamindb_fields_as_columns():
 
 
 def test_connect_public_clone_instance():
-    try:
-        import lamindb_setup as ln_setup
+    env = os.environ
+    env["LAMIN_TESTING"] = "true"
 
-        was_user_1 = False
-        if ln_setup.settings.user.handle == "testuser1":
-            was_user_1 = True
-            ln_setup.logout()
+    # testuser1 is admin of lamindata but testuser2 is not
+    assert ln.setup.settings.user.handle != "testuser2"
+    result = subprocess.run(
+        "lamin login testuser2",
+        capture_output=True,
+        env=env,
+    )
 
-        from django.db import connections
+    from django.db import connections
 
-        connections.databases.pop("laminlabs/lamindata", None)
+    connections.databases.pop("laminlabs/lamindata", None)
 
-        qs = ln.Artifact.connect("laminlabs/lamindata")
+    qs = ln.Artifact.connect("laminlabs/lamindata")
 
-        assert qs.db == "laminlabs/lamindata"
+    assert qs.db == "laminlabs/lamindata"
 
-        # Verify the connection is SQLite, not Postgres
-        assert "sqlite" in connections.databases["laminlabs/lamindata"]["ENGINE"]
+    # Verify the connection is SQLite, not Postgres
+    assert "sqlite" in connections.databases["laminlabs/lamindata"]["ENGINE"]
 
-        # Verify we can actually query it
-        result = qs.filter().first()
-        assert result is not None
-    finally:
-        if was_user_1:
-            from laminci.nox import login_testuser1
-
-            login_testuser1()
+    # Verify we can actually query it
+    result = qs.filter().first()
+    assert result is not None
