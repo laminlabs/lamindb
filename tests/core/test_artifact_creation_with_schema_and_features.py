@@ -205,6 +205,17 @@ Artifact: test_df_with_external_features.parquet (0000)
     ).save()
     assert artifact.features.get_values() == {"feature_a": "x", "feature_b": "y"}
 
+    # call this again to check idempotency and calling with artifact
+    curator = ln.curators.DataFrameCurator(
+        artifact,
+        schema=schema_correct_external,
+        features={"feature_a": "z", "feature_b": "y"},
+    )
+    artifact = curator.save_artifact(
+        key="test_df_with_external_features.parquet",
+    ).save()
+    assert artifact.features.get_values() == {"feature_a": "z", "feature_b": "y"}
+
     # clean up everything
     inferred_schema = artifact.feature_sets.all()[0]
     artifact.feature_sets.remove(inferred_schema.id)
