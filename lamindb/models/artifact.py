@@ -1715,7 +1715,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         idlike: int | str | None = None,
         *,
         key: str | None = None,
-        path: str | None = None,
+        path: UPathStr | None = None,
         is_run_input: bool | Run = False,
         **expressions,
     ) -> Artifact:
@@ -2808,7 +2808,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             self._to_store = True
 
         # _is_saved_to_storage_location indicates whether the saving / upload process is successful
-        flag_complete = hasattr(self, "_local_filepath") and getattr(
+        flag_complete = getattr(self, "_local_filepath", None) is not None and getattr(
             self, "_to_store", False
         )
         if flag_complete:
@@ -2874,11 +2874,13 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         # annotate with internal features based on curator
         if hasattr(self, "_curator"):
             curator = self._curator
-            delattr(self, "_curator")
+            del self._curator
             # just annotates this artifact
             curator.save_artifact()
         if hasattr(self, "_external_features"):
-            delattr(self, "_external_features")
+            del self._external_features
+        if hasattr(self, "_local_filepath"):
+            del self._local_filepath
         return self
 
     def describe(self, return_str: bool = False) -> None | str:
