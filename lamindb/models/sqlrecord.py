@@ -1373,7 +1373,7 @@ class SQLRecord(BaseSQLRecord, metaclass=Registry):
                 raise IntegrityError(
                     "Cannot simply delete artifacts outside of this instance's managed storage locations."
                     "\n(1) If you only want to delete the metadata record in this instance, pass `storage=False`"
-                    f"\n(2) If you want to delete the artifact in storage, please load the managing lamindb instance (uid={self.storage.instance_uid})."
+                    f"\n(2) If you want to delete the artifact in storage, please connect to the writing lamindb instance (uid={self.storage.instance_uid})."
                     f"\nThese are all managed storage locations of this instance:\n{Storage.filter(instance_uid=isettings.uid).to_dataframe()}"
                 )
 
