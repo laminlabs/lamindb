@@ -2874,11 +2874,13 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         # annotate with internal features based on curator
         if hasattr(self, "_curator"):
             curator = self._curator
-            delattr(self, "_curator")
+            del self._curator
             # just annotates this artifact
             curator.save_artifact()
         if hasattr(self, "_external_features"):
-            delattr(self, "_external_features")
+            del self._external_features
+        if hasattr(self, "_local_filepath"):
+            del self._local_filepath
         return self
 
     def describe(self, return_str: bool = False) -> None | str:
