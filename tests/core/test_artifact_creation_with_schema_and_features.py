@@ -205,7 +205,7 @@ Artifact: test_df_with_external_features.parquet (0000)
     ).save()
     assert artifact.features.get_values() == {"feature_a": "x", "feature_b": "y"}
 
-    # call this again to check idempotency and calling with artifact
+    # call this again to check calling with an existing artifact
     curator = ln.curators.DataFrameCurator(
         artifact,
         schema=schema_correct_external,
