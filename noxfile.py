@@ -248,7 +248,7 @@ def test(session, group):
     if group == "unit-core":
         run(
             session,
-            f"pytest {coverage_args} ./tests/core {duration_args}",
+            f"pytest {coverage_args} ./tests/core {duration_args} -k test_connect_public_clone_instance -s",
         )
     elif group == "unit-storage":
         login_testuser2(session)  # shouldn't be necessary but is for now

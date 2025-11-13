@@ -333,6 +333,8 @@ def test_connect_public_clone_instance():
     from django.db import connections
 
     connections.databases.pop("laminlabs/lamindata", None)
+    if hasattr(connections._connections, "laminlabs/lamindata"):
+        delattr(connections._connections, "laminlabs/lamindata")
 
     qs = ln.Artifact.connect("laminlabs/lamindata")
 
