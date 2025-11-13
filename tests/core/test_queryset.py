@@ -330,19 +330,30 @@ def test_encode_lamindb_fields_as_columns():
 
 
 def test_connect_public_clone_instance():
-    from django.db import connections
+    try:
+        import lamindb_setup as ln_setup
 
-    connections.databases.pop("laminlabs/lamindata", None)
-    if hasattr(connections._connections, "laminlabs/lamindata"):
-        delattr(connections._connections, "laminlabs/lamindata")
+        was_user_1 = False
+        if ln_setup.settings.user.handle == "testuser1":
+            was_user_1 = True
+            ln_setup.logout()
 
-    qs = ln.Artifact.connect("laminlabs/lamindata")
+        from django.db import connections
 
-    assert qs.db == "laminlabs/lamindata"
+        connections.databases.pop("laminlabs/lamindata", None)
 
-    # Verify the connection is SQLite, not Postgres
-    assert "sqlite" in connections.databases["laminlabs/lamindata"]["ENGINE"]
+        qs = ln.Artifact.connect("laminlabs/lamindata")
 
-    # Verify we can actually query it
-    result = qs.filter().first()
-    assert result is not None
+        assert qs.db == "laminlabs/lamindata"
+
+        # Verify the connection is SQLite, not Postgres
+        assert "sqlite" in connections.databases["laminlabs/lamindata"]["ENGINE"]
+
+        # Verify we can actually query it
+        result = qs.filter().first()
+        assert result is not None
+    finally:
+        if was_user_1:
+            from laminci.nox import login_testuser1
+
+            login_testuser1()
