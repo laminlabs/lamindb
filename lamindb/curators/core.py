@@ -396,10 +396,8 @@ class SlotsCurator(Curator):
                 ),
                 (data_is_soma_experiment, Artifact.from_tiledbsoma),
             ]
-
             for type_check, af_constructor in type_mapping:
                 if type_check(self._dataset):
-                    # not all Artifact constructors support `features` yet
                     self._artifact = af_constructor(  # type: ignore
                         self._dataset,
                         key=key,
@@ -407,14 +405,11 @@ class SlotsCurator(Curator):
                         revises=revises,
                         run=run,
                     )
-                    self._artifact._external_features = self._external_features
                     break
-
         cat_vectors = {}
         for curator in self._slots.values():
             for key, cat_vector in curator.cat._cat_vectors.items():
                 cat_vectors[key] = cat_vector
-
         self._artifact.schema = self._schema
         if self._external_features:
             self._artifact._external_features = self._external_features
