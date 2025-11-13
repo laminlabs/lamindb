@@ -713,7 +713,7 @@ class Registry(ModelBase):
             )
 
             # TODO Replace _jwt with _public
-            if "_public" in iresult["db"] and "db_scheme" in iresult["db_scheme"]:
+            if "public" in iresult["db"] and "db_scheme" in iresult["db_scheme"]:
                 db = cls._synchronize_clone(iresult["storage_root"])
                 is_fine_grained_access = False
             else:
@@ -741,7 +741,7 @@ class Registry(ModelBase):
             source_modules = isettings.modules
 
             # TODO Replace _jwt with _public
-            if "_public" in isettings.db and isettings.dialect == "postgresql":
+            if "public" in isettings.db and isettings.dialect == "postgresql":
                 db = cls._synchronize_clone(isettings.storage.root_as_str)
                 is_fine_grained_access = False
             else:
