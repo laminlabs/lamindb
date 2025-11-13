@@ -417,9 +417,6 @@ class SlotsCurator(Curator):
 
         self._artifact.schema = self._schema
         if self._external_features:
-            if hasattr(self._artifact, "_external_features"):
-                if self._artifact._external_features != self._external_features:
-                    logger.warning("re-setting existing external features of artifact")
             self._artifact._external_features = self._external_features
         self._artifact.save()
         return annotate_artifact(  # type: ignore
