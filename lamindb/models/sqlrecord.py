@@ -7,7 +7,7 @@ import re
 import sys
 from collections import defaultdict
 from itertools import chain
-from pathlib import PurePosixPath
+from pathlib import Path, PurePosixPath
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -43,6 +43,7 @@ from lamindb_setup.core._hub_core import connect_instance_hub
 from lamindb_setup.core._settings_store import instance_settings_file
 from lamindb_setup.core.django import DBToken, db_token_manager
 from lamindb_setup.core.upath import extract_suffix_from_path
+from upath import UPath
 
 from lamindb.base import deprecated
 
@@ -642,6 +643,48 @@ class Registry(ModelBase):
 
                 ln.Record.connect("account_handle/instance_name").search("label7", field="name")
         """
+
+        def _synchronize_clone(storage_root: str) -> str | None:
+            """Synchronizes a clone to the local SQLite path.
+
+            Args:
+                storage_root: The storage root path of the (target) instance
+            """
+            import lamindb_setup as ln_setup
+
+            cloud_db_path = UPath(storage_root) / ".lamindb" / "lamin.db"
+
+            local_sqlite_path = ln_setup.settings.cache_dir / cloud_db_path.path.lstrip(
+                "/"
+            )
+            local_sqlite_path.parent.mkdir(parents=True, exist_ok=True)
+
+            cloud_db_path_gz = UPath(str(cloud_db_path) + ".gz", anon=True)
+
+            try:
+                local_sqlite_path_gz = Path(str(local_sqlite_path) + ".gz")
+                cloud_db_path_gz.synchronize_to(
+                    local_sqlite_path_gz, error_no_origin=True, print_progress=True
+                )
+
+                import gzip
+                import shutil
+
+                with gzip.open(local_sqlite_path_gz, "rb") as f_in:
+                    with open(local_sqlite_path, "wb") as f_out:
+                        shutil.copyfileobj(f_in, f_out)
+                local_sqlite_path_gz.unlink()
+            except (FileNotFoundError, PermissionError):
+                try:
+                    cloud_db_path.synchronize_to(
+                        local_sqlite_path, error_no_origin=True, print_progress=True
+                    )
+                except (FileNotFoundError, PermissionError):
+                    logger.debug("Clone not found. Falling back to normal access...")
+                    return None
+
+            return f"sqlite:///{local_sqlite_path}"
+
         from .query_set import QuerySet
 
         # we're in the default instance
@@ -653,8 +696,6 @@ class Registry(ModelBase):
 
         owner, name = get_owner_name_from_identifier(instance)
         current_instance_owner_name: list[str] = setup_settings.instance.slug.split("/")
-        if [owner, name] == current_instance_owner_name:
-            return QuerySet(model=cls, using=None)
 
         # move on to different instances
         cache_using_filepath = (
@@ -667,7 +708,7 @@ class Registry(ModelBase):
                 raise RuntimeError(
                     f"Failed to load instance {instance}, please check your permissions!"
                 )
-            iresult, _ = result
+            iresult, storage = result
             # this can happen if querying via an old instance name
             if [iresult.get("owner"), iresult["name"]] == current_instance_owner_name:
                 return QuerySet(model=cls, using=None)
@@ -676,27 +717,55 @@ class Registry(ModelBase):
             source_modules = set(  # noqa
                 [mod for mod in iresult["schema_str"].split(",") if mod != ""]
             )
-            # this just retrives the full connection string from iresult
-            db = update_db_using_local(iresult, settings_file)
+
+            db = None
+            if (
+                "_jwt" in iresult["db_user_name"]
+                and "postgresql" in iresult["db_scheme"]
+            ):
+                db = _synchronize_clone(storage["root"])
+
+            if db is None:
+                if [
+                    iresult.get("owner"),
+                    iresult["name"],
+                ] == current_instance_owner_name:
+                    return QuerySet(model=cls, using=None)
+                db = update_db_using_local(iresult, settings_file)
+                is_fine_grained_access = (
+                    iresult["fine_grained_access"]
+                    and iresult["db_permissions"] == "jwt"
+                )
+            else:
+                is_fine_grained_access = False
+
             cache_using_filepath.write_text(
                 f"{iresult['lnid']}\n{iresult['schema_str']}", encoding="utf-8"
             )
-            # need to set the token if it is a fine_grained_access and the user is jwt (not public)
-            is_fine_grained_access = (
-                iresult["fine_grained_access"] and iresult["db_permissions"] == "jwt"
-            )
+
             # access_db can take both: the dict from connect_instance_hub and isettings
             into_db_token = iresult
         else:
             isettings = load_instance_settings(settings_file)
             source_modules = isettings.modules
-            db = isettings.db
+
+            db = None
+            if "jwt" in isettings.db and isettings.dialect == "postgresql":
+                db = _synchronize_clone(isettings.storage.root_as_str)
+
+            if db is None:
+                if [isettings.owner, isettings.name] == current_instance_owner_name:
+                    return QuerySet(model=cls, using=None)
+                db = isettings.db
+                is_fine_grained_access = (
+                    isettings._fine_grained_access
+                    and isettings._db_permissions == "jwt"
+                )
+            else:
+                is_fine_grained_access = False
+
             cache_using_filepath.write_text(
                 f"{isettings.uid}\n{','.join(source_modules)}", encoding="utf-8"
-            )
-            # need to set the token if it is a fine_grained_access and the user is jwt (not public)
-            is_fine_grained_access = (
-                isettings._fine_grained_access and isettings._db_permissions == "jwt"
             )
             # access_db can take both: the dict from connect_instance_hub and isettings
             into_db_token = isettings
@@ -711,6 +780,7 @@ class Registry(ModelBase):
         if is_fine_grained_access:
             db_token = DBToken(into_db_token)
             db_token_manager.set(db_token, instance)
+
         return QuerySet(model=cls, using=instance)
 
     def __get_module_name__(cls) -> str:
