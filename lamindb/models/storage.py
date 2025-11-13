@@ -46,22 +46,22 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
     A storage location is either a directory (local or a folder in the cloud) or
     an entire S3/GCP bucket.
 
-    Each storage location is written to by at most one LaminDB instance.
-    However, a LaminDB instance can write to and read from multiple storage locations.
+    A storage location is written to by at most one LaminDB instance: the location’s *writing instance*.
+    Some locations are not managed with LaminDB and, hence, do not have a writing instance.
 
     .. dropdown:: Writable vs. read-only storage locations
 
-        The `instance_uid` field of a storage location defines the LaminDB instance that writes to that location.
-
-        If a storage location's `instance_uid` does **not** match your current instance (`ln.settings.instance_uid`),
-        you can only read from it.
+        The `instance_uid` field of `Storage` defines its *writing instance*.
+        Only if a storage location's `instance_uid` matches your current instance's `uid` (`ln.settings.instance_uid`),
+        you can write to it.
+        All other storage locations are read-only in your current instance.
 
         Here is an example (`source <https://lamin.ai/laminlabs/lamindata/transform/dPco79GYgzag0000>`__).
 
         .. image:: https://lamin-site-assets.s3.amazonaws.com/.lamindb/eHDmIOAxLEoqZ2oK0000.png
            :width: 400px
 
-        Some public storage locations are not written to by any LaminDB instance, hence, their `instance_uid` is `None`.
+        Some storage locations are not written to by any LaminDB instance, hence, their `instance_uid` is `None`.
 
     .. dropdown:: Managing access to storage locations across instances
 
