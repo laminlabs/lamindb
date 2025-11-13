@@ -332,8 +332,7 @@ def test_encode_lamindb_fields_as_columns():
 def test_connect_public_clone_instance():
     from django.db import connections
 
-    if "laminlabs/lamindata" in connections:
-        del connections.databases["laminlabs/lamindata"]
+    connections.databases.pop("laminlabs/lamindata", None)
 
     qs = ln.Artifact.connect("laminlabs/lamindata")
 
