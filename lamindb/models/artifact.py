@@ -1715,7 +1715,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         idlike: int | str | None = None,
         *,
         key: str | None = None,
-        path: str | None = None,
+        path: UPathStr | None = None,
         is_run_input: bool | Run = False,
         **expressions,
     ) -> Artifact:

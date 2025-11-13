@@ -1146,3 +1146,19 @@ def test_get_by_path(example_dataframe: pd.DataFrame):
     artifact.delete(permanent=True, storage=False)
 
     storage.delete()
+
+
+def test_save_url_with_virtual_key():
+    url = (
+        "https://raw.githubusercontent.com/laminlabs/lamindb/refs/heads/main/README.md"
+    )
+    key = "folder/file.md"
+    artifact = ln.Artifact(url, key=key).save()
+
+    assert artifact._real_key == url
+
+    cache_path_str = artifact._cache_path.as_posix()
+    assert not cache_path_str.startswith("http")
+    assert cache_path_str.endswith(key)
+
+    artifact.delete(permanent=True, storage=False)
