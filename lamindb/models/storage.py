@@ -354,7 +354,7 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
         Unlike other `SQLRecord`-based registries, this does *not* move the storage record into the trash.
 
         Args:
-            permanent: For consistency, `False` raises an error, as soft delete is impossible.
+            permanent: `False` raises an error, as soft delete is impossible.
         """
         from .. import settings
 
@@ -363,8 +363,14 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
                 "Soft delete is not possible for Storage, "
                 "use 'permanent=True' or 'permanent=None' for permanent deletion."
             )
-
-        assert not self.artifacts.exists(), "Cannot delete storage holding artifacts."  # noqa: S101
+        assert not self.artifacts.exists(), (
+            "Cannot delete storage with artifacts in current instance."
+        )  # noqa: S101
+        # the simple case of a read-only storage location
+        if self.instance_uid != setup_settings.instance.uid:
+            super(SQLRecord, self).delete()
+            return None
+        # now the complicated case of a written/managed storage location
         check_storage_is_empty(self.path)
         assert settings.storage.root_as_str != self.root, (  # noqa: S101
             "Cannot delete the current storage location, switch to another."
