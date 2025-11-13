@@ -1155,7 +1155,7 @@ def test_save_url_with_virtual_key():
     key = "folder/file.md"
     artifact = ln.Artifact(url, key=key).save()
 
-    assert artifact._real_key == url
+    assert artifact._real_key == "laminlabs/lamindb/refs/heads/main/README.md"
 
     cache_path_str = artifact._cache_path.as_posix()
     assert not cache_path_str.startswith("http")
