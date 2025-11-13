@@ -2808,7 +2808,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             self._to_store = True
 
         # _is_saved_to_storage_location indicates whether the saving / upload process is successful
-        flag_complete = hasattr(self, "_local_filepath") and getattr(
+        flag_complete = getattr(self, "_local_filepath", None) is not None and getattr(
             self, "_to_store", False
         )
         if flag_complete:

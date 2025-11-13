@@ -105,7 +105,7 @@ def save(
         with transaction.atomic():
             for record in artifacts:
                 # will swtich to True after the successful upload / saving
-                if hasattr(record, "_local_filepath") and getattr(
+                if getattr(record, "_local_filepath", None) is not None and getattr(
                     record, "_to_store", False
                 ):
                     record._is_saved_to_storage_location = False
@@ -253,7 +253,7 @@ def check_and_attempt_upload(
     # kwargs are propagated to .upload_from in the end
     # if Artifact object is either newly instantiated or replace() was called on
     # a local env it will have a _local_filepath and needs to be uploaded
-    if hasattr(artifact, "_local_filepath"):
+    if getattr(artifact, "_local_filepath", None) is not None:
         try:
             storage_path, cache_path = upload_artifact(
                 artifact,

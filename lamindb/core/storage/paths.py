@@ -102,8 +102,8 @@ def attempt_accessing_path(
 def filepath_from_artifact(
     artifact: Artifact, using_key: str | None = None
 ) -> tuple[UPath, StorageSettings | None]:
-    if hasattr(artifact, "_local_filepath") and artifact._local_filepath is not None:
-        return artifact._local_filepath.resolve(), None
+    if (local_filepath := getattr(artifact, "_local_filepath", None)) is not None:
+        return local_filepath.resolve(), None
     storage_key = auto_storage_key_from_artifact(artifact)
     path, storage_settings = attempt_accessing_path(
         artifact, storage_key, using_key=using_key
