@@ -95,7 +95,7 @@ def get_cli_args() -> str | None:
     """
     # check if run as a script (not interactive/notebook/imported)
     # and whether arguments have been passed
-    if len(sys.argv) > 1 and sys.argv[0] and sys.argv[0].endswith(".py"):
+    if len(sys.argv) > 1 and sys.argv[0] and not is_run_from_ipython:
         return " ".join(sys.argv[1:])
     return None
 
