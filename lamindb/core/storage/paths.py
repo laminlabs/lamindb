@@ -123,7 +123,12 @@ def _cache_key_from_artifact_storage(
         and storage_settings is not None
         and artifact.is_latest
     ):
-        cache_key = (storage_settings.root / artifact.key).path
+        root = storage_settings.root
+        cache_key = (root / artifact.key).path
+        # .path does not strip protocol for http
+        # have to do it manually
+        if root.protocol in {"http", "https"}:
+            cache_key = cache_key.split("://", 1)[-1]
     return cache_key
 
 
