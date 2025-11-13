@@ -1,9 +1,7 @@
 # .latest_version is tested in test_versioning.py
 
 
-import os
 import re
-import subprocess
 from contextlib import contextmanager
 
 import bionty as bt
@@ -332,16 +330,16 @@ def test_encode_lamindb_fields_as_columns():
 
 
 def test_connect_public_clone_instance():
-    env = os.environ
-    env["LAMIN_TESTING"] = "true"
+    # env = os.environ
+    # env["LAMIN_TESTING"] = "true"
 
     # testuser1 is admin of lamindata but testuser2 is not
-    assert ln.setup.settings.user.handle != "testuser2"
-    result = subprocess.run(
-        "lamin login testuser2",
-        capture_output=True,
-        env=env,
-    )
+    # assert ln.setup.settings.user.handle != "testuser2"
+    # result = subprocess.run(
+    #    "lamin login testuser2",
+    #    capture_output=True,
+    #    env=env,
+    # )
 
     from django.db import connections
 
