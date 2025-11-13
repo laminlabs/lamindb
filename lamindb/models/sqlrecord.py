@@ -628,42 +628,6 @@ class Registry(ModelBase):
             instance=instance,
         )
 
-    @staticmethod
-    def _synchronize_clone(storage_root: str) -> str:
-        """Synchronizes a clone to the local SQLite path.
-
-        Args:
-            storage_root: The storage root path of the (target) instance
-        """
-        import lamindb_setup as ln_setup
-
-        cloud_db_path = UPath(storage_root) / ".lamindb" / "lamin.db"
-
-        local_sqlite_path = ln_setup.settings.cache_dir / cloud_db_path.path.lstrip("/")
-        local_sqlite_path.parent.mkdir(parents=True, exist_ok=True)
-
-        cloud_db_path_gz = UPath(str(cloud_db_path) + ".gz", anon=True)
-
-        try:
-            local_sqlite_path_gz = Path(str(local_sqlite_path) + ".gz")
-            cloud_db_path_gz.synchronize_to(
-                local_sqlite_path_gz, error_no_origin=True, print_progress=True
-            )
-
-            import gzip
-            import shutil
-
-            with gzip.open(local_sqlite_path_gz, "rb") as f_in:
-                with open(local_sqlite_path, "wb") as f_out:
-                    shutil.copyfileobj(f_in, f_out)
-            local_sqlite_path_gz.unlink()
-        except (FileNotFoundError, PermissionError):
-            cloud_db_path.synchronize_to(
-                local_sqlite_path, error_no_origin=True, print_progress=True
-            )
-
-        return f"sqlite:///{local_sqlite_path}"
-
     def connect(
         cls,
         instance: str | None,
@@ -679,6 +643,44 @@ class Registry(ModelBase):
 
                 ln.Record.connect("account_handle/instance_name").search("label7", field="name")
         """
+
+        def _synchronize_clone(storage_root: str) -> str:
+            """Synchronizes a clone to the local SQLite path.
+
+            Args:
+                storage_root: The storage root path of the (target) instance
+            """
+            import lamindb_setup as ln_setup
+
+            cloud_db_path = UPath(storage_root) / ".lamindb" / "lamin.db"
+
+            local_sqlite_path = ln_setup.settings.cache_dir / cloud_db_path.path.lstrip(
+                "/"
+            )
+            local_sqlite_path.parent.mkdir(parents=True, exist_ok=True)
+
+            cloud_db_path_gz = UPath(str(cloud_db_path) + ".gz", anon=True)
+
+            try:
+                local_sqlite_path_gz = Path(str(local_sqlite_path) + ".gz")
+                cloud_db_path_gz.synchronize_to(
+                    local_sqlite_path_gz, error_no_origin=True, print_progress=True
+                )
+
+                import gzip
+                import shutil
+
+                with gzip.open(local_sqlite_path_gz, "rb") as f_in:
+                    with open(local_sqlite_path, "wb") as f_out:
+                        shutil.copyfileobj(f_in, f_out)
+                local_sqlite_path_gz.unlink()
+            except (FileNotFoundError, PermissionError):
+                cloud_db_path.synchronize_to(
+                    local_sqlite_path, error_no_origin=True, print_progress=True
+                )
+
+            return f"sqlite:///{local_sqlite_path}"
+
         from .query_set import QuerySet
 
         # we're in the default instance
@@ -712,12 +714,11 @@ class Registry(ModelBase):
                 [mod for mod in iresult["schema_str"].split(",") if mod != ""]
             )
 
-            # TODO Replace _jwt with _public
             if (
-                "_jwt" in iresult["db_user_name"]
+                "public" in iresult["db_user_name"]
                 and "postgresql" in iresult["db_scheme"]
             ):
-                db = cls._synchronize_clone(storage["root"])
+                db = _synchronize_clone(storage["root"])
                 is_fine_grained_access = False
             else:
                 if [
@@ -743,9 +744,8 @@ class Registry(ModelBase):
             isettings = load_instance_settings(settings_file)
             source_modules = isettings.modules
 
-            # TODO Replace _jwt with _public
-            if "_jwt" in isettings.db and isettings.dialect == "postgresql":
-                db = cls._synchronize_clone(isettings.storage.root_as_str)
+            if "public" in isettings.db and isettings.dialect == "postgresql":
+                db = _synchronize_clone(isettings.storage.root_as_str)
                 is_fine_grained_access = False
             else:
                 if [isettings.owner, isettings.name] == current_instance_owner_name:
