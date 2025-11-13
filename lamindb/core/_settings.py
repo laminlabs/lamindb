@@ -215,6 +215,7 @@ class Settings:
         else:
             path, kwargs = path_kwargs, {}
         root_as_str = convert_root_path_to_str(path)
+        print(root_as_str)
         exists = Storage.filter(root=root_as_str).one_or_none()
         if exists is None:
             response = input(
