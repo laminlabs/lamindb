@@ -629,36 +629,38 @@ class Registry(ModelBase):
         )
 
     @staticmethod
-    def _synchronize_clone() -> str:
-        """Synchronizes a clone to the local SQLite path."""
-        local_sqlite_path = ln_setup.settings.instance._sqlite_file_local
+    def _synchronize_clone(storage_root: str) -> str:
+        """Synchronizes a clone to the local SQLite path.
+
+        Args:
+            storage_root: The storage root path of the (target) instance
+        """
+        import lamindb_setup as ln_setup
+
+        cloud_db_path = UPath(storage_root) / ".lamindb" / "lamin.db"
+
+        local_sqlite_path = ln_setup.settings.cache_dir / cloud_db_path.path.lstrip("/")
         local_sqlite_path.parent.mkdir(parents=True, exist_ok=True)
 
-        cloud_db_path = ln_setup.settings.instance._sqlite_file
-        cloud_db_path_gz = UPath(str(cloud_db_path) + ".gz")
+        cloud_db_path_gz = UPath(str(cloud_db_path) + ".gz", anon=True)
 
         try:
-            if cloud_db_path_gz.exists():
-                local_sqlite_path_gz = Path(str(local_sqlite_path) + ".gz")
-                cloud_db_path_gz.synchronize_to(
-                    local_sqlite_path_gz, error_no_origin=True, print_progress=False
-                )
+            local_sqlite_path_gz = Path(str(local_sqlite_path) + ".gz")
+            cloud_db_path_gz.synchronize_to(
+                local_sqlite_path_gz, error_no_origin=True, print_progress=True
+            )
 
-                import gzip
-                import shutil
+            import gzip
+            import shutil
 
-                with gzip.open(local_sqlite_path_gz, "rb") as f_in:
-                    with open(local_sqlite_path, "wb") as f_out:
-                        shutil.copyfileobj(f_in, f_out)
-                local_sqlite_path_gz.unlink()
-            else:
-                cloud_db_path.synchronize_to(
-                    local_sqlite_path, error_no_origin=True, print_progress=False
-                )
-        except FileNotFoundError:
-            raise FileNotFoundError(
-                "Unable to synchronize local SQLite copy. Please report this issue to the developers"
-            ) from None
+            with gzip.open(local_sqlite_path_gz, "rb") as f_in:
+                with open(local_sqlite_path, "wb") as f_out:
+                    shutil.copyfileobj(f_in, f_out)
+            local_sqlite_path_gz.unlink()
+        except (FileNotFoundError, PermissionError):
+            cloud_db_path.synchronize_to(
+                local_sqlite_path, error_no_origin=True, print_progress=True
+            )
 
         return f"sqlite:///{local_sqlite_path}"
 
@@ -686,7 +688,6 @@ class Registry(ModelBase):
         if instance in connections:
             return QuerySet(model=cls, using=instance)
 
-        # TODO this needs to be skipped if the instance is public I guess
         owner, name = get_owner_name_from_identifier(instance)
         current_instance_owner_name: list[str] = setup_settings.instance.slug.split("/")
 
@@ -713,7 +714,7 @@ class Registry(ModelBase):
 
             # TODO Replace _jwt with _public
             if "_jwt" in iresult["db"] and "db_scheme" in iresult["db_scheme"]:
-                db = cls._synchronize_clone()
+                db = cls._synchronize_clone(iresult["storage_root"])
                 is_fine_grained_access = False
             else:
                 if [
@@ -721,7 +722,7 @@ class Registry(ModelBase):
                     iresult["name"],
                 ] == current_instance_owner_name:
                     return QuerySet(model=cls, using=None)
-                # this just retrives the full connection string from iresult
+                # this just retrieves the full connection string from iresult
                 db = update_db_using_local(iresult, settings_file)
                 # need to set the token if it is a fine_grained_access and the user is jwt (not public)
                 is_fine_grained_access = (
@@ -741,7 +742,7 @@ class Registry(ModelBase):
 
             # TODO Replace _jwt with _public
             if "_jwt" in isettings.db and isettings.dialect == "postgresql":
-                db = cls._synchronize_clone()
+                db = cls._synchronize_clone(isettings.storage.root_as_str)
                 is_fine_grained_access = False
             else:
                 if [isettings.owner, isettings.name] == current_instance_owner_name:
