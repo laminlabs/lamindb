@@ -702,7 +702,7 @@ class Registry(ModelBase):
                 raise RuntimeError(
                     f"Failed to load instance {instance}, please check your permissions!"
                 )
-            iresult, _ = result
+            iresult, storage = result
             # this can happen if querying via an old instance name
             if [iresult.get("owner"), iresult["name"]] == current_instance_owner_name:
                 return QuerySet(model=cls, using=None)
@@ -717,7 +717,7 @@ class Registry(ModelBase):
                 "_jwt" in iresult["db_user_name"]
                 and "postgresql" in iresult["db_scheme"]
             ):
-                db = cls._synchronize_clone(iresult["storage_root"])
+                db = cls._synchronize_clone(storage["root"])
                 is_fine_grained_access = False
             else:
                 if [
