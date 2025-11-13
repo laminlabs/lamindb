@@ -53,7 +53,7 @@ def test_switch_delete_storage_location():
     # artifacts exist
     with pytest.raises(AssertionError) as err:
         new_storage.delete()
-    assert "Cannot delete storage holding artifacts." in err.exconly()
+    assert "Cannot delete storage with artifacts in current instance." in err.exconly()
 
     artifact.delete(permanent=True, storage=False)
     # still some files in there

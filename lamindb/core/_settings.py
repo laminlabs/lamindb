@@ -10,7 +10,10 @@ from lamindb_setup import settings as setup_settings
 from lamindb_setup._set_managed_storage import set_managed_storage
 from lamindb_setup.core import deprecated
 from lamindb_setup.core._settings_instance import sanitize_git_repo_url
-from lamindb_setup.core._settings_storage import StorageSettings
+from lamindb_setup.core._settings_storage import (
+    StorageSettings,
+    convert_root_path_to_str,
+)
 
 from .subsettings._annotation_settings import AnnotationSettings, annotation_settings
 from .subsettings._creation_settings import CreationSettings, creation_settings
@@ -187,11 +190,11 @@ class Settings:
             ln.settings.storage.root
             #> UPath('s3://my-bucket')
 
-        You can write artifacts to other storage locations by switching the current default storage location::
+        Switch the current default storage location::
 
             ln.settings.storage = "s3://some-bucket"
 
-        You can also pass additional fsspec kwargs via::
+        Pass additional `fsspec` `kwargs` via::
 
             kwargs = dict(
                 profile="some_profile", # fsspec arg
@@ -203,29 +206,29 @@ class Settings:
 
     @storage.setter
     def storage(self, path_kwargs: str | Path | UPath | tuple[str | UPath, Mapping]):
-        import lamindb as ln
+        from ..models import Storage
 
         if isinstance(path_kwargs, tuple):
             path, kwargs = path_kwargs
-            # we should ultimately deprecate passing host here, I think
             if isinstance(kwargs, str):
                 kwargs = {"host": kwargs}
         else:
             path, kwargs = path_kwargs, {}
-        ssettings = StorageSettings(root=path)  # there is no need to pass kwargs here!
-        exists = ln.Storage.filter(root=ssettings.root_as_str).one_or_none()
+        root_as_str = convert_root_path_to_str(path)
+        print(root_as_str)
+        exists = Storage.filter(root=root_as_str).one_or_none()
         if exists is None:
             response = input(
-                f"Storage location {ssettings.root_as_str} does not yet exist. Do you want to continue with creating it? (y/n) "
+                f"Storage location {root_as_str} does not yet exist in the current instance. Do you want to continue with creating it? (y/n) "
             )
-            # logger.warning(f"deprecated call because storage location does **not yet** exist; going forward, please create through ln.Storage(root={path}).save() going forward")
+            # logger.warning(f"deprecated call because storage location does **not yet** exist; please create through ln.Storage(root={path}).save()")
             if response != "y":
                 return None
             set_managed_storage(path, **kwargs)
         else:
             if exists.instance_uid != ln_setup.settings.instance.uid:
                 raise ValueError(
-                    f"Storage {ssettings.root_as_str} exists in another instance ({exists.instance_uid}), cannot write to it from here."
+                    f"Storage {root_as_str} exists in another instance ({exists.instance_uid}), cannot write to it from here."
                 )
             ssettings = StorageSettings(
                 root=exists.root,
