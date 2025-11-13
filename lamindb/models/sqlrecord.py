@@ -651,10 +651,11 @@ class Registry(ModelBase):
         if instance in connections:
             return QuerySet(model=cls, using=instance)
 
+        # TODO this needs to be skipped if the instance is public I guess
         owner, name = get_owner_name_from_identifier(instance)
         current_instance_owner_name: list[str] = setup_settings.instance.slug.split("/")
-        if [owner, name] == current_instance_owner_name:
-            return QuerySet(model=cls, using=None)
+        # if [owner, name] == current_instance_owner_name:
+        #    return QuerySet(model=cls, using=None)
 
         # move on to different instances
         cache_using_filepath = (
@@ -678,8 +679,8 @@ class Registry(ModelBase):
             )
 
             # TODO explanation
-            # TODO check for public instance
-            if 1 == 1:
+            # TODO Replace _jwt with _public
+            if "_jwt" in iresult["db"] and "db_scheme" in iresult["db_scheme"]:
                 local_sqlite_path = ln_setup.settings.instance._sqlite_file_local
 
                 # TODO make this update safe -> should update again if the timestamp has changed
@@ -689,25 +690,34 @@ class Registry(ModelBase):
                     cloud_db_path.download_to(local_sqlite_path)
 
                 db = f"sqlite:///{local_sqlite_path}"
+                is_fine_grained_access = False
             else:
+                if [
+                    iresult.get("owner"),
+                    iresult["name"],
+                ] == current_instance_owner_name:
+                    return QuerySet(model=cls, using=None)
                 # this just retrives the full connection string from iresult
                 db = update_db_using_local(iresult, settings_file)
+                # need to set the token if it is a fine_grained_access and the user is jwt (not public)
+                is_fine_grained_access = (
+                    iresult["fine_grained_access"]
+                    and iresult["db_permissions"] == "jwt"
+                )
 
             cache_using_filepath.write_text(
                 f"{iresult['lnid']}\n{iresult['schema_str']}", encoding="utf-8"
             )
-            # need to set the token if it is a fine_grained_access and the user is jwt (not public)
-            is_fine_grained_access = (
-                iresult["fine_grained_access"] and iresult["db_permissions"] == "jwt"
-            )
+
             # access_db can take both: the dict from connect_instance_hub and isettings
             into_db_token = iresult
         else:
             isettings = load_instance_settings(settings_file)
             source_modules = isettings.modules
 
-            # TODO check for public instance
-            if 1 == 1:
+            # TODO Replace _jwt with _public
+            # TODO explanation
+            if "_jwt" in isettings.db and isettings.dialect == "postgresql":
                 local_sqlite_path = ln_setup.settings.instance._sqlite_file_local
 
                 # TODO make this update safe -> should update again if the timestamp has changed
@@ -717,15 +727,19 @@ class Registry(ModelBase):
                     cloud_db_path.download_to(local_sqlite_path)
 
                 db = f"sqlite:///{local_sqlite_path}"
+                is_fine_grained_access = False
             else:
+                if [isettings.owner, isettings.name] == current_instance_owner_name:
+                    return QuerySet(model=cls, using=None)
                 db = isettings.db
+                # need to set the token if it is a fine_grained_access and the user is jwt (not public)
+                is_fine_grained_access = (
+                    isettings._fine_grained_access
+                    and isettings._db_permissions == "jwt"
+                )
 
             cache_using_filepath.write_text(
                 f"{isettings.uid}\n{','.join(source_modules)}", encoding="utf-8"
-            )
-            # need to set the token if it is a fine_grained_access and the user is jwt (not public)
-            is_fine_grained_access = (
-                isettings._fine_grained_access and isettings._db_permissions == "jwt"
             )
             # access_db can take both: the dict from connect_instance_hub and isettings
             into_db_token = isettings
