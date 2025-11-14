@@ -626,17 +626,24 @@ def data_is_soma_experiment(data: SOMAExperiment | UPathStr) -> bool:
     return False
 
 
-def _check_otype_artifact(
+def check_otype_artifact(
     data: UPathStr | pd.DataFrame | ScverseDataStructures,
     otype: str | None = None,
     cloud_warning: bool = True,
 ) -> str:
     if otype is None:
-        if isinstance(data, pd.DataFrame):
+        if isinstance(data, UPathStr):
+            is_path = True
+            suffix = UPath(data).suffix
+        else:
+            is_path = False
+            suffix = None
+        if isinstance(data, pd.DataFrame) or (
+            is_path and suffix in {".parquet", ".csv", ".ipc"}
+        ):
             logger.warning("data is a DataFrame, please use .from_dataframe()")
             otype = "DataFrame"
             return otype
-
         data_is_path = isinstance(data, (str, Path))
         if data_is_scversedatastructure(data, "AnnData", cloud_warning):
             if not data_is_path:
@@ -1279,7 +1286,12 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     otype: str | None = CharField(
         max_length=64, db_index=True, null=True, editable=False
     )
-    """Default Python object type, e.g., DataFrame, AnnData."""
+    """Default object type represented as a string, e.g., `"DataFrame"`, `"AnnData"`, `"MuData"`, `"tiledbsoma"`.
+
+    The field is automatically set when using the `from_dataframe()`, `from_anndata()`, etc. constructors.
+
+    Unstructured artifacts typically have `otype=None`.
+    """
     size: int | None = BigIntegerField(
         null=True, db_index=True, default=None, editable=False
     )
@@ -1384,11 +1396,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     @overload
     def __init__(
         self,
-        # we're not choosing the name "path" for this arg because
-        # it could be confused with `artifact.path`
-        # "data" conveys better that this is input data that's ingested
-        # and will be moved to a target path at `artifact.path`
-        data: UPathStr,
+        path: UPathStr,
         *,
         key: str | None = None,
         description: str | None = None,
@@ -1504,7 +1512,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             # issue in Groovy / nf-lamin producing malformed S3 paths
             # https://laminlabs.slack.com/archives/C08J590666Q/p1751315027830849?thread_ts=1751039961.479259&cid=C08J590666Q
             path = path.replace("s3:///", "s3://")
-        otype = _check_otype_artifact(
+        otype = check_otype_artifact(
             data=path, otype=otype, cloud_warning=not _is_internal_call
         )
         if "type" in kwargs:
@@ -1820,7 +1828,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     @classmethod
     def from_dataframe(
         cls,
-        df: pd.DataFrame,
+        df: pd.DataFrame | UPathStr,
         *,
         key: str | None = None,
         description: str | None = None,
@@ -1835,7 +1843,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         """Create from `DataFrame`, optionally validate & annotate.
 
         Args:
-            df: A `DataFrame` object.
+            df: A `DataFrame` object or a `UPathStr` pointing to a `DataFrame` in storage, e.g. a `.parquet` or `.csv` file.
             key: A relative path within default storage,
                 e.g., `"myfolder/myfile.parquet"`.
             description: A description.
