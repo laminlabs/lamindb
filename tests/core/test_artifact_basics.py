@@ -430,6 +430,16 @@ def test_dataframe_validate_suffix(example_dataframe: pd.DataFrame):
     )
 
 
+def test_create_from_parquet_file_default_constructor(
+    example_dataframe: pd.DataFrame, ccaplog
+):
+    path = "test_df.parquet"
+    example_dataframe.to_parquet(path)
+    ln.Artifact(path, key=path)
+    assert "data is a DataFrame, please use .from_dataframe()" in ccaplog.text
+    Path(path).unlink()
+
+
 def test_create_from_anndata(get_small_adata, adata_file, example_dataframe):
     with pytest.raises(ValueError) as error:
         ln.Artifact.from_anndata(example_dataframe, description="test1")
