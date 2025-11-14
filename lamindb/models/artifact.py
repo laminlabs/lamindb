@@ -1286,7 +1286,12 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     otype: str | None = CharField(
         max_length=64, db_index=True, null=True, editable=False
     )
-    """Default Python object type, e.g., DataFrame, AnnData."""
+    """Default object type represented as a string, e.g., `"DataFrame"`, `"AnnData"`, `"MuData"`, `"tiledbsoma"`.
+
+    The field is automatically set when using the `from_dataframe()`, `from_anndata()`, etc. constructors.
+
+    Unstructured artifacts typically have `otype=None`.
+    """
     size: int | None = BigIntegerField(
         null=True, db_index=True, default=None, editable=False
     )
