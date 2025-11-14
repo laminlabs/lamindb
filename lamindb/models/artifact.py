@@ -2981,7 +2981,7 @@ class ArtifactRun(BaseSQLRecord, IsLink, TracksRun):
     # consciously choosing CASCADE
     run: Run = ForeignKey(Run, CASCADE, related_name="links_artifact")
     feature: Feature | None = ForeignKey(
-        Feature, PROTECT, null=True, related_name="links_artifactuser", default=None
+        Feature, PROTECT, null=True, related_name="links_artifactrun", default=None
     )
     label_ref_is_name: bool | None = BooleanField(null=True)
     feature_ref_is_name: bool | None = BooleanField(null=True)

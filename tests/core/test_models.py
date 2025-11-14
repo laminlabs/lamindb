@@ -76,9 +76,12 @@ def test_registry__repr__artifact():
         .created_by: User
         .input_of_runs: Run
         .feature_sets: Schema
+        .artifacts: Artifact
         .linked_in_records: Record
         .users: User
+        .linked_runs: Run
         .ulabels: ULabel
+        .linked_artifacts: Artifact
         .collections: Collection
         .records: Record
         .references: Reference
