@@ -155,10 +155,13 @@ def load_rds(path: UPathStr) -> UPathStr:
 FILE_LOADERS = {
     ".csv": pd.read_csv,
     ".csv.gz": pd.read_csv,
+    ".csv.tar.gz": pd.read_csv,
     ".tsv": load_tsv,
     ".tsv.gz": load_tsv,
+    ".tsv.tar.gz": load_tsv,
     ".h5ad": load_h5ad,
     ".h5ad.gz": load_h5ad,
+    ".h5ad.tar.gz": load_h5ad,
     ".parquet": pd.read_parquet,
     ".parquet.gz": pd.read_parquet,  # this doesn't work for externally gzipped files, REMOVE LATER
     ".fcs": load_fcs,
