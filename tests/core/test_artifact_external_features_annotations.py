@@ -30,8 +30,8 @@ def test_artifact_features_add_remove_values():
     feature_ulabel = ln.Feature(name="feature_ulabel", dtype=ln.ULabel).save()
     feature_user = ln.Feature(name="feature_user", dtype=ln.User).save()
     feature_project = ln.Feature(name="feature_project", dtype=ln.Project).save()
-    # feature_artifact = ln.Feature(name="feature_artifact", dtype=ln.Artifact).save()
-    # feature_run = ln.Feature(name="feature_run", dtype=ln.Run.uid).save()
+    feature_artifact = ln.Feature(name="feature_artifact", dtype=ln.Artifact).save()
+    feature_run = ln.Feature(name="feature_run", dtype=ln.Run.uid).save()
     feature_cell_line = ln.Feature(name="feature_cell_line", dtype=bt.CellLine).save()
     feature_cell_lines = ln.Feature(
         name="feature_cell_lines", dtype=list[bt.CellLine]
@@ -61,8 +61,8 @@ def test_artifact_features_add_remove_values():
         "feature_cell_line": "HEK293",
         "feature_cell_lines": ["HEK293", "A549 cell"],
         "feature_cl_ontology_id": "CLO:0001230",
-        # "feature_artifact": "test-artifact",
-        # "feature_run": run.uid,
+        "feature_artifact": "test-artifact",
+        "feature_run": run.uid,
     }
 
     test_artifact.features.add_values(test_values)
@@ -97,13 +97,13 @@ def test_artifact_features_add_remove_values():
     test_values.pop("feature_user")
     assert test_artifact.features.get_values() == test_values
 
-    # test_artifact.features.remove_values("feature_artifact")
-    # test_values.pop("feature_artifact")
-    # assert test_artifact.features.get_values() == test_values
+    test_artifact.features.remove_values("feature_artifact")
+    test_values.pop("feature_artifact")
+    assert test_artifact.features.get_values() == test_values
 
-    # test_artifact.features.remove_values("feature_run")
-    # test_values.pop("feature_run")
-    # assert test_artifact.features.get_values() == test_values
+    test_artifact.features.remove_values("feature_run")
+    test_values.pop("feature_run")
+    assert test_artifact.features.get_values() == test_values
 
     # test passing None has no effect, does not lead to annotation
 
@@ -183,8 +183,8 @@ def test_artifact_features_add_remove_values():
     feature_user.delete(permanent=True)
     feature_project.delete(permanent=True)
     feature_dict.delete(permanent=True)
-    # feature_artifact.delete(permanent=True)
-    # feature_run.delete(permanent=True)
+    feature_artifact.delete(permanent=True)
+    feature_run.delete(permanent=True)
     feature_ulabel.delete(permanent=True)
     feature_cell_lines.delete(permanent=True)
     record_entity1.delete(permanent=True)

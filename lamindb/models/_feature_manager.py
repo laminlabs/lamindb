@@ -956,9 +956,10 @@ class FeatureManager:
             related_names["Artifact"] = "linked_artifacts"
             related_names["Run"] = "linked_runs"
         for class_name, registry_features_labels in features_labels.items():
+            print(class_name, registry_features_labels)
             related_name = related_names[class_name]  # e.g., "ulabels"
             IsLink = getattr(self._host, related_name).through
-            if host_is_record:
+            if host_is_record or class_name == "Artifact":
                 field_name = "value_id"
             else:
                 field_name = (

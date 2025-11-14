@@ -1386,6 +1386,17 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     """The references annotating this artifact."""
     records: Record
     """The records annotating this artifact."""
+    linked_runs: Run
+    """The runs annotating this artifact."""
+    artifacts: Artifact = models.ManyToManyField(
+        "Artifact",
+        through="ArtifactArtifact",
+        symmetrical=False,
+        related_name="linked_artifacts",
+    )
+    """The artifacts that this artifact links to through a `feature`."""
+    linked_artifacts: Artifact
+    """The artifacts that reference this artifact through their features."""
     linked_in_records: Record = models.ManyToManyField(
         "Record", through="RecordArtifact", related_name="linked_artifacts"
     )
@@ -2962,6 +2973,42 @@ class ArtifactUser(BaseSQLRecord, IsLink, TracksRun):
         # different
         app_label = "lamindb"
         unique_together = ("artifact", "user", "feature")
+
+
+class ArtifactRun(BaseSQLRecord, IsLink, TracksRun):
+    id: int = models.BigAutoField(primary_key=True)
+    artifact: Artifact = ForeignKey("Artifact", CASCADE, related_name="links_run")
+    # consciously choosing CASCADE
+    run: Run = ForeignKey(Run, CASCADE, related_name="links_artifact")
+    feature: Feature | None = ForeignKey(
+        Feature, PROTECT, null=True, related_name="links_artifactuser", default=None
+    )
+    label_ref_is_name: bool | None = BooleanField(null=True)
+    feature_ref_is_name: bool | None = BooleanField(null=True)
+
+    class Meta:
+        # can have the same label linked to the same artifact if the feature is
+        # different
+        app_label = "lamindb"
+        unique_together = ("artifact", "run", "feature")
+
+
+class ArtifactArtifact(BaseSQLRecord, IsLink, TracksRun):
+    id: int = models.BigAutoField(primary_key=True)
+    artifact: Artifact = ForeignKey("Artifact", CASCADE, related_name="links_artifact")
+    # consciously choosing CASCADE
+    value: Artifact = ForeignKey("Artifact", CASCADE, related_name="links_value")
+    feature: Feature | None = ForeignKey(
+        Feature, PROTECT, null=True, related_name="links_artifactartifact", default=None
+    )
+    label_ref_is_name: bool | None = BooleanField(null=True)
+    feature_ref_is_name: bool | None = BooleanField(null=True)
+
+    class Meta:
+        # can have the same label linked to the same artifact if the feature is
+        # different
+        app_label = "lamindb"
+        unique_together = ("artifact", "value", "feature")
 
 
 def track_run_input(

@@ -363,6 +363,10 @@ class Run(SQLRecord):
         "Record", through="RecordRun", related_name="linked_runs"
     )
     """This run is linked in these records as a value."""
+    artifacts: Artifact = models.ManyToManyField(
+        "Artifact", through="ArtifactRun", related_name="linked_runs"
+    )
+    """The artifacts annotated by this run."""
     _is_consecutive: bool | None = BooleanField(null=True)
     """Indicates whether code was consecutively executed. Is relevant for notebooks."""
     _status_code: int = models.SmallIntegerField(
