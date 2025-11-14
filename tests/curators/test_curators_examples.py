@@ -191,8 +191,6 @@ def spatialdata_blobs_schema():
 def test_dataframe_curator(mini_immuno_schema: ln.Schema):
     """Test DataFrame curator implementation."""
 
-    ln.settings.verbosity = "info"
-
     # invalid simple dtype (float)
     feature_to_fail = ln.Feature(name="treatment_time_h", dtype=float).save()
     schema = ln.Schema(

@@ -897,9 +897,15 @@ class FeatureManager:
             tree, fallback="no linked features", return_str=return_str
         )
 
-    def get_values(self) -> dict[str, Any]:
-        """Get features as a dictionary."""
-        return get_features_data(self._host, to_dict=True)  # type: ignore
+    def get_values(self, external_only: bool = False) -> dict[str, Any]:
+        """Get features as a dictionary.
+
+        Includes annotation with internal and external feature values.
+
+        Args:
+            external_only: If `True`, only return external feature annotations.
+        """
+        return get_features_data(self._host, to_dict=True, external_only=external_only)  # type: ignore
 
     @deprecated("slots[slot].members")
     def __getitem__(self, slot) -> BasicQuerySet:

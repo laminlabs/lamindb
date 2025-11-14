@@ -182,13 +182,14 @@ def test_describe_to_dataframe_example_dataset():
     }
 
     # test that only external feature are removed upon artifact.features.remove_values()
-    before = artifact.features.get_values()
+    all_feature_values = artifact.features.get_values()
     adata = artifact.load()
     just_internal = {}
     for col in adata.obs.columns:
-        if col in before:
-            just_internal[col] = before[col]
+        if col in all_feature_values:
+            just_internal[col] = all_feature_values[col]
     artifact.features.remove_values()
+    assert just_internal != all_feature_values
     assert just_internal == artifact.features.get_values()
 
     artifact.delete(permanent=True)
