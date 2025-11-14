@@ -431,7 +431,7 @@ def test_dataframe_validate_suffix(example_dataframe: pd.DataFrame):
 
 
 def test_create_from_parquet_file_default_constructor(
-    example_dataframe: pd.DataFrame, ccaplog
+    example_dataframe: pd.DataFrame, ccaplog: pytest.LogCaptureFixture
 ):
     path = "test_df.parquet"
     example_dataframe.to_parquet(path)
