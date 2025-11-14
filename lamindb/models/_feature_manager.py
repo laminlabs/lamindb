@@ -900,6 +900,8 @@ class FeatureManager:
     def get_values(self, external_only: bool = False) -> dict[str, Any]:
         """Get features as a dictionary.
 
+        Includes annotation with internal and external feature values.
+
         Args:
             external_only: If `True`, only return external feature annotations.
         """

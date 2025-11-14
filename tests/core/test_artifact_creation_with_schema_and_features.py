@@ -72,6 +72,15 @@ def test_artifact_from_dataframe_with_schema(example_dataframe: pd.DataFrame):
         df, key="test_df.parquet", schema="valid_features"
     ).save()
     assert artifact.schema == ln.examples.schemas.valid_features()
+    assert artifact.features.get_values() == {}
+    assert (
+        artifact.features.describe(return_str=True)
+        == """\
+Artifact: test_df.parquet (0000)
+└── Dataset features
+    └── columns (1)
+        feat1               int"""
+    )
     inferred_schema_link = artifact.feature_sets.through.get(artifact_id=artifact.id)
     assert inferred_schema_link.slot == "columns"
     assert inferred_schema_link.schema.members.count() == 1
