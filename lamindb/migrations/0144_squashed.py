@@ -339,6 +339,7 @@ class Migration(migrations.Migration):
         ("lamindb", "0141_transform_entrypoint_transform_environment_and_more"),
         ("lamindb", "0142_alter_transform_environment_transformtransform_and_more"),
         ("lamindb", "0143_remove_transform_entrypoint_transform_config_and_more"),
+        ("lamindb", "0144_alter_transform_is_flow"),
     ]
 
     dependencies = []  # type: ignore
