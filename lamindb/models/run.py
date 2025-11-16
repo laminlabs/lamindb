@@ -155,7 +155,7 @@ class User(BaseSQLRecord, CanCurate):
     linked_in_records: Record = models.ManyToManyField(
         "Record", through="RecordUser", related_name="linked_users"
     )
-    """Records linked in this user."""
+    """This user is linked in these records as a value."""
     artifacts: Artifact = models.ManyToManyField(
         "Artifact",
         through="ArtifactUser",
