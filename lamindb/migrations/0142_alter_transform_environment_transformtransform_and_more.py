@@ -19,14 +19,19 @@ def migrate_predecessor_data(apps, schema_editor):
     # The old table name is typically: lamindb_transform_predecessors
     db_alias = schema_editor.connection.alias
 
-    with schema_editor.connection.cursor() as cursor:
-        # Check if old M2M table exists
-        cursor.execute("""
-            SELECT COUNT(*) FROM information_schema.tables
-            WHERE table_name = 'lamindb_transform_predecessors'
-        """)
+    # Check if old M2M table exists - database agnostic approach
+    table_exists = False
 
-        if cursor.fetchone()[0] > 0:
+    # Use Django's introspection to check if table exists
+    from django.db import connection
+
+    with connection.cursor() as cursor:
+        table_name = "lamindb_transform_predecessors"
+        if table_name in connection.introspection.table_names():
+            table_exists = True
+
+    if table_exists:
+        with schema_editor.connection.cursor() as cursor:
             cursor.execute("""
                 SELECT from_transform_id, to_transform_id
                 FROM lamindb_transform_predecessors
@@ -41,7 +46,8 @@ def migrate_predecessor_data(apps, schema_editor):
 
             # Create new through model instances
             # Note: from_transform_id is the successor, to_transform_id is the predecessor
-            for successor_id, predecessor_id in cursor.fetchall():
+            rows = cursor.fetchall()
+            for successor_id, predecessor_id in rows:
                 TransformTransform.objects.using(db_alias).create(
                     successor_id=successor_id,
                     predecessor_id=predecessor_id,

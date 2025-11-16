@@ -107,6 +107,7 @@ Run: {ln.context.run.uid[:7]} ({ln.context.run.transform.key})
     feature2.delete(permanent=True)
     feature3.delete(permanent=True)
     feature4.delete(permanent=True)
+    param4.delete(permanent=True)
     test_transform.delete(permanent=True)
 
 
