@@ -30,15 +30,12 @@ def test_track_basic_invocation():
         == f"lamindb.errors.InvalidArgument: Space '{space}', please check on the hub UI whether you have the correct `uid` or `name`."
     )
 
-    predecessor1 = ln.Transform(key="parent 1").save()
-    predecessor2 = ln.Transform(key="parent 2").save()
-    successor = ln.Transform(key="successor").save()
-    successor.predecessors.set([predecessor1, predecessor2])
+    test_transform = ln.Transform(key="test_transform").save()
 
     # first invocation using features
     kwargs = {"param1": 1, "param2": "my-string", "param3": 3.14}
     with pytest.raises(ValidationError) as exc:
-        ln.track(transform=successor, features=kwargs)
+        ln.track(transform=test_transform, features=kwargs)
     assert (
         exc.exconly()
         == """lamindb.errors.ValidationError: These keys could not be validated: ['param1', 'param2', 'param3']
@@ -48,13 +45,13 @@ Here is how to create a feature:
   ln.Feature(name='param2', dtype='cat ? str').save()
   ln.Feature(name='param3', dtype='float').save()"""
     )
-    ln.Feature(name="param1", dtype=int).save()
-    ln.Feature(name="param2", dtype=str).save()
-    ln.Feature(name="param3", dtype=float).save()
-    ln.Feature(name="label_param", dtype=ln.Record).save()
-    ln.Record(name="my_label").save()
+    feature1 = ln.Feature(name="param1", dtype=int).save()
+    feature2 = ln.Feature(name="param2", dtype=str).save()
+    feature3 = ln.Feature(name="param3", dtype=float).save()
+    feature4 = ln.Feature(name="label_param", dtype=ln.Record).save()
+    record = ln.Record(name="my_label").save()
     kwargs["label_param"] = "my_label"
-    ln.track(transform=successor, features=kwargs)
+    ln.track(transform=test_transform, features=kwargs)
     assert ln.context.run.features.get_values() == kwargs
     print(ln.context.run.features.describe(return_str=True))
     assert (
@@ -73,7 +70,7 @@ Run: {ln.context.run.uid[:7]} ({ln.context.run.transform.key})
     kwargs = {"param1": 1, "param2": "my-string", "param3": 3.14, "param4": [1, 2]}
     param4 = ln.Feature(name="param4", dtype="int").save()
     with pytest.raises(ValidationError) as exc:
-        ln.track(transform=successor, features=kwargs)
+        ln.track(transform=test_transform, features=kwargs)
     assert (
         exc.exconly()
         == """lamindb.errors.ValidationError: Expected dtype for 'param4' is 'int', got 'list[int]'"""
@@ -82,11 +79,11 @@ Run: {ln.context.run.uid[:7]} ({ln.context.run.transform.key})
     param4.dtype = "list[int]"
     param4.save()
     # re-run
-    ln.track(transform=successor, features=kwargs)
+    ln.track(transform=test_transform, features=kwargs)
     assert ln.context.run.features.get_values() == kwargs
 
     # now use the params arg
-    ln.track(transform=successor, params=kwargs)
+    ln.track(transform=test_transform, params=kwargs)
     assert ln.context.run.params == kwargs
     assert ln.Run.filter(params__param1=kwargs["param1"]).count() == 1
 
@@ -99,8 +96,19 @@ Run: {ln.context.run.uid[:7]} ({ln.context.run.transform.key})
     ln.finish()
     assert ln.context.run.finished_at is not None
 
-    # unset to remove side effects
+    # clean up
+    ln.context.run.delete(permanent=True)
+    ln.models.RunFeatureValue.filter(run__transform=test_transform).delete(
+        permanent=True
+    )
+    ln.models.RunRecord.filter(run__transform=test_transform).delete(permanent=True)
     ln.context._run = None
+    feature1.delete(permanent=True)
+    feature2.delete(permanent=True)
+    feature3.delete(permanent=True)
+    feature4.delete(permanent=True)
+    param4.delete(permanent=True)
+    test_transform.delete(permanent=True)
 
 
 @pytest.fixture
