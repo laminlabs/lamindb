@@ -204,6 +204,8 @@ def _get_categoricals_postgres(
             feature_field = parse_dtype(feature_dtype)[0]["field_str"]
             if not self.__class__.__name__ == "Record":
                 label_id = link_value.get(related_name)
+                if related_name == "value":
+                    related_name = ""
                 label_name = (
                     m2m_name.get(related_name, {}).get(label_id).get(feature_field)
                 )
@@ -954,11 +956,12 @@ class FeatureManager:
             related_names["Record"] = "components"
             related_names["Project"] = "linked_projects"
             related_names["Artifact"] = "linked_artifacts"
-            related_names["Run"] = "linked_runs"
+        # same convention for Artifact & Record
+        related_names["Run"] = "linked_runs"
         for class_name, registry_features_labels in features_labels.items():
             related_name = related_names[class_name]  # e.g., "ulabels"
             IsLink = getattr(self._host, related_name).through
-            if host_is_record:
+            if host_is_record or class_name == "Artifact":
                 field_name = "value_id"
             else:
                 field_name = (

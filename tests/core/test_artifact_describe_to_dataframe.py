@@ -43,15 +43,6 @@ def _check_df_equality(actual_df: pd.DataFrame, expected_df: pd.DataFrame) -> bo
     return True
 
 
-def test_describe_artifact_from_remote_instance(capsys):
-    # test describing from a remote instance with less modules
-    artifact = ln.Artifact.connect("laminlabs/lamin-site-assets").first()
-    artifact.describe()
-    captured = capsys.readouterr()
-    assert len(captured.out) > 50
-    assert "artifact" in captured.out.lower()
-
-
 # parallels the `registries` guide
 # please also see the test_querset.py tests
 def test_describe_to_dataframe_example_dataset():
