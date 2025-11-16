@@ -159,14 +159,16 @@ class Transform(SQLRecord, IsVersioned):
     """Reference for the transform, e.g., a URL."""
     reference_type: str | None = CharField(max_length=25, db_index=True, null=True)
     """Reference type of the transform, e.g., 'url'."""
-    entrypoint: str | None = CharField(null=True)
-    """Optional entrypoint for the transform."""
+    config: str | None = models.JSONField(null=True)
+    """Optional configuration for the transform."""
+    is_flow: bool = models.BooleanField(default=False, db_index=True)
+    """Whether this transform is a flow orchestrating other transforms."""
     flow: Transform | None = models.ForeignKey(
-        "Transform", CASCADE, null=True, related_name="tasks"
+        "Transform", CASCADE, null=True, related_name="steps"
     )
-    """The flow that defines this transform."""
-    tasks: Transform
-    """Tasks defined within this flow."""
+    """The top-level transform that orchestrates or contextualizes this transform."""
+    steps: Transform
+    """Steps defined within this flow."""
     environment: Transform | None = models.ForeignKey(
         "Transform", CASCADE, null=True, related_name="_environment_of_transforms"
     )
