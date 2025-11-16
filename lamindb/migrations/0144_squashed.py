@@ -3780,7 +3780,10 @@ class Migration(migrations.Migration):
                     ),
                 ),
                 ("config", models.JSONField(null=True)),
-                ("is_flow", models.BooleanField(db_index=True, default=False)),
+                (
+                    "is_flow",
+                    models.BooleanField(db_index=True, default=False, db_default=False),
+                ),
                 (
                     "created_at",
                     lamindb.base.fields.DateTimeField(

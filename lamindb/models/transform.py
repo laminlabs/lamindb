@@ -161,7 +161,7 @@ class Transform(SQLRecord, IsVersioned):
     """Reference type of the transform, e.g., 'url'."""
     config: str | None = models.JSONField(null=True)
     """Optional configuration for the transform."""
-    is_flow: bool = models.BooleanField(default=False, db_index=True)
+    is_flow: bool = models.BooleanField(default=False, db_default=False, db_index=True)
     """Whether this transform is a flow orchestrating other transforms."""
     flow: Transform | None = models.ForeignKey(
         "Transform", CASCADE, null=True, related_name="steps"
