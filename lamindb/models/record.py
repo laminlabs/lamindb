@@ -212,6 +212,10 @@ class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates, HasParents):
     """Artifacts annotated by this record."""
     runs: Run = models.ManyToManyField(Run, through="RunRecord", related_name="records")
     """Runs annotated by this record."""
+    transforms: Transform = models.ManyToManyField(
+        Transform, through="TransformRecord", related_name="records"
+    )
+    """Transforms annotated by this record."""
     projects: Project
     """Projects that annotate this record."""
     references: Reference
@@ -539,3 +543,38 @@ class ArtifactRecord(BaseSQLRecord, IsLink, TracksRun):
         # allows linking several records to a single artifact for the same feature because we'll likely need this
         app_label = "lamindb"
         unique_together = ("artifact", "record", "feature")
+
+
+# for storing transform-like values in records
+class RecordTransform(BaseSQLRecord, IsLink):
+    id: int = models.BigAutoField(primary_key=True)
+    record: Record = ForeignKey(Record, CASCADE, related_name="values_transform")
+    feature: Feature = ForeignKey(
+        Feature, PROTECT, related_name="links_recordtransform"
+    )
+    value: Transform = ForeignKey(Transform, PROTECT, related_name="links_in_record")
+
+    class Meta:
+        # allows linking several records to a single transform for the same feature because we'll likely need this
+        app_label = "lamindb"
+        unique_together = ("record", "feature", "value")
+
+
+# for annotating transforms with records
+class TransformRecord(BaseSQLRecord, IsLink, TracksRun):
+    id: int = models.BigAutoField(primary_key=True)
+    transform: Transform = ForeignKey(Transform, CASCADE, related_name="links_record")
+    record: Record = ForeignKey(Record, PROTECT, related_name="links_transform")
+    feature: Feature = ForeignKey(
+        Feature, PROTECT, related_name="links_transformrecord"
+    )
+    created_at: datetime = DateTimeField(
+        editable=False, db_default=models.functions.Now()
+    )
+    created_by: User = ForeignKey(
+        "lamindb.User", PROTECT, default=current_user_id, related_name="+"
+    )
+
+    class Meta:
+        app_label = "lamindb"
+        unique_together = ("transform", "record", "feature")

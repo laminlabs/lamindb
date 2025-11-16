@@ -4,7 +4,7 @@ import warnings
 from typing import TYPE_CHECKING, overload
 
 from django.db import models
-from django.db.models import PROTECT, Q
+from django.db.models import CASCADE, PROTECT, Q
 from lamin_utils import logger
 from lamindb_setup.core.hashing import HASH_LENGTH, hash_string
 
@@ -27,8 +27,10 @@ if TYPE_CHECKING:
 
     from lamindb.base.types import TransformType
 
+    from .artifact import Artifact
     from .block import TransformBlock
     from .project import Project, Reference
+    from .record import Record
     from .ulabel import ULabel
 
 
@@ -152,18 +154,36 @@ class Transform(SQLRecord, IsVersioned):
     """Reference for the transform, e.g., a URL."""
     reference_type: str | None = CharField(max_length=25, db_index=True, null=True)
     """Reference type of the transform, e.g., 'url'."""
+    entrypoint: str | None = CharField(null=True)
+    """Optional entrypoint for the transform."""
+    flow: Transform | None = models.ForeignKey(
+        "Transform", CASCADE, null=True, related_name="tasks"
+    )
+    """The flow that defines this transform."""
+    tasks: Transform
+    """Tasks defined within this flow."""
+    environment: Artifact | None = models.ForeignKey(
+        "Artifact", CASCADE, null=True, related_name="_environment_of_transforms"
+    )
+    """An environment for executing the transform."""
     runs: Run
     """Runs of this transform."""
     ulabels: ULabel = models.ManyToManyField(
         "ULabel", through="TransformULabel", related_name="transforms"
     )
     """ULabel annotations of this transform."""
+    linked_in_records: Record = models.ManyToManyField(
+        "Record", through="RecordTransform", related_name="linked_transforms"
+    )
+    """This transform is linked in these records as a value."""
+    transforms: Record
+    """Records that annotate this transform."""
     predecessors: Transform = models.ManyToManyField(
         "self", symmetrical=False, related_name="successors"
     )
     """Preceding transforms.
 
-    Allows to _manually_ define predecessors. Is typically not necessary as data lineage is
+    Allows *manually* defining preceding transforms. Is typically not necessary as data lineage is
     automatically tracked via runs whenever an artifact or collection serves as an input for a run.
     """
     successors: Transform
