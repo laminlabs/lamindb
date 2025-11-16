@@ -171,3 +171,36 @@ def test_delete():
     assert not environment_path.exists()
     assert len(ln.Artifact.filter(id__in=[report.id, environment.id])) == 0
     assert len(ln.Run.filter(id=run.id)) == 0
+
+
+def test_successor_predecessor_links():
+    predecessor = ln.Transform(key="predecessor1").save()
+    successor1 = ln.Transform(key="successor1").save()
+    successor2 = ln.Transform(key="successor2").save()
+    predecessor.successors.add(
+        successor1, successor2, through_defaults={"config": {"param": 42}}
+    )
+
+    assert len(predecessor.successors.all()) == 2
+    assert predecessor.links_successor.count() == 2
+    assert predecessor.links_successor.first().config == {"param": 42}
+    assert predecessor.links_successor.first().predecessor == predecessor
+    assert predecessor.predecessors.count() == 0
+    assert predecessor.links_predecessor.count() == 0
+
+    ln.models.transform.TransformTransform.filter(predecessor=predecessor).delete(
+        permanent=True
+    )
+
+    link = ln.models.transform.TransformTransform(
+        predecessor=predecessor, successor=successor1, config={"param": 42}
+    ).save()
+    assert link in predecessor.links_successor.all()
+    assert link in successor1.links_predecessor.all()
+    assert link.config == {"param": 42}
+
+    predecessor.delete(permanent=True)
+    successor1.delete(permanent=True)
+    successor2.delete(permanent=True)
+
+    assert ln.models.transform.TransformTransform.filter().count() == 0

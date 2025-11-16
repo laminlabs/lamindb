@@ -20,14 +20,19 @@ from lamindb.base.users import current_user_id
 from ..models._is_versioned import process_revises
 from ._is_versioned import IsVersioned
 from .run import Run, User, delete_run_artifacts
-from .sqlrecord import SQLRecord, init_self_from_db, update_attributes
+from .sqlrecord import (
+    BaseSQLRecord,
+    IsLink,
+    SQLRecord,
+    init_self_from_db,
+    update_attributes,
+)
 
 if TYPE_CHECKING:
     from datetime import datetime
 
     from lamindb.base.types import TransformType
 
-    from .artifact import Artifact
     from .block import TransformBlock
     from .project import Project, Reference
     from .record import Record
@@ -128,7 +133,7 @@ class Transform(SQLRecord, IsVersioned):
         editable=False, unique=True, db_index=True, max_length=_len_full_uid
     )
     """Universal id."""
-    # the fact that key is nullable is consistent with Artifact
+    # the fact that key is nullable is consistent with Transform
     # it might turn out that there will never really be a use case for this
     # but there likely also isn't much harm in it except for the mixed type
     # max length for key is 1014 and equals the max lenght of an S3 key & artifact key
@@ -162,8 +167,8 @@ class Transform(SQLRecord, IsVersioned):
     """The flow that defines this transform."""
     tasks: Transform
     """Tasks defined within this flow."""
-    environment: Artifact | None = models.ForeignKey(
-        "Artifact", CASCADE, null=True, related_name="_environment_of_transforms"
+    environment: Transform | None = models.ForeignKey(
+        "Transform", CASCADE, null=True, related_name="_environment_of_transforms"
     )
     """An environment for executing the transform."""
     runs: Run
@@ -179,7 +184,10 @@ class Transform(SQLRecord, IsVersioned):
     transforms: Record
     """Records that annotate this transform."""
     predecessors: Transform = models.ManyToManyField(
-        "self", symmetrical=False, related_name="successors"
+        "self",
+        through="TransformTransform",
+        symmetrical=False,
+        related_name="successors",
     )
     """Preceding transforms.
 
@@ -506,3 +514,24 @@ class Transform(SQLRecord, IsVersioned):
             distance=distance,
             attr_name="predecessors",
         )
+
+
+class TransformTransform(BaseSQLRecord, IsLink):
+    id: int = models.BigAutoField(primary_key=True)
+    successor: Transform = ForeignKey(
+        "Transform", CASCADE, related_name="links_predecessor"
+    )
+    predecessor: Transform = ForeignKey(
+        "Transform", CASCADE, related_name="links_successor"
+    )
+    config: dict | None = models.JSONField(default=None, null=True)
+    created_at: datetime = DateTimeField(
+        editable=False, db_default=models.functions.Now()
+    )
+    created_by: User = ForeignKey(
+        "lamindb.User", PROTECT, default=current_user_id, related_name="+"
+    )
+
+    class Meta:
+        app_label = "lamindb"
+        unique_together = ("successor", "predecessor")
