@@ -24,6 +24,7 @@ from anndata import read_h5ad
 from lamin_utils import logger
 from lamindb_setup.core.upath import (
     create_path,
+    extract_suffix_from_path,
     infer_filesystem,
 )
 
@@ -193,15 +194,7 @@ def load_to_memory(
     May return None in interactive sessions for images.
     """
     filepath = create_path(filepath)
-
-    # infer the correct suffix when .gz is present
-    suffixes = filepath.suffixes
-    suffix = (
-        "".join(suffixes[-2:])
-        if len(suffixes) > 1 and ".gz" in suffixes
-        else filepath.suffix
-    )
-
+    suffix = extract_suffix_from_path(filepath)
     loader = FILE_LOADERS.get(suffix, None)
     if loader is None:
         raise NotImplementedError(
