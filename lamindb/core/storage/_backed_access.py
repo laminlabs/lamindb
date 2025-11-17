@@ -138,6 +138,8 @@ def backed_access(
 
 def _non_gz_suffix(suffixes: list[str]) -> str:
     len_suffixes = len(suffixes)
+    if len_suffixes == 0:
+        return ""
     if len_suffixes > 1 and ".gz" in suffixes:
         if (suffix := suffixes[-2]) != ".tar":
             return suffix
