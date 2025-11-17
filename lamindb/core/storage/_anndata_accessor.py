@@ -862,8 +862,11 @@ def _anndata_n_observations(object: UPathStr | AnnData) -> int | None:
 
     try:
         objectpath = UPath(object)
-        suffix = objectpath.suffix
-        conn_module = {".h5ad": "h5py", ".zarr": "zarr"}.get(suffix, suffix[1:])
+        conn_module = None
+        if ".h5ad" in objectpath.suffixes:
+            conn_module = "h5py"
+        elif objectpath.suffix == ".zarr":
+            conn_module = "zarr"
         conn, storage = registry.open(conn_module, objectpath, mode="r")
     except Exception as e:
         logger.warning(f"Could not open {object} to read n_observations: {e}")
