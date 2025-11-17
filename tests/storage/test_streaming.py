@@ -675,9 +675,10 @@ def _compress(input_filepath, output_filepath):
             shutil.copyfileobj(f_in, f_out)
 
 
-def test_compressed():
+@pytest.mark.parametrize("gz_suffix", [".gz", ".tar.gz"])
+def test_compressed(gz_suffix):
     adata_f = ln.examples.datasets.anndata_file_pbmc68k_test()
-    adata_gz = adata_f.with_suffix(adata_f.suffix + ".gz")
+    adata_gz = adata_f.with_suffix(adata_f.suffix + gz_suffix)
     _compress(adata_f, adata_gz)
 
     artifact = ln.Artifact.from_anndata(adata_gz, key="adata.h5ad.gz").save()
