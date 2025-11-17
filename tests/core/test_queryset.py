@@ -1,7 +1,9 @@
 # .latest_version is tested in test_versioning.py
 
 
+import os
 import re
+import subprocess
 from contextlib import contextmanager
 
 import bionty as bt
@@ -330,9 +332,6 @@ def test_encode_lamindb_fields_as_columns():
 
 
 def test_connect_public_clone_instance():
-    import os
-    import subprocess
-
     env = os.environ
     env["LAMIN_TESTING"] = "true"
 
