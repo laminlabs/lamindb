@@ -99,17 +99,14 @@ def backed_access(
         artifact = None
         objectpath = artifact_or_filepath
     name = objectpath.name
-    # ignore .gz, only check the real suffix
-    suffixes = objectpath.suffixes
-    suffix = (
-        suffixes[-2] if len(suffixes) > 1 and ".gz" in suffixes else objectpath.suffix
-    )
+    suffix = objectpath.suffix
+    non_gz_suffix = _non_gz_suffix(objectpath.suffixes)
 
     if name == "soma" or suffix == ".tiledbsoma":
         if mode not in {"r", "w"}:
             raise ValueError("`mode` should be either 'r' or 'w' for tiledbsoma.")
         return _open_tiledbsoma(objectpath, mode=mode, **kwargs)  # type: ignore
-    elif suffix in {".h5", ".hdf5", ".h5ad"}:
+    elif non_gz_suffix in {".h5", ".hdf5", ".h5ad"}:
         conn, storage = registry.open("h5py", objectpath, mode=mode, **kwargs)
     elif suffix == ".zarr":
         if mode not in {"r", "r+"}:
@@ -128,13 +125,25 @@ def backed_access(
             f"instead of being {suffix} object."
         )
 
-    is_anndata = suffix == ".h5ad" or get_spec(storage).encoding_type == "anndata"
+    is_anndata = (
+        non_gz_suffix == ".h5ad" or get_spec(storage).encoding_type == "anndata"
+    )
     if is_anndata:
         if mode != "r" and isinstance(storage, h5py.Group):
             raise ValueError("Can only access `hdf5` `AnnData` with mode='r'.")
         return AnnDataAccessor(conn, storage, name, artifact)
     else:
         return BackedAccessor(conn, storage)
+
+
+def _non_gz_suffix(suffixes: list[str]) -> str:
+    len_suffixes = len(suffixes)
+    if len_suffixes > 1 and ".gz" in suffixes:
+        if (suffix := suffixes[-2]) != ".tar":
+            return suffix
+        elif len_suffixes > 2:
+            return suffixes[-3]
+    return suffixes[-1]
 
 
 def _flat_suffixes(paths: UPath | list[UPath]) -> set[str]:
@@ -151,17 +160,7 @@ def _flat_suffixes(paths: UPath | list[UPath]) -> set[str]:
         else:
             path_list.append(path)
 
-    suffixes = set()
-    for path in path_list:
-        path_suffixes = path.suffixes
-        # this doesn't work for externally gzipped files, REMOVE LATER
-        path_suffix = (
-            path_suffixes[-2]
-            if len(path_suffixes) > 1 and ".gz" in path_suffixes
-            else path.suffix
-        )
-        suffixes.add(path_suffix)
-    return suffixes
+    return {path.suffix for path in path_list}
 
 
 def _open_dataframe(

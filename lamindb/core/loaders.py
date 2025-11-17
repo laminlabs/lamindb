@@ -163,7 +163,6 @@ FILE_LOADERS = {
     ".h5ad.gz": load_h5ad,
     ".h5ad.tar.gz": load_h5ad,
     ".parquet": pd.read_parquet,
-    ".parquet.gz": pd.read_parquet,  # this doesn't work for externally gzipped files, REMOVE LATER
     ".fcs": load_fcs,
     ".zarr": load_zarr,
     ".html": load_html,
