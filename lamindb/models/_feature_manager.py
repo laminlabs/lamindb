@@ -204,6 +204,8 @@ def _get_categoricals_postgres(
             feature_field = parse_dtype(feature_dtype)[0]["field_str"]
             if not self.__class__.__name__ == "Record":
                 label_id = link_value.get(related_name)
+                if related_name == "value":
+                    related_name = ""
                 label_name = (
                     m2m_name.get(related_name, {}).get(label_id).get(feature_field)
                 )
@@ -897,9 +899,15 @@ class FeatureManager:
             tree, fallback="no linked features", return_str=return_str
         )
 
-    def get_values(self) -> dict[str, Any]:
-        """Get features as a dictionary."""
-        return get_features_data(self._host, to_dict=True)  # type: ignore
+    def get_values(self, external_only: bool = False) -> dict[str, Any]:
+        """Get features as a dictionary.
+
+        Includes annotation with internal and external feature values.
+
+        Args:
+            external_only: If `True`, only return external feature annotations.
+        """
+        return get_features_data(self._host, to_dict=True, external_only=external_only)  # type: ignore
 
     @deprecated("slots[slot].members")
     def __getitem__(self, slot) -> BasicQuerySet:
@@ -948,11 +956,12 @@ class FeatureManager:
             related_names["Record"] = "components"
             related_names["Project"] = "linked_projects"
             related_names["Artifact"] = "linked_artifacts"
-            related_names["Run"] = "linked_runs"
+        # same convention for Artifact & Record
+        related_names["Run"] = "linked_runs"
         for class_name, registry_features_labels in features_labels.items():
             related_name = related_names[class_name]  # e.g., "ulabels"
             IsLink = getattr(self._host, related_name).through
-            if host_is_record:
+            if host_is_record or class_name == "Artifact":
                 field_name = "value_id"
             else:
                 field_name = (

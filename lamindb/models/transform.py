@@ -4,7 +4,7 @@ import warnings
 from typing import TYPE_CHECKING, overload
 
 from django.db import models
-from django.db.models import PROTECT, Q
+from django.db.models import CASCADE, PROTECT, Q
 from lamin_utils import logger
 from lamindb_setup.core.hashing import HASH_LENGTH, hash_string
 
@@ -20,7 +20,13 @@ from lamindb.base.users import current_user_id
 from ..models._is_versioned import process_revises
 from ._is_versioned import IsVersioned
 from .run import Run, User, delete_run_artifacts
-from .sqlrecord import SQLRecord, init_self_from_db, update_attributes
+from .sqlrecord import (
+    BaseSQLRecord,
+    IsLink,
+    SQLRecord,
+    init_self_from_db,
+    update_attributes,
+)
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -29,6 +35,7 @@ if TYPE_CHECKING:
 
     from .block import TransformBlock
     from .project import Project, Reference
+    from .record import Record
     from .ulabel import ULabel
 
 
@@ -126,7 +133,7 @@ class Transform(SQLRecord, IsVersioned):
         editable=False, unique=True, db_index=True, max_length=_len_full_uid
     )
     """Universal id."""
-    # the fact that key is nullable is consistent with Artifact
+    # the fact that key is nullable is consistent with Transform
     # it might turn out that there will never really be a use case for this
     # but there likely also isn't much harm in it except for the mixed type
     # max length for key is 1014 and equals the max lenght of an S3 key & artifact key
@@ -152,18 +159,41 @@ class Transform(SQLRecord, IsVersioned):
     """Reference for the transform, e.g., a URL."""
     reference_type: str | None = CharField(max_length=25, db_index=True, null=True)
     """Reference type of the transform, e.g., 'url'."""
+    config: str | None = models.JSONField(null=True)
+    """Optional configuration for the transform."""
+    is_flow: bool = models.BooleanField(default=False, db_default=False, db_index=True)
+    """Whether this transform is a flow orchestrating other transforms."""
+    flow: Transform | None = models.ForeignKey(
+        "Transform", CASCADE, null=True, related_name="steps"
+    )
+    """The top-level transform that orchestrates or contextualizes this transform."""
+    steps: Transform
+    """Steps defined within this flow."""
+    environment: Transform | None = models.ForeignKey(
+        "Transform", CASCADE, null=True, related_name="_environment_of_transforms"
+    )
+    """An environment for executing the transform."""
     runs: Run
     """Runs of this transform."""
     ulabels: ULabel = models.ManyToManyField(
         "ULabel", through="TransformULabel", related_name="transforms"
     )
     """ULabel annotations of this transform."""
+    linked_in_records: Record = models.ManyToManyField(
+        "Record", through="RecordTransform", related_name="linked_transforms"
+    )
+    """This transform is linked in these records as a value."""
+    transforms: Record
+    """Records that annotate this transform."""
     predecessors: Transform = models.ManyToManyField(
-        "self", symmetrical=False, related_name="successors"
+        "self",
+        through="TransformTransform",
+        symmetrical=False,
+        related_name="successors",
     )
     """Preceding transforms.
 
-    Allows to _manually_ define predecessors. Is typically not necessary as data lineage is
+    Allows *manually* defining preceding transforms. Is typically not necessary as data lineage is
     automatically tracked via runs whenever an artifact or collection serves as an input for a run.
     """
     successors: Transform
@@ -486,3 +516,24 @@ class Transform(SQLRecord, IsVersioned):
             distance=distance,
             attr_name="predecessors",
         )
+
+
+class TransformTransform(BaseSQLRecord, IsLink):
+    id: int = models.BigAutoField(primary_key=True)
+    successor: Transform = ForeignKey(
+        "Transform", CASCADE, related_name="links_predecessor"
+    )
+    predecessor: Transform = ForeignKey(
+        "Transform", CASCADE, related_name="links_successor"
+    )
+    config: dict | None = models.JSONField(default=None, null=True)
+    created_at: datetime = DateTimeField(
+        editable=False, db_default=models.functions.Now()
+    )
+    created_by: User = ForeignKey(
+        "lamindb.User", PROTECT, default=current_user_id, related_name="+"
+    )
+
+    class Meta:
+        app_label = "lamindb"
+        unique_together = ("successor", "predecessor")

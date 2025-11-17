@@ -43,15 +43,6 @@ def _check_df_equality(actual_df: pd.DataFrame, expected_df: pd.DataFrame) -> bo
     return True
 
 
-def test_describe_artifact_from_remote_instance(capsys):
-    # test describing from a remote instance with less modules
-    artifact = ln.Artifact.connect("laminlabs/lamin-site-assets").first()
-    artifact.describe()
-    captured = capsys.readouterr()
-    assert len(captured.out) > 50
-    assert "artifact" in captured.out.lower()
-
-
 # parallels the `registries` guide
 # please also see the test_querset.py tests
 def test_describe_to_dataframe_example_dataset():
@@ -182,13 +173,14 @@ def test_describe_to_dataframe_example_dataset():
     }
 
     # test that only external feature are removed upon artifact.features.remove_values()
-    before = artifact.features.get_values()
+    all_feature_values = artifact.features.get_values()
     adata = artifact.load()
     just_internal = {}
     for col in adata.obs.columns:
-        if col in before:
-            just_internal[col] = before[col]
+        if col in all_feature_values:
+            just_internal[col] = all_feature_values[col]
     artifact.features.remove_values()
+    assert just_internal != all_feature_values
     assert just_internal == artifact.features.get_values()
 
     artifact.delete(permanent=True)

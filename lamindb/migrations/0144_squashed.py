@@ -335,6 +335,11 @@ class Migration(migrations.Migration):
         ),
         ("lamindb", "0138_remove_record_linked_users_user_linked_in_records"),
         ("lamindb", "0139_alter_reference_text"),
+        ("lamindb", "0140_artifactartifact_artifact_artifacts_artifactrun_and_more"),
+        ("lamindb", "0141_transform_entrypoint_transform_environment_and_more"),
+        ("lamindb", "0142_alter_transform_environment_transformtransform_and_more"),
+        ("lamindb", "0143_remove_transform_entrypoint_transform_config_and_more"),
+        ("lamindb", "0144_alter_transform_is_flow"),
     ]
 
     dependencies = []  # type: ignore
@@ -617,22 +622,78 @@ class Migration(migrations.Migration):
                         related_name="_action_targets", to="lamindb.artifact"
                     ),
                 ),
-                (
-                    "branch",
-                    lamindb.base.fields.ForeignKey(
-                        blank=True,
-                        db_column="_branch_code",
-                        db_default=1,
-                        default=1,
-                        on_delete=django.db.models.deletion.PROTECT,
-                        related_name="+",
-                        to="lamindb.branch",
-                    ),
-                ),
             ],
             options={
                 "abstract": False,
             },
+        ),
+        migrations.CreateModel(
+            name="ArtifactArtifact",
+            fields=[
+                (
+                    "created_at",
+                    lamindb.base.fields.DateTimeField(
+                        blank=True,
+                        db_default=django.db.models.functions.datetime.Now(),
+                        db_index=True,
+                        editable=False,
+                    ),
+                ),
+                ("id", models.BigAutoField(primary_key=True, serialize=False)),
+                (
+                    "label_ref_is_name",
+                    lamindb.base.fields.BooleanField(
+                        blank=True, default=None, null=True
+                    ),
+                ),
+                (
+                    "feature_ref_is_name",
+                    lamindb.base.fields.BooleanField(
+                        blank=True, default=None, null=True
+                    ),
+                ),
+                (
+                    "artifact",
+                    lamindb.base.fields.ForeignKey(
+                        blank=True,
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="links_artifact",
+                        to="lamindb.artifact",
+                    ),
+                ),
+                (
+                    "value",
+                    lamindb.base.fields.ForeignKey(
+                        blank=True,
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="links_value",
+                        to="lamindb.artifact",
+                    ),
+                ),
+            ],
+            bases=(lamindb.models.sqlrecord.IsLink, models.Model),
+        ),
+        migrations.AddField(
+            model_name="artifact",
+            name="artifacts",
+            field=models.ManyToManyField(
+                related_name="linked_artifacts",
+                through="lamindb.ArtifactArtifact",
+                to="lamindb.artifact",
+            ),
+        ),
+        migrations.AddField(
+            model_name="artifact",
+            name="branch",
+            field=lamindb.base.fields.ForeignKey(
+                blank=True,
+                db_column="_branch_code",
+                db_default=1,
+                default=1,
+                on_delete=django.db.models.deletion.PROTECT,
+                related_name="+",
+                to="lamindb.branch",
+            ),
         ),
         migrations.CreateModel(
             name="Collection",
@@ -997,6 +1058,54 @@ class Migration(migrations.Migration):
             bases=(lamindb.models.can_curate.CanCurate, models.Model),
         ),
         migrations.CreateModel(
+            name="ArtifactRun",
+            fields=[
+                (
+                    "created_at",
+                    lamindb.base.fields.DateTimeField(
+                        blank=True,
+                        db_default=django.db.models.functions.datetime.Now(),
+                        db_index=True,
+                        editable=False,
+                    ),
+                ),
+                ("id", models.BigAutoField(primary_key=True, serialize=False)),
+                (
+                    "label_ref_is_name",
+                    lamindb.base.fields.BooleanField(
+                        blank=True, default=None, null=True
+                    ),
+                ),
+                (
+                    "feature_ref_is_name",
+                    lamindb.base.fields.BooleanField(
+                        blank=True, default=None, null=True
+                    ),
+                ),
+                (
+                    "artifact",
+                    lamindb.base.fields.ForeignKey(
+                        blank=True,
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="links_run",
+                        to="lamindb.artifact",
+                    ),
+                ),
+                (
+                    "feature",
+                    lamindb.base.fields.ForeignKey(
+                        blank=True,
+                        default=None,
+                        null=True,
+                        on_delete=django.db.models.deletion.PROTECT,
+                        related_name="links_artifactrun",
+                        to="lamindb.feature",
+                    ),
+                ),
+            ],
+            bases=(lamindb.models.sqlrecord.IsLink, models.Model),
+        ),
+        migrations.CreateModel(
             name="ArtifactReference",
             fields=[
                 (
@@ -1138,6 +1247,18 @@ class Migration(migrations.Migration):
                 ),
             ],
             bases=(lamindb.models.sqlrecord.IsLink, models.Model),
+        ),
+        migrations.AddField(
+            model_name="artifactartifact",
+            name="feature",
+            field=lamindb.base.fields.ForeignKey(
+                blank=True,
+                default=None,
+                null=True,
+                on_delete=django.db.models.deletion.PROTECT,
+                related_name="links_artifactartifact",
+                to="lamindb.feature",
+            ),
         ),
         migrations.CreateModel(
             name="FeatureProject",
@@ -1848,6 +1969,31 @@ class Migration(migrations.Migration):
             bases=(models.Model, lamindb.models.sqlrecord.IsLink),
         ),
         migrations.CreateModel(
+            name="RecordTransform",
+            fields=[
+                ("id", models.BigAutoField(primary_key=True, serialize=False)),
+                (
+                    "feature",
+                    lamindb.base.fields.ForeignKey(
+                        blank=True,
+                        on_delete=django.db.models.deletion.PROTECT,
+                        related_name="links_recordtransform",
+                        to="lamindb.feature",
+                    ),
+                ),
+                (
+                    "record",
+                    lamindb.base.fields.ForeignKey(
+                        blank=True,
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="values_transform",
+                        to="lamindb.record",
+                    ),
+                ),
+            ],
+            bases=(models.Model, lamindb.models.sqlrecord.IsLink),
+        ),
+        migrations.CreateModel(
             name="RecordULabel",
             fields=[
                 ("id", models.BigAutoField(primary_key=True, serialize=False)),
@@ -2255,6 +2401,14 @@ class Migration(migrations.Migration):
                     ),
                 ),
                 (
+                    "artifacts",
+                    models.ManyToManyField(
+                        related_name="linked_runs",
+                        through="lamindb.ArtifactRun",
+                        to="lamindb.artifact",
+                    ),
+                ),
+                (
                     "branch",
                     lamindb.base.fields.ForeignKey(
                         blank=True,
@@ -2606,6 +2760,16 @@ class Migration(migrations.Migration):
             bases=(lamindb.models.sqlrecord.IsLink, models.Model),
         ),
         migrations.AddField(
+            model_name="artifactrun",
+            name="run",
+            field=lamindb.base.fields.ForeignKey(
+                blank=True,
+                on_delete=django.db.models.deletion.CASCADE,
+                related_name="links_artifact",
+                to="lamindb.run",
+            ),
+        ),
+        migrations.AddField(
             model_name="artifactreference",
             name="run",
             field=lamindb.base.fields.ForeignKey(
@@ -2643,6 +2807,18 @@ class Migration(migrations.Migration):
         ),
         migrations.AddField(
             model_name="artifactfeaturevalue",
+            name="run",
+            field=lamindb.base.fields.ForeignKey(
+                blank=True,
+                default=lamindb.models.run.current_run,
+                null=True,
+                on_delete=django.db.models.deletion.PROTECT,
+                related_name="+",
+                to="lamindb.run",
+            ),
+        ),
+        migrations.AddField(
+            model_name="artifactartifact",
             name="run",
             field=lamindb.base.fields.ForeignKey(
                 blank=True,
@@ -3604,6 +3780,11 @@ class Migration(migrations.Migration):
                         null=True,
                     ),
                 ),
+                ("config", models.JSONField(null=True)),
+                (
+                    "is_flow",
+                    models.BooleanField(db_index=True, default=False, db_default=False),
+                ),
                 (
                     "created_at",
                     lamindb.base.fields.DateTimeField(
@@ -3646,9 +3827,29 @@ class Migration(migrations.Migration):
                     ),
                 ),
                 (
-                    "predecessors",
+                    "environment",
+                    models.ForeignKey(
+                        null=True,
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="_environment_of_transforms",
+                        to="lamindb.transform",
+                    ),
+                ),
+                (
+                    "flow",
+                    models.ForeignKey(
+                        null=True,
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="steps",
+                        to="lamindb.transform",
+                    ),
+                ),
+                (
+                    "linked_in_records",
                     models.ManyToManyField(
-                        related_name="successors", to="lamindb.transform"
+                        related_name="linked_transforms",
+                        through="lamindb.RecordTransform",
+                        to="lamindb.record",
                     ),
                 ),
                 (
@@ -3674,6 +3875,16 @@ class Migration(migrations.Migration):
                 blank=True,
                 on_delete=django.db.models.deletion.CASCADE,
                 related_name="runs",
+                to="lamindb.transform",
+            ),
+        ),
+        migrations.AddField(
+            model_name="recordtransform",
+            name="value",
+            field=lamindb.base.fields.ForeignKey(
+                blank=True,
+                on_delete=django.db.models.deletion.PROTECT,
+                related_name="links_in_record",
                 to="lamindb.transform",
             ),
         ),
@@ -3732,6 +3943,68 @@ class Migration(migrations.Migration):
             ),
         ),
         migrations.CreateModel(
+            name="TransformRecord",
+            fields=[
+                ("id", models.BigAutoField(primary_key=True, serialize=False)),
+                (
+                    "created_at",
+                    lamindb.base.fields.DateTimeField(
+                        blank=True,
+                        db_default=django.db.models.functions.datetime.Now(),
+                        editable=False,
+                    ),
+                ),
+                (
+                    "feature",
+                    lamindb.base.fields.ForeignKey(
+                        blank=True,
+                        on_delete=django.db.models.deletion.PROTECT,
+                        related_name="links_transformrecord",
+                        to="lamindb.feature",
+                    ),
+                ),
+                (
+                    "record",
+                    lamindb.base.fields.ForeignKey(
+                        blank=True,
+                        on_delete=django.db.models.deletion.PROTECT,
+                        related_name="links_transform",
+                        to="lamindb.record",
+                    ),
+                ),
+                (
+                    "run",
+                    lamindb.base.fields.ForeignKey(
+                        blank=True,
+                        default=lamindb.models.run.current_run,
+                        null=True,
+                        on_delete=django.db.models.deletion.PROTECT,
+                        related_name="+",
+                        to="lamindb.run",
+                    ),
+                ),
+                (
+                    "transform",
+                    lamindb.base.fields.ForeignKey(
+                        blank=True,
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="links_record",
+                        to="lamindb.transform",
+                    ),
+                ),
+            ],
+            bases=(lamindb.models.sqlrecord.IsLink, models.Model),
+        ),
+        migrations.AddField(
+            model_name="record",
+            name="transforms",
+            field=models.ManyToManyField(
+                related_name="records",
+                through="lamindb.TransformRecord",
+                to="lamindb.transform",
+            ),
+        ),
+        migrations.CreateModel(
             name="TransformReference",
             fields=[
                 (
@@ -3782,6 +4055,49 @@ class Migration(migrations.Migration):
             field=models.ManyToManyField(
                 related_name="references",
                 through="lamindb.TransformReference",
+                to="lamindb.transform",
+            ),
+        ),
+        migrations.CreateModel(
+            name="TransformTransform",
+            fields=[
+                ("id", models.BigAutoField(primary_key=True, serialize=False)),
+                ("config", models.JSONField(default=None, null=True)),
+                (
+                    "created_at",
+                    lamindb.base.fields.DateTimeField(
+                        blank=True,
+                        db_default=django.db.models.functions.datetime.Now(),
+                        editable=False,
+                    ),
+                ),
+                (
+                    "predecessor",
+                    lamindb.base.fields.ForeignKey(
+                        blank=True,
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="links_successor",
+                        to="lamindb.transform",
+                    ),
+                ),
+                (
+                    "successor",
+                    lamindb.base.fields.ForeignKey(
+                        blank=True,
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="links_predecessor",
+                        to="lamindb.transform",
+                    ),
+                ),
+            ],
+            bases=(models.Model, lamindb.models.sqlrecord.IsLink),
+        ),
+        migrations.AddField(
+            model_name="transform",
+            name="predecessors",
+            field=models.ManyToManyField(
+                related_name="successors",
+                through="lamindb.TransformTransform",
                 to="lamindb.transform",
             ),
         ),
@@ -4298,12 +4614,34 @@ class Migration(migrations.Migration):
             ),
         ),
         migrations.AddField(
+            model_name="transformtransform",
+            name="created_by",
+            field=lamindb.base.fields.ForeignKey(
+                blank=True,
+                default=lamindb.base.users.current_user_id,
+                on_delete=django.db.models.deletion.PROTECT,
+                related_name="+",
+                to="lamindb.user",
+            ),
+        ),
+        migrations.AddField(
             model_name="transformreference",
             name="created_by",
             field=lamindb.base.fields.ForeignKey(
                 blank=True,
                 default=lamindb.base.users.current_user_id,
                 editable=False,
+                on_delete=django.db.models.deletion.PROTECT,
+                related_name="+",
+                to="lamindb.user",
+            ),
+        ),
+        migrations.AddField(
+            model_name="transformrecord",
+            name="created_by",
+            field=lamindb.base.fields.ForeignKey(
+                blank=True,
+                default=lamindb.base.users.current_user_id,
                 on_delete=django.db.models.deletion.PROTECT,
                 related_name="+",
                 to="lamindb.user",
@@ -5359,6 +5697,18 @@ class Migration(migrations.Migration):
             ),
         ),
         migrations.AddField(
+            model_name="artifactrun",
+            name="created_by",
+            field=lamindb.base.fields.ForeignKey(
+                blank=True,
+                default=lamindb.base.users.current_user_id,
+                editable=False,
+                on_delete=django.db.models.deletion.PROTECT,
+                related_name="+",
+                to="lamindb.user",
+            ),
+        ),
+        migrations.AddField(
             model_name="artifactreference",
             name="created_by",
             field=lamindb.base.fields.ForeignKey(
@@ -5476,6 +5826,18 @@ class Migration(migrations.Migration):
             ],
         ),
         migrations.AddField(
+            model_name="artifactartifact",
+            name="created_by",
+            field=lamindb.base.fields.ForeignKey(
+                blank=True,
+                default=lamindb.base.users.current_user_id,
+                editable=False,
+                on_delete=django.db.models.deletion.PROTECT,
+                related_name="+",
+                to="lamindb.user",
+            ),
+        ),
+        migrations.AddField(
             model_name="artifact",
             name="created_by",
             field=lamindb.base.fields.ForeignKey(
@@ -5530,6 +5892,10 @@ class Migration(migrations.Migration):
             unique_together={("record", "feature", "value")},
         ),
         migrations.AlterUniqueTogether(
+            name="recordtransform",
+            unique_together={("record", "feature", "value")},
+        ),
+        migrations.AlterUniqueTogether(
             name="recordulabel",
             unique_together={("record", "feature", "value")},
         ),
@@ -5550,8 +5916,16 @@ class Migration(migrations.Migration):
             unique_together={("transform", "ulabel")},
         ),
         migrations.AlterUniqueTogether(
+            name="transformtransform",
+            unique_together={("successor", "predecessor")},
+        ),
+        migrations.AlterUniqueTogether(
             name="transformreference",
             unique_together={("transform", "reference")},
+        ),
+        migrations.AlterUniqueTogether(
+            name="transformrecord",
+            unique_together={("transform", "record", "feature")},
         ),
         migrations.AlterUniqueTogether(
             name="transformproject",
@@ -5703,6 +6077,10 @@ class Migration(migrations.Migration):
             unique_together={("artifact", "schema"), ("artifact", "slot")},
         ),
         migrations.AlterUniqueTogether(
+            name="artifactrun",
+            unique_together={("artifact", "run", "feature")},
+        ),
+        migrations.AlterUniqueTogether(
             name="artifactreference",
             unique_together={("artifact", "reference", "feature")},
         ),
@@ -5717,6 +6095,10 @@ class Migration(migrations.Migration):
         migrations.AlterUniqueTogether(
             name="artifactfeaturevalue",
             unique_together={("artifact", "featurevalue")},
+        ),
+        migrations.AlterUniqueTogether(
+            name="artifactartifact",
+            unique_together={("artifact", "value", "feature")},
         ),
         migrations.AddConstraint(
             model_name="artifact",

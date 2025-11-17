@@ -6,6 +6,15 @@ import pytest
 from lamindb.models._django import get_artifact_or_run_with_related
 
 
+def test_describe_artifact_from_remote_instance(capsys):
+    # test describing from a remote instance with less modules
+    artifact = ln.Artifact.connect("laminlabs/lamin-site-assets").first()
+    artifact.describe()
+    captured = capsys.readouterr()
+    assert len(captured.out) > 50
+    assert "artifact" in captured.out.lower()
+
+
 def test_transfer_from_remote_to_local(ccaplog):
     """Test transfer from remote to local instance."""
 
