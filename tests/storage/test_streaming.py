@@ -681,24 +681,15 @@ def test_compressed():
     _compress(adata_f, adata_gz)
 
     artifact = ln.Artifact.from_anndata(adata_gz, key="adata.h5ad.gz").save()
-
-    print("begin open adata.h5ad.gz")
+    assert artifact.n_observations == 30
 
     with artifact.open() as store:
         assert isinstance(store, AnnDataAccessor)
 
-    print("begin load adata.h5ad.gz")
-
     assert isinstance(artifact.load(), ad.AnnData)
-
-    print("begin open adata.h5ad.gz with compression=None")
 
     with pytest.raises(OSError):
         artifact.open(compression=None)
 
-    print("begin cleanup test_compressed")
-
     artifact.delete(permanent=True)
     adata_gz.unlink()
-
-    print("end cleanup test_compressed")
