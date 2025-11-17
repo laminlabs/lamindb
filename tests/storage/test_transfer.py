@@ -136,7 +136,9 @@ def test_transfer_from_remote_to_local(ccaplog):
     assert artifact1.features["obs"].get(name="organism").uid == "existing"
 
     # test transfer from an instance with fewer modules (laminlabs/lamin-site-assets)
-    artifact3 = ln.Artifact.connect("laminlabs/lamin-site-assets").get("lgRNHNtM")
+    artifact3 = ln.Artifact.connect("laminlabs/lamin-site-assets").get(
+        "lgRNHNtMxjU0y8nIagt7"
+    )
     # test that implicit saving through `load()` works (also occurs for `cache()` or `open()` for run input tracking)
     artifact3.load()
 
