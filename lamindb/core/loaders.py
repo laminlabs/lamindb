@@ -166,6 +166,7 @@ FILE_LOADERS = {
     ".parquet": pd.read_parquet,
     ".fcs": load_fcs,
     ".zarr": load_zarr,
+    ".anndata.zarr": load_zarr,
     ".html": load_html,
     ".json": load_json,
     ".yaml": load_yaml,
