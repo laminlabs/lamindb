@@ -24,6 +24,7 @@ from anndata import read_h5ad
 from lamin_utils import logger
 from lamindb_setup.core.upath import (
     create_path,
+    extract_suffix_from_path,
     infer_filesystem,
 )
 
@@ -155,14 +156,17 @@ def load_rds(path: UPathStr) -> UPathStr:
 FILE_LOADERS = {
     ".csv": pd.read_csv,
     ".csv.gz": pd.read_csv,
+    ".csv.tar.gz": pd.read_csv,
     ".tsv": load_tsv,
     ".tsv.gz": load_tsv,
+    ".tsv.tar.gz": load_tsv,
     ".h5ad": load_h5ad,
     ".h5ad.gz": load_h5ad,
+    ".h5ad.tar.gz": load_h5ad,
     ".parquet": pd.read_parquet,
-    ".parquet.gz": pd.read_parquet,  # this doesn't work for externally gzipped files, REMOVE LATER
     ".fcs": load_fcs,
     ".zarr": load_zarr,
+    ".anndata.zarr": load_zarr,
     ".html": load_html,
     ".json": load_json,
     ".yaml": load_yaml,
@@ -191,15 +195,7 @@ def load_to_memory(
     May return None in interactive sessions for images.
     """
     filepath = create_path(filepath)
-
-    # infer the correct suffix when .gz is present
-    suffixes = filepath.suffixes
-    suffix = (
-        "".join(suffixes[-2:])
-        if len(suffixes) > 1 and ".gz" in suffixes
-        else filepath.suffix
-    )
-
+    suffix = extract_suffix_from_path(filepath)
     loader = FILE_LOADERS.get(suffix, None)
     if loader is None:
         raise NotImplementedError(

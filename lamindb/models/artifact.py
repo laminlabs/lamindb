@@ -2505,7 +2505,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             raise ValueError(INCONSISTENT_STATE_MSG)
         # all hdf5 suffixes including gzipped
         h5_suffixes = [".h5", ".hdf5", ".h5ad"]
-        h5_suffixes += [s + ".gz" for s in h5_suffixes]
+        h5_gz_suffixes = []
+        for s in h5_suffixes:
+            h5_gz_suffixes += [s, s + ".gz", s + ".tar.gz"]
         # ignore empty suffix for now
         df_suffixes = tuple(set(PYARROW_SUFFIXES).union(POLARS_SUFFIXES))
         suffixes = (
@@ -2515,11 +2517,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 ".anndata.zarr",
                 ".tiledbsoma",
             )
-            + tuple(h5_suffixes)
+            + tuple(h5_gz_suffixes)
             + df_suffixes
-            + tuple(
-                s + ".gz" for s in PYARROW_SUFFIXES
-            )  # this doesn't work for externally gzipped files, REMOVE LATER
         )
         suffix = self.suffix
         if suffix not in suffixes:

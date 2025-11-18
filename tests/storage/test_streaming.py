@@ -675,30 +675,22 @@ def _compress(input_filepath, output_filepath):
             shutil.copyfileobj(f_in, f_out)
 
 
-def test_compressed():
+@pytest.mark.parametrize("gz_suffix", [".gz", ".tar.gz"])
+def test_compressed(gz_suffix):
     adata_f = ln.examples.datasets.anndata_file_pbmc68k_test()
-    adata_gz = adata_f.with_suffix(adata_f.suffix + ".gz")
+    adata_gz = adata_f.with_suffix(adata_f.suffix + gz_suffix)
     _compress(adata_f, adata_gz)
 
-    artifact = ln.Artifact.from_anndata(adata_gz, key="adata.h5ad.gz").save()
-
-    print("begin open adata.h5ad.gz")
+    artifact = ln.Artifact.from_anndata(adata_gz, key="adata.h5ad" + gz_suffix).save()
+    assert artifact.n_observations == 30
 
     with artifact.open() as store:
         assert isinstance(store, AnnDataAccessor)
 
-    print("begin load adata.h5ad.gz")
-
     assert isinstance(artifact.load(), ad.AnnData)
-
-    print("begin open adata.h5ad.gz with compression=None")
 
     with pytest.raises(OSError):
         artifact.open(compression=None)
 
-    print("begin cleanup test_compressed")
-
     artifact.delete(permanent=True)
     adata_gz.unlink()
-
-    print("end cleanup test_compressed")
