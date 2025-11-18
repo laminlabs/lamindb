@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import builtins
+import gzip
 import inspect
 import os
 import re
+import shutil
 import sys
 from collections import defaultdict
 from itertools import chain
@@ -650,15 +652,11 @@ class Registry(ModelBase):
             Args:
                 storage_root: The storage root path of the (target) instance
             """
-            import lamindb_setup as ln_setup
-
             cloud_db_path = UPath(storage_root) / ".lamindb" / "lamin.db"
-
             local_sqlite_path = ln_setup.settings.cache_dir / cloud_db_path.path.lstrip(
                 "/"
             )
             local_sqlite_path.parent.mkdir(parents=True, exist_ok=True)
-
             cloud_db_path_gz = UPath(str(cloud_db_path) + ".gz", anon=True)
 
             try:
@@ -666,9 +664,6 @@ class Registry(ModelBase):
                 cloud_db_path_gz.synchronize_to(
                     local_sqlite_path_gz, error_no_origin=True, print_progress=True
                 )
-
-                import gzip
-                import shutil
 
                 with gzip.open(local_sqlite_path_gz, "rb") as f_in:
                     with open(local_sqlite_path, "wb") as f_out:
@@ -718,13 +713,13 @@ class Registry(ModelBase):
                 [mod for mod in iresult["schema_str"].split(",") if mod != ""]
             )
 
+            # Try to connect to a clone if targeting a public instance but fall back to normal access if access failed
             db = None
             if (
                 "_jwt" in iresult["db_user_name"]
                 and "postgresql" in iresult["db_scheme"]
             ):
                 db = _synchronize_clone(storage["root"])
-
             if db is None:
                 if [
                     iresult.get("owner"),
@@ -748,11 +743,11 @@ class Registry(ModelBase):
         else:
             isettings = load_instance_settings(settings_file)
             source_modules = isettings.modules
-
             db = None
             if "jwt" in isettings.db and isettings.dialect == "postgresql":
                 db = _synchronize_clone(isettings.storage.root_as_str)
 
+            # Try to connect to a clone if targeting a public instance but fall back to normal access if access failed
             if db is None:
                 if [isettings.owner, isettings.name] == current_instance_owner_name:
                     return QuerySet(model=cls, using=None)
