@@ -4563,6 +4563,7 @@ class Migration(migrations.Migration):
                     models.ManyToManyField(
                         related_name="users",
                         through="lamindb.ArtifactUser",
+                        through_fields=("user", "artifact"),
                         to="lamindb.artifact",
                     ),
                 ),
