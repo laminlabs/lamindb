@@ -210,7 +210,6 @@ class Project(SQLRecord, CanCurate, TracksRun, TracksUpdates, ValidateFields):
                 ),
             ),
             # also see raw SQL constraints for `is_type` and `type` FK validity in migrations
-            # also see raw SQL constraints for `is_type` and `type` FK validity in migrations
         ]
 
     id: int = models.AutoField(primary_key=True)

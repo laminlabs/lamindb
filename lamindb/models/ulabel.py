@@ -92,7 +92,6 @@ class ULabel(SQLRecord, HasParents, CanCurate, TracksRun, TracksUpdates):
                 ),
             ),
             # also see raw SQL constraints for `is_type` and `type` FK validity in migrations
-            # also see raw SQL constraints for `is_type` and `type` FK validity in migrations
         ]
 
     _name_field: str = "name"
