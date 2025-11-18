@@ -5,7 +5,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("lamindb", "0144_squashed"),
+        ("lamindb", "0144_alter_transform_is_flow"),
     ]
 
     operations = [
