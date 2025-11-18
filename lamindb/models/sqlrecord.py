@@ -658,17 +658,12 @@ class Registry(ModelBase):
             )
             local_sqlite_path.parent.mkdir(parents=True, exist_ok=True)
             cloud_db_path_gz = UPath(str(cloud_db_path) + ".gz", anon=True)
+            local_sqlite_path_gz = Path(str(local_sqlite_path) + ".gz")
 
             try:
-                local_sqlite_path_gz = Path(str(local_sqlite_path) + ".gz")
                 cloud_db_path_gz.synchronize_to(
                     local_sqlite_path_gz, error_no_origin=True, print_progress=True
                 )
-
-                with gzip.open(local_sqlite_path_gz, "rb") as f_in:
-                    with open(local_sqlite_path, "wb") as f_out:
-                        shutil.copyfileobj(f_in, f_out)
-                local_sqlite_path_gz.unlink()
             except (FileNotFoundError, PermissionError):
                 try:
                     cloud_db_path.synchronize_to(
@@ -677,6 +672,11 @@ class Registry(ModelBase):
                 except (FileNotFoundError, PermissionError):
                     logger.debug("Clone not found. Falling back to normal access...")
                     return None
+            else:
+                with gzip.open(local_sqlite_path_gz, "rb") as f_in:
+                    with open(local_sqlite_path, "wb") as f_out:
+                        shutil.copyfileobj(f_in, f_out)
+                local_sqlite_path_gz.unlink()
 
             return f"sqlite:///{local_sqlite_path}"
 
