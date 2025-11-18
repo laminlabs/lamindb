@@ -39,7 +39,7 @@ from .run import (
     TracksRun,
     TracksUpdates,
 )
-from .sqlrecord import BaseSQLRecord, Registry, SQLRecord, _get_record_kwargs
+from .sqlrecord import BaseSQLRecord, HasType, Registry, SQLRecord, _get_record_kwargs
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -527,7 +527,7 @@ def process_init_feature_param(args, kwargs, is_param: bool = False):
     return kwargs
 
 
-class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
+class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     """Dimensions of measurement such as dataframe columns or dictionary keys.
 
     Features represent *what* is measured in a dataset—the variables or dimensions along which data is organized.
@@ -643,10 +643,21 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
                 condition=models.Q(is_type=True) | models.Q(dtype__isnull=False),
                 name="dtype_not_null_when_is_type_false",
             ),
+            # unique name for types when type is NULL
             models.UniqueConstraint(
-                fields=["name", "type", "space"],
-                name="unique_feature_name_type_space",
-                condition=~models.Q(branch_id=-1),
+                fields=["name"],
+                name="unique_feature_type_name_at_root",
+                condition=models.Q(
+                    ~models.Q(branch_id=-1), type__isnull=True, is_type=True
+                ),
+            ),
+            # unique name for types when type is not NULL
+            models.UniqueConstraint(
+                fields=["name", "type"],
+                name="unique_feature_type_name_under_type",
+                condition=models.Q(
+                    ~models.Q(branch_id=-1), type__isnull=False, is_type=True
+                ),
             ),
             # also see raw SQL constraints for `is_type` and `type` FK validity in migrations
         ]
