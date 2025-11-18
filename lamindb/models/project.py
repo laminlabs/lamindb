@@ -59,11 +59,22 @@ class Reference(SQLRecord, CanCurate, TracksRun, TracksUpdates, ValidateFields):
         abstract = False
         app_label = "lamindb"
         constraints = [
+            # unique name for types when type is NULL
             models.UniqueConstraint(
-                fields=["name", "type", "space"],
-                name="unique_reference_name_type_space",
-                condition=~models.Q(branch_id=-1),
-            )
+                fields=["name"],
+                name="unique_reference_type_name_at_root",
+                condition=models.Q(
+                    ~models.Q(branch_id=-1), type__isnull=True, is_type=True
+                ),
+            ),
+            # unique name for types when type is not NULL
+            models.UniqueConstraint(
+                fields=["name", "type"],
+                name="unique_reference_type_name_under_type",
+                condition=models.Q(
+                    ~models.Q(branch_id=-1), type__isnull=False, is_type=True
+                ),
+            ),
             # also see raw SQL constraints for `is_type` and `type` FK validity in migrations
         ]
 
@@ -182,11 +193,23 @@ class Project(SQLRecord, CanCurate, TracksRun, TracksUpdates, ValidateFields):
         abstract = False
         app_label = "lamindb"
         constraints = [
+            # unique name for types when type is NULL
             models.UniqueConstraint(
-                fields=["name", "type", "space"],
-                name="unique_project_name_type_space",
-                condition=~models.Q(branch_id=-1),
-            )
+                fields=["name"],
+                name="unique_project_type_name_at_root",
+                condition=models.Q(
+                    ~models.Q(branch_id=-1), type__isnull=True, is_type=True
+                ),
+            ),
+            # unique name for types when type is not NULL
+            models.UniqueConstraint(
+                fields=["name", "type"],
+                name="unique_project_type_name_under_type",
+                condition=models.Q(
+                    ~models.Q(branch_id=-1), type__isnull=False, is_type=True
+                ),
+            ),
+            # also see raw SQL constraints for `is_type` and `type` FK validity in migrations
             # also see raw SQL constraints for `is_type` and `type` FK validity in migrations
         ]
 
