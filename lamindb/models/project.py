@@ -26,7 +26,7 @@ from .feature import Feature
 from .record import Record
 from .run import Run, TracksRun, TracksUpdates, User
 from .schema import Schema
-from .sqlrecord import BaseSQLRecord, IsLink, SQLRecord, ValidateFields
+from .sqlrecord import BaseSQLRecord, HasType, IsLink, SQLRecord, ValidateFields
 from .transform import Transform
 from .ulabel import ULabel
 
@@ -37,7 +37,9 @@ if TYPE_CHECKING:
     from .block import ProjectBlock
 
 
-class Reference(SQLRecord, CanCurate, TracksRun, TracksUpdates, ValidateFields):
+class Reference(
+    SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, ValidateFields
+):
     """References such as internal studies, papers, documents, or URLs.
 
     Example:
@@ -172,7 +174,7 @@ class Reference(SQLRecord, CanCurate, TracksRun, TracksUpdates, ValidateFields):
         super().__init__(*args, **kwargs)
 
 
-class Project(SQLRecord, CanCurate, TracksRun, TracksUpdates, ValidateFields):
+class Project(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, ValidateFields):
     """Projects to label artifacts, transforms, records, and runs.
 
     Example:

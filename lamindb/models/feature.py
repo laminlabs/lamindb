@@ -39,7 +39,7 @@ from .run import (
     TracksRun,
     TracksUpdates,
 )
-from .sqlrecord import BaseSQLRecord, Registry, SQLRecord, _get_record_kwargs
+from .sqlrecord import BaseSQLRecord, HasType, Registry, SQLRecord, _get_record_kwargs
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -527,7 +527,7 @@ def process_init_feature_param(args, kwargs, is_param: bool = False):
     return kwargs
 
 
-class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
+class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     """Dimensions of measurement such as dataframe columns or dictionary keys.
 
     Features represent *what* is measured in a dataset—the variables or dimensions along which data is organized.

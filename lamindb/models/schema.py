@@ -38,6 +38,7 @@ from .feature import (
 from .run import TracksRun, TracksUpdates
 from .sqlrecord import (
     BaseSQLRecord,
+    HasType,
     IsLink,
     Registry,
     SQLRecord,
@@ -176,7 +177,7 @@ KNOWN_SCHEMAS = {  # by hash
 }
 
 
-class Schema(SQLRecord, CanCurate, TracksRun):
+class Schema(SQLRecord, HasType, CanCurate, TracksRun):
     """Schemas of a dataset such as the set of columns of a `DataFrame`.
 
     Composite schemas can have multiple slots, e.g., for an `AnnData`, one schema for slot `obs` and another one for `var`.

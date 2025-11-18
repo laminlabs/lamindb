@@ -20,7 +20,7 @@ from .can_curate import CanCurate
 from .feature import Feature
 from .has_parents import HasParents, _query_ancestors_of_fk
 from .run import Run, TracksRun, TracksUpdates, User, current_user_id
-from .sqlrecord import BaseSQLRecord, IsLink, SQLRecord, _get_record_kwargs
+from .sqlrecord import BaseSQLRecord, HasType, IsLink, SQLRecord, _get_record_kwargs
 from .transform import Transform
 
 if TYPE_CHECKING:
@@ -33,7 +33,7 @@ if TYPE_CHECKING:
     from .record import Record
 
 
-class ULabel(SQLRecord, HasParents, CanCurate, TracksRun, TracksUpdates):
+class ULabel(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates):
     """Universal labels.
 
     For new labels, see `Record` instead. Existing labels and code will continue to work

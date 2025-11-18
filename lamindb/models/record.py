@@ -30,7 +30,7 @@ from .query_set import (
     reorder_subset_columns_in_df,
 )
 from .run import Run, TracksRun, TracksUpdates, User, current_run, current_user_id
-from .sqlrecord import BaseSQLRecord, IsLink, SQLRecord, _get_record_kwargs
+from .sqlrecord import BaseSQLRecord, HasType, IsLink, SQLRecord, _get_record_kwargs
 from .transform import Transform
 from .ulabel import ULabel
 
@@ -45,7 +45,7 @@ if TYPE_CHECKING:
     from .schema import Schema
 
 
-class Record(SQLRecord, CanCurate, TracksRun, TracksUpdates, HasParents):
+class Record(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, HasParents):
     """Flexible metadata records for labeling and organizing entities.
 
     Useful for managing samples, donors, cells, compounds, sequences, and other custom entities.
