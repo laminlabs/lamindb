@@ -59,3 +59,43 @@ def test_invalid_type_ulabel():
         ln.ULabel(name="with_invalid_type", type=no_ulabel_type).save()
     assert "ulabel_type_is_valid_fk" in error.exconly()
     no_ulabel_type.delete(permanent=True)
+
+
+def test_record_type_uniqueness():
+    # for record types
+    record_type = ln.Record(name="TestType", is_type=True).save()
+    record_type2 = ln.Record(name="TestType", is_type=True).save()
+    assert record_type == record_type2
+    with pytest.raises(IntegrityError):
+        # raise a unique constraint error when trying to create a duplicate record type
+        ln.Record(name="TestType", is_type=True, _skip_validation=True).save()
+    record_type.delete()
+    # because `record` is now in trash, we can create a new record with the same name and type
+    record_type3 = ln.Record(name="TestType").save()
+    assert record_type != record_type3
+    record_type3.delete()
+    record_type.restore()
+
+    # for record sub types
+    record_subtype = ln.Record(
+        name="TestSubType", is_type=True, type=record_type
+    ).save()
+    record_subtype2 = ln.Record(
+        name="TestSubType", is_type=True, type=record_type
+    ).save()
+    assert record_subtype == record_subtype2
+    with pytest.raises(IntegrityError):
+        # raise a unique constraint error when trying to create a duplicate record type
+        ln.Record(
+            name="TestSubType", is_type=True, type=record_type, _skip_validation=True
+        ).save()
+    record_subtype.delete()
+    record_subtype3 = ln.Record(
+        name="TestSubType", is_type=True, type=record_type
+    ).save()
+    assert record_subtype != record_subtype3
+
+    record_subtype.delete(permanent=True)
+    record_subtype3.delete(permanent=True)
+    record_type.delete(permanent=True)
+    record_type3.delete(permanent=True)

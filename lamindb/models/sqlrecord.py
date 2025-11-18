@@ -958,11 +958,12 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                     init_self_from_db(self, pre_existing_record)
                 elif (
                     isinstance(e, IntegrityError)
-                    # for Storageeven if uid was in the error message, we can retrieve based on
+                    # for Storage, even if uid was in the error message, we can retrieve based on
                     # the root because it's going to be the same root
                     and any(
                         field in error_msg for field in ("root", "ontology_id", "uid")
                     )
+                    and ("_record_type_name_at_" not in error_msg)
                     and (
                         "UNIQUE constraint failed" in error_msg
                         or "duplicate key value violates unique constraint" in error_msg
