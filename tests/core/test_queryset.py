@@ -338,7 +338,6 @@ def test_connect_public_clone_instance():
 
     # become an anonymous user
     ln_setup.logout()
-    ln_setup.connect("laminlabs/lamindata")
 
     try:
         from django.db import connections
@@ -357,6 +356,11 @@ def test_connect_public_clone_instance():
         assert result is not None
     finally:
         # log back in to ensure that other tests do not break
+        result = subprocess.run(
+            ["lamin", "login", "testuser2"],
+            capture_output=True,
+            env=env,
+        )
         result = subprocess.run(
             ["lamin", "login", "testuser1"],
             capture_output=True,
