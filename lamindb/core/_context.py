@@ -772,7 +772,7 @@ class Context:
                 transform_hash = None
         # see whether we find a transform with the exact same hash
         if transform_hash is not None:
-            aux_transform = Transform.filter(hash=transform_hash).one_or_none()
+            aux_transform = Transform.filter(hash=transform_hash).first()
         else:
             aux_transform = None
 
