@@ -630,13 +630,17 @@ class Context:
             import inspect
 
             frame = inspect.stack()[2]
-            module = inspect.getmodule(frame[0])
-            # None for interactive session
-            if module is None:
+            # this is actually a full file path
+            filename = frame.filename if hasattr(frame, "filename") else frame[1]
+            if filename in ("<stdin>", "<console>", "<string>", "<input>"):
                 raise NotImplementedError(
                     "Interactive sessions are not yet supported to be tracked."
                 )
-            path = Path(module.__file__)
+            if not filename or filename.startswith("<"):
+                raise NotImplementedError(
+                    f"Cannot determine valid file path from frame: {filename}, pass manually via path"
+                )
+            path = Path(filename)
         else:
             path = Path(path)
         # for Rmd and qmd, we could also extract the title
