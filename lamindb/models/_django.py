@@ -187,7 +187,10 @@ def get_artifact_or_run_with_related(
         name_field = get_name_field(related_model)
         label_field_name = f"{label_field}__{name_field}"
         filter_kwargs = {entity_field_name: OuterRef("pk")}
-        if link_model.__name__ != "RecordUser":  # user does not have branch
+        if link_model.__name__ not in {
+            "RecordUser",
+            "ArtifactUser",
+        }:  # user does not have branch
             filter_kwargs[f"{label_field}__branch_id__in"] = get_default_branch_ids()
         annotations[f"linkfield_{link}"] = Subquery(
             link_model.objects.filter(**filter_kwargs)
