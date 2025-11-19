@@ -100,3 +100,21 @@ def test_record_type_uniqueness():
     record_subtype3.delete(permanent=True)
     record_type.delete(permanent=True)
     record_type3.delete(permanent=True)
+
+
+def test_query_records():
+    record_type1 = ln.Record(name="Type1", is_type=True).save()
+    record_type2 = ln.Record(name="Type2", is_type=True, type=record_type1).save()
+    record_type3 = ln.Record(name="Type3", is_type=True, type=record_type2).save()
+    record1 = ln.Record(name="record1", type=record_type1).save()
+    record2 = ln.Record(name="record2", type=record_type3).save()
+    record3 = ln.Record(name="record3", type=record_type3).save()
+    assert record_type1.query_records().count() == 5
+    record_type2.delete()  # move to trash
+    assert record_type1.query_records().count() == 1
+    record1.delete(permanent=True)
+    record2.delete(permanent=True)
+    record3.delete(permanent=True)
+    record_type3.delete(permanent=True)
+    record_type2.delete(permanent=True)
+    record_type1.delete(permanent=True)
