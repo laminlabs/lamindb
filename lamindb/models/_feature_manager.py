@@ -173,8 +173,10 @@ def _get_categoricals_postgres(
         for related_name, values in m2m_data.items():
             link_model = getattr(self.__class__, related_name).through
             related_model_name = link_model.__name__.replace(
-                self.__class__.__name__, ""
+                self.__class__.__name__, "", 1
             ).lower()
+            if related_model_name == "artifact":
+                related_model_name = "value"
             m2m_name[related_model_name] = values
     else:
         m2m_name = related_data.get("m2m", {})
@@ -204,10 +206,8 @@ def _get_categoricals_postgres(
             feature_field = parse_dtype(feature_dtype)[0]["field_str"]
             if not self.__class__.__name__ == "Record":
                 label_id = link_value.get(related_name)
-                if related_name == "value":
-                    related_name = ""
                 label_name = (
-                    m2m_name.get(related_name, {}).get(label_id).get(feature_field)
+                    m2m_name.get(related_name, {}).get(label_id, {}).get(feature_field)
                 )
             else:
                 label_name = link_value.get(feature_field)
