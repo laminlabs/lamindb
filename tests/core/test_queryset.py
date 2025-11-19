@@ -8,6 +8,7 @@ from contextlib import contextmanager
 
 import bionty as bt
 import lamindb as ln
+import lamindb_setup as ln_setup
 import pytest
 from django.core.exceptions import FieldError
 from lamindb.base.users import current_user_id
@@ -335,25 +336,30 @@ def test_connect_public_clone_instance():
     env = os.environ
     env["LAMIN_TESTING"] = "true"
 
-    # testuser1 is admin of lamindata but testuser2 is not
-    assert ln.setup.settings.user.handle != "testuser2"
-    result = subprocess.run(
-        ["lamin", "login", "testuser2"],
-        capture_output=True,
-        env=env,
-    )
+    # become an anonymous user
+    ln_setup.logout()
+    ln_setup.connect("laminlabs/lamindata")
 
-    from django.db import connections
+    try:
+        from django.db import connections
 
-    connections.databases.pop("laminlabs/lamindata", None)
+        connections.databases.pop("laminlabs/lamindata", None)
 
-    qs = ln.Artifact.connect("laminlabs/lamindata")
+        qs = ln.Artifact.connect("laminlabs/lamindata")
 
-    assert qs.db == "laminlabs/lamindata"
+        assert qs.db == "laminlabs/lamindata"
 
-    # Verify the connection is SQLite, not Postgres
-    assert "sqlite" in connections.databases["laminlabs/lamindata"]["ENGINE"]
+        # Verify the connection is SQLite, not Postgres
+        assert "sqlite" in connections.databases["laminlabs/lamindata"]["ENGINE"]
 
-    # Verify we can actually query it
-    result = qs.filter().first()
-    assert result is not None
+        # Verify we can actually query it
+        result = qs.filter().first()
+        assert result is not None
+    finally:
+        # log back in to ensure that other tests do not break
+        result = subprocess.run(
+            ["lamin", "login", "testuser1"],
+            capture_output=True,
+            env=env,
+        )
+        ln_setup.connect("lamindb-unit-tests-core")

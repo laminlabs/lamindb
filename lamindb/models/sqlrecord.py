@@ -752,7 +752,6 @@ class Registry(ModelBase):
             # access_db can take both: the dict from connect_instance_hub and isettings
             into_db_token = iresult
         else:
-            print(settings_file)
             isettings = load_instance_settings(settings_file)
             source_modules = isettings.modules
             db = None
