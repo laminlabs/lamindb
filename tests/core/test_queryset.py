@@ -3,7 +3,6 @@
 
 import os
 import re
-import subprocess
 from contextlib import contextmanager
 
 import bionty as bt
@@ -333,6 +332,8 @@ def test_encode_lamindb_fields_as_columns():
 
 
 def test_connect_public_clone_instance():
+    from laminci.nox import login_testuser1, login_testuser2
+
     env = os.environ
     env["LAMIN_TESTING"] = "true"
 
@@ -356,6 +357,9 @@ def test_connect_public_clone_instance():
         assert result is not None
     finally:
         # log back in to ensure that other tests do not break
+        login_testuser2(session=None)
+        login_testuser1(session=None)
+        """
         result = subprocess.run(
             ["lamin", "login", "testuser2"],
             capture_output=True,
@@ -366,4 +370,5 @@ def test_connect_public_clone_instance():
             capture_output=True,
             env=env,
         )
+        """
         ln_setup.connect("lamindb-unit-tests-core")
