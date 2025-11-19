@@ -1274,7 +1274,10 @@ class SQLRecord(BaseSQLRecord, metaclass=Registry):
         db_column="_branch_code",
         related_name="+",
     )
-    """Whether record is on a branch or in another "special state"."""
+    """Life cycle state of record.
+
+    `branch.name` can be "main" (default branch), "trash" (trash), `branch.name = "archive"` (archived), or any other user-created branch typically planned for merging onto main after review.
+    """
     space: Space = ForeignKey(Space, PROTECT, default=1, db_default=1, related_name="+")
     """The space in which the record lives."""
     is_locked: bool = BooleanField(default=False, db_default=False)
@@ -1296,12 +1299,17 @@ class SQLRecord(BaseSQLRecord, metaclass=Registry):
         self.branch_id = value
 
     def restore(self) -> None:
-        """Restore from trash onto the main branch."""
+        """Restore from trash onto the main branch.
+
+        Does **not** restore descendant records if the record is `HasType` with `is_type = True`.
+        """
         self.branch_id = 1
         self.save()
 
     def delete(self, permanent: bool | None = None, **kwargs) -> None:
         """Delete record.
+
+        If record is `HasType` with `is_type = True`, deletes all descendant records, too.
 
         Args:
             permanent: Whether to permanently delete the record (skips trash).
@@ -1338,8 +1346,13 @@ class SQLRecord(BaseSQLRecord, metaclass=Registry):
         # change branch_id to trash
         trash_branch_id = -1
         if self.branch_id > trash_branch_id and permanent is not True:
+            if isinstance(self, HasType) and self.is_type:
+                for child in getattr(
+                    self, f"query_{self.__class__.__name__.lower()}s"
+                )():
+                    child.delete()
             delete_record(self, is_soft=True)
-            logger.warning(f"moved record to trash (branch_id = -1): {self}")
+            logger.important(f"moved record to trash: {self}")
             return
 
         # permanent delete

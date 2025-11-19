@@ -188,7 +188,7 @@ def test_nextflow_sheet_with_samples(
     # and that the data is correctly populated in the database.
     nextflow_sheet = populate_nextflow_sheet_with_samples
 
-    df = nextflow_sheet.to_pandas()
+    df = nextflow_sheet.type_to_dataframe()
 
     assert df[
         ["expected_cells", "fastq_1", "fastq_2", "sample", "__lamindb_record_name__"]

@@ -126,6 +126,17 @@ def test_record_features_add_remove_values():
     test_record.features.add_values(test_values)
     assert test_record.features.get_values() == test_values
 
+    # test move a value into the trash
+
+    record_entity1.delete()
+    test_values.pop("feature_type1")
+    test_values["feature_type1s"] = ["entity2"]
+    assert test_record.features.get_values() == test_values
+
+    record_entity1.restore()
+    test_values["feature_type1"] = "entity1"
+    test_values["feature_type1s"] = ["entity1", "entity2"]
+
     # remove values
 
     test_record.features.remove_values("feature_int")
