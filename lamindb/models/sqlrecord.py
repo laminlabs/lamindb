@@ -421,6 +421,35 @@ RECORD_REGISTRY_EXAMPLE = """Example::
 """
 
 
+def _synchronize_clone(storage_root: str) -> str | None:
+    """Synchronizes a clone to the local SQLite path.
+
+    Args:
+        storage_root: The storage root path of the (target) instance
+    """
+    cloud_db_path = UPath(storage_root) / ".lamindb" / "lamin.db"
+    local_sqlite_path = ln_setup.settings.cache_dir / cloud_db_path.path.lstrip("/")
+
+    if local_sqlite_path.exists():
+        return f"sqlite:///{local_sqlite_path}"
+
+    local_sqlite_path.parent.mkdir(parents=True, exist_ok=True)
+    cloud_db_path_gz = UPath(str(cloud_db_path) + ".gz", anon=True)
+    local_sqlite_path_gz = Path(str(local_sqlite_path) + ".gz")
+
+    try:
+        cloud_db_path_gz.synchronize_to(
+            local_sqlite_path_gz, error_no_origin=True, print_progress=True
+        )
+        with gzip.open(local_sqlite_path_gz, "rb") as f_in:
+            with open(local_sqlite_path, "wb") as f_out:
+                shutil.copyfileobj(f_in, f_out)
+        return f"sqlite:///{local_sqlite_path}"
+    except (FileNotFoundError, PermissionError):
+        logger.debug("Clone not found. Falling back to normal access...")
+        return None
+
+
 # this is the metaclass for SQLRecord
 @doc_args(RECORD_REGISTRY_EXAMPLE)
 class Registry(ModelBase):
@@ -645,41 +674,6 @@ class Registry(ModelBase):
 
                 ln.Record.connect("account_handle/instance_name").search("label7", field="name")
         """
-
-        def _synchronize_clone(storage_root: str) -> str | None:
-            """Synchronizes a clone to the local SQLite path.
-
-            Args:
-                storage_root: The storage root path of the (target) instance
-            """
-            cloud_db_path = UPath(storage_root) / ".lamindb" / "lamin.db"
-            local_sqlite_path = ln_setup.settings.cache_dir / cloud_db_path.path.lstrip(
-                "/"
-            )
-            local_sqlite_path.parent.mkdir(parents=True, exist_ok=True)
-            cloud_db_path_gz = UPath(str(cloud_db_path) + ".gz", anon=True)
-            local_sqlite_path_gz = Path(str(local_sqlite_path) + ".gz")
-
-            try:
-                cloud_db_path_gz.synchronize_to(
-                    local_sqlite_path_gz, error_no_origin=True, print_progress=True
-                )
-            except (FileNotFoundError, PermissionError):
-                try:
-                    cloud_db_path.synchronize_to(
-                        local_sqlite_path, error_no_origin=True, print_progress=True
-                    )
-                except (FileNotFoundError, PermissionError):
-                    logger.debug("Clone not found. Falling back to normal access...")
-                    return None
-            else:
-                with gzip.open(local_sqlite_path_gz, "rb") as f_in:
-                    with open(local_sqlite_path, "wb") as f_out:
-                        shutil.copyfileobj(f_in, f_out)
-                local_sqlite_path_gz.unlink()
-
-            return f"sqlite:///{local_sqlite_path}"
-
         from .query_set import QuerySet
 
         # we're in the default instance
@@ -716,7 +710,7 @@ class Registry(ModelBase):
             # Try to connect to a clone if targeting a public instance but fall back to normal access if access failed
             db = None
             if (
-                "_jwt" in iresult["db_user_name"]
+                "_public" in iresult["db_user_name"]
                 and "postgresql" in iresult["db_scheme"]
             ):
                 db = _synchronize_clone(storage["root"])
@@ -741,10 +735,11 @@ class Registry(ModelBase):
             # access_db can take both: the dict from connect_instance_hub and isettings
             into_db_token = iresult
         else:
+            print(settings_file)
             isettings = load_instance_settings(settings_file)
             source_modules = isettings.modules
             db = None
-            if "jwt" in isettings.db and isettings.dialect == "postgresql":
+            if "public" in isettings.db and isettings.dialect == "postgresql":
                 db = _synchronize_clone(isettings.storage.root_as_str)
 
             # Try to connect to a clone if targeting a public instance but fall back to normal access if access failed
