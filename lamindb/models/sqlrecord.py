@@ -1299,14 +1299,17 @@ class SQLRecord(BaseSQLRecord, metaclass=Registry):
         self.branch_id = value
 
     def restore(self) -> None:
-        """Restore from trash onto the main branch."""
+        """Restore from trash onto the main branch.
+
+        Does **not** restore descendant records if the record is `HasType` with `is_type = True`.
+        """
         self.branch_id = 1
         self.save()
 
     def delete(self, permanent: bool | None = None, **kwargs) -> None:
         """Delete record.
 
-        If record is `HasType` with `is_type = True`, deletes all child records, too.
+        If record is `HasType` with `is_type = True`, deletes all descendant records, too.
 
         Args:
             permanent: Whether to permanently delete the record (skips trash).

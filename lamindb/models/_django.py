@@ -88,6 +88,7 @@ def get_artifact_or_run_with_related(
     """Fetch an artifact with its related data."""
     from ._label_manager import EXCLUDE_LABELS
     from .can_curate import get_name_field
+    from .query_set import get_default_branch_ids
 
     model = record.__class__
     is_record = record.__class__.__name__ == "Record"
@@ -185,8 +186,11 @@ def get_artifact_or_run_with_related(
         ]
         name_field = get_name_field(related_model)
         label_field_name = f"{label_field}__{name_field}"
+        filter_kwargs = {entity_field_name: OuterRef("pk")}
+        if link_model.__name__ != "RecordUser":  # user does not have branch
+            filter_kwargs[f"{label_field}__branch_id__in"] = get_default_branch_ids()
         annotations[f"linkfield_{link}"] = Subquery(
-            link_model.objects.filter(**{entity_field_name: OuterRef("pk")})
+            link_model.objects.filter(**filter_kwargs)
             .annotate(
                 data=JSONObject(
                     id=F("id"),
