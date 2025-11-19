@@ -38,6 +38,7 @@ from .feature import (
 from .run import TracksRun, TracksUpdates
 from .sqlrecord import (
     BaseSQLRecord,
+    HasType,
     IsLink,
     Registry,
     SQLRecord,
@@ -176,7 +177,7 @@ KNOWN_SCHEMAS = {  # by hash
 }
 
 
-class Schema(SQLRecord, CanCurate, TracksRun):
+class Schema(SQLRecord, HasType, CanCurate, TracksRun):
     """Schemas of a dataset such as the set of columns of a `DataFrame`.
 
     Composite schemas can have multiple slots, e.g., for an `AnnData`, one schema for slot `obs` and another one for `var`.
@@ -287,11 +288,22 @@ class Schema(SQLRecord, CanCurate, TracksRun):
         abstract = False
         app_label = "lamindb"
         constraints = [
+            # unique name for types when type is NULL
             models.UniqueConstraint(
-                fields=["name", "type", "space"],
-                name="unique_schema_name_type_space",
-                condition=~models.Q(branch_id=-1),
-            )
+                fields=["name"],
+                name="unique_schema_type_name_at_root",
+                condition=models.Q(
+                    ~models.Q(branch_id=-1), type__isnull=True, is_type=True
+                ),
+            ),
+            # unique name for types when type is not NULL
+            models.UniqueConstraint(
+                fields=["name", "type"],
+                name="unique_schema_type_name_under_type",
+                condition=models.Q(
+                    ~models.Q(branch_id=-1), type__isnull=False, is_type=True
+                ),
+            ),
             # also see raw SQL constraints for `is_type` and `type` FK validity in migrations
         ]
 

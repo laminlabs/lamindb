@@ -26,7 +26,7 @@ from .feature import Feature
 from .record import Record
 from .run import Run, TracksRun, TracksUpdates, User
 from .schema import Schema
-from .sqlrecord import BaseSQLRecord, IsLink, SQLRecord, ValidateFields
+from .sqlrecord import BaseSQLRecord, HasType, IsLink, SQLRecord, ValidateFields
 from .transform import Transform
 from .ulabel import ULabel
 
@@ -37,7 +37,9 @@ if TYPE_CHECKING:
     from .block import ProjectBlock
 
 
-class Reference(SQLRecord, CanCurate, TracksRun, TracksUpdates, ValidateFields):
+class Reference(
+    SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, ValidateFields
+):
     """References such as internal studies, papers, documents, or URLs.
 
     Example:
@@ -59,11 +61,22 @@ class Reference(SQLRecord, CanCurate, TracksRun, TracksUpdates, ValidateFields):
         abstract = False
         app_label = "lamindb"
         constraints = [
+            # unique name for types when type is NULL
             models.UniqueConstraint(
-                fields=["name", "type", "space"],
-                name="unique_reference_name_type_space",
-                condition=~models.Q(branch_id=-1),
-            )
+                fields=["name"],
+                name="unique_reference_type_name_at_root",
+                condition=models.Q(
+                    ~models.Q(branch_id=-1), type__isnull=True, is_type=True
+                ),
+            ),
+            # unique name for types when type is not NULL
+            models.UniqueConstraint(
+                fields=["name", "type"],
+                name="unique_reference_type_name_under_type",
+                condition=models.Q(
+                    ~models.Q(branch_id=-1), type__isnull=False, is_type=True
+                ),
+            ),
             # also see raw SQL constraints for `is_type` and `type` FK validity in migrations
         ]
 
@@ -161,7 +174,7 @@ class Reference(SQLRecord, CanCurate, TracksRun, TracksUpdates, ValidateFields):
         super().__init__(*args, **kwargs)
 
 
-class Project(SQLRecord, CanCurate, TracksRun, TracksUpdates, ValidateFields):
+class Project(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, ValidateFields):
     """Projects to label artifacts, transforms, records, and runs.
 
     Example:
@@ -182,11 +195,22 @@ class Project(SQLRecord, CanCurate, TracksRun, TracksUpdates, ValidateFields):
         abstract = False
         app_label = "lamindb"
         constraints = [
+            # unique name for types when type is NULL
             models.UniqueConstraint(
-                fields=["name", "type", "space"],
-                name="unique_project_name_type_space",
-                condition=~models.Q(branch_id=-1),
-            )
+                fields=["name"],
+                name="unique_project_type_name_at_root",
+                condition=models.Q(
+                    ~models.Q(branch_id=-1), type__isnull=True, is_type=True
+                ),
+            ),
+            # unique name for types when type is not NULL
+            models.UniqueConstraint(
+                fields=["name", "type"],
+                name="unique_project_type_name_under_type",
+                condition=models.Q(
+                    ~models.Q(branch_id=-1), type__isnull=False, is_type=True
+                ),
+            ),
             # also see raw SQL constraints for `is_type` and `type` FK validity in migrations
         ]
 

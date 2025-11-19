@@ -20,7 +20,7 @@ from .can_curate import CanCurate
 from .feature import Feature
 from .has_parents import HasParents, _query_ancestors_of_fk
 from .run import Run, TracksRun, TracksUpdates, User, current_user_id
-from .sqlrecord import BaseSQLRecord, IsLink, SQLRecord, _get_record_kwargs
+from .sqlrecord import BaseSQLRecord, HasType, IsLink, SQLRecord, _get_record_kwargs
 from .transform import Transform
 
 if TYPE_CHECKING:
@@ -33,7 +33,7 @@ if TYPE_CHECKING:
     from .record import Record
 
 
-class ULabel(SQLRecord, HasParents, CanCurate, TracksRun, TracksUpdates):
+class ULabel(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates):
     """Universal labels.
 
     For new labels, see `Record` instead. Existing labels and code will continue to work
@@ -75,11 +75,22 @@ class ULabel(SQLRecord, HasParents, CanCurate, TracksRun, TracksUpdates):
         abstract = False
         app_label = "lamindb"
         constraints = [
+            # unique name for types when type is NULL
             models.UniqueConstraint(
-                fields=["name", "type", "space"],
-                name="unique_ulabel_name_type_space",
-                condition=~models.Q(branch_id=-1),
-            )
+                fields=["name"],
+                name="unique_ulabel_type_name_at_root",
+                condition=models.Q(
+                    ~models.Q(branch_id=-1), type__isnull=True, is_type=True
+                ),
+            ),
+            # unique name for types when type is not NULL
+            models.UniqueConstraint(
+                fields=["name", "type"],
+                name="unique_ulabel_type_name_under_type",
+                condition=models.Q(
+                    ~models.Q(branch_id=-1), type__isnull=False, is_type=True
+                ),
+            ),
             # also see raw SQL constraints for `is_type` and `type` FK validity in migrations
         ]
 

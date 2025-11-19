@@ -17,8 +17,9 @@ Mixins for registries
 ---------------------
 
 .. autoclass:: IsVersioned
-.. autoclass:: CanCurate
+.. autoclass:: HasType
 .. autoclass:: HasParents
+.. autoclass:: CanCurate
 .. autoclass:: TracksRun
 .. autoclass:: TracksUpdates
 
@@ -61,6 +62,7 @@ from .sqlrecord import (
     format_field_value,
     record_repr,
     IsLink,
+    HasType,
 )
 from .storage import Storage
 from .transform import Transform
