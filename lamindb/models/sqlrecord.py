@@ -126,6 +126,23 @@ class IsLink:
     pass
 
 
+class HasType:
+    """Mixin for registries that have a hierarchical `type` assigned.
+
+    Such registries have a `.type` foreign key pointing to themselves.
+
+    A `type` hence allows hierarchically grouping records under types.
+
+    For instance, using the example of `ln.Record`::
+
+        experiment_type = ln.Record(name="Experiment", is_type=True).save()
+        experiment1 = ln.Record(name="Experiment 1", type=experiment_type).save()
+        experiment2 = ln.Record(name="Experiment 2", type=experiment_type).save()
+    """
+
+    pass
+
+
 def deferred_attribute__repr__(self):
     return f"FieldAttr({self.field.model.__name__}.{self.field.name})"
 
@@ -1018,11 +1035,12 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                     init_self_from_db(self, pre_existing_record)
                 elif (
                     isinstance(e, IntegrityError)
-                    # for Storageeven if uid was in the error message, we can retrieve based on
+                    # for Storage, even if uid was in the error message, we can retrieve based on
                     # the root because it's going to be the same root
                     and any(
                         field in error_msg for field in ("root", "ontology_id", "uid")
                     )
+                    and ("_record_type_name_at_" not in error_msg)
                     and (
                         "UNIQUE constraint failed" in error_msg
                         or "duplicate key value violates unique constraint" in error_msg
