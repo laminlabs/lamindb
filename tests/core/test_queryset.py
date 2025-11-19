@@ -10,6 +10,7 @@ import lamindb as ln
 import lamindb_setup as ln_setup
 import pytest
 from django.core.exceptions import FieldError
+from laminci.nox import login_testuser1, login_testuser2
 from lamindb.base.users import current_user_id
 from lamindb.errors import InvalidArgument
 from lamindb.models import ArtifactSet, BasicQuerySet, QuerySet
@@ -332,8 +333,6 @@ def test_encode_lamindb_fields_as_columns():
 
 
 def test_connect_public_clone_instance():
-    from laminci.nox import login_testuser1, login_testuser2
-
     env = os.environ
     env["LAMIN_TESTING"] = "true"
 
@@ -343,14 +342,17 @@ def test_connect_public_clone_instance():
     try:
         from django.db import connections
 
-        connections.databases.pop("laminlabs/lamindata", None)
+        connections.databases.pop("laminlabs/arc-virtual-cell-atlas", None)
 
-        qs = ln.Artifact.connect("laminlabs/lamindata")
+        qs = ln.Artifact.connect("laminlabs/arc-virtual-cell-atlas")
 
-        assert qs.db == "laminlabs/lamindata"
+        assert qs.db == "laminlabs/arc-virtual-cell-atlas"
 
         # Verify the connection is SQLite, not Postgres
-        assert "sqlite" in connections.databases["laminlabs/lamindata"]["ENGINE"]
+        assert (
+            "sqlite"
+            in connections.databases["laminlabs/arc-virtual-cell-atlas"]["ENGINE"]
+        )
 
         # Verify we can actually query it
         result = qs.filter().first()
@@ -359,16 +361,4 @@ def test_connect_public_clone_instance():
         # log back in to ensure that other tests do not break
         login_testuser2(session=None)
         login_testuser1(session=None)
-        """
-        result = subprocess.run(
-            ["lamin", "login", "testuser2"],
-            capture_output=True,
-            env=env,
-        )
-        result = subprocess.run(
-            ["lamin", "login", "testuser1"],
-            capture_output=True,
-            env=env,
-        )
-        """
         ln_setup.connect("lamindb-unit-tests-core")
