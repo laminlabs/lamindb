@@ -73,6 +73,7 @@ if TYPE_CHECKING:
 
     from .artifact import Artifact
     from .block import BranchBlock, SpaceBlock
+    from .query_set import SQLRecordList
     from .run import Run, User
     from .transform import Transform
 
@@ -137,7 +138,29 @@ class HasType:
         experiment2 = ln.Record(name="Experiment 2", type=experiment_type).save()
     """
 
-    pass
+    def query_types(self) -> SQLRecordList:
+        """Query types of a record recursively.
+
+        While `.type` retrieves the `type`, this method
+        retrieves all super types of that `type`::
+
+            # Create type hierarchy
+            type1 = model_class(name="Type1", is_type=True).save()
+            type2 = model_class(name="Type2", is_type=True, type=type1).save()
+            type3 = model_class(name="Type3", is_type=True, type=type2).save()
+
+            # Create a record with type3
+            record = model_class(name=f"{model_name}3", type=type3).save()
+
+            # Query super types
+            super_types = record.query_types()
+            assert super_types[0] == type3
+            assert super_types[1] == type2
+            assert super_types[2] == type1
+        """
+        from .has_parents import _query_ancestors_of_fk
+
+        return _query_ancestors_of_fk(self, "type")  # type: ignore
 
 
 def deferred_attribute__repr__(self):

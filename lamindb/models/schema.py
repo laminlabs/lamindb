@@ -35,6 +35,7 @@ from .feature import (
     serialize_dtype,
     serialize_pandas_dtype,
 )
+from .has_parents import _query_relatives
 from .run import TracksRun, TracksUpdates
 from .sqlrecord import (
     BaseSQLRecord,
@@ -559,6 +560,14 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun):
             validated_kwargs["uid"] = ids.base62_16()
 
         super().__init__(**validated_kwargs)
+
+    def query_schemas(self) -> QuerySet:
+        """Query all schemas of a type recursively.
+
+        While `.schemas` retrieves the direct instances of the type, this method
+        retrieves also instances of sub-types.
+        """
+        return _query_relatives([self], "schemas")  # type: ignore
 
     def _validate_kwargs_calculate_hash(
         self,

@@ -32,7 +32,7 @@ is_run_from_ipython = getattr(builtins, "__IPYTHON__", False)
 # also len of QuerySet can be costly at times
 def _query_relatives(
     records: BasicQuerySet | list[HasParents],
-    attr: Literal["children", "parents", "records"],
+    attr: Literal["children", "parents"] | str,
 ) -> QuerySet:
     branch_ids = get_default_branch_ids()
 
@@ -43,12 +43,12 @@ def _query_relatives(
         model = records[0].__class__
         frontier_ids = {r.id for r in records}  # type: ignore
 
-    if attr == "records":
-        attr_filter = "type__id__in"
-    elif attr == "children":
+    if attr == "children":
         attr_filter = "parents__id__in"
-    else:
+    elif attr == "parents":
         attr_filter = "children__id__in"
+    else:
+        attr_filter = "type__id__in"
 
     seen_ids = set(frontier_ids)  # copies
     results = set()

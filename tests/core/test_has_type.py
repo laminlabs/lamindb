@@ -102,19 +102,48 @@ def test_record_type_uniqueness():
     record_type3.delete(permanent=True)
 
 
-def test_query_records():
-    record_type1 = ln.Record(name="Type1", is_type=True).save()
-    record_type2 = ln.Record(name="Type2", is_type=True, type=record_type1).save()
-    record_type3 = ln.Record(name="Type3", is_type=True, type=record_type2).save()
-    record1 = ln.Record(name="record1", type=record_type1).save()
-    record2 = ln.Record(name="record2", type=record_type3).save()
-    record3 = ln.Record(name="record3", type=record_type3).save()
-    assert record_type1.query_records().count() == 5
-    record_type2.delete()  # move to trash
-    assert record_type1.query_records().count() == 1
-    record1.delete(permanent=True)
-    record2.delete(permanent=True)
-    record3.delete(permanent=True)
-    record_type3.delete(permanent=True)
-    record_type2.delete(permanent=True)
-    record_type1.delete(permanent=True)
+@pytest.mark.parametrize(
+    "model_class,model_name",
+    [
+        (ln.Record, "record"),
+        (ln.ULabel, "ulabel"),
+        (ln.Project, "project"),
+    ],
+    ids=["Record", "ULabel", "Project"],
+)
+def test_query_sub_types_super_types_instances(model_class, model_name):
+    # Create type hierarchy
+    type1 = model_class(name="Type1", is_type=True).save()
+    type2 = model_class(name="Type2", is_type=True, type=type1).save()
+    type3 = model_class(name="Type3", is_type=True, type=type2).save()
+
+    # Create instances
+    instance1 = model_class(name=f"{model_name}1", type=type1).save()
+    instance2 = model_class(name=f"{model_name}2", type=type3).save()
+    instance3 = model_class(name=f"{model_name}3", type=type3).save()
+
+    # Get the query method dynamically
+    query_method = getattr(type1, f"query_{model_name}s")
+
+    # Children
+    assert getattr(type1, model_name + "s").count() == 2  # direct instances
+    assert query_method().count() == 5
+
+    # Super types
+    super_types = instance3.query_types()
+    assert len(super_types) == 3
+    assert super_types[0] == type3
+    assert super_types[1] == type2
+    assert super_types[2] == type1
+
+    # Move type2 to trash
+    type2.delete()
+    assert query_method().count() == 1
+
+    # Cleanup
+    instance1.delete(permanent=True)
+    instance2.delete(permanent=True)
+    instance3.delete(permanent=True)
+    type3.delete(permanent=True)
+    type2.delete(permanent=True)
+    type1.delete(permanent=True)

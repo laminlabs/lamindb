@@ -21,10 +21,9 @@ from ..base.ids import base62_16
 from .artifact import Artifact
 from .can_curate import CanCurate
 from .feature import Feature
-from .has_parents import HasParents, _query_ancestors_of_fk, _query_relatives
+from .has_parents import HasParents, _query_relatives
 from .query_set import (
     QuerySet,
-    SQLRecordList,
     encode_lamindb_fields_as_columns,
     get_default_branch_ids,
     reorder_subset_columns_in_df,
@@ -347,7 +346,7 @@ class Record(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, HasParents
         """Query all parents of a record recursively.
 
         While `.parents` retrieves the direct parents, this method
-        retrieves all ancestors of a record type.
+        retrieves all ancestors of the current record.
         """
         return _query_relatives([self], "parents")  # type: ignore
 
@@ -355,25 +354,17 @@ class Record(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, HasParents
         """Query all children of a record recursively.
 
         While `.children` retrieves the direct children, this method
-        retrieves all descendants of a record type.
+        retrieves all descendants of a parent.
         """
         return _query_relatives([self], "children")  # type: ignore
 
     def query_records(self) -> QuerySet:
         """Query all records of a type recursively.
 
-        While `.records` retrieves the direct children, this method
-        retrieves all descendants of a record type.
+        While `.ulabels` retrieves the direct instances of the type, this method
+        retrieves also instances of sub-types.
         """
         return _query_relatives([self], "records")  # type: ignore
-
-    def query_types(self) -> SQLRecordList:
-        """Query types of a record recursively.
-
-        While `.type` retrieves the direct type, this method
-        retrieves all ancestors of that `type`.
-        """
-        return _query_ancestors_of_fk(self, "type")  # type: ignore
 
     def type_to_dataframe(self, recurse: bool = False) -> pd.DataFrame:
         """Export all instances of this record type to a pandas DataFrame.
