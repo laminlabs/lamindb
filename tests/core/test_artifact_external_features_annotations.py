@@ -31,6 +31,7 @@ def test_artifact_features_add_remove_values():
     feature_user = ln.Feature(name="feature_user", dtype=ln.User).save()
     feature_project = ln.Feature(name="feature_project", dtype=ln.Project).save()
     feature_artifact = ln.Feature(name="feature_artifact", dtype=ln.Artifact).save()
+    feature_artifact_2 = ln.Feature(name="feature_artifact_2", dtype=ln.Artifact).save()
     feature_run = ln.Feature(name="feature_run", dtype=ln.Run.uid).save()
     feature_cell_line = ln.Feature(name="feature_cell_line", dtype=bt.CellLine).save()
     feature_cell_lines = ln.Feature(
@@ -62,6 +63,7 @@ def test_artifact_features_add_remove_values():
         "feature_cell_lines": ["HEK293", "A549 cell"],
         "feature_cl_ontology_id": "CLO:0001230",
         "feature_artifact": "test-artifact",
+        "feature_artifact_2": "test-artifact",
         "feature_run": run.uid,
     }
 
@@ -119,6 +121,7 @@ def test_artifact_features_add_remove_values():
         "feature_project",
         "feature_cell_lines",
         "feature_cl_ontology_id",
+        "feature_artifact_2",
     ]
     test_artifact.features.remove_values()
     test_values = {}
@@ -184,6 +187,7 @@ def test_artifact_features_add_remove_values():
     feature_project.delete(permanent=True)
     feature_dict.delete(permanent=True)
     feature_artifact.delete(permanent=True)
+    feature_artifact_2.delete(permanent=True)
     feature_run.delete(permanent=True)
     feature_ulabel.delete(permanent=True)
     feature_cell_lines.delete(permanent=True)
