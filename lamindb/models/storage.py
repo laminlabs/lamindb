@@ -268,6 +268,7 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
             register_hub=setup_settings.instance.is_on_hub,
             region=kwargs.get("region", None),  # host was renamed to region already
             space_uuid=space_uuid,
+            skip_mark_storage_root=kwargs.pop("skip_mark_storage_root", False),
         )
         # ssettings performed validation and normalization of the root path
         kwargs["root"] = ssettings.root_as_str  # noqa: S101
