@@ -34,6 +34,7 @@ from lamindb.errors import DoesNotExist, FieldValidationError, ValidationError
 from ..base.ids import base62_12
 from ._relations import dict_module_name_to_model_name
 from .can_curate import CanCurate
+from .has_parents import _query_relatives
 from .query_set import SQLRecordList
 from .run import (
     TracksRun,
@@ -46,6 +47,7 @@ if TYPE_CHECKING:
 
     from .block import FeatureBlock
     from .projects import Project
+    from .query_set import QuerySet
     from .schema import Schema
 
 FEATURE_DTYPES = set(get_args(Dtype))
@@ -849,6 +851,15 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
                 raise ValidationError(
                     f"Feature {self.name} already exists with dtype {self.dtype}, you passed {dtype_str}"
                 )
+
+    # manually sync this docstring across all other children of HasType
+    def query_features(self) -> QuerySet:
+        """Query features of sub types.
+
+        While `.features` retrieves the features with the current type, this method
+        also retrieves sub types and the features with sub types of the current type.
+        """
+        return _query_relatives([self], "features")  # type: ignore
 
     @classmethod
     def from_dataframe(

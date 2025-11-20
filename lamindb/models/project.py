@@ -23,6 +23,7 @@ from .artifact import Artifact
 from .can_curate import CanCurate
 from .collection import Collection
 from .feature import Feature
+from .has_parents import _query_relatives
 from .record import Record
 from .run import Run, TracksRun, TracksUpdates, User
 from .schema import Schema
@@ -35,6 +36,7 @@ if TYPE_CHECKING:
     from datetime import datetime
 
     from .block import ProjectBlock
+    from .query_set import QuerySet
 
 
 class Reference(
@@ -172,6 +174,14 @@ class Reference(
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
+    def query_references(self) -> QuerySet:
+        """Query references of sub types.
+
+        While `.references` retrieves the references with the current type, this method
+        also retrieves sub types and the references with sub types of the current type.
+        """
+        return _query_relatives([self], "references")  # type: ignore
 
 
 class Project(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, ValidateFields):
@@ -321,6 +331,14 @@ class Project(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, ValidateF
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
+    def query_projects(self) -> QuerySet:
+        """Query projects of sub types.
+
+        While `.projects` retrieves the projects with the current type, this method
+        also retrieves sub types and the projects with sub types of the current type.
+        """
+        return _query_relatives([self], "projects")  # type: ignore
 
 
 class ArtifactProject(BaseSQLRecord, IsLink, TracksRun):
