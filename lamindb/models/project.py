@@ -176,10 +176,10 @@ class Reference(
         super().__init__(*args, **kwargs)
 
     def query_references(self) -> QuerySet:
-        """Query all references of a type recursively.
+        """Query references of sub types.
 
-        While `.references` retrieves the direct instances of the type, this method
-        retrieves also instances of sub-types.
+        While `.references` retrieves the references with the current type, this method
+        also retrieves sub types and the references with sub types of the current type.
         """
         return _query_relatives([self], "references")  # type: ignore
 
@@ -333,10 +333,10 @@ class Project(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, ValidateF
         super().__init__(*args, **kwargs)
 
     def query_projects(self) -> QuerySet:
-        """Query all projects of a type recursively.
+        """Query projects of sub types.
 
-        While `.projects` retrieves the direct instances of the type, this method
-        retrieves also instances of sub-types.
+        While `.projects` retrieves the projects with the current type, this method
+        also retrieves sub types and the projects with sub types of the current type.
         """
         return _query_relatives([self], "projects")  # type: ignore
 

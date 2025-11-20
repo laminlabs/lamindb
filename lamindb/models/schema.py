@@ -562,10 +562,10 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun):
         super().__init__(**validated_kwargs)
 
     def query_schemas(self) -> QuerySet:
-        """Query all schemas of a type recursively.
+        """Query schemas of sub types.
 
-        While `.schemas` retrieves the direct instances of the type, this method
-        retrieves also instances of sub-types.
+        While `.schemas` retrieves the schemas with the current type, this method
+        also retrieves sub types and the schemas with sub types of the current type.
         """
         return _query_relatives([self], "schemas")  # type: ignore
 

@@ -215,10 +215,10 @@ class ULabel(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         )
 
     def query_ulabels(self) -> QuerySet:
-        """Query all ulabels of a type recursively.
+        """Query ulabels of sub types.
 
-        While `.ulabels` retrieves the direct instances of the type, this method
-        retrieves also instances of sub-types.
+        While `.ulabels` retrieves the ulabels with the current type, this method
+        also retrieves sub types and the ulabels with sub types of the current type.
         """
         return _query_relatives([self], "ulabels")  # type: ignore
 

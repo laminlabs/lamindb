@@ -852,11 +852,12 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
                     f"Feature {self.name} already exists with dtype {self.dtype}, you passed {dtype_str}"
                 )
 
+    # manually sync this docstring across all other children of HasType
     def query_features(self) -> QuerySet:
-        """Query all features of a type recursively.
+        """Query features of sub types.
 
-        While `.features` retrieves the direct instances of the type, this method
-        retrieves also instances of sub-types.
+        While `.features` retrieves the features with the current type, this method
+        also retrieves sub types and the features with sub types of the current type.
         """
         return _query_relatives([self], "features")  # type: ignore
 

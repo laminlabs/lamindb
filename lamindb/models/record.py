@@ -359,10 +359,10 @@ class Record(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, HasParents
         return _query_relatives([self], "children")  # type: ignore
 
     def query_records(self) -> QuerySet:
-        """Query all records of a type recursively.
+        """Query records of sub types.
 
-        While `.ulabels` retrieves the direct instances of the type, this method
-        retrieves also instances of sub-types.
+        While `.records` retrieves the records with the current type, this method
+        also retrieves sub types and the records with sub types of the current type.
         """
         return _query_relatives([self], "records")  # type: ignore
 
