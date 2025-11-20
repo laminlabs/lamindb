@@ -243,6 +243,8 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
             self._old_space_id = self.space_id
             return None
 
+        skip_mark_storage_root = kwargs.pop("skip_mark_storage_root", False)
+
         skip_preparation = kwargs.pop("_skip_preparation", False)
         if skip_preparation:
             assert space is None, "`space` must not be set if _skip_preparation is True"  # noqa: S101
@@ -268,6 +270,7 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
             register_hub=setup_settings.instance.is_on_hub,
             region=kwargs.get("region", None),  # host was renamed to region already
             space_uuid=space_uuid,
+            skip_mark_storage_root=skip_mark_storage_root,
         )
         # ssettings performed validation and normalization of the root path
         kwargs["root"] = ssettings.root_as_str  # noqa: S101
