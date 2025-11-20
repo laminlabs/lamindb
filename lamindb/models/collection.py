@@ -51,6 +51,7 @@ if TYPE_CHECKING:
     from .block import CollectionBlock
     from .project import Project, Reference
     from .query_set import QuerySet
+    from .record import Record
     from .transform import Transform
     from .ulabel import ULabel
 
@@ -190,12 +191,18 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     collection from the artifact via a private field:
     `artifact._meta_of_collection`.
     """
+    linked_in_records: Record = models.ManyToManyField(
+        "Record", through="RecordCollection", related_name="linked_collections"
+    )
+    """This collection is linked in these records as a value."""
     _actions: Artifact = models.ManyToManyField(Artifact, related_name="+")
     """Actions to attach for the UI."""
     projects: Project
     """Linked projects."""
     references: Reference
     """Linked references."""
+    records: Record
+    """Linked records."""
     blocks: CollectionBlock
     """Blocks that annotate this collection."""
 
