@@ -121,6 +121,7 @@ def test_artifact_features_add_remove_values():
         "feature_project",
         "feature_cell_lines",
         "feature_cl_ontology_id",
+        "feature_artifact_2",
     ]
     test_artifact.features.remove_values()
     test_values = {}
