@@ -630,13 +630,12 @@ class Context:
             import inspect
 
             frame = inspect.stack()[2]
-            module = inspect.getmodule(frame[0])
-            # None for interactive session
-            if module is None:
+            path_str = frame[1]
+            if not path_str or path_str.startswith("<"):
                 raise NotImplementedError(
-                    "Interactive sessions are not yet supported to be tracked."
+                    "Cannot determine valid file path, pass manually via path (interactive sessions not yet supported)"
                 )
-            path = Path(module.__file__)
+            path = Path(path_str)
         else:
             path = Path(path)
         # for Rmd and qmd, we could also extract the title
@@ -772,7 +771,7 @@ class Context:
                 transform_hash = None
         # see whether we find a transform with the exact same hash
         if transform_hash is not None:
-            aux_transform = Transform.filter(hash=transform_hash).one_or_none()
+            aux_transform = Transform.filter(hash=transform_hash).first()
         else:
             aux_transform = None
 
