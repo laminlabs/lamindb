@@ -95,11 +95,13 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         artifacts: `Artifact | list[Artifact]` One or several artifacts.
         key: `str` A file-path like key, analogous to the `key` parameter of `Artifact` and `Transform`.
         description: `str | None = None` A description.
-        revises: `Collection | None = None` An old version of the collection.
-        run: `Run | None = None` The run that creates the collection.
         meta: `Artifact | None = None` An artifact that defines metadata for the collection.
         reference: `str | None = None` A simple reference, e.g. an external ID or a URL.
         reference_type: `str | None = None` A way to indicate to indicate the type of the simple reference `"url"`.
+        run: `Run | None = None` The run that creates the collection.
+        revises: `Collection | None = None` An old version of the collection.
+        skip_hash_lookup: `bool = False` Skip the hash lookup so that a new collection is created even if a collection with the same hash already exists.
+
 
     See Also:
         :class:`~lamindb.Artifact`

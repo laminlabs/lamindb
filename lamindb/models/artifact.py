@@ -1034,7 +1034,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         space: `Space | None = None` The space of the artifact. If `None`, uses the current space.
         storage: `Storage | None = None` The storage location for the artifact. If `None`, uses the default storage location.
             You can see and set the default storage location in :attr:`~lamindb.core.Settings.storage`.
-        skip_hash_lookup: Skip the hash lookup so that a new artifact is created even if an identical artifact already exists.
+        skip_hash_lookup: `bool = False` Skip the hash lookup so that a new artifact is created even if an artifact with the same hash already exists.
 
     Examples:
 
@@ -1900,7 +1900,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             schema = examples.schemas.valid_features()
         to_disk_kwargs: dict[str, Any] = parquet_kwargs or csv_kwargs
         artifact = Artifact(  # type: ignore
-            df,
+            path=df,
             key=key,
             run=run,
             description=description,
@@ -2017,7 +2017,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             )
         _anndata_n_observations(adata)
         artifact = Artifact(  # type: ignore
-            adata,
+            path=adata,
             key=key,
             run=run,
             description=description,
@@ -2085,7 +2085,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         if not data_is_scversedatastructure(mdata, "MuData"):
             raise ValueError("data has to be a MuData object or a path to MuData-like")
         artifact = Artifact(  # type: ignore
-            mdata,
+            path=mdata,
             key=key,
             run=run,
             description=description,
@@ -2155,7 +2155,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 "data has to be a SpatialData object or a path to SpatialData-like"
             )
         artifact = Artifact(  # type: ignore
-            sdata,
+            path=sdata,
             key=key,
             run=run,
             description=description,
@@ -2211,7 +2211,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         exp = exp.uri.removeprefix("file://") if not isinstance(exp, UPathStr) else exp
 
         artifact = Artifact(  # type: ignore
-            exp,
+            path=exp,
             key=key,
             run=run,
             description=description,

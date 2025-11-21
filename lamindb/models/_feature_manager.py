@@ -186,7 +186,7 @@ def _get_categoricals_postgres(
     # e.g. feature_dict = {1: ('tissue', 'cat[bionty.Tissue.ontology_id]'), 2: ('cell_type', 'cat[bionty.CellType]')}
     feature_dict = {
         id: (name, dtype)
-        for id, name, dtype in Feature.objects.using(self._state.db).values_list(
+        for id, name, dtype in Feature.using(self._state.db).values_list(
             "id", "name", "dtype"
         )
     }

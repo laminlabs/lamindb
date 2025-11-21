@@ -179,10 +179,11 @@ def get_artifact_or_run_with_related(
         else:
             label_field = "value"
         related_model = link_model._meta.get_field(label_field).related_model
+        # manually include "name" as wetlab.Compound.name is a TextField due to no length limitation
         char_field_names = [
             field.name
             for field in related_model._meta.concrete_fields
-            if isinstance(field, CharField)
+            if isinstance(field, CharField) or field.name == "name"
         ]
         name_field = get_name_field(related_model)
         label_field_name = f"{label_field}__{name_field}"
@@ -382,7 +383,7 @@ def get_schema_m2m_relations(artifact: Artifact, slot_schema: dict, limit: int =
         related_names[name] = related_model.__get_name_with_module__()
 
     schema_m2m = (
-        Schema.objects.using(artifact._state.db)
+        Schema.using(artifact._state.db)
         .filter(id__in=slot_schema.keys())
         .annotate(**annotations)
         .values("id", *annotations.keys())
