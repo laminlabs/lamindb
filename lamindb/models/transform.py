@@ -93,6 +93,7 @@ class Transform(SQLRecord, IsVersioned):
         reference_type: `str | None = None` A reference type, e.g., 'url'.
         source_code: `str | None = None` Source code of the transform.
         revises: `Transform | None = None` An old version of the transform.
+        skip_hash_lookup: `bool = False` Skip the hash lookup so that a new transform is created even if a transform with the same hash already exists.
 
     See Also:
         :func:`~lamindb.track`
@@ -235,6 +236,7 @@ class Transform(SQLRecord, IsVersioned):
         reference_type: str | None = None,
         source_code: str | None = None,
         revises: Transform | None = None,
+        skip_hash_lookup: bool = False,
     ): ...
 
     @overload
@@ -266,6 +268,7 @@ class Transform(SQLRecord, IsVersioned):
         branch_id = kwargs.pop("branch_id", 1)
         space = kwargs.pop("space", None)
         space_id = kwargs.pop("space_id", 1)
+        skip_hash_lookup: bool = kwargs.pop("skip_hash_lookup", False)
         using_key = kwargs.pop("using_key", None)
         if "name" in kwargs:
             if key is None:
@@ -336,7 +339,7 @@ class Transform(SQLRecord, IsVersioned):
         else:
             has_consciously_provided_uid = True
         hash = None
-        if source_code is not None:
+        if source_code is not None and not skip_hash_lookup:
             hash = hash_string(source_code)
             transform_candidate = Transform.objects.filter(
                 ~Q(branch_id=-1),
@@ -345,7 +348,11 @@ class Transform(SQLRecord, IsVersioned):
             ).first()
             if transform_candidate is not None:
                 init_self_from_db(self, transform_candidate)
-                update_attributes(self, {"key": key, "description": description})
+                update_attributes(self, {"description": description})
+                if key is not None and transform_candidate.key != key:
+                    logger.warning(
+                        f"key {self.key} on existing transform differs from passed key {key}, keeping original key; update manually if needed or pass skip_hash_lookup if you want to duplicate the transform"
+                    )
                 return None
         super().__init__(  # type: ignore
             uid=uid,
@@ -393,6 +400,7 @@ class Transform(SQLRecord, IsVersioned):
         version: str | None = None,
         entrypoint: str | None = None,
         branch: str | None = None,
+        skip_hash_lookup: bool = False,
     ) -> Transform:
         """Create a transform from a path in a git repository.
 
@@ -403,6 +411,7 @@ class Transform(SQLRecord, IsVersioned):
             version: Optional version tag to checkout in the repository.
             entrypoint: Optional entrypoint for the transform.
             branch: Optional branch to checkout.
+            skip_hash_lookup: Skip the hash lookup so that a new transform is created even if a transform with the same hash already exists.
 
         Examples:
 
@@ -493,6 +502,7 @@ class Transform(SQLRecord, IsVersioned):
             reference=reference,
             reference_type=reference_type,
             source_code=source_code,
+            skip_hash_lookup=skip_hash_lookup,
         )
 
     @property
