@@ -228,7 +228,7 @@ class Record(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, HasParents
     )
     """Transforms annotated by this record."""
     collections: Collection = models.ManyToManyField(
-        Collection, through="TransformCollection", related_name="records"
+        Collection, through="CollectionRecord", related_name="records"
     )
     """Collections annotated by this record."""
     projects: Project
