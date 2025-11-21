@@ -20,6 +20,7 @@ from lamindb.errors import FieldValidationError
 from ..base.ids import base62_16
 from .artifact import Artifact
 from .can_curate import CanCurate
+from .collection import Collection
 from .feature import Feature
 from .has_parents import HasParents, _query_relatives
 from .query_set import (
@@ -226,6 +227,10 @@ class Record(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, HasParents
         Transform, through="TransformRecord", related_name="records"
     )
     """Transforms annotated by this record."""
+    collections: Collection = models.ManyToManyField(
+        Collection, through="CollectionRecord", related_name="records"
+    )
+    """Collections annotated by this record."""
     projects: Project
     """Projects that annotate this record."""
     references: Reference
@@ -240,6 +245,8 @@ class Record(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, HasParents
     """Projects linked in this record as values."""
     linked_references: Reference
     """References linked in this record as values."""
+    linked_collections: Collection
+    """Collections linked in this record as values."""
     linked_users: User
     """Users linked in this record as values."""
     blocks: RunBlock
@@ -436,6 +443,7 @@ class Record(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, HasParents
         ).save()
 
 
+# for storing JSON values in records
 class RecordJson(BaseSQLRecord, IsLink):
     id: int = models.BigAutoField(primary_key=True)
     record: Record = ForeignKey(Record, CASCADE, related_name="values_json")
@@ -444,9 +452,12 @@ class RecordJson(BaseSQLRecord, IsLink):
 
     class Meta:
         app_label = "lamindb"
-        unique_together = ("record", "feature")  # a list is modeled as a list in json
+        # a list is modeled as a list in json, hence no multi-value association for the same feature unlike for
+        # categorical/relational values
+        unique_together = ("record", "feature")
 
 
+# for storing record-like values in records
 class RecordRecord(BaseSQLRecord, IsLink):
     id: int = models.BigAutoField(primary_key=True)
     record: Record = ForeignKey(
@@ -462,6 +473,7 @@ class RecordRecord(BaseSQLRecord, IsLink):
         unique_together = ("record", "feature", "value")
 
 
+# for storing ulabel-like values in records
 class RecordULabel(BaseSQLRecord, IsLink):
     id: int = models.BigAutoField(primary_key=True)
     record: Record = ForeignKey(Record, CASCADE, related_name="values_ulabel")
@@ -474,6 +486,7 @@ class RecordULabel(BaseSQLRecord, IsLink):
         unique_together = ("record", "feature", "value")
 
 
+# for storing user-like values in records
 class RecordUser(BaseSQLRecord, IsLink):
     id: int = models.BigAutoField(primary_key=True)
     record: Record = ForeignKey(Record, CASCADE, related_name="values_user")
@@ -525,7 +538,6 @@ class RecordArtifact(BaseSQLRecord, IsLink):
     value: Artifact = ForeignKey(Artifact, PROTECT, related_name="links_in_record")
 
     class Meta:
-        # allows linking several records to a single artifact for the same feature because we'll likely need this
         app_label = "lamindb"
         unique_together = ("record", "feature", "value")
 
@@ -542,9 +554,40 @@ class ArtifactRecord(BaseSQLRecord, IsLink, TracksRun):
     feature_ref_is_name: bool | None = BooleanField(null=True)
 
     class Meta:
-        # allows linking several records to a single artifact for the same feature because we'll likely need this
         app_label = "lamindb"
         unique_together = ("artifact", "record", "feature")
+
+
+# for storing collection-like values in records
+class RecordCollection(BaseSQLRecord, IsLink):
+    id: int = models.BigAutoField(primary_key=True)
+    record: Record = ForeignKey(Record, CASCADE, related_name="values_collection")
+    feature: Feature = ForeignKey(
+        Feature, PROTECT, related_name="links_recordcollection"
+    )
+    value: Collection = ForeignKey(Collection, PROTECT, related_name="links_in_record")
+
+    class Meta:
+        app_label = "lamindb"
+        unique_together = ("record", "feature", "value")
+
+
+# for annotating collections with records
+class CollectionRecord(BaseSQLRecord, IsLink, TracksRun):
+    id: int = models.BigAutoField(primary_key=True)
+    collection: Collection = ForeignKey(
+        Collection, CASCADE, related_name="links_record"
+    )
+    record: Record = ForeignKey(Record, PROTECT, related_name="links_collection")
+    feature: Feature = ForeignKey(
+        Feature, PROTECT, null=True, related_name="links_collectionrecord"
+    )
+    label_ref_is_name: bool | None = BooleanField(null=True)
+    feature_ref_is_name: bool | None = BooleanField(null=True)
+
+    class Meta:
+        app_label = "lamindb"
+        unique_together = ("collection", "record", "feature")
 
 
 # for storing transform-like values in records
@@ -557,7 +600,6 @@ class RecordTransform(BaseSQLRecord, IsLink):
     value: Transform = ForeignKey(Transform, PROTECT, related_name="links_in_record")
 
     class Meta:
-        # allows linking several records to a single transform for the same feature because we'll likely need this
         app_label = "lamindb"
         unique_together = ("record", "feature", "value")
 
