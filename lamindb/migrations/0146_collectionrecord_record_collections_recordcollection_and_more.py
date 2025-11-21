@@ -12,7 +12,7 @@ import lamindb.models.sqlrecord
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("lamindb", "0145_squashed"),
+        ("lamindb", "0145_remove_feature_unique_feature_name_type_space_and_more"),
     ]
 
     operations = [
