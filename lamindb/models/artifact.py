@@ -1034,7 +1034,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         space: `Space | None = None` The space of the artifact. If `None`, uses the current space.
         storage: `Storage | None = None` The storage location for the artifact. If `None`, uses the default storage location.
             You can see and set the default storage location in :attr:`~lamindb.core.Settings.storage`.
-        skip_hash_lookup: Skip the hash lookup so that a new artifact is created even if an identical artifact already exists.
+        skip_hash_lookup: `bool = False` Skip the hash lookup so that a new collection is created even if an artifact with the same hash already exists.
 
     Examples:
 

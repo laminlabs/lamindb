@@ -50,10 +50,23 @@ entrypoint: myentrypoint
 commit:""")
 
 
-def test_transform_custom_key():
+def test_transform_custom_key_and_hash_lookup():
     # test auto-inferred latest commit hash
-    transform1 = ln.Transform.from_git(url=TEST_URL, path="main.nf", key="mypipeline")
+    transform1 = ln.Transform.from_git(
+        url=TEST_URL, path="main.nf", key="mypipeline"
+    ).save()
     assert transform1.key == "mypipeline"
+    # trigger hash look up
+    transform2 = ln.Transform.from_git(url=TEST_URL, path="main.nf", key="mypipeline2")
+    assert transform1 == transform2
+    assert transform2.key == "mypipeline"
+    # trigger hash look up
+    transform2 = ln.Transform.from_git(
+        url=TEST_URL, path="main.nf", key="mypipeline2", skip_hash_lookup=True
+    )
+    assert transform1 != transform2
+    assert transform2.key == "mypipeline2"
+    transform1.delete(permanent=True)
 
 
 def test_transform_from_git_failure_modes():
