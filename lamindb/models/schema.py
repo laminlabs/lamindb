@@ -1223,3 +1223,4 @@ delattr(Schema, "validated_by_id")  # we don't want to expose these
 delattr(Schema, "validated_schemas")  # we don't want to expose these
 delattr(Schema, "composite")  # we don't want to expose these
 delattr(Schema, "composite_id")  # we don't want to expose these
+delattr(Schema, "slot")  # we don't want to expose these
