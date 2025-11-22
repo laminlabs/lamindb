@@ -179,7 +179,7 @@ KNOWN_SCHEMAS = {  # by hash
 
 
 class Schema(SQLRecord, HasType, CanCurate, TracksRun):
-    """Schemas of datasets such as the set of columns of a `DataFrame`.
+    """Schemas of datasets such as column sets of dataframes.
 
     .. note::
 
