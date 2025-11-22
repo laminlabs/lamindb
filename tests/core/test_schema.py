@@ -359,6 +359,16 @@ def test_schema_mutations_feature_removal(
     schema.delete(permanent=True)
 
 
+def test_schema_add_remove_optional_features(mini_immuno_schema_flexible: ln.Schema):
+    schema = mini_immuno_schema_flexible
+    initial_hash = schema.hash
+    feature_project = ln.Feature(name="project", dtype=ln.Project).save()
+    schema.add_optional_features([feature_project])
+    assert schema.hash != initial_hash
+    schema.remove_optional_features([feature_project])
+    assert schema.hash == initial_hash
+
+
 def test_schema_components(mini_immuno_schema_flexible: ln.Schema):
     obs_schema = mini_immuno_schema_flexible
     var_schema = ln.Schema(

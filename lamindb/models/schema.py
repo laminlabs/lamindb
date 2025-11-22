@@ -185,10 +185,10 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun):
 
         To create a schema, at least one of the following parameters must be passed:
 
-        - `features` - a list of :class:`~lamindb.Feature` records
-        - `itype` - a registry or field to constrain feature identifiers, e.g., `ln.Feature` or `bt.Gene.ensembl_gene_id`
-        - `slots` - a dictionary mapping slot names to :class:`~lamindb.Schema` objects, e.g., for an `AnnData`, `{"obs": Schema(...), "var.T": Schema(...), "obsm": Schema(...)}`
-        - `is_type=True` - a *schema type* to group schemas, e.g., `Schema(name="ProteinPanel", is_type=True)`
+        - `features` - a list of `Feature` objects
+        - `itype` - the identifier type, e.g., `Feature` or `bt.Gene.ensembl_gene_id`
+        - `slots` - a dictionary mapping slots to :class:`~lamindb.Schema` objects, e.g., for an `AnnData`, `{"obs": Schema(...), "var.T": Schema(...)}`
+        - `is_type=True` - a *schema type* to group schemas, e.g., "ProteinPanel"
 
     Args:
         features: `list[SQLRecord] | list[tuple[Feature, dict]] | None = None` Feature
@@ -250,6 +250,11 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun):
                 itype=ln.Feature,
                 flexible=True,
             ).save()
+
+        Create a schema type to group schemas::
+
+            protein_panel = ln.Schema(name="ProteinPanel", is_type=True).save()
+            schema = ln.Schema(itype=bt.CellMarker, type=protein_panel).save()
 
         Validate the `index` of a `DataFrame`::
 
@@ -876,6 +881,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun):
         from .save import bulk_create
 
         features_to_delete = []
+        print_hash_mutation_warning = kwargs.pop("print_hash_mutation_warning", True)
 
         if self.pk is not None:
             existing_features = self.members.to_list() if self.members.exists() else []
@@ -912,12 +918,14 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun):
 
                 datasets = Artifact.filter(schema=self)
                 if datasets.exists():
-                    logger.warning(
-                        f"you're removing these features: {features_to_delete}"
-                    )
-                    logger.warning(
-                        f"you updated the schema hash and might invalidate datasets that were previously validated with this schema:\n{datasets.to_dataframe()}"
-                    )
+                    if features_to_delete:
+                        logger.warning(
+                            f"you're removing these features: {features_to_delete}"
+                        )
+                    if print_hash_mutation_warning:
+                        logger.warning(
+                            f"you updated the schema hash and might invalidate datasets that were previously validated with this schema:\n{datasets.to_dataframe()}"
+                        )
                 self.hash = validated_kwargs["hash"]
                 self.n = validated_kwargs["n"]
         super().save(*args, **kwargs)
@@ -1151,6 +1159,25 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun):
                 )
         """
         return SchemaOptionals(self)
+
+    def add_optional_features(self, features: list[Feature]) -> None:
+        """Add optional features to the schema."""
+        assert self.name is not None, "schema must have a name to add optional features"
+        self.features.add(*features)
+        self.optionals.add(features)
+        self.save(print_hash_mutation_warning=False)
+
+    def remove_optional_features(self, features: list[Feature]) -> None:
+        """Remove optional features from the schema."""
+        assert self.name is not None, (
+            "schema must have a name to remove optional features"
+        )
+        optional_features = self.optionals.get()
+        for feature in features:
+            assert feature in optional_features, f"Feature {feature} is not optional"
+        self.features.remove(*features)
+        self.optionals.remove(features)
+        self.save(print_hash_mutation_warning=False)
 
     def describe(self, return_str=False) -> None | str:
         """Describe schema."""
