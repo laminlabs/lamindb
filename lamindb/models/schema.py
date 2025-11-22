@@ -233,7 +233,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun):
 
             schema = ln.Schema([ln.Feature(name="required_feature", dtype=str).save()]).save()
 
-        A schema that constraints feature identifiers to be a valid feature names::
+        A schema that constrains feature identifiers to be a valid feature names::
 
             schema = ln.Schema(itype=ln.Feature)  # uses Feature.name as identifier type
 
