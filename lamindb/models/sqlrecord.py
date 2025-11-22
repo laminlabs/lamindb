@@ -1439,8 +1439,10 @@ class SQLRecord(BaseSQLRecord, metaclass=Registry):
 
         # permanent delete
         if permanent is None:
+            object_type_name = self.__class__.__name__
+            log_identifier = self.uid if hasattr(self, "uid") else self.pk
             response = input(
-                f"Record {self.uid} is already in trash! Are you sure you want to delete it from your"
+                f"{object_type_name} {log_identifier} is already in trash! Are you sure you want to delete it from your"
                 " database? You can't undo this action. (y/n) "
             )
             confirm_delete = response == "y"

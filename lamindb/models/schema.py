@@ -179,21 +179,21 @@ KNOWN_SCHEMAS = {  # by hash
 
 
 class Schema(SQLRecord, HasType, CanCurate, TracksRun):
-    """Schemas of a dataset such as the set of columns of a `DataFrame`.
+    """Schemas of datasets such as the set of columns of a `DataFrame`.
 
-    Composite schemas can have multiple slots, e.g., for an `AnnData`, one schema for slot `obs` and another one for `var`.
+    .. note::
 
-    To create a schema, at least one of the following arguments must be passed:
+        To create a schema, at least one of the following parameters must be passed:
 
-    - `features` - a list of :class:`~lamindb.Feature` records
-    - `itype` - a registry or field to constrain feature identifiers, e.g., `ln.Feature` or `bt.Gene.ensembl_gene_id`
-    - `slots` - a dictionary mapping slot names to :class:`~lamindb.Schema` objects, e.g., for an `AnnData`, `{"obs": Schema(...), "var.T": Schema(...), "obsm": Schema(...)}`
-    - `is_type=True` - a schema type, e.g., `ln.Schema(name="ProteinPanel", is_type=True)`
+        - `features` - a list of :class:`~lamindb.Feature` records
+        - `itype` - a registry or field to constrain feature identifiers, e.g., `ln.Feature` or `bt.Gene.ensembl_gene_id`
+        - `slots` - a dictionary mapping slot names to :class:`~lamindb.Schema` objects, e.g., for an `AnnData`, `{"obs": Schema(...), "var.T": Schema(...), "obsm": Schema(...)}`
+        - `is_type=True` - a *schema type* to group schemas, e.g., `Schema(name="ProteinPanel", is_type=True)`
 
     Args:
         features: `list[SQLRecord] | list[tuple[Feature, dict]] | None = None` Feature
             records, e.g., `[Feature(...), Feature(...)]` or features with their config, e.g., `[Feature(...).with_config(optional=True)]`.
-        slots: `dict[str, Schema] | None = None` A dictionary mapping slot names to :class:`~lamindb.Schema` objects.
+        slots: `dict[str, Schema] | None = None` A dictionary mapping slot names to :class:`~lamindb.Schema` objects to create a _composite_ schema.
         name: `str | None = None` Name of the schema.
         description: `str | None = None` Description of the schema.
         itype: `str | None = None` Feature identifier type to validate against, e.g., `ln.Feature` or `bt.Gene.ensembl_gene_id`.
@@ -227,60 +227,54 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun):
 
     Examples:
 
-        The typical way to create a schema::
+        A schema with a single required feature::
 
             import lamindb as ln
-            import bionty as bt
-            import pandas as pd
 
-            # a schema with a single required feature
-            schema = ln.Schema(
-                features=[
-                    ln.Feature(name="required_feature", dtype=str).save(),
-                ],
-            ).save()
+            schema = ln.Schema([ln.Feature(name="required_feature", dtype=str).save()]).save()
 
-            # a schema that constrains feature identifiers to be a valid ensembl gene ids or feature names
-            schema = ln.Schema(itype=bt.Gene.ensembl_gene_id)
+        A schema that constraints feature identifiers to be a valid feature names::
+
             schema = ln.Schema(itype=ln.Feature)  # uses Feature.name as identifier type
 
-            # a schema that requires a single feature but also validates & annotates any additional features with valid feature names
+        Or valid Ensembl gene ids::
+
+            import bionty as bt
+
+            schema = ln.Schema(itype=bt.Gene.ensembl_gene_id)
+
+        A `flexible` schema that *requires* a single feature but *also* validates & annotates additional features with registered feature identifiers::
+
             schema = ln.Schema(
-                features=[
-                    ln.Feature(name="required_feature", dtype=str).save(),
-                ],
+                [ln.Feature(name="required_feature", dtype=str).save()],
                 itype=ln.Feature,
-                flexible=True,  # also validate & annotate additional features if they are present
+                flexible=True,
             ).save()
 
-        Passing options to the `Schema` constructor::
+        Validate the `index` of a `DataFrame`::
 
-            # also validate the index
             schema = ln.Schema(
-                features=[
-                    ln.Feature(name="required_feature", dtype=str).save(),
-                ],
+                [ln.Feature(name="required_feature", dtype=str).save()],
                 index=ln.Feature(name="sample", dtype=ln.ULabel).save(),
             ).save()
 
-            # mark a single feature as optional and ignore other features of the same identifier type
-            schema = ln.Schema(
-                features=[
-                    ln.Feature(name="required_feature", dtype=str).save(),
-                    ln.Feature(name="feature2", dtype=int).save().with_config(optional=True),
-                ],
-            ).save()
+        Mark a feature as `optional`::
 
-        Alternative constructors (:meth:`~lamindb.Schema.from_values`, :meth:`~lamindb.Schema.from_dataframe`)::
+            schema = ln.Schema([
+                ln.Feature(name="required_feature", dtype=str).save(),
+                ln.Feature(name="feature2", dtype=int).save().with_config(optional=True),
+            ]).save()
 
-            # parse & validate identifier values
+        Parse & validate feature identifier values:
+
             schema = ln.Schema.from_values(
                 adata.var["ensemble_id"],
                 field=bt.Gene.ensembl_gene_id,
                 organism="mouse",
             ).save()
 
-            # from a dataframe
+        Create a schema from a `DataFrame`::
+
             df = pd.DataFrame({"feat1": [1, 2], "feat2": [3.1, 4.2], "feat3": ["cond1", "cond2"]})
             schema = ln.Schema.from_dataframe(df)
     """
