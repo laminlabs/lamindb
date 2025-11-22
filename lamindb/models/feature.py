@@ -45,9 +45,11 @@ from .sqlrecord import BaseSQLRecord, HasType, Registry, SQLRecord, _get_record_
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
+    from .artifact import Artifact
     from .block import FeatureBlock
     from .projects import Project
     from .query_set import QuerySet
+    from .run import Run
     from .schema import Schema
 
 FEATURE_DTYPES = set(get_args(Dtype))
@@ -731,13 +733,12 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     """
     synonyms: str | None = TextField(null=True)
     """Bar-separated (|) synonyms (optional)."""
-    # we define the below ManyToMany on the feature model because it parallels
+    # we define the below ManyToMany on the Feature model because it parallels
     # how other registries (like Gene, Protein, etc.) relate to Schema
-    # it makes the API more consistent
     schemas: Schema = models.ManyToManyField(
         "Schema", through="SchemaFeature", related_name="features"
     )
-    """Feature sets linked to this feature."""
+    """Schemas linked to this feature."""
     _expect_many: bool = models.BooleanField(default=None, db_default=None, null=True)
     """Indicates whether values for this feature are expected to occur a single or multiple times for an artifact (default `None`).
 
@@ -1098,6 +1099,10 @@ class FeatureValue(SQLRecord, TracksRun):
     """The JSON-like value."""
     hash: str = CharField(max_length=HASH_LENGTH, null=True, db_index=True)
     """Value hash."""
+    artifacts: Artifact
+    """Artifacts annotated with this feature value."""
+    runs: Run
+    """Runs annotated with this feature value."""
 
     class Meta(BaseSQLRecord.Meta, TracksRun.Meta):
         app_label = "lamindb"
