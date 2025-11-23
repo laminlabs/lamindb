@@ -295,15 +295,7 @@ def _format_values(
     names: ListLike, n: int = 20, quotes: bool = True, sep: str = "'"
 ) -> str:
     """Format values for printing."""
-    if isinstance(names, dict):
-        items = {
-            f"{key}: {value}": None
-            for key, value in names.items()
-            if key != "None" and value != "None"
-        }
-    else:
-        # Use a dictionary instead of a list to have unique values and preserve order
-        items = {str(name): None for name in names if name != "None"}
+    items = {str(name): None for name in names if name != "None"}
 
     unique_items = list(items.keys())
 

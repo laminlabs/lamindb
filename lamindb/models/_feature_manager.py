@@ -402,6 +402,8 @@ def get_features_data(
         self,
     )
 
+    print(non_categoricals)
+
     internal_feature_labels = {}
     external_data = []
     for features, is_list_type in [(categoricals, False), (non_categoricals, True)]:
@@ -416,9 +418,10 @@ def get_features_data(
                 continue
 
             # Format message
+
             printed_values = (
                 _format_values(sorted(values), n=10, quotes=False)
-                if not is_list_type or not feature_dtype.startswith("list")
+                if (not is_list_type or not feature_dtype.startswith(("list", "dict")))
                 else str(values)  # need to convert to string
             )
 
