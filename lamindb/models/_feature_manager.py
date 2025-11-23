@@ -149,7 +149,7 @@ def custom_aggregate(field, using: str):
         return GroupConcat(field)
 
 
-def _get_categoricals_postgres(
+def get_categoricals_postgres(
     self: Artifact | Collection | Run,
     related_data: dict | None = None,
 ) -> dict[tuple[str, str], set[str]]:
@@ -224,7 +224,7 @@ def _get_categoricals_postgres(
     return dict(result)
 
 
-def _get_categoricals(
+def get_categoricals_sqlite(
     self: Artifact | Collection,
 ) -> dict[tuple[str, str], set[str]]:
     """Get categorical features and their values using the default approach."""
@@ -242,7 +242,7 @@ def _get_categoricals(
     return dict(result)
 
 
-def _get_non_categoricals(
+def get_non_categoricals(
     self,
 ) -> dict[tuple[str, str], set[Any]]:
     """Get non-categorical features and their values."""
@@ -297,7 +297,7 @@ def _get_non_categoricals(
     return non_categoricals
 
 
-def _create_feature_table(
+def create_feature_table(
     name: str, registry_str: str, data: list, show_header: bool = False
 ) -> Table:
     """Create a Rich table for a feature group."""
@@ -388,21 +388,19 @@ def get_features_data(
     # Get the categorical data using the appropriate method
     # e.g. categoricals = {('tissue', 'cat[bionty.Tissue.ontology_id]'): {'brain'}, ('cell_type', 'cat[bionty.CellType]'): {'neuron'}}
     if not self._state.adding and connections[self._state.db].vendor == "postgresql":
-        categoricals = _get_categoricals_postgres(
+        categoricals = get_categoricals_postgres(
             self,
             related_data=related_data,
         )
     else:
-        categoricals = _get_categoricals(
+        categoricals = get_categoricals_sqlite(
             self,
         )
 
     # Get non-categorical features
-    non_categoricals = _get_non_categoricals(
+    non_categoricals = get_non_categoricals(
         self,
     )
-
-    print(non_categoricals)
 
     internal_feature_labels = {}
     external_data = []
@@ -520,7 +518,7 @@ def describe_features(
                 ]
         schema_itype = f" {schema.itype}" if schema.itype != "Feature" else ""
         dataset_features_tree_children.append(
-            _create_feature_table(
+            create_feature_table(
                 Text.assemble(
                     (slot, "violet"),
                     (f" ({schema.n}{schema_itype})", "dim"),
@@ -534,7 +532,7 @@ def describe_features(
     external_features_tree_children = []
     if external_data:
         external_features_tree_children.append(
-            _create_feature_table(
+            create_feature_table(
                 "",
                 "",
                 external_data,
