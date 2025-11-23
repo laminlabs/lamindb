@@ -249,9 +249,12 @@ def test(session, group):
     duration_args = "--durations=10"
 
     if group == "unit-core-sqlite":
+        env = os.environ.copy()
+        env["LAMINDB_TEST_DB_VENDOR"] = "sqlite"
         run(
             session,
-            f"TEST_DB=sqlite pytest {coverage_args} ./tests/core {duration_args}",
+            f"pytest {coverage_args} ./tests/core {duration_args}",
+            env=env,
         )
     elif group == "unit-core-postgres":
         run(
