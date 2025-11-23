@@ -1,3 +1,4 @@
+import os
 import shutil
 from pathlib import Path
 from subprocess import DEVNULL, run
@@ -18,19 +19,26 @@ from laminci.db import setup_local_test_postgres
 
 def pytest_sessionstart():
     t_execute_start = perf_counter()
-
     ln_setup._TESTING = True
-    try:
-        pgurl = setup_local_test_postgres()
-    except RuntimeError:
-        run("docker stop pgtest && docker rm pgtest", shell=True, stdout=DEVNULL)  # noqa: S602
-        pgurl = setup_local_test_postgres()
-    ln.setup.init(
-        storage="./default_storage_unit_core",
-        modules="bionty",
-        name="lamindb-unit-tests-core",
-        db=pgurl,
-    )
+    if os.getenv("LAMINDB_TEST_DB_VENDOR") == "sqlite":
+        ln.setup.init(
+            storage="./default_storage_unit_core",
+            modules="bionty",
+            name="lamindb-unit-tests-core",
+        )
+    else:
+        try:
+            pgurl = setup_local_test_postgres()
+        except RuntimeError:
+            run("docker stop pgtest && docker rm pgtest", shell=True, stdout=DEVNULL)  # noqa: S602
+            pgurl = setup_local_test_postgres()
+        ln.setup.init(
+            storage="./default_storage_unit_core",
+            modules="bionty",
+            name="lamindb-unit-tests-core",
+            db=pgurl,
+        )
+
     ln.settings.creation.artifact_silence_missing_run_warning = True
     total_time_elapsed = perf_counter() - t_execute_start
     print(f"time to setup the instance: {total_time_elapsed:.1f}s")
@@ -40,7 +48,8 @@ def pytest_sessionfinish(session: pytest.Session):
     logger.set_verbosity(1)
     shutil.rmtree("./default_storage_unit_core")
     ln.setup.delete("lamindb-unit-tests-core", force=True)
-    run("docker stop pgtest && docker rm pgtest", shell=True, stdout=DEVNULL)  # noqa: S602
+    if not os.getenv("LAMINDB_TEST_DB_VENDOR") == "sqlite":
+        run("docker stop pgtest && docker rm pgtest", shell=True, stdout=DEVNULL)  # noqa: S602
 
 
 @pytest.fixture

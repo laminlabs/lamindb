@@ -385,17 +385,12 @@ def test_schema_components(mini_immuno_schema_flexible: ln.Schema):
     ).save()
     assert var_schema == var_schema2
 
-    try:
+    with pytest.raises(InvalidArgument) as error:
         ln.Schema(
             name="mini_immuno_anndata_schema",
-            otype="AnnData",
             slots={"obs": obs_schema, "var": var_schema},
         ).save()
-    except ln.errors.InvalidArgument:
-        assert (
-            str(ln.errors.InvalidArgument)
-            == "Please pass otype != None for composite schemas"
-        )
+    assert str(error.value) == "Please pass otype != None for composite schemas"
 
     anndata_schema = ln.Schema(
         name="mini_immuno_anndata_schema",
@@ -410,10 +405,9 @@ def test_schema_components(mini_immuno_schema_flexible: ln.Schema):
     ).save()
     # try adding another schema under slot "var"
     # we want to trigger the unique constraint on slot
-    try:
+    with pytest.raises(IntegrityError) as error:
         anndata_schema.components.add(var_schema2, through_defaults={"slot": "var"})
-    except IntegrityError as error:
-        assert str(error).startswith("duplicate key value violates unique constraint")
+    assert "unique" in str(error.value).lower()
 
     anndata_schema.delete(permanent=True)
     var_schema2.delete(permanent=True)

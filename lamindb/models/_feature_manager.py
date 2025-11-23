@@ -122,6 +122,8 @@ def get_link_attr(link: IsLink | type[IsLink], data: Artifact | Collection) -> s
     link_model_name = link.__class__.__name__
     if link_model_name in {"Registry", "ModelBase"}:  # we passed the type of the link
         link_model_name = link.__name__  # type: ignore
+    if link_model_name.startswith("Record") or link_model_name == "ArtifactArtifact":
+        return "value"
     return link_model_name.replace(data.__class__.__name__, "").lower()
 
 
@@ -149,7 +151,7 @@ def custom_aggregate(field, using: str):
         return GroupConcat(field)
 
 
-def _get_categoricals_postgres(
+def get_categoricals_postgres(
     self: Artifact | Collection | Run,
     related_data: dict | None = None,
 ) -> dict[tuple[str, str], set[str]]:
@@ -224,25 +226,39 @@ def _get_categoricals_postgres(
     return dict(result)
 
 
-def _get_categoricals(
+def get_categoricals_sqlite(
     self: Artifact | Collection,
 ) -> dict[tuple[str, str], set[str]]:
     """Get categorical features and their values using the default approach."""
-    result = defaultdict(set)
+    from .query_set import get_default_branch_ids
+
+    result = {}  # type: ignore
     for _, links in _get_labels(self, links=True, instance=self._state.db).items():
         for link in links:
+            if link.__class__.__name__ == "RecordJson":
+                continue
             if hasattr(link, "feature_id") and link.feature_id is not None:
                 feature = Feature.objects.using(self._state.db).get(id=link.feature_id)
                 feature_field = parse_dtype(feature.dtype)[0]["field_str"]
                 link_attr = get_link_attr(link, self)
                 label = getattr(link, link_attr)
+                if hasattr(label, "branch_id"):
+                    if label.branch_id not in get_default_branch_ids():
+                        continue
                 label_name = getattr(label, feature_field)
-                result[(feature.name, feature.dtype)].add(label_name)
-
+                dict_key = (feature.name, feature.dtype)
+                if dict_key not in result:
+                    result[dict_key] = (
+                        set() if not feature.dtype.startswith("list[cat") else []
+                    )
+                if feature.dtype.startswith("list[cat"):
+                    result[dict_key].append(label_name)
+                else:
+                    result[dict_key].add(label_name)
     return dict(result)
 
 
-def _get_non_categoricals(
+def get_non_categoricals(
     self,
 ) -> dict[tuple[str, str], set[Any]]:
     """Get non-categorical features and their values."""
@@ -272,6 +288,11 @@ def _get_non_categoricals(
             else:
                 values = fv["values"]
 
+            if connections[self._state.db].vendor == "sqlite":
+                # undo GROUP_CONCAT
+                if isinstance(values, str):
+                    values = {value.strip('"') for value in values.split(", ")}
+
             # Convert single values to sets
             if not isinstance(values, (list, dict, set)):
                 values = {values}
@@ -291,13 +312,21 @@ def _get_non_categoricals(
                 values = {datetime.fromisoformat(value) for value in values}
             if feature_dtype == "date":
                 values = {date.fromisoformat(value) for value in values}
+            if connections[self._state.db].vendor == "sqlite":
+                # undo GROUP_CONCAT
+                if feature_dtype == "int":
+                    values = {int(value) for value in values}
+                if feature_dtype == "float":
+                    values = {float(value) for value in values}
+                if feature_dtype == "num":
+                    values = {float(value) for value in values}
 
             non_categoricals[(feature_name, feature_dtype)] = values
 
     return non_categoricals
 
 
-def _create_feature_table(
+def create_feature_table(
     name: str, registry_str: str, data: list, show_header: bool = False
 ) -> Table:
     """Create a Rich table for a feature group."""
@@ -388,39 +417,48 @@ def get_features_data(
     # Get the categorical data using the appropriate method
     # e.g. categoricals = {('tissue', 'cat[bionty.Tissue.ontology_id]'): {'brain'}, ('cell_type', 'cat[bionty.CellType]'): {'neuron'}}
     if not self._state.adding and connections[self._state.db].vendor == "postgresql":
-        categoricals = _get_categoricals_postgres(
+        categoricals = get_categoricals_postgres(
             self,
             related_data=related_data,
         )
     else:
-        categoricals = _get_categoricals(
+        categoricals = get_categoricals_sqlite(
             self,
         )
 
     # Get non-categorical features
-    non_categoricals = _get_non_categoricals(
+    non_categoricals = get_non_categoricals(
         self,
     )
 
     internal_feature_labels = {}
     external_data = []
-    for features, is_list_type in [(categoricals, False), (non_categoricals, True)]:
+    for features, is_categoricals in [(categoricals, True), (non_categoricals, False)]:
         for (feature_name, feature_dtype), values in sorted(features.items()):
             # Handle dictionary conversion
+            if feature_dtype.startswith("list[cat"):
+                converted_values = values  # is already a list
+            else:
+                converted_values = values if len(values) > 1 else next(iter(values))
             if to_dict:
-                if feature_dtype.startswith("list[cat"):
-                    dict_value = values  # is already a list
-                else:
-                    dict_value = values if len(values) > 1 else next(iter(values))
-                dictionary[feature_name] = dict_value
+                dictionary[feature_name] = converted_values
                 continue
 
             # Format message
-            printed_values = (
-                _format_values(sorted(values), n=10, quotes=False)
-                if not is_list_type or not feature_dtype.startswith("list")
-                else str(values)  # need to convert to string
-            )
+            if is_categoricals and isinstance(converted_values, set):
+                printed_values = _format_values(
+                    sorted(converted_values), n=10, quotes=False
+                )
+            elif (
+                not is_categoricals
+                and not feature_dtype.startswith(("list", "dict"))
+                and isinstance(converted_values, set)
+            ):
+                printed_values = _format_values(
+                    sorted(converted_values), n=10, quotes=False
+                )
+            else:
+                printed_values = str(converted_values)
 
             # Sort into internal/external
             feature_info = (
@@ -517,7 +555,7 @@ def describe_features(
                 ]
         schema_itype = f" {schema.itype}" if schema.itype != "Feature" else ""
         dataset_features_tree_children.append(
-            _create_feature_table(
+            create_feature_table(
                 Text.assemble(
                     (slot, "violet"),
                     (f" ({schema.n}{schema_itype})", "dim"),
@@ -531,7 +569,7 @@ def describe_features(
     external_features_tree_children = []
     if external_data:
         external_features_tree_children.append(
-            _create_feature_table(
+            create_feature_table(
                 "",
                 "",
                 external_data,
@@ -691,6 +729,14 @@ def filter_base(
                     f"currently not supporting `{comparator}`, using `__icontains` instead"
                 )
                 comparator = "__icontains"
+            if connections[feature._state.db].vendor == "sqlite" and comparator in {
+                "__gt",
+                "__lt",
+                "__gte",
+                "__lte",
+            }:
+                # SQLite seems to prefer comparing strings over numbers
+                value = str(value)
             expression = {feature_param: feature, f"value{comparator}": value}
             feature_values = value_model.filter(**expression)
             new_expression[f"_{feature_param}_values__id__in"] = feature_values

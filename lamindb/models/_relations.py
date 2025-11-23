@@ -92,6 +92,8 @@ def dict_related_model_to_related_name(
             )
         )
     }
+    if "RecordRecord" in d:
+        d["RecordRecord"] = "values_record"
     return d
 
 

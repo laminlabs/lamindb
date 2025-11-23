@@ -7,7 +7,6 @@ import lamindb as ln
 import pytest
 from lamindb.errors import DoesNotExist, ValidationError
 from lamindb.examples.datasets import mini_immuno
-from lamindb.models._feature_manager import describe_features
 
 
 # see test_record_basics.py for similar test for records
@@ -255,11 +254,11 @@ Here is how to create a feature:
     assert artifact.links_record.get().record.name == "Experiment 1"
 
     # numerical feature
-    temperature = ln.Feature(name="temperature", dtype="cat").save()
+    temperature = ln.Feature(name="temperature", dtype=ln.Record).save()
     with pytest.raises(TypeError) as error:
         artifact.features.add_values({"temperature": 27.2})
     assert error.exconly().startswith(
-        "TypeError: Value for feature 'temperature' with dtype 'cat' must be a string or record"
+        "TypeError: Value for feature 'temperature' with dtype 'cat[Record]' must be a string or record"
     )
     temperature.dtype = "num"
     temperature.save()
@@ -381,7 +380,6 @@ Here is how to create a feature:
 
     ln.Record.from_values(["Experiment 2", "project_1", "U0123"], create=True).save()
     bt.CellType.from_source(name="T cell").save()
-    print("validate", bt.CellType.validate(["T cell"]))
 
     artifact.features.add_values(features)
     assert set(artifact._feature_values.all().values_list("value", flat=True)) == {
@@ -407,49 +405,23 @@ Here is how to create a feature:
         "datetime_of_experiment": datetime(2024, 12, 1, 0, 0, 0),
     }
     # hard to test because of italic formatting
-    _, external_features_tree = describe_features(artifact)
-    assert external_features_tree.label.plain == "Features"
-    assert len(external_features_tree.children[0].label.columns) == 3
-    assert len(external_features_tree.children[0].label.rows) == 10
-    assert external_features_tree.children[0].label.columns[0]._cells == [
-        "cell_type_by_expert",
-        "disease",
-        "donor",
-        "experiment",
-        "organism",
-        "project",
-        "date_of_experiment",
-        "datetime_of_experiment",
-        "is_validated",
-        "temperature",
-    ]
-    dtypes_display = [
-        i.plain for i in external_features_tree.children[0].label.columns[1]._cells
-    ]
-    assert dtypes_display == [
-        "bionty.CellType",
-        "bionty.Disease.ontology_id",
-        "Record",
-        "Record",
-        "bionty.Organism",
-        "Record",
-        "date",
-        "datetime",
-        "bool",
-        "num",
-    ]
-    assert external_features_tree.children[0].label.columns[2]._cells == [
-        "T cell",
-        "MONDO:0004975, MONDO:0004980",
-        "U0123",
-        "Experiment 1, Experiment 2",
-        "mouse",
-        "project_1",
-        "2024-12-01",
-        "2024-12-01 00:00:00",
-        "True",
-        "27.2, 100.0",
-    ]
+    assert (
+        artifact.features.describe(return_str=True)
+        == """Artifact:  (0000)
+|   description: test
+└── Features
+    └── cell_type_by_expe…  bionty.CellType         T cell
+        disease             bionty.Disease.ontolo…  MONDO:0004975, MONDO:0004980
+        donor               Record                  U0123
+        experiment          Record                  Experiment 1, Experiment 2
+        organism            bionty.Organism         mouse
+        project             Record                  project_1
+        date_of_experiment  date                    2024-12-01
+        datetime_of_exper…  datetime                2024-12-01 00:00:00
+        is_validated        bool                    True
+        temperature         num                     27.2, 100.0"""
+    )
+
     # repeat
     artifact.features.add_values(features)
     assert set(artifact._feature_values.all().values_list("value", flat=True)) == {
@@ -492,8 +464,8 @@ Here is how to create a feature:
     # print(ln.Artifact.to_dataframe(features=["experiment"]))
     # print(ln.Artifact.filter(experiment__contains="Experi").to_dataframe(features=["experiment"]))
     assert len(ln.Artifact.filter(experiment__contains="Experi")) == 2
-    assert ln.Artifact.filter(temperature__lt=21).one_or_none() is None
-    assert len(ln.Artifact.filter(temperature__gt=21)) >= 1
+    assert ln.Artifact.filter(temperature__lt=21.0).one_or_none() is None
+    assert len(ln.Artifact.filter(temperature__gt=21.0)) >= 1
 
     # test remove_values
     artifact.features.remove_values("date_of_experiment")

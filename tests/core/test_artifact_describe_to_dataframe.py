@@ -3,7 +3,7 @@ import lamindb as ln
 import numpy as np
 import pandas as pd
 import pytest
-from lamindb.models._describe import describe_postgres
+from lamindb.models._describe import describe_postgres, describe_sqlite
 
 
 def _check_df_equality(actual_df: pd.DataFrame, expected_df: pd.DataFrame) -> bool:
@@ -148,7 +148,10 @@ def test_describe_to_dataframe_example_dataset():
     )
 
     # labels section
-    description_tree = describe_postgres(artifact)
+    if ln.setup.settings.instance.dialect == "postgresql":
+        description_tree = describe_postgres(artifact)
+    else:
+        description_tree = describe_sqlite(artifact)
     labels_node = description_tree.children[-1].label
     assert labels_node.label.plain == "Labels"
     assert len(labels_node.children[0].label.columns) == 3

@@ -66,7 +66,8 @@ def install(session):
 @nox.parametrize(
     "group",
     [
-        "unit-core",
+        "unit-core-sqlite",
+        "unit-core-postgres",
         "unit-storage",
         "tutorial",
         "guide",
@@ -82,7 +83,7 @@ def install(session):
 )
 def install_ci(session, group):
     extras = ""
-    if group == "unit-core":
+    if group in ["unit-core-sqlite", "unit-core-postgres"]:
         extras += "fcs"
         # tiledbsoma dependency, specifying it here explicitly
         # otherwise there are problems with uv resolver
@@ -223,7 +224,8 @@ def configure_coverage(session) -> None:
 @nox.parametrize(
     "group",
     [
-        "unit-core",
+        "unit-core-sqlite",
+        "unit-core-postgres",
         "unit-storage",
         "curator",
         "integrations",
@@ -245,7 +247,16 @@ def test(session, group):
     run(session, "lamin settings set private-django-api true")
     coverage_args = "--cov=lamindb --cov-config=pyproject.toml --cov-append --cov-report=term-missing"
     duration_args = "--durations=10"
-    if group == "unit-core":
+
+    if group == "unit-core-sqlite":
+        env = os.environ.copy()
+        env["LAMINDB_TEST_DB_VENDOR"] = "sqlite"
+        run(
+            session,
+            f"pytest {coverage_args} ./tests/core {duration_args}",
+            env=env,
+        )
+    elif group == "unit-core-postgres":
         run(
             session,
             f"pytest {coverage_args} ./tests/core {duration_args}",
