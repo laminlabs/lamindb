@@ -181,7 +181,40 @@ class Record(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, HasParents
                     condition=pgtrigger.Q(old__name__df=pgtrigger.F("new__name"))
                     & pgtrigger.Q(new__is_type=True),
                     func=UPDATE_FEATURE_DTYPE_ON_RECORD_TYPE_NAME_CHANGE,
-                )
+                ),
+                pgtrigger.Trigger(
+                    name="prevent_record_type_cycle",
+                    operation=pgtrigger.Update | pgtrigger.Insert,
+                    when=pgtrigger.Before,
+                    condition=pgtrigger.Q(new__type_id__isnull=False),
+                    func="""
+                        -- Check for direct self-reference
+                        IF NEW.type_id = NEW.id THEN
+                            RAISE EXCEPTION 'Cannot set type: record cannot be its own type';
+                        END IF;
+
+                        -- Check for cycles in the type chain
+                        IF EXISTS (
+                            WITH RECURSIVE type_chain AS (
+                                SELECT type_id, 1 as depth
+                                FROM lamindb_record
+                                WHERE id = NEW.type_id
+
+                                UNION ALL
+
+                                SELECT r.type_id, tc.depth + 1
+                                FROM lamindb_record r
+                                INNER JOIN type_chain tc ON r.id = tc.type_id
+                                WHERE tc.depth < 100
+                            )
+                            SELECT 1 FROM type_chain WHERE type_id = NEW.id
+                        ) THEN
+                            RAISE EXCEPTION 'Cannot set type: would create a cycle';
+                        END IF;
+
+                        RETURN NEW;
+                    """,
+                ),
             ]
         constraints = [
             # unique name for types when type is NULL

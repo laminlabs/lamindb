@@ -102,6 +102,33 @@ def test_record_type_uniqueness():
     record_type3.delete(permanent=True)
 
 
+def test_prevent_type_cycle():
+    """Test that creating a cycle in type hierarchy is prevented."""
+    # Create two types
+    type_a = ln.Record(name="TypeA", is_type=True).save()
+    type_b = ln.Record(name="TypeB", is_type=True).save()
+
+    # Set A's parent to B
+    type_a.type = type_b
+    type_a.save()  # A → B, this is fine
+
+    # Try to set B's parent to A (would create cycle B → A → B)
+    type_b.type = type_a
+
+    with pytest.raises(Exception) as exc_info:
+        type_b.save()
+
+    assert "cycle" in str(exc_info.value).lower()
+
+    # Try to set type to itself
+    type_a.type = type_a
+
+    with pytest.raises(Exception) as exc_info:
+        type_a.save()
+
+    assert "cycle" in str(exc_info.value).lower()
+
+
 @pytest.mark.parametrize(
     "model_class,model_name",
     [
