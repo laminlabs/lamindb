@@ -413,24 +413,24 @@ def get_features_data(
 
     internal_feature_labels = {}
     external_data = []
-    for features, is_list_type in [(categoricals, False), (non_categoricals, True)]:
+    for features, is_categoricals in [(categoricals, True), (non_categoricals, False)]:
         for (feature_name, feature_dtype), values in sorted(features.items()):
             # Handle dictionary conversion
+            if feature_dtype.startswith("list[cat"):
+                converted_values = values  # is already a list
+            else:
+                converted_values = values if len(values) > 1 else next(iter(values))
             if to_dict:
-                if feature_dtype.startswith("list[cat"):
-                    dict_value = values  # is already a list
-                else:
-                    dict_value = values if len(values) > 1 else next(iter(values))
-                dictionary[feature_name] = dict_value
+                dictionary[feature_name] = converted_values
                 continue
 
             # Format message
-
-            printed_values = (
-                _format_values(sorted(values), n=10, quotes=False)
-                if (not is_list_type or not feature_dtype.startswith(("list", "dict")))
-                else str(values)  # need to convert to string
-            )
+            if is_categoricals and isinstance(converted_values, set):
+                printed_values = _format_values(
+                    sorted(converted_values), n=10, quotes=False
+                )
+            else:
+                printed_values = str(converted_values)
 
             # Sort into internal/external
             feature_info = (
