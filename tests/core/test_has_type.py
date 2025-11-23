@@ -1,3 +1,5 @@
+import os
+
 import lamindb as ln
 import pytest
 from django.db import IntegrityError
@@ -102,6 +104,9 @@ def test_record_type_uniqueness():
     record_type3.delete(permanent=True)
 
 
+@pytest.mark.skipif(
+    os.getenv("LAMINDB_TEST_DB_VENDOR") == "sqlite", reason="Postgres-only"
+)
 def test_prevent_type_cycle():
     """Test that creating a cycle in type hierarchy is prevented."""
     # Create two types

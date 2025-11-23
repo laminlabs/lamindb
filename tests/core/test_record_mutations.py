@@ -1,6 +1,12 @@
+import os
+
 import lamindb as ln
+import pytest
 
 
+@pytest.mark.skipif(
+    os.getenv("LAMINDB_TEST_DB_VENDOR") == "sqlite", reason="Postgres-only"
+)
 def test_rename_and_reparent_recordtype():
     """Test renaming a record type and changing its parent."""
 
