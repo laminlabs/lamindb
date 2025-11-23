@@ -2,15 +2,22 @@
 
 import pgtrigger.compiler
 import pgtrigger.migrations
-from django.db import migrations
+from django.db import connection, migrations
 
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("lamindb", "0146_squashed"),
+        (
+            "lamindb",
+            "0146_collectionrecord_record_collections_recordcollection_and_more",
+        ),
     ]
 
-    operations = [
+    operations = []  # type: ignore
+
+
+if connection.vendor == "postgresql":
+    Migration.operations += [
         pgtrigger.migrations.AddTrigger(
             model_name="record",
             trigger=pgtrigger.compiler.Trigger(
