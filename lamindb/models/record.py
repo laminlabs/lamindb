@@ -345,9 +345,14 @@ class Record(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, HasParents
         return FeatureManager(self)
 
     @property
-    def is_form(self) -> bool:
-        """Check if record is a form, i.e., `self.is_type and self.schema is not None`."""
+    def is_sheet(self) -> bool:
+        """Check if record is a `sheet`, i.e., `self.is_type and self.schema is not None`."""
         return self.schema is not None and self.is_type
+
+    @property
+    @deprecated("is_sheet")
+    def is_form(self) -> bool:
+        return self.is_sheet
 
     def query_parents(self) -> QuerySet:
         """Query all parents of a record recursively.
