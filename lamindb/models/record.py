@@ -60,7 +60,7 @@ BEGIN
             id,
             name,
             type_id,
-            name AS path,
+            name::TEXT AS path,
             1 as depth
         FROM lamindb_record
         WHERE id = OLD.id
@@ -88,7 +88,7 @@ BEGIN
             id,
             name,
             type_id,
-            name AS path,
+            name::TEXT AS path,
             1 as depth
         FROM lamindb_record
         WHERE id = NEW.id
