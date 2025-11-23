@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, overload
 
 import pgtrigger
+from django.conf import settings as django_settings
 from django.db import models
 from django.db.models import CASCADE, PROTECT
 from lamin_utils import logger
@@ -47,95 +48,37 @@ if TYPE_CHECKING:
 
 
 UPDATE_FEATURE_DTYPE_ON_RECORD_TYPE_NAME_CHANGE = """\
-DECLARE
-    old_path TEXT;
-    new_path TEXT;
-BEGIN
-    RAISE NOTICE 'Trigger fired: OLD.name=%, NEW.name=%, OLD.is_type=%', OLD.name, NEW.name, OLD.is_type;
+WITH RECURSIVE old_record_path AS (
+    SELECT
+        id,
+        name,
+        type_id,
+        name::TEXT AS path,
+        1 as depth
+    FROM lamindb_record
+    WHERE id = OLD.id
 
-    -- Build the hierarchical path for OLD name
-    WITH RECURSIVE record_path AS (
-        SELECT
-            id,
-            name,
-            type_id,
-            name::TEXT AS path,
-            1 as depth
-        FROM lamindb_record
-        WHERE id = OLD.id
+    UNION ALL
 
-        UNION ALL
+    SELECT
+        r.id,
+        r.name,
+        r.type_id,
+        r.name || '[' || rp.path AS path,
+        rp.depth + 1
+    FROM lamindb_record r
+    INNER JOIN old_record_path rp ON r.id = rp.type_id
+)
+UPDATE lamindb_feature
+SET dtype = REPLACE(
+    dtype,
+    (SELECT path FROM old_record_path ORDER BY depth DESC LIMIT 1),
+    REPLACE((SELECT path FROM old_record_path ORDER BY depth DESC LIMIT 1), OLD.name, NEW.name)
+)
+WHERE dtype LIKE '%cat[Record[%'
+  AND dtype LIKE '%' || (SELECT path FROM old_record_path ORDER BY depth DESC LIMIT 1) || '%';
 
-        SELECT
-            r.id,
-            r.name,
-            r.type_id,
-            r.name || '[' || rp.path || ']' AS path,
-            rp.depth + 1
-        FROM lamindb_record r
-        INNER JOIN record_path rp ON r.id = rp.type_id
-    )
-    SELECT path INTO old_path
-    FROM record_path
-    ORDER BY depth DESC
-    LIMIT 1;
-
-    -- Build the hierarchical path for NEW name
-    WITH RECURSIVE record_path AS (
-        SELECT
-            id,
-            name,
-            type_id,
-            name::TEXT AS path,
-            1 as depth
-        FROM lamindb_record
-        WHERE id = NEW.id
-
-        UNION ALL
-
-        SELECT
-            r.id,
-            r.name,
-            r.type_id,
-            r.name || '[' || rp.path || ']' AS path,
-            rp.depth + 1
-        FROM lamindb_record r
-        INNER JOIN record_path rp ON r.id = rp.type_id
-    )
-    SELECT path INTO new_path
-    FROM record_path
-    ORDER BY depth DESC
-    LIMIT 1;
-
-    RAISE NOTICE 'Paths: old_path=%, new_path=%', old_path, new_path;
-
-    -- Debug: Check what we're looking for
-    RAISE NOTICE 'Searching for pattern: cat[Record[%]]', old_path;
-
-    -- Update feature dtypes - Case 1
-    UPDATE lamindb_feature
-    SET dtype = REPLACE(dtype, 'cat[Record[' || old_path || ']', 'cat[Record[' || new_path || ']')
-    WHERE dtype LIKE '%cat[Record[%'
-        AND (
-            dtype LIKE '%cat[Record[' || old_path || ']]%'
-            OR dtype LIKE '%cat[Record[%[' || old_path || ']]%'
-        );
-
-    RAISE NOTICE 'Case 1 updated % rows', FOUND;
-
-    -- Update feature dtypes - Case 2
-    UPDATE lamindb_feature
-    SET dtype = REPLACE(dtype, 'cat[Record[' || old_path || '[', 'cat[Record[' || new_path || '[')
-    WHERE dtype LIKE '%cat[Record[%'
-        AND (
-            dtype LIKE '%cat[Record[' || old_path || '[%'
-            OR dtype LIKE '%cat[Record[%[' || old_path || '[%'
-        );
-
-    RAISE NOTICE 'Case 2 updated % rows', FOUND;
-
-    RETURN NEW;
-END;
+RETURN NEW;
 """
 
 
@@ -222,16 +165,20 @@ class Record(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, HasParents
     class Meta(SQLRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
         abstract = False
         app_label = "lamindb"
-        triggers = [
-            pgtrigger.Trigger(
-                name="update_feature_dtype_on_record_type_name_change",
-                operation=pgtrigger.Update,
-                when=pgtrigger.After,
-                condition=pgtrigger.Q(old__name__df=pgtrigger.F("new__name"))
-                & pgtrigger.Q(new__is_type=True),
-                func=UPDATE_FEATURE_DTYPE_ON_RECORD_TYPE_NAME_CHANGE,
-            )
-        ]
+        if (
+            django_settings.DATABASES.get("default", {}).get("ENGINE")
+            == "django.db.backends.postgresql"
+        ):
+            triggers = [
+                pgtrigger.Trigger(
+                    name="update_feature_dtype_on_record_type_name_change",
+                    operation=pgtrigger.Update,
+                    when=pgtrigger.After,
+                    condition=pgtrigger.Q(old__name__df=pgtrigger.F("new__name"))
+                    & pgtrigger.Q(new__is_type=True),
+                    func=UPDATE_FEATURE_DTYPE_ON_RECORD_TYPE_NAME_CHANGE,
+                )
+            ]
         constraints = [
             # unique name for types when type is NULL
             models.UniqueConstraint(
