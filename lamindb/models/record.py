@@ -50,12 +50,11 @@ UPDATE_FEATURE_DTYPE_ON_RECORD_TYPE_NAME_CHANGE = """\
 DECLARE
     old_path TEXT;
     new_path TEXT;
-    pattern TEXT;
 BEGIN
+    RAISE NOTICE 'Trigger fired: OLD.name=%, NEW.name=%, OLD.is_type=%', OLD.name, NEW.name, OLD.is_type;
+
     -- Build the hierarchical path for OLD name
-    -- This recursively walks up the type hierarchy
     WITH RECURSIVE record_path AS (
-        -- Start with the changed record
         SELECT
             id,
             name,
@@ -67,7 +66,6 @@ BEGIN
 
         UNION ALL
 
-        -- Recursively build path upwards through parent types
         SELECT
             r.id,
             r.name,
@@ -109,29 +107,32 @@ BEGIN
     ORDER BY depth DESC
     LIMIT 1;
 
-    -- Update feature dtypes
-    -- We need to ensure we only replace within the cat[Record[...]] context
-    -- and match the exact hierarchical path
+    RAISE NOTICE 'Paths: old_path=%, new_path=%', old_path, new_path;
 
-    -- Case 1: The path appears at the end (leaf node in hierarchy)
-    -- Matches: cat[Record[ParentA[ChildA]]] or cat[Record[ChildA]]
+    -- Debug: Check what we're looking for
+    RAISE NOTICE 'Searching for pattern: cat[Record[%]]', old_path;
+
+    -- Update feature dtypes - Case 1
     UPDATE lamindb_feature
     SET dtype = REPLACE(dtype, 'cat[Record[' || old_path || ']', 'cat[Record[' || new_path || ']')
     WHERE dtype LIKE '%cat[Record[%'
         AND (
-            dtype LIKE '%cat[Record[' || old_path || ']]%'  -- Direct child of Record
-            OR dtype LIKE '%cat[Record[%[' || old_path || ']]%'  -- Nested under parents
+            dtype LIKE '%cat[Record[' || old_path || ']]%'
+            OR dtype LIKE '%cat[Record[%[' || old_path || ']]%'
         );
 
-    -- Case 2: The path has child paths after it (intermediate node in hierarchy)
-    -- Matches: cat[Record[ParentA[ChildA[GrandchildB]]]]
+    RAISE NOTICE 'Case 1 updated % rows', FOUND;
+
+    -- Update feature dtypes - Case 2
     UPDATE lamindb_feature
     SET dtype = REPLACE(dtype, 'cat[Record[' || old_path || '[', 'cat[Record[' || new_path || '[')
     WHERE dtype LIKE '%cat[Record[%'
         AND (
-            dtype LIKE '%cat[Record[' || old_path || '[%'  -- Direct child of Record
-            OR dtype LIKE '%cat[Record[%[' || old_path || '[%'  -- Nested under parents
+            dtype LIKE '%cat[Record[' || old_path || '[%'
+            OR dtype LIKE '%cat[Record[%[' || old_path || '[%'
         );
+
+    RAISE NOTICE 'Case 2 updated % rows', FOUND;
 
     RETURN NEW;
 END;
