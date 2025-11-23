@@ -1,7 +1,12 @@
+import os
+
 import lamindb as ln
 import pytest
 
 
+@pytest.mark.skipif(
+    os.getenv("LAMINDB_TEST_DB_VENDOR") == "sqlite", reason="Postgres-only"
+)
 def test_rename():
     import pandas as pd
     from lamindb.errors import SQLRecordNameChangeIntegrityError

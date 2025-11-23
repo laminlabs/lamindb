@@ -5,6 +5,9 @@ import pytest
 from django.db import IntegrityError
 
 
+@pytest.mark.skipif(
+    os.getenv("LAMINDB_TEST_DB_VENDOR") == "sqlite", reason="Postgres-only"
+)
 def test_invalid_type_record():
     # also see test_invalid_type_record_with_schema in test_record.py
     no_record_type = ln.Record(name="no_type").save()
@@ -21,6 +24,9 @@ def test_invalid_type_record():
     no_record_type.delete(permanent=True)
 
 
+@pytest.mark.skipif(
+    os.getenv("LAMINDB_TEST_DB_VENDOR") == "sqlite", reason="Postgres-only"
+)
 def test_invalid_type_feature():
     no_feature_type = ln.Feature(name="no_type", dtype="str").save()
     with pytest.raises(IntegrityError) as error:
@@ -29,6 +35,9 @@ def test_invalid_type_feature():
     no_feature_type.delete(permanent=True)
 
 
+@pytest.mark.skipif(
+    os.getenv("LAMINDB_TEST_DB_VENDOR") == "sqlite", reason="Postgres-only"
+)
 def test_invalid_type_schema():
     no_schema_type = ln.Schema(name="no_type", itype=ln.Feature).save()
     with pytest.raises(IntegrityError) as error:
@@ -39,6 +48,9 @@ def test_invalid_type_schema():
     no_schema_type.delete(permanent=True)
 
 
+@pytest.mark.skipif(
+    os.getenv("LAMINDB_TEST_DB_VENDOR") == "sqlite", reason="Postgres-only"
+)
 def test_invalid_type_project():
     no_project_type = ln.Project(name="no_type").save()
     with pytest.raises(IntegrityError) as error:
@@ -47,6 +59,9 @@ def test_invalid_type_project():
     no_project_type.delete(permanent=True)
 
 
+@pytest.mark.skipif(
+    os.getenv("LAMINDB_TEST_DB_VENDOR") == "sqlite", reason="Postgres-only"
+)
 def test_invalid_type_reference():
     no_reference_type = ln.Reference(name="no_type").save()
     with pytest.raises(IntegrityError) as error:
@@ -55,6 +70,9 @@ def test_invalid_type_reference():
     no_reference_type.delete(permanent=True)
 
 
+@pytest.mark.skipif(
+    os.getenv("LAMINDB_TEST_DB_VENDOR") == "sqlite", reason="Postgres-only"
+)
 def test_invalid_type_ulabel():
     no_ulabel_type = ln.ULabel(name="no_type").save()
     with pytest.raises(IntegrityError) as error:
