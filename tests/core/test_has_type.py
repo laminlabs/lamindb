@@ -128,6 +128,9 @@ def test_prevent_type_cycle():
 
     assert "cycle" in str(exc_info.value).lower()
 
+    type_b.delete(permanent=True)
+    type_a.delete(permanent=True)
+
 
 @pytest.mark.parametrize(
     "model_class,model_name",
