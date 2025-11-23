@@ -27,7 +27,6 @@ dependencies = [
     "nbconvert>=7.2.1",  # bound to avoid lxml[html_clean] dependency
     "nbproject==0.11.1",  # lamin module, adds orjson
     # Others
-    "django-pgtrigger",  # 30kB pure python, no dependencies
     "pyyaml",
     "pyarrow",
     "pandera>=0.24.0",

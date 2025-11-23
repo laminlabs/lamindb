@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, overload
 
+import pgtrigger
 from django.db import models
 from django.db.models import CASCADE, PROTECT
 from lamin_utils import logger
@@ -43,6 +44,98 @@ if TYPE_CHECKING:
     from .block import RunBlock
     from .project import Project, RecordProject, RecordReference, Reference
     from .schema import Schema
+
+
+UPDATE_FEATURE_DTYPE_ON_RECORD_TYPE_NAME_CHANGE = """\
+DECLARE
+    old_path TEXT;
+    new_path TEXT;
+    pattern TEXT;
+BEGIN
+    -- Build the hierarchical path for OLD name
+    -- This recursively walks up the type hierarchy
+    WITH RECURSIVE record_path AS (
+        -- Start with the changed record
+        SELECT
+            id,
+            name,
+            type_id,
+            name AS path,
+            1 as depth
+        FROM lamindb_record
+        WHERE id = OLD.id
+
+        UNION ALL
+
+        -- Recursively build path upwards through parent types
+        SELECT
+            r.id,
+            r.name,
+            r.type_id,
+            r.name || '[' || rp.path || ']' AS path,
+            rp.depth + 1
+        FROM lamindb_record r
+        INNER JOIN record_path rp ON r.id = rp.type_id
+    )
+    SELECT path INTO old_path
+    FROM record_path
+    ORDER BY depth DESC
+    LIMIT 1;
+
+    -- Build the hierarchical path for NEW name
+    WITH RECURSIVE record_path AS (
+        SELECT
+            id,
+            name,
+            type_id,
+            name AS path,
+            1 as depth
+        FROM lamindb_record
+        WHERE id = NEW.id
+
+        UNION ALL
+
+        SELECT
+            r.id,
+            r.name,
+            r.type_id,
+            r.name || '[' || rp.path || ']' AS path,
+            rp.depth + 1
+        FROM lamindb_record r
+        INNER JOIN record_path rp ON r.id = rp.type_id
+    )
+    SELECT path INTO new_path
+    FROM record_path
+    ORDER BY depth DESC
+    LIMIT 1;
+
+    -- Update feature dtypes
+    -- We need to ensure we only replace within the cat[Record[...]] context
+    -- and match the exact hierarchical path
+
+    -- Case 1: The path appears at the end (leaf node in hierarchy)
+    -- Matches: cat[Record[ParentA[ChildA]]] or cat[Record[ChildA]]
+    UPDATE lamindb_feature
+    SET dtype = REPLACE(dtype, 'cat[Record[' || old_path || ']', 'cat[Record[' || new_path || ']')
+    WHERE dtype LIKE '%cat[Record[%'
+        AND (
+            dtype LIKE '%cat[Record[' || old_path || ']]%'  -- Direct child of Record
+            OR dtype LIKE '%cat[Record[%[' || old_path || ']]%'  -- Nested under parents
+        );
+
+    -- Case 2: The path has child paths after it (intermediate node in hierarchy)
+    -- Matches: cat[Record[ParentA[ChildA[GrandchildB]]]]
+    UPDATE lamindb_feature
+    SET dtype = REPLACE(dtype, 'cat[Record[' || old_path || '[', 'cat[Record[' || new_path || '[')
+    WHERE dtype LIKE '%cat[Record[%'
+        AND (
+            dtype LIKE '%cat[Record[' || old_path || '[%'  -- Direct child of Record
+            OR dtype LIKE '%cat[Record[%[' || old_path || '[%'  -- Nested under parents
+        );
+
+    RETURN NEW;
+END;
+"""
 
 
 class Record(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, HasParents):
@@ -128,6 +221,16 @@ class Record(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, HasParents
     class Meta(SQLRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
         abstract = False
         app_label = "lamindb"
+        triggers = [
+            pgtrigger.Trigger(
+                name="update_feature_dtype_on_record_type_name_change",
+                operation=pgtrigger.Update,
+                when=pgtrigger.After,
+                condition=pgtrigger.Q(old__name__df=pgtrigger.F("new__name"))
+                & pgtrigger.Q(new__is_type=True),
+                func=UPDATE_FEATURE_DTYPE_ON_RECORD_TYPE_NAME_CHANGE,
+            )
+        ]
         constraints = [
             # unique name for types when type is NULL
             models.UniqueConstraint(
