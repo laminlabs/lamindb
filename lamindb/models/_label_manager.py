@@ -49,7 +49,6 @@ def _get_labels(
     related_models = dict_related_model_to_related_name(
         obj.__class__, links=links, instance=instance
     )
-
     for _, related_name in related_models.items():
         if related_name not in EXCLUDE_LABELS and not related_name.startswith("_"):
             labels[related_name] = getattr(obj, related_name).all()

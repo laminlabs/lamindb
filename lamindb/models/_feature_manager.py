@@ -122,7 +122,7 @@ def get_link_attr(link: IsLink | type[IsLink], data: Artifact | Collection) -> s
     link_model_name = link.__class__.__name__
     if link_model_name in {"Registry", "ModelBase"}:  # we passed the type of the link
         link_model_name = link.__name__  # type: ignore
-    if link_model_name == "ArtifactArtifact":
+    if link_model_name.startswith("Record") or link_model_name == "ArtifactArtifact":
         return "value"
     return link_model_name.replace(data.__class__.__name__, "").lower()
 
@@ -230,14 +230,21 @@ def get_categoricals_sqlite(
     self: Artifact | Collection,
 ) -> dict[tuple[str, str], set[str]]:
     """Get categorical features and their values using the default approach."""
+    from .query_set import get_default_branch_ids
+
     result = {}  # type: ignore
     for _, links in _get_labels(self, links=True, instance=self._state.db).items():
         for link in links:
+            if link.__class__.__name__ == "RecordJson":
+                continue
             if hasattr(link, "feature_id") and link.feature_id is not None:
                 feature = Feature.objects.using(self._state.db).get(id=link.feature_id)
                 feature_field = parse_dtype(feature.dtype)[0]["field_str"]
                 link_attr = get_link_attr(link, self)
                 label = getattr(link, link_attr)
+                if hasattr(label, "branch_id"):
+                    if label.branch_id not in get_default_branch_ids():
+                        continue
                 label_name = getattr(label, feature_field)
                 dict_key = (feature.name, feature.dtype)
                 if dict_key not in result:

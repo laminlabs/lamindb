@@ -1,3 +1,4 @@
+import os
 import re
 from datetime import date, datetime
 
@@ -53,6 +54,9 @@ def test_name_lookup():
     my_type.delete(permanent=True)
 
 
+@pytest.mark.skipif(
+    os.getenv("LAMINDB_TEST_DB_VENDOR") == "sqlite", reason="Postgres-only"
+)
 def test_invalid_type_record_with_schema():
     schema = ln.Schema(name="test_schema", itype=ln.Feature).save()
 
