@@ -49,14 +49,13 @@ if TYPE_CHECKING:
 
 UPDATE_FEATURE_DTYPE_ON_RECORD_TYPE_NAME_CHANGE = """\
 WITH RECURSIVE old_record_path AS (
+    -- Start with OLD values directly, don't query the table
     SELECT
-        id,
-        name,
-        type_id,
-        name::TEXT AS path,
+        OLD.id as id,
+        OLD.name as name,
+        OLD.type_id as type_id,
+        OLD.name::TEXT AS path,
         1 as depth
-    FROM lamindb_record
-    WHERE id = OLD.id
 
     UNION ALL
 
@@ -68,15 +67,20 @@ WITH RECURSIVE old_record_path AS (
         rp.depth + 1
     FROM lamindb_record r
     INNER JOIN old_record_path rp ON r.id = rp.type_id
+),
+paths AS (
+    SELECT
+        path as old_path,
+        REPLACE(path, OLD.name, NEW.name) as new_path
+    FROM old_record_path
+    ORDER BY depth DESC
+    LIMIT 1
 )
 UPDATE lamindb_feature
-SET dtype = REPLACE(
-    dtype,
-    (SELECT path FROM old_record_path ORDER BY depth DESC LIMIT 1),
-    REPLACE((SELECT path FROM old_record_path ORDER BY depth DESC LIMIT 1), OLD.name, NEW.name)
-)
+SET dtype = REPLACE(dtype, paths.old_path, paths.new_path)
+FROM paths
 WHERE dtype LIKE '%cat[Record[%'
-  AND dtype LIKE '%' || (SELECT path FROM old_record_path ORDER BY depth DESC LIMIT 1) || '%';
+  AND dtype LIKE '%' || paths.old_path || '%';
 
 RETURN NEW;
 """
