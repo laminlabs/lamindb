@@ -231,23 +231,25 @@ class Record(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, HasParents
                     name="update_feature_dtype_on_record_type_name_change",
                     operation=pgtrigger.Update,
                     when=pgtrigger.After,
-                    condition=pgtrigger.Q(old__name__df=pgtrigger.F("new__name"))
-                    & pgtrigger.Q(new__is_type=True),
+                    condition=pgtrigger.Condition(
+                        "OLD.name IS DISTINCT FROM NEW.name AND NEW.is_type"
+                    ),
                     func=UPDATE_FEATURE_DTYPE_ON_RECORD_TYPE_NAME_CHANGE,
                 ),
                 pgtrigger.Trigger(
                     name="update_feature_dtype_on_record_type_change",
                     operation=pgtrigger.Update,
                     when=pgtrigger.After,
-                    condition=pgtrigger.Q(old__type_id__df=pgtrigger.F("new__type_id"))
-                    & pgtrigger.Q(new__is_type=True),
+                    condition=pgtrigger.Condition(
+                        "OLD.type_id IS DISTINCT FROM NEW.type_id AND NEW.is_type"
+                    ),
                     func=UPDATE_FEATURE_DTYPE_ON_RECORD_TYPE_CHANGE,
                 ),
                 pgtrigger.Trigger(
                     name="prevent_record_type_cycle",
                     operation=pgtrigger.Update | pgtrigger.Insert,
                     when=pgtrigger.Before,
-                    condition=pgtrigger.Q(new__type_id__isnull=False),
+                    condition=pgtrigger.Condition("NEW.type_id IS NOT NULL"),
                     func="""
                         -- Check for direct self-reference
                         IF NEW.type_id = NEW.id THEN
