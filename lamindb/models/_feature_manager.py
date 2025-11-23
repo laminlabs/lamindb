@@ -281,6 +281,11 @@ def get_non_categoricals(
             else:
                 values = fv["values"]
 
+            if connections[self._state.db].vendor == "sqlite":
+                # undo GROUP_CONCAT
+                if isinstance(values, str):
+                    values = {value.strip('"') for value in values.split(", ")}
+
             # Convert single values to sets
             if not isinstance(values, (list, dict, set)):
                 values = {values}
