@@ -723,7 +723,10 @@ def filter_base(
                 )
                 comparator = "__icontains"
             expression = {feature_param: feature, f"value{comparator}": value}
+            print(feature.name)
+            print(expression)
             feature_values = value_model.filter(**expression)
+            print(feature_values)
             new_expression[f"_{feature_param}_values__id__in"] = feature_values
         # categorical features
         elif isinstance(value, (str, SQLRecord, bool)):

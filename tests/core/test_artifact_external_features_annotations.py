@@ -254,7 +254,7 @@ Here is how to create a feature:
     assert artifact.links_record.get().record.name == "Experiment 1"
 
     # numerical feature
-    temperature = ln.Feature(name="temperature", dtype="cat").save()
+    temperature = ln.Feature(name="temperature", dtype=ln.Record).save()
     with pytest.raises(TypeError) as error:
         artifact.features.add_values({"temperature": 27.2})
     assert error.exconly().startswith(
