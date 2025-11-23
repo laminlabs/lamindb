@@ -1024,20 +1024,20 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun):
 
                 # if you're not passing features but just defining the itype, defaults to flexible = True
                 schema = ln.Schema(itype=ln.Feature).save()
-                assert not schema.flexible
+                # schema.flexible is True
 
                 # if you're passing features, defaults to flexible = False
                 schema = ln.Schema(
                     features=[ln.Feature(name="my_required_feature", dtype=int).save()],
                 )
-                assert not schema.flexible
+                # schema.flexible is False
 
                 # you can also validate & annotate features in addition to those that you're explicitly defining:
                 schema = ln.Schema(
                     features=[ln.Feature(name="my_required_feature", dtype=int).save()],
                     flexible=True,
                 )
-                assert schema.flexible
+                # schema.flexible is True
 
         """
         if self._aux is not None and "af" in self._aux and "2" in self._aux["af"]:  # type: ignore
@@ -1162,16 +1162,12 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun):
 
     def add_optional_features(self, features: list[Feature]) -> None:
         """Add optional features to the schema."""
-        assert self.name is not None, "schema must have a name to add optional features"
         self.features.add(*features)
         self.optionals.add(features)
         self.save(print_hash_mutation_warning=False)
 
     def remove_optional_features(self, features: list[Feature]) -> None:
         """Remove optional features from the schema."""
-        assert self.name is not None, (
-            "schema must have a name to remove optional features"
-        )
         optional_features = self.optionals.get()
         for feature in features:
             assert feature in optional_features, f"Feature {feature} is not optional"
