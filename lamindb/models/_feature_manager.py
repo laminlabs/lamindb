@@ -305,6 +305,14 @@ def get_non_categoricals(
                 values = {datetime.fromisoformat(value) for value in values}
             if feature_dtype == "date":
                 values = {date.fromisoformat(value) for value in values}
+            if connections[self._state.db].vendor == "sqlite":
+                # undo GROUP_CONCAT
+                if feature_dtype == "int":
+                    values = {int(value) for value in values}
+                if feature_dtype == "float":
+                    values = {float(value) for value in values}
+                if feature_dtype == "num":
+                    values = {float(value) for value in values}
 
             non_categoricals[(feature_name, feature_dtype)] = values
 
@@ -431,6 +439,14 @@ def get_features_data(
 
             # Format message
             if is_categoricals and isinstance(converted_values, set):
+                printed_values = _format_values(
+                    sorted(converted_values), n=10, quotes=False
+                )
+            elif (
+                not is_categoricals
+                and not feature_dtype.startswith(("list", "dict"))
+                and isinstance(converted_values, set)
+            ):
                 printed_values = _format_values(
                     sorted(converted_values), n=10, quotes=False
                 )
