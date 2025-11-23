@@ -258,7 +258,7 @@ Here is how to create a feature:
     with pytest.raises(TypeError) as error:
         artifact.features.add_values({"temperature": 27.2})
     assert error.exconly().startswith(
-        "TypeError: Value for feature 'temperature' with dtype 'cat' must be a string or record"
+        "TypeError: Value for feature 'temperature' with dtype 'cat[Record]' must be a string or record"
     )
     temperature.dtype = "num"
     temperature.save()
@@ -464,8 +464,8 @@ Here is how to create a feature:
     # print(ln.Artifact.to_dataframe(features=["experiment"]))
     # print(ln.Artifact.filter(experiment__contains="Experi").to_dataframe(features=["experiment"]))
     assert len(ln.Artifact.filter(experiment__contains="Experi")) == 2
-    assert ln.Artifact.filter(temperature__lt=21).one_or_none() is None
-    assert len(ln.Artifact.filter(temperature__gt=21)) >= 1
+    assert ln.Artifact.filter(temperature__lt=21.0).one_or_none() is None
+    assert len(ln.Artifact.filter(temperature__gt=21.0)) >= 1
 
     # test remove_values
     artifact.features.remove_values("date_of_experiment")

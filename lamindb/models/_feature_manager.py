@@ -722,11 +722,16 @@ def filter_base(
                     f"currently not supporting `{comparator}`, using `__icontains` instead"
                 )
                 comparator = "__icontains"
+            if connections[feature._state.db].vendor == "sqlite" and comparator in {
+                "__gt",
+                "__lt",
+                "__gte",
+                "__lte",
+            }:
+                # SQLite seems to prefer comparing strings over numbers
+                value = str(value)
             expression = {feature_param: feature, f"value{comparator}": value}
-            print(feature.name)
-            print(expression)
             feature_values = value_model.filter(**expression)
-            print(feature_values)
             new_expression[f"_{feature_param}_values__id__in"] = feature_values
         # categorical features
         elif isinstance(value, (str, SQLRecord, bool)):
