@@ -86,6 +86,62 @@ RETURN NEW;
 """
 
 
+UPDATE_FEATURE_DTYPE_ON_RECORD_TYPE_CHANGE = """\
+WITH RECURSIVE old_record_path AS (
+    -- Start with OLD values directly, don't query the table
+    SELECT
+        OLD.id as id,
+        OLD.name as name,
+        OLD.type_id as type_id,
+        OLD.name::TEXT AS path,
+        1 as depth
+
+    UNION ALL
+
+    SELECT
+        r.id,
+        r.name,
+        r.type_id,
+        r.name || '[' || rp.path AS path,
+        rp.depth + 1
+    FROM lamindb_record r
+    INNER JOIN old_record_path rp ON r.id = rp.type_id
+),
+new_record_path AS (
+    -- Build path with NEW.type_id
+    SELECT
+        NEW.id as id,
+        NEW.name as name,
+        NEW.type_id as type_id,
+        NEW.name::TEXT AS path,
+        1 as depth
+
+    UNION ALL
+
+    SELECT
+        r.id,
+        r.name,
+        r.type_id,
+        r.name || '[' || rp.path AS path,
+        rp.depth + 1
+    FROM lamindb_record r
+    INNER JOIN new_record_path rp ON r.id = rp.type_id
+),
+paths AS (
+    SELECT
+        (SELECT path FROM old_record_path ORDER BY depth DESC LIMIT 1) as old_path,
+        (SELECT path FROM new_record_path ORDER BY depth DESC LIMIT 1) as new_path
+)
+UPDATE lamindb_feature
+SET dtype = REPLACE(dtype, paths.old_path, paths.new_path)
+FROM paths
+WHERE dtype LIKE '%cat[Record[%'
+  AND dtype LIKE '%' || paths.old_path || '%';
+
+RETURN NEW;
+"""
+
+
 class Record(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, HasParents):
     """Flexible metadata records for labeling and organizing entities.
 
@@ -181,6 +237,14 @@ class Record(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, HasParents
                     condition=pgtrigger.Q(old__name__df=pgtrigger.F("new__name"))
                     & pgtrigger.Q(new__is_type=True),
                     func=UPDATE_FEATURE_DTYPE_ON_RECORD_TYPE_NAME_CHANGE,
+                ),
+                pgtrigger.Trigger(
+                    name="update_feature_dtype_on_record_type_change",
+                    operation=pgtrigger.Update,
+                    when=pgtrigger.After,
+                    condition=pgtrigger.Q(old__type_id__df=pgtrigger.F("new__type_id"))
+                    & pgtrigger.Q(new__is_type=True),
+                    func=UPDATE_FEATURE_DTYPE_ON_RECORD_TYPE_CHANGE,
                 ),
                 pgtrigger.Trigger(
                     name="prevent_record_type_cycle",
