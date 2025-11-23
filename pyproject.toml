@@ -16,16 +16,16 @@ classifiers = [
 ]
 dependencies = [
     # LaminDB core modules
-    "lamin_utils==0.15.0",
-    "lamin_cli==1.9.0",
-    "lamindb_setup[aws]==1.15.2",
+    "lamin_utils==0.15.0",  # 30kB pure python, no dependencies
+    "lamin_cli==1.9.0",     # 30kB pure python, no dependencies
+    "lamindb_setup[aws]==1.15.2",  # dependencies like Django & fsspec
     # LaminDB optional modules, included to avoid users forgetting about extras
-    "bionty==1.9.1",
-    "wetlab==1.6.1",
-    "nbproject==0.11.1",
+    "bionty==1.9.1",  # pronto dependency
+    "wetlab==1.6.1",  # 30kB pure python, no dependencies
     # Jupyter -- small packages with few & small dependencies
     "jupytext",
-    "nbconvert>=7.2.1",  # avoid lxml[html_clean] dependency
+    "nbconvert>=7.2.1",  # bound to avoid lxml[html_clean] dependency
+    "nbproject==0.11.1",  # lamin module, adds orjson
     # Others
     "pyyaml",
     "pyarrow",

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, overload
 
+import pgtrigger
+from django.conf import settings as django_settings
 from django.db import models
 from django.db.models import CASCADE, PROTECT
 from lamin_utils import logger
@@ -43,6 +45,98 @@ if TYPE_CHECKING:
     from .block import RunBlock
     from .project import Project, RecordProject, RecordReference, Reference
     from .schema import Schema
+
+
+UPDATE_FEATURE_DTYPE_ON_RECORD_TYPE_NAME_CHANGE = """\
+WITH RECURSIVE old_record_path AS (
+    -- Start with OLD values directly, don't query the table
+    SELECT
+        OLD.id as id,
+        OLD.name as name,
+        OLD.type_id as type_id,
+        OLD.name::TEXT AS path,
+        1 as depth
+
+    UNION ALL
+
+    SELECT
+        r.id,
+        r.name,
+        r.type_id,
+        r.name || '[' || rp.path AS path,
+        rp.depth + 1
+    FROM lamindb_record r
+    INNER JOIN old_record_path rp ON r.id = rp.type_id
+),
+paths AS (
+    SELECT
+        path as old_path,
+        REPLACE(path, OLD.name, NEW.name) as new_path
+    FROM old_record_path
+    ORDER BY depth DESC
+    LIMIT 1
+)
+UPDATE lamindb_feature
+SET dtype = REPLACE(dtype, paths.old_path, paths.new_path)
+FROM paths
+WHERE dtype LIKE '%cat[Record[%'
+  AND dtype LIKE '%' || paths.old_path || '%';
+
+RETURN NEW;
+"""
+
+
+UPDATE_FEATURE_DTYPE_ON_RECORD_TYPE_CHANGE = """\
+WITH RECURSIVE old_record_path AS (
+    SELECT
+        OLD.id as id,
+        OLD.name as name,
+        OLD.type_id as type_id,
+        OLD.name::TEXT AS path,
+        1 as depth
+
+    UNION ALL
+
+    SELECT
+        r.id,
+        r.name,
+        r.type_id,
+        r.name || '[' || rp.path || ']' AS path,
+        rp.depth + 1
+    FROM lamindb_record r
+    INNER JOIN old_record_path rp ON r.id = rp.type_id
+),
+new_record_path AS (
+    SELECT
+        NEW.id as id,
+        NEW.name as name,
+        NEW.type_id as type_id,
+        NEW.name::TEXT AS path,
+        1 as depth
+
+    UNION ALL
+
+    SELECT
+        r.id,
+        r.name,
+        r.type_id,
+        r.name || '[' || rp.path || ']' AS path,
+        rp.depth + 1
+    FROM lamindb_record r
+    INNER JOIN new_record_path rp ON r.id = rp.type_id
+),
+paths AS (
+    SELECT
+        (SELECT path FROM old_record_path ORDER BY depth DESC LIMIT 1) as old_path,
+        (SELECT path FROM new_record_path ORDER BY depth DESC LIMIT 1) as new_path
+)
+UPDATE lamindb_feature
+SET dtype = REPLACE(dtype, 'cat[Record[' || paths.old_path || ']]', 'cat[Record[' || paths.new_path || ']]')
+FROM paths
+WHERE dtype LIKE '%cat[Record[' || paths.old_path || ']]%';
+
+RETURN NEW;
+"""
 
 
 class Record(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, HasParents):
@@ -128,6 +222,63 @@ class Record(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, HasParents
     class Meta(SQLRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
         abstract = False
         app_label = "lamindb"
+        if (
+            django_settings.DATABASES.get("default", {}).get("ENGINE")
+            == "django.db.backends.postgresql"
+        ):
+            triggers = [
+                pgtrigger.Trigger(
+                    name="update_feature_dtype_on_record_type_name_change",
+                    operation=pgtrigger.Update,
+                    when=pgtrigger.After,
+                    condition=pgtrigger.Condition(
+                        "OLD.name IS DISTINCT FROM NEW.name AND NEW.is_type"
+                    ),
+                    func=UPDATE_FEATURE_DTYPE_ON_RECORD_TYPE_NAME_CHANGE,
+                ),
+                pgtrigger.Trigger(
+                    name="update_feature_dtype_on_record_type_change",
+                    operation=pgtrigger.Update,
+                    when=pgtrigger.After,
+                    condition=pgtrigger.Condition(
+                        "OLD.type_id IS DISTINCT FROM NEW.type_id AND NEW.is_type"
+                    ),
+                    func=UPDATE_FEATURE_DTYPE_ON_RECORD_TYPE_CHANGE,
+                ),
+                pgtrigger.Trigger(
+                    name="prevent_record_type_cycle",
+                    operation=pgtrigger.Update | pgtrigger.Insert,
+                    when=pgtrigger.Before,
+                    condition=pgtrigger.Condition("NEW.type_id IS NOT NULL"),
+                    func="""
+                        -- Check for direct self-reference
+                        IF NEW.type_id = NEW.id THEN
+                            RAISE EXCEPTION 'Cannot set type: record cannot be its own type';
+                        END IF;
+
+                        -- Check for cycles in the type chain
+                        IF EXISTS (
+                            WITH RECURSIVE type_chain AS (
+                                SELECT type_id, 1 as depth
+                                FROM lamindb_record
+                                WHERE id = NEW.type_id
+
+                                UNION ALL
+
+                                SELECT r.type_id, tc.depth + 1
+                                FROM lamindb_record r
+                                INNER JOIN type_chain tc ON r.id = tc.type_id
+                                WHERE tc.depth < 100
+                            )
+                            SELECT 1 FROM type_chain WHERE type_id = NEW.id
+                        ) THEN
+                            RAISE EXCEPTION 'Cannot set type: would create a cycle';
+                        END IF;
+
+                        RETURN NEW;
+                    """,
+                ),
+            ]
         constraints = [
             # unique name for types when type is NULL
             models.UniqueConstraint(
@@ -345,9 +496,14 @@ class Record(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, HasParents
         return FeatureManager(self)
 
     @property
-    def is_form(self) -> bool:
-        """Check if record is a form, i.e., `self.is_type and self.schema is not None`."""
+    def is_sheet(self) -> bool:
+        """Check if record is a `sheet`, i.e., `self.is_type and self.schema is not None`."""
         return self.schema is not None and self.is_type
+
+    @property
+    @deprecated("is_sheet")
+    def is_form(self) -> bool:
+        return self.is_sheet
 
     def query_parents(self) -> QuerySet:
         """Query all parents of a record recursively.
