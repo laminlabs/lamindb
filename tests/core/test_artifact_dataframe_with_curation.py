@@ -71,6 +71,10 @@ def test_artifact_from_dataframe_with_schema(example_dataframe: pd.DataFrame):
     artifact = ln.Artifact.from_dataframe(
         df, key="test_df.parquet", schema="valid_features"
     ).save()
+    # repeat to check idempotency
+    artifact = ln.Artifact.from_dataframe(
+        df, key="test_df.parquet", schema="valid_features"
+    ).save()
     assert artifact.schema == ln.examples.schemas.valid_features()
     assert artifact.features.get_values() == {}
     assert (
