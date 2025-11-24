@@ -378,8 +378,8 @@ def test_querydb_multiple_instances():
     cxg = ln.QueryDB("laminlabs/cellxgene")
     ldata = ln.QueryDB("laminlabs/lamindata")
 
-    qs1 = cxg.Artifact.filter(suffix=".h5ad")
-    qs2 = ldata.Artifact.filter(suffix=".zarr")
+    qs1 = cxg.artifacts.filter(suffix=".h5ad")
+    qs2 = ldata.artifacts.filter(suffix=".zarr")
 
     assert qs1._db != qs2._db
 
@@ -387,4 +387,4 @@ def test_querydb_multiple_instances():
 def test_querydb_bionty():
     """Test querying a record that is not from LaminDB like bionty."""
     cxg = ln.QueryDB("laminlabs/cellxgene")
-    assert len(cxg.Gene.filter(symbol__startswith="TP53")) > 0
+    assert len(cxg.genes.filter(symbol__startswith="TP53")) > 0

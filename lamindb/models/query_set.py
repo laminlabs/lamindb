@@ -1203,14 +1203,96 @@ class QueryDB:
     Args:
         instance: Instance identifier in format "account/instance" or full instance string.
 
+    Attributes:
+        Artifact: QuerySet for Artifact registry
+        Collection: QuerySet for Collection registry
+        Transform: QuerySet for Transform registry
+        Run: QuerySet for Run registry
+        User: QuerySet for User registry
+        Storage: QuerySet for Storage registry
+        Feature: QuerySet for Feature registry
+        ULabel: QuerySet for ULabel registry
+        Record: QuerySet for Record registry
+
+        Gene: QuerySet for Gene registry (bionty)
+        Protein: QuerySet for Protein registry (bionty)
+        CellType: QuerySet for CellType registry (bionty)
+        Disease: QuerySet for Disease registry (bionty)
+        Phenotype: QuerySet for Phenotype registry (bionty)
+        Pathway: QuerySet for Pathway registry (bionty)
+        Tissue: QuerySet for Tissue registry (bionty)
+        CellLine: QuerySet for CellLine registry (bionty)
+        CellMarker: QuerySet for CellMarker registry (bionty)
+        Organism: QuerySet for Organism registry (bionty)
+        ExperimentalFactor: QuerySet for ExperimentalFactor registry (bionty)
+        DevelopmentalStage: QuerySet for DevelopmentalStage registry (bionty)
+        Ethnicity: QuerySet for Ethnicity registry (bionty)
+
+        Experiment: QuerySet for Experiment registry (wetlab)
+        Biosample: QuerySet for Biosample registry (wetlab)
+        Techsample: QuerySet for Techsample registry (wetlab)
+        Donor: QuerySet for Donor registry (wetlab)
+        GeneticPerturbation: QuerySet for GeneticPerturbation registry (wetlab)
+        Biologic: QuerySet for Biologic registry (wetlab)
+        Compound: QuerySet for Compound registry (wetlab)
+        CompoundPerturbation: QuerySet for CompoundPerturbation registry (wetlab)
+        EnvironmentalPerturbation: QuerySet for EnvironmentalPerturbation registry (wetlab)
+        CombinationPerturbation: QuerySet for CombinationPerturbation registry (wetlab)
+        Well: QuerySet for Well registry (wetlab)
+        PerturbationTarget: QuerySet for PerturbationTarget registry (wetlab)
+        GeneticPerturbationSystem: QuerySet for GeneticPerturbationSystem registry (wetlab)
+        BiologicType: QuerySet for BiologicType registry (wetlab)
+
     Examples:
 
-        Query records from a remote instance:
+        Query records from a remote instance::
 
             cxg = ln.QueryDB("laminlabs/cellxgene")
             artifacts = cxg.Artifact.filter(suffix=".h5ad").all()
             labels = cxg.Record.filter(name__startswith="cell").all()
     """
+
+    # core lamindb registries
+    artifacts: QuerySet
+    collections: QuerySet
+    transforms: QuerySet
+    runs: QuerySet
+    users: QuerySet
+    storages: QuerySet
+    features: QuerySet
+    ulabels: QuerySet
+    records: QuerySet
+
+    # bionty registries
+    genes: QuerySet
+    proteins: QuerySet
+    cell_types: QuerySet
+    diseases: QuerySet
+    phenotypes: QuerySet
+    pathways: QuerySet
+    tissues: QuerySet
+    cell_lines: QuerySet
+    cell_markers: QuerySet
+    organisms: QuerySet
+    experimental_factors: QuerySet
+    developmental_stages: QuerySet
+    ethnicities: QuerySet
+
+    # wetlab registries
+    experiments: QuerySet
+    biosamples: QuerySet
+    techsamples: QuerySet
+    donors: QuerySet
+    genetic_perturbations: QuerySet
+    biologics: QuerySet
+    compounds: QuerySet
+    compound_perturbations: QuerySet
+    environmental_perturbations: QuerySet
+    combination_perturbations: QuerySet
+    wells: QuerySet
+    perturbation_targets: QuerySet
+    genetic_perturbation_systems: QuerySet
+    biologic_types: QuerySet
 
     def __init__(self, instance: str):
         self._instance = instance
@@ -1228,10 +1310,15 @@ class QueryDB:
 
         from lamindb_setup import settings
 
+        # Convert snake_case to PascalCase
+        class_name = "".join(word.capitalize() for word in name.split("_"))
+        if class_name.endswith("s"):
+            class_name = class_name[:-1]
+
         for schema_name in settings.instance.schema:
             try:
                 schema_module = import_module(schema_name)
-                model_class = getattr(schema_module.models, name, None)
+                model_class = getattr(schema_module.models, class_name, None)
                 if model_class is not None:
                     return model_class.connect(self._instance)
             except (ImportError, AttributeError):
