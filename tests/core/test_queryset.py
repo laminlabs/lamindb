@@ -366,8 +366,6 @@ def test_connect_public_clone_instance():
 
 def test_querydb_basic():
     """Test QueryDB returns querysets without switching connection."""
-    import lamindb as ln
-
     current_instance = ln.setup.settings.instance.name
     cxg = ln.QueryDB("laminlabs/cellxgene")
 
@@ -377,8 +375,6 @@ def test_querydb_basic():
 
 def test_querydb_multiple_instances():
     """Test accessing multiple instances simultaneously."""
-    import lamindb as ln
-
     cxg = ln.QueryDB("laminlabs/cellxgene")
     ldata = ln.QueryDB("laminlabs/lamindata")
 
@@ -386,3 +382,9 @@ def test_querydb_multiple_instances():
     qs2 = ldata.Artifact.filter(suffix=".zarr")
 
     assert qs1._db != qs2._db
+
+
+def test_querydb_bionty():
+    """Test querying a record that is not from LaminDB like bionty."""
+    cxg = ln.QueryDB("laminlabs/cellxgene")
+    assert len(cxg.Gene.filter(symbol__startswith="TP53")) > 0

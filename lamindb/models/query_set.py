@@ -1200,11 +1200,6 @@ class QueryDB:
 
     Provides read-only access to registries in a specific database instance without switching the global connection context.
 
-    Note:
-        - This does not modify the active database connection
-        - All registry classes (Artifact, Collection, ULabel, etc.) are accessible
-        - Returns QuerySet objects that support standard filtering operations
-
     Args:
         instance: Instance identifier in format "account/instance" or full instance string.
 
@@ -1229,10 +1224,20 @@ class QueryDB:
         Returns:
             QuerySet for the specified registry scoped to this instance.
         """
-        from lamindb import models
+        from importlib import import_module
 
-        model_class = getattr(models, name)
-        return model_class.connect(self._instance)
+        from lamindb_setup import settings
+
+        for schema_name in settings.instance.schema:
+            try:
+                schema_module = import_module(schema_name)
+                model_class = getattr(schema_module.models, name, None)
+                if model_class is not None:
+                    return model_class.connect(self._instance)
+            except (ImportError, AttributeError):
+                continue
+
+        raise AttributeError(f"Registry '{name}' not found in installed schemas")
 
     def __repr__(self) -> str:
         return f"QueryDB('{self._instance}')"
