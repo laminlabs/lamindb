@@ -164,6 +164,7 @@ from .models import (
     Space,
     Branch,
     Record,
+    QueryDB,
 )
 from .models.save import save
 from . import core

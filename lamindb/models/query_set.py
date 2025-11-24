@@ -1200,6 +1200,11 @@ class QueryDB:
 
     Provides read-only access to registries in a specific database instance without switching the global connection context.
 
+    Note:
+        - This does not modify the active database connection
+        - All registry classes (Artifact, Collection, ULabel, etc.) are accessible
+        - Returns QuerySet objects that support standard filtering operations
+
     Args:
         instance: Instance identifier in format "account/instance" or full instance string.
 
@@ -1210,11 +1215,6 @@ class QueryDB:
             cxg = ln.QueryDB("laminlabs/cellxgene")
             artifacts = cxg.Artifact.filter(suffix=".h5ad").all()
             labels = cxg.Record.filter(name__startswith="cell").all()
-
-    Note:
-        - This does not modify the active database connection
-        - All registry classes (Artifact, Collection, ULabel, etc.) are accessible
-        - Returns QuerySet objects that support standard filtering operations
     """
 
     def __init__(self, instance: str):
