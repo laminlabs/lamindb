@@ -71,9 +71,7 @@ def nested_cat_schema():
         name="schema_with_nested_cat",
         features=[
             ln.Feature(name="biosample_id", dtype=str).save(),
-            ln.Feature(
-                name="biosample_name", dtype="cat[Record[lab_a_type[Sample]]]"
-            ).save(),
+            ln.Feature(name="biosample_name", dtype="cat[Record[LabA[Sample]]]").save(),
         ],
         coerce_dtype=True,
     ).save()
