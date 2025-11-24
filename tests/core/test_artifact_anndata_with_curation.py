@@ -11,6 +11,8 @@ def test_create_anndata_with_curation():
         key="examples/mini_immuno1.h5ad",
         schema="ensembl_gene_ids_and_valid_features_in_obs",
     ).save()
+    # capture the obs_schema because we'll overwrite it
+    obs_schema = artifact.features.slots["obs"]
 
     # define another feature so that upon re-ingestion, we track more than before
     # (this also tests non-trivial idempotency)
@@ -21,8 +23,10 @@ def test_create_anndata_with_curation():
         schema="ensembl_gene_ids_and_valid_features_in_obs",
     ).save()
 
-    schemas = artifact.feature_sets.all()
+    schemas = artifact.features.slots
     artifact.delete(permanent=True)
-    schemas.delete(permanent=True)
+    for schema in schemas.values():
+        schema.delete(permanent=True)
+    obs_schema.delete(permanent=True)
     feature1.delete(permanent=True)
     feature2.delete(permanent=True)

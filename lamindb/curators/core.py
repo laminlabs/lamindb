@@ -1928,6 +1928,7 @@ def annotate_artifact(
 ) -> Artifact:
     from .. import settings
     from ..models.artifact import add_labels
+    from ..models.schema import ArtifactSchema
 
     if cat_vectors is None:
         cat_vectors = {}
@@ -1984,9 +1985,13 @@ def annotate_artifact(
                     else parse_cat_dtype(artifact.schema.itype, is_itype=True)["field"]
                 )
                 feature_set = Schema(itype=itype, n=len(features))
-            artifact.feature_sets.add(
-                feature_set.save(), through_defaults={"slot": "columns"}
+
+            ArtifactSchema.objects.update_or_create(
+                artifact=artifact,
+                slot="columns",
+                defaults={"schema": feature_set.save()},
             )
+
     else:
         for slot, slot_curator in curator._slots.items():
             # var_index is backward compat (2025-05-01)
@@ -2026,8 +2031,8 @@ def annotate_artifact(
                     )["field"]
                 )
                 feature_set = Schema(itype=itype, n=len(features))
-            artifact.feature_sets.add(
-                feature_set.save(), through_defaults={"slot": slot}
+            ArtifactSchema.objects.update_or_create(
+                artifact=artifact, slot=slot, defaults={"schema": feature_set.save()}
             )
 
     slug = ln_setup.settings.instance.slug
