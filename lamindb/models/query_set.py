@@ -1204,44 +1204,47 @@ class QueryDB:
         instance: Instance identifier in format "account/instance" or full instance string.
 
     Attributes:
-        Artifact: QuerySet for Artifact registry
-        Collection: QuerySet for Collection registry
-        Transform: QuerySet for Transform registry
-        Run: QuerySet for Run registry
-        User: QuerySet for User registry
-        Storage: QuerySet for Storage registry
-        Feature: QuerySet for Feature registry
-        ULabel: QuerySet for ULabel registry
-        Record: QuerySet for Record registry
+        Core LaminDB registries:
+            artifacts: QuerySet for Artifact registry
+            collections: QuerySet for Collection registry
+            transforms: QuerySet for Transform registry
+            runs: QuerySet for Run registry
+            users: QuerySet for User registry
+            storages: QuerySet for Storage registry
+            features: QuerySet for Feature registry
+            ulabels: QuerySet for ULabel registry
+            records: QuerySet for Record registry
 
-        Gene: QuerySet for Gene registry (bionty)
-        Protein: QuerySet for Protein registry (bionty)
-        CellType: QuerySet for CellType registry (bionty)
-        Disease: QuerySet for Disease registry (bionty)
-        Phenotype: QuerySet for Phenotype registry (bionty)
-        Pathway: QuerySet for Pathway registry (bionty)
-        Tissue: QuerySet for Tissue registry (bionty)
-        CellLine: QuerySet for CellLine registry (bionty)
-        CellMarker: QuerySet for CellMarker registry (bionty)
-        Organism: QuerySet for Organism registry (bionty)
-        ExperimentalFactor: QuerySet for ExperimentalFactor registry (bionty)
-        DevelopmentalStage: QuerySet for DevelopmentalStage registry (bionty)
-        Ethnicity: QuerySet for Ethnicity registry (bionty)
+        Bionty registries:
+            genes: QuerySet for Gene registry
+            proteins: QuerySet for Protein registry
+            cell_types: QuerySet for CellType registry
+            diseases: QuerySet for Disease registry
+            phenotypes: QuerySet for Phenotype registry
+            pathways: QuerySet for Pathway registry
+            tissues: QuerySet for Tissue registry
+            cell_lines: QuerySet for CellLine registry
+            cell_markers: QuerySet for CellMarker registry
+            organisms: QuerySet for Organism registry
+            experimental_factors: QuerySet for ExperimentalFactor registry
+            developmental_stages: QuerySet for DevelopmentalStage registry
+            ethnicities: QuerySet for Ethnicity registry
 
-        Experiment: QuerySet for Experiment registry (wetlab)
-        Biosample: QuerySet for Biosample registry (wetlab)
-        Techsample: QuerySet for Techsample registry (wetlab)
-        Donor: QuerySet for Donor registry (wetlab)
-        GeneticPerturbation: QuerySet for GeneticPerturbation registry (wetlab)
-        Biologic: QuerySet for Biologic registry (wetlab)
-        Compound: QuerySet for Compound registry (wetlab)
-        CompoundPerturbation: QuerySet for CompoundPerturbation registry (wetlab)
-        EnvironmentalPerturbation: QuerySet for EnvironmentalPerturbation registry (wetlab)
-        CombinationPerturbation: QuerySet for CombinationPerturbation registry (wetlab)
-        Well: QuerySet for Well registry (wetlab)
-        PerturbationTarget: QuerySet for PerturbationTarget registry (wetlab)
-        GeneticPerturbationSystem: QuerySet for GeneticPerturbationSystem registry (wetlab)
-        BiologicType: QuerySet for BiologicType registry (wetlab)
+        Wetlab registries:
+            experiments: QuerySet for Experiment registry
+            biosamples: QuerySet for Biosample registry
+            techsamples: QuerySet for Techsample registry
+            donors: QuerySet for Donor registry
+            genetic_perturbations: QuerySet for GeneticPerturbation registry
+            biologics: QuerySet for Biologic registry
+            compounds: QuerySet for Compound registry
+            compound_perturbations: QuerySet for CompoundPerturbation registry
+            environmental_perturbations: QuerySet for EnvironmentalPerturbation registry
+            combination_perturbations: QuerySet for CombinationPerturbation registry
+            wells: QuerySet for Well registry
+            perturbation_targets: QuerySet for PerturbationTarget registry
+            genetic_perturbation_systems: QuerySet for GeneticPerturbationSystem registry
+            biologic_types: QuerySet for BiologicType registry
 
     Examples:
 
