@@ -1221,7 +1221,7 @@ class QueryDB:
     records: QuerySet
     schemas: QuerySet
 
-    if "bionty" in setup_settings.instance.modules:
+    if setup_settings._instance_exists and "bionty" in setup_settings.instance.modules:
         genes: QuerySet
         proteins: QuerySet
         cell_types: QuerySet
@@ -1236,7 +1236,7 @@ class QueryDB:
         developmental_stages: QuerySet
         ethnicities: QuerySet
 
-    if "wetlab" in setup_settings.instance.modules:
+    if setup_settings._instance_exists and "wetlab" in setup_settings.instance.modules:
         experiments: QuerySet
         biosamples: QuerySet
         techsamples: QuerySet
