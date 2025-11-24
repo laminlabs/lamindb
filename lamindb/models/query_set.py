@@ -1193,3 +1193,46 @@ class QuerySet(BasicQuerySet):
             except FieldError as e:
                 self._handle_unknown_field(e)
         return self
+
+
+class QueryDB:
+    """Query interface for a remote LaminDB instance.
+
+    Provides read-only access to registries in a specific database instance without switching the global connection context.
+
+    Args:
+        instance: Instance identifier in format "account/instance" or full instance string.
+
+    Examples:
+
+        Query records from a remote instance:
+
+            cxg = ln.QueryDB("laminlabs/cellxgene")
+            artifacts = cxg.Artifact.filter(suffix=".h5ad").all()
+            labels = cxg.Record.filter(name__startswith="cell").all()
+
+    Note:
+        - This does not modify the active database connection
+        - All registry classes (Artifact, Collection, ULabel, etc.) are accessible
+        - Returns QuerySet objects that support standard filtering operations
+    """
+
+    def __init__(self, instance: str):
+        self._instance = instance
+
+    def __getattr__(self, name: str) -> QuerySet:
+        """Access a registry class for this database instance.
+
+        Args:
+            name: Registry class name (e.g., "Artifact", "Collection", "ULabel").
+
+        Returns:
+            QuerySet for the specified registry scoped to this instance.
+        """
+        from lamindb import models
+
+        model_class = getattr(models, name)
+        return model_class.connect(self._instance)
+
+    def __repr__(self) -> str:
+        return f"QueryDB('{self._instance}')"
