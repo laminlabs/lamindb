@@ -622,6 +622,7 @@ def test_add_new_from_subtype(df):
         assert "1 term not validated in feature 'sample_type': 'Type B'" in str(error)
 
     # add new from subtype
+    curator.cat.non_validated["sample_type"]
     curator.cat.add_new_from("sample_type")
     curator.validate()
     assert sample_type.records.to_list("name") == ["Type A", "Type B"]
