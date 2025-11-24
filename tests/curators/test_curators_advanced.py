@@ -108,13 +108,13 @@ def test_curator_df_multivalue(lists_df, lists_schema, cat_df):
 def test_curators_df_nested_cat(nested_cat_df, nested_cat_schema):
     # note that there are two type records both called "Sample" but having different parent types
     # first we create lab_a_type->Sample
-    lab_a_type = ln.Record(name="lab_a_type", is_type=True).save()
+    lab_a_type = ln.Record(name="LabA", is_type=True).save()
     sample_a_type = ln.Record(name="Sample", is_type=True, type=lab_a_type).save()
     for name in ["sample1", "sample2", "sample3", "sample4"]:
         ln.Record(name=name, type=sample_a_type).save()
 
     # then we create lab_b_type->Sample
-    lab_b_type = ln.Record(name="lab_b_type", is_type=True).save()
+    lab_b_type = ln.Record(name="LabB", is_type=True).save()
     sample_b_type = ln.Record(name="Sample", is_type=True, type=lab_b_type).save()
     for name in ["sample5", "sample6"]:
         ln.Record(name=name, type=sample_b_type).save()
