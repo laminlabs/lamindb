@@ -61,7 +61,7 @@ Copy [summary.md](https://docs.lamin.ai/summary.md) into an LLM chat and let AI 
 
 <!-- copied from quick-setup-lamindb.md -->
 
-Install the `lamindb` Python package:
+Install the Python package:
 
 ```shell
 pip install lamindb
@@ -147,9 +147,9 @@ transform.describe()
 
 ### Sharing
 
-You can zero-copy transfer a dataset to your instance.
+You can share datasets across LaminDB instances.
 
-For example, navigate to [lamin.ai/laminlabs/cellxgene](https://lamin.ai/laminlabs/cellxgene/artifacts) and filter a dataset.
+For example, explore the artifacts in [laminlabs/cellxgene](https://lamin.ai/laminlabs/cellxgene/artifacts).
 To query & load [one](https://lamin.ai/laminlabs/cellxgene/artifact/BnMwC3KZz0BuKftR) that is annotated with Alzheimer's disease:
 
 ```python
