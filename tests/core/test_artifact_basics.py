@@ -590,7 +590,7 @@ def test_revise_recreate_artifact(example_dataframe: pd.DataFrame, ccaplog):
     assert artifact.suffix == ".parquet"
 
     with pytest.raises(ValueError) as error:
-        artifact_r2 = ln.Artifact.from_dataframe(df, revises=artifact, version="1")
+        artifact_v2 = ln.Artifact.from_dataframe(df, revises=artifact, version="1")
     assert (
         error.exconly()
         == "ValueError: Please change the version tag or leave it `None`, '1' is already taken"
@@ -598,59 +598,59 @@ def test_revise_recreate_artifact(example_dataframe: pd.DataFrame, ccaplog):
 
     # create new file from old file
     df.iloc[0, 0] = 99  # mutate dataframe so that hash lookup doesn't trigger
-    artifact_r2 = ln.Artifact.from_dataframe(df, revises=artifact)
-    assert artifact_r2.stem_uid == artifact.stem_uid
-    assert artifact_r2.uid.endswith("0001")
+    artifact_v2 = ln.Artifact.from_dataframe(df, revises=artifact)
+    assert artifact_v2.stem_uid == artifact.stem_uid
+    assert artifact_v2.uid.endswith("0001")
     # call this again
-    artifact_r2 = ln.Artifact.from_dataframe(df, revises=artifact)
-    assert artifact_r2.uid.endswith("0001")
-    assert artifact_r2.stem_uid == artifact.stem_uid
-    assert artifact_r2.version is None
-    assert artifact_r2.key == key
+    artifact_v2 = ln.Artifact.from_dataframe(df, revises=artifact)
+    assert artifact_v2.uid.endswith("0001")
+    assert artifact_v2.stem_uid == artifact.stem_uid
+    assert artifact_v2.version is None
+    assert artifact_v2.key == key
     assert artifact.suffix == ".parquet"
-    assert artifact_r2.description == "test"
-    assert artifact_r2._revises is not None
-    artifact_r2.save()
-    assert artifact_r2.path.exists()
-    assert artifact_r2._revises is None
+    assert artifact_v2.description == "test"
+    assert artifact_v2._revises is not None
+    artifact_v2.save()
+    assert artifact_v2.path.exists()
+    assert artifact_v2._revises is None
 
     # revise by providing `revises` argument (do not save)
     df.iloc[0, 0] = 0  # mutate dataframe so that hash lookup doesn't trigger
-    artifact_r3 = ln.Artifact.from_dataframe(
-        df, description="test1", revises=artifact_r2, version="2"
+    artifact_v3 = ln.Artifact.from_dataframe(
+        df, description="test1", revises=artifact_v2, version="2"
     )
-    assert artifact_r3.uid.endswith("0002")
-    assert artifact_r3.stem_uid == artifact.stem_uid
-    assert artifact_r3.version == "2"
-    assert artifact_r3.description == "test1"
-    assert artifact_r3.key == key
+    assert artifact_v3.uid.endswith("0002")
+    assert artifact_v3.stem_uid == artifact.stem_uid
+    assert artifact_v3.version == "2"
+    assert artifact_v3.description == "test1"
+    assert artifact_v3.key == key
 
     # revise by matching on `key` (do not save)
-    artifact_r3 = ln.Artifact.from_dataframe(
+    artifact_v3 = ln.Artifact.from_dataframe(
         df, key=key, description="test1", version="2"
     )
-    assert artifact_r3.uid.endswith("0002")
-    assert artifact_r3.stem_uid == artifact.stem_uid
-    assert artifact_r3.key == key
-    assert artifact_r3.version == "2"
-    assert artifact_r3.description == "test1"
-    assert artifact_r3.is_latest
-    assert artifact_r2.is_latest
-    artifact_r3.save()
+    assert artifact_v3.uid.endswith("0002")
+    assert artifact_v3.stem_uid == artifact.stem_uid
+    assert artifact_v3.key == key
+    assert artifact_v3.version == "2"
+    assert artifact_v3.description == "test1"
+    assert artifact_v3.is_latest
+    assert artifact_v2.is_latest
+    artifact_v3.save()
     # now r2 is no longer the latest version, but need to re-fresh from db
-    artifact_r2.refresh_from_db()
-    assert not artifact_r2.is_latest
+    artifact_v2.refresh_from_db()
+    assert not artifact_v2.is_latest
 
-    # re-create based on hash when artifact_r3 is in trash
-    artifact_r3.delete()
+    # re-create based on hash when artifact_v3 is in trash
+    artifact_v3.delete()
     artifact_new = ln.Artifact.from_dataframe(
         df,
         key="my-test-dataset1.parquet",
     )
-    assert artifact_new != artifact_r3
-    assert artifact_new.hash == artifact_r3.hash
+    assert artifact_new != artifact_v3
+    assert artifact_new.hash == artifact_v3.hash
     assert artifact_new.key == "my-test-dataset1.parquet"
-    artifact_r3.restore()  # restore from trash
+    artifact_v3.restore()  # restore from trash
 
     # re-create based on hash while providing same key, previous version
     df.iloc[0, 0] = 99  # this is a previous version
@@ -658,8 +658,8 @@ def test_revise_recreate_artifact(example_dataframe: pd.DataFrame, ccaplog):
         df,
         key=key,
     )
-    assert artifact_new == artifact_r2
-    assert artifact_new.hash == artifact_r2.hash
+    assert artifact_new == artifact_v2
+    assert artifact_new.hash == artifact_v2.hash
     assert artifact_new.key == key
     assert artifact.is_latest is False
 
@@ -670,8 +670,8 @@ def test_revise_recreate_artifact(example_dataframe: pd.DataFrame, ccaplog):
         key="my-test-dataset1.parquet",
         description="test1 updated",
     )
-    assert artifact_new == artifact_r3
-    assert artifact_new.hash == artifact_r3.hash
+    assert artifact_new == artifact_v3
+    assert artifact_new.hash == artifact_v3.hash
     assert artifact_new.key == key  # old key
     assert artifact_new.description == "test1 updated"
 
@@ -681,8 +681,8 @@ def test_revise_recreate_artifact(example_dataframe: pd.DataFrame, ccaplog):
         key="my-test-dataset1.parquet",
         skip_hash_lookup=True,
     )
-    assert artifact_v4.uid != artifact_r3.uid
-    assert artifact_v4.hash == artifact_r3.hash
+    assert artifact_v4.uid != artifact_v3.uid
+    assert artifact_v4.hash == artifact_v3.hash
     assert artifact_v4.key == "my-test-dataset1.parquet"
     artifact_v4.save()  # this just saves a duplicated file
 
@@ -719,8 +719,8 @@ def test_revise_recreate_artifact(example_dataframe: pd.DataFrame, ccaplog):
         )
     assert error.exconly() == "TypeError: `revises` has to be of type `Artifact`"
 
-    artifact_r3.delete(permanent=True)
-    artifact_r2.delete(permanent=True)
+    artifact_v3.delete(permanent=True)
+    artifact_v2.delete(permanent=True)
     artifact.delete(permanent=True)
 
     # unversioned file
