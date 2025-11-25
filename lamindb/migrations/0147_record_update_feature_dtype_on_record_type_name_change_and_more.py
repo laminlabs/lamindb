@@ -9,7 +9,7 @@ class Migration(migrations.Migration):
     dependencies = [
         (
             "lamindb",
-            "0147_record_update_feature_dtype_on_record_type_name_change_and_more",
+            "0146_collectionrecord_record_collections_recordcollection_and_more",
         ),
     ]
 
