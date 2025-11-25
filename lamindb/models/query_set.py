@@ -1196,66 +1196,20 @@ class QuerySet(BasicQuerySet):
 
 
 class QueryDB:
-    """Query interface for a remote LaminDB instance.
-
-    Provides read-only access to registries in a specific database instance without switching the global connection context.
+    """Convenient access to QuerySets for every entity in a LaminDB instance.
 
     Args:
         instance: Instance identifier in format "account/instance" or full instance string.
-
-    Attributes:
-        Core LaminDB registries:
-            artifacts: QuerySet for Artifact registry
-            collections: QuerySet for Collection registry
-            transforms: QuerySet for Transform registry
-            runs: QuerySet for Run registry
-            users: QuerySet for User registry
-            storages: QuerySet for Storage registry
-            features: QuerySet for Feature registry
-            ulabels: QuerySet for ULabel registry
-            records: QuerySet for Record registry
-
-        Bionty registries:
-            genes: QuerySet for Gene registry
-            proteins: QuerySet for Protein registry
-            cell_types: QuerySet for CellType registry
-            diseases: QuerySet for Disease registry
-            phenotypes: QuerySet for Phenotype registry
-            pathways: QuerySet for Pathway registry
-            tissues: QuerySet for Tissue registry
-            cell_lines: QuerySet for CellLine registry
-            cell_markers: QuerySet for CellMarker registry
-            organisms: QuerySet for Organism registry
-            experimental_factors: QuerySet for ExperimentalFactor registry
-            developmental_stages: QuerySet for DevelopmentalStage registry
-            ethnicities: QuerySet for Ethnicity registry
-
-        Wetlab registries:
-            experiments: QuerySet for Experiment registry
-            biosamples: QuerySet for Biosample registry
-            techsamples: QuerySet for Techsample registry
-            donors: QuerySet for Donor registry
-            genetic_perturbations: QuerySet for GeneticPerturbation registry
-            biologics: QuerySet for Biologic registry
-            compounds: QuerySet for Compound registry
-            compound_perturbations: QuerySet for CompoundPerturbation registry
-            environmental_perturbations: QuerySet for EnvironmentalPerturbation registry
-            combination_perturbations: QuerySet for CombinationPerturbation registry
-            wells: QuerySet for Well registry
-            perturbation_targets: QuerySet for PerturbationTarget registry
-            genetic_perturbation_systems: QuerySet for GeneticPerturbationSystem registry
-            biologic_types: QuerySet for BiologicType registry
 
     Examples:
 
         Query records from a remote instance::
 
-            cxg = ln.QueryDB("laminlabs/cellxgene")
-            artifacts = cxg.Artifact.filter(suffix=".h5ad").all()
-            labels = cxg.Record.filter(name__startswith="cell").all()
+            cellxgene = ln.QueryDB("laminlabs/cellxgene")
+            artifacts = cellxgene.artifacts.filter(suffix=".h5ad")
+            records = cellxgene.records.filter(name__startswith="cell")
     """
 
-    # core lamindb registries
     artifacts: QuerySet
     collections: QuerySet
     transforms: QuerySet
@@ -1265,37 +1219,38 @@ class QueryDB:
     features: QuerySet
     ulabels: QuerySet
     records: QuerySet
+    schemas: QuerySet
 
-    # bionty registries
-    genes: QuerySet
-    proteins: QuerySet
-    cell_types: QuerySet
-    diseases: QuerySet
-    phenotypes: QuerySet
-    pathways: QuerySet
-    tissues: QuerySet
-    cell_lines: QuerySet
-    cell_markers: QuerySet
-    organisms: QuerySet
-    experimental_factors: QuerySet
-    developmental_stages: QuerySet
-    ethnicities: QuerySet
+    if setup_settings._instance_exists and "bionty" in setup_settings.instance.modules:
+        genes: QuerySet
+        proteins: QuerySet
+        cell_types: QuerySet
+        diseases: QuerySet
+        phenotypes: QuerySet
+        pathways: QuerySet
+        tissues: QuerySet
+        cell_lines: QuerySet
+        cell_markers: QuerySet
+        organisms: QuerySet
+        experimental_factors: QuerySet
+        developmental_stages: QuerySet
+        ethnicities: QuerySet
 
-    # wetlab registries
-    experiments: QuerySet
-    biosamples: QuerySet
-    techsamples: QuerySet
-    donors: QuerySet
-    genetic_perturbations: QuerySet
-    biologics: QuerySet
-    compounds: QuerySet
-    compound_perturbations: QuerySet
-    environmental_perturbations: QuerySet
-    combination_perturbations: QuerySet
-    wells: QuerySet
-    perturbation_targets: QuerySet
-    genetic_perturbation_systems: QuerySet
-    biologic_types: QuerySet
+    if setup_settings._instance_exists and "wetlab" in setup_settings.instance.modules:
+        experiments: QuerySet
+        biosamples: QuerySet
+        techsamples: QuerySet
+        donors: QuerySet
+        genetic_perturbations: QuerySet
+        biologics: QuerySet
+        compounds: QuerySet
+        compound_perturbations: QuerySet
+        environmental_perturbations: QuerySet
+        combination_perturbations: QuerySet
+        wells: QuerySet
+        perturbation_targets: QuerySet
+        genetic_perturbation_systems: QuerySet
+        biologic_types: QuerySet
 
     def __init__(self, instance: str):
         self._instance = instance
@@ -1304,21 +1259,18 @@ class QueryDB:
         """Access a registry class for this database instance.
 
         Args:
-            name: Registry class name (e.g., "Artifact", "Collection", "ULabel").
+            name: Attribute name.
 
         Returns:
             QuerySet for the specified registry scoped to this instance.
         """
         from importlib import import_module
 
-        from lamindb_setup import settings
-
-        # Convert snake_case to PascalCase
         class_name = "".join(word.capitalize() for word in name.split("_"))
         if class_name.endswith("s"):
             class_name = class_name[:-1]
 
-        for schema_name in settings.instance.schema:
+        for schema_name in ["lamindb"] + list(setup_settings.instance.modules):
             try:
                 schema_module = import_module(schema_name)
                 model_class = getattr(schema_module.models, class_name, None)
