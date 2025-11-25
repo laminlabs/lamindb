@@ -94,7 +94,7 @@ ln.Artifact("sample.fasta", key="sample.fasta").save()  # save dataset as an art
 ln.finish()  # mark the run as finished
 ```
 
-Running this snippet as a script (`python create-fasta.py`) produces the following data lineage.
+Running this snippet as a script (`python create-fasta.py`) produces the following data lineage:
 
 ```python
 artifact = ln.Artifact.get(key="sample.fasta")  # get artifact by key
@@ -150,7 +150,7 @@ transform.describe()
 You can zero-copy transfer a dataset to your instance.
 
 For example, navigate to [lamin.ai/laminlabs/cellxgene](https://lamin.ai/laminlabs/cellxgene/artifacts) and filter a dataset.
-Let's query & load query & load [one](https://lamin.ai/laminlabs/cellxgene/artifact/BnMwC3KZz0BuKftR) that is annotated with Alzheimer's disease.
+To query & load [one](https://lamin.ai/laminlabs/cellxgene/artifact/BnMwC3KZz0BuKftR) that is annotated with Alzheimer's disease:
 
 ```python
 
