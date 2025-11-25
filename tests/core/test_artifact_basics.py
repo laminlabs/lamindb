@@ -638,7 +638,7 @@ def test_revise_recreate_artifact(example_dataframe: pd.DataFrame, ccaplog):
     assert artifact_r2.is_latest
     artifact_r3.save()
     # now r2 is no longer the latest version, but need to re-fresh from db
-    artifact_r2 = ln.Artifact.get(artifact_r2.uid)
+    artifact_r2.refresh_from_db()
     assert not artifact_r2.is_latest
 
     # re-create based on hash when artifact_r3 is in trash
