@@ -652,7 +652,19 @@ def test_revise_recreate_artifact(example_dataframe: pd.DataFrame, ccaplog):
     assert artifact_new.key == "my-test-dataset1.parquet"
     artifact_r3.restore()  # restore from trash
 
+    # re-create based on hash while providing same key, previous version
+    df.iloc[0, 0] = 99  # this is a previous version
+    artifact_new = ln.Artifact.from_dataframe(
+        df,
+        key=key,
+    )
+    assert artifact_new == artifact_r2
+    assert artifact_new.hash == artifact_r2.hash
+    assert artifact_new.key == key
+    assert artifact.is_latest is False
+
     # re-create based on hash while providing a different key
+    df.iloc[0, 0] = 0
     artifact_new = ln.Artifact.from_dataframe(
         df,
         key="my-test-dataset1.parquet",
