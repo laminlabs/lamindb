@@ -1283,3 +1283,9 @@ class QueryDB:
 
     def __repr__(self) -> str:
         return f"QueryDB('{self._instance}')"
+
+    def __dir__(self):
+        attrs = []
+        for name in type(self).__annotations__:
+            attrs.append(name)
+        return attrs + super().__dir__()
