@@ -614,7 +614,7 @@ def test_revise_recreate_artifact(example_dataframe: pd.DataFrame, ccaplog):
     assert artifact_r2.path.exists()
     assert artifact_r2._revises is None
 
-    # create new file from newly versioned file
+    # revise by providing `revises` argument (do not save)
     df.iloc[0, 0] = 0  # mutate dataframe so that hash lookup doesn't trigger
     artifact_r3 = ln.Artifact.from_dataframe(
         df, description="test1", revises=artifact_r2, version="2"
@@ -623,11 +623,11 @@ def test_revise_recreate_artifact(example_dataframe: pd.DataFrame, ccaplog):
     assert artifact_r3.stem_uid == artifact.stem_uid
     assert artifact_r3.version == "2"
     assert artifact_r3.description == "test1"
+    assert artifact_r3.key == key
 
-    # revise by matching on `key`
-    df.iloc[0, 0] = 100  # mutate dataframe so that hash lookup doesn't trigger
+    # revise by matching on `key` (do not save)
     artifact_r3 = ln.Artifact.from_dataframe(
-        df, description="test1", key=key, version="2"
+        df, key=key, description="test1", version="2"
     )
     assert artifact_r3.uid.endswith("0002")
     assert artifact_r3.stem_uid == artifact.stem_uid
