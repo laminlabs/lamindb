@@ -155,7 +155,7 @@ To query & load [one](https://lamin.ai/laminlabs/cellxgene/artifact/BnMwC3KZz0Bu
 ```python
 
 cellxgene_artifacts = ln.Artifact.connect("laminlabs/cellxgene")  # access artifacts in the laminlabs/cellxgene instance
-adata = cellxgene_artifacts.get("BnMwC3KZz0BuKftR").load().       # load a dataset into memory
+adata = cellxgene_artifacts.get("BnMwC3KZz0BuKftR").load()        # load a dataset into memory
 ```
 
 ### Lake: annotation & queries
