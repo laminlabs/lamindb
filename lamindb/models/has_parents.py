@@ -351,9 +351,15 @@ def _get_parents(
         key = attr_name
     else:
         key = "children" if attr_name == "parents" else "successors"  # type: ignore
+
+    using_db = record._state.db
     model = record.__class__
     condition = f"{key}__{field}"
-    results = model.filter(**{condition: record.__getattribute__(field)}).all()
+    results = (
+        model.using(using_db)
+        .filter(**{condition: record.__getattribute__(field)})
+        .all()
+    )
     if distance < 2:
         return results
 
@@ -387,6 +393,7 @@ def _df_edges_from_parents(
         key = "children" if children else "parents"
     else:
         key = "successors" if children else "predecessors"
+
     parents = _get_parents(
         record=record,
         field=field,
@@ -394,7 +401,8 @@ def _df_edges_from_parents(
         children=children,
         attr_name=attr_name,
     )
-    all = record.__class__.objects
+    using_db = record._state.db
+    all = record.__class__.objects.using(using_db)
     records = parents | all.filter(id=record.id)
     df = records.distinct().to_dataframe(include=[f"{key}__id"])
     if f"{key}__id" not in df.columns:

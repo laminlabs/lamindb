@@ -1255,6 +1255,9 @@ class QueryDB:
     def __init__(self, instance: str):
         self._instance = instance
 
+        for name in type(self).__annotations__:
+            setattr(self, name, None)
+
     def __getattr__(self, name: str) -> QuerySet:
         """Access a registry class for this database instance.
 
@@ -1266,16 +1269,17 @@ class QueryDB:
         """
         from importlib import import_module
 
-        class_name = "".join(word.capitalize() for word in name.split("_"))
-        if class_name.endswith("s"):
-            class_name = class_name[:-1]
+        class_name_base = "".join(word.capitalize() for word in name.split("_"))
+        if class_name_base.endswith("s"):
+            class_name_base = class_name_base[:-1]
 
         for schema_name in ["lamindb"] + list(setup_settings.instance.modules):
             try:
                 schema_module = import_module(schema_name)
-                model_class = getattr(schema_module.models, class_name, None)
-                if model_class is not None:
-                    return model_class.connect(self._instance)
+                for attr in dir(schema_module.models):
+                    if attr.lower() == class_name_base.lower():
+                        model_class = getattr(schema_module.models, attr)
+                        return model_class.connect(self._instance)
             except (ImportError, AttributeError):
                 continue
 
@@ -1283,9 +1287,3 @@ class QueryDB:
 
     def __repr__(self) -> str:
         return f"QueryDB('{self._instance}')"
-
-    def __dir__(self):
-        attrs = []
-        for name in type(self).__annotations__:
-            attrs.append(name)
-        return attrs + super().__dir__()
