@@ -41,3 +41,11 @@ def test_view_lineage_circular():
     artifact.view_lineage()
     artifact.delete(permanent=True)
     transform.delete(permanent=True)
+
+
+def test_view_parents_remote_instance():
+    cxg_db = ln.QueryDB("laminlabs/cellxgene")
+    record = cxg_db.cell_types.first()
+
+    if record and hasattr(record, "parents"):
+        record.view_parents(distance=2, with_children=True)

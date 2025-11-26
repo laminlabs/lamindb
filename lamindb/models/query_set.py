@@ -1255,9 +1255,6 @@ class QueryDB:
     def __init__(self, instance: str):
         self._instance = instance
 
-        for name in type(self).__annotations__:
-            setattr(self, name, None)
-
     def __getattr__(self, name: str) -> QuerySet:
         """Access a registry class for this database instance.
 
@@ -1287,3 +1284,6 @@ class QueryDB:
 
     def __repr__(self) -> str:
         return f"QueryDB('{self._instance}')"
+
+    def __dir__(self):
+        return list(type(self).__annotations__) + super().__dir__()

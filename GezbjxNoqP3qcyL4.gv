@@ -1,0 +1,8 @@
+digraph GezbjxNoqP3qcyL4 {
+	node [color="#065f46" fillcolor=honeydew fontname=Helvetica fontsize=10 shape=box style="rounded,filled"]
+	edge [arrowsize=0.5]
+	GezbjxNoqP3qcyL4 [label=<label1> fillcolor="#10b981"]
+	XHYRP2X45OORj9ro [label=<label2>]
+	GezbjxNoqP3qcyL4 [label=<label1>]
+	XHYRP2X45OORj9ro -> GezbjxNoqP3qcyL4 [color=dimgrey]
+}
