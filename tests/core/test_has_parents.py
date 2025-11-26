@@ -1,3 +1,4 @@
+import bionty as bt
 import lamindb as ln
 
 
@@ -43,9 +44,9 @@ def test_view_lineage_circular():
     transform.delete(permanent=True)
 
 
-def test_view_parents_remote_instance():
-    cxg_db = ln.QueryDB("laminlabs/cellxgene")
-    record = cxg_db.cell_types.first()
+def test_view_parents_connected_instance():
+    cell_types = bt.CellType.connect("laminlabs/cellxgene")
+    ct = cell_types.first()
 
-    if record and hasattr(record, "parents"):
-        record.view_parents(distance=2, with_children=True)
+    if ct and hasattr(ct, "parents"):
+        ct.view_parents(distance=2, with_children=True)
