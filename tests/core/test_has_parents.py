@@ -52,7 +52,7 @@ def test_view_parents_connected_instance():
         ct.view_parents(distance=2, with_children=True)
 
 
-def test_query_parents_connected_instance():
+def test_query_relatives_connected_instance():
     cell_types = bt.CellType.connect("laminlabs/cellxgene")
     ct = cell_types.filter(name="T cell").first()
 
@@ -66,7 +66,7 @@ def test_query_parents_connected_instance():
 
 def test_view_lineage_connected_instance():
     artifacts = ln.Artifact.connect("laminlabs/cellxgene")
-    artifact = artifacts.first()
+    af = artifacts.first()
 
-    if artifact and artifact.run:
-        artifact.view_lineage()
+    if af and af.run:
+        af.view_lineage()
