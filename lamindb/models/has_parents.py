@@ -441,26 +441,17 @@ def get_record_label(record: SQLRecord, field: str | None = None):
     from .collection import Collection
     from .transform import Transform
 
-    if isinstance(record, Artifact):
+    if isinstance(record, (Artifact, Collection, Transform)):
         title = (
             record.key.replace("&", "&amp;") if record.key is not None else record.uid
         )
         return rf"<{title}>"
-    elif isinstance(record, Collection):
-        title = record.key.replace("&", "&amp;")
-        return (
-            rf'<{title}<BR/><FONT COLOR="GREY" POINT-SIZE="10"'
-            rf' FACE="Monospace">version={record.version}</FONT>>'
-        )
     elif isinstance(record, Run):
         title = record.transform.key.replace("&", "&amp;")
         return (
             rf'<{title}<BR/><FONT COLOR="GREY" POINT-SIZE="10">'
             rf"run at {format_field_value(record.started_at)}</FONT>>"
         )
-    elif isinstance(record, Transform):
-        title = record.key.replace("&", "&amp;")
-        return rf"<{title}>"
     else:
         if field is None:
             field = get_name_field(record)

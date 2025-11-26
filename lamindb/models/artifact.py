@@ -334,13 +334,13 @@ def get_stat_or_artifact(
         if key is not None and not is_replace:
             # only search for a previous version of the artifact
             # ignoring hash
-            lookup_result = artifacts_qs.filter(
+            queryset_same_hash_or_same_key = artifacts_qs.filter(
                 ~Q(branch_id=-1),
                 key=key,
                 storage=storage,
             ).order_by("-created_at")
         else:
-            lookup_result = []
+            queryset_same_hash_or_same_key = []
     else:
         # this purposefully leaves out the storage location and key that we have
         # in the hard database unique constraints
@@ -348,31 +348,35 @@ def get_stat_or_artifact(
         # storage locations and keys
         # if this is not desired, set skip_hash_lookup=True
         if key is None or is_replace:
-            lookup_result = artifacts_qs.filter(~Q(branch_id=-1), hash=hash)
-            artifact_with_same_hash_exists = len(lookup_result) > 0
+            queryset_same_hash = artifacts_qs.filter(~Q(branch_id=-1), hash=hash)
+            artifact_with_same_hash_exists = queryset_same_hash.count() > 0
         else:
             # the following query achieves one more thing beyond hash lookup
             # it allows us to find a previous version of the artifact based on
             # matching key & storage even if the hash is different
             # we do this here so that we don't have to do an additional query later
             # see the `previous_artifact_version` variable below
-            lookup_result = artifacts_qs.filter(
+            queryset_same_hash_or_same_key = artifacts_qs.filter(
                 ~Q(branch_id=-1),
                 Q(hash=hash) | Q(key=key, storage=storage),
             ).order_by("-created_at")
-            artifact_with_same_hash_exists = lookup_result.filter(hash=hash).count() > 0
+            queryset_same_hash = queryset_same_hash_or_same_key.filter(hash=hash)
+            artifact_with_same_hash_exists = queryset_same_hash.count() > 0
     if key is not None and not is_replace:
-        if not artifact_with_same_hash_exists and len(lookup_result) > 0:
+        if (
+            not artifact_with_same_hash_exists
+            and queryset_same_hash_or_same_key.count() > 0
+        ):
             logger.important(
                 f"creating new artifact version for key '{key}' in storage '{storage.root}'"
             )
-            previous_artifact_version = lookup_result[0]
+            previous_artifact_version = queryset_same_hash_or_same_key[0]
     if artifact_with_same_hash_exists:
-        message = "returning artifact with same hash"
+        artifact_with_same_hash = queryset_same_hash[0]
         logger.important(
-            f"{message}: {lookup_result[0]}; to track this artifact as an input, use: ln.Artifact.get()"
+            f"returning artifact with same hash: {artifact_with_same_hash}; to track this artifact as an input, use: ln.Artifact.get()"
         )
-        return lookup_result[0]
+        return artifact_with_same_hash
     else:
         return size, hash, hash_type, n_files, previous_artifact_version
 
@@ -1320,6 +1324,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
     Typically, this denotes the first array dimension.
     """
+    params: dict | None = models.JSONField(null=True)
+    """Non-validated metadata as a dictionary."""
     _hash_type: str | None = CharField(
         max_length=30, db_index=True, null=True, editable=False
     )
@@ -1668,11 +1674,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     @deprecated("otype")
     def _accessor(self) -> str:
         return self.otype
-
-    @property
-    @deprecated("features")
-    def params(self) -> str:
-        return self.features
 
     @property
     def transform(self) -> Transform | None:
