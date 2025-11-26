@@ -4,8 +4,10 @@ import re
 from collections import UserList
 from collections.abc import Iterable
 from collections.abc import Iterable as IterableType
+from importlib import import_module
 from typing import TYPE_CHECKING, Any, Generic, NamedTuple, TypeVar
 
+import lamindb_setup as ln_setup
 import pandas as pd
 from django.core.exceptions import FieldError
 from django.db import models
@@ -1264,23 +1266,31 @@ class QueryDB:
         Returns:
             QuerySet for the specified registry scoped to this instance.
         """
-        from importlib import import_module
-
         class_name_base = "".join(word.capitalize() for word in name.split("_"))
         if class_name_base.endswith("s"):
             class_name_base = class_name_base[:-1]
 
-        for schema_name in ["lamindb"] + list(setup_settings.instance.modules):
+        owner, instance_name = self._instance.split("/")
+        instance_info = ln_setup._connect_instance._connect_instance(
+            owner=owner, name=instance_name
+        )
+        available_schemas = ["lamindb"] + list(instance_info.modules)
+
+        for schema_name in available_schemas:
             try:
                 schema_module = import_module(schema_name)
                 for attr in dir(schema_module.models):
                     if attr.lower() == class_name_base.lower():
                         model_class = getattr(schema_module.models, attr)
-                        return model_class.connect(self._instance)
+                        queryset = model_class.connect(self._instance)
+                        setattr(self, name, queryset)
+                        return queryset
             except (ImportError, AttributeError):
                 continue
 
-        raise AttributeError(f"Registry '{name}' not found in installed schemas")
+        raise AttributeError(
+            f"Registry '{name}' not found in installed modules for instance '{self._instance}'."
+        )
 
     def __repr__(self) -> str:
         return f"QueryDB('{self._instance}')"

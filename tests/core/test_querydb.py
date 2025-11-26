@@ -1,8 +1,9 @@
 import lamindb as ln
+import pytest
 
 
 def test_querydb_multiple_instances():
-    """Test accessing multiple instances simultaneously."""
+    """Accessing multiple instances simultaneously must work."""
     cellxgene = ln.QueryDB("laminlabs/cellxgene")
     lamindata = ln.QueryDB("laminlabs/lamindata")
     qs1 = cellxgene.artifacts.filter(suffix=".h5ad")
@@ -11,6 +12,19 @@ def test_querydb_multiple_instances():
 
 
 def test_querydb_bionty():
-    """Test querying a record that is not from LaminDB like bionty."""
+    """Querying a record from bionty must work."""
     cxg = ln.QueryDB("laminlabs/cellxgene")
     assert len(cxg.genes.filter(symbol__startswith="TP53")) > 0
+
+
+def test_querydb_missing_module():
+    """Attempting to access an attribute that comes from a missing module must error."""
+    db = ln.QueryDB("laminlabs/lamin-site-assets")  # instance without bionty
+
+    with pytest.raises(AttributeError) as e:
+        db.genes.first()
+
+    assert (
+        "Registry 'genes' not found in installed modules for instance 'laminlabs/lamin-site-assets'."
+        in str(e.value)
+    )
