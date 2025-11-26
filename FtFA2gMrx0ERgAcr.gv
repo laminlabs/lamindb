@@ -1,8 +1,0 @@
-digraph FtFA2gMrx0ERgAcr {
-	node [color="#065f46" fillcolor=honeydew fontname=Helvetica fontsize=10 shape=box style="rounded,filled"]
-	edge [arrowsize=0.5]
-	FtFA2gMrx0ERgAcr [label=<label1> fillcolor="#10b981"]
-	azyusaVB0n0D1xEw [label=<label2>]
-	FtFA2gMrx0ERgAcr [label=<label1>]
-	azyusaVB0n0D1xEw -> FtFA2gMrx0ERgAcr [color=dimgrey]
-}
