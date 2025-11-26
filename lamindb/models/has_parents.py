@@ -38,9 +38,11 @@ def _query_relatives(
 
     if hasattr(records, "values_list"):
         model = records.model  # type: ignore
+        using_db = records.db  # type: ignore
         frontier_ids = set(records.values_list("id", flat=True))
     else:
         model = records[0].__class__
+        using_db = records[0]._state.db  # type: ignore
         frontier_ids = {r.id for r in records}  # type: ignore
 
     if attr == "children":
@@ -54,7 +56,7 @@ def _query_relatives(
     results = set()
 
     while frontier_ids:
-        relatives_qs = model.filter(
+        relatives_qs = model.connect(using_db).filter(
             branch_id__in=branch_ids, **{attr_filter: frontier_ids}
         )
         next_ids = set(relatives_qs.values_list("id", flat=True)) - seen_ids
@@ -64,7 +66,7 @@ def _query_relatives(
         seen_ids.update(next_ids)
         frontier_ids = next_ids
 
-    return model.filter(id__in=results)
+    return model.connect(using_db).filter(id__in=results)
 
 
 def _query_ancestors_of_fk(record: SQLRecord, attr: str) -> SQLRecordList:
@@ -351,9 +353,15 @@ def _get_parents(
         key = attr_name
     else:
         key = "children" if attr_name == "parents" else "successors"  # type: ignore
+
+    using_db = record._state.db
     model = record.__class__
     condition = f"{key}__{field}"
-    results = model.filter(**{condition: record.__getattribute__(field)}).all()
+    results = (
+        model.connect(using_db)
+        .filter(**{condition: record.__getattribute__(field)})
+        .all()
+    )
     if distance < 2:
         return results
 
@@ -387,6 +395,7 @@ def _df_edges_from_parents(
         key = "children" if children else "parents"
     else:
         key = "successors" if children else "predecessors"
+
     parents = _get_parents(
         record=record,
         field=field,
@@ -394,7 +403,8 @@ def _df_edges_from_parents(
         children=children,
         attr_name=attr_name,
     )
-    all = record.__class__.objects
+    using_db = record._state.db
+    all = record.__class__.objects.using(using_db)
     records = parents | all.filter(id=record.id)
     df = records.distinct().to_dataframe(include=[f"{key}__id"])
     if f"{key}__id" not in df.columns:
