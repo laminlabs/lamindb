@@ -1324,6 +1324,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
     Typically, this denotes the first array dimension.
     """
+    params: dict | None = models.JSONField(null=True)
+    """Non-validated metadata as a dictionary."""
     _hash_type: str | None = CharField(
         max_length=30, db_index=True, null=True, editable=False
     )
@@ -1672,11 +1674,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     @deprecated("otype")
     def _accessor(self) -> str:
         return self.otype
-
-    @property
-    @deprecated("features")
-    def params(self) -> str:
-        return self.features
 
     @property
     def transform(self) -> Transform | None:
