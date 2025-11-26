@@ -1,4 +1,3 @@
-import bionty as bt
 import lamindb as ln
 
 
@@ -42,11 +41,3 @@ def test_view_lineage_circular():
     artifact.view_lineage()
     artifact.delete(permanent=True)
     transform.delete(permanent=True)
-
-
-def test_view_parents_connected_instance():
-    cell_types = bt.CellType.connect("laminlabs/cellxgene")
-    ct = cell_types.first()
-
-    if ct and hasattr(ct, "parents"):
-        ct.view_parents(distance=2, with_children=True)

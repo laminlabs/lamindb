@@ -351,15 +351,9 @@ def _get_parents(
         key = attr_name
     else:
         key = "children" if attr_name == "parents" else "successors"  # type: ignore
-
-    using_db = record._state.db
     model = record.__class__
     condition = f"{key}__{field}"
-    results = (
-        model.using(using_db)
-        .filter(**{condition: record.__getattribute__(field)})
-        .all()
-    )
+    results = model.filter(**{condition: record.__getattribute__(field)}).all()
     if distance < 2:
         return results
 
@@ -393,7 +387,6 @@ def _df_edges_from_parents(
         key = "children" if children else "parents"
     else:
         key = "successors" if children else "predecessors"
-
     parents = _get_parents(
         record=record,
         field=field,
@@ -401,8 +394,7 @@ def _df_edges_from_parents(
         children=children,
         attr_name=attr_name,
     )
-    using_db = record._state.db
-    all = record.__class__.objects.using(using_db)
+    all = record.__class__.objects
     records = parents | all.filter(id=record.id)
     df = records.distinct().to_dataframe(include=[f"{key}__id"])
     if f"{key}__id" not in df.columns:
@@ -439,26 +431,17 @@ def get_record_label(record: SQLRecord, field: str | None = None):
     from .collection import Collection
     from .transform import Transform
 
-    if isinstance(record, Artifact):
+    if isinstance(record, (Artifact, Collection, Transform)):
         title = (
             record.key.replace("&", "&amp;") if record.key is not None else record.uid
         )
         return rf"<{title}>"
-    elif isinstance(record, Collection):
-        title = record.key.replace("&", "&amp;")
-        return (
-            rf'<{title}<BR/><FONT COLOR="GREY" POINT-SIZE="10"'
-            rf' FACE="Monospace">version={record.version}</FONT>>'
-        )
     elif isinstance(record, Run):
         title = record.transform.key.replace("&", "&amp;")
         return (
             rf'<{title}<BR/><FONT COLOR="GREY" POINT-SIZE="10">'
             rf"run at {format_field_value(record.started_at)}</FONT>>"
         )
-    elif isinstance(record, Transform):
-        title = record.key.replace("&", "&amp;")
-        return rf"<{title}>"
     else:
         if field is None:
             field = get_name_field(record)
