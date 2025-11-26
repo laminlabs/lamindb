@@ -4,8 +4,10 @@ import re
 from collections import UserList
 from collections.abc import Iterable
 from collections.abc import Iterable as IterableType
+from importlib import import_module
 from typing import TYPE_CHECKING, Any, Generic, NamedTuple, TypeVar
 
+import lamindb_setup as ln_setup
 import pandas as pd
 from django.core.exceptions import FieldError
 from django.db import models
@@ -1193,3 +1195,105 @@ class QuerySet(BasicQuerySet):
             except FieldError as e:
                 self._handle_unknown_field(e)
         return self
+
+
+class QueryDB:
+    """Convenient access to QuerySets for every entity in a LaminDB instance.
+
+    Args:
+        instance: Instance identifier in format "account/instance" or full instance string.
+
+    Examples:
+
+        Query records from a remote instance::
+
+            cellxgene = ln.QueryDB("laminlabs/cellxgene")
+            artifacts = cellxgene.artifacts.filter(suffix=".h5ad")
+            records = cellxgene.records.filter(name__startswith="cell")
+    """
+
+    artifacts: QuerySet
+    collections: QuerySet
+    transforms: QuerySet
+    runs: QuerySet
+    users: QuerySet
+    storages: QuerySet
+    features: QuerySet
+    ulabels: QuerySet
+    records: QuerySet
+    schemas: QuerySet
+
+    if setup_settings._instance_exists and "bionty" in setup_settings.instance.modules:
+        genes: QuerySet
+        proteins: QuerySet
+        cell_types: QuerySet
+        diseases: QuerySet
+        phenotypes: QuerySet
+        pathways: QuerySet
+        tissues: QuerySet
+        cell_lines: QuerySet
+        cell_markers: QuerySet
+        organisms: QuerySet
+        experimental_factors: QuerySet
+        developmental_stages: QuerySet
+        ethnicities: QuerySet
+
+    if setup_settings._instance_exists and "wetlab" in setup_settings.instance.modules:
+        experiments: QuerySet
+        biosamples: QuerySet
+        techsamples: QuerySet
+        donors: QuerySet
+        genetic_perturbations: QuerySet
+        biologics: QuerySet
+        compounds: QuerySet
+        compound_perturbations: QuerySet
+        environmental_perturbations: QuerySet
+        combination_perturbations: QuerySet
+        wells: QuerySet
+        perturbation_targets: QuerySet
+        genetic_perturbation_systems: QuerySet
+        biologic_types: QuerySet
+
+    def __init__(self, instance: str):
+        self._instance = instance
+
+    def __getattr__(self, name: str) -> QuerySet:
+        """Access a registry class for this database instance.
+
+        Args:
+            name: Attribute name.
+
+        Returns:
+            QuerySet for the specified registry scoped to this instance.
+        """
+        class_name_base = "".join(word.capitalize() for word in name.split("_"))
+        if class_name_base.endswith("s"):
+            class_name_base = class_name_base[:-1]
+
+        owner, instance_name = self._instance.split("/")
+        instance_info = ln_setup._connect_instance._connect_instance(
+            owner=owner, name=instance_name
+        )
+        available_schemas = ["lamindb"] + list(instance_info.modules)
+
+        for schema_name in available_schemas:
+            try:
+                schema_module = import_module(schema_name)
+                for attr in dir(schema_module.models):
+                    if attr.lower() == class_name_base.lower():
+                        model_class = getattr(schema_module.models, attr)
+                        queryset = model_class.connect(self._instance)
+                        setattr(self, name, queryset)
+                        return queryset
+            except (ImportError, AttributeError):
+                continue
+
+        raise AttributeError(
+            f"Registry '{name}' not found in installed modules for instance '{self._instance}'."
+        )
+
+    def __repr__(self) -> str:
+        return f"QueryDB('{self._instance}')"
+
+    def __dir__(self):
+        return list(type(self).__annotations__) + super().__dir__()
