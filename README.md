@@ -17,8 +17,8 @@ Even maintaining an overview of a project's datasets & analyses is more difficul
 
 Biological datasets are typically managed with versioned storage systems, GUI-focused platforms, structureless data lakes, rigid data warehouses (SQL, monolithic arrays), or tabular lakehouses.
 
-LaminDB extends the lakehouse architecture to biological registries & datasets beyond tables (`DataFrame`, `AnnData`, `.zarr`, `.tiledbsoma`, …) with enough structure to enable queries and enough freedom to keep the pace of R&D high.
-Moreover, it provides context through data lineage -- tracing data and code, scientists and models -- and abstractions for biological domain knowledge and experimental metadata.
+LaminDB extends the lakehouse architecture to biological registries & datasets beyond tables (`DataFrame`, `AnnData`, `.zarr`, `.tiledbsoma`, …).
+It provides enough structure to enable queries across many datasets, enough freedom to keep the pace of R&D high, and rich context in form of data lineage and metadata for humans and AI.
 
 </details>
 
@@ -61,7 +61,7 @@ Copy [summary.md](https://docs.lamin.ai/summary.md) into an LLM chat and let AI 
 
 <!-- copied from quick-setup-lamindb.md -->
 
-Install the `lamindb` Python package:
+Install the Python package:
 
 ```shell
 pip install lamindb
@@ -94,7 +94,7 @@ ln.Artifact("sample.fasta", key="sample.fasta").save()  # save dataset as an art
 ln.finish()  # mark the run as finished
 ```
 
-Running this snippet as a script (`python create-fasta.py`) produces the following data lineage.
+Running this snippet as a script (`python create-fasta.py`) produces the following data lineage:
 
 ```python
 artifact = ln.Artifact.get(key="sample.fasta")  # get artifact by key
@@ -106,8 +106,8 @@ artifact.view_lineage()
 You'll know how that artifact was created and what it's used for. Basic metadata was captured in fields:
 
 ```python
-artifact.size        # access the size
-artifact.created_at  # access the timestamp
+artifact.size        # the file/folder size in bytes
+artifact.created_at  # the creation timestamp
 # etc.
 artifact.describe()  # describe metadata
 ```
@@ -144,6 +144,19 @@ transform.describe()
 
 <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/JYwmHBbgf2MRCfgL0000.png" width="550" />
 </details>
+
+### Sharing
+
+You can share datasets across LaminDB instances.
+
+For example, explore the artifacts in [laminlabs/cellxgene](https://lamin.ai/laminlabs/cellxgene/artifacts).
+To query & load [one](https://lamin.ai/laminlabs/cellxgene/artifact/BnMwC3KZz0BuKftR) that is annotated with Alzheimer's disease:
+
+```python
+
+cellxgene_artifacts = ln.Artifact.connect("laminlabs/cellxgene")  # access artifacts in the laminlabs/cellxgene instance
+adata = cellxgene_artifacts.get("BnMwC3KZz0BuKftR").load()        # load a dataset into memory
+```
 
 ### Lake: annotation & queries
 

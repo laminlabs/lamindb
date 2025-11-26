@@ -62,6 +62,7 @@ def test_registry__repr__artifact():
         .hash: CharField
         .n_files: BigIntegerField
         .n_observations: BigIntegerField
+        .params: JSONField
         .version: CharField
         .is_latest: BooleanField
         .is_locked: BooleanField
