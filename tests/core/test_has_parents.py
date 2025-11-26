@@ -45,16 +45,14 @@ def test_view_lineage_circular():
 
 
 def test_view_parents_connected_instance():
-    cell_types = bt.CellType.connect("laminlabs/cellxgene")
-    ct = cell_types.first()
+    ct = bt.CellType.connect("laminlabs/cellxgene").first()
 
     if ct and hasattr(ct, "parents"):
         ct.view_parents(distance=2, with_children=True)
 
 
 def test_query_relatives_connected_instance():
-    cell_types = bt.CellType.connect("laminlabs/cellxgene")
-    ct = cell_types.filter(name="T cell").first()
+    ct = bt.CellType.connect("laminlabs/cellxgene").filter(name="T cell").first()
 
     if ct:
         parents = ct.query_parents()
@@ -65,8 +63,7 @@ def test_query_relatives_connected_instance():
 
 
 def test_view_lineage_connected_instance():
-    artifacts = ln.Artifact.connect("laminlabs/cellxgene")
-    af = artifacts.first()
+    af = ln.Artifact.connect("laminlabs/cellxgene").first()
 
     if af and af.run:
         af.view_lineage()
