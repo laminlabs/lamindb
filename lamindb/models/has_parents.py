@@ -41,8 +41,9 @@ def _query_relatives(
         using_db = records.db  # type: ignore
         frontier_ids = set(records.values_list("id", flat=True))
     else:
-        model = records[0].__class__
-        using_db = records[0]._state.db  # type: ignore
+        record = records[0]
+        model = record.__class__
+        using_db = record._state.db  # type: ignore
         frontier_ids = {r.id for r in records}  # type: ignore
 
     if attr == "children":
