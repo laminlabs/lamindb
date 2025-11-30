@@ -558,7 +558,8 @@ class Record(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, HasParents
             if recurse
             else self.records.filter(branch_id__in=branch_ids)
         )
-        df = qs.to_dataframe(features="queryset", order_by="id")
+        logger.important(f"exporting {qs.count()} records of '{self.name}'")
+        df = qs.to_dataframe(features="queryset", order_by="id", limit=None)
         encoded_id = encode_lamindb_fields_as_columns(self.__class__, "id")
         encoded_uid = encode_lamindb_fields_as_columns(self.__class__, "uid")
         encoded_name = encode_lamindb_fields_as_columns(self.__class__, "name")

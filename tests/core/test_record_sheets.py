@@ -304,3 +304,14 @@ def test_annotate_with_user_feature():
     schema.delete(permanent=True)
     user_feature.delete(permanent=True)
     user.delete(permanent=True)
+
+
+def test_to_artifact_exports_all_records():
+    # create sheet with >100 records, the default limit for to_dataframe
+    sheet = ln.Record(name="LargeSheet", is_type=True).save()
+    for i in range(101):
+        ln.Record(name=f"record_{i}", type=sheet).save()
+    df = sheet.type_to_dataframe()
+    assert len(df) == 101, f"Expected 101 records, got {len(df)}"
+    sheet.records.all().delete(permanent=True)
+    sheet.delete(permanent=True)
