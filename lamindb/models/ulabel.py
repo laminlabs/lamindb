@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, overload
 
+import pgtrigger
+from django.conf import settings as django_settings
 from django.db import models
 from django.db.models import CASCADE, PROTECT
 
@@ -33,11 +35,106 @@ if TYPE_CHECKING:
     from .record import Record
 
 
+# also see analogous SQL on Record
+UPDATE_FEATURE_DTYPE_ON_ULABEL_TYPE_NAME_CHANGE = """\
+WITH RECURSIVE old_ulabel_path AS (
+    -- Start with OLD values directly, don't query the table
+    SELECT
+        OLD.id as id,
+        OLD.name as name,
+        OLD.type_id as type_id,
+        OLD.name::TEXT AS path,
+        1 as depth
+
+    UNION ALL
+
+    SELECT
+        r.id,
+        r.name,
+        r.type_id,
+        r.name || '[' || rp.path AS path,
+        rp.depth + 1
+    FROM lamindb_ulabel r
+    INNER JOIN old_ulabel_path rp ON r.id = rp.type_id
+),
+paths AS (
+    SELECT
+        path as old_path,
+        REPLACE(path, OLD.name, NEW.name) as new_path
+    FROM old_ulabel_path
+    ORDER BY depth DESC
+    LIMIT 1
+)
+UPDATE lamindb_feature
+SET dtype = REPLACE(dtype, paths.old_path, paths.new_path)
+FROM paths
+WHERE dtype LIKE '%cat[ULabel[%'
+  AND dtype LIKE '%' || paths.old_path || '%';
+
+RETURN NEW;
+"""
+
+
+# also see analogous SQL on Record
+UPDATE_FEATURE_DTYPE_ON_ULABEL_TYPE_CHANGE = """\
+WITH RECURSIVE old_ulabel_path AS (
+    SELECT
+        OLD.id as id,
+        OLD.name as name,
+        OLD.type_id as type_id,
+        OLD.name::TEXT AS path,
+        1 as depth
+
+    UNION ALL
+
+    SELECT
+        r.id,
+        r.name,
+        r.type_id,
+        r.name || '[' || rp.path || ']' AS path,
+        rp.depth + 1
+    FROM lamindb_ulabel r
+    INNER JOIN old_ulabel_path rp ON r.id = rp.type_id
+),
+new_ulabel_path AS (
+    SELECT
+        NEW.id as id,
+        NEW.name as name,
+        NEW.type_id as type_id,
+        NEW.name::TEXT AS path,
+        1 as depth
+
+    UNION ALL
+
+    SELECT
+        r.id,
+        r.name,
+        r.type_id,
+        r.name || '[' || rp.path || ']' AS path,
+        rp.depth + 1
+    FROM lamindb_ulabel r
+    INNER JOIN new_ulabel_path rp ON r.id = rp.type_id
+),
+paths AS (
+    SELECT
+        (SELECT path FROM old_ulabel_path ORDER BY depth DESC LIMIT 1) as old_path,
+        (SELECT path FROM new_ulabel_path ORDER BY depth DESC LIMIT 1) as new_path
+)
+UPDATE lamindb_feature
+SET dtype = REPLACE(dtype, 'cat[ULabel[' || paths.old_path || ']]', 'cat[ULabel[' || paths.new_path || ']]')
+FROM paths
+WHERE dtype LIKE '%cat[ULabel[' || paths.old_path || ']]%';
+
+RETURN NEW;
+"""
+
+
 class ULabel(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates):
     """Universal labels.
 
-    For new labels, see `Record` instead. Existing labels and code will continue to work
-    but be migrated to the Record registry.
+    In some cases you may just want to create a simple label, then `ULabel` is for you.
+
+    It behaves like `Record`, just without the ability to store features.
 
     Args:
         name: `str` A name.
@@ -47,33 +144,90 @@ class ULabel(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
 
     See Also:
         :meth:`~lamindb.Feature`
-            Dimensions of measurement for artifacts & collections.
-        :attr:`~lamindb.Artifact.features`
-            Feature manager for an artifact.
+            Dimensions of measurement (e.g. column of a sheet, attribute of a record).
+        :meth:`~lamindb.ULabel`
+            Like `ULabel`, but with the ability to store features.
 
     Examples:
 
-        Create a ulabel:
+        Create a label::
 
-        >>> train_split = ln.ULabel(name="train").save()
+            train_split = ln.ULabel(name="train").save()
 
-        Organize ulabels in a hierarchy:
+        Organize ulabels in a hierarchy::
 
-        >>> split_type = ln.ULabel(name="Split", is_type=True).save()
-        >>> train_split = ln.ULabel(name="train", type="split_type").save()
+            split_type = ln.ULabel(name="Split", is_type=True).save()
+            train_split = ln.ULabel(name="train", type="split_type").save()
 
-        Label an artifact:
+        Label an artifact::
 
-        >>> artifact.ulabels.add(ulabel)
+            artifact.ulabels.add(train_split)
 
-        Query an artifact by ulabel:
+        Query artifacts by label::
 
-        >>> ln.Artifact.filter(ulabels=train_split).to_dataframe()
+            ln.Artifact.filter(ulabels=train_split).to_dataframe()
     """
 
     class Meta(SQLRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
         abstract = False
         app_label = "lamindb"
+        if (
+            django_settings.DATABASES.get("default", {}).get("ENGINE")
+            == "django.db.backends.postgresql"
+        ):
+            triggers = [
+                pgtrigger.Trigger(
+                    name="update_feature_dtype_on_ulabel_type_name_change",
+                    operation=pgtrigger.Update,
+                    when=pgtrigger.After,
+                    condition=pgtrigger.Condition(
+                        "OLD.name IS DISTINCT FROM NEW.name AND NEW.is_type"
+                    ),
+                    func=UPDATE_FEATURE_DTYPE_ON_ULABEL_TYPE_NAME_CHANGE,
+                ),
+                pgtrigger.Trigger(
+                    name="update_feature_dtype_on_ulabel_type_change",
+                    operation=pgtrigger.Update,
+                    when=pgtrigger.After,
+                    condition=pgtrigger.Condition(
+                        "OLD.type_id IS DISTINCT FROM NEW.type_id AND NEW.is_type"
+                    ),
+                    func=UPDATE_FEATURE_DTYPE_ON_ULABEL_TYPE_CHANGE,
+                ),
+                pgtrigger.Trigger(
+                    name="prevent_ulabel_type_cycle",
+                    operation=pgtrigger.Update | pgtrigger.Insert,
+                    when=pgtrigger.Before,
+                    condition=pgtrigger.Condition("NEW.type_id IS NOT NULL"),
+                    func="""
+                        -- Check for direct self-reference
+                        IF NEW.type_id = NEW.id THEN
+                            RAISE EXCEPTION 'Cannot set type: ulabel cannot be its own type';
+                        END IF;
+
+                        -- Check for cycles in the type chain
+                        IF EXISTS (
+                            WITH RECURSIVE type_chain AS (
+                                SELECT type_id, 1 as depth
+                                FROM lamindb_ulabel
+                                WHERE id = NEW.type_id
+
+                                UNION ALL
+
+                                SELECT r.type_id, tc.depth + 1
+                                FROM lamindb_ulabel r
+                                INNER JOIN type_chain tc ON r.id = tc.type_id
+                                WHERE tc.depth < 100
+                            )
+                            SELECT 1 FROM type_chain WHERE type_id = NEW.id
+                        ) THEN
+                            RAISE EXCEPTION 'Cannot set type: would create a cycle';
+                        END IF;
+
+                        RETURN NEW;
+                    """,
+                ),
+            ]
         constraints = [
             # unique name for types when type is NULL
             models.UniqueConstraint(
