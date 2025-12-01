@@ -1266,6 +1266,11 @@ class QueryDB:
         Returns:
             QuerySet for the specified registry scoped to this instance.
         """
+        if not name.islower() or name.startswith("_"):
+            raise AttributeError(
+                f"Registry '{name}' not found. Use lowercase plural form (e.g., 'artifacts', not 'Artifact')."
+            )
+
         class_name_base = "".join(word.capitalize() for word in name.split("_"))
         if class_name_base.endswith("s"):
             class_name_base = class_name_base[:-1]

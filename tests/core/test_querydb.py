@@ -4,9 +4,9 @@ import pytest
 
 def test_querydb_multiple_instances():
     """Accessing multiple instances simultaneously must work."""
-    cellxgene = ln.QueryDB("laminlabs/cellxgene")
+    cxg = ln.QueryDB("laminlabs/cellxgene")
     lamindata = ln.QueryDB("laminlabs/lamindata")
-    qs1 = cellxgene.artifacts.filter(suffix=".h5ad")
+    qs1 = cxg.artifacts.filter(suffix=".h5ad")
     qs2 = lamindata.artifacts.filter(suffix=".zarr")
     assert qs1._db != qs2._db
 
@@ -28,3 +28,11 @@ def test_querydb_missing_module():
         "Registry 'genes' not found in installed modules for instance 'laminlabs/lamin-site-assets'."
         in str(e.value)
     )
+
+
+def test_querydb_rejects_capitalized():
+    """Accessing registries with capitalized names must fail."""
+    cxg = ln.QueryDB("laminlabs/cellxgene")
+    with pytest.raises(AttributeError) as e:
+        cxg.Artifacts  # noqa: B018
+    assert "Use lowercase plural form" in str(e.value)
