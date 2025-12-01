@@ -41,8 +41,9 @@ def _query_relatives(
         using_db = records.db  # type: ignore
         frontier_ids = set(records.values_list("id", flat=True))
     else:
-        model = records[0].__class__
-        using_db = records[0]._state.db  # type: ignore
+        record = records[0]
+        model = record.__class__
+        using_db = record._state.db  # type: ignore
         frontier_ids = {r.id for r in records}  # type: ignore
 
     if attr == "children":
@@ -357,24 +358,24 @@ def _get_parents(
     using_db = record._state.db
     model = record.__class__
     condition = f"{key}__{field}"
-    results = (
-        model.connect(using_db)
-        .filter(**{condition: record.__getattribute__(field)})
-        .all()
-    )
+    field_value = getattr(record, field)
+
+    results = model.connect(using_db).filter(**{condition: field_value})
     if distance < 2:
         return results
 
     d = 2
     while d < distance:
+        # this grows in the loop,
+        # i.e. children__children__name -> children__children__children__name -> ...
         condition = f"{key}__{condition}"
-        records = model.filter(**{condition: record.__getattribute__(field)})
+        records = model.connect(using_db).filter(**{condition: field_value})
 
         try:
             if not records.exists():
                 return results
 
-            results = results | records.all()
+            results = results | records
             d += 1
         except Exception:
             # For OperationalError:
