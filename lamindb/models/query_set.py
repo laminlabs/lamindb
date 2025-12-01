@@ -1204,7 +1204,6 @@ class QueryDB:
         instance: Instance identifier in format "account/instance" or full instance string.
 
     Examples:
-
         Query records from a remote instance::
 
             cellxgene = ln.QueryDB("laminlabs/cellxgene")
@@ -1212,50 +1211,55 @@ class QueryDB:
             records = cellxgene.records.filter(name__startswith="cell")
     """
 
-    artifacts: QuerySet
-    collections: QuerySet
-    transforms: QuerySet
-    runs: QuerySet
-    users: QuerySet
-    storages: QuerySet
-    features: QuerySet
-    ulabels: QuerySet
-    records: QuerySet
-    schemas: QuerySet
-
-    if setup_settings._instance_exists and "bionty" in setup_settings.instance.modules:
-        genes: QuerySet
-        proteins: QuerySet
-        cell_types: QuerySet
-        diseases: QuerySet
-        phenotypes: QuerySet
-        pathways: QuerySet
-        tissues: QuerySet
-        cell_lines: QuerySet
-        cell_markers: QuerySet
-        organisms: QuerySet
-        experimental_factors: QuerySet
-        developmental_stages: QuerySet
-        ethnicities: QuerySet
-
-    if setup_settings._instance_exists and "wetlab" in setup_settings.instance.modules:
-        experiments: QuerySet
-        biosamples: QuerySet
-        techsamples: QuerySet
-        donors: QuerySet
-        genetic_perturbations: QuerySet
-        biologics: QuerySet
-        compounds: QuerySet
-        compound_perturbations: QuerySet
-        environmental_perturbations: QuerySet
-        combination_perturbations: QuerySet
-        wells: QuerySet
-        perturbation_targets: QuerySet
-        genetic_perturbation_systems: QuerySet
-        biologic_types: QuerySet
+    _IRREGULAR_PLURALS = {
+        "ethnicity": "ethnicities",
+        "branch": "branches",
+    }
 
     def __init__(self, instance: str):
         self._instance = instance
+        self._cache: dict[str, QuerySet] = {}
+        self._available_registries: set[str] | None = None
+
+    @classmethod
+    def _pluralize(cls, name: str) -> str:
+        lower_name = name.lower()
+        if lower_name in cls._IRREGULAR_PLURALS:
+            return cls._IRREGULAR_PLURALS[lower_name]
+        if lower_name.endswith("s"):
+            return lower_name
+        return f"{lower_name}s"
+
+    def _discover_registries(self) -> set[str]:
+        if self._available_registries is not None:
+            return self._available_registries
+
+        owner, instance_name = self._instance.split("/")
+        instance_info = ln_setup._connect_instance._connect_instance(
+            owner=owner, name=instance_name
+        )
+
+        registries = set()
+        available_schemas = ["lamindb"] + list(instance_info.modules)
+
+        for schema_name in available_schemas:
+            try:
+                schema_module = import_module(schema_name)
+                if hasattr(schema_module, "__all__"):
+                    registry_names = schema_module.__all__
+                else:
+                    continue
+
+                for class_name in registry_names:
+                    model_class = getattr(schema_module, class_name, None)
+                    if model_class and hasattr(model_class, "connect"):
+                        plural_name = self._pluralize(class_name)
+                        registries.add(plural_name)
+            except ImportError:
+                continue
+
+        self._available_registries = registries
+        return registries
 
     def __getattr__(self, name: str) -> QuerySet:
         """Access a registry class for this database instance.
@@ -1266,10 +1270,13 @@ class QueryDB:
         Returns:
             QuerySet for the specified registry scoped to this instance.
         """
-        if not name.islower() or name.startswith("_"):
+        if name.startswith("_"):
             raise AttributeError(
-                f"Registry '{name}' not found. Use lowercase plural form (e.g., 'artifacts', not 'Artifact')."
+                f"'{type(self).__name__}' object has no attribute '{name}'"
             )
+
+        if name in self._cache:
+            return self._cache[name]
 
         class_name_base = "".join(word.capitalize() for word in name.split("_"))
         if class_name_base.endswith("s"):
@@ -1279,17 +1286,17 @@ class QueryDB:
         instance_info = ln_setup._connect_instance._connect_instance(
             owner=owner, name=instance_name
         )
+
         available_schemas = ["lamindb"] + list(instance_info.modules)
 
         for schema_name in available_schemas:
             try:
                 schema_module = import_module(schema_name)
-                for attr in dir(schema_module.models):
-                    if attr.lower() == class_name_base.lower():
-                        model_class = getattr(schema_module.models, attr)
-                        queryset = model_class.connect(self._instance)
-                        setattr(self, name, queryset)
-                        return queryset
+                if hasattr(schema_module, class_name_base):
+                    model_class = getattr(schema_module, class_name_base)
+                    queryset = model_class.connect(self._instance)
+                    self._cache[name] = queryset
+                    return queryset
             except (ImportError, AttributeError):
                 continue
 
@@ -1300,5 +1307,10 @@ class QueryDB:
     def __repr__(self) -> str:
         return f"QueryDB('{self._instance}')"
 
-    def __dir__(self):
-        return list(type(self).__annotations__) + super().__dir__()
+    def __dir__(self) -> list[str]:
+        base_attrs = [attr for attr in super().__dir__() if not attr.startswith("_")]
+        try:
+            registries = self._discover_registries()
+            return sorted(set(base_attrs) | registries)
+        except Exception:
+            return base_attrs

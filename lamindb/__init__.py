@@ -1,5 +1,15 @@
 """A data framework for biology.
 
+Query & connect to an instance
+==============================
+
+Query and connect to instances.
+
+.. autosummary::
+   :toctree: .
+
+   QueryDB
+
 Lineage
 =======
 
@@ -40,8 +50,8 @@ Data transformations and their executions.
    Transform
    Run
 
-Records, labels, features & schemas
-===================================
+Records, features & schemas
+===========================
 
 Create labels and manage flexible records, e.g., for samples or donors.
 
@@ -49,7 +59,6 @@ Create labels and manage flexible records, e.g., for samples or donors.
    :toctree: .
 
    Record
-   ULabel
 
 Define features & schemas to validate artifacts & records.
 
@@ -116,6 +125,13 @@ Developer API
    core
    models
 
+Backwards compatibility.
+
+.. autosummary::
+   :toctree: .
+
+   ULabel
+
 """
 
 # ruff: noqa: I001
@@ -170,6 +186,7 @@ track = context._track
 finish = context._finish
 settings.__doc__ = """Global live settings (:class:`~lamindb.core.Settings`)."""
 context.__doc__ = """Global run context (:class:`~lamindb.core.Context`)."""
+
 from django.db.models import Q
 
 Param = Feature  # backward compat
