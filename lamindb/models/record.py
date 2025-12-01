@@ -47,6 +47,7 @@ if TYPE_CHECKING:
     from .schema import Schema
 
 
+# also see analogous SQL on ULabel
 UPDATE_FEATURE_DTYPE_ON_RECORD_TYPE_NAME_CHANGE = """\
 WITH RECURSIVE old_record_path AS (
     -- Start with OLD values directly, don't query the table
@@ -86,6 +87,7 @@ RETURN NEW;
 """
 
 
+# also see analogous SQL on ULabel
 UPDATE_FEATURE_DTYPE_ON_RECORD_TYPE_CHANGE = """\
 WITH RECURSIVE old_record_path AS (
     SELECT
@@ -140,9 +142,12 @@ RETURN NEW;
 
 
 class Record(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, HasParents):
-    """Flexible metadata records for labeling and organizing entities.
+    """Flexible metadata records.
 
-    Useful for managing samples, donors, cells, compounds, sequences, and other custom entities.
+    Useful for managing samples, donors, cells, compounds, sequences, and other custom entities with their features.
+
+    Records can also be used for labeling artifacts, runs, transforms, and collections.
+    In some cases you may prefer a simple label without features: then consider :class:`~lamindb.ULabel`.
 
     Args:
         name: `str` A name.
@@ -157,6 +162,8 @@ class Record(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, HasParents
     See Also:
         :meth:`~lamindb.Feature`
             Dimensions of measurement (e.g. column of a sheet, attribute of a record).
+        :meth:`~lamindb.ULabel`
+            Like `Record`, just without the ability to store features.
 
     Examples:
 
@@ -551,7 +558,8 @@ class Record(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, HasParents
             if recurse
             else self.records.filter(branch_id__in=branch_ids)
         )
-        df = qs.to_dataframe(features="queryset", order_by="id")
+        logger.important(f"exporting {qs.count()} records of '{self.name}'")
+        df = qs.to_dataframe(features="queryset", order_by="id", limit=None)
         encoded_id = encode_lamindb_fields_as_columns(self.__class__, "id")
         encoded_uid = encode_lamindb_fields_as_columns(self.__class__, "uid")
         encoded_name = encode_lamindb_fields_as_columns(self.__class__, "name")
