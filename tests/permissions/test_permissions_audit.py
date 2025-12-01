@@ -164,8 +164,13 @@ def test_fine_grained_permissions_account():
     assert ulabel.projects.all().count() == 2
     # check delete
     # should delete
-    ln.ULabel.get(name="full_access_ulabel").delete(permanent=True)
+    ulabel_del = ln.ULabel.get(name="full_access_ulabel")
+    ulabel_del.delete(permanent=True)
     assert ln.ULabel.filter().count() == 2
+    # check the logs for delete
+    log_rec = hm.AuditLog.get(record_id=ulabel_del.id)
+    assert log_rec.created_by_uid == "accntid1"
+    assert log_rec.event_type == "DELETE"
     # should not delete, does not error for some reason
     ln.ULabel.get(name="select_ulabel").delete(permanent=True)
     assert ln.ULabel.filter().count() == 2
@@ -192,13 +197,11 @@ def test_fine_grained_permissions_account():
     ulabel = ln.ULabel.get(name="new label")
     ulabel.name = "new label update"
     ulabel.save()
-
+    ulabel = ln.ULabel.get(name="new label update")  # check that it is saved
     # check the logs for update
     log_rec = hm.AuditLog.get(record_id=ulabel.id)
     assert log_rec.created_by_uid == "accntid1"
     assert log_rec.event_type == "UPDATE"
-
-    ulabel = ln.ULabel.get(name="new label update")  # check that it is saved
     # should fail
     ulabel = ln.ULabel.get(name="select_ulabel")
     ulabel.name = "select_ulabel update"
