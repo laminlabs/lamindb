@@ -192,6 +192,12 @@ def test_fine_grained_permissions_account():
     ulabel = ln.ULabel.get(name="new label")
     ulabel.name = "new label update"
     ulabel.save()
+
+    # check the logs for update
+    log_rec = hm.AuditLog.get(record_id=ulabel.id)
+    assert log_rec.created_by_uid == "accntid1"
+    assert log_rec.event_type == "UPDATE"
+
     ulabel = ln.ULabel.get(name="new label update")  # check that it is saved
     # should fail
     ulabel = ln.ULabel.get(name="select_ulabel")
