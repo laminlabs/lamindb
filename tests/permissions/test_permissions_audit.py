@@ -165,10 +165,11 @@ def test_fine_grained_permissions_account():
     # check delete
     # should delete
     ulabel_del = ln.ULabel.get(name="full_access_ulabel")
+    ulabel_del_id = ulabel_del.id
     ulabel_del.delete(permanent=True)
     assert ln.ULabel.filter().count() == 2
     # check the logs for delete
-    log_rec = hm.AuditLog.get(record_id=ulabel_del.id)
+    log_rec = hm.AuditLog.get(record_id=ulabel_del_id)
     assert log_rec.created_by_uid == "accntid1"
     assert log_rec.event_type == "DELETE"
     # should not delete, does not error for some reason
