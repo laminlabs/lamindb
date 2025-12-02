@@ -169,7 +169,7 @@ def test_fine_grained_permissions_account():
     ulabel_del.delete(permanent=True)
     assert ln.ULabel.filter().count() == 2
     # check the logs for delete
-    log_rec = hm.AuditLog.filter(record_id=ulabel_del_id).order_by("-id").first()
+    log_rec = hm.DbWriteLog.filter(record_id=ulabel_del_id).order_by("-id").first()
     assert log_rec.created_by_uid == "accntid1"
     assert log_rec.event_type == "DELETE"
     # should not delete, does not error for some reason
@@ -200,9 +200,10 @@ def test_fine_grained_permissions_account():
     ulabel.save()
     ulabel = ln.ULabel.get(name="new label update")  # check that it is saved
     # check the logs for update
-    log_rec = hm.AuditLog.get(record_id=ulabel.id)
+    log_rec = hm.DbWriteLog.filter(record_id=ulabel.id).order_by("-id").first()
     assert log_rec.created_by_uid == "accntid1"
     assert log_rec.event_type == "UPDATE"
+    assert log_rec.data is not None
     # should fail
     ulabel = ln.ULabel.get(name="select_ulabel")
     ulabel.name = "select_ulabel update"

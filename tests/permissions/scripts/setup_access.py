@@ -5,7 +5,7 @@ from uuid import uuid4
 from hubmodule._migrate import _apply_migrations_with_tracking
 from hubmodule._setup import _setup_extensions, _setup_secret, _setup_utils_jwt
 from hubmodule._rls import RLSGenerator
-from hubmodule._audit import install_audit
+from hubmodule._dbwritelog import install_dbwritelog
 from laminhub_rest.core.postgres import DbRoleHandler
 from pathlib import Path
 
@@ -42,9 +42,9 @@ rls_generator.setup()
 
 print("Created jwt db connection")
 
-install_audit(pgurl)
+install_dbwritelog(pgurl)
 
-print("Installed audit")
+print("Installed dbwritelog")
 
 # create models
 
