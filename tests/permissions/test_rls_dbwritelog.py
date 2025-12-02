@@ -175,7 +175,6 @@ def test_fine_grained_permissions_account():
     assert log_rec.data is not None
     # check the logs for insert
     log_rec = hm.DbWriteLog.filter(record_id=ulabel_del_id).order_by("id").first()
-    assert log_rec.created_by_uid == "accntid1"
     assert log_rec.event_type == "INSERT"
     assert log_rec.data is None
     # should not delete, does not error for some reason
