@@ -10,6 +10,9 @@ Query and connect to instances.
 
    QueryDB
 
+Use `lamin connect` CLI command to connect to an instance for writes & tracking.
+QueryDB is solely to query instances.
+
 Lineage
 =======
 
@@ -50,8 +53,8 @@ Data transformations and their executions.
    Transform
    Run
 
-Records, features & schemas
-===========================
+Records, labels, features & schemas
+===================================
 
 Create labels and manage flexible records, e.g., for samples or donors.
 
@@ -59,6 +62,7 @@ Create labels and manage flexible records, e.g., for samples or donors.
    :toctree: .
 
    Record
+   ULabel
 
 Define features & schemas to validate artifacts & records.
 
@@ -124,13 +128,6 @@ Developer API
    base
    core
    models
-
-Backwards compatibility.
-
-.. autosummary::
-   :toctree: .
-
-   ULabel
 
 """
 
