@@ -172,6 +172,7 @@ def test_fine_grained_permissions_account():
     log_rec = hm.DbWriteLog.filter(record_id=ulabel_del_id).order_by("-id").first()
     assert log_rec.created_by_uid == "accntid1"
     assert log_rec.event_type == "DELETE"
+    assert log_rec.data is not None
     # should not delete, does not error for some reason
     ln.ULabel.get(name="select_ulabel").delete(permanent=True)
     assert ln.ULabel.filter().count() == 2
