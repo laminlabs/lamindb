@@ -337,8 +337,8 @@ class Record(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, HasParents
     """A simple reference like a URL or external ID."""
     reference_type: str | None = CharField(max_length=25, db_index=True, null=True)
     """Type of simple reference."""
-    params: dict | None = models.JSONField(null=True)
-    """For example, to hold additional data in a row in a sheet, not validated as features."""
+    extra_data: dict | None = models.JSONField(null=True)
+    """Additional data in JSON format, not validated as features."""
     schema: Schema | None = ForeignKey(
         "Schema", CASCADE, null=True, related_name="records"
     )
