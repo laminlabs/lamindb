@@ -47,3 +47,20 @@ def test_querydb_rejects_lowercase():
     with pytest.raises(AttributeError) as e:
         cxg.artifacts  # noqa: B018
     assert "Registry names must be capitalized and singular." in str(e.value)
+
+
+def test_querydb_cache():
+    """Subsequent accesses must return cached wrapper."""
+    cxg = ln.QueryDB("laminlabs/cellxgene")
+    artifact1 = cxg.Artifact
+    artifact2 = cxg.Artifact
+    assert artifact1 is artifact2
+
+
+def test_querydb_dir():
+    """__dir__ should must discovered registries."""
+    cxg = ln.QueryDB("laminlabs/cellxgene")
+    dir_result = dir(cxg)
+    assert "Artifact" in dir_result
+    assert "Collection" in dir_result
+    assert "Gene" in dir_result
