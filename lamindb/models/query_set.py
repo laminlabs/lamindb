@@ -478,8 +478,6 @@ def get_feature_annotate_kwargs(
             )
         features = list(set(feature_names))  # remove duplicates
 
-    print("features", features)
-
     feature_qs = Feature.connect(None if qs is None else qs.db).filter(
         dtype__isnull=False
     )
@@ -674,8 +672,6 @@ def reshape_annotate_result(
     cols_from_include = cols_from_include or {}
 
     # Initialize result with basic fields (need a copy since we're modifying it)
-    print(feature_names)
-    print(df)
     result = df[field_names].copy()
     pk_name = registry._meta.pk.name
 
@@ -708,15 +704,17 @@ def reshape_annotate_result(
 
         # Aggregate: sets for non-dict values, first for dict values
         groupby_cols = [pk_name_encoded, feature_name_col]
-        non_dict_features = non_dict_or_list_df.groupby(groupby_cols)[
+        non_dict_or_list_features = non_dict_or_list_df.groupby(groupby_cols)[
             feature_value_col
         ].agg(set)
-        dict_features = dict_or_list_df.groupby(groupby_cols)[feature_value_col].agg(
-            "first"
-        )
+        dict_or_list_features = dict_or_list_df.groupby(groupby_cols)[
+            feature_value_col
+        ].agg("first")
 
         # Combine and pivot to wide format
-        combined_features = pd.concat([non_dict_features, dict_features])
+        combined_features = pd.concat(
+            [non_dict_or_list_features, dict_or_list_features]
+        )
         feature_values = combined_features.unstack().reset_index()
 
         if not feature_values.empty:
@@ -737,8 +735,6 @@ def reshape_annotate_result(
         result_encoded = process_links_features(
             df_encoded, result_encoded, links_features, feature_names, pk_name_encoded
         )
-
-    print(result_encoded)
 
     # --- Apply type conversions based on feature metadata ---
     def extract_single_element(value):
