@@ -1258,35 +1258,35 @@ class QueryDB:
     Space: QuerySet
 
     if setup_settings._instance_exists and "bionty" in setup_settings.instance.modules:
-        genes: QuerySet
-        proteins: QuerySet
-        cell_types: QuerySet
-        diseases: QuerySet
-        phenotypes: QuerySet
-        pathways: QuerySet
-        tissues: QuerySet
-        cell_lines: QuerySet
-        cell_markers: QuerySet
-        organisms: QuerySet
-        experimental_factors: QuerySet
-        developmental_stages: QuerySet
-        ethnicities: QuerySet
+        Gene: QuerySet
+        Protein: QuerySet
+        CellType: QuerySet
+        Disease: QuerySet
+        Phenotype: QuerySet
+        Pathway: QuerySet
+        Tissue: QuerySet
+        CellLine: QuerySet
+        CellMarker: QuerySet
+        Organism: QuerySet
+        ExperimentalFactor: QuerySet
+        DevelopmentStage: QuerySet
+        Ethnicity: QuerySet
 
     if setup_settings._instance_exists and "wetlab" in setup_settings.instance.modules:
-        experiments: QuerySet
-        biosamples: QuerySet
-        techsamples: QuerySet
-        donors: QuerySet
-        genetic_perturbations: QuerySet
-        biologics: QuerySet
-        compounds: QuerySet
-        compound_perturbations: QuerySet
-        environmental_perturbations: QuerySet
-        combination_perturbations: QuerySet
-        wells: QuerySet
-        perturbation_targets: QuerySet
-        genetic_perturbation_systems: QuerySet
-        biologic_types: QuerySet
+        Experiment: QuerySet
+        Biosample: QuerySet
+        Techsample: QuerySet
+        Donor: QuerySet
+        GeneticPerturbation: QuerySet
+        Biologic: QuerySet
+        Compound: QuerySet
+        CompoundPerturbation: QuerySet
+        EnvironmentalPerturbation: QuerySet
+        CombinationPerturbation: QuerySet
+        Well: QuerySet
+        PerturbationTarget: QuerySet
+        GeneticPerturbationSystem: QuerySet
+        BiologicType: QuerySet
 
     def __init__(self, instance: str):
         self._instance = instance
