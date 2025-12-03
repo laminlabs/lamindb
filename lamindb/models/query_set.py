@@ -850,12 +850,9 @@ def _queryset_class_factory(
 ) -> type[models.QuerySet]:
     from lamindb.models import Artifact, ArtifactSet
 
-    # If the model is Artifact, create a new class
-    # for BasicQuerySet or QuerySet that inherits from ArtifactSet.
-    # This allows to add artifact specific functionality to all classes
-    # inheriting from BasicQuerySet.
-    # Thus all query sets of artifacts (and only of artifacts)
-    # will have functions from ArtifactSet.
+    # If the model is Artifact, create a new class for BasicQuerySet or QuerySet that inherits from ArtifactSet.
+    # This allows to add artifact specific functionality to all classes inheriting from BasicQuerySet.
+    # Thus all query sets of artifacts (and only of artifacts) will have functions from ArtifactSet.
     if registry is Artifact and not issubclass(queryset_cls, ArtifactSet):
         new_cls = type(
             "Artifact" + queryset_cls.__name__, (queryset_cls, ArtifactSet), {}
@@ -1012,8 +1009,7 @@ class BasicQuerySet(models.QuerySet):
         Args:
             permanent: Whether to permanently delete the record (skips trash).
                 Is only relevant for records that have the `branch` field.
-                If `None`, uses soft delete for records that have the `branch` field,
-                hard delete otherwise.
+                If `None`, uses soft delete for records that have the `branch` field, hard delete otherwise.
 
         Note:
             Calling `delete()` twice on the same queryset does NOT permanently delete in bulk operations.
@@ -1264,7 +1260,7 @@ class _NonInstantiableQuerySet:
 
 
 class QueryDB:
-    """Convenient queries for all registries of an instance.
+    """Query any registry of any instance.
 
     Args:
         instance: Instance identifier in format "account/instance".
