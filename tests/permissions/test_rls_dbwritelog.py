@@ -9,6 +9,7 @@ import psycopg2
 import pytest
 from django.db import connection, transaction
 from django.db.utils import IntegrityError, InternalError, ProgrammingError
+from hubmodule._dbwritelog import uninstall_dbwritelog
 from jwt_utils import sign_jwt
 from lamindb.models.artifact import track_run_input
 from lamindb_setup.core.django import DBToken, db_token_manager
@@ -155,7 +156,7 @@ def test_select_without_db_token():
         cur.execute("SELECT * FROM lamindb_space;")
 
 
-def test_fine_grained_permissions_account():
+def test_fine_grained_permissions_account_and_dbwritelog():
     # check select
     assert ln.ULabel.filter().count() == 3
     assert ln.Project.filter().count() == 2
@@ -455,6 +456,36 @@ def test_token_reset():
     with pytest.raises(InternalError) as error, transaction.atomic():
         ln.ULabel.filter().count()
     assert "JWT is not set" in error.exconly()
+
+
+def test_dbwritelog_uninstall():
+    triggers_exist_query = (
+        "SELECT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname LIKE 'dbwritelog_%')"
+    )
+    table_exists_query = "SELECT to_regclass('public.hubmodule_dbwritelog') IS NOT NULL"
+
+    with psycopg2.connect(pgurl) as conn, conn.cursor() as cur:
+        cur.execute(triggers_exist_query)
+        triggers_exist = cur.fetchone()[0]
+    assert triggers_exist
+
+    uninstall_dbwritelog(pgurl, drop_table=False)
+
+    with psycopg2.connect(pgurl) as conn, conn.cursor() as cur:
+        cur.execute(triggers_exist_query)
+        triggers_exist = cur.fetchone()[0]
+        assert not triggers_exist
+
+        cur.execute(table_exists_query)
+        table_exists = cur.fetchone()[0]
+        assert table_exists
+
+    uninstall_dbwritelog(pgurl, drop_table=True)
+
+    with psycopg2.connect(pgurl) as conn, conn.cursor() as cur:
+        cur.execute(table_exists_query)
+        table_exists = cur.fetchone()[0]
+    assert not table_exists
 
 
 def test_lamin_dev():
