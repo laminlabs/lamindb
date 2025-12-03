@@ -450,9 +450,9 @@ def get_feature_annotate_kwargs(
         )
     # Get the categorical features
     cat_feature_types = {
-        feature.dtype.replace("cat[", "").replace("]", "")
+        feature.dtype.replace("list[", "").replace("cat[", "").replace("]", "")
         for feature in feature_qs
-        if feature.dtype.startswith("cat[")
+        if feature.dtype.startswith("cat[") or feature.dtype.startswith("list[cat[")
     }
     # Get relationships of labels and features
     link_models_on_models = {
