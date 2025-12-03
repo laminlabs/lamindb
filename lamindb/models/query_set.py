@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import sys
 from collections import UserList
 from collections.abc import Iterable
 from collections.abc import Iterable as IterableType
@@ -25,9 +26,53 @@ from .query_manager import _lookup, _search
 from .sqlrecord import Registry, SQLRecord
 
 if TYPE_CHECKING:
-    from lamindb.base.types import ListLike, StrField
+    from bionty.models import (
+        CellLine,
+        CellMarker,
+        CellType,
+        DevelopmentalStage,
+        Disease,
+        Ethnicity,
+        ExperimentalFactor,
+        Gene,
+        Organism,
+        Pathway,
+        Phenotype,
+        Protein,
+        Tissue,
+    )
+    from wetlab.models import (
+        Biologic,
+        Biosample,
+        CombinationPerturbation,
+        Compound,
+        CompoundPerturbation,
+        Donor,
+        EnvironmentalPerturbation,
+        Experiment,
+        GeneticPerturbation,
+        PerturbationTarget,
+        Techsample,
+        Well,
+    )
 
-    from .sqlrecord import Branch
+    from lamindb.base.types import ListLike, StrField
+    from lamindb.models import (
+        Artifact,
+        Branch,
+        Collection,
+        Feature,
+        Project,
+        Record,
+        Reference,
+        Run,
+        Schema,
+        Space,
+        Storage,
+        Transform,
+        ULabel,
+        User,
+    )
 
 T = TypeVar("T")
 
@@ -1242,51 +1287,53 @@ class QueryDB:
             records = cellxgene.Record.filter(name__startswith="cell")
     """
 
-    Artifact: QuerySet
-    Collection: QuerySet
-    Transform: QuerySet
-    Run: QuerySet
-    User: QuerySet
-    Storage: QuerySet
-    Feature: QuerySet
-    ULabel: QuerySet
-    Record: QuerySet
-    Schema: QuerySet
-    Project: QuerySet
-    Reference: QuerySet
-    Branch: QuerySet
-    Space: QuerySet
+    Artifact: QuerySet[Artifact]  # type: ignore[type-arg]
+    Collection: QuerySet[Collection]  # type: ignore[type-arg]
+    Transform: QuerySet[Transform]  # type: ignore[type-arg]
+    Run: QuerySet[Run]  # type: ignore[type-arg]
+    User: QuerySet[User]  # type: ignore[type-arg]
+    Storage: QuerySet[Storage]  # type: ignore[type-arg]
+    Feature: QuerySet[Feature]  # type: ignore[type-arg]
+    ULabel: QuerySet[ULabel]  # type: ignore[type-arg]
+    Record: QuerySet[Record]  # type: ignore[type-arg]
+    Schema: QuerySet[Schema]  # type: ignore[type-arg]
+    Project: QuerySet[Project]  # type: ignore[type-arg]
+    Reference: QuerySet[Reference]  # type: ignore[type-arg]
+    Branch: QuerySet[Branch]  # type: ignore[type-arg]
+    Space: QuerySet[Space]  # type: ignore[type-arg]
 
-    if setup_settings._instance_exists and "bionty" in setup_settings.instance.modules:
-        Gene: QuerySet
-        Protein: QuerySet
-        CellType: QuerySet
-        Disease: QuerySet
-        Phenotype: QuerySet
-        Pathway: QuerySet
-        Tissue: QuerySet
-        CellLine: QuerySet
-        CellMarker: QuerySet
-        Organism: QuerySet
-        ExperimentalFactor: QuerySet
-        DevelopmentStage: QuerySet
-        Ethnicity: QuerySet
+    if "sphinx" in sys.modules or (
+        setup_settings._instance_exists and "bionty" in setup_settings.instance.modules
+    ):
+        Gene: QuerySet[Gene]  # type: ignore[type-arg]
+        Protein: QuerySet[Protein]  # type: ignore[type-arg]
+        CellType: QuerySet[CellType]  # type: ignore[type-arg]
+        Disease: QuerySet[Disease]  # type: ignore[type-arg]
+        Phenotype: QuerySet[Phenotype]  # type: ignore[type-arg]
+        Pathway: QuerySet[Pathway]  # type: ignore[type-arg]
+        Tissue: QuerySet[Tissue]  # type: ignore[type-arg]
+        CellLine: QuerySet[CellLine]  # type: ignore[type-arg]
+        CellMarker: QuerySet[CellMarker]  # type: ignore[type-arg]
+        Organism: QuerySet[Organism]  # type: ignore[type-arg]
+        ExperimentalFactor: QuerySet[ExperimentalFactor]  # type: ignore[type-arg]
+        DevelopmentalStage: QuerySet[DevelopmentalStage]  # type: ignore[type-arg]
+        Ethnicity: QuerySet[Ethnicity]  # type: ignore[type-arg]
 
-    if setup_settings._instance_exists and "wetlab" in setup_settings.instance.modules:
-        Experiment: QuerySet
-        Biosample: QuerySet
-        Techsample: QuerySet
-        Donor: QuerySet
-        GeneticPerturbation: QuerySet
-        Biologic: QuerySet
-        Compound: QuerySet
-        CompoundPerturbation: QuerySet
-        EnvironmentalPerturbation: QuerySet
-        CombinationPerturbation: QuerySet
-        Well: QuerySet
-        PerturbationTarget: QuerySet
-        GeneticPerturbationSystem: QuerySet
-        BiologicType: QuerySet
+    if "sphinx" in sys.modules or (
+        setup_settings._instance_exists and "bionty" in setup_settings.instance.modules
+    ):
+        Experiment: QuerySet[Experiment]  # type: ignore[type-arg]
+        Biosample: QuerySet[Biosample]  # type: ignore[type-arg]
+        Techsample: QuerySet[Techsample]  # type: ignore[type-arg]
+        Donor: QuerySet[Donor]  # type: ignore[type-arg]
+        GeneticPerturbation: QuerySet[GeneticPerturbation]  # type: ignore[type-arg]
+        Biologic: QuerySet[Biologic]  # type: ignore[type-arg]
+        Compound: QuerySet[Compound]  # type: ignore[type-arg]
+        CompoundPerturbation: QuerySet[CompoundPerturbation]  # type: ignore[type-arg]
+        EnvironmentalPerturbation: QuerySet[EnvironmentalPerturbation]  # type: ignore[type-arg]
+        CombinationPerturbation: QuerySet[CombinationPerturbation]  # type: ignore[type-arg]
+        Well: QuerySet[Well]  # type: ignore[type-arg]
+        PerturbationTarget: QuerySet[PerturbationTarget]  # type: ignore[type-arg]
 
     def __init__(self, instance: str):
         self._instance = instance
