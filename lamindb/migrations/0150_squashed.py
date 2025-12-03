@@ -356,6 +356,10 @@ class Migration(migrations.Migration):
             "lamindb",
             "0149_ulabel_update_feature_dtype_on_ulabel_type_name_change_and_more",
         ),
+        (
+            "lamindb",
+            "0150_rename_params_record_extra_data_and_more",
+        ),
     ]
 
     dependencies = []  # type: ignore
@@ -613,7 +617,6 @@ class Migration(migrations.Migration):
                         null=True,
                     ),
                 ),
-                ("params", models.JSONField(null=True)),
                 (
                     "_hash_type",
                     lamindb.base.fields.CharField(
@@ -1739,7 +1742,7 @@ class Migration(migrations.Migration):
                         null=True,
                     ),
                 ),
-                ("params", models.JSONField(null=True)),
+                ("extra_data", models.JSONField(null=True)),
                 (
                     "artifacts",
                     models.ManyToManyField(

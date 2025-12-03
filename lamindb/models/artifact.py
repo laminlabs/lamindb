@@ -1324,8 +1324,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
     Typically, this denotes the first array dimension.
     """
-    params: dict | None = models.JSONField(null=True)
-    """Non-validated metadata as a dictionary."""
     _hash_type: str | None = CharField(
         max_length=30, db_index=True, null=True, editable=False
     )
