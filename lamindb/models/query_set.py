@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import re
+import sys
 from collections import UserList
 from collections.abc import Iterable
 from collections.abc import Iterable as IterableType
 from importlib import import_module
-from typing import TYPE_CHECKING, Any, Generic, NamedTuple, TypeVar
+from typing import TYPE_CHECKING, Any, Generic, NamedTuple, TypeVar, final
 
 import lamindb_setup as ln_setup
 import pandas as pd
@@ -25,9 +26,53 @@ from .query_manager import _lookup, _search
 from .sqlrecord import Registry, SQLRecord
 
 if TYPE_CHECKING:
-    from lamindb.base.types import ListLike, StrField
+    from bionty.models import (
+        CellLine,
+        CellMarker,
+        CellType,
+        DevelopmentalStage,
+        Disease,
+        Ethnicity,
+        ExperimentalFactor,
+        Gene,
+        Organism,
+        Pathway,
+        Phenotype,
+        Protein,
+        Tissue,
+    )
+    from wetlab.models import (
+        Biologic,
+        Biosample,
+        CombinationPerturbation,
+        Compound,
+        CompoundPerturbation,
+        Donor,
+        EnvironmentalPerturbation,
+        Experiment,
+        GeneticPerturbation,
+        PerturbationTarget,
+        Techsample,
+        Well,
+    )
 
-    from .sqlrecord import Branch
+    from lamindb.base.types import ListLike, StrField
+    from lamindb.models import (
+        Artifact,
+        Branch,
+        Collection,
+        Feature,
+        Project,
+        Record,
+        Reference,
+        Run,
+        Schema,
+        Space,
+        Storage,
+        Transform,
+        ULabel,
+        User,
+    )
 
 T = TypeVar("T")
 
@@ -805,12 +850,9 @@ def _queryset_class_factory(
 ) -> type[models.QuerySet]:
     from lamindb.models import Artifact, ArtifactSet
 
-    # If the model is Artifact, create a new class
-    # for BasicQuerySet or QuerySet that inherits from ArtifactSet.
-    # This allows to add artifact specific functionality to all classes
-    # inheriting from BasicQuerySet.
-    # Thus all query sets of artifacts (and only of artifacts)
-    # will have functions from ArtifactSet.
+    # If the model is Artifact, create a new class for BasicQuerySet or QuerySet that inherits from ArtifactSet.
+    # This allows to add artifact specific functionality to all classes inheriting from BasicQuerySet.
+    # Thus all query sets of artifacts (and only of artifacts) will have functions from ArtifactSet.
     if registry is Artifact and not issubclass(queryset_cls, ArtifactSet):
         new_cls = type(
             "Artifact" + queryset_cls.__name__, (queryset_cls, ArtifactSet), {}
@@ -967,8 +1009,7 @@ class BasicQuerySet(models.QuerySet):
         Args:
             permanent: Whether to permanently delete the record (skips trash).
                 Is only relevant for records that have the `branch` field.
-                If `None`, uses soft delete for records that have the `branch` field,
-                hard delete otherwise.
+                If `None`, uses soft delete for records that have the `branch` field, hard delete otherwise.
 
         Note:
             Calling `delete()` twice on the same queryset does NOT permanently delete in bulk operations.
@@ -1197,94 +1238,172 @@ class QuerySet(BasicQuerySet):
         return self
 
 
+@final
+class _NonInstantiableQuerySet:
+    """Wrapper around QuerySet that prevents instantiation while preserving query methods."""
+
+    def __init__(self, qs: QuerySet, registry_name: str):
+        self._qs = qs
+        self._name = registry_name
+
+    def __repr__(self) -> str:
+        return f"<QuerySet [{self._name}]>"
+
+    def __call__(self, *args, **kwargs):
+        raise TypeError(
+            f"Cannot instantiate {self._name} from QueryDB. "
+            f"Use {self._name}.filter(), {self._name}.get(), etc. to query records."
+        )
+
+    def __getattr__(self, attr):
+        return getattr(self._qs, attr)
+
+
 class QueryDB:
-    """Convenient access to QuerySets for every entity in a LaminDB instance.
+    """Query any registry of any instance.
 
     Args:
-        instance: Instance identifier in format "account/instance" or full instance string.
+        instance: Instance identifier in format "account/instance".
 
     Examples:
 
         Query records from a remote instance::
 
-            cellxgene = ln.QueryDB("laminlabs/cellxgene")
-            artifacts = cellxgene.artifacts.filter(suffix=".h5ad")
-            records = cellxgene.records.filter(name__startswith="cell")
+            cxg_db = ln.QueryDB("laminlabs/cellxgene")
+            artifacts = cxg_db.Artifact.filter(suffix=".h5ad")
+            records = cxg_db.Record.filter(name__startswith="cell")
+
+            cxg_db.artifacts.filter(
+                suffix=".h5ad",
+                description__contains="immune",
+                size__gt=1e9,  # size > 1GB
+                cell_types__in=[
+                    cell_types.b_cell,
+                    cell_types.t_cell,
+                ],
+            ).order_by("created_at").to_dataframe(
+                include=["cell_types__name", "created_by__handle"]  # join with additional info
+            ).head()
     """
 
-    artifacts: QuerySet
-    collections: QuerySet
-    transforms: QuerySet
-    runs: QuerySet
-    users: QuerySet
-    storages: QuerySet
-    features: QuerySet
-    ulabels: QuerySet
-    records: QuerySet
-    schemas: QuerySet
+    Artifact: QuerySet[Artifact]  # type: ignore[type-arg]
+    Collection: QuerySet[Collection]  # type: ignore[type-arg]
+    Transform: QuerySet[Transform]  # type: ignore[type-arg]
+    Run: QuerySet[Run]  # type: ignore[type-arg]
+    User: QuerySet[User]  # type: ignore[type-arg]
+    Storage: QuerySet[Storage]  # type: ignore[type-arg]
+    Feature: QuerySet[Feature]  # type: ignore[type-arg]
+    ULabel: QuerySet[ULabel]  # type: ignore[type-arg]
+    Record: QuerySet[Record]  # type: ignore[type-arg]
+    Schema: QuerySet[Schema]  # type: ignore[type-arg]
+    Project: QuerySet[Project]  # type: ignore[type-arg]
+    Reference: QuerySet[Reference]  # type: ignore[type-arg]
+    Branch: QuerySet[Branch]  # type: ignore[type-arg]
+    Space: QuerySet[Space]  # type: ignore[type-arg]
 
-    if setup_settings._instance_exists and "bionty" in setup_settings.instance.modules:
-        genes: QuerySet
-        proteins: QuerySet
-        cell_types: QuerySet
-        diseases: QuerySet
-        phenotypes: QuerySet
-        pathways: QuerySet
-        tissues: QuerySet
-        cell_lines: QuerySet
-        cell_markers: QuerySet
-        organisms: QuerySet
-        experimental_factors: QuerySet
-        developmental_stages: QuerySet
-        ethnicities: QuerySet
+    if "sphinx" in sys.modules or (
+        setup_settings._instance_exists and "bionty" in setup_settings.instance.modules
+    ):
+        Gene: QuerySet[Gene]  # type: ignore[type-arg]
+        Protein: QuerySet[Protein]  # type: ignore[type-arg]
+        CellType: QuerySet[CellType]  # type: ignore[type-arg]
+        Disease: QuerySet[Disease]  # type: ignore[type-arg]
+        Phenotype: QuerySet[Phenotype]  # type: ignore[type-arg]
+        Pathway: QuerySet[Pathway]  # type: ignore[type-arg]
+        Tissue: QuerySet[Tissue]  # type: ignore[type-arg]
+        CellLine: QuerySet[CellLine]  # type: ignore[type-arg]
+        CellMarker: QuerySet[CellMarker]  # type: ignore[type-arg]
+        Organism: QuerySet[Organism]  # type: ignore[type-arg]
+        ExperimentalFactor: QuerySet[ExperimentalFactor]  # type: ignore[type-arg]
+        DevelopmentalStage: QuerySet[DevelopmentalStage]  # type: ignore[type-arg]
+        Ethnicity: QuerySet[Ethnicity]  # type: ignore[type-arg]
 
-    if setup_settings._instance_exists and "wetlab" in setup_settings.instance.modules:
-        experiments: QuerySet
-        biosamples: QuerySet
-        techsamples: QuerySet
-        donors: QuerySet
-        genetic_perturbations: QuerySet
-        biologics: QuerySet
-        compounds: QuerySet
-        compound_perturbations: QuerySet
-        environmental_perturbations: QuerySet
-        combination_perturbations: QuerySet
-        wells: QuerySet
-        perturbation_targets: QuerySet
-        genetic_perturbation_systems: QuerySet
-        biologic_types: QuerySet
+    if "sphinx" in sys.modules or (
+        setup_settings._instance_exists and "bionty" in setup_settings.instance.modules
+    ):
+        Experiment: QuerySet[Experiment]  # type: ignore[type-arg]
+        Biosample: QuerySet[Biosample]  # type: ignore[type-arg]
+        Techsample: QuerySet[Techsample]  # type: ignore[type-arg]
+        Donor: QuerySet[Donor]  # type: ignore[type-arg]
+        GeneticPerturbation: QuerySet[GeneticPerturbation]  # type: ignore[type-arg]
+        Biologic: QuerySet[Biologic]  # type: ignore[type-arg]
+        Compound: QuerySet[Compound]  # type: ignore[type-arg]
+        CompoundPerturbation: QuerySet[CompoundPerturbation]  # type: ignore[type-arg]
+        EnvironmentalPerturbation: QuerySet[EnvironmentalPerturbation]  # type: ignore[type-arg]
+        CombinationPerturbation: QuerySet[CombinationPerturbation]  # type: ignore[type-arg]
+        Well: QuerySet[Well]  # type: ignore[type-arg]
+        PerturbationTarget: QuerySet[PerturbationTarget]  # type: ignore[type-arg]
 
     def __init__(self, instance: str):
         self._instance = instance
+        self._cache: dict[str, _NonInstantiableQuerySet] = {}
+        self._available_registries: set[str] | None = None
 
-    def __getattr__(self, name: str) -> QuerySet:
-        """Access a registry class for this database instance.
+    def _discover_registries(self) -> set[str]:
+        """Discover available registry classes from the instance's schemas.
 
-        Args:
-            name: Attribute name.
-
-        Returns:
-            QuerySet for the specified registry scoped to this instance.
+        Scans lamindb and any installed schema modules (e.g., bionty, wetlab) to find all registry classes.
         """
-        class_name_base = "".join(word.capitalize() for word in name.split("_"))
-        if class_name_base.endswith("s"):
-            class_name_base = class_name_base[:-1]
+        if self._available_registries is not None:
+            return self._available_registries
 
         owner, instance_name = self._instance.split("/")
         instance_info = ln_setup._connect_instance._connect_instance(
             owner=owner, name=instance_name
         )
+
+        registries = set()
         available_schemas = ["lamindb"] + list(instance_info.modules)
 
         for schema_name in available_schemas:
             try:
                 schema_module = import_module(schema_name)
-                for attr in dir(schema_module.models):
-                    if attr.lower() == class_name_base.lower():
-                        model_class = getattr(schema_module.models, attr)
-                        queryset = model_class.connect(self._instance)
-                        setattr(self, name, queryset)
-                        return queryset
+                if hasattr(schema_module, "__all__"):
+                    registry_names = schema_module.__all__
+                else:
+                    continue
+
+                for class_name in registry_names:
+                    model_class = getattr(schema_module, class_name, None)
+                    if model_class and hasattr(model_class, "connect"):
+                        registries.add(class_name)
+            except ImportError:
+                continue
+
+        self._available_registries = registries
+        return registries
+
+    def __getattr__(self, name: str) -> _NonInstantiableQuerySet:
+        """Access a registry class for this database instance.
+
+        Args:
+            name: Registry class name (e.g., 'Artifact', 'Collection').
+
+        Returns:
+            QuerySet for the specified registry scoped to this instance.
+        """
+        if name in self._cache:
+            return self._cache[name]
+
+        if not name[0].isupper():
+            raise AttributeError("Registry names must be capitalized and singular.")
+
+        owner, instance_name = self._instance.split("/")
+        instance_info = ln_setup._connect_instance._connect_instance(
+            owner=owner, name=instance_name
+        )
+
+        available_schemas = ["lamindb"] + list(instance_info.modules)
+
+        for schema_name in available_schemas:
+            try:
+                schema_module = import_module(schema_name)
+                if hasattr(schema_module, name):
+                    model_class = getattr(schema_module, name)
+                    queryset = model_class.connect(self._instance)
+                    wrapped = _NonInstantiableQuerySet(queryset, name)
+                    self._cache[name] = wrapped
+                    return wrapped
             except (ImportError, AttributeError):
                 continue
 
@@ -1295,5 +1414,10 @@ class QueryDB:
     def __repr__(self) -> str:
         return f"QueryDB('{self._instance}')"
 
-    def __dir__(self):
-        return list(type(self).__annotations__) + super().__dir__()
+    def __dir__(self) -> list[str]:
+        base_attrs = [attr for attr in super().__dir__() if not attr.startswith("_")]
+        try:
+            registries = self._discover_registries()
+            return sorted(set(base_attrs) | registries)
+        except Exception:
+            return base_attrs

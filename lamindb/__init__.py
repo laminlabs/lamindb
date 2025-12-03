@@ -1,5 +1,18 @@
 """A data framework for biology.
 
+Query & connect to an instance
+==============================
+
+Query and connect to instances.
+
+.. autosummary::
+   :toctree: .
+
+   QueryDB
+
+Use `lamin connect` CLI command to connect to an instance for writes & tracking.
+QueryDB is solely to query instances.
+
 Lineage
 =======
 
@@ -170,6 +183,7 @@ track = context._track
 finish = context._finish
 settings.__doc__ = """Global live settings (:class:`~lamindb.core.Settings`)."""
 context.__doc__ = """Global run context (:class:`~lamindb.core.Context`)."""
+
 from django.db.models import Q
 
 Param = Feature  # backward compat
