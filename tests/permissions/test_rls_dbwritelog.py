@@ -289,14 +289,15 @@ def test_fine_grained_permissions_single_records():
 
     ulabel = ln.ULabel.get(name="no_access_ulabel")
 
-    new_name = "new_name_single_rls_access_ulabel"
-    ulabel.name = new_name
-    with pytest.raises(ln.errors.NoWriteAccess):
-        ulabel.save()
     # check that the logs are available now
     assert hm.DbWriteLog.filter(
         record_id=ulabel.id, table_name="lamindb_ulabel"
     ).exists()
+
+    new_name = "new_name_single_rls_access_ulabel"
+    ulabel.name = new_name
+    with pytest.raises(ln.errors.NoWriteAccess):
+        ulabel.save()
 
     # switch access to this ulabel to write
     with psycopg2.connect(pgurl) as conn, conn.cursor() as cur:
