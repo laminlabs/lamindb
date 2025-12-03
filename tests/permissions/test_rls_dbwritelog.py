@@ -170,12 +170,20 @@ def test_fine_grained_permissions_account_and_dbwritelog():
     ulabel_del.delete(permanent=True)
     assert ln.ULabel.filter().count() == 2
     # check the logs for delete
-    log_rec = hm.DbWriteLog.filter(record_id=ulabel_del_id).order_by("-id").first()
+    log_rec = (
+        hm.DbWriteLog.filter(record_id=ulabel_del_id, table_name="lamindb_ulabel")
+        .order_by("-id")
+        .first()
+    )
     assert log_rec.created_by_uid == "accntid1"
     assert log_rec.event_type == "DELETE"
     assert log_rec.data is not None
     # check the logs for insert
-    log_rec = hm.DbWriteLog.filter(record_id=ulabel_del_id).order_by("id").first()
+    log_rec = (
+        hm.DbWriteLog.filter(record_id=ulabel_del_id, table_name="lamindb_ulabel")
+        .order_by("id")
+        .first()
+    )
     assert log_rec.event_type == "INSERT"
     assert log_rec.data is None
     # should not delete, does not error for some reason
@@ -206,7 +214,11 @@ def test_fine_grained_permissions_account_and_dbwritelog():
     ulabel.save()
     ulabel = ln.ULabel.get(name="new label update")  # check that it is saved
     # check the logs for update
-    log_rec = hm.DbWriteLog.filter(record_id=ulabel.id).order_by("-id").first()
+    log_rec = (
+        hm.DbWriteLog.filter(record_id=ulabel.id, table_name="lamindb_ulabel")
+        .order_by("-id")
+        .first()
+    )
     assert log_rec.created_by_uid == "accntid1"
     assert log_rec.event_type == "UPDATE"
     assert log_rec.data is not None
@@ -257,6 +269,14 @@ def test_fine_grained_permissions_single_records():
     assert not ln.ULabel.filter(name="no_access_ulabel").exists()
     assert not ln.Project.filter(name="No_access_project").exists()
 
+    # check that the logs are not available for the ulabel
+    with psycopg2.connect(pgurl) as conn, conn.cursor() as cur:
+        cur.execute("SELECT id FROM lamindb_ulabel WHERE name = 'no_access_ulabel'")
+        ulabel_id = cur.fetchone()[0]
+    assert not hm.DbWriteLog.filter(
+        record_id=ulabel_id, table_name="lamindb_ulabel"
+    ).exists()
+
     # switch access to this ulabel to read
     with psycopg2.connect(pgurl) as conn, conn.cursor() as cur:
         cur.execute(
@@ -273,6 +293,10 @@ def test_fine_grained_permissions_single_records():
     ulabel.name = new_name
     with pytest.raises(ln.errors.NoWriteAccess):
         ulabel.save()
+    # check that the logs are available now
+    assert hm.DbWriteLog.filter(
+        record_id=ulabel.id, table_name="lamindb_ulabel"
+    ).exists()
 
     # switch access to this ulabel to write
     with psycopg2.connect(pgurl) as conn, conn.cursor() as cur:
