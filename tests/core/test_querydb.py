@@ -30,9 +30,20 @@ def test_querydb_missing_module():
     )
 
 
-def test_querydb_rejects_capitalized():
-    """Accessing registries with capitalized names must fail."""
+def test_querydb_instantiate_class():
+    """Attempting to instantiate a class must error."""
+    cxg = ln.QueryDB("laminlabs/cellxgene")
+    with pytest.raises(TypeError) as e:
+        cxg.Artifact()
+    assert (
+        "Cannot instantiate Artifact from QueryDB. Use Artifact.filter(), Artifact.get(), etc. to query records."
+        in str(e.value)
+    )
+
+
+def test_querydb_rejects_lowercase():
+    """Accessing registries with lowercase names must fail."""
     cxg = ln.QueryDB("laminlabs/cellxgene")
     with pytest.raises(AttributeError) as e:
-        cxg.Artifacts  # noqa: B018
-    assert "Use lowercase plural form" in str(e.value)
+        cxg.artifacts  # noqa: B018
+    assert "Registry names must be capitalized and singular." in str(e.value)

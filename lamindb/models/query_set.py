@@ -5,7 +5,7 @@ from collections import UserList
 from collections.abc import Iterable
 from collections.abc import Iterable as IterableType
 from importlib import import_module
-from typing import TYPE_CHECKING, Any, Generic, NamedTuple, TypeVar
+from typing import TYPE_CHECKING, Any, Generic, NamedTuple, TypeVar, final
 
 import lamindb_setup as ln_setup
 import pandas as pd
@@ -1197,40 +1197,107 @@ class QuerySet(BasicQuerySet):
         return self
 
 
-class QueryDB:
-    """Convenient access to QuerySets for every entity in a LaminDB instance.
+@final
+class _NonInstantiableQuerySet:
+    """Wrapper around QuerySet that prevents instantiation while preserving query methods.
+
+    This class delegates all attribute access to the underlying QuerySet but raises
+    a TypeError if called directly, ensuring users interact with QuerySets through
+    their query methods (filter, get, etc.) rather than attempting instantiation.
 
     Args:
-        instance: Instance identifier in format "account/instance" or full instance string.
+        qs: The underlying QuerySet to wrap.
+        registry_name: Name of the registry class for error messages.
+    """
+
+    def __init__(self, qs: QuerySet, registry_name: str):
+        self._qs = qs
+        self._name = registry_name
+
+    def __repr__(self) -> str:
+        return f"<QuerySet [{self._name}]>"
+
+    def __call__(self, *args, **kwargs):
+        raise TypeError(
+            f"Cannot instantiate {self._name} from QueryDB. "
+            f"Use {self._name}.filter(), {self._name}.get(), etc. to query records."
+        )
+
+    def __getattr__(self, attr):
+        return getattr(self._qs, attr)
+
+
+class QueryDB:
+    """Convenient queries for every entity of an instance.
+
+    Args:
+        instance: Instance identifier in format "account/instance".
 
     Examples:
+
         Query records from a remote instance::
 
             cellxgene = ln.QueryDB("laminlabs/cellxgene")
-            artifacts = cellxgene.artifacts.filter(suffix=".h5ad")
-            records = cellxgene.records.filter(name__startswith="cell")
+            artifacts = cellxgene.Artifact.filter(suffix=".h5ad")
+            records = cellxgene.Record.filter(name__startswith="cell")
     """
 
-    _IRREGULAR_PLURALS = {
-        "ethnicity": "ethnicities",
-        "branch": "branches",
-    }
+    Artifact: QuerySet
+    Collection: QuerySet
+    Transform: QuerySet
+    Run: QuerySet
+    User: QuerySet
+    Storage: QuerySet
+    Feature: QuerySet
+    ULabel: QuerySet
+    Record: QuerySet
+    Schema: QuerySet
+    Project: QuerySet
+    Reference: QuerySet
+    Branch: QuerySet
+    Space: QuerySet
+
+    if setup_settings._instance_exists and "bionty" in setup_settings.instance.modules:
+        genes: QuerySet
+        proteins: QuerySet
+        cell_types: QuerySet
+        diseases: QuerySet
+        phenotypes: QuerySet
+        pathways: QuerySet
+        tissues: QuerySet
+        cell_lines: QuerySet
+        cell_markers: QuerySet
+        organisms: QuerySet
+        experimental_factors: QuerySet
+        developmental_stages: QuerySet
+        ethnicities: QuerySet
+
+    if setup_settings._instance_exists and "wetlab" in setup_settings.instance.modules:
+        experiments: QuerySet
+        biosamples: QuerySet
+        techsamples: QuerySet
+        donors: QuerySet
+        genetic_perturbations: QuerySet
+        biologics: QuerySet
+        compounds: QuerySet
+        compound_perturbations: QuerySet
+        environmental_perturbations: QuerySet
+        combination_perturbations: QuerySet
+        wells: QuerySet
+        perturbation_targets: QuerySet
+        genetic_perturbation_systems: QuerySet
+        biologic_types: QuerySet
 
     def __init__(self, instance: str):
         self._instance = instance
-        self._cache: dict[str, QuerySet] = {}
+        self._cache: dict[str, _NonInstantiableQuerySet] = {}
         self._available_registries: set[str] | None = None
 
-    @classmethod
-    def _pluralize(cls, name: str) -> str:
-        lower_name = name.lower()
-        if lower_name in cls._IRREGULAR_PLURALS:
-            return cls._IRREGULAR_PLURALS[lower_name]
-        if lower_name.endswith("s"):
-            return lower_name
-        return f"{lower_name}s"
-
     def _discover_registries(self) -> set[str]:
+        """Discover available registry classes from the instance's schemas.
+
+        Scans lamindb and any installed schema modules (e.g., bionty, wetlab) to find all registry classes.
+        """
         if self._available_registries is not None:
             return self._available_registries
 
@@ -1253,34 +1320,27 @@ class QueryDB:
                 for class_name in registry_names:
                     model_class = getattr(schema_module, class_name, None)
                     if model_class and hasattr(model_class, "connect"):
-                        plural_name = self._pluralize(class_name)
-                        registries.add(plural_name)
+                        registries.add(class_name)
             except ImportError:
                 continue
 
         self._available_registries = registries
         return registries
 
-    def __getattr__(self, name: str) -> QuerySet:
+    def __getattr__(self, name: str) -> _NonInstantiableQuerySet:
         """Access a registry class for this database instance.
 
         Args:
-            name: Attribute name.
+            name: Registry class name (e.g., 'Artifact', 'Collection').
 
         Returns:
             QuerySet for the specified registry scoped to this instance.
         """
-        if name.startswith("_"):
-            raise AttributeError(
-                f"'{type(self).__name__}' object has no attribute '{name}'"
-            )
-
         if name in self._cache:
             return self._cache[name]
 
-        class_name_base = "".join(word.capitalize() for word in name.split("_"))
-        if class_name_base.endswith("s"):
-            class_name_base = class_name_base[:-1]
+        if not name[0].isupper():
+            raise AttributeError("Registry names must be capitalized and singular.")
 
         owner, instance_name = self._instance.split("/")
         instance_info = ln_setup._connect_instance._connect_instance(
@@ -1292,11 +1352,12 @@ class QueryDB:
         for schema_name in available_schemas:
             try:
                 schema_module = import_module(schema_name)
-                if hasattr(schema_module, class_name_base):
-                    model_class = getattr(schema_module, class_name_base)
+                if hasattr(schema_module, name):
+                    model_class = getattr(schema_module, name)
                     queryset = model_class.connect(self._instance)
-                    self._cache[name] = queryset
-                    return queryset
+                    wrapped = _NonInstantiableQuerySet(queryset, name)
+                    self._cache[name] = wrapped
+                    return wrapped
             except (ImportError, AttributeError):
                 continue
 
