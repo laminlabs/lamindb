@@ -1269,9 +1269,21 @@ class QueryDB:
 
         Query records from a remote instance::
 
-            cellxgene = ln.QueryDB("laminlabs/cellxgene")
-            artifacts = cellxgene.Artifact.filter(suffix=".h5ad")
-            records = cellxgene.Record.filter(name__startswith="cell")
+            cxg_db = ln.QueryDB("laminlabs/cellxgene")
+            artifacts = cxg_db.Artifact.filter(suffix=".h5ad")
+            records = cxg_db.Record.filter(name__startswith="cell")
+
+            cxg_db.artifacts.filter(
+                suffix=".h5ad",
+                description__contains="immune",
+                size__gt=1e9,  # size > 1GB
+                cell_types__in=[
+                    cell_types.b_cell,
+                    cell_types.t_cell,
+                ],
+            ).order_by("created_at").to_dataframe(
+                include=["cell_types__name", "created_by__handle"]  # join with additional info
+            ).head()
     """
 
     Artifact: QuerySet[Artifact]  # type: ignore[type-arg]
