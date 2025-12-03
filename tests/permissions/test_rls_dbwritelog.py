@@ -273,6 +273,9 @@ def test_fine_grained_permissions_single_records():
     with psycopg2.connect(pgurl) as conn, conn.cursor() as cur:
         cur.execute("SELECT id FROM lamindb_ulabel WHERE name = 'no_access_ulabel'")
         ulabel_id = cur.fetchone()[0]
+
+    log = hm.DbWriteLog.get(record_id=ulabel_id, table_name="lamindb_ulabel")
+    raise Exception({"space_id": log.space_id, "record_id": log.record_id})
     assert not hm.DbWriteLog.filter(
         record_id=ulabel_id, table_name="lamindb_ulabel"
     ).exists()
