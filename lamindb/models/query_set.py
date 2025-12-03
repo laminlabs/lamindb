@@ -1244,16 +1244,7 @@ class QuerySet(BasicQuerySet):
 
 @final
 class _NonInstantiableQuerySet:
-    """Wrapper around QuerySet that prevents instantiation while preserving query methods.
-
-    This class delegates all attribute access to the underlying QuerySet but raises
-    a TypeError if called directly, ensuring users interact with QuerySets through
-    their query methods (filter, get, etc.) rather than attempting instantiation.
-
-    Args:
-        qs: The underlying QuerySet to wrap.
-        registry_name: Name of the registry class for error messages.
-    """
+    """Wrapper around QuerySet that prevents instantiation while preserving query methods."""
 
     def __init__(self, qs: QuerySet, registry_name: str):
         self._qs = qs
@@ -1273,7 +1264,7 @@ class _NonInstantiableQuerySet:
 
 
 class QueryDB:
-    """Convenient queries for every entity of an instance.
+    """Convenient queries for all registries of an instance.
 
     Args:
         instance: Instance identifier in format "account/instance".
