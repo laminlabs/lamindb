@@ -4,6 +4,7 @@ from datetime import date, datetime
 
 import bionty as bt
 import lamindb as ln
+import pandas as pd
 import pytest
 from django.db import IntegrityError
 from lamindb.errors import FieldValidationError
@@ -135,6 +136,33 @@ def test_record_features_add_remove_values():
     test_record.features.add_values(test_values)
     assert test_record.features.get_values() == test_values
 
+    # sheet export
+
+    sheet = ln.Record(name="Sheet", is_type=True).save()
+    test_record.type = sheet
+    test_record.save()
+    df = sheet.type_to_dataframe()
+    result = {
+        "feature_str": "a string value",
+        "feature_int": 42,
+        "feature_datetime": pd.Timestamp("2024-01-01 12:00:00"),
+        "feature_date": "2024-01-01",
+        "feature_dict": {"key": "value", "list": [1, 2, 3], "number": 123},
+        "feature_type1": "entity1",
+        "feature_type1s": {"entity1", "entity2"},
+        "feature_ulabel": "test-ulabel",
+        "feature_user": ln.setup.settings.user.handle,
+        "feature_project": "test_project",
+        "feature_cell_line": "HEK293",
+        "feature_cell_lines": {"A549 cell", "HEK293"},
+        "feature_cl_ontology_id": "HEK293",
+        "feature_artifact": "test-artifact",
+        "feature_collection": "test-collection",
+        "__lamindb_record_uid__": test_record.uid,
+        "__lamindb_record_name__": "test_record",
+    }
+    assert df.to_dict(orient="records")[0] == result
+
     # test move a value into the trash
 
     record_entity1.delete()
@@ -265,3 +293,33 @@ def test_record_features_add_remove_values():
     artifact.delete(permanent=True)
     run.delete(permanent=True)
     transform.delete(permanent=True)
+
+
+def test_just_a_single_list_type_feature():
+    # this test is necessary because the logic for adding link tables
+    # to the query previously only fired when a non-list cat feature of the same type was present
+    feature_cell_lines = ln.Feature(
+        name="feature_cell_lines", dtype=list[bt.CellLine]
+    ).save()
+    schema = ln.Schema([feature_cell_lines], name="test_schema2").save()
+    test_sheet = ln.Record(name="TestSheet", is_type=True, schema=schema).save()
+    record = ln.Record(name="test_record", type=test_sheet).save()
+    hek293 = bt.CellLine.from_source(name="HEK293").save()
+    a549 = bt.CellLine.from_source(name="A549 cell").save()
+
+    test_values = {"feature_cell_lines": ["HEK293", "A549 cell"]}
+
+    record.features.add_values(test_values)
+
+    record.features.add_values(test_values)
+    assert record.features.get_values() == test_values
+
+    df = test_sheet.type_to_dataframe()
+    result = df.to_dict(orient="records")[0]
+    assert result["feature_cell_lines"] == {"A549 cell", "HEK293"}
+    record.delete(permanent=True)
+    test_sheet.delete(permanent=True)
+    schema.delete(permanent=True)
+    feature_cell_lines.delete(permanent=True)
+    hek293.delete(permanent=True)
+    a549.delete(permanent=True)
