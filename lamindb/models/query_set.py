@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 import sys
-from collections import UserList
+from collections import UserList, defaultdict
 from collections.abc import Iterable
 from collections.abc import Iterable as IterableType
 from importlib import import_module
@@ -435,6 +435,7 @@ def get_feature_annotate_kwargs(
         RecordJson,
         ULabel,
     )
+    from lamindb.models.feature import parse_dtype
 
     if registry not in {Artifact, Record}:
         raise ValueError(
@@ -477,6 +478,8 @@ def get_feature_annotate_kwargs(
             )
         features = list(set(feature_names))  # remove duplicates
 
+    print("features", features)
+
     feature_qs = Feature.connect(None if qs is None else qs.db).filter(
         dtype__isnull=False
     )
@@ -495,10 +498,18 @@ def get_feature_annotate_kwargs(
         )
     # Get the categorical features
     cat_feature_types = {
-        feature.dtype.replace("list[", "").replace("cat[", "").replace("]", "")
+        parse_dtype(feature.dtype)[0]["registry_str"]
         for feature in feature_qs
         if feature.dtype.startswith("cat[") or feature.dtype.startswith("list[cat[")
     }
+    # fields to annotate
+    cat_feature_fields = defaultdict(list)
+    for feature in feature_qs:
+        if feature.dtype.startswith("cat[") or feature.dtype.startswith("list[cat["):
+            dtype_info = parse_dtype(feature.dtype)[0]
+            registry_str = dtype_info["registry_str"]
+            field_name = dtype_info["field_str"]
+            cat_feature_fields[registry_str].append(field_name)
     # Get relationships of labels and features
     link_models_on_models = {
         getattr(
@@ -541,9 +552,10 @@ def get_feature_annotate_kwargs(
             ).lower()
         else:
             field_name = "value"
-        annotate_kwargs[f"{link_attr}__{field_name}__name"] = F(
-            f"{link_attr}__{field_name}__{getattr(feature_type_model, '_name_field', 'name')}"
-        )
+        for field in cat_feature_fields[feature_type]:
+            annotate_kwargs[f"{link_attr}__{field_name}__{field}"] = F(
+                f"{link_attr}__{field_name}__{field}"
+            )
     json_values_attribute = "_feature_values" if registry is Artifact else "values_json"
     annotate_kwargs[f"{json_values_attribute}__feature__name"] = F(
         f"{json_values_attribute}__feature__name"
@@ -662,6 +674,8 @@ def reshape_annotate_result(
     cols_from_include = cols_from_include or {}
 
     # Initialize result with basic fields (need a copy since we're modifying it)
+    print(feature_names)
+    print(df)
     result = df[field_names].copy()
     pk_name = registry._meta.pk.name
 
@@ -686,16 +700,20 @@ def reshape_annotate_result(
 
     if all(col in df_encoded.columns for col in [feature_name_col, feature_value_col]):
         # Separate dict and non-dict values for different aggregation strategies
-        is_dict = df_encoded[feature_value_col].apply(lambda x: isinstance(x, dict))
-        dict_df = df_encoded[is_dict]
-        non_dict_df = df_encoded[~is_dict]
+        is_dict_or_list = df_encoded[feature_value_col].apply(
+            lambda x: isinstance(x, (dict, list))
+        )
+        dict_or_list_df = df_encoded[is_dict_or_list]
+        non_dict_or_list_df = df_encoded[~is_dict_or_list]
 
         # Aggregate: sets for non-dict values, first for dict values
         groupby_cols = [pk_name_encoded, feature_name_col]
-        non_dict_features = non_dict_df.groupby(groupby_cols)[feature_value_col].agg(
-            set
+        non_dict_features = non_dict_or_list_df.groupby(groupby_cols)[
+            feature_value_col
+        ].agg(set)
+        dict_features = dict_or_list_df.groupby(groupby_cols)[feature_value_col].agg(
+            "first"
         )
-        dict_features = dict_df.groupby(groupby_cols)[feature_value_col].agg("first")
 
         # Combine and pivot to wide format
         combined_features = pd.concat([non_dict_features, dict_features])
@@ -719,6 +737,8 @@ def reshape_annotate_result(
         result_encoded = process_links_features(
             df_encoded, result_encoded, links_features, feature_names, pk_name_encoded
         )
+
+    print(result_encoded)
 
     # --- Apply type conversions based on feature metadata ---
     def extract_single_element(value):
@@ -804,7 +824,6 @@ def process_links_features(
             col
             for col in df.columns
             if col.startswith(f"{links_attribute}{prefix}__")
-            and col.endswith("__name")
             and "feature__name" not in col
         ]
 
