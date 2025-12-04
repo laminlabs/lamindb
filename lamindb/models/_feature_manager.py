@@ -1003,8 +1003,6 @@ class FeatureManager:
             related_names["Project"] = "linked_projects"
             related_names["Artifact"] = "linked_artifacts"
             related_names["Collection"] = "linked_collections"
-        else:
-            related_names["Artifact"] = "artifacts"
         # same convention for Artifact & Record
         related_names["Run"] = "linked_runs"
         for class_name, registry_features_labels in features_labels.items():

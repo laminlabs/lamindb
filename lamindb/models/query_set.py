@@ -744,45 +744,56 @@ def reshape_annotate_result(
         )
 
     # --- Apply type conversions based on feature metadata ---
-    def extract_single_element(value):
-        """Extract single element from set/collection if it contains exactly one item."""
-        if not hasattr(value, "__len__"):  # NaN or other scalar
-            return value
-        if len(value) != 1:
-            # TODO: Make this dependent on feature._expect_many
-            return value
-        return next(iter(value))
+    def extract_and_check_scalar(series: pd.Series) -> tuple[pd.Series, bool]:
+        """Extract single elements and return if column is now scalar."""
+        has_multiple_values = False
+
+        def extract_and_track(value):
+            nonlocal has_multiple_values
+            if not hasattr(value, "__len__") or isinstance(value, str):
+                return value
+            if len(value) != 1:
+                has_multiple_values = True
+                return value
+            return next(iter(value))
+
+        extracted = series.apply(extract_and_track)
+        is_scalar = not has_multiple_values
+        return extracted, is_scalar
 
     for feature in feature_qs:
         if feature.name not in result_encoded.columns:
             continue
 
-        # Extract single values from sets where appropriate
-        result_encoded[feature.name] = result_encoded[feature.name].apply(
-            extract_single_element
+        # Extract single values from sets
+        result_encoded[feature.name], is_scalar = extract_and_check_scalar(
+            result_encoded[feature.name]
         )
 
-        # Convert to categorical dtype if specified
-        if feature.dtype.startswith("cat"):
-            result_encoded[feature.name] = result_encoded[feature.name].astype(
-                "category"
-            )
+        if is_scalar:
+            # Convert to categorical dtype if specified
+            if feature.dtype.startswith("cat"):
+                result_encoded[feature.name] = result_encoded[feature.name].astype(
+                    "category"
+                )
 
-        # Convert to datetime if specified
-        if feature.dtype == "datetime":
-            result_encoded[feature.name] = pd.to_datetime(result_encoded[feature.name])
+            # Convert to datetime if specified
+            if feature.dtype == "datetime":
+                result_encoded[feature.name] = pd.to_datetime(
+                    result_encoded[feature.name]
+                )
 
-        # Convert to date if specified
-        if feature.dtype == "date":
-            result_encoded[feature.name] = pd.to_datetime(
-                result_encoded[feature.name]
-            ).dt.date
+            # Convert to date if specified
+            if feature.dtype == "date":
+                result_encoded[feature.name] = pd.to_datetime(
+                    result_encoded[feature.name]
+                ).dt.date
 
-        # Convert to list if specified
-        if feature.dtype.startswith("list"):
-            result_encoded[feature.name] = result_encoded[feature.name].apply(
-                lambda x: list(x)
-            )
+            # Convert to list if specified
+            if feature.dtype.startswith("list"):
+                result_encoded[feature.name] = result_encoded[feature.name].apply(
+                    lambda x: list(x)
+                )
 
     # --- Finalize result ---
 
