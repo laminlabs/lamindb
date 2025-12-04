@@ -255,6 +255,12 @@ def test_record_features_add_remove_values():
     # export to artifact to trigger validation -- this will raise many errors if anything is inconsistent
 
     sheet_as_artifact = sheet.to_artifact()
+
+    # could devise a test for get_values or features.describe()
+    # but this is extensively tested elsewhere
+    # print(sheet_as_artifact.features.get_values())
+    # assert sheet_as_artifact.features.get_values()
+
     sheet_as_artifact.delete(permanent=True)
 
     # test move a value into the trash
