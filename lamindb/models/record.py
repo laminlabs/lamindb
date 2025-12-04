@@ -148,9 +148,9 @@ class class_or_instance_method:
     def __get__(self, instance, owner):
         # If called on the class, pass the class
         if instance is None:
-            return lambda: self.func(owner)
+            return lambda *args, **kwargs: self.func(owner, *args, **kwargs)
         # If called on an instance, pass the instance
-        return lambda: self.func(instance)
+        return lambda *args, **kwargs: self.func(instance, *args, **kwargs)
 
 
 class Record(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, HasParents):
