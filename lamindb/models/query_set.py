@@ -765,35 +765,28 @@ def reshape_annotate_result(
         if feature.name not in result_encoded.columns:
             continue
 
-        # Extract single values from sets
         result_encoded[feature.name], is_scalar = extract_and_check_scalar(
             result_encoded[feature.name]
         )
 
         if is_scalar:
-            # Convert to categorical dtype if specified
             if feature.dtype.startswith("cat"):
                 result_encoded[feature.name] = result_encoded[feature.name].astype(
                     "category"
                 )
-
-            # Convert to datetime if specified
             if feature.dtype == "datetime":
                 result_encoded[feature.name] = pd.to_datetime(
                     result_encoded[feature.name]
                 )
-
-            # Convert to date if specified
             if feature.dtype == "date":
                 result_encoded[feature.name] = pd.to_datetime(
                     result_encoded[feature.name]
                 ).dt.date
 
-            # Convert to list if specified
-            if feature.dtype.startswith("list"):
-                result_encoded[feature.name] = result_encoded[feature.name].apply(
-                    lambda x: list(x)
-                )
+        if feature.dtype.startswith("list"):
+            result_encoded[feature.name] = result_encoded[feature.name].apply(
+                lambda x: list(x)
+            )
 
     # --- Finalize result ---
 
