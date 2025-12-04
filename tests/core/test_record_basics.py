@@ -146,7 +146,7 @@ def test_record_features_add_remove_values():
     test_record.type = sheet
     test_record.save()
     df = sheet.to_dataframe()
-    result = {
+    target_result = {
         "feature_str": "a string value",
         "feature_list_str": ["a", "list", "of", "strings"],
         "feature_int": 42,
@@ -155,12 +155,10 @@ def test_record_features_add_remove_values():
         "feature_date": "2024-01-01",
         "feature_dict": {"key": "value", "list": [1, 2, 3], "number": 123},
         "feature_type1": "entity1",
-        "feature_type1s": {"entity1", "entity2"},
         "feature_ulabel": "test-ulabel",
         "feature_user": ln.setup.settings.user.handle,
         "feature_project": "test_project",
         "feature_cell_line": "HEK293",
-        "feature_cell_lines": {"A549 cell", "HEK293"},
         "feature_cl_ontology_id": "HEK293",
         "feature_artifact": "test-artifact",
         "feature_collection": "test-collection",
@@ -168,7 +166,16 @@ def test_record_features_add_remove_values():
         "__lamindb_record_uid__": test_record.uid,
         "__lamindb_record_name__": "test_record",
     }
-    assert df.to_dict(orient="records")[0] == result
+    result = df.to_dict(orient="records")[0]
+    # need to handle categorical lists differently because
+    # we don't yet respect ordering
+    result_feature_type1s = result.pop("feature_type1s")
+    assert set(result_feature_type1s) == {"entity1", "entity2"}
+    assert isinstance(result_feature_type1s, list)
+    result_feature_cell_lines = result.pop("feature_cell_lines")
+    assert set(result_feature_cell_lines) == {"HEK293", "A549 cell"}
+    assert isinstance(result_feature_cell_lines, list)
+    assert result == target_result
 
     # test move a value into the trash
 
@@ -333,8 +340,10 @@ def test_just_a_single_list_type_feature_and_mistakes():
 
     df = test_sheet.to_dataframe()
     result = df.to_dict(orient="records")[0]
-    assert result["feature_cell_lines"] == {"A549 cell", "HEK293"}
-    assert result["feature_list_ontology_id"] == {
+    assert isinstance(result["feature_cell_lines"], list)
+    assert isinstance(result["feature_list_ontology_id"], list)
+    assert set(result["feature_cell_lines"]) == {"HEK293", "A549 cell"}
+    assert set(result["feature_list_ontology_id"]) == {
         "UBERON:0002369",
         "UBERON:0005172",
     }

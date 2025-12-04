@@ -776,6 +776,15 @@ def reshape_annotate_result(
             except (TypeError, ValueError):
                 pass  # Keep original if conversion fails
 
+        # Convert to list if specified
+        if feature.dtype.startswith("list"):
+            try:
+                result_encoded[feature.name] = result_encoded[feature.name].apply(
+                    lambda x: list(x)
+                )
+            except (TypeError, ValueError):
+                pass  # Keep original if conversion fails
+
     # --- Finalize result ---
 
     # Reorder columns to prioritize features
@@ -979,6 +988,10 @@ class BasicQuerySet(models.QuerySet):
         else:
             queryset = subset
 
+        # our main problem with this approach is that we lose ordering in categorical lists
+        # we'd need to respect ordering through the primary key on the link table, but that's
+        # another refactoring effort
+        # we have the correct ordering in `features.get_values()`, though
         df = pd.DataFrame(queryset.values(*field_names, *list(annotate_kwargs.keys())))
         if len(df) == 0:
             df = pd.DataFrame({}, columns=field_names)
