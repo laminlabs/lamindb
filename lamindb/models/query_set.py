@@ -813,7 +813,6 @@ def process_links_features(
 ) -> pd.DataFrame:
     """Process links_XXX feature columns."""
     # this loops over different entities that might be linked under a feature
-    print(result.columns)
     for feature_col in feature_cols:
         links_attribute = "links_" if feature_col.startswith("links_") else "values_"
         regex = f"{links_attribute}(.+?)__feature__name"
