@@ -84,6 +84,7 @@ def test_record_features_add_remove_values():
     transform = ln.Transform(key="test-transform").save()
     run = ln.Run(transform, name="test-run").save()
 
+    feature_bool = ln.Feature(name="feature_bool", dtype=bool).save()
     feature_str = ln.Feature(name="feature_str", dtype=str).save()
     feature_list_str = ln.Feature(name="feature_list_str", dtype=list[str]).save()
     feature_int = ln.Feature(name="feature_int", dtype=int).save()
@@ -117,6 +118,7 @@ def test_record_features_add_remove_values():
     # no schema validation
 
     test_values = {
+        "feature_bool": True,
         "feature_str": "a string value",
         "feature_list_str": ["a", "list", "of", "strings"],
         "feature_int": 42,
@@ -140,26 +142,99 @@ def test_record_features_add_remove_values():
     test_record.features.add_values(test_values)
     assert test_record.features.get_values() == test_values
 
-    # sheet export
+    # all empty sheet
 
-    sheet = ln.Record(name="Sheet", is_type=True).save()
+    schema = ln.Schema(
+        [
+            feature_bool,
+            feature_str,
+            feature_int,
+            feature_list_str,
+            feature_list_int,
+            feature_datetime,
+            feature_date,
+            feature_dict,
+            feature_type1,
+            feature_type1s,
+            feature_ulabel,
+            feature_user,
+            feature_project,
+            feature_cell_line,
+            feature_cell_lines,
+            feature_cl_ontology_id,
+            feature_artifact,
+            feature_collection,
+            feature_run,
+        ],
+        name="test_schema",
+    ).save()
+    sheet = ln.Record(name="Sheet", is_type=True, schema=schema).save()
+    empty_record = ln.Record(name="empty_record", type=sheet).save()
+    df_empty = sheet.to_dataframe()
+
+    assert df_empty["feature_bool"].isnull().all()
+    assert df_empty["feature_bool"].dtype.name == "boolean"
+    assert df_empty["feature_str"].isnull().all()
+    assert df_empty["feature_str"].dtype.name == "string"
+    assert df_empty["feature_int"].isnull().all()
+    assert df_empty["feature_int"].dtype.name == "Int64"
+    assert df_empty["feature_list_str"].isnull().all()
+    assert df_empty["feature_list_str"].dtype.name == "object"
+    assert df_empty["feature_list_int"].isnull().all()
+    assert df_empty["feature_list_int"].dtype.name == "object"
+    assert df_empty["feature_datetime"].isnull().all()
+    assert df_empty["feature_datetime"].dtype.name == "datetime64[ns]"
+    assert df_empty["feature_date"].isnull().all()
+    assert df_empty["feature_date"].dtype.name == "object"
+    assert df_empty["feature_dict"].isnull().all()
+    assert df_empty["feature_dict"].dtype.name == "object"
+    assert df_empty["feature_type1"].isnull().all()
+    assert df_empty["feature_type1"].dtype.name == "category"
+    assert df_empty["feature_type1s"].isnull().all()
+    assert df_empty["feature_type1s"].dtype.name == "object"
+    assert df_empty["feature_ulabel"].isnull().all()
+    assert df_empty["feature_ulabel"].dtype.name == "category"
+    assert df_empty["feature_user"].isnull().all()
+    assert df_empty["feature_user"].dtype.name == "category"
+    assert df_empty["feature_project"].isnull().all()
+    assert df_empty["feature_project"].dtype.name == "category"
+    assert df_empty["feature_cell_line"].isnull().all()
+    assert df_empty["feature_cell_line"].dtype.name == "category"
+    assert df_empty["feature_cell_lines"].isnull().all()
+    assert df_empty["feature_cell_lines"].dtype.name == "object"
+    assert df_empty["feature_cl_ontology_id"].isnull().all()
+    assert df_empty["feature_cl_ontology_id"].dtype.name == "category"
+    assert df_empty["feature_artifact"].isnull().all()
+    assert df_empty["feature_artifact"].dtype.name == "category"
+    assert df_empty["feature_collection"].isnull().all()
+    assert df_empty["feature_collection"].dtype.name == "category"
+    assert df_empty["feature_run"].isnull().all()
+    assert df_empty["feature_run"].dtype.name == "category"
+
+    # remove empty record from sheet
+    empty_record.type = None
+    empty_record.save()
+
+    # sheet with values
+
     test_record.type = sheet
     test_record.save()
     df = sheet.to_dataframe()
     target_result = {
+        "feature_bool": True,
         "feature_str": "a string value",
         "feature_list_str": ["a", "list", "of", "strings"],
         "feature_int": 42,
         "feature_list_int": [1, 2, 3],
         "feature_datetime": pd.Timestamp("2024-01-01 12:00:00"),
-        "feature_date": "2024-01-01",
+        "feature_date": date(2024, 1, 1),
         "feature_dict": {"key": "value", "list": [1, 2, 3], "number": 123},
         "feature_type1": "entity1",
         "feature_ulabel": "test-ulabel",
         "feature_user": ln.setup.settings.user.handle,
         "feature_project": "test_project",
         "feature_cell_line": "HEK293",
-        "feature_cl_ontology_id": "HEK293",
+        "feature_cl_ontology_id": "CLO:0001230",
         "feature_artifact": "test-artifact",
         "feature_collection": "test-collection",
         "feature_run": run.uid,
@@ -176,6 +251,26 @@ def test_record_features_add_remove_values():
     assert set(result_feature_cell_lines) == {"HEK293", "A549 cell"}
     assert isinstance(result_feature_cell_lines, list)
     assert result == target_result
+
+    # export to artifact to trigger validation -- this will raise many errors if anything is inconsistent
+
+    sheet_as_artifact = sheet.to_artifact()
+
+    # could devise a test for get_values or features.describe()
+    # but this is extensively tested elsewhere
+    # print(sheet_as_artifact.features.get_values())
+    # assert sheet_as_artifact.features.get_values()
+
+    sheet_as_artifact.delete(permanent=True)
+
+    # add the empty record back to the sheet and export again
+
+    empty_record.type = sheet
+    empty_record.save()
+    df = sheet.to_dataframe()
+    sheet_as_artifact = sheet.to_artifact()
+    sheet_as_artifact.delete(permanent=True)
+    empty_record.delete(permanent=True)
 
     # test move a value into the trash
 
@@ -232,6 +327,10 @@ def test_record_features_add_remove_values():
 
     # test passing None has no effect, does not lead to annotation
 
+    sheet.schema = None
+    sheet.save()
+    schema.delete(permanent=True)
+
     test_record.features.add_values({"feature_int": None, "feature_type1": None})
     assert test_record.features.get_values() == test_values
 
@@ -278,8 +377,8 @@ def test_record_features_add_remove_values():
     schema.delete(permanent=True)
 
     # clean up rest
-
     test_record.delete(permanent=True)
+    sheet.delete(permanent=True)
     feature_str.delete(permanent=True)
     feature_list_str.delete(permanent=True)
     feature_int.delete(permanent=True)
@@ -311,7 +410,7 @@ def test_record_features_add_remove_values():
     transform.delete(permanent=True)
 
 
-def test_just_a_single_list_type_feature_and_mistakes():
+def test_only_list_type_features_and_field_qualifiers():
     # this test is necessary because the logic for adding link tables
     # to the query previously only fired when a non-list cat feature of the same type was present
     feature_cell_lines = ln.Feature(

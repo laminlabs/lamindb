@@ -1,3 +1,5 @@
+from datetime import date
+
 import bionty as bt
 import lamindb as ln
 import numpy as np
@@ -106,7 +108,7 @@ def test_describe_to_dataframe_example_dataset():
             np.nan,
             "We had a great time performing this study and the results look compelling.",
         ],
-        "date_of_study": ["2025-02-13", "2024-12-01"],
+        "date_of_study": [date(2025, 2, 13), date(2024, 12, 1)],
         "study_metadata": [
             {"detail1": "456", "detail2": 2},
             {"detail1": "123", "detail2": 1},

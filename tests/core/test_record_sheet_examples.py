@@ -236,17 +236,19 @@ def test_nextflow_sheet_with_samples(
         "fastq_1",
         "fastq_2",
         "expected_cells",
+        "seq_center",
     ]
     assert artifact.path.read_text().startswith("""\
-sample,fastq_1,fastq_2,expected_cells,__lamindb_record_uid__,__lamindb_record_name__
-Sample_X,https://raw.githubusercontent.com/nf-core/test-datasets/scrnaseq/testdata/cellranger/Sample_X_S1_L001_R1_001.fastq.gz,https://raw.githubusercontent.com/nf-core/test-datasets/scrnaseq/testdata/cellranger/Sample_X_S1_L001_R2_001.fastq.gz,5000,""")
+sample,fastq_1,fastq_2,expected_cells,seq_center,__lamindb_record_uid__,__lamindb_record_name__
+Sample_X,https://raw.githubusercontent.com/nf-core/test-datasets/scrnaseq/testdata/cellranger/Sample_X_S1_L001_R1_001.fastq.gz,https://raw.githubusercontent.com/nf-core/test-datasets/scrnaseq/testdata/cellranger/Sample_X_S1_L001_R2_001.fastq.gz,5000,,""")
     assert artifact.features.describe(return_str=True).endswith("""\
 └── Dataset features
-    └── columns (4)
+    └── columns (5)
         sample              Record[BioSample]       Sample_X, Sample_Y
         fastq_1             str
         fastq_2             str
-        expected_cells      int""")
+        expected_cells      int
+        seq_center          str""")
 
     related_schemas = list(artifact.feature_sets.all())
     artifact.feature_sets.clear()

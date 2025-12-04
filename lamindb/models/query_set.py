@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 import re
 import sys
 from collections import UserList, defaultdict
@@ -735,55 +736,71 @@ def reshape_annotate_result(
 
     if links_features:
         result_encoded = process_links_features(
-            df_encoded, result_encoded, links_features, feature_names, pk_name_encoded
+            df_encoded,
+            result_encoded,
+            links_features,
+            feature_names,
+            feature_qs,
+            pk_name_encoded,
         )
 
     # --- Apply type conversions based on feature metadata ---
-    def extract_single_element(value):
-        """Extract single element from set/collection if it contains exactly one item."""
-        if not hasattr(value, "__len__"):  # NaN or other scalar
-            return value
-        if len(value) != 1:
-            # TODO: Make this dependent on feature._expect_many
-            return value
-        return next(iter(value))
+    def extract_and_check_scalar(series: pd.Series) -> tuple[pd.Series, bool]:
+        """Extract single elements and return if column is now scalar."""
+        has_multiple_values = False
+
+        def extract_and_track(value):
+            nonlocal has_multiple_values
+            if not hasattr(value, "__len__") or isinstance(value, str):
+                return value
+            if len(value) != 1:
+                has_multiple_values = True
+                return value
+            return next(iter(value))
+
+        extracted = series.apply(extract_and_track)
+        is_scalar = not has_multiple_values
+        return extracted, is_scalar
 
     for feature in feature_qs:
         if feature.name not in result_encoded.columns:
             continue
 
-        # Extract single values from sets where appropriate
-        # TODO: Make dependent on feature._expect_many
-        result_encoded[feature.name] = result_encoded[feature.name].apply(
-            extract_single_element
+        result_encoded[feature.name], is_scalar = extract_and_check_scalar(
+            result_encoded[feature.name]
         )
 
-        # Convert to categorical dtype if specified
-        if feature.dtype.startswith("cat"):
-            try:
+        if is_scalar:
+            if feature.dtype.startswith("cat"):
                 result_encoded[feature.name] = result_encoded[feature.name].astype(
                     "category"
                 )
-            except (TypeError, ValueError):
-                pass  # Keep original if conversion fails
-
-        # Convert to datetime if specified
-        if feature.dtype.startswith("datetime"):
-            try:
+            if feature.dtype == "datetime":
                 result_encoded[feature.name] = pd.to_datetime(
                     result_encoded[feature.name]
                 )
-            except (TypeError, ValueError):
-                pass  # Keep original if conversion fails
-
-        # Convert to list if specified
-        if feature.dtype.startswith("list"):
-            try:
-                result_encoded[feature.name] = result_encoded[feature.name].apply(
-                    lambda x: list(x)
+            if feature.dtype == "date":
+                result_encoded[feature.name] = pd.to_datetime(
+                    result_encoded[feature.name]
+                ).dt.date
+            if feature.dtype == "bool":
+                result_encoded[feature.name] = result_encoded[feature.name].astype(
+                    "boolean"
                 )
-            except (TypeError, ValueError):
-                pass  # Keep original if conversion fails
+
+        if feature.dtype.startswith("list"):
+            mask = result_encoded[feature.name].notna()
+            result_encoded.loc[mask, feature.name] = result_encoded.loc[
+                mask, feature.name
+            ].apply(lambda x: list(x))
+
+        if feature.dtype == "dict":
+            # this is the case when a dict is stored as a string; won't happen
+            # within lamindb but might for external data
+            if isinstance(result_encoded[feature.name].iloc[0], str):
+                result_encoded[feature.name] = result_encoded[feature.name].apply(
+                    lambda x: ast.literal_eval(x) if isinstance(x, str) else x
+                )
 
     # --- Finalize result ---
 
@@ -818,9 +835,12 @@ def process_links_features(
     result: pd.DataFrame,
     feature_cols: list[str],
     features: bool | list[str],
+    feature_qs: QuerySet | None,
     pk_name: str = "id",
 ) -> pd.DataFrame:
     """Process links_XXX feature columns."""
+    from lamindb.models.feature import parse_dtype
+
     # this loops over different entities that might be linked under a feature
     for feature_col in feature_cols:
         links_attribute = "links_" if feature_col.startswith("links_") else "values_"
@@ -849,10 +869,14 @@ def process_links_features(
         # Filter features if specific ones requested
         if isinstance(features, list):
             feature_names = [f for f in feature_names if f in features]
-        for feature_name in feature_names:
-            mask = df[feature_col] == feature_name
+        for feature in feature_qs:
+            if feature.name not in feature_names:
+                continue
+            field_name = parse_dtype(feature.dtype)[0]["field_str"]
+            value_col = [c for c in value_cols if c.endswith(f"__{field_name}")][0]
+            mask = df[feature_col] == feature.name
             feature_values = df[mask].groupby(pk_name)[value_col].agg(set)
-            result.insert(3, feature_name, result[pk_name].map(feature_values))
+            result.insert(3, feature.name, result[pk_name].map(feature_values))
 
     return result
 
@@ -1012,6 +1036,7 @@ class BasicQuerySet(models.QuerySet):
         # cast floats and ints where appropriate
         # this is currently needed because the UI writes into the JSON field through JS
         # and thus a `10` might be a float, not an int
+        # note: also type casting within reshape_annotate_result
         if feature_qs is not None:
             for feature in feature_qs:
                 if feature.name in df_reshaped.columns:
@@ -1020,7 +1045,7 @@ class BasicQuerySet(models.QuerySet):
                         current_dtype
                     ):
                         df_reshaped[feature.name] = df_reshaped[feature.name].astype(
-                            int
+                            "Int64"  # nullable integer dtype
                         )
                     elif feature.dtype == "float" and not pd.api.types.is_float_dtype(
                         current_dtype
