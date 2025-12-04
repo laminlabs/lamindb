@@ -231,7 +231,7 @@ def test_record_features_add_remove_values():
         "feature_int": 42,
         "feature_list_int": [1, 2, 3],
         "feature_datetime": pd.Timestamp("2024-01-01 12:00:00"),
-        "feature_date": "2024-01-01",
+        "feature_date": date(2024, 1, 1),
         "feature_dict": {"key": "value", "list": [1, 2, 3], "number": 123},
         "feature_type1": "entity1",
         "feature_ulabel": "test-ulabel",
@@ -255,6 +255,10 @@ def test_record_features_add_remove_values():
     assert set(result_feature_cell_lines) == {"HEK293", "A549 cell"}
     assert isinstance(result_feature_cell_lines, list)
     assert result == target_result
+
+    # export to artifact to trigger validation
+
+    sheet_as_artifact = sheet.to_artifact()
 
     # test move a value into the trash
 
@@ -357,7 +361,7 @@ def test_record_features_add_remove_values():
     schema.delete(permanent=True)
 
     # clean up rest
-
+    sheet_as_artifact.delete(permanent=True)
     test_record.delete(permanent=True)
     feature_str.delete(permanent=True)
     feature_list_str.delete(permanent=True)

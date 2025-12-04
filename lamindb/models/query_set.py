@@ -753,37 +753,31 @@ def reshape_annotate_result(
             continue
 
         # Extract single values from sets where appropriate
-        # TODO: Make dependent on feature._expect_many
         result_encoded[feature.name] = result_encoded[feature.name].apply(
             extract_single_element
         )
 
         # Convert to categorical dtype if specified
         if feature.dtype.startswith("cat"):
-            try:
-                result_encoded[feature.name] = result_encoded[feature.name].astype(
-                    "category"
-                )
-            except (TypeError, ValueError):
-                pass  # Keep original if conversion fails
+            result_encoded[feature.name] = result_encoded[feature.name].astype(
+                "category"
+            )
 
         # Convert to datetime if specified
-        if feature.dtype.startswith("datetime"):
-            try:
-                result_encoded[feature.name] = pd.to_datetime(
-                    result_encoded[feature.name]
-                )
-            except (TypeError, ValueError):
-                pass  # Keep original if conversion fails
+        if feature.dtype == "datetime":
+            result_encoded[feature.name] = pd.to_datetime(result_encoded[feature.name])
+
+        # Convert to date if specified
+        if feature.dtype == "date":
+            result_encoded[feature.name] = pd.to_datetime(
+                result_encoded[feature.name]
+            ).dt.date
 
         # Convert to list if specified
         if feature.dtype.startswith("list"):
-            try:
-                result_encoded[feature.name] = result_encoded[feature.name].apply(
-                    lambda x: list(x)
-                )
-            except (TypeError, ValueError):
-                pass  # Keep original if conversion fails
+            result_encoded[feature.name] = result_encoded[feature.name].apply(
+                lambda x: list(x)
+            )
 
     # --- Finalize result ---
 
@@ -1012,6 +1006,7 @@ class BasicQuerySet(models.QuerySet):
         # cast floats and ints where appropriate
         # this is currently needed because the UI writes into the JSON field through JS
         # and thus a `10` might be a float, not an int
+        # note: also type casting within reshape_annotate_result
         if feature_qs is not None:
             for feature in feature_qs:
                 if feature.name in df_reshaped.columns:
