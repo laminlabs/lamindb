@@ -141,6 +141,18 @@ RETURN NEW;
 """
 
 
+class class_or_instance_method:
+    def __init__(self, func):
+        self.func = func
+
+    def __get__(self, instance, owner):
+        # If called on the class, pass the class
+        if instance is None:
+            return lambda: self.func(owner)
+        # If called on an instance, pass the instance
+        return lambda: self.func(instance)
+
+
 class Record(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, HasParents):
     """Flexible metadata records.
 
@@ -538,18 +550,27 @@ class Record(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, HasParents
         """
         return _query_relatives([self], "records")  # type: ignore
 
-    def type_to_dataframe(self, recurse: bool = False) -> pd.DataFrame:
-        """Export all instances of this record type to a pandas DataFrame.
+    @class_or_instance_method
+    def to_dataframe(cls_or_self, recurse: bool = False, **kwargs) -> pd.DataFrame:
+        """Export to a pandas DataFrame.
 
         This is almost equivalent to::
 
             ln.Record.filter(type=sample_type).to_dataframe(include="features")
 
-        `type_to_dataframe()` ensures that the columns are ordered according to the schema of the type and encodes fields like `uid` and `name`.
+        `to_dataframe()` ensures that the columns are ordered according to the schema of the type and encodes fields like `uid` and `name`.
 
         Args:
             recurse: `bool = False` Whether to include records of sub-types recursively.
+            **kwargs: Keyword arguments passed to Registry.to_dataframe().
         """
+        if isinstance(cls_or_self, type):
+            Record.to_dataframe(**kwargs)
+        elif not cls_or_self.is_type:
+            raise TypeError(
+                "to_dataframe() can only be called on the class or on record type instance."
+            )
+        self = cls_or_self
         assert self.is_type, "Only types can be exported as dataframes"  # noqa: S101
 
         branch_ids = get_default_branch_ids()
@@ -581,18 +602,30 @@ class Record(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, HasParents
         df = reorder_subset_columns_in_df(df, desired_order, position=0)  # type: ignore
         return df.sort_index()  # order by id for now
 
-    @deprecated("type_to_dataframe")
-    def to_pandas(self) -> pd.DataFrame:
-        return self.type_to_dataframe()
+    @deprecated("to_dataframe")
+    def type_to_dataframe(self) -> pd.DataFrame:
+        return self.to_dataframe()
 
-    def to_artifact(self, key: str = None) -> Artifact:
-        """Calls `type_to_dataframe()` to create an artifact."""
+    def to_artifact(
+        self, key: str | None = None, suffix: str | None = None
+    ) -> Artifact:
+        """Calls `to_dataframe()` to create an artifact.
+
+        The format defaults to `.csv` unless the key specifies another format or suffix is passed.
+
+        The `key` defaults to `sheet_exports/{self.name}{suffix}` unless a `key` is passed.
+
+        Args:
+            key: `str | None = None` The artifact key.
+            suffix: `str | None = None` The suffix to append to the default key if no key is passed.
+        """
         from lamindb.core._context import context
 
-        assert self.is_type, "Only types can be exported as artifacts"  # noqa: S101
+        assert self.is_type, "Only types can be exported as artifacts."
+        assert key is None or suffix is None, "Only one of key or suffix can be passed."
         if key is None:
-            file_suffix = ".csv"
-            key = f"sheet_exports/{self.name}{file_suffix}"
+            suffix = ".csv" if suffix is None else suffix
+            key = f"sheet_exports/{self.name}{suffix}"
         description = f": {self.description}" if self.description is not None else ""
         transform, _ = Transform.objects.get_or_create(
             key="__lamindb_record_export__", type="function"
@@ -600,7 +633,7 @@ class Record(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, HasParents
         run = Run(transform, initiated_by_run=context.run).save()
         run.input_records.add(self)
         return Artifact.from_dataframe(
-            self.type_to_dataframe(),
+            self.to_dataframe(),
             key=key,
             description=f"Export of sheet {self.uid}{description}",
             schema=self.schema,

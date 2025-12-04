@@ -145,7 +145,7 @@ def test_record_features_add_remove_values():
     sheet = ln.Record(name="Sheet", is_type=True).save()
     test_record.type = sheet
     test_record.save()
-    df = sheet.type_to_dataframe()
+    df = sheet.to_dataframe()
     result = {
         "feature_str": "a string value",
         "feature_list_str": ["a", "list", "of", "strings"],
@@ -331,7 +331,7 @@ def test_just_a_single_list_type_feature_and_mistakes():
     record.features.add_values(test_values)
     assert record.features.get_values() == test_values
 
-    df = test_sheet.type_to_dataframe()
+    df = test_sheet.to_dataframe()
     result = df.to_dict(orient="records")[0]
     assert result["feature_cell_lines"] == {"A549 cell", "HEK293"}
     assert result["feature_list_ontology_id"] == {

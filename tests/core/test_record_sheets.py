@@ -18,7 +18,7 @@ def test_float_int_casting():
     record_json = ln.models.RecordJson.get(record=record, feature=feature_float)
     record_json.value = 3
     record_json.save()
-    df = sheet.type_to_dataframe()
+    df = sheet.to_dataframe()
     assert df["feature_int"].dtype.name == "int64"
     assert df["feature_float"].dtype.name == "float64"
     # this export call would error if we didn't have type casting
@@ -99,7 +99,7 @@ def test_record_example_compound_treatment(
         ],
     }
 
-    df = sample_sheet1.type_to_dataframe()
+    df = sample_sheet1.to_dataframe()
     assert df.index.name == "__lamindb_record_id__"
     dictionary = df[
         [
@@ -173,7 +173,7 @@ id,uid,name,treatment,cell_line,preparation_date,project,__lamindb_record_uid__,
     # soft-delete a record in the sheet
     sample_sheet1.records.first().delete()
     assert ln.Record.filter(type=sample_sheet1).count() == 1
-    df = sample_sheet1.type_to_dataframe()
+    df = sample_sheet1.to_dataframe()
     print(df)
     assert len(df) == 1  # one row in the dataframe
 
@@ -188,7 +188,7 @@ def test_nextflow_sheet_with_samples(
     # and that the data is correctly populated in the database.
     nextflow_sheet = populate_nextflow_sheet_with_samples
 
-    df = nextflow_sheet.type_to_dataframe()
+    df = nextflow_sheet.to_dataframe()
 
     assert df[
         ["expected_cells", "fastq_1", "fastq_2", "sample", "__lamindb_record_name__"]
@@ -287,7 +287,7 @@ def test_annotate_with_user_feature():
     user = ln.User(uid="abcdefgh", handle="test-user").save()
     ln.models.RecordUser(record=record, feature=user_feature, value=user).save()
 
-    df = sheet.type_to_dataframe()
+    df = sheet.to_dataframe()
     assert df.index.name == "__lamindb_record_id__"
     assert df.columns.to_list() == [
         "created_by",
@@ -311,7 +311,7 @@ def test_to_artifact_exports_all_records():
     sheet = ln.Record(name="LargeSheet", is_type=True).save()
     for i in range(101):
         ln.Record(name=f"record_{i}", type=sheet).save()
-    df = sheet.type_to_dataframe()
+    df = sheet.to_dataframe()
     assert len(df) == 101, f"Expected 101 records, got {len(df)}"
     sheet.records.all().delete(permanent=True)
     sheet.delete(permanent=True)
