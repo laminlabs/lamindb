@@ -164,6 +164,7 @@ def test_record_features_add_remove_values():
         "feature_cl_ontology_id": "HEK293",
         "feature_artifact": "test-artifact",
         "feature_collection": "test-collection",
+        "feature_run": run.uid,
         "__lamindb_record_uid__": test_record.uid,
         "__lamindb_record_name__": "test_record",
     }

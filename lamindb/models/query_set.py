@@ -515,6 +515,8 @@ def get_feature_annotate_kwargs(
         ).through.__get_name_with_module__(): obj.related_model
         for obj in registry._meta.related_objects
         if obj.related_model.__get_name_with_module__() in cat_feature_types
+        and hasattr(getattr(registry, obj.related_name), "through")
+        and hasattr(getattr(registry, obj.related_name).through, "feature_id")
     }
     if registry is Artifact:
         link_models_on_models["ArtifactULabel"] = ULabel
@@ -811,6 +813,7 @@ def process_links_features(
 ) -> pd.DataFrame:
     """Process links_XXX feature columns."""
     # this loops over different entities that might be linked under a feature
+    print(result.columns)
     for feature_col in feature_cols:
         links_attribute = "links_" if feature_col.startswith("links_") else "values_"
         regex = f"{links_attribute}(.+?)__feature__name"
@@ -829,6 +832,11 @@ def process_links_features(
         value_col = value_cols[0]
         feature_names = df[feature_col].unique()
         feature_names = feature_names[~pd.isna(feature_names)]
+        feature_names = [
+            feature_name
+            for feature_name in feature_names
+            if feature_name not in result.columns
+        ]
 
         # Filter features if specific ones requested
         if isinstance(features, list):
