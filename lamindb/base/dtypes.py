@@ -48,6 +48,8 @@ def check_dtype(expected_type: Any, nullable: bool) -> Callable:
             return True
         elif expected_type == "path" and pd.api.types.is_string_dtype(series.dtype):
             return True
+        elif expected_type == "bool" and pd.api.types.is_bool_dtype(series.dtype):
+            return True
 
         # if we're here, it might be a mixed column with object dtype
         # need to check each value individually
@@ -57,6 +59,8 @@ def check_dtype(expected_type: Any, nullable: bool) -> Callable:
                 return series.apply(lambda x: is_list_of_type(x, int)).all()
             elif expected_type_member == "float":
                 return series.apply(lambda x: is_list_of_type(x, float)).all()
+            elif expected_type_member == "bool":
+                return series.apply(lambda x: is_list_of_type(x, bool)).all()
             elif expected_type_member == "num":
                 # for numeric, accept either int or float
                 return series.apply(lambda x: is_list_of_type(x, (int, float))).all()

@@ -263,6 +263,16 @@ def test_record_features_add_remove_values():
 
     sheet_as_artifact.delete(permanent=True)
 
+    # add the empty record back to the sheet and export again
+
+    empty_record.type = sheet
+    empty_record.save()
+    df = sheet.to_dataframe()
+    print(df["feature_dict"])
+    print(df["feature_dict"].iloc[0])
+    sheet_as_artifact = sheet.to_artifact()
+    sheet_as_artifact.delete(permanent=True)
+
     # test move a value into the trash
 
     record_entity1.delete()

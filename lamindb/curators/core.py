@@ -511,6 +511,7 @@ class ComponentCurator(Curator):
                 elif feature.dtype in {
                     "int",
                     "float",
+                    "bool",
                     "num",
                     "path",
                 } or feature.dtype.startswith("list"):

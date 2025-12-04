@@ -783,11 +783,16 @@ def reshape_annotate_result(
                 result_encoded[feature.name] = pd.to_datetime(
                     result_encoded[feature.name]
                 ).dt.date
+            if feature.dtype == "bool":
+                result_encoded[feature.name] = result_encoded[feature.name].astype(
+                    "boolean"
+                )
 
         if feature.dtype.startswith("list"):
-            result_encoded[feature.name] = result_encoded[feature.name].apply(
-                lambda x: list(x)
-            )
+            mask = result_encoded[feature.name].notna()
+            result_encoded.loc[mask, feature.name] = result_encoded.loc[
+                mask, feature.name
+            ].apply(lambda x: list(x))
 
         if feature.dtype == "dict":
             # this is the case when a dict is stored as a string; won't happen
