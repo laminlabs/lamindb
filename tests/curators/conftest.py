@@ -4,8 +4,6 @@ from time import perf_counter
 import lamindb_setup as ln_setup
 import pytest
 
-# trigger tests
-
 
 def pytest_sessionstart():
     t_execute_start = perf_counter()
