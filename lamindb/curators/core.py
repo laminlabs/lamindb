@@ -534,6 +534,19 @@ class ComponentCurator(Curator):
                         coerce=feature.coerce_dtype,
                         required=required,
                     )
+                elif feature.dtype == "dict":
+                    pandera_columns[feature.name] = pandera.Column(
+                        dtype=object,
+                        nullable=feature.nullable,
+                        coerce=feature.coerce_dtype,
+                        required=required,
+                        checks=pandera.Check(
+                            lambda s: s.dropna()
+                            .apply(lambda x: isinstance(x, dict))
+                            .all(),
+                            error="Non-null values must be dicts",
+                        ),
+                    )
                 else:
                     pandera_dtype = (
                         feature.dtype
