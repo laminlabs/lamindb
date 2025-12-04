@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, overload
 
+import pandas as pd
 import pgtrigger
 from django.conf import settings as django_settings
 from django.db import models
@@ -23,7 +24,7 @@ from ..base.ids import base62_16
 from .artifact import Artifact
 from .can_curate import CanCurate
 from .collection import Collection
-from .feature import Feature
+from .feature import Feature, convert_to_pandas_dtype
 from .has_parents import HasParents, _query_relatives
 from .query_set import (
     QuerySet,
@@ -38,8 +39,6 @@ from .ulabel import ULabel
 
 if TYPE_CHECKING:
     from datetime import datetime
-
-    import pandas as pd
 
     from ._feature_manager import FeatureManager
     from .block import RunBlock
@@ -592,9 +591,13 @@ class Record(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, HasParents
         if "name" in df.columns and encoded_name not in df.columns:
             df = df.rename(columns={"name": encoded_name})
         if self.schema is not None:
-            desired_order = self.schema.members.to_list(
-                "name"
-            )  # only members is ordered!
+            all_features = self.schema.members.all()
+            desired_order = all_features.to_list("name")  # only members is ordered!
+            for feature in all_features:
+                if feature.name not in df.columns:
+                    df[feature.name] = pd.Series(
+                        dtype=convert_to_pandas_dtype(feature.dtype)
+                    )
         else:
             # sort alphabetically for now
             desired_order = df.columns[2:].tolist()

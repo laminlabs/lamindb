@@ -140,9 +140,28 @@ def test_record_features_add_remove_values():
     test_record.features.add_values(test_values)
     assert test_record.features.get_values() == test_values
 
-    # sheet export
+    # all empty sheet
 
-    sheet = ln.Record(name="Sheet", is_type=True).save()
+    schema = ln.Schema([feature_str, feature_int], name="test_schema").save()
+    sheet = ln.Record(name="Sheet", is_type=True, schema=schema).save()
+    empty_record = ln.Record(name="empty_record", type=sheet).save()
+    df_empty = sheet.to_dataframe()
+
+    assert df_empty["feature_str"].isnull().all()
+    assert df_empty["feature_str"].dtype.name == "string"
+    assert df_empty["feature_int"].isnull().all()
+    assert df_empty["feature_int"].dtype.name == "Int64"
+
+    # remove empty record from sheet
+    empty_record.type = None
+    empty_record.save()
+
+    # remove schema from sheet
+    sheet.schema = None
+    sheet.save()
+
+    # sheet with values
+
     test_record.type = sheet
     test_record.save()
     df = sheet.to_dataframe()
@@ -311,7 +330,7 @@ def test_record_features_add_remove_values():
     transform.delete(permanent=True)
 
 
-def test_just_a_single_list_type_feature_and_mistakes():
+def test_only_list_type_features_and_field_qualifiers():
     # this test is necessary because the logic for adding link tables
     # to the query previously only fired when a non-list cat feature of the same type was present
     feature_cell_lines = ln.Feature(

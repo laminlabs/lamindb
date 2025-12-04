@@ -1020,7 +1020,7 @@ class BasicQuerySet(models.QuerySet):
                         current_dtype
                     ):
                         df_reshaped[feature.name] = df_reshaped[feature.name].astype(
-                            int
+                            "Int64"  # nullable integer dtype
                         )
                     elif feature.dtype == "float" and not pd.api.types.is_float_dtype(
                         current_dtype

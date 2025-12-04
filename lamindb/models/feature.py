@@ -418,6 +418,22 @@ def serialize_pandas_dtype(pandas_dtype: ExtensionDtype) -> str:
     return dtype
 
 
+def convert_to_pandas_dtype(lamin_dtype: str) -> str | CategoricalDtype:
+    """Convert LaminDB simplified string representation back to pandas dtype."""
+    dtype_map = {
+        "str": "string",  # nullable string dtype
+        "int": "Int64",  # Nullable integer to handle missing values
+        "float": "float64",
+        "bool": "boolean",  # Nullable boolean
+        "datetime": "datetime64[ns]",
+    }
+    if lamin_dtype in dtype_map:
+        return dtype_map[lamin_dtype]
+    elif lamin_dtype.startswith("cat"):
+        return CategoricalDtype()
+    return lamin_dtype
+
+
 def parse_filter_string(filter_str: str) -> dict[str, tuple[str, str | None, str]]:
     """Parse comma-separated Django filter expressions into structured components.
 
