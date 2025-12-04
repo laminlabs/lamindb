@@ -565,7 +565,7 @@ class Record(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, HasParents
             **kwargs: Keyword arguments passed to Registry.to_dataframe().
         """
         if isinstance(cls_or_self, type):
-            Record.to_dataframe(**kwargs)
+            return super().to_dataframe(**kwargs)
         elif not cls_or_self.is_type:
             raise TypeError(
                 "to_dataframe() can only be called on the class or on record type instance."
