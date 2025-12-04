@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 import re
 import sys
 from collections import UserList, defaultdict
@@ -787,6 +788,14 @@ def reshape_annotate_result(
             result_encoded[feature.name] = result_encoded[feature.name].apply(
                 lambda x: list(x)
             )
+
+        if feature.dtype == "dict":
+            # this is the case when a dict is stored as a string; won't happen
+            # within lamindb but might for external data
+            if isinstance(result_encoded[feature.name].iloc[0], str):
+                result_encoded[feature.name] = result_encoded[feature.name].apply(
+                    lambda x: ast.literal_eval(x) if isinstance(x, str) else x
+                )
 
     # --- Finalize result ---
 
