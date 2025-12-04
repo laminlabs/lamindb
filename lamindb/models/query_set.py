@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 import sys
-from collections import UserList
+from collections import UserList, defaultdict
 from collections.abc import Iterable
 from collections.abc import Iterable as IterableType
 from importlib import import_module
@@ -435,6 +435,7 @@ def get_feature_annotate_kwargs(
         RecordJson,
         ULabel,
     )
+    from lamindb.models.feature import parse_dtype
 
     if registry not in {Artifact, Record}:
         raise ValueError(
@@ -495,10 +496,18 @@ def get_feature_annotate_kwargs(
         )
     # Get the categorical features
     cat_feature_types = {
-        feature.dtype.replace("list[", "").replace("cat[", "").replace("]", "")
+        parse_dtype(feature.dtype)[0]["registry_str"]
         for feature in feature_qs
         if feature.dtype.startswith("cat[") or feature.dtype.startswith("list[cat[")
     }
+    # fields to annotate
+    cat_feature_fields = defaultdict(list)
+    for feature in feature_qs:
+        if feature.dtype.startswith("cat[") or feature.dtype.startswith("list[cat["):
+            dtype_info = parse_dtype(feature.dtype)[0]
+            registry_str = dtype_info["registry_str"]
+            field_name = dtype_info["field_str"]
+            cat_feature_fields[registry_str].append(field_name)
     # Get relationships of labels and features
     link_models_on_models = {
         getattr(
@@ -506,6 +515,8 @@ def get_feature_annotate_kwargs(
         ).through.__get_name_with_module__(): obj.related_model
         for obj in registry._meta.related_objects
         if obj.related_model.__get_name_with_module__() in cat_feature_types
+        and hasattr(getattr(registry, obj.related_name), "through")
+        and hasattr(getattr(registry, obj.related_name).through, "feature_id")
     }
     if registry is Artifact:
         link_models_on_models["ArtifactULabel"] = ULabel
@@ -541,9 +552,10 @@ def get_feature_annotate_kwargs(
             ).lower()
         else:
             field_name = "value"
-        annotate_kwargs[f"{link_attr}__{field_name}__name"] = F(
-            f"{link_attr}__{field_name}__{getattr(feature_type_model, '_name_field', 'name')}"
-        )
+        for field in cat_feature_fields[feature_type]:
+            annotate_kwargs[f"{link_attr}__{field_name}__{field}"] = F(
+                f"{link_attr}__{field_name}__{field}"
+            )
     json_values_attribute = "_feature_values" if registry is Artifact else "values_json"
     annotate_kwargs[f"{json_values_attribute}__feature__name"] = F(
         f"{json_values_attribute}__feature__name"
@@ -686,19 +698,25 @@ def reshape_annotate_result(
 
     if all(col in df_encoded.columns for col in [feature_name_col, feature_value_col]):
         # Separate dict and non-dict values for different aggregation strategies
-        is_dict = df_encoded[feature_value_col].apply(lambda x: isinstance(x, dict))
-        dict_df = df_encoded[is_dict]
-        non_dict_df = df_encoded[~is_dict]
+        is_dict_or_list = df_encoded[feature_value_col].apply(
+            lambda x: isinstance(x, (dict, list))
+        )
+        dict_or_list_df = df_encoded[is_dict_or_list]
+        non_dict_or_list_df = df_encoded[~is_dict_or_list]
 
         # Aggregate: sets for non-dict values, first for dict values
         groupby_cols = [pk_name_encoded, feature_name_col]
-        non_dict_features = non_dict_df.groupby(groupby_cols)[feature_value_col].agg(
-            set
-        )
-        dict_features = dict_df.groupby(groupby_cols)[feature_value_col].agg("first")
+        non_dict_or_list_features = non_dict_or_list_df.groupby(groupby_cols)[
+            feature_value_col
+        ].agg(set)
+        dict_or_list_features = dict_or_list_df.groupby(groupby_cols)[
+            feature_value_col
+        ].agg("first")
 
         # Combine and pivot to wide format
-        combined_features = pd.concat([non_dict_features, dict_features])
+        combined_features = pd.concat(
+            [non_dict_or_list_features, dict_or_list_features]
+        )
         feature_values = combined_features.unstack().reset_index()
 
         if not feature_values.empty:
@@ -795,6 +813,7 @@ def process_links_features(
 ) -> pd.DataFrame:
     """Process links_XXX feature columns."""
     # this loops over different entities that might be linked under a feature
+    print(result.columns)
     for feature_col in feature_cols:
         links_attribute = "links_" if feature_col.startswith("links_") else "values_"
         regex = f"{links_attribute}(.+?)__feature__name"
@@ -804,7 +823,6 @@ def process_links_features(
             col
             for col in df.columns
             if col.startswith(f"{links_attribute}{prefix}__")
-            and col.endswith("__name")
             and "feature__name" not in col
         ]
 
@@ -814,6 +832,11 @@ def process_links_features(
         value_col = value_cols[0]
         feature_names = df[feature_col].unique()
         feature_names = feature_names[~pd.isna(feature_names)]
+        feature_names = [
+            feature_name
+            for feature_name in feature_names
+            if feature_name not in result.columns
+        ]
 
         # Filter features if specific ones requested
         if isinstance(features, list):

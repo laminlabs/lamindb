@@ -85,7 +85,9 @@ def test_record_features_add_remove_values():
     run = ln.Run(transform, name="test-run").save()
 
     feature_str = ln.Feature(name="feature_str", dtype=str).save()
+    feature_list_str = ln.Feature(name="feature_list_str", dtype=list[str]).save()
     feature_int = ln.Feature(name="feature_int", dtype=int).save()
+    feature_list_int = ln.Feature(name="feature_list_int", dtype=list[int]).save()
     feature_datetime = ln.Feature(name="feature_datetime", dtype=datetime).save()
     feature_date = ln.Feature(name="feature_date", dtype=datetime.date).save()
     feature_dict = ln.Feature(name="feature_dict", dtype=dict).save()
@@ -116,7 +118,9 @@ def test_record_features_add_remove_values():
 
     test_values = {
         "feature_str": "a string value",
+        "feature_list_str": ["a", "list", "of", "strings"],
         "feature_int": 42,
+        "feature_list_int": [1, 2, 3],
         "feature_datetime": datetime(2024, 1, 1, 12, 0, 0),
         "feature_date": date(2024, 1, 1),
         "feature_dict": {"key": "value", "number": 123, "list": [1, 2, 3]},
@@ -144,7 +148,9 @@ def test_record_features_add_remove_values():
     df = sheet.type_to_dataframe()
     result = {
         "feature_str": "a string value",
+        "feature_list_str": ["a", "list", "of", "strings"],
         "feature_int": 42,
+        "feature_list_int": [1, 2, 3],
         "feature_datetime": pd.Timestamp("2024-01-01 12:00:00"),
         "feature_date": "2024-01-01",
         "feature_dict": {"key": "value", "list": [1, 2, 3], "number": 123},
@@ -158,6 +164,7 @@ def test_record_features_add_remove_values():
         "feature_cl_ontology_id": "HEK293",
         "feature_artifact": "test-artifact",
         "feature_collection": "test-collection",
+        "feature_run": run.uid,
         "__lamindb_record_uid__": test_record.uid,
         "__lamindb_record_name__": "test_record",
     }
@@ -267,7 +274,9 @@ def test_record_features_add_remove_values():
 
     test_record.delete(permanent=True)
     feature_str.delete(permanent=True)
+    feature_list_str.delete(permanent=True)
     feature_int.delete(permanent=True)
+    feature_list_int.delete(permanent=True)
     feature_datetime.delete(permanent=True)
     feature_date.delete(permanent=True)
     feature_type1.delete(permanent=True)
@@ -295,21 +304,29 @@ def test_record_features_add_remove_values():
     transform.delete(permanent=True)
 
 
-def test_just_a_single_list_type_feature():
+def test_just_a_single_list_type_feature_and_mistakes():
     # this test is necessary because the logic for adding link tables
     # to the query previously only fired when a non-list cat feature of the same type was present
     feature_cell_lines = ln.Feature(
         name="feature_cell_lines", dtype=list[bt.CellLine]
     ).save()
-    schema = ln.Schema([feature_cell_lines], name="test_schema2").save()
+    feature_list_ontology_id = ln.Feature(
+        name="feature_list_ontology_id", dtype=list[bt.Tissue.ontology_id]
+    ).save()
+    schema = ln.Schema(
+        [feature_cell_lines, feature_list_ontology_id], name="test_schema2"
+    ).save()
     test_sheet = ln.Record(name="TestSheet", is_type=True, schema=schema).save()
     record = ln.Record(name="test_record", type=test_sheet).save()
     hek293 = bt.CellLine.from_source(name="HEK293").save()
     a549 = bt.CellLine.from_source(name="A549 cell").save()
+    uberon2369 = bt.Tissue.from_source(ontology_id="UBERON:0002369").save()
+    uberon5172 = bt.Tissue.from_source(ontology_id="UBERON:0005172").save()
 
-    test_values = {"feature_cell_lines": ["HEK293", "A549 cell"]}
-
-    record.features.add_values(test_values)
+    test_values = {
+        "feature_cell_lines": ["HEK293", "A549 cell"],
+        "feature_list_ontology_id": ["UBERON:0002369", "UBERON:0005172"],
+    }
 
     record.features.add_values(test_values)
     assert record.features.get_values() == test_values
@@ -317,9 +334,15 @@ def test_just_a_single_list_type_feature():
     df = test_sheet.type_to_dataframe()
     result = df.to_dict(orient="records")[0]
     assert result["feature_cell_lines"] == {"A549 cell", "HEK293"}
+    assert result["feature_list_ontology_id"] == {
+        "UBERON:0002369",
+        "UBERON:0005172",
+    }
     record.delete(permanent=True)
     test_sheet.delete(permanent=True)
     schema.delete(permanent=True)
     feature_cell_lines.delete(permanent=True)
     hek293.delete(permanent=True)
     a549.delete(permanent=True)
+    uberon2369.delete(permanent=True)
+    uberon5172.delete(permanent=True)
