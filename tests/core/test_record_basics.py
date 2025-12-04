@@ -84,6 +84,7 @@ def test_record_features_add_remove_values():
     transform = ln.Transform(key="test-transform").save()
     run = ln.Run(transform, name="test-run").save()
 
+    feature_bool = ln.Feature(name="feature_bool", dtype=bool).save()
     feature_str = ln.Feature(name="feature_str", dtype=str).save()
     feature_list_str = ln.Feature(name="feature_list_str", dtype=list[str]).save()
     feature_int = ln.Feature(name="feature_int", dtype=int).save()
@@ -117,6 +118,7 @@ def test_record_features_add_remove_values():
     # no schema validation
 
     test_values = {
+        "feature_bool": True,
         "feature_str": "a string value",
         "feature_list_str": ["a", "list", "of", "strings"],
         "feature_int": 42,
@@ -144,6 +146,7 @@ def test_record_features_add_remove_values():
 
     schema = ln.Schema(
         [
+            feature_bool,
             feature_str,
             feature_int,
             feature_list_str,
@@ -169,6 +172,8 @@ def test_record_features_add_remove_values():
     empty_record = ln.Record(name="empty_record", type=sheet).save()
     df_empty = sheet.to_dataframe()
 
+    assert df_empty["feature_bool"].isnull().all()
+    assert df_empty["feature_bool"].dtype.name == "boolean"
     assert df_empty["feature_str"].isnull().all()
     assert df_empty["feature_str"].dtype.name == "string"
     assert df_empty["feature_int"].isnull().all()
@@ -220,6 +225,7 @@ def test_record_features_add_remove_values():
     test_record.save()
     df = sheet.to_dataframe()
     target_result = {
+        "feature_bool": True,
         "feature_str": "a string value",
         "feature_list_str": ["a", "list", "of", "strings"],
         "feature_int": 42,
