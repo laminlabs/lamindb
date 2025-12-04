@@ -1,7 +1,6 @@
 # .latest_version is tested in test_versioning.py
 
 
-import os
 import re
 from contextlib import contextmanager
 
@@ -333,10 +332,7 @@ def test_encode_lamindb_fields_as_columns():
 
 
 def test_connect_public_clone_instance():
-    env = os.environ
-    env["LAMIN_TESTING"] = "true"
-
-    # become an anonymous user
+    # become an anonymous user so that we have a public connection
     ln_setup.logout()
 
     try:
@@ -348,7 +344,7 @@ def test_connect_public_clone_instance():
 
         assert qs.db == "laminlabs/arc-virtual-cell-atlas"
 
-        # Verify the connection is SQLite, not Postgres
+        # A clone connection is SQLite, not Postgres
         assert (
             "sqlite"
             in connections.databases["laminlabs/arc-virtual-cell-atlas"]["ENGINE"]
@@ -359,6 +355,41 @@ def test_connect_public_clone_instance():
         assert result is not None
     finally:
         # log back in to ensure that other tests do not break
+        pass
+
+
+def test_clones_work():
+    # become an anonymous user so that we have a public connection
+    ln_setup.logout()
+
+    try:
+        for instance_slug in [
+            "laminlabs/arc-virtual-cell-atlas",
+            "laminlabs/arrayloader-benchmarks",
+            "laminlabs/cellxgene",
+            "laminlabs/hubmap",
+            "laminlabs/lamindata",
+            "laminlabs/pertdata",
+            "scverse/spatialdata-db",
+            "theislab/sc-best-practices",
+        ]:
+            from django.db import connections
+
+            connections.databases.pop(instance_slug, None)
+
+            qs = ln.Artifact.connect(instance_slug)
+
+            assert qs.db == instance_slug
+
+            # A clone connection is SQLite, not Postgres
+            assert "sqlite" in connections.databases[instance_slug]["ENGINE"]
+
+            # All instances have at least one Artifact
+            result = qs.filter().first()
+            assert result is not None
+    finally:
+        # log back in to ensure that other tests do not break
+        pass
         login_testuser2(session=None)
         login_testuser1(session=None)
         ln_setup.connect("lamindb-unit-tests-core")
