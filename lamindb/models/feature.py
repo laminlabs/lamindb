@@ -426,11 +426,15 @@ def convert_to_pandas_dtype(lamin_dtype: str) -> str | CategoricalDtype:
         "float": "float64",
         "bool": "boolean",  # Nullable boolean
         "datetime": "datetime64[ns]",
+        "date": "object",  # preserve Date objects
+        "dict": "object",  # dicts are stored as object dtype in pandas
     }
     if lamin_dtype in dtype_map:
         return dtype_map[lamin_dtype]
     elif lamin_dtype.startswith("cat"):
         return CategoricalDtype()
+    elif lamin_dtype.startswith("list"):
+        return "object"  # lists are stored as object dtype in pandas
     return lamin_dtype
 
 

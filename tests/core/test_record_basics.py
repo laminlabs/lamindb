@@ -142,7 +142,29 @@ def test_record_features_add_remove_values():
 
     # all empty sheet
 
-    schema = ln.Schema([feature_str, feature_int], name="test_schema").save()
+    schema = ln.Schema(
+        [
+            feature_str,
+            feature_int,
+            feature_list_str,
+            feature_list_int,
+            feature_datetime,
+            feature_date,
+            feature_dict,
+            feature_type1,
+            feature_type1s,
+            feature_ulabel,
+            feature_user,
+            feature_project,
+            feature_cell_line,
+            feature_cell_lines,
+            feature_cl_ontology_id,
+            feature_artifact,
+            feature_collection,
+            feature_run,
+        ],
+        name="test_schema",
+    ).save()
     sheet = ln.Record(name="Sheet", is_type=True, schema=schema).save()
     empty_record = ln.Record(name="empty_record", type=sheet).save()
     df_empty = sheet.to_dataframe()
@@ -151,6 +173,38 @@ def test_record_features_add_remove_values():
     assert df_empty["feature_str"].dtype.name == "string"
     assert df_empty["feature_int"].isnull().all()
     assert df_empty["feature_int"].dtype.name == "Int64"
+    assert df_empty["feature_list_str"].isnull().all()
+    assert df_empty["feature_list_str"].dtype.name == "object"
+    assert df_empty["feature_list_int"].isnull().all()
+    assert df_empty["feature_list_int"].dtype.name == "object"
+    assert df_empty["feature_datetime"].isnull().all()
+    assert df_empty["feature_datetime"].dtype.name == "datetime64[ns]"
+    assert df_empty["feature_date"].isnull().all()
+    assert df_empty["feature_date"].dtype.name == "object"
+    assert df_empty["feature_dict"].isnull().all()
+    assert df_empty["feature_dict"].dtype.name == "object"
+    assert df_empty["feature_type1"].isnull().all()
+    assert df_empty["feature_type1"].dtype.name == "category"
+    assert df_empty["feature_type1s"].isnull().all()
+    assert df_empty["feature_type1s"].dtype.name == "object"
+    assert df_empty["feature_ulabel"].isnull().all()
+    assert df_empty["feature_ulabel"].dtype.name == "category"
+    assert df_empty["feature_user"].isnull().all()
+    assert df_empty["feature_user"].dtype.name == "category"
+    assert df_empty["feature_project"].isnull().all()
+    assert df_empty["feature_project"].dtype.name == "category"
+    assert df_empty["feature_cell_line"].isnull().all()
+    assert df_empty["feature_cell_line"].dtype.name == "category"
+    assert df_empty["feature_cell_lines"].isnull().all()
+    assert df_empty["feature_cell_lines"].dtype.name == "object"
+    assert df_empty["feature_cl_ontology_id"].isnull().all()
+    assert df_empty["feature_cl_ontology_id"].dtype.name == "category"
+    assert df_empty["feature_artifact"].isnull().all()
+    assert df_empty["feature_artifact"].dtype.name == "category"
+    assert df_empty["feature_collection"].isnull().all()
+    assert df_empty["feature_collection"].dtype.name == "category"
+    assert df_empty["feature_run"].isnull().all()
+    assert df_empty["feature_run"].dtype.name == "category"
 
     # remove empty record from sheet
     empty_record.type = None
