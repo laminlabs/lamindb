@@ -842,6 +842,8 @@ def process_links_features(
     from lamindb.models.feature import parse_dtype
 
     # this loops over different entities that might be linked under a feature
+    print(result)
+    print(feature_qs.to_dataframe())
     for feature_col in feature_cols:
         links_attribute = "links_" if feature_col.startswith("links_") else "values_"
         regex = f"{links_attribute}(.+?)__feature__name"
@@ -869,14 +871,16 @@ def process_links_features(
         # Filter features if specific ones requested
         if isinstance(features, list):
             feature_names = [f for f in feature_names if f in features]
-        for feature in feature_qs:
-            if feature.name not in feature_names:
-                continue
-            field_name = parse_dtype(feature.dtype)[0]["field_str"]
+        for feature_name in feature_names:
+            feature_record = feature_qs.filter(name=feature_name, dtype__contains="cat[").first()
+            if feature_record is not None:
+                field_name = parse_dtype(feature_record.dtype)[0]["field_str"]
+            else:
+                field_name = "name"
             value_col = [c for c in value_cols if c.endswith(f"__{field_name}")][0]
-            mask = df[feature_col] == feature.name
+            mask = df[feature_col] == feature_name
             feature_values = df[mask].groupby(pk_name)[value_col].agg(set)
-            result.insert(3, feature.name, result[pk_name].map(feature_values))
+            result.insert(3, feature_name, result[pk_name].map(feature_values))
 
     return result
 
