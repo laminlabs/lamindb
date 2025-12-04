@@ -215,10 +215,6 @@ def test_record_features_add_remove_values():
     empty_record.type = None
     empty_record.save()
 
-    # remove schema from sheet
-    sheet.schema = None
-    sheet.save()
-
     # sheet with values
 
     test_record.type = sheet
@@ -238,7 +234,7 @@ def test_record_features_add_remove_values():
         "feature_user": ln.setup.settings.user.handle,
         "feature_project": "test_project",
         "feature_cell_line": "HEK293",
-        "feature_cl_ontology_id": "HEK293",
+        "feature_cl_ontology_id": "CLO:0001230",
         "feature_artifact": "test-artifact",
         "feature_collection": "test-collection",
         "feature_run": run.uid,

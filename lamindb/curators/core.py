@@ -32,7 +32,7 @@ from lamindb.models import (
     Schema,
     SQLRecord,
 )
-from lamindb.models._from_values import _format_values
+from lamindb.models._from_values import _format_values, _from_values
 from lamindb.models.artifact import (
     data_is_scversedatastructure,
     data_is_soma_experiment,
@@ -43,6 +43,7 @@ from lamindb.models.feature import (
     parse_filter_string,
     resolve_relation_filters,
 )
+from lamindb.models.sqlrecord import get_name_field
 
 from ..errors import InvalidArgument, ValidationError
 
@@ -1452,15 +1453,18 @@ class CatVector:
                 values_array[validated_mask],
                 values_array[~validated_mask],
             )
-            records = registry.from_values(
+            records = _from_values(
                 validated_labels,
-                field=self._field,
+                field=getattr(registry, get_name_field(registry, field=self._field)),
                 **valid_from_values_kwargs,
                 mute=True,
             )
         else:
-            existing_and_public_records = registry.from_values(
-                str_values, field=self._field, **valid_from_values_kwargs, mute=True
+            existing_and_public_records = _from_values(
+                str_values,
+                field=getattr(registry, get_name_field(registry, field=self._field)),
+                **valid_from_values_kwargs,
+                mute=True,
             )
             existing_and_public_labels = [
                 getattr(r, field_name) for r in existing_and_public_records
@@ -1492,7 +1496,7 @@ class CatVector:
             validated_labels = existing_and_public_labels
             records = existing_and_public_records
 
-        self.records = records
+        self.records = records  # type: ignore
         # validated, non-validated
         return validated_labels, non_validated_labels
 
@@ -1545,6 +1549,8 @@ class CatVector:
         values: list[str],
     ) -> tuple[list[str], dict]:
         """Validate ontology terms using LaminDB registries."""
+        from lamindb.models.can_curate import _inspect
+
         registry = self._field.field.model
         field_name = self._field.field.name
         model_field = f"{registry.__name__}.{field_name}"
@@ -1562,15 +1568,16 @@ class CatVector:
         registry_or_queryset = registry
         if self._subtype_query_set is not None:
             registry_or_queryset = self._subtype_query_set
-        inspect_result = registry_or_queryset.inspect(
+        inspect_result = _inspect(
+            registry_or_queryset,
             values,
             field=self._field,
             mute=True,
             from_source=False,
             **valid_inspect_kwargs,
         )
-        non_validated = inspect_result.non_validated
-        syn_mapper = inspect_result.synonyms_mapper
+        non_validated = inspect_result.non_validated  # type: ignore
+        syn_mapper = inspect_result.synonyms_mapper  # type: ignore
 
         # inspect the non-validated values from public (BioRecord only)
         values_validated = []

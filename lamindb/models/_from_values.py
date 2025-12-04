@@ -99,19 +99,22 @@ def get_existing_records(
     mute: bool = False,
 ) -> tuple[list, pd.Index, str]:
     """Get existing records from the database."""
+    from .can_curate import _validate
+
     # NOTE: existing records matching is agnostic to the source
     model = field.field.model  # type: ignore
 
     # log synonyms mapped terms
-    syn_mapper = model.standardize(
-        iterable_idx,
-        field=field,
-        organism=organism,
-        mute=True,
-        source_aware=False,  # standardize only based on the DB reference
-        return_mapper=True,
-    )
-    iterable_idx = iterable_idx.to_frame().rename(index=syn_mapper).index
+    if hasattr(model, "standardize"):
+        syn_mapper = model.standardize(
+            iterable_idx,
+            field=field,
+            organism=organism,
+            mute=True,
+            source_aware=False,  # standardize only based on the DB reference
+            return_mapper=True,
+        )
+        iterable_idx = iterable_idx.to_frame().rename(index=syn_mapper).index
 
     # now we have to sort the list of queried records
     # preserved = Case(
@@ -124,8 +127,8 @@ def get_existing_records(
     # records = query_set.order_by(preserved).to_list()
 
     # log validated terms
-    is_validated = model.validate(
-        iterable_idx, field=field, organism=organism, mute=True
+    is_validated = _validate(
+        cls=model, values=iterable_idx, field=field, organism=organism, mute=True
     )
     if len(is_validated) > 0:
         validated = iterable_idx[is_validated]
