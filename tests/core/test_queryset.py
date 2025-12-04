@@ -358,7 +358,7 @@ def test_connect_public_clone_instance():
         pass
 
 
-def test_clones_work():
+def test_all_public_clones_accessible():
     # become an anonymous user so that we have a public connection
     ln_setup.logout()
 
