@@ -176,8 +176,6 @@ lint.ignore = [
     "B905",
     "UP035",
     "RUF100",
-    # Strip arguments from super()
-    "UP008",
 ]
 
 [tool.ruff.lint.pydocstyle]
