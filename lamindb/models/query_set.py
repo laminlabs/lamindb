@@ -842,8 +842,6 @@ def process_links_features(
     from lamindb.models.feature import parse_dtype
 
     # this loops over different entities that might be linked under a feature
-    print(result)
-    print(feature_qs.to_dataframe())
     for feature_col in feature_cols:
         links_attribute = "links_" if feature_col.startswith("links_") else "values_"
         regex = f"{links_attribute}(.+?)__feature__name"
