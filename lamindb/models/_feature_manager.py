@@ -1003,9 +1003,13 @@ class FeatureManager:
             related_names["Project"] = "linked_projects"
             related_names["Artifact"] = "linked_artifacts"
             related_names["Collection"] = "linked_collections"
+        else:
+            related_names["Artifact"] = "artifacts"
         # same convention for Artifact & Record
         related_names["Run"] = "linked_runs"
         for class_name, registry_features_labels in features_labels.items():
+            if not host_is_record and class_name == "Collection":
+                continue
             related_name = related_names[class_name]  # e.g., "ulabels"
             IsLink = getattr(self._host, related_name).through
             if host_is_record or class_name == "Artifact":

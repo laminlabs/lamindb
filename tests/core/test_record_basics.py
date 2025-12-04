@@ -252,9 +252,10 @@ def test_record_features_add_remove_values():
     assert isinstance(result_feature_cell_lines, list)
     assert result == target_result
 
-    # export to artifact to trigger validation
+    # export to artifact to trigger validation -- this will raise many errors if anything is inconsistent
 
     sheet_as_artifact = sheet.to_artifact()
+    sheet_as_artifact.delete(permanent=True)
 
     # test move a value into the trash
 
@@ -311,6 +312,10 @@ def test_record_features_add_remove_values():
 
     # test passing None has no effect, does not lead to annotation
 
+    sheet.schema = None
+    sheet.save()
+    schema.delete(permanent=True)
+
     test_record.features.add_values({"feature_int": None, "feature_type1": None})
     assert test_record.features.get_values() == test_values
 
@@ -357,8 +362,8 @@ def test_record_features_add_remove_values():
     schema.delete(permanent=True)
 
     # clean up rest
-    sheet_as_artifact.delete(permanent=True)
     test_record.delete(permanent=True)
+    sheet.delete(permanent=True)
     feature_str.delete(permanent=True)
     feature_list_str.delete(permanent=True)
     feature_int.delete(permanent=True)
