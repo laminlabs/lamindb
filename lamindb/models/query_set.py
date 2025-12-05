@@ -904,18 +904,15 @@ def process_links_features(
         value_col = value_cols[0]
         feature_names = df[feature_col].unique()
         feature_names = feature_names[~pd.isna(feature_names)]
-        feature_names = [
-            feature_name
-            for feature_name in feature_names
-            if feature_name not in result.columns
-        ]
 
         for feature in feature_qs:
             if feature.name not in feature_names:
                 continue
+            if feature.name in result.columns:
+                continue
             field_name = parse_dtype(feature.dtype)[0]["field_str"]
             value_col = [c for c in value_cols if c.endswith(f"__{field_name}")][0]
-            mask = df[feature_col] == feature.name
+            mask = (df[feature_col] == feature.name) & df[value_col].notna()
             feature_values = df[mask].groupby(pk_name)[value_col].agg(set)
             result.insert(3, feature.name, result[pk_name].map(feature_values))
 
