@@ -428,7 +428,7 @@ def get_feature_annotate_kwargs(
     registry: Registry,
     features: bool | list[str] | str | None,
     qs: QuerySet | None = None,
-) -> tuple[dict[str, Any], list[str], QuerySet]:
+) -> tuple[dict[str, Any], QuerySet]:
     from lamindb.models import (
         Artifact,
         Feature,
@@ -443,9 +443,9 @@ def get_feature_annotate_kwargs(
             f"features=True is only applicable for Artifact and Record, not {registry.__name__}"
         )
 
+    feature_ids = []
     if features == "queryset":
         ids_list = qs.values_list("id", flat=True)
-        feature_names = []
         for obj in registry._meta.related_objects:
             related_name_attr = getattr(registry, obj.related_name, None)
             if related_name_attr is None or not hasattr(related_name_attr, "through"):
@@ -469,31 +469,35 @@ def get_feature_annotate_kwargs(
             links = link_model.objects.using(qs.db).filter(
                 **{filter_field + "_id__in": ids_list}
             )
-            feature_names_for_link_model = links.values_list("feature__name", flat=True)
-            feature_names += feature_names_for_link_model
+            feature_ids_for_link_model = links.values_list("feature__id", flat=True)
+            feature_ids += feature_ids_for_link_model
         if registry is Record:
             # this request is not strictly necessary, but it makes the resulting reshaped
             # dataframe consistent
-            feature_names += RecordJson.filter(record_id__in=ids_list).values_list(
-                "feature__name", flat=True
+            feature_ids += RecordJson.filter(record_id__in=ids_list).values_list(
+                "feature__id", flat=True
             )
-        features = list(set(feature_names))  # remove duplicates
+        feature_ids = list(set(feature_ids))  # remove duplicates
 
     feature_qs = Feature.connect(None if qs is None else qs.db).filter(
         dtype__isnull=False
     )
     if isinstance(features, list):
         feature_qs = feature_qs.filter(name__in=features)
-        feature_names = features
-    else:  # features is True -- only consider categorical features from ULabel and non-categorical features
+        if len(features) != feature_qs.count():
+            logger.warning(
+                f"found features and passed features differ:\n - passed: {features}\n - found: {feature_qs.to_list('name')}"
+            )
+    elif feature_ids:
+        feature_qs = feature_qs.filter(id__in=feature_ids)
+    else:
         feature_qs = feature_qs.filter(
             ~Q(dtype__startswith="cat[")
             | Q(dtype__startswith="cat[ULabel")
             | Q(dtype__startswith="cat[Record")
         )
-        feature_names = feature_qs.to_list("name")
         logger.important(
-            f"queried for all categorical features with dtype Record and non-categorical features: ({len(feature_names)}) {feature_names}"
+            f"queried for all categorical features of dtypes Record or ULabel and non-categorical features: ({len(feature_qs)}) {feature_qs.to_list('name')}"
         )
     # Get the categorical features
     cat_feature_types = {
@@ -564,7 +568,7 @@ def get_feature_annotate_kwargs(
     annotate_kwargs[f"{json_values_attribute}__value"] = F(
         f"{json_values_attribute}__value"
     )
-    return annotate_kwargs, feature_names, feature_qs
+    return annotate_kwargs, feature_qs
 
 
 # https://claude.ai/share/16280046-6ae5-4f6a-99ac-dec01813dc3c
@@ -656,7 +660,6 @@ def reshape_annotate_result(
     df: pd.DataFrame,
     field_names: list[str],
     cols_from_include: dict[str, str] | None,
-    feature_names: list[str],
     feature_qs: QuerySet | None,
 ) -> pd.DataFrame:
     """Reshapes tidy table to wide format.
@@ -667,8 +670,7 @@ def reshape_annotate_result(
         field_names: List of basic fields to include in result
         cols_from_include: Dict specifying additional columns to process with types
             ('one' or 'many'), e.g., {'ulabels__name': 'many', 'created_by__name': 'one'}
-        feature_names: Feature names to include
-        feature_qs: QuerySet of features for type conversion
+        feature_qs: QuerySet of features
     """
     from lamindb.models import Artifact
 
@@ -679,7 +681,7 @@ def reshape_annotate_result(
     pk_name = registry._meta.pk.name
 
     # ========== no features requested ==========
-    if not feature_names:
+    if not feature_qs.exists():
         if cols_from_include:
             result = process_cols_from_include(df, result, cols_from_include, pk_name)
         return result.drop_duplicates(subset=[pk_name])
@@ -739,7 +741,6 @@ def reshape_annotate_result(
             df_encoded,
             result_encoded,
             links_features,
-            feature_names,
             feature_qs,
             pk_name_encoded,
         )
@@ -805,7 +806,10 @@ def reshape_annotate_result(
     # --- Finalize result ---
 
     # Reorder columns to prioritize features
-    result_encoded = reorder_subset_columns_in_df(result_encoded, feature_names)
+    result_encoded = reorder_subset_columns_in_df(
+        result_encoded,
+        feature_qs.to_list("name"),  # type: ignore
+    )
 
     # Process additional included columns
     if cols_from_include:
@@ -834,7 +838,6 @@ def process_links_features(
     df: pd.DataFrame,
     result: pd.DataFrame,
     feature_cols: list[str],
-    features: bool | list[str],
     feature_qs: QuerySet | None,
     pk_name: str = "id",
 ) -> pd.DataFrame:
@@ -866,9 +869,6 @@ def process_links_features(
             if feature_name not in result.columns
         ]
 
-        # Filter features if specific ones requested
-        if isinstance(features, list):
-            feature_names = [f for f in feature_names if f in features]
         for feature in feature_qs:
             if feature.name not in feature_names:
                 continue
@@ -986,11 +986,10 @@ class BasicQuerySet(models.QuerySet):
         field_names = get_basic_field_names(subset, include_input, features_input)
 
         annotate_kwargs = {}
-        feature_names: list[str] = []
         feature_qs = None
         if features:
-            feature_annotate_kwargs, feature_names, feature_qs = (
-                get_feature_annotate_kwargs(subset.model, features, subset)
+            feature_annotate_kwargs, feature_qs = get_feature_annotate_kwargs(
+                subset.model, features, subset
             )
             annotate_kwargs.update(feature_annotate_kwargs)
         if include_input:
@@ -1022,7 +1021,7 @@ class BasicQuerySet(models.QuerySet):
             return df
         cols_from_include = analyze_lookup_cardinality(self.model, include_input)  # type: ignore
         df_reshaped = reshape_annotate_result(
-            self.model, df, field_names, cols_from_include, feature_names, feature_qs
+            self.model, df, field_names, cols_from_include, feature_qs
         )
         pk_name = self.model._meta.pk.name
         encoded_pk_name = encode_lamindb_fields_as_columns(self.model, pk_name)
@@ -1077,9 +1076,9 @@ class BasicQuerySet(models.QuerySet):
 
         Examples:
 
-            For any `QuerySet` object `qs`, call:
+            For a `QuerySet` object `qs`, call::
 
-            >>> qs.delete()
+                qs.delete()
         """
         from lamindb.models import Artifact, Collection, Run, Storage, Transform
 
@@ -1112,9 +1111,10 @@ class BasicQuerySet(models.QuerySet):
 
         Note that the order in this list is only meaningful if you ordered the underlying query set with `.order_by()`.
 
-        Examples:
-            >>> queryset.to_list()  # list of records
-            >>> queryset.to_list("name")  # list of values
+        Examples::
+
+            queryset.to_list()  # list of records
+            queryset.to_list("name")  # list of values
         """
         if field is None:
             return list(self)
@@ -1129,8 +1129,9 @@ class BasicQuerySet(models.QuerySet):
     def first(self) -> SQLRecord | None:
         """If non-empty, the first result in the query set, otherwise ``None``.
 
-        Examples:
-            >>> queryset.first()
+        Examples::
+
+            queryset.first()
         """
         if len(self) == 0:
             return None
@@ -1143,9 +1144,10 @@ class BasicQuerySet(models.QuerySet):
     def one_or_none(self) -> SQLRecord | None:
         """At most one result. Returns it if there is one, otherwise returns ``None``.
 
-        Examples:
-            >>> ULabel.filter(name="benchmark").one_or_none()
-            >>> ULabel.filter(name="non existing label").one_or_none()
+        Examples::
+
+            ULabel.filter(name="benchmark").one_or_none()
+            ULabel.filter(name="non existing label").one_or_none()
         """
         return one_helper(self, raise_doesnotexist=False)
 
