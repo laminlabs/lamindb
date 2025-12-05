@@ -422,6 +422,12 @@ def test_only_list_type_features_and_field_qualifiers():
     schema = ln.Schema(
         [feature_cell_lines, feature_list_ontology_id], name="test_schema2"
     ).save()
+    # create a feature with the same name to test robustness w.r.t. to this
+    feature_type = ln.Feature(name="FeatureTypeX", is_type=True).save()
+    feature_cell_lines_duplicate = ln.Feature(
+        name="feature_cell_lines", dtype=bt.CellLine, type=feature_type
+    ).save()
+
     test_sheet = ln.Record(name="TestSheet", is_type=True, schema=schema).save()
     record = ln.Record(name="test_record", type=test_sheet).save()
     hek293 = bt.CellLine.from_source(name="HEK293").save()
@@ -450,6 +456,8 @@ def test_only_list_type_features_and_field_qualifiers():
     test_sheet.delete(permanent=True)
     schema.delete(permanent=True)
     feature_cell_lines.delete(permanent=True)
+    feature_cell_lines_duplicate.delete(permanent=True)
+    feature_type.delete(permanent=True)
     hek293.delete(permanent=True)
     a549.delete(permanent=True)
     uberon2369.delete(permanent=True)
