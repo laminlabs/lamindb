@@ -793,7 +793,7 @@ def reshape_annotate_result(
             mask = result_encoded[feature.name].notna()
             result_encoded.loc[mask, feature.name] = result_encoded.loc[
                 mask, feature.name
-            ].apply(lambda x: list(x))
+            ].apply(lambda x: list(x) if isinstance(x, set) else [x])
 
         if feature.dtype == "dict":
             # this is the case when a dict is stored as a string; won't happen
