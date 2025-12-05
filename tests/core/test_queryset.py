@@ -95,9 +95,9 @@ def test_complex_df_with_features():
 
 def test_one_first():
     qs = ln.User.objects.all()
-    assert qs.one().handle == "testuser1"
-    assert qs.first().handle == "testuser1"
-    assert qs.one_or_none().handle == "testuser1"
+    assert qs.one().handle == ln.setup.settings.user.handle
+    assert qs.first().handle == ln.setup.settings.user.handle
+    assert qs.one_or_none().handle == ln.setup.settings.user.handle
 
     qs = ln.User.filter(handle="test")
     with pytest.raises(DoesNotExist):
