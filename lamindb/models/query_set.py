@@ -681,7 +681,7 @@ def reshape_annotate_result(
     pk_name = registry._meta.pk.name
 
     # ========== no features requested ==========
-    if not feature_qs.exists():
+    if feature_qs is None or not feature_qs.exists():
         if cols_from_include:
             result = process_cols_from_include(df, result, cols_from_include, pk_name)
         return result.drop_duplicates(subset=[pk_name])
