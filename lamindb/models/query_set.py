@@ -13,7 +13,14 @@ import lamindb_setup as ln_setup
 import pandas as pd
 from django.core.exceptions import FieldError
 from django.db import models
-from django.db.models import F, ForeignKey, ManyToManyField, Q, Subquery
+from django.db.models import (
+    F,
+    FilteredRelation,
+    ForeignKey,
+    ManyToManyField,
+    Q,
+    Subquery,
+)
 from django.db.models.fields.related import ForeignObjectRel
 from lamin_utils import logger
 from lamindb_setup import settings as setup_settings
@@ -428,7 +435,7 @@ def get_feature_annotate_kwargs(
     registry: Registry,
     features: bool | list[str] | str | None,
     qs: QuerySet | None = None,
-) -> tuple[dict[str, Any], QuerySet]:
+) -> tuple[dict[str, Any], QuerySet, dict[str, Any]]:
     from lamindb.models import (
         Artifact,
         Feature,
@@ -541,26 +548,59 @@ def get_feature_annotate_kwargs(
             )
         )
     }
-    # Prepare Django's annotate for features
+    # Prepare Django's annotate for features with filtering
+    filtered_relations = {}
     annotate_kwargs = {}
+
     for link_attr, feature_type_model in link_attributes_on_models.items():
         feature_type = feature_type_model.__get_name_with_module__()
         if link_attr == "links_project" and registry is Record:
             # we're only interested in _values_project when "annotating" records
             continue
-        annotate_kwargs[f"{link_attr}__feature__name"] = F(
-            f"{link_attr}__feature__name"
-        )
+
+        # Determine field name
         if registry is Artifact:
             field_name = (
                 feature_type.split(".")[1] if "." in feature_type else feature_type
             ).lower()
         else:
             field_name = "value"
+
+        # Determine if this value model needs branch filtering
+        # Skip user relations (RecordUser, ArtifactUser don't have branch)
+        should_filter_branch = link_attr not in {"values_user", "links_user"}
+
+        # Create filtered relation for the value model
+        value_relation_path = f"{link_attr}__{field_name}"
+        filtered_value_relation_name = f"filtered_{link_attr}_{field_name}"
+
+        if should_filter_branch:
+            filtered_relations[filtered_value_relation_name] = FilteredRelation(
+                value_relation_path,
+                condition=Q(
+                    **{
+                        f"{value_relation_path}__branch_id__in": get_default_branch_ids()
+                    }
+                ),
+            )
+        else:
+            # No branch filtering needed
+            filtered_relations[filtered_value_relation_name] = FilteredRelation(
+                value_relation_path
+            )
+
+        # Add annotation for feature name (feature doesn't have branch_id)
+        annotate_kwargs[f"{link_attr}__feature__name"] = F(
+            f"{link_attr}__feature__name"
+        )
+
+        # Add annotations for categorical feature fields using the filtered relation
         for field in cat_feature_fields[feature_type]:
             annotate_kwargs[f"{link_attr}__{field_name}__{field}"] = F(
-                f"{link_attr}__{field_name}__{field}"
+                f"{filtered_value_relation_name}__{field}"
             )
+
+    # Handle JSON values (no branch filtering needed)
     json_values_attribute = "_feature_values" if registry is Artifact else "values_json"
     annotate_kwargs[f"{json_values_attribute}__feature__name"] = F(
         f"{json_values_attribute}__feature__name"
@@ -568,7 +608,8 @@ def get_feature_annotate_kwargs(
     annotate_kwargs[f"{json_values_attribute}__value"] = F(
         f"{json_values_attribute}__value"
     )
-    return annotate_kwargs, feature_qs
+
+    return annotate_kwargs, feature_qs, filtered_relations
 
 
 # https://claude.ai/share/16280046-6ae5-4f6a-99ac-dec01813dc3c
@@ -986,10 +1027,11 @@ class BasicQuerySet(models.QuerySet):
         field_names = get_basic_field_names(subset, include_input, features_input)
 
         annotate_kwargs = {}
+        filtered_relations = {}  # type: ignore
         feature_qs = None
         if features:
-            feature_annotate_kwargs, feature_qs = get_feature_annotate_kwargs(
-                subset.model, features, subset
+            feature_annotate_kwargs, feature_qs, filtered_relations = (
+                get_feature_annotate_kwargs(subset.model, features, subset)
             )
             annotate_kwargs.update(feature_annotate_kwargs)
         if include_input:
@@ -1006,6 +1048,10 @@ class BasicQuerySet(models.QuerySet):
                 # Apply the same ordering to the new queryset
                 query_set_without_filters = query_set_without_filters.order_by(
                     *subset.query.order_by
+                )
+            if filtered_relations:
+                query_set_without_filters = query_set_without_filters.annotate(
+                    **filtered_relations
                 )
             queryset = query_set_without_filters.annotate(**annotate_kwargs)
         else:

@@ -279,6 +279,18 @@ def test_record_features_add_remove_values():
     test_values["feature_type1s"] = ["entity2"]
     assert test_record.features.get_values() == test_values
 
+    df = sheet.to_dataframe()
+    result = df.to_dict(orient="records")[0]
+    result_feature_type1s = result.pop("feature_type1s")
+    assert set(result_feature_type1s) == {None, "entity2"}
+    assert isinstance(result_feature_type1s, list)
+    result_feature_cell_lines = result.pop("feature_cell_lines")
+    assert set(result_feature_cell_lines) == {"HEK293", "A549 cell"}
+    assert isinstance(result_feature_cell_lines, list)
+    target_result.pop("feature_type1")
+    assert pd.isna(result.pop("feature_type1"))
+    assert result == target_result
+
     record_entity1.restore()
     test_values["feature_type1"] = "entity1"
     test_values["feature_type1s"] = ["entity1", "entity2"]
