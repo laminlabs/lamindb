@@ -180,7 +180,8 @@ def _validate(
     organism_record = get_organism_record_from_field(
         getattr(registry, field_str), organism, values, queryset.db
     )
-    _check_if_record_in_db(organism_record, queryset.db)
+    if organism_record is not None:
+        _check_if_record_in_db(organism_record, queryset.db)
     field_values = pd.Series(
         _filter_queryset_with_organism(
             queryset=queryset,
