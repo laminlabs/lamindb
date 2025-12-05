@@ -452,7 +452,24 @@ def test_only_list_type_features_and_field_qualifiers():
         "UBERON:0002369",
         "UBERON:0005172",
     }
+
+    # add another record
+    record2 = ln.Record(name="test_record2", type=test_sheet).save()
+    test_values2 = {
+        "feature_cell_lines": ["HEK293"],
+        "feature_list_ontology_id": ["UBERON:0005172"],
+    }
+    record2.features.add_values(test_values2)
+
+    # trigger validation of the case that has two and a single record
+    # this tests type casting in list-like values
+    artifact = test_sheet.to_artifact()
+
+    inferred_schema = artifact.feature_sets.first()
+    artifact.delete(permanent=True)
+    inferred_schema.delete(permanent=True)
     record.delete(permanent=True)
+    record2.delete(permanent=True)
     test_sheet.delete(permanent=True)
     schema.delete(permanent=True)
     feature_cell_lines.delete(permanent=True)
