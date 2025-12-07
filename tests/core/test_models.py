@@ -16,7 +16,6 @@ def test_registry__repr__feature():
         .uid: CharField
         .name: CharField
         .dtype: CharField
-        .is_type: BooleanField
         .unit: CharField
         .description: TextField
         .array_rank: SmallIntegerField
@@ -27,6 +26,7 @@ def test_registry__repr__feature():
         .is_locked: BooleanField
         .created_at: DateTimeField
         .updated_at: DateTimeField
+        .is_type: BooleanField
       Relational fields
         .branch: Branch
         .space: Space
