@@ -42,6 +42,14 @@ def nested_cat_df():
                 "sample5",
                 "sample6",
             ],
+            "biosample_root_name": [
+                "sampleA",
+                "sampleB",
+                "sample1",
+                "sample2",
+                "sample5",
+                "sample6",
+            ],
         }
     )
 
@@ -72,6 +80,7 @@ def nested_cat_schema():
         features=[
             ln.Feature(name="biosample_id", dtype=str).save(),
             ln.Feature(name="biosample_name", dtype="cat[Record[LabA[Sample]]]").save(),
+            ln.Feature(name="biosample_root_name", dtype="cat[Record[Sample]]").save(),
         ],
         coerce_dtype=True,
     ).save()
@@ -104,6 +113,11 @@ def test_curator_df_multivalue(lists_df, lists_schema, cat_df):
 
 
 def test_curators_df_nested_cat(nested_cat_df, nested_cat_schema):
+    # create a "sample1" at the root level
+    sample_root_type = ln.Record(name="Sample", is_type=True).save()
+    for name in ["sampleA", "sampleB"]:
+        ln.Record(name=name, type=sample_root_type).save()
+
     # note that there are two type records both called "Sample" but having different parent types
     # first we create lab_a_type->Sample
     lab_a_type = ln.Record(name="LabA", is_type=True).save()
@@ -124,13 +138,19 @@ def test_curators_df_nested_cat(nested_cat_df, nested_cat_schema):
 
     assert len(curator.cat._cat_vectors["biosample_name"]._validated) == 4
     assert len(curator.cat._cat_vectors["biosample_name"]._non_validated) == 2
+    assert len(curator.cat._cat_vectors["biosample_root_name"]._validated) == 2
+    assert len(curator.cat._cat_vectors["biosample_root_name"]._non_validated) == 4
 
+    sample_root_type.records.all().delete(permanent=True)
     sample_a_type.records.all().delete(permanent=True)
     sample_b_type.records.all().delete(permanent=True)
     lab_b_type.records.all().delete(permanent=True)
     lab_a_type.records.all().delete(permanent=True)
     lab_a_type.delete(permanet=True)
     lab_b_type.delete(permanent=True)
+    sample_root_type.delete(permanent=True)
+    sample_a_type.delete(permanent=True)
+    sample_b_type.delete(permanent=True)
 
 
 def test_curators_list_feature_nullable_empty_list():
