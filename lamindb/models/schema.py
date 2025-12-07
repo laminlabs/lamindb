@@ -185,10 +185,11 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun):
 
         To create a schema, at least one of the following parameters must be passed:
 
-            - `features` - a list of `Feature` objects
-            - `itype` - the identifier type, e.g., `Feature` or `bt.Gene.ensembl_gene_id`
-            - `slots` - a dictionary mapping slots to :class:`~lamindb.Schema` objects, e.g., for an `AnnData`, `{"obs": Schema(...), "var.T": Schema(...)}`
-            - `is_type=True` - a *schema type* to group schemas, e.g., "ProteinPanel"
+        - `features` - a list of `Feature` objects
+        - `itype` - the identifier type, e.g., `Feature` or `bt.Gene.ensembl_gene_id`
+        - `slots` - a dictionary mapping slots to :class:`~lamindb.Schema` objects, e.g., for an `AnnData`, `{"obs": Schema(...), "var.T": Schema(...)}`
+        - `is_type=True` - a *schema type* to group schemas, e.g., "ProteinPanel"
+
 
     Args:
         features: `list[SQLRecord] | list[tuple[Feature, dict]] | None = None` Feature

@@ -1,7 +1,5 @@
 """The two "mini immuno" datasets.
 
-.. currentmodule:: lamindb.examples.datasets.mini_immuno
-
 .. autosummary::
    :toctree: .
 

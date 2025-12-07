@@ -3,7 +3,7 @@
 The mini immuno dataset
 -----------------------
 
-.. autofunction:: mini_immuno
+.. automodule:: mini_immuno
 
 Small in-memory datasets
 ------------------------
