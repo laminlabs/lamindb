@@ -9,7 +9,6 @@
 .. autoexception:: UpdateContext
 .. autoexception:: IntegrityError
 .. autoexception:: FieldValidationError
-.. autoexception:: SQLRecordNameChangeIntegrityError
 .. autoexception:: NoWriteAccess
 .. autoexception:: BlobHashNotFound
 
@@ -73,12 +72,6 @@ class MultipleResultsFound(Exception):
 
 class InconsistentKey(Exception):
     """Inconsistent transform or artifact `key`."""
-
-    pass
-
-
-class SQLRecordNameChangeIntegrityError(Exception):
-    """Custom exception for name change errors."""
 
     pass
 
