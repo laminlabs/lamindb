@@ -1461,7 +1461,7 @@ class CatVector:
             and filter_kwargs.get("source") is None
         ):
             existing_records = registry.filter(
-                **{f"{field_name}__in": str_values}
+                **{f"{field_name}__in": set(str_values)}
             ).list()
             existing_labels = [getattr(r, field_name) for r in existing_records]
         str_values = [v for v in str_values if v not in existing_labels]
@@ -1606,7 +1606,7 @@ class CatVector:
             and valid_inspect_kwargs.get("source") is None
         ):
             values_validated = registry_or_queryset.filter(
-                **{f"{field_name}__in": values}
+                **{f"{field_name}__in": set(values)}
             ).list(field_name)
 
         inspect_result = _inspect(
