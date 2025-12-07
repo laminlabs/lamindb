@@ -19,6 +19,7 @@ import lamindb_setup as ln_setup
 import numpy as np
 import pandas as pd
 import pandera.pandas as pandera
+from django.db.models import Q
 from lamin_utils import colors, logger
 from lamindb_setup.core._docs import doc_args
 from lamindb_setup.core.upath import LocalPathClasses
@@ -1471,7 +1472,9 @@ class CatVector:
         if issubclass(registry, HasType):
             related_name = registry._meta.get_field("type").remote_field.related_name
             if self._type_record is None:
-                self._subtype_query_set = registry.filter(type__isnull=True)
+                self._subtype_query_set = registry.filter(
+                    ~Q(is_type=True), type__isnull=True
+                )
             else:
                 if registry.__name__ == "Record":
                     self._subtype_query_set = self._type_record.query_records()
@@ -1487,12 +1490,9 @@ class CatVector:
                 values_array[validated_mask].tolist(),
                 values_array[~validated_mask].tolist(),
             )
-            records = _from_values(
-                validated_labels,
-                field=getattr(registry, get_name_field(registry, field=self._field)),
-                **valid_from_values_kwargs,
-                mute=True,
-            )
+            records = self._subtype_query_set.filter(  # type: ignore
+                **{f"{field_name}__in": validated_labels}
+            ).to_list()
         else:
             existing_and_public_records = _from_values(
                 str_values,

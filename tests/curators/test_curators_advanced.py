@@ -42,14 +42,6 @@ def nested_cat_df():
                 "sample5",
                 "sample6",
             ],
-            "biosample_root_name": [
-                "sampleA",
-                "sampleB",
-                "sample1",
-                "sample2",
-                "sample5",
-                "sample6",
-            ],
         }
     )
 
@@ -80,14 +72,19 @@ def nested_cat_schema():
         features=[
             ln.Feature(name="biosample_id", dtype=str).save(),
             ln.Feature(name="biosample_name", dtype="cat[Record[LabA[Sample]]]").save(),
-            ln.Feature(name="biosample_root_name", dtype="cat[Record[Sample]]").save(),
         ],
         coerce_dtype=True,
+    ).save()
+    # a feature with the same name but at the root level
+    feature_type = ln.Feature(name="RootBiosample", is_type=True).save()
+    ln.Feature(
+        name="biosample_name", dtype="cat[Record[Sample]]", type=feature_type
     ).save()
 
     yield schema
 
     ln.Schema.filter().delete(permanent=True)
+    ln.Feature.filter().update(type=None)
     ln.Feature.filter().delete(permanent=True)
 
 
@@ -138,8 +135,8 @@ def test_curators_df_nested_cat(nested_cat_df, nested_cat_schema):
 
     assert len(curator.cat._cat_vectors["biosample_name"]._validated) == 4
     assert len(curator.cat._cat_vectors["biosample_name"]._non_validated) == 2
-    assert len(curator.cat._cat_vectors["biosample_root_name"]._validated) == 2
-    assert len(curator.cat._cat_vectors["biosample_root_name"]._non_validated) == 4
+
+    assert len(curator.cat._cat_vectors["columns"].records) == 2  # two features
 
     sample_root_type.records.all().delete(permanent=True)
     sample_a_type.records.all().delete(permanent=True)
