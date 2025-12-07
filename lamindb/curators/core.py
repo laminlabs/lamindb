@@ -1468,12 +1468,17 @@ class CatVector:
         str_values = [v for v in str_values if v not in existing_labels]
 
         # inspect the default instance and save validated records from public
-        if self._type_record is not None:
+        if issubclass(registry, HasType):
             related_name = registry._meta.get_field("type").remote_field.related_name
-            if registry.__name__ == "Record":
-                self._subtype_query_set = self._type_record.query_records()
+            if self._type_record is None:
+                self._subtype_query_set = registry.filter(type__isnull=True)
             else:
-                self._subtype_query_set = getattr(self._type_record, related_name).all()
+                if registry.__name__ == "Record":
+                    self._subtype_query_set = self._type_record.query_records()
+                else:
+                    self._subtype_query_set = getattr(
+                        self._type_record, related_name
+                    ).all()
             values_array = np.array(str_values)
             validated_mask = self._subtype_query_set.validate(  # type: ignore
                 values_array, field=self._field, **filter_kwargs, mute=True
@@ -1489,8 +1494,6 @@ class CatVector:
                 mute=True,
             )
         else:
-            if issubclass(registry, HasType):
-                valid_from_values_kwargs["type__isnull"] = True
             existing_and_public_records = _from_values(
                 str_values,
                 field=getattr(registry, get_name_field(registry, field=self._field)),
