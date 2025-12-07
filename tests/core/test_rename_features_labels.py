@@ -88,26 +88,17 @@ def test_rename_label():
     ).exists()
     assert ln.Artifact.filter(feature_sets__features__name="feature_to_rename").exists()
 
-    # rename feature
-    feature = ln.Feature.get(name="feature_to_rename")
+    ulabel = ln.ULabel.get(name="label-to-rename")
     with pytest.raises(SQLRecordNameChangeIntegrityError):
-        feature.name = "feature_renamed"
-        feature.save()
+        ulabel.name = "label-renamed"
+        ulabel.save()
 
-    artifact.features.make_external(feature)
-    assert not ln.Artifact.filter(
-        feature_sets__features__name="feature_to_rename"
+    artifact.labels.make_external(ulabel)
+    assert not artifact.ulabels.through.objects.filter(
+        feature__name="feature_to_rename", ulabel__name="label-to-rename"
     ).exists()
-    assert ln.Artifact.filter(
-        feature_sets__features__name="feature_to_rename2"
-    ).exists()
-    feature.name = "feature_renamed"
-    feature.save()
-
-    # rename the other feature, automatically deletes no-member schema
-    feature2 = ln.Feature.get(name="feature_to_rename2")
-    artifact.features.make_external(feature2)
-    assert artifact.feature_sets.count() == 0
+    ulabel.name = "label-renamed"
+    ulabel.save()
 
     # clean up
     artifact.delete(permanent=True)
