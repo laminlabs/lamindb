@@ -37,6 +37,33 @@ Storage of feature values
 
 .. autoclass:: FeatureValue
 
+Link models
+-----------
+
+.. autoclass:: RecordRecord
+.. autoclass:: RecordJson
+.. autoclass:: RecordULabel
+.. autoclass:: RecordRun
+.. autoclass:: RecordArtifact
+.. autoclass:: RecordReference
+.. autoclass:: RecordProject
+
+Block models
+------------
+
+.. autoclass:: RootBlock
+.. autoclass:: ArtifactBlock
+.. autoclass:: TransformBlock
+.. autoclass:: RecordBlock
+.. autoclass:: CollectionBlock
+.. autoclass:: RunBlock
+.. autoclass:: SchemaBlock
+.. autoclass:: ProjectBlock
+.. autoclass:: BranchBlock
+.. autoclass:: SpaceBlock
+.. autoclass:: RunBlock
+.. autoclass:: RecordUser
+
 Utility classes
 ---------------
 
