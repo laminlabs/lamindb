@@ -2,21 +2,12 @@ import datetime
 import os
 
 import lamindb as ln
+import pandas as pd
 import pytest
 
 
 def test_rename_feature(ccaplog):
-    import pandas as pd
-
-    df = pd.DataFrame(
-        {
-            "old_name": [
-                1,
-                2,
-                3,
-            ],
-        }
-    )
+    df = pd.DataFrame({"old_name": [1, 2]})
     ln.Feature(name="old_name", dtype=int).save()
     artifact = ln.Artifact.from_dataframe(
         df, key="test.parquet", schema="valid_features"
