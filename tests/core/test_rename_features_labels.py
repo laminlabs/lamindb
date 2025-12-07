@@ -13,9 +13,11 @@ def test_rename_feature(ccaplog):
         df, key="test.parquet", schema="valid_features"
     ).save()
     feature = ln.Feature.get(name="old_name")
+
+    # First rename
     feature.name = "new_name"
     feature.save()
-    now = datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0)
+    now1 = datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0)
     assert (
         "By renaming feature from 'old_name' to 'new_name' 1 artifact no longer matches the feature name in storage:"
         in ccaplog.text
@@ -24,8 +26,25 @@ def test_rename_feature(ccaplog):
         feature.refresh_from_db()
         assert feature.synonyms == "old_name"
         assert feature._aux["renamed"] == {
-            now.isoformat().replace("+00:00", "Z"): "old_name"
+            now1.isoformat().replace("+00:00", "Z"): "old_name"
         }
+
+    # Second rename
+    feature.name = "newer_name"
+    feature.save()
+    now2 = datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0)
+    assert (
+        "By renaming feature from 'new_name' to 'newer_name' 1 artifact no longer matches the feature name in storage:"
+        in ccaplog.text
+    )
+    if os.getenv("LAMINDB_TEST_DB_VENDOR") != "sqlite":
+        feature.refresh_from_db()
+        assert feature.synonyms == "old_name|new_name"
+        assert feature._aux["renamed"] == {
+            now1.isoformat().replace("+00:00", "Z"): "old_name",
+            now2.isoformat().replace("+00:00", "Z"): "new_name",
+        }
+
     schema = artifact.feature_sets.first()
     artifact.delete(permanent=True)
     schema.delete(permanent=True)
