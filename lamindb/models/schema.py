@@ -190,7 +190,6 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun):
             - `slots` - a dictionary mapping slots to :class:`~lamindb.Schema` objects, e.g., for an `AnnData`, `{"obs": Schema(...), "var.T": Schema(...)}`
             - `is_type=True` - a *schema type* to group schemas, e.g., "ProteinPanel"
 
-
     Args:
         features: `list[SQLRecord] | list[tuple[Feature, dict]] | None = None` Feature
             records, e.g., `[Feature(...), Feature(...)]` or features with their config, e.g., `[Feature(...).with_config(optional=True)]`.
@@ -283,6 +282,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun):
 
             df = pd.DataFrame({"feat1": [1, 2], "feat2": [3.1, 4.2], "feat3": ["cond1", "cond2"]})
             schema = ln.Schema.from_dataframe(df)
+
     """
 
     class Meta(SQLRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
