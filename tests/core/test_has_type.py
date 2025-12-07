@@ -125,17 +125,8 @@ def test_record_type_uniqueness():
 @pytest.mark.skipif(
     os.getenv("LAMINDB_TEST_DB_VENDOR") == "sqlite", reason="Postgres-only"
 )
-@pytest.mark.parametrize(
-    "model_class,model_name",
-    [
-        (ln.Record, "record"),
-        (ln.ULabel, "ulabel"),
-    ],
-    ids=["Record", "ULabel"],
-)
-def test_prevent_type_cycle(model_class, model_name):
-    """Test that creating a cycle in type hierarchy is prevented."""
-    # Create two types
+@pytest.mark.parametrize("model_class", [ln.Record, ln.ULabel])
+def test_prevent_type_cycle(model_class):
     type_a = model_class(name="TypeA", is_type=True).save()
     type_b = model_class(name="TypeB", is_type=True).save()
 
