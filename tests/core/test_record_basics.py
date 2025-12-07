@@ -109,14 +109,15 @@ def test_record_features_add_remove_values():
     feature_cl_ontology_id = ln.Feature(
         name="feature_cl_ontology_id", dtype=bt.CellLine.ontology_id
     ).save()
+    feature_gene = ln.Feature(name="feature_gene", dtype=bt.Gene).save()
 
     test_record = ln.Record(name="test_record").save()
     test_project = ln.Project(name="test_project").save()
     hek293 = bt.CellLine.from_source(name="HEK293").save()
     a549 = bt.CellLine.from_source(name="A549 cell").save()
+    tmem276 = bt.Gene.from_source(symbol="Tmem276", organism="mouse").save()
 
     # no schema validation
-
     test_values = {
         "feature_bool": True,
         "feature_str": "a string value",
@@ -133,13 +134,16 @@ def test_record_features_add_remove_values():
         "feature_project": "test_project",
         "feature_cell_line": "HEK293",
         "feature_cell_lines": ["HEK293", "A549 cell"],
+        "feature_gene": "Tmem276",
         "feature_cl_ontology_id": "CLO:0001230",
         "feature_artifact": "test-artifact",
         "feature_collection": "test-collection",
         "feature_run": run.uid,
     }
 
+    bt.settings.organism = "mouse"
     test_record.features.add_values(test_values)
+    bt.settings.organism = "human"
     assert test_record.features.get_values() == test_values
 
     # all empty sheet
@@ -162,6 +166,7 @@ def test_record_features_add_remove_values():
             feature_cell_line,
             feature_cell_lines,
             feature_cl_ontology_id,
+            feature_gene,
             feature_artifact,
             feature_collection,
             feature_run,
@@ -235,6 +240,7 @@ def test_record_features_add_remove_values():
         "feature_project": "test_project",
         "feature_cell_line": "HEK293",
         "feature_cl_ontology_id": "CLO:0001230",
+        "feature_gene": "Tmem276",
         "feature_artifact": "test-artifact",
         "feature_collection": "test-collection",
         "feature_run": run.uid,
@@ -390,6 +396,7 @@ def test_record_features_add_remove_values():
 
     # clean up rest
     test_record.delete(permanent=True)
+    print(ln.Record.filter(is_type=False).to_dataframe())
     sheet.delete(permanent=True)
     feature_str.delete(permanent=True)
     feature_list_str.delete(permanent=True)
@@ -413,8 +420,10 @@ def test_record_features_add_remove_values():
     feature_cell_line.delete(permanent=True)
     feature_cl_ontology_id.delete(permanent=True)
     feature_collection.delete(permanent=True)
+    feature_gene.delete(permanent=True)
     hek293.delete(permanent=True)
     a549.delete(permanent=True)
+    tmem276.delete(permanent=True)
     ulabel.delete(permanent=True)
     collection.delete(permanent=True)
     artifact.delete(permanent=True)
