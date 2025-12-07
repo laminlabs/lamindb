@@ -20,12 +20,12 @@ from laminci.db import setup_local_test_postgres
 def pytest_sessionstart():
     t_execute_start = perf_counter()
     ln_setup._TESTING = True
-    is_sqlite = os.getenv("LAMINDB_TEST_DB_VENDOR") == "sqlite"
-    if is_sqlite:
-        print("running tests on SQLite")
+    is_postgresql = os.getenv("LAMINDB_TEST_DB_VENDOR") == "postgresql"
+    if is_postgresql:
+        print("running tests on PostgreSQL")
     else:
-        print("running tests on Postgres")
-    if is_sqlite:
+        print("running tests on SQLite")
+    if is_postgresql is False:
         ln.setup.init(
             storage="./default_storage_unit_core",
             modules="bionty",

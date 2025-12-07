@@ -248,8 +248,8 @@ def test(session, group):
     coverage_args = "--cov=lamindb --cov-config=pyproject.toml --cov-append --cov-report=term-missing"
     duration_args = "--durations=10"
 
+    env = os.environ.copy()
     if group == "unit-core-sqlite":
-        env = os.environ.copy()
         env["LAMINDB_TEST_DB_VENDOR"] = "sqlite"
         run(
             session,
@@ -257,9 +257,11 @@ def test(session, group):
             env=env,
         )
     elif group == "unit-core-postgres":
+        env["LAMINDB_TEST_DB_VENDOR"] = "postgresql"
         run(
             session,
             f"pytest {coverage_args} ./tests/core {duration_args}",
+            env=env,
         )
     elif group == "unit-storage":
         login_testuser2(session)  # shouldn't be necessary but is for now

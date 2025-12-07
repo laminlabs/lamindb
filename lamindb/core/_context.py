@@ -666,7 +666,7 @@ class Context:
         description = None
         if path.suffix == ".ipynb" and path.stem.startswith("Untitled"):
             raise RuntimeError(
-                "Your notebook is untitled, please rename it before tracking"
+                "Your notebook file name is 'Untitled.ipynb', please rename it before tracking. You might have to re-start your notebook kernel."
             )
         path_str = path.as_posix()
         if path_str.startswith("/fileId="):
