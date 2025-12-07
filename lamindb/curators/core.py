@@ -1452,6 +1452,20 @@ class CatVector:
             validated_labels = str_values  # type: ignore
             return validated_labels, []
 
+        # first validate against the registry with perfect matches
+        existing_records: list[SQLRecord] = []  # type: ignore
+        existing_labels: list[str] = []
+        if (
+            hasattr(registry, "organism")
+            and filter_kwargs.get("organism") is None
+            and filter_kwargs.get("source") is None
+        ):
+            existing_records = registry.filter(
+                **{f"{field_name}__in": str_values}
+            ).list()
+            existing_labels = [getattr(r, field_name) for r in existing_records]
+        str_values = [v for v in str_values if v not in existing_labels]
+
         # inspect the default instance and save validated records from public
         if self._type_record is not None:
             related_name = registry._meta.get_field("type").remote_field.related_name
@@ -1510,9 +1524,9 @@ class CatVector:
             validated_labels = existing_and_public_labels
             records = existing_and_public_records
 
-        self.records = records  # type: ignore
+        self.records = records + existing_records  # type: ignore
         # validated, non-validated
-        return validated_labels, non_validated_labels
+        return validated_labels + existing_labels, non_validated_labels
 
     def _add_new(
         self,
@@ -1582,9 +1596,22 @@ class CatVector:
         registry_or_queryset = registry
         if self._subtype_query_set is not None:
             registry_or_queryset = self._subtype_query_set
+
+        values_validated: list[str] = []
+
+        # first validate against the registry with perfect matches
+        if (
+            hasattr(registry, "organism")
+            and valid_inspect_kwargs.get("organism") is None
+            and valid_inspect_kwargs.get("source") is None
+        ):
+            values_validated = registry_or_queryset.filter(
+                **{f"{field_name}__in": values}
+            ).list(field_name)
+
         inspect_result = _inspect(
             registry_or_queryset,
-            values,
+            [v for v in values if v not in values_validated],
             field=self._field,
             mute=True,
             from_source=False,
@@ -1594,7 +1621,6 @@ class CatVector:
         syn_mapper = inspect_result.synonyms_mapper  # type: ignore
 
         # inspect the non-validated values from public (BioRecord only)
-        values_validated = []
         if hasattr(registry, "public"):
             public_records = registry.from_values(
                 non_validated,
