@@ -63,7 +63,6 @@ from ..errors import (
     FieldValidationError,
     InvalidArgument,
     NoWriteAccess,
-    SQLRecordNameChangeIntegrityError,
     ValidationError,
 )
 from ._is_versioned import IsVersioned
@@ -1803,42 +1802,38 @@ def check_name_change(record: SQLRecord):
     registry = record.__class__.__name__
 
     if old_name != new_name:
-        # when a label is renamed, only raise a warning if it has a feature
         if hasattr(record, "artifacts") and not isinstance(record, (Record, Storage)):
             linked_records = (
+                # find all artifacts that are linked to this label via a feature with dtype
+                # matching on the name aka "[registry]"
                 record.artifacts.through.filter(
-                    label_ref_is_name=True, **{f"{registry.lower()}_id": record.pk}
+                    feature__dtype__contains=f"[{registry}]",
+                    **{f"{registry.lower()}_id": record.pk},
                 )
-                .exclude(feature_id=None)  # must have a feature
-                .distinct()
             )
-            artifact_ids = linked_records.to_list("artifact__uid")
-            n = len(artifact_ids)
+            artifact_uids = list(set(linked_records.to_list("artifact__uid")))
+            n = len(artifact_uids)
             if n > 0:
                 s = "s" if n > 1 else ""
+                es = "es" if n == 1 else ""
                 logger.error(
-                    f"You are trying to {colors.red('rename label')} from '{old_name}' to '{new_name}'!\n"
-                    f"   → The following {n} artifact{s} {colors.red('will no longer be validated')}: {artifact_ids}\n\n"
-                    f"{colors.bold('To rename this label')}, make it external:\n"
-                    f"   → run `artifact.labels.make_external(label)`\n\n"
-                    f"After renaming, consider re-curating the above artifact{s}:\n"
-                    f'   → in each dataset, manually modify label "{old_name}" to "{new_name}"\n'
-                    f"   → run `ln.Curator`\n"
+                    f"by {colors.red('renaming label')} from '{old_name}' to '{new_name}' "
+                    f"{n} artifact{s} no longer match{es} the label name in storage: {artifact_uids}\n\n"
+                    f"   → consider re-curating\n"
                 )
-                raise SQLRecordNameChangeIntegrityError
         elif isinstance(record, Feature):
             # only internal features of schemas with `itype=Feature` are prone to getting out of sync
-            linked_artifacts = Artifact.filter(
+            artifact_uids = Artifact.filter(
                 feature_sets__features=record, feature_sets__itype="Feature"
             ).to_list("uid")
-            n = len(linked_artifacts)
+            n = len(artifact_uids)
             if n > 0:
                 s = "s" if n > 1 else ""
                 es = "es" if n == 1 else ""
                 logger.warning(
-                    f"By {colors.red('renaming feature')} from '{old_name}' to '{new_name}' "
-                    f"{n} artifact{s} no longer match{es} the feature name in storage: {linked_artifacts}\n"
-                    "  → Consider re-curating"
+                    f"by {colors.red('renaming feature')} from '{old_name}' to '{new_name}' "
+                    f"{n} artifact{s} no longer match{es} the feature name in storage: {artifact_uids}\n"
+                    "  → consider re-curating"
                 )
 
 

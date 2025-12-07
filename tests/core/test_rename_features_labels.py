@@ -3,7 +3,6 @@ import os
 
 import lamindb as ln
 import pandas as pd
-import pytest
 
 
 def test_rename_feature(ccaplog):
@@ -19,7 +18,7 @@ def test_rename_feature(ccaplog):
     feature.save()
     now1 = datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0)
     assert (
-        "By renaming feature from 'old_name' to 'new_name' 1 artifact no longer matches the feature name in storage:"
+        "by renaming feature from 'old_name' to 'new_name' 1 artifact no longer matches the feature name in storage:"
         in ccaplog.text
     )
     if os.getenv("LAMINDB_TEST_DB_VENDOR") != "sqlite":
@@ -34,7 +33,7 @@ def test_rename_feature(ccaplog):
     feature.save()
     now2 = datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0)
     assert (
-        "By renaming feature from 'new_name' to 'newer_name' 1 artifact no longer matches the feature name in storage:"
+        "by renaming feature from 'new_name' to 'newer_name' 1 artifact no longer matches the feature name in storage:"
         in ccaplog.text
     )
     if os.getenv("LAMINDB_TEST_DB_VENDOR") != "sqlite":
@@ -51,57 +50,45 @@ def test_rename_feature(ccaplog):
     feature.delete(permanent=True)
 
 
-@pytest.mark.skipif(
-    os.getenv("LAMINDB_TEST_DB_VENDOR") == "sqlite", reason="Postgres-only"
-)
-def test_rename_label():
-    import pandas as pd
-    from lamindb.errors import SQLRecordNameChangeIntegrityError
-
+def test_rename_label(ccaplog):
     df = pd.DataFrame(
         {
-            "feature_to_rename": [
-                "label-to-rename",
-                "label-to-rename",
-                "label-not-to-rename",
-            ],
-            "feature_to_rename2": [
-                "label-not-to-rename",
-                "label-not-to-rename",
-                "label-not-to-rename",
-            ],
+            "feature1": pd.Categorical(
+                [
+                    "label-to-rename",
+                    "label-not-to-rename",
+                ]
+            ),
+            "feature2": pd.Categorical(
+                [
+                    "label-not-to-rename",
+                    "label-not-to-rename",
+                ]
+            ),
         }
     )
 
-    curator = ln.Curator.from_dataframe(
-        df,
-        categoricals={
-            "feature_to_rename": ln.ULabel.name,
-            "feature_to_rename2": ln.ULabel.name,
-        },
-    )
-    curator.add_new_from("feature_to_rename")
-    curator.add_new_from("feature_to_rename2")
-    artifact = curator.save_artifact(description="test-rename")
-    assert artifact.ulabels.through.objects.filter(
-        feature__name="feature_to_rename", ulabel__name="label-to-rename"
-    ).exists()
-    assert ln.Artifact.filter(feature_sets__features__name="feature_to_rename").exists()
+    ulabel1 = ln.ULabel(name="label-to-rename").save()
+    ulabel2 = ln.ULabel(name="label-not-to-rename").save()
+    feature1 = ln.Feature(name="feature1", dtype=ln.ULabel).save()
+    feature2 = ln.Feature(name="feature2", dtype=ln.ULabel).save()
+    artifact = ln.Artifact.from_dataframe(
+        df, key="test.parquet", schema="valid_features"
+    ).save()
 
     ulabel = ln.ULabel.get(name="label-to-rename")
-    with pytest.raises(SQLRecordNameChangeIntegrityError):
-        ulabel.name = "label-renamed"
-        ulabel.save()
-
-    artifact.labels.make_external(ulabel)
-    assert not artifact.ulabels.through.objects.filter(
-        feature__name="feature_to_rename", ulabel__name="label-to-rename"
-    ).exists()
     ulabel.name = "label-renamed"
     ulabel.save()
 
-    # clean up
+    assert (
+        "by renaming label from 'label-to-rename' to 'label-renamed' 1 artifact no longer matches the label name in storage:"
+        in ccaplog.text
+    )
+
+    schema = artifact.feature_sets.first()
     artifact.delete(permanent=True)
-    ln.Schema.filter().delete(permanent=True)
-    ln.ULabel.filter().delete(permanent=True)
-    ln.Feature.filter().delete(permanent=True)
+    schema.delete(permanent=True)
+    feature1.delete(permanent=True)
+    feature2.delete(permanent=True)
+    ulabel1.delete(permanent=True)
+    ulabel2.delete(permanent=True)
