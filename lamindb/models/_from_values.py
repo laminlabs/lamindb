@@ -26,7 +26,9 @@ def _from_values(
     from .query_set import SQLRecordList
 
     registry = field.field.model  # type: ignore
-    organism_record = get_organism_record_from_field(field, organism, values=iterable)
+    organism_record = get_organism_record_from_field(
+        field=field, organism=organism, values=iterable
+    )
     # TODO: the create is problematic if field is not a name field
     if create:
         create_kwargs = {}
@@ -102,15 +104,19 @@ def get_existing_records(
     from .can_curate import _validate
 
     # NOTE: existing records matching is agnostic to the source
+    # NOTE: if organism is None, won't apply organism filter
     model = field.field.model  # type: ignore
 
-    # log synonyms mapped terms
+    # 1) map synonyms, log synonyms mapped terms
     if hasattr(model, "standardize"):
         syn_mapper = model.standardize(
             iterable_idx,
             field=field,
             organism=organism,
             mute=True,
+            case_sensitive=True
+            if organism is None
+            else False,  # only perfect match if no organism
             source_aware=False,  # standardize only based on the DB reference
             return_mapper=True,
         )
@@ -126,7 +132,7 @@ def get_existing_records(
     # order by causes a factor 10 in runtime
     # records = query_set.order_by(preserved).to_list()
 
-    # log validated terms
+    # 2) validate against the registry, log validated terms
     is_validated = _validate(
         cls=model, values=iterable_idx, field=field, organism=organism, mute=True
     )
@@ -164,7 +170,7 @@ def get_existing_records(
             logger.success(syn_msg)
         msg = ""
 
-    # get all existing records in the db
+    # 3) get all existing records from the registry
     query = {f"{field.field.name}__in": iterable_idx.values}  # type: ignore
     if organism is not None:
         query["organism"] = organism
@@ -192,7 +198,12 @@ def create_records_from_source(
     # populate additional fields from public_df
     from bionty._source import filter_public_df_columns, get_source_record
 
-    # get the default source
+    # here an organism must be provided since we're creating new records from an organism-specific source
+    if organism is None and source is None:
+        from bionty._organism import OrganismNotSet
+
+        raise OrganismNotSet("please specify an organism!")
+    # get the default source of the organism
     source_record = get_source_record(model, organism, source)
 
     # create the corresponding PublicOntology object from model
@@ -357,19 +368,21 @@ def get_organism_record_from_field(  # type: ignore
         values = []
     registry = field.field.model
     field_str = field.field.name
-    # id field is a unique field that's not a relation
+    # id field is a unique field that's not a relation, e.g. Gene.ensembl_gene_id
     is_simple_field_unique = field.field.unique and not field.field.is_relation
     check = not is_simple_field_unique or organism is not None
 
+    # if user passes an Gene.ensembl_gene_id, automatically get the organism from the prefix
     if (
         registry.__get_name_with_module__() == "bionty.Gene"
-        and field.field.name == "ensembl_gene_id"
+        and field_str == "ensembl_gene_id"
         and len(values) > 0
         and organism is None
     ):  # type: ignore
         from bionty._organism import organism_from_ensembl_id
 
-        return organism_from_ensembl_id(values[0], using_key)  # type: ignore
+        organism_record = organism_from_ensembl_id(values[0], using_key)  # type: ignore
+        return organism_record
 
     if registry.__base__.__name__ == "BioRecord" and check:
         from bionty._organism import create_or_get_organism_record
