@@ -101,8 +101,6 @@ class Reference(
     """
     references: Reference
     """References of this type (can only be non-empty if `is_type` is `True`)."""
-    is_type: bool = BooleanField(default=False, db_index=True, null=True)
-    """Distinguish types from instances of the type."""
     abbr: str | None = CharField(
         max_length=32,
         db_index=True,
@@ -240,8 +238,6 @@ class Project(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, ValidateF
     """Type of project (e.g., 'Program', 'Project', 'GithubIssue', 'Task')."""
     projects: Project
     """Projects of this type (can only be non-empty if `is_type` is `True`)."""
-    is_type: bool = BooleanField(default=False, db_index=True, null=True)
-    """Distinguish types from instances of the type."""
     abbr: str | None = CharField(max_length=32, db_index=True, null=True)
     """An abbreviation."""
     url: str | None = URLField(max_length=255, null=True, default=None)

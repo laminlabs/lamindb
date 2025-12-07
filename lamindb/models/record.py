@@ -337,11 +337,6 @@ class Record(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, HasParents
     """
     records: Record
     """If a type (`is_type=True`), records of this `type`."""
-    is_type: bool = BooleanField(default=False, db_index=True)
-    """Indicates if record is a `type`.
-
-    For example, if a record "Compound" is a `type`, the actual compounds "darerinib", "tramerinib", would be instances of that `type`.
-    """
     description: str | None = TextField(null=True)
     """A description."""
     reference: str | None = CharField(max_length=255, db_index=True, null=True)
