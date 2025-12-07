@@ -28,6 +28,7 @@ from lamindb.base.types import FieldAttr  # noqa
 from lamindb.models import (
     Artifact,
     Feature,
+    HasType,
     Run,
     Schema,
     SQLRecord,
@@ -1488,6 +1489,8 @@ class CatVector:
                 mute=True,
             )
         else:
+            if issubclass(registry, HasType):
+                valid_from_values_kwargs["type__isnull"] = True
             existing_and_public_records = _from_values(
                 str_values,
                 field=getattr(registry, get_name_field(registry, field=self._field)),
