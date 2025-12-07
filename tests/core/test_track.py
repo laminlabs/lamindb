@@ -174,6 +174,16 @@ def test_track_notebook_colab():
     ln.context._track_notebook(path_str=notebook_path)
 
 
+def test_track_notebook_untitled():
+    notebook_path = "Untitled.ipynb"
+    with pytest.raises(RuntimeError) as error:
+        ln.context._track_notebook(path_str=notebook_path)
+    assert (
+        "Your notebook file name is 'Untitled.ipynb', please rename it before tracking. You might have to re-start your notebook kernel."
+        in error.exconly()
+    )
+
+
 def test_finish_before_track():
     ln.context._run = None
     with pytest.raises(TrackNotCalled) as error:
