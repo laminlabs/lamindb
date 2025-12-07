@@ -6,6 +6,8 @@ from typing import TYPE_CHECKING, Any, get_args, overload
 
 import numpy as np
 import pandas as pd
+import pgtrigger
+from django.conf import settings as django_settings
 from django.db import models
 from django.db.models import CASCADE, PROTECT
 from django.db.models.query_utils import DeferredAttribute
@@ -551,6 +553,43 @@ def process_init_feature_param(args, kwargs, is_param: bool = False):
     return kwargs
 
 
+UPDATE_FEATURE_ON_NAME_CHANGE = """\
+DECLARE
+    old_renamed JSONB;
+    new_renamed JSONB;
+    ts TEXT;
+BEGIN
+    -- Only proceed if name actually changed
+    IF OLD.name IS DISTINCT FROM NEW.name THEN
+        -- Update synonyms
+        IF NEW.synonyms IS NULL OR NEW.synonyms = '' THEN
+            NEW.synonyms := OLD.name;
+        ELSIF position(OLD.name in NEW.synonyms) = 0 THEN
+            NEW.synonyms := NEW.synonyms || '|' || OLD.name;
+        END IF;
+
+        -- Update _aux with rename history
+        ts := TO_CHAR(NOW() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"');
+
+        -- Get existing renamed history or initialize empty object
+        old_renamed := COALESCE((OLD._aux->>'renamed')::JSONB, '{}'::JSONB);
+
+        -- Add old name with timestamp
+        new_renamed := old_renamed || jsonb_build_object(ts, OLD.name);
+
+        -- Update _aux with new renamed history
+        IF NEW._aux IS NULL THEN
+            NEW._aux := jsonb_build_object('renamed', new_renamed);
+        ELSE
+            NEW._aux := NEW._aux || jsonb_build_object('renamed', new_renamed);
+        END IF;
+    END IF;
+
+    RETURN NEW;
+END;
+"""
+
+
 class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     """Dimensions of measurement such as dataframe columns or dictionary keys.
 
@@ -662,6 +701,19 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     class Meta(SQLRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
         abstract = False
         app_label = "lamindb"
+        if (
+            django_settings.DATABASES.get("default", {}).get("ENGINE")
+            == "django.db.backends.postgresql"
+        ):
+            triggers = [
+                pgtrigger.Trigger(
+                    name="update_feature_on_name_change",
+                    operation=pgtrigger.Update,
+                    when=pgtrigger.Before,
+                    condition=pgtrigger.Condition("OLD.name IS DISTINCT FROM NEW.name"),
+                    func=UPDATE_FEATURE_ON_NAME_CHANGE,
+                ),
+            ]
         constraints = [
             models.CheckConstraint(
                 condition=models.Q(is_type=True) | models.Q(dtype__isnull=False),

@@ -1378,7 +1378,7 @@ class QueryDB:
             artifacts = cxg_db.Artifact.filter(suffix=".h5ad")
             records = cxg_db.Record.filter(name__startswith="cell")
 
-            cxg_db.artifacts.filter(
+            cxg_db.Artifact.filter(
                 suffix=".h5ad",
                 description__contains="immune",
                 size__gt=1e9,  # size > 1GB

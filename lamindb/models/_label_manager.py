@@ -19,6 +19,7 @@ from lamindb.models.sqlrecord import (
     transfer_to_default_db,
 )
 
+from ..base import deprecated
 from ._describe import (
     NAME_WIDTH,
     TYPE_WIDTH,
@@ -304,6 +305,7 @@ class LabelManager:
                         *feature_labels, through_defaults={"feature_id": feature_id}
                     )
 
+    @deprecated("none")
     def make_external(self, label: SQLRecord) -> None:
         """Make a label external, aka dissociate label from internal features.
 

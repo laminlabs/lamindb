@@ -63,7 +63,6 @@ from ..errors import (
     FieldValidationError,
     InvalidArgument,
     NoWriteAccess,
-    SQLRecordNameChangeIntegrityError,
     ValidationError,
 )
 from ._is_versioned import IsVersioned
@@ -127,7 +126,7 @@ class IsLink:
     pass
 
 
-class HasType:
+class HasType(models.Model):
     """Mixin for registries that have a hierarchical `type` assigned.
 
     Such registries have a `.type` foreign key pointing to themselves.
@@ -139,6 +138,15 @@ class HasType:
         experiment_type = ln.Record(name="Experiment", is_type=True).save()
         experiment1 = ln.Record(name="Experiment 1", type=experiment_type).save()
         experiment2 = ln.Record(name="Experiment 2", type=experiment_type).save()
+    """
+
+    class Meta:
+        abstract = True
+
+    is_type: bool = BooleanField(default=False, db_index=True)
+    """Indicates if record is a `type`.
+
+    For example, if a record "Compound" is a `type`, the actual compounds "darerinib", "tramerinib", would be instances of that `type`.
     """
 
     def query_types(self) -> SQLRecordList:
@@ -356,6 +364,15 @@ def validate_fields(record: SQLRecord, kwargs):
                 f"name '{kwargs['name']}' for type ends with 's', in case you're naming with plural, consider the singular for a type name"
             )
         is_approx_pascal_case(kwargs["name"])
+    if (
+        "type" in kwargs
+        and isinstance(kwargs["type"], HasType)
+        and not kwargs["type"].is_type
+    ):
+        object_name = record.__class__.__name__.lower()
+        raise ValueError(
+            f"You can only assign a {object_name} with `is_type=True` as `type` to another {object_name}, but this doesn't have it: {kwargs['type']}"
+        )
     # validate literals
     validate_literal_fields(record, kwargs)
 
@@ -1062,7 +1079,9 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                     and any(
                         field in error_msg for field in ("root", "ontology_id", "uid")
                     )
-                    and ("_record_type_name_at_" not in error_msg)
+                    and (
+                        "_type_name_at_" not in error_msg
+                    )  # constraints for unique type names in Record, ULabel, etc.
                     and (
                         "UNIQUE constraint failed" in error_msg
                         or "duplicate key value violates unique constraint" in error_msg
@@ -1777,7 +1796,6 @@ def check_name_change(record: SQLRecord):
         Artifact,
         Collection,
         Feature,
-        Record,
         Schema,
         Storage,
         Transform,
@@ -1803,49 +1821,39 @@ def check_name_change(record: SQLRecord):
     registry = record.__class__.__name__
 
     if old_name != new_name:
-        # when a label is renamed, only raise a warning if it has a feature
-        if hasattr(record, "artifacts") and not isinstance(record, (Record, Storage)):
+        if hasattr(record, "artifacts") and not isinstance(record, Storage):
             linked_records = (
+                # find all artifacts that are linked to this label via a feature with dtype
+                # matching on the name aka "[registry]"
                 record.artifacts.through.filter(
-                    label_ref_is_name=True, **{f"{registry.lower()}_id": record.pk}
+                    feature__dtype__contains=f"[{registry}]",
+                    **{f"{registry.lower()}_id": record.pk},
                 )
-                .exclude(feature_id=None)  # must have a feature
-                .distinct()
             )
-            artifact_ids = linked_records.to_list("artifact__uid")
-            n = len(artifact_ids)
+            artifact_uids = list(set(linked_records.to_list("artifact__uid")))
+            n = len(artifact_uids)
             if n > 0:
                 s = "s" if n > 1 else ""
+                es = "es" if n == 1 else ""
                 logger.error(
-                    f"You are trying to {colors.red('rename label')} from '{old_name}' to '{new_name}'!\n"
-                    f"   → The following {n} artifact{s} {colors.red('will no longer be validated')}: {artifact_ids}\n\n"
-                    f"{colors.bold('To rename this label')}, make it external:\n"
-                    f"   → run `artifact.labels.make_external(label)`\n\n"
-                    f"After renaming, consider re-curating the above artifact{s}:\n"
-                    f'   → in each dataset, manually modify label "{old_name}" to "{new_name}"\n'
-                    f"   → run `ln.Curator`\n"
+                    f"by {colors.red('renaming label')} from '{old_name}' to '{new_name}' "
+                    f"{n} artifact{s} no longer match{es} the label name in storage: {artifact_uids}\n\n"
+                    f"   → consider re-curating\n"
                 )
-                raise SQLRecordNameChangeIntegrityError
-
-        # when a feature is renamed
         elif isinstance(record, Feature):
-            # only internal features are associated with schemas
-            linked_artifacts = Artifact.filter(feature_sets__features=record).to_list(
-                "uid"
-            )
-            n = len(linked_artifacts)
+            # only internal features of schemas with `itype=Feature` are prone to getting out of sync
+            artifact_uids = Artifact.filter(
+                feature_sets__features=record, feature_sets__itype="Feature"
+            ).to_list("uid")
+            n = len(artifact_uids)
             if n > 0:
                 s = "s" if n > 1 else ""
-                logger.error(
-                    f"You are trying to {colors.red('rename feature')} from '{old_name}' to '{new_name}'!\n"
-                    f"   → The following {n} artifact{s} {colors.red('will no longer be validated')}: {linked_artifacts}\n\n"
-                    f"{colors.bold('To rename this feature')}, make it external:\n"
-                    "   → run `artifact.features.make_external(feature)`\n\n"
-                    f"After renaming, consider re-curating the above artifact{s}:\n"
-                    f"   → in each dataset, manually modify feature '{old_name}' to '{new_name}'\n"
-                    f"   → run `ln.Curator`\n"
+                es = "es" if n == 1 else ""
+                logger.warning(
+                    f"by {colors.red('renaming feature')} from '{old_name}' to '{new_name}' "
+                    f"{n} artifact{s} no longer match{es} the feature name in storage: {artifact_uids}\n"
+                    "  → consider re-curating"
                 )
-                raise SQLRecordNameChangeIntegrityError
 
 
 def check_key_change(record: Union[Artifact, Transform]):

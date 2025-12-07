@@ -485,10 +485,6 @@ class Record(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, HasParents
             raise FieldValidationError(
                 f"Only {valid_keywords} are valid keyword arguments"
             )
-        if type and not type.is_type:
-            raise ValueError(
-                f"You can only assign a record of `is_type=True` as `type` to another record, but this doesn't have it: {type}"
-            )
         if schema and not is_type:
             logger.important("passing schema, treating as type")
             is_type = True

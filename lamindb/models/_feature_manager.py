@@ -1550,6 +1550,7 @@ class FeatureManager:
                 ).delete()
                 self._host.features._add_schema(schema_self, slot)
 
+    @deprecated("none")
     def make_external(self, feature: Feature) -> None:
         """Make a feature external.
 
