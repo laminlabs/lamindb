@@ -81,37 +81,38 @@ def test_invalid_type_ulabel():
     no_ulabel_type.delete(permanent=True)
 
 
-def test_record_type_uniqueness():
+@pytest.mark.parametrize("model_class", [ln.Record, ln.ULabel])
+def test_record_type_uniqueness(model_class):
     # for record types
-    record_type = ln.Record(name="TestType", is_type=True).save()
-    record_type2 = ln.Record(name="TestType", is_type=True).save()
+    record_type = model_class(name="TestType", is_type=True).save()
+    record_type2 = model_class(name="TestType", is_type=True).save()
     assert record_type == record_type2
     with pytest.raises(IntegrityError):
         # raise a unique constraint error when trying to create a duplicate record type
-        ln.Record(name="TestType", is_type=True, _skip_validation=True).save()
+        model_class(name="TestType", is_type=True, _skip_validation=True).save()
     record_type.delete()
     # because `record_type` is now in trash, we can create a new record with the same name and type
-    record_type3 = ln.Record(name="TestType", is_type=True).save()
+    record_type3 = model_class(name="TestType", is_type=True).save()
     assert record_type != record_type3
     record_type3.delete()
     record_type.restore()
 
     # for record sub types
-    record_subtype = ln.Record(
+    record_subtype = model_class(
         name="TestSubType", is_type=True, type=record_type
     ).save()
-    record_subtype2 = ln.Record(
+    record_subtype2 = model_class(
         name="TestSubType", is_type=True, type=record_type
     ).save()
     assert record_subtype == record_subtype2
     with pytest.raises(IntegrityError):
         # raise a unique constraint error when trying to create a duplicate record type
-        ln.Record(
+        model_class(
             name="TestSubType", is_type=True, type=record_type, _skip_validation=True
         ).save()
     record_subtype.delete()
     # because `record_subtype` is now in trash, we can create a new record with the same name and type
-    record_subtype3 = ln.Record(
+    record_subtype3 = model_class(
         name="TestSubType", is_type=True, type=record_type
     ).save()
     assert record_subtype != record_subtype3
