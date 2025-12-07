@@ -1826,26 +1826,20 @@ def check_name_change(record: SQLRecord):
                     f"   → run `ln.Curator`\n"
                 )
                 raise SQLRecordNameChangeIntegrityError
-
-        # when a feature is renamed
         elif isinstance(record, Feature):
-            # only internal features are associated with schemas
-            linked_artifacts = Artifact.filter(feature_sets__features=record).to_list(
-                "uid"
-            )
+            # only internal features of schemas with `itype=Feature` are prone to getting out of sync
+            linked_artifacts = Artifact.filter(
+                feature_sets__features=record, feature_sets__itype="Feature"
+            ).to_list("uid")
             n = len(linked_artifacts)
             if n > 0:
                 s = "s" if n > 1 else ""
-                logger.error(
-                    f"You are trying to {colors.red('rename feature')} from '{old_name}' to '{new_name}'!\n"
-                    f"   → The following {n} artifact{s} {colors.red('will no longer be validated')}: {linked_artifacts}\n\n"
-                    f"{colors.bold('To rename this feature')}, make it external:\n"
-                    "   → run `artifact.features.make_external(feature)`\n\n"
-                    f"After renaming, consider re-curating the above artifact{s}:\n"
-                    f"   → in each dataset, manually modify feature '{old_name}' to '{new_name}'\n"
-                    f"   → run `ln.Curator`\n"
+                es = "es" if n == 1 else ""
+                logger.warning(
+                    f"By {colors.red('renaming feature')} from '{old_name}' to '{new_name}' "
+                    f"{n} artifact{s} no longer match{es} the feature name in storage: {linked_artifacts}\n"
+                    "  → Consider re-curating"
                 )
-                raise SQLRecordNameChangeIntegrityError
 
 
 def check_key_change(record: Union[Artifact, Transform]):

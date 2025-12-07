@@ -1,13 +1,50 @@
+import datetime
 import os
 
 import lamindb as ln
 import pytest
 
 
+def test_rename_feature(ccaplog):
+    import pandas as pd
+
+    df = pd.DataFrame(
+        {
+            "old_name": [
+                1,
+                2,
+                3,
+            ],
+        }
+    )
+    ln.Feature(name="old_name", dtype=int).save()
+    artifact = ln.Artifact.from_dataframe(
+        df, key="test.parquet", schema="valid_features"
+    ).save()
+    feature = ln.Feature.get(name="old_name")
+    feature.name = "new_name"
+    feature.save()
+    now = datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0)
+    assert (
+        "By renaming feature from 'old_name' to 'new_name' 1 artifact no longer matches the feature name in storage:"
+        in ccaplog.text
+    )
+    if os.getenv("LAMINDB_TEST_DB_VENDOR") != "sqlite":
+        feature.refresh_from_db()
+        assert feature.synonyms == "old_name"
+        assert feature._aux["renamed"] == {
+            now.isoformat().replace("+00:00", "Z"): "old_name"
+        }
+    schema = artifact.feature_sets.first()
+    artifact.delete(permanent=True)
+    schema.delete(permanent=True)
+    feature.delete(permanent=True)
+
+
 @pytest.mark.skipif(
     os.getenv("LAMINDB_TEST_DB_VENDOR") == "sqlite", reason="Postgres-only"
 )
-def test_rename():
+def test_rename_label():
     import pandas as pd
     from lamindb.errors import SQLRecordNameChangeIntegrityError
 
@@ -40,19 +77,6 @@ def test_rename():
         feature__name="feature_to_rename", ulabel__name="label-to-rename"
     ).exists()
     assert ln.Artifact.filter(feature_sets__features__name="feature_to_rename").exists()
-
-    # rename label
-    ulabel = ln.ULabel.get(name="label-to-rename")
-    with pytest.raises(SQLRecordNameChangeIntegrityError):
-        ulabel.name = "label-renamed"
-        ulabel.save()
-
-    artifact.labels.make_external(ulabel)
-    assert not artifact.ulabels.through.objects.filter(
-        feature__name="feature_to_rename", ulabel__name="label-to-rename"
-    ).exists()
-    ulabel.name = "label-renamed"
-    ulabel.save()
 
     # rename feature
     feature = ln.Feature.get(name="feature_to_rename")
