@@ -1794,7 +1794,6 @@ def check_name_change(record: SQLRecord):
         Artifact,
         Collection,
         Feature,
-        Record,
         Schema,
         Storage,
         Transform,
@@ -1820,7 +1819,7 @@ def check_name_change(record: SQLRecord):
     registry = record.__class__.__name__
 
     if old_name != new_name:
-        if hasattr(record, "artifacts") and not isinstance(record, (Record, Storage)):
+        if hasattr(record, "artifacts") and not isinstance(record, Storage):
             linked_records = (
                 # find all artifacts that are linked to this label via a feature with dtype
                 # matching on the name aka "[registry]"

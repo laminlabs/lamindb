@@ -3,6 +3,7 @@ import os
 
 import lamindb as ln
 import pandas as pd
+import pytest
 
 
 def test_rename_feature(ccaplog):
@@ -50,7 +51,8 @@ def test_rename_feature(ccaplog):
     feature.delete(permanent=True)
 
 
-def test_rename_label(ccaplog):
+@pytest.mark.parametrize("model_class", [ln.ULabel, ln.Record])
+def test_rename_label(model_class, ccaplog):
     df = pd.DataFrame(
         {
             "feature1": pd.Categorical(["label1", "label2"]),
@@ -58,17 +60,17 @@ def test_rename_label(ccaplog):
         }
     )
 
-    ulabel1 = ln.ULabel(name="label1").save()
-    ulabel2 = ln.ULabel(name="label2").save()
-    feature1 = ln.Feature(name="feature1", dtype=ln.ULabel).save()
-    feature2 = ln.Feature(name="feature2", dtype=ln.ULabel).save()
+    label1 = model_class(name="label1").save()
+    label2 = model_class(name="label2").save()
+    feature1 = ln.Feature(name="feature1", dtype=model_class).save()
+    feature2 = ln.Feature(name="feature2", dtype=model_class).save()
     artifact = ln.Artifact.from_dataframe(
         df, key="test.parquet", schema="valid_features"
     ).save()
 
-    ulabel = ln.ULabel.get(name="label1")
-    ulabel.name = "label-renamed"
-    ulabel.save()
+    label = model_class.get(name="label1")
+    label.name = "label-renamed"
+    label.save()
 
     assert (
         "by renaming label from 'label1' to 'label-renamed' 1 artifact no longer matches the label name in storage:"
@@ -80,5 +82,5 @@ def test_rename_label(ccaplog):
     schema.delete(permanent=True)
     feature1.delete(permanent=True)
     feature2.delete(permanent=True)
-    ulabel1.delete(permanent=True)
-    ulabel2.delete(permanent=True)
+    label1.delete(permanent=True)
+    label2.delete(permanent=True)
