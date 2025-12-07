@@ -1478,8 +1478,8 @@ class CatVector:
                 values_array, field=self._field, **filter_kwargs, mute=True
             )
             validated_labels, non_validated_labels = (
-                values_array[validated_mask],
-                values_array[~validated_mask],
+                values_array[validated_mask].tolist(),
+                values_array[~validated_mask].tolist(),
             )
             records = _from_values(
                 validated_labels,

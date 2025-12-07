@@ -141,7 +141,9 @@ def test_record_features_add_remove_values():
         "feature_run": run.uid,
     }
 
+    bt.settings.organism = "mouse"
     test_record.features.add_values(test_values)
+    bt.settings.organism = "human"
     assert test_record.features.get_values() == test_values
 
     # all empty sheet
@@ -394,6 +396,7 @@ def test_record_features_add_remove_values():
 
     # clean up rest
     test_record.delete(permanent=True)
+    print(ln.Record.filter(is_type=False).to_dataframe())
     sheet.delete(permanent=True)
     feature_str.delete(permanent=True)
     feature_list_str.delete(permanent=True)
