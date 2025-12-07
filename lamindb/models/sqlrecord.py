@@ -126,7 +126,7 @@ class IsLink:
     pass
 
 
-class HasType:
+class HasType(models.Model):
     """Mixin for registries that have a hierarchical `type` assigned.
 
     Such registries have a `.type` foreign key pointing to themselves.
@@ -138,6 +138,15 @@ class HasType:
         experiment_type = ln.Record(name="Experiment", is_type=True).save()
         experiment1 = ln.Record(name="Experiment 1", type=experiment_type).save()
         experiment2 = ln.Record(name="Experiment 2", type=experiment_type).save()
+    """
+
+    class Meta:
+        abstract = True
+
+    is_type: bool = BooleanField(default=False, db_index=True)
+    """Indicates if record is a `type`.
+
+    For example, if a record "Compound" is a `type`, the actual compounds "darerinib", "tramerinib", would be instances of that `type`.
     """
 
     def query_types(self) -> SQLRecordList:
@@ -355,6 +364,14 @@ def validate_fields(record: SQLRecord, kwargs):
                 f"name '{kwargs['name']}' for type ends with 's', in case you're naming with plural, consider the singular for a type name"
             )
         is_approx_pascal_case(kwargs["name"])
+    if (
+        "type" in kwargs
+        and isinstance(kwargs["type"], HasType)
+        and not kwargs["type"].is_type
+    ):
+        raise ValueError(
+            f"You can only assign a record of `is_type=True` as `type` to another record, but this doesn't have it: {kwargs['type']}"
+        )
     # validate literals
     validate_literal_fields(record, kwargs)
 

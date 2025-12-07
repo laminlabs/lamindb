@@ -5,9 +5,6 @@ import pytest
 from django.db import IntegrityError
 
 
-@pytest.mark.skipif(
-    os.getenv("LAMINDB_TEST_DB_VENDOR") == "sqlite", reason="Postgres-only"
-)
 def test_invalid_type_record():
     # also see test_invalid_type_record_with_schema in test_record.py
     no_record_type = ln.Record(name="no_type").save()
@@ -17,10 +14,11 @@ def test_invalid_type_record():
         "ValueError: You can only assign a record of `is_type=True` as `type` to another record"
     )
     # test at the database level
-    no_record_type.is_type = True
-    with pytest.raises(IntegrityError) as error:
-        ln.Record(name="with_invalid_type", type=no_record_type).save()
-    assert "record_type_is_valid_fk" in error.exconly()
+    if os.getenv("LAMINDB_TEST_DB_VENDOR") != "sqlite":
+        no_record_type.is_type = True
+        with pytest.raises(IntegrityError) as error:
+            ln.Record(name="with_invalid_type", type=no_record_type).save()
+        assert "record_type_is_valid_fk" in error.exconly()
     no_record_type.delete(permanent=True)
 
 
