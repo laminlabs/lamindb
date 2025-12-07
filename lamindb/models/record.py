@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from functools import wraps
 from typing import TYPE_CHECKING, Any, overload
 
 import pandas as pd
@@ -143,13 +144,23 @@ RETURN NEW;
 class class_or_instance_method:
     def __init__(self, func):
         self.func = func
+        # Copy metadata to the descriptor itself
+        wraps(func)(self)
 
     def __get__(self, instance, owner):
-        # If called on the class, pass the class
+        # Create a proper wrapper that preserves metadata
         if instance is None:
-            return lambda *args, **kwargs: self.func(owner, *args, **kwargs)
-        # If called on an instance, pass the instance
-        return lambda *args, **kwargs: self.func(instance, *args, **kwargs)
+
+            @wraps(self.func)
+            def wrapper(*args, **kwargs):
+                return self.func(owner, *args, **kwargs)
+        else:
+
+            @wraps(self.func)
+            def wrapper(*args, **kwargs):
+                return self.func(instance, *args, **kwargs)
+
+        return wrapper
 
 
 class Record(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, HasParents):
