@@ -369,8 +369,9 @@ def validate_fields(record: SQLRecord, kwargs):
         and isinstance(kwargs["type"], HasType)
         and not kwargs["type"].is_type
     ):
+        object_name = record.__class__.__name__.lower()
         raise ValueError(
-            f"You can only assign a record of `is_type=True` as `type` to another record, but this doesn't have it: {kwargs['type']}"
+            f"You can only assign a {object_name} with `is_type=True` as `type` to another {object_name}, but this doesn't have it: {kwargs['type']}"
         )
     # validate literals
     validate_literal_fields(record, kwargs)
