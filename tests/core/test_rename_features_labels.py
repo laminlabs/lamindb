@@ -53,35 +53,25 @@ def test_rename_feature(ccaplog):
 def test_rename_label(ccaplog):
     df = pd.DataFrame(
         {
-            "feature1": pd.Categorical(
-                [
-                    "label-to-rename",
-                    "label-not-to-rename",
-                ]
-            ),
-            "feature2": pd.Categorical(
-                [
-                    "label-not-to-rename",
-                    "label-not-to-rename",
-                ]
-            ),
+            "feature1": pd.Categorical(["label1", "label2"]),
+            "feature2": pd.Categorical(["label2", "label2"]),
         }
     )
 
-    ulabel1 = ln.ULabel(name="label-to-rename").save()
-    ulabel2 = ln.ULabel(name="label-not-to-rename").save()
+    ulabel1 = ln.ULabel(name="label1").save()
+    ulabel2 = ln.ULabel(name="label2").save()
     feature1 = ln.Feature(name="feature1", dtype=ln.ULabel).save()
     feature2 = ln.Feature(name="feature2", dtype=ln.ULabel).save()
     artifact = ln.Artifact.from_dataframe(
         df, key="test.parquet", schema="valid_features"
     ).save()
 
-    ulabel = ln.ULabel.get(name="label-to-rename")
+    ulabel = ln.ULabel.get(name="label1")
     ulabel.name = "label-renamed"
     ulabel.save()
 
     assert (
-        "by renaming label from 'label-to-rename' to 'label-renamed' 1 artifact no longer matches the label name in storage:"
+        "by renaming label from 'label1' to 'label-renamed' 1 artifact no longer matches the label name in storage:"
         in ccaplog.text
     )
 
