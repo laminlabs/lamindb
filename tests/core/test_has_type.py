@@ -163,16 +163,10 @@ def test_prevent_type_cycle(model_class, model_name):
     type_b.delete(permanent=True)
 
 
-@pytest.mark.parametrize(
-    "model_class,model_name",
-    [
-        (ln.Record, "record"),
-        (ln.ULabel, "ulabel"),
-        (ln.Project, "project"),
-    ],
-    ids=["Record", "ULabel", "Project"],
-)
-def test_query_sub_types_super_types_instances(model_class, model_name):
+@pytest.mark.parametrize("model_class", [ln.Record, ln.ULabel, ln.Project])
+def test_query_sub_types_super_types_instances(model_class):
+    model_name = model_class.__name__.lower()
+
     # Create type hierarchy
     type1 = model_class(name="Type1", is_type=True).save()
     type2 = model_class(name="Type2", is_type=True, type=type1).save()
