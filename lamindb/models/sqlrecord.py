@@ -1079,7 +1079,9 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                     and any(
                         field in error_msg for field in ("root", "ontology_id", "uid")
                     )
-                    and ("_record_type_name_at_" not in error_msg)
+                    and (
+                        "_type_name_at_" not in error_msg
+                    )  # constraints for unique type names in Record, ULabel, etc.
                     and (
                         "UNIQUE constraint failed" in error_msg
                         or "duplicate key value violates unique constraint" in error_msg
