@@ -46,7 +46,8 @@ class Reference(
 
     Example:
 
-        ::
+        Create a reference object::
+
             reference = Reference(
                 name="A Paper Title",
                 abbr="APT",
@@ -57,6 +58,7 @@ class Reference(
                 text="Some text I want to be searchable.",
                 date=date(2023, 11, 21),
             ).save()
+
     """
 
     class Meta(SQLRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
