@@ -120,27 +120,22 @@ def cat_df():
     )
 
 
-@pytest.fixture(scope="module")
-def lists_schema():
+def test_curator_df_multivalue(lists_df, cat_df):
+    feature1 = ln.Feature(name="sample_id", dtype=list[str]).save()
+    feature2 = ln.Feature(name="dose", dtype=list[float]).save()
+    feature3 = ln.Feature(name="cell_type", dtype=list[str]).save()
+    feature4 = ln.Feature(name="tissue", dtype=list[bt.Tissue]).save()
     schema = ln.Schema(
         name="lists schema cat",
         features=[
-            ln.Feature(name="sample_id", dtype=list[str]).save(),
-            ln.Feature(name="dose", dtype=list[float]).save(),
-            ln.Feature(name="cell_type", dtype=list[str]).save(),
-            ln.Feature(name="tissue", dtype=list[bt.Tissue]).save(),
+            feature1,
+            feature2,
+            feature3,
+            feature4,
         ],
     ).save()
 
-    yield schema
-
-    ln.Schema.filter().delete(permanent=True)
-    ln.Feature.filter().delete(permanent=True)
-    bt.Tissue.filter().delete(permanent=True)
-
-
-def test_curator_df_multivalue(lists_df, lists_schema, cat_df):
-    curator = ln.curators.DataFrameCurator(lists_df, lists_schema)
+    curator = ln.curators.DataFrameCurator(lists_df, schema)
     with pytest.raises(ValidationError):
         curator.validate()
     assert curator.cat._cat_vectors.keys() == {"columns", "tissue"}
@@ -155,9 +150,15 @@ def test_curator_df_multivalue(lists_df, lists_schema, cat_df):
     assert curator.validate() is None
 
     # test with cat_df which has a non-list tissue
-    curator = ln.curators.DataFrameCurator(cat_df, lists_schema)
+    curator = ln.curators.DataFrameCurator(cat_df, schema)
     with pytest.raises(ValidationError):
         curator.validate()
+
+    schema.delete(permanent=True)
+    feature1.delete(permanent=True)
+    feature2.delete(permanent=True)
+    feature3.delete(permanent=True)
+    feature4.delete(permanent=True)
 
 
 def test_curators_list_feature_nullable_empty_list():
@@ -182,9 +183,10 @@ def test_curators_list_feature_nullable_empty_list():
 
 
 def test_curator__repr__(df):
+    feature = ln.Feature(name="sample_id", dtype="str").save()
     schema = ln.Schema(
         name="sample schema",
-        features=[ln.Feature(name="sample_id", dtype="str").save()],
+        features=[feature],
     ).save()
     curator = ln.curators.DataFrameCurator(df, schema)
 
@@ -197,6 +199,7 @@ def test_curator__repr__(df):
     assert actual_repr.strip() == expected_repr.strip()
 
     schema.delete(permanent=True)
+    feature.delete(permanent=True)
 
 
 def test_df_curator_typed_categorical():
