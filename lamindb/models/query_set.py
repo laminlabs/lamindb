@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import ast
 import re
-import sys
 from collections import UserList, defaultdict
 from collections.abc import Iterable
 from collections.abc import Iterable as IterableType
@@ -1364,6 +1363,81 @@ class _NonInstantiableQuerySet:
         return getattr(self._qs, attr)
 
 
+class SchemaNamespace:
+    def __init__(self, query_db: QueryDB, schema_name: str):
+        self._query_db = query_db
+        self._schema_name = schema_name
+        self._cache: dict[str, _NonInstantiableQuerySet] = {}
+
+    def __getattr__(self, name: str) -> _NonInstantiableQuerySet:
+        if name in self._cache:
+            return self._cache[name]
+
+        if not name[0].isupper():
+            raise AttributeError("Registry names must be capitalized and singular.")
+
+        try:
+            schema_module = import_module(self._schema_name)
+            if hasattr(schema_module, name):
+                model_class = getattr(schema_module, name)
+                queryset = model_class.connect(self._query_db._instance)
+                wrapped = _NonInstantiableQuerySet(queryset, name)
+                self._cache[name] = wrapped
+                return wrapped
+        except (ImportError, AttributeError):
+            pass
+
+        raise AttributeError(
+            f"Registry '{name}' not found in module '{self._schema_name}'."
+        )
+
+    def __dir__(self) -> list[str]:
+        base_attrs = [attr for attr in object.__dir__(self) if not attr.startswith("_")]
+        try:
+            schema_module = import_module(self._schema_name)
+            if hasattr(schema_module, "__all__"):
+                registries = set()
+                for class_name in schema_module.__all__:
+                    model_class = getattr(schema_module, class_name, None)
+                    if model_class and hasattr(model_class, "connect"):
+                        registries.add(class_name)
+                return sorted(set(base_attrs) | registries)
+        except ImportError:
+            pass
+        return base_attrs
+
+
+class BiontyQueryDB(SchemaNamespace):
+    Gene: QuerySet[Gene]  # type: ignore[type-arg]
+    Protein: QuerySet[Protein]  # type: ignore[type-arg]
+    CellType: QuerySet[CellType]  # type: ignore[type-arg]
+    Disease: QuerySet[Disease]  # type: ignore[type-arg]
+    Phenotype: QuerySet[Phenotype]  # type: ignore[type-arg]
+    Pathway: QuerySet[Pathway]  # type: ignore[type-arg]
+    Tissue: QuerySet[Tissue]  # type: ignore[type-arg]
+    CellLine: QuerySet[CellLine]  # type: ignore[type-arg]
+    CellMarker: QuerySet[CellMarker]  # type: ignore[type-arg]
+    Organism: QuerySet[Organism]  # type: ignore[type-arg]
+    ExperimentalFactor: QuerySet[ExperimentalFactor]  # type: ignore[type-arg]
+    DevelopmentalStage: QuerySet[DevelopmentalStage]  # type: ignore[type-arg]
+    Ethnicity: QuerySet[Ethnicity]  # type: ignore[type-arg]
+
+
+class WetlabQueryDB(SchemaNamespace):
+    Experiment: QuerySet[Experiment]  # type: ignore[type-arg]
+    Biosample: QuerySet[Biosample]  # type: ignore[type-arg]
+    Techsample: QuerySet[Techsample]  # type: ignore[type-arg]
+    Donor: QuerySet[Donor]  # type: ignore[type-arg]
+    GeneticPerturbation: QuerySet[GeneticPerturbation]  # type: ignore[type-arg]
+    Biologic: QuerySet[Biologic]  # type: ignore[type-arg]
+    Compound: QuerySet[Compound]  # type: ignore[type-arg]
+    CompoundPerturbation: QuerySet[CompoundPerturbation]  # type: ignore[type-arg]
+    EnvironmentalPerturbation: QuerySet[EnvironmentalPerturbation]  # type: ignore[type-arg]
+    CombinationPerturbation: QuerySet[CombinationPerturbation]  # type: ignore[type-arg]
+    Well: QuerySet[Well]  # type: ignore[type-arg]
+    PerturbationTarget: QuerySet[PerturbationTarget]  # type: ignore[type-arg]
+
+
 class QueryDB:
     """Query any registry of any instance.
 
@@ -1406,114 +1480,86 @@ class QueryDB:
     Branch: QuerySet[Branch]  # type: ignore[type-arg]
     Space: QuerySet[Space]  # type: ignore[type-arg]
 
-    if "sphinx" not in sys.modules or (
-        setup_settings._instance_exists and "bionty" in setup_settings.instance.modules
-    ):
-        Gene: QuerySet[Gene]  # type: ignore[type-arg]
-        Protein: QuerySet[Protein]  # type: ignore[type-arg]
-        CellType: QuerySet[CellType]  # type: ignore[type-arg]
-        Disease: QuerySet[Disease]  # type: ignore[type-arg]
-        Phenotype: QuerySet[Phenotype]  # type: ignore[type-arg]
-        Pathway: QuerySet[Pathway]  # type: ignore[type-arg]
-        Tissue: QuerySet[Tissue]  # type: ignore[type-arg]
-        CellLine: QuerySet[CellLine]  # type: ignore[type-arg]
-        CellMarker: QuerySet[CellMarker]  # type: ignore[type-arg]
-        Organism: QuerySet[Organism]  # type: ignore[type-arg]
-        ExperimentalFactor: QuerySet[ExperimentalFactor]  # type: ignore[type-arg]
-        DevelopmentalStage: QuerySet[DevelopmentalStage]  # type: ignore[type-arg]
-        Ethnicity: QuerySet[Ethnicity]  # type: ignore[type-arg]
-
-    if "sphinx" not in sys.modules or (
-        setup_settings._instance_exists and "bionty" in setup_settings.instance.modules
-    ):
-        Experiment: QuerySet[Experiment]  # type: ignore[type-arg]
-        Biosample: QuerySet[Biosample]  # type: ignore[type-arg]
-        Techsample: QuerySet[Techsample]  # type: ignore[type-arg]
-        Donor: QuerySet[Donor]  # type: ignore[type-arg]
-        GeneticPerturbation: QuerySet[GeneticPerturbation]  # type: ignore[type-arg]
-        Biologic: QuerySet[Biologic]  # type: ignore[type-arg]
-        Compound: QuerySet[Compound]  # type: ignore[type-arg]
-        CompoundPerturbation: QuerySet[CompoundPerturbation]  # type: ignore[type-arg]
-        EnvironmentalPerturbation: QuerySet[EnvironmentalPerturbation]  # type: ignore[type-arg]
-        CombinationPerturbation: QuerySet[CombinationPerturbation]  # type: ignore[type-arg]
-        Well: QuerySet[Well]  # type: ignore[type-arg]
-        PerturbationTarget: QuerySet[PerturbationTarget]  # type: ignore[type-arg]
+    bt: BiontyQueryDB
+    wl: WetlabQueryDB
 
     def __init__(self, instance: str):
         self._instance = instance
-        self._cache: dict[str, _NonInstantiableQuerySet] = {}
+        self._cache: dict[
+            str, _NonInstantiableQuerySet | BiontyQueryDB | WetlabQueryDB
+        ] = {}
         self._available_registries: set[str] | None = None
 
-    def _discover_registries(self) -> set[str]:
-        """Discover available registry classes from the instance's schemas.
+        owner, instance_name = instance.split("/")
+        instance_info = ln_setup._connect_instance._connect_instance(
+            owner=owner, name=instance_name
+        )
+        self._schema_modules = ["lamindb"] + list(instance_info.modules)
 
-        Scans lamindb and any installed schema modules (e.g., bionty, wetlab) to find all registry classes.
+    def _discover_registries(self) -> set[str]:
+        """Discover available core registry classes from lamindb.
+
+        Scans only the lamindb module to find core registry classes.
         """
         if self._available_registries is not None:
             return self._available_registries
 
-        owner, instance_name = self._instance.split("/")
-        instance_info = ln_setup._connect_instance._connect_instance(
-            owner=owner, name=instance_name
-        )
-
         registries = set()
-        available_schemas = ["lamindb"] + list(instance_info.modules)
+        lamindb_module = import_module("lamindb")
 
-        for schema_name in available_schemas:
-            try:
-                schema_module = import_module(schema_name)
-                if hasattr(schema_module, "__all__"):
-                    registry_names = schema_module.__all__
-                else:
-                    continue
-
-                for class_name in registry_names:
-                    model_class = getattr(schema_module, class_name, None)
-                    if model_class and hasattr(model_class, "connect"):
-                        registries.add(class_name)
-            except ImportError:
-                continue
+        if hasattr(lamindb_module, "__all__"):
+            for class_name in lamindb_module.__all__:
+                model_class = getattr(lamindb_module, class_name, None)
+                if model_class and hasattr(model_class, "connect"):
+                    registries.add(class_name)
 
         self._available_registries = registries
         return registries
 
-    def __getattr__(self, name: str) -> _NonInstantiableQuerySet:
-        """Access a registry class for this database instance.
-
-        Args:
-            name: Registry class name (e.g., 'Artifact', 'Collection').
-
-        Returns:
-            QuerySet for the specified registry scoped to this instance.
-        """
+    def __getattr__(
+        self, name: str
+    ) -> _NonInstantiableQuerySet | BiontyQueryDB | WetlabQueryDB:
         if name in self._cache:
             return self._cache[name]
+
+        if name in ("bionty", "bt"):
+            if "bionty" not in self._schema_modules:
+                raise AttributeError(
+                    f"Schema 'bionty' not available in instance '{self._instance}'."
+                )
+            if "bionty" not in self._cache:
+                namespace = BiontyQueryDB(self, "bionty")
+                self._cache["bionty"] = namespace
+                self._cache["bt"] = namespace
+            return self._cache["bionty"]
+
+        if name in ("wetlab", "wl"):
+            if "wetlab" not in self._schema_modules:
+                raise AttributeError(
+                    f"Schema 'wetlab' not available in instance '{self._instance}'."
+                )
+            if "wetlab" not in self._cache:
+                namespace = WetlabQueryDB(self, "wetlab")  # type: ignore
+                self._cache["wetlab"] = namespace
+                self._cache["wl"] = namespace
+            return self._cache["wetlab"]
 
         if not name[0].isupper():
             raise AttributeError("Registry names must be capitalized and singular.")
 
-        owner, instance_name = self._instance.split("/")
-        instance_info = ln_setup._connect_instance._connect_instance(
-            owner=owner, name=instance_name
-        )
-
-        available_schemas = ["lamindb"] + list(instance_info.modules)
-
-        for schema_name in available_schemas:
-            try:
-                schema_module = import_module(schema_name)
-                if hasattr(schema_module, name):
-                    model_class = getattr(schema_module, name)
-                    queryset = model_class.connect(self._instance)
-                    wrapped = _NonInstantiableQuerySet(queryset, name)
-                    self._cache[name] = wrapped
-                    return wrapped
-            except (ImportError, AttributeError):
-                continue
+        try:
+            lamindb_module = import_module("lamindb")
+            if hasattr(lamindb_module, name):
+                model_class = getattr(lamindb_module, name)
+                queryset = model_class.connect(self._instance)
+                wrapped = _NonInstantiableQuerySet(queryset, name)
+                self._cache[name] = wrapped
+                return wrapped
+        except (ImportError, AttributeError):
+            pass
 
         raise AttributeError(
-            f"Registry '{name}' not found in installed modules for instance '{self._instance}'."
+            f"Registry '{name}' not found in lamindb core registries. Use .bt.{name} or .wl.{name} for schema-specific registries."
         )
 
     def __repr__(self) -> str:
@@ -1523,6 +1569,11 @@ class QueryDB:
         base_attrs = [attr for attr in super().__dir__() if not attr.startswith("_")]
         try:
             registries = self._discover_registries()
-            return sorted(set(base_attrs) | registries)
+            schema_namespaces = set()
+            if "bionty" in self._schema_modules:
+                schema_namespaces.add("bt")
+            if "wetlab" in self._schema_modules:
+                schema_namespaces.add("wl")
+            return sorted(set(base_attrs) | registries | schema_namespaces)
         except Exception:
             return base_attrs
