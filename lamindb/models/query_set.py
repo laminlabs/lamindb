@@ -1343,7 +1343,7 @@ class QuerySet(BasicQuerySet):
 
 
 @final
-class _NonInstantiableQuerySet:
+class NonInstantiableQuerySet:
     """Wrapper around QuerySet that prevents instantiation while preserving query methods."""
 
     def __init__(self, qs: QuerySet, registry_name: str):
@@ -1374,9 +1374,9 @@ class SchemaNamespace:
     def __init__(self, query_db: QueryDB, schema_name: str):
         self._query_db = query_db
         self._schema_name = schema_name
-        self._cache: dict[str, _NonInstantiableQuerySet] = {}
+        self._cache: dict[str, NonInstantiableQuerySet] = {}
 
-    def __getattr__(self, name: str) -> _NonInstantiableQuerySet:
+    def __getattr__(self, name: str) -> NonInstantiableQuerySet:
         """Access a registry class from this schema module.
 
         Args:
@@ -1393,7 +1393,7 @@ class SchemaNamespace:
             if hasattr(schema_module, name):
                 model_class = getattr(schema_module, name)
                 queryset = model_class.connect(self._query_db._instance)
-                wrapped = _NonInstantiableQuerySet(queryset, name)
+                wrapped = NonInstantiableQuerySet(queryset, name)
                 self._cache[name] = wrapped
                 return wrapped
         except (ImportError, AttributeError):
@@ -1497,13 +1497,13 @@ class QueryDB:
     Branch: QuerySet[Branch]  # type: ignore[type-arg]
     Space: QuerySet[Space]  # type: ignore[type-arg]
 
-    bt: BiontyQueryDB
-    wl: WetlabQueryDB
+    bionty: BiontyQueryDB
+    wetlab: WetlabQueryDB
 
     def __init__(self, instance: str):
         self._instance = instance
         self._cache: dict[
-            str, _NonInstantiableQuerySet | BiontyQueryDB | WetlabQueryDB
+            str, NonInstantiableQuerySet | BiontyQueryDB | WetlabQueryDB
         ] = {}
         self._available_registries: set[str] | None = None
 
@@ -1513,29 +1513,9 @@ class QueryDB:
         )
         self._schema_modules = ["lamindb"] + list(instance_info.modules)
 
-    def _discover_registries(self) -> set[str]:
-        """Discover available core registry classes from lamindb.
-
-        Scans only the lamindb module to find core registry classes.
-        """
-        if self._available_registries is not None:
-            return self._available_registries
-
-        registries = set()
-        lamindb_module = import_module("lamindb")
-
-        if hasattr(lamindb_module, "__all__"):
-            for class_name in lamindb_module.__all__:
-                model_class = getattr(lamindb_module, class_name, None)
-                if model_class and hasattr(model_class, "connect"):
-                    registries.add(class_name)
-
-        self._available_registries = registries
-        return registries
-
     def __getattr__(
         self, name: str
-    ) -> _NonInstantiableQuerySet | BiontyQueryDB | WetlabQueryDB:
+    ) -> NonInstantiableQuerySet | BiontyQueryDB | WetlabQueryDB:
         """Access a registry class or schema namespace for this database instance.
 
         Args:
@@ -1572,7 +1552,7 @@ class QueryDB:
             if hasattr(lamindb_module, name):
                 model_class = getattr(lamindb_module, name)
                 queryset = model_class.connect(self._instance)
-                wrapped = _NonInstantiableQuerySet(queryset, name)
+                wrapped = NonInstantiableQuerySet(queryset, name)
                 self._cache[name] = wrapped
                 return wrapped
         except (ImportError, AttributeError):
@@ -1588,13 +1568,22 @@ class QueryDB:
     def __dir__(self) -> list[str]:
         """Return list of available registries and schema namespaces."""
         base_attrs = [attr for attr in super().__dir__() if not attr.startswith("_")]
+
+        lamindb_registries = set()
         try:
-            registries = self._discover_registries()
-            schema_namespaces = set()
-            if "bionty" in self._schema_modules:
-                schema_namespaces.add("bionty")
-            if "wetlab" in self._schema_modules:
-                schema_namespaces.add("wetlab")
-            return sorted(set(base_attrs) | registries | schema_namespaces)
-        except Exception:
-            return base_attrs
+            lamindb_module = import_module("lamindb")
+            if hasattr(lamindb_module, "__all__"):
+                for class_name in lamindb_module.__all__:
+                    model_class = getattr(lamindb_module, class_name, None)
+                    if model_class and hasattr(model_class, "connect"):
+                        lamindb_registries.add(class_name)
+        except ImportError:
+            pass
+
+        schema_namespaces = set()
+        if "bionty" in self._schema_modules:
+            schema_namespaces.add("bionty")
+        if "wetlab" in self._schema_modules:
+            schema_namespaces.add("wetlab")
+
+        return sorted(set(base_attrs) | lamindb_registries | schema_namespaces)
