@@ -69,4 +69,6 @@ def test_df_curator_typed_categorical():
     lab_a_type.records.all().delete(permanent=True)
     lab_a_type.delete(permanet=True)
     lab_b_type.delete(permanent=True)
+    sample_root_type.records.all().delete(permanent=True)
+    sample_root_type.delete(permanent=True)
     feature.delete(permanent=True)
