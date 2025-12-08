@@ -1364,17 +1364,29 @@ class _NonInstantiableQuerySet:
 
 
 class SchemaNamespace:
+    """Namespace for accessing registries from a specific schema module.
+
+    Args:
+        query_db: Parent QueryDB instance.
+        schema_name: Name of the schema module (e.g., 'bionty', 'wetlab').
+    """
+
     def __init__(self, query_db: QueryDB, schema_name: str):
         self._query_db = query_db
         self._schema_name = schema_name
         self._cache: dict[str, _NonInstantiableQuerySet] = {}
 
     def __getattr__(self, name: str) -> _NonInstantiableQuerySet:
+        """Access a registry class from this schema module.
+
+        Args:
+            name: Registry class name (e.g., 'Gene', 'CellType').
+
+        Returns:
+            QuerySet for the specified registry scoped to the parent instance.
+        """
         if name in self._cache:
             return self._cache[name]
-
-        if not name[0].isupper():
-            raise AttributeError("Registry names must be capitalized and singular.")
 
         try:
             schema_module = import_module(self._schema_name)
@@ -1388,10 +1400,11 @@ class SchemaNamespace:
             pass
 
         raise AttributeError(
-            f"Registry '{name}' not found in module '{self._schema_name}'."
+            f"Registry '{name}' not found in lamindb. Use .bt.{name} or .wl.{name} for schema-specific registries."
         )
 
     def __dir__(self) -> list[str]:
+        """Return list of available registries in this schema module."""
         base_attrs = [attr for attr in object.__dir__(self) if not attr.startswith("_")]
         try:
             schema_module = import_module(self._schema_name)
@@ -1408,6 +1421,8 @@ class SchemaNamespace:
 
 
 class BiontyQueryDB(SchemaNamespace):
+    """Namespace for Bionty registries (Gene, CellType, Disease, etc.)."""
+
     Gene: QuerySet[Gene]  # type: ignore[type-arg]
     Protein: QuerySet[Protein]  # type: ignore[type-arg]
     CellType: QuerySet[CellType]  # type: ignore[type-arg]
@@ -1424,6 +1439,8 @@ class BiontyQueryDB(SchemaNamespace):
 
 
 class WetlabQueryDB(SchemaNamespace):
+    """Namespace for wetlab registries (Experiment, Biosample, etc.)."""
+
     Experiment: QuerySet[Experiment]  # type: ignore[type-arg]
     Biosample: QuerySet[Biosample]  # type: ignore[type-arg]
     Techsample: QuerySet[Techsample]  # type: ignore[type-arg]
@@ -1519,10 +1536,18 @@ class QueryDB:
     def __getattr__(
         self, name: str
     ) -> _NonInstantiableQuerySet | BiontyQueryDB | WetlabQueryDB:
+        """Access a registry class or schema namespace for this database instance.
+
+        Args:
+            name: Registry class name (e.g., 'Artifact', 'Collection') or schema namespace ('bionty', 'wetlab').
+
+        Returns:
+            QuerySet for the specified registry or schema namespace scoped to this instance.
+        """
         if name in self._cache:
             return self._cache[name]
 
-        if name in ("bionty", "bt"):
+        if name == "bionty":
             if "bionty" not in self._schema_modules:
                 raise AttributeError(
                     f"Schema 'bionty' not available in instance '{self._instance}'."
@@ -1530,10 +1555,9 @@ class QueryDB:
             if "bionty" not in self._cache:
                 namespace = BiontyQueryDB(self, "bionty")
                 self._cache["bionty"] = namespace
-                self._cache["bt"] = namespace
             return self._cache["bionty"]
 
-        if name in ("wetlab", "wl"):
+        if name == "wetlab":
             if "wetlab" not in self._schema_modules:
                 raise AttributeError(
                     f"Schema 'wetlab' not available in instance '{self._instance}'."
@@ -1541,11 +1565,7 @@ class QueryDB:
             if "wetlab" not in self._cache:
                 namespace = WetlabQueryDB(self, "wetlab")  # type: ignore
                 self._cache["wetlab"] = namespace
-                self._cache["wl"] = namespace
             return self._cache["wetlab"]
-
-        if not name[0].isupper():
-            raise AttributeError("Registry names must be capitalized and singular.")
 
         try:
             lamindb_module = import_module("lamindb")
@@ -1559,21 +1579,22 @@ class QueryDB:
             pass
 
         raise AttributeError(
-            f"Registry '{name}' not found in lamindb core registries. Use .bt.{name} or .wl.{name} for schema-specific registries."
+            f"Registry '{name}' not found in lamindb core registries. Use .bionty.{name} or .wetlab.{name} for schema-specific registries."
         )
 
     def __repr__(self) -> str:
         return f"QueryDB('{self._instance}')"
 
     def __dir__(self) -> list[str]:
+        """Return list of available registries and schema namespaces."""
         base_attrs = [attr for attr in super().__dir__() if not attr.startswith("_")]
         try:
             registries = self._discover_registries()
             schema_namespaces = set()
             if "bionty" in self._schema_modules:
-                schema_namespaces.add("bt")
+                schema_namespaces.add("bionty")
             if "wetlab" in self._schema_modules:
-                schema_namespaces.add("wl")
+                schema_namespaces.add("wetlab")
             return sorted(set(base_attrs) | registries | schema_namespaces)
         except Exception:
             return base_attrs

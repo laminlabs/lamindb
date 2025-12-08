@@ -43,12 +43,20 @@ def test_querydb_instantiate_class():
     )
 
 
-def test_querydb_rejects_lowercase():
-    """Accessing registries with lowercase names must fail."""
+@pytest.mark.parametrize(
+    "attr,expected_msg",
+    [
+        ("artifacts", "Registry 'artifacts' not found"),
+        ("foo", "Registry 'foo' not found"),
+        ("celltype", "Registry 'celltype' not found"),
+    ],
+)
+def test_querydb_rejects_invalid_attributes(attr, expected_msg):
+    """Accessing invalid attributes must fail."""
     cxg_db = ln.QueryDB("laminlabs/cellxgene")
     with pytest.raises(AttributeError) as e:
-        cxg_db.artifacts  # noqa: B018
-    assert "Registry names must be capitalized and singular." in str(e.value)
+        getattr(cxg_db, attr)
+    assert expected_msg in str(e.value)
 
 
 def test_querydb_cache():
@@ -66,4 +74,4 @@ def test_querydb_dir():
     assert "Artifact" in dir_result
     assert "Collection" in dir_result
     assert "Gene" not in dir_result
-    assert "bt" in dir_result
+    assert "bionty" in dir_result
