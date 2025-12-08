@@ -1318,6 +1318,8 @@ class CatVector:
                 for i, nested_subtype in enumerate(reversed(self._subtypes_list[:-1])):
                     filter_key = f"{'type__' * (i + 1)}name"
                     type_filters[filter_key] = nested_subtype
+            else:
+                type_filters["type__isnull"] = True  # type: ignore
             try:
                 self._type_record = self._field.field.model.get(**type_filters)
             except Exception as e:
@@ -1461,8 +1463,8 @@ class CatVector:
             and filter_kwargs.get("source") is None
         ):
             existing_records = registry.filter(
-                **{f"{field_name}__in": str_values}
-            ).list()
+                **{f"{field_name}__in": set(str_values)}
+            ).to_list()
             existing_labels = [getattr(r, field_name) for r in existing_records]
         str_values = [v for v in str_values if v not in existing_labels]
 
@@ -1606,8 +1608,8 @@ class CatVector:
             and valid_inspect_kwargs.get("source") is None
         ):
             values_validated = registry_or_queryset.filter(
-                **{f"{field_name}__in": values}
-            ).list(field_name)
+                **{f"{field_name}__in": set(values)}
+            ).to_list(field_name)
 
         inspect_result = _inspect(
             registry_or_queryset,

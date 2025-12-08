@@ -96,10 +96,97 @@ def disease_ontology_old() -> bt.Source:
     )
 
 
+@pytest.fixture(scope="module")
+def lists_df():
+    return pd.DataFrame(
+        {
+            "sample_id": [["sample1", "sample2"], ["sample2"], ["sample3"]],
+            "dose": [[1.2, 2.3], [1.2], [2.3]],
+            "cell_type": [["B cell", "T cell"], ["B cell"], ["T cell"]],
+            "tissue": [["blood", "pulmo"], ["blood"], ["lung"]],
+        }
+    )
+
+
+@pytest.fixture(scope="module")
+def cat_df():
+    return pd.DataFrame(
+        {
+            "sample_id": [["sample1", "sample2"], ["sample2"], ["sample3"]],
+            "dose": [[1.2, 2.3], [1.2], [2.3]],
+            "cell_type": [["B cell", "T cell"], ["B cell"], ["T cell"]],
+            "tissue": ["blood", "blood", "lung"],
+        }
+    )
+
+
+def test_curator_df_multivalue(lists_df, cat_df):
+    feature1 = ln.Feature(name="sample_id", dtype=list[str]).save()
+    feature2 = ln.Feature(name="dose", dtype=list[float]).save()
+    feature3 = ln.Feature(name="cell_type", dtype=list[str]).save()
+    feature4 = ln.Feature(name="tissue", dtype=list[bt.Tissue]).save()
+    schema = ln.Schema(
+        name="lists schema cat",
+        features=[
+            feature1,
+            feature2,
+            feature3,
+            feature4,
+        ],
+    ).save()
+
+    curator = ln.curators.DataFrameCurator(lists_df, schema)
+    with pytest.raises(ValidationError):
+        curator.validate()
+    assert curator.cat._cat_vectors.keys() == {"columns", "tissue"}
+    assert curator.cat._cat_vectors["tissue"]._validated == ["blood", "lung"]
+    assert curator.cat._cat_vectors["tissue"]._non_validated == ["pulmo"]
+    assert curator.cat._cat_vectors["tissue"]._synonyms == {"pulmo": "lung"}
+
+    curator.cat.standardize("tissue")
+    assert curator.cat._cat_vectors["tissue"]._non_validated == []
+    assert lists_df["tissue"].tolist() == [["blood", "lung"], ["blood"], ["lung"]]
+
+    assert curator.validate() is None
+
+    # test with cat_df which has a non-list tissue
+    curator = ln.curators.DataFrameCurator(cat_df, schema)
+    with pytest.raises(ValidationError):
+        curator.validate()
+
+    schema.delete(permanent=True)
+    feature1.delete(permanent=True)
+    feature2.delete(permanent=True)
+    feature3.delete(permanent=True)
+    feature4.delete(permanent=True)
+
+
+def test_curators_list_feature_nullable_empty_list():
+    """Test that a list feature that is nullable can accept empty lists."""
+    feature_list = ln.Feature(
+        name="list_tissue", dtype=list[bt.Tissue.ontology_id], nullable=True
+    ).save()
+    feature_int = ln.Feature(name="feature int", dtype=int, nullable=True).save()
+    schema = ln.Schema(
+        name="test_list_feature_schema",
+        features=[feature_list, feature_int],
+        coerce_dtype=True,
+    ).save()
+
+    df = pd.DataFrame({"list_tissue": [], "feature int": []})
+    ln.curators.DataFrameCurator(df, schema).validate()
+
+    # clean up
+    schema.delete(permanent=True)
+    feature_list.delete(permanent=True)
+    feature_int.delete(permanent=True)
+
+
 def test_curator__repr__(df):
+    feature = ln.Feature(name="sample_id", dtype="str").save()
     schema = ln.Schema(
         name="sample schema",
-        features=[ln.Feature(name="sample_id", dtype="str").save()],
+        features=[feature],
     ).save()
     curator = ln.curators.DataFrameCurator(df, schema)
 
@@ -112,6 +199,97 @@ def test_curator__repr__(df):
     assert actual_repr.strip() == expected_repr.strip()
 
     schema.delete(permanent=True)
+    feature.delete(permanent=True)
+
+
+def test_df_curator_typed_categorical():
+    # root level
+    sample_root_type = ln.Record(name="Sample", is_type=True).save()
+    for name in ["s1", "s2"]:
+        ln.Record(name=name, type=sample_root_type).save()
+
+    # lab A level
+    lab_a_type = ln.Record(name="LabA", is_type=True).save()
+    sample_a_type = ln.Record(name="Sample", is_type=True, type=lab_a_type).save()
+    for name in ["s3", "s4"]:
+        ln.Record(name=name, type=sample_a_type).save()
+
+    # lab B level
+    lab_b_type = ln.Record(name="LabB", is_type=True).save()
+    sample_b_type = ln.Record(name="Sample", is_type=True, type=lab_b_type).save()
+    for name in ["s5", "s6"]:
+        ln.Record(name=name, type=sample_b_type).save()
+
+    df = pd.DataFrame(
+        {
+            "biosample_name": pd.Categorical(["s1", "s2", "s3", "s4", "s5", "s6"]),
+        }
+    )
+
+    feature = ln.Feature(name="biosample_name", dtype=sample_a_type).save()
+    curator = ln.curators.DataFrameCurator(df, ln.examples.schemas.valid_features())
+    with pytest.raises(ln.errors.ValidationError) as error:
+        curator.validate()
+    assert (
+        "4 terms not validated in feature 'biosample_name': 's1', 's2', 's5', 's6'"
+        in error.exconly()
+    )
+    assert set(curator.cat._cat_vectors["biosample_name"]._validated) == {
+        "s3",
+        "s4",
+    }
+    assert set(curator.cat._cat_vectors["biosample_name"]._non_validated) == {
+        "s1",
+        "s2",
+        "s5",
+        "s6",
+    }
+
+    # Move LabB under LabA
+    lab_b_type.type = lab_a_type
+    lab_b_type.save()
+    feature.delete(permanent=True)  # re-create the feature with the new dtype
+    feature = ln.Feature(name="biosample_name", dtype=lab_a_type).save()
+    curator = ln.curators.DataFrameCurator(df, ln.examples.schemas.valid_features())
+    with pytest.raises(ln.errors.ValidationError) as error:
+        curator.validate()
+    assert set(curator.cat._cat_vectors["biosample_name"]._validated) == {
+        "s3",
+        "s4",
+        "s5",
+        "s6",
+    }
+    assert set(curator.cat._cat_vectors["biosample_name"]._non_validated) == {
+        "s1",
+        "s2",
+    }
+
+    # Lab at the root
+    feature.delete(permanent=True)  # re-create the feature with the new dtype
+    feature = ln.Feature(name="biosample_name", dtype=sample_root_type).save()
+    curator = ln.curators.DataFrameCurator(df, ln.examples.schemas.valid_features())
+    with pytest.raises(ln.errors.ValidationError) as error:
+        curator.validate()
+    assert set(curator.cat._cat_vectors["biosample_name"]._validated) == {
+        "s1",
+        "s2",
+    }
+    assert set(curator.cat._cat_vectors["biosample_name"]._non_validated) == {
+        "s3",
+        "s4",
+        "s5",
+        "s6",
+    }
+
+    sample_a_type.records.all().delete(permanent=True)
+    sample_b_type.records.all().delete(permanent=True)
+    lab_b_type.records.all().delete(permanent=True)
+    lab_a_type.records.all().delete(permanent=True)
+    lab_a_type.delete(permanet=True)
+    lab_b_type.delete(permanent=True)
+    sample_root_type.records.all().delete(permanent=True)
+    sample_root_type.delete(permanent=True)
+    feature.delete(permanent=True)
 
 
 def test_nullable():
