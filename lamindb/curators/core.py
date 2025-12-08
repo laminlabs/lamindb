@@ -1607,7 +1607,7 @@ class CatVector:
         ):
             values_validated = registry_or_queryset.filter(
                 **{f"{field_name}__in": set(values)}
-            ).list(field_name)
+            ).to_list(field_name)
 
         inspect_result = _inspect(
             registry_or_queryset,
