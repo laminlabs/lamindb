@@ -45,9 +45,28 @@ def test_df_curator_typed_categorical():
         "s5",
         "s6",
     }
-    feature.delete(permanent=True)
+
+    # Move LabB under LabA
+    lab_b_type.type = lab_a_type
+    lab_b_type.save()
+    feature.delete(permanent=True)  # re-create the feature with the new dtype
+    feature = ln.Feature(name="biosample_name", dtype=lab_a_type).save()
+    curator = ln.curators.DataFrameCurator(df, ln.examples.schemas.valid_features())
+    with pytest.raises(ln.errors.ValidationError) as error:
+        curator.validate()
+    assert set(curator.cat._cat_vectors["biosample_name"]._validated) == {
+        "s3",
+        "s4",
+        "s5",
+        "s6",
+    }
+    assert set(curator.cat._cat_vectors["biosample_name"]._non_validated) == {
+        "s1",
+        "s2",
+    }
 
     # Lab at the root
+    feature.delete(permanent=True)  # re-create the feature with the new dtype
     feature = ln.Feature(name="biosample_name", dtype=sample_root_type).save()
     curator = ln.curators.DataFrameCurator(df, ln.examples.schemas.valid_features())
     with pytest.raises(ln.errors.ValidationError) as error:
