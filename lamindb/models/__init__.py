@@ -28,7 +28,6 @@ Query sets & managers
 
 .. autoclass:: BasicQuerySet
 .. autoclass:: QuerySet
-.. autoclass:: QueryDB
 .. autoclass:: ArtifactSet
 .. autoclass:: QueryManager
 

@@ -1406,7 +1406,7 @@ class QueryDB:
     Branch: QuerySet[Branch]  # type: ignore[type-arg]
     Space: QuerySet[Space]  # type: ignore[type-arg]
 
-    if "sphinx" in sys.modules or (
+    if "sphinx" not in sys.modules or (
         setup_settings._instance_exists and "bionty" in setup_settings.instance.modules
     ):
         Gene: QuerySet[Gene]  # type: ignore[type-arg]
@@ -1423,7 +1423,7 @@ class QueryDB:
         DevelopmentalStage: QuerySet[DevelopmentalStage]  # type: ignore[type-arg]
         Ethnicity: QuerySet[Ethnicity]  # type: ignore[type-arg]
 
-    if "sphinx" in sys.modules or (
+    if "sphinx" not in sys.modules or (
         setup_settings._instance_exists and "bionty" in setup_settings.instance.modules
     ):
         Experiment: QuerySet[Experiment]  # type: ignore[type-arg]
