@@ -1318,6 +1318,8 @@ class CatVector:
                 for i, nested_subtype in enumerate(reversed(self._subtypes_list[:-1])):
                     filter_key = f"{'type__' * (i + 1)}name"
                     type_filters[filter_key] = nested_subtype
+            else:
+                type_filters["type__isnull"] = True  # type: ignore
             try:
                 self._type_record = self._field.field.model.get(**type_filters)
             except Exception as e:
