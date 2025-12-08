@@ -24,6 +24,7 @@ def pytest_sessionstart():
     if is_postgresql:
         print("running tests on PostgreSQL")
     else:
+        os.environ["LAMINDB_TEST_DB_VENDOR"] = "sqlite"
         print("running tests on SQLite")
     if is_postgresql is False:
         ln.setup.init(
