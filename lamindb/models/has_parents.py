@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Literal
 import lamindb_setup as ln_setup
 from lamin_utils import logger
 
+from ..errors import ValidationError
 from .query_set import SQLRecordList, get_default_branch_ids
 from .run import Run
 from .sqlrecord import HasType, format_field_value, get_name_field
@@ -129,9 +130,9 @@ def keep_topmost_matches(records: list[HasType] | SQLRecordList) -> SQLRecordLis
             topmost = [r for r, depth in records_with_depth if depth == min_depth]
 
             if len(topmost) > 1:
-                raise ValueError(
-                    f"Ambiguous match for '{name}': found {len(topmost)} records "
-                    f"at depth {min_depth} (ids: {[r.id for r in topmost]})"
+                raise ValidationError(
+                    f"Ambiguous match for name '{name}': found {len(topmost)} records "
+                    f"at depth {min_depth} (under types: {[r.type.name for r in topmost]})"
                 )
 
             result.append(topmost[0])

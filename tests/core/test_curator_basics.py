@@ -297,23 +297,78 @@ def test_df_curator_typed_categorical(model_class):
     feature.delete(permanent=True)
 
 
-def test_df_curator_same_name_at_different_levels():
-    ln.Record(name="s1").save()
+def test_df_curator_same_name_at_different_levels_involving_root():
+    s1_root = ln.Record(name="s1").save()
     lab_a_type = ln.Record(name="LabA", is_type=True).save()
-    for name in ["s1", "s2"]:
-        ln.Record(name=name, type=lab_a_type).save()
-    df = pd.DataFrame({"biosample_name": pd.Categorical(["s1", "s2"])})
+    s1_lab_a = ln.Record(name="s1", type=lab_a_type).save()
+    df = pd.DataFrame({"biosample_name": pd.Categorical(["s1"])})
+
+    # feature constraining to lab_a_type
     feature = ln.Feature(name="biosample_name", dtype=lab_a_type).save()
     curator = ln.curators.DataFrameCurator(df, ln.examples.schemas.valid_features())
     curator.validate()
-    assert curator._atomic_curator.cat._cat_vectors["biosample_name"]._validated == [
+    cat_vector = curator._atomic_curator.cat._cat_vectors["biosample_name"]
+    assert cat_vector._validated == ["s1"]
+    assert len(cat_vector.records) == 1
+    assert cat_vector.records[0] == s1_lab_a
+
+    # feature constraining to root
+    feature.delete(permanent=True)
+    feature = ln.Feature(name="biosample_name", dtype=ln.Record).save()
+    curator = ln.curators.DataFrameCurator(df, ln.examples.schemas.valid_features())
+    curator.validate()
+    cat_vector = curator._atomic_curator.cat._cat_vectors["biosample_name"]
+    assert cat_vector._validated == ["s1"]
+    assert len(cat_vector.records) == 1
+    assert cat_vector.records[0] == s1_root
+
+    feature.delete(permanent=True)
+    s1_root.delete(permanent=True)
+    s1_lab_a.delete(permanent=True)
+    lab_a_type.delete(permanent=True)
+
+
+def test_df_curator_same_name_at_different_levels_below_root():
+    department_a_type = ln.Record(name="DepartmentA", is_type=True).save()
+    ln.Record(name="s1", type=department_a_type).save()
+    lab_a_type = ln.Record(name="LabA", is_type=True, type=department_a_type).save()
+    for name in ["s1", "s2"]:
+        ln.Record(name=name, type=lab_a_type).save()
+    df = pd.DataFrame({"biosample_name": pd.Categorical(["s1", "s2"])})
+    feature = ln.Feature(name="biosample_name", dtype=department_a_type).save()
+    curator = ln.curators.DataFrameCurator(df, ln.examples.schemas.valid_features())
+    curator.validate()
+    cat_vector = curator._atomic_curator.cat._cat_vectors["biosample_name"]
+    assert cat_vector._validated == [
         "s1",
         "s2",
     ]
-    assert len(curator._atomic_curator.cat._cat_vectors["biosample_name"].records) == 2
+    # the below requires keep_topmost_matches to be active
+    assert len(cat_vector.records) == 2
     feature.delete(permanent=True)
     lab_a_type.records.all().delete(permanent=True)
     lab_a_type.delete(permanent=True)
+
+
+def test_df_curator_same_name_at_same_level():
+    lab_a_type = ln.Record(name="LabA", is_type=True).save()
+    ln.Record(name="s1", type=lab_a_type).save()
+    lab_b_type = ln.Record(name="LabB", is_type=True).save()
+    ln.Record(name="s1", type=lab_b_type).save()
+    df = pd.DataFrame({"biosample_name": pd.Categorical(["s1"])})
+    feature = ln.Feature(name="biosample_name", dtype=lab_a_type).save()
+    curator = ln.curators.DataFrameCurator(df, ln.examples.schemas.valid_features())
+    with pytest.raises(ln.errors.ValidationError) as error:
+        curator.validate()
+    assert (
+        "Ambiguous match for name 's1': found 2 records at depth 1 (under types: ['LabA', 'LabB'])"
+        in error.exconly()
+    )
+    feature.delete(permanent=True)
+    lab_a_type.records.all().delete(permanent=True)
+    lab_a_type.delete(permanent=True)
+    lab_b_type.records.all().delete(permanent=True)
+    lab_b_type.delete(permanent=True)
 
 
 def test_nullable():

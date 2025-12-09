@@ -1486,12 +1486,9 @@ class CatVector:
                 values_array[validated_mask].tolist(),
                 values_array[~validated_mask].tolist(),
             )
-            records = _from_values(
-                validated_labels,
-                field=getattr(registry, get_name_field(registry, field=self._field)),
-                **valid_from_values_kwargs,
-                mute=True,
-            )
+            records = self._subtype_query_set.filter(  # type: ignore
+                **{f"{field_name}__in": validated_labels}
+            ).to_list()
             records = keep_topmost_matches(records)
         else:
             existing_and_public_records = _from_values(
