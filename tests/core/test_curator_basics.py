@@ -407,7 +407,7 @@ def test_curator_schema_feature_mapping():
     curator.validate()
     cat_vector = curator._atomic_curator.cat._cat_vectors["columns"]
     assert len(cat_vector.records) == 1
-    assert len(cat_vector._validated) == 2
+    assert len(cat_vector._validated) == 1
 
 
 def test_nullable():

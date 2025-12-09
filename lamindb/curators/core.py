@@ -603,6 +603,7 @@ class ComponentCurator(Curator):
             index=schema.index,
             slot=slot,
             maximal_set=schema.maximal_set,
+            schema=schema,
         )
 
     @property
@@ -1293,7 +1294,6 @@ class CatVector:
         self._validated: None | list[str] = None
         self._non_validated: None | list[str] = None
         self._synonyms: None | dict[str, str] = None
-        self._filter_str = filter_str
         self._subtypes_list = subtypes_list
         self._subtype_query_set = None
         self._cat_manager = cat_manager
@@ -1301,13 +1301,16 @@ class CatVector:
         self.records = None
         self._maximal_set = maximal_set
         self._type_record = None
-
-        self._all_filters = {"source": self._source, "organism": self._organism}
-
-        if self._filter_str:
+        self._registry = self._field.field.model
+        self._all_filters = {}
+        if hasattr(self._registry, "source_id"):
+            self._all_filters["source"] = self._source
+        if hasattr(self._registry, "organism_id"):
+            self._all_filters["organism"] = self._organism
+        if filter_str:
             self._all_filters.update(
                 resolve_relation_filters(
-                    parse_filter_string(self._filter_str), self._field.field.model
+                    parse_filter_string(filter_str), self._field.field.model
                 )  # type: ignore
             )
 
@@ -1480,14 +1483,14 @@ class CatVector:
                 self._subtype_query_set = query_sub_types()
             values_array = np.array(str_values)
             validated_mask = self._subtype_query_set.validate(  # type: ignore
-                values_array, field=self._field, **filter_kwargs, mute=True
+                values_array, field=self._field, mute=True
             )
             validated_labels, non_validated_labels = (
-                values_array[validated_mask].tolist(),
-                values_array[~validated_mask].tolist(),
+                list(set(values_array[validated_mask])),
+                list(set(values_array[~validated_mask])),
             )
             records = self._subtype_query_set.filter(  # type: ignore
-                **{f"{field_name}__in": validated_labels}
+                **{f"{field_name}__in": validated_labels}, **filter_kwargs
             ).to_list()
             records = keep_topmost_matches(records)
         else:
@@ -1591,8 +1594,6 @@ class CatVector:
         valid_inspect_kwargs = {}
         for key, value in kwargs_current.items():
             if key in {"field", "organism", "source", "mute", "from_source"}:
-                valid_inspect_kwargs[key] = value
-            elif hasattr(registry, key) and "__" not in key:
                 valid_inspect_kwargs[key] = value
 
         # inspect values from the default instance, excluding public
@@ -1747,6 +1748,7 @@ class DataFrameCatManager:
         index: Feature | None = None,
         slot: str | None = None,
         maximal_set: bool = False,
+        schema: Schema | None = None,
     ) -> None:
         self._non_validated = None
         self._index = index
@@ -1764,7 +1766,7 @@ class DataFrameCatManager:
         self._cat_vectors: dict[str, CatVector] = {}
         self._slot = slot
         self._maximal_set = maximal_set
-
+        filter_str = f"schemas__id={schema.id}"
         self._cat_vectors["columns"] = CatVector(
             values_getter=lambda: self._dataset.keys(),  # lambda ensures the inplace update
             values_setter=lambda new_values: setattr(
@@ -1777,11 +1779,10 @@ class DataFrameCatManager:
             source=self._sources.get("columns"),
             cat_manager=self,
             maximal_set=self._maximal_set,
+            filter_str=filter_str,
         )
         for feature in self._categoricals:
-            result = parse_dtype(feature.dtype)[
-                0
-            ]  # TODO: support composite dtypes for categoricals
+            result = parse_dtype(feature.dtype)[0]
             key = feature.name
             self._cat_vectors[key] = CatVector(
                 values_getter=lambda k=key: self._dataset[
