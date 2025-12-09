@@ -1475,6 +1475,8 @@ class WetlabQueryDB(ModuleNamespace):
 class QueryDB:
     """Query any registry of any instance.
 
+    QueryDB exposes all available registries of LaminDB and modules like Bionty or Wetlab.
+
     Args:
         instance: Instance identifier in format "account/instance".
 
@@ -1486,6 +1488,8 @@ class QueryDB:
 
             artifacts = cxg.Artifact.filter(suffix=".h5ad")
             records = cxg.Record.filter(name__startswith="cell")
+
+            ECL = cxg.bionty.CellType.filter(name="enterochromaffin-like cell")
 
             cxg.Artifact.filter(
                 suffix=".h5ad",
