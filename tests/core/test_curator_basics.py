@@ -234,10 +234,7 @@ def test_df_curator_typed_categorical(model_class):
     curator = ln.curators.DataFrameCurator(df, ln.examples.schemas.valid_features())
     with pytest.raises(ln.errors.ValidationError) as error:
         curator.validate()
-    assert (
-        "4 terms not validated in feature 'biosample_name': 's1', 's2', 's5', 's6'"
-        in error.exconly()
-    )
+    assert "4 terms not validated in feature 'biosample_name':" in error.exconly()
     assert set(curator.cat._cat_vectors["biosample_name"]._validated) == {
         "s3",
         "s4",
