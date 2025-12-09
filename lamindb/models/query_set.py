@@ -1,3 +1,20 @@
+"""Models library.
+
+...
+
+Query sets & managers
+---------------------
+.. autoclass:: BasicQuerySet
+.. autoclass:: QuerySet
+.. autoclass:: ArtifactSet
+.. autoclass:: QueryManager
+.. autoclass:: QueryDB
+.. autoclass:: lamindb.models.query_set.BiontyQueryDB
+.. autoclass:: lamindb.models.query_set.WetlabQueryDB
+
+...
+"""
+
 from __future__ import annotations
 
 import ast
@@ -1363,17 +1380,17 @@ class NonInstantiableQuerySet:
         return getattr(self._qs, attr)
 
 
-class SchemaNamespace:
+class ModuleNamespace:
     """Namespace for accessing registries from a specific schema module.
 
     Args:
         query_db: Parent QueryDB instance.
-        schema_name: Name of the schema module (e.g., 'bionty', 'wetlab').
+        module_name: Name of the schema module (e.g., 'bionty', 'wetlab').
     """
 
-    def __init__(self, query_db: QueryDB, schema_name: str):
+    def __init__(self, query_db: QueryDB, module_name: str):
         self._query_db = query_db
-        self._schema_name = schema_name
+        self._module_name = module_name
         self._cache: dict[str, NonInstantiableQuerySet] = {}
 
     def __getattr__(self, name: str) -> NonInstantiableQuerySet:
@@ -1389,7 +1406,7 @@ class SchemaNamespace:
             return self._cache[name]
 
         try:
-            schema_module = import_module(self._schema_name)
+            schema_module = import_module(self._module_name)
             if hasattr(schema_module, name):
                 model_class = getattr(schema_module, name)
                 queryset = model_class.connect(self._query_db._instance)
@@ -1407,7 +1424,7 @@ class SchemaNamespace:
         """Return list of available registries in this schema module."""
         base_attrs = [attr for attr in object.__dir__(self) if not attr.startswith("_")]
         try:
-            schema_module = import_module(self._schema_name)
+            schema_module = import_module(self._module_name)
             if hasattr(schema_module, "__all__"):
                 registries = set()
                 for class_name in schema_module.__all__:
@@ -1420,7 +1437,7 @@ class SchemaNamespace:
         return base_attrs
 
 
-class BiontyQueryDB(SchemaNamespace):
+class BiontyQueryDB(ModuleNamespace):
     """Namespace for Bionty registries (Gene, CellType, Disease, etc.)."""
 
     Gene: QuerySet[Gene]  # type: ignore[type-arg]
@@ -1438,7 +1455,7 @@ class BiontyQueryDB(SchemaNamespace):
     Ethnicity: QuerySet[Ethnicity]  # type: ignore[type-arg]
 
 
-class WetlabQueryDB(SchemaNamespace):
+class WetlabQueryDB(ModuleNamespace):
     """Namespace for wetlab registries (Experiment, Biosample, etc.)."""
 
     Experiment: QuerySet[Experiment]  # type: ignore[type-arg]
@@ -1463,13 +1480,14 @@ class QueryDB:
 
     Examples:
 
-        Query records from a remote instance::
+        Query records from an instance::
 
-            cxg_db = ln.QueryDB("laminlabs/cellxgene")
-            artifacts = cxg_db.Artifact.filter(suffix=".h5ad")
-            records = cxg_db.Record.filter(name__startswith="cell")
+            cxg = ln.QueryDB("laminlabs/cellxgene")
 
-            cxg_db.Artifact.filter(
+            artifacts = cxg.Artifact.filter(suffix=".h5ad")
+            records = cxg.Record.filter(name__startswith="cell")
+
+            cxg.Artifact.filter(
                 suffix=".h5ad",
                 description__contains="immune",
                 size__gt=1e9,  # size > 1GB
@@ -1511,7 +1529,7 @@ class QueryDB:
         instance_info = ln_setup._connect_instance._connect_instance(
             owner=owner, name=instance_name
         )
-        self._schema_modules = ["lamindb"] + list(instance_info.modules)
+        self._modules = ["lamindb"] + list(instance_info.modules)
 
     def __getattr__(
         self, name: str
@@ -1528,7 +1546,7 @@ class QueryDB:
             return self._cache[name]
 
         if name == "bionty":
-            if "bionty" not in self._schema_modules:
+            if "bionty" not in self._modules:
                 raise AttributeError(
                     f"Schema 'bionty' not available in instance '{self._instance}'."
                 )
@@ -1538,7 +1556,7 @@ class QueryDB:
             return self._cache["bionty"]
 
         if name == "wetlab":
-            if "wetlab" not in self._schema_modules:
+            if "wetlab" not in self._modules:
                 raise AttributeError(
                     f"Schema 'wetlab' not available in instance '{self._instance}'."
                 )
@@ -1580,10 +1598,10 @@ class QueryDB:
         except ImportError:
             pass
 
-        schema_namespaces = set()
-        if "bionty" in self._schema_modules:
-            schema_namespaces.add("bionty")
-        if "wetlab" in self._schema_modules:
-            schema_namespaces.add("wetlab")
+        module_namespaces = set()
+        if "bionty" in self._modules:
+            module_namespaces.add("bionty")
+        if "wetlab" in self._modules:
+            module_namespaces.add("wetlab")
 
-        return sorted(set(base_attrs) | lamindb_registries | schema_namespaces)
+        return sorted(set(base_attrs) | lamindb_registries | module_namespaces)

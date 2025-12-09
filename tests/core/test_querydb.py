@@ -67,6 +67,15 @@ def test_querydb_cache():
     assert artifact1 is artifact2
 
 
+def test_queryset_caching():
+    """Calling `.filter()` multiple times should return different results."""
+    cxg_db = ln.QueryDB("laminlabs/cellxgene")
+    res_1 = cxg_db.Artifact.filter().first()
+    res_2 = cxg_db.Artifact.filter().last()
+
+    assert res_1 != res_2
+
+
 def test_querydb_dir():
     """__dir__ must return discovered registries."""
     cxg = ln.QueryDB("laminlabs/cellxgene")
