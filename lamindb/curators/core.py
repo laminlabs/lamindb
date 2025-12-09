@@ -43,7 +43,7 @@ from lamindb.models.feature import (
     parse_filter_string,
     resolve_relation_filters,
 )
-from lamindb.models.sqlrecord import get_name_field
+from lamindb.models.sqlrecord import HasType, get_name_field
 
 from ..errors import InvalidArgument, ValidationError
 
@@ -1418,6 +1418,7 @@ class CatVector:
 
     def _add_validated(self) -> tuple[list, list]:
         """Save features or labels records in the default instance."""
+        from lamindb.models.has_parents import keep_topmost_matches
         from lamindb.models.save import save as ln_save
 
         registry = self._field.field.model
@@ -1469,12 +1470,14 @@ class CatVector:
         str_values = [v for v in str_values if v not in existing_labels]
 
         # inspect the default instance and save validated records from public
-        if self._type_record is not None:
-            related_name = registry._meta.get_field("type").remote_field.related_name
-            if registry.__name__ == "Record":
-                self._subtype_query_set = self._type_record.query_records()
+        if issubclass(registry, HasType):
+            if self._type_record is None:
+                self._subtype_query_set = registry.filter()
             else:
-                self._subtype_query_set = getattr(self._type_record, related_name).all()
+                query_sub_types = getattr(
+                    self._type_record, f"query_{registry.__name__.lower()}s"
+                )
+                self._subtype_query_set = query_sub_types()
             values_array = np.array(str_values)
             validated_mask = self._subtype_query_set.validate(  # type: ignore
                 values_array, field=self._field, **filter_kwargs, mute=True
@@ -1483,12 +1486,10 @@ class CatVector:
                 values_array[validated_mask].tolist(),
                 values_array[~validated_mask].tolist(),
             )
-            records = _from_values(
-                validated_labels,
-                field=getattr(registry, get_name_field(registry, field=self._field)),
-                **valid_from_values_kwargs,
-                mute=True,
-            )
+            records = self._subtype_query_set.filter(  # type: ignore
+                **{f"{field_name}__in": validated_labels}
+            ).to_list()
+            records = keep_topmost_matches(records)
         else:
             existing_and_public_records = _from_values(
                 str_values,
@@ -1675,7 +1676,7 @@ class CatVector:
                         )
                         check_organism = f"fix organism '{organism}', "
                 warning_message += f"    → {check_organism}fix typos, remove non-existent values, or save terms via: {colors.cyan(non_validated_hint_print)}"
-                if self._subtype_query_set is not None:
+                if self._subtype_query_set is not None and self._subtypes_list:
                     warning_message += f"\n    → a valid label for subtype '{self._subtypes_list[-1]}' has to be one of {self._subtype_query_set.to_list('name')}"
             logger.info(f'mapping "{self._key}" on {colors.italic(model_field)}')
             logger.warning(warning_message)

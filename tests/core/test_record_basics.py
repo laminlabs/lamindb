@@ -485,13 +485,16 @@ def test_only_list_type_features_and_field_qualifiers():
     # trigger validation of the case that has two and a single record
     # this tests type casting in list-like values
     artifact = test_sheet.to_artifact()
+    assert (
+        len(artifact.feature_sets.first().members) == 2
+    )  # this requires top most match filtering during validation
 
-    inferred_schema = artifact.feature_sets.first()
-    artifact.delete(permanent=True)
-    inferred_schema.delete(permanent=True)
     record.delete(permanent=True)
     record2.delete(permanent=True)
     test_sheet.delete(permanent=True)
+    inferred_schema = artifact.feature_sets.first()
+    artifact.delete(permanent=True)
+    inferred_schema.delete(permanent=True)
     schema.delete(permanent=True)
     feature_cell_lines.delete(permanent=True)
     feature_cell_lines_duplicate.delete(permanent=True)
