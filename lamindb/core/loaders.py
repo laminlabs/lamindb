@@ -22,13 +22,12 @@ from typing import TYPE_CHECKING, Any
 import pandas as pd
 from anndata import read_h5ad
 from lamin_utils import logger
+from lamindb_setup import setup_settings
 from lamindb_setup.core.upath import (
     create_path,
     extract_suffix_from_path,
     infer_filesystem,
 )
-
-from ..core._settings import settings
 
 if TYPE_CHECKING:
     from anndata import AnnData
@@ -202,6 +201,6 @@ def load_to_memory(
             f"There is no loader for {suffix} files. Use .cache() to get the path."
         )
 
-    filepath = settings._storage_settings.cloud_to_local(filepath, print_progress=True)
+    filepath = setup_settings.paths.cloud_to_local(filepath, print_progress=True)
 
     return loader(filepath, **kwargs)
