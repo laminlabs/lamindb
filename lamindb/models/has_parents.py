@@ -106,22 +106,13 @@ def keep_topmost_matches(records: list[HasType] | SQLRecordList) -> SQLRecordLis
 
     # Only compute depths if necessary
     if needs_depth_computation:
-        records_by_id = {r.id: r for r in records}
 
         def get_depth(record):
+            current_type = record.type
             depth = 0
-            current = record
-            seen = {record.id}
-
-            while current.type_id is not None:
-                if current.type_id in seen:
-                    break
+            while current_type.type_id is not None:
+                current_type = current_type.type
                 depth += 1
-                if current.type_id in records_by_id:
-                    current = records_by_id[current.type_id]
-                    seen.add(current.id)
-                else:
-                    break
             return depth
 
         for name, name_records in needs_depth_computation.items():

@@ -330,24 +330,25 @@ def test_df_curator_same_name_at_different_levels_involving_root():
 
 def test_df_curator_same_name_at_different_levels_below_root():
     department_a_type = ln.Record(name="DepartmentA", is_type=True).save()
-    ln.Record(name="s1", type=department_a_type).save()
+    s1_department_a = ln.Record(name="s1", type=department_a_type).save()
     lab_a_type = ln.Record(name="LabA", is_type=True, type=department_a_type).save()
-    for name in ["s1", "s2"]:
-        ln.Record(name=name, type=lab_a_type).save()
-    df = pd.DataFrame({"biosample_name": pd.Categorical(["s1", "s2"])})
+    s1_lab_a = ln.Record(name="s1", type=lab_a_type).save()
+    df = pd.DataFrame({"biosample_name": pd.Categorical(["s1"])})
+
+    # feature constraining to department_a_type
     feature = ln.Feature(name="biosample_name", dtype=department_a_type).save()
     curator = ln.curators.DataFrameCurator(df, ln.examples.schemas.valid_features())
     curator.validate()
     cat_vector = curator._atomic_curator.cat._cat_vectors["biosample_name"]
-    assert cat_vector._validated == [
-        "s1",
-        "s2",
-    ]
-    # the below requires keep_topmost_matches to be active
-    assert len(cat_vector.records) == 2
+    assert cat_vector._validated == ["s1"]
+    assert len(cat_vector.records) == 1
+    assert cat_vector.records[0] == s1_department_a
+
     feature.delete(permanent=True)
-    lab_a_type.records.all().delete(permanent=True)
+    s1_department_a.delete(permanent=True)
+    s1_lab_a.delete(permanent=True)
     lab_a_type.delete(permanent=True)
+    department_a_type.delete(permanent=True)
 
 
 def test_df_curator_same_name_at_same_level():
