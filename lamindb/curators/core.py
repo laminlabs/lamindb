@@ -1677,7 +1677,7 @@ class CatVector:
                         )
                         check_organism = f"fix organism '{organism}', "
                 warning_message += f"    → {check_organism}fix typos, remove non-existent values, or save terms via: {colors.cyan(non_validated_hint_print)}"
-                if self._subtype_query_set is not None:
+                if self._subtype_query_set is not None and self._subtypes_list:
                     warning_message += f"\n    → a valid label for subtype '{self._subtypes_list[-1]}' has to be one of {self._subtype_query_set.to_list('name')}"
             logger.info(f'mapping "{self._key}" on {colors.italic(model_field)}')
             logger.warning(warning_message)
