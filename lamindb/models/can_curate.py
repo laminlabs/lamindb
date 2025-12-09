@@ -219,7 +219,7 @@ def _standardize(
     return_mapper: bool = False,
     case_sensitive: bool = False,
     mute: bool = False,
-    source_aware: bool = True,
+    from_source: bool = True,
     keep: Literal["first", "last", False] = "first",
     synonyms_field: str = "synonyms",
     organism: str | SQLRecord | None = None,
@@ -291,7 +291,7 @@ def _standardize(
             return result
 
     # map synonyms in public source
-    if hasattr(registry, "source_id") and source_aware:
+    if hasattr(registry, "source_id") and from_source:
         mapper = {}
         if return_mapper:
             mapper = std_names_db
@@ -573,6 +573,8 @@ class CanCurate:
         create: bool = False,
         organism: Union[SQLRecord, str, None] = None,
         source: SQLRecord | None = None,
+        standardize: bool = True,
+        from_source: bool = True,
         mute: bool = False,
     ) -> SQLRecordList:
         """Bulk create validated records by parsing values for an identifier such as a name or an id).
@@ -583,6 +585,8 @@ class CanCurate:
             create: Whether to create records if they don't exist.
             organism: A `bionty.Organism` name or record.
             source: A `bionty.Source` record to validate against to create records for.
+            standardize: Whether to standardize synonyms in the values.
+            from_source: Whether to create records from public source.
             mute: Whether to mute logging.
 
         Returns:
@@ -625,7 +629,7 @@ class CanCurate:
         return_mapper: bool = False,
         case_sensitive: bool = False,
         mute: bool = False,
-        source_aware: bool = True,
+        from_source: bool = True,
         keep: Literal["first", "last", False] = "first",
         synonyms_field: str = "synonyms",
         organism: Union[str, SQLRecord, None] = None,
@@ -641,7 +645,7 @@ class CanCurate:
             return_mapper: If `True`, returns `{input_value: standardized_name}`.
             case_sensitive: Whether the mapping is case sensitive.
             mute: Whether to mute logging.
-            source_aware: Whether to standardize from public source. Defaults to `True` for BioRecord registries.
+            from_source: Whether to standardize from public source. Defaults to `True` for BioRecord registries.
             keep: When a synonym maps to multiple names, determines which duplicates to mark as `pd.DataFrame.duplicated`:
                 - `"first"`: returns the first mapped standardized name
                 - `"last"`: returns the last mapped standardized name
@@ -690,7 +694,7 @@ class CanCurate:
             case_sensitive=case_sensitive,
             mute=mute,
             strict_source=strict_source,
-            source_aware=source_aware,
+            from_source=from_source,
             keep=keep,
             synonyms_field=synonyms_field,
             organism=organism,
