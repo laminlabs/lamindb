@@ -43,7 +43,7 @@ from lamindb.models.feature import (
     parse_filter_string,
     resolve_relation_filters,
 )
-from lamindb.models.sqlrecord import get_name_field
+from lamindb.models.sqlrecord import HasType, get_name_field
 
 from ..errors import InvalidArgument, ValidationError
 
@@ -1469,12 +1469,19 @@ class CatVector:
         str_values = [v for v in str_values if v not in existing_labels]
 
         # inspect the default instance and save validated records from public
-        if self._type_record is not None:
-            related_name = registry._meta.get_field("type").remote_field.related_name
-            if registry.__name__ == "Record":
-                self._subtype_query_set = self._type_record.query_records()
+        if issubclass(registry, HasType):
+            if self._type_record is None:
+                self._subtype_query_set = registry.filter()
             else:
-                self._subtype_query_set = getattr(self._type_record, related_name).all()
+                related_name = registry._meta.get_field(
+                    "type"
+                ).remote_field.related_name
+                if registry.__name__ == "Record":
+                    self._subtype_query_set = self._type_record.query_records()
+                else:
+                    self._subtype_query_set = getattr(
+                        self._type_record, related_name
+                    ).all()
             values_array = np.array(str_values)
             validated_mask = self._subtype_query_set.validate(  # type: ignore
                 values_array, field=self._field, **filter_kwargs, mute=True
