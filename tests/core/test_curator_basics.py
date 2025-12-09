@@ -367,7 +367,7 @@ def test_df_curator_same_name_at_same_level():
     lab_b_type = ln.Record(name="LabB", is_type=True).save()
     ln.Record(name="s1", type=lab_b_type).save()
     df = pd.DataFrame({"biosample_name": pd.Categorical(["s1"])})
-    feature = ln.Feature(name="biosample_name", dtype=lab_a_type).save()
+    feature = ln.Feature(name="biosample_name", dtype=ln.Record).save()
     curator = ln.curators.DataFrameCurator(df, ln.examples.schemas.valid_features())
     with pytest.raises(ln.errors.ValidationError) as error:
         curator.validate()

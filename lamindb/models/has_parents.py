@@ -109,7 +109,7 @@ def keep_topmost_matches(records: list[HasType] | SQLRecordList) -> SQLRecordLis
 
         def get_depth(record):
             current_type = record.type
-            depth = 0
+            depth = 1
             while current_type.type_id is not None:
                 current_type = current_type.type
                 depth += 1
