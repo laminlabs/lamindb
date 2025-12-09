@@ -22,7 +22,7 @@ from typing import TYPE_CHECKING, Any
 import pandas as pd
 from anndata import read_h5ad
 from lamin_utils import logger
-from lamindb_setup import setup_settings
+from lamindb_setup import settings as setup_settings
 from lamindb_setup.core.upath import (
     create_path,
     extract_suffix_from_path,
