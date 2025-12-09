@@ -1473,15 +1473,10 @@ class CatVector:
             if self._type_record is None:
                 self._subtype_query_set = registry.filter()
             else:
-                related_name = registry._meta.get_field(
-                    "type"
-                ).remote_field.related_name
-                if registry.__name__ == "Record":
-                    self._subtype_query_set = self._type_record.query_records()
-                else:
-                    self._subtype_query_set = getattr(
-                        self._type_record, related_name
-                    ).all()
+                query_sub_types = getattr(
+                    self._type_record, f"query_{registry.__name__.lower()}s"
+                )
+                self._subtype_query_set = query_sub_types()
             values_array = np.array(str_values)
             validated_mask = self._subtype_query_set.validate(  # type: ignore
                 values_array, field=self._field, **filter_kwargs, mute=True

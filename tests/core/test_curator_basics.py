@@ -202,23 +202,27 @@ def test_curator__repr__(df):
     feature.delete(permanent=True)
 
 
-def test_df_curator_typed_categorical():
+@pytest.mark.parametrize(
+    "model_class",
+    [ln.ULabel, ln.Record],
+)
+def test_df_curator_typed_categorical(model_class):
     # root level
-    sample_root_type = ln.Record(name="Sample", is_type=True).save()
+    sample_root_type = model_class(name="Sample", is_type=True).save()
     for name in ["s1", "s2"]:
-        ln.Record(name=name, type=sample_root_type).save()
+        model_class(name=name, type=sample_root_type).save()
 
     # lab A level
-    lab_a_type = ln.Record(name="LabA", is_type=True).save()
-    sample_a_type = ln.Record(name="Sample", is_type=True, type=lab_a_type).save()
+    lab_a_type = model_class(name="LabA", is_type=True).save()
+    sample_a_type = model_class(name="Sample", is_type=True, type=lab_a_type).save()
     for name in ["s3", "s4"]:
-        ln.Record(name=name, type=sample_a_type).save()
+        model_class(name=name, type=sample_a_type).save()
 
     # lab B level
-    lab_b_type = ln.Record(name="LabB", is_type=True).save()
-    sample_b_type = ln.Record(name="Sample", is_type=True, type=lab_b_type).save()
+    lab_b_type = model_class(name="LabB", is_type=True).save()
+    sample_b_type = model_class(name="Sample", is_type=True, type=lab_b_type).save()
     for name in ["s5", "s6"]:
-        ln.Record(name=name, type=sample_b_type).save()
+        model_class(name=name, type=sample_b_type).save()
 
     df = pd.DataFrame(
         {
@@ -281,13 +285,14 @@ def test_df_curator_typed_categorical():
         "s6",
     }
 
-    sample_a_type.records.all().delete(permanent=True)
-    sample_b_type.records.all().delete(permanent=True)
-    lab_b_type.records.all().delete(permanent=True)
-    lab_a_type.records.all().delete(permanent=True)
-    lab_a_type.delete(permanet=True)
+    attribute = model_class.__name__.lower() + "s"
+    getattr(sample_a_type, attribute).all().delete(permanent=True)
+    getattr(sample_b_type, attribute).all().delete(permanent=True)
+    getattr(lab_b_type, attribute).all().delete(permanent=True)
+    getattr(lab_a_type, attribute).all().delete(permanent=True)
+    lab_a_type.delete(permanent=True)
     lab_b_type.delete(permanent=True)
-    sample_root_type.records.all().delete(permanent=True)
+    getattr(sample_root_type, attribute).all().delete(permanent=True)
     sample_root_type.delete(permanent=True)
     feature.delete(permanent=True)
 
