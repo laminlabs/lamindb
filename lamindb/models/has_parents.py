@@ -96,9 +96,10 @@ def keep_topmost_matches(records: list[HasType] | SQLRecordList) -> SQLRecordLis
             if len(root_records) == 1:
                 result.append(root_records[0])
             elif len(root_records) > 1:
-                raise ValueError(
-                    f"Ambiguous match for '{name}': found {len(root_records)} "
-                    f"root-level records (ids: {[r.id for r in root_records]})"
+                class_name = records[0].__class__.__name__
+                raise ValidationError(
+                    f"Ambiguous match for {class_name} '{name}': found {len(root_records)} "
+                    f"root-level {class_name.lower()}s"
                 )
             else:
                 # All have type_id, need depth computation
@@ -119,10 +120,10 @@ def keep_topmost_matches(records: list[HasType] | SQLRecordList) -> SQLRecordLis
             records_with_depth = [(r, get_depth(r)) for r in name_records]
             min_depth = min(depth for _, depth in records_with_depth)
             topmost = [r for r, depth in records_with_depth if depth == min_depth]
-
+            class_name = records[0].__class__.__name__
             if len(topmost) > 1:
                 raise ValidationError(
-                    f"Ambiguous match for name '{name}': found {len(topmost)} records "
+                    f"Ambiguous match for {class_name} '{name}': found {len(topmost)} {class_name.lower()}s "
                     f"at depth {min_depth} (under types: {[r.type.name for r in topmost]})"
                 )
 
