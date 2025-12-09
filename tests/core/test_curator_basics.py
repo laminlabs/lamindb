@@ -335,7 +335,17 @@ def test_df_curator_same_name_at_different_levels_below_root():
     s1_lab_a = ln.Record(name="s1", type=lab_a_type).save()
     df = pd.DataFrame({"biosample_name": pd.Categorical(["s1"])})
 
+    # feature constraining to lab_a_type
+    feature = ln.Feature(name="biosample_name", dtype=lab_a_type).save()
+    curator = ln.curators.DataFrameCurator(df, ln.examples.schemas.valid_features())
+    curator.validate()
+    cat_vector = curator._atomic_curator.cat._cat_vectors["biosample_name"]
+    assert cat_vector._validated == ["s1"]
+    assert len(cat_vector.records) == 1
+    assert cat_vector.records[0] == s1_lab_a
+
     # feature constraining to department_a_type
+    feature.delete(permanent=True)
     feature = ln.Feature(name="biosample_name", dtype=department_a_type).save()
     curator = ln.curators.DataFrameCurator(df, ln.examples.schemas.valid_features())
     curator.validate()
