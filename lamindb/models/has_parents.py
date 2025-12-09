@@ -99,7 +99,7 @@ def keep_topmost_matches(records: list[HasType] | SQLRecordList) -> SQLRecordLis
                 class_name = records[0].__class__.__name__
                 raise ValidationError(
                     f"Ambiguous match for {class_name} '{name}': found {len(root_records)} "
-                    f"root-level records ({[r.name for r in root_records]})"
+                    f"root-level records"
                 )
             else:
                 # All have type_id, need depth computation

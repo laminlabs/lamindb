@@ -362,10 +362,11 @@ def test_df_curator_same_name_at_different_levels_below_root():
 
 
 def test_df_curator_same_name_at_same_level():
+    # below root level
     lab_a_type = ln.Record(name="LabA", is_type=True).save()
-    ln.Record(name="s1", type=lab_a_type).save()
+    record_1 = ln.Record(name="s1", type=lab_a_type).save()
     lab_b_type = ln.Record(name="LabB", is_type=True).save()
-    ln.Record(name="s1", type=lab_b_type).save()
+    record_2 = ln.Record(name="s1", type=lab_b_type).save()
     df = pd.DataFrame({"biosample_name": pd.Categorical(["s1"])})
     feature = ln.Feature(name="biosample_name", dtype=ln.Record).save()
     curator = ln.curators.DataFrameCurator(df, ln.examples.schemas.valid_features())
@@ -375,6 +376,19 @@ def test_df_curator_same_name_at_same_level():
         "Ambiguous match for Record 's1': found 2 records at depth 1 (under types: ['LabA', 'LabB'])"
         in error.exconly()
     )
+
+    # at root level
+    record_1.type = None
+    record_1.save()
+    record_2.type = None
+    record_2.save()
+    curator = ln.curators.DataFrameCurator(df, ln.examples.schemas.valid_features())
+    with pytest.raises(ln.errors.ValidationError) as error:
+        curator.validate()
+    assert (
+        "Ambiguous match for Record 's1': found 2 root-level records" in error.exconly()
+    )
+
     feature.delete(permanent=True)
     lab_a_type.records.all().delete(permanent=True)
     lab_a_type.delete(permanent=True)
