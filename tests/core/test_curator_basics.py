@@ -297,21 +297,23 @@ def test_df_curator_typed_categorical(model_class):
     feature.delete(permanent=True)
 
 
-# def test_df_curator_same_name_at_different_levels():
-#     ln.Record(name="s1").save()
-#     lab_a_type = ln.Record(name="LabA", is_type=True).save()
-#     for name in ["s1", "s2"]:
-#         ln.Record(name=name, type=lab_a_type).save()
-#     df = pd.DataFrame({"biosample_name": pd.Categorical(["s1", "s2"])})
-#     feature = ln.Feature(name="biosample_name", dtype=lab_a_type).save()
-#     curator = ln.curators.DataFrameCurator(df, ln.examples.schemas.valid_features())
-#     curator.validate()
-#     curator._atomic_curator.cat._cat_vectors["biosample_name"]._validated == ["s1", "s2"]
-#     print(curator._atomic_curator.cat._cat_vectors["biosample_name"].records.to_dataframe())
-#     assert len(curator._atomic_curator.cat._cat_vectors["biosample_name"].records) == 2
-#     feature.delete(permanent=True)
-#     lab_a_type.records.all().delete(permanent=True)
-#     lab_a_type.delete(permanent=True)
+def test_df_curator_same_name_at_different_levels():
+    ln.Record(name="s1").save()
+    lab_a_type = ln.Record(name="LabA", is_type=True).save()
+    for name in ["s1", "s2"]:
+        ln.Record(name=name, type=lab_a_type).save()
+    df = pd.DataFrame({"biosample_name": pd.Categorical(["s1", "s2"])})
+    feature = ln.Feature(name="biosample_name", dtype=lab_a_type).save()
+    curator = ln.curators.DataFrameCurator(df, ln.examples.schemas.valid_features())
+    curator.validate()
+    assert curator._atomic_curator.cat._cat_vectors["biosample_name"]._validated == [
+        "s1",
+        "s2",
+    ]
+    assert len(curator._atomic_curator.cat._cat_vectors["biosample_name"].records) == 2
+    feature.delete(permanent=True)
+    lab_a_type.records.all().delete(permanent=True)
+    lab_a_type.delete(permanent=True)
 
 
 def test_nullable():

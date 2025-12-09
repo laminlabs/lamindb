@@ -1418,6 +1418,7 @@ class CatVector:
 
     def _add_validated(self) -> tuple[list, list]:
         """Save features or labels records in the default instance."""
+        from lamindb.models.has_parents import keep_topmost_matches
         from lamindb.models.save import save as ln_save
 
         registry = self._field.field.model
@@ -1491,6 +1492,7 @@ class CatVector:
                 **valid_from_values_kwargs,
                 mute=True,
             )
+            records = keep_topmost_matches(records)
         else:
             existing_and_public_records = _from_values(
                 str_values,
