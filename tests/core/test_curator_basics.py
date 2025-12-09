@@ -372,7 +372,7 @@ def test_df_curator_same_name_at_same_level():
     with pytest.raises(ln.errors.ValidationError) as error:
         curator.validate()
     assert (
-        "Ambiguous match for name 's1': found 2 records at depth 1 (under types: ['LabA', 'LabB'])"
+        "Ambiguous match for Record 's1': found 2 records at depth 1 (under types: ['LabA', 'LabB'])"
         in error.exconly()
     )
     feature.delete(permanent=True)
