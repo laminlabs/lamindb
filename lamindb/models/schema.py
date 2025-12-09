@@ -190,7 +190,6 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun):
         - `slots` - a dictionary mapping slots to :class:`~lamindb.Schema` objects, e.g., for an `AnnData`, `{"obs": Schema(...), "var.T": Schema(...)}`
         - `is_type=True` - a *schema type* to group schemas, e.g., "ProteinPanel"
 
-
     Args:
         features: `list[SQLRecord] | list[tuple[Feature, dict]] | None = None` Feature
             records, e.g., `[Feature(...), Feature(...)]` or features with their config, e.g., `[Feature(...).with_config(optional=True)]`.
@@ -202,8 +201,8 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun):
         type: `Schema | None = None` Define schema types like `ln.Schema(name="ProteinPanel", is_type=True)`.
         is_type: `bool = False` Whether the schema is a type.
         index: `Feature | None = None` A `Feature` record to validate an index of a `DataFrame` and therefore also, e.g., `AnnData` obs and var indices.
-        flexible: `bool | None = None` Whether to include any feature of the same `itype` during validation
-            & annotation. If `features` is passed, defaults to `False` so that, e.g., additional columns of a `DataFrame` encountered during validation are disregarded.
+        flexible: `bool | None = None` Whether to include any feature of the same `itype` during validation & annotation.
+            If `features` is passed, defaults to `False` so that, e.g., additional columns of a `DataFrame` encountered during validation are disregarded.
             If `features` is not passed, defaults to `True`.
         otype: `str | None = None` An object type to define the structure of a composite schema, e.g., `"DataFrame"`, `"AnnData"`.
         dtype: `str | None = None` A `dtype` to assume for all features in the schema (e.g., "num", float, int).
@@ -271,7 +270,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun):
                 ln.Feature(name="feature2", dtype=int).save().with_config(optional=True),
             ]).save()
 
-        Parse & validate feature identifier values:
+        Parse & validate feature identifier values::
 
             schema = ln.Schema.from_values(
                 adata.var["ensemble_id"],
@@ -283,7 +282,6 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun):
 
             df = pd.DataFrame({"feat1": [1, 2], "feat2": [3.1, 4.2], "feat3": ["cond1", "cond2"]})
             schema = ln.Schema.from_dataframe(df)
-
     """
 
     class Meta(SQLRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):

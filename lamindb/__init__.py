@@ -215,6 +215,7 @@ __all__ = [
     "UPath",
     "settings",
     "context",
+    "QueryDB",
     # curators and integrations
     "curators",
     "integrations",
