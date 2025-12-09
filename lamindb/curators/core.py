@@ -1766,7 +1766,8 @@ class DataFrameCatManager:
         self._cat_vectors: dict[str, CatVector] = {}
         self._slot = slot
         self._maximal_set = maximal_set
-        filter_str = f"schemas__id={schema.id}"
+        if schema.flexible is False:
+            filter_str = f"schemas__id={schema.id}"
         self._cat_vectors["columns"] = CatVector(
             values_getter=lambda: self._dataset.keys(),  # lambda ensures the inplace update
             values_setter=lambda new_values: setattr(

@@ -400,7 +400,7 @@ def test_curator_schema_feature_mapping():
     lab_a_type = ln.Feature(name="LabA", is_type=True).save()
     feature1 = ln.Feature(name="sample_name", dtype="str", type=lab_a_type).save()
     lab_b_type = ln.Feature(name="LabB", is_type=True).save()
-    ln.Feature(name="sample_name", dtype="str", type=lab_b_type).save()
+    feature2 = ln.Feature(name="sample_name", dtype="str", type=lab_b_type).save()
     schema = ln.Schema([feature1], name="Lab A schema").save()
     df = pd.DataFrame({"sample_name": ["Sample 1", "Sample 2"]})
     curator = ln.curators.DataFrameCurator(df, schema)
@@ -408,6 +408,11 @@ def test_curator_schema_feature_mapping():
     cat_vector = curator._atomic_curator.cat._cat_vectors["columns"]
     assert len(cat_vector.records) == 1
     assert len(cat_vector._validated) == 1
+    schema.delete(permanent=True)
+    feature1.delete(permanent=True)
+    feature2.delete(permanent=True)
+    lab_a_type.delete(permanent=True)
+    lab_b_type.delete(permanent=True)
 
 
 def test_nullable():
