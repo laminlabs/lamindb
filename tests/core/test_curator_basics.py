@@ -390,9 +390,9 @@ def test_df_curator_same_name_at_same_level():
     )
 
     feature.delete(permanent=True)
-    lab_a_type.records.all().delete(permanent=True)
+    record_1.delete(permanent=True)
     lab_a_type.delete(permanent=True)
-    lab_b_type.records.all().delete(permanent=True)
+    record_2.delete(permanent=True)
     lab_b_type.delete(permanent=True)
 
 
