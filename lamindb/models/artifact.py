@@ -1110,7 +1110,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
             LaminDB makes some default choices (e.g., serialize a `DataFrame` as a `.parquet` file).
 
-            You can also map storage formats onto **R types**, e.g., an annotated matrix might be access via `ExpressionSet` or `SingleCellExperiment`.
+            You can also map storage formats onto **R types**, e.g., an annotated matrix might be accessed via an `ExpressionSet` or a `SingleCellExperiment` object in R.
 
         .. dropdown:: Will artifacts get duplicated?
 
