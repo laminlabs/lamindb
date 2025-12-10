@@ -209,7 +209,6 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
     ):
         if len(args) == len(self._meta.concrete_fields):
             super().__init__(*args)
-            self._old_space = self.space
             self._old_space_id = self.space_id
             return None
         if args:
@@ -239,7 +238,6 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
             from .sqlrecord import init_self_from_db
 
             init_self_from_db(self, storage_record)
-            self._old_space = self.space
             self._old_space_id = self.space_id
             return None
 
@@ -312,7 +310,6 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
             f"{managed_message} storage location at {kwargs['root']}{is_managed_by_instance}{hub_message}"
         )
         super().__init__(**kwargs)
-        self._old_space = self.space
         self._old_space_id = self.space_id
 
     @property
@@ -338,13 +335,8 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
 
     def save(self, *args, **kwargs):
         """Save the storage record."""
-        if hasattr(self, "_old_space") and hasattr(self, "_old_space_id"):
-            if (
-                self._old_space != self.space or self._old_space_id != self.space_id
-            ):  # space_id is automatically handled by field tracker according to Claude
-                update_storage_with_space(
-                    storage_lnid=self.uid, space_lnid=self.space.uid
-                )
+        if hasattr(self, "_old_space_id") and self._old_space_id != self.space_id:
+            update_storage_with_space(storage_lnid=self.uid, space_lnid=self.space.uid)
         super().save(*args, **kwargs)
         return self
 
