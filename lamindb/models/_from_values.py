@@ -23,6 +23,7 @@ def _from_values(
     standardize: bool = True,
     from_source: bool = True,
     mute: bool = False,
+    **filter_kwargs,
 ) -> SQLRecordList:
     """Get or create records from iterables."""
     from .query_set import SQLRecordList
@@ -49,6 +50,7 @@ def _from_values(
         field=field,
         organism=organism_record,
         mute=mute,
+        **filter_kwargs,
     )
 
     # new records to be created based on new values
@@ -101,17 +103,19 @@ def get_existing_records(
     organism: SQLRecord | None = None,
     standardize: bool = True,
     mute: bool = False,
+    **filter_kwargs,
 ) -> tuple[list, pd.Index, str]:
     """Get existing records from the database."""
     from .can_curate import _validate
 
     # NOTE: existing records matching is agnostic to the source
     registry = field.field.model  # type: ignore
+    queryset = registry.filter(**filter_kwargs)
 
     if standardize:
         # log synonyms mapped terms
         if hasattr(registry, "standardize"):
-            syn_mapper = registry.standardize(
+            syn_mapper = queryset.standardize(
                 iterable_idx,
                 field=field,
                 organism=organism,
@@ -135,7 +139,7 @@ def get_existing_records(
 
     # log validated terms
     is_validated = _validate(
-        cls=registry, values=iterable_idx, field=field, organism=organism, mute=True
+        cls=queryset, values=iterable_idx, field=field, organism=organism, mute=True
     )
     if len(is_validated) > 0:
         validated = iterable_idx[is_validated]
@@ -175,7 +179,7 @@ def get_existing_records(
     query = {f"{field.field.name}__in": iterable_idx.values}  # type: ignore
     if organism is not None:
         query["organism"] = organism
-    records = registry.filter(**query).to_list()
+    records = queryset.filter(**query).to_list()
 
     if len(validated) == len(iterable_idx):
         return records, pd.Index([]), msg
