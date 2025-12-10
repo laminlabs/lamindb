@@ -1096,8 +1096,10 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
         .. dropdown:: Storage formats & object types
 
+            The `Artifact` registry tracks the storage format via :attr:`suffix` and an abstract object type via :attr:`otype`.
+
             ================  ======================================  ================  ====================================================================
-            description       :attr:`suffix`                          :attr:`otype`     Python types
+            description       :attr:`suffix`                          :attr:`otype`     Python type examples
             ================  ======================================  ================  ====================================================================
             table             `.csv`, `.tsv`, `.parquet`, `.ipc`      `"DataFrame"`     `pandas.DataFrame`, `polars.DataFrame`, `pyarrow.Table`
             annotated matrix  `.h5ad`, `.zarr`, `.h5mu`               `"AnnData"`       `anndata.AnnData`
@@ -1108,9 +1110,12 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             unstructured      `.fastq`, `.pdf`, `.vcf`, `.html`       ---               ---
             ================  ======================================  ================  ====================================================================
 
-            LaminDB makes some default choices (e.g., serialize a `DataFrame` as a `.parquet` file).
+            You can map storage formats onto **R types**, e.g., an `AnnData` might be accessed via `anndataR`.
 
-            You can also map storage formats onto **R types**, e.g., an annotated matrix might be accessed via an `ExpressionSet` or a `SingleCellExperiment` object in R.
+            Because `otype` accepts any `str`, you can define custom object types that enable queries & logic
+            that you need, e.g., `"SingleCellExperiment"` or `"MyCustomZarrDataStructure"`.
+
+            LaminDB makes some default choices (e.g., serialize a `DataFrame` as a `.parquet` file).
 
         .. dropdown:: Will artifacts get duplicated?
 
