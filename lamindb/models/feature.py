@@ -37,7 +37,7 @@ from ..base.ids import base62_12
 from ._relations import dict_module_name_to_model_name
 from .can_curate import CanCurate
 from .has_parents import _query_relatives
-from .query_set import SQLRecordList
+from .query_set import QuerySet, SQLRecordList
 from .run import (
     TracksRun,
     TracksUpdates,
@@ -50,7 +50,6 @@ if TYPE_CHECKING:
     from .artifact import Artifact
     from .block import FeatureBlock
     from .projects import Project
-    from .query_set import QuerySet
     from .run import Run
     from .schema import Schema
 

@@ -7,9 +7,10 @@ from typing import TYPE_CHECKING, Literal
 import lamindb_setup as ln_setup
 from lamin_utils import logger
 
+from ..errors import ValidationError
 from .query_set import SQLRecordList, get_default_branch_ids
 from .run import Run
-from .sqlrecord import format_field_value, get_name_field
+from .sqlrecord import HasType, format_field_value, get_name_field
 
 if TYPE_CHECKING:
     from graphviz import Digraph
@@ -68,6 +69,67 @@ def _query_relatives(
         frontier_ids = next_ids
 
     return model.connect(using_db).filter(id__in=results)
+
+
+def keep_topmost_matches(records: list[HasType] | SQLRecordList) -> SQLRecordList:
+    """Keep only the topmost (least specific) match."""
+    if not records:
+        return SQLRecordList([])
+
+    # Group by name
+    records_by_name: dict[str, list[HasType]] = {}
+    for record in records:
+        if record.name not in records_by_name:
+            records_by_name[record.name] = []
+        records_by_name[record.name].append(record)
+
+    # Fast path: single match per name
+    result: SQLRecordList = SQLRecordList([])
+    needs_depth_computation = {}
+
+    for name, name_records in records_by_name.items():
+        if len(name_records) == 1:
+            result.append(name_records[0])
+        else:
+            # Check if any have type_id=None (trivially topmost)
+            root_records = [r for r in name_records if r.type_id is None]
+            if len(root_records) == 1:
+                result.append(root_records[0])
+            elif len(root_records) > 1:
+                class_name = records[0].__class__.__name__
+                raise ValidationError(
+                    f"Ambiguous match for {class_name} '{name}': found {len(root_records)} "
+                    f"root-level {class_name.lower()}s"
+                )
+            else:
+                # All have type_id, need depth computation
+                needs_depth_computation[name] = name_records
+
+    # Only compute depths if necessary
+    if needs_depth_computation:
+
+        def get_depth(record):
+            current_type = record.type
+            depth = 1
+            while current_type.type_id is not None:
+                current_type = current_type.type
+                depth += 1
+            return depth
+
+        for name, name_records in needs_depth_computation.items():
+            records_with_depth = [(r, get_depth(r)) for r in name_records]
+            min_depth = min(depth for _, depth in records_with_depth)
+            topmost = [r for r, depth in records_with_depth if depth == min_depth]
+            class_name = records[0].__class__.__name__
+            if len(topmost) > 1:
+                raise ValidationError(
+                    f"Ambiguous match for {class_name} '{name}': found {len(topmost)} {class_name.lower()}s "
+                    f"at depth {min_depth} (under types: {[r.type.name for r in topmost]})"
+                )
+
+            result.append(topmost[0])
+
+    return result
 
 
 def _query_ancestors_of_fk(record: SQLRecord, attr: str) -> SQLRecordList:
