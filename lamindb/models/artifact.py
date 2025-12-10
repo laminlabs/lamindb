@@ -1104,8 +1104,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             stacked matrix    `.zarr`                                 `"MuData"`        `mudata.MuData`
                               `.tiledbsoma`                           `"tiledbsoma"`    `tiledbsoma.Experiment`
             spatial data      `.zarr`                                 `"SpatialData"`   `spatialdata.SpatialData`
-            generic array     `.h5`, `.zarr`, `.tiledb`               ---               `h5py.Dataset`, `zarr.Array`, `tiledb.Array`
-            groups
+            generic arrays    `.h5`, `.zarr`, `.tiledb`               ---               `h5py.Dataset`, `zarr.Array`, `tiledb.Array`
             unstructured      `.fastq`, `.pdf`, `.vcf`, `.html`       ---               ---
             ================  ======================================  ================  ====================================================================
 
