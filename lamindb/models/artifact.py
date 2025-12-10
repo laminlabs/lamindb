@@ -1092,7 +1092,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
     Notes:
 
-        .. dropdown:: Typical storage formats & corresponding Python object types
+        .. _storage-formats-note:
+
+        .. dropdown:: Storage formats & object types
 
             ================  ======================================  ================  ====================================================================
             description       :attr:`suffix`                          :attr:`otype`     Python types
@@ -1292,13 +1294,14 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         | str
         | None
     ) = CharField(max_length=64, db_index=True, null=True, editable=False)
-    """Python object type represented as a string.
+    """Object type represented as a string.
 
     The field is automatically set when using the `from_dataframe()`, `from_anndata()`, ... constructors.
-
     Unstructured artifacts have `otype=None`.
 
     The field also accepts custom `str` values to allow for building logic around them in third-party packages.
+
+    See section `storage formats & object types <storage-formats-note_>`__ for more background.
     """
     size: int | None = BigIntegerField(
         null=True, db_index=True, default=None, editable=False
