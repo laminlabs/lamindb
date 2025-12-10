@@ -1567,8 +1567,6 @@ class CatVector:
         values: list[str],
     ) -> tuple[list[str], dict]:
         """Validate ontology terms using LaminDB registries."""
-        from lamindb.models.can_curate import _inspect
-
         model_field = f"{self._registry.__name__}.{self._field_name}"
 
         # inspect values from the default instance, excluding public
@@ -1577,17 +1575,15 @@ class CatVector:
             registry_or_queryset = self._subtype_query_set
 
         # first inspect against the registry
-        inspect_result = _inspect(
-            registry_or_queryset,
+        inspect_result = registry_or_queryset.filter(**self._filter_kwargs).inspect(
             values,
             field=self._field,
             mute=True,
             from_source=False,
-            **self._filter_kwargs,  # type: ignore
         )
         # here non_validated includes synonyms and new values
-        non_validated = inspect_result.non_validated  # type: ignore
-        syn_mapper = inspect_result.synonyms_mapper  # type: ignore
+        non_validated = inspect_result.non_validated
+        syn_mapper = inspect_result.synonyms_mapper
 
         # logging messages
         if self._cat_manager is not None:
