@@ -110,8 +110,6 @@ def test_labels_add_using_anndata(adata):
     tissues = actual_tissues + [organoid]
     ln.save(tissues)
 
-    bt.settings.organism = "human"
-
     # clean up DB state
     organism_feature = ln.Feature.filter(name="organism").one_or_none()
     if organism_feature is not None:

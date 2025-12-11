@@ -277,10 +277,11 @@ Artifact: examples/dataset1.parquet (0000)
         otype="DataFrame", gene_symbols_in_index=True
     )
     curator = ln.curators.DataFrameCurator(df, mini_immuno_schema)
-    try:
+    with pytest.raises(ln.errors.ValidationError) as error:
         curator.validate()
-    except ln.errors.ValidationError as error:
-        assert "column 'sample_note' not in dataframe" in str(error)
+    assert "column 'sample_note' not in dataframe" in error.exconly()
+    assert "column 'cell_type_by_expert' not in dataframe" in error.exconly()
+
     curator.standardize()
     curator.validate()
 
@@ -474,7 +475,7 @@ def test_schema_no_match_ensembl():
     assert (
         error.exconly()
         == """lamindb.errors.ValidationError: 2 terms not validated in feature 'index': 'ENSG99999999998', 'ENSG99999999999'
-    → fix organism 'human', fix typos, remove non-existent values, or save terms via: curator.cat.add_new_from('index')"""
+    → fix typos, remove non-existent values, or save terms via: curator.cat.add_new_from('index')"""
     )
 
     schema.delete(permanent=True)
@@ -615,7 +616,7 @@ def test_anndata_curator_varT_curation():
                 ).save()
             assert error.exconly() == (
                 f"lamindb.errors.ValidationError: 1 term not validated in feature 'columns' in slot '{slot}': 'GeneTypo'\n"
-                f"    → fix organism 'human', fix typos, remove non-existent values, or save terms via: curator.slots['{slot}'].cat.add_new_from('columns')"
+                f"    → fix typos, remove non-existent values, or save terms via: curator.slots['{slot}'].cat.add_new_from('columns')"
             )
         else:
             for n_max_records in [2, 4]:
@@ -663,7 +664,7 @@ def test_anndata_curator_varT_curation_legacy(ccaplog):
                 ).save()
             assert error.exconly() == (
                 f"lamindb.errors.ValidationError: 1 term not validated in feature 'var_index' in slot '{slot}': 'GeneTypo'\n"
-                f"    → fix organism 'human', fix typos, remove non-existent values, or save terms via: curator.slots['{slot}'].cat.add_new_from('var_index')"
+                f"    → fix typos, remove non-existent values, or save terms via: curator.slots['{slot}'].cat.add_new_from('var_index')"
             )
         else:
             artifact = ln.Artifact.from_anndata(
@@ -759,38 +760,40 @@ def test_mudata_curator(
 ):
     mudata_schema = mudata_papalexi21_subset_schema
     mdata = ln.examples.datasets.mudata_papalexi21_subset()
-    # TODO: refactor organism
-    bt.settings.organism = "human"
     # wrong dataset
     with pytest.raises(InvalidArgument):
         ln.curators.MuDataCurator(pd.DataFrame(), mudata_schema)
     # wrong schema
     with pytest.raises(InvalidArgument):
         ln.curators.MuDataCurator(mdata, mini_immuno_schema)
-    curator = ln.curators.MuDataCurator(mdata, mudata_schema)
-    assert curator.slots.keys() == {
-        "obs",
-        "rna:obs",
-        "hto:obs",
-        "rna:var",
-    }
-    ln.settings.verbosity = "hint"
-    curator.validate()
-    curator.slots["rna:var"].cat.standardize("columns")
-    curator.slots["rna:var"].cat.add_new_from("columns")
-    artifact = curator.save_artifact(key="mudata_papalexi21_subset.h5mu")
-    assert artifact.schema == mudata_schema
-    assert set(artifact.features.slots.keys()) == {
-        "obs",
-        "rna:var",
-        "rna:obs",
-        "hto:obs",
-    }
+    try:
+        # TODO: allow set cat_filters for a Schema with itype
+        bt.settings.organism = "human"
+        curator = ln.curators.MuDataCurator(mdata, mudata_schema)
+        assert curator.slots.keys() == {
+            "obs",
+            "rna:obs",
+            "hto:obs",
+            "rna:var",
+        }
+        curator.validate()
+        curator.slots["rna:var"].cat.standardize("columns")
+        curator.slots["rna:var"].cat.add_new_from("columns")
+        artifact = curator.save_artifact(key="mudata_papalexi21_subset.h5mu")
+        assert artifact.schema == mudata_schema
+        assert set(artifact.features.slots.keys()) == {
+            "obs",
+            "rna:var",
+            "rna:obs",
+            "hto:obs",
+        }
 
-    artifact.delete(permanent=True)
-    mudata_schema.delete(permanent=True)
-    mini_immuno_schema.delete(permanent=True)
-    Path("papalexi21_subset.h5mu").unlink(missing_ok=True)
+        artifact.delete(permanent=True)
+        mudata_schema.delete(permanent=True)
+        mini_immuno_schema.delete(permanent=True)
+        Path("papalexi21_subset.h5mu").unlink(missing_ok=True)
+    finally:
+        bt.settings.organism = None
 
 
 def test_mudata_curator_nested_uns(study_metadata_schema):

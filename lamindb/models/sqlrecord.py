@@ -82,6 +82,14 @@ if TYPE_CHECKING:
 
 T = TypeVar("T", bound="SQLRecord")
 IPYTHON = getattr(builtins, "__IPYTHON__", False)
+UNIQUE_FIELD_NAMES = {
+    "root",
+    "ontology_id",
+    "uid",
+    "scientific_name",
+    "ensembl_gene_id",
+    "uniprotkb_id",
+}
 
 
 # -------------------------------------------------------------------------------------
@@ -1076,9 +1084,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                     isinstance(e, IntegrityError)
                     # for Storage, even if uid was in the error message, we can retrieve based on
                     # the root because it's going to be the same root
-                    and any(
-                        field in error_msg for field in ("root", "ontology_id", "uid")
-                    )
+                    and any(field in error_msg for field in UNIQUE_FIELD_NAMES)
                     and (
                         "_type_name_at_" not in error_msg
                     )  # constraints for unique type names in Record, ULabel, etc.

@@ -21,19 +21,24 @@ def df():
 
 def test_schema_from_values():
     gene_symbols = ["TCF7", "MYC"]
-    bt.settings.organism = "human"
     bt.Gene.filter(symbol__in=gene_symbols).delete(permanent=True)
     with pytest.raises(ValidationError) as error:
-        schema = ln.Schema.from_values(gene_symbols, bt.Gene.symbol, dtype=int)
+        schema = ln.Schema.from_values(
+            gene_symbols, bt.Gene.symbol, dtype=int, organism="human"
+        )
     assert error.exconly().startswith(
         "lamindb.errors.ValidationError: These values could not be validated:"
     )
-    ln.save(bt.Gene.from_values(gene_symbols, "symbol"))
-    schema = ln.Schema.from_values(gene_symbols, bt.Gene.symbol)
+    ln.save(bt.Gene.from_values(gene_symbols, "symbol", organism="human"))
+    schema = ln.Schema.from_values(gene_symbols, bt.Gene.symbol, organism="human")
     # below should be a queryset and not a list
-    assert set(schema.members) == set(bt.Gene.from_values(gene_symbols, "symbol"))
+    assert set(schema.members) == set(
+        bt.Gene.from_values(gene_symbols, "symbol", organism="human")
+    )
     assert schema.dtype == "num"  # this is NUMBER_TYPE
-    schema = ln.Schema.from_values(gene_symbols, bt.Gene.symbol, dtype=int)
+    schema = ln.Schema.from_values(
+        gene_symbols, bt.Gene.symbol, dtype=int, organism="human"
+    )
     assert schema._state.adding
     assert schema.dtype == "int"
     assert schema.itype == "bionty.Gene"
@@ -42,7 +47,9 @@ def test_schema_from_values():
     id = schema.id
     # test that the schema is retrieved from the database
     # in case it already exists
-    schema = ln.Schema.from_values(gene_symbols, bt.Gene.symbol, dtype=int)
+    schema = ln.Schema.from_values(
+        gene_symbols, bt.Gene.symbol, dtype=int, organism="human"
+    )
     assert not schema._state.adding
     assert id == schema.id
     schema.delete(permanent=True)
@@ -89,8 +96,8 @@ def test_schema_from_records(df):
 
 def test_schema_from_df(df):
     # test using type
-    bt.settings.organism = "human"
-    genes = [bt.Gene(symbol=name) for name in df.columns]
+    human = bt.Organism.from_source(name="human").save()
+    genes = [bt.Gene(symbol=name, organism=human) for name in df.columns]
     ln.save(genes)
     with pytest.raises(ValueError) as error:
         ln.Schema.from_dataframe(df, field=bt.Gene.symbol)
