@@ -141,9 +141,7 @@ def test_record_features_add_remove_values():
         "feature_run": run.uid,
     }
 
-    bt.settings.organism = "mouse"
     test_record.features.add_values(test_values)
-    bt.settings.organism = "human"
     assert test_record.features.get_values() == test_values
 
     # all empty sheet
