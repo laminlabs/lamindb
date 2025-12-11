@@ -529,7 +529,11 @@ def test_pandera_dataframe_schema(
     # extra column is fine
     ln.curators.DataFrameCurator(df_extra_column, schema=schema_all_required).validate()
 
-    # maximal_set=True, extra column is not allowed
+    # maximal_set=True, extra column is *not* allowed
+    # check that __lamindb values are OK
+    df["__lamindb_record_uid__"] = "some_value"
+    ln.curators.DataFrameCurator(df, schema=schema_maximal_set).validate()
+    del df["__lamindb_record_uid__"]
     with pytest.raises(ValidationError):
         ln.curators.DataFrameCurator(
             df_extra_column,
