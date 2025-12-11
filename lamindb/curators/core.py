@@ -166,6 +166,8 @@ Returns:
     A saved artifact record.
 """
 
+LAMINDB_COLUMN_PREFIX_REGEX = r"^__lamindb_.*$"
+
 
 class Curator:
     """Curator base class.
@@ -581,7 +583,7 @@ class ComponentCurator(Curator):
                 index = None
             if schema.maximal_set:
                 # allow any columns starting with "__lamindb" even if maximal_set is True
-                pandera_columns[r"^__lamindb.*$"] = pandera.Column(
+                pandera_columns[LAMINDB_COLUMN_PREFIX_REGEX] = pandera.Column(
                     regex=True, required=False
                 )
             self._pandera_schema = pandera.DataFrameSchema(
@@ -1772,7 +1774,9 @@ class DataFrameCatManager:
         self._maximal_set = maximal_set
         columns = self._dataset.keys()
         if maximal_set:
-            columns = [col for col in columns if not re.match(r"^__lamindb.*$", col)]
+            columns = [
+                col for col in columns if not re.match(LAMINDB_COLUMN_PREFIX_REGEX, col)
+            ]
         self._cat_vectors["columns"] = CatVector(
             values_getter=lambda: columns,  # lambda ensures the inplace update
             values_setter=lambda new_values: setattr(
