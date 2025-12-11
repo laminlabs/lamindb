@@ -11,19 +11,6 @@ from pandas.api.types import is_string_dtype
 
 
 @pytest.fixture(scope="module")
-def df():
-    return pd.DataFrame(
-        {
-            "feat1": [1, 2, 3],
-            "feat2": [3.1, 4.2, 5.3],
-            "feat3": ["cond1", "cond2", "cond2"],
-            "feat4": ["id1", "id2", "id3"],
-            "rando_feature": ["rando1", "rando2", "rando3"],
-        }
-    )
-
-
-@pytest.fixture(scope="module")
 def dict_data():
     return {
         "dict_feat1": 42,
@@ -63,10 +50,10 @@ def test_feature_init():
     feat1 = ln.Feature(name="feat", dtype="str").save()
     # duplicate name with different dtype should fail
     with pytest.raises(ValidationError) as error:
-        ln.Feature(name="feat", dtype="cat")
+        ln.Feature(name="feat", dtype=ln.ULabel)
     assert (
         error.exconly()
-        == "lamindb.errors.ValidationError: Feature feat already exists with dtype str, you passed cat"
+        == "lamindb.errors.ValidationError: Feature feat already exists with dtype str, you passed cat[ULabel]"
     )
     feat1.delete(permanent=True)
 
@@ -146,13 +133,23 @@ def test_cat_filters_invalid_field_name():
     source.delete(permanent=True)
 
 
-def test_feature_from_df(df):
+def test_feature_from_df():
+    df = pd.DataFrame(
+        {
+            "feat1": [1, 2, 3],
+            "feat2": [3.1, 4.2, 5.3],
+            "feat3": pd.Categorical(["cond1", "cond2", "cond2"]),
+            "feat4": ["id1", "id2", "id3"],
+            "rando_feature": ["rando1", "rando2", "rando3"],
+        }
+    )
     if feat1 := ln.Feature.filter(name="feat1").one_or_none() is not None:
         feat1.delete(permanent=True)
     features = ln.Feature.from_dataframe(df.iloc[:, :4]).save()
     artifact = ln.Artifact.from_dataframe(df, description="test").save()
     # test for deprecated add_feature_set
-    artifact.features._add_schema(ln.Schema(features), slot="columns")
+    schema = ln.Schema(features).save()
+    artifact.features._add_schema(schema, slot="columns")
     features = artifact.features.slots["columns"].features.all()
     assert len(features) == len(df.columns[:4])
     [col for col in df.columns if is_string_dtype(df[col])]
@@ -170,8 +167,6 @@ def test_feature_from_df(df):
     labels = [ln.Record(name=name) for name in df["feat3"].unique()]
     ln.save(labels)
     feature = ln.Feature.get(name="feat3")
-    feature.delete(permanent=True)
-    feature = ln.Feature(name="feat3", dtype=ln.ULabel).save()
     with pytest.raises(ValidationError) as err:
         artifact.labels.add(labels, feature=feature)
     assert (
