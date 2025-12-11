@@ -1729,21 +1729,23 @@ class DataFrameCatManager:
         for feature in self._categoricals:
             result = parse_dtype(feature.dtype)[0]
             key = feature.name
-            self._cat_vectors[key] = CatVector(
-                values_getter=lambda k=key: self._dataset[
-                    k
-                ],  # Capture key as default argument
-                values_setter=lambda new_values, k=key: self._dataset.__setitem__(
-                    k, new_values
-                ),
-                field=result["field"],
-                key=key,
-                source=self._sources.get(key),
-                feature=feature,
-                cat_manager=self,
-                filter_str=result["filter_str"],
-                subtypes_list=result["subtypes_list"],
-            )
+            # only create CatVector if the key exists in the DataFrame
+            if key in self._dataset.columns:
+                self._cat_vectors[key] = CatVector(
+                    values_getter=lambda k=key: self._dataset[
+                        k
+                    ],  # Capture key as default argument
+                    values_setter=lambda new_values, k=key: self._dataset.__setitem__(
+                        k, new_values
+                    ),
+                    field=result["field"],
+                    key=key,
+                    source=self._sources.get(key),
+                    feature=feature,
+                    cat_manager=self,
+                    filter_str=result["filter_str"],
+                    subtypes_list=result["subtypes_list"],
+                )
         if index is not None and index.dtype.startswith("cat"):
             result = parse_dtype(index.dtype)[0]
             key = "index"
