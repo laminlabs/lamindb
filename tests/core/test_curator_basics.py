@@ -416,22 +416,42 @@ def test_dtypes_at_different_levels():
     sample_type_root = ln.Record(name="Sample", is_type=True).save()
     lab_a_type = ln.Record(name="LabA", is_type=True).save()
     sample_type_a = ln.Record(name="Sample", is_type=True, type=lab_a_type).save()
-    s1 = ln.Record(name="s1", type=sample_type_a).save()
-    df = pd.DataFrame({"sample_name": pd.Categorical(["s1"])})
-    # feature constraining to lab_a_type
-    feature = ln.Feature(name="sample_name", dtype=sample_type_root).save()
+    s1_lab_a = ln.Record(name="s1", type=sample_type_a).save()
+    df = pd.DataFrame({"biosample_name": pd.Categorical(["s1"])})
+    feature = ln.Feature(name="biosample_name", dtype=sample_type_root).save()
     sample_type_root.delete()
-    df = pd.DataFrame({"sample_name": ["s1"]})
+    df = pd.DataFrame({"biosample_name": pd.Categorical(["s1"])})
     with pytest.raises(ln.errors.IntegrityError) as error:
         ln.curators.DataFrameCurator(df, ln.examples.schemas.valid_features())
     assert (
         "Error retrieving Record type with filter {'name': 'Sample', 'type__isnull': True} for field `.name`: Record matching query does not exist."
         in error.exconly()
     )
+    sample_type_root.restore()
+    curator = ln.curators.DataFrameCurator(df, ln.examples.schemas.valid_features())
+    with pytest.raises(ln.errors.ValidationError) as error:
+        curator.validate()
+    assert "1 term not validated in feature 'biosample_name': 's1'" in error.exconly()
+    s1_root = ln.Record(name="s1", type=sample_type_root).save()
+    curator.validate()
+    cat_vector = curator._atomic_curator.cat._cat_vectors["biosample_name"]
+    assert cat_vector._validated == ["s1"]
+    assert len(cat_vector.records) == 1
+    assert cat_vector.records[0] == s1_root
+    # update feature dtype
+    feature.dtype = "cat[Record[LabA[Sample]]]"
+    feature.save()
+    curator = ln.curators.DataFrameCurator(df, ln.examples.schemas.valid_features())
+    curator.validate()
+    cat_vector = curator._atomic_curator.cat._cat_vectors["biosample_name"]
+    assert cat_vector._validated == ["s1"]
+    assert len(cat_vector.records) == 1
+    assert cat_vector.records[0] == s1_lab_a
     feature.delete(permanent=True)
-    s1.delete(permanent=True)
+    s1_lab_a.delete(permanent=True)
     sample_type_a.delete(permanent=True)
     lab_a_type.delete(permanent=True)
+    s1_root.delete(permanent=True)
     sample_type_root.delete(permanent=True)
 
 
