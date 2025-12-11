@@ -45,7 +45,7 @@ from lamindb.models.feature import (
 )
 from lamindb.models.sqlrecord import HasType, get_name_field
 
-from ..errors import InvalidArgument, ValidationError
+from ..errors import IntegrityError, InvalidArgument, ValidationError
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -1326,8 +1326,8 @@ class CatVector:
             try:
                 self._type_record = self._field.field.model.get(**type_filters)
             except Exception as e:
-                raise InvalidArgument(
-                    f"Error retrieving type record with filters {type_filters} for field {self._field.field.name}."
+                raise IntegrityError(
+                    f"Error retrieving {self._registry.__name__} type with filter {type_filters} for field `.{self._field.field.name}`: {e}"
                 ) from e
 
         if hasattr(field.field.model, "_name_field"):
