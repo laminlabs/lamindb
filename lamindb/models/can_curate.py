@@ -81,17 +81,17 @@ def _inspect(
     _check_if_record_in_db(organism_record, queryset.db)
 
     # do not inspect synonyms if the field is not name field
-    inspect_synonyms = True
+    standardize = True
     if hasattr(registry, "_name_field") and field_str != registry._name_field:
-        inspect_synonyms = False
+        standardize = False
 
     # inspect in the DB
     result_db = inspect(
         df=_filter_queryset_with_organism(queryset=queryset, organism=organism_record),
         identifiers=values,
         field=field_str,
+        standardize=standardize,
         mute=mute,
-        inspect_synonyms=inspect_synonyms,
     )
     nonval = set(result_db.non_validated).difference(result_db.synonyms_mapper.keys())
 
@@ -103,7 +103,7 @@ def _inspect(
                 values=nonval,
                 field=field_str,
                 mute=True,
-                inspect_synonyms=inspect_synonyms,
+                standardize=standardize,
             )
             public_validated = public_result.validated
             public_mapper = public_result.synonyms_mapper
