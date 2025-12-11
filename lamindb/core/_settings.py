@@ -53,8 +53,7 @@ class Settings:
     """
 
     def __init__(self):
-        self._verbosity_int: int = 1  # warning-level logging
-        logger.set_verbosity(self._verbosity_int)
+        self._verbosity_int: int = logger._verbosity
         self._sync_git_repo: str | None = None
 
     def __repr__(self) -> str:  # pragma: no cover
