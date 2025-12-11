@@ -885,15 +885,11 @@ def add_labels(
                     raise ValidationError(
                         f"Feature {feature.name} needs dtype='cat' for label annotation, currently has dtype='{feature.dtype}'"
                     )
-                if feature.dtype == "cat":
-                    feature.dtype = f"cat[{registry_name}]"  # type: ignore
-                    feature.save()
-                elif registry_name not in feature.dtype:
+                if registry_name not in feature.dtype:
                     new_dtype = feature.dtype.rstrip("]") + f"|{registry_name}]"
                     raise ValidationError(
-                        f"Label type {registry_name} is not valid for Feature(name='{feature.name}', dtype='{feature.dtype}'), consider updating to dtype='{new_dtype}'"
+                        f"Label type {registry_name} is not valid for Feature(name='{feature.name}', dtype='{feature.dtype}'), consider a feature with dtype='{new_dtype}'"
                     )
-
             if registry_name not in self.features._accessor_by_registry:
                 logger.warning(f"skipping {registry_name}")
                 continue

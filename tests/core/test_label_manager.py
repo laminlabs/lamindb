@@ -139,13 +139,11 @@ def test_labels_add_using_anndata(adata):
 
     # now register features we want to validate
     # (we are not interested in cell_type_id, here)
-    ln.save(
-        ln.Feature.from_dataframe(
-            adata.obs[["cell_type", "tissue", "cell_type_by_expert", "disease"]]
-        )
-    )
+    ln.Feature(name="cell_type", dtype=bt.CellType).save()
+    ln.Feature(name="disease", dtype=ln.Record).save()
+    ln.Feature(name="cell_type_by_expert", dtype=bt.CellType).save()
     artifact = ln.Artifact.from_anndata(adata, description="Mini adata")
-    ln.Feature(name="organism", dtype="cat[bionty.Organism]").save()
+    ln.Feature(name="organism", dtype=bt.Organism).save()
     features = ln.Feature.lookup()
     with pytest.raises(ValueError) as error:
         artifact.labels.add(organism, feature=features.organism)
@@ -154,16 +152,6 @@ def test_labels_add_using_anndata(adata):
         == "ValueError: Please save the artifact/collection before adding a label!"
     )
     artifact.save()
-
-    # link features
-    artifact.features._add_set_from_anndata(var_field=bt.Gene.ensembl_gene_id)
-
-    # check the basic construction of the feature set based on obs
-    schema_obs = artifact.feature_sets.filter(
-        itype="Feature", _links_artifact__slot="obs"
-    ).one()
-    assert schema_obs.n == 4
-    assert "organism" not in schema_obs.features.to_list("name")
 
     # now, we add organism and run checks
     features = ln.Feature.lookup()
@@ -176,15 +164,10 @@ def test_labels_add_using_anndata(adata):
     assert organism_link.feature.name == "organism"
     feature = ln.Feature.get(name="organism")
     assert feature.dtype == "cat[bionty.Organism]"
-    schema_obs = artifact.feature_sets.filter(
-        itype="Feature", _links_artifact__slot="obs"
-    ).one()
-    assert schema_obs.n == 4
 
     # now we add cell types & tissues and run checks
-    ln.Feature(name="cell_type", dtype="cat").save()
-    ln.Feature(name="cell_type_by_expert", dtype="cat").save()
-    ln.Feature(name="tissue", dtype="cat").save()
+    ln.Feature(name="cell_type", dtype=bt.CellType).save()
+    ln.Feature(name="cell_type_by_expert", dtype=bt.CellType).save()
     add_labels(artifact, cell_types, feature=features.cell_type, from_curator=True)
     add_labels(
         artifact,
@@ -192,15 +175,14 @@ def test_labels_add_using_anndata(adata):
         feature=features.cell_type_by_expert,
         from_curator=True,
     )
+    feature_tissue_simple = ln.Feature(name="tissue_simple", dtype=bt.Tissue).save()
     with pytest.raises(ValidationError) as err:
-        add_labels(artifact, tissues, feature=features.tissue, from_curator=True)
+        add_labels(artifact, tissues, feature=feature_tissue_simple, from_curator=True)
     assert (
         err.exconly()
-        == "lamindb.errors.ValidationError: Label type Record is not valid for Feature(name='tissue', dtype='cat[bionty.Tissue]'), consider updating to dtype='cat[bionty.Tissue|Record]'"
+        == "lamindb.errors.ValidationError: Label type Record is not valid for Feature(name='tissue_simple', dtype='cat[bionty.Tissue]'), consider a feature with dtype='cat[bionty.Tissue|Record]'"
     )
-    tissue = ln.Feature.get(name="tissue")
-    tissue.delete(permanent=True)
-    tissue = ln.Feature(name="tissue", dtype=bt.Tissue | ln.Record).save()
+    tissue = ln.Feature(name="tissue", dtype="cat[bionty.Tissue|Record]").save()
     add_labels(artifact, tissues, feature=tissue, from_curator=True)
     feature = ln.Feature.get(name="cell_type")
     assert feature.dtype == "cat[bionty.CellType]"
@@ -211,22 +193,10 @@ def test_labels_add_using_anndata(adata):
     diseases = [ln.Record(name=name) for name in adata.obs["disease"].unique()]
     ln.save(diseases)
     add_labels(artifact, diseases, feature=features.disease, from_curator=True)
-    df = artifact.features.slots["obs"].features.to_dataframe()
-    assert set(df["name"]) == {
-        "cell_type",
-        "disease",
-        "tissue",
-        "cell_type_by_expert",
-    }
-    assert set(df["dtype"]) == {
-        "cat[bionty.CellType]",
-        "cat[Record]",
-        "cat[bionty.Tissue|Record]",
-    }
 
     # now, let's add another feature to ext
     experiment_1 = ln.Record(name="experiment_1").save()
-    ln.Feature(name="experiment", dtype="cat").save()
+    ln.Feature(name="experiment", dtype=ln.Record).save()
     features = ln.Feature.lookup()
     artifact.labels.add(experiment_1, feature=features.experiment)
 

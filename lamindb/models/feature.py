@@ -624,7 +624,7 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         name: `str` Name of the feature, typically a column name.
         dtype: `Dtype | Registry | list[Registry] | FieldAttr` See :class:`~lamindb.base.types.Dtype`.
             For categorical types, you can define to which registry values are
-            restricted, e.g., `ULabel` or `[ULabel, bionty.CellType]`.
+            restricted, e.g., `ln.ULabel` or `ln.ULabel|bt.CellType`.
         unit: `str | None = None` Unit of measure, ideally SI (`"m"`, `"s"`, `"kg"`, etc.) or `"normalized"` etc.
         description: `str | None = None` A description.
         synonyms: `str | None = None` Bar-separated synonyms.
@@ -658,9 +658,9 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             ln.Feature(name="temperature_in_celsius", dtype=float).save()
             ln.Feature(name="read_count", dtype=int).save()
 
-        A categorical feature measuring labels managed in the `Record` registry::
+        A categorical feature measuring labels managed in the `ULabel` registry::
 
-            ln.Feature(name="sample", dtype=ln.Record).save()
+            ln.Feature(name="sample", dtype=ln.ULabel).save()
 
         The same for the `bt.CellType` registry::
 
@@ -706,15 +706,14 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
 
     Note:
 
-        *Features* and *labels* denote two ways of using entities to organize data:
+        *Features* vs. *labels*:
 
         1. A feature qualifies *what* is measured, i.e., a numerical or categorical random variable
-        2. A label *is* a measured value, i.e., a category
+        2. A label *is* a measured value of a categorical feature, i.e., a category
 
-        Example: When annotating a dataset that measured expression of 30k genes,
-        those genes serve as feature identifiers.
-        When annotating a dataset whose experiment knocked out 3 specific genes,
-        those genes serve as labels.
+        Example: When annotating a dataset that measures expression of 30k genes,
+        the gene identifiers serve as feature identifiers, and the features are expression measurements for these genes.
+        When annotating a dataset whose experiment knocked out 3 specific genes, those genes serve as labels of the dataset.
 
         Re-shaping data can introduce ambiguity among features & labels. If this
         happened, ask yourself what the joint measurement was: a feature
@@ -786,9 +785,12 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     """Universal id, valid across DB instances."""
     name: str = CharField(max_length=150, db_index=True)
     """Name of feature."""
-    # dtype can be null if is_type is True
-    dtype: Dtype = CharField(db_index=True, null=True)
-    """Data type (:class:`~lamindb.base.types.Dtype`)."""
+    dtype: Dtype | str | None = CharField(db_index=True, null=True)
+    """Data type (:class:`~lamindb.base.types.Dtype`).
+
+    Note that you cannot mutate the `dtype` of an existing feature once created.
+    However, this is enforced only in Postgres-based instances.
+    """
     type: Feature | None = ForeignKey(
         "self", PROTECT, null=True, related_name="features"
     )
