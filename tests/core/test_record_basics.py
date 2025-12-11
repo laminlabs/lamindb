@@ -89,6 +89,10 @@ def test_record_features_add_remove_values():
     feature_list_str = ln.Feature(name="feature_list_str", dtype=list[str]).save()
     feature_int = ln.Feature(name="feature_int", dtype=int).save()
     feature_list_int = ln.Feature(name="feature_list_int", dtype=list[int]).save()
+    feature_float = ln.Feature(name="feature_float", dtype=float).save()
+    feature_list_float = ln.Feature(name="feature_list_float", dtype=list[float]).save()
+    feature_num = ln.Feature(name="feature_num", dtype="num").save()
+    feature_list_num = ln.Feature(name="feature_list_num", dtype="list[num]").save()
     feature_datetime = ln.Feature(name="feature_datetime", dtype=datetime).save()
     feature_date = ln.Feature(name="feature_date", dtype=datetime.date).save()
     feature_dict = ln.Feature(name="feature_dict", dtype=dict).save()
@@ -124,6 +128,10 @@ def test_record_features_add_remove_values():
         "feature_list_str": ["a", "list", "of", "strings"],
         "feature_int": 42,
         "feature_list_int": [1, 2, 3],
+        "feature_num": 3.14,
+        "feature_list_num": [2.71, 3.14, 1.61],
+        "feature_float": 3.14,
+        "feature_list_float": [2.71, 3.14, 1.61],
         "feature_datetime": datetime(2024, 1, 1, 12, 0, 0),
         "feature_date": date(2024, 1, 1),
         "feature_dict": {"key": "value", "number": 123, "list": [1, 2, 3]},
@@ -155,6 +163,10 @@ def test_record_features_add_remove_values():
             feature_int,
             feature_list_str,
             feature_list_int,
+            feature_num,
+            feature_float,
+            feature_list_float,
+            feature_list_num,
             feature_datetime,
             feature_date,
             feature_dict,
@@ -183,6 +195,10 @@ def test_record_features_add_remove_values():
     assert df_empty["feature_str"].dtype.name == "string"
     assert df_empty["feature_int"].isnull().all()
     assert df_empty["feature_int"].dtype.name == "Int64"
+    assert df_empty["feature_float"].isnull().all()
+    assert df_empty["feature_float"].dtype.name == "float64"
+    assert df_empty["feature_num"].isnull().all()
+    assert df_empty["feature_num"].dtype.name == "float64"
     assert df_empty["feature_list_str"].isnull().all()
     assert df_empty["feature_list_str"].dtype.name == "object"
     assert df_empty["feature_list_int"].isnull().all()
@@ -231,6 +247,10 @@ def test_record_features_add_remove_values():
         "feature_list_str": ["a", "list", "of", "strings"],
         "feature_int": 42,
         "feature_list_int": [1, 2, 3],
+        "feature_float": 3.14,
+        "feature_list_float": [2.71, 3.14, 1.61],
+        "feature_num": 3.14,
+        "feature_list_num": [2.71, 3.14, 1.61],
         "feature_datetime": pd.Timestamp("2024-01-01 12:00:00"),
         "feature_date": date(2024, 1, 1),
         "feature_dict": {"key": "value", "list": [1, 2, 3], "number": 123},
@@ -443,6 +463,7 @@ def test_record_features_add_remove_values():
     artifact.delete(permanent=True)
     run.delete(permanent=True)
     transform.delete(permanent=True)
+    feature_num.delete(permanent=True)
 
 
 def test_date_and_datetime_corruption():

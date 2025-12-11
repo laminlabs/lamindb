@@ -1144,8 +1144,8 @@ class FeatureManager:
                 value,
                 mute=True,
             )
-            if feature.dtype == "num":
-                if inferred_type not in {"int", "float"}:
+            if feature.dtype == "num" or feature.dtype == "list[num]":
+                if not ("int" in inferred_type or "float" in inferred_type):
                     raise TypeError(
                         f"Value for feature '{feature.name}' with dtype {feature.dtype} must be a number, but is {value} with dtype {inferred_type}"
                     )
