@@ -1,7 +1,6 @@
 import re
 
 import anndata as ad
-import bionty as bt
 import lamindb as ln
 import numpy as np
 import pandas as pd
@@ -36,7 +35,6 @@ def adata2():
 
 
 def test_from_single_artifact(adata):
-    bt.settings.organism = "human"
     features = ln.Feature.from_dataframe(adata.obs)
     validated = ln.Feature.validate(
         [feature.name for feature in features], field="name"

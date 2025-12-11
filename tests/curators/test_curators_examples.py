@@ -760,8 +760,6 @@ def test_mudata_curator(
 ):
     mudata_schema = mudata_papalexi21_subset_schema
     mdata = ln.examples.datasets.mudata_papalexi21_subset()
-    # TODO: refactor organism
-    bt.settings.organism = "human"
     # wrong dataset
     with pytest.raises(InvalidArgument):
         ln.curators.MuDataCurator(pd.DataFrame(), mudata_schema)

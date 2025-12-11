@@ -10,7 +10,6 @@ from pathlib import Path, PurePosixPath
 from types import ModuleType
 
 import anndata as ad
-import bionty as bt
 import lamindb as ln
 import lamindb_setup
 import mudata as md
@@ -52,7 +51,6 @@ from lamindb_setup.core.upath import (
 # currently, we're only mocking it through `storage` as set in conftest.py
 
 ln.settings.verbosity = "success"
-bt.settings.organism = "human"
 
 
 @pytest.fixture
