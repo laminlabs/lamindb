@@ -199,8 +199,8 @@ def test_labels_add_using_anndata(adata):
         == "lamindb.errors.ValidationError: Label type Record is not valid for Feature(name='tissue', dtype='cat[bionty.Tissue]'), consider updating to dtype='cat[bionty.Tissue|Record]'"
     )
     tissue = ln.Feature.get(name="tissue")
-    tissue.dtype = "cat[bionty.Tissue|Record]"
-    tissue.save()
+    tissue.delete(permanent=True)
+    tissue = ln.Feature(name="tissue", dtype=bt.Tissue | ln.Record).save()
     add_labels(artifact, tissues, feature=tissue, from_curator=True)
     feature = ln.Feature.get(name="cell_type")
     assert feature.dtype == "cat[bionty.CellType]"

@@ -170,8 +170,8 @@ def test_feature_from_df(df):
     labels = [ln.Record(name=name) for name in df["feat3"].unique()]
     ln.save(labels)
     feature = ln.Feature.get(name="feat3")
-    feature.dtype = "cat"
-    feature.save()
+    feature.delete(permanent=True)
+    feature = ln.Feature(name="feat3", dtype=ln.ULabel).save()
     with pytest.raises(ValidationError) as err:
         artifact.labels.add(labels, feature=feature)
     assert (

@@ -440,8 +440,8 @@ def test_dtypes_at_different_levels():
     assert len(cat_vector.records) == 1
     assert cat_vector.records[0] == s1_root
     # update feature dtype
-    feature.dtype = "cat[Record[LabA[Sample]]]"
-    feature.save()
+    feature.delete(permanent=True)
+    feature = ln.Feature(name="biosample_name", dtype=sample_type_a).save()
     curator = ln.curators.DataFrameCurator(df, ln.examples.schemas.valid_features())
     curator.validate()
     cat_vector = curator._atomic_curator.cat._cat_vectors["biosample_name"]
@@ -785,16 +785,12 @@ def test_feature_dtype_path():
 
 def test_cat_filters_specific_source_uid(df_disease, disease_ontology_old):
     """Specific source_uid passed to the `cat_filters`"""
-    schema = ln.Schema(
-        features=[
-            ln.Feature(
-                name="disease",
-                dtype=bt.Disease,
-                cat_filters={"source__uid": disease_ontology_old.uid},
-            ).save(),
-        ],
+    feature = ln.Feature(
+        name="disease",
+        dtype=bt.Disease,
+        cat_filters={"source__uid": disease_ontology_old.uid},
     ).save()
-
+    schema = ln.Schema([feature], name="test schema").save()
     curator = ln.curators.DataFrameCurator(df_disease, schema)
     try:
         curator.validate()
@@ -803,22 +799,18 @@ def test_cat_filters_specific_source_uid(df_disease, disease_ontology_old):
             "2 terms not validated in feature 'disease': 'HDAC4-related haploinsufficiency syndrome', 'SAMD9L-related spectrum and myeloid neoplasm risk'"
             in str(error)
         )
-
     schema.delete(permanent=True)
+    feature.delete(permanent=True)
 
 
 def test_cat_filters_specific_source(df_disease, disease_ontology_old):
     """Specific Source record passed to the `cat_filters`"""
-    schema = ln.Schema(
-        features=[
-            ln.Feature(
-                name="disease",
-                dtype=bt.Disease,
-                cat_filters={"source": disease_ontology_old},
-            ).save(),
-        ],
+    feature = ln.Feature(
+        name="disease",
+        dtype=bt.Disease,
+        cat_filters={"source": disease_ontology_old},
     ).save()
-
+    schema = ln.Schema([feature], name="test schema").save()
     curator = ln.curators.DataFrameCurator(df_disease, schema)
     try:
         curator.validate()
@@ -829,22 +821,20 @@ def test_cat_filters_specific_source(df_disease, disease_ontology_old):
         )
 
     schema.delete(permanent=True)
+    feature.delete(permanent=True)
 
 
 def test_cat_filters_multiple_relation_filters(df_disease, disease_ontology_old):
     """Multiple relation filters in cat_filters"""
-    schema = ln.Schema(
-        features=[
-            ln.Feature(
-                name="disease",
-                dtype=bt.Disease,
-                cat_filters={
-                    "source__uid": disease_ontology_old.uid,
-                    "organism__name": "all",
-                },
-            ).save(),
-        ],
+    feature = ln.Feature(
+        name="disease",
+        dtype=bt.Disease,
+        cat_filters={
+            "source__uid": disease_ontology_old.uid,
+            "organism__name": "all",
+        },
     ).save()
+    schema = ln.Schema([feature], name="test schema").save()
     curator = ln.curators.DataFrameCurator(df_disease, schema)
     try:
         curator.validate()
@@ -854,6 +844,7 @@ def test_cat_filters_multiple_relation_filters(df_disease, disease_ontology_old)
             in str(error)
         )
     schema.delete(permanent=True)
+    feature.delete(permanent=True)
 
 
 def test_curate_columns(df):

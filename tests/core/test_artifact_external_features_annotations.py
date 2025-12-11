@@ -317,8 +317,8 @@ Here is how to create a feature:
     assert error.exconly().startswith(
         "TypeError: Value for feature 'temperature' with dtype 'cat[Record]' must be a string or record"
     )
-    temperature.dtype = "num"
-    temperature.save()
+    temperature.delete(permanent=True)
+    temperature = ln.Feature(name="temperature", dtype="num").save()
     artifact.features.add_values({"temperature": 27.2})
     assert artifact._feature_values.first().value == 27.2
 
