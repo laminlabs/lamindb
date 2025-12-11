@@ -201,13 +201,13 @@ def create_records_from_source(
     registry = field.field.model  # type: ignore
     records: list = []
     # populate additional fields from public_df
-    from bionty._organism import is_organism_required
+    from bionty._organism import OrganismNotSet, is_organism_required
     from bionty._source import filter_public_df_columns, get_source_record
 
     # get the default source
     if is_organism_required(registry, field) and organism is None:
-        raise ValueError(
-            f"organism is required to create new {registry.__name__} records from source!"
+        raise OrganismNotSet(
+            f"`organism` is required to create new {registry.__name__} records from source!"
         )
     source_record = get_source_record(registry, organism, source)
 
