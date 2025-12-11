@@ -1,23 +1,13 @@
+import os
+
 import bionty as bt
+import django.db.utils
 import lamindb as ln
 import pandas as pd
 import pytest
 from lamindb.errors import ValidationError
 from lamindb.models.feature import serialize_pandas_dtype
 from pandas.api.types import is_string_dtype
-
-
-@pytest.fixture(scope="module")
-def df():
-    return pd.DataFrame(
-        {
-            "feat1": [1, 2, 3],
-            "feat2": [3.1, 4.2, 5.3],
-            "feat3": ["cond1", "cond2", "cond2"],
-            "feat4": ["id1", "id2", "id3"],
-            "rando_feature": ["rando1", "rando2", "rando3"],
-        }
-    )
 
 
 @pytest.fixture(scope="module")
@@ -60,10 +50,10 @@ def test_feature_init():
     feat1 = ln.Feature(name="feat", dtype="str").save()
     # duplicate name with different dtype should fail
     with pytest.raises(ValidationError) as error:
-        ln.Feature(name="feat", dtype="cat")
+        ln.Feature(name="feat", dtype=ln.ULabel)
     assert (
         error.exconly()
-        == "lamindb.errors.ValidationError: Feature feat already exists with dtype str, you passed cat"
+        == "lamindb.errors.ValidationError: Feature feat already exists with dtype str, you passed cat[ULabel]"
     )
     feat1.delete(permanent=True)
 
@@ -87,6 +77,18 @@ def test_feature_init():
     assert "bionty.Gene" in feature.dtype
     assert "ensembl_gene_id" in feature.dtype
     assert "organism='human'" in feature.dtype
+
+
+@pytest.mark.skipif(
+    os.getenv("LAMINDB_TEST_DB_VENDOR") == "sqlite", reason="Postgres-only"
+)
+def test_cannot_mutate_dtype():
+    feature = ln.Feature(name="feature", dtype=str).save()
+    feature.dtype = int
+    with pytest.raises(django.db.utils.IntegrityError) as error:
+        feature.save()
+    assert "dtype field is immutable and cannot be changed" in error.exconly()
+    feature.delete(permanent=True)
 
 
 def test_cat_filters_dtype():
@@ -131,13 +133,23 @@ def test_cat_filters_invalid_field_name():
     source.delete(permanent=True)
 
 
-def test_feature_from_df(df):
+def test_feature_from_df():
+    df = pd.DataFrame(
+        {
+            "feat1": [1, 2, 3],
+            "feat2": [3.1, 4.2, 5.3],
+            "feat3": pd.Categorical(["cond1", "cond2", "cond2"]),
+            "feat4": ["id1", "id2", "id3"],
+            "rando_feature": ["rando1", "rando2", "rando3"],
+        }
+    )
     if feat1 := ln.Feature.filter(name="feat1").one_or_none() is not None:
         feat1.delete(permanent=True)
     features = ln.Feature.from_dataframe(df.iloc[:, :4]).save()
     artifact = ln.Artifact.from_dataframe(df, description="test").save()
     # test for deprecated add_feature_set
-    artifact.features._add_schema(ln.Schema(features), slot="columns")
+    schema = ln.Schema(features).save()
+    artifact.features._add_schema(schema, slot="columns")
     features = artifact.features.slots["columns"].features.all()
     assert len(features) == len(df.columns[:4])
     [col for col in df.columns if is_string_dtype(df[col])]
@@ -155,8 +167,6 @@ def test_feature_from_df(df):
     labels = [ln.Record(name=name) for name in df["feat3"].unique()]
     ln.save(labels)
     feature = ln.Feature.get(name="feat3")
-    feature.dtype = "cat"
-    feature.save()
     with pytest.raises(ValidationError) as err:
         artifact.labels.add(labels, feature=feature)
     assert (

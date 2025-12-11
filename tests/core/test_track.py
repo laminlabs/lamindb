@@ -76,8 +76,8 @@ Run: {ln.context.run.uid[:7]} ({ln.context.run.transform.key})
         == """lamindb.errors.ValidationError: Expected dtype for 'param4' is 'int', got 'list[int]'"""
     )
     # fix param4 dtype
-    param4.dtype = "list[int]"
-    param4.save()
+    param4.delete(permanent=True)
+    param4 = ln.Feature(name="param4", dtype=list[int]).save()
     # re-run
     ln.track(transform=test_transform, features=kwargs)
     assert ln.context.run.features.get_values() == kwargs
