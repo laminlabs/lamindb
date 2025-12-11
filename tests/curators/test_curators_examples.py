@@ -766,30 +766,34 @@ def test_mudata_curator(
     # wrong schema
     with pytest.raises(InvalidArgument):
         ln.curators.MuDataCurator(mdata, mini_immuno_schema)
-    curator = ln.curators.MuDataCurator(mdata, mudata_schema)
-    assert curator.slots.keys() == {
-        "obs",
-        "rna:obs",
-        "hto:obs",
-        "rna:var",
-    }
-    ln.settings.verbosity = "hint"
-    curator.validate()
-    curator.slots["rna:var"].cat.standardize("columns")
-    curator.slots["rna:var"].cat.add_new_from("columns")
-    artifact = curator.save_artifact(key="mudata_papalexi21_subset.h5mu")
-    assert artifact.schema == mudata_schema
-    assert set(artifact.features.slots.keys()) == {
-        "obs",
-        "rna:var",
-        "rna:obs",
-        "hto:obs",
-    }
+    try:
+        # TODO: allow set cat_filters for a Schema with itype
+        bt.settings.organism = "human"
+        curator = ln.curators.MuDataCurator(mdata, mudata_schema)
+        assert curator.slots.keys() == {
+            "obs",
+            "rna:obs",
+            "hto:obs",
+            "rna:var",
+        }
+        curator.validate()
+        curator.slots["rna:var"].cat.standardize("columns")
+        curator.slots["rna:var"].cat.add_new_from("columns")
+        artifact = curator.save_artifact(key="mudata_papalexi21_subset.h5mu")
+        assert artifact.schema == mudata_schema
+        assert set(artifact.features.slots.keys()) == {
+            "obs",
+            "rna:var",
+            "rna:obs",
+            "hto:obs",
+        }
 
-    artifact.delete(permanent=True)
-    mudata_schema.delete(permanent=True)
-    mini_immuno_schema.delete(permanent=True)
-    Path("papalexi21_subset.h5mu").unlink(missing_ok=True)
+        artifact.delete(permanent=True)
+        mudata_schema.delete(permanent=True)
+        mini_immuno_schema.delete(permanent=True)
+        Path("papalexi21_subset.h5mu").unlink(missing_ok=True)
+    finally:
+        bt.settings.organism = None
 
 
 def test_mudata_curator_nested_uns(study_metadata_schema):

@@ -385,7 +385,10 @@ def get_organism_record_from_field(  # type: ignore
         and len(values) > 0
         and organism is None
     ):  # type: ignore
-        return infer_organism_from_ensembl_id(values[0], using_key)  # type: ignore
+        # pass the first ensembl id that starts with ENS to infer organism
+        return infer_organism_from_ensembl_id(
+            next((i for i in values if i.startswith("ENS")), ""), using_key
+        )  # type: ignore
 
     return create_or_get_organism_record(
         organism=organism, registry=registry, field=field
