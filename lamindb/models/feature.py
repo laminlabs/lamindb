@@ -424,6 +424,7 @@ def convert_to_pandas_dtype(lamin_dtype: str) -> str | CategoricalDtype:
     dtype_map = {
         "str": "string",  # nullable string dtype
         "int": "Int64",  # Nullable integer to handle missing values
+        "num": "float64",
         "float": "float64",
         "bool": "boolean",  # Nullable boolean
         "datetime": "datetime64[ns]",
