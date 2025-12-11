@@ -2,7 +2,7 @@
 
 import pgtrigger.compiler
 import pgtrigger.migrations
-from django.db import migrations
+from django.db import connection, migrations
 
 
 class Migration(migrations.Migration):
@@ -10,7 +10,11 @@ class Migration(migrations.Migration):
         ("lamindb", "0151_feature_update_feature_on_name_change"),
     ]
 
-    operations = [
+    operations = []  # type: ignore
+
+
+if connection.vendor == "postgresql":
+    Migration.operations += [
         pgtrigger.migrations.AddTrigger(
             model_name="feature",
             trigger=pgtrigger.compiler.Trigger(

@@ -101,6 +101,7 @@ def test_cannot_mutate_dtype():
     with pytest.raises(django.db.utils.IntegrityError) as error:
         feature.save()
     assert "dtype field is immutable and cannot be changed" in error.exconly()
+    feature.delete(permanent=True)
 
 
 def test_cat_filters_dtype():
