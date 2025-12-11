@@ -149,9 +149,7 @@ def test_record_features_add_remove_values():
         "feature_run": run.uid,
     }
 
-    bt.settings.organism = "mouse"
     test_record.features.add_values(test_values)
-    bt.settings.organism = "human"
     assert test_record.features.get_values() == test_values
 
     # all empty sheet
@@ -303,11 +301,9 @@ def test_record_features_add_remove_values():
     # we could also test different ways of formatting but don't yet do that
     # in to_dataframe() we enforce ISO format already
     test_values["feature_date"] = "2024-01-02"
-    bt.settings.organism = "mouse"
     test_record2.features.add_values(test_values)
     test_record2.type = sheet
     test_record2.save()
-    bt.settings.organism = "human"
     test_values["feature_date"] = date(2024, 1, 2)
     assert test_record2.features.get_values() == test_values
     assert test_record.features.get_values() != test_values

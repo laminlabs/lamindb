@@ -131,8 +131,7 @@ def test_transfer_from_remote_to_local(ccaplog):
     artifact2.save(transfer="annotations")
 
     # check the feature name
-    bt.settings.organism = "mouse"
-    assert artifact2.organisms.get(name="mouse") == bt.settings.organism
+    assert artifact2.organisms.get(name="mouse")
     assert artifact1.features["obs"].get(name="organism").uid == "existing"
 
     # test transfer from an instance with fewer modules (laminlabs/lamin-site-assets)

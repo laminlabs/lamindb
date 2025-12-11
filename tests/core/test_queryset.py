@@ -196,7 +196,7 @@ def test_validate():
     assert ln.User.validate("testuser1", ln.User.handle)
 
 
-def test_map_synonyms():
+def test_standardize():
     qs = ln.User.filter(handle="testuser1")
     assert qs.standardize(["user1", "user2"]) == ["user1", "user2"]
 

@@ -697,7 +697,7 @@ def test_schema_maximal_set_var():
         curator.validate()
     assert error.exconly() == (
         "lamindb.errors.ValidationError: 1 term not validated in feature 'columns' in slot 'var.T': 'NOT_VALID_ENSEMBL'\n"
-        "    → fix organism 'human', fix typos, remove non-existent values, or save terms via: curator.slots['var.T'].cat.add_new_from('columns')"
+        "    → fix typos, remove non-existent values, or save terms via: curator.slots['var.T'].cat.add_new_from('columns')"
     )
 
     # clean up
@@ -833,6 +833,7 @@ def test_cat_filters_specific_source(df_disease, disease_ontology_old):
 
 def test_cat_filters_multiple_relation_filters(df_disease, disease_ontology_old):
     """Multiple relation filters in cat_filters"""
+    # TODO: needs to also work if both filters are from the same related model!!!
     schema = ln.Schema(
         features=[
             ln.Feature(
@@ -840,7 +841,7 @@ def test_cat_filters_multiple_relation_filters(df_disease, disease_ontology_old)
                 dtype=bt.Disease,
                 cat_filters={
                     "source__uid": disease_ontology_old.uid,
-                    "organism__name": "all",
+                    "created_by__handle": ln.setup.settings.user.handle,
                 },
             ).save(),
         ],

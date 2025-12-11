@@ -21,7 +21,11 @@ from ..core.storage.paths import (
     delete_storage_using_key,
     store_file_or_folder,
 )
-from .sqlrecord import SQLRecord, parse_violated_field_from_error_message
+from .sqlrecord import (
+    UNIQUE_FIELD_NAMES,
+    SQLRecord,
+    parse_violated_field_from_error_message,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -158,9 +162,7 @@ def bulk_create(
             # handle unique constraint violations due to non-default branches
             except IntegrityError as e:
                 error_msg = str(e)
-                if any(
-                    field in error_msg for field in ("root", "ontology_id", "uid")
-                ) and (
+                if any(field in error_msg for field in UNIQUE_FIELD_NAMES) and (
                     "UNIQUE constraint failed" in error_msg
                     or "duplicate key value violates unique constraint" in error_msg
                 ):
