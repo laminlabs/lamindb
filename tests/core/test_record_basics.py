@@ -473,7 +473,9 @@ def test_date_and_datetime_corruption():
 
     df = test_sheet.to_dataframe()
     result = df.to_dict(orient="records")[0]
-    assert result["feature_datetime"] == pd.Timestamp("2024-01-01 12:00:00", tz="UTC")
+    # because in a dataframe we'll hit pandera and pandera expects naive
+    # timestamps, to_dataframe() converts to naive by removing timezone info
+    assert result["feature_datetime"] == pd.Timestamp("2024-01-01 12:00:00")
     assert result["feature_date"] == date(2025, 1, 17)
 
     record.delete(permanent=True)
