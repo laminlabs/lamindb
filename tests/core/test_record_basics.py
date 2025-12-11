@@ -445,6 +445,44 @@ def test_record_features_add_remove_values():
     transform.delete(permanent=True)
 
 
+def test_date_and_datetime_corruption():
+    feature_datetime = ln.Feature(name="feature_datetime", dtype=datetime).save()
+    feature_date = ln.Feature(name="feature_date", dtype=datetime.date).save()
+    schema = ln.Schema(
+        [feature_datetime, feature_date], name="test_schema_date_datetime"
+    ).save()
+    test_sheet = ln.Record(name="TestSheet", is_type=True).save()
+    record = ln.Record(name="test_record", type=test_sheet).save()
+
+    # pass values with Z suffix
+    test_values = {
+        "feature_datetime": "2024-01-01T12:00:00Z",
+        "feature_date": "2025-01-17",
+    }
+    record.features.add_values(test_values)
+    date_value = ln.models.RecordJson.get(record=record, feature=feature_date)
+    # manually corrupt the value
+    date_value.value = "2025-01-17T00:00:00.000Z"
+    date_value.save()
+    assert record.features.get_values() == {
+        "feature_datetime": pd.Timestamp("2024-01-01 12:00:00", tz="UTC"),
+        "feature_date": date(2025, 1, 17),
+    }
+    record.schema = schema
+    record.save()
+
+    df = test_sheet.to_dataframe()
+    result = df.to_dict(orient="records")[0]
+    assert result["feature_datetime"] == pd.Timestamp("2024-01-01 12:00:00", tz="UTC")
+    assert result["feature_date"] == date(2025, 1, 17)
+
+    record.delete(permanent=True)
+    test_sheet.delete(permanent=True)
+    schema.delete(permanent=True)
+    feature_datetime.delete(permanent=True)
+    feature_date.delete(permanent=True)
+
+
 def test_only_list_type_features_and_field_qualifiers():
     # this test is necessary because the logic for adding link tables
     # to the query previously only fired when a non-list cat feature of the same type was present
