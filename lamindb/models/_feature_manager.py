@@ -30,6 +30,7 @@ from lamindb.models.feature import (
     serialize_pandas_dtype,
     suggest_categorical_for_str_iterable,
 )
+from lamindb.models.has_parents import keep_topmost_matches
 from lamindb.models.save import save
 from lamindb.models.schema import DICT_KEYS_TYPE, Schema
 from lamindb.models.sqlrecord import (
@@ -1055,6 +1056,7 @@ class FeatureManager:
         registry = feature_field.field.model
         keys = list(dictionary.keys())
         feature_records = registry.from_values(keys, field=feature_field, mute=True)
+        feature_records = keep_topmost_matches(feature_records)
         if len(feature_records) != len(keys):
             not_validated_keys = [
                 key for key in keys if key not in feature_records.to_list("name")

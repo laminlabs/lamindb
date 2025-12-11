@@ -393,6 +393,7 @@ def test_df_curator_same_name_at_same_level():
     lab_b_type.delete(permanent=True)
 
 
+# also see test_features_name_duplicates_across_equal_levels
 def test_curator_schema_feature_mapping():
     lab_a_type = ln.Feature(name="LabA", is_type=True).save()
     feature1 = ln.Feature(name="sample_name", dtype="str", type=lab_a_type).save()
