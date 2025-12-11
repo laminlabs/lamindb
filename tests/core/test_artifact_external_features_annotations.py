@@ -204,6 +204,63 @@ def test_artifact_features_add_remove_values():
     transform.delete(permanent=True)
 
 
+def test_features_name_duplicates_across_root_and_nested():
+    feature1 = ln.Feature(name="sample_name", dtype=ln.Record).save()
+    lab_a_type = ln.Feature(name="LabA", is_type=True).save()
+    feature2 = ln.Feature(name="sample_name", dtype=ln.Record, type=lab_a_type).save()
+    record_sample = ln.Record(name="sample").save()
+    test_artifact = ln.Artifact(".gitignore", key="test_artifact").save()
+    test_artifact.features.add_values({"sample_name": "sample"})
+    assert test_artifact.features.get_values() == {"sample_name": "sample"}
+    test_artifact.delete(permanent=True)
+    record_sample.delete(permanent=True)
+    feature1.delete(permanent=True)
+    feature2.delete(permanent=True)
+    lab_a_type.delete(permanent=True)
+
+
+# also see test_curator_schema_feature_mapping
+def test_features_name_duplicates_across_equal_levels():
+    lab_a_type = ln.Feature(name="LabA", is_type=True).save()
+    feature1 = ln.Feature(name="sample_name", dtype=ln.Record, type=lab_a_type).save()
+    lab_b_type = ln.Feature(name="LabB", is_type=True).save()
+    feature2 = ln.Feature(name="sample_name", dtype=ln.Record, type=lab_b_type).save()
+    schema1 = ln.Schema([feature1], name="Lab A schema").save()
+    record_sample = ln.Record(name="sample").save()
+    test_artifact = ln.Artifact(".gitignore", key="test_artifact").save()
+
+    # cannot disambiguate without schema
+    with pytest.raises(ln.errors.ValidationError) as error:
+        test_artifact.features.add_values({"sample_name": "sample"})
+    assert (
+        "Ambiguous match for Feature 'sample_name': found 2 features at depth 1 (under types: ['LabA', 'LabB'])"
+        in error.exconly()
+    )
+
+    # with schema, first one
+    test_artifact.features.add_values({"sample_name": "sample"}, schema=schema1)
+    assert test_artifact.features.get_values() == {"sample_name": "sample"}
+    assert test_artifact.links_record.get().feature.type == lab_a_type
+
+    test_artifact.delete(permanent=True)
+    test_artifact = ln.Artifact(".gitignore", key="test_artifact").save()
+
+    # now the other schema
+    schema2 = ln.Schema([feature2], name="Lab B schema").save()
+    test_artifact.features.add_values({"sample_name": "sample"}, schema=schema2)
+    assert test_artifact.features.get_values() == {"sample_name": "sample"}
+    assert test_artifact.links_record.get().feature.type == lab_b_type
+
+    test_artifact.delete(permanent=True)
+    record_sample.delete(permanent=True)
+    schema2.delete(permanent=True)
+    schema1.delete(permanent=True)
+    feature1.delete(permanent=True)
+    feature2.delete(permanent=True)
+    lab_a_type.delete(permanent=True)
+    lab_b_type.delete(permanent=True)
+
+
 def test_features_add_with_schema():
     df = mini_immuno.get_dataset1(otype="DataFrame")
     artifact = ln.Artifact.from_dataframe(df, description="test dataset").save()
