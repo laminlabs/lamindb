@@ -366,6 +366,10 @@ def get_organism_record_from_field(  # type: ignore
             The organism FK is required for the registry
             The field is not unique (e.g. Gene.symbol) or the organism is not None
     """
+    registry = field.field.model
+    if registry.__base__.__name__ != "BioRecord":
+        return None
+
     from bionty._organism import (
         create_or_get_organism_record,
         infer_organism_from_ensembl_id,
@@ -373,7 +377,6 @@ def get_organism_record_from_field(  # type: ignore
 
     if values is None:
         values = []
-    registry = field.field.model
 
     # if the field is bionty.Gene.ensembl_gene_id, infer organism from ensembl id
     if (
