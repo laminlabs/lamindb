@@ -311,7 +311,10 @@ def get_non_categoricals(
             if feature_dtype == "datetime":
                 values = {datetime.fromisoformat(value) for value in values}
             if feature_dtype == "date":
-                values = {date.fromisoformat(value) for value in values}
+                # date.fromisoformat() cannot handle cases like 2025-01-17T00:00:00.000Z
+                values = {
+                    pd.to_datetime(value, format="ISO8601").date() for value in values
+                }
             if connections[self._state.db].vendor == "sqlite":
                 # undo GROUP_CONCAT
                 if feature_dtype == "int":
