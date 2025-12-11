@@ -1092,22 +1092,28 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
     Notes:
 
-        .. dropdown:: Typical storage formats & their API accessors
+        .. _storage-formats-note:
 
-            Arrays:
+        .. dropdown:: Storage formats & object types
 
-            - Table: `.csv`, `.tsv`, `.parquet`, `.ipc` ⟷ `DataFrame`, `pyarrow.Table`
-            - Annotated matrix: `.h5ad`, `.h5mu`, `.zrad` ⟷ `AnnData`, `MuData`
-            - Generic array: HDF5 group, zarr group, TileDB store ⟷ HDF5, zarr, TileDB loaders
+            The `Artifact` registry tracks the storage format via :attr:`suffix` and an abstract object type via :attr:`otype`.
 
-            Non-arrays:
+            ================  ======================================  ================  ====================================================================
+            description       :attr:`suffix`                          :attr:`otype`     Python type examples
+            ================  ======================================  ================  ====================================================================
+            table             `.csv`, `.tsv`, `.parquet`, `.ipc`      `"DataFrame"`     `pandas.DataFrame`, `polars.DataFrame`, `pyarrow.Table`
+            annotated matrix  `.h5ad`, `.zarr`, `.h5mu`               `"AnnData"`       `anndata.AnnData`
+            stacked matrix    `.zarr`                                 `"MuData"`        `mudata.MuData`
+                              `.tiledbsoma`                           `"tiledbsoma"`    `tiledbsoma.Experiment`
+            spatial data      `.zarr`                                 `"SpatialData"`   `spatialdata.SpatialData`
+            generic arrays    `.h5`, `.zarr`, `.tiledb`               ---               `h5py.Dataset`, `zarr.Array`, `tiledb.Array`
+            unstructured      `.fastq`, `.pdf`, `.vcf`, `.html`       ---               ---
+            ================  ======================================  ================  ====================================================================
 
-            - Image: `.jpg`, `.png` ⟷ `np.ndarray`, ...
-            - Fastq: `.fastq` ⟷ /
-            - VCF: `.vcf` ⟷ /
-            - QC: `.html` ⟷ /
+            You can map storage formats onto **R types**, e.g., an `AnnData` might be accessed via `anndataR`.
 
-            You'll find these values in the `suffix` & `otype` (object type) fields.
+            Because `otype` accepts any `str`, you can define custom object types that enable queries & logic
+            that you need, e.g., `"SingleCellExperiment"` or `"MyCustomZarrDataStructure"`.
 
             LaminDB makes some default choices (e.g., serialize a `DataFrame` as a `.parquet` file).
 
@@ -1287,14 +1293,19 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         null=True,
     )
     """:class:`~lamindb.base.types.ArtifactKind` or custom `str` value (default `None`)."""
-    otype: str | None = CharField(
-        max_length=64, db_index=True, null=True, editable=False
-    )
-    """Default object type represented as a string, e.g., `"DataFrame"`, `"AnnData"`, `"MuData"`, `"tiledbsoma"`.
+    otype: (
+        Literal["DataFrame", "AnnData", "MuData", "SpatialData", "tiledbsoma"]
+        | str
+        | None
+    ) = CharField(max_length=64, db_index=True, null=True, editable=False)
+    """Object type represented as a string.
 
-    The field is automatically set when using the `from_dataframe()`, `from_anndata()`, etc. constructors.
+    The field is automatically set when using the `from_dataframe()`, `from_anndata()`, ... constructors.
+    Unstructured artifacts have `otype=None`.
 
-    Unstructured artifacts typically have `otype=None`.
+    The field also accepts custom `str` values to allow for building logic around them in third-party packages.
+
+    See section `storage formats & object types <storage-formats-note_>`__ for more background.
     """
     size: int | None = BigIntegerField(
         null=True, db_index=True, default=None, editable=False
@@ -1852,6 +1863,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     ) -> Artifact:
         """Create from `DataFrame`, optionally validate & annotate.
 
+        Sets `.otype` to `"DataFrame"` and populates `.n_observations`.
+
         Args:
             df: A `DataFrame` object or a `UPathStr` pointing to a `DataFrame` in storage, e.g. a `.parquet` or `.csv` file.
             key: A relative path within default storage,
@@ -1967,6 +1980,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     ) -> Artifact:
         """Create from `AnnData`, optionally validate & annotate.
 
+        Sets `.otype` to `"AnnData"` and populates `.n_observations`.
+
         Args:
             adata: An `AnnData` object or a path of AnnData-like.
             key: A relative path within default storage,
@@ -2059,6 +2074,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     ) -> Artifact:
         """Create from `MuData`, optionally validate & annotate.
 
+        Sets `.otype` to `"MuData"`.
+
         Args:
             mdata: A `MuData` object.
             key: A relative path within default storage,
@@ -2117,6 +2134,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         **kwargs,
     ) -> Artifact:
         """Create from `SpatialData`, optionally validate & annotate.
+
+        Sets `.otype` to `"SpatialData"`.
 
         Args:
             sdata: A `SpatialData` object.
@@ -2186,6 +2205,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         **kwargs,
     ) -> Artifact:
         """Create from a `tiledbsoma.Experiment` store.
+
+        Sets `.otype` to `"tiledbsoma"` and populates `.n_observations`.
 
         Args:
             exp: TileDB-SOMA Experiment object or path to Experiment store.
