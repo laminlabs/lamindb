@@ -590,6 +590,30 @@ END;
 """
 
 
+PREVENT_FEATURE_DTYPE_MUTATION = """\
+BEGIN
+    -- Prevent dtype from being changed
+    IF OLD.dtype IS DISTINCT FROM NEW.dtype THEN
+        -- Allow updates from Record triggers that maintain dtype consistency
+        -- These triggers update dtype when Record type names/hierarchies change
+        IF TG_OP = 'UPDATE' AND TG_TABLE_NAME = 'lamindb_feature' THEN
+            -- If this is a cross-table trigger update (from lamindb_record triggers),
+            -- the statement will have been initiated by a Record update
+            -- We detect this by checking if we're in a nested trigger context
+            IF pg_trigger_depth() > 1 THEN
+                RETURN NEW;
+            END IF;
+        END IF;
+
+        RAISE EXCEPTION 'dtype field is immutable and cannot be changed'
+            USING ERRCODE = 'integrity_constraint_violation';
+    END IF;
+
+    RETURN NEW;
+END;
+"""
+
+
 class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     """Dimensions of measurement such as dataframe columns or dictionary keys.
 
@@ -712,6 +736,15 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
                     when=pgtrigger.Before,
                     condition=pgtrigger.Condition("OLD.name IS DISTINCT FROM NEW.name"),
                     func=UPDATE_FEATURE_ON_NAME_CHANGE,
+                ),
+                pgtrigger.Trigger(
+                    name="prevent_feature_dtype_mutation",
+                    operation=pgtrigger.Update,
+                    when=pgtrigger.Before,
+                    condition=pgtrigger.Condition(
+                        "OLD.dtype IS DISTINCT FROM NEW.dtype"
+                    ),
+                    func=PREVENT_FEATURE_DTYPE_MUTATION,
                 ),
             ]
         constraints = [
