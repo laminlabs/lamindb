@@ -89,6 +89,10 @@ def test_record_features_add_remove_values():
     feature_list_str = ln.Feature(name="feature_list_str", dtype=list[str]).save()
     feature_int = ln.Feature(name="feature_int", dtype=int).save()
     feature_list_int = ln.Feature(name="feature_list_int", dtype=list[int]).save()
+    feature_float = ln.Feature(name="feature_float", dtype=float).save()
+    feature_list_float = ln.Feature(name="feature_list_float", dtype=list[float]).save()
+    feature_num = ln.Feature(name="feature_num", dtype="num").save()
+    feature_list_num = ln.Feature(name="feature_list_num", dtype="list[num]").save()
     feature_datetime = ln.Feature(name="feature_datetime", dtype=datetime).save()
     feature_date = ln.Feature(name="feature_date", dtype=datetime.date).save()
     feature_dict = ln.Feature(name="feature_dict", dtype=dict).save()
@@ -124,6 +128,10 @@ def test_record_features_add_remove_values():
         "feature_list_str": ["a", "list", "of", "strings"],
         "feature_int": 42,
         "feature_list_int": [1, 2, 3],
+        "feature_num": 3.14,
+        "feature_list_num": [2.71, 3.14, 1.61],
+        "feature_float": 3.14,
+        "feature_list_float": [2.71, 3.14, 1.61],
         "feature_datetime": datetime(2024, 1, 1, 12, 0, 0),
         "feature_date": date(2024, 1, 1),
         "feature_dict": {"key": "value", "number": 123, "list": [1, 2, 3]},
@@ -153,6 +161,10 @@ def test_record_features_add_remove_values():
             feature_int,
             feature_list_str,
             feature_list_int,
+            feature_num,
+            feature_float,
+            feature_list_float,
+            feature_list_num,
             feature_datetime,
             feature_date,
             feature_dict,
@@ -181,6 +193,10 @@ def test_record_features_add_remove_values():
     assert df_empty["feature_str"].dtype.name == "string"
     assert df_empty["feature_int"].isnull().all()
     assert df_empty["feature_int"].dtype.name == "Int64"
+    assert df_empty["feature_float"].isnull().all()
+    assert df_empty["feature_float"].dtype.name == "float64"
+    assert df_empty["feature_num"].isnull().all()
+    assert df_empty["feature_num"].dtype.name == "float64"
     assert df_empty["feature_list_str"].isnull().all()
     assert df_empty["feature_list_str"].dtype.name == "object"
     assert df_empty["feature_list_int"].isnull().all()
@@ -229,6 +245,10 @@ def test_record_features_add_remove_values():
         "feature_list_str": ["a", "list", "of", "strings"],
         "feature_int": 42,
         "feature_list_int": [1, 2, 3],
+        "feature_float": 3.14,
+        "feature_list_float": [2.71, 3.14, 1.61],
+        "feature_num": 3.14,
+        "feature_list_num": [2.71, 3.14, 1.61],
         "feature_datetime": pd.Timestamp("2024-01-01 12:00:00"),
         "feature_date": date(2024, 1, 1),
         "feature_dict": {"key": "value", "list": [1, 2, 3], "number": 123},
@@ -274,6 +294,26 @@ def test_record_features_add_remove_values():
     df = sheet.to_dataframe()
     sheet_as_artifact = sheet.to_artifact()
     sheet_as_artifact.delete(permanent=True)
+
+    # test passing ISO-format date string for date
+
+    test_record2 = ln.Record(name="test_record").save()
+    # we could also test different ways of formatting but don't yet do that
+    # in to_dataframe() we enforce ISO format already
+    test_values["feature_date"] = "2024-01-02"
+    bt.settings.organism = "mouse"
+    test_record2.features.add_values(test_values)
+    test_record2.type = sheet
+    test_record2.save()
+    bt.settings.organism = "human"
+    test_values["feature_date"] = date(2024, 1, 2)
+    assert test_record2.features.get_values() == test_values
+    assert test_record.features.get_values() != test_values
+
+    # also test export to artifact again
+    sheet_as_artifact = sheet.to_artifact()
+    sheet_as_artifact.delete(permanent=True)
+    test_record2.delete(permanent=True)
     empty_record.delete(permanent=True)
 
     # test move a value into the trash
@@ -281,6 +321,7 @@ def test_record_features_add_remove_values():
     record_entity1.delete()
     test_values.pop("feature_type1")
     test_values["feature_type1s"] = ["entity2"]
+    test_values["feature_date"] = date(2024, 1, 1)
     assert test_record.features.get_values() == test_values
 
     df = sheet.to_dataframe()
@@ -350,12 +391,6 @@ def test_record_features_add_remove_values():
     test_record.features.add_values({"feature_int": None, "feature_type1": None})
     assert test_record.features.get_values() == test_values
 
-    # test passing ISO-format date string for date
-
-    test_record.features.add_values({"feature_date": "2024-01-01"})
-    test_values["feature_date"] = date(2024, 1, 1)
-    assert test_record.features.get_values() == test_values
-
     # schema validation
 
     feature_str = ln.Feature.get(name="feature_str")
@@ -394,7 +429,6 @@ def test_record_features_add_remove_values():
 
     # clean up rest
     test_record.delete(permanent=True)
-    print(ln.Record.filter(is_type=False).to_dataframe())
     sheet.delete(permanent=True)
     feature_str.delete(permanent=True)
     feature_list_str.delete(permanent=True)
@@ -427,6 +461,47 @@ def test_record_features_add_remove_values():
     artifact.delete(permanent=True)
     run.delete(permanent=True)
     transform.delete(permanent=True)
+    feature_num.delete(permanent=True)
+
+
+def test_date_and_datetime_corruption():
+    feature_datetime = ln.Feature(name="feature_datetime", dtype=datetime).save()
+    feature_date = ln.Feature(name="feature_date", dtype=datetime.date).save()
+    schema = ln.Schema(
+        [feature_datetime, feature_date], name="test_schema_date_datetime"
+    ).save()
+    test_sheet = ln.Record(name="TestSheet", is_type=True).save()
+    record = ln.Record(name="test_record", type=test_sheet).save()
+
+    # pass values with Z suffix
+    test_values = {
+        "feature_datetime": "2024-01-01T12:00:00Z",
+        "feature_date": "2025-01-17",
+    }
+    record.features.add_values(test_values)
+    date_value = ln.models.RecordJson.get(record=record, feature=feature_date)
+    # manually corrupt the value
+    date_value.value = "2025-01-17T00:00:00.000Z"
+    date_value.save()
+    assert record.features.get_values() == {
+        "feature_datetime": pd.Timestamp("2024-01-01 12:00:00", tz="UTC"),
+        "feature_date": date(2025, 1, 17),
+    }
+    record.schema = schema
+    record.save()
+
+    df = test_sheet.to_dataframe()
+    result = df.to_dict(orient="records")[0]
+    # because in a dataframe we'll hit pandera and pandera expects naive
+    # timestamps, to_dataframe() converts to naive by removing timezone info
+    assert result["feature_datetime"] == pd.Timestamp("2024-01-01 12:00:00")
+    assert result["feature_date"] == date(2025, 1, 17)
+
+    record.delete(permanent=True)
+    test_sheet.delete(permanent=True)
+    schema.delete(permanent=True)
+    feature_datetime.delete(permanent=True)
+    feature_date.delete(permanent=True)
 
 
 def test_only_list_type_features_and_field_qualifiers():

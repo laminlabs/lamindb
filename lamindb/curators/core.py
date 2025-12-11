@@ -166,6 +166,8 @@ Returns:
     A saved artifact record.
 """
 
+LAMINDB_COLUMN_PREFIX_REGEX = r"^__lamindb_.*$"
+
 
 class Curator:
     """Curator base class.
@@ -579,7 +581,11 @@ class ComponentCurator(Curator):
                 )
             else:
                 index = None
-
+            if schema.maximal_set:
+                # allow any columns starting with "__lamindb" even if maximal_set is True
+                pandera_columns[LAMINDB_COLUMN_PREFIX_REGEX] = pandera.Column(
+                    regex=True, required=False
+                )
             self._pandera_schema = pandera.DataFrameSchema(
                 pandera_columns,
                 coerce=schema.coerce_dtype,
@@ -1712,8 +1718,13 @@ class DataFrameCatManager:
         self._cat_vectors: dict[str, CatVector] = {}
         self._slot = slot
         self._maximal_set = maximal_set
+        columns = self._dataset.keys()
+        if maximal_set:
+            columns = [
+                col for col in columns if not re.match(LAMINDB_COLUMN_PREFIX_REGEX, col)
+            ]
         self._cat_vectors["columns"] = CatVector(
-            values_getter=lambda: self._dataset.keys(),  # lambda ensures the inplace update
+            values_getter=lambda: columns,  # lambda ensures the inplace update
             values_setter=lambda new_values: setattr(
                 self._dataset, "columns", pd.Index(new_values)
             )
@@ -1818,7 +1829,6 @@ class DataFrameCatManager:
     def validate(self) -> bool:
         """Validate variables and categorical observations."""
         self._validate_category_error_messages = ""  # reset the error messages
-
         validated = True
         for key, cat_vector in self._cat_vectors.items():
             logger.info(f"validating vector {key}")

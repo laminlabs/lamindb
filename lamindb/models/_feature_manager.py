@@ -311,7 +311,10 @@ def get_non_categoricals(
             if feature_dtype == "datetime":
                 values = {datetime.fromisoformat(value) for value in values}
             if feature_dtype == "date":
-                values = {date.fromisoformat(value) for value in values}
+                # date.fromisoformat() cannot handle cases like 2025-01-17T00:00:00.000Z
+                values = {
+                    pd.to_datetime(value, format="ISO8601").date() for value in values
+                }
             if connections[self._state.db].vendor == "sqlite":
                 # undo GROUP_CONCAT
                 if feature_dtype == "int":
@@ -1141,8 +1144,8 @@ class FeatureManager:
                 value,
                 mute=True,
             )
-            if feature.dtype == "num":
-                if inferred_type not in {"int", "float"}:
+            if feature.dtype == "num" or feature.dtype == "list[num]":
+                if not ("int" in inferred_type or "float" in inferred_type):
                     raise TypeError(
                         f"Value for feature '{feature.name}' with dtype {feature.dtype} must be a number, but is {value} with dtype {inferred_type}"
                     )

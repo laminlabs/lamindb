@@ -834,13 +834,21 @@ def reshape_annotate_result(
                     "category"
                 )
             if feature.dtype == "datetime":
+                # format and utc args are needed for mixed data
+                # pandera expects timezone-naive datetime objects, and hence,
+                # we need to localize with None
                 result_encoded[feature.name] = pd.to_datetime(
-                    result_encoded[feature.name]
-                )
+                    result_encoded[feature.name],
+                    format="ISO8601",
+                    utc=True
+                ).dt.tz_localize(None)
             if feature.dtype == "date":
+                # see comments for datetime
                 result_encoded[feature.name] = pd.to_datetime(
-                    result_encoded[feature.name]
-                ).dt.date
+                    result_encoded[feature.name],
+                    format="ISO8601",
+                    utc=True,
+                ).dt.tz_localize(None).dt.date
             if feature.dtype == "bool":
                 result_encoded[feature.name] = result_encoded[feature.name].astype(
                     "boolean"
