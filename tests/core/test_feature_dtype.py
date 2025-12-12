@@ -366,16 +366,18 @@ def test_cat_filters_incompatible_with_union_dtypes():
 
 
 def test_cat_filters_incompatible_with_nested_dtypes():
+    record = ln.Record(name="Customer", is_type=True).save()
     with pytest.raises(ValidationError) as exc_info:
         ln.Feature(
             name="test_feature",
-            dtype="cat[Record[Customer[SubCustomer]]]",
+            dtype="cat[Record[Customer]]",
             cat_filters={"source": "test"},
         )
     assert (
-        "cat_filters are incompatible with nested dtypes: 'cat[Record[Customer[SubCustomer]]]'"
+        "cat_filters are incompatible with nested dtypes: 'cat[Record[Customer]]'"
         in str(exc_info.value)
     )
+    record.delete(permanent=True)
 
 
 def test_parse_filter_string_basic():
