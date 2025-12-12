@@ -803,7 +803,7 @@ def filter_base(
 def filter_with_features(
     queryset: BasicQuerySet, *queries, **expressions
 ) -> BasicQuerySet:
-    from lamindb.models import Artifact, BasicQuerySet, QuerySet
+    from lamindb.models import BasicQuerySet, QuerySet
 
     if isinstance(queryset, QuerySet):
         # need to avoid infinite recursion because
@@ -811,14 +811,7 @@ def filter_with_features(
         filter_kwargs = {"_skip_filter_with_features": True}
     else:
         filter_kwargs = {}
-
     registry = queryset.model
-
-    if registry is Artifact and not any(e.startswith("kind") for e in expressions):
-        exclude_kwargs = {"kind": "__lamindb_run__"}
-    else:
-        exclude_kwargs = {}
-
     if expressions:
         keys_normalized = [key.split("__")[0] for key in expressions]
         field_or_feature = keys_normalized[0]
@@ -849,8 +842,7 @@ def filter_with_features(
             )
     else:
         qs = queryset.filter(*queries, **filter_kwargs)
-
-    return qs.exclude(**exclude_kwargs) if exclude_kwargs else qs
+    return qs
 
 
 # for deprecated functionality

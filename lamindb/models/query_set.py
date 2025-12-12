@@ -1023,13 +1023,15 @@ class BasicQuerySet(models.QuerySet):
         order_by: str | None = "-id",
     ) -> pd.DataFrame:
         """{}"""  # noqa: D415
-        # check if queryset is already ordered
-        is_ordered = bool(self.query.order_by)
-        # Only apply order_by if not already ordered and order_by is specified
-        if not is_ordered and order_by is not None:
-            subset = self.order_by(order_by)
+        if self.model.__name__ == "Artifact" and "kind" not in str(self.query.where):
+            subset = self.exclude(**{"kind": "__lamindb_run__"})
         else:
             subset = self
+        # check if queryset is already ordered
+        is_ordered = bool(subset.query.order_by)
+        # Only apply order_by if not already ordered and order_by is specified
+        if not is_ordered and order_by is not None:
+            subset = subset.order_by(order_by)
         if limit is not None:
             subset = subset[:limit]
         if include is None:
@@ -1338,7 +1340,6 @@ class QuerySet(BasicQuerySet):
         from lamindb.models import Artifact, Record, Run
 
         registry = self.model
-
         if not expressions.pop("_skip_filter_with_features", False) and registry in {
             Artifact,
             Run,
@@ -1346,30 +1347,30 @@ class QuerySet(BasicQuerySet):
         }:
             from ._feature_manager import filter_with_features
 
-            return filter_with_features(self, *queries, **expressions)
-
-        # Suggest to use __name for related fields such as id when not passed
-        for field, value in expressions.items():
-            if (
-                isinstance(value, str)
-                and value.strip("-").isalpha()
-                and "__" not in field
-                and hasattr(registry, field)
-            ):
-                field_attr = getattr(registry, field)
-                if hasattr(field_attr, "field") and field_attr.field.related_model:
-                    raise FieldError(
-                        f"Invalid lookup '{value}' for {field}. Did you mean {field}__name?"
-                    )
-
-        expressions = process_expressions(self, queries, expressions)
-        # need to run a query if queries or expressions are not empty
-        if queries or expressions:
-            try:
-                return super().filter(*queries, **expressions)
-            except FieldError as e:
-                self._handle_unknown_field(e)
-        return self
+            qs = filter_with_features(self, *queries, **expressions)
+        else:
+            # Suggest to use __name for related fields such as id when not passed
+            for field, value in expressions.items():
+                if (
+                    isinstance(value, str)
+                    and value.strip("-").isalpha()
+                    and "__" not in field
+                    and hasattr(registry, field)
+                ):
+                    field_attr = getattr(registry, field)
+                    if hasattr(field_attr, "field") and field_attr.field.related_model:
+                        raise FieldError(
+                            f"Invalid lookup '{value}' for {field}. Did you mean {field}__name?"
+                        )
+            expressions = process_expressions(self, queries, expressions)
+            # need to run a query if queries or expressions are not empty
+            if queries or expressions:
+                try:
+                    return super().filter(*queries, **expressions)
+                except FieldError as e:
+                    self._handle_unknown_field(e)
+            qs = self
+        return qs
 
 
 @final
