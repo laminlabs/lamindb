@@ -1024,7 +1024,7 @@ class BasicQuerySet(models.QuerySet):
     ) -> pd.DataFrame:
         """{}"""  # noqa: D415
         if self.model.__name__ == "Artifact" and "kind" not in str(self.query.where):
-            subset = self.exclude(**{"kind": "__lamindb_run__"})
+            subset = self.exclude(**{"kind__startswith": "__lamindb"})
         else:
             subset = self
         # check if queryset is already ordered
