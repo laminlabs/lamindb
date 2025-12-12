@@ -1,32 +1,28 @@
 """A data framework for biology.
 
-If you just want to read data from a LaminDB instance, use QueryDB, no setup required::
+Install::
+
+   pip install lamindb
+
+If you just want to read data from a LaminDB instance, use :class:`~lamindb.QueryDB`::
 
    import lamindb as ln
 
    db = ln.QueryDB("laminlabs/cellxgene")
 
-Here is the reference.
+If you want to write data to a LaminDB instance, you need collaborator access, run on the terminal::
 
-.. autosummary::
-   :toctree: .
-
-   QueryDB
-
-If you want to write data to a LaminDB instance, you need collaborator access, run:
-
-```shell
-lamin login
-lamin connect account/name
-```
+   lamin login
+   lamin connect account/name
 
 You can create an instance at [lamin.ai](https://lamin.ai) similar to how you create repo on GitHub.
-If you just want to work with a local SQLite instance, run:
+If you just want to work with a local SQLite instance, run on the terminal::
 
-```shell
-lamin init --storage ./quickstart-data --modules bionty
-```
+    lamin init --storage ./quickstart-data --modules bionty
 
+LaminDB will auto-connect and you can then create & save objects like this::
+
+   ln.Artifact("my_dataset.parquet", key="datasets/my_dataset.parquet").save()
 
 Lineage
 =======
@@ -108,6 +104,7 @@ Connecting, viewing database content, accessing settings & run context.
 .. autosummary::
    :toctree: .
 
+   QueryDB
    connect
    view
    save
