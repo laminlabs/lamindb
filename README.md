@@ -110,16 +110,17 @@ df = db.Artifact.filter(diseases=diseases.alzheimer_disease).to_dataframe()
 
 This is how you can query 14 built-in registries in `lamindb` (`Artifact`, `Storage`, `Feature`, `Record`, etc.) and 13 biological entities in `bionty` (`Disease`, `CellType`, `Tissue`, etc.) mapping >20 public ontologies.
 
-### Writing data
+### Setup
 
-If you have collaborator access or created an instance at [lamin.ai](https://lamin.ai), run:
+To write data, you need to configure a writable LaminDB instance.
+If created an instance at [lamin.ai](https://lamin.ai) or you have collaborator access, run:
 
 ```shell
 lamin login
 lamin connect account/name
 ```
 
-If you want to work with a local SQLite instance, run:
+If you prefer to work with a local SQLite instance, akin to a local git repo, run:
 
 ```shell
 lamin init --storage ./quickstart-data --modules bionty
@@ -131,6 +132,7 @@ Create a dataset while tracking source code, inputs, outputs, logs, and environm
 
 ```python
 import lamindb as ln
+# → connected lamindb: account/instance
 
 ln.track()  # track execution of source code as a run
 open("sample.fasta", "w").write(">seq1\nACGT\n")  # create a dataset
