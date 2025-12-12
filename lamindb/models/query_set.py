@@ -8,7 +8,6 @@ Query sets & managers
 .. autoclass:: QuerySet
 .. autoclass:: ArtifactSet
 .. autoclass:: QueryManager
-.. autoclass:: QueryDB
 .. autoclass:: lamindb.models.query_set.BiontyQueryDB
 .. autoclass:: lamindb.models.query_set.WetlabQueryDB
 
