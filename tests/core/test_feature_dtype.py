@@ -82,7 +82,14 @@ def test_serialize_user(ccaplog):
 
 
 def test_serialize_record_objects():
-    record_type_ist1 = ln.Record(name="Institute1", is_type=True).save()
+    record_type_ist1 = ln.Record(name="Institute1", is_type=True)
+    with pytest.raises(ln.errors.InvalidArgument) as error:
+        serialize_dtype(record_type_ist1)
+    assert (
+        f"Cannot serialize unsaved objects. Save {record_type_ist1} via `.save()`."
+        in error.exconly()
+    )
+    record_type_ist1.save()
     record_type_dpt1 = ln.Record(
         name="Department1", type=record_type_ist1, is_type=True
     ).save()
@@ -91,7 +98,7 @@ def test_serialize_record_objects():
     ).save()
     serialized_str = "cat[Record[Institute1[Department1[Instrument]]]]"
     assert serialize_dtype(record_type_lab) == serialized_str
-    with pytest.raises(ln.errors.InvalidArgument):
+    with pytest.raises(ln.errors.IntegrityError) as error:
         parse_dtype("cat[Record[Instrument]]", check_exists=True)
     record_type_lab.delete(permanent=True)
     record_type_dpt1.delete(permanent=True)

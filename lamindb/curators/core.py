@@ -45,7 +45,9 @@ from lamindb.models.feature import (
 )
 from lamindb.models.sqlrecord import HasType
 
-from ..errors import IntegrityError, InvalidArgument, ValidationError
+from ..errors import InvalidArgument, ValidationError
+from ..models._from_values import get_organism_record_from_field
+from ..models.feature import get_record_type_from_nested_subtypes
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -1316,8 +1318,6 @@ class CatVector:
                 )  # type: ignore
             )
         if self._registry.__base__.__name__ == "BioRecord":
-            from ..models._from_values import get_organism_record_from_field
-
             if self._source is not None:
                 self._filter_kwargs["source"] = self._source
             organism_record = get_organism_record_from_field(
@@ -1333,19 +1333,9 @@ class CatVector:
 
         # get the dtype associated record based on the nested subtypes
         if self._subtypes_list:
-            type_filters = {"name": self._subtypes_list[-1]}
-            if len(self._subtypes_list) > 1:
-                for i, nested_subtype in enumerate(reversed(self._subtypes_list[:-1])):
-                    filter_key = f"{'type__' * (i + 1)}name"
-                    type_filters[filter_key] = nested_subtype
-            else:
-                type_filters["type__isnull"] = True  # type: ignore
-            try:
-                self._type_record = self._registry.get(**type_filters)
-            except Exception as e:
-                raise IntegrityError(
-                    f"Error retrieving {self._registry.__name__} type with filter {type_filters} for field `.{self._field.field.name}`: {e}"
-                ) from e
+            self._type_record = get_record_type_from_nested_subtypes(
+                self._registry, self._subtypes_list, self._field.field.name
+            )
 
         if hasattr(self._registry, "_name_field"):
             label_ref_is_name = self._field_name == self._registry._name_field
