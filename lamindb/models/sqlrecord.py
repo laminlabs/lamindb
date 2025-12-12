@@ -573,8 +573,14 @@ class Registry(ModelBase):
                 result.append(attr)
         return result
 
-    def __repr__(cls) -> str:
-        return registry_repr(cls)
+    def describe(cls) -> str:
+        """Describe the fields of the registry."""
+        repr_str = f"{colors.green(cls.__name__)}\n"
+        info = SQLRecordInfo(cls)
+        repr_str += info.get_simple_fields(return_str=True)
+        repr_str += info.get_relational_fields(return_str=True)
+        repr_str = repr_str.rstrip("\n")
+        return repr_str
 
     @doc_args(_lookup.__doc__)
     def lookup(
@@ -2107,16 +2113,6 @@ class SQLRecordInfo:
                         repr_str += "".join(ext_module_fields)
 
             return repr_str
-
-
-def registry_repr(cls):
-    """Shows fields."""
-    repr_str = f"{colors.green(cls.__name__)}\n"
-    info = SQLRecordInfo(cls)
-    repr_str += info.get_simple_fields(return_str=True)
-    repr_str += info.get_relational_fields(return_str=True)
-    repr_str = repr_str.rstrip("\n")
-    return repr_str
 
 
 def record_repr(

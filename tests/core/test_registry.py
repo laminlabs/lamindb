@@ -6,11 +6,8 @@ import pytest
 from lamindb.models._describe import strip_ansi_from_string as _strip_ansi
 
 
-def test_registry__repr__feature():
-    import lamindb.models as ln
-
-    feature = ln.Feature
-    expected_repr = textwrap.dedent("""\
+def test_feature_describe():
+    description = textwrap.dedent("""\
     Feature
       Simple fields
         .uid: CharField
@@ -39,17 +36,11 @@ def test_registry__repr__feature():
         .projects: Project
         .blocks: FeatureBlock
     """).strip()
-
-    actual_repr = _strip_ansi(repr(feature))
-    print(actual_repr)
-    assert actual_repr.strip() == expected_repr.strip()
+    assert description == _strip_ansi(ln.Feature.describe())
 
 
-def test_registry__repr__artifact():
-    import lamindb.models as ln
-
-    artifact = ln.Artifact
-    expected_repr = textwrap.dedent("""\
+def test_artifact_describe():
+    description = textwrap.dedent("""\
     Artifact
       Simple fields
         .uid: CharField
@@ -102,10 +93,7 @@ def test_registry__repr__artifact():
         .developmental_stages: bionty.DevelopmentalStage
         .ethnicities: bionty.Ethnicity
     """).strip()
-
-    actual_repr = _strip_ansi(repr(artifact))
-    print(actual_repr)
-    assert actual_repr.strip() == expected_repr.strip()
+    assert description == _strip_ansi(ln.Artifact.describe())
 
 
 def test_unsaved_relationship_modification_attempts():
