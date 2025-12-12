@@ -585,7 +585,6 @@ def describe_sqlite(record):
         tree = describe_transform(record)
     else:
         tree = describe_header(record)
-        print("describe header done")
     return tree
 
 
@@ -599,7 +598,4 @@ def describe_postgres_sqlite(record, return_str: bool = False) -> str | None:
         tree = describe_postgres(record)
     else:
         tree = describe_sqlite(record)
-
-    print(tree)
-
     return format_rich_tree(tree, return_str=return_str)
