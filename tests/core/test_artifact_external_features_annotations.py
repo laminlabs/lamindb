@@ -20,6 +20,7 @@ def test_artifact_features_add_remove_values():
     run = ln.Run(transform, name="test-run").save()
 
     feature_str = ln.Feature(name="feature_str", dtype=str).save()
+    feature_list_str = ln.Feature(name="feature_list_str", dtype=list[str]).save()
     feature_int = ln.Feature(name="feature_int", dtype=int).save()
     feature_datetime = ln.Feature(name="feature_datetime", dtype=datetime).save()
     feature_date = ln.Feature(name="feature_date", dtype=datetime.date).save()
@@ -49,6 +50,7 @@ def test_artifact_features_add_remove_values():
 
     test_values = {
         "feature_str": "a string value",
+        "feature_list_str": ["value1", "value2", "value3"],
         "feature_int": 42,
         "feature_datetime": datetime(2024, 1, 1, 12, 0, 0),
         "feature_date": date(2024, 1, 1),
@@ -68,6 +70,28 @@ def test_artifact_features_add_remove_values():
 
     test_artifact.features.add_values(test_values)
     assert test_artifact.features.get_values() == test_values
+    assert test_artifact.features["feature_str"] == test_values["feature_str"]
+    assert test_artifact.features["feature_list_str"] == test_values["feature_list_str"]
+    assert test_artifact.features["feature_int"] == test_values["feature_int"]
+    assert test_artifact.features["feature_datetime"] == test_values["feature_datetime"]
+    assert test_artifact.features["feature_date"] == test_values["feature_date"]
+    assert test_artifact.features["feature_dict"] == test_values["feature_dict"]
+    assert test_artifact.features["feature_type1"] == record_entity1
+    assert set(test_artifact.features["feature_type1s"]) == {
+        record_entity1,
+        record_entity2,
+    }
+    assert test_artifact.features["feature_ulabel"] == ulabel
+    assert (
+        test_artifact.features["feature_user"].handle == ln.setup.settings.user.handle
+    )
+    assert test_artifact.features["feature_project"] == test_project
+    assert test_artifact.features["feature_cell_line"] == hek293
+    assert test_artifact.features["feature_cl_ontology_id"] == hek293
+    assert set(test_artifact.features["feature_cell_lines"]) == {hek293, a549}
+    assert test_artifact.features["feature_artifact"] == test_artifact
+    assert test_artifact.features["feature_artifact_2"] == test_artifact
+    assert test_artifact.features["feature_run"] == run
 
     # remove values
 
@@ -115,6 +139,7 @@ def test_artifact_features_add_remove_values():
 
     assert list(test_values.keys()) == [
         "feature_str",
+        "feature_list_str",
         "feature_datetime",
         "feature_dict",
         "feature_project",
@@ -177,6 +202,7 @@ def test_artifact_features_add_remove_values():
 
     test_artifact.delete(permanent=True)
     feature_str.delete(permanent=True)
+    feature_list_str.delete(permanent=True)
     feature_int.delete(permanent=True)
     feature_datetime.delete(permanent=True)
     feature_date.delete(permanent=True)
