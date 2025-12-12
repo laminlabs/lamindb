@@ -12,6 +12,7 @@ from rich.tree import Tree
 
 from lamindb.models import Run
 
+from ._is_versioned import IsVersioned
 from .sqlrecord import SQLRecord, format_field_value, record_repr
 
 if TYPE_CHECKING:
@@ -105,7 +106,7 @@ def format_run_title(
 
 
 def format_title_with_version(
-    record: Artifact | Collection | Transform | SimpleNamespace,
+    record: IsVersioned | SimpleNamespace,
 ) -> Text:
     title_str = record.key if record.key is not None else ""
     title = Text.assemble(
@@ -118,7 +119,7 @@ def format_title_with_version(
     return title
 
 
-def describe_header(record: Artifact | Collection | Run | Transform) -> Tree:
+def describe_header(record: SQLRecord) -> Tree:
     if hasattr(record, "is_latest") and not record.is_latest:
         logger.warning(
             f"This is not the latest version of the {record.__class__.__name__}."
@@ -129,8 +130,19 @@ def describe_header(record: Artifact | Collection | Run | Transform) -> Tree:
         logger.warning("This artifact is in the trash.")
     if isinstance(record, Run):
         title = format_run_title(record, dim=True)  # dim makes the uid grey
-    else:
+    elif isinstance(record, IsVersioned) or isinstance(record, SimpleNamespace):
         title = format_title_with_version(record)
+    else:
+        display_field = (
+            "_name_field"
+            if hasattr(record, "_name_field")
+            else "name"
+            if hasattr(record, "name")
+            else None
+        )
+        title = Text.assemble(
+            (display_field if display_field else record.uid[:7], "cyan3")
+        )
     tree = Tree(
         Text.assemble(
             (f"{record.__class__.__name__}: ", "bold"),
