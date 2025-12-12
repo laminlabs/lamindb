@@ -1130,6 +1130,10 @@ class BasicQuerySet(models.QuerySet):
     ) -> pd.DataFrame:
         return self.to_dataframe(include=include, features=features)
 
+    def describe(self, return_str: bool = False) -> str | None:
+        """Describe the query set to learn about available fields."""
+        return self.model.describe(return_str=return_str)
+
     def delete(self, *args, permanent: bool | None = None, **kwargs):
         """Delete all records in the query set.
 

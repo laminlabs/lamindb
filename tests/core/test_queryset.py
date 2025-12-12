@@ -1,8 +1,8 @@
 # .latest_version is tested in test_versioning.py
 
-
 import os
 import re
+import textwrap
 from contextlib import contextmanager
 
 import bionty as bt
@@ -98,6 +98,12 @@ def test_one_first():
     assert qs.one().handle == ln.setup.settings.user.handle
     assert qs.first().handle == ln.setup.settings.user.handle
     assert qs.one_or_none().handle == ln.setup.settings.user.handle
+
+    description = textwrap.dedent("""\
+    User
+      Simple fields
+    """).strip()
+    assert qs.describe(return_str=True).startswith(description)
 
     qs = ln.User.filter(handle="test")
     with pytest.raises(DoesNotExist):
