@@ -91,6 +91,8 @@ artifact.created_at  # the creation timestamp
 artifact.describe()  # describe metadata
 ```
 
+<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/mxlUQiRLMU4Zos6k0000.png" width="550">
+
 Here is how to access the content of the artifact:
 
 ```python
