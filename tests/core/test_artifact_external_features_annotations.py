@@ -82,7 +82,9 @@ def test_artifact_features_add_remove_values():
         record_entity2,
     }
     assert test_artifact.features["feature_ulabel"] == ulabel
-    assert test_artifact.features["feature_user"] == ln.setup.settings.user
+    assert (
+        test_artifact.features["feature_user"].handle == ln.setup.settings.user.handle
+    )
     assert test_artifact.features["feature_project"] == test_project
     assert test_artifact.features["feature_cell_line"] == hek293
     assert test_artifact.features["feature_cl_ontology_id"] == hek293
