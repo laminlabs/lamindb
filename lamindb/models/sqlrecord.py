@@ -573,14 +573,20 @@ class Registry(ModelBase):
                 result.append(attr)
         return result
 
-    def describe(cls) -> str:
+    def describe(cls, return_str: bool = False) -> str | None:
         """Describe the fields of the registry."""
+        from ._describe import strip_ansi_from_string as _strip_ansi
+
         repr_str = f"{colors.green(cls.__name__)}\n"
         info = SQLRecordInfo(cls)
         repr_str += info.get_simple_fields(return_str=True)
         repr_str += info.get_relational_fields(return_str=True)
         repr_str = repr_str.rstrip("\n")
-        return repr_str
+        if return_str:
+            return _strip_ansi(repr_str)
+        else:
+            print(repr_str)
+            return None
 
     @doc_args(_lookup.__doc__)
     def lookup(
@@ -1202,7 +1208,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
         from ._describe import describe_postgres_sqlite
 
         if isinstance(cls_or_self, type):
-            return type(cls_or_self).describe(cls_or_self)  # type: ignore
+            return type(cls_or_self).describe(cls_or_self, return_str=return_str)  # type: ignore
         else:
             return describe_postgres_sqlite(cls_or_self, return_str=return_str)
 

@@ -1186,9 +1186,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun):
         tree = describe_schema(cls_or_self)
         for slot, schema in cls_or_self.slots.items():
             tree.add(describe_schema(schema, slot=slot))
-        return format_rich_tree(
-            tree, fallback="no linked features", return_str=return_str
-        )
+        return format_rich_tree(tree, return_str=return_str)
 
 
 def get_type_str(dtype: str | None) -> str | None:

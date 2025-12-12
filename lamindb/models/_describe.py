@@ -10,7 +10,7 @@ from rich.table import Column, Table
 from rich.text import Text
 from rich.tree import Tree
 
-from lamindb.models import Run
+from lamindb.models import BaseSQLRecord, Run
 
 from ._is_versioned import IsVersioned
 from .sqlrecord import SQLRecord, format_field_value
@@ -34,15 +34,11 @@ def strip_ansi_from_string(text: str) -> str:
 
 
 def format_rich_tree(
-    tree: Tree, fallback: str = "", return_str: bool = False, strip_ansi: bool = True
+    tree: Tree, return_str: bool = False, strip_ansi: bool = True
 ) -> str | None:
     from rich.console import Console
 
     from ..core._context import is_run_from_ipython
-
-    # If tree has no children, return fallback
-    if not tree.children:
-        return fallback
 
     console = Console(force_terminal=True)
     printed = False
@@ -119,29 +115,33 @@ def format_title_with_version(
     return title
 
 
-def describe_header(record: SQLRecord) -> Tree:
-    if hasattr(record, "is_latest") and not record.is_latest:
+def describe_header(record: BaseSQLRecord) -> Tree:
+    if isinstance(record, IsVersioned) and not record.is_latest:
         logger.warning(
             f"This is not the latest version of the {record.__class__.__name__}."
         )
-    if record.branch_id == 0:  # type: ignore
-        logger.warning("This artifact is archived.")
-    elif record.branch_id == -1:  # type: ignore
-        logger.warning("This artifact is in the trash.")
+    if isinstance(record, SQLRecord):
+        if record.branch_id == 0:
+            logger.warning("This artifact is archived.")
+        elif record.branch_id == -1:
+            logger.warning("This artifact is in the trash.")
     if isinstance(record, Run):
         title = format_run_title(record, dim=True)  # dim makes the uid grey
     elif isinstance(record, IsVersioned) or isinstance(record, SimpleNamespace):
         title = format_title_with_version(record)
     else:
         display_field = (
-            "_name_field"
+            record._name_field
             if hasattr(record, "_name_field")
             else "name"
             if hasattr(record, "name")
-            else None
+            else ""
         )
         title = Text.assemble(
-            (display_field if display_field else record.uid[:7], "cyan3")
+            (
+                getattr(record, display_field) if display_field else record.uid[:7],
+                "cyan3",
+            )
         )
     tree = Tree(
         Text.assemble(
@@ -585,6 +585,7 @@ def describe_sqlite(record):
         tree = describe_transform(record)
     else:
         tree = describe_header(record)
+        print("describe header done")
     return tree
 
 
@@ -598,5 +599,7 @@ def describe_postgres_sqlite(record, return_str: bool = False) -> str | None:
         tree = describe_postgres(record)
     else:
         tree = describe_sqlite(record)
+
+    print(tree)
 
     return format_rich_tree(tree, return_str=return_str)
