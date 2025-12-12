@@ -959,17 +959,84 @@ class FeatureManager:
         """
         return get_features_data(self._host, to_dict=True, external_only=external_only)  # type: ignore
 
-    @deprecated("slots[slot].members")
-    def __getitem__(self, slot) -> BasicQuerySet:
-        if slot not in self.slots:
-            raise ValueError(
-                f"No linked feature set for slot: {slot}\nDid you get validation"
-                " warnings? Only features that match registered features get validated"
-                " and linked."
-            )
-        schema = self.slots[slot]
-        orm_name = schema.itype
-        return getattr(schema, self._accessor_by_registry[orm_name]).all()
+    def __getitem__(self, feature: str) -> Any | dict[str, Any]:
+        """Get values records by a feature name.
+
+        Args:
+            feature: Feature name.
+
+        Returns:
+            - For categorical features, return value records.
+            - For non-categorical features, return values.
+
+        Example::
+
+            artifact.features['tissue']
+            #> Tissue(id=1, name='brain', ...)
+        """
+        from collections import defaultdict
+
+        from .query_set import SQLRecordList
+
+        host_name = self._host.__class__.__name__
+        host_id = self._host.id
+        feature_records = list(Feature.filter(name=feature))
+        if not feature_records:
+            return None
+
+        # group cat feature_records by their registry
+        registry_to_features = defaultdict(list)
+        for feature_record in feature_records:
+            parsed_dtype = parse_dtype(feature_record.dtype)
+            if len(parsed_dtype) > 0:
+                registry = parsed_dtype[0]["registry"]
+                registry_name = registry.__get_name_with_module__()
+                registry_to_features[(registry, registry_name)].append(
+                    feature_record.id
+                )
+            else:
+                registry_to_features[(FeatureValue, "FeatureValue")].append(
+                    feature_record.id
+                )
+
+        value_records = {}
+
+        # query once per registry with all feature_ids
+        for (registry, registry_name), feature_ids in registry_to_features.items():
+            if registry_name == "FeatureValue":
+                # for non-categorical features
+                filters = {
+                    "feature_id__in": feature_ids,
+                    f"links_{host_name.lower()}__{host_name.lower()}_id": host_id,
+                }
+                feature_values_qs = (
+                    registry.objects.filter(**filters).distinct().list("value")
+                )
+            else:
+                # determine links name once per registry
+                links_value_name = (
+                    "links_value"
+                    if registry_name == host_name
+                    else f"links_{host_name.lower()}"
+                )
+
+                filters = {
+                    f"{links_value_name}__feature_id__in": feature_ids,
+                    f"{links_value_name}__{host_name.lower()}_id": host_id,
+                }
+
+                feature_values_qs = registry.objects.filter(**filters).distinct()
+
+            if len(feature_values_qs) == 1:
+                value_records[registry_name] = feature_values_qs[0]
+            elif len(feature_values_qs) > 1:
+                value_records[registry_name] = SQLRecordList(feature_values_qs)
+
+        return (
+            next(iter(value_records.values()))
+            if len(value_records) == 1
+            else value_records
+        )
 
     @property
     def slots(self) -> dict[str, Schema]:

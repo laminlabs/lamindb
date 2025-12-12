@@ -20,6 +20,7 @@ def test_artifact_features_add_remove_values():
     run = ln.Run(transform, name="test-run").save()
 
     feature_str = ln.Feature(name="feature_str", dtype=str).save()
+    feature_list_str = ln.Feature(name="feature_list_str", dtype=list[str]).save()
     feature_int = ln.Feature(name="feature_int", dtype=int).save()
     feature_datetime = ln.Feature(name="feature_datetime", dtype=datetime).save()
     feature_date = ln.Feature(name="feature_date", dtype=datetime.date).save()
@@ -49,6 +50,7 @@ def test_artifact_features_add_remove_values():
 
     test_values = {
         "feature_str": "a string value",
+        "feature_list_str": ["value1", "value2", "value3"],
         "feature_int": 42,
         "feature_datetime": datetime(2024, 1, 1, 12, 0, 0),
         "feature_date": date(2024, 1, 1),
@@ -68,6 +70,10 @@ def test_artifact_features_add_remove_values():
 
     test_artifact.features.add_values(test_values)
     assert test_artifact.features.get_values() == test_values
+    assert test_artifact.features["feature_str"] == "a string value"
+    assert test_artifact.features["feature_list_str"] == ["value1", "value2", "value3"]
+    assert set(test_artifact.features["feature_cell_lines"]) == {hek293, a549}
+    assert test_artifact.features["feature_artifact"] == test_artifact
 
     # remove values
 
@@ -115,6 +121,7 @@ def test_artifact_features_add_remove_values():
 
     assert list(test_values.keys()) == [
         "feature_str",
+        "feature_list_str",
         "feature_datetime",
         "feature_dict",
         "feature_project",
@@ -177,6 +184,7 @@ def test_artifact_features_add_remove_values():
 
     test_artifact.delete(permanent=True)
     feature_str.delete(permanent=True)
+    feature_list_str.delete(permanent=True)
     feature_int.delete(permanent=True)
     feature_datetime.delete(permanent=True)
     feature_date.delete(permanent=True)
