@@ -82,45 +82,41 @@ def test_serialize_user(ccaplog):
 
 
 def test_serialize_record_objects():
-    record_type_ist1 = ln.Record(name="Institute1", is_type=True)
+    insitute_type = ln.Record(name="InstituteA", is_type=True)
     with pytest.raises(ln.errors.InvalidArgument) as error:
-        serialize_dtype(record_type_ist1)
+        serialize_dtype(insitute_type)
     assert (
-        f"Cannot serialize unsaved objects. Save {record_type_ist1} via `.save()`."
+        f"Cannot serialize unsaved objects. Save {insitute_type} via `.save()`."
         in error.exconly()
     )
-    record_type_ist1.save()
-    record_type_dpt1 = ln.Record(
-        name="Department1", type=record_type_ist1, is_type=True
-    ).save()
-    record_type_lab = ln.Record(
-        name="Instrument", type=record_type_dpt1, is_type=True
-    ).save()
-    serialized_str = "cat[Record[Institute1[Department1[Instrument]]]]"
-    assert serialize_dtype(record_type_lab) == serialized_str
+    insitute_type.save()
+    lab_type = ln.Record(name="LabB", type=insitute_type, is_type=True).save()
+    sample_type = ln.Record(name="Sample", type=lab_type, is_type=True).save()
+    serialized_str = "cat[Record[InstituteA[LabB[Sample]]]]"
+    assert serialize_dtype(sample_type) == serialized_str
     with pytest.raises(ln.errors.IntegrityError) as error:
-        parse_dtype("cat[Record[Instrument]]", check_exists=True)
+        parse_dtype("cat[Record[Sample]]", check_exists=True)
     assert (
-        "Error retrieving Record type with filter {'name': 'Instrument', 'type__isnull': True} for field `.name`: Record matching query does not exist."
+        "Error retrieving Record type with filter {'name': 'Sample', 'type__isnull': True} for field `.name`: Record matching query does not exist."
         in error.exconly()
     )
-    instrument = ln.Record(name="instrument").save()
+    sample = ln.Record(name="sample").save()
     with pytest.raises(ln.errors.InvalidArgument) as error:
-        parse_dtype("cat[Record[instrument]]", check_exists=True)
+        parse_dtype("cat[Record[sample]]", check_exists=True)
     assert (
-        "The resolved Record 'instrument' for field `.name` is not a type: is_type is False."
+        "The resolved Record 'sample' for field `.name` is not a type: is_type is False."
         in error.exconly()
     )
     with pytest.raises(ln.errors.InvalidArgument) as error:
-        serialize_dtype(instrument)
+        serialize_dtype(sample)
     assert (
-        "Cannot serialize non-type Record 'instrument'. Only types (is_type=True) are allowed in dtypes."
+        "Cannot serialize non-type Record 'sample'. Only types (is_type=True) are allowed in dtypes."
         in error.exconly()
     )
-    record_type_lab.delete(permanent=True)
-    record_type_dpt1.delete(permanent=True)
-    record_type_ist1.delete(permanent=True)
-    instrument.delete(permanent=True)
+    sample_type.delete(permanent=True)
+    lab_type.delete(permanent=True)
+    insitute_type.delete(permanent=True)
+    sample.delete(permanent=True)
 
 
 def test_serialize_union_of_registries():
