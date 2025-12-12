@@ -408,7 +408,6 @@ def serialize_dtype(
                     raise InvalidArgument(
                         f"Cannot serialize unsaved objects. Save {one_dtype} via `.save()`."
                     )
-                one_dtype.__class__.__get_name_with_module__()
                 if not one_dtype.is_type:
                     raise InvalidArgument(
                         f"Cannot serialize non-type {one_dtype.__class__.__name__} '{one_dtype.name}'. Only types (is_type=True) are allowed in dtypes."
