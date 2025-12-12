@@ -12,15 +12,9 @@ Modules
    types
    fields
    dtypes
-
-Utils
------
-
-.. autodecorator:: doc_args
-.. autodecorator:: deprecated
+   utils
 
 """
 
-from lamindb_setup.core import deprecated, doc_args
-
-from . import dtypes, fields, types, uids
+from . import dtypes, fields, types, uids, utils
+from .utils import deprecated, doc_args

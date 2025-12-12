@@ -945,9 +945,7 @@ class FeatureManager:
             tree.add(dataset_features_tree)
         if external_features_tree:
             tree.add(external_features_tree)
-        return format_rich_tree(
-            tree, fallback="no linked features", return_str=return_str
-        )
+        return format_rich_tree(tree, return_str=return_str)
 
     def get_values(self, external_only: bool = False) -> dict[str, Any]:
         """Get features as a dictionary.

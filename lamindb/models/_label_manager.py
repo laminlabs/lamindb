@@ -184,9 +184,7 @@ class LabelManager:
     def describe(self, return_str=True) -> str:
         """Describe the labels."""
         tree = describe_labels(self._host)
-        return format_rich_tree(
-            tree, fallback="no linked labels", return_str=return_str
-        )
+        return format_rich_tree(tree, return_str=return_str)
 
     def add(
         self,
