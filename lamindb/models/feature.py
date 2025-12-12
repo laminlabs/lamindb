@@ -56,19 +56,17 @@ if TYPE_CHECKING:
 FEATURE_DTYPES = set(get_args(Dtype))
 
 
-def parse_dtype(dtype_str: str, is_param: bool = False) -> list[dict[str, Any]]:
+def parse_dtype(dtype_str: str, check_exists: bool = False) -> list[dict[str, Any]]:
     """Parses feature data type string into a structured list of components."""
     from .artifact import Artifact
 
     allowed_dtypes = FEATURE_DTYPES
-    if is_param:
-        allowed_dtypes.add("dict")
 
     # Handle list[...] types
     if dtype_str.startswith("list[") and dtype_str.endswith("]"):
         inner_dtype_str = dtype_str[5:-1]  # Remove "list[" and "]"
         # Recursively parse the inner type
-        inner_result = parse_dtype(inner_dtype_str, is_param)
+        inner_result = parse_dtype(inner_dtype_str)
         # Add "list": True to each component
         for component in inner_result:
             if isinstance(component, dict):
@@ -510,7 +508,7 @@ def resolve_relation_filters(
     return resolved
 
 
-def process_init_feature_param(args, kwargs, is_param: bool = False):
+def process_init_feature_param(args, kwargs):
     # now we proceed with the user-facing constructor
     if len(args) != 0:
         raise ValueError("Only keyword args allowed")
@@ -535,8 +533,7 @@ def process_init_feature_param(args, kwargs, is_param: bool = False):
     kwargs["space"] = space
     kwargs["space_id"] = space_id
     kwargs["_skip_validation"] = _skip_validation
-    if not is_param:
-        kwargs["description"] = description
+    kwargs["description"] = description
     # cast dtype
     if dtype is None and not is_type:
         raise ValidationError(
@@ -551,7 +548,7 @@ def process_init_feature_param(args, kwargs, is_param: bool = False):
                 f"rather than passing a string '{dtype}' to dtype, pass a Python object"
             )
             dtype_str = dtype
-            parse_dtype(dtype_str, is_param=is_param)
+            parse_dtype(dtype_str, check_exists=True)
         kwargs["dtype"] = dtype_str
     return kwargs
 

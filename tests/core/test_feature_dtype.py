@@ -91,6 +91,8 @@ def test_serialize_record_objects():
     ).save()
     serialized_str = "cat[Record[Institute1[Department1[Instrument]]]]"
     assert serialize_dtype(record_type_lab) == serialized_str
+    with pytest.raises(ln.errors.InvalidArgument):
+        parse_dtype("cat[Record[Instrument]]", check_exists=True)
     record_type_lab.delete(permanent=True)
     record_type_dpt1.delete(permanent=True)
     record_type_ist1.delete(permanent=True)
