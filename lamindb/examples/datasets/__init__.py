@@ -3,7 +3,10 @@
 The mini immuno dataset
 -----------------------
 
-.. automodule:: mini_immuno
+.. autosummary::
+   :toctree: .
+
+   mini_immuno
 
 Small in-memory datasets
 ------------------------
