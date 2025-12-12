@@ -8,8 +8,8 @@ Query sets & managers
 .. autoclass:: QuerySet
 .. autoclass:: ArtifactSet
 .. autoclass:: QueryManager
-.. autoclass:: lamindb.models.query_set.BiontyQueryDB
-.. autoclass:: lamindb.models.query_set.WetlabQueryDB
+.. autoclass:: lamindb.models.query_set.BiontyDB
+.. autoclass:: lamindb.models.query_set.WetlabDB
 
 ...
 """
@@ -1385,7 +1385,7 @@ class NonInstantiableQuerySet:
 
     def __call__(self, *args, **kwargs):
         raise TypeError(
-            f"Cannot instantiate {self._name} from QueryDB. "
+            f"Cannot instantiate {self._name} from DB. "
             f"Use {self._name}.filter(), {self._name}.get(), etc. to query records."
         )
 
@@ -1397,11 +1397,11 @@ class ModuleNamespace:
     """Namespace for accessing registries from a specific schema module.
 
     Args:
-        query_db: Parent QueryDB instance.
+        query_db: Parent DB instance.
         module_name: Name of the schema module (e.g., 'bionty', 'wetlab').
     """
 
-    def __init__(self, query_db: QueryDB, module_name: str):
+    def __init__(self, query_db: DB, module_name: str):
         self._query_db = query_db
         self._module_name = module_name
         self._cache: dict[str, NonInstantiableQuerySet] = {}
@@ -1450,7 +1450,7 @@ class ModuleNamespace:
         return base_attrs
 
 
-class BiontyQueryDB(ModuleNamespace):
+class BiontyDB(ModuleNamespace):
     """Namespace for Bionty registries (Gene, CellType, Disease, etc.)."""
 
     Gene: QuerySet[Gene]  # type: ignore[type-arg]
@@ -1468,7 +1468,7 @@ class BiontyQueryDB(ModuleNamespace):
     Ethnicity: QuerySet[Ethnicity]  # type: ignore[type-arg]
 
 
-class WetlabQueryDB(ModuleNamespace):
+class WetlabDB(ModuleNamespace):
     """Namespace for wetlab registries (Experiment, Biosample, etc.)."""
 
     Experiment: QuerySet[Experiment]  # type: ignore[type-arg]
@@ -1485,10 +1485,10 @@ class WetlabQueryDB(ModuleNamespace):
     PerturbationTarget: QuerySet[PerturbationTarget]  # type: ignore[type-arg]
 
 
-class QueryDB:
+class DB:
     """Query any registry of any instance.
 
-    QueryDB exposes all available registries of LaminDB and modules like Bionty or Wetlab.
+    DB exposes all available registries of LaminDB and modules like Bionty or Wetlab.
 
     Args:
         instance: Instance identifier in format "account/instance".
@@ -1497,7 +1497,7 @@ class QueryDB:
 
         Query records from an instance::
 
-            cxg = ln.QueryDB("laminlabs/cellxgene")
+            cxg = ln.DB("laminlabs/cellxgene")
 
             artifacts = cxg.Artifact.filter(suffix=".h5ad")
             records = cxg.Record.filter(name__startswith="cell")
@@ -1532,14 +1532,12 @@ class QueryDB:
     Branch: QuerySet[Branch]  # type: ignore[type-arg]
     Space: QuerySet[Space]  # type: ignore[type-arg]
 
-    bionty: BiontyQueryDB
-    wetlab: WetlabQueryDB
+    bionty: BiontyDB
+    wetlab: WetlabDB
 
     def __init__(self, instance: str):
         self._instance = instance
-        self._cache: dict[
-            str, NonInstantiableQuerySet | BiontyQueryDB | WetlabQueryDB
-        ] = {}
+        self._cache: dict[str, NonInstantiableQuerySet | BiontyDB | WetlabDB] = {}
         self._available_registries: set[str] | None = None
 
         owner, instance_name = instance.split("/")
@@ -1548,9 +1546,7 @@ class QueryDB:
         )
         self._modules = ["lamindb"] + list(instance_info.modules)
 
-    def __getattr__(
-        self, name: str
-    ) -> NonInstantiableQuerySet | BiontyQueryDB | WetlabQueryDB:
+    def __getattr__(self, name: str) -> NonInstantiableQuerySet | BiontyDB | WetlabDB:
         """Access a registry class or schema namespace for this database instance.
 
         Args:
@@ -1568,7 +1564,7 @@ class QueryDB:
                     f"Schema 'bionty' not available in instance '{self._instance}'."
                 )
             if "bionty" not in self._cache:
-                namespace = BiontyQueryDB(self, "bionty")
+                namespace = BiontyDB(self, "bionty")
                 self._cache["bionty"] = namespace
             return self._cache["bionty"]
 
@@ -1578,7 +1574,7 @@ class QueryDB:
                     f"Schema 'wetlab' not available in instance '{self._instance}'."
                 )
             if "wetlab" not in self._cache:
-                namespace = WetlabQueryDB(self, "wetlab")  # type: ignore
+                namespace = WetlabDB(self, "wetlab")  # type: ignore
                 self._cache["wetlab"] = namespace
             return self._cache["wetlab"]
 
@@ -1598,7 +1594,7 @@ class QueryDB:
         )
 
     def __repr__(self) -> str:
-        return f"QueryDB('{self._instance}')"
+        return f"DB('{self._instance}')"
 
     def __dir__(self) -> list[str]:
         """Return list of available registries and schema namespaces."""

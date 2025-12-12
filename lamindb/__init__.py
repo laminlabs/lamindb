@@ -4,11 +4,11 @@ Installation::
 
    pip install lamindb
 
-If you just want to *read* data from a LaminDB instance, use :class:`~lamindb.QueryDB`::
+If you just want to *read* data from a LaminDB instance, use :class:`~lamindb.DB`::
 
    import lamindb as ln
 
-   db = ln.QueryDB("laminlabs/cellxgene")
+   db = ln.DB("laminlabs/cellxgene")
 
 To *write* data, you need to connect a writable instance.
 If you created an instance at `lamin.ai <https://lamin.ai>`__ or collaborate on one, run::
@@ -107,7 +107,7 @@ Connecting, viewing database content, accessing settings & run context.
 .. autosummary::
    :toctree: .
 
-   QueryDB
+   DB
    connect
    view
    save
@@ -186,7 +186,7 @@ from .models import (
     Space,
     Branch,
     Record,
-    QueryDB,
+    DB,
 )
 from .models.save import save
 from . import core
@@ -230,7 +230,7 @@ __all__ = [
     "UPath",
     "settings",
     "context",
-    "QueryDB",
+    "DB",
     # curators and integrations
     "curators",
     "integrations",
