@@ -72,7 +72,7 @@ You can browse instances with datasets at [lamin.ai/explore](https://lamin.ai/ex
 ```python
 import lamindb as ln
 
-db = ln.QueryDB("laminlabs/cellxgene")  # a database object for queries/reads
+db = ln.DB("laminlabs/cellxgene")  # a database object for queries/reads
 df = db.Artifact.to_dataframe()         # a dataframe for the datasets (& models) in an instance
 ```
 
