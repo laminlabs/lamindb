@@ -20,6 +20,7 @@ from lamindb.base.fields import (
     TextField,
 )
 from lamindb.base.types import FieldAttr, ListLike
+from lamindb.base.utils import class_and_instance_method
 from lamindb.errors import FieldValidationError, InvalidArgument
 from lamindb.models.feature import parse_cat_dtype
 
@@ -1175,12 +1176,15 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun):
         self.optionals.remove(features)
         self.save(print_hash_mutation_warning=False)
 
-    def describe(self, return_str=False) -> None | str:
+    @class_and_instance_method
+    def describe(cls_or_self, return_str: bool = False) -> None | str:
         """Describe schema."""
-        if self.pk is None:
+        if isinstance(cls_or_self, type):
+            return type(cls_or_self).describe(cls_or_self)  # type: ignore
+        if cls_or_self.pk is None:
             raise ValueError("Schema must be saved before describing")
-        tree = describe_schema(self)
-        for slot, schema in self.slots.items():
+        tree = describe_schema(cls_or_self)
+        for slot, schema in cls_or_self.slots.items():
             tree.add(describe_schema(schema, slot=slot))
         return format_rich_tree(
             tree, fallback="no linked features", return_str=return_str

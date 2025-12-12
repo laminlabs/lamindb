@@ -33,7 +33,7 @@ from lamindb.base.fields import (
     ForeignKey,
     TextField,
 )
-from lamindb.base.utils import class_and_instance_method, deprecated
+from lamindb.base.utils import deprecated
 from lamindb.errors import FieldValidationError, NoWriteAccess, UnknownStorageLocation
 from lamindb.models.query_set import QuerySet, SQLRecordList
 
@@ -2916,20 +2916,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         if hasattr(self, "_local_filepath"):
             del self._local_filepath
         return self
-
-    @class_and_instance_method
-    def describe(cls_or_self, return_str: bool = False) -> None | str:
-        """Describe record including relations.
-
-        Args:
-            return_str: Return a string instead of printing.
-        """
-        from ._describe import describe_postgres_sqlite
-
-        if isinstance(cls_or_self, type):
-            return type(cls_or_self).describe(cls_or_self)  # type: ignore
-        else:
-            return describe_postgres_sqlite(cls_or_self, return_str=return_str)
 
 
 # can't really just call .cache in .load because of double tracking

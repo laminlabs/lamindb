@@ -47,7 +47,7 @@ from lamindb_setup.core.django import DBToken, db_token_manager
 from lamindb_setup.core.upath import extract_suffix_from_path
 from upath import UPath
 
-from lamindb.base import deprecated
+from lamindb.base.utils import class_and_instance_method, deprecated
 
 from ..base.fields import (
     BooleanField,
@@ -1418,6 +1418,20 @@ class SQLRecord(BaseSQLRecord, metaclass=Registry):
         """
         self.branch_id = 1
         self.save()
+
+    @class_and_instance_method
+    def describe(cls_or_self, return_str: bool = False) -> None | str:
+        """Describe record including relations.
+
+        Args:
+            return_str: Return a string instead of printing.
+        """
+        from ._describe import describe_postgres_sqlite
+
+        if isinstance(cls_or_self, type):
+            return type(cls_or_self).describe(cls_or_self)  # type: ignore
+        else:
+            return describe_postgres_sqlite(cls_or_self, return_str=return_str)
 
     def delete(self, permanent: bool | None = None, **kwargs) -> None:
         """Delete record.
