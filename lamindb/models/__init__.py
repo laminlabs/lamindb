@@ -89,7 +89,6 @@ from .sqlrecord import (
     Migration,
     ValidateFields,
     format_field_value,
-    record_repr,
     IsLink,
     HasType,
 )

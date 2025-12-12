@@ -10,9 +10,10 @@ from rich.table import Column, Table
 from rich.text import Text
 from rich.tree import Tree
 
-from lamindb.models import Run
+from lamindb.models import BaseSQLRecord, Run
 
-from .sqlrecord import SQLRecord, format_field_value, record_repr
+from ._is_versioned import IsVersioned
+from .sqlrecord import SQLRecord, format_field_value
 
 if TYPE_CHECKING:
     from lamindb.models import Artifact, Collection, Schema, Transform
@@ -33,15 +34,11 @@ def strip_ansi_from_string(text: str) -> str:
 
 
 def format_rich_tree(
-    tree: Tree, fallback: str = "", return_str: bool = False, strip_ansi: bool = True
+    tree: Tree, return_str: bool = False, strip_ansi: bool = True
 ) -> str | None:
     from rich.console import Console
 
     from ..core._context import is_run_from_ipython
-
-    # If tree has no children, return fallback
-    if not tree.children:
-        return fallback
 
     console = Console(force_terminal=True)
     printed = False
@@ -105,7 +102,7 @@ def format_run_title(
 
 
 def format_title_with_version(
-    record: Artifact | Collection | Transform | SimpleNamespace,
+    record: IsVersioned | SimpleNamespace,
 ) -> Text:
     title_str = record.key if record.key is not None else ""
     title = Text.assemble(
@@ -118,19 +115,34 @@ def format_title_with_version(
     return title
 
 
-def describe_header(record: Artifact | Collection | Run | Transform) -> Tree:
-    if hasattr(record, "is_latest") and not record.is_latest:
+def describe_header(record: BaseSQLRecord) -> Tree:
+    if isinstance(record, IsVersioned) and not record.is_latest:
         logger.warning(
             f"This is not the latest version of the {record.__class__.__name__}."
         )
-    if record.branch_id == 0:  # type: ignore
-        logger.warning("This artifact is archived.")
-    elif record.branch_id == -1:  # type: ignore
-        logger.warning("This artifact is in the trash.")
+    if isinstance(record, SQLRecord):
+        if record.branch_id == 0:
+            logger.warning("This artifact is archived.")
+        elif record.branch_id == -1:
+            logger.warning("This artifact is in the trash.")
     if isinstance(record, Run):
         title = format_run_title(record, dim=True)  # dim makes the uid grey
-    else:
+    elif isinstance(record, IsVersioned) or isinstance(record, SimpleNamespace):
         title = format_title_with_version(record)
+    else:
+        display_field = (
+            record._name_field
+            if hasattr(record, "_name_field")
+            else "name"
+            if hasattr(record, "name")
+            else ""
+        )
+        title = Text.assemble(
+            (
+                getattr(record, display_field) if display_field else record.uid[:7],
+                "cyan3",
+            )
+        )
     tree = Tree(
         Text.assemble(
             (f"{record.__class__.__name__}: ", "bold"),
@@ -501,7 +513,7 @@ def describe_postgres(record):
     from ._django import get_artifact_or_run_with_related, get_collection_with_related
 
     model_name = record.__class__.__name__
-    msg = f"{colors.green(model_name)}{record_repr(record, include_foreign_keys=False).lstrip(model_name)}\n"
+    msg = f"{colors.green(model_name)}{record.__repr__(include_foreign_keys=False).lstrip(model_name)}\n"
     if record._state.db is not None and record._state.db != "default":
         msg += f"  {colors.italic('Database instance')}\n"
         msg += f"    slug: {record._state.db}\n"
@@ -531,7 +543,7 @@ def describe_postgres(record):
 
 def describe_sqlite(record):
     model_name = record.__class__.__name__
-    msg = f"{colors.green(model_name)}{record_repr(record, include_foreign_keys=False).lstrip(model_name)}\n"
+    msg = f"{colors.green(model_name)}{record.__repr__(include_foreign_keys=False).lstrip(model_name)}\n"
     if record._state.db is not None and record._state.db != "default":
         msg += f"  {colors.italic('Database instance')}\n"
         msg += f"    slug: {record._state.db}\n"
@@ -586,5 +598,4 @@ def describe_postgres_sqlite(record, return_str: bool = False) -> str | None:
         tree = describe_postgres(record)
     else:
         tree = describe_sqlite(record)
-
     return format_rich_tree(tree, return_str=return_str)

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from functools import wraps
 from typing import TYPE_CHECKING, Any, overload
 
 import pandas as pd
@@ -19,6 +18,7 @@ from lamindb.base.fields import (
     JSONField,
     TextField,
 )
+from lamindb.base.utils import class_and_instance_method
 from lamindb.errors import FieldValidationError
 
 from ..base.ids import base62_16
@@ -139,28 +139,6 @@ WHERE dtype LIKE '%cat[Record[' || paths.old_path || ']]%';
 
 RETURN NEW;
 """
-
-
-class class_or_instance_method:
-    def __init__(self, func):
-        self.func = func
-        # Copy metadata to the descriptor itself
-        wraps(func)(self)
-
-    def __get__(self, instance, owner):
-        # Create a proper wrapper that preserves metadata
-        if instance is None:
-
-            @wraps(self.func)
-            def wrapper(*args, **kwargs):
-                return self.func(owner, *args, **kwargs)
-        else:
-
-            @wraps(self.func)
-            def wrapper(*args, **kwargs):
-                return self.func(instance, *args, **kwargs)
-
-        return wrapper
 
 
 class Record(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, HasParents):
@@ -556,7 +534,7 @@ class Record(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, HasParents
         """
         return _query_relatives([self], "records")  # type: ignore
 
-    @class_or_instance_method
+    @class_and_instance_method
     def to_dataframe(cls_or_self, recurse: bool = False, **kwargs) -> pd.DataFrame:
         """Export to a pandas DataFrame.
 
@@ -572,7 +550,7 @@ class Record(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, HasParents
         """
         if isinstance(cls_or_self, type):
             return type(cls_or_self).to_dataframe(cls_or_self, **kwargs)  # type: ignore
-        elif not cls_or_self.is_type:
+        if not cls_or_self.is_type:
             raise TypeError(
                 "to_dataframe() can only be called on the class or on record type instance."
             )
