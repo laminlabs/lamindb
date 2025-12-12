@@ -1229,9 +1229,11 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             artifact.features.add_values({"species": "bird"}, schema=schema)
 
         To get all feature values::
+
             values = artifact.features.get_values()
 
         To get a specific feature value::
+
             # return records for categofical features
             organism = artifact.features["species"]
             # return values for non-categorical features
