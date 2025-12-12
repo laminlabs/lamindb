@@ -1192,6 +1192,70 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                 self.projects.add(ln.context.project)
         return self
 
+    @class_and_instance_method
+    def describe(cls_or_self, return_str: bool = False) -> None | str:
+        """Describe record including relations.
+
+        Args:
+            return_str: Return a string instead of printing.
+        """
+        from ._describe import describe_postgres_sqlite
+
+        if isinstance(cls_or_self, type):
+            return type(cls_or_self).describe(cls_or_self)  # type: ignore
+        else:
+            return describe_postgres_sqlite(cls_or_self, return_str=return_str)
+
+    def __repr__(
+        self: SQLRecord,
+        include_foreign_keys: bool = True,
+        exclude_field_names: list[str] | None = None,
+    ) -> str:
+        if exclude_field_names is None:
+            exclude_field_names = ["id", "updated_at", "source_code"]
+        field_names = [
+            field.name
+            for field in self._meta.fields
+            if (
+                not isinstance(field, ForeignKey)
+                and field.name not in exclude_field_names
+            )
+        ]
+        if include_foreign_keys:
+            field_names += [
+                f"{field.name}_id"
+                for field in self._meta.fields
+                if isinstance(field, ForeignKey)
+            ]
+        if "created_at" in field_names:
+            field_names.remove("created_at")
+            field_names.append("created_at")
+        if "is_locked" in field_names:
+            field_names.remove("is_locked")
+            field_names.append("is_locked")
+        if field_names[0] != "uid" and "uid" in field_names:
+            field_names.remove("uid")
+            field_names.insert(0, "uid")
+        fields_str = {}
+        for k in field_names:
+            if k == "n" and getattr(self, k) < 0:
+                # only needed for Schema
+                continue
+            if not k.startswith("_") and hasattr(self, k):
+                value = getattr(self, k)
+                # Force strip the time component of the version
+                if k == "version" and value:
+                    fields_str[k] = f"'{str(value).split()[0]}'"
+                else:
+                    fields_str[k] = format_field_value(value)
+        fields_joined_str = ", ".join(
+            [f"{k}={fields_str[k]}" for k in fields_str if fields_str[k] is not None]
+        )
+        return f"{self.__class__.__name__}({fields_joined_str})"
+
+    def __str__(self) -> str:
+        return self.__repr__()
+
     def delete(self, permanent: bool | None = None) -> None:
         """Delete.
 
@@ -1418,20 +1482,6 @@ class SQLRecord(BaseSQLRecord, metaclass=Registry):
         """
         self.branch_id = 1
         self.save()
-
-    @class_and_instance_method
-    def describe(cls_or_self, return_str: bool = False) -> None | str:
-        """Describe record including relations.
-
-        Args:
-            return_str: Return a string instead of printing.
-        """
-        from ._describe import describe_postgres_sqlite
-
-        if isinstance(cls_or_self, type):
-            return type(cls_or_self).describe(cls_or_self)  # type: ignore
-        else:
-            return describe_postgres_sqlite(cls_or_self, return_str=return_str)
 
     def delete(self, permanent: bool | None = None, **kwargs) -> None:
         """Delete record.
@@ -2127,53 +2177,6 @@ class SQLRecordInfo:
                         repr_str += "".join(ext_module_fields)
 
             return repr_str
-
-
-def record_repr(
-    self: SQLRecord, include_foreign_keys: bool = True, exclude_field_names=None
-) -> str:
-    if exclude_field_names is None:
-        exclude_field_names = ["id", "updated_at", "source_code"]
-    field_names = [
-        field.name
-        for field in self._meta.fields
-        if (not isinstance(field, ForeignKey) and field.name not in exclude_field_names)
-    ]
-    if include_foreign_keys:
-        field_names += [
-            f"{field.name}_id"
-            for field in self._meta.fields
-            if isinstance(field, ForeignKey)
-        ]
-    if "created_at" in field_names:
-        field_names.remove("created_at")
-        field_names.append("created_at")
-    if "is_locked" in field_names:
-        field_names.remove("is_locked")
-        field_names.append("is_locked")
-    if field_names[0] != "uid" and "uid" in field_names:
-        field_names.remove("uid")
-        field_names.insert(0, "uid")
-    fields_str = {}
-    for k in field_names:
-        if k == "n" and getattr(self, k) < 0:
-            # only needed for Schema
-            continue
-        if not k.startswith("_") and hasattr(self, k):
-            value = getattr(self, k)
-            # Force strip the time component of the version
-            if k == "version" and value:
-                fields_str[k] = f"'{str(value).split()[0]}'"
-            else:
-                fields_str[k] = format_field_value(value)
-    fields_joined_str = ", ".join(
-        [f"{k}={fields_str[k]}" for k in fields_str if fields_str[k] is not None]
-    )
-    return f"{self.__class__.__name__}({fields_joined_str})"
-
-
-SQLRecord.__repr__ = record_repr  # type: ignore
-SQLRecord.__str__ = record_repr  # type: ignore
 
 
 class Migration(BaseSQLRecord):

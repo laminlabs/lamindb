@@ -13,7 +13,7 @@ from rich.tree import Tree
 from lamindb.models import Run
 
 from ._is_versioned import IsVersioned
-from .sqlrecord import SQLRecord, format_field_value, record_repr
+from .sqlrecord import SQLRecord, format_field_value
 
 if TYPE_CHECKING:
     from lamindb.models import Artifact, Collection, Schema, Transform
@@ -513,7 +513,7 @@ def describe_postgres(record):
     from ._django import get_artifact_or_run_with_related, get_collection_with_related
 
     model_name = record.__class__.__name__
-    msg = f"{colors.green(model_name)}{record_repr(record, include_foreign_keys=False).lstrip(model_name)}\n"
+    msg = f"{colors.green(model_name)}{record.__repr__(include_foreign_keys=False).lstrip(model_name)}\n"
     if record._state.db is not None and record._state.db != "default":
         msg += f"  {colors.italic('Database instance')}\n"
         msg += f"    slug: {record._state.db}\n"
@@ -543,7 +543,7 @@ def describe_postgres(record):
 
 def describe_sqlite(record):
     model_name = record.__class__.__name__
-    msg = f"{colors.green(model_name)}{record_repr(record, include_foreign_keys=False).lstrip(model_name)}\n"
+    msg = f"{colors.green(model_name)}{record.__repr__(include_foreign_keys=False).lstrip(model_name)}\n"
     if record._state.db is not None and record._state.db != "default":
         msg += f"  {colors.italic('Database instance')}\n"
         msg += f"    slug: {record._state.db}\n"
