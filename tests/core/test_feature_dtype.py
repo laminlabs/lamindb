@@ -68,27 +68,55 @@ def test_seralize_pandas_numpy_dtypes():
     assert serialize_dtype(series.dtype) == "int"
 
 
-def test_serialize_user():
-    feature = ln.Feature(
-        name="user_feat", dtype="cat[User]"
-    )  # calls parse_dtype() to verify
-    feature = ln.Feature(name="user_feat", dtype=ln.User)  # calls serialize_dtype()
+def test_serialize_user(ccaplog):
+    # correct way through Python object and serialize_dtype()
+    feature = ln.Feature(name="user_feat", dtype=ln.User)
+    assert feature.dtype == "cat[User]"
+    # legacy way through parse_dtype()
+    feature = ln.Feature(name="user_feat", dtype="cat[User]")
+    assert (
+        "rather than passing a string 'cat[User]' to dtype, pass a Python object"
+        in ccaplog.text
+    )
     assert feature.dtype == "cat[User]"
 
 
 def test_serialize_record_objects():
-    record_type_ist1 = ln.Record(name="Institute1", is_type=True).save()
-    record_type_dpt1 = ln.Record(
-        name="Department1", type=record_type_ist1, is_type=True
-    ).save()
-    record_type_lab = ln.Record(
-        name="Instrument", type=record_type_dpt1, is_type=True
-    ).save()
-    serialized_str = "cat[Record[Institute1[Department1[Instrument]]]]"
-    assert serialize_dtype(record_type_lab) == serialized_str
-    record_type_lab.delete(permanent=True)
-    record_type_dpt1.delete(permanent=True)
-    record_type_ist1.delete(permanent=True)
+    insitute_type = ln.Record(name="InstituteA", is_type=True)
+    with pytest.raises(ln.errors.InvalidArgument) as error:
+        serialize_dtype(insitute_type)
+    assert (
+        f"Cannot serialize unsaved objects. Save {insitute_type} via `.save()`."
+        in error.exconly()
+    )
+    insitute_type.save()
+    lab_type = ln.Record(name="LabB", type=insitute_type, is_type=True).save()
+    sample_type = ln.Record(name="Sample", type=lab_type, is_type=True).save()
+    serialized_str = "cat[Record[InstituteA[LabB[Sample]]]]"
+    assert serialize_dtype(sample_type) == serialized_str
+    with pytest.raises(ln.errors.IntegrityError) as error:
+        parse_dtype("cat[Record[Sample]]", check_exists=True)
+    assert (
+        "Error retrieving Record type with filter {'name': 'Sample', 'type__isnull': True} for field `.name`: Record matching query does not exist."
+        in error.exconly()
+    )
+    sample = ln.Record(name="sample").save()
+    with pytest.raises(ln.errors.InvalidArgument) as error:
+        parse_dtype("cat[Record[sample]]", check_exists=True)
+    assert (
+        "The resolved Record 'sample' for field `.name` is not a type: is_type is False."
+        in error.exconly()
+    )
+    with pytest.raises(ln.errors.InvalidArgument) as error:
+        serialize_dtype(sample)
+    assert (
+        "Cannot serialize non-type Record 'sample'. Only types (is_type=True) are allowed in dtypes."
+        in error.exconly()
+    )
+    sample_type.delete(permanent=True)
+    lab_type.delete(permanent=True)
+    insitute_type.delete(permanent=True)
+    sample.delete(permanent=True)
 
 
 def test_serialize_union_of_registries():
@@ -103,12 +131,6 @@ def test_serialize_with_field_information():
     assert serialize_dtype(bt.Gene.ensembl_gene_id) == serialized_str
     serialized_str = "cat[bionty.CellType.uid|bionty.CellLine.uid]"
     assert serialize_dtype([bt.CellType.uid, bt.CellLine.uid]) == serialized_str
-
-
-def test_serialize_with_additional_filters():
-    pass
-    # see parse_dtype
-    # see parse_dtype
 
 
 # -----------------------------------------------------------------------------
@@ -344,16 +366,18 @@ def test_cat_filters_incompatible_with_union_dtypes():
 
 
 def test_cat_filters_incompatible_with_nested_dtypes():
+    record = ln.Record(name="Customer", is_type=True).save()
     with pytest.raises(ValidationError) as exc_info:
         ln.Feature(
             name="test_feature",
-            dtype="cat[Record[Customer[SubCustomer]]]",
+            dtype="cat[Record[Customer]]",
             cat_filters={"source": "test"},
         )
     assert (
-        "cat_filters are incompatible with nested dtypes: 'cat[Record[Customer[SubCustomer]]]'"
+        "cat_filters are incompatible with nested dtypes: 'cat[Record[Customer]]'"
         in str(exc_info.value)
     )
+    record.delete(permanent=True)
 
 
 def test_parse_filter_string_basic():

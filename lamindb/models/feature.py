@@ -11,7 +11,7 @@ from django.conf import settings as django_settings
 from django.db import models
 from django.db.models import CASCADE, PROTECT
 from django.db.models.query_utils import DeferredAttribute
-from django.db.utils import IntegrityError
+from django.db.utils import IntegrityError as DjangoIntegrityError
 from lamin_utils import logger
 from lamindb_setup._init_instance import get_schema_module_name
 from lamindb_setup.core import deprecated
@@ -31,7 +31,13 @@ from lamindb.base.fields import (
     TextField,
 )
 from lamindb.base.types import Dtype, FieldAttr
-from lamindb.errors import DoesNotExist, FieldValidationError, ValidationError
+from lamindb.errors import (
+    DoesNotExist,
+    FieldValidationError,
+    IntegrityError,
+    InvalidArgument,
+    ValidationError,
+)
 
 from ..base.ids import base62_12
 from ._relations import dict_module_name_to_model_name
@@ -56,19 +62,17 @@ if TYPE_CHECKING:
 FEATURE_DTYPES = set(get_args(Dtype))
 
 
-def parse_dtype(dtype_str: str, is_param: bool = False) -> list[dict[str, Any]]:
+def parse_dtype(dtype_str: str, check_exists: bool = False) -> list[dict[str, Any]]:
     """Parses feature data type string into a structured list of components."""
     from .artifact import Artifact
 
     allowed_dtypes = FEATURE_DTYPES
-    if is_param:
-        allowed_dtypes.add("dict")
 
     # Handle list[...] types
     if dtype_str.startswith("list[") and dtype_str.endswith("]"):
         inner_dtype_str = dtype_str[5:-1]  # Remove "list[" and "]"
         # Recursively parse the inner type
-        inner_result = parse_dtype(inner_dtype_str, is_param)
+        inner_result = parse_dtype(inner_dtype_str)
         # Add "list": True to each component
         for component in inner_result:
             if isinstance(component, dict):
@@ -84,7 +88,9 @@ def parse_dtype(dtype_str: str, is_param: bool = False) -> list[dict[str, Any]]:
             registry_str_list = registries_str.split("|")
             for cat_single_dtype_str in registry_str_list:
                 single_result = parse_cat_dtype(
-                    cat_single_dtype_str, related_registries
+                    cat_single_dtype_str,
+                    related_registries=related_registries,
+                    check_exists=check_exists,
                 )
                 result.append(single_result)
     elif dtype_str not in allowed_dtypes:
@@ -94,10 +100,34 @@ def parse_dtype(dtype_str: str, is_param: bool = False) -> list[dict[str, Any]]:
     return result
 
 
+def get_record_type_from_nested_subtypes(
+    registry: Registry, subtypes_list: list[str], field_str: str
+) -> SQLRecord:
+    type_filters = {"name": subtypes_list[-1]}
+    if len(subtypes_list) > 1:
+        for i, nested_subtype in enumerate(reversed(subtypes_list[:-1])):
+            filter_key = f"{'type__' * (i + 1)}name"
+            type_filters[filter_key] = nested_subtype
+    else:
+        type_filters["type__isnull"] = True  # type: ignore
+    try:
+        type_record: SQLRecord = registry.get(**type_filters)
+    except Exception as e:
+        raise IntegrityError(
+            f"Error retrieving {registry.__name__} type with filter {type_filters} for field `.{field_str}`: {e}"
+        ) from e
+    if not type_record.is_type:
+        raise InvalidArgument(
+            f"The resolved {type_record.__class__.__name__} '{type_record.name}' for field `.{field_str}` is not a type: is_type is False."
+        )
+    return type_record
+
+
 def parse_cat_dtype(
     dtype_str: str,
     related_registries: dict[str, SQLRecord] | None = None,
     is_itype: bool = False,
+    check_exists: bool = False,
 ) -> dict[str, Any]:
     """Parses a categorical dtype string into its components (registry, field, subtypes)."""
     from .artifact import Artifact
@@ -108,7 +138,6 @@ def parse_cat_dtype(
 
     # Parse the string considering nested brackets
     parsed = parse_nested_brackets(dtype_str)
-
     registry_str = parsed["registry"]
     filter_str = parsed["filter_str"]
     field_str = parsed["field"]
@@ -136,18 +165,19 @@ def parse_cat_dtype(
         module = importlib.import_module(module_name)
         registry = getattr(module, class_name)
 
-    if parsed.get("subtypes_list"):
-        pass
-        # validate that the subtypes are records in the registry with is_type = True
-    if filter_str != "":
-        pass
-        # validate or process filter string
-    if field_str != "":
-        pass
-        # validate that field_str is an actual field of the module
-    else:
+    if field_str == "":
         field_str = registry._name_field if hasattr(registry, "_name_field") else "name"
+    assert hasattr(registry, field_str), f"{registry} has no field {field_str}"
 
+    if parsed.get("subtypes_list") and check_exists:
+        get_record_type_from_nested_subtypes(
+            registry,
+            parsed.get("subtypes_list"),  # type: ignore
+            field_str,
+        )
+    if filter_str != "":
+        # TODO: validate or process filter string
+        pass
     result = {
         "registry": registry,  # should be typed as CanCurate
         "registry_str": registry_str,
@@ -276,7 +306,7 @@ def extract_subtypes_and_filter(subtype_str: str) -> dict[str, Any]:
     Returns:
         Dictionary with subtypes_list and filter_str
     """
-    subtypes = []
+    subtypes: list[str] = []
     filter_str = ""
     current = subtype_str
 
@@ -375,10 +405,14 @@ def serialize_dtype(
             if isinstance(one_dtype, Registry):
                 dtype_str += one_dtype.__get_name_with_module__() + "|"
             elif isinstance(one_dtype, (ULabel, Record)):
-                one_dtype_name = one_dtype.__class__.__get_name_with_module__()
-                assert one_dtype.is_type, (  # noqa: S101
-                    f"{one_dtype_name} has to be a type if acting as dtype, {one_dtype} has `is_type` False"
-                )
+                if one_dtype._state.adding:
+                    raise InvalidArgument(
+                        f"Cannot serialize unsaved objects. Save {one_dtype} via `.save()`."
+                    )
+                if not one_dtype.is_type:
+                    raise InvalidArgument(
+                        f"Cannot serialize non-type {one_dtype.__class__.__name__} '{one_dtype.name}'. Only types (is_type=True) are allowed in dtypes."
+                    )
                 nested_string = f"[{one_dtype.name}]"
                 for t in one_dtype.query_types():
                     nested_string = f"[{t.name}{nested_string}]"
@@ -510,7 +544,7 @@ def resolve_relation_filters(
     return resolved
 
 
-def process_init_feature_param(args, kwargs, is_param: bool = False):
+def process_init_feature_param(args, kwargs):
     # now we proceed with the user-facing constructor
     if len(args) != 0:
         raise ValueError("Only keyword args allowed")
@@ -535,8 +569,7 @@ def process_init_feature_param(args, kwargs, is_param: bool = False):
     kwargs["space"] = space
     kwargs["space_id"] = space_id
     kwargs["_skip_validation"] = _skip_validation
-    if not is_param:
-        kwargs["description"] = description
+    kwargs["description"] = description
     # cast dtype
     if dtype is None and not is_type:
         raise ValidationError(
@@ -547,8 +580,11 @@ def process_init_feature_param(args, kwargs, is_param: bool = False):
         if not isinstance(dtype, str):
             dtype_str = serialize_dtype(dtype)
         else:
+            logger.warning(
+                f"rather than passing a string '{dtype}' to dtype, pass a Python object"
+            )
             dtype_str = dtype
-            parse_dtype(dtype_str, is_param=is_param)
+            parse_dtype(dtype_str, check_exists=True)
         kwargs["dtype"] = dtype_str
     return kwargs
 
@@ -1120,10 +1156,9 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             dataset = {"disease": pd.Categorical([pd.NA, "asthma"])}
             df = pd.DataFrame(dataset)
             curator = ln.curators.DataFrameCurator(df, schema)
-            try:
+            with pytest.raises(ln.errors.ValidationError) as error:
                 curator.validate()
-            except ln.errors.ValidationError as e:
-                assert str(e).startswith("non-nullable series 'disease' contains null values")
+            assert str(error.value).startswith("non-nullable series 'disease' contains null values")
 
         """
         if self._aux is not None and "af" in self._aux and "1" in self._aux["af"]:
@@ -1227,7 +1262,7 @@ class FeatureValue(SQLRecord, TracksRun):
                 cls.objects.create(feature=feature, value=value, hash=hash),
                 False,
             )
-        except IntegrityError:
+        except DjangoIntegrityError:
             return cls.objects.get(feature=feature, hash=hash), True
 
 
