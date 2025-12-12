@@ -57,9 +57,7 @@ Scientists & engineers in pharma, biotech, and academia, including:
 
 Copy [summary.md](https://docs.lamin.ai/summary.md) into an LLM chat and let AI explain or read the [docs](https://docs.lamin.ai).
 
-## Setup
-
-<!-- copied from quick-setup-lamindb.md -->
+## Quickstart
 
 Install the Python package:
 
@@ -67,19 +65,61 @@ Install the Python package:
 pip install lamindb
 ```
 
-Create a LaminDB instance:
+### Reading data
 
-```shell
-lamin init --modules bionty --storage ./quickstart-data  # or s3://my-bucket, gs://my-bucket
+You can browse instances with datasets at [lamin.ai/explore](https://lamin.ai/explore), e.g., a mirror of `CellXGene` at [laminlabs/cellxgene](https://lamin.ai/laminlabs/cellxgene). To query it:
+
+```python
+db = ln.QueryDB("laminlabs/cellxgene")  # a database object for queries/reads
+df = db.Artifact.to_dataframe()         # a dataframe for the datasets (& models) in an instance
 ```
 
-Or if you have write access to an instance, connect to it:
+To query [one](https://lamin.ai/laminlabs/cellxgene/artifact/BnMwC3KZz0BuKftR) that is annotated with Alzheimer's disease:
+
+```python
+artifact = db.Artifact.get("BnMwC3KZz0BuKftR")  # a metadata object with context & access to a dataset
+```
+
+Metadata is captured in fields:
+
+```python
+artifact.size        # the file/folder size in bytes
+artifact.created_at  # the creation timestamp
+# etc.
+artifact.describe()  # describe metadata
+```
+
+Here is how to access the content of the artifact:
+
+```python
+local_path = artifact.cache()  # return a local path from a cache
+adata = artifact.load()        # load object into memory
+accessor = artifact.open()     # return a streaming accessor
+```
+
+Here is how to create a lookup object to auto-complete diseases and then filter artifacts:
+
+```python
+diseases = db.bionty.Disease.lookup()
+df = db.Artifact.filter(diseases=diseases.alzheimer_disease).to_dataframe()
+```
+
+This is how you can query 14 built-in registries in `lamindb` (`Artifact`, `Storage`, `Feature`, `Record`, etc.) and 13 biological entities in `bionty` (`Disease`, `CellType`, `Tissue`, etc.) mapping >20 public ontologies.
+
+### Writing data
+
+If you have collaborator access or created an instance at [lamin.ai](https://lamin.ai), run:
 
 ```shell
+lamin login
 lamin connect account/name
 ```
 
-## Quickstart
+If you want to work with a local SQLite instance, run:
+
+```shell
+lamin init --storage ./quickstart-data --modules bionty
+```
 
 ### Lineage
 
@@ -103,26 +143,15 @@ artifact.view_lineage()
 
 <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/EkQATsQL5wqC95Wj0006.png" width="200">
 
-You'll know how that artifact was created and what it's used for. Basic metadata was captured in fields:
+You'll know how that artifact was created and what it's used for.
 
 ```python
-artifact.size        # the file/folder size in bytes
-artifact.created_at  # the creation timestamp
-# etc.
-artifact.describe()  # describe metadata
+artifact.describe()
 ```
 
 <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/BOTCBgHDAvwglN3U0004.png" width="550">
 
-Here is how to access the content of the artifact:
-
-```python
-local_path = artifact.cache()  # return a local path from a cache
-object = artifact.load()       # if available for the format, load object into memory
-accessor = artifact.open()     # if available for the format, return a streaming accessor
-```
-
-And here is how to access its data lineage context:
+Here is how to access the data lineage context:
 
 ```python
 run = artifact.run                  # get the run record
@@ -144,19 +173,6 @@ transform.describe()
 
 <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/JYwmHBbgf2MRCfgL0000.png" width="550" />
 </details>
-
-### Sharing
-
-You can share datasets across LaminDB instances.
-
-For example, explore the artifacts in [laminlabs/cellxgene](https://lamin.ai/laminlabs/cellxgene/artifacts).
-To query & load [one](https://lamin.ai/laminlabs/cellxgene/artifact/BnMwC3KZz0BuKftR) that is annotated with Alzheimer's disease:
-
-```python
-
-cellxgene_artifacts = ln.Artifact.connect("laminlabs/cellxgene")  # access artifacts in the laminlabs/cellxgene instance
-adata = cellxgene_artifacts.get("BnMwC3KZz0BuKftR").load()        # load a dataset into memory
-```
 
 ### Lake: annotation & queries
 

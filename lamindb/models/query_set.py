@@ -8,7 +8,6 @@ Query sets & managers
 .. autoclass:: QuerySet
 .. autoclass:: ArtifactSet
 .. autoclass:: QueryManager
-.. autoclass:: QueryDB
 .. autoclass:: lamindb.models.query_set.BiontyQueryDB
 .. autoclass:: lamindb.models.query_set.WetlabQueryDB
 
@@ -838,17 +837,19 @@ def reshape_annotate_result(
                 # pandera expects timezone-naive datetime objects, and hence,
                 # we need to localize with None
                 result_encoded[feature.name] = pd.to_datetime(
-                    result_encoded[feature.name],
-                    format="ISO8601",
-                    utc=True
+                    result_encoded[feature.name], format="ISO8601", utc=True
                 ).dt.tz_localize(None)
             if feature.dtype == "date":
                 # see comments for datetime
-                result_encoded[feature.name] = pd.to_datetime(
-                    result_encoded[feature.name],
-                    format="ISO8601",
-                    utc=True,
-                ).dt.tz_localize(None).dt.date
+                result_encoded[feature.name] = (
+                    pd.to_datetime(
+                        result_encoded[feature.name],
+                        format="ISO8601",
+                        utc=True,
+                    )
+                    .dt.tz_localize(None)
+                    .dt.date
+                )
             if feature.dtype == "bool":
                 result_encoded[feature.name] = result_encoded[feature.name].astype(
                     "boolean"

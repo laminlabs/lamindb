@@ -1,17 +1,32 @@
 """A data framework for biology.
 
-Query & connect to an instance
-==============================
+If you just want to read data from a LaminDB instance, use QueryDB, no setup required::
 
-Query and connect to instances.
+   import lamindb as ln
+
+   db = ln.QueryDB("laminlabs/cellxgene")
+
+Here is the reference.
 
 .. autosummary::
    :toctree: .
 
    QueryDB
 
-Use `lamin connect` CLI command to connect to an instance for writes & tracking.
-QueryDB is solely to query instances.
+If you want to write data to a LaminDB instance, you need collaborator access, run:
+
+```shell
+lamin login
+lamin connect account/name
+```
+
+You can create an instance at [lamin.ai](https://lamin.ai) similar to how you create repo on GitHub.
+If you just want to work with a local SQLite instance, run:
+
+```shell
+lamin init --storage ./quickstart-data --modules bionty
+```
+
 
 Lineage
 =======
