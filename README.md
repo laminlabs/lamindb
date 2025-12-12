@@ -32,7 +32,7 @@ Highlights:
 - **FAIR datasets** → validate & annotate `DataFrame`, `AnnData`, `SpatialData`, `parquet`, `zarr`, …
 - **LIMS & ELN** → manage experimental metadata, ontologies & markdown notes
 - **unified access** → storage locations (local, S3, GCP, …), SQL databases (Postgres, SQLite) & ontologies
-- **reproducible** → auto-track source code & compute environments, auto-version data & code
+- **reproducible** → auto-track source code & compute environments, auto-version data, code & reports
 - **zero lock-in & scalable** → runs in your infrastructure; not a client for a rate-limited REST API
 - **integrations** → [vitessce](https://docs.lamin.ai/vitessce), [nextflow](https://docs.lamin.ai/nextflow), [redun](https://docs.lamin.ai/redun), and [more](https://docs.lamin.ai/integrations)
 - **extendable** → create custom plug-ins based on the Django ORM
