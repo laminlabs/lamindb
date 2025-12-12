@@ -547,6 +547,9 @@ def process_init_feature_param(args, kwargs, is_param: bool = False):
         if not isinstance(dtype, str):
             dtype_str = serialize_dtype(dtype)
         else:
+            logger.warning(
+                f"rather than passing a string '{dtype}' to dtype, pass a Python object"
+            )
             dtype_str = dtype
             parse_dtype(dtype_str, is_param=is_param)
         kwargs["dtype"] = dtype_str

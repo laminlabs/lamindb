@@ -68,11 +68,16 @@ def test_seralize_pandas_numpy_dtypes():
     assert serialize_dtype(series.dtype) == "int"
 
 
-def test_serialize_user():
-    feature = ln.Feature(
-        name="user_feat", dtype="cat[User]"
-    )  # calls parse_dtype() to verify
-    feature = ln.Feature(name="user_feat", dtype=ln.User)  # calls serialize_dtype()
+def test_serialize_user(ccaplog):
+    # correct way through Python object and serialize_dtype()
+    feature = ln.Feature(name="user_feat", dtype=ln.User)
+    assert feature.dtype == "cat[User]"
+    # legacy way through parse_dtype()
+    feature = ln.Feature(name="user_feat", dtype="cat[User]")
+    assert (
+        "rather than passing a string 'cat[User]' to dtype, pass a Python object"
+        in ccaplog.text
+    )
     assert feature.dtype == "cat[User]"
 
 
@@ -103,12 +108,6 @@ def test_serialize_with_field_information():
     assert serialize_dtype(bt.Gene.ensembl_gene_id) == serialized_str
     serialized_str = "cat[bionty.CellType.uid|bionty.CellLine.uid]"
     assert serialize_dtype([bt.CellType.uid, bt.CellLine.uid]) == serialized_str
-
-
-def test_serialize_with_additional_filters():
-    pass
-    # see parse_dtype
-    # see parse_dtype
 
 
 # -----------------------------------------------------------------------------
