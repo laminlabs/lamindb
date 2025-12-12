@@ -112,19 +112,27 @@ This is how you can query 14 built-in registries in `lamindb` (`Artifact`, `Stor
 
 ### Setup
 
-To write data, you need to configure a writable LaminDB instance.
-If created an instance at [lamin.ai](https://lamin.ai) or you have collaborator access, run:
+To write data, you need to connect a writable LaminDB instance.
+If you created an instance at [lamin.ai](https://lamin.ai) or collaborate on one, run:
 
 ```shell
 lamin login
 lamin connect account/name
 ```
 
-If you prefer to work with a local SQLite instance, akin to a local git repo, run:
+If you prefer to work with a local SQLite instance, run:
 
 ```shell
 lamin init --storage ./quickstart-data --modules bionty
 ```
+
+To now save (upload) a file or folder from the command line, run:
+
+```shell
+lamin save myfile.txt --key examples/myfile.txt
+```
+
+In a Python session, LaminDB will now auto-connect upon import.
 
 ### Lineage
 
@@ -332,14 +340,6 @@ import bionty as bt
 
 bt.CellType.import_source()  # import the default ontology
 bt.CellType.to_dataframe()   # your extendable cell type ontology in a simple registry
-```
-
-### CLI
-
-Most of the functionality that's available in Python is also available on the command line (and in `R` through `LaminR`). For instance, to upload a file or folder, run:
-
-```shell
-lamin save myfile.txt --key examples/myfile.txt
 ```
 
 ### Workflow managers
