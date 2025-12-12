@@ -2,7 +2,7 @@
 
 .. autodecorator:: doc_args
 .. autodecorator:: deprecated
-.. autodecorator:: class_or_instance_method
+.. autodecorator:: class_and_instance_method
 
 """
 
@@ -11,7 +11,7 @@ from functools import wraps
 from lamindb_setup.core import deprecated, doc_args
 
 
-class class_or_instance_method:
+class class_and_instance_method:
     """Decorator to define a method that works both as class and instance method."""
 
     def __init__(self, func):
@@ -35,4 +35,4 @@ class class_or_instance_method:
         return wrapper
 
 
-__all__ = ["doc_args", "deprecated", "class_or_instance_method"]
+__all__ = ["doc_args", "deprecated", "class_and_instance_method"]

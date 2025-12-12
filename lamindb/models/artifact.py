@@ -33,7 +33,7 @@ from lamindb.base.fields import (
     ForeignKey,
     TextField,
 )
-from lamindb.base.utils import class_or_instance_method, deprecated
+from lamindb.base.utils import class_and_instance_method, deprecated
 from lamindb.errors import FieldValidationError, NoWriteAccess, UnknownStorageLocation
 from lamindb.models.query_set import QuerySet, SQLRecordList
 
@@ -2917,7 +2917,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             del self._local_filepath
         return self
 
-    @class_or_instance_method
+    @class_and_instance_method
     def describe(cls_or_self, return_str: bool = False) -> None | str:
         """Describe record including relations.
 
