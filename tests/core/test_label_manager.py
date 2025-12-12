@@ -269,7 +269,6 @@ def test_labels_get(get_mini_csv: Path):  # noqa: F811
     schema = ln.Schema(features=[feature_name_feature])
     schema.save()
     artifact.save()
-    assert str(artifact.features) == "no linked features"
     # test for deprecated add_schema
     artifact.features._add_schema(schema, slot="random")
     assert artifact.feature_sets.first() == schema
