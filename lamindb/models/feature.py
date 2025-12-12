@@ -11,6 +11,7 @@ from django.conf import settings as django_settings
 from django.db import models
 from django.db.models import CASCADE, PROTECT
 from django.db.models.query_utils import DeferredAttribute
+from django.db.utils import IntegrityError as DjangoIntegrityError
 from lamin_utils import logger
 from lamindb_setup._init_instance import get_schema_module_name
 from lamindb_setup.core import deprecated
@@ -1261,7 +1262,7 @@ class FeatureValue(SQLRecord, TracksRun):
                 cls.objects.create(feature=feature, value=value, hash=hash),
                 False,
             )
-        except IntegrityError:
+        except DjangoIntegrityError:
             return cls.objects.get(feature=feature, hash=hash), True
 
 
