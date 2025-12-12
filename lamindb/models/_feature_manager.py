@@ -986,13 +986,13 @@ class FeatureManager:
         registry_to_features = defaultdict(list)
         for feature_record in feature_records:
             parsed_dtype = parse_dtype(feature_record.dtype)
-            if len(parsed_dtype) > 0:
+            if len(parsed_dtype) > 0:  # categorical features
                 registry = parsed_dtype[0]["registry"]
                 registry_name = registry.__get_name_with_module__()
                 registry_to_features[(registry, registry_name)].append(
                     feature_record.id
                 )
-            else:
+            else:  # non-categorical features
                 registry_to_features[(FeatureValue, "FeatureValue")].append(
                     feature_record.id
                 )
@@ -1007,9 +1007,18 @@ class FeatureManager:
                     "feature_id__in": feature_ids,
                     f"links_{host_name.lower()}__{host_name.lower()}_id": host_id,
                 }
-                feature_values_qs = (
-                    registry.objects.filter(**filters).distinct().list("value")
+                dtype_values = (
+                    registry.objects.filter(**filters)
+                    .distinct()
+                    .values_list("feature__dtype", "value")
                 )
+                feature_values_qs = []
+                for dtype, value in dtype_values:
+                    if dtype == "date":
+                        value = pd.to_datetime(value, format="ISO8601").date()
+                    elif dtype == "datetime":
+                        value = datetime.fromisoformat(value)
+                    feature_values_qs.append(value)
             else:
                 # determine links name once per registry
                 links_value_name = (
