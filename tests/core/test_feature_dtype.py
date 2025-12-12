@@ -100,9 +100,27 @@ def test_serialize_record_objects():
     assert serialize_dtype(record_type_lab) == serialized_str
     with pytest.raises(ln.errors.IntegrityError) as error:
         parse_dtype("cat[Record[Instrument]]", check_exists=True)
+    assert (
+        "Error retrieving Record type with filter {'name': 'Instrument', 'type__isnull': True} for field `.name`: Record matching query does not exist."
+        in error.exconly()
+    )
+    instrument = ln.Record(name="instrument").save()
+    with pytest.raises(ln.errors.InvalidArgument) as error:
+        parse_dtype("cat[Record[instrument]]", check_exists=True)
+    assert (
+        "The resolved Record 'instrument' for field `.name` is not a type: is_type is False."
+        in error.exconly()
+    )
+    with pytest.raises(ln.errors.InvalidArgument) as error:
+        serialize_dtype(instrument)
+    assert (
+        "Cannot serialize non-type Record 'instrument'. Only types (is_type=True) are allowed in dtypes."
+        in error.exconly()
+    )
     record_type_lab.delete(permanent=True)
     record_type_dpt1.delete(permanent=True)
     record_type_ist1.delete(permanent=True)
+    instrument.delete(permanent=True)
 
 
 def test_serialize_union_of_registries():

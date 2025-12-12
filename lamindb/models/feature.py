@@ -11,7 +11,6 @@ from django.conf import settings as django_settings
 from django.db import models
 from django.db.models import CASCADE, PROTECT
 from django.db.models.query_utils import DeferredAttribute
-from django.db.utils import IntegrityError
 from lamin_utils import logger
 from lamindb_setup._init_instance import get_schema_module_name
 from lamindb_setup.core import deprecated
@@ -34,6 +33,7 @@ from lamindb.base.types import Dtype, FieldAttr
 from lamindb.errors import (
     DoesNotExist,
     FieldValidationError,
+    IntegrityError,
     InvalidArgument,
     ValidationError,
 )
@@ -117,7 +117,7 @@ def get_record_type_from_nested_subtypes(
         ) from e
     if not type_record.is_type:
         raise InvalidArgument(
-            f"The resolved record {type_record} for field `.{field_str}` is not a type record (is_type=False)."
+            f"The resolved {type_record.__class__.__name__} '{type_record.name}' for field `.{field_str}` is not a type: is_type is False."
         )
     return type_record
 
@@ -164,6 +164,10 @@ def parse_cat_dtype(
         module = importlib.import_module(module_name)
         registry = getattr(module, class_name)
 
+    if field_str == "":
+        field_str = registry._name_field if hasattr(registry, "_name_field") else "name"
+    assert hasattr(registry, field_str), f"{registry} has no field {field_str}"
+
     if parsed.get("subtypes_list") and check_exists:
         get_record_type_from_nested_subtypes(
             registry,
@@ -171,14 +175,8 @@ def parse_cat_dtype(
             field_str,
         )
     if filter_str != "":
+        # TODO: validate or process filter string
         pass
-        # validate or process filter string
-    if field_str != "":
-        pass
-        # validate that field_str is an actual field of the module
-    else:
-        field_str = registry._name_field if hasattr(registry, "_name_field") else "name"
-
     result = {
         "registry": registry,  # should be typed as CanCurate
         "registry_str": registry_str,
@@ -410,10 +408,11 @@ def serialize_dtype(
                     raise InvalidArgument(
                         f"Cannot serialize unsaved objects. Save {one_dtype} via `.save()`."
                     )
-                one_dtype_name = one_dtype.__class__.__get_name_with_module__()
-                assert one_dtype.is_type, (  # noqa: S101
-                    f"{one_dtype_name} has to be a type if acting as dtype, {one_dtype} has `is_type` False"
-                )
+                one_dtype.__class__.__get_name_with_module__()
+                if not one_dtype.is_type:
+                    raise InvalidArgument(
+                        f"Cannot serialize non-type {one_dtype.__class__.__name__} '{one_dtype.name}'. Only types (is_type=True) are allowed in dtypes."
+                    )
                 nested_string = f"[{one_dtype.name}]"
                 for t in one_dtype.query_types():
                     nested_string = f"[{t.name}{nested_string}]"
