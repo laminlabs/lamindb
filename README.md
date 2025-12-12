@@ -70,6 +70,8 @@ pip install lamindb
 You can browse instances with datasets at [lamin.ai/explore](https://lamin.ai/explore), e.g., a mirror of `CellXGene` at [laminlabs/cellxgene](https://lamin.ai/laminlabs/cellxgene). To query it:
 
 ```python
+import lamindb as ln
+
 db = ln.QueryDB("laminlabs/cellxgene")  # a database object for queries/reads
 df = db.Artifact.to_dataframe()         # a dataframe for the datasets (& models) in an instance
 ```
