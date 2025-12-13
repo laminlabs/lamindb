@@ -1023,7 +1023,12 @@ class BasicQuerySet(models.QuerySet):
         order_by: str | None = "-id",
     ) -> pd.DataFrame:
         """{}"""  # noqa: D415
-        if self.model.__name__ == "Artifact" and "kind" not in str(self.query.where):
+        if (
+            self.model.__name__ == "Artifact"
+            and "kind" not in str(self.query.where)
+            and self.query.low_mark is None
+            and self.query.high_mark is None
+        ):
             subset = self.exclude(**{"kind__startswith": "__lamindb"})
         else:
             subset = self
