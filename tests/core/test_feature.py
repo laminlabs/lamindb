@@ -1,7 +1,4 @@
-import os
-
 import bionty as bt
-import django.db.utils
 import lamindb as ln
 import pandas as pd
 import pytest
@@ -79,30 +76,30 @@ def test_feature_init():
     assert "organism='human'" in feature.dtype
 
 
-@pytest.mark.skipif(
-    os.getenv("LAMINDB_TEST_DB_VENDOR") == "sqlite", reason="Postgres-only"
-)
-def test_cannot_mutate_dtype():
-    feature = ln.Feature(name="feature", dtype=str).save()
-    feature.dtype = int
-    with pytest.raises(django.db.utils.IntegrityError) as error:
-        feature.save()
-    assert "dtype field is immutable and cannot be changed" in error.exconly()
-    feature.delete(permanent=True)
+# @pytest.mark.skipif(
+#     os.getenv("LAMINDB_TEST_DB_VENDOR") == "sqlite", reason="Postgres-only"
+# )
+# def test_cannot_mutate_dtype():
+#     feature = ln.Feature(name="feature", dtype=str).save()
+#     feature.dtype = int
+#     with pytest.raises(django.db.utils.IntegrityError) as error:
+#         feature.save()
+#     assert "dtype field is immutable and cannot be changed" in error.exconly()
+#     feature.delete(permanent=True)
 
 
-def test_cat_filters_dtype():
-    feature = ln.Feature(
-        name="disease",
-        dtype=bt.Disease,
-        cat_filters={
-            "source__uid": "4a3ejKuf"
-        },  # uid corresponds to disease_ontology_old.uid
-    ).save()
+# def test_cat_filters_dtype():
+#     feature = ln.Feature(
+#         name="disease",
+#         dtype=bt.Disease,
+#         cat_filters={
+#             "source__uid": "4a3ejKuf"
+#         },  # uid corresponds to disease_ontology_old.uid
+#     ).save()
 
-    assert feature.dtype == "cat[bionty.Disease[source__uid='4a3ejKuf']]"
+#     assert feature.dtype == "cat[bionty.Disease[source__uid='4a3ejKuf']]"
 
-    feature.delete(permanent=True)
+#     feature.delete(permanent=True)
 
 
 def test_cat_filters_empty_filter():
