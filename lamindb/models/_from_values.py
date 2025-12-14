@@ -5,6 +5,8 @@ from typing import TYPE_CHECKING
 import pandas as pd
 from lamin_utils import colors, logger
 
+from ..errors import ValidationError
+
 if TYPE_CHECKING:
     from lamindb.base.types import FieldAttr, ListLike
 
@@ -384,11 +386,15 @@ def get_organism_record_from_field(  # type: ignore
         and field.field.name == "ensembl_gene_id"
         and len(values) > 0
         and organism is None
-    ):  # type: ignore
+    ):
         # pass the first ensembl id that starts with ENS to infer organism
-        return infer_organism_from_ensembl_id(
-            next((i for i in values if i.startswith("ENS")), ""), using_key
-        )  # type: ignore
+        first_ensembl = next((i for i in values if i.startswith("ENS")), None)
+        if first_ensembl is not None:
+            return infer_organism_from_ensembl_id(first_ensembl, using_key)
+        else:
+            raise ValidationError(
+                "Cannot infer organism from ensembl_gene_id values, none of the values start with 'ENS'."
+            )
 
     return create_or_get_organism_record(
         organism=organism, registry=registry, field=field
