@@ -194,7 +194,26 @@ transform.describe()
 <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/JYwmHBbgf2MRCfgL0000.png" width="550" />
 </details>
 
-### Lake: annotation & queries
+### Lake: labeling & queries by fields
+
+You can label an artifact by running:
+
+```python
+my_label = ln.ULabel(name="My label").save()   # a universal label
+project = ln.Project(name="My project").save() # a project label
+artifact.ulabels.add(my_label)
+artifact.ulabels.add(project)
+```
+
+Query for it:
+
+```python
+ln.Artifact.filter(ulabels=my_label, projects=project).to_dataframe()
+```
+
+Note: The query syntax for `DB` objects and for your default database is the same.
+
+### Lake: rich annotation & queries by features
 
 You can annotate datasets and samples with features. Let's define some:
 
