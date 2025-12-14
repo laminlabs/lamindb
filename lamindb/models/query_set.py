@@ -1026,8 +1026,10 @@ class BasicQuerySet(models.QuerySet):
         if (
             self.model.__name__ == "Artifact"
             and "kind" not in str(self.query.where)
-            and self.query.low_mark is None
-            and self.query.high_mark is None
+            and self.query.low_mark
+            == 0  # this should be 0, not None, it represent OFFSET = 0
+            and self.query.high_mark
+            is None  # this should be None, it represent _no_ LIMIT
         ):
             subset = self.exclude(**{"kind__startswith": "__lamindb"})
         else:

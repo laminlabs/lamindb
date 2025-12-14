@@ -65,35 +65,27 @@ Install the Python package:
 pip install lamindb
 ```
 
-### Reading data
+### Query databases
 
-You can browse instances with datasets at [lamin.ai/explore](https://lamin.ai/explore), e.g., a mirror of `CellXGene` at [laminlabs/cellxgene](https://lamin.ai/laminlabs/cellxgene). To query it:
+Browse databases at [lamin.ai/explore](https://lamin.ai/explore), e.g., [lamin.ai/laminlabs/cellxgene](https://lamin.ai/laminlabs/cellxgene). To query it:
 
 ```python
 import lamindb as ln
 
-db = ln.DB("laminlabs/cellxgene")  # a database object for queries/reads
-df = db.Artifact.to_dataframe()         # a dataframe for the datasets (& models) in an instance
+db = ln.DB("laminlabs/cellxgene")  # a database object for queries
+df = db.Artifact.to_dataframe()    # a dataframe listing datasets & models
 ```
 
-To query [one](https://lamin.ai/laminlabs/cellxgene/artifact/BnMwC3KZz0BuKftR) that is annotated with Alzheimer's disease:
+Let's get [a dataset](https://lamin.ai/laminlabs/cellxgene/artifact/BnMwC3KZz0BuKftR) for Alzheimer's disease:
 
 ```python
-artifact = db.Artifact.get("BnMwC3KZz0BuKftR")  # a metadata object with context & access to a dataset
-```
-
-Metadata is captured in fields:
-
-```python
-artifact.size        # the file/folder size in bytes
-artifact.created_at  # the creation timestamp
-# etc.
-artifact.describe()  # describe metadata
+artifact = db.Artifact.get("BnMwC3KZz0BuKftR")  # a metadata object for a dataset
+artifact.describe()                             # describe metadata
 ```
 
 <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/mxlUQiRLMU4Zos6k0000.png" width="550">
 
-Here is how to access the content of the artifact:
+Access the content of the artifact via:
 
 ```python
 local_path = artifact.cache()  # return a local path from a cache
@@ -101,42 +93,56 @@ adata = artifact.load()        # load object into memory
 accessor = artifact.open()     # return a streaming accessor
 ```
 
-Here is how to create a lookup object to auto-complete diseases and then filter artifacts:
+If you want to query other types of entities, e.g., diseases, here is how to do it:
 
 ```python
-diseases = db.bionty.Disease.lookup()
-df = db.Artifact.filter(diseases=diseases.alzheimer_disease).to_dataframe()
+diseases = db.bionty.Disease.lookup()    # a lookup object to auto-complete diseases
+df = db.Artifact.filter(
+    diseases=diseases.alzheimer_disease  # filter by fields
+).to_dataframe()
 ```
 
-This is how you can query 14 built-in registries in `lamindb` (`Artifact`, `Storage`, `Feature`, `Record`, etc.) and 13 biological entities in `bionty` (`Disease`, `CellType`, `Tissue`, etc.) mapping >20 public ontologies.
+This is how you can query 14 built-in registries in `lamindb` (`Artifact`, `Storage`, `Feature`, `Record`, etc.) and 13 biological entities in `bionty` (`Disease`, `CellType`, `Tissue`, etc.) mapping >20 public ontologies. To learn what you can query by, call:
 
-### Setup
+```python
+db.Artifact.describe()
+```
 
-To write data, you need to connect a writable LaminDB instance.
-If you created an instance at [lamin.ai](https://lamin.ai) or collaborate on one, run:
+### Configure your database
+
+You can create a LaminDB instance at [lamin.ai](https://lamin.ai) and invite collaborators.
+To connect to a remote instance, run:
 
 ```shell
 lamin login
 lamin connect account/name
 ```
 
-If you prefer to work with a local SQLite instance, run:
+If you prefer to work with a local SQLite database (no login required), run this instead:
 
 ```shell
 lamin init --storage ./quickstart-data --modules bionty
 ```
 
-To now save (upload) a file or folder from the command line, run:
+On the terminal and in a Python session, LaminDB will now auto-connect.
+
+### CLI
+
+To save a file or folder from the command line, run:
 
 ```shell
 lamin save myfile.txt --key examples/myfile.txt
 ```
 
-In a Python session, LaminDB will now auto-connect upon import.
+To load the file, run:
+
+```shell
+lamin load --key examples/myfile.txt
+```
 
 ### Lineage
 
-Create a dataset while tracking source code, inputs, outputs, logs, and environment:
+To create a dataset while tracking source code, inputs, outputs, logs, and environment:
 
 ```python
 import lamindb as ln
@@ -188,7 +194,26 @@ transform.describe()
 <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/JYwmHBbgf2MRCfgL0000.png" width="550" />
 </details>
 
-### Lake: annotation & queries
+### Lake: labeling & queries by fields
+
+You can label an artifact by running:
+
+```python
+my_label = ln.ULabel(name="My label").save()   # a universal label
+project = ln.Project(name="My project").save() # a project label
+artifact.ulabels.add(my_label)
+artifact.ulabels.add(project)
+```
+
+Query for it:
+
+```python
+ln.Artifact.filter(ulabels=my_label, projects=project).to_dataframe()
+```
+
+Note: The query syntax for `DB` objects and for your default database is the same.
+
+### Lake: rich annotation & queries by features
 
 You can annotate datasets and samples with features. Let's define some:
 
