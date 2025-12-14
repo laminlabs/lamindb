@@ -202,7 +202,7 @@ You can label an artifact by running:
 my_label = ln.ULabel(name="My label").save()   # a universal label
 project = ln.Project(name="My project").save() # a project label
 artifact.ulabels.add(my_label)
-artifact.ulabels.add(project)
+artifact.projects.add(project)
 ```
 
 Query for it:
