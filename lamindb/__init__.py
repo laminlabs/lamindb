@@ -10,12 +10,12 @@ If you just want to *read* data from a LaminDB instance, use :class:`~lamindb.DB
 
    db = ln.DB("laminlabs/cellxgene")
 
-To *write* data, you need to connect a writable instance.
-If you created an instance at `lamin.ai <https://lamin.ai>`__ or collaborate on one, run::
+To *write* data, connect to a writable instance::
 
    lamin login
    lamin connect account/name
 
+You can create an instance at `lamin.ai <https://lamin.ai>`__ and invite collaborators.
 If you prefer to work with a local SQLite instance, run::
 
     lamin init --storage ./quickstart-data --modules bionty

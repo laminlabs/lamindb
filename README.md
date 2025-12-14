@@ -65,35 +65,25 @@ Install the Python package:
 pip install lamindb
 ```
 
-### Reading data
-
-You can browse instances with datasets at [lamin.ai/explore](https://lamin.ai/explore), e.g., a mirror of `CellXGene` at [laminlabs/cellxgene](https://lamin.ai/laminlabs/cellxgene). To query it:
+Browse databases at [lamin.ai/explore](https://lamin.ai/explore), e.g., a mirror of `CellXGene` at [laminlabs/cellxgene](https://lamin.ai/laminlabs/cellxgene). To query it:
 
 ```python
 import lamindb as ln
 
-db = ln.DB("laminlabs/cellxgene")  # a database object for queries/reads
-df = db.Artifact.to_dataframe()         # a dataframe for the datasets (& models) in an instance
+db = ln.DB("laminlabs/cellxgene")  # a database object for queries
+df = db.Artifact.to_dataframe()    # a dataframe listing datasets & models
 ```
 
-To query [one](https://lamin.ai/laminlabs/cellxgene/artifact/BnMwC3KZz0BuKftR) that is annotated with Alzheimer's disease:
+Let's get [a dataset](https://lamin.ai/laminlabs/cellxgene/artifact/BnMwC3KZz0BuKftR) for Alzheimer's disease:
 
 ```python
-artifact = db.Artifact.get("BnMwC3KZz0BuKftR")  # a metadata object with context & access to a dataset
-```
-
-Metadata is captured in fields:
-
-```python
-artifact.size        # the file/folder size in bytes
-artifact.created_at  # the creation timestamp
-# etc.
-artifact.describe()  # describe metadata
+artifact = db.Artifact.get("BnMwC3KZz0BuKftR")  # a metadata object for a dataset
+artifact.describe()                             # describe metadata
 ```
 
 <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/mxlUQiRLMU4Zos6k0000.png" width="550">
 
-Here is how to access the content of the artifact:
+Access the content of the artifact via:
 
 ```python
 local_path = artifact.cache()  # return a local path from a cache
@@ -101,14 +91,20 @@ adata = artifact.load()        # load object into memory
 accessor = artifact.open()     # return a streaming accessor
 ```
 
-Here is how to create a lookup object to auto-complete diseases and then filter artifacts:
+If you want to query other types of entities, e.g., diseases, here is how to do it:
 
 ```python
-diseases = db.bionty.Disease.lookup()
-df = db.Artifact.filter(diseases=diseases.alzheimer_disease).to_dataframe()
+diseases = db.bionty.Disease.lookup()    # a lookup object to auto-complete diseases
+df = db.Artifact.filter(
+    diseases=diseases.alzheimer_disease  # filter by fields
+).to_dataframe()
 ```
 
-This is how you can query 14 built-in registries in `lamindb` (`Artifact`, `Storage`, `Feature`, `Record`, etc.) and 13 biological entities in `bionty` (`Disease`, `CellType`, `Tissue`, etc.) mapping >20 public ontologies.
+This is how you can query 14 built-in registries in `lamindb` (`Artifact`, `Storage`, `Feature`, `Record`, etc.) and 13 biological entities in `bionty` (`Disease`, `CellType`, `Tissue`, etc.) mapping >20 public ontologies. To learn what you can query by, call:
+
+```python
+db.Artifact.describe()
+```
 
 ### Setup
 
