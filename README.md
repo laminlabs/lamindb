@@ -65,7 +65,7 @@ Install the Python package:
 pip install lamindb
 ```
 
-Browse databases at [lamin.ai/explore](https://lamin.ai/explore), e.g., a mirror of `CellXGene` at [laminlabs/cellxgene](https://lamin.ai/laminlabs/cellxgene). To query it:
+Browse databases at [lamin.ai/explore](https://lamin.ai/explore), e.g., [lamin.ai/laminlabs/cellxgene](https://lamin.ai/laminlabs/cellxgene). To query it:
 
 ```python
 import lamindb as ln
@@ -108,27 +108,35 @@ db.Artifact.describe()
 
 ### Setup
 
-To write data, you need to connect a writable LaminDB instance.
-If you created an instance at [lamin.ai](https://lamin.ai) or collaborate on one, run:
+To write data, connect to a writable database:
 
 ```shell
 lamin login
 lamin connect account/name
 ```
 
-If you prefer to work with a local SQLite instance, run:
+You can create a LaminDB instance at [lamin.ai](https://lamin.ai) and invite collaborators.
+If you prefer to work with a local SQLite database, run this instead:
 
 ```shell
 lamin init --storage ./quickstart-data --modules bionty
 ```
 
-To now save (upload) a file or folder from the command line, run:
+On the terminal and in a Python session, LaminDB will now auto-connect.
+
+## Save a file
+
+To save a file or folder from the command line, run:
 
 ```shell
 lamin save myfile.txt --key examples/myfile.txt
 ```
 
-In a Python session, LaminDB will now auto-connect upon import.
+To load the file, run:
+
+```shell
+lamin load --key examples/myfile.txt
+```
 
 ### Lineage
 
