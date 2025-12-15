@@ -269,6 +269,7 @@ def test(session, group):
         login_testuser2(session)  # shouldn't be necessary but is for now
         run(session, f"pytest {coverage_args} ./tests/storage {duration_args}")
     elif group == "no-instance":
+        run(session, "lamin disconnect")
         run(session, f"pytest {coverage_args} ./tests/no_instance {duration_args}")
     elif group == "tutorial":
         run(session, "lamin logout")
