@@ -1160,8 +1160,28 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     def dtype_as_object(self) -> type | SQLRecord | FieldAttr | None:  # type: ignore
         """The Record or Python object corresponding to the feature's dtype.
 
-        For non-categorical features: returns the Python type.
-        For categorical features: returns the SQLRecord object.
+        Example::
+
+            import lamindb as ln
+            import bionty as bt
+
+            For non-categorical features, returns the Python type::
+
+                feature_num = ln.Feature(name="measurement", dtype=float).save()
+                assert feature_num.dtype_as_object is float
+
+            For categorical features with subtypes, returns the SQLRecord::
+
+                lab1_type = ln.Feature(name="Lab1", is_type=True).save()
+                lab1_sample_type = bt.Record.get(name="Sample", is_type=True, type=lab1_type).save()
+                feature_sample = ln.Feature(name="sample", dtype=lab1_sample_type).save()
+                assert feature_sample.dtype_as_object == lab1_sample_type
+
+            For categorical features without subtypes, returns the field::
+
+                feature_ontology_id = ln.Feature(name="ontology_id", dtype=bt.CellType.ontology_id).save()
+                assert feature_ontology_id.dtype_as_object == bt.CellType.ontology_id
+
         """
 
         def _dtype_as_object_simple(dtype_str: str) -> type | None:
