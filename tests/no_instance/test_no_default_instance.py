@@ -1,15 +1,14 @@
 import lamindb as ln
 import pandas as pd
 import pytest
+from lamindb_setup.errors import CurrentInstanceNotConfigured
 
 
 def test_instance_not_connected():
-    from lamindb_setup.errors import CurrentInstanceNotConfigured
-
     assert ln.setup.settings.instance.slug == "none/none"
 
     with pytest.raises(CurrentInstanceNotConfigured):
-        ln.Artifact.filter()
+        ln.Artifact.filter().count()
 
 
 def test_query_artifacts_lamindata():
