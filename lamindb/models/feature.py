@@ -789,10 +789,9 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     name: str = CharField(max_length=150, db_index=True)
     """Name of feature."""
     dtype: Dtype | str | None = CharField(db_index=True, null=True)
-    """Data type (:class:`~lamindb.base.types.Dtype`).
+    """The string-serialized data type (:class:`~lamindb.base.types.Dtype`).
 
-    Note that you cannot mutate the `dtype` of an existing feature once created.
-    However, this is enforced only in Postgres-based instances.
+    Note that mutating this field currently does not trigger re-validation of existing values.
     """
     type: Feature | None = ForeignKey(
         "self", PROTECT, null=True, related_name="features"
@@ -1155,6 +1154,89 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     def coerce_dtype(self, value: bool) -> None:
         self._aux = self._aux or {}
         self._aux.setdefault("af", {})["2"] = value
+
+    @property
+    def dtype_as_object(self) -> type | SQLRecord | FieldAttr | None:  # type: ignore
+        """The Python object corresponding to :attr:`~lamindb.Feature.dtype`.
+
+        Example:
+
+            For non-categorical features, returns the Python type::
+
+                feature_num = ln.Feature(name="measurement", dtype=float).save()
+                assert feature_num.dtype_as_object is float
+
+            For categorical features with subtypes, returns the SQLRecord::
+
+                lab1_type = ln.Feature(name="Lab1", is_type=True).save()
+                lab1_sample_type = bt.Record.get(name="Sample", is_type=True, type=lab1_type).save()
+                feature_sample = ln.Feature(name="sample", dtype=lab1_sample_type).save()
+                assert feature_sample.dtype_as_object == lab1_sample_type
+
+            For categorical features without subtypes, returns the field::
+
+                feature_ontology_id = ln.Feature(name="ontology_id", dtype=bt.CellType.ontology_id).save()
+                assert feature_ontology_id.dtype_as_object == bt.CellType.ontology_id
+
+        """
+
+        def _dtype_as_object_simple(dtype_str: str) -> type | None:
+            if dtype_str == "str":
+                return str
+            elif dtype_str == "int":
+                return int
+            elif dtype_str in ("float", "num"):
+                return float
+            elif dtype_str == "bool":
+                return bool
+            elif dtype_str == "date":
+                from datetime import date
+
+                return date
+            elif dtype_str == "datetime":
+                from datetime import datetime
+
+                return datetime
+            elif dtype_str.startswith("dict"):
+                return dict
+            return None
+
+        # for type records without dtype, return None
+        dtype_str = self.dtype
+        if dtype_str is None:
+            return None
+
+        parsed_dtypes = parse_dtype(dtype_str, check_exists=True)
+        if len(parsed_dtypes) > 0:
+            dtype_objects = []
+            for parsed_dtype in parsed_dtypes:
+                if parsed_dtype.get("subtypes_list"):
+                    # return the subtype record for dtypes with subtypes
+                    dtype_object = get_record_type_from_nested_subtypes(
+                        parsed_dtype["registry"],
+                        parsed_dtype["subtypes_list"],
+                        parsed_dtype["field_str"],
+                    )
+                else:
+                    # return field for dtypes without subtypes, e.g. bt.CellType.ontology_id
+                    dtype_object = parsed_dtype["field"]
+                # for list, returns list[SQLRecord]
+                dtype_objects.append(
+                    list[dtype_object]  # type: ignore
+                    if "list" in parsed_dtype and parsed_dtype["list"]
+                    else dtype_object
+                )
+            return dtype_objects if len(dtype_objects) > 1 else dtype_objects[0]
+        elif dtype_str.startswith("list["):
+            # for simple lists, returns list[python_type]
+            dtype_simple_object = _dtype_as_object_simple(
+                dtype_str.removeprefix("list[").removesuffix("]")
+            )
+            return (
+                list[dtype_simple_object] if dtype_simple_object is not None else list  # type: ignore
+            )
+        else:
+            return _dtype_as_object_simple(dtype_str)
 
     # we'll enable this later
     # @property
