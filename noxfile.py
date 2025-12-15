@@ -270,7 +270,7 @@ def test(session, group):
         run(session, f"pytest {coverage_args} ./tests/storage {duration_args}")
     elif group == "no-instance":
         run(session, "lamin disconnect")
-        run(session, f"pytest -s {coverage_args} ./tests/no_instance {duration_args}")
+        run(session, f"pytest {coverage_args} ./tests/no_instance {duration_args}")
     elif group == "tutorial":
         run(session, "lamin logout")
         run(
