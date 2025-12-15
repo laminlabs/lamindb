@@ -14,7 +14,6 @@ from laminci.nox import login_testuser1, login_testuser2
 from lamindb.base.users import current_user_id
 from lamindb.errors import InvalidArgument
 from lamindb.models import ArtifactSet, BasicQuerySet, QuerySet
-from lamindb.models.query_set import DoesNotExist
 
 
 # please also see the test_curate_df.py tests
@@ -106,7 +105,7 @@ def test_one_first():
     assert qs.describe(return_str=True).startswith(description)
 
     qs = ln.User.filter(handle="test")
-    with pytest.raises(DoesNotExist):
+    with pytest.raises(ln.errors.DoesNotExist):
         qs.one()
     qs = bt.Source.filter()
     with pytest.raises(ln.errors.MultipleResultsFound):
@@ -210,7 +209,7 @@ def test_standardize():
 def test_get_doesnotexist_error():
     non_existent_label = "some-label-name"
 
-    with pytest.raises(DoesNotExist) as excinfo:
+    with pytest.raises(ln.errors.DoesNotExist) as excinfo:
         ln.Record.get(non_existent_label)
 
     error_message = str(excinfo.value)
@@ -247,7 +246,7 @@ def test_get_filter_branch():
         assert ln.Artifact.filter(key="df_test_get.parquet").count() == 1
 
     # back to main branch
-    with pytest.raises(ln.Artifact.DoesNotExist):
+    with pytest.raises(ln.errors.DoesNotExist):
         ln.Artifact.get(key="df_test_get.parquet")
     assert ln.Artifact.filter(key="df_test_get.parquet").count() == 0
     # test by passing branch directly

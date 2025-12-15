@@ -14,10 +14,7 @@
 
 """
 
-
-# inheriting from SystemExit has the sole purpose of suppressing
-# the traceback - this isn't optimal but the current best solution
-# https://laminlabs.slack.com/archives/C04A0RMA0SC/p1726856875597489
+from django.core.exceptions import ObjectDoesNotExist as DoesNotExist  # noqa: F401
 
 
 class ValidationError(Exception):
@@ -56,14 +53,6 @@ class NoStorageLocationForSpace(Exception):
     pass
 
 
-# equivalent to Django's DoesNotExist
-# and SQLAlchemy's NoResultFound
-class DoesNotExist(Exception):
-    """No record found."""
-
-    pass
-
-
 class MultipleResultsFound(Exception):
     """Multiple records found."""
 
@@ -97,13 +86,13 @@ class IntegrityError(Exception):
     pass
 
 
-class MissingContextUID(SystemExit):
+class MissingContextUID(Exception):
     """User didn't define transform settings."""
 
     pass
 
 
-class UpdateContext(SystemExit):
+class UpdateContext(Exception):
     """Transform settings require update."""
 
     pass
