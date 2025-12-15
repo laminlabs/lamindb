@@ -31,7 +31,7 @@ jobs:
       - id: set-matrix
         shell: bash
         run: |
-          BASE_GROUPS=$(jq -n -c '["unit-core-sqlite", "unit-core-postgres", "unit-storage", "tutorial", "guide", "biology", "faq", "storage", "cli", "permissions"]')
+          BASE_GROUPS=$(jq -n -c '["unit-core-sqlite", "unit-core-postgres", "unit-storage", "no-instance", "tutorial", "guide", "biology", "faq", "storage", "cli", "permissions"]')
           ADDITIONAL_GROUPS=[]
 
           if [[ "${{ github.event_name }}" == "push" || "${{ github.event_name }}" == "repository_dispatch" ]]; then

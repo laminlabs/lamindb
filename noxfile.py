@@ -69,6 +69,7 @@ def install(session):
         "unit-core-sqlite",
         "unit-core-postgres",
         "unit-storage",
+        "no-instance",
         "tutorial",
         "guide",
         "biology",
@@ -227,6 +228,7 @@ def configure_coverage(session) -> None:
         "unit-core-sqlite",
         "unit-core-postgres",
         "unit-storage",
+        "no-instance",
         "curator",
         "integrations",
         "tutorial",
@@ -240,7 +242,7 @@ def configure_coverage(session) -> None:
 )
 def test(session, group):
     # we likely don't need auth in many other groups, but have to carefully expand this
-    if group not in {"curator"}:
+    if group not in {"curator", "no-instance"}:
         login_testuser2(session)
         login_testuser1(session)
     # this is mostly needed for the docs so that we don't render Django's entire public API
