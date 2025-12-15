@@ -211,6 +211,20 @@ Query for it:
 ln.Artifact.filter(ulabels=my_label, projects=project).to_dataframe()
 ```
 
+You can also query by the metadata that lamindb automatically collects:
+
+```python
+ln.Artifact.filter(run=run).to_dataframe()                # query all artifacts created by a run
+ln.Artifact.filter(transform=transform).to_dataframe()    # query all artifacts created by a transform
+ln.Artifact.filter(size__gt=1e6).to_dataframe()           # query all artifacts bigger than 1MB
+```
+
+If you want to include more information into the resulting dataframe, pass `include`.
+
+```python
+ln.Artifact.to_dataframe(include=["created_by__name", "storage__root"])  # include fields from related registries
+```
+
 Note: The query syntax for `DB` objects and for your default database is the same.
 
 ### Lake: rich annotation & queries by features
@@ -241,19 +255,10 @@ Now that the data is annotated, you can query for it:
 ln.Artifact.filter(experiment_date="2025-10-24").to_dataframe()  # query all artifacts annotated with `experiment_date`
 ```
 
-You can also query by the metadata that lamindb automatically collects:
-
-```python
-ln.Artifact.filter(run=run).to_dataframe()                # query all artifacts created by a run
-ln.Artifact.filter(transform=transform).to_dataframe()    # query all artifacts created by a transform
-ln.Artifact.filter(size__gt=1e6).to_dataframe()           # query all artifacts bigger than 1MB
-```
-
-If you want to include more information into the resulting dataframe, pass `include`.
+If you want to include the feature values into the dataframe, pass `include`.
 
 ```python
 ln.Artifact.to_dataframe(include="features")  # include the feature annotations
-ln.Artifact.to_dataframe(include=["created_by__name", "storage__root"])  # include fields from related registries
 ```
 
 ### Lake ♾️ LIMS ♾️ Sheets
