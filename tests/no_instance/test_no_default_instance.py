@@ -1,10 +1,11 @@
 import lamindb as ln
 import pandas as pd
 import pytest
-from lamindb_setup.errors import CurrentInstanceNotConfigured
 
 
 def test_instance_not_connected():
+    from lamindb_setup.errors import CurrentInstanceNotConfigured
+
     assert ln.setup.settings.instance.slug == "none/none"
 
     with pytest.raises(CurrentInstanceNotConfigured):
