@@ -121,6 +121,32 @@ def test_record_features_add_remove_values():
     a549 = bt.CellLine.from_source(name="A549 cell").save()
     tmem276 = bt.Gene.from_source(symbol="Tmem276", organism="mouse").save()
 
+    # test feature.dtype_as_object
+    assert feature_bool.dtype_as_object is bool
+    assert feature_str.dtype_as_object is str
+    assert feature_list_str.dtype_as_object == list[str]
+    assert feature_int.dtype_as_object is int
+    assert feature_list_int.dtype_as_object == list[int]
+    assert feature_float.dtype_as_object is float
+    assert feature_list_float.dtype_as_object == list[float]
+    assert feature_num.dtype_as_object is float
+    assert feature_list_num.dtype_as_object == list[float]
+    assert feature_datetime.dtype_as_object == datetime
+    assert feature_date.dtype_as_object == date
+    assert feature_dict.dtype_as_object is dict
+    assert feature_type1.dtype_as_object == record_type1
+    assert feature_type1s.dtype_as_object == list[record_type1]
+    assert feature_user.dtype_as_object == ln.User.handle
+    assert feature_ulabel.dtype_as_object == ln.ULabel.name
+    assert feature_project.dtype_as_object == ln.Project.name
+    assert feature_artifact.dtype_as_object == ln.Artifact.key
+    assert feature_collection.dtype_as_object == ln.Collection.key
+    assert feature_run.dtype_as_object == ln.Run.uid
+    assert feature_cell_line.dtype_as_object == bt.CellLine.name
+    assert feature_cell_lines.dtype_as_object == list[bt.CellLine.name]
+    assert feature_cl_ontology_id.dtype_as_object == bt.CellLine.ontology_id
+    assert feature_gene.dtype_as_object == bt.Gene.symbol
+
     # no schema validation
     test_values = {
         "feature_bool": True,

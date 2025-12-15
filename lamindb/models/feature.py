@@ -1156,6 +1156,72 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         self._aux = self._aux or {}
         self._aux.setdefault("af", {})["2"] = value
 
+    @property
+    def dtype_as_object(self) -> type | SQLRecord | FieldAttr | None:  # type: ignore
+        """The Record or Python object corresponding to the feature's dtype.
+
+        For non-categorical features: returns the Python type.
+        For categorical features: returns the SQLRecord object.
+        """
+
+        def _dtype_as_object_simple(dtype_str: str) -> type | None:
+            if dtype_str == "str":
+                return str
+            elif dtype_str == "int":
+                return int
+            elif dtype_str in ("float", "num"):
+                return float
+            elif dtype_str == "bool":
+                return bool
+            elif dtype_str == "date":
+                from datetime import date
+
+                return date
+            elif dtype_str == "datetime":
+                from datetime import datetime
+
+                return datetime
+            elif dtype_str.startswith("dict"):
+                return dict
+            return None
+
+        # for type records without dtype, return None
+        dtype_str = self.dtype
+        if dtype_str is None:
+            return None
+
+        parsed_dtypes = parse_dtype(dtype_str, check_exists=True)
+        if len(parsed_dtypes) > 0:
+            dtype_objects = []
+            for parsed_dtype in parsed_dtypes:
+                if parsed_dtype.get("subtypes_list"):
+                    # return the subtype record for dtypes with subtypes
+                    dtype_object = get_record_type_from_nested_subtypes(
+                        parsed_dtype["registry"],
+                        parsed_dtype["subtypes_list"],
+                        parsed_dtype["field_str"],
+                    )
+                else:
+                    # return field for dtypes without subtypes, e.g. bt.CellType.ontology_id
+                    dtype_object = parsed_dtype["field"]
+                # for list, returns list[SQLRecord]
+                dtype_objects.append(
+                    list[dtype_object]  # type: ignore
+                    if "list" in parsed_dtype and parsed_dtype["list"]
+                    else dtype_object
+                )
+            return dtype_objects if len(dtype_objects) > 1 else dtype_objects[0]
+        elif dtype_str.startswith("list["):
+            # for simple lists, returns list[python_type]
+            dtype_simple_object = _dtype_as_object_simple(
+                dtype_str.removeprefix("list[").removesuffix("]")
+            )
+            return (
+                list[dtype_simple_object] if dtype_simple_object is not None else list  # type: ignore
+            )
+        else:
+            return _dtype_as_object_simple(dtype_str)
+
     # we'll enable this later
     # @property
     # def observational_unit(self) -> Literal["Artifact", "Observation"]:
