@@ -1217,7 +1217,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         The below, by contrast, returns a Python object for categorical features::
 
             organism = artifact.features["species"]  # returns an Organism object, not "human"
-            temperature = artifact.features["temperature"]  # returns a temperature value
+            temperature = artifact.features["temperature"]  # returns a temperature value, a float
 
         You can also validate external feature annotations with a `schema`::
 
