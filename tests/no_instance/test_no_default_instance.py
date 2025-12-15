@@ -1,5 +1,20 @@
 import lamindb as ln
+import pandas as pd
 
 
-def test_query():
-    ln.Artifact.connect("laminlabs/lamindata").filter()
+def test_instance_not_connected():
+    assert ln.setup.settings.instance.slug == "none/none"
+
+
+def test_query_artifacts_lamindata():
+    artifacts = ln.Artifact.connect("laminlabs/lamindata")
+    n_artifacts = artifacts.count()
+    assert n_artifacts > 0
+    assert n_artifacts > artifacts.filter().count()
+
+
+def test_get_artifact_lamindata():
+    artifact = ln.Artifact.connect("laminlabs/lamindata").get(
+        key="example_datasets/small_dataset1.parquet"
+    )
+    assert isinstance(artifact.load(), pd.DataFrame)
