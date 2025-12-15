@@ -789,10 +789,9 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     name: str = CharField(max_length=150, db_index=True)
     """Name of feature."""
     dtype: Dtype | str | None = CharField(db_index=True, null=True)
-    """Data type (:class:`~lamindb.base.types.Dtype`).
+    """The string-serialized data type (:class:`~lamindb.base.types.Dtype`).
 
-    Note that you cannot mutate the `dtype` of an existing feature once created.
-    However, this is enforced only in Postgres-based instances.
+    Note that mutating this field currently does not trigger re-validation of existing values.
     """
     type: Feature | None = ForeignKey(
         "self", PROTECT, null=True, related_name="features"
@@ -1158,12 +1157,9 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
 
     @property
     def dtype_as_object(self) -> type | SQLRecord | FieldAttr | None:  # type: ignore
-        """The Record or Python object corresponding to the feature's dtype.
+        """The Python object corresponding to :attr:`~lamindb.Feature.dtype`.
 
-        Example::
-
-            import lamindb as ln
-            import bionty as bt
+        Example:
 
             For non-categorical features, returns the Python type::
 
