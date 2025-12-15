@@ -1194,7 +1194,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         Here is how to do annotate an artifact ad hoc::
 
             artifact.features.add_values({
-                "species": organism,  # here, organism is an Organism record
+                "species": "human",
                 "scientist": ['Barbara McClintock', 'Edgar Anderson'],
                 "temperature": 27.6,
                 "experiment": "Experiment 1"
@@ -1204,41 +1204,25 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
             ln.Artifact.filter(scientist="Barbara McClintock")
 
-        Features may or may not be part of the dataset, i.e., the artifact content in storage.
+        Note: Features may or may not be part of the dataset, i.e., the artifact content in storage.
         For instance, the :class:`~lamindb.curators.DataFrameCurator` flow validates the columns of a
         `DataFrame`-like artifact and annotates it with features corresponding to these columns.
         `artifact.features.add_values`, by contrast, does not validate the content of the artifact.
 
-        .. dropdown:: An example for a model-like artifact
+        To get all feature values::
 
-            ::
+            dictionary_of_values = artifact.features.get_values()
 
-                artifact.features.add_values({
-                    "hidden_size": 32,
-                    "bottleneck_size": 16,
-                    "batch_size": 32,
-                    "preprocess_params": {
-                        "normalization_type": "cool",
-                        "subset_highlyvariable": True,
-                    },
-                })
+        The dicationary above uses identifiers, like the string "human" for an `Organism` object.
+        The below, by contrast, returns a Python object for categorical features::
 
-        To validate external features::
+            organism = artifact.features["species"]  # returns an Organism object, not "human"
+            temperature = artifact.features["temperature"]  # returns a temperature value, a float
+
+        You can also validate external feature annotations with a `schema`::
 
             schema = ln.Schema([ln.Feature(name="species", dtype=str).save()]).save()
             artifact.features.add_values({"species": "bird"}, schema=schema)
-
-        To get all feature values::
-
-            values = artifact.features.get_values()
-
-        To get a specific feature value::
-
-            # return records for categofical features
-            organism = artifact.features["species"]
-            # return values for non-categorical features
-            artifact.features["temperature"]
-            #> 27.6
 
         """
         from ._feature_manager import FeatureManager
