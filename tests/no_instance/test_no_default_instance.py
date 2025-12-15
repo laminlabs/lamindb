@@ -1,9 +1,13 @@
 import lamindb as ln
 import pandas as pd
+import pytest
 
 
 def test_instance_not_connected():
     assert ln.setup.settings.instance.slug == "none/none"
+
+    with pytest.raises(ln.setup.errors.CurrentInstanceNotConfigured):
+        ln.Artifact.filter()
 
 
 def test_query_artifacts_lamindata():
