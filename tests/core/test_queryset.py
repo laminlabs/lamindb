@@ -105,7 +105,7 @@ def test_one_first():
     assert qs.describe(return_str=True).startswith(description)
 
     qs = ln.User.filter(handle="test")
-    with pytest.raises(ln.errors.DoesNotExist):
+    with pytest.raises(ln.errors.ObjectDoesNotExist):
         qs.one()
     qs = bt.Source.filter()
     with pytest.raises(ln.errors.MultipleResultsFound):
@@ -209,7 +209,7 @@ def test_standardize():
 def test_get_doesnotexist_error():
     non_existent_label = "some-label-name"
 
-    with pytest.raises(ln.errors.DoesNotExist) as excinfo:
+    with pytest.raises(ln.errors.ObjectDoesNotExist) as excinfo:
         ln.Record.get(non_existent_label)
 
     error_message = str(excinfo.value)
@@ -246,7 +246,7 @@ def test_get_filter_branch():
         assert ln.Artifact.filter(key="df_test_get.parquet").count() == 1
 
     # back to main branch
-    with pytest.raises(ln.errors.DoesNotExist):
+    with pytest.raises(ln.errors.ObjectDoesNotExist):
         ln.Artifact.get(key="df_test_get.parquet")
     assert ln.Artifact.filter(key="df_test_get.parquet").count() == 0
     # test by passing branch directly

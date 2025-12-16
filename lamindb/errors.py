@@ -2,8 +2,8 @@
 
 Django.
 
-.. autoexception:: DoesNotExist
-.. autoexception:: MultipleResultsFound
+.. autoexception:: ObjectDoesNotExist
+.. autoexception:: MultipleObjectsReturned
 
 LaminDB.
 
@@ -24,19 +24,22 @@ LaminDB.
 # Django
 # -------------------------------------------------------------------------------------
 
-from django.core.exceptions import ObjectDoesNotExist as DoesNotExist  # noqa: F401
+from django.core.exceptions import (
+    MultipleObjectsReturned,  # noqa: F401
+    ObjectDoesNotExist,  # noqa: F401
+)
 
-DoesNotExist.__doc__ = """Record does not exist.
+ObjectDoesNotExist.__doc__ = """Object does not exist.
 
 This is an alias for `django.core.exceptions.ObjectDoesNotExist`.
 """
+DoesNotExist = ObjectDoesNotExist  # backward compat
 
+MultipleObjectsReturned.__doc__ = """Multiple objects returned.
 
-class MultipleResultsFound(Exception):
-    """Multiple records found."""
-
-    pass
-
+This is an alias for `django.core.exceptions.MultipleObjectsReturned`.
+"""
+MultipleResultsFound = MultipleObjectsReturned  # backward compat
 
 # -------------------------------------------------------------------------------------
 # lamindb
