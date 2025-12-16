@@ -108,9 +108,9 @@ def test_one_first():
     with pytest.raises(ln.errors.ObjectDoesNotExist):
         qs.one()
     qs = bt.Source.filter()
-    with pytest.raises(ln.errors.MultipleResultsFound):
+    with pytest.raises(ln.errors.MultipleObjectsReturned):
         qs.one()
-    with pytest.raises(ln.errors.MultipleResultsFound):
+    with pytest.raises(ln.errors.MultipleObjectsReturned):
         qs.one_or_none()
 
 
