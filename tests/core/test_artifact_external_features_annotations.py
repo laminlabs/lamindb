@@ -537,9 +537,7 @@ Here is how to create a feature:
     # test not finding the Record
     with pytest.raises(DoesNotExist) as error:
         ln.Artifact.filter(project="project__1")
-    assert error.exconly().startswith(
-        "lamindb.errors.DoesNotExist: Did not find a Record matching"
-    )
+    assert "Did not find a Record matching" in error.exconly()
 
     # test comparator
     assert artifact == ln.Artifact.filter(experiment__contains="ment 1").one()

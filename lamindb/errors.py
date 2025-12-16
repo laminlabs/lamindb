@@ -1,8 +1,14 @@
 """Errors.
 
+Django.
+
+.. autoexception:: DoesNotExist
+.. autoexception:: MultipleResultsFound
+
+LaminDB.
+
 .. autoexception:: ValidationError
 .. autoexception:: InvalidArgument
-.. autoexception:: DoesNotExist
 .. autoexception:: NotebookNotSaved
 .. autoexception:: UnknownStorageLocation
 .. autoexception:: MissingContextUID
@@ -14,7 +20,27 @@
 
 """
 
+# -------------------------------------------------------------------------------------
+# Django
+# -------------------------------------------------------------------------------------
+
 from django.core.exceptions import ObjectDoesNotExist as DoesNotExist  # noqa: F401
+
+DoesNotExist.__doc__ = """Record does not exist.
+
+This is an alias for `django.core.exceptions.ObjectDoesNotExist`.
+"""
+
+
+class MultipleResultsFound(Exception):
+    """Multiple records found."""
+
+    pass
+
+
+# -------------------------------------------------------------------------------------
+# lamindb
+# -------------------------------------------------------------------------------------
 
 
 class ValidationError(Exception):
@@ -49,12 +75,6 @@ class UnknownStorageLocation(Exception):
 
 class NoStorageLocationForSpace(Exception):
     """No storage location found for space."""
-
-    pass
-
-
-class MultipleResultsFound(Exception):
-    """Multiple records found."""
 
     pass
 
@@ -105,7 +125,7 @@ class BlobHashNotFound(Exception):
 
 
 # -------------------------------------------------------------------------------------
-# record
+# CRUD
 # -------------------------------------------------------------------------------------
 
 
