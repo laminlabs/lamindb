@@ -1140,7 +1140,7 @@ def test_get_by_path(example_dataframe: pd.DataFrame):
     assert ln.Artifact.get(path=artifact_path) == artifact
     assert ln.Artifact.filter().get(path=artifact_path.as_posix()) == artifact
 
-    with pytest.raises(ln.Artifact.DoesNotExist):
+    with pytest.raises(ln.errors.DoesNotExist):
         ln.Artifact.get(path="s3://bucket/folder/file.parquet")
 
     with pytest.raises(ValueError):
