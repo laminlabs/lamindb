@@ -459,7 +459,7 @@ def test_resolve_nested_filter(organism):
 
 def test_resolve_relation_filter_failed_resolution():
     parsed = {"organism__name": ("organism", "name", "nonexistent")}
-    with pytest.raises(ln.errors.ObjectDoesNotExist):
+    with pytest.raises(bt.Organism.DoesNotExist):
         resolve_relation_filters(parsed, bt.Gene)
 
 
@@ -468,5 +468,5 @@ def test_resolve_relation_filter_duplicate():
         "source__uid": ("source", "uid", "testuid1"),
         "source__name": ("source", "name", "test_name"),
     }
-    with pytest.raises(ln.errors.ObjectDoesNotExist):
+    with pytest.raises(bt.Source.DoesNotExist):
         resolve_relation_filters(parsed, bt.Gene)
