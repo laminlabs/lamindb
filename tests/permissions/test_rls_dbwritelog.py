@@ -45,8 +45,11 @@ def test_token_expiration():
         pgurl,
         {"account_id": user_uuid, "exp": time.time() - 1000, "type": "collaborator"},
     )
-
-    with connection.connection.cursor() as cur:
+    # check that an expired token is invalid
+    with (
+        pytest.raises(psycopg2.errors.RaiseException),
+        connection.connection.cursor() as cur,
+    ):
         cur.execute("SELECT set_token(%s);", (expired_token,))
 
 
