@@ -7,6 +7,7 @@
 from datetime import datetime
 from typing import Any, Callable, Iterable
 
+import numpy as np
 import pandas as pd
 
 
@@ -71,7 +72,7 @@ def check_dtype(expected_type: Any, nullable: bool) -> Callable:
             ):
                 return series.apply(lambda x: is_list_of_type(x, str)).all()
             elif expected_type_member == "list":
-                return series.apply(lambda x: isinstance(x, list)).all()
+                return series.apply(lambda x: isinstance(x, (list, np.ndarray))).all()
 
         # if we get here, the validation failed
         return False
