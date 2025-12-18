@@ -392,22 +392,31 @@ def save_context_core(
                         description = "requirements.txt"
                     elif existing_paths[0].name == "r_environment.txt":
                         description = "r_environment.txt"
-                    env_hash, _ = hash_file(artifact_path)
+                    size, env_hash, _ = hash_file(artifact_path, return_size=True)
                 else:
                     description = "environments"
-                    _, env_hash, _, _ = hash_dir(artifact_path)
+                    size, env_hash, _, _ = hash_dir(artifact_path)
 
-                artifact = ln.Artifact.objects.filter(hash=env_hash).one_or_none()
+                artifact = (
+                    ln.Artifact.objects.filter(hash=env_hash)
+                    .exclude(size=0)
+                    .one_or_none()
+                )
                 new_env_artifact = artifact is None
 
                 if new_env_artifact:
-                    artifact = ln.Artifact(
-                        artifact_path,
-                        description=description,
-                        kind="__lamindb_run__",
-                        run=False,
-                    )
-                    artifact.save(upload=True, print_progress=False)
+                    if size > 0:
+                        artifact = ln.Artifact(
+                            artifact_path,
+                            description=description,
+                            kind="__lamindb_run__",
+                            run=False,
+                        )
+                        artifact.save(upload=True, print_progress=False)
+                    else:
+                        logger.warning(
+                            "environment file is empty, skipping linking an environment"
+                        )
 
                 run.environment = artifact
                 if new_env_artifact:
