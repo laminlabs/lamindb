@@ -392,7 +392,7 @@ def save_context_core(
                         description = "requirements.txt"
                     elif existing_paths[0].name == "r_environment.txt":
                         description = "r_environment.txt"
-                    size, env_hash, _ = hash_file(artifact_path, return_size=True)
+                    size, env_hash, _ = hash_file(artifact_path)
                 else:
                     description = "environments"
                     size, env_hash, _, _ = hash_dir(artifact_path)
