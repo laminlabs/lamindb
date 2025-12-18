@@ -323,8 +323,7 @@ def get_stat_or_artifact(
         if path.is_dir():
             size, hash, hash_type, n_files = hash_dir(path)
         else:
-            hash, hash_type = hash_file(path)
-            size = stat.st_size
+            size, hash, hash_type = hash_file(path)
     if not check_hash:
         return size, hash, hash_type, n_files, None
     previous_artifact_version = None
