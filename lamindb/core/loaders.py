@@ -168,6 +168,7 @@ FILE_LOADERS = {
     ".anndata.zarr": load_zarr,
     ".html": load_html,
     ".json": load_json,
+    ".vitessce.json": load_json,
     ".yaml": load_yaml,
     ".h5mu": load_h5mu,
     ".gif": load_image,
