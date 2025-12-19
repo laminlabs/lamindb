@@ -557,6 +557,7 @@ def describe_features(
                     for feature_name in feature_names
                     if feature_name
                 ]
+            feature_rows.sort(key=lambda x: x[0])
         schema_itype = f" {schema.itype}" if schema.itype != "Feature" else ""
         dataset_features_tree_children.append(
             create_feature_table(
