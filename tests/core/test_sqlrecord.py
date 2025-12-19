@@ -204,7 +204,7 @@ def test_search_and_get(get_search_test_filepaths):
     artifact = ln.Artifact.get(description="test-search4")
     assert artifact == artifact4
 
-    with pytest.raises(ln.Artifact.DoesNotExist):
+    with pytest.raises(ln.errors.ObjectDoesNotExist):
         ln.Artifact.get(description="test-does-not-exist")
 
     artifact0.delete(permanent=True, storage=True)
