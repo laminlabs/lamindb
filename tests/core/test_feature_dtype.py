@@ -15,20 +15,6 @@ from lamindb.models.feature import (
 
 
 @pytest.fixture
-def source():
-    source = bt.Source(
-        name="test_name",
-        description="test_description",
-        organism="human",
-        entity="bionty.Gene",
-        version="2026-01-01",
-    )
-    source.uid = "testuid1"
-    source.save()
-    return source
-
-
-@pytest.fixture
 def organism():
     organism = bt.Organism(name="test_organism")
     organism.uid = "testuid2"
@@ -425,9 +411,19 @@ def test_resolve_direct_fields():
     assert result == {"name": "test", "status": "active"}
 
 
-def test_resolve_relation_filter_with_uid(source):
+def test_resolve_relation_filter_with_uid():
+    source = bt.Source(
+        name="test_name",
+        description="test_description",
+        organism="human",
+        entity="bionty.Gene",
+        version="2026-01-01",
+    )
+    source.uid = "testuid1"
+    source.save()
     parsed = {"source__uid": ("source", "uid", "testuid1")}
     result = resolve_relation_filters(parsed, bt.Gene)
+    print(result)
     assert result == {"source": source}
     source.delete(permanent=True)
 
@@ -439,7 +435,16 @@ def test_resolve_relation_filter_with_name(organism):
     organism.delete(permanent=True)
 
 
-def test_resolve_multiple_relation_filters(organism, source):
+def test_resolve_multiple_relation_filters(organism):
+    source = bt.Source(
+        name="test_name",
+        description="test_description",
+        organism="human",
+        entity="bionty.Gene",
+        version="2026-01-01",
+    )
+    source.uid = "testuid1"
+    source.save()
     parsed = {
         "organism__name": ("organism", "name", "test_organism"),
         "source__uid": ("source", "uid", "testuid1"),

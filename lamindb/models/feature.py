@@ -533,7 +533,8 @@ def resolve_relation_filters(
                     related_model = relation_field.field.related_model
                     related_obj = related_model.get(**{field_name: value})
                     resolved[relation_name] = related_obj
-        resolved[filter_key] = value
+        else:
+            resolved[filter_key] = value
     return resolved
 
 
