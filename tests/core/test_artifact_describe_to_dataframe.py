@@ -138,9 +138,9 @@ def test_describe_to_dataframe_example_dataset():
 │   │   perturbation        Record                  DMSO, IFNG
 │   │   sample_note         str
 │   └── var.T (3 bionty.G…
-│       CD8A                num
-│       CD4                 num
 │       CD14                num
+│       CD4                 num
+│       CD8A                num
 └── External features
     └── experiment          Record                  Experiment 1
         date_of_study       date                    2024-12-01
