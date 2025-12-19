@@ -203,7 +203,7 @@ def test_fine_grained_permissions_account_and_dbwrite():
     )
     assert log_rec.event_type == "INSERT"
     assert log_rec.data is None
-    assert log_rec.created_by_id == 1
+    assert log_rec.created_by_id is None  # this was inserted without setting a db token
     # should not delete, does not error for some reason
     ln.ULabel.get(name="select_ulabel").delete(permanent=True)
     assert ln.ULabel.filter().count() == 2
