@@ -2351,28 +2351,29 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     def replace(
         self,
         data: Union[UPathStr, pd.DataFrame, AnnData, MuData],
-        run: Run | None = None,
+        run: Run | bool | None = None,
         format: str | None = None,
     ) -> None:
-        """Replace artifact content.
+        """Replace the artifact content in storage **without** making a new version.
+
+        **Note:** If you want to create a new version, do **not** use the `.replace()` method but rather any `Artifact` constructor.
 
         Args:
-            data: A file path.
-            run: The run that created the artifact gets
-                auto-linked if ``ln.track()`` was called.
+            data: A file path or in-memory dataset object like a `DataFrame`, `AnnData`, `MuData`, or `SpatialData`.
+            run: `Run | bool | None = None` The run that creates the artifact. If `False`, suppress tracking the run.
+                If `None`, infer the run from the global run context.
+            format: `str | None = None` The format of the data to write into storage.
+                If `None`, infer the format from the data.
 
-        Examples:
-            Say we made a change to the content of an artifact, e.g., edited the image
-            `paradisi05_laminopathic_nuclei.jpg`.
+        Example:
 
-            This is how we replace the old file in storage with the new file:
+            Query a text file and replace its content::
 
-            >>> artifact.replace("paradisi05_laminopathic_nuclei.jpg")
-            >>> artifact.save()
+                artifact = ln.Artifact.get(key="my_file.txt")
+                artifact.replace("./my_new_file.txt")
+                artifact.save()
 
-            Note that this neither changes the storage key nor the filename.
-
-            However, it will update the suffix if it changes.
+            Note that you need to call `.save()` to persist the changes in storage.
         """
         storage = settings.storage.record
         run = get_run(run)
@@ -2497,20 +2498,23 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         Notes:
             For more info, see guide: :doc:`/arrays`.
 
-        Example::
+        Examples:
 
-            import lamindb as ln
+            Open an `AnnData`-like artifact::
 
-            # Read AnnData in backed mode from cloud
+                import lamindb as ln
 
-            artifact = ln.Artifact.get(key="lndb-storage/pbmc68k.h5ad")
-            artifact.open()
-            #> AnnDataAccessor object with n_obs × n_vars = 70 × 765
-            #>     constructed for the AnnData object pbmc68k.h5ad
-            #>     ...
-            artifact = ln.Artifact.get(key="lndb-storage/df.parquet")
-            artifact.open()
-            #> pyarrow._dataset.FileSystemDataset
+                artifact = ln.Artifact.get(key="lndb-storage/pbmc68k.h5ad")
+                artifact.open()
+                #> AnnDataAccessor object with n_obs × n_vars = 70 × 765
+                #>     constructed for the AnnData object pbmc68k.h5ad
+                #>     ...
+
+            Open a `DataFrame`-like artifact::
+
+                artifact = ln.Artifact.get(key="lndb-storage/df.parquet")
+                artifact.open()
+                #> pyarrow._dataset.FileSystemDataset
 
         """
         if self._overwrite_versions and not self.is_latest:
@@ -2624,9 +2628,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     def load(
         self, *, is_run_input: bool | None = None, mute: bool = False, **kwargs
     ) -> Any:
-        """Cache and load into memory.
+        """Cache artifact in local cache and then load it into memory.
 
-        See all :mod:`~lamindb.core.loaders`.
+        See: :mod:`~lamindb.core.loaders`.
 
         Args:
             is_run_input: Whether to track this artifact as run input.
@@ -2635,25 +2639,13 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
         Examples:
 
-            Load a `DataFrame`-like artifact:
+            Load a `DataFrame`-like artifact::
 
-            >>> artifact.load().head()
-            sepal_length sepal_width petal_length petal_width iris_organism_code
-            0        0.051       0.035        0.014       0.002                 0
-            1        0.049       0.030        0.014       0.002                 0
-            2        0.047       0.032        0.013       0.002                 0
-            3        0.046       0.031        0.015       0.002                 0
-            4        0.050       0.036        0.014       0.002                 0
+                df = artifact.load()
 
-            Load an `AnnData`-like artifact:
+            Load an `AnnData`-like artifact::
 
-            >>> artifact.load()
-            AnnData object with n_obs × n_vars = 70 × 765
-
-            Fall back to :meth:`~lamindb.Artifact.cache` if no in-memory representation is configured:
-
-            >>> artifact.load()
-            PosixPath('/home/runner/work/lamindb/lamindb/docs/guide/mydata/.lamindb/jb7BY5UJoQVGMUOKiLcn.jpg')
+                adata = artifact.load()
         """
         if self._overwrite_versions and not self.is_latest:
             raise ValueError(INCONSISTENT_STATE_MSG)
@@ -2714,11 +2706,12 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             mute: Silence logging of caching progress.
             is_run_input: Whether to track this artifact as run input.
 
-        Example::
+        Example:
 
-            # Sync file from cloud and return the local path of the cache
-            artifact.cache()
-            #> PosixPath('/home/runner/work/Caches/lamindb/lamindb-ci/lndb-storage/pbmc68k.h5ad')
+            Sync the artifact from the cloud and return the local path to the cached file::
+
+                artifact.cache()
+                #> PosixPath('/home/runner/work/Caches/lamindb/lamindata/pbmc68k.h5ad')
         """
         if self._overwrite_versions and not self.is_latest:
             raise ValueError(INCONSISTENT_STATE_MSG)
@@ -2745,27 +2738,33 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
         A first call to `.delete()` puts an artifact into the trash (sets `branch_id` to `-1`).
         A second call permanently deletes the artifact.
-        If it is a folder artifact with multiple versions, deleting a non-latest version
-        will not delete the underlying storage by default (if `storage=True` is not specified).
-        Deleting the latest version will delete all the versions for folder artifacts.
+
+        For an `artifact` that has multiple versions and for which `artifact.overwrite_versions is True`, the default behavior for folders,
+        deleting a non-latest version will not delete the underlying storage unless `storage=True` is passed.
+        Deleting the latest version will delete all versions.
 
         Args:
             permanent: Permanently delete the artifact (skip trash).
             storage: Indicate whether you want to delete the artifact in storage.
 
-        Example::
+        Examples:
 
-            import lamindb as ln
+            Delete a single file artifact::
 
-            # For an `Artifact` object `artifact`, call:
-            artifact = ln.Artifact.get(key="some.csv")
-            artifact.delete() # delete a single file artifact
+                import lamindb as ln
 
-            artifact = ln.Artifact.filter(key="some.tiledbsoma". is_latest=False).first()
-            artiact.delete() # delete an old version, the data will not be deleted
+                artifact = ln.Artifact.get(key="some.csv")
+                artifact.delete() # delete a single file artifact
 
-            artifact = ln.Artifact.get(key="some.tiledbsoma". is_latest=True)
-            artiact.delete() # delete all versions, the data will be deleted or prompted for deletion.
+            Delete an old version of a folder-like artifact::
+
+                artifact = ln.Artifact.filter(key="folder.zarr", is_latest=False).first()
+                artiact.delete() # delete an old version, the data will not be deleted
+
+            Delete all versions of a folder-like artifact::
+
+                artifact = ln.Artifact.get(key="folder.zarr". is_latest=True)
+                artifact.delete() # delete all versions, the data will be deleted or prompted for deletion.
         """
         super().delete(permanent=permanent, storage=storage, using_key=using_key)
 
@@ -2807,7 +2806,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
         Example:
 
-            ::
+            Save a file-like artifact after creating it with the default constructor `Artifact()`::
 
                 import lamindb as ln
 
