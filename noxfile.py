@@ -96,7 +96,7 @@ def install_ci(session, group):
         run(session, "uv pip install --system xarray-dataclasses")
         run(session, "uv pip install --system spatialdata")
     elif group == "unit-storage":
-        extras += "zarr,gcp"
+        extras += "zarr_v2,gcp"
         run(session, "uv pip install --system huggingface_hub")
         # tiledbsoma dependency, specifying it here explicitly
         # otherwise there are problems with uv resolver
@@ -107,15 +107,15 @@ def install_ci(session, group):
         # anndata here to prevent installing older version on release
         run(session, "uv pip install --system huggingface_hub polars anndata==0.12.2")
     elif group == "guide":
-        extras += "zarr"
+        extras += "zarr_v2"
         run(session, "uv pip install --system scanpy mudata spatialdata tiledbsoma")
     elif group == "biology":
         extras += "fcs"
         run(session, "uv pip install --system ipywidgets")
     elif group == "faq":
-        extras += "zarr"
+        extras += "zarr_v2"
     elif group == "storage":
-        extras += "zarr"
+        extras += "zarr_v2"
         run(
             session,
             "uv pip install --system --no-deps ./sub/wetlab",
@@ -137,7 +137,7 @@ def install_ci(session, group):
     elif group == "integrations":
         run(session, "uv pip install --system lightning")
     elif group == "docs":
-        extras += "zarr"
+        extras += "zarr_v2"
         # spatialdata dependency, specifying it here explicitly
         # otherwise there are problems with uv resolver
         run(session, "uv pip install --system xarray-dataclasses")

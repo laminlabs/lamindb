@@ -46,7 +46,7 @@ Home = "https://github.com/laminlabs/lamindb"
 gcp = [
     "lamindb_setup[gcp]",
 ]
-zarr = [
+zarr_v2 = [
     "numcodecs<0.16.0", # 0.16.0 breaks zarr<3.0.*
     "zarr>=2.16.0,<3.0.0a0", # not yet compatible with 3.0.*
 ]

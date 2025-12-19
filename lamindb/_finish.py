@@ -346,7 +346,7 @@ def save_context_core(
     ln.settings.creation.artifact_silence_missing_run_warning = True
     # save source code
     if save_source_code_and_report:
-        transform_hash, _ = hash_file(source_code_path)  # ignore hash_type for now
+        _, transform_hash, _ = hash_file(source_code_path)  # ignore hash_type for now
         if transform.hash is not None:
             # check if the hash of the transform source code matches
             if transform_hash != transform.hash:
@@ -392,22 +392,33 @@ def save_context_core(
                         description = "requirements.txt"
                     elif existing_paths[0].name == "r_environment.txt":
                         description = "r_environment.txt"
-                    env_hash, _ = hash_file(artifact_path)
+                    size, env_hash, _ = hash_file(artifact_path)
                 else:
                     description = "environments"
-                    _, env_hash, _, _ = hash_dir(artifact_path)
+                    size, env_hash, _, _ = hash_dir(artifact_path)
 
-                artifact = ln.Artifact.objects.filter(hash=env_hash).one_or_none()
+                artifact = (
+                    ln.Artifact.objects.filter(hash=env_hash)
+                    .exclude(
+                        size=0
+                    )  # exclude empty files, which may occur for one reason or another
+                    .one_or_none()
+                )
                 new_env_artifact = artifact is None
 
                 if new_env_artifact:
-                    artifact = ln.Artifact(
-                        artifact_path,
-                        description=description,
-                        kind="__lamindb_run__",
-                        run=False,
-                    )
-                    artifact.save(upload=True, print_progress=False)
+                    if size > 0:
+                        artifact = ln.Artifact(
+                            artifact_path,
+                            description=description,
+                            kind="__lamindb_run__",
+                            run=False,
+                        )
+                        artifact.save(upload=True, print_progress=False)
+                    else:
+                        logger.warning(
+                            "environment file is empty, skipping linking an environment"
+                        )
 
                 run.environment = artifact
                 if new_env_artifact:
@@ -432,7 +443,7 @@ def save_context_core(
                     if title_text is not None:
                         transform.description = title_text
                 if run.report_id is not None:
-                    hash, _ = hash_file(report_path)  # ignore hash_type for now
+                    _, hash, _ = hash_file(report_path)  # ignore hash_type for now
                     if hash != run.report.hash:
                         response = input(
                             f"You are about to overwrite an existing report (hash '{run.report.hash}') for Run('{run.uid}'). Proceed? (y/n) "

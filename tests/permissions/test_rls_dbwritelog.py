@@ -36,6 +36,23 @@ db_token._expiration = expiration
 db_token_manager.set(db_token)
 
 
+def test_token_expiration():
+    # init connection.connection
+    with connection.cursor() as cur:
+        pass
+
+    expired_token = sign_jwt(
+        pgurl,
+        {"account_id": user_uuid, "exp": time.time() - 1000, "type": "collaborator"},
+    )
+    # check that an expired token is invalid
+    with (
+        pytest.raises(psycopg2.errors.RaiseException),
+        connection.connection.cursor() as cur,
+    ):
+        cur.execute("SELECT set_token(%s);", (expired_token,))
+
+
 def test_authentication():
     # just check that the token was setup
     with connection.cursor() as cur:

@@ -753,7 +753,7 @@ class Context:
         from .._finish import notebook_to_script
 
         if not self._path.suffix == ".ipynb":
-            transform_hash, _ = hash_file(self._path)
+            _, transform_hash, _ = hash_file(self._path)
         else:
             # need to convert to stripped py:percent format for hashing
             source_code_path = ln_setup.settings.cache_dir / self._path.name.replace(
@@ -763,7 +763,7 @@ class Context:
                 self._path.exists()
             ):  # notebook kernel might be running on a different machine
                 notebook_to_script(description, self._path, source_code_path)
-                transform_hash, _ = hash_file(source_code_path)
+                _, transform_hash, _ = hash_file(source_code_path)
             else:
                 logger.debug(
                     "skipping notebook hash comparison, notebook kernel running on a different machine"
