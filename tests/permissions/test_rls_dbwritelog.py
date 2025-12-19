@@ -9,7 +9,7 @@ import psycopg2
 import pytest
 from django.db import connection, transaction
 from django.db.utils import IntegrityError, InternalError, ProgrammingError
-from hubmodule._dbwritelog import uninstall_dbwritelog
+from hubmodule._dbwrite import uninstall_dbwrite
 from jwt_utils import sign_jwt
 from lamindb.models.artifact import track_run_input
 from lamindb_setup.core.django import DBToken, db_token_manager
@@ -173,7 +173,7 @@ def test_select_without_db_token():
         cur.execute("SELECT * FROM lamindb_space;")
 
 
-def test_fine_grained_permissions_account_and_dbwritelog():
+def test_fine_grained_permissions_account_and_dbwrite():
     # check select
     assert ln.ULabel.filter().count() == 3
     assert ln.Project.filter().count() == 2
@@ -188,21 +188,22 @@ def test_fine_grained_permissions_account_and_dbwritelog():
     assert ln.ULabel.filter().count() == 2
     # check the logs for delete
     log_rec = (
-        hm.DbWriteLog.filter(record_id=ulabel_del_id, table_name="lamindb_ulabel")
+        hm.DbWrite.filter(sqlrecord_id=ulabel_del_id, table_name="lamindb_ulabel")
         .order_by("-id")
         .first()
     )
-    assert log_rec.created_by_uid == "accntid1"
     assert log_rec.event_type == "DELETE"
     assert log_rec.data is not None
+    assert log_rec.created_by_id == 1
     # check the logs for insert
     log_rec = (
-        hm.DbWriteLog.filter(record_id=ulabel_del_id, table_name="lamindb_ulabel")
+        hm.DbWrite.filter(sqlrecord_id=ulabel_del_id, table_name="lamindb_ulabel")
         .order_by("id")
         .first()
     )
     assert log_rec.event_type == "INSERT"
     assert log_rec.data is None
+    assert log_rec.created_by_id == 1
     # should not delete, does not error for some reason
     ln.ULabel.get(name="select_ulabel").delete(permanent=True)
     assert ln.ULabel.filter().count() == 2
@@ -232,13 +233,13 @@ def test_fine_grained_permissions_account_and_dbwritelog():
     ulabel = ln.ULabel.get(name="new label update")  # check that it is saved
     # check the logs for update
     log_rec = (
-        hm.DbWriteLog.filter(record_id=ulabel.id, table_name="lamindb_ulabel")
+        hm.DbWrite.filter(sqlrecord_id=ulabel.id, table_name="lamindb_ulabel")
         .order_by("-id")
         .first()
     )
-    assert log_rec.created_by_uid == "accntid1"
     assert log_rec.event_type == "UPDATE"
     assert log_rec.data is not None
+    assert log_rec.created_by_id == 1
     # should fail
     ulabel = ln.ULabel.get(name="select_ulabel")
     ulabel.name = "select_ulabel update"
@@ -290,8 +291,8 @@ def test_fine_grained_permissions_single_records():
     with psycopg2.connect(pgurl) as conn, conn.cursor() as cur:
         cur.execute("SELECT id FROM lamindb_ulabel WHERE name = 'no_access_ulabel'")
         ulabel_id = cur.fetchone()[0]
-    assert not hm.DbWriteLog.filter(
-        record_id=ulabel_id, table_name="lamindb_ulabel"
+    assert not hm.DbWrite.filter(
+        sqlrecord_id=ulabel_id, table_name="lamindb_ulabel"
     ).exists()
 
     # switch access to this ulabel to read
@@ -307,8 +308,8 @@ def test_fine_grained_permissions_single_records():
     ulabel = ln.ULabel.get(name="no_access_ulabel")
 
     # check that the logs are available now
-    assert hm.DbWriteLog.filter(
-        record_id=ulabel.id, table_name="lamindb_ulabel"
+    assert hm.DbWrite.filter(
+        sqlrecord_id=ulabel.id, table_name="lamindb_ulabel"
     ).exists()
 
     new_name = "new_name_single_rls_access_ulabel"
@@ -500,18 +501,18 @@ def test_token_reset():
     assert "JWT is not set" in error.exconly()
 
 
-def test_dbwritelog_uninstall():
+def test_dbwrite_uninstall():
     triggers_exist_query = (
-        "SELECT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname LIKE 'dbwritelog_%')"
+        "SELECT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname LIKE 'dbwrite_%')"
     )
-    table_exists_query = "SELECT to_regclass('public.hubmodule_dbwritelog') IS NOT NULL"
+    table_exists_query = "SELECT to_regclass('public.hubmodule_dbwrite') IS NOT NULL"
 
     with psycopg2.connect(pgurl) as conn, conn.cursor() as cur:
         cur.execute(triggers_exist_query)
         triggers_exist = cur.fetchone()[0]
     assert triggers_exist
 
-    uninstall_dbwritelog(pgurl, drop_table=False)
+    uninstall_dbwrite(pgurl, drop_table=False)
 
     with psycopg2.connect(pgurl) as conn, conn.cursor() as cur:
         cur.execute(triggers_exist_query)
@@ -522,7 +523,7 @@ def test_dbwritelog_uninstall():
         table_exists = cur.fetchone()[0]
         assert table_exists
 
-    uninstall_dbwritelog(pgurl, drop_table=True)
+    uninstall_dbwrite(pgurl, drop_table=True)
 
     with psycopg2.connect(pgurl) as conn, conn.cursor() as cur:
         cur.execute(table_exists_query)

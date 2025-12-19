@@ -5,7 +5,7 @@ from uuid import uuid4
 from hubmodule._migrate import _apply_migrations_with_tracking
 from hubmodule._setup import _setup_extensions, _setup_secret, _install_utils_db_modules
 from hubmodule._rls import RLSGenerator
-from hubmodule._dbwritelog import install_dbwritelog
+from hubmodule._dbwrite import install_dbwrite
 from laminhub_rest.core.postgres import DbRoleHandler
 from pathlib import Path
 
@@ -42,9 +42,9 @@ rls_generator.setup()
 
 print("Created jwt db connection")
 
-install_dbwritelog(pgurl)
+install_dbwrite(pgurl)
 
-print("Installed dbwritelog")
+print("Installed dbwrite")
 
 # create models
 
@@ -52,9 +52,8 @@ full_access = ln.Space(name="full access").save()  # type: ignore
 select_access = ln.Space(name="select access").save()  # type: ignore
 no_access = ln.Space(name="no access").save()  # type: ignore
 # set read role for the default space
-account = hm.Account(
-    id=ln.setup.settings.user._uuid.hex, uid="accntid1", role="read"
-).save()
+usettings = ln.setup.settings.user
+account = hm.Account(id=usettings._uuid.hex, uid=usettings.uid, role="read").save()
 
 # no access space
 ulabel = ln.ULabel(name="no_access_ulabel")
