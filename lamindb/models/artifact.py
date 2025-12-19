@@ -2351,28 +2351,22 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     def replace(
         self,
         data: Union[UPathStr, pd.DataFrame, AnnData, MuData],
-        run: Run | None = None,
+        run: Run | bool | None = None,
         format: str | None = None,
     ) -> None:
-        """Replace artifact content.
+        """Replace the artifact content in storage **without** making a new version.
+
+        .. hint::
+
+            Use any `Artifact` constructor to create a **new** version of an artifact either by passing
+            an existing `key` or by passing the `revises` argument.
 
         Args:
-            data: A file path.
-            run: The run that created the artifact gets
-                auto-linked if ``ln.track()`` was called.
-
-        Examples:
-            Say we made a change to the content of an artifact, e.g., edited the image
-            `paradisi05_laminopathic_nuclei.jpg`.
-
-            This is how we replace the old file in storage with the new file:
-
-            >>> artifact.replace("paradisi05_laminopathic_nuclei.jpg")
-            >>> artifact.save()
-
-            Note that this neither changes the storage key nor the filename.
-
-            However, it will update the suffix if it changes.
+            data: A file path or in-memory dataset object like a `DataFrame`, `AnnData`, `MuData`, or `SpatialData`.
+            run: `Run | bool | None = None` The run that creates the artifact. If `False`, suppress tracking the run.
+                If `None`, infer the run from the global run context.
+            format: `str | None = None` The format of the data to write into storage.
+                If `None`, infer the format from the data.
         """
         storage = settings.storage.record
         run = get_run(run)
