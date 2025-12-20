@@ -4,8 +4,10 @@ from contextvars import ContextVar
 from datetime import datetime, timezone
 from typing import Callable, ParamSpec, TypeVar
 
-from .core._context import context, serialize_params_to_json
-from .models import Run, Transform
+from lamindb.base import deprecated
+
+from ..models import Run, Transform
+from ._context import context, serialize_params_to_json
 
 P = ParamSpec("P")
 R = TypeVar("R")
@@ -24,7 +26,7 @@ def get_current_tracked_run() -> Run | None:
     return run
 
 
-def tracked(uid: str | None = None) -> Callable[[Callable[P, R]], Callable[P, R]]:
+def step(uid: str | None = None) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """Track function runs.
 
     You will be able to see inputs, outputs, and parameters of the function in the data lineage graph.
@@ -41,7 +43,7 @@ def tracked(uid: str | None = None) -> Callable[[Callable[P, R]], Callable[P, R]
 
         import lamindb as ln
 
-        @ln.tracked()
+        @ln.step()
         def subset_dataframe(
             input_artifact_key: str,  # all arguments tracked as parameters of the function run
             output_artifact_key: str,
@@ -67,7 +69,7 @@ def tracked(uid: str | None = None) -> Callable[[Callable[P, R]], Callable[P, R]
             if initiated_by_run is None:
                 if context.run is None:
                     raise RuntimeError(
-                        "Please track the global run context before using @ln.tracked(): ln.track()"
+                        "Please track the global run context before using @ln.step(): ln.track()"
                     )
                 initiated_by_run = context.run
 
@@ -115,3 +117,8 @@ def tracked(uid: str | None = None) -> Callable[[Callable[P, R]], Callable[P, R]
         return wrapper_tracked
 
     return decorator_tracked
+
+
+@deprecated("step")
+def tracked(uid: str | None = None) -> Callable[[Callable[P, R]], Callable[P, R]]:
+    return step(uid)

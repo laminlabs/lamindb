@@ -7,7 +7,7 @@ import pandas as pd
 import pytest
 
 
-@ln.tracked()
+@ln.step()
 def process_chunk(
     chunk_id: int, artifact_param: ln.Artifact, records_params: Iterable[ln.Record]
 ) -> str:
@@ -24,12 +24,12 @@ def process_chunk(
     return artifact.key
 
 
-def test_tracked_parallel():
+def test_step_parallel():
     with pytest.raises(RuntimeError) as err:
         process_chunk(4)
     assert (
         err.exconly()
-        == "RuntimeError: Please track the global run context before using @ln.tracked(): ln.track()"
+        == "RuntimeError: Please track the global run context before using @ln.step(): ln.track()"
     )
 
     # Ensure tracking is on
@@ -101,7 +101,3 @@ def test_tracked_parallel():
     ln.context._run = None
     ln.context._transform = None
     ln.context._path = None
-
-
-if __name__ == "__main__":
-    test_tracked_parallel()

@@ -677,8 +677,8 @@ def populate_subsequent_run(record: Artifact | Collection, run: Run | None) -> N
 
 # also see current_run() in core._data
 def get_run(run: Run | None) -> Run | None:
-    from .._tracked import get_current_tracked_run
     from ..core._context import context
+    from ..core._functions import get_current_tracked_run
 
     if run is None:
         run = get_current_tracked_run()
@@ -3026,8 +3026,8 @@ def track_run_input(
     if is_run_input is False:
         return None
 
-    from .._tracked import get_current_tracked_run
     from ..core._context import context
+    from ..core._functions import get_current_tracked_run
     from .collection import Collection
 
     if isinstance(is_run_input, Run):
