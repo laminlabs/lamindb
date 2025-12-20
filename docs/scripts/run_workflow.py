@@ -2,7 +2,7 @@ import argparse
 import lamindb as ln
 
 
-@ln.tracked()
+@ln.step()
 def subset_dataframe(
     artifact: ln.Artifact,
     subset_rows: int = 2,

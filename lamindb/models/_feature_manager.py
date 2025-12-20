@@ -1118,7 +1118,7 @@ class FeatureManager:
                 save(links, ignore_conflicts=True)
 
     def _get_feature_records(self, dictionary, feature_field):
-        from .._tracked import get_current_tracked_run
+        from ..core._functions import get_current_tracked_run
 
         registry = feature_field.field.model
         keys = list(dictionary.keys())

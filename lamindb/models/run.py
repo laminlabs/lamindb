@@ -49,7 +49,7 @@ def current_run() -> Run | None:
         import lamindb
 
         # also see get_run() in core._data
-        run = lamindb._tracked.get_current_tracked_run()
+        run = lamindb.core._functions.get_current_tracked_run()
         if run is None:
             run = lamindb.context.run
         return run
@@ -216,8 +216,8 @@ class Run(SQLRecord):
     See Also:
         :func:`~lamindb.track`
             Globally track a script or notebook run.
-        :func:`~lamindb.tracked`
-            Track a function with this decorator.
+        :func:`~lamindb.step`
+            Track a function executionwith this decorator.
 
     Examples:
 

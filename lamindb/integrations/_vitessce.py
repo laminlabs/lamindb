@@ -56,7 +56,7 @@ def save_vitessce_config(
     logger.important(f"VitessceConfig references these artifacts:\n{message}")
     assert len(dataset_artifacts) > 0  # noqa: S101
 
-    # the below will be replaced with a `ln.tracked()` decorator soon
+    # the below will be replaced with a `ln.step()` decorator soon
     transform = Transform(  # type: ignore
         uid="kup03MJBsIVa0002",
         key="save_vitessce_config",

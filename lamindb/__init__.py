@@ -38,12 +38,12 @@ Track inputs, outputs & environment of a notebook or script run.
    track
    finish
 
-Decorate a function with `@tracked()` to track inputs, outputs & environment of function executions.
+Decorate a function with `@step()` to track inputs, outputs & environment of function executions.
 
 .. autosummary::
    :toctree: .
 
-   tracked
+   step
 
 Artifacts & storage locations
 =============================
@@ -165,7 +165,7 @@ from . import base, errors, setup
 
 _check_instance_setup(from_module="lamindb")
 
-from ._tracked import tracked
+from .core._functions import step, tracked
 from ._view import view
 from .core._context import context
 from .core._settings import settings
