@@ -165,7 +165,7 @@ from . import base, errors, setup
 
 _check_instance_setup(from_module="lamindb")
 
-from .core._functions import step, tracked
+from .core._functions import flow, step, tracked
 from ._view import view
 from .core._context import context
 from .core._settings import settings

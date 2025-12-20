@@ -26,34 +26,15 @@ def get_current_tracked_run() -> Run | None:
     return run
 
 
-def step(uid: str | None = None) -> Callable[[Callable[P, R]], Callable[P, R]]:
-    """Track function runs.
-
-    You will be able to see inputs, outputs, and parameters of the function in the data lineage graph.
-
-    Guide: :doc:`/track`
-
-    .. versionadded:: 1.1.0
-        This is still in beta and will be refined in future releases.
+def _create_tracked_decorator(
+    uid: str | None = None, raise_on_no_run: bool = True
+) -> Callable[[Callable[P, R]], Callable[P, R]]:
+    """Internal helper to create tracked decorators.
 
     Args:
         uid: Persist the uid to identify this transform across renames.
-
-    Example::
-
-        import lamindb as ln
-
-        @ln.step()
-        def subset_dataframe(
-            input_artifact_key: str,  # all arguments tracked as parameters of the function run
-            output_artifact_key: str,
-            subset_rows: int = 2,
-            subset_cols: int = 2,
-        ) -> None:
-            artifact = ln.Artifact.get(key=input_artifact_key)
-            df = artifact.load()  # auto-tracked as input
-            new_df = df.iloc[:subset_rows, :subset_cols]
-            ln.Artifact.from_dataframe(new_df, key=output_artifact_key).save()  # auto-tracked as output
+        raise_on_no_run: If True, raise RuntimeError when no run context exists.
+                         If False, skip tracking and execute function normally.
     """
 
     def decorator_tracked(func: Callable[P, R]) -> Callable[P, R]:
@@ -68,11 +49,14 @@ def step(uid: str | None = None) -> Callable[[Callable[P, R]], Callable[P, R]]:
             initiated_by_run = get_current_tracked_run()
             if initiated_by_run is None:
                 if context.run is None:
-                    raise RuntimeError(
-                        "Please track the global run context before using @ln.step(): ln.track()"
-                    )
-                initiated_by_run = context.run
-
+                    if raise_on_no_run:
+                        raise RuntimeError(
+                            "Please track the global run context before using @ln.step(): ln.track()"
+                        )
+                    else:
+                        initiated_by_run = None
+                else:
+                    initiated_by_run = context.run
             # Get fully qualified function name
             module_name = func.__module__
             if module_name in {"__main__", "__mp_main__"}:
@@ -117,6 +101,59 @@ def step(uid: str | None = None) -> Callable[[Callable[P, R]], Callable[P, R]]:
         return wrapper_tracked
 
     return decorator_tracked
+
+
+def step(uid: str | None = None) -> Callable[[Callable[P, R]], Callable[P, R]]:
+    """Track function runs.
+
+    You will be able to see inputs, outputs, and parameters of the function in the data lineage graph.
+
+    Guide: :doc:`/track`
+
+    .. versionadded:: 1.1.0
+        This is still in beta and will be refined in future releases.
+
+    Args:
+        uid: Persist the uid to identify this transform across renames.
+
+    Example::
+
+        import lamindb as ln
+
+        @ln.step()
+        def subset_dataframe(
+            input_artifact_key: str,  # all arguments tracked as parameters of the function run
+            output_artifact_key: str,
+            subset_rows: int = 2,
+            subset_cols: int = 2,
+        ) -> None:
+            artifact = ln.Artifact.get(key=input_artifact_key)
+            df = artifact.load()  # auto-tracked as input
+            new_df = df.iloc[:subset_rows, :subset_cols]
+            ln.Artifact.from_dataframe(new_df, key=output_artifact_key).save()  # auto-tracked as output
+    """
+    return _create_tracked_decorator(uid=uid, raise_on_no_run=True)
+
+
+def flow(uid: str | None = None) -> Callable[[Callable[P, R]], Callable[P, R]]:
+    """Track function runs without raising errors when no run context exists.
+
+    Similar to :func:`step`, but gracefully skips tracking if no run context is available
+    instead of raising a RuntimeError.
+
+    Args:
+        uid: Persist the uid to identify this transform across renames.
+
+    Example::
+
+        import lamindb as ln
+
+        @ln.flow()
+        def process_data(data: str) -> str:
+            # This will track if run context exists, otherwise runs normally
+            return data.upper()
+    """
+    return _create_tracked_decorator(uid=uid, raise_on_no_run=False)
 
 
 @deprecated("step")
