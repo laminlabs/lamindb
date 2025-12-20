@@ -216,8 +216,8 @@ class Run(SQLRecord):
     See Also:
         :func:`~lamindb.track`
             Globally track a script or notebook run.
-        :func:`~lamindb.tracked`
-            Track a function with this decorator.
+        :func:`~lamindb.step`
+            Track a function executionwith this decorator.
 
     Examples:
 
