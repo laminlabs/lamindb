@@ -39,9 +39,62 @@ if TYPE_CHECKING:
     from lamindb.base.types import TransformType
     from lamindb.models import Branch, Project, Space
 
+
 is_run_from_ipython = getattr(builtins, "__IPYTHON__", False)
 
 msg_path_failed = "failed to infer notebook path.\nfix: pass `path` to `ln.track()`"
+
+
+def detect_and_process_source_code_file(
+    *,
+    path: UPathStr | None,
+) -> tuple[Path, str, str, str]:
+    """Track source code file and determine transform metadata.
+
+    For `.py` files, classified as "script".
+    For `.Rmd` and `.qmd` files, classified as "notebook" because they
+    typically come with an .html run report.
+
+    Args:
+        path: Path to the source code file. If None, infers from call stack.
+
+    Returns:
+        Tuple of (path, transform_type, reference, reference_type).
+        - path: Path object to the source file
+        - transform_type: "script" or "notebook"
+        - reference: Git reference URL if sync_git_repo is set, else None
+        - reference_type: "url" if reference exists, else None
+
+    Raises:
+        NotImplementedError: If path cannot be determined from call stack.
+    """
+    # for `.py` files, classified as "script"
+    # for `.Rmd` and `.qmd` files, which we classify
+    # as "notebook" because they typically come with an .html run report
+    if path is None:
+        import inspect
+
+        frame = inspect.stack()[2]
+        path_str = frame[1]
+        if not path_str or path_str.startswith("<"):
+            raise NotImplementedError(
+                "Cannot determine valid file path, pass manually via path (interactive sessions not yet supported)"
+            )
+        path = Path(path_str)
+    else:
+        path = Path(path)
+    # for Rmd and qmd, we could also extract the title
+    # we don't do this for now as we're setting the title upon `ln.finish()` or `lamin save`
+    # by extracting it from the html while cleaning it: see clean_r_notebook_html()
+    # also see the script_to_notebook() in the CLI _load.py where the title is extracted
+    # from the source code YAML and updated with the transform description
+    transform_type = "notebook" if path.suffix in {".Rmd", ".qmd"} else "script"
+    reference = None
+    reference_type = None
+    if settings.sync_git_repo is not None:
+        reference = get_transform_reference_from_git_repo(path)
+        reference_type = "url"
+    return path, transform_type, reference, reference_type
 
 
 def get_uid_ext(version: str) -> str:
@@ -493,7 +546,7 @@ class Context:
                     transform_type,
                     transform_ref,
                     transform_ref_type,
-                ) = self._track_source_code(path=path)
+                ) = detect_and_process_source_code_file(path=path)
             if description is None:
                 description = self._description
             self._create_or_load_transform(
@@ -617,39 +670,6 @@ class Context:
                 filepath=self._path,
                 message_prefix="monitor at",
             )
-
-    def _track_source_code(
-        self,
-        *,
-        path: UPathStr | None,
-    ) -> tuple[Path, str, str, str]:
-        # for `.py` files, classified as "script"
-        # for `.Rmd` and `.qmd` files, which we classify
-        # as "notebook" because they typically come with an .html run report
-        if path is None:
-            import inspect
-
-            frame = inspect.stack()[2]
-            path_str = frame[1]
-            if not path_str or path_str.startswith("<"):
-                raise NotImplementedError(
-                    "Cannot determine valid file path, pass manually via path (interactive sessions not yet supported)"
-                )
-            path = Path(path_str)
-        else:
-            path = Path(path)
-        # for Rmd and qmd, we could also extract the title
-        # we don't do this for now as we're setting the title upon `ln.finish()` or `lamin save`
-        # by extracting it from the html while cleaning it: see clean_r_notebook_html()
-        # also see the script_to_notebook() in the CLI _load.py where the title is extracted
-        # from the source code YAML and updated with the transform description
-        transform_type = "notebook" if path.suffix in {".Rmd", ".qmd"} else "script"
-        reference = None
-        reference_type = None
-        if settings.sync_git_repo is not None:
-            reference = get_transform_reference_from_git_repo(path)
-            reference_type = "url"
-        return path, transform_type, reference, reference_type
 
     def _track_notebook(
         self,
