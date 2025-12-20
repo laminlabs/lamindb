@@ -27,13 +27,13 @@ def get_current_tracked_run() -> Run | None:
 
 
 def _create_tracked_decorator(
-    uid: str | None = None, raise_on_no_run: bool = True
+    uid: str | None = None, require_initiating_run: bool = True
 ) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """Internal helper to create tracked decorators.
 
     Args:
         uid: Persist the uid to identify this transform across renames.
-        raise_on_no_run: If True, raise RuntimeError when no run context exists.
+        require_initiating_run: If True, raise RuntimeError when no run context exists.
                          If False, skip tracking and execute function normally.
     """
 
@@ -49,7 +49,7 @@ def _create_tracked_decorator(
             initiated_by_run = get_current_tracked_run()
             if initiated_by_run is None:
                 if context.run is None:
-                    if raise_on_no_run:
+                    if require_initiating_run:
                         raise RuntimeError(
                             "Please track the global run context before using @ln.step(): ln.track()"
                         )
@@ -132,7 +132,7 @@ def step(uid: str | None = None) -> Callable[[Callable[P, R]], Callable[P, R]]:
             new_df = df.iloc[:subset_rows, :subset_cols]
             ln.Artifact.from_dataframe(new_df, key=output_artifact_key).save()  # auto-tracked as output
     """
-    return _create_tracked_decorator(uid=uid, raise_on_no_run=True)
+    return _create_tracked_decorator(uid=uid, require_initiating_run=True)
 
 
 def flow(uid: str | None = None) -> Callable[[Callable[P, R]], Callable[P, R]]:
@@ -153,7 +153,7 @@ def flow(uid: str | None = None) -> Callable[[Callable[P, R]], Callable[P, R]]:
             # This will track if run context exists, otherwise runs normally
             return data.upper()
     """
-    return _create_tracked_decorator(uid=uid, raise_on_no_run=False)
+    return _create_tracked_decorator(uid=uid, require_initiating_run=False)
 
 
 @deprecated("step")
