@@ -154,17 +154,17 @@ def flow(uid: str | None = None) -> Callable[[Callable[P, R]], Callable[P, R]]:
 
         For an extensive guide, see: :ref:`manage-workflows`. Here follow some examples.
 
-        .. literalinclude:: scripts/run_workflow.py
+        .. literalinclude:: scripts/my_workflow.py
             :language: python
-            :caption: run_workflow.py
+            :caption: my_workflow.py
 
-        .. literalinclude:: scripts/run_workflow_with_step.py
+        .. literalinclude:: scripts/my_workflow_with_step.py
             :language: python
-            :caption: run_workflow_with_step.py
+            :caption: my_workflow_with_step.py
 
-        .. literalinclude:: scripts/run_workflow_with_click.py
+        .. literalinclude:: scripts/my_workflow_with_click.py
             :language: python
-            :caption: run_workflow_with_click.py
+            :caption: my_workflow_with_click.py
 
     """
     return _create_tracked_decorator(uid=uid, is_flow=True)
