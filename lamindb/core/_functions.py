@@ -145,6 +145,9 @@ def flow(uid: str | None = None) -> Callable[[Callable[P, R]], Callable[P, R]]:
 
     You will be able to see inputs, outputs, and parameters of the function in the data lineage graph.
 
+    The decorator creates a :class:`~lamindb.Transform` object that maps onto the file in which the function is defined, not the function itself.
+    A function execution is tracked with a :class:`~lamindb.Run` object that maps the function name via `run.entrypoint`.
+
     Args:
         uid: Persist the uid to identify a transform across renames.
 
@@ -165,6 +168,7 @@ def flow(uid: str | None = None) -> Callable[[Callable[P, R]], Callable[P, R]]:
         .. literalinclude:: scripts/my_workflow_with_click.py
             :language: python
             :caption: my_workflow_with_click.py
+
 
     """
     return _create_tracked_decorator(uid=uid, is_flow=True)
