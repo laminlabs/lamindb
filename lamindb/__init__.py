@@ -16,7 +16,7 @@ To *write* data, connect to a writable instance::
    lamin connect account/name
 
 You can create an instance at `lamin.ai <https://lamin.ai>`__ and invite collaborators.
-If you prefer to work with a local SQLite instance, run::
+If you prefer to work with a local database (no login required), run::
 
     lamin init --storage ./quickstart-data --modules bionty
 
@@ -25,24 +25,19 @@ LaminDB will then auto-connect upon import and you can then create & save object
    import lamindb as ln
    # → connected lamindb: account/instance
 
-   ln.Artifact("my_dataset.parquet", key="datasets/my_dataset.parquet").save()
+   ln.Artifact("./my_dataset.parquet", key="datasets/my_dataset.parquet").save()
 
 Lineage
 =======
 
-Track inputs, outputs & environment of a notebook or script run.
+Track inputs, outputs, parameters, and environments of notebooks, scripts, and functions.
 
 .. autosummary::
    :toctree: .
 
    track
    finish
-
-Decorate a function with `@step()` to track inputs, outputs & environment of function executions.
-
-.. autosummary::
-   :toctree: .
-
+   flow
    step
 
 Artifacts & storage locations
@@ -165,7 +160,7 @@ from . import base, errors, setup
 
 _check_instance_setup(from_module="lamindb")
 
-from .core._functions import step, tracked
+from .core._functions import flow, step, tracked
 from ._view import view
 from .core._context import context
 from .core._settings import settings

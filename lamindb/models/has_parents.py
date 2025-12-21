@@ -511,6 +511,8 @@ def get_record_label(record: SQLRecord, field: str | None = None):
         return rf"<{title}>"
     elif isinstance(record, Run):
         title = record.transform.key.replace("&", "&amp;")
+        if record.entrypoint is not None:
+            title += f": {record.entrypoint}"
         return (
             rf'<{title}<BR/><FONT COLOR="GREY" POINT-SIZE="10">'
             rf"run at {format_field_value(record.started_at)}</FONT>>"

@@ -4,10 +4,18 @@ from contextvars import ContextVar
 from datetime import datetime, timezone
 from typing import Callable, ParamSpec, TypeVar
 
+from lamin_utils import logger
+
 from lamindb.base import deprecated
 
 from ..models import Run, Transform
-from ._context import context, serialize_params_to_json
+from ._context import (
+    Context,
+    detect_and_process_source_code_file,
+    get_cli_args,
+    serialize_params_to_json,
+)
+from ._context import context as global_context
 
 P = ParamSpec("P")
 R = TypeVar("R")
@@ -22,38 +30,18 @@ def get_current_tracked_run() -> Run | None:
     """Get the run object."""
     run = current_tracked_run.get()
     if run is None:
-        run = context.run
+        run = global_context.run
     return run
 
 
-def step(uid: str | None = None) -> Callable[[Callable[P, R]], Callable[P, R]]:
-    """Track function runs.
-
-    You will be able to see inputs, outputs, and parameters of the function in the data lineage graph.
-
-    Guide: :doc:`/track`
-
-    .. versionadded:: 1.1.0
-        This is still in beta and will be refined in future releases.
+def _create_tracked_decorator(
+    uid: str | None = None, is_flow: bool = True
+) -> Callable[[Callable[P, R]], Callable[P, R]]:
+    """Internal helper to create tracked decorators.
 
     Args:
         uid: Persist the uid to identify this transform across renames.
-
-    Example::
-
-        import lamindb as ln
-
-        @ln.step()
-        def subset_dataframe(
-            input_artifact_key: str,  # all arguments tracked as parameters of the function run
-            output_artifact_key: str,
-            subset_rows: int = 2,
-            subset_cols: int = 2,
-        ) -> None:
-            artifact = ln.Artifact.get(key=input_artifact_key)
-            df = artifact.load()  # auto-tracked as input
-            new_df = df.iloc[:subset_rows, :subset_cols]
-            ln.Artifact.from_dataframe(new_df, key=output_artifact_key).save()  # auto-tracked as output
+        is_flow: Triggered through @ln.flow(), otherwise @ln.step().
     """
 
     def decorator_tracked(func: Callable[P, R]) -> Callable[P, R]:
@@ -63,36 +51,69 @@ def step(uid: str | None = None) -> Callable[[Callable[P, R]], Callable[P, R]]:
         @functools.wraps(func)
         def wrapper_tracked(*args: P.args, **kwargs: P.kwargs) -> R:
             # Get function metadata
-            source_code = inspect.getsource(func)
+            path, transform_type, reference, reference_type = (
+                detect_and_process_source_code_file(
+                    path=inspect.getsourcefile(func),
+                    transform_type="function",
+                )
+            )
 
             initiated_by_run = get_current_tracked_run()
             if initiated_by_run is None:
-                if context.run is None:
-                    raise RuntimeError(
-                        "Please track the global run context before using @ln.step(): ln.track()"
-                    )
-                initiated_by_run = context.run
+                if global_context.run is None:
+                    if not is_flow:
+                        raise RuntimeError(
+                            "Please track the global run context before using @ln.step(): ln.track()"
+                        )
+                    else:
+                        initiated_by_run = None
+                else:
+                    initiated_by_run = global_context.run
 
-            # Get fully qualified function name
-            module_name = func.__module__
-            if module_name in {"__main__", "__mp_main__"}:
-                qualified_name = (
-                    f"{initiated_by_run.transform.key}/{func.__qualname__}.py"
+            # get the fully qualified module name, including submodules
+            module_path = func.__module__.replace(".", "/")
+            key = (
+                module_path if module_path not in {"__main__", "__mp_main__"} else None
+            )
+            if path.exists():
+                local_context = Context(uid=uid, path=path)
+                local_context._create_or_load_transform(
+                    description=None,
+                    transform_type=transform_type,
+                    transform_ref=reference,
+                    transform_ref_type=reference_type,
+                    key=key,
+                    is_flow=is_flow,
                 )
+                transform = local_context.transform
+                transform._update_source_code_from_path(path)
+                transform.save()
             else:
-                qualified_name = f"{module_name}.{func.__qualname__}.py"
+                if module_path in {"__main__", "__mp_main__"}:
+                    qualified_name = f"{initiated_by_run.transform.key}"
+                else:
+                    qualified_name = f"{module_path}.py"
+                transform = Transform(  # type: ignore
+                    uid=uid,
+                    key=qualified_name,
+                    type="function",
+                    source_code=inspect.getsource(func),
+                    is_flow=is_flow,
+                ).save()
 
-            # Create transform and run objects
-            transform = Transform(  # type: ignore
-                uid=uid,
-                key=qualified_name,
-                type="function",
-                source_code=source_code,
-            ).save()
-
-            run = Run(transform=transform, initiated_by_run=initiated_by_run)  # type: ignore
+            run = Run(
+                transform=transform,
+                initiated_by_run=initiated_by_run,
+                entrypoint=func.__qualname__,
+            )  # type: ignore
             run.started_at = datetime.now(timezone.utc)
             run._status_code = -1  # started
+
+            if is_flow:
+                cli_args = get_cli_args()
+                if cli_args:
+                    logger.important(f"function invoked with: {cli_args}")
+                    run.cli_args = cli_args
 
             # Bind arguments to get a mapping of parameter names to values
             bound_args = sig.bind(*args, **kwargs)
@@ -117,6 +138,55 @@ def step(uid: str | None = None) -> Callable[[Callable[P, R]], Callable[P, R]]:
         return wrapper_tracked
 
     return decorator_tracked
+
+
+def flow(uid: str | None = None) -> Callable[[Callable[P, R]], Callable[P, R]]:
+    """Use `@flow()` to track a function as a workflow.
+
+    You will be able to see inputs, outputs, and parameters of the function in the data lineage graph.
+
+    The decorator creates a :class:`~lamindb.Transform` object that maps onto the file in which the function is defined.
+    The function maps onto an entrypoint of the `transform`.
+
+    A function execution creates a :class:`~lamindb.Run` object that stores the function name in `run.entrypoint`.
+
+    Args:
+        uid: Persist the uid to identify a transform across renames.
+
+    Examples:
+
+        To sync a workflow with a file in a git repo, see: :ref:`sync-code-with-git`.
+
+        For an extensive guide, see: :ref:`manage-workflows`. Here follow some examples.
+
+        .. literalinclude:: scripts/my_workflow.py
+            :language: python
+            :caption: my_workflow.py
+
+        .. literalinclude:: scripts/my_workflow_with_step.py
+            :language: python
+            :caption: my_workflow_with_step.py
+
+        .. literalinclude:: scripts/my_workflow_with_click.py
+            :language: python
+            :caption: my_workflow_with_click.py
+
+
+    """
+    return _create_tracked_decorator(uid=uid, is_flow=True)
+
+
+def step(uid: str | None = None) -> Callable[[Callable[P, R]], Callable[P, R]]:
+    """Use `@step()` to track a function as a step.
+
+    Behaves like :func:`~lamindb.flow()`, but acts as a step in a workflow.
+
+    See :func:`~lamindb.flow()` for examples.
+
+    Args:
+        uid: Persist the uid to identify a transform across renames.
+    """
+    return _create_tracked_decorator(uid=uid, is_flow=False)
 
 
 @deprecated("step")

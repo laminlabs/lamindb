@@ -4,10 +4,9 @@ from typing import Iterable
 
 import lamindb as ln
 import pandas as pd
-import pytest
 
 
-@ln.step()
+@ln.flow()
 def process_chunk(
     chunk_id: int, artifact_param: ln.Artifact, records_params: Iterable[ln.Record]
 ) -> str:
@@ -24,20 +23,9 @@ def process_chunk(
     return artifact.key
 
 
-def test_step_parallel():
-    with pytest.raises(RuntimeError) as err:
-        process_chunk(4)
-    assert (
-        err.exconly()
-        == "RuntimeError: Please track the global run context before using @ln.step(): ln.track()"
-    )
-
-    # Ensure tracking is on
-    ln.track()
-
+def test_flow_parallel():
     # Number of parallel executions
     n_parallel = 3
-
     param_artifact = ln.Artifact(".gitignore", key="param_artifact").save()
     ln.Record(name="record1").save(), ln.Record(name="record2").save()
     records_params = ln.Record.filter(name__startswith="record")
@@ -75,7 +63,7 @@ def test_step_parallel():
     # Verify each run has the correct start and finish times
     for run in runs:
         print(f"Run details: {run}")
-        assert run.transform.is_flow is False
+        assert run.transform.is_flow is True
         assert run.started_at is not None
         assert run.finished_at is not None
         assert run.started_at < run.finished_at

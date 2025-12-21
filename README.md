@@ -148,10 +148,10 @@ To create a dataset while tracking source code, inputs, outputs, logs, and envir
 import lamindb as ln
 # → connected lamindb: account/instance
 
-ln.track()  # track execution of source code as a run
-open("sample.fasta", "w").write(">seq1\nACGT\n")  # create a dataset
-ln.Artifact("sample.fasta", key="sample.fasta").save()  # save dataset as an artifact
-ln.finish()  # mark the run as finished
+ln.track()                                              # track code execution
+open("sample.fasta", "w").write(">seq1\nACGT\n")        # create dataset
+ln.Artifact("sample.fasta", key="sample.fasta").save()  # save dataset
+ln.finish()                                             # mark run as finished
 ```
 
 Running this snippet as a script (`python create-fasta.py`) produces the following data lineage:

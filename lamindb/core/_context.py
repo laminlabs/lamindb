@@ -39,9 +39,65 @@ if TYPE_CHECKING:
     from lamindb.base.types import TransformType
     from lamindb.models import Branch, Project, Space
 
+
 is_run_from_ipython = getattr(builtins, "__IPYTHON__", False)
 
 msg_path_failed = "failed to infer notebook path.\nfix: pass `path` to `ln.track()`"
+
+
+def detect_and_process_source_code_file(
+    *,
+    path: UPathStr | None,
+    transform_type: TransformType | None = None,
+) -> tuple[Path, TransformType, str, str]:
+    """Track source code file and determine transform metadata.
+
+    For `.py` files, classified as "script".
+    For `.Rmd` and `.qmd` files, classified as "notebook" because they
+    typically come with an .html run report.
+
+    Args:
+        path: Path to the source code file. If None, infers from call stack.
+
+    Returns:
+        Tuple of (path, transform_type, reference, reference_type).
+        - path: Path object to the source file
+        - transform_type: "script" or "notebook"
+        - reference: Git reference URL if sync_git_repo is set, else None
+        - reference_type: "url" if reference exists, else None
+
+    Raises:
+        NotImplementedError: If path cannot be determined from call stack.
+    """
+    # for `.py` files, classified as "script"
+    # for `.Rmd` and `.qmd` files, which we classify
+    # as "notebook" because they typically come with an .html run report
+    if path is None:
+        import inspect
+
+        frame = inspect.stack()[2]
+        path_str = frame[1]
+        if not path_str or path_str.startswith("<"):
+            raise NotImplementedError(
+                "Cannot determine valid file path, pass manually via path (interactive sessions not yet supported)"
+            )
+        path = Path(path_str)
+    else:
+        path = Path(path)
+    # for Rmd and qmd, we could also extract the title
+    # we don't do this for now as we're setting the title upon `ln.finish()` or `lamin save`
+    # by extracting it from the html while cleaning it: see clean_r_notebook_html()
+    # also see the script_to_notebook() in the CLI _load.py where the title is extracted
+    # from the source code YAML and updated with the transform description
+    # note that ipynb notebooks are handled in a separate function (_track_notebook())
+    if transform_type is None:
+        transform_type = "notebook" if path.suffix in {".Rmd", ".qmd"} else "script"
+    reference = None
+    reference_type = None
+    if settings.sync_git_repo is not None and path.suffix != ".ipynb":
+        reference = get_transform_reference_from_git_repo(path)
+        reference_type = "url"
+    return path, transform_type, reference, reference_type
 
 
 def get_uid_ext(version: str) -> str:
@@ -288,13 +344,13 @@ class Context:
     Is the book keeper for :func:`~lamindb.track` and :func:`~lamindb.finish`.
     """
 
-    def __init__(self):
-        self._uid: str | None = None
+    def __init__(self, uid: str | None = None, path: Path | None = None):
+        self._uid: str | None = uid
+        self._path: Path | None = path
         self._description: str | None = None
         self._version: str | None = None
         self._transform: Transform | None = None
         self._run: Run | None = None
-        self._path: Path | None = None
         self._project: Project | None = None
         self._space: Space | None = None
         self._branch: Branch | None = None
@@ -378,11 +434,9 @@ class Context:
         path: str | None = None,
         pypackages: bool | None = None,
     ) -> None:
-        """Track a run of your notebook or script.
+        """Track a run of a notebook or script.
 
-        Populates the global run :class:`~lamindb.context` by managing `Transform` & `Run` records and caching the compute environment.
-
-        If :attr:`~lamindb.core.Settings.sync_git_repo` is set, checks whether a script-like transform exists in a git repository and links it.
+        Populates the global run :class:`~lamindb.context` with :class:`~lamindb.Transform` & :class:`~lamindb.Run` objects and tracks the compute environment.
 
         Args:
             transform: A transform (stem) `uid` (or record). If `None`, auto-creates a `transform` with its `uid`.
@@ -401,18 +455,20 @@ class Context:
 
         Examples:
 
-            To track the run of a notebook or script, call::
+            To track the run of a notebook or script:
 
-                ln.track()
-                #> → created Transform('Onv04I53OgtT0000'), started new Run('dpSfd7Ds...') at 2025-04-25 11:00:03 UTC
-                #> • recommendation: to identify the notebook across renames, pass the uid: ln.track("Onv04I53OgtT")
+            .. literalinclude:: scripts/run_track_and_finish.py
+               :language: python
 
-            Ensure one version history across file renames::
+            To ensure one version history across file renames::
 
                 ln.track("Onv04I53OgtT")
-                #> → created Transform('Onv04I53OgtT0000'), started new Run('dpSfd7Ds...') at 2025-04-25 11:00:03 UTC
 
-            More examples: :doc:`/track`
+            To sync code with a git repo, see: :ref:`sync-code-with-git`.
+
+            To track parameters and features, see: :ref:`track-run-parameters`.
+
+            To browse more examples, see: :doc:`/track`.
         """
         from lamindb.models import Branch, Project, Space
 
@@ -493,7 +549,7 @@ class Context:
                     transform_type,
                     transform_ref,
                     transform_ref_type,
-                ) = self._track_source_code(path=path)
+                ) = detect_and_process_source_code_file(path=path)
             if description is None:
                 description = self._description
             self._create_or_load_transform(
@@ -618,39 +674,6 @@ class Context:
                 message_prefix="monitor at",
             )
 
-    def _track_source_code(
-        self,
-        *,
-        path: UPathStr | None,
-    ) -> tuple[Path, str, str, str]:
-        # for `.py` files, classified as "script"
-        # for `.Rmd` and `.qmd` files, which we classify
-        # as "notebook" because they typically come with an .html run report
-        if path is None:
-            import inspect
-
-            frame = inspect.stack()[2]
-            path_str = frame[1]
-            if not path_str or path_str.startswith("<"):
-                raise NotImplementedError(
-                    "Cannot determine valid file path, pass manually via path (interactive sessions not yet supported)"
-                )
-            path = Path(path_str)
-        else:
-            path = Path(path)
-        # for Rmd and qmd, we could also extract the title
-        # we don't do this for now as we're setting the title upon `ln.finish()` or `lamin save`
-        # by extracting it from the html while cleaning it: see clean_r_notebook_html()
-        # also see the script_to_notebook() in the CLI _load.py where the title is extracted
-        # from the source code YAML and updated with the transform description
-        transform_type = "notebook" if path.suffix in {".Rmd", ".qmd"} else "script"
-        reference = None
-        reference_type = None
-        if settings.sync_git_repo is not None:
-            reference = get_transform_reference_from_git_repo(path)
-            reference_type = "url"
-        return path, transform_type, reference, reference_type
-
     def _track_notebook(
         self,
         *,
@@ -745,10 +768,12 @@ class Context:
     def _create_or_load_transform(
         self,
         *,
-        description: str,
+        description: str | None = None,
         transform_ref: str | None = None,
         transform_ref_type: str | None = None,
         transform_type: TransformType = None,
+        key: str | None = None,
+        is_flow: bool = False,
     ):
         from .._finish import notebook_to_script
 
@@ -776,10 +801,11 @@ class Context:
             aux_transform = None
 
         # determine the transform key
-        if ln_setup.settings.dev_dir is not None:
-            key = self._path.relative_to(ln_setup.settings.dev_dir).as_posix()
-        else:
-            key = self._path.name
+        if key is None:
+            if ln_setup.settings.dev_dir is not None:
+                key = self._path.relative_to(ln_setup.settings.dev_dir).as_posix()
+            else:
+                key = self._path.name
         # if the user did not pass a uid and there is no matching aux_transform
         # need to search for the transform based on the key
         if self.uid is None and aux_transform is None:
@@ -896,6 +922,7 @@ class Context:
                 reference=transform_ref,
                 reference_type=transform_ref_type,
                 type=transform_type,
+                is_flow=is_flow,
             ).save()
             self._logging_message_track += (
                 f"created Transform('{transform.uid}', key='{transform.key}')"
@@ -965,26 +992,20 @@ class Context:
         self._transform = transform
 
     def _finish(self, ignore_non_consecutive: None | bool = None) -> None:
-        """Finish the run and write a run report.
+        """Finish the run of a notebook or script.
 
         - writes a timestamp: `run.finished_at`
         - saves the source code if it is not yet saved: `transform.source_code`
         - saves a run report: `run.report`
 
-        When called in the last cell of a notebook:
-
-        - prompts to save the notebook in your editor right before
-        - prompts for user input if not consecutively executed
+        When called in a notebook, will prompt to save the notebook in your editor.
 
         Args:
             ignore_non_consecutive: Whether to ignore if a notebook was non-consecutively executed.
 
         Examples:
 
-            >>> import lamindb as ln
-            >>> ln.track()
-            >>> # do things while tracking data lineage
-            >>> ln.finish()
+            See :doc:`/track`.
 
         See Also:
             `lamin save script.py` or `lamin save notebook.ipynb` → `docs </cli#lamin-save>`__
