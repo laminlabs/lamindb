@@ -459,6 +459,13 @@ class Transform(SQLRecord, IsVersioned):
         """
         from ..core._sync_git import get_and_validate_git_metadata
 
+        if entrypoint is not None:
+            warnings.warn(
+                "entrypoint is deprecated, please use the entrypoint field of the Run object instead",
+                FutureWarning,
+                stacklevel=2,
+            )
+
         url, commit_hash = get_and_validate_git_metadata(url, path, version, branch)
         if key is None:
             key = (
@@ -470,8 +477,6 @@ class Transform(SQLRecord, IsVersioned):
             )
             logger.important(f"inferred key '{key}' from url & path")
         source_code = f"repo: {url}\npath: {path}"
-        if entrypoint is not None:
-            source_code += f"\nentrypoint: {entrypoint}"
         if branch is not None and version == branch:
             from urllib.parse import quote
 

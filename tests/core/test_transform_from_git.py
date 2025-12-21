@@ -38,6 +38,8 @@ branch:""")
     assert transform3.reference_type == "url"
 
 
+# entrypoint is deprecated and no longer added
+# to the source code
 def test_transform_from_git_with_entrypoint():
     # test auto-inferred latest commit hash
     transform1 = ln.Transform.from_git(
@@ -46,7 +48,6 @@ def test_transform_from_git_with_entrypoint():
     assert transform1.source_code.startswith(f"""\
 repo: {TEST_URL}
 path: main.nf
-entrypoint: myentrypoint
 commit:""")
 
 

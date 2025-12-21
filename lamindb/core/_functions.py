@@ -93,7 +93,11 @@ def _create_tracked_decorator(
                     source_code=inspect.getsource(func),
                 ).save()
 
-            run = Run(transform=transform, initiated_by_run=initiated_by_run)  # type: ignore
+            run = Run(
+                transform=transform,
+                initiated_by_run=initiated_by_run,
+                entrypoint=func.__qualname__,
+            )  # type: ignore
             run.started_at = datetime.now(timezone.utc)
             run._status_code = -1  # started
 

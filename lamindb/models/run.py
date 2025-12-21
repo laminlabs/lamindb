@@ -279,6 +279,11 @@ class Run(SQLRecord):
     """A name."""
     transform: Transform = ForeignKey("Transform", CASCADE, related_name="runs")
     """The transform :class:`~lamindb.Transform` that is being run."""
+    entrypoint: str | None = CharField(max_length=255, null=True, db_index=True)
+    """The entrypoint of the transform.
+
+    This could be a function name or the entry point of a CLI or workflow manager.
+    """
     started_at: datetime = DateTimeField(
         editable=False, db_default=models.functions.Now(), db_index=True
     )
@@ -379,6 +384,7 @@ class Run(SQLRecord):
         self,
         transform: Transform,
         name: str | None = None,
+        entrypoint: str | None = None,
         params: dict | None = None,
         reference: str | None = None,
         reference_type: str | None = None,
@@ -406,6 +412,7 @@ class Run(SQLRecord):
         if "transform" in kwargs or len(args) == 1:
             transform = kwargs.pop("transform") if len(args) == 0 else args[0]
         name: str | None = kwargs.pop("name", None)
+        entrypoint: str | None = kwargs.pop("entrypoint", None)
         params: dict | None = kwargs.pop("params", None)
         reference: str | None = kwargs.pop("reference", None)
         reference_type: str | None = kwargs.pop("reference_type", None)
@@ -421,6 +428,7 @@ class Run(SQLRecord):
         super().__init__(  # type: ignore
             transform=transform,
             name=name,
+            entrypoint=entrypoint,
             params=params,
             reference=reference,
             reference_type=reference_type,
