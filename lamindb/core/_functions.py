@@ -140,57 +140,43 @@ def _create_tracked_decorator(
     return decorator_tracked
 
 
-def step(uid: str | None = None) -> Callable[[Callable[P, R]], Callable[P, R]]:
-    """Track function runs.
+def flow(uid: str | None = None) -> Callable[[Callable[P, R]], Callable[P, R]]:
+    """Decorate a function with `@flow()` to run it as a standalone workflow.
 
     You will be able to see inputs, outputs, and parameters of the function in the data lineage graph.
 
-    Guide: :doc:`/track`
-
-    .. versionadded:: 1.1.0
-        This is still in beta and will be refined in future releases.
-
     Args:
         uid: Persist the uid to identify this transform across renames.
 
-    Example::
+    Examples:
 
-        import lamindb as ln
+        For an extensive guide, see: :doc:`/track`. Here follow some examples.
 
-        @ln.step()
-        def subset_dataframe(
-            input_artifact_key: str,  # all arguments tracked as parameters of the function run
-            output_artifact_key: str,
-            subset_rows: int = 2,
-            subset_cols: int = 2,
-        ) -> None:
-            artifact = ln.Artifact.get(key=input_artifact_key)
-            df = artifact.load()  # auto-tracked as input
-            new_df = df.iloc[:subset_rows, :subset_cols]
-            ln.Artifact.from_dataframe(new_df, key=output_artifact_key).save()  # auto-tracked as output
-    """
-    return _create_tracked_decorator(uid=uid, is_flow=False)
+        .. literalinclude:: scripts/run_workflow.py
+            :language: python
+            :caption: run_workflow.py
 
+        .. literalinclude:: scripts/run_workflow_with_step.py
+            :language: python
+            :caption: run_workflow_with_step.py
 
-def flow(uid: str | None = None) -> Callable[[Callable[P, R]], Callable[P, R]]:
-    """Track function runs without raising errors when no run context exists.
+        .. literalinclude:: scripts/run_workflow_with_click.py
+            :language: python
+            :caption: run_workflow_with_click.py
 
-    Similar to :func:`step`, but gracefully skips tracking if no run context is available
-    instead of raising a RuntimeError.
-
-    Args:
-        uid: Persist the uid to identify this transform across renames.
-
-    Example::
-
-        import lamindb as ln
-
-        @ln.flow()
-        def process_data(data: str) -> str:
-            # This will track if run context exists, otherwise runs normally
-            return data.upper()
     """
     return _create_tracked_decorator(uid=uid, is_flow=True)
+
+
+def step(uid: str | None = None) -> Callable[[Callable[P, R]], Callable[P, R]]:
+    """Decorate a function with `@step()` to run it as a step in a workflow.
+
+    See :func:`~lamindb.flow()`, but will raise an error if no run context is available.
+
+    Args:
+        uid: Persist the uid to identify this transform across renames.
+    """
+    return _create_tracked_decorator(uid=uid, is_flow=False)
 
 
 @deprecated("step")

@@ -434,7 +434,7 @@ class Context:
         path: str | None = None,
         pypackages: bool | None = None,
     ) -> None:
-        """Track a run of your notebook or script.
+        """Track a run of a notebook or script.
 
         Populates the global run :class:`~lamindb.context` by managing `Transform` & `Run` records and caching the compute environment.
 

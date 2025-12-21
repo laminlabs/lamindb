@@ -38,11 +38,12 @@ Track inputs, outputs & environment of a notebook or script run.
    track
    finish
 
-Decorate a function with `@step()` to track inputs, outputs & environment of function executions.
+Decorate a function with `@flow()` or `@step()` to track inputs, outputs & environment of function executions.
 
 .. autosummary::
    :toctree: .
 
+   flow
    step
 
 Artifacts & storage locations
