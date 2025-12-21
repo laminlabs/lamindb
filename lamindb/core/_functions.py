@@ -49,7 +49,10 @@ def _create_tracked_decorator(
         def wrapper_tracked(*args: P.args, **kwargs: P.kwargs) -> R:
             # Get function metadata
             path, transform_type, reference, reference_type = (
-                detect_and_process_source_code_file(path=inspect.getsourcefile(func))
+                detect_and_process_source_code_file(
+                    path=inspect.getsourcefile(func),
+                    transform_type="function",
+                )
             )
 
             initiated_by_run = get_current_tracked_run()
@@ -64,10 +67,8 @@ def _create_tracked_decorator(
                 else:
                     initiated_by_run = global_context.run
 
-            # Get fully qualified file name
-            module_path = func.__module__.replace(
-                ".", "/"
-            )  # this is the fully qualified module name, including submodules
+            # get the fully qualified module name, including submodules
+            module_path = func.__module__.replace(".", "/")
             key = (
                 module_path if module_path not in {"__main__", "__mp_main__"} else None
             )
@@ -79,6 +80,7 @@ def _create_tracked_decorator(
                     transform_ref=reference,
                     transform_ref_type=reference_type,
                     key=key,
+                    is_flow=is_flow,
                 )
                 transform = local_context.transform
             else:
@@ -91,6 +93,7 @@ def _create_tracked_decorator(
                     key=qualified_name,
                     type="function",
                     source_code=inspect.getsource(func),
+                    is_flow=is_flow,
                 ).save()
 
             run = Run(

@@ -92,6 +92,7 @@ class Transform(SQLRecord, IsVersioned):
         reference: `str | None = None` A reference, e.g., a URL.
         reference_type: `str | None = None` A reference type, e.g., 'url'.
         source_code: `str | None = None` Source code of the transform.
+        is_flow: `bool = False` Whether this transform is a standalone workflow.
         revises: `Transform | None = None` An old version of the transform.
         skip_hash_lookup: `bool = False` Skip the hash lookup so that a new transform is created even if a transform with the same hash already exists.
 
@@ -268,6 +269,7 @@ class Transform(SQLRecord, IsVersioned):
         branch_id = kwargs.pop("branch_id", 1)
         space = kwargs.pop("space", None)
         space_id = kwargs.pop("space_id", 1)
+        is_flow: bool = kwargs.pop("is_flow", False)
         skip_hash_lookup: bool = kwargs.pop("skip_hash_lookup", False)
         using_key = kwargs.pop("using_key", None)
         if "name" in kwargs:
@@ -364,6 +366,7 @@ class Transform(SQLRecord, IsVersioned):
             reference_type=reference_type,
             source_code=source_code,
             hash=hash,
+            is_flow=is_flow,
             _has_consciously_provided_uid=has_consciously_provided_uid,
             revises=revises,
             branch=branch,
@@ -399,7 +402,7 @@ class Transform(SQLRecord, IsVersioned):
             path: Path to the file within the repository.
             key: Optional key for the transform.
             version: Optional version tag to checkout in the repository.
-            entrypoint: Optional entrypoint for the transform.
+            entrypoint: One or several optional comma-separated entrypoints for the transform.
             branch: Optional branch to checkout.
             skip_hash_lookup: Skip the hash lookup so that a new transform is created even if a transform with the same hash already exists.
 
@@ -456,15 +459,10 @@ class Transform(SQLRecord, IsVersioned):
                 #> entrypoint: myentrypoint
                 #> commit: 68eb2ecc52990617dbb6d1bb5c7158d9893796bb
 
+            Note that you can pass a comma-separated list of entrypoints to the `entrypoint` argument.
+
         """
         from ..core._sync_git import get_and_validate_git_metadata
-
-        if entrypoint is not None:
-            warnings.warn(
-                "entrypoint is deprecated, please use the entrypoint field of the Run object instead",
-                FutureWarning,
-                stacklevel=2,
-            )
 
         url, commit_hash = get_and_validate_git_metadata(url, path, version, branch)
         if key is None:
@@ -477,6 +475,8 @@ class Transform(SQLRecord, IsVersioned):
             )
             logger.important(f"inferred key '{key}' from url & path")
         source_code = f"repo: {url}\npath: {path}"
+        if entrypoint is not None:
+            source_code += f"\nentrypoint: {entrypoint}"
         if branch is not None and version == branch:
             from urllib.parse import quote
 
