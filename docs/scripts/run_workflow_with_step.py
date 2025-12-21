@@ -6,12 +6,11 @@ def subset_dataframe(
     artifact: ln.Artifact,
     subset_rows: int = 2,
     subset_cols: int = 2,
-    run: ln.Run | None = None,
 ) -> ln.Artifact:
-    dataset = artifact.load(is_run_input=run)
+    dataset = artifact.load()
     new_data = dataset.iloc[:subset_rows, :subset_cols]
     new_key = artifact.key.replace(".parquet", "_subsetted.parquet")
-    return ln.Artifact.from_dataframe(new_data, key=new_key, run=run).save()
+    return ln.Artifact.from_dataframe(new_data, key=new_key).save()
 
 
 @ln.flow()

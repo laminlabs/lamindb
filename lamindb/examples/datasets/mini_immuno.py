@@ -136,9 +136,10 @@ def get_dataset1(
 
 
 def get_dataset2(
-    otype: Literal["DataFrame", "AnnData"],
+    otype: Literal["DataFrame", "AnnData"] = "DataFrame",
     gene_symbols_in_index: bool = False,
 ) -> pd.DataFrame | ad.AnnData:
+    """A second small tabular dataset measuring expression & metadata."""
     if gene_symbols_in_index:
         var_ids = ["CD8A", "CD4", "CD38"]
     else:
