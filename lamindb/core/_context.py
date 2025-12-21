@@ -459,14 +459,13 @@ class Context:
 
             To track the run of a notebook or script, call::
 
-                ln.track()
-                #> → created Transform('Onv04I53OgtT0000'), started new Run('dpSfd7Ds...') at 2025-04-25 11:00:03 UTC
-                #> • recommendation: to identify the notebook across renames, pass the uid: ln.track("Onv04I53OgtT")
+                ln.track()   # track a global run via ln.context
+                # do things while tracking data lineage
+                ln.finish()  # mark run as finished
 
             Ensure one version history across file renames::
 
                 ln.track("Onv04I53OgtT")
-                #> → created Transform('Onv04I53OgtT0000'), started new Run('dpSfd7Ds...') at 2025-04-25 11:00:03 UTC
 
             More examples: :doc:`/track`
         """
@@ -992,26 +991,20 @@ class Context:
         self._transform = transform
 
     def _finish(self, ignore_non_consecutive: None | bool = None) -> None:
-        """Finish the run and write a run report.
+        """Finish the run of a notebook or script.
 
         - writes a timestamp: `run.finished_at`
         - saves the source code if it is not yet saved: `transform.source_code`
         - saves a run report: `run.report`
 
-        When called in the last cell of a notebook:
-
-        - prompts to save the notebook in your editor right before
-        - prompts for user input if not consecutively executed
+        When called in a notebook, will prompt to save the notebook in your editor.
 
         Args:
             ignore_non_consecutive: Whether to ignore if a notebook was non-consecutively executed.
 
         Examples:
 
-            >>> import lamindb as ln
-            >>> ln.track()
-            >>> # do things while tracking data lineage
-            >>> ln.finish()
+            See :doc:`/track`.
 
         See Also:
             `lamin save script.py` or `lamin save notebook.ipynb` → `docs </cli#lamin-save>`__

@@ -25,24 +25,18 @@ LaminDB will then auto-connect upon import and you can then create & save object
    import lamindb as ln
    # → connected lamindb: account/instance
 
-   ln.Artifact("my_dataset.parquet", key="datasets/my_dataset.parquet").save()
+   ln.Artifact("./my_dataset.parquet", key="datasets/my_dataset.parquet").save()
 
 Lineage
 =======
 
-Track inputs, outputs & environment of a notebook or script run.
+Track inputs, outputs, parameters, and environments of notebooks, scripts, and functions.
 
 .. autosummary::
    :toctree: .
 
    track
    finish
-
-Decorate a function with `@flow()` or `@step()` to track inputs, outputs & environment of function executions.
-
-.. autosummary::
-   :toctree: .
-
    flow
    step
 

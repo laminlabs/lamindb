@@ -141,12 +141,12 @@ def _create_tracked_decorator(
 
 
 def flow(uid: str | None = None) -> Callable[[Callable[P, R]], Callable[P, R]]:
-    """Decorate a function with `@flow()` to run it as a standalone workflow.
+    """Use `@flow()` to track a function as a workflow.
 
     You will be able to see inputs, outputs, and parameters of the function in the data lineage graph.
 
     Args:
-        uid: Persist the uid to identify this transform across renames.
+        uid: Persist the uid to identify a transform across renames.
 
     Examples:
 
@@ -169,12 +169,14 @@ def flow(uid: str | None = None) -> Callable[[Callable[P, R]], Callable[P, R]]:
 
 
 def step(uid: str | None = None) -> Callable[[Callable[P, R]], Callable[P, R]]:
-    """Decorate a function with `@step()` to run it as a step in a workflow.
+    """Use `@step()` to track a function as a step.
 
-    See :func:`~lamindb.flow()`, but will raise an error if no run context is available.
+    Behaves like :func:`~lamindb.flow()`, but acts as a step in a workflow.
+
+    See :func:`~lamindb.flow()` for examples.
 
     Args:
-        uid: Persist the uid to identify this transform across renames.
+        uid: Persist the uid to identify a transform across renames.
     """
     return _create_tracked_decorator(uid=uid, is_flow=False)
 
