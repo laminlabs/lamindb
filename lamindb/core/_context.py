@@ -438,8 +438,6 @@ class Context:
 
         Populates the global run :class:`~lamindb.context` by managing `Transform` & `Run` records and caching the compute environment.
 
-        If :attr:`~lamindb.core.Settings.sync_git_repo` is set, checks whether a script-like transform exists in a git repository and links it.
-
         Args:
             transform: A transform (stem) `uid` (or record). If `None`, auto-creates a `transform` with its `uid`.
             project: A project (or its `name` or `uid`) for labeling entities.
@@ -457,17 +455,20 @@ class Context:
 
         Examples:
 
-            To track the run of a notebook or script, call::
+            To track the run of a notebook or script::
 
-                ln.track()   # track a global run via ln.context
-                # do things while tracking data lineage
-                ln.finish()  # mark run as finished
+            .. literalinclude:: scripts/run_track_and_finish.py
+               :language: python
 
             Ensure one version history across file renames::
 
                 ln.track("Onv04I53OgtT")
 
-            More examples: :doc:`/track`
+            To sync code with a git repo, see: {ref}`sync-code-with-git`.
+
+            To track parameters and features, see: {ref}`track-run-parameters`.
+
+            To browse more examples, see: :doc:`/track`.
         """
         from lamindb.models import Branch, Project, Space
 

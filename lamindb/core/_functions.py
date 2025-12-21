@@ -150,7 +150,9 @@ def flow(uid: str | None = None) -> Callable[[Callable[P, R]], Callable[P, R]]:
 
     Examples:
 
-        For an extensive guide, see: :doc:`/track`. Here follow some examples.
+        To sync a workflow with a file in a git repo, see: {ref}`sync-code-with-git`.
+
+        For an extensive guide, see: :ref:`manage-workflows`. Here follow some examples.
 
         .. literalinclude:: scripts/run_workflow.py
             :language: python
