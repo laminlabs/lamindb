@@ -82,6 +82,7 @@ def test_flow_parallel():
         artifact.delete(permanent=True)
     param_artifact.delete(permanent=True)
     same_hash_artifacts[0].delete(permanent=True)
+    Path("file_with_same_hash.txt").unlink()
     for run in runs:
         run.delete(permanent=True)
 

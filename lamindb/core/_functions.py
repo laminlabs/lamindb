@@ -6,7 +6,7 @@ from typing import Callable, ParamSpec, TypeVar
 
 from lamindb.base import deprecated
 
-from ..models import Run
+from ..models import Run, Transform
 from ._context import (
     Context,
     detect_and_process_source_code_file,
@@ -52,8 +52,6 @@ def _create_tracked_decorator(
                 detect_and_process_source_code_file(path=inspect.getsourcefile(func))
             )
 
-            local_context = Context(uid=uid, path=path)
-
             initiated_by_run = get_current_tracked_run()
             if initiated_by_run is None:
                 if global_context.run is None:
@@ -73,17 +71,31 @@ def _create_tracked_decorator(
             key = (
                 module_path if module_path not in {"__main__", "__mp_main__"} else None
             )
-            local_context._create_or_load_transform(
-                description=None,
-                transform_type=transform_type,
-                transform_ref=reference,
-                transform_ref_type=reference_type,
-                key=key,
-            )
+            if path.exists():
+                local_context = Context(uid=uid, path=path)
+                local_context._create_or_load_transform(
+                    description=None,
+                    transform_type=transform_type,
+                    transform_ref=reference,
+                    transform_ref_type=reference_type,
+                    key=key,
+                )
+                transform = local_context.transform
+            else:
+                if module_path in {"__main__", "__mp_main__"}:
+                    qualified_name = (
+                        f"{initiated_by_run.transform.key}/{func.__qualname__}.py"
+                    )
+                else:
+                    qualified_name = f"{module_path}/{func.__qualname__}.py"
+                transform = Transform(  # type: ignore
+                    uid=uid,
+                    key=qualified_name,
+                    type="function",
+                    source_code=inspect.getsource(func),
+                ).save()
 
-            run = Run(
-                transform=local_context.transform, initiated_by_run=initiated_by_run
-            )  # type: ignore
+            run = Run(transform=transform, initiated_by_run=initiated_by_run)  # type: ignore
             run.started_at = datetime.now(timezone.utc)
             run._status_code = -1  # started
 
