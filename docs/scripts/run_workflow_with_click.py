@@ -1,6 +1,13 @@
+import click
 import lamindb as ln
 
 
+@click.command()
+@click.option(
+    "--key",
+    default="my_analysis/dataset.parquet",
+    help="The key of the dataset to ingest",
+)
 @ln.flow()
 def ingest_dataset(key: str) -> ln.Artifact:
     """Ingest a dataset into LaminDB.
@@ -17,4 +24,4 @@ def ingest_dataset(key: str) -> ln.Artifact:
 
 
 if __name__ == "__main__":
-    ingest_dataset(key="my_analysis/dataset.parquet")
+    ingest_dataset()

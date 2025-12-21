@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, overload
 from django.db import models
 from django.db.models import CASCADE, PROTECT, Q
 from lamin_utils import logger
-from lamindb_setup.core.hashing import HASH_LENGTH, hash_string
+from lamindb_setup.core.hashing import HASH_LENGTH, hash_file, hash_string
 
 from lamindb.base import deprecated
 from lamindb.base.fields import (
@@ -30,6 +30,7 @@ from .sqlrecord import (
 
 if TYPE_CHECKING:
     from datetime import datetime
+    from pathlib import Path
 
     from lamindb.base.types import TransformType
 
@@ -521,6 +522,28 @@ class Transform(SQLRecord, IsVersioned):
             distance=distance,
             attr_name="predecessors",
         )
+
+    def _update_source_code_from_path(self, source_code_path: Path) -> None | str:
+        _, transform_hash, _ = hash_file(source_code_path)  # ignore hash_type for now
+        if self.hash is not None:
+            # check if the hash of the transform source code matches
+            if transform_hash != self.hash:
+                response = input(
+                    f"You are about to overwrite existing source code (hash '{self.hash}') for Transform('{self.uid}')."
+                    f" Proceed? (y/n) "
+                )
+                if response == "y":
+                    self.source_code = source_code_path.read_text()
+                    self.hash = transform_hash
+                else:
+                    logger.warning("Please re-run `ln.track()` to make a new version")
+                    return "rerun-the-notebook"
+            else:
+                logger.debug("source code is already saved")
+        else:
+            self.source_code = source_code_path.read_text()
+            self.hash = transform_hash
+        return None
 
 
 class TransformTransform(BaseSQLRecord, IsLink):

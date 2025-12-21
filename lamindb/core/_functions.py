@@ -4,12 +4,15 @@ from contextvars import ContextVar
 from datetime import datetime, timezone
 from typing import Callable, ParamSpec, TypeVar
 
+from lamin_utils import logger
+
 from lamindb.base import deprecated
 
 from ..models import Run, Transform
 from ._context import (
     Context,
     detect_and_process_source_code_file,
+    get_cli_args,
     serialize_params_to_json,
 )
 from ._context import context as global_context
@@ -83,6 +86,8 @@ def _create_tracked_decorator(
                     is_flow=is_flow,
                 )
                 transform = local_context.transform
+                transform._update_source_code_from_path(path)
+                transform.save()
             else:
                 if module_path in {"__main__", "__mp_main__"}:
                     qualified_name = f"{initiated_by_run.transform.key}"
@@ -103,6 +108,12 @@ def _create_tracked_decorator(
             )  # type: ignore
             run.started_at = datetime.now(timezone.utc)
             run._status_code = -1  # started
+
+            if is_flow:
+                cli_args = get_cli_args()
+                if cli_args:
+                    logger.important(f"function invoked with: {cli_args}")
+                    run.cli_args = cli_args
 
             # Bind arguments to get a mapping of parameter names to values
             bound_args = sig.bind(*args, **kwargs)

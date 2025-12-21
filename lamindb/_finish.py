@@ -346,26 +346,9 @@ def save_context_core(
     ln.settings.creation.artifact_silence_missing_run_warning = True
     # save source code
     if save_source_code_and_report:
-        _, transform_hash, _ = hash_file(source_code_path)  # ignore hash_type for now
-        if transform.hash is not None:
-            # check if the hash of the transform source code matches
-            if transform_hash != transform.hash:
-                response = input(
-                    f"You are about to overwrite existing source code (hash '{transform.hash}') for Transform('{transform.uid}')."
-                    f" Proceed? (y/n) "
-                )
-                if response == "y":
-                    transform.source_code = source_code_path.read_text()
-                    transform.hash = transform_hash
-                else:
-                    logger.warning("Please re-run `ln.track()` to make a new version")
-                    return "rerun-the-notebook"
-            else:
-                logger.debug("source code is already saved")
-        else:
-            transform.source_code = source_code_path.read_text()
-            transform.hash = transform_hash
-
+        return_code = transform._update_source_code_from_path(source_code_path)
+        if return_code == "rerun-the-notebook":
+            return "rerun-the-notebook"
     if run is not None:
         base_path = ln_setup.settings.cache_dir / "environments" / f"run_{run.uid}"
         paths = [base_path / "run_env_pip.txt", base_path / "r_environment.txt"]
