@@ -436,7 +436,7 @@ class Context:
     ) -> None:
         """Track a run of a notebook or script.
 
-        Populates the global run :class:`~lamindb.context` by managing `Transform` & `Run` records and caching the compute environment.
+        Populates the global run :class:`~lamindb.context` with :class:`~lamindb.Transform` & :class:`~lamindb.Run` objects and tracks the compute environment.
 
         Args:
             transform: A transform (stem) `uid` (or record). If `None`, auto-creates a `transform` with its `uid`.
@@ -455,18 +455,18 @@ class Context:
 
         Examples:
 
-            To track the run of a notebook or script::
+            To track the run of a notebook or script:
 
             .. literalinclude:: scripts/run_track_and_finish.py
                :language: python
 
-            Ensure one version history across file renames::
+            To ensure one version history across file renames::
 
                 ln.track("Onv04I53OgtT")
 
-            To sync code with a git repo, see: {ref}`sync-code-with-git`.
+            To sync code with a git repo, see: :ref:`sync-code-with-git`.
 
-            To track parameters and features, see: {ref}`track-run-parameters`.
+            To track parameters and features, see: :ref:`track-run-parameters`.
 
             To browse more examples, see: :doc:`/track`.
         """

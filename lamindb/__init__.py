@@ -16,7 +16,7 @@ To *write* data, connect to a writable instance::
    lamin connect account/name
 
 You can create an instance at `lamin.ai <https://lamin.ai>`__ and invite collaborators.
-If you prefer to work with a local SQLite instance, run::
+If you prefer to work with a local database (no login required), run::
 
     lamin init --storage ./quickstart-data --modules bionty
 

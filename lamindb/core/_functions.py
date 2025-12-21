@@ -150,7 +150,7 @@ def flow(uid: str | None = None) -> Callable[[Callable[P, R]], Callable[P, R]]:
 
     Examples:
 
-        To sync a workflow with a file in a git repo, see: {ref}`sync-code-with-git`.
+        To sync a workflow with a file in a git repo, see: :ref:`sync-code-with-git`.
 
         For an extensive guide, see: :ref:`manage-workflows`. Here follow some examples.
 
