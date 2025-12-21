@@ -32,4 +32,4 @@ def ingest_dataset(key: str, subset: bool = False) -> ln.Artifact:
 
 
 if __name__ == "__main__":
-    ingest_dataset(key="my_analysis/dataset.parquet")
+    ingest_dataset(key="my_analysis/dataset.parquet", subset=True)
