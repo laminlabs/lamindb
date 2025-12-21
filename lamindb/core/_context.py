@@ -48,7 +48,8 @@ msg_path_failed = "failed to infer notebook path.\nfix: pass `path` to `ln.track
 def detect_and_process_source_code_file(
     *,
     path: UPathStr | None,
-) -> tuple[Path, str, str, str]:
+    transform_type: TransformType | None = None,
+) -> tuple[Path, TransformType, str, str]:
     """Track source code file and determine transform metadata.
 
     For `.py` files, classified as "script".
@@ -88,10 +89,12 @@ def detect_and_process_source_code_file(
     # by extracting it from the html while cleaning it: see clean_r_notebook_html()
     # also see the script_to_notebook() in the CLI _load.py where the title is extracted
     # from the source code YAML and updated with the transform description
-    transform_type = "notebook" if path.suffix in {".Rmd", ".qmd"} else "script"
+    # note that ipynb notebooks are handled in a separate function (_track_notebook())
+    if transform_type is None:
+        transform_type = "notebook" if path.suffix in {".Rmd", ".qmd"} else "script"
     reference = None
     reference_type = None
-    if settings.sync_git_repo is not None:
+    if settings.sync_git_repo is not None and path.suffix != ".ipynb":
         reference = get_transform_reference_from_git_repo(path)
         reference_type = "url"
     return path, transform_type, reference, reference_type
@@ -341,13 +344,13 @@ class Context:
     Is the book keeper for :func:`~lamindb.track` and :func:`~lamindb.finish`.
     """
 
-    def __init__(self):
-        self._uid: str | None = None
+    def __init__(self, uid: str | None = None, path: Path | None = None):
+        self._uid: str | None = uid
+        self._path: Path | None = path
         self._description: str | None = None
         self._version: str | None = None
         self._transform: Transform | None = None
         self._run: Run | None = None
-        self._path: Path | None = None
         self._project: Project | None = None
         self._space: Space | None = None
         self._branch: Branch | None = None
@@ -765,10 +768,11 @@ class Context:
     def _create_or_load_transform(
         self,
         *,
-        description: str,
+        description: str | None = None,
         transform_ref: str | None = None,
         transform_ref_type: str | None = None,
         transform_type: TransformType = None,
+        key: str | None = None,
     ):
         from .._finish import notebook_to_script
 
@@ -796,10 +800,11 @@ class Context:
             aux_transform = None
 
         # determine the transform key
-        if ln_setup.settings.dev_dir is not None:
-            key = self._path.relative_to(ln_setup.settings.dev_dir).as_posix()
-        else:
-            key = self._path.name
+        if key is None:
+            if ln_setup.settings.dev_dir is not None:
+                key = self._path.relative_to(ln_setup.settings.dev_dir).as_posix()
+            else:
+                key = self._path.name
         # if the user did not pass a uid and there is no matching aux_transform
         # need to search for the transform based on the key
         if self.uid is None and aux_transform is None:

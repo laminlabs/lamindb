@@ -6,8 +6,13 @@ from typing import Callable, ParamSpec, TypeVar
 
 from lamindb.base import deprecated
 
-from ..models import Run, Transform
-from ._context import context, serialize_params_to_json
+from ..models import Run
+from ._context import (
+    Context,
+    detect_and_process_source_code_file,
+    serialize_params_to_json,
+)
+from ._context import context as global_context
 
 P = ParamSpec("P")
 R = TypeVar("R")
@@ -22,19 +27,18 @@ def get_current_tracked_run() -> Run | None:
     """Get the run object."""
     run = current_tracked_run.get()
     if run is None:
-        run = context.run
+        run = global_context.run
     return run
 
 
 def _create_tracked_decorator(
-    uid: str | None = None, require_initiating_run: bool = True
+    uid: str | None = None, is_flow: bool = True
 ) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """Internal helper to create tracked decorators.
 
     Args:
         uid: Persist the uid to identify this transform across renames.
-        require_initiating_run: If True, raise RuntimeError when no run context exists.
-                         If False, skip tracking and execute function normally.
+        is_flow: Triggered through @ln.flow(), otherwise @ln.step().
     """
 
     def decorator_tracked(func: Callable[P, R]) -> Callable[P, R]:
@@ -44,37 +48,42 @@ def _create_tracked_decorator(
         @functools.wraps(func)
         def wrapper_tracked(*args: P.args, **kwargs: P.kwargs) -> R:
             # Get function metadata
-            source_code = inspect.getsource(func)
+            path, transform_type, reference, reference_type = (
+                detect_and_process_source_code_file(path=inspect.getsourcefile(func))
+            )
+
+            local_context = Context(uid=uid, path=path)
 
             initiated_by_run = get_current_tracked_run()
             if initiated_by_run is None:
-                if context.run is None:
-                    if require_initiating_run:
+                if global_context.run is None:
+                    if not is_flow:
                         raise RuntimeError(
                             "Please track the global run context before using @ln.step(): ln.track()"
                         )
                     else:
                         initiated_by_run = None
                 else:
-                    initiated_by_run = context.run
-            # Get fully qualified function name
-            module_name = func.__module__
-            if module_name in {"__main__", "__mp_main__"}:
-                qualified_name = (
-                    f"{initiated_by_run.transform.key}/{func.__qualname__}.py"
-                )
-            else:
-                qualified_name = f"{module_name}.{func.__qualname__}.py"
+                    initiated_by_run = global_context.run
 
-            # Create transform and run objects
-            transform = Transform(  # type: ignore
-                uid=uid,
-                key=qualified_name,
-                type="function",
-                source_code=source_code,
-            ).save()
+            # Get fully qualified file name
+            module_path = (
+                func.__module__.replace(".", "/") + ".py"
+            )  # this is the fully qualified module name, including submodules
+            key = (
+                module_path if module_path not in {"__main__", "__mp_main__"} else None
+            )
+            local_context._create_or_load_transform(
+                description=None,
+                transform_type=transform_type,
+                transform_ref=reference,
+                transform_ref_type=reference_type,
+                key=key,
+            )
 
-            run = Run(transform=transform, initiated_by_run=initiated_by_run)  # type: ignore
+            run = Run(
+                transform=local_context.transform, initiated_by_run=initiated_by_run
+            )  # type: ignore
             run.started_at = datetime.now(timezone.utc)
             run._status_code = -1  # started
 
@@ -132,7 +141,7 @@ def step(uid: str | None = None) -> Callable[[Callable[P, R]], Callable[P, R]]:
             new_df = df.iloc[:subset_rows, :subset_cols]
             ln.Artifact.from_dataframe(new_df, key=output_artifact_key).save()  # auto-tracked as output
     """
-    return _create_tracked_decorator(uid=uid, require_initiating_run=True)
+    return _create_tracked_decorator(uid=uid, is_flow=False)
 
 
 def flow(uid: str | None = None) -> Callable[[Callable[P, R]], Callable[P, R]]:
@@ -153,7 +162,7 @@ def flow(uid: str | None = None) -> Callable[[Callable[P, R]], Callable[P, R]]:
             # This will track if run context exists, otherwise runs normally
             return data.upper()
     """
-    return _create_tracked_decorator(uid=uid, require_initiating_run=False)
+    return _create_tracked_decorator(uid=uid, is_flow=True)
 
 
 @deprecated("step")
