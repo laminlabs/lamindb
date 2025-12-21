@@ -65,8 +65,8 @@ def _create_tracked_decorator(
                     initiated_by_run = global_context.run
 
             # Get fully qualified file name
-            module_path = (
-                func.__module__.replace(".", "/") + ".py"
+            module_path = func.__module__.replace(
+                ".", "/"
             )  # this is the fully qualified module name, including submodules
             key = (
                 module_path if module_path not in {"__main__", "__mp_main__"} else None
@@ -83,11 +83,9 @@ def _create_tracked_decorator(
                 transform = local_context.transform
             else:
                 if module_path in {"__main__", "__mp_main__"}:
-                    qualified_name = (
-                        f"{initiated_by_run.transform.key}/{func.__qualname__}.py"
-                    )
+                    qualified_name = f"{initiated_by_run.transform.key}"
                 else:
-                    qualified_name = f"{module_path}/{func.__qualname__}.py"
+                    qualified_name = f"{module_path}.py"
                 transform = Transform(  # type: ignore
                     uid=uid,
                     key=qualified_name,
