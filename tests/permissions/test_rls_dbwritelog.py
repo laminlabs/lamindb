@@ -238,7 +238,8 @@ def test_fine_grained_permissions_account_and_dbwrite():
         .first()
     )
     assert log_rec.event_type == "UPDATE"
-    assert log_rec.data is not None
+    assert log_rec.data["name"] == "new label"  # changed
+    assert "id" not in log_rec.data  # didn't change
     assert log_rec.created_by_id == 1
     # should fail
     ulabel = ln.ULabel.get(name="select_ulabel")
