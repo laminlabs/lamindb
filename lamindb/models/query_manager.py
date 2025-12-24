@@ -298,7 +298,7 @@ class QueryManager(Manager):
 
         For `**kwargs`, see :meth:`lamindb.models.QuerySet.to_dataframe`.
         """
-        return self.all().to_dataframe(**kwargs)
+        return super().all().to_dataframe(**kwargs)
 
     @deprecated(new_name="to_dataframe")
     def df(self, **kwargs):
