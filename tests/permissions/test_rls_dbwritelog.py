@@ -279,6 +279,18 @@ def test_fine_grained_permissions_account_and_dbwrite():
         ln.models.BranchBlock(branch=branch, content="test").save()
 
 
+def test_hubmodule_dbwrite():
+    # check not visible to non-admin users
+    assert not hm.DbWrite.filter(table_name__startswith="hubmodule_").exists()
+    # check that the logs for hubmodule tables exist
+    with psycopg2.connect(pgurl) as conn, conn.cursor() as cur:
+        cur.execute(
+            "EXISTS (SELECT 1 FROM hubmodule_dbwrite WHERE table_name LIKE 'hubmodule_%')"
+        )
+        result = cur.fetchall()[0][0]
+    assert result
+
+
 def test_fine_grained_permissions_team():
     assert ln.Feature.filter().count() == 1
     ln.Feature.get(name="team_access_feature")
