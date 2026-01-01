@@ -170,8 +170,8 @@ def test_synonym_mapping():
     bt.Gene.filter().delete(permanent=True)
 
 
-def test_validate_called_on_instance_raises_error():
-    """Test that calling validate() on an instance raises TypeError."""
+def test_validate_called_on_object_raises_error():
+    """Test that calling validate() on an object raises TypeError."""
     label = ln.ULabel(name="test_label").save()
     with pytest.raises(TypeError) as error:
         label.validate(["test_value"])

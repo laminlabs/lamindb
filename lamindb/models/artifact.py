@@ -33,7 +33,7 @@ from lamindb.base.fields import (
     ForeignKey,
     TextField,
 )
-from lamindb.base.utils import deprecated
+from lamindb.base.utils import deprecated, raise_error_if_called_on_object
 from lamindb.errors import FieldValidationError, NoWriteAccess, UnknownStorageLocation
 from lamindb.models.query_set import QuerySet, SQLRecordList
 
@@ -1731,6 +1731,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         )
 
     @classmethod
+    @raise_error_if_called_on_object
     def get(
         cls,
         idlike: int | str | None = None,
@@ -1773,6 +1774,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         return QuerySet(model=cls).get(idlike, is_run_input=is_run_input, **expressions)
 
     @classmethod
+    @raise_error_if_called_on_object
     def filter(
         cls,
         *queries,

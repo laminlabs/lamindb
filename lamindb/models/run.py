@@ -17,6 +17,7 @@ from lamindb.base.fields import (
     ForeignKey,
 )
 from lamindb.base.users import current_user_id
+from lamindb.base.utils import raise_error_if_called_on_object
 
 from ..base.ids import base62_16
 from .can_curate import CanCurate
@@ -485,6 +486,7 @@ class Run(SQLRecord):
         return FeatureManager(self)
 
     @classmethod
+    @raise_error_if_called_on_object
     def filter(
         cls,
         *queries,

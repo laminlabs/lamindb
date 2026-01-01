@@ -16,6 +16,7 @@ from lamindb.base.fields import (
     OneToOneField,
     TextField,
 )
+from lamindb.base.utils import raise_error_if_called_on_object
 
 from ..base.ids import base62_20
 from ..core._mapped_collection import MappedCollection
@@ -342,6 +343,7 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         track_run_input(artifacts, run=run)
 
     @classmethod
+    @raise_error_if_called_on_object
     def get(
         cls,
         idlike: int | str | None = None,
