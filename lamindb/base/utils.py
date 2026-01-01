@@ -3,7 +3,7 @@
 .. autodecorator:: doc_args
 .. autodecorator:: deprecated
 .. autodecorator:: class_and_instance_method
-.. autofunction:: raise_error_if_called_on_object
+.. autodecorator:: strict_classmethod
 
 """
 
@@ -36,18 +36,34 @@ class class_and_instance_method:
         return wrapper
 
 
-def raise_error_if_called_on_object(cls, method_name: str):
-    """Raise an error if a classmethod is called on an object."""
-    if hasattr(cls, "_state"):
-        class_name = cls.__class__.__name__
-        raise TypeError(
-            f"{class_name}.{method_name}() is a class method and must be called on the {class_name} class, not on a {class_name} object"
-        )
+class strict_classmethod:
+    """Decorator for a classmethod that raises an error when called on an instance."""
+
+    def __init__(self, func):
+        self.func = func
+        wraps(func)(self)
+
+    def __get__(self, instance, owner):
+        if instance is not None:
+            # Called on an instance - return error raiser
+            def error_raiser(*args, **kwargs):
+                raise TypeError(
+                    f"{owner.__name__}.{self.func.__name__}() is a class method and must be called on the {owner.__name__} class, not on a {owner.__name__} object"
+                )
+
+            return error_raiser
+
+        # Called on the class - return bound method
+        @wraps(self.func)
+        def wrapper(*args, **kwargs):
+            return self.func(owner, *args, **kwargs)
+
+        return wrapper
 
 
 __all__ = [
     "doc_args",
     "deprecated",
     "class_and_instance_method",
-    "raise_error_if_called_on_object",
+    "strict_classmethod",
 ]

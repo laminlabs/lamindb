@@ -33,7 +33,7 @@ from lamindb.base.fields import (
     ForeignKey,
     TextField,
 )
-from lamindb.base.utils import deprecated, raise_error_if_called_on_object
+from lamindb.base.utils import deprecated, strict_classmethod
 from lamindb.errors import FieldValidationError, NoWriteAccess, UnknownStorageLocation
 from lamindb.models.query_set import QuerySet, SQLRecordList
 
@@ -1730,7 +1730,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             filepath, cache_key=cache_key
         )
 
-    @classmethod
+    @strict_classmethod
     def get(
         cls,
         idlike: int | str | None = None,
@@ -1766,14 +1766,13 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 artifact = ln.Artifact.get(key="examples/my_file.parquet", version="2")  # pass a version tag
                 artifact = ln.Artifact.get(path="s3://bucket/folder/adata.h5ad")
         """
-        raise_error_if_called_on_object(cls, "get")
         if key is not None:
             expressions["key"] = key
         if path is not None:
             expressions["path"] = path
         return QuerySet(model=cls).get(idlike, is_run_input=is_run_input, **expressions)
 
-    @classmethod
+    @strict_classmethod
     def filter(
         cls,
         *queries,
@@ -1799,7 +1798,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 ln.Arfifact.filter(cell_type_by_model__name="T cell")
 
         """
-        raise_error_if_called_on_object(cls, "filter")
         # from Registry metaclass
         return type(cls).filter(cls, *queries, **expressions)
 

@@ -8,7 +8,7 @@ from django.core.exceptions import FieldDoesNotExist
 from django.db.models import Manager, QuerySet
 from lamin_utils import colors, logger
 
-from lamindb.base.utils import raise_error_if_called_on_object
+from lamindb.base.utils import strict_classmethod
 
 from ..errors import ValidationError
 from ._from_values import (
@@ -457,7 +457,7 @@ def _filter_queryset_with_organism(
 class CanCurate:
     """Base class providing :class:`~lamindb.models.SQLRecord`-based validation."""
 
-    @classmethod
+    @strict_classmethod
     def inspect(
         cls,
         values: ListLike,
@@ -502,7 +502,6 @@ class CanCurate:
             assert result.validated == ["A1CF", "A1BG"]
             assert result.non_validated == ["FANCD1", "FANCD20"]
         """
-        raise_error_if_called_on_object(cls, "inspect")
         return _inspect(
             cls=cls,
             values=values,
@@ -514,7 +513,7 @@ class CanCurate:
             from_source=from_source,
         )
 
-    @classmethod
+    @strict_classmethod
     def validate(
         cls,
         values: ListLike,
@@ -558,7 +557,6 @@ class CanCurate:
             bt.Gene.validate(gene_symbols, field=bt.Gene.symbol, organism="human")
             #> array([ True,  True, False, False])
         """
-        raise_error_if_called_on_object(cls, "validate")
         return _validate(
             cls=cls,
             values=values,
@@ -569,7 +567,7 @@ class CanCurate:
             source=source,
         )
 
-    @classmethod
+    @strict_classmethod
     def from_values(
         cls,
         values: ListLike,
@@ -614,7 +612,6 @@ class CanCurate:
             # Bulk create records from public reference
             bt.CellType.from_values(["T cell", "B cell"]).save()
         """
-        raise_error_if_called_on_object(cls, "from_values")
         return _from_values(
             iterable=values,
             field=getattr(cls, get_name_field(cls, field=field)),
@@ -624,7 +621,7 @@ class CanCurate:
             mute=mute,
         )
 
-    @classmethod
+    @strict_classmethod
     def standardize(
         cls,
         values: Iterable,
@@ -690,7 +687,6 @@ class CanCurate:
             bt.Gene.standardize(gene_synonyms)
             #> ['A1CF', 'A1BG', 'BRCA2', 'FANCD20']
         """
-        raise_error_if_called_on_object(cls, "standardize")
         return _standardize(
             cls=cls,
             values=values,
