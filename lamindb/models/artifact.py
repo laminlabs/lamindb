@@ -5,7 +5,7 @@ import shutil
 import warnings
 from collections import defaultdict
 from pathlib import Path, PurePath, PurePosixPath
-from typing import TYPE_CHECKING, Any, Literal, Union, overload
+from typing import TYPE_CHECKING, Any, Iterator, Literal, Union, overload
 
 import fsspec
 import lamindb_setup as ln_setup
@@ -103,7 +103,7 @@ except ImportError:
 
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Iterator
+    from collections.abc import Iterable
 
     from mudata import MuData  # noqa: TC004
     from polars import LazyFrame as PolarsLazyFrame
@@ -2467,21 +2467,27 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         is_run_input: bool | None = None,
         **kwargs,
     ) -> (
-        AnnDataAccessor
+        PyArrowDataset
+        # PolarsLazyFrame does not implement the context manager protocol hence we need `Iterator` in the type annotation
+        | Iterator[
+            PolarsLazyFrame
+        ]  # note that intersphinx doesn't work for this, hence manual docs link: https://github.com/laminlabs/lamindb/issues/2736#issuecomment-3703889524
+        | AnnDataAccessor  # AnnDataAccessor implements the context manager protocol
         | SpatialDataAccessor
         | BackedAccessor
         | SOMACollection
         | SOMAExperiment
         | SOMAMeasurement
-        | PyArrowDataset
-        | Iterator[PolarsLazyFrame]
     ):
         """Open a dataset for streaming.
 
-        Works for `AnnData` (`.h5ad` and `.zarr`), `SpatialData` (`.zarr`),
-        generic `hdf5` and `zarr`, `tiledbsoma` objects (`.tiledbsoma`),
-        `pyarrow` or `polars` compatible formats
-        (`.parquet`, `.csv`, `.ipc` etc. files or directories with such files).
+        Works for the following object types (storage formats):
+
+        - `DataFrame` (`.parquet`, `.csv`, `.ipc` files or directories with such files)
+        - `AnnData` (`.h5ad`, `.zarr`)
+        - `SpatialData` (`.zarr`)
+        - `tiledbsoma` (`.tiledbsoma`)
+        - generic arrays (`.h5`, `.zarr`)
 
         Args:
             mode: can be `"r"` or `"w"` (write mode) for `tiledbsoma` stores,
@@ -2494,6 +2500,13 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             is_run_input: Whether to track this artifact as run input.
             **kwargs: Keyword arguments for the accessor, i.e. `h5py` or `zarr` connection,
                 `pyarrow.dataset.dataset`, `polars.scan_*` function.
+
+        Returns:
+            Streaming accessors, in particular,
+            a :class:`pyarrow:pyarrow.dataset.Dataset` object,
+            a context manager yielding a `polars.LazyFrame <https://docs.pola.rs/api/python/stable/reference/lazyframe/>`__,
+            and objects of type :class:`~lamindb.core.storage.AnnDataAccessor`, :class:`~lamindb.core.storage.SpatialDataAccessor`, :class:`~lamindb.core.storage.BackedAccessor`,
+            :class:`tiledbsoma:tiledbsoma.Collection`, :class:`tiledbsoma.Experiment`, :class:`tiledbsoma.Measurement`.
 
         Notes:
             For more info, see guide: :doc:`/arrays`.
