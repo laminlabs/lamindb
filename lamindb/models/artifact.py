@@ -2468,7 +2468,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         **kwargs,
     ) -> (
         PyArrowDataset
-        | PolarsLazyFrame
+        | PolarsLazyFrame  # note that intersphinx doesn't work for this, hence manual docs link: https://github.com/laminlabs/lamindb/issues/2736#issuecomment-3703889524
         | AnnDataAccessor
         | SpatialDataAccessor
         | BackedAccessor
@@ -2496,7 +2496,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 `pyarrow.dataset.dataset`, `polars.scan_*` function.
 
         Returns:
-            Streaming accessors like :class:`pyarrow:pyarrow.dataset.Dataset` & `polars.LazyFrame <https://docs.pola.rs/api/python/stable/reference/lazyframe/>`__..
+            Streaming accessors, several of which from external libraries like
+            :class:`pyarrow:pyarrow.dataset.Dataset`, `polars.LazyFrame <https://docs.pola.rs/api/python/stable/reference/lazyframe/>`__, :class:`tiledbsoma:tiledbsoma.Collection`, :class:`tiledbsoma.Experiment`, :class:`tiledbsoma.Measurement`.
 
         Notes:
             For more info, see guide: :doc:`/arrays`.
