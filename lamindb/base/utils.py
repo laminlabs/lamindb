@@ -3,6 +3,7 @@
 .. autodecorator:: doc_args
 .. autodecorator:: deprecated
 .. autodecorator:: class_and_instance_method
+.. autodecorator:: raise_error_if_called_on_object
 
 """
 
@@ -35,4 +36,33 @@ class class_and_instance_method:
         return wrapper
 
 
-__all__ = ["doc_args", "deprecated", "class_and_instance_method"]
+class raise_error_if_called_on_object:
+    """Descriptor to raise an error if a classmethod is called on an instance."""
+
+    def __init__(self, func):
+        self.func = func
+        wraps(func)(self)
+
+    def __get__(self, obj, objtype=None):
+        if obj is not None:  # Called on an instance
+            # Return a wrapper that will raise when called, not immediately
+            def error_raiser(*args, **kwargs):
+                class_name = objtype.__name__ if objtype else obj.__class__.__name__
+                raise TypeError(
+                    f"{class_name}.{self.func.__name__}() is a class method and must be called on the {class_name} class, not on a {class_name} object"
+                )
+
+            return error_raiser
+        # Called on the class - return the bound classmethod
+        return self.func.__get__(obj, objtype)
+
+    def __call__(self, *args, **kwargs):
+        return self.func(*args, **kwargs)
+
+
+__all__ = [
+    "doc_args",
+    "deprecated",
+    "class_and_instance_method",
+    "raise_error_if_called_on_object",
+]

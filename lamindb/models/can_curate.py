@@ -8,6 +8,8 @@ from django.core.exceptions import FieldDoesNotExist
 from django.db.models import Manager, QuerySet
 from lamin_utils import colors, logger
 
+from lamindb.base.utils import raise_error_if_called_on_object
+
 from ..errors import ValidationError
 from ._from_values import (
     _format_values,
@@ -456,6 +458,7 @@ class CanCurate:
     """Base class providing :class:`~lamindb.models.SQLRecord`-based validation."""
 
     @classmethod
+    @raise_error_if_called_on_object
     def inspect(
         cls,
         values: ListLike,
@@ -512,6 +515,7 @@ class CanCurate:
         )
 
     @classmethod
+    @raise_error_if_called_on_object
     def validate(
         cls,
         values: ListLike,
@@ -566,6 +570,7 @@ class CanCurate:
         )
 
     @classmethod
+    @raise_error_if_called_on_object
     def from_values(
         cls,
         values: ListLike,
@@ -620,6 +625,7 @@ class CanCurate:
         )
 
     @classmethod
+    @raise_error_if_called_on_object
     def standardize(
         cls,
         values: Iterable,
