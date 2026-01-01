@@ -154,7 +154,7 @@ def install_ci(session, group):
     elif group == "permissions":
         run(
             session,
-            "uv pip install --system --no-deps ./laminhub/rest-hub/laminhub_rest/hubmodule",
+            "uv pip install --system --no-deps ./laminhub/backend/laminhub_rest/hubmodule",
         )
         # check that just installing psycopg (psycopg3) doesn't break fine-grained access
         # comment out for now, this is also tested in lamindb-setup hub-local
@@ -184,7 +184,7 @@ def install_ci(session, group):
         )
         run(
             session,
-            "uv pip install --system -e ./laminhub/rest-hub --no-build-isolation",
+            "uv pip install --system -e ./laminhub/backend --no-build-isolation",
         )
 
 
