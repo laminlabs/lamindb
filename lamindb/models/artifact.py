@@ -5,7 +5,7 @@ import shutil
 import warnings
 from collections import defaultdict
 from pathlib import Path, PurePath, PurePosixPath
-from typing import TYPE_CHECKING, Any, Literal, Union, overload
+from typing import TYPE_CHECKING, Any, Iterator, Literal, Union, overload
 
 import fsspec
 import lamindb_setup as ln_setup
@@ -2468,8 +2468,11 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         **kwargs,
     ) -> (
         PyArrowDataset
-        | PolarsLazyFrame  # note that intersphinx doesn't work for this, hence manual docs link: https://github.com/laminlabs/lamindb/issues/2736#issuecomment-3703889524
-        | AnnDataAccessor
+        # PolarsLazyFrame does not implement the context manager protocol hence we need `Iterator` in the type annotation
+        | Iterator[
+            PolarsLazyFrame
+        ]  # note that intersphinx doesn't work for this, hence manual docs link: https://github.com/laminlabs/lamindb/issues/2736#issuecomment-3703889524
+        | AnnDataAccessor  # AnnDataAccessor implements the context manager protocol
         | SpatialDataAccessor
         | BackedAccessor
         | SOMACollection
@@ -2497,9 +2500,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
         Returns:
             Streaming accessors, in particular,
-            :class:`pyarrow:pyarrow.dataset.Dataset`,
-            `polars.LazyFrame <https://docs.pola.rs/api/python/stable/reference/lazyframe/>`__,
-            :class:`~lamindb.core.storage.AnnDataAccessor`, :class:`~lamindb.core.storage.SpatialDataAccessor`, :class:`~lamindb.core.storage.BackedAccessor`,
+            a :class:`pyarrow:pyarrow.dataset.Dataset` object,
+            a context manager yielding a `polars.LazyFrame <https://docs.pola.rs/api/python/stable/reference/lazyframe/>`__,
+            and objects of type :class:`~lamindb.core.storage.AnnDataAccessor`, :class:`~lamindb.core.storage.SpatialDataAccessor`, :class:`~lamindb.core.storage.BackedAccessor`,
             :class:`tiledbsoma:tiledbsoma.Collection`, :class:`tiledbsoma.Experiment`, :class:`tiledbsoma.Measurement`.
 
         Notes:
