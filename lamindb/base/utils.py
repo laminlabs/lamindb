@@ -3,7 +3,7 @@
 .. autodecorator:: doc_args
 .. autodecorator:: deprecated
 .. autodecorator:: class_and_instance_method
-.. autodecorator:: raise_error_if_called_on_object
+.. autofunction:: raise_error_if_called_on_object
 
 """
 
@@ -36,39 +36,13 @@ class class_and_instance_method:
         return wrapper
 
 
-class raise_error_if_called_on_object:
-    """Descriptor to raise an error if a classmethod is called on an instance."""
-
-    def __init__(self, func):
-        self.func = func
-        wraps(func)(self)
-
-    def __get__(self, obj, objtype=None):
-        print(f"DEBUG __get__ called for {self.func.__name__}")
-        print(f"  obj: {obj}")
-        print(f"  objtype: {objtype}")
-        print(f"  obj is not None: {obj is not None}")
-
-        if obj is not None:  # Called on an instance
-            print("  -> Returning error_raiser for instance call")
-
-            # Return a wrapper that will raise when called, not immediately
-            def error_raiser(*args, **kwargs):
-                class_name = objtype.__name__ if objtype else obj.__class__.__name__
-                print(f"DEBUG error_raiser called: {class_name}.{self.func.__name__}")
-                raise TypeError(
-                    f"{class_name}.{self.func.__name__}() is a class method and must be called on the {class_name} class, not on a {class_name} object"
-                )
-
-            return error_raiser
-
-        # Called on the class - return the bound classmethod
-        print("  -> Returning bound classmethod for class call")
-        return self.func.__get__(obj, objtype)
-
-    def __call__(self, *args, **kwargs):
-        print(f"DEBUG __call__ invoked for {self.func.__name__}")
-        return self.func(*args, **kwargs)
+def raise_error_if_called_on_object(cls, method_name: str):
+    """Raise an error if a classmethod is called on an object."""
+    if hasattr(cls, "_state"):
+        class_name = cls.__class__.__name__
+        raise TypeError(
+            f"{class_name}.{method_name}() is a class method and must be called on the {class_name} class, not on a {class_name} object"
+        )
 
 
 __all__ = [

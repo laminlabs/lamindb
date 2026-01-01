@@ -343,7 +343,6 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         track_run_input(artifacts, run=run)
 
     @classmethod
-    @raise_error_if_called_on_object
     def get(
         cls,
         idlike: int | str | None = None,
@@ -371,6 +370,7 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 collection = ln.Collection.get("okxPW6GIKBfRBE3B0000")
                 collection = ln.Collection.get(key="scrna/collection1")
         """
+        raise_error_if_called_on_object(cls, "get")
         from .query_set import QuerySet
 
         return QuerySet(model=cls).get(idlike, is_run_input=is_run_input, **expressions)

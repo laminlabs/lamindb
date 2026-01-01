@@ -486,7 +486,6 @@ class Run(SQLRecord):
         return FeatureManager(self)
 
     @classmethod
-    @raise_error_if_called_on_object
     def filter(
         cls,
         *queries,
@@ -511,6 +510,7 @@ class Run(SQLRecord):
 
                 ln.Run.filter(hyperparam_x=100)
         """
+        raise_error_if_called_on_object(cls, "filter")
         # from Registry metaclass
         return type(cls).filter(cls, *queries, **expressions)
 
