@@ -38,14 +38,12 @@ class strict_classmethod:
 
     def __get__(self, instance, owner):
         if instance is not None:
-            # Called on an instance - raise immediately or return cached error raiser
+            # Called on an instance - raise immediately
             raise TypeError(
                 f"{owner.__name__}.{self.func.__name__}() is a class method and must be called on the {owner.__name__} class, not on a {owner.__name__} object"
             )
 
         # Called on the class - return bound method using MethodType
-        if owner is None:
-            owner = type(instance)
         return MethodType(self.func, owner)
 
 
