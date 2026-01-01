@@ -2496,8 +2496,11 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 `pyarrow.dataset.dataset`, `polars.scan_*` function.
 
         Returns:
-            Streaming accessors, several of which from external libraries like
-            :class:`pyarrow:pyarrow.dataset.Dataset`, `polars.LazyFrame <https://docs.pola.rs/api/python/stable/reference/lazyframe/>`__, :class:`tiledbsoma:tiledbsoma.Collection`, :class:`tiledbsoma.Experiment`, :class:`tiledbsoma.Measurement`.
+            Streaming accessors, in particular,
+            :class:`pyarrow:pyarrow.dataset.Dataset`,
+            `polars.LazyFrame <https://docs.pola.rs/api/python/stable/reference/lazyframe/>`__,
+            :class:`~lamindb.core.storage.AnnDataAccessor`, :class:`~lamindb.core.storage.SpatialDataAccessor`, :class:`~lamindb.core.storage.BackedAccessor`,
+            :class:`tiledbsoma:tiledbsoma.Collection`, :class:`tiledbsoma.Experiment`, :class:`tiledbsoma.Measurement`.
 
         Notes:
             For more info, see guide: :doc:`/arrays`.
