@@ -18,23 +18,15 @@ class class_and_instance_method:
 
     def __init__(self, func):
         self.func = func
-        # Copy metadata to the descriptor itself
         wraps(func)(self)
 
     def __get__(self, instance, owner):
-        # Create a proper wrapper that preserves metadata
         if instance is None:
-
-            @wraps(self.func)
-            def wrapper(*args, **kwargs):
-                return self.func(owner, *args, **kwargs)
+            # Called on the class
+            return MethodType(self.func, owner)
         else:
-
-            @wraps(self.func)
-            def wrapper(*args, **kwargs):
-                return self.func(instance, *args, **kwargs)
-
-        return wrapper
+            # Called on an instance
+            return MethodType(self.func, instance)
 
 
 class strict_classmethod:
