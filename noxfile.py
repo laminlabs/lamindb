@@ -186,6 +186,7 @@ def install_ci(session, group):
             session,
             "uv pip install --system -e ./laminhub/rest-hub --no-build-isolation",
         )
+    run(session, "uv pip install --system gcsfs==2025.12.0 s3fs==2025.12.0")
 
 
 @nox.session
