@@ -168,3 +168,14 @@ def test_synonym_mapping():
     assert result.synonyms_mapper == {}
 
     bt.Gene.filter().delete(permanent=True)
+
+
+def test_validate_called_on_object_raises_error():
+    """Test that calling validate() on an object raises TypeError."""
+    label = ln.ULabel(name="test_label").save()
+    with pytest.raises(TypeError) as error:
+        label.validate(["test_value"])
+    assert (
+        "ULabel.validate() is a class method and must be called on the ULabel class, not on a ULabel object"
+        in str(error.value)
+    )

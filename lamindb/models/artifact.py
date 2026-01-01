@@ -33,7 +33,7 @@ from lamindb.base.fields import (
     ForeignKey,
     TextField,
 )
-from lamindb.base.utils import deprecated
+from lamindb.base.utils import deprecated, strict_classmethod
 from lamindb.errors import FieldValidationError, NoWriteAccess, UnknownStorageLocation
 from lamindb.models.query_set import QuerySet, SQLRecordList
 
@@ -1730,7 +1730,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             filepath, cache_key=cache_key
         )
 
-    @classmethod
+    @strict_classmethod
     def get(
         cls,
         idlike: int | str | None = None,
@@ -1772,7 +1772,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             expressions["path"] = path
         return QuerySet(model=cls).get(idlike, is_run_input=is_run_input, **expressions)
 
-    @classmethod
+    @strict_classmethod
     def filter(
         cls,
         *queries,

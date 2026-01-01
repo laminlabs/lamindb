@@ -17,6 +17,7 @@ from lamindb.base.fields import (
     ForeignKey,
 )
 from lamindb.base.users import current_user_id
+from lamindb.base.utils import strict_classmethod
 
 from ..base.ids import base62_16
 from .can_curate import CanCurate
@@ -484,7 +485,7 @@ class Run(SQLRecord):
 
         return FeatureManager(self)
 
-    @classmethod
+    @strict_classmethod
     def filter(
         cls,
         *queries,

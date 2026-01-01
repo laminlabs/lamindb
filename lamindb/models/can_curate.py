@@ -8,6 +8,8 @@ from django.core.exceptions import FieldDoesNotExist
 from django.db.models import Manager, QuerySet
 from lamin_utils import colors, logger
 
+from lamindb.base.utils import strict_classmethod
+
 from ..errors import ValidationError
 from ._from_values import (
     _format_values,
@@ -455,7 +457,7 @@ def _filter_queryset_with_organism(
 class CanCurate:
     """Base class providing :class:`~lamindb.models.SQLRecord`-based validation."""
 
-    @classmethod
+    @strict_classmethod
     def inspect(
         cls,
         values: ListLike,
@@ -511,7 +513,7 @@ class CanCurate:
             from_source=from_source,
         )
 
-    @classmethod
+    @strict_classmethod
     def validate(
         cls,
         values: ListLike,
@@ -565,7 +567,7 @@ class CanCurate:
             source=source,
         )
 
-    @classmethod
+    @strict_classmethod
     def from_values(
         cls,
         values: ListLike,
@@ -619,7 +621,7 @@ class CanCurate:
             mute=mute,
         )
 
-    @classmethod
+    @strict_classmethod
     def standardize(
         cls,
         values: Iterable,
