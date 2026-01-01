@@ -8,6 +8,7 @@
 """
 
 from functools import wraps
+from types import MethodType
 
 from lamindb_setup.core import deprecated, doc_args
 
@@ -45,20 +46,15 @@ class strict_classmethod:
 
     def __get__(self, instance, owner):
         if instance is not None:
-            # Called on an instance - return error raiser
-            def error_raiser(*args, **kwargs):
-                raise TypeError(
-                    f"{owner.__name__}.{self.func.__name__}() is a class method and must be called on the {owner.__name__} class, not on a {owner.__name__} object"
-                )
+            # Called on an instance - raise immediately or return cached error raiser
+            raise TypeError(
+                f"{owner.__name__}.{self.func.__name__}() is a class method and must be called on the {owner.__name__} class, not on a {owner.__name__} object"
+            )
 
-            return error_raiser
-
-        # Called on the class - return bound method
-        @wraps(self.func)
-        def wrapper(*args, **kwargs):
-            return self.func(owner, *args, **kwargs)
-
-        return wrapper
+        # Called on the class - return bound method using MethodType
+        if owner is None:
+            owner = type(instance)
+        return MethodType(self.func, owner)
 
 
 __all__ = [
