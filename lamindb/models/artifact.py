@@ -2478,10 +2478,10 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     ):
         """Open a dataset for streaming.
 
-        Works for `AnnData` (`.h5ad` and `.zarr`), `SpatialData` (`.zarr`),
-        generic `hdf5` and `zarr`, `tiledbsoma` objects (`.tiledbsoma`),
-        `pyarrow` or `polars` compatible formats
-        (`.parquet`, `.csv`, `.ipc` etc. files or directories with such files).
+        Works for `pyarrow` or `polars` compatible formats
+        (`.parquet`, `.csv`, `.ipc` etc. files or directories with such files),
+        `AnnData` (`.h5ad`, `.zarr`), `SpatialData` (`.zarr`),
+        generic `hdf5` and `zarr`, `tiledbsoma` objects (`.tiledbsoma`).
 
         Args:
             mode: can be `"r"` or `"w"` (write mode) for `tiledbsoma` stores,
