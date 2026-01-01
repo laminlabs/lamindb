@@ -103,7 +103,7 @@ except ImportError:
 
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Iterator
+    from collections.abc import Iterable
 
     from mudata import MuData  # noqa: TC004
     from polars import LazyFrame as PolarsLazyFrame
@@ -2467,14 +2467,14 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         is_run_input: bool | None = None,
         **kwargs,
     ) -> (
-        AnnDataAccessor
+        PyArrowDataset
+        | PolarsLazyFrame
+        | AnnDataAccessor
         | SpatialDataAccessor
         | BackedAccessor
         | SOMACollection
         | SOMAExperiment
         | SOMAMeasurement
-        | PyArrowDataset
-        | Iterator[PolarsLazyFrame]
     ):
         """Open a dataset for streaming.
 
@@ -2494,6 +2494,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             is_run_input: Whether to track this artifact as run input.
             **kwargs: Keyword arguments for the accessor, i.e. `h5py` or `zarr` connection,
                 `pyarrow.dataset.dataset`, `polars.scan_*` function.
+
+        Returns:
+            Streaming accessors like :class:`pyarrow:pyarrow.dataset.Dataset` & `polars.LazyFrame <https://docs.pola.rs/api/python/stable/reference/lazyframe/>`__..
 
         Notes:
             For more info, see guide: :doc:`/arrays`.
