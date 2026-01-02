@@ -23,6 +23,7 @@ def test_feature_describe():
         .uid: CharField
         .name: CharField
         .dtype: CharField
+        .dtype_str: CharField
         .unit: CharField
         .description: TextField
         .array_rank: SmallIntegerField
