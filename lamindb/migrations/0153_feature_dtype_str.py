@@ -4,20 +4,17 @@ from typing import get_args
 
 from django.db import migrations
 
+import lamindb as ln
 import lamindb.base.fields
 
 
 def copy_dtype_to_dtype_str(apps, schema_editor):
     """Copy dtype to dtype_str and convert nested Record/ULabel types to uid format."""
     # First, bulk copy all dtype values to dtype_str using raw SQL
-    db_alias = schema_editor.connection.alias
     with schema_editor.connection.cursor() as cursor:
         cursor.execute(
             "UPDATE lamindb_feature SET dtype_str = dtype WHERE dtype IS NOT NULL"
         )
-
-    # Now handle the conversions for nested Record/ULabel types
-    Feature = apps.get_model("lamindb", "Feature")
 
     # Patterns to look for
     patterns = [
@@ -31,7 +28,7 @@ def copy_dtype_to_dtype_str(apps, schema_editor):
     features_to_convert = []
     for pattern in patterns:
         features_to_convert.extend(
-            Feature.objects.using(db_alias).filter(dtype_str__startswith=pattern)
+            ln.Feature.objects.filter(dtype_str__startswith=pattern)
         )
 
     # Convert each feature
