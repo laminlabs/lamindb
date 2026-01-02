@@ -787,7 +787,7 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
 
     Note that mutating this field currently does not trigger re-validation of existing values.
     """
-    dtype_str: Dtype | str | None = CharField(db_index=True, null=True)
+    _dtype_str: Dtype | str | None = CharField(db_index=True, null=True)
     """The string-serialized data type (:class:`~lamindb.base.types.Dtype`).
 
     Note that mutating this field currently does not trigger re-validation of existing values.
