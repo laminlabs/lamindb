@@ -8,11 +8,11 @@ import lamindb as ln
 
 
 def copy_dtype_to_dtype_str(apps, schema_editor):
-    """Copy dtype to dtype_str and convert nested Record/ULabel types to uid format."""
-    # First, bulk copy all dtype values to dtype_str using raw SQL
+    """Copy dtype to _dtype_str and convert nested Record/ULabel types to uid format."""
+    # First, bulk copy all dtype values to _dtype_str using raw SQL
     with schema_editor.connection.cursor() as cursor:
         cursor.execute(
-            "UPDATE lamindb_feature SET dtype_str = dtype WHERE dtype IS NOT NULL"
+            "UPDATE lamindb_feature SET _dtype_str = dtype WHERE dtype IS NOT NULL"
         )
 
     # Patterns to look for
@@ -27,7 +27,7 @@ def copy_dtype_to_dtype_str(apps, schema_editor):
     features_to_convert = []
     for pattern in patterns:
         features_to_convert.extend(
-            ln.Feature.objects.filter(dtype_str__startswith=pattern)
+            ln.Feature.objects.filter(_dtype_str__startswith=pattern)
         )
 
     # Convert each feature
@@ -37,40 +37,40 @@ def copy_dtype_to_dtype_str(apps, schema_editor):
             dtype_obj = feature.dtype_as_object
 
             # Handle the conversion based on the dtype structure
-            new_dtype_str = convert_dtype_to_uid_format(feature.dtype_str, dtype_obj)
+            new__dtype_str = convert_dtype_to_uid_format(feature._dtype_str, dtype_obj)
 
-            if new_dtype_str != feature.dtype_str:
-                feature.dtype_str = new_dtype_str
-                feature.save(update_fields=["dtype_str"])
+            if new__dtype_str != feature._dtype_str:
+                feature._dtype_str = new__dtype_str
+                feature.save(update_fields=["_dtype_str"])
 
         except Exception as e:
-            # If conversion fails, keep the original dtype_str value
+            # If conversion fails, keep the original _dtype_str value
             print(
                 f"Warning: Could not convert dtype for feature {feature.name} ({feature.uid}) because of error: {e}"
             )
             continue
 
 
-def convert_dtype_to_uid_format(dtype_str, dtype_obj):
+def convert_dtype_to_uid_format(_dtype_str, dtype_obj):
     """Convert dtype string with nested types to uid format.
 
     Args:
-        dtype_str: Original dtype string like "cat[Record[LabA[Experiment]]]"
+        _dtype_str: Original dtype string like "cat[Record[LabA[Experiment]]]"
         dtype_obj: The resolved dtype object from dtype_as_object
 
     Returns:
         Converted dtype string like "cat[Record[uid123]]"
     """
     # Handle list types
-    is_list = dtype_str.startswith("list[")
+    is_list = _dtype_str.startswith("list[")
     if is_list:
         # Remove list wrapper temporarily
-        inner_dtype = dtype_str[5:-1]  # Remove "list[" and "]"
+        inner_dtype = _dtype_str[5:-1]  # Remove "list[" and "]"
         if hasattr(dtype_obj, "__origin__") and dtype_obj.__origin__ is list:
             # Get the inner type from list[T]
             dtype_obj = get_args(dtype_obj)[0]
     else:
-        inner_dtype = dtype_str
+        inner_dtype = _dtype_str
 
     # Check if it's a union type (contains |)
     if "|" in inner_dtype:

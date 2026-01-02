@@ -13,7 +13,7 @@ class Migration(migrations.Migration):
     operations = [
         migrations.AddField(
             model_name="feature",
-            name="dtype_str",
+            name="_dtype_str",
             field=lamindb.base.fields.CharField(
                 blank=True, db_index=True, default=None, max_length=255, null=True
             ),
