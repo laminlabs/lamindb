@@ -106,11 +106,7 @@ def convert_dtype_to_uid_format(dtype_str, dtype_obj):
             registry_name = inner_dtype[4:].split("[")[
                 0
             ]  # Remove "cat[" and get registry name
-
-            if hasattr(dtype_obj, "uid"):
-                result = f"cat[{registry_name}[{dtype_obj.uid}]]"
-            else:
-                result = inner_dtype
+            result = f"cat[{registry_name}[{dtype_obj.uid}]]"
         else:
             result = inner_dtype
 
