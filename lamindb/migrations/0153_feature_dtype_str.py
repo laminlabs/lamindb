@@ -32,9 +32,6 @@ def copy_dtype_to_dtype_str(apps, schema_editor):
             Feature.objects.using(db_alias).filter(dtype_str__startswith=pattern)
         )
 
-    # Remove duplicates (in case a feature matches multiple patterns)
-    features_to_convert = list({f.id: f for f in features_to_convert}.values())
-
     # Convert each feature
     for feature in features_to_convert:
         try:
@@ -53,7 +50,9 @@ def copy_dtype_to_dtype_str(apps, schema_editor):
 
         except Exception as e:
             # If conversion fails, keep the original dtype_str value
-            print(f"Warning: Could not convert dtype for feature {feature.id}: {e}")
+            print(
+                f"Warning: Could not convert dtype for feature {feature.name} ({feature.uid}) because of error: {e}"
+            )
             continue
 
 
