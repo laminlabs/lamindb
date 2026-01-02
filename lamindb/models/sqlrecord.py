@@ -1278,11 +1278,30 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
 
 
 class Space(BaseSQLRecord):
-    """Workspaces with managed access for specific users or teams.
+    """Spaces with managed access for specific users or teams.
 
-    Guide: :doc:`docs:access`.
+    If not setting a space, a :class:`~lamindb.models.SQLRecord` object is accessible to all collaborators of the LaminDB instance because its :attr:`~lamindb.models.SQLRecord.space` field defaults to the built-in `all` space.
+    You can create a restricted space through LaminHub either on the instance settings page or the *Spaces* tab of your account page.
 
-    All data in this registry is synchronized from LaminHub so that spaces can be shared and reused across multiple LaminDB instances.
+    Examples:
+
+        After creating a restricted space through LaminHub, create an artifact in the space::
+
+            space = ln.Space.get(name="Our space")  # get a space
+            ln.Artifact("./test.txt", key="test.txt", space=space).save()  # save artifact in space
+
+        You can also move an existing object into a space::
+
+            space = ln.Space.get(name="Our space")  # select a space
+            record = ln.Record.get(name="existing label")
+            record.space = space
+            record.save()  # saved in space "Our space"
+
+        For more examples and background, see :doc:`docs:access`, in particular, section :ref:`docs:use-a-restricted-space`.
+
+    Notes:
+
+        All data in this registry is synchronized from LaminHub so that spaces can be shared and reused across multiple LaminDB instances.
     """
 
     class Meta:
