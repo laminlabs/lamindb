@@ -37,10 +37,10 @@ def copy_dtype_to_dtype_str(apps, schema_editor):
             dtype_obj = feature.dtype_as_object
 
             # Handle the conversion based on the dtype structure
-            new__dtype_str = convert_dtype_to_uid_format(feature._dtype_str, dtype_obj)
+            new_dtype_str = convert_dtype_to_uid_format(feature._dtype_str, dtype_obj)
 
-            if new__dtype_str != feature._dtype_str:
-                feature._dtype_str = new__dtype_str
+            if new_dtype_str != feature._dtype_str:
+                feature._dtype_str = new_dtype_str
                 feature.save(update_fields=["_dtype_str"])
 
         except Exception as e:
@@ -51,26 +51,26 @@ def copy_dtype_to_dtype_str(apps, schema_editor):
             continue
 
 
-def convert_dtype_to_uid_format(_dtype_str, dtype_obj):
+def convert_dtype_to_uid_format(dtype_str, dtype_obj):
     """Convert dtype string with nested types to uid format.
 
     Args:
-        _dtype_str: Original dtype string like "cat[Record[LabA[Experiment]]]"
+        dtype_str: Original dtype string like "cat[Record[LabA[Experiment]]]"
         dtype_obj: The resolved dtype object from dtype_as_object
 
     Returns:
         Converted dtype string like "cat[Record[uid123]]"
     """
     # Handle list types
-    is_list = _dtype_str.startswith("list[")
+    is_list = dtype_str.startswith("list[")
     if is_list:
         # Remove list wrapper temporarily
-        inner_dtype = _dtype_str[5:-1]  # Remove "list[" and "]"
+        inner_dtype = dtype_str[5:-1]  # Remove "list[" and "]"
         if hasattr(dtype_obj, "__origin__") and dtype_obj.__origin__ is list:
             # Get the inner type from list[T]
             dtype_obj = get_args(dtype_obj)[0]
     else:
-        inner_dtype = _dtype_str
+        inner_dtype = dtype_str
 
     # Check if it's a union type (contains |)
     if "|" in inner_dtype:
