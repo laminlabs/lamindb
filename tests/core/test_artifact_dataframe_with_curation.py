@@ -99,8 +99,8 @@ Artifact: test_df.parquet (0000)
 def test_artifact_dataframe_with_features(example_dataframe: pd.DataFrame):
     """Test column names encoding when features with the same names are present."""
     artifact = ln.Artifact.from_dataframe(example_dataframe, key="df.parquet").save()
-    id_feature = ln.Feature(name="id", dtype="int").save()
-    uid_feature = ln.Feature(name="uid", dtype="str").save()
+    id_feature = ln.Feature(name="id", dtype=int).save()
+    uid_feature = ln.Feature(name="uid", dtype=str).save()
     artifact.features.add_values({"id": 1, "uid": "test-uid"})
     df = ln.Artifact.filter(key="df.parquet").to_dataframe(
         include=["description"], features=True

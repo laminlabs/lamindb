@@ -502,7 +502,7 @@ def get_feature_annotate_kwargs(
         feature_ids = list(set(feature_ids))  # remove duplicates
 
     feature_qs = Feature.connect(None if qs is None else qs.db).filter(
-        dtype__isnull=False
+        _dtype_str__isnull=False
     )
     if isinstance(features, list):
         feature_qs = feature_qs.filter(name__in=features)
@@ -514,9 +514,9 @@ def get_feature_annotate_kwargs(
         feature_qs = feature_qs.filter(id__in=feature_ids)
     else:
         feature_qs = feature_qs.filter(
-            ~Q(dtype__startswith="cat[")
-            | Q(dtype__startswith="cat[ULabel")
-            | Q(dtype__startswith="cat[Record")
+            ~Q(_dtype_str__startswith="cat[")
+            | Q(_dtype_str__startswith="cat[ULabel")
+            | Q(_dtype_str__startswith="cat[Record")
         )
         logger.important(
             f"queried for all categorical features of dtypes Record or ULabel and non-categorical features: ({len(feature_qs)}) {feature_qs.to_list('name')}"
