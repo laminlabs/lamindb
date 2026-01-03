@@ -106,19 +106,6 @@ def get_record_type_from_uid(
     registry: Registry,
     record_uid: str,
 ) -> SQLRecord:
-    """Get a SQLRecord type by its UID.
-
-    Args:
-        registry: The registry class (e.g., Record)
-        record_uid: The UID of the record type
-
-    Returns:
-        The SQLRecord type object
-
-    Raises:
-        IntegrityError: If the record doesn't exist
-        InvalidArgument: If the record is not a type
-    """
     type_record: SQLRecord = registry.get(record_uid)
 
     if type_record.branch_id == -1:
@@ -135,23 +122,6 @@ def get_record_type_from_uid(
 def get_record_type_from_nested_subtypes(
     registry: Registry, subtypes_list: list[str], field_str: str
 ) -> SQLRecord:
-    """Get a Record type by nested subtype names.
-
-    This function is used for backward compatibility with old format strings
-    that use nested names like Record[LabA[Experiment]].
-
-    Args:
-        registry: The registry class (e.g., Record)
-        subtypes_list: List of nested subtype names, e.g., ["LabA", "Experiment"]
-        field_str: The field name (for error messages)
-
-    Returns:
-        The Record type object
-
-    Raises:
-        IntegrityError: If the record doesn't exist
-        InvalidArgument: If the record is not a type
-    """
     type_filters = {"name": subtypes_list[-1]}
     if len(subtypes_list) > 1:
         for i, nested_subtype in enumerate(reversed(subtypes_list[:-1])):
@@ -1099,18 +1069,11 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
                 f"{key}='{value}'" for (key, value) in cat_filters.items()
             )
             dtype_str = dtype_str.replace("]", f"[{fill_in}]]")
-            self.dtype = dtype_str
             self._dtype_str = dtype_str
         if not self._state.adding:
-            if not (
-                self.dtype.startswith("cat")
-                if dtype_str == "cat"
-                else dtype_str.startswith("cat")
-                if self.dtype == "cat"
-                else self.dtype == dtype_str
-            ):
+            if self._dtype_str != dtype_str:
                 raise ValidationError(
-                    f"Feature {self.name} already exists with dtype {self.dtype}, you passed {dtype_str}"
+                    f"Feature {self.name} already exists with dtype {self._dtype_str}, you passed {dtype_str}"
                 )
 
     # manually sync this docstring across all other children of HasType
