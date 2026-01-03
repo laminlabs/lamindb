@@ -258,69 +258,11 @@ def convert_old_format_string_to_objects(
         >>> convert_old_format_string_to_objects("list[cat[ULabel[Perturbation]]]")
         list[<ULabel: Perturbation>]
     """
-    from .artifact import Artifact
+    return dtype_as_object(dtype_str, old_format=True)
 
-    allowed_dtypes = FEATURE_DTYPES
 
-    # Handle list[...] types
-    if dtype_str.startswith("list[") and dtype_str.endswith("]"):
-        inner_dtype_str = dtype_str[5:-1]  # Remove "list[" and "]"
-        # Recursively convert the inner type
-        inner_object = convert_old_format_string_to_objects(inner_dtype_str)
-        # Return as list type
-        return list[inner_object]  # type: ignore
-
-    # Handle categorical types
-    if dtype_str.startswith("cat[") and dtype_str.endswith("]"):
-        related_registries = dict_module_name_to_model_name(Artifact)
-        registries_str = dtype_str.replace("cat[", "")[:-1]  # strip last ]
-        if registries_str != "":
-            registry_str_list = registries_str.split("|")
-            dtype_objects = []
-            for cat_single_dtype_str in registry_str_list:
-                # For old format, we need to parse it as old format (extract subtypes_list)
-                # Parse the string to extract the bracket content
-                import re
-
-                pattern = r"(Record|ULabel)\[([^\]]+)\]"
-                matches = re.findall(pattern, cat_single_dtype_str)
-                if matches:
-                    registry_name, bracket_content = matches[0]
-                    # Get the registry
-                    if registry_name not in related_registries:
-                        raise ValidationError(
-                            f"'{registry_name}' is an invalid dtype, has to be registry, e.g. ULabel or bionty.CellType"
-                        )
-                    registry = related_registries[registry_name]
-                    field_str = "name"  # Default field
-
-                    # Extract subtypes_list from bracket content (old format)
-                    if "[" in bracket_content:
-                        # Nested brackets like Record[Parent[Child]]
-                        extracted = extract_subtypes_and_filter(bracket_content)
-                        subtypes_list = extracted["subtypes_list"]
-                    else:
-                        # Simple name like Record[Name]
-                        subtypes_list = [bracket_content]
-
-                    # Look up using nested subtypes
-                    dtype_object = get_record_type_from_nested_subtypes(
-                        registry,
-                        subtypes_list,
-                        field_str,
-                    )
-                else:
-                    # No Record[...] or ULabel[...] pattern - might be field access or simple registry
-                    parsed = parse_cat_dtype(
-                        cat_single_dtype_str,
-                        related_registries=related_registries,
-                        check_exists=False,
-                    )
-                    dtype_object = parsed["field"]
-                dtype_objects.append(dtype_object)
-            return dtype_objects if len(dtype_objects) > 1 else dtype_objects[0]
-    elif dtype_str in allowed_dtypes:
-        # Simple type
+def dtype_as_object(dtype_str: str, old_format: bool = False) -> type | None:
+    def _dtype_as_object_simple(dtype_str: str) -> type | None:
         if dtype_str == "str":
             return str
         elif dtype_str == "int":
@@ -339,12 +281,47 @@ def convert_old_format_string_to_objects(
             return datetime
         elif dtype_str.startswith("dict"):
             return dict
-    else:
-        raise ValueError(
-            f"dtype is '{dtype_str}' but has to be one of {FEATURE_DTYPES} or a composed categorical dtype!"
-        )
+        return None
 
-    return None
+    if dtype_str is None:
+        return None
+
+    parsed_dtypes = parse_dtype(dtype_str, check_exists=True, old_format=old_format)
+    if len(parsed_dtypes) > 0:
+        dtype_objects = []
+        for parsed_dtype in parsed_dtypes:
+            if parsed_dtype.get("record_uid"):
+                # return the subtype record for dtypes with record_uid
+                dtype_object = get_record_type_from_uid(
+                    parsed_dtype["registry"],
+                    parsed_dtype["record_uid"],
+                )
+            elif parsed_dtype.get("subtypes_list"):
+                dtype_object = get_record_type_from_nested_subtypes(
+                    parsed_dtype["registry"],
+                    parsed_dtype["subtypes_list"],
+                    parsed_dtype["field"],
+                )
+            else:
+                # return field for dtypes without record_uid, e.g. bt.CellType.ontology_id
+                dtype_object = parsed_dtype["field"]
+            # for list, returns list[SQLRecord]
+            dtype_objects.append(
+                list[dtype_object]  # type: ignore
+                if "list" in parsed_dtype and parsed_dtype["list"]
+                else dtype_object
+            )
+        return dtype_objects if len(dtype_objects) > 1 else dtype_objects[0]  # type: ignore
+    elif dtype_str.startswith("list["):
+        # for simple lists, returns list[python_type]
+        dtype_simple_object = _dtype_as_object_simple(
+            dtype_str.removeprefix("list[").removesuffix("]")
+        )
+        return (
+            list[dtype_simple_object] if dtype_simple_object is not None else list  # type: ignore
+        )
+    else:
+        return _dtype_as_object_simple(dtype_str)
 
 
 def parse_cat_dtype(
@@ -1420,63 +1397,7 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
                 assert feature_ontology_id.dtype_as_object == bt.CellType.ontology_id
 
         """
-
-        def _dtype_as_object_simple(dtype_str: str) -> type | None:
-            if dtype_str == "str":
-                return str
-            elif dtype_str == "int":
-                return int
-            elif dtype_str in ("float", "num"):
-                return float
-            elif dtype_str == "bool":
-                return bool
-            elif dtype_str == "date":
-                from datetime import date
-
-                return date
-            elif dtype_str == "datetime":
-                from datetime import datetime
-
-                return datetime
-            elif dtype_str.startswith("dict"):
-                return dict
-            return None
-
-        # for type records without dtype, return None
-        dtype_str = self._dtype_str
-        if dtype_str is None:
-            return None
-
-        parsed_dtypes = parse_dtype(dtype_str, check_exists=True)
-        if len(parsed_dtypes) > 0:
-            dtype_objects = []
-            for parsed_dtype in parsed_dtypes:
-                if parsed_dtype.get("record_uid"):
-                    # return the subtype record for dtypes with record_uid
-                    dtype_object = get_record_type_from_uid(
-                        parsed_dtype["registry"],
-                        parsed_dtype["record_uid"],
-                    )
-                else:
-                    # return field for dtypes without record_uid, e.g. bt.CellType.ontology_id
-                    dtype_object = parsed_dtype["field"]
-                # for list, returns list[SQLRecord]
-                dtype_objects.append(
-                    list[dtype_object]  # type: ignore
-                    if "list" in parsed_dtype and parsed_dtype["list"]
-                    else dtype_object
-                )
-            return dtype_objects if len(dtype_objects) > 1 else dtype_objects[0]
-        elif dtype_str.startswith("list["):
-            # for simple lists, returns list[python_type]
-            dtype_simple_object = _dtype_as_object_simple(
-                dtype_str.removeprefix("list[").removesuffix("]")
-            )
-            return (
-                list[dtype_simple_object] if dtype_simple_object is not None else list  # type: ignore
-            )
-        else:
-            return _dtype_as_object_simple(dtype_str)
+        return dtype_as_object(self._dtype_str)
 
     # we'll enable this later
     # @property

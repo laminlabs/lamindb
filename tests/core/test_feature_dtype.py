@@ -568,6 +568,8 @@ def test_convert_old_format_list_string():
     # Convert old format string with list wrapper
     dtype_obj = convert_old_format_string_to_objects("list[cat[ULabel[Perturbation]]]")
 
+    print(dtype_obj)
+
     # Should return list[ULabel] type
     assert hasattr(dtype_obj, "__origin__")
     assert dtype_obj.__origin__ is list
