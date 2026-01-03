@@ -580,6 +580,7 @@ def process_init_feature_param(args, kwargs):
             dtype_str = dtype
             parse_dtype(dtype_str, check_exists=True)
         kwargs["dtype"] = dtype_str
+        kwargs["_dtype_str"] = dtype_str
     return kwargs
 
 
@@ -949,6 +950,7 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             )
             dtype_str = dtype_str.replace("]", f"[{fill_in}]]")
             self.dtype = dtype_str
+            self._dtype_str = dtype_str
         if not self._state.adding:
             if not (
                 self.dtype.startswith("cat")
@@ -1080,6 +1082,9 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
 
     def save(self, *args, **kwargs) -> Feature:
         """Save the feature to the instance."""
+        # Ensure _dtype_str is set if dtype is set
+        if self.dtype is not None and self._dtype_str is None:
+            self._dtype_str = self.dtype
         super().save(*args, **kwargs)
         return self
 
@@ -1201,7 +1206,7 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             return None
 
         # for type records without dtype, return None
-        dtype_str = self.dtype
+        dtype_str = self._dtype_str or self.dtype
         if dtype_str is None:
             return None
 
