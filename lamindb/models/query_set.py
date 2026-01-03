@@ -374,10 +374,6 @@ class SQLRecordList(UserList, Generic[T]):
     ) -> list[str]:  # meaningful to be parallel with to_list() in QuerySet
         return [getattr(record, field) for record in self.data]
 
-    @deprecated(new_name="to_list")
-    def list(self, field: str) -> list[str]:
-        return self.to_list(field)
-
     def one(self) -> T:
         """Exactly one result. Throws error if there are more or none."""
         return one_helper(self)
@@ -1198,10 +1194,6 @@ class BasicQuerySet(models.QuerySet):
         else:
             # list casting is necessary because values_list does not return a list
             return list(self.values_list(field, flat=True))
-
-    @deprecated(new_name="to_list")
-    def list(self, field: str | None = None) -> list[SQLRecord] | list[str]:
-        return self.to_list(field)
 
     def first(self) -> SQLRecord | None:
         """If non-empty, the first result in the query set, otherwise ``None``.
