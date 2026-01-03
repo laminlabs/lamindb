@@ -1025,11 +1025,11 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         self.default_value = default_value
         self.nullable = nullable
         self.coerce_dtype = coerce_dtype
-        dtype_str = kwargs.pop("dtype", None)
+        dtype_str = kwargs.pop("_dtype_str", None)
         if dtype_str == "cat":
             warnings.warn(
-                "dtype `cat` is deprecated and will be removed in LaminDB v2 - "
-                "please use `ln.Record` instead",
+                "dtype `cat` is deprecated and will be removed in the future - "
+                "please use `ln.Record` or `ln.ULabel` instead",
                 DeprecationWarning,
                 stacklevel=2,
             )
