@@ -81,7 +81,7 @@ def test_feature_init():
 # )
 # def test_cannot_mutate_dtype():
 #     feature = ln.Feature(name="feature", dtype=str).save()
-#     feature.dtype = int
+#     feature._dtype_str = int
 #     with pytest.raises(django.db.utils.IntegrityError) as error:
 #         feature.save()
 #     assert "dtype field is immutable and cannot be changed" in error.exconly()
@@ -97,7 +97,7 @@ def test_feature_init():
 #         },  # uid corresponds to disease_ontology_old.uid
 #     ).save()
 
-#     assert feature.dtype == "cat[bionty.Disease[source__uid='4a3ejKuf']]"
+#     assert feature._dtype_str == "cat[bionty.Disease[source__uid='4a3ejKuf']]"
 
 #     feature.delete(permanent=True)
 

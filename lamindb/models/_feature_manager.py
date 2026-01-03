@@ -230,7 +230,7 @@ def get_categoricals_postgres(
     feature_dict = {
         id: (name, dtype)
         for id, name, dtype in Feature.connect(self._state.db).values_list(
-            "id", "name", "dtype"
+            "id", "name", "_dtype_str"
         )
     }
 
@@ -313,18 +313,18 @@ def get_non_categoricals(
     if self.id is not None and isinstance(self, (Artifact, Run, Record)):
         if isinstance(self, Record):
             _feature_values = self.values_json.values(
-                "feature__name", "feature__dtype", "value"
+                "feature__name", "feature___dtype_str", "value"
             ).order_by("feature__name")
         else:
             _feature_values = (
-                self._feature_values.values("feature__name", "feature__dtype")
+                self._feature_values.values("feature__name", "feature___dtype_str")
                 .annotate(values=custom_aggregate("value", self._state.db))
                 .order_by("feature__name")
             )
 
         for fv in _feature_values:
             feature_name = fv["feature__name"]
-            feature_dtype = fv["feature__dtype"]
+            feature_dtype = fv["feature___dtype_str"]
             if isinstance(self, Record):
                 values = fv["value"]
             else:
@@ -1028,7 +1028,7 @@ class FeatureManager:
         # group cat feature_records by their registry
         registry_to_features = defaultdict(list)
         for feature_record in feature_records:
-            parsed_dtype = parse_dtype(feature_record.dtype)
+            parsed_dtype = parse_dtype(feature_record._dtype_str)
             if len(parsed_dtype) > 0:  # categorical features
                 registry = parsed_dtype[0]["registry"]
                 registry_name = registry.__get_name_with_module__()
@@ -1053,7 +1053,7 @@ class FeatureManager:
                 dtype_values = (
                     registry.objects.filter(**filters)
                     .distinct()
-                    .values_list("feature__dtype", "value")
+                    .values_list("feature___dtype_str", "value")
                 )
                 feature_values_qs = []
                 for dtype, value in dtype_values:
@@ -1506,8 +1506,10 @@ class FeatureManager:
                         raise ValueError("Cannot remove values for dataset features.")
             filter_kwargs = {"feature": feature_record}
             none_message = f"with value {value!r} " if value is not None else ""
-            if feature_record.dtype.startswith(("cat[", "list[cat")):  # type: ignore
-                feature_registry = parse_dtype(feature_record.dtype)[0]["registry_str"]
+            if feature_record._dtype_str.startswith(("cat[", "list[cat")):  # type: ignore
+                feature_registry = parse_dtype(feature_record._dtype_str)[0][
+                    "registry_str"
+                ]
                 if "." in feature_registry:
                     parts = feature_registry.split(".")
                     app_label = parts[0]
