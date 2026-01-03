@@ -558,10 +558,10 @@ def serialize_pandas_dtype(pandas_dtype: ExtensionDtype) -> str:
         if not isinstance(pandas_dtype, CategoricalDtype):
             dtype = "str"
         else:
-            dtype = "cat"
+            dtype = "cat[ULabel]"
     # there are string-like categoricals and "pure" categoricals (pd.Categorical)
     elif isinstance(pandas_dtype, CategoricalDtype):
-        dtype = "cat"
+        dtype = "cat[ULabel]"
     else:
         # strip precision qualifiers
         dtype = "".join(dt for dt in pandas_dtype.name if not dt.isdigit())
@@ -569,7 +569,8 @@ def serialize_pandas_dtype(pandas_dtype: ExtensionDtype) -> str:
             dtype = "int"
     if dtype.startswith("datetime"):
         dtype = dtype.split("[")[0]
-    assert dtype in FEATURE_DTYPES  # noqa: S101
+    if dtype != "cat[ULabel]":
+        assert dtype in FEATURE_DTYPES  # noqa: S101
     return dtype
 
 
@@ -1096,18 +1097,21 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             field: FieldAttr for Feature model validation, defaults to Feature.name
             mute: Whether to mute Feature creation similar names found warnings
         """
+        from lamindb.models import ULabel
+
         field = Feature.name if field is None else field
         registry = field.field.model  # type: ignore
         if registry != Feature:
             raise ValueError("field must be a Feature FieldAttr!")
 
         categoricals = categoricals_from_df(df)
-        dtypes = {}
+        dtypes: dict[str, type | SQLRecord | FieldAttr] = {}
         for name, col in df.items():
             if name in categoricals:
-                dtypes[name] = "cat"
+                dtypes[name] = ULabel
             else:
-                dtypes[name] = serialize_pandas_dtype(col.dtype)
+                dtype_str = serialize_pandas_dtype(col.dtype)
+                dtypes[name] = dtype_as_object(dtype_str)
 
         if mute:
             original_verbosity = logger._verbosity
@@ -1150,14 +1154,6 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             mute: Whether to mute dtype inference and feature creation warnings
         """
         from lamindb.models._feature_manager import infer_feature_type_convert_json
-
-        if str_as_cat is not None:
-            warnings.warn(
-                "`str_as_cat` is deprecated and will be removed in LaminDB 2.0.0. "
-                "Create features explicitly with dtype=ln.Record for categorical values.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
 
         field = Feature.name if field is None else field
         registry = field.field.model  # type: ignore
