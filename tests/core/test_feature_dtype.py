@@ -7,6 +7,7 @@ import pytest
 from lamindb import Record
 from lamindb.errors import ValidationError
 from lamindb.models.feature import (
+    convert_old_format_string_to_objects,
     parse_dtype,
     parse_filter_string,
     resolve_relation_filters,
@@ -502,3 +503,122 @@ def test_resolve_relation_filter_duplicate():
     }
     with pytest.raises(bt.Source.DoesNotExist):
         resolve_relation_filters(parsed, bt.Gene)
+
+
+# -----------------------------------------------------------------------------
+# backward compatibility for old format strings
+# -----------------------------------------------------------------------------
+
+
+def test_convert_old_format_ulabel_string():
+    """Test converting old format ULabel string to object."""
+    # Create a ULabel type
+    perturbation = ln.ULabel(name="Perturbation", is_type=True).save()
+
+    # Convert old format string
+    dtype_obj = convert_old_format_string_to_objects("cat[ULabel[Perturbation]]")
+
+    # Should return the ULabel object
+    assert dtype_obj == perturbation
+    assert hasattr(dtype_obj, "uid")
+
+    # Clean up
+    perturbation.delete(permanent=True)
+
+
+def test_convert_old_format_record_string():
+    """Test converting old format Record string to object."""
+    # Create a Record type
+    sample_type = ln.Record(name="Sample", is_type=True).save()
+
+    # Convert old format string
+    dtype_obj = convert_old_format_string_to_objects("cat[Record[Sample]]")
+
+    # Should return the Record object
+    assert dtype_obj == sample_type
+    assert hasattr(dtype_obj, "uid")
+
+    # Clean up
+    sample_type.delete(permanent=True)
+
+
+def test_convert_old_format_nested_record_string():
+    """Test converting old format nested Record string to object."""
+    # Create nested Record types
+    lab_type = ln.Record(name="LabA", is_type=True).save()
+    experiment_type = ln.Record(name="Experiment", type=lab_type, is_type=True).save()
+
+    # Convert old format string
+    dtype_obj = convert_old_format_string_to_objects("cat[Record[LabA[Experiment]]]")
+
+    # Should return the nested Record object
+    assert dtype_obj == experiment_type
+    assert hasattr(dtype_obj, "uid")
+
+    # Clean up
+    experiment_type.delete(permanent=True)
+    lab_type.delete(permanent=True)
+
+
+def test_convert_old_format_list_string():
+    """Test converting old format list string to object."""
+    # Create a ULabel type
+    perturbation = ln.ULabel(name="Perturbation", is_type=True).save()
+
+    # Convert old format string with list wrapper
+    dtype_obj = convert_old_format_string_to_objects("list[cat[ULabel[Perturbation]]]")
+
+    # Should return list[ULabel] type
+    assert hasattr(dtype_obj, "__origin__")
+    assert dtype_obj.__origin__ is list
+    # Get the inner type
+    from typing import get_args
+
+    inner_type = get_args(dtype_obj)[0]
+    assert inner_type == perturbation
+
+    # Clean up
+    perturbation.delete(permanent=True)
+
+
+def test_feature_constructor_with_old_format_string():
+    """Test Feature constructor with old format string raises deprecation warning."""
+    # Create a ULabel type
+    perturbation = ln.ULabel(name="Perturbation", is_type=True).save()
+
+    # Create feature with old format string - should raise deprecation warning
+    with pytest.warns(DeprecationWarning, match="Passing string dtypes"):
+        feature = ln.Feature(name="perturbation", dtype="cat[ULabel[Perturbation]]")
+
+    # Should have converted to UID format
+    assert feature._dtype_str is not None
+    assert "ULabel[" in feature._dtype_str
+    # Should contain UID, not name
+    assert "Perturbation" not in feature._dtype_str
+    assert perturbation.uid in feature._dtype_str
+
+    # Clean up
+    perturbation.delete(permanent=True)
+
+
+def test_feature_constructor_with_old_format_nested_string():
+    """Test Feature constructor with old format nested string."""
+    # Create nested Record types
+    lab_type = ln.Record(name="LabA", is_type=True).save()
+    experiment_type = ln.Record(name="Experiment", type=lab_type, is_type=True).save()
+
+    # Create feature with old format nested string
+    with pytest.warns(DeprecationWarning, match="Passing string dtypes"):
+        feature = ln.Feature(name="experiment", dtype="cat[Record[LabA[Experiment]]]")
+
+    # Should have converted to UID format
+    assert feature._dtype_str is not None
+    assert "Record[" in feature._dtype_str
+    # Should contain UID, not names
+    assert "LabA" not in feature._dtype_str
+    assert "Experiment" not in feature._dtype_str
+    assert experiment_type.uid in feature._dtype_str
+
+    # Clean up
+    experiment_type.delete(permanent=True)
+    lab_type.delete(permanent=True)

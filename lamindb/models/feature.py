@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import importlib
+import re
 import warnings
-from typing import TYPE_CHECKING, Any, get_args, overload
+from typing import TYPE_CHECKING, Any, cast, get_args, overload
 
 import numpy as np
 import pandas as pd
@@ -139,6 +140,229 @@ def get_record_type_from_uid(
     return type_record
 
 
+def extract_subtypes_and_filter(subtype_str: str) -> dict[str, Any]:
+    """Extract nested subtypes and optional filter from a nested subtype string.
+
+    Examples:
+        "B" -> {"subtypes_list": ["B"], "filter_str": ""}
+        "B[C]" -> {"subtypes_list": ["B", "C"], "filter_str": ""}
+        "B[C[filter='<value>']]" -> {"subtypes_list": ["B", "C"], "filter_str": "filter='<value>'"}
+        "B[C[D]]" -> {"subtypes_list": ["B", "C", "D"], "filter_str": ""}
+        "B[C[D[E]]]" -> {"subtypes_list": ["B", "C", "D", "E"], "filter_str": ""}
+        "B[filter='value']" -> {"subtypes_list": ["B"], "filter_str": "filter='value'"}
+        "Customer[UScustomer[region='US']]" -> {"subtypes_list": ["Customer", "UScustomer"], "filter_str": "region='US'"}
+
+    Args:
+        subtype_str: The subtype string with potential nesting
+
+    Returns:
+        Dictionary with subtypes_list and filter_str
+    """
+    subtypes: list[str] = []
+    filter_str = ""
+    current = subtype_str
+
+    while current:
+        if "[" not in current:
+            # No more brackets
+            if current and "=" not in current:
+                # It's a subtype name
+                subtypes.append(current)
+            elif current and "=" in current:
+                # It's a filter
+                filter_str = current
+            break
+
+        # Find the first part before the bracket
+        bracket_pos = current.index("[")
+        part = current[:bracket_pos]
+
+        # Add the part (it's a subtype name)
+        if part:
+            subtypes.append(part)
+
+        # Find the matching closing bracket
+        bracket_count = 0
+        closing_pos = -1
+
+        for i in range(bracket_pos, len(current)):
+            if current[i] == "[":
+                bracket_count += 1
+            elif current[i] == "]":
+                bracket_count -= 1
+                if bracket_count == 0:
+                    closing_pos = i
+                    break
+
+        if closing_pos == -1:
+            break
+
+        # Move to the content inside the brackets
+        current = current[bracket_pos + 1 : closing_pos]
+
+    return {"subtypes_list": subtypes, "filter_str": filter_str}
+
+
+def get_record_type_from_nested_subtypes(
+    registry: Registry, subtypes_list: list[str], field_str: str
+) -> SQLRecord:
+    """Get a Record type by nested subtype names.
+
+    This function is used for backward compatibility with old format strings
+    that use nested names like Record[LabA[Experiment]].
+
+    Args:
+        registry: The registry class (e.g., Record)
+        subtypes_list: List of nested subtype names, e.g., ["LabA", "Experiment"]
+        field_str: The field name (for error messages)
+
+    Returns:
+        The Record type object
+
+    Raises:
+        IntegrityError: If the record doesn't exist
+        InvalidArgument: If the record is not a type
+    """
+    type_filters = {"name": subtypes_list[-1]}
+    if len(subtypes_list) > 1:
+        for i, nested_subtype in enumerate(reversed(subtypes_list[:-1])):
+            filter_key = f"{'type__' * (i + 1)}name"
+            type_filters[filter_key] = nested_subtype
+    else:
+        type_filters["type__isnull"] = True  # type: ignore
+    try:
+        type_record: SQLRecord = registry.get(**type_filters)
+    except Exception as e:
+        raise IntegrityError(
+            f"Error retrieving {registry.__name__} type with filter {type_filters} for field `.{field_str}`: {e}"
+        ) from e
+    if not type_record.is_type:
+        raise InvalidArgument(
+            f"The resolved {type_record.__class__.__name__} '{type_record.name}' for field `.{field_str}` is not a type: is_type is False."
+        )
+    return type_record
+
+
+def convert_old_format_string_to_objects(
+    dtype_str: str,
+) -> type | SQLRecord | FieldAttr | list[SQLRecord] | list[type]:
+    """Convert old name-based format dtype string to Python objects.
+
+    This function is used for backward compatibility with old format strings
+    like "cat[ULabel[Perturbation]]" or "cat[Record[LabA[Experiment]]]".
+    It converts them to the actual Record/ULabel objects that can then be
+    serialized to UID-based format.
+
+    Args:
+        dtype_str: Old format dtype string (e.g., "cat[ULabel[Perturbation]]")
+
+    Returns:
+        The resolved object(s) that can be passed to serialize_dtype
+
+    Example:
+        >>> convert_old_format_string_to_objects("cat[ULabel[Perturbation]]")
+        <ULabel: Perturbation>
+        >>> convert_old_format_string_to_objects("list[cat[ULabel[Perturbation]]]")
+        list[<ULabel: Perturbation>]
+    """
+    from .artifact import Artifact
+
+    allowed_dtypes = FEATURE_DTYPES
+
+    # Handle list[...] types
+    if dtype_str.startswith("list[") and dtype_str.endswith("]"):
+        inner_dtype_str = dtype_str[5:-1]  # Remove "list[" and "]"
+        # Recursively convert the inner type
+        inner_object = convert_old_format_string_to_objects(inner_dtype_str)
+        # Return as list type
+        return list[inner_object]  # type: ignore
+
+    # Handle categorical types
+    if dtype_str.startswith("cat[") and dtype_str.endswith("]"):
+        related_registries = dict_module_name_to_model_name(Artifact)
+        registries_str = dtype_str.replace("cat[", "")[:-1]  # strip last ]
+        if registries_str != "":
+            registry_str_list = registries_str.split("|")
+            dtype_objects = []
+            for cat_single_dtype_str in registry_str_list:
+                # Parse the categorical dtype
+                parsed = parse_cat_dtype(
+                    cat_single_dtype_str,
+                    related_registries=related_registries,
+                    check_exists=False,  # Don't check exists yet - we'll handle lookup ourselves
+                )
+                # For old format conversion, we need to detect if it's actually old format
+                # If we got record_uid but the bracket content looks like a name, convert to subtypes_list
+                if parsed.get("record_uid") and not parsed.get("subtypes_list"):
+                    # Check if the record_uid looks like a name (starts with capital, etc.)
+                    parsed["record_uid"]
+                    # Extract the bracket content from the original string to check
+                    import re
+
+                    pattern = r"(Record|ULabel)\[([^\]]+)\]"
+                    matches = re.findall(pattern, cat_single_dtype_str)
+                    if matches:
+                        bracket_content = matches[0][1]
+                        # If bracket content starts with capital or has nested brackets, it's old format
+                        if bracket_content and (
+                            bracket_content[0].isupper() or "[" in bracket_content
+                        ):
+                            # Convert to subtypes_list
+                            if "[" in bracket_content:
+                                extracted = extract_subtypes_and_filter(bracket_content)
+                                parsed["subtypes_list"] = extracted["subtypes_list"]
+                            else:
+                                parsed["subtypes_list"] = [bracket_content]
+                            parsed.pop("record_uid", None)
+
+                # Convert to object based on whether it has subtypes_list (old format) or record_uid (new format)
+                if parsed.get("subtypes_list"):
+                    # Old format: use nested subtypes lookup
+                    dtype_object = get_record_type_from_nested_subtypes(
+                        parsed["registry"],
+                        parsed["subtypes_list"],
+                        parsed["field_str"],
+                    )
+                elif parsed.get("record_uid"):
+                    # New format: use UID lookup (shouldn't happen for old format strings, but handle gracefully)
+                    dtype_object = get_record_type_from_uid(
+                        parsed["registry"],
+                        parsed["record_uid"],
+                        parsed["field_str"],
+                    )
+                else:
+                    # Field access or simple registry
+                    dtype_object = parsed["field"]
+                dtype_objects.append(dtype_object)
+            return dtype_objects if len(dtype_objects) > 1 else dtype_objects[0]
+    elif dtype_str in allowed_dtypes:
+        # Simple type
+        if dtype_str == "str":
+            return str
+        elif dtype_str == "int":
+            return int
+        elif dtype_str in ("float", "num"):
+            return float
+        elif dtype_str == "bool":
+            return bool
+        elif dtype_str == "date":
+            from datetime import date
+
+            return date
+        elif dtype_str == "datetime":
+            from datetime import datetime
+
+            return datetime
+        elif dtype_str.startswith("dict"):
+            return dict
+    else:
+        raise ValueError(
+            f"dtype is '{dtype_str}' but has to be one of {FEATURE_DTYPES} or a composed categorical dtype!"
+        )
+
+    return None
+
+
 def parse_cat_dtype(
     dtype_str: str,
     related_registries: dict[str, SQLRecord] | None = None,
@@ -186,9 +410,20 @@ def parse_cat_dtype(
     assert hasattr(registry, field_str), f"{registry} has no field {field_str}"
 
     record_uid = parsed.get("record_uid")
-    if record_uid and check_exists:
-        # Validate that the Record exists and is a type
+    subtypes_list = parsed.get("subtypes_list")
+
+    # Handle old format (subtypes_list) or new format (record_uid)
+    if subtypes_list and check_exists:
+        # Old format: validate that the Record exists using nested subtypes
+        # subtypes_list is guaranteed to be list[str] when present
+        if isinstance(subtypes_list, list):
+            get_record_type_from_nested_subtypes(
+                registry, cast(list[str], subtypes_list), field_str
+            )
+    elif record_uid and check_exists:
+        # New format: validate that the Record exists using UID
         get_record_type_from_uid(registry, record_uid, field_str)
+
     if filter_str != "":
         # TODO: validate or process filter string
         pass
@@ -200,14 +435,18 @@ def parse_cat_dtype(
         "field": getattr(registry, field_str),
     }
 
-    # Only add record_uid if it exists
+    # Add record_uid if it exists (new format)
     if record_uid:
         result["record_uid"] = record_uid
+
+    # Add subtypes_list if it exists (old format)
+    if subtypes_list:
+        result["subtypes_list"] = subtypes_list
 
     return result
 
 
-def parse_nested_brackets(dtype_str: str) -> dict[str, str]:
+def parse_nested_brackets(dtype_str: str) -> dict[str, Any]:
     """Parse dtype string with potentially nested brackets.
 
     Examples:
@@ -289,17 +528,45 @@ def parse_nested_brackets(dtype_str: str) -> dict[str, str]:
     if not field_part and pre_bracket_field:
         field_part = pre_bracket_field
 
-    # Extract UID or filter from bracket content
+    # Extract UID, subtypes_list, or filter from bracket content
     # For UID-based format: Record[uid] or ULabel[uid] -> record_uid
+    # For old name-based format: Record[Name] or Record[Parent[Child]] -> subtypes_list
     # For filter format: registry.field[filter] -> filter_str
     record_uid = None
+    subtypes_list = None
     filter_str = ""
 
-    # If registry is Record or ULabel, bracket content is a UID
-    # Otherwise, bracket content is a filter
+    # If registry is Record or ULabel, bracket content could be UID or name(s)
     if registry_part in ("Record", "ULabel"):
-        record_uid = bracket_content if bracket_content else None
+        if bracket_content:
+            # Check if it's old format (contains nested brackets or doesn't look like a UID)
+            if "[" in bracket_content:
+                # Old format with nested brackets like Record[Parent[Child]]
+                extracted = extract_subtypes_and_filter(bracket_content)
+                subtypes_list = extracted["subtypes_list"]
+                filter_str = extracted["filter_str"]
+            else:
+                # Could be UID or simple name - try to detect
+                # UIDs are base62 (typically 8-16 chars, but can be shorter, alphanumeric, no spaces)
+                # Names typically have spaces, special chars, or are very long
+                # Heuristic: if it's alphanumeric with no spaces and reasonable length, try UID first
+                # Otherwise, treat as name (old format)
+                # Note: We're lenient here - if it could be a UID, we treat it as such
+                # (old format detection with capital letters happens in process_init_feature_param)
+                could_be_uid = (
+                    len(bracket_content) >= 1
+                    and len(bracket_content) <= 16
+                    and bracket_content.replace("_", "").isalnum()
+                    and " " not in bracket_content
+                )
+                if could_be_uid:
+                    # Could be a UID (new format) - try UID lookup first
+                    record_uid = bracket_content
+                else:
+                    # Has special chars or spaces - likely a name (old format)
+                    subtypes_list = [bracket_content]
     else:
+        # For other registries, bracket content is a filter
         filter_str = bracket_content if bracket_content else ""
 
     result = {
@@ -308,9 +575,13 @@ def parse_nested_brackets(dtype_str: str) -> dict[str, str]:
         "field": field_part,
     }
 
-    # Only add record_uid if it exists
+    # Add record_uid if it exists (new format)
     if record_uid:
         result["record_uid"] = record_uid
+
+    # Add subtypes_list if it exists (old format)
+    if subtypes_list:
+        result["subtypes_list"] = subtypes_list
 
     return result
 
@@ -538,11 +809,56 @@ def process_init_feature_param(args, kwargs):
         if not isinstance(dtype, str):
             dtype_str = serialize_dtype(dtype)
         else:
-            logger.warning(
-                f"rather than passing a string '{dtype}' to dtype, pass a Python object"
-            )
-            dtype_str = dtype
-            parse_dtype(dtype_str, check_exists=True)
+            # Check if it's old format (name-based) or simple type
+            is_old_format = False
+            if "Record[" in dtype or "ULabel[" in dtype:
+                # Check if bracket content looks like a name (not a UID)
+                # Find Record[...] or ULabel[...] patterns
+                pattern = r"(Record|ULabel)\[([^\]]+)\]"
+                matches = re.findall(pattern, dtype)
+                for _registry_name, bracket_content in matches:
+                    # If bracket content contains nested brackets, spaces, or special chars, it's old format
+                    if (
+                        "[" in bracket_content
+                        or " " in bracket_content
+                        or not bracket_content.replace("_", "").isalnum()
+                        or len(bracket_content) > 16
+                    ):
+                        is_old_format = True
+                        break
+                    # If it's a single word, check if it looks like a name vs UID
+                    # Names typically start with capital letters
+                    # UIDs are base62 (8-16 chars, alphanumeric, can have mixed case but often lowercase)
+                    # Heuristic: if it starts with capital and is reasonable length, it's likely a name
+                    if (
+                        bracket_content
+                        and bracket_content[0].isupper()
+                        and len(bracket_content) <= 16
+                    ):
+                        # Starts with capital - likely a name (old format)
+                        is_old_format = True
+                        break
+                    # If it's very short (< 8 chars) and alphanumeric, it could be either
+                    # But since we're in a string dtype context, and it doesn't start with capital,
+                    # it's more likely to be a UID (new format), so don't treat as old format
+
+            if is_old_format:
+                # Old format: convert to objects, then serialize to UID format
+                warnings.warn(
+                    f"Passing string dtypes like '{dtype}' is deprecated. "
+                    "Please pass Python objects instead, e.g., ln.ULabel.get(name='Perturbation')",
+                    DeprecationWarning,
+                    stacklevel=2,
+                )
+                dtype_objects = convert_old_format_string_to_objects(dtype)
+                dtype_str = serialize_dtype(dtype_objects)
+            else:
+                # Simple type string like "str", "int", etc.
+                logger.warning(
+                    f"rather than passing a string '{dtype}' to dtype, pass a Python object"
+                )
+                dtype_str = dtype
+                parse_dtype(dtype_str, check_exists=True)
         kwargs["dtype"] = dtype_str
         kwargs["_dtype_str"] = dtype_str
     return kwargs
