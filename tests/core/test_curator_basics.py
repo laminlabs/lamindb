@@ -420,16 +420,13 @@ def test_dtypes_at_different_levels():
     s1_lab_a = ln.Record(name="s1", type=sample_type_a).save()
     df = pd.DataFrame({"biosample_name": pd.Categorical(["s1"])})
     feature = ln.Feature(name="biosample_name", dtype=sample_type_root).save()
-    sample_type_root_uid = sample_type_root.uid
     schema = ln.Schema(features=[feature]).save()
     sample_type_root.delete()
     df = pd.DataFrame({"biosample_name": pd.Categorical(["s1"])})
-    with pytest.raises(ln.errors.IntegrityError) as error:
-        ln.curators.DataFrameCurator(df, schema)
-    assert (
-        f"Error retrieving Record with uid '{sample_type_root_uid}' for field `.name`: Record matching query does not exist."
-        in error.exconly()
-    )
+    # UID-based lookup can find records in trash, so curator creation should succeed
+    # but a warning should be printed
+    with pytest.warns(UserWarning, match="Retrieving.*from trash"):
+        curator = ln.curators.DataFrameCurator(df, schema)
     schema.delete(permanent=True)
     sample_type_root.restore()
     curator = ln.curators.DataFrameCurator(df, ln.examples.schemas.valid_features())

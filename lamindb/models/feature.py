@@ -122,6 +122,16 @@ def get_record_type_from_uid(
         raise IntegrityError(
             f"Error retrieving {registry.__name__} with uid '{record_uid}' for field `.{field_str}`: {e}"
         ) from e
+
+    # Warn if the record is in trash (soft-deleted)
+    if hasattr(type_record, "branch_id") and type_record.branch_id == -1:
+        warning_msg = (
+            f"Retrieving {registry.__name__} type '{type_record.name}' (uid='{record_uid}') for field `.{field_str}` from trash. "
+            "This record has been soft-deleted."
+        )
+        logger.warning(warning_msg)
+        warnings.warn(warning_msg, UserWarning, stacklevel=2)
+
     if not type_record.is_type:
         raise InvalidArgument(
             f"The resolved {type_record.__class__.__name__} '{type_record.name}' for field `.{field_str}` is not a type: is_type is False."
