@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Collection, Literal, NamedTuple
 
 import pandas as pd
-from lamindb_setup.core import deprecated
 from lamindb_setup.core.upath import UPath
 from packaging import version
 
@@ -24,11 +23,6 @@ CELLxGENEOrganisms = Literal[
     "sars-2",
 ]
 FieldType = Literal["ontology_id", "name"]
-
-
-@deprecated(new_name="save_cellxgene_defaults")
-def save_cxg_defaults() -> None:
-    return save_cellxgene_defaults()
 
 
 def save_cellxgene_defaults() -> None:
@@ -156,22 +150,6 @@ def _create_cellxgene_sources(
     key_to_source["var_index"] = _fetch_bionty_source("Gene", organism)
 
     return key_to_source
-
-
-@deprecated(new_name="create_cellxgene_schema")
-def get_cxg_schema(
-    schema_version: CELLxGENESchemaVersions,
-    *,
-    field_types: FieldType | Collection[FieldType] = "ontology_id",
-    organism: CELLxGENEOrganisms = "human",
-    spatial_library_id: str | None = None,
-) -> Schema:
-    return create_cellxgene_schema(
-        schema_version,
-        field_types=field_types,
-        organism=organism,
-        spatial_library_id=spatial_library_id,
-    )
 
 
 def create_cellxgene_schema(

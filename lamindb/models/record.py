@@ -505,11 +505,6 @@ class Record(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, HasParents
         """Check if record is a `sheet`, i.e., `self.is_type and self.schema is not None`."""
         return self.schema is not None and self.is_type
 
-    @property
-    @deprecated("is_sheet")
-    def is_form(self) -> bool:
-        return self.is_sheet
-
     def query_parents(self) -> QuerySet:
         """Query all parents of a record recursively.
 

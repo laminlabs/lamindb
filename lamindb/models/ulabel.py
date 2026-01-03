@@ -7,7 +7,6 @@ from django.conf import settings as django_settings
 from django.db import models
 from django.db.models import CASCADE, PROTECT
 
-from lamindb.base import deprecated
 from lamindb.base.fields import (
     BooleanField,
     CharField,
@@ -375,12 +374,6 @@ class ULabel(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         also retrieves sub types and the ulabels with sub types of the current type.
         """
         return _query_relatives([self], "ulabels")  # type: ignore
-
-    @property
-    @deprecated("ulabels")
-    def records(self) -> list[ULabel]:
-        """Return all instances of this type."""
-        return self.ulabels
 
 
 class ArtifactULabel(BaseSQLRecord, IsLink, TracksRun):

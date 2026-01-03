@@ -8,7 +8,6 @@ from django.db.models import CASCADE, PROTECT, Q
 from lamin_utils import logger
 from lamindb_setup.core.hashing import HASH_LENGTH, hash_file, hash_string
 
-from lamindb.base import deprecated
 from lamindb.base.fields import (
     CharField,
     DateTimeField,
@@ -375,15 +374,6 @@ class Transform(SQLRecord, IsVersioned):
             space=space,
             space_id=space_id,
         )
-
-    @property
-    @deprecated("key")
-    def name(self) -> str:
-        """Name of the transform.
-
-        Splits `key` on `/` and returns the last element.
-        """
-        return self.key.split("/")[-1]
 
     @classmethod
     def from_git(
