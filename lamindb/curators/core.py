@@ -47,7 +47,7 @@ from lamindb.models.sqlrecord import HasType
 
 from ..errors import InvalidArgument, ValidationError
 from ..models._from_values import get_organism_record_from_field
-from ..models.feature import get_record_type_from_nested_subtypes
+from ..models.feature import get_record_type_from_uid
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -1287,11 +1287,9 @@ class CatVector:
         feature: Feature | None = None,
         cat_manager: DataFrameCatManager | None = None,
         filter_str: str = "",
-        subtypes_list: list[str] = None,
+        record_uid: str | None = None,
         maximal_set: bool = True,  # whether unvalidated categoricals cause validation failure.
     ) -> None:
-        if subtypes_list is None:
-            subtypes_list = []
         self._values_getter = values_getter
         self._values_setter = values_setter
         self._field = field
@@ -1300,7 +1298,7 @@ class CatVector:
         self._validated: None | list[str] = None
         self._non_validated: None | list[str] = None
         self._synonyms: None | dict[str, str] = None
-        self._subtypes_list = subtypes_list
+        self._record_uid = record_uid
         self._subtype_query_set = None
         self._cat_manager = cat_manager
         self.feature = feature
@@ -1330,10 +1328,10 @@ class CatVector:
             self._registry, self._filter_kwargs
         )
 
-        # get the dtype associated record based on the nested subtypes
-        if self._subtypes_list:
-            self._type_record = get_record_type_from_nested_subtypes(
-                self._registry, self._subtypes_list, self._field.field.name
+        # get the dtype associated record based on the record_uid
+        if self._record_uid:
+            self._type_record = get_record_type_from_uid(
+                self._registry, self._record_uid, self._field.field.name
             )
 
         if hasattr(self._registry, "_name_field"):
@@ -1619,8 +1617,8 @@ class CatVector:
                         organism = self._filter_kwargs.get("organism", None)
                         check_organism = f"fix organism '{organism}', "
                 warning_message += f"    → {check_organism}fix typos, remove non-existent values, or save terms via: {colors.cyan(non_validated_hint_print)}"
-                if self._subtype_query_set is not None and self._subtypes_list:
-                    warning_message += f"\n    → a valid label for subtype '{self._subtypes_list[-1]}' has to be one of {self._subtype_query_set.to_list('name')}"
+                if self._subtype_query_set is not None and self._type_record:
+                    warning_message += f"\n    → a valid label for subtype '{self._type_record.name}' has to be one of {self._subtype_query_set.to_list('name')}"
             logger.info(f'mapping "{self._key}" on {colors.italic(model_field)}')
             logger.warning(warning_message)
             if self._cat_manager is not None:
@@ -1744,7 +1742,7 @@ class DataFrameCatManager:
                     feature=feature,
                     cat_manager=self,
                     filter_str=result["filter_str"],
-                    subtypes_list=result["subtypes_list"],
+                    record_uid=result.get("record_uid"),
                 )
         if index is not None and index.dtype.startswith("cat"):
             result = parse_dtype(index.dtype)[0]
@@ -1759,7 +1757,7 @@ class DataFrameCatManager:
                 feature=index,
                 cat_manager=self,
                 filter_str=result["filter_str"],
-                subtypes_list=result["subtypes_list"],
+                record_uid=result.get("record_uid"),
             )
 
     @property

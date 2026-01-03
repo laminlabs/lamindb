@@ -99,21 +99,28 @@ def parse_dtype(dtype_str: str, check_exists: bool = False) -> list[dict[str, An
     return result
 
 
-def get_record_type_from_nested_subtypes(
-    registry: Registry, subtypes_list: list[str], field_str: str
+def get_record_type_from_uid(
+    registry: Registry, record_uid: str, field_str: str
 ) -> SQLRecord:
-    type_filters = {"name": subtypes_list[-1]}
-    if len(subtypes_list) > 1:
-        for i, nested_subtype in enumerate(reversed(subtypes_list[:-1])):
-            filter_key = f"{'type__' * (i + 1)}name"
-            type_filters[filter_key] = nested_subtype
-    else:
-        type_filters["type__isnull"] = True  # type: ignore
+    """Get a Record type by its UID.
+
+    Args:
+        registry: The registry class (e.g., Record)
+        record_uid: The UID of the record type
+        field_str: The field name (for error messages)
+
+    Returns:
+        The Record type object
+
+    Raises:
+        IntegrityError: If the record doesn't exist
+        InvalidArgument: If the record is not a type
+    """
     try:
-        type_record: SQLRecord = registry.get(**type_filters)
+        type_record: SQLRecord = registry.get(uid=record_uid)
     except Exception as e:
         raise IntegrityError(
-            f"Error retrieving {registry.__name__} type with filter {type_filters} for field `.{field_str}`: {e}"
+            f"Error retrieving {registry.__name__} with uid '{record_uid}' for field `.{field_str}`: {e}"
         ) from e
     if not type_record.is_type:
         raise InvalidArgument(
@@ -168,12 +175,10 @@ def parse_cat_dtype(
         field_str = registry._name_field if hasattr(registry, "_name_field") else "name"
     assert hasattr(registry, field_str), f"{registry} has no field {field_str}"
 
-    if parsed.get("subtypes_list") and check_exists:
-        get_record_type_from_nested_subtypes(
-            registry,
-            parsed.get("subtypes_list"),  # type: ignore
-            field_str,
-        )
+    record_uid = parsed.get("record_uid")
+    if record_uid and check_exists:
+        # Validate that the Record exists and is a type
+        get_record_type_from_uid(registry, record_uid, field_str)
     if filter_str != "":
         # TODO: validate or process filter string
         pass
@@ -183,8 +188,11 @@ def parse_cat_dtype(
         "filter_str": filter_str,
         "field_str": field_str,
         "field": getattr(registry, field_str),
-        "subtypes_list": parsed.get("subtypes_list", []),
     }
+
+    # Only add record_uid if it exists
+    if record_uid:
+        result["record_uid"] = record_uid
 
     return result
 
@@ -195,12 +203,9 @@ def parse_nested_brackets(dtype_str: str) -> dict[str, str]:
     Examples:
         "A" -> {"registry": "A", "filter_str": "", "field": ""}
         "A.field" -> {"registry": "A", "filter_str": "", "field": "field"}
-        "A[B]" -> {"registry": "A", "filter_str": "", "field": "", "subtypes_list": ["B"]}
-        "A[B].field" -> {"registry": "A", "filter_str": "", "field": "field", "subtypes_list": ["B"]}
-        "A[B[C]]" -> {"registry": "A", "filter_str": "", "field": "", "subtypes_list": ["B", "C"]}
-        "A[B[C]].field" -> {"registry": "A", "filter_str": "", "field": "field", "subtypes_list": ["B", "C"]}
+        "Record[abcdefg123456]" -> {"registry": "Record", "filter_str": "", "field": "", "record_uid": "abcdefg123456"}
+        "Record[abcdefg123456].name" -> {"registry": "Record", "filter_str": "", "field": "name", "record_uid": "abcdefg123456"}
         "bionty.Gene.ensembl_gene_id[source__id='abcd']" -> {"registry": "bionty.Gene", "filter_str": "source__id='abcd'", "field": "ensembl_gene_id"}
-        "Record[Customer[UScustomer[region='US']]].name" -> {"registry": "Record", "filter_str": "region='US'", "field": "name", "subtypes_list": ["Customer", "UScustomer"]}
 
     Args:
         dtype_str: The dtype string to parse
@@ -274,80 +279,30 @@ def parse_nested_brackets(dtype_str: str) -> dict[str, str]:
     if not field_part and pre_bracket_field:
         field_part = pre_bracket_field
 
-    # Extract subtypes and filter from bracket content
-    subtypes_and_filter = extract_subtypes_and_filter(bracket_content)
+    # Extract UID or filter from bracket content
+    # For UID-based format: Record[uid] or ULabel[uid] -> record_uid
+    # For filter format: registry.field[filter] -> filter_str
+    record_uid = None
+    filter_str = ""
+
+    # If registry is Record or ULabel, bracket content is a UID
+    # Otherwise, bracket content is a filter
+    if registry_part in ("Record", "ULabel"):
+        record_uid = bracket_content if bracket_content else None
+    else:
+        filter_str = bracket_content if bracket_content else ""
 
     result = {
         "registry": registry_part,
-        "filter_str": subtypes_and_filter["filter_str"],
+        "filter_str": filter_str,
         "field": field_part,
-        "subtypes_list": subtypes_and_filter["subtypes_list"],
     }
 
+    # Only add record_uid if it exists
+    if record_uid:
+        result["record_uid"] = record_uid
+
     return result
-
-
-def extract_subtypes_and_filter(subtype_str: str) -> dict[str, Any]:
-    """Extract nested subtypes and optional filter from a nested subtype string.
-
-    Examples:
-        "B" -> {"subtypes_list": ["B"], "filter_str": ""}
-        "B[C]" -> {"subtypes_list": ["B", "C"], "filter_str": ""}
-        "B[C[filter='<value>']]" -> {"subtypes_list": ["B", "C"], "filter_str": "filter='<value>'"}
-        "B[C[D]]" -> {"subtypes_list": ["B", "C", "D"], "filter_str": ""}
-        "B[C[D[E]]]" -> {"subtypes_list": ["B", "C", "D", "E"], "filter_str": ""}
-        "B[filter='value']" -> {"subtypes_list": ["B"], "filter_str": "filter='value'"}
-        "Customer[UScustomer[region='US']]" -> {"subtypes_list": ["Customer", "UScustomer"], "filter_str": "region='US'"}
-
-    Args:
-        subtype_str: The subtype string with potential nesting
-
-    Returns:
-        Dictionary with subtypes_list and filter_str
-    """
-    subtypes: list[str] = []
-    filter_str = ""
-    current = subtype_str
-
-    while current:
-        if "[" not in current:
-            # No more brackets
-            if current and "=" not in current:
-                # It's a subtype name
-                subtypes.append(current)
-            elif current and "=" in current:
-                # It's a filter
-                filter_str = current
-            break
-
-        # Find the first part before the bracket
-        bracket_pos = current.index("[")
-        part = current[:bracket_pos]
-
-        # Add the part (it's a subtype name)
-        if part:
-            subtypes.append(part)
-
-        # Find the matching closing bracket
-        bracket_count = 0
-        closing_pos = -1
-
-        for i in range(bracket_pos, len(current)):
-            if current[i] == "[":
-                bracket_count += 1
-            elif current[i] == "]":
-                bracket_count -= 1
-                if bracket_count == 0:
-                    closing_pos = i
-                    break
-
-        if closing_pos == -1:
-            break
-
-        # Move to the content inside the brackets
-        current = current[bracket_pos + 1 : closing_pos]
-
-    return {"subtypes_list": subtypes, "filter_str": filter_str}
 
 
 def serialize_dtype(
@@ -1213,15 +1168,15 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         if len(parsed_dtypes) > 0:
             dtype_objects = []
             for parsed_dtype in parsed_dtypes:
-                if parsed_dtype.get("subtypes_list"):
-                    # return the subtype record for dtypes with subtypes
-                    dtype_object = get_record_type_from_nested_subtypes(
+                if parsed_dtype.get("record_uid"):
+                    # return the subtype record for dtypes with record_uid
+                    dtype_object = get_record_type_from_uid(
                         parsed_dtype["registry"],
-                        parsed_dtype["subtypes_list"],
+                        parsed_dtype["record_uid"],
                         parsed_dtype["field_str"],
                     )
                 else:
-                    # return field for dtypes without subtypes, e.g. bt.CellType.ontology_id
+                    # return field for dtypes without record_uid, e.g. bt.CellType.ontology_id
                     dtype_object = parsed_dtype["field"]
                 # for list, returns list[SQLRecord]
                 dtype_objects.append(

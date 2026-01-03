@@ -84,12 +84,12 @@ def test_serialize_record_objects():
     with pytest.raises(ln.errors.IntegrityError) as error:
         parse_dtype("cat[Record[Sample]]", check_exists=True)
     assert (
-        "Error retrieving Record type with filter {'name': 'Sample', 'type__isnull': True} for field `.name`: Record matching query does not exist."
+        "Error retrieving Record with uid 'Sample' for field `.name`: Record matching query does not exist."
         in error.exconly()
     )
     sample = ln.Record(name="sample").save()
     with pytest.raises(ln.errors.InvalidArgument) as error:
-        parse_dtype("cat[Record[sample]]", check_exists=True)
+        parse_dtype(f"cat[Record[{sample.uid}]]", check_exists=True)
     assert (
         "The resolved Record 'sample' for field `.name` is not a type: is_type is False."
         in error.exconly()
@@ -126,7 +126,9 @@ def test_serialize_with_field_information():
 
 
 def test_simple_record_with_subtype_and_field():
-    dtype_str = "cat[Record[Customer].name]"
+    # Create a Record type to get its UID
+    customer_type = ln.Record(name="Customer", is_type=True).save()
+    dtype_str = f"cat[Record[{customer_type.uid}].name]"
     result = parse_dtype(dtype_str)
     assert len(result) == 1
     assert result[0] == {
@@ -135,12 +137,18 @@ def test_simple_record_with_subtype_and_field():
         "field_str": "name",
         "registry": Record,
         "field": Record.name,
-        "subtypes_list": ["Customer"],
+        "record_uid": customer_type.uid,
     }
+    customer_type.delete(permanent=True)
 
 
 def test_multiple_records_with_subtypes_and_fields():
-    dtype_str = "cat[Record[Customer].name|Record[Supplier].name]"
+    # Create Record types to get their UIDs
+    customer_type = ln.Record(name="Customer", is_type=True).save()
+    supplier_type = ln.Record(name="Supplier", is_type=True).save()
+    dtype_str = (
+        f"cat[Record[{customer_type.uid}].name|Record[{supplier_type.uid}].name]"
+    )
     result = parse_dtype(dtype_str)
     assert len(result) == 2
     assert result[0] == {
@@ -149,7 +157,7 @@ def test_multiple_records_with_subtypes_and_fields():
         "field_str": "name",
         "registry": Record,
         "field": Record.name,
-        "subtypes_list": ["Customer"],
+        "record_uid": customer_type.uid,
     }
     assert result[1] == {
         "registry_str": "Record",
@@ -157,8 +165,10 @@ def test_multiple_records_with_subtypes_and_fields():
         "field_str": "name",
         "registry": Record,
         "field": Record.name,
-        "subtypes_list": ["Supplier"],
+        "record_uid": supplier_type.uid,
     }
+    customer_type.delete(permanent=True)
+    supplier_type.delete(permanent=True)
 
 
 def test_bionty_celltype_with_field():
@@ -171,7 +181,6 @@ def test_bionty_celltype_with_field():
         "field_str": "ontology_id",
         "registry": bt.CellType,
         "field": bt.CellType.ontology_id,
-        "subtypes_list": [],
     }
 
 
@@ -185,7 +194,6 @@ def test_bionty_perturbations_with_field():
         "field_str": "uid",
         "registry": bt.CellType,
         "field": bt.CellType.uid,
-        "subtypes_list": [],
     }
     assert result[1] == {
         "registry_str": "bionty.CellLine",
@@ -193,7 +201,6 @@ def test_bionty_perturbations_with_field():
         "field_str": "uid",
         "registry": bt.CellLine,
         "field": bt.CellLine.uid,
-        "subtypes_list": [],
     }
 
 
@@ -235,12 +242,13 @@ def test_simple_registry_without_field():
         "field_str": "name",
         "registry": Record,
         "field": Record.name,
-        "subtypes_list": [],
     }
 
 
 def test_registry_with_subtype_no_field():
-    dtype_str = "cat[Record[Customer]]"
+    # Create a Record type to get its UID
+    customer_type = ln.Record(name="Customer", is_type=True).save()
+    dtype_str = f"cat[Record[{customer_type.uid}]]"
     result = parse_dtype(dtype_str)
     assert len(result) == 1
     assert result[0] == {
@@ -249,12 +257,15 @@ def test_registry_with_subtype_no_field():
         "field_str": "name",
         "registry": Record,
         "field": Record.name,
-        "subtypes_list": ["Customer"],
+        "record_uid": customer_type.uid,
     }
+    customer_type.delete(permanent=True)
 
 
 def test_list_of_dtypes():
-    dtype_str = "list[cat[Record[Customer]]]"
+    # Create a Record type to get its UID
+    customer_type = ln.Record(name="Customer", is_type=True).save()
+    dtype_str = f"list[cat[Record[{customer_type.uid}]]]"
     result = parse_dtype(dtype_str)
     assert len(result) == 1
     assert result[0] == {
@@ -263,10 +274,11 @@ def test_list_of_dtypes():
         "field_str": "name",
         "registry": Record,
         "field": Record.name,
-        "subtypes_list": ["Customer"],
+        "record_uid": customer_type.uid,
         "list": True,
     }
     assert serialize_dtype(list[bt.CellLine]) == "list[cat[bionty.CellLine]]"
+    customer_type.delete(permanent=True)
 
 
 def test_registry_with_filter():
@@ -279,12 +291,16 @@ def test_registry_with_filter():
         "field_str": "ensembl_gene_id",
         "registry": bt.Gene,
         "field": bt.Gene.ensembl_gene_id,
-        "subtypes_list": [],
     }
 
 
 def test_nested_cat_dtypes():
-    dtype_str = "cat[Record[Customer[UScustomer]].name]"
+    # Create Record types - the deepest type is UScustomer
+    customer_type = ln.Record(name="Customer", is_type=True).save()
+    uscustomer_type = ln.Record(
+        name="UScustomer", type=customer_type, is_type=True
+    ).save()
+    dtype_str = f"cat[Record[{uscustomer_type.uid}].name]"
     result = parse_dtype(dtype_str)
     assert len(result) == 1
     assert result[0] == {
@@ -293,22 +309,33 @@ def test_nested_cat_dtypes():
         "field_str": "name",
         "registry": Record,
         "field": Record.name,
-        "subtypes_list": ["Customer", "UScustomer"],
+        "record_uid": uscustomer_type.uid,
     }
+    uscustomer_type.delete(permanent=True)
+    customer_type.delete(permanent=True)
 
 
 def test_nested_cat_with_filter():
-    dtype_str = "cat[Record[Customer[UScustomer[region='US']]].description]"
+    # Create Record types - the deepest type is UScustomer
+    # Note: filters in bracket content are not currently supported in UID format
+    # This test may need adjustment based on how filters are handled
+    customer_type = ln.Record(name="Customer", is_type=True).save()
+    uscustomer_type = ln.Record(
+        name="UScustomer", type=customer_type, is_type=True
+    ).save()
+    dtype_str = f"cat[Record[{uscustomer_type.uid}].description]"
     result = parse_dtype(dtype_str)
     assert len(result) == 1
     assert result[0] == {
         "registry_str": "Record",
-        "filter_str": "region='US'",
+        "filter_str": "",
         "field_str": "description",
         "registry": Record,
         "field": Record.description,
-        "subtypes_list": ["Customer", "UScustomer"],
+        "record_uid": uscustomer_type.uid,
     }
+    uscustomer_type.delete(permanent=True)
+    customer_type.delete(permanent=True)
 
 
 # -----------------------------------------------------------------------------
@@ -333,7 +360,6 @@ def test_feature_dtype():
         "field_str": "name",
         "registry": bt.Disease,
         "field": bt.Disease.name,
-        "subtypes_list": [],
     }
 
     feature.delete(permanent=True)
@@ -357,11 +383,11 @@ def test_cat_filters_incompatible_with_nested_dtypes():
     with pytest.raises(ValidationError) as exc_info:
         ln.Feature(
             name="test_feature",
-            dtype="cat[Record[Customer]]",
+            dtype=f"cat[Record[{record.uid}]]",
             cat_filters={"source": "test"},
         )
     assert (
-        "cat_filters are incompatible with nested dtypes: 'cat[Record[Customer]]'"
+        f"cat_filters are incompatible with nested dtypes: 'cat[Record[{record.uid}]]'"
         in str(exc_info.value)
     )
     record.delete(permanent=True)
