@@ -132,69 +132,6 @@ def get_record_type_from_uid(
     return type_record
 
 
-def extract_subtypes_and_filter(subtype_str: str) -> dict[str, Any]:
-    """Extract nested subtypes and optional filter from a nested subtype string.
-
-    Examples:
-        "B" -> {"subtypes_list": ["B"], "filter_str": ""}
-        "B[C]" -> {"subtypes_list": ["B", "C"], "filter_str": ""}
-        "B[C[filter='<value>']]" -> {"subtypes_list": ["B", "C"], "filter_str": "filter='<value>'"}
-        "B[C[D]]" -> {"subtypes_list": ["B", "C", "D"], "filter_str": ""}
-        "B[C[D[E]]]" -> {"subtypes_list": ["B", "C", "D", "E"], "filter_str": ""}
-        "B[filter='value']" -> {"subtypes_list": ["B"], "filter_str": "filter='value'"}
-        "Customer[UScustomer[region='US']]" -> {"subtypes_list": ["Customer", "UScustomer"], "filter_str": "region='US'"}
-
-    Args:
-        subtype_str: The subtype string with potential nesting
-
-    Returns:
-        Dictionary with subtypes_list and filter_str
-    """
-    subtypes: list[str] = []
-    filter_str = ""
-    current = subtype_str
-
-    while current:
-        if "[" not in current:
-            # No more brackets
-            if current and "=" not in current:
-                # It's a subtype name
-                subtypes.append(current)
-            elif current and "=" in current:
-                # It's a filter
-                filter_str = current
-            break
-
-        # Find the first part before the bracket
-        bracket_pos = current.index("[")
-        part = current[:bracket_pos]
-
-        # Add the part (it's a subtype name)
-        if part:
-            subtypes.append(part)
-
-        # Find the matching closing bracket
-        bracket_count = 0
-        closing_pos = -1
-
-        for i in range(bracket_pos, len(current)):
-            if current[i] == "[":
-                bracket_count += 1
-            elif current[i] == "]":
-                bracket_count -= 1
-                if bracket_count == 0:
-                    closing_pos = i
-                    break
-
-        if closing_pos == -1:
-            break
-
-        # Move to the content inside the brackets
-        current = current[bracket_pos + 1 : closing_pos]
-
-    return {"subtypes_list": subtypes, "filter_str": filter_str}
-
-
 def get_record_type_from_nested_subtypes(
     registry: Registry, subtypes_list: list[str], field_str: str
 ) -> SQLRecord:
@@ -500,6 +437,69 @@ def parse_nested_brackets(dtype_str: str, old_format: bool = False) -> dict[str,
         result["subtypes_list"] = subtypes_list
 
     return result
+
+
+def extract_subtypes_and_filter(subtype_str: str) -> dict[str, Any]:
+    """Extract nested subtypes and optional filter from a nested subtype string.
+
+    Examples:
+        "B" -> {"subtypes_list": ["B"], "filter_str": ""}
+        "B[C]" -> {"subtypes_list": ["B", "C"], "filter_str": ""}
+        "B[C[filter='<value>']]" -> {"subtypes_list": ["B", "C"], "filter_str": "filter='<value>'"}
+        "B[C[D]]" -> {"subtypes_list": ["B", "C", "D"], "filter_str": ""}
+        "B[C[D[E]]]" -> {"subtypes_list": ["B", "C", "D", "E"], "filter_str": ""}
+        "B[filter='value']" -> {"subtypes_list": ["B"], "filter_str": "filter='value'"}
+        "Customer[UScustomer[region='US']]" -> {"subtypes_list": ["Customer", "UScustomer"], "filter_str": "region='US'"}
+
+    Args:
+        subtype_str: The subtype string with potential nesting
+
+    Returns:
+        Dictionary with subtypes_list and filter_str
+    """
+    subtypes: list[str] = []
+    filter_str = ""
+    current = subtype_str
+
+    while current:
+        if "[" not in current:
+            # No more brackets
+            if current and "=" not in current:
+                # It's a subtype name
+                subtypes.append(current)
+            elif current and "=" in current:
+                # It's a filter
+                filter_str = current
+            break
+
+        # Find the first part before the bracket
+        bracket_pos = current.index("[")
+        part = current[:bracket_pos]
+
+        # Add the part (it's a subtype name)
+        if part:
+            subtypes.append(part)
+
+        # Find the matching closing bracket
+        bracket_count = 0
+        closing_pos = -1
+
+        for i in range(bracket_pos, len(current)):
+            if current[i] == "[":
+                bracket_count += 1
+            elif current[i] == "]":
+                bracket_count -= 1
+                if bracket_count == 0:
+                    closing_pos = i
+                    break
+
+        if closing_pos == -1:
+            break
+
+        # Move to the content inside the brackets
+        current = current[bracket_pos + 1 : closing_pos]
+
+    return {"subtypes_list": subtypes, "filter_str": filter_str}
 
 
 def serialize_dtype(
