@@ -240,19 +240,20 @@ def get_categoricals_sqlite(
                 continue
             if hasattr(link, "feature_id") and link.feature_id is not None:
                 feature = Feature.objects.using(self._state.db).get(id=link.feature_id)
-                feature_field = parse_dtype(feature.dtype)[0]["field_str"]
+                dtype_str = feature._dtype_str
+                feature_field = parse_dtype(dtype_str)[0]["field_str"]
                 link_attr = get_link_attr(link, self)
                 label = getattr(link, link_attr)
                 if hasattr(label, "branch_id"):
                     if label.branch_id not in get_default_branch_ids():
                         continue
                 label_name = getattr(label, feature_field)
-                dict_key = (feature.name, feature.dtype)
+                dict_key = (feature.name, dtype_str)
                 if dict_key not in result:
                     result[dict_key] = (
-                        set() if not feature.dtype.startswith("list[cat") else []
+                        set() if not dtype_str.startswith("list[cat") else []
                     )
-                if feature.dtype.startswith("list[cat"):
+                if dtype_str.startswith("list[cat"):
                     result[dict_key].append(label_name)
                 else:
                     result[dict_key].add(label_name)
@@ -706,9 +707,8 @@ def filter_base(
             comparator = f"__{split_key[1]}"
         feature = features.get(name=normalized_key)
         # non-categorical features
-        if not feature.dtype.startswith("cat") and not feature.dtype.startswith(
-            "list[cat"
-        ):
+        dtype_str = feature._dtype_str
+        if not dtype_str.startswith("cat") and not dtype_str.startswith("list[cat"):
             if comparator == "__isnull":
                 if registry is Artifact:
                     from .artifact import ArtifactFeatureValue
@@ -749,7 +749,8 @@ def filter_base(
         elif isinstance(value, (str, SQLRecord, bool)):
             if comparator == "__isnull":
                 if registry is Artifact:
-                    result = parse_dtype(feature.dtype)[0]
+                    dtype_str = feature._dtype_str
+                    result = parse_dtype(dtype_str)[0]
                     kwargs = {
                         f"links_{result['registry'].__name__.lower()}__feature": feature
                     }
@@ -763,7 +764,8 @@ def filter_base(
                 # we distinguish cases in which we have multiple label matches vs. one
                 label = None
                 labels = None
-                result = parse_dtype(feature.dtype)[0]
+                dtype_str = feature._dtype_str
+                result = parse_dtype(dtype_str)[0]
                 label_registry = result["registry"]
                 if isinstance(value, str):
                     field_name = result["field"].field.name
@@ -1213,12 +1215,13 @@ class FeatureManager:
                 value,
                 mute=True,
             )
-            if feature.dtype == "num" or feature.dtype == "list[num]":
+            dtype_str = feature._dtype_str
+            if dtype_str == "num" or dtype_str == "list[num]":
                 if not ("int" in inferred_type or "float" in inferred_type):
                     raise TypeError(
-                        f"Value for feature '{feature.name}' with dtype {feature.dtype} must be a number, but is {value} with dtype {inferred_type}"
+                        f"Value for feature '{feature.name}' with dtype {dtype_str} must be a number, but is {value} with dtype {inferred_type}"
                     )
-            elif feature.dtype.startswith("cat"):
+            elif dtype_str.startswith("cat"):
                 if inferred_type != "?":
                     if not (
                         inferred_type.startswith("cat")
@@ -1227,27 +1230,25 @@ class FeatureManager:
                         or is_iterable_of_sqlrecord(value)
                     ):
                         raise TypeError(
-                            f"Value for feature '{feature.name}' with dtype '{feature.dtype}' must be a string or record, but is {value} with dtype {inferred_type}"
+                            f"Value for feature '{feature.name}' with dtype '{dtype_str}' must be a string or record, but is {value} with dtype {inferred_type}"
                         )
             elif (
-                (feature.dtype == "str" and inferred_type != "cat ? str")
-                or (feature.dtype == "list[str]" and inferred_type != "list[cat ? str]")
+                (dtype_str == "str" and inferred_type != "cat ? str")
+                or (dtype_str == "list[str]" and inferred_type != "list[cat ? str]")
                 or (
-                    feature.dtype.startswith("list[cat")
+                    dtype_str.startswith("list[cat")
                     and not inferred_type.startswith("list[cat")
                 )
                 or (
-                    feature.dtype not in {"str", "list[str]"}
-                    and not feature.dtype.startswith("list[cat")
-                    and feature.dtype != inferred_type
+                    dtype_str not in {"str", "list[str]"}
+                    and not dtype_str.startswith("list[cat")
+                    and dtype_str != inferred_type
                 )
             ):
                 raise ValidationError(
-                    f"Expected dtype for '{feature.name}' is '{feature.dtype}', got '{inferred_type}'"
+                    f"Expected dtype for '{feature.name}' is '{dtype_str}', got '{inferred_type}'"
                 )
-            if not (
-                feature.dtype.startswith("cat") or feature.dtype.startswith("list[cat")
-            ):
+            if not (dtype_str.startswith("cat") or dtype_str.startswith("list[cat")):
                 filter_kwargs = {"feature": feature, "value": converted_value}
                 if host_is_record:
                     filter_kwargs["record"] = self._host
@@ -1274,8 +1275,9 @@ class FeatureManager:
                         values = [value]  # type: ignore
                     else:
                         values = value  # type: ignore
-                    if feature.dtype == "cat":
-                        feature.dtype += "[ULabel]"
+                    if feature._dtype_str == "cat":
+                        new_dtype_str = feature._dtype_str + "[ULabel]"
+                        feature._dtype_str = new_dtype_str
                         feature.save()
                         result = {
                             "registry_str": "ULabel",
@@ -1283,7 +1285,7 @@ class FeatureManager:
                             "field": ULabel.name,
                         }
                     else:
-                        result = parse_dtype(feature.dtype)[0]
+                        result = parse_dtype(feature._dtype_str)[0]
                     if issubclass(result["registry"], CanCurate):  # type: ignore
                         validated = result["registry"].validate(  # type: ignore
                             values, field=result["field"], mute=True

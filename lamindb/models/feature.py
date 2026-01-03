@@ -1206,7 +1206,7 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             return None
 
         # for type records without dtype, return None
-        dtype_str = self._dtype_str or self.dtype
+        dtype_str = self._dtype_str
         if dtype_str is None:
             return None
 

@@ -754,9 +754,10 @@ def get_labels(
 
     if not isinstance(feature, Feature):
         raise TypeError("feature has to be of type Feature")
-    if feature.dtype is None or not feature.dtype.startswith("cat["):
+    dtype_str = feature._dtype_str
+    if dtype_str is None or not dtype_str.startswith("cat["):
         raise ValueError("feature does not have linked labels")
-    registries_to_check = feature.dtype.replace("cat[", "").rstrip("]").split("|")
+    registries_to_check = dtype_str.replace("cat[", "").rstrip("]").split("|")
     if len(registries_to_check) > 1 and not mute:
         logger.warning("labels come from multiple registries!")
     # return an empty query set if self.id is still None
@@ -825,9 +826,10 @@ def add_labels(
                 "Please pass a feature, e.g., via: label = ln.ULabel(name='my_label',"
                 " feature=ln.Feature(name='my_feature'))"
             )
-        if feature.dtype.startswith("cat["):
+        dtype_str = feature._dtype_str
+        if dtype_str.startswith("cat["):
             orm_dict = dict_module_name_to_model_name(Artifact)
-            for reg in feature.dtype.replace("cat[", "").rstrip("]").split("|"):
+            for reg in dtype_str.replace("cat[", "").rstrip("]").split("|"):
                 registry = orm_dict.get(reg)
                 records_validated += registry.from_values(records, field=field)
 
@@ -879,15 +881,16 @@ def add_labels(
                 raise ValidationError(
                     "Cannot manually annotate a feature measured *within* the dataset. Please use a Curator."
                 )
-            if registry_name not in feature.dtype:
-                if not feature.dtype.startswith("cat"):
+            dtype_str = feature._dtype_str
+            if registry_name not in dtype_str:
+                if not dtype_str.startswith("cat"):
                     raise ValidationError(
-                        f"Feature {feature.name} needs dtype='cat' for label annotation, currently has dtype='{feature.dtype}'"
+                        f"Feature {feature.name} needs dtype='cat' for label annotation, currently has dtype='{dtype_str}'"
                     )
-                if registry_name not in feature.dtype:
-                    new_dtype = feature.dtype.rstrip("]") + f"|{registry_name}]"
+                if registry_name not in dtype_str:
+                    new_dtype = dtype_str.rstrip("]") + f"|{registry_name}]"
                     raise ValidationError(
-                        f"Label type {registry_name} is not valid for Feature(name='{feature.name}', dtype='{feature.dtype}'), consider a feature with dtype='{new_dtype}'"
+                        f"Label type {registry_name} is not valid for Feature(name='{feature.name}', dtype='{dtype_str}'), consider a feature with dtype='{new_dtype}'"
                     )
             if registry_name not in self.features._accessor_by_registry:
                 logger.warning(f"skipping {registry_name}")

@@ -62,18 +62,18 @@ def test_feature_init():
 
     # categorical dtype with union of registries using string syntax must be valid
     feature = ln.Feature(name="feat1", dtype="cat[Record|bionty.Gene]")
-    assert feature.dtype == "cat[Record|bionty.Gene]"
+    assert feature._dtype_str == "cat[Record|bionty.Gene]"
     # categorical dtype with union of registries using objects must be valid
     feature = ln.Feature(name="feat1", dtype=[ln.Record, bt.Gene])
-    assert feature.dtype == "cat[Record|bionty.Gene]"
+    assert feature._dtype_str == "cat[Record|bionty.Gene]"
 
     # dtype with field name before bracket filters must be valid
     feature = ln.Feature(
         name="gene_feature", dtype="cat[bionty.Gene.ensembl_gene_id[organism='human']]"
     )
-    assert "bionty.Gene" in feature.dtype
-    assert "ensembl_gene_id" in feature.dtype
-    assert "organism='human'" in feature.dtype
+    assert "bionty.Gene" in feature._dtype_str
+    assert "ensembl_gene_id" in feature._dtype_str
+    assert "organism='human'" in feature._dtype_str
 
 
 # @pytest.mark.skipif(
@@ -155,10 +155,10 @@ def test_feature_from_df():
     }
     for feature in features:
         if feature.name in categoricals:
-            assert feature.dtype == "cat"
+            assert feature._dtype_str == "cat"
         else:
             orig_type = df[feature.name].dtype
-            assert feature.dtype == serialize_pandas_dtype(orig_type)
+            assert feature._dtype_str == serialize_pandas_dtype(orig_type)
     for feature in features:
         feature.save()
     labels = [ln.Record(name=name) for name in df["feat3"].unique()]
@@ -189,26 +189,26 @@ def test_feature_from_dict(dict_data):
     # defaults to str for ambiguous types
     features = ln.Feature.from_dict(dict_data)
     assert len(features) == len(dict_data)
-    assert features[0].dtype == "int"
-    assert features[1].dtype == "float"
-    assert features[2].dtype == "str"
-    assert features[3].dtype == "bool"
-    assert features[4].dtype == "list[int]"
-    assert features[5].dtype == "list[str]"
-    assert features[6].dtype == "dict"
+    assert features[0]._dtype_str == "int"
+    assert features[1]._dtype_str == "float"
+    assert features[2]._dtype_str == "str"
+    assert features[3]._dtype_str == "bool"
+    assert features[4]._dtype_str == "list[int]"
+    assert features[5]._dtype_str == "list[str]"
+    assert features[6]._dtype_str == "dict"
 
     # deprecated: convert str to cat
     with pytest.warns(DeprecationWarning, match="str_as_cat.*deprecated"):
         features = ln.Feature.from_dict(dict_data, str_as_cat=True)
     assert len(features) == len(dict_data)
-    assert features[2].dtype == "cat"
-    assert features[5].dtype == "list[cat]"
+    assert features[2]._dtype_str == "cat"
+    assert features[5]._dtype_str == "list[cat]"
 
     # deprecated: do not convert str to cat
     with pytest.warns(DeprecationWarning, match="str_as_cat.*deprecated"):
         features = ln.Feature.from_dict(dict_data, str_as_cat=False)
-    assert features[2].dtype == "str"
-    assert features[5].dtype == "list[str]"
+    assert features[2]._dtype_str == "str"
+    assert features[5]._dtype_str == "list[str]"
 
     # Wrong field
     with pytest.raises(ValueError) as e:

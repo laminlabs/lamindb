@@ -93,7 +93,7 @@ class CatLookup:
         slots = slots or {}
         if isinstance(categoricals, list):
             categoricals = {
-                feature.name: parse_dtype(feature.dtype)[0]["field"]
+                feature.name: parse_dtype(feature._dtype_str)[0]["field"]
                 for feature in categoricals
             }
         self._categoricals = {**categoricals, **slots}
@@ -431,7 +431,8 @@ def convert_dict_to_dataframe_for_validation(d: dict, schema: Schema) -> pd.Data
     df = pd.DataFrame([d])
     for feature in schema.members:
         # we cannot cast a `list[cat[...]]]` to categorical because lists are not hashable
-        if feature.dtype.startswith("cat"):
+        dtype_str = feature._dtype_str
+        if dtype_str.startswith("cat"):
             if feature.name in df.columns:
                 df[feature.name] = pd.Categorical(df[feature.name])
     return df
@@ -500,25 +501,26 @@ class ComponentCurator(Curator):
                 else:
                     required = False
                 # series.dtype is "object" if the column has lists types, e.g. [["a", "b"], ["a"], ["b"]]
-                if feature.dtype.startswith("list[cat"):
+                dtype_str = feature._dtype_str
+                if dtype_str.startswith("list[cat"):
                     pandera_columns[feature.name] = pandera.Column(
                         dtype=None,
                         checks=pandera.Check(
                             check_dtype("list", feature.nullable),
                             element_wise=False,
-                            error=f"Column '{feature.name}' failed dtype check for '{feature.dtype}'",
+                            error=f"Column '{feature.name}' failed dtype check for '{dtype_str}'",
                         ),
                         nullable=feature.nullable,
                         coerce=feature.coerce_dtype,
                         required=required,
                     )
-                elif feature.dtype in {
+                elif dtype_str in {
                     "int",
                     "float",
                     "bool",
                     "num",
                     "path",
-                } or feature.dtype.startswith("list"):
+                } or dtype_str.startswith("list"):
                     if isinstance(self._dataset, pd.DataFrame):
                         dtype = (
                             self._dataset[feature.name].dtype
@@ -530,15 +532,15 @@ class ComponentCurator(Curator):
                     pandera_columns[feature.name] = pandera.Column(
                         dtype=None,
                         checks=pandera.Check(
-                            check_dtype(feature.dtype, feature.nullable),
+                            check_dtype(dtype_str, feature.nullable),
                             element_wise=False,
-                            error=f"Column '{feature.name}' failed dtype check for '{feature.dtype}': got {dtype}",
+                            error=f"Column '{feature.name}' failed dtype check for '{dtype_str}': got {dtype}",
                         ),
                         nullable=feature.nullable,
                         coerce=feature.coerce_dtype,
                         required=required,
                     )
-                elif feature.dtype == "dict":
+                elif dtype_str == "dict":
                     pandera_columns[feature.name] = pandera.Column(
                         dtype=object,
                         nullable=feature.nullable,
@@ -553,9 +555,7 @@ class ComponentCurator(Curator):
                     )
                 else:
                     pandera_dtype = (
-                        feature.dtype
-                        if not feature.dtype.startswith("cat")
-                        else "category"
+                        dtype_str if not dtype_str.startswith("cat") else "category"
                     )
                     pandera_columns[feature.name] = pandera.Column(
                         pandera_dtype,
@@ -563,9 +563,7 @@ class ComponentCurator(Curator):
                         coerce=feature.coerce_dtype,
                         required=required,
                     )
-                if feature.dtype.startswith("cat") or feature.dtype.startswith(
-                    "list[cat["
-                ):
+                if dtype_str.startswith("cat") or dtype_str.startswith("list[cat["):
                     # validate categoricals if the column is required or if the column is present
                     # but exclude the index feature from column categoricals
                     if (required or feature.name in self._dataset.keys()) and (
@@ -639,7 +637,8 @@ class ComponentCurator(Curator):
                         if feature.default_value is not None
                         else pd.NA
                     )
-                    if feature.dtype.startswith("cat"):
+                    dtype_str = feature._dtype_str
+                    if dtype_str.startswith("cat"):
                         self._dataset[feature.name] = pd.Categorical(
                             [fill_value] * len(self._dataset)
                         )
@@ -1728,7 +1727,7 @@ class DataFrameCatManager:
             filter_str="" if schema.flexible else f"schemas__id={schema.id}",
         )
         for feature in self._categoricals:
-            result = parse_dtype(feature.dtype)[0]
+            result = parse_dtype(feature._dtype_str)[0]
             key = feature.name
             # only create CatVector if the key exists in the DataFrame
             if key in self._dataset.columns:

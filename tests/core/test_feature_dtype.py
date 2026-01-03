@@ -57,14 +57,14 @@ def test_seralize_pandas_numpy_dtypes():
 def test_serialize_user(ccaplog):
     # correct way through Python object and serialize_dtype()
     feature = ln.Feature(name="user_feat", dtype=ln.User)
-    assert feature.dtype == "cat[User]"
+    assert feature._dtype_str == "cat[User]"
     # legacy way through parse_dtype()
     feature = ln.Feature(name="user_feat", dtype="cat[User]")
     assert (
         "rather than passing a string 'cat[User]' to dtype, pass a Python object"
         in ccaplog.text
     )
-    assert feature.dtype == "cat[User]"
+    assert feature._dtype_str == "cat[User]"
 
 
 def test_serialize_record_objects():
@@ -324,7 +324,7 @@ def test_feature_dtype():
         },  # uid corresponds to disease_ontology_old.uid
     ).save()
 
-    result = parse_dtype(feature.dtype)
+    result = parse_dtype(feature._dtype_str)
     assert len(result) == 1
     assert result[0] == {
         "registry_str": "bionty.Disease",

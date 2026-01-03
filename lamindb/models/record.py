@@ -581,7 +581,7 @@ class Record(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, HasParents
             for feature in all_features:
                 if feature.name not in df.columns:
                     df[feature.name] = pd.Series(
-                        dtype=convert_to_pandas_dtype(feature.dtype)
+                        dtype=convert_to_pandas_dtype(feature._dtype_str)
                     )
         else:
             # sort alphabetically for now

@@ -523,15 +523,17 @@ def get_feature_annotate_kwargs(
         )
     # Get the categorical features
     cat_feature_types = {
-        parse_dtype(feature.dtype)[0]["registry_str"]
+        parse_dtype(feature._dtype_str)[0]["registry_str"]
         for feature in feature_qs
-        if feature.dtype.startswith("cat[") or feature.dtype.startswith("list[cat[")
+        if feature._dtype_str.startswith("cat[")
+        or feature._dtype_str.startswith("list[cat[")
     }
     # fields to annotate
     cat_feature_fields = defaultdict(list)
     for feature in feature_qs:
-        if feature.dtype.startswith("cat[") or feature.dtype.startswith("list[cat["):
-            dtype_info = parse_dtype(feature.dtype)[0]
+        dtype_str = feature._dtype_str
+        if dtype_str.startswith("cat[") or dtype_str.startswith("list[cat["):
+            dtype_info = parse_dtype(dtype_str)[0]
             registry_str = dtype_info["registry_str"]
             field_name = dtype_info["field_str"]
             cat_feature_fields[registry_str].append(field_name)
@@ -828,18 +830,19 @@ def reshape_annotate_result(
         )
 
         if is_scalar:
-            if feature.dtype.startswith("cat"):
+            dtype_str = feature._dtype_str
+            if dtype_str.startswith("cat"):
                 result_encoded[feature.name] = result_encoded[feature.name].astype(
                     "category"
                 )
-            if feature.dtype == "datetime":
+            if dtype_str == "datetime":
                 # format and utc args are needed for mixed data
                 # pandera expects timezone-naive datetime objects, and hence,
                 # we need to localize with None
                 result_encoded[feature.name] = pd.to_datetime(
                     result_encoded[feature.name], format="ISO8601", utc=True
                 ).dt.tz_localize(None)
-            if feature.dtype == "date":
+            if dtype_str == "date":
                 # see comments for datetime
                 result_encoded[feature.name] = (
                     pd.to_datetime(
@@ -850,18 +853,19 @@ def reshape_annotate_result(
                     .dt.tz_localize(None)
                     .dt.date
                 )
-            if feature.dtype == "bool":
+            if dtype_str == "bool":
                 result_encoded[feature.name] = result_encoded[feature.name].astype(
                     "boolean"
                 )
 
-        if feature.dtype.startswith("list"):
+        dtype_str = feature._dtype_str
+        if dtype_str.startswith("list"):
             mask = result_encoded[feature.name].notna()
             result_encoded.loc[mask, feature.name] = result_encoded.loc[
                 mask, feature.name
             ].apply(lambda x: list(x) if isinstance(x, (set, list)) else [x])
 
-        if feature.dtype == "dict":
+        if dtype_str == "dict":
             # this is the case when a dict is stored as a string; won't happen
             # within lamindb but might for external data
             if isinstance(result_encoded[feature.name].iloc[0], str):
@@ -935,7 +939,7 @@ def process_links_features(
                 continue
             if feature.name in result.columns:
                 continue
-            field_name = parse_dtype(feature.dtype)[0]["field_str"]
+            field_name = parse_dtype(feature._dtype_str)[0]["field_str"]
             value_col = [c for c in value_cols if c.endswith(f"__{field_name}")][0]
             mask = (df[feature_col] == feature.name) & df[value_col].notna()
             feature_values = df[mask].groupby(pk_name)[value_col].agg(set)
@@ -1117,13 +1121,14 @@ class BasicQuerySet(models.QuerySet):
             for feature in feature_qs:
                 if feature.name in df_reshaped.columns:
                     current_dtype = df_reshaped[feature.name].dtype
-                    if feature.dtype == "int" and not pd.api.types.is_integer_dtype(
+                    dtype_str = feature._dtype_str
+                    if dtype_str == "int" and not pd.api.types.is_integer_dtype(
                         current_dtype
                     ):
                         df_reshaped[feature.name] = df_reshaped[feature.name].astype(
                             "Int64"  # nullable integer dtype
                         )
-                    elif feature.dtype == "float" and not pd.api.types.is_float_dtype(
+                    elif dtype_str == "float" and not pd.api.types.is_float_dtype(
                         current_dtype
                     ):
                         df_reshaped[feature.name] = df_reshaped[feature.name].astype(
