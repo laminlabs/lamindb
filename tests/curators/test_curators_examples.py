@@ -891,8 +891,8 @@ def test_spatialdata_curator(
     ├── tables:table:obs …
     │   sample_region       str
     └── tables:table:var.…
-        BRCA2               num
-        BRAF                num"""
+        BRAF                num
+        BRCA2               num"""
     )
 
     artifact.delete(permanent=True)
