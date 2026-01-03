@@ -62,7 +62,7 @@ def test_serialize_user(ccaplog):
     # legacy way through parse_dtype()
     feature = ln.Feature(name="user_feat", dtype="cat[User]")
     assert (
-        "rather than passing a string 'cat[User]' to dtype, pass a Python object"
+        "rather than passing a string 'cat[User]' to dtype, consider passing a Python object"
         in ccaplog.text
     )
     assert feature._dtype_str == "cat[User]"
@@ -384,7 +384,7 @@ def test_cat_filters_incompatible_with_nested_dtypes():
     with pytest.raises(ValidationError) as exc_info:
         ln.Feature(
             name="test_feature",
-            dtype=f"cat[Record[{record.uid}]]",
+            dtype=record,
             cat_filters={"source": "test"},
         )
     assert (
@@ -581,14 +581,17 @@ def test_convert_old_format_list_string():
     perturbation.delete(permanent=True)
 
 
-def test_feature_constructor_with_old_format_string():
+def test_feature_constructor_with_old_format_string(ccaplog):
     """Test Feature constructor with old format string raises deprecation warning."""
     # Create a ULabel type
     perturbation = ln.ULabel(name="Perturbation", is_type=True).save()
 
-    # Create feature with old format string - should raise deprecation warning
-    with pytest.warns(DeprecationWarning, match="Passing string dtypes"):
-        feature = ln.Feature(name="perturbation", dtype="cat[ULabel[Perturbation]]")
+    # Create feature with old format string
+    feature = ln.Feature(name="perturbation", dtype="cat[ULabel[Perturbation]]")
+    assert (
+        "rather than passing a string 'cat[ULabel[Perturbation]]' to dtype, consider passing a Python object"
+        in ccaplog.text
+    )
 
     # Should have converted to UID format
     assert feature._dtype_str is not None
@@ -601,15 +604,18 @@ def test_feature_constructor_with_old_format_string():
     perturbation.delete(permanent=True)
 
 
-def test_feature_constructor_with_old_format_nested_string():
+def test_feature_constructor_with_old_format_nested_string(ccaplog):
     """Test Feature constructor with old format nested string."""
     # Create nested Record types
     lab_type = ln.Record(name="LabA", is_type=True).save()
     experiment_type = ln.Record(name="Experiment", type=lab_type, is_type=True).save()
 
     # Create feature with old format nested string
-    with pytest.warns(DeprecationWarning, match="Passing string dtypes"):
-        feature = ln.Feature(name="experiment", dtype="cat[Record[LabA[Experiment]]]")
+    feature = ln.Feature(name="experiment", dtype="cat[Record[LabA[Experiment]]]")
+    assert (
+        "rather than passing a string 'cat[Record[LabA[Experiment]]]' to dtype, consider passing a Python object"
+        in ccaplog.text
+    )
 
     # Should have converted to UID format
     assert feature._dtype_str is not None

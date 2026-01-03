@@ -699,10 +699,15 @@ def process_init_feature_param(args, kwargs):
             dtype_str = dtype
         else:
             logger.warning(
-                f"rather than passing a string '{dtype}' to dtype, pass a Python object"
+                f"rather than passing a string '{dtype}' to dtype, consider passing a Python object"
             )
-            dtype_object = dtype_as_object(dtype, old_format=True)
-            dtype_str = serialize_dtype(dtype_object)
+            dtype_str = dtype
+            parse_dtype(dtype_str, check_exists=True, old_format=True)
+            if dtype_str.startswith(
+                ("cat[Record[", "cat[ULabel[", "list[cat[Record[", "list[cat[ULabel[")
+            ):
+                # need to convert from old semantic format to new uid-based format
+                dtype_str = serialize_dtype(dtype_as_object(dtype_str, old_format=True))
         kwargs["_dtype_str"] = dtype_str
     return kwargs
 
@@ -1141,7 +1146,6 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         dictionary: dict[str, Any],
         field: FieldAttr | None = None,
         *,
-        str_as_cat: bool | None = None,
         type: Feature | None = None,
         mute: bool = False,
     ) -> SQLRecordList:
@@ -1150,8 +1154,6 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         Args:
             dictionary: Source dictionary to extract key information from
             field: FieldAttr for Feature model validation, defaults to `Feature.name`
-            str_as_cat: Deprecated. Will be removed in LaminDB 2.0.0.
-                Create features explicitly with dtype='cat' for categorical values.
             type: Feature type of all created features
             mute: Whether to mute dtype inference and feature creation warnings
         """
@@ -1166,15 +1168,9 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         for key, value in dictionary.items():
             dtype, _, message = infer_feature_type_convert_json(key, value, mute=mute)
             if dtype == "cat ? str":
-                if str_as_cat is None:
-                    dtype = "str"
-                else:
-                    dtype = "cat" if str_as_cat else "str"
+                dtype = "str"
             elif dtype == "list[cat ? str]":
-                if str_as_cat is None:
-                    dtype = "list[str]"
-                else:
-                    dtype = "list[cat]" if str_as_cat else "list[str]"
+                dtype = "list[str]"
             dtypes[key] = dtype
 
         if mute:

@@ -71,6 +71,7 @@ def test_feature_init():
     feature = ln.Feature(
         name="gene_feature", dtype="cat[bionty.Gene.ensembl_gene_id[organism='human']]"
     )
+    print(feature._dtype_str)
     assert "bionty.Gene" in feature._dtype_str
     assert "ensembl_gene_id" in feature._dtype_str
     assert "organism='human'" in feature._dtype_str
@@ -197,19 +198,6 @@ def test_feature_from_dict(dict_data):
     assert features[5]._dtype_str == "list[str]"
     assert features[6]._dtype_str == "dict"
 
-    # deprecated: convert str to cat
-    with pytest.warns(DeprecationWarning, match="str_as_cat.*deprecated"):
-        features = ln.Feature.from_dict(dict_data, str_as_cat=True)
-    assert len(features) == len(dict_data)
-    assert features[2]._dtype_str == "cat"
-    assert features[5]._dtype_str == "list[cat]"
-
-    # deprecated: do not convert str to cat
-    with pytest.warns(DeprecationWarning, match="str_as_cat.*deprecated"):
-        features = ln.Feature.from_dict(dict_data, str_as_cat=False)
-    assert features[2]._dtype_str == "str"
-    assert features[5]._dtype_str == "list[str]"
-
     # Wrong field
     with pytest.raises(ValueError) as e:
         ln.Feature.from_dict(dict_data, field=ln.Record.name)
@@ -222,10 +210,7 @@ def test_feature_from_dict(dict_data):
 
 def test_feature_from_dict_type(dict_data):
     feature_type = ln.Feature(name="Testdata_feature_type", is_type=True).save()
-    with pytest.warns(DeprecationWarning, match="str_as_cat.*deprecated"):
-        features = ln.Feature.from_dict(
-            dict_data, str_as_cat=True, type=feature_type
-        ).save()
+    features = ln.Feature.from_dict(dict_data, type=feature_type).save()
     for feature in features:
         assert feature.type.name == "Testdata_feature_type"
     ln.Feature.filter(type__isnull=False).delete(permanent=True)
