@@ -78,7 +78,8 @@ def test_serialize_record_objects():
     insitute_type.save()
     lab_type = ln.Record(name="LabB", type=insitute_type, is_type=True).save()
     sample_type = ln.Record(name="Sample", type=lab_type, is_type=True).save()
-    serialized_str = "cat[Record[InstituteA[LabB[Sample]]]]"
+    # New UID-based format: cat[Record[uid]] instead of cat[Record[Parent[Child]]]
+    serialized_str = f"cat[Record[{sample_type.uid}]]"
     assert serialize_dtype(sample_type) == serialized_str
     with pytest.raises(ln.errors.IntegrityError) as error:
         parse_dtype("cat[Record[Sample]]", check_exists=True)

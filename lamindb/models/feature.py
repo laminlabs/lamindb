@@ -412,9 +412,8 @@ def serialize_dtype(
                     raise InvalidArgument(
                         f"Cannot serialize non-type {one_dtype.__class__.__name__} '{one_dtype.name}'. Only types (is_type=True) are allowed in dtypes."
                     )
-                nested_string = f"[{one_dtype.name}]"
-                for t in one_dtype.query_types():
-                    nested_string = f"[{t.name}{nested_string}]"
+                # Use UID-based format: Record[uid] instead of Record[Parent[Child]]
+                nested_string = f"[{one_dtype.uid}]"
                 if isinstance(one_dtype, ULabel):
                     dtype_str += f"ULabel{nested_string}"
                 else:
