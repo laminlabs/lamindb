@@ -7,7 +7,7 @@ import pytest
 from lamindb import Record
 from lamindb.errors import ValidationError
 from lamindb.models.feature import (
-    convert_old_format_string_to_objects,
+    dtype_as_object,
     parse_dtype,
     parse_filter_string,
     resolve_relation_filters,
@@ -516,7 +516,7 @@ def test_convert_old_format_ulabel_string():
     perturbation = ln.ULabel(name="Perturbation", is_type=True).save()
 
     # Convert old format string
-    dtype_obj = convert_old_format_string_to_objects("cat[ULabel[Perturbation]]")
+    dtype_obj = dtype_as_object("cat[ULabel[Perturbation]]", old_format=True)
 
     # Should return the ULabel object
     assert dtype_obj == perturbation
@@ -532,7 +532,7 @@ def test_convert_old_format_record_string():
     sample_type = ln.Record(name="Sample", is_type=True).save()
 
     # Convert old format string
-    dtype_obj = convert_old_format_string_to_objects("cat[Record[Sample]]")
+    dtype_obj = dtype_as_object("cat[Record[Sample]]", old_format=True)
 
     # Should return the Record object
     assert dtype_obj == sample_type
@@ -549,7 +549,7 @@ def test_convert_old_format_nested_record_string():
     experiment_type = ln.Record(name="Experiment", type=lab_type, is_type=True).save()
 
     # Convert old format string
-    dtype_obj = convert_old_format_string_to_objects("cat[Record[LabA[Experiment]]]")
+    dtype_obj = dtype_as_object("cat[Record[LabA[Experiment]]]", old_format=True)
 
     # Should return the nested Record object
     assert dtype_obj == experiment_type
@@ -566,9 +566,7 @@ def test_convert_old_format_list_string():
     perturbation = ln.ULabel(name="Perturbation", is_type=True).save()
 
     # Convert old format string with list wrapper
-    dtype_obj = convert_old_format_string_to_objects("list[cat[ULabel[Perturbation]]]")
-
-    print(dtype_obj)
+    dtype_obj = dtype_as_object("list[cat[ULabel[Perturbation]]]", old_format=True)
 
     # Should return list[ULabel] type
     assert hasattr(dtype_obj, "__origin__")

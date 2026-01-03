@@ -3,7 +3,7 @@
 from django.db import migrations
 
 import lamindb as ln
-from lamindb.models.feature import convert_old_format_string_to_objects, serialize_dtype
+from lamindb.models.feature import dtype_as_object, serialize_dtype
 
 
 def copy_dtype_to_dtype_str(apps, schema_editor):
@@ -25,15 +25,13 @@ def copy_dtype_to_dtype_str(apps, schema_editor):
     # Get all features that need conversion
     features_to_convert = []
     for pattern in patterns:
-        features_to_convert.extend(
-            ln.Feature.objects.filter(_dtype_str__startswith=pattern)
-        )
+        features_to_convert.extend(ln.Feature.objects.filter(dtype__startswith=pattern))
 
     # Convert each feature
     for feature in features_to_convert:
         try:
             # Convert old format string to objects, then serialize to UID format
-            dtype_objects = convert_old_format_string_to_objects(feature._dtype_str)
+            dtype_objects = dtype_as_object(feature.dtype, old_format=True)
             new_dtype_str = serialize_dtype(dtype_objects)
 
             if new_dtype_str != feature._dtype_str:

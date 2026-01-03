@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import importlib
-import re
 import warnings
 from typing import TYPE_CHECKING, Any, cast, get_args, overload
 
@@ -234,31 +233,6 @@ def get_record_type_from_nested_subtypes(
             f"The resolved {type_record.__class__.__name__} '{type_record.name}' for field `.{field_str}` is not a type: is_type is False."
         )
     return type_record
-
-
-def convert_old_format_string_to_objects(
-    dtype_str: str,
-) -> type | SQLRecord | FieldAttr | list[SQLRecord] | list[type]:
-    """Convert old name-based format dtype string to Python objects.
-
-    This function is used for backward compatibility with old format strings
-    like "cat[ULabel[Perturbation]]" or "cat[Record[LabA[Experiment]]]".
-    It converts them to the actual Record/ULabel objects that can then be
-    serialized to UID-based format.
-
-    Args:
-        dtype_str: Old format dtype string (e.g., "cat[ULabel[Perturbation]]")
-
-    Returns:
-        The resolved object(s) that can be passed to serialize_dtype
-
-    Example:
-        >>> convert_old_format_string_to_objects("cat[ULabel[Perturbation]]")
-        <ULabel: Perturbation>
-        >>> convert_old_format_string_to_objects("list[cat[ULabel[Perturbation]]]")
-        list[<ULabel: Perturbation>]
-    """
-    return dtype_as_object(dtype_str, old_format=True)
 
 
 def dtype_as_object(dtype_str: str, old_format: bool = False) -> type | None:
@@ -751,49 +725,11 @@ def process_init_feature_param(args, kwargs):
         if not isinstance(dtype, str):
             dtype_str = serialize_dtype(dtype)
         else:
-            # Check if it's old format (name-based) - only convert clear old format, not UID strings
-            is_old_format = False
-            if "Record[" in dtype or "ULabel[" in dtype:
-                # Find Record[...] or ULabel[...] patterns
-                pattern = r"(Record|ULabel)\[([^\]]+)\]"
-                matches = re.findall(pattern, dtype)
-                for _registry_name, bracket_content in matches:
-                    # Old format indicators:
-                    # 1. Nested brackets (e.g., Record[Parent[Child]])
-                    # 2. Contains spaces or special chars
-                    # 3. Too long (> 16 chars) - names can be longer than UIDs
-                    # 4. Too short (< 8 chars) - likely a name, not a UID
-                    if (
-                        "[" in bracket_content
-                        or " " in bracket_content
-                        or not bracket_content.replace("_", "").isalnum()
-                        or len(bracket_content) > 16
-                        or len(bracket_content) < 8
-                        or (bracket_content and bracket_content[0].isupper())
-                    ):
-                        is_old_format = True
-                        break
-                    # If it's 8-16 chars, alphanumeric, and doesn't start with capital,
-                    # it could be a UID string - don't convert those
-
-            if is_old_format:
-                # Old format: convert to objects, then serialize to UID format
-                warnings.warn(
-                    f"Passing string dtypes like '{dtype}' is deprecated. "
-                    "Please pass Python objects instead, e.g., ln.ULabel.get(name='Perturbation')",
-                    DeprecationWarning,
-                    stacklevel=2,
-                )
-                dtype_objects = convert_old_format_string_to_objects(dtype)
-                dtype_str = serialize_dtype(dtype_objects)
-            else:
-                # Simple type string like "str", "int", etc.
-                logger.warning(
-                    f"rather than passing a string '{dtype}' to dtype, pass a Python object"
-                )
-                dtype_str = dtype
-                parse_dtype(dtype_str, check_exists=True)
-        kwargs["dtype"] = dtype_str
+            logger.warning(
+                f"rather than passing a string '{dtype}' to dtype, pass a Python object"
+            )
+            dtype_object = dtype_as_object(dtype, old_format=True)
+            dtype_str = serialize_dtype(dtype_object)
         kwargs["_dtype_str"] = dtype_str
     return kwargs
 
