@@ -1191,9 +1191,6 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
 
     def save(self, *args, **kwargs) -> Feature:
         """Save the feature to the instance."""
-        # Ensure _dtype_str is set if dtype is set
-        if self.dtype is not None and self._dtype_str is None:
-            self._dtype_str = self.dtype
         super().save(*args, **kwargs)
         return self
 
