@@ -695,8 +695,8 @@ def process_init_feature_param(args, kwargs):
     if dtype is not None:
         if not isinstance(dtype, str):
             dtype_str = serialize_dtype(dtype)
-        elif dtype == "num":
-            dtype_str = "num"
+        elif dtype in {"num", "path"}:
+            dtype_str = dtype
         else:
             logger.warning(
                 f"rather than passing a string '{dtype}' to dtype, pass a Python object"

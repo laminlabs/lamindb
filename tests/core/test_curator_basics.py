@@ -948,9 +948,7 @@ def test_add_new_from_subtype(df):
         features=[
             ln.Feature(name="sample_id", dtype="str").save(),
             ln.Feature(name="sample_name", dtype="str").save(),
-            ln.Feature(
-                name="sample_type", dtype=f"cat[Record[{sample_type.uid}]]"
-            ).save(),
+            ln.Feature(name="sample_type", dtype=sample_type).save(),
         ],
         coerce_dtype=True,
     ).save()

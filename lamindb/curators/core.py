@@ -575,8 +575,8 @@ class ComponentCurator(Curator):
             # so, we're typing it as `str` here
             if schema.index is not None:
                 index = pandera.Index(
-                    schema.index.dtype
-                    if not schema.index.dtype.startswith("cat")
+                    schema.index._dtype_str
+                    if not schema.index._dtype_str.startswith("cat")
                     else str
                 )
             else:
@@ -1745,8 +1745,8 @@ class DataFrameCatManager:
                     filter_str=result["filter_str"],
                     record_uid=result.get("record_uid"),
                 )
-        if index is not None and index.dtype.startswith("cat"):
-            result = parse_dtype(index.dtype)[0]
+        if index is not None and index._dtype_str.startswith("cat"):
+            result = parse_dtype(index._dtype_str)[0]
             key = "index"
             self._cat_vectors[key] = CatVector(
                 values_getter=self._dataset.index,
