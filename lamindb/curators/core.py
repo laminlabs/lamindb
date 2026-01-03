@@ -47,7 +47,7 @@ from lamindb.models.sqlrecord import HasType
 
 from ..errors import InvalidArgument, ValidationError
 from ..models._from_values import get_organism_record_from_field
-from ..models.feature import get_record_type_from_nested_subtypes
+from ..models.feature import get_record_type_from_uid
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -93,7 +93,7 @@ class CatLookup:
         slots = slots or {}
         if isinstance(categoricals, list):
             categoricals = {
-                feature.name: parse_dtype(feature.dtype)[0]["field"]
+                feature.name: parse_dtype(feature._dtype_str)[0]["field"]
                 for feature in categoricals
             }
         self._categoricals = {**categoricals, **slots}
@@ -431,7 +431,8 @@ def convert_dict_to_dataframe_for_validation(d: dict, schema: Schema) -> pd.Data
     df = pd.DataFrame([d])
     for feature in schema.members:
         # we cannot cast a `list[cat[...]]]` to categorical because lists are not hashable
-        if feature.dtype.startswith("cat"):
+        dtype_str = feature._dtype_str
+        if dtype_str.startswith("cat"):
             if feature.name in df.columns:
                 df[feature.name] = pd.Categorical(df[feature.name])
     return df
@@ -500,25 +501,26 @@ class ComponentCurator(Curator):
                 else:
                     required = False
                 # series.dtype is "object" if the column has lists types, e.g. [["a", "b"], ["a"], ["b"]]
-                if feature.dtype.startswith("list[cat"):
+                dtype_str = feature._dtype_str
+                if dtype_str.startswith("list[cat"):
                     pandera_columns[feature.name] = pandera.Column(
                         dtype=None,
                         checks=pandera.Check(
                             check_dtype("list", feature.nullable),
                             element_wise=False,
-                            error=f"Column '{feature.name}' failed dtype check for '{feature.dtype}'",
+                            error=f"Column '{feature.name}' failed dtype check for '{dtype_str}'",
                         ),
                         nullable=feature.nullable,
                         coerce=feature.coerce_dtype,
                         required=required,
                     )
-                elif feature.dtype in {
+                elif dtype_str in {
                     "int",
                     "float",
                     "bool",
                     "num",
                     "path",
-                } or feature.dtype.startswith("list"):
+                } or dtype_str.startswith("list"):
                     if isinstance(self._dataset, pd.DataFrame):
                         dtype = (
                             self._dataset[feature.name].dtype
@@ -530,15 +532,15 @@ class ComponentCurator(Curator):
                     pandera_columns[feature.name] = pandera.Column(
                         dtype=None,
                         checks=pandera.Check(
-                            check_dtype(feature.dtype, feature.nullable),
+                            check_dtype(dtype_str, feature.nullable),
                             element_wise=False,
-                            error=f"Column '{feature.name}' failed dtype check for '{feature.dtype}': got {dtype}",
+                            error=f"Column '{feature.name}' failed dtype check for '{dtype_str}': got {dtype}",
                         ),
                         nullable=feature.nullable,
                         coerce=feature.coerce_dtype,
                         required=required,
                     )
-                elif feature.dtype == "dict":
+                elif dtype_str == "dict":
                     pandera_columns[feature.name] = pandera.Column(
                         dtype=object,
                         nullable=feature.nullable,
@@ -553,9 +555,7 @@ class ComponentCurator(Curator):
                     )
                 else:
                     pandera_dtype = (
-                        feature.dtype
-                        if not feature.dtype.startswith("cat")
-                        else "category"
+                        dtype_str if not dtype_str.startswith("cat") else "category"
                     )
                     pandera_columns[feature.name] = pandera.Column(
                         pandera_dtype,
@@ -563,9 +563,7 @@ class ComponentCurator(Curator):
                         coerce=feature.coerce_dtype,
                         required=required,
                     )
-                if feature.dtype.startswith("cat") or feature.dtype.startswith(
-                    "list[cat["
-                ):
+                if dtype_str.startswith("cat") or dtype_str.startswith("list[cat["):
                     # validate categoricals if the column is required or if the column is present
                     # but exclude the index feature from column categoricals
                     if (required or feature.name in self._dataset.keys()) and (
@@ -577,8 +575,8 @@ class ComponentCurator(Curator):
             # so, we're typing it as `str` here
             if schema.index is not None:
                 index = pandera.Index(
-                    schema.index.dtype
-                    if not schema.index.dtype.startswith("cat")
+                    schema.index._dtype_str
+                    if not schema.index._dtype_str.startswith("cat")
                     else str
                 )
             else:
@@ -639,7 +637,8 @@ class ComponentCurator(Curator):
                         if feature.default_value is not None
                         else pd.NA
                     )
-                    if feature.dtype.startswith("cat"):
+                    dtype_str = feature._dtype_str
+                    if dtype_str.startswith("cat"):
                         self._dataset[feature.name] = pd.Categorical(
                             [fill_value] * len(self._dataset)
                         )
@@ -1288,11 +1287,9 @@ class CatVector:
         feature: Feature | None = None,
         cat_manager: DataFrameCatManager | None = None,
         filter_str: str = "",
-        subtypes_list: list[str] = None,
+        record_uid: str | None = None,
         maximal_set: bool = True,  # whether unvalidated categoricals cause validation failure.
     ) -> None:
-        if subtypes_list is None:
-            subtypes_list = []
         self._values_getter = values_getter
         self._values_setter = values_setter
         self._field = field
@@ -1301,7 +1298,7 @@ class CatVector:
         self._validated: None | list[str] = None
         self._non_validated: None | list[str] = None
         self._synonyms: None | dict[str, str] = None
-        self._subtypes_list = subtypes_list
+        self._record_uid = record_uid
         self._subtype_query_set = None
         self._cat_manager = cat_manager
         self.feature = feature
@@ -1331,10 +1328,11 @@ class CatVector:
             self._registry, self._filter_kwargs
         )
 
-        # get the dtype associated record based on the nested subtypes
-        if self._subtypes_list:
-            self._type_record = get_record_type_from_nested_subtypes(
-                self._registry, self._subtypes_list, self._field.field.name
+        # get the dtype associated record based on the record_uid
+        if self._record_uid:
+            self._type_record = get_record_type_from_uid(
+                self._registry,
+                self._record_uid,
             )
 
         if hasattr(self._registry, "_name_field"):
@@ -1620,8 +1618,8 @@ class CatVector:
                         organism = self._filter_kwargs.get("organism", None)
                         check_organism = f"fix organism '{organism}', "
                 warning_message += f"    → {check_organism}fix typos, remove non-existent values, or save terms via: {colors.cyan(non_validated_hint_print)}"
-                if self._subtype_query_set is not None and self._subtypes_list:
-                    warning_message += f"\n    → a valid label for subtype '{self._subtypes_list[-1]}' has to be one of {self._subtype_query_set.to_list('name')}"
+                if self._subtype_query_set is not None and self._type_record:
+                    warning_message += f"\n    → a valid label for subtype '{self._type_record.name}' has to be one of {self._subtype_query_set.to_list('name')}"
             logger.info(f'mapping "{self._key}" on {colors.italic(model_field)}')
             logger.warning(warning_message)
             if self._cat_manager is not None:
@@ -1728,7 +1726,7 @@ class DataFrameCatManager:
             filter_str="" if schema.flexible else f"schemas__id={schema.id}",
         )
         for feature in self._categoricals:
-            result = parse_dtype(feature.dtype)[0]
+            result = parse_dtype(feature._dtype_str)[0]
             key = feature.name
             # only create CatVector if the key exists in the DataFrame
             if key in self._dataset.columns:
@@ -1745,10 +1743,10 @@ class DataFrameCatManager:
                     feature=feature,
                     cat_manager=self,
                     filter_str=result["filter_str"],
-                    subtypes_list=result["subtypes_list"],
+                    record_uid=result.get("record_uid"),
                 )
-        if index is not None and index.dtype.startswith("cat"):
-            result = parse_dtype(index.dtype)[0]
+        if index is not None and index._dtype_str.startswith("cat"):
+            result = parse_dtype(index._dtype_str)[0]
             key = "index"
             self._cat_vectors[key] = CatVector(
                 values_getter=self._dataset.index,
@@ -1760,7 +1758,7 @@ class DataFrameCatManager:
                 feature=index,
                 cat_manager=self,
                 filter_str=result["filter_str"],
-                subtypes_list=result["subtypes_list"],
+                record_uid=result.get("record_uid"),
             )
 
     @property

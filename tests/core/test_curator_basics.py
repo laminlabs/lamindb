@@ -413,21 +413,21 @@ def test_curator_schema_feature_mapping():
     lab_b_type.delete(permanent=True)
 
 
-def test_dtypes_at_different_levels():
+def test_dtypes_at_different_levels(ccaplog):
     sample_type_root = ln.Record(name="Sample", is_type=True).save()
     lab_a_type = ln.Record(name="LabA", is_type=True).save()
     sample_type_a = ln.Record(name="Sample", is_type=True, type=lab_a_type).save()
     s1_lab_a = ln.Record(name="s1", type=sample_type_a).save()
     df = pd.DataFrame({"biosample_name": pd.Categorical(["s1"])})
     feature = ln.Feature(name="biosample_name", dtype=sample_type_root).save()
+    schema = ln.Schema(features=[feature]).save()
     sample_type_root.delete()
     df = pd.DataFrame({"biosample_name": pd.Categorical(["s1"])})
-    with pytest.raises(ln.errors.IntegrityError) as error:
-        ln.curators.DataFrameCurator(df, ln.examples.schemas.valid_features())
-    assert (
-        "Error retrieving Record type with filter {'name': 'Sample', 'type__isnull': True} for field `.name`: Record matching query does not exist."
-        in error.exconly()
-    )
+    # UID-based lookup can find records in trash, so curator creation should succeed
+    # but a warning should be printed
+    curator = ln.curators.DataFrameCurator(df, schema)
+    assert "from trash" in ccaplog.text
+    schema.delete(permanent=True)
     sample_type_root.restore()
     curator = ln.curators.DataFrameCurator(df, ln.examples.schemas.valid_features())
     with pytest.raises(ln.errors.ValidationError) as error:
@@ -948,7 +948,7 @@ def test_add_new_from_subtype(df):
         features=[
             ln.Feature(name="sample_id", dtype="str").save(),
             ln.Feature(name="sample_name", dtype="str").save(),
-            ln.Feature(name="sample_type", dtype="cat[Record[SampleType]]").save(),
+            ln.Feature(name="sample_type", dtype=sample_type).save(),
         ],
         coerce_dtype=True,
     ).save()

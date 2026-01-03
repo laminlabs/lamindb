@@ -195,7 +195,7 @@ def populate_nextflow_sheet_with_samples():
     nextflow_schema = ln.Schema(
         name="RNA-seq standard",
         features=[
-            ln.Feature(name="sample", dtype="cat[Record[BioSample]]").save(),
+            ln.Feature(name="sample", dtype=biosample_type).save(),
             ln.Feature(name="fastq_1", dtype=str).save(),
             ln.Feature(name="fastq_2", dtype=str).save(),
             ln.Feature(name="expected_cells", dtype=int).save(),

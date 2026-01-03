@@ -262,7 +262,7 @@ def init_self_from_db(self: SQLRecord, existing_record: SQLRecord):
 def update_attributes(record: SQLRecord, attributes: dict[str, str]):
     for key, value in attributes.items():
         if getattr(record, key) != value and value is not None:
-            if key not in {"uid", "dtype", "otype", "hash"}:
+            if key not in {"uid", "_dtype_str", "otype", "hash"}:
                 logger.warning(f"updated {key} from {getattr(record, key)} to {value}")
                 setattr(record, key, value)
             else:
@@ -1927,7 +1927,7 @@ def check_name_change(record: SQLRecord):
                 # find all artifacts that are linked to this label via a feature with dtype
                 # matching on the name aka "[registry]"
                 record.artifacts.through.filter(
-                    feature__dtype__contains=f"[{registry}]",
+                    feature___dtype_str__contains=f"[{registry}]",
                     **{f"{registry.lower()}_id": record.pk},
                 )
             )
