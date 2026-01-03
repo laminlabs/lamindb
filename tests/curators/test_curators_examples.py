@@ -89,8 +89,8 @@ def mudata_papalexi21_subset_schema():
     obs_schema = ln.Schema(
         name="mudata_papalexi21_subset_obs_schema",
         features=[
-            ln.Feature(name="perturbation", dtype="cat[ULabel[Perturbation]]").save(),
-            ln.Feature(name="replicate", dtype="cat[ULabel[Replicate]]").save(),
+            ln.Feature(name="perturbation", dtype=perturbation).save(),
+            ln.Feature(name="replicate", dtype=replicate).save(),
         ],
     ).save()
 
@@ -191,12 +191,15 @@ def spatialdata_blobs_schema():
 def test_dataframe_curator(mini_immuno_schema: ln.Schema):
     """Test DataFrame curator implementation."""
 
+    # Get the perturbation ULabel (created in mini_immuno_schema fixture)
+    perturbation = ln.ULabel.get(name="Perturbation", is_type=True)
+
     # invalid simple dtype (float)
     feature_to_fail = ln.Feature(name="treatment_time_h", dtype=float).save()
     schema = ln.Schema(
         name="mini_immuno_obs_level_metadata_v2",
         features=[
-            ln.Feature(name="perturbation", dtype="cat[ULabel[Perturbation]]").save(),
+            ln.Feature(name="perturbation", dtype=perturbation).save(),
             ln.Feature(name="sample_note", dtype=str).save(),
             ln.Feature(name="cell_type_by_expert", dtype=bt.CellType).save(),
             ln.Feature(name="cell_type_by_model", dtype=bt.CellType).save(),

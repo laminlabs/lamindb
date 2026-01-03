@@ -140,27 +140,36 @@ def strip_cat(feature_dtype: str) -> str:
 
 
 def format_dtype_for_display(dtype_str: str) -> str:
-    """Format dtype string for display, replacing Record[uid] with Record[TypeName]."""
+    """Format dtype string for display, replacing Record[uid] or ULabel[uid] with Record[TypeName] or ULabel[TypeName]."""
     from .feature import parse_dtype
     from .record import Record
+    from .ulabel import ULabel
 
-    # Check if this is a Record[uid] format
-    if "Record[" in dtype_str and "]" in dtype_str:
+    # Check if this is a Record[uid] or ULabel[uid] format
+    if ("Record[" in dtype_str or "ULabel[" in dtype_str) and "]" in dtype_str:
         try:
             parsed = parse_dtype(dtype_str)
             if parsed and parsed[0].get("record_uid"):
                 record_uid = parsed[0]["record_uid"]
+                registry_str = parsed[0].get("registry_str", "")
                 try:
-                    record_type = Record.get(uid=record_uid)
-                    # Replace Record[uid] with Record[TypeName] in the dtype string
-                    # Handle both cat[Record[uid]] and list[cat[Record[uid]]] formats
-                    dtype_str = dtype_str.replace(
-                        f"Record[{record_uid}]", f"Record[{record_type.name}]"
-                    )
+                    # Determine which registry to use
+                    if registry_str == "Record":
+                        record_type = Record.get(uid=record_uid)
+                        # Replace Record[uid] with Record[TypeName]
+                        dtype_str = dtype_str.replace(
+                            f"Record[{record_uid}]", f"Record[{record_type.name}]"
+                        )
+                    elif registry_str == "ULabel":
+                        record_type = ULabel.get(uid=record_uid)
+                        # Replace ULabel[uid] with ULabel[TypeName]
+                        dtype_str = dtype_str.replace(
+                            f"ULabel[{record_uid}]", f"ULabel[{record_type.name}]"
+                        )
                 except Exception as e:
                     # If we can't find the record, just return the original
                     logger.debug(
-                        f"Could not find Record with uid '{record_uid}' for display formatting: {e}"
+                        f"Could not find {registry_str} with uid '{record_uid}' for display formatting: {e}"
                     )
         except Exception as e:
             # If parsing fails, return the original
