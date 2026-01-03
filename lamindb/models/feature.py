@@ -285,53 +285,44 @@ def convert_old_format_string_to_objects(
             registry_str_list = registries_str.split("|")
             dtype_objects = []
             for cat_single_dtype_str in registry_str_list:
-                # Parse the categorical dtype
-                parsed = parse_cat_dtype(
-                    cat_single_dtype_str,
-                    related_registries=related_registries,
-                    check_exists=False,  # Don't check exists yet - we'll handle lookup ourselves
-                )
-                # For old format conversion, we need to detect if it's actually old format
-                # If we got record_uid but the bracket content looks like a name, convert to subtypes_list
-                if parsed.get("record_uid") and not parsed.get("subtypes_list"):
-                    # Check if the record_uid looks like a name (starts with capital, etc.)
-                    parsed["record_uid"]
-                    # Extract the bracket content from the original string to check
-                    import re
+                # For old format, we need to parse it as old format (extract subtypes_list)
+                # Parse the string to extract the bracket content
+                import re
 
-                    pattern = r"(Record|ULabel)\[([^\]]+)\]"
-                    matches = re.findall(pattern, cat_single_dtype_str)
-                    if matches:
-                        bracket_content = matches[0][1]
-                        # If bracket content starts with capital or has nested brackets, it's old format
-                        if bracket_content and (
-                            bracket_content[0].isupper() or "[" in bracket_content
-                        ):
-                            # Convert to subtypes_list
-                            if "[" in bracket_content:
-                                extracted = extract_subtypes_and_filter(bracket_content)
-                                parsed["subtypes_list"] = extracted["subtypes_list"]
-                            else:
-                                parsed["subtypes_list"] = [bracket_content]
-                            parsed.pop("record_uid", None)
+                pattern = r"(Record|ULabel)\[([^\]]+)\]"
+                matches = re.findall(pattern, cat_single_dtype_str)
+                if matches:
+                    registry_name, bracket_content = matches[0]
+                    # Get the registry
+                    if registry_name not in related_registries:
+                        raise ValidationError(
+                            f"'{registry_name}' is an invalid dtype, has to be registry, e.g. ULabel or bionty.CellType"
+                        )
+                    registry = related_registries[registry_name]
+                    field_str = "name"  # Default field
 
-                # Convert to object based on whether it has subtypes_list (old format) or record_uid (new format)
-                if parsed.get("subtypes_list"):
-                    # Old format: use nested subtypes lookup
+                    # Extract subtypes_list from bracket content (old format)
+                    if "[" in bracket_content:
+                        # Nested brackets like Record[Parent[Child]]
+                        extracted = extract_subtypes_and_filter(bracket_content)
+                        subtypes_list = extracted["subtypes_list"]
+                    else:
+                        # Simple name like Record[Name]
+                        subtypes_list = [bracket_content]
+
+                    # Look up using nested subtypes
                     dtype_object = get_record_type_from_nested_subtypes(
-                        parsed["registry"],
-                        parsed["subtypes_list"],
-                        parsed["field_str"],
-                    )
-                elif parsed.get("record_uid"):
-                    # New format: use UID lookup (shouldn't happen for old format strings, but handle gracefully)
-                    dtype_object = get_record_type_from_uid(
-                        parsed["registry"],
-                        parsed["record_uid"],
-                        parsed["field_str"],
+                        registry,
+                        subtypes_list,
+                        field_str,
                     )
                 else:
-                    # Field access or simple registry
+                    # No Record[...] or ULabel[...] pattern - might be field access or simple registry
+                    parsed = parse_cat_dtype(
+                        cat_single_dtype_str,
+                        related_registries=related_registries,
+                        check_exists=False,
+                    )
                     dtype_object = parsed["field"]
                 dtype_objects.append(dtype_object)
             return dtype_objects if len(dtype_objects) > 1 else dtype_objects[0]
@@ -809,38 +800,30 @@ def process_init_feature_param(args, kwargs):
         if not isinstance(dtype, str):
             dtype_str = serialize_dtype(dtype)
         else:
-            # Check if it's old format (name-based) or simple type
+            # Check if it's old format (name-based) - only convert clear old format, not UID strings
             is_old_format = False
             if "Record[" in dtype or "ULabel[" in dtype:
-                # Check if bracket content looks like a name (not a UID)
                 # Find Record[...] or ULabel[...] patterns
                 pattern = r"(Record|ULabel)\[([^\]]+)\]"
                 matches = re.findall(pattern, dtype)
                 for _registry_name, bracket_content in matches:
-                    # If bracket content contains nested brackets, spaces, or special chars, it's old format
+                    # Old format indicators:
+                    # 1. Nested brackets (e.g., Record[Parent[Child]])
+                    # 2. Contains spaces or special chars
+                    # 3. Too long (> 16 chars) - names can be longer than UIDs
+                    # 4. Too short (< 8 chars) - likely a name, not a UID
                     if (
                         "[" in bracket_content
                         or " " in bracket_content
                         or not bracket_content.replace("_", "").isalnum()
                         or len(bracket_content) > 16
+                        or len(bracket_content) < 8
+                        or (bracket_content and bracket_content[0].isupper())
                     ):
                         is_old_format = True
                         break
-                    # If it's a single word, check if it looks like a name vs UID
-                    # Names typically start with capital letters
-                    # UIDs are base62 (8-16 chars, alphanumeric, can have mixed case but often lowercase)
-                    # Heuristic: if it starts with capital and is reasonable length, it's likely a name
-                    if (
-                        bracket_content
-                        and bracket_content[0].isupper()
-                        and len(bracket_content) <= 16
-                    ):
-                        # Starts with capital - likely a name (old format)
-                        is_old_format = True
-                        break
-                    # If it's very short (< 8 chars) and alphanumeric, it could be either
-                    # But since we're in a string dtype context, and it doesn't start with capital,
-                    # it's more likely to be a UID (new format), so don't treat as old format
+                    # If it's 8-16 chars, alphanumeric, and doesn't start with capital,
+                    # it could be a UID string - don't convert those
 
             if is_old_format:
                 # Old format: convert to objects, then serialize to UID format
