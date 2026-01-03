@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import warnings
 from typing import TYPE_CHECKING, overload
 
 from django.db import models
@@ -272,22 +271,6 @@ class Transform(SQLRecord, IsVersioned):
         is_flow: bool = kwargs.pop("is_flow", False)
         skip_hash_lookup: bool = kwargs.pop("skip_hash_lookup", False)
         using_key = kwargs.pop("using_key", None)
-        if "name" in kwargs:
-            if key is None:
-                key = kwargs.pop("name")
-                warnings.warn(
-                    f"`name` will be removed soon, please pass '{key}' to `key` instead",
-                    FutureWarning,
-                    stacklevel=2,
-                )
-            else:
-                # description wasn't exist, so no check necessary
-                description = kwargs.pop("name")
-                warnings.warn(
-                    f"`name` will be removed soon, please pass '{description}' to `description` instead",
-                    FutureWarning,
-                    stacklevel=2,
-                )
         # below is internal use that we'll hopefully be able to eliminate
         uid: str | None = kwargs.pop("uid") if "uid" in kwargs else None
         source_code: str | None = (

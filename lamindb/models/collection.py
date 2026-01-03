@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import warnings
 from typing import TYPE_CHECKING, Any, Literal, overload
 
 import anndata as ad
@@ -244,7 +243,7 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             kwargs.pop("artifacts") if len(args) == 0 else args[0]
         )
         meta_artifact: Artifact | None = kwargs.pop("meta_artifact", None)
-        tmp_key: str | None = kwargs.pop("key", None)
+        key: str | None = kwargs.pop("key", None)
         description: str | None = kwargs.pop("description", None)
         reference: str | None = kwargs.pop("reference", None)
         reference_type: str | None = kwargs.pop("reference_type", None)
@@ -256,16 +255,6 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         branch_id = kwargs.pop("branch_id", 1)
         space = kwargs.pop("space", None)
         space_id = kwargs.pop("space_id", 1)
-        key: str
-        if "name" in kwargs:
-            key = kwargs.pop("name")
-            warnings.warn(
-                f"argument `name` will be removed, please pass {key} to `key` instead",
-                FutureWarning,
-                stacklevel=2,
-            )
-        else:
-            key = tmp_key
         if not len(kwargs) == 0:
             valid_keywords = ", ".join(
                 [val[0] for val in _get_record_kwargs(Collection)]
