@@ -176,19 +176,10 @@ def one_helper(
 def get_backward_compat_filter_kwargs(queryset, expressions):
     from lamindb.models import (
         Artifact,
-        Collection,
-        Transform,
     )
 
-    if queryset.model in {Collection, Transform}:
+    if queryset.model is Artifact:
         name_mappings = {
-            "visibility": "branch_id",
-            "_branch_code": "branch_id",
-        }
-    elif queryset.model is Artifact:
-        name_mappings = {
-            "visibility": "branch_id",
-            "_branch_code": "branch_id",
             "transform": "run__transform",
         }
     else:
