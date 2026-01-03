@@ -83,16 +83,16 @@ def test_serialize_record_objects():
     serialized_str = f"cat[Record[{sample_type.uid}]]"
     assert serialize_dtype(sample_type) == serialized_str
     with pytest.raises(ln.errors.IntegrityError) as error:
-        parse_dtype("cat[Record[Sample]]", check_exists=True)
+        parse_dtype("cat[Record[Sample]]", check_exists=True, old_format=True)
     assert (
-        "Error retrieving Record with uid 'Sample' for field `.name`: Record matching query does not exist."
+        "Error retrieving Record type with filter {'name': 'Sample', 'type__isnull': True} for field `.name`: Record matching query does not exist."
         in error.exconly()
     )
     sample = ln.Record(name="sample").save()
     with pytest.raises(ln.errors.InvalidArgument) as error:
         parse_dtype(f"cat[Record[{sample.uid}]]", check_exists=True)
     assert (
-        "The resolved Record 'sample' for field `.name` is not a type: is_type is False."
+        f"The resolved Record 'sample' (uid='{sample.uid}') is not a type: is_type is False."
         in error.exconly()
     )
     with pytest.raises(ln.errors.InvalidArgument) as error:

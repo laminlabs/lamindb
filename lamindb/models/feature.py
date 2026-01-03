@@ -62,7 +62,9 @@ if TYPE_CHECKING:
 FEATURE_DTYPES = set(get_args(Dtype))
 
 
-def parse_dtype(dtype_str: str, check_exists: bool = False) -> list[dict[str, Any]]:
+def parse_dtype(
+    dtype_str: str, check_exists: bool = False, old_format: bool = False
+) -> list[dict[str, Any]]:
     """Parses feature data type string into a structured list of components."""
     from .artifact import Artifact
 
@@ -72,7 +74,7 @@ def parse_dtype(dtype_str: str, check_exists: bool = False) -> list[dict[str, An
     if dtype_str.startswith("list[") and dtype_str.endswith("]"):
         inner_dtype_str = dtype_str[5:-1]  # Remove "list[" and "]"
         # Recursively parse the inner type
-        inner_result = parse_dtype(inner_dtype_str)
+        inner_result = parse_dtype(inner_dtype_str, old_format=old_format)
         # Add "list": True to each component
         for component in inner_result:
             if isinstance(component, dict):
@@ -91,6 +93,7 @@ def parse_dtype(dtype_str: str, check_exists: bool = False) -> list[dict[str, An
                     cat_single_dtype_str,
                     related_registries=related_registries,
                     check_exists=check_exists,
+                    old_format=old_format,
                 )
                 result.append(single_result)
     elif dtype_str not in allowed_dtypes:
@@ -125,7 +128,7 @@ def get_record_type_from_uid(
 
     if not type_record.is_type:
         raise InvalidArgument(
-            f"The resolved {type_record.__class__.__name__} '{type_record.name}' is not a type: is_type is False."
+            f"The resolved {type_record.__class__.__name__} '{type_record.name}' (uid='{record_uid}') is not a type: is_type is False."
         )
     return type_record
 
@@ -349,6 +352,7 @@ def parse_cat_dtype(
     related_registries: dict[str, SQLRecord] | None = None,
     is_itype: bool = False,
     check_exists: bool = False,
+    old_format: bool = False,
 ) -> dict[str, Any]:
     """Parses a categorical dtype string into its components (registry, field, subtypes)."""
     from .artifact import Artifact
@@ -358,7 +362,7 @@ def parse_cat_dtype(
         related_registries = dict_module_name_to_model_name(Artifact)
 
     # Parse the string considering nested brackets
-    parsed = parse_nested_brackets(dtype_str)
+    parsed = parse_nested_brackets(dtype_str, old_format=old_format)
     registry_str = parsed["registry"]
     filter_str = parsed["filter_str"]
     field_str = parsed["field"]
@@ -426,7 +430,7 @@ def parse_cat_dtype(
     return result
 
 
-def parse_nested_brackets(dtype_str: str) -> dict[str, Any]:
+def parse_nested_brackets(dtype_str: str, old_format: bool = False) -> dict[str, Any]:
     """Parse dtype string with potentially nested brackets.
 
     Examples:
@@ -519,32 +523,13 @@ def parse_nested_brackets(dtype_str: str) -> dict[str, Any]:
     # If registry is Record or ULabel, bracket content could be UID or name(s)
     if registry_part in ("Record", "ULabel"):
         if bracket_content:
-            # Check if it's old format (contains nested brackets or doesn't look like a UID)
-            if "[" in bracket_content:
+            if old_format:
                 # Old format with nested brackets like Record[Parent[Child]]
                 extracted = extract_subtypes_and_filter(bracket_content)
                 subtypes_list = extracted["subtypes_list"]
                 filter_str = extracted["filter_str"]
             else:
-                # Could be UID or simple name - try to detect
-                # UIDs are base62 (typically 8-16 chars, but can be shorter, alphanumeric, no spaces)
-                # Names typically have spaces, special chars, or are very long
-                # Heuristic: if it's alphanumeric with no spaces and reasonable length, try UID first
-                # Otherwise, treat as name (old format)
-                # Note: We're lenient here - if it could be a UID, we treat it as such
-                # (old format detection with capital letters happens in process_init_feature_param)
-                could_be_uid = (
-                    len(bracket_content) >= 1
-                    and len(bracket_content) <= 16
-                    and bracket_content.replace("_", "").isalnum()
-                    and " " not in bracket_content
-                )
-                if could_be_uid:
-                    # Could be a UID (new format) - try UID lookup first
-                    record_uid = bracket_content
-                else:
-                    # Has special chars or spaces - likely a name (old format)
-                    subtypes_list = [bracket_content]
+                record_uid = bracket_content
     else:
         # For other registries, bracket content is a filter
         filter_str = bracket_content if bracket_content else ""
