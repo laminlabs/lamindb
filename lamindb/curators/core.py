@@ -1331,7 +1331,8 @@ class CatVector:
         # get the dtype associated record based on the record_uid
         if self._record_uid:
             self._type_record = get_record_type_from_uid(
-                self._registry, self._record_uid, self._field.field.name
+                self._registry,
+                self._record_uid,
             )
 
         if hasattr(self._registry, "_name_field"):

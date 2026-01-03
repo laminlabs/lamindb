@@ -413,7 +413,7 @@ def test_curator_schema_feature_mapping():
     lab_b_type.delete(permanent=True)
 
 
-def test_dtypes_at_different_levels():
+def test_dtypes_at_different_levels(ccaplog):
     sample_type_root = ln.Record(name="Sample", is_type=True).save()
     lab_a_type = ln.Record(name="LabA", is_type=True).save()
     sample_type_a = ln.Record(name="Sample", is_type=True, type=lab_a_type).save()
@@ -425,8 +425,8 @@ def test_dtypes_at_different_levels():
     df = pd.DataFrame({"biosample_name": pd.Categorical(["s1"])})
     # UID-based lookup can find records in trash, so curator creation should succeed
     # but a warning should be printed
-    with pytest.warns(UserWarning, match="Retrieving.*from trash"):
-        curator = ln.curators.DataFrameCurator(df, schema)
+    curator = ln.curators.DataFrameCurator(df, schema)
+    assert "from trash" in ccaplog.text
     schema.delete(permanent=True)
     sample_type_root.restore()
     curator = ln.curators.DataFrameCurator(df, ln.examples.schemas.valid_features())

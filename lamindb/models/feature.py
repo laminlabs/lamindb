@@ -101,36 +101,31 @@ def parse_dtype(dtype_str: str, check_exists: bool = False) -> list[dict[str, An
 
 
 def get_record_type_from_uid(
-    registry: Registry, record_uid: str, field_str: str
+    registry: Registry,
+    record_uid: str,
 ) -> SQLRecord:
-    """Get a Record type by its UID.
+    """Get a SQLRecord type by its UID.
 
     Args:
         registry: The registry class (e.g., Record)
         record_uid: The UID of the record type
-        field_str: The field name (for error messages)
 
     Returns:
-        The Record type object
+        The SQLRecord type object
 
     Raises:
         IntegrityError: If the record doesn't exist
         InvalidArgument: If the record is not a type
     """
-    try:
-        type_record: SQLRecord = registry.get(uid=record_uid)
-    except Exception as e:
-        raise IntegrityError(
-            f"Error retrieving {registry.__name__} with uid '{record_uid}' for field `.{field_str}`: {e}"
-        ) from e
+    type_record: SQLRecord = registry.get(record_uid)
 
     if type_record.branch_id == -1:
-        warning_msg = f"retrieving {registry.__name__} type '{type_record.name}' (uid='{record_uid}') for field `.{field_str}` from trash"
+        warning_msg = f"retrieving {registry.__name__} type '{type_record.name}' (uid='{record_uid}') from trash"
         logger.warning(warning_msg)
 
     if not type_record.is_type:
         raise InvalidArgument(
-            f"The resolved {type_record.__class__.__name__} '{type_record.name}' for field `.{field_str}` is not a type: is_type is False."
+            f"The resolved {type_record.__class__.__name__} '{type_record.name}' is not a type: is_type is False."
         )
     return type_record
 
@@ -407,8 +402,7 @@ def parse_cat_dtype(
                 registry, cast(list[str], subtypes_list), field_str
             )
     elif record_uid and check_exists:
-        # New format: validate that the Record exists using UID
-        get_record_type_from_uid(registry, record_uid, field_str)
+        get_record_type_from_uid(registry, record_uid)
 
     if filter_str != "":
         # TODO: validate or process filter string
@@ -1477,7 +1471,6 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
                     dtype_object = get_record_type_from_uid(
                         parsed_dtype["registry"],
                         parsed_dtype["record_uid"],
-                        parsed_dtype["field_str"],
                     )
                 else:
                     # return field for dtypes without record_uid, e.g. bt.CellType.ontology_id
