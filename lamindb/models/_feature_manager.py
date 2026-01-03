@@ -139,6 +139,37 @@ def strip_cat(feature_dtype: str) -> str:
     return dtype_stripped_cat
 
 
+def format_dtype_for_display(dtype_str: str) -> str:
+    """Format dtype string for display, replacing Record[uid] with Record[TypeName]."""
+    from .feature import parse_dtype
+    from .record import Record
+
+    # Check if this is a Record[uid] format
+    if "Record[" in dtype_str and "]" in dtype_str:
+        try:
+            parsed = parse_dtype(dtype_str)
+            if parsed and parsed[0].get("record_uid"):
+                record_uid = parsed[0]["record_uid"]
+                try:
+                    record_type = Record.get(uid=record_uid)
+                    # Replace Record[uid] with Record[TypeName] in the dtype string
+                    # Handle both cat[Record[uid]] and list[cat[Record[uid]]] formats
+                    dtype_str = dtype_str.replace(
+                        f"Record[{record_uid}]", f"Record[{record_type.name}]"
+                    )
+                except Exception as e:
+                    # If we can't find the record, just return the original
+                    logger.debug(
+                        f"Could not find Record with uid '{record_uid}' for display formatting: {e}"
+                    )
+        except Exception as e:
+            # If parsing fails, return the original
+            logger.debug(
+                f"Could not parse dtype string '{dtype_str}' for display formatting: {e}"
+            )
+    return dtype_str
+
+
 # Custom aggregation for SQLite
 class GroupConcat(Aggregate):
     function = "GROUP_CONCAT"
@@ -414,9 +445,14 @@ def get_features_data(
         inferred_schemas = self.feature_sets.filter(itype="Feature")
         if len(inferred_schemas) > 0:
             for schema in inferred_schemas:
-                internal_feature_names.update(
-                    dict(schema.members.values_list("name", "dtype"))
-                )
+                # Use _dtype_str instead of dtype, and format for display
+                feature_dtypes = dict(schema.members.values_list("name", "_dtype_str"))
+                # Format Record[uid] to Record[TypeName] for display
+                formatted_dtypes = {
+                    name: format_dtype_for_display(dtype_str) if dtype_str else ""
+                    for name, dtype_str in feature_dtypes.items()
+                }
+                internal_feature_names.update(formatted_dtypes)
 
     # categorical feature values
     # Get the categorical data using the appropriate method
@@ -465,10 +501,13 @@ def get_features_data(
             else:
                 printed_values = str(converted_values)
 
+            # Format dtype for display (replace Record[uid] with Record[TypeName])
+            display_dtype = format_dtype_for_display(feature_dtype)
+
             # Sort into internal/external
             feature_info = (
                 feature_name,
-                Text(strip_cat(feature_dtype), style="dim"),
+                Text(strip_cat(display_dtype), style="dim"),
                 printed_values,
             )
             if feature_name in internal_feature_names:
