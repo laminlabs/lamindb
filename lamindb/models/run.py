@@ -370,7 +370,7 @@ class Run(SQLRecord):
     )
     """This run is linked in these records as a value."""
     artifacts: Artifact = models.ManyToManyField(
-        "Artifact", through="ArtifactRun", related_name="linked_runs"
+        "Artifact", through="ArtifactRun", related_name="runs"
     )
     """The artifacts annotated by this run."""
     _is_consecutive: bool | None = BooleanField(null=True)

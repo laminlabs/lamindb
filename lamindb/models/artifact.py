@@ -1396,7 +1396,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     """The references annotating this artifact."""
     records: Record
     """The records annotating this artifact."""
-    linked_runs: Run
+    runs: Run
     """The runs annotating this artifact."""
     artifacts: Artifact = models.ManyToManyField(
         "Artifact",
@@ -1404,9 +1404,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         symmetrical=False,
         related_name="linked_artifacts",
     )
-    """The artifacts that this artifact links to through a `feature`."""
-    linked_artifacts: Artifact
-    """The artifacts that reference this artifact through their features."""
+    """This artifact links these artifacts as feature values."""
+    linked_in_artifacts: Artifact
+    """This artifact is linked by these artifacts through their features."""
     linked_in_records: Record = models.ManyToManyField(
         "Record", through="RecordArtifact", related_name="linked_artifacts"
     )
