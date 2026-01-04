@@ -36,8 +36,8 @@ def populate_sheets_compound_treatment():
     # populate treatment1
     treatment1 = ln.Record(name="treatment1", type=treatments_sheet).save()
     ln.models.RecordRecord(record=treatment1, feature=compound, value=drug1).save()
-    assert drug1 in treatment1.components.all()  # noqa: S101
-    assert treatment1 in drug1.composites.all()  # noqa: S101
+    assert drug1 in treatment1.linked_records.all()
+    assert treatment1 in drug1.linked_in_records.all()
     ln.models.RecordJson(record=treatment1, feature=concentration, value="2nM").save()
     # populate treatment2
     treatment2 = ln.Record(name="treatment2", type=treatments_sheet).save()
