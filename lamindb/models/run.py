@@ -277,9 +277,9 @@ class Run(SQLRecord):
     )
     """Universal id, valid across DB instances."""
     name: str | None = CharField(max_length=150, null=True, db_index=True)
-    """A name."""
+    """An optional name for this run."""
     transform: Transform = ForeignKey("Transform", CASCADE, related_name="runs")
-    """The transform :class:`~lamindb.Transform` that is being run."""
+    """The transform that is being run."""
     entrypoint: str | None = CharField(max_length=255, null=True, db_index=True)
     """The entrypoint of the transform.
 
@@ -288,23 +288,23 @@ class Run(SQLRecord):
     started_at: datetime = DateTimeField(
         editable=False, db_default=models.functions.Now(), db_index=True
     )
-    """Start time of run."""
+    """The time this run started."""
     finished_at: datetime | None = DateTimeField(db_index=True, null=True, default=None)
-    """Finished time of run."""
+    """The time this run finished or aborted."""
     # we don't want to make below a OneToOne because there could be the same trivial report
     # generated for many different runs
     report: Artifact | None = ForeignKey(
         "Artifact", PROTECT, null=True, related_name="_report_of", default=None
     )
-    """Report of run, e.g.. n html file."""
+    """The report of this run such as an `.html` file."""
     _logfile: Artifact | None = ForeignKey(
         "Artifact", PROTECT, null=True, related_name="_logfile_of", default=None
     )
-    """Report of run, e.g.. n html file."""
+    """The report of this run such as an `.html` file."""
     environment: Artifact | None = ForeignKey(
         "Artifact", PROTECT, null=True, related_name="_environment_of", default=None
     )
-    """Computational environment for the run.
+    """The computational environment for this run.
 
     For instance, `Dockerfile`, `docker image`, `requirements.txt`, `environment.yml`, etc.
     """
@@ -333,38 +333,33 @@ class Run(SQLRecord):
     )
     """Feature values."""
     reference: str | None = CharField(max_length=255, db_index=True, null=True)
-    """A reference like a URL or external ID (such as from a workflow manager)."""
+    """A reference like a URL or an external ID such as from a workflow manager."""
     reference_type: str | None = CharField(max_length=25, db_index=True, null=True)
-    """Type of reference such as a workflow manager execution ID."""
+    """The type of the `reference` such as a workflow manager execution ID."""
     created_at: datetime = DateTimeField(
         editable=False, db_default=models.functions.Now(), db_index=True
     )
-    """Time of first creation. Mismatches ``started_at`` if the run is re-run."""
+    """The time of creation of this run."""
     created_by: User = ForeignKey(
         "User", CASCADE, default=current_user_id, related_name="created_runs"
     )
-    """Creator of run."""
+    """The creator of this run."""
     ulabels: ULabel = models.ManyToManyField(
         "ULabel", through="RunULabel", related_name="runs"
     )
-    """ULabel annotations of this transform."""
+    """The ulabels annotating this run."""
     initiated_by_run: Run | None = ForeignKey(
         "Run", CASCADE, null=True, related_name="initiated_runs", default=None
     )
-    """The run that triggered the current run.
-
-    This is not a preceding run. The preceding runs ("predecessors") is the set
-    of runs that produced the output artifacts that serve as the inputs for the
-    present run.
-    """
+    """The run that initiated this run."""
     initiated_runs: Run
-    """Runs that were initiated by this run."""
+    """The runs that were initiated by this run."""
     projects: Project
-    """Linked projects."""
+    """The projects annotating this run."""
     blocks: RunBlock
-    """Blocks that annotate this run."""
+    """The blocks annotating this run."""
     records: Record
-    """Records that annotate this run."""
+    """The records annotating this run."""
     linked_in_records: Record = models.ManyToManyField(
         "Record", through="RecordRun", related_name="linked_runs"
     )
