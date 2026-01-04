@@ -1404,9 +1404,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         symmetrical=False,
         related_name="linked_by_artifacts",
     )
-    """The artifacts that are linked to this artifact as feature values (annotating artifacts)."""
+    """The artifacts that are linked to this artifact as feature values (its annotating artifacts)."""
     linked_by_artifacts: Artifact
-    """The artifacts linking this artifact as a feature value (annotated artifacts)."""
+    """The artifacts linking this artifact as a feature value (the artifacts this artifact annotates)."""
     linked_in_records: Record = models.ManyToManyField(
         "Record", through="RecordArtifact", related_name="linked_artifacts"
     )
