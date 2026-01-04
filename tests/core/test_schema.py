@@ -117,7 +117,7 @@ def test_schema_from_df(df):
 
 def test_get_related_name():
     with pytest.raises(ValueError):
-        get_related_name(ln.Transform)
+        get_related_name(ln.Schema)
 
 
 def test_validate_features():
@@ -127,7 +127,7 @@ def test_validate_features():
         validate_features(["feature"])
     with pytest.raises(TypeError):
         validate_features({"feature"})
-    transform = ln.Transform(key="test")
+    transform = ln.Schema(key="test")
     transform.save()
     # This is just a type check
     with pytest.raises(TypeError) as error:
@@ -617,3 +617,34 @@ def test_schema_is_type():
     # clean up
     BioSample.delete(permanent=True)
     Sample.delete(permanent=True)
+
+
+# see test_component_composite in test_transform.py
+def test_composite_component():
+    composite = ln.Schema(name="composite", itype=ln.Feature).save()
+    component1 = ln.Schema(name="component1", itype=bt.CellType).save()
+    component2 = ln.Schema(name="component2", itype=bt.CellMarker).save()
+    composite.components.add(component1, through_defaults={"slot": "slot1"})
+    composite.components.add(component2, through_defaults={"slot": "slot2"})
+
+    assert len(composite.components.all()) == 2
+    assert composite.links_component.count() == 2
+    assert set(composite.links_component.all().to_list("slot")) == {"slot1", "slot2"}
+    assert composite.links_component.first().composite == composite
+    assert composite.composites.count() == 0
+    assert composite.links_composite.count() == 0
+
+    ln.models.SchemaComponent.filter(composite=composite).delete(permanent=True)
+
+    link = ln.models.SchemaComponent(
+        composite=composite, component=component1, slot="var"
+    ).save()
+    assert link in composite.links_component.all()
+    assert link in component1.links_composite.all()
+    assert link.slot == "var"
+
+    composite.delete(permanent=True)
+    component1.delete(permanent=True)
+    component2.delete(permanent=True)
+
+    assert ln.models.SchemaComponent.filter().count() == 0

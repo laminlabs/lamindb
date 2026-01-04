@@ -173,6 +173,7 @@ def test_delete():
     assert len(ln.Run.filter(id=run.id)) == 0
 
 
+# see test_composite_component in test_schema.py
 def test_successor_predecessor():
     predecessor = ln.Transform(key="predecessor").save()
     successor1 = ln.Transform(key="successor1").save()
