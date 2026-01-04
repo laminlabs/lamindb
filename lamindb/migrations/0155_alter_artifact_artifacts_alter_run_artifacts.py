@@ -13,7 +13,7 @@ class Migration(migrations.Migration):
             model_name="artifact",
             name="artifacts",
             field=models.ManyToManyField(
-                related_name="linked_in_artifacts",
+                related_name="linked_by_artifacts",
                 through="lamindb.ArtifactArtifact",
                 to="lamindb.artifact",
             ),

@@ -73,8 +73,8 @@ def test_artifact_features_add_remove_values():
 
     # ManyToMany accessors
     assert set(test_artifact.artifacts.to_list()) == {test_artifact, value_artifact}
-    assert set(value_artifact.linked_in_artifacts.to_list()) == {test_artifact}
-    assert set(test_artifact.linked_in_artifacts.to_list()) == {test_artifact}
+    assert set(value_artifact.linked_by_artifacts.to_list()) == {test_artifact}
+    assert set(test_artifact.linked_by_artifacts.to_list()) == {test_artifact}
     assert value_artifact.artifacts.to_list() == []
 
     # get_values accessor
