@@ -1259,11 +1259,15 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         if self._dtype_str.startswith(
             ("cat[Record[", "cat[ULabel[", "list[cat[Record[", "list[cat[ULabel[")
         ):
-            record_object = dtype_as_object(self._dtype_str)
+            if self._dtype_str.startswith("list["):
+                dtype_str = self._dtype_str.replace("list[", "")[:-1]
+            else:
+                dtype_str = self._dtype_str
+            record_object = dtype_as_object(dtype_str)
             nested_string = f"[{record_object.name}]"  # type: ignore
             for t in record_object.query_types():  # type: ignore
                 nested_string = f"[{t.name}{nested_string}]"
-            return self._dtype_str.replace(record_object.uid, nested_string)  # type: ignore
+            return self._dtype_str.replace(f"[{record_object.uid}]", nested_string)  # type: ignore
         else:
             return self._dtype_str
 
