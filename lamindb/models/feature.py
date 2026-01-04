@@ -965,10 +965,6 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         "Schema", through="SchemaFeature", related_name="features"
     )
     """Schemas linked to this feature."""
-    _observational_unit: str | None = CharField(
-        max_length=255, db_index=True, null=True
-    )
-    """The unit of measure for the feature when it is an observational unit (optional)."""
     # backward fields
     values: FeatureValue
     """Values for this feature."""

@@ -2,8 +2,6 @@
 
 from django.db import migrations
 
-import lamindb.base.fields
-
 
 class Migration(migrations.Migration):
     dependencies = [
@@ -14,12 +12,5 @@ class Migration(migrations.Migration):
         migrations.RemoveField(
             model_name="feature",
             name="_expect_many",
-        ),
-        migrations.AddField(
-            model_name="feature",
-            name="_observational_unit",
-            field=lamindb.base.fields.CharField(
-                blank=True, db_index=True, default=None, max_length=255, null=True
-            ),
         ),
     ]
