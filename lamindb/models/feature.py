@@ -911,11 +911,6 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     """Universal id, valid across DB instances."""
     name: str = CharField(max_length=150, db_index=True)
     """Name of feature."""
-    dtype: Dtype | str | None = CharField(db_index=True, null=True)
-    """The string-serialized data type (:class:`~lamindb.base.types.Dtype`).
-
-    Note that mutating this field currently does not trigger re-validation of existing values.
-    """
     _dtype_str: Dtype | str | None = CharField(db_index=True, null=True)
     """The string-serialized data type (:class:`~lamindb.base.types.Dtype`).
 
@@ -962,12 +957,6 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
 
     Is stored as a list rather than a tuple because it's serialized as JSON.
     """
-    proxy_dtype: Dtype | None = CharField(default=None, null=True)
-    """Proxy data type.
-
-    If the feature is an image it's often stored via a path to the image file. Hence, while the dtype might be
-    image with a certain shape, the proxy dtype would be str.
-    """
     synonyms: str | None = TextField(null=True)
     """Bar-separated (|) synonyms (optional)."""
     # we define the below ManyToMany on the Feature model because it parallels
@@ -982,7 +971,6 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     - if it's `True` (default), the values come from an observation-level aggregation and a dtype of `datetime` on the observation-level means `set[datetime]` on the artifact-level
     - if it's `False` it's an artifact-level value and datetime means datetime; this is an edge case because an arbitrary artifact would always be a set of arbitrary measurements that would need to be aggregated ("one just happens to measure a single cell line in that artifact")
     """
-    _curation: dict[str, Any] = JSONField(default=None, db_default=None, null=True)
     # backward fields
     values: FeatureValue
     """Values for this feature."""

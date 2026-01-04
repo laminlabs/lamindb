@@ -16,7 +16,6 @@ from lamindb.base.fields import (
     CharField,
     ForeignKey,
     IntegerField,
-    JSONField,
     TextField,
 )
 from lamindb.base.types import FieldAttr, ListLike
@@ -350,7 +349,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun):
     """
     otype: str | None = CharField(max_length=64, db_index=True, null=True)
     """Default Python object type, e.g., DataFrame, AnnData."""
-    dtype: str | None = CharField(max_length=64, null=True, editable=False)
+    _dtype_str: str | None = CharField(max_length=64, null=True, editable=False)
     """Data type, e.g., "num", "float", "int". Is `None` for :class:`~lamindb.Feature`.
 
     For :class:`~lamindb.Feature`, types are expected to be heterogeneous and defined on a per-feature level.
@@ -398,29 +397,6 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun):
     """Schemas for this type."""
     records: Record
     """Records that were annotated with this schema."""
-
-    _curation: dict[str, Any] = JSONField(default=None, db_default=None, null=True)
-    # lamindb v2
-    # _itype: ContentType = models.ForeignKey(ContentType, on_delete=models.CASCADE)
-    # ""Index of the registry that stores the feature identifiers, e.g., `Feature` or `Gene`."""
-    # -- the following two fields are dynamically removed from the API for now
-    validated_by: Schema | None = ForeignKey(
-        "self", PROTECT, related_name="validated_schemas", default=None, null=True
-    )
-    # """The schema that validated this schema during curation.
-
-    # When performing validation, the schema that enforced validation is often less concrete than what is validated.
-
-    # For instance, the set of measured features might be a superset of the minimally required set of features.
-    # """
-    # validated_schemas: Schema
-    # """The schemas that were validated against this schema with a :class:`~lamindb.curators.core.Curator`."""
-    composite: Schema | None = ForeignKey(
-        "self", PROTECT, related_name="+", default=None, null=True
-    )
-    # The legacy foreign key
-    slot: str | None = CharField(max_length=100, db_index=True, null=True)
-    # The legacy slot
 
     @overload
     def __init__(
@@ -643,7 +619,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun):
             "description": description,
             "type": type,
             "is_type": is_type,
-            "dtype": dtype,
+            "_dtype_str": dtype,
             "otype": otype,
             "n": n_features,
             "itype": itype_str,
@@ -676,7 +652,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun):
         if aux_dict:
             validated_kwargs["_aux"] = aux_dict
         HASH_CODE = {
-            "dtype": "a",
+            "_dtype_str": "a",
             "itype": "b",
             "minimal_set": "c",
             "ordered_set": "d",
@@ -690,7 +666,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun):
             "slots_hash": "l",
         }
         # we do not want pure informational annotations like otype, name, type, is_type, otype to be part of the hash
-        hash_args = ["dtype", "itype", "minimal_set", "ordered_set", "maximal_set"]
+        hash_args = ["_dtype_str", "itype", "minimal_set", "ordered_set", "maximal_set"]
         list_for_hashing = [
             f"{HASH_CODE[arg]}={validated_kwargs[arg]}"
             for arg in hash_args
@@ -1241,11 +1217,3 @@ class SchemaComponent(BaseSQLRecord, IsLink, TracksRun):
 
 
 Schema._get_related_name = _get_related_name
-# excluded on docs via
-# https://github.com/laminlabs/lndocs/blob/8c1963de65445107ea69b3fd59354c3828e067d1/lndocs/lamin_sphinx/__init__.py#L584-L588
-delattr(Schema, "validated_by")  # we don't want to expose these
-delattr(Schema, "validated_by_id")  # we don't want to expose these
-delattr(Schema, "validated_schemas")  # we don't want to expose these
-delattr(Schema, "composite")  # we don't want to expose these
-delattr(Schema, "composite_id")  # we don't want to expose these
-delattr(Schema, "slot")  # we don't want to expose these
