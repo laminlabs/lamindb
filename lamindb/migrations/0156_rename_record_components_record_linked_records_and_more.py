@@ -18,6 +18,15 @@ class Migration(migrations.Migration):
             new_name="linked_records",
         ),
         migrations.AlterField(
+            model_name="record",
+            name="linked_records",
+            field=models.ManyToManyField(
+                related_name="linked_in_records",
+                through="lamindb.RecordRecord",
+                to="lamindb.record",
+            ),
+        ),
+        migrations.AlterField(
             model_name="schemacomponent",
             name="component",
             field=lamindb.base.fields.ForeignKey(
@@ -35,15 +44,6 @@ class Migration(migrations.Migration):
                 on_delete=django.db.models.deletion.CASCADE,
                 related_name="links_component",
                 to="lamindb.schema",
-            ),
-        ),
-        migrations.AlterField(
-            model_name="record",
-            name="linked_records",
-            field=models.ManyToManyField(
-                related_name="linked_in_records",
-                through="lamindb.RecordRecord",
-                to="lamindb.record",
             ),
         ),
     ]
