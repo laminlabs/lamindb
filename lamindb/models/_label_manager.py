@@ -48,7 +48,7 @@ def _get_labels(
     related_models = dict_related_model_to_related_name(
         obj.__class__, links=links, instance=instance
     )
-    if obj.__class__.__name__ == "Artifact":
+    if obj.__class__.__name__ == "Artifact" and links:
         related_models["ArtifactArtifact"] = "links_artifact"
     for _, related_name in related_models.items():
         if related_name not in EXCLUDE_LABELS and not related_name.startswith("_"):
