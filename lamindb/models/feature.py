@@ -965,12 +965,10 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         "Schema", through="SchemaFeature", related_name="features"
     )
     """Schemas linked to this feature."""
-    _expect_many: bool = models.BooleanField(default=None, db_default=None, null=True)
-    """Indicates whether values for this feature are expected to occur a single or multiple times for an artifact (default `None`).
-
-    - if it's `True` (default), the values come from an observation-level aggregation and a dtype of `datetime` on the observation-level means `set[datetime]` on the artifact-level
-    - if it's `False` it's an artifact-level value and datetime means datetime; this is an edge case because an arbitrary artifact would always be a set of arbitrary measurements that would need to be aggregated ("one just happens to measure a single cell line in that artifact")
-    """
+    _observational_unit: str | None = CharField(
+        max_length=255, db_index=True, null=True
+    )
+    """The unit of measure for the feature when it is an observational unit (optional)."""
     # backward fields
     values: FeatureValue
     """Values for this feature."""
