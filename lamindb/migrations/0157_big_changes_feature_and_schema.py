@@ -20,7 +20,7 @@ def remove_dtype_if_exists(apps, schema_editor):
 
         if cursor.fetchone():
             # Column exists, remove it
-            cursor.execute("ALTER TABLE lamindb_feature DROP COLUMN dtype")
+            cursor.execute("ALTER TABLE lamindb_feature DROP COLUMN dtype CASCADE")
 
 
 class Migration(migrations.Migration):
