@@ -970,6 +970,15 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun):
         return self.__getattribute__(related_name).order_by("links_schema__id")
 
     @property
+    def dtype(self) -> str | None:
+        """The `dtype` for all features in the schema."""
+        return self._dtype_str
+
+    @dtype.setter
+    def dtype(self, value: str | None) -> None:
+        self._dtype_str = value
+
+    @property
     def coerce_dtype(self) -> bool:
         """Whether dtypes should be coerced during validation.
 

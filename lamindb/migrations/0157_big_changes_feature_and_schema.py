@@ -7,6 +7,9 @@ def remove_dtype_if_exists(apps, schema_editor):
     """Remove dtype field only if it exists."""
     from django.db import connection
 
+    if connection.vendor == "sqlite":
+        return
+
     with connection.cursor() as cursor:
         # Check if column exists
         cursor.execute("""

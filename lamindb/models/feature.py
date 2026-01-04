@@ -1252,6 +1252,19 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         self._aux.setdefault("af", {})["2"] = value
 
     @property
+    def dtype(self) -> str | None:
+        """The `dtype` as a string."""
+        if self._dtype_str is None:
+            return None
+        if self._dtype_str.startswith(
+            ("cat[Record[", "cat[ULabel[", "list[cat[Record[", "list[cat[ULabel[")
+        ):
+            record_object = dtype_as_object(self._dtype_str)
+            return self._dtype_str.replace(record_object.uid, record_object.name)  # type: ignore
+        else:
+            return self._dtype_str
+
+    @property
     def dtype_as_object(self) -> type | SQLRecord | FieldAttr | None:  # type: ignore
         """The Python object corresponding to :attr:`~lamindb.Feature.dtype`.
 
