@@ -1043,8 +1043,7 @@ class FeatureManager:
         host_is_record = host_name == "record"
         related_names = dict_related_model_to_related_name(self._host.__class__)
         if host_is_record:
-            # the related model to related name is ambiguous if two M2M exist
-            related_names["Record"] = "components"
+            related_names["Record"] = "linked_records"
             related_names["Project"] = "linked_projects"
             related_names["Artifact"] = "linked_artifacts"
             related_names["Collection"] = "linked_collections"

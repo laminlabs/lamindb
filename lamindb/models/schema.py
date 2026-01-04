@@ -1231,8 +1231,8 @@ class ArtifactSchema(BaseSQLRecord, IsLink, TracksRun):
 
 class SchemaComponent(BaseSQLRecord, IsLink, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
-    composite: Schema = ForeignKey(Schema, CASCADE, related_name="links_composite")
-    component: Schema = ForeignKey(Schema, PROTECT, related_name="links_component")
+    composite: Schema = ForeignKey(Schema, CASCADE, related_name="links_component")
+    component: Schema = ForeignKey(Schema, PROTECT, related_name="links_composite")
     slot: str | None = CharField(null=True)
 
     class Meta:
