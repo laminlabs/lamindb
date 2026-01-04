@@ -178,6 +178,15 @@ def test_record_features_add_remove_values():
     test_record.features.add_values(test_values)
     assert test_record.features.get_values() == test_values
 
+    # ManyToMany accesors
+
+    assert set(test_record.linked_records.to_list()) == {record_entity1, record_entity2}
+    assert test_record.linked_in_records.count() == 0
+    assert set(record_entity1.linked_in_records.to_list()) == {test_record}
+    assert set(record_entity2.linked_in_records.to_list()) == {test_record}
+    assert record_entity1.linked_records.count() == 0
+    assert record_entity2.linked_records.count() == 0
+
     # all empty sheet
 
     schema = ln.Schema(
