@@ -114,7 +114,6 @@ def get_artifact_or_run_with_related(
             for model_cls, field_name in full_map.items()
             if not field_name.startswith("_") and field_name not in EXCLUDE_LABELS
         }
-        # below shouldn't be necessary
         if is_record:
             m2m_model_to_field_map["Run"] = "linked_runs"
         else:
