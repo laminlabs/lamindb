@@ -82,7 +82,7 @@ def test_artifact_describe():
         .users: User
         .runs: Run
         .ulabels: ULabel
-        .linked_artifacts: Artifact
+        .linked_by_artifacts: Artifact
         .collections: Collection
         .records: Record
         .references: Reference
