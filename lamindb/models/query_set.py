@@ -176,19 +176,10 @@ def one_helper(
 def get_backward_compat_filter_kwargs(queryset, expressions):
     from lamindb.models import (
         Artifact,
-        Collection,
-        Transform,
     )
 
-    if queryset.model in {Collection, Transform}:
+    if queryset.model is Artifact:
         name_mappings = {
-            "visibility": "branch_id",
-            "_branch_code": "branch_id",
-        }
-    elif queryset.model is Artifact:
-        name_mappings = {
-            "visibility": "branch_id",
-            "_branch_code": "branch_id",
             "transform": "run__transform",
         }
     else:
@@ -382,10 +373,6 @@ class SQLRecordList(UserList, Generic[T]):
         self, field: str
     ) -> list[str]:  # meaningful to be parallel with to_list() in QuerySet
         return [getattr(record, field) for record in self.data]
-
-    @deprecated(new_name="to_list")
-    def list(self, field: str) -> list[str]:
-        return self.to_list(field)
 
     def one(self) -> T:
         """Exactly one result. Throws error if there are more or none."""
@@ -1207,10 +1194,6 @@ class BasicQuerySet(models.QuerySet):
         else:
             # list casting is necessary because values_list does not return a list
             return list(self.values_list(field, flat=True))
-
-    @deprecated(new_name="to_list")
-    def list(self, field: str | None = None) -> list[SQLRecord] | list[str]:
-        return self.to_list(field)
 
     def first(self) -> SQLRecord | None:
         """If non-empty, the first result in the query set, otherwise ``None``.

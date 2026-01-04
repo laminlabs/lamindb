@@ -1490,16 +1490,6 @@ class SQLRecord(BaseSQLRecord, metaclass=Registry):
     class Meta:
         abstract = True
 
-    @property
-    @deprecated("branch_id")
-    def _branch_code(self) -> int:
-        """Deprecated alias for `branch`."""
-        return self.branch_id
-
-    @_branch_code.setter
-    def _branch_code(self, value: int):
-        self.branch_id = value
-
     def restore(self) -> None:
         """Restore from trash onto the main branch.
 

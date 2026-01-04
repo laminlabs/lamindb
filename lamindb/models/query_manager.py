@@ -267,10 +267,6 @@ class QueryManager(Manager):
         else:
             return list(self.values_list(field, flat=True))
 
-    @deprecated(new_name="to_list")
-    def list(self, field: str | None = None):
-        return self.to_list(field)
-
     def to_dataframe(self, **kwargs):
         """Convert to DataFrame.
 

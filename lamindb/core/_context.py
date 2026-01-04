@@ -14,7 +14,6 @@ from typing import TYPE_CHECKING, TextIO
 import lamindb_setup as ln_setup
 from django.db.models import Func, IntegerField, Q
 from lamin_utils._logger import logger
-from lamindb_setup.core import deprecated
 from lamindb_setup.core.hashing import hash_file
 
 from ..base.ids import base62_12
@@ -372,15 +371,6 @@ class Context:
 
     @description.setter
     def description(self, value: str | None):
-        self._description = value
-
-    @property
-    @deprecated(new_name="description")
-    def name(self) -> str | None:
-        return self._description
-
-    @name.setter
-    def name(self, value: str | None):
         self._description = value
 
     @property
@@ -1055,14 +1045,6 @@ class Context:
         self._transform = None
         self._version = None
         self._description = None
-
-    @deprecated("ln.track()")
-    def track(self, *args, **kwargs):
-        return self._track(*args, **kwargs)
-
-    @deprecated("ln.finish()")
-    def finish(self, *args, **kwargs):
-        return self._finish(*args, **kwargs)
 
 
 context: Context = Context()

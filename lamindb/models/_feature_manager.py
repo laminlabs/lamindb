@@ -5,25 +5,20 @@ from collections import defaultdict
 from collections.abc import Iterable
 from datetime import date, datetime
 from itertools import compress
-from typing import TYPE_CHECKING, Any, MutableMapping
+from typing import TYPE_CHECKING, Any
 
-import anndata as ad
 import numpy as np
 import pandas as pd
-from anndata import AnnData
 from django.contrib.postgres.aggregates import ArrayAgg
 from django.db import connections
 from django.db.models import Aggregate, Subquery
 from django.db.utils import IntegrityError
 from lamin_utils import logger
-from lamindb_setup.core.hashing import hash_set
-from lamindb_setup.core.upath import create_path
 from lamindb_setup.errors import ModuleWasntConfigured
 from rich.table import Column, Table
 from rich.text import Text
 from rich.tree import Tree
 
-from lamindb.core.storage import LocalPathClasses
 from lamindb.errors import DoesNotExist, InvalidArgument, ValidationError
 from lamindb.models._from_values import _format_values
 from lamindb.models.feature import (
@@ -40,7 +35,6 @@ from lamindb.models.sqlrecord import (
     transfer_to_default_db,
 )
 
-from ..base import deprecated
 from ._describe import (
     NAME_WIDTH,
     TYPE_WIDTH,
@@ -896,76 +890,6 @@ def filter_with_features(
     return qs
 
 
-# for deprecated functionality
-def _unify_staged_feature_sets_by_hash(
-    feature_sets: MutableMapping[str, Schema],
-):
-    unique_values: dict[str, Any] = {}
-
-    for key, value in feature_sets.items():
-        value_hash = value.hash  # Assuming each value has a .hash attribute
-        if value_hash in unique_values:
-            feature_sets[key] = unique_values[value_hash]
-        else:
-            unique_values[value_hash] = value
-
-    return feature_sets
-
-
-# for deprecated functionality
-def parse_staged_feature_sets_from_anndata(
-    adata: AnnData,
-    var_field: FieldAttr | None = None,
-    obs_field: FieldAttr = Feature.name,
-    uns_field: FieldAttr | None = None,
-    mute: bool = False,
-    organism: str | SQLRecord | None = None,
-) -> dict:
-    data_parse = adata
-    if not isinstance(adata, AnnData):  # is a path
-        filepath = create_path(adata)  # returns Path for local
-        if not isinstance(filepath, LocalPathClasses):
-            from lamindb import settings
-            from lamindb.core.storage._backed_access import backed_access
-
-            using_key = settings._using_key
-            data_parse = backed_access(filepath, using_key=using_key)
-        else:
-            data_parse = ad.read_h5ad(filepath, backed="r")
-        dtype = "float"
-    else:
-        dtype = "float" if adata.X is None else serialize_pandas_dtype(adata.X.dtype)
-    feature_sets = {}
-    if var_field is not None:
-        schema_var = Schema.from_values(
-            data_parse.var.index,
-            var_field,
-            dtype=dtype,
-            mute=mute,
-            organism=organism,
-            raise_validation_error=False,
-        )
-        if schema_var is not None:
-            feature_sets["var"] = schema_var
-    if obs_field is not None and len(data_parse.obs.columns) > 0:
-        schema_obs = Schema.from_dataframe(
-            df=data_parse.obs,
-            field=obs_field,
-            mute=mute,
-            organism=organism,
-        )
-        if schema_obs is not None:
-            feature_sets["obs"] = schema_obs
-    if uns_field is not None and len(data_parse.uns) > 0:
-        validated_features = Feature.from_values(  # type: ignore
-            data_parse.uns.keys(), field=uns_field, organism=organism
-        )
-        if len(validated_features) > 0:
-            schema_uns = Schema(validated_features, dtype=None, otype="dict")
-            feature_sets["uns"] = schema_uns
-    return feature_sets
-
-
 class FeatureManager:
     """Feature manager."""
 
@@ -1673,182 +1597,3 @@ class FeatureManager:
                     artifact_id=self._host.id, slot=slot
                 ).delete()
                 self._host.features._add_schema(schema_self, slot)
-
-    @deprecated("none")
-    def make_external(self, feature: Feature) -> None:
-        """Make a feature external.
-
-        This removes a feature from `artifact.feature_sets` and thereby no longer marks it
-        as a dataset feature.
-
-        Args:
-            feature: A feature.
-        """
-        if not isinstance(feature, Feature):
-            raise TypeError("feature must be a Feature record!")
-        feature_sets = Schema.filter(features=feature)
-        for fs in feature_sets:
-            f = Feature.filter(uid=feature.uid)
-            features_updated = fs.members.difference(f)
-            if len(features_updated) > 0:
-                # re-compute the hash of feature sets based on the updated members
-                features_hash = hash_set({feature.uid for feature in features_updated})
-                fs.hash = features_hash
-                fs.n = len(features_updated)
-                fs.save()
-            # delete the link between the feature and the feature set
-            Schema.features.through.objects.filter(
-                feature_id=feature.id, schema_id=fs.id
-            ).delete()
-            # if no members are left in the schema, delete it
-            if len(features_updated) == 0:
-                logger.warning(f"deleting empty feature set: {fs}")
-                fs.artifacts.set([])
-                fs.delete()
-
-    @deprecated("_add_schema")
-    def add_schema(self, schema: Schema, slot: str) -> None:
-        return self._add_schema(schema, slot)
-
-    @deprecated("_add_schema")
-    def add_feature_set(self, schema: Schema, slot: str) -> None:
-        return self._add_schema(schema, slot)
-
-    @property
-    @deprecated("slots")
-    def _schema_by_slot(self):
-        return self.slots
-
-    @property
-    def _feature_set_by_slot(self):
-        return self.slots
-
-    # no longer called from within curator
-    # deprecated
-    def _add_set_from_df(
-        self,
-        field: FieldAttr = Feature.name,
-        organism: str | None = None,
-        mute: bool = False,
-    ):
-        """Add feature set corresponding to column names of DataFrame."""
-        assert self._host.otype == "DataFrame"  # noqa: S101
-        df = self._host.load(is_run_input=False)
-        schema = Schema.from_dataframe(
-            df=df,
-            field=field,
-            mute=mute,
-            organism=organism,
-        )
-        self._host._staged_feature_sets = {"columns": schema}
-        self._host.save()
-
-    # deprecated
-    def _add_set_from_anndata(
-        self,
-        var_field: FieldAttr | None = None,
-        obs_field: FieldAttr | None = Feature.name,
-        uns_field: FieldAttr | None = None,
-        mute: bool = False,
-        organism: str | SQLRecord | None = None,
-    ):
-        """Add features from AnnData."""
-        assert self._host.otype == "AnnData"  # noqa: S101
-
-        # parse and register features
-        adata = self._host.load(is_run_input=False)
-        feature_sets = parse_staged_feature_sets_from_anndata(
-            adata,
-            var_field=var_field,
-            obs_field=obs_field,
-            uns_field=uns_field,
-            mute=mute,
-            organism=organism,
-        )
-
-        # link feature sets
-        self._host._staged_feature_sets = feature_sets
-        self._host.save()
-
-    # deprecated
-    def _add_set_from_mudata(
-        self,
-        var_fields: dict[str, FieldAttr] | None = None,
-        obs_fields: dict[str, FieldAttr] | None = None,
-        mute: bool = False,
-        organism: str | SQLRecord | None = None,
-    ):
-        """Add features from MuData."""
-        if obs_fields is None:
-            obs_fields = {}
-        assert self._host.otype == "MuData"  # noqa: S101
-
-        # parse and register features
-        mdata = self._host.load(is_run_input=False)
-        feature_sets = {}
-
-        obs_features = Feature.from_values(mdata.obs.columns)  # type: ignore
-        if len(obs_features) > 0:
-            feature_sets["obs"] = Schema(features=obs_features)
-        for modality, field in var_fields.items():
-            modality_fs = parse_staged_feature_sets_from_anndata(
-                mdata[modality],
-                var_field=field,
-                obs_field=obs_fields.get(modality, Feature.name),
-                mute=mute,
-                organism=organism,
-            )
-            for k, v in modality_fs.items():
-                feature_sets[f"['{modality}'].{k}"] = v
-
-        # link feature sets
-        self._host._staged_feature_sets = _unify_staged_feature_sets_by_hash(
-            feature_sets
-        )
-        self._host.save()
-
-    # deprecated
-    def _add_set_from_spatialdata(
-        self,
-        sample_metadata_key: str,
-        sample_metadata_field: FieldAttr = Feature.name,
-        var_fields: dict[str, FieldAttr] | None = None,
-        obs_fields: dict[str, FieldAttr] | None = None,
-        mute: bool = False,
-        organism: str | SQLRecord | None = None,
-    ):
-        """Add features from SpatialData."""
-        obs_fields, var_fields = obs_fields or {}, var_fields or {}
-        assert self._host.otype == "SpatialData"  # noqa: S101
-
-        # parse and register features
-        sdata = self._host.load(is_run_input=False)
-        feature_sets = {}
-
-        # sample features
-        sample_features = Feature.from_values(
-            sdata.get_attrs(
-                key=sample_metadata_key, return_as="df", flatten=True
-            ).columns,
-            field=sample_metadata_field,
-        )  # type: ignore
-        if len(sample_features) > 0:
-            feature_sets[sample_metadata_key] = Schema(features=sample_features)
-
-        # table features
-        for table, field in var_fields.items():
-            table_fs = parse_staged_feature_sets_from_anndata(
-                sdata[table],
-                var_field=field,
-                obs_field=obs_fields.get(table, Feature.name),
-                mute=mute,
-                organism=organism,
-            )
-            for k, v in table_fs.items():
-                feature_sets[f"['{table}'].{k}"] = v
-
-        # link feature sets
-        self._host._staged_feature_sets = _unify_staged_feature_sets_by_hash(
-            feature_sets
-        )
-        self._host.save()

@@ -383,7 +383,7 @@ def get_schema_m2m_relations(artifact: Artifact, slot_schema: dict, limit: int =
         related_names[name] = related_model.__get_name_with_module__()
 
     schema_m2m = (
-        Schema.using(artifact._state.db)
+        Schema.connect(artifact._state.db)
         .filter(id__in=slot_schema.keys())
         .annotate(**annotations)
         .values("id", *annotations.keys())

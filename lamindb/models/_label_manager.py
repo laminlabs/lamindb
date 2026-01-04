@@ -4,7 +4,6 @@ from collections import defaultdict
 from typing import TYPE_CHECKING
 
 from django.db import connections
-from lamin_utils import logger
 from rich.table import Column, Table
 from rich.text import Text
 from rich.tree import Tree
@@ -19,7 +18,6 @@ from lamindb.models.sqlrecord import (
     transfer_to_default_db,
 )
 
-from ..base import deprecated
 from ._describe import (
     NAME_WIDTH,
     TYPE_WIDTH,
@@ -302,25 +300,3 @@ class LabelManager:
                     getattr(self._host, related_name).add(
                         *feature_labels, through_defaults={"feature_id": feature_id}
                     )
-
-    @deprecated("none")
-    def make_external(self, label: SQLRecord) -> None:
-        """Make a label external, aka dissociate label from internal features.
-
-        Args:
-            label: Label record to make external.
-        """
-        d = dict_related_model_to_related_name(self._host)
-        registry = label.__class__
-        related_name = d.get(registry.__get_name_with_module__())
-        link_model = getattr(self._host, related_name).through
-        link_records = link_model.filter(
-            artifact_id=self._host.id, **{f"{registry.__name__.lower()}_id": label.id}
-        )
-        features = link_records.values_list("feature__name", flat=True).distinct()
-        s = "s" if len(features) > 1 else ""
-        link_records.update(feature_id=None, feature_ref_is_name=None)
-        logger.warning(
-            f'{registry.__name__} "{getattr(label, label._name_field)}" is no longer associated with the following feature{s}:\n'
-            f"{list(features)}"
-        )

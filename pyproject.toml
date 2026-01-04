@@ -20,8 +20,8 @@ dependencies = [
     "lamin_cli==1.10.0",     # 30kB pure python, no dependencies
     "lamindb_setup[aws]==1.17.0",  # dependencies like Django & fsspec
     # LaminDB optional modules, included to avoid users forgetting about extras
-    "bionty==1.10.0",  # pronto dependency
-    "wetlab==1.6.1",  # 30kB pure python, no dependencies
+    "bionty==1.10.0", # 30kB pure python, no dependencies
+    "wetlab==1.7.0",  # 30kB pure python, no dependencies
     # Jupyter -- small packages with few & small dependencies
     "jupytext",
     "nbconvert>=7.2.1",  # bound to avoid lxml[html_clean] dependency

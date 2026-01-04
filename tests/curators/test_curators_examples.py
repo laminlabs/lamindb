@@ -577,10 +577,6 @@ def test_anndata_curator_different_components(mini_immuno_schema: ln.Schema):
         assert artifact.features.slots["var.T"].n == 3  # 3 genes get linked
         if add_comp == "obs":
             assert artifact.features.slots["obs"] == obs_schema
-            # deprecated
-            assert artifact.features._schema_by_slot["obs"] == obs_schema
-            assert artifact.features._feature_set_by_slot["obs"] == obs_schema
-
             assert set(artifact.features.get_values()["cell_type_by_expert"]) == {
                 "CD8-positive, alpha-beta T cell",
                 "B cell",

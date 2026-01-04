@@ -1670,24 +1670,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         super().__init__(**kwargs)
 
     @property
-    @deprecated("kind")
-    def type(self) -> str:
-        return self.kind
-
-    @property
-    @deprecated("otype")
-    def _accessor(self) -> str:
-        return self.otype
-
-    @property
     def transform(self) -> Transform | None:
         """Transform whose run created the artifact."""
         return self.run.transform if self.run is not None else None
-
-    @property
-    @deprecated("n_files")
-    def n_objects(self) -> int:
-        return self.n_files
 
     @property
     def overwrite_versions(self) -> bool:
