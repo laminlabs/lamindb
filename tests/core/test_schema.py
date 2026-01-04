@@ -117,7 +117,7 @@ def test_schema_from_df(df):
 
 def test_get_related_name():
     with pytest.raises(ValueError):
-        get_related_name(ln.Schema)
+        get_related_name(ln.Transform)
 
 
 def test_validate_features():
@@ -127,8 +127,7 @@ def test_validate_features():
         validate_features(["feature"])
     with pytest.raises(TypeError):
         validate_features({"feature"})
-    transform = ln.Schema(key="test")
-    transform.save()
+    transform = ln.Transform(key="test").save()
     # This is just a type check
     with pytest.raises(TypeError) as error:
         validate_features([transform, ln.Run(transform)])
