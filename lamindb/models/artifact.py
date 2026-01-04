@@ -1410,7 +1410,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     linked_in_records: Record = models.ManyToManyField(
         "Record", through="RecordArtifact", related_name="linked_artifacts"
     )
-    """This artifact is linked in these records as a value."""
+    """The records linking this artifact as a feature value."""
     blocks: ArtifactBlock
     """The blocks that annotate this artifact."""
 
