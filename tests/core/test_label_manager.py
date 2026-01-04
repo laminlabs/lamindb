@@ -264,10 +264,8 @@ def test_labels_get(get_mini_csv: Path):  # noqa: F811
     with pytest.raises(TypeError):
         artifact.labels.get("x")  # type: ignore
     # no linked labels
-    feature_name_feature = ln.Feature(name="feature name", dtype="cat")
-    feature_name_feature.save()
-    schema = ln.Schema(features=[feature_name_feature])
-    schema.save()
+    feature_name_feature = ln.Feature(name="feature name", dtype=ln.ULabel).save()
+    schema = ln.Schema(features=[feature_name_feature]).save()
     artifact.save()
     # test for deprecated add_schema
     artifact.features._add_schema(schema, slot="random")
