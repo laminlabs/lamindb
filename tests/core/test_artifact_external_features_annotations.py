@@ -42,6 +42,7 @@ def test_artifact_features_add_remove_values():
     ).save()
 
     test_artifact = ln.Artifact(".gitignore", key="test_artifact").save()
+    value_artifact = ln.Artifact("pyproject.toml", key="value_artifact.toml").save()
     test_project = ln.Project(name="test_project").save()
     hek293 = bt.CellLine.from_source(name="HEK293").save()
     a549 = bt.CellLine.from_source(name="A549 cell").save()
@@ -64,12 +65,22 @@ def test_artifact_features_add_remove_values():
         "feature_cell_lines": ["HEK293", "A549 cell"],
         "feature_cl_ontology_id": "CLO:0001230",
         "feature_artifact": "test-artifact",
-        "feature_artifact_2": "test-artifact",
+        "feature_artifact_2": "value_artifact.toml",
         "feature_run": run.uid,
     }
 
     test_artifact.features.add_values(test_values)
+
+    # ManyToMany accessors
+    assert set(test_artifact.artifacts.to_list()) == {test_artifact, value_artifact}
+    assert set(value_artifact.linked_by_artifacts.to_list()) == {test_artifact}
+    assert set(test_artifact.linked_by_artifacts.to_list()) == {test_artifact}
+    assert value_artifact.artifacts.to_list() == []
+
+    # get_values accessor
     assert test_artifact.features.get_values() == test_values
+
+    # __get_item__ accessor
     assert test_artifact.features["feature_str"] == test_values["feature_str"]
     assert test_artifact.features["feature_list_str"] == test_values["feature_list_str"]
     assert test_artifact.features["feature_int"] == test_values["feature_int"]
@@ -90,7 +101,7 @@ def test_artifact_features_add_remove_values():
     assert test_artifact.features["feature_cl_ontology_id"] == hek293
     assert set(test_artifact.features["feature_cell_lines"]) == {hek293, a549}
     assert test_artifact.features["feature_artifact"] == test_artifact
-    assert test_artifact.features["feature_artifact_2"] == test_artifact
+    assert test_artifact.features["feature_artifact_2"] == value_artifact
     assert test_artifact.features["feature_run"] == run
 
     # remove values

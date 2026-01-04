@@ -80,9 +80,9 @@ def test_artifact_describe():
         .artifacts: Artifact
         .linked_in_records: Record
         .users: User
-        .linked_runs: Run
+        .runs: Run
         .ulabels: ULabel
-        .linked_artifacts: Artifact
+        .linked_by_artifacts: Artifact
         .collections: Collection
         .records: Record
         .references: Reference

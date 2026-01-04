@@ -218,7 +218,9 @@ def test_using_query_by_feature():
 
 def test_transfer_features_uid():
     """Test that a new feature is created based on uid."""
-    existing_tissue_feature = ln.Feature.get(name="tissue")
+    existing_tissue_feature = (
+        ln.Feature.connect("laminlabs/lamin-dev").get(name="tissue").save()
+    )
     artifact = ln.Artifact.connect("laminlabs/pertdata").get("aT2dp4hC6XDwrafN")
     artifact.save(transfer="annotations")
     # now a new feature called "tissue" is created because the uid is different

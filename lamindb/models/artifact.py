@@ -1383,7 +1383,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         related_name="created_artifacts",
         editable=False,
     )
-    """Creator of record."""
+    """The creator of this artifact."""
     _overwrite_versions: bool = BooleanField(default=None)
     """See corresponding property `overwrite_versions`."""
     ulabels: ULabel
@@ -1396,21 +1396,21 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     """The references annotating this artifact."""
     records: Record
     """The records annotating this artifact."""
-    linked_runs: Run
+    runs: Run
     """The runs annotating this artifact."""
     artifacts: Artifact = models.ManyToManyField(
         "Artifact",
         through="ArtifactArtifact",
         symmetrical=False,
-        related_name="linked_artifacts",
+        related_name="linked_by_artifacts",
     )
-    """The artifacts that this artifact links to through a `feature`."""
-    linked_artifacts: Artifact
-    """The artifacts that reference this artifact through their features."""
+    """The artifacts that are linked to this artifact as feature values (its annotating artifacts)."""
+    linked_by_artifacts: Artifact
+    """The artifacts linking this artifact as a feature value (the artifacts annotated by this artifact)."""
     linked_in_records: Record = models.ManyToManyField(
         "Record", through="RecordArtifact", related_name="linked_artifacts"
     )
-    """This artifact is linked in these records as a value."""
+    """The records linking this artifact as a feature value."""
     blocks: ArtifactBlock
     """The blocks that annotate this artifact."""
 
