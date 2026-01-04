@@ -1247,7 +1247,10 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
             if k == "n" and getattr(self, k) < 0:
                 # only needed for Schema
                 continue
-            if not k.startswith("_") and hasattr(self, k):
+            if (
+                not k.startswith("_")
+                or (k == "_dtype_str" and self.__class__.__name__ == "Feature")
+            ) and hasattr(self, k):
                 value = getattr(self, k)
                 # Force strip the time component of the version
                 if k == "version" and value:

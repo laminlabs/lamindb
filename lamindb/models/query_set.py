@@ -402,7 +402,11 @@ def get_basic_field_names(
         if (
             not isinstance(field, models.ForeignKey)
             and field.name not in exclude_field_names
-            and (not field.name.startswith("_") or include_private_fields)
+            and (
+                not field.name.startswith("_")
+                or include_private_fields
+                or (field.name == "_dtype_str" and qs.model.__name__ == "Feature")
+            )
         )
     ]
     for field_name in [
