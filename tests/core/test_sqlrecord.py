@@ -28,7 +28,6 @@ def test_feature_describe():
         .array_rank: SmallIntegerField
         .array_size: IntegerField
         .array_shape: JSONField
-        .proxy_dtype: CharField
         .synonyms: TextField
         .is_locked: BooleanField
         .created_at: DateTimeField
