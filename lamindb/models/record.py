@@ -47,100 +47,6 @@ if TYPE_CHECKING:
     from .schema import Schema
 
 
-# also see analogous SQL on ULabel
-UPDATE_FEATURE_DTYPE_ON_RECORD_TYPE_NAME_CHANGE = """\
-WITH RECURSIVE old_record_path AS (
-    -- Start with OLD values directly, don't query the table
-    SELECT
-        OLD.id as id,
-        OLD.name as name,
-        OLD.type_id as type_id,
-        OLD.name::TEXT AS path,
-        1 as depth
-
-    UNION ALL
-
-    SELECT
-        r.id,
-        r.name,
-        r.type_id,
-        r.name || '[' || rp.path AS path,
-        rp.depth + 1
-    FROM lamindb_record r
-    INNER JOIN old_record_path rp ON r.id = rp.type_id
-),
-paths AS (
-    SELECT
-        path as old_path,
-        REPLACE(path, OLD.name, NEW.name) as new_path
-    FROM old_record_path
-    ORDER BY depth DESC
-    LIMIT 1
-)
-UPDATE lamindb_feature
-SET dtype = REPLACE(dtype, paths.old_path, paths.new_path)
-FROM paths
-WHERE dtype LIKE '%cat[Record[%'
-  AND dtype LIKE '%' || paths.old_path || '%';
-
-RETURN NEW;
-"""
-
-
-# also see analogous SQL on ULabel
-UPDATE_FEATURE_DTYPE_ON_RECORD_TYPE_CHANGE = """\
-WITH RECURSIVE old_record_path AS (
-    SELECT
-        OLD.id as id,
-        OLD.name as name,
-        OLD.type_id as type_id,
-        OLD.name::TEXT AS path,
-        1 as depth
-
-    UNION ALL
-
-    SELECT
-        r.id,
-        r.name,
-        r.type_id,
-        r.name || '[' || rp.path || ']' AS path,
-        rp.depth + 1
-    FROM lamindb_record r
-    INNER JOIN old_record_path rp ON r.id = rp.type_id
-),
-new_record_path AS (
-    SELECT
-        NEW.id as id,
-        NEW.name as name,
-        NEW.type_id as type_id,
-        NEW.name::TEXT AS path,
-        1 as depth
-
-    UNION ALL
-
-    SELECT
-        r.id,
-        r.name,
-        r.type_id,
-        r.name || '[' || rp.path || ']' AS path,
-        rp.depth + 1
-    FROM lamindb_record r
-    INNER JOIN new_record_path rp ON r.id = rp.type_id
-),
-paths AS (
-    SELECT
-        (SELECT path FROM old_record_path ORDER BY depth DESC LIMIT 1) as old_path,
-        (SELECT path FROM new_record_path ORDER BY depth DESC LIMIT 1) as new_path
-)
-UPDATE lamindb_feature
-SET dtype = REPLACE(dtype, 'cat[Record[' || paths.old_path || ']]', 'cat[Record[' || paths.new_path || ']]')
-FROM paths
-WHERE dtype LIKE '%cat[Record[' || paths.old_path || ']]%';
-
-RETURN NEW;
-"""
-
-
 class Record(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, HasParents):
     """Flexible metadata records.
 
@@ -234,24 +140,6 @@ class Record(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, HasParents
             == "django.db.backends.postgresql"
         ):
             triggers = [
-                pgtrigger.Trigger(
-                    name="update_feature_dtype_on_record_type_name_change",
-                    operation=pgtrigger.Update,
-                    when=pgtrigger.After,
-                    condition=pgtrigger.Condition(
-                        "OLD.name IS DISTINCT FROM NEW.name AND NEW.is_type"
-                    ),
-                    func=UPDATE_FEATURE_DTYPE_ON_RECORD_TYPE_NAME_CHANGE,
-                ),
-                pgtrigger.Trigger(
-                    name="update_feature_dtype_on_record_type_change",
-                    operation=pgtrigger.Update,
-                    when=pgtrigger.After,
-                    condition=pgtrigger.Condition(
-                        "OLD.type_id IS DISTINCT FROM NEW.type_id AND NEW.is_type"
-                    ),
-                    func=UPDATE_FEATURE_DTYPE_ON_RECORD_TYPE_CHANGE,
-                ),
                 pgtrigger.Trigger(
                     name="prevent_record_type_cycle",
                     operation=pgtrigger.Update | pgtrigger.Insert,
