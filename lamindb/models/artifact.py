@@ -1402,7 +1402,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         "Artifact",
         through="ArtifactArtifact",
         symmetrical=False,
-        related_name="linked_artifacts",
+        related_name="linked_in_artifacts",
     )
     """This artifact links these artifacts as feature values."""
     linked_in_artifacts: Artifact

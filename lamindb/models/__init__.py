@@ -38,8 +38,13 @@ Storage of feature values
 
 .. autoclass:: FeatureValue
 
-Link models
------------
+Link models for Artifact
+------------------------
+
+.. autoclass:: ArtifactArtifact
+
+Link models for Record
+----------------------
 
 .. autoclass:: RecordRecord
 .. autoclass:: RecordJson
@@ -114,7 +119,7 @@ from datetime import datetime as _datetime
 FeatureSet = Schema  # backward compat
 
 # link models
-from .artifact import ArtifactFeatureValue
+from .artifact import ArtifactFeatureValue, ArtifactArtifact
 from .project import (
     ArtifactProject,
     TransformProject,
