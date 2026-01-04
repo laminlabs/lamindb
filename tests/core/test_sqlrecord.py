@@ -22,7 +22,6 @@ def test_feature_describe():
       Simple fields
         .uid: CharField
         .name: CharField
-        .dtype: CharField
         .unit: CharField
         .description: TextField
         .array_rank: SmallIntegerField
