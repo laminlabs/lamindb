@@ -347,13 +347,14 @@ class Record(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, HasParents
     This is analogous to the `schema` attribute of an `Artifact`.
     If `is_type` is `True`, the schema is used to enforce features for each record of this type.
     """
-    # naming convention in analogy to Schema, but probably better would linked_records in analogy with other
-    # record relationships
-    components: Record = models.ManyToManyField(
-        "Record", through="RecordRecord", symmetrical=False, related_name="composites"
+    linked_records: Record = models.ManyToManyField(
+        "Record",
+        through="RecordRecord",
+        symmetrical=False,
+        related_name="linked_in_records",
     )
     """Records linked in this record as a value."""
-    composites: Record  # consider renaming to linked_in_records in LaminDB 2
+    linked_in_records: Record
     """Records linking this record as a value. Is reverse accessor for `components`."""
     parents: Record = models.ManyToManyField(
         "self", symmetrical=False, related_name="children"
@@ -642,13 +643,9 @@ class RecordJson(BaseSQLRecord, IsLink):
 # for storing record-like values in records
 class RecordRecord(BaseSQLRecord, IsLink):
     id: int = models.BigAutoField(primary_key=True)
-    record: Record = ForeignKey(
-        Record, CASCADE, related_name="values_record"
-    )  # composite
+    record: Record = ForeignKey(Record, CASCADE, related_name="values_record")
     feature: Feature = ForeignKey(Feature, PROTECT, related_name="links_recordrecord")
-    value: Record = ForeignKey(
-        Record, PROTECT, related_name="links_record"
-    )  # component
+    value: Record = ForeignKey(Record, PROTECT, related_name="links_record")
 
     class Meta:
         app_label = "lamindb"

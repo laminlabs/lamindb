@@ -116,8 +116,6 @@ from .artifact_set import ArtifactSet
 from .has_parents import HasParents
 from datetime import datetime as _datetime
 
-FeatureSet = Schema  # backward compat
-
 # link models
 from .artifact import ArtifactFeatureValue, ArtifactArtifact
 from .project import (
