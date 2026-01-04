@@ -911,11 +911,6 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     """Universal id, valid across DB instances."""
     name: str = CharField(max_length=150, db_index=True)
     """Name of feature."""
-    dtype: Dtype | str | None = CharField(db_index=True, null=True)
-    """The string-serialized data type (:class:`~lamindb.base.types.Dtype`).
-
-    Note that mutating this field currently does not trigger re-validation of existing values.
-    """
     _dtype_str: Dtype | str | None = CharField(db_index=True, null=True)
     """The string-serialized data type (:class:`~lamindb.base.types.Dtype`).
 
@@ -962,12 +957,6 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
 
     Is stored as a list rather than a tuple because it's serialized as JSON.
     """
-    proxy_dtype: Dtype | None = CharField(default=None, null=True)
-    """Proxy data type.
-
-    If the feature is an image it's often stored via a path to the image file. Hence, while the dtype might be
-    image with a certain shape, the proxy dtype would be str.
-    """
     synonyms: str | None = TextField(null=True)
     """Bar-separated (|) synonyms (optional)."""
     # we define the below ManyToMany on the Feature model because it parallels
@@ -976,13 +965,6 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         "Schema", through="SchemaFeature", related_name="features"
     )
     """Schemas linked to this feature."""
-    _expect_many: bool = models.BooleanField(default=None, db_default=None, null=True)
-    """Indicates whether values for this feature are expected to occur a single or multiple times for an artifact (default `None`).
-
-    - if it's `True` (default), the values come from an observation-level aggregation and a dtype of `datetime` on the observation-level means `set[datetime]` on the artifact-level
-    - if it's `False` it's an artifact-level value and datetime means datetime; this is an edge case because an arbitrary artifact would always be a set of arbitrary measurements that would need to be aggregated ("one just happens to measure a single cell line in that artifact")
-    """
-    _curation: dict[str, Any] = JSONField(default=None, db_default=None, null=True)
     # backward fields
     values: FeatureValue
     """Values for this feature."""
@@ -1262,6 +1244,26 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     def coerce_dtype(self, value: bool) -> None:
         self._aux = self._aux or {}
         self._aux.setdefault("af", {})["2"] = value
+
+    @property
+    def dtype(self) -> str | None:
+        """The `dtype` as a string."""
+        if self._dtype_str is None:
+            return None
+        if self._dtype_str.startswith(
+            ("cat[Record[", "cat[ULabel[", "list[cat[Record[", "list[cat[ULabel[")
+        ):
+            if self._dtype_str.startswith("list["):
+                dtype_str = self._dtype_str.replace("list[", "")[:-1]
+            else:
+                dtype_str = self._dtype_str
+            record_object = dtype_as_object(dtype_str)
+            nested_string = f"[{record_object.name}]"  # type: ignore
+            for t in record_object.query_types():  # type: ignore
+                nested_string = f"[{t.name}{nested_string}]"
+            return self._dtype_str.replace(f"[{record_object.uid}]", nested_string)  # type: ignore
+        else:
+            return self._dtype_str
 
     @property
     def dtype_as_object(self) -> type | SQLRecord | FieldAttr | None:  # type: ignore

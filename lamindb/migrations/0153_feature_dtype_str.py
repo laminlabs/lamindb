@@ -2,8 +2,6 @@
 
 from django.db import migrations
 
-import lamindb.base.fields
-
 
 class Migration(migrations.Migration):
     dependencies = [
@@ -11,11 +9,9 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AddField(
+        migrations.RenameField(
             model_name="feature",
-            name="_dtype_str",
-            field=lamindb.base.fields.CharField(
-                blank=True, db_index=True, default=None, max_length=255, null=True
-            ),
+            old_name="dtype",
+            new_name="_dtype_str",
         ),
     ]
