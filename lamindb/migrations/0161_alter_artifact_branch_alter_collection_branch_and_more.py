@@ -12,6 +12,56 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
+        # Rename the database columns from _branch_code to branch_id
+        migrations.RunSQL(
+            sql="ALTER TABLE lamindb_artifact RENAME COLUMN _branch_code TO branch_id;",
+            reverse_sql="ALTER TABLE lamindb_artifact RENAME COLUMN branch_id TO _branch_code;",
+        ),
+        migrations.RunSQL(
+            sql="ALTER TABLE lamindb_collection RENAME COLUMN _branch_code TO branch_id;",
+            reverse_sql="ALTER TABLE lamindb_collection RENAME COLUMN branch_id TO _branch_code;",
+        ),
+        migrations.RunSQL(
+            sql="ALTER TABLE lamindb_feature RENAME COLUMN _branch_code TO branch_id;",
+            reverse_sql="ALTER TABLE lamindb_feature RENAME COLUMN branch_id TO _branch_code;",
+        ),
+        migrations.RunSQL(
+            sql="ALTER TABLE lamindb_featurevalue RENAME COLUMN _branch_code TO branch_id;",
+            reverse_sql="ALTER TABLE lamindb_featurevalue RENAME COLUMN branch_id TO _branch_code;",
+        ),
+        migrations.RunSQL(
+            sql="ALTER TABLE lamindb_project RENAME COLUMN _branch_code TO branch_id;",
+            reverse_sql="ALTER TABLE lamindb_project RENAME COLUMN branch_id TO _branch_code;",
+        ),
+        migrations.RunSQL(
+            sql="ALTER TABLE lamindb_record RENAME COLUMN _branch_code TO branch_id;",
+            reverse_sql="ALTER TABLE lamindb_record RENAME COLUMN branch_id TO _branch_code;",
+        ),
+        migrations.RunSQL(
+            sql="ALTER TABLE lamindb_reference RENAME COLUMN _branch_code TO branch_id;",
+            reverse_sql="ALTER TABLE lamindb_reference RENAME COLUMN branch_id TO _branch_code;",
+        ),
+        migrations.RunSQL(
+            sql="ALTER TABLE lamindb_run RENAME COLUMN _branch_code TO branch_id;",
+            reverse_sql="ALTER TABLE lamindb_run RENAME COLUMN branch_id TO _branch_code;",
+        ),
+        migrations.RunSQL(
+            sql="ALTER TABLE lamindb_schema RENAME COLUMN _branch_code TO branch_id;",
+            reverse_sql="ALTER TABLE lamindb_schema RENAME COLUMN branch_id TO _branch_code;",
+        ),
+        migrations.RunSQL(
+            sql="ALTER TABLE lamindb_storage RENAME COLUMN _branch_code TO branch_id;",
+            reverse_sql="ALTER TABLE lamindb_storage RENAME COLUMN branch_id TO _branch_code;",
+        ),
+        migrations.RunSQL(
+            sql="ALTER TABLE lamindb_transform RENAME COLUMN _branch_code TO branch_id;",
+            reverse_sql="ALTER TABLE lamindb_transform RENAME COLUMN branch_id TO _branch_code;",
+        ),
+        migrations.RunSQL(
+            sql="ALTER TABLE lamindb_ulabel RENAME COLUMN _branch_code TO branch_id;",
+            reverse_sql="ALTER TABLE lamindb_ulabel RENAME COLUMN branch_id TO _branch_code;",
+        ),
+        # Update Django's state to reflect the new db_column
         migrations.AlterField(
             model_name="artifact",
             name="branch",
