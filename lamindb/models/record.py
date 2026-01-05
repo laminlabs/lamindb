@@ -623,8 +623,6 @@ class ArtifactRecord(BaseSQLRecord, IsLink, TracksRun):
     feature: Feature = ForeignKey(
         Feature, PROTECT, null=True, related_name="links_artifactrecord"
     )
-    label_ref_is_name: bool | None = BooleanField(null=True)
-    feature_ref_is_name: bool | None = BooleanField(null=True)
 
     class Meta:
         app_label = "lamindb"
@@ -655,8 +653,6 @@ class CollectionRecord(BaseSQLRecord, IsLink, TracksRun):
     feature: Feature = ForeignKey(
         Feature, PROTECT, null=True, related_name="links_collectionrecord"
     )
-    label_ref_is_name: bool | None = BooleanField(null=True)
-    feature_ref_is_name: bool | None = BooleanField(null=True)
 
     class Meta:
         app_label = "lamindb"
