@@ -873,8 +873,6 @@ class Registry(ModelBase):
                     if isinstance(field, django_ForeignKey):
                         available_fields.add(field_name + "_id")
             if cls.__name__ == "Artifact":
-                available_fields.add("visibility")  # backward compat
-                available_fields.add("_branch_code")  # backward compat
                 available_fields.add("transform")
             cls._available_fields = available_fields
         return cls._available_fields
@@ -1476,7 +1474,7 @@ class SQLRecord(BaseSQLRecord, metaclass=Registry):
         PROTECT,
         default=1,
         db_default=1,
-        db_column="_branch_code",
+        db_column="branch_id",
         related_name="+",
     )
     """Life cycle state of record.

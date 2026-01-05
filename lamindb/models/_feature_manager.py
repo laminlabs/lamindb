@@ -878,8 +878,6 @@ def filter_with_features(
             features = ", ".join(sorted(np.array(keys_normalized)[~features_validated]))
             message = f"feature names: {features}"
             avail_fields = registry.__get_available_fields__()
-            if "_branch_code" in avail_fields:
-                avail_fields.remove("_branch_code")  # backward compat
             fields = ", ".join(sorted(avail_fields))
             raise InvalidArgument(
                 f"You can query either by available fields: {fields}\n"
@@ -1035,9 +1033,6 @@ class FeatureManager:
     def _add_label_feature_links(
         self,
         features_labels,
-        *,
-        label_ref_is_name: bool | None = None,
-        feature_ref_is_name: bool | None = None,
     ):
         host_name = self._host.__class__.__name__.lower()
         host_is_record = host_name == "record"
@@ -1068,8 +1063,6 @@ class FeatureManager:
                             "artifact_id": self._host.id,
                             "feature_id": feature.id,
                             field_name: label.id,
-                            "feature_ref_is_name": feature_ref_is_name,
-                            "label_ref_is_name": label_ref_is_name,
                         }
                     )
                     for (feature, label) in registry_features_labels
