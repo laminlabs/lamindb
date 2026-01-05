@@ -801,8 +801,6 @@ def add_labels(
     feature: Feature | None = None,
     *,
     field: StrField | None = None,
-    feature_ref_is_name: bool | None = None,
-    label_ref_is_name: bool | None = None,
     from_curator: bool = False,
 ) -> None:
     """{}"""  # noqa: D415
@@ -902,8 +900,6 @@ def add_labels(
             }
             self.features._add_label_feature_links(
                 features_labels,
-                feature_ref_is_name=feature_ref_is_name,
-                label_ref_is_name=label_ref_is_name,
             )
 
 
@@ -2981,8 +2977,6 @@ class ArtifactUser(BaseSQLRecord, IsLink, TracksRun):
     feature: Feature | None = ForeignKey(
         Feature, PROTECT, null=True, related_name="links_artifactuser", default=None
     )
-    label_ref_is_name: bool | None = BooleanField(null=True)
-    feature_ref_is_name: bool | None = BooleanField(null=True)
 
     class Meta:
         # can have the same label linked to the same artifact if the feature is
@@ -2999,8 +2993,6 @@ class ArtifactRun(BaseSQLRecord, IsLink, TracksRun):
     feature: Feature | None = ForeignKey(
         Feature, PROTECT, null=True, related_name="links_artifactrun", default=None
     )
-    label_ref_is_name: bool | None = BooleanField(null=True)
-    feature_ref_is_name: bool | None = BooleanField(null=True)
 
     class Meta:
         # can have the same label linked to the same artifact if the feature is
@@ -3017,8 +3009,6 @@ class ArtifactArtifact(BaseSQLRecord, IsLink, TracksRun):
     feature: Feature | None = ForeignKey(
         Feature, PROTECT, null=True, related_name="links_artifactartifact", default=None
     )
-    label_ref_is_name: bool | None = BooleanField(null=True)
-    feature_ref_is_name: bool | None = BooleanField(null=True)
 
     class Meta:
         # can have the same label linked to the same artifact if the feature is

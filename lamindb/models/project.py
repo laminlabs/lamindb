@@ -354,8 +354,6 @@ class ArtifactProject(BaseSQLRecord, IsLink, TracksRun):
         default=None,
         related_name="links_artifactproject",
     )
-    label_ref_is_name: bool | None = BooleanField(null=True, default=None)
-    feature_ref_is_name: bool | None = BooleanField(null=True, default=None)
 
     class Meta:
         app_label = "lamindb"
@@ -508,8 +506,6 @@ class ArtifactReference(BaseSQLRecord, IsLink, TracksRun):
         default=None,
         related_name="links_artifactreference",
     )
-    label_ref_is_name: bool | None = BooleanField(null=True, default=None)
-    feature_ref_is_name: bool | None = BooleanField(null=True, default=None)
 
     class Meta:
         app_label = "lamindb"

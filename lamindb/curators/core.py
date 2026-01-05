@@ -1924,8 +1924,6 @@ def annotate_artifact(
             artifact,
             records=cat_vector.records,
             feature=cat_vector.feature,
-            feature_ref_is_name=None,  # do not need anymore
-            label_ref_is_name=cat_vector.label_ref_is_name,
             from_curator=True,
         )
 
