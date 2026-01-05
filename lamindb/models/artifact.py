@@ -1697,6 +1697,11 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         return self._overwrite_versions
 
     @property
+    @deprecated("schemas")
+    def feature_sets(self):
+        return self.schemas
+
+    @property
     def path(self) -> Path:
         """Path.
 
