@@ -878,8 +878,6 @@ def filter_with_features(
             features = ", ".join(sorted(np.array(keys_normalized)[~features_validated]))
             message = f"feature names: {features}"
             avail_fields = registry.__get_available_fields__()
-            if "_branch_code" in avail_fields:
-                avail_fields.remove("_branch_code")  # backward compat
             fields = ", ".join(sorted(avail_fields))
             raise InvalidArgument(
                 f"You can query either by available fields: {fields}\n"
