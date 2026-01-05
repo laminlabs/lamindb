@@ -335,9 +335,6 @@ def test_encode_lamindb_fields_as_columns():
 
 
 # def test_connect_public_clone_instance():
-#     env = os.environ
-#     env["LAMIN_TESTING"] = "true"
-
 #     # become an anonymous user
 #     ln_setup.logout()
 
