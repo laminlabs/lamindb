@@ -592,13 +592,13 @@ def test_only_list_type_features_and_field_qualifiers():
     # this tests type casting in list-like values
     artifact = test_sheet.to_artifact()
     assert (
-        len(artifact.feature_sets.first().members) == 2
+        len(artifact.schemas.first().members) == 2
     )  # this requires top most match filtering during validation
 
     record.delete(permanent=True)
     record2.delete(permanent=True)
     test_sheet.delete(permanent=True)
-    inferred_schema = artifact.feature_sets.first()
+    inferred_schema = artifact.schemas.first()
     artifact.delete(permanent=True)
     inferred_schema.delete(permanent=True)
     schema.delete(permanent=True)

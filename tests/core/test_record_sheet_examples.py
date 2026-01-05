@@ -24,8 +24,8 @@ def test_float_int_casting():
     # this export call would error if we didn't have type casting
     artifact = sheet.to_artifact()
 
-    related_schemas = list(artifact.feature_sets.all())
-    artifact.feature_sets.clear()
+    related_schemas = list(artifact.schemas.all())
+    artifact.schemas.clear()
     artifact.delete(permanent=True)
     record.delete(permanent=True)
     sheet.delete(permanent=True)
@@ -250,8 +250,8 @@ Sample_X,https://raw.githubusercontent.com/nf-core/test-datasets/scrnaseq/testda
         sample              Record[BioSample]       Sample_X, Sample_Y
         seq_center          str""")
 
-    related_schemas = list(artifact.feature_sets.all())
-    artifact.feature_sets.clear()
+    related_schemas = list(artifact.schemas.all())
+    artifact.schemas.clear()
     for schema in related_schemas:
         schema.delete(permanent=True)
     artifact.delete(permanent=True)

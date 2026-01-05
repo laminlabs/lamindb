@@ -728,9 +728,9 @@ def test_anndata_curator_nested_uns(study_metadata_schema, anndata_uns_schema):
         in str(e.value)
     )
 
-    inferred_sets = artifact.feature_sets.all()
+    inferred_sets = artifact.schemas.all()
     for inferred_set in inferred_sets:
-        artifact.feature_sets.remove(inferred_set)
+        artifact.schemas.remove(inferred_set)
     artifact.delete(permanent=True)
     bad_schema1.delete(permanent=True)
     bad_schema2.delete(permanent=True)

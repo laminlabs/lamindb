@@ -73,8 +73,8 @@ def test_transfer_from_remote_to_local(ccaplog):
             "ulabel_display": "na",
         },
     ]
-    assert result["related_data"]["schemas"][615][0] == "obs"
-    assert result["related_data"]["schemas"][615][1] == {
+    assert result["related_data"]["m2m_schemas"][615][0] == "obs"
+    assert result["related_data"]["m2m_schemas"][615][1] == {
         "Feature": [
             "donor_id",
             "development_stage",

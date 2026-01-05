@@ -181,6 +181,7 @@ def get_backward_compat_filter_kwargs(queryset, expressions):
     if queryset.model is Artifact:
         name_mappings = {
             "transform": "run__transform",
+            "feature_sets": "schemas",
         }
     else:
         return expressions

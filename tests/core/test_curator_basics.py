@@ -930,7 +930,7 @@ def test_hash_index_feature(df):
     artifact = ln.Artifact.from_dataframe(
         df_index, key="curated_df.parquet", schema=schema_index
     ).save()
-    assert artifact.feature_sets.all().one() == schema_index
+    assert artifact.schemas.all().one() == schema_index
 
     # clean up
     artifact.delete(permanent=True)

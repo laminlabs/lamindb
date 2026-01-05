@@ -45,7 +45,7 @@ def test_rename_feature(ccaplog):
             now2.isoformat().replace("+00:00", "Z"): "new_name",
         }
 
-    schema = artifact.feature_sets.first()
+    schema = artifact.schemas.first()
     artifact.delete(permanent=True)
     schema.delete(permanent=True)
     feature.delete(permanent=True)
@@ -77,7 +77,7 @@ def test_rename_label(model_class, ccaplog):
         in ccaplog.text
     )
 
-    schema = artifact.feature_sets.first()
+    schema = artifact.schemas.first()
     artifact.delete(permanent=True)
     schema.delete(permanent=True)
     feature1.delete(permanent=True)

@@ -243,7 +243,7 @@ class Record(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, HasParents
     )
     """Records linked in this record as a value."""
     linked_in_records: Record
-    """Records linking this record as a value. Is reverse accessor for `components`."""
+    """Records linking this record as a value. Is reverse accessor for `linked_records`."""
     parents: Record = models.ManyToManyField(
         "self", symmetrical=False, related_name="children"
     )
@@ -284,6 +284,8 @@ class Record(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, HasParents
     """Projects that annotate this record."""
     references: Reference
     """References that annotate this record."""
+    linked_transforms: Transform
+    """Transforms linked in this record as values."""
     linked_runs: Run
     """Runs linked in this record as values."""
     linked_ulabels: ULabel
@@ -308,10 +310,14 @@ class Record(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, HasParents
     """ULabel values with their features `(record_id, feature_id, value_id)`."""
     values_user: RecordUser
     """User values with their features `(record_id, feature_id, value_id)`."""
+    values_transform: RecordTransform
+    """Transform values with their features `(record_id, feature_id, value_id)`."""
     values_run: RecordRun
     """Run values with their features `(record_id, feature_id, value_id)`."""
     values_artifact: RecordArtifact
     """Artifact values with their features `(record_id, feature_id, value_id)`."""
+    values_collection: RecordCollection
+    """Collection values with their features `(record_id, feature_id, value_id)`."""
     values_reference: RecordReference
     """Reference values with their features `(record_id, feature_id, value_id)`."""
     values_project: RecordProject

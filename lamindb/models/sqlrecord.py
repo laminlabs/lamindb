@@ -1937,7 +1937,7 @@ def check_name_change(record: SQLRecord):
         elif isinstance(record, Feature):
             # only internal features of schemas with `itype=Feature` are prone to getting out of sync
             artifact_uids = Artifact.filter(
-                feature_sets__features=record, feature_sets__itype="Feature"
+                schemas__features=record, schemas__itype="Feature"
             ).to_list("uid")
             n = len(artifact_uids)
             if n > 0:

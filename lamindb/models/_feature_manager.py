@@ -80,15 +80,15 @@ def get_accessor_by_registry_(host: Artifact | Collection) -> dict:
 def get_schema_by_slot_(host: Artifact) -> dict[str, Schema]:
     # if the host is not yet saved
     if host._state.adding:
-        if hasattr(host, "_staged_feature_sets"):
-            return host._staged_feature_sets
+        if hasattr(host, "_staged_schemas"):
+            return host._staged_schemas
         else:
             return {}
     host_db = host._state.db
     kwargs = {"artifact_id": host.id}
     # otherwise, we need a query
     links_schema = (
-        host.feature_sets.through.objects.using(host_db)
+        host.schemas.through.objects.using(host_db)
         .filter(**kwargs)
         .select_related("schema")
     )
@@ -109,7 +109,7 @@ def get_label_links(
 
 def get_schema_links(host: Artifact | Collection) -> BasicQuerySet:
     kwargs = {"artifact_id": host.id}
-    links_schema = host.feature_sets.through.objects.filter(**kwargs)
+    links_schema = host.schemas.through.objects.filter(**kwargs)
     return links_schema
 
 
@@ -411,7 +411,7 @@ def get_features_data(
                     include_feature_link=True,
                 )
                 related_data = artifact_meta.get("related_data", {})
-            fs_data = related_data.get("schemas", {}) if related_data else {}
+            fs_data = related_data.get("m2m_schemas", {}) if related_data else {}
             for fs_id, (slot, data) in fs_data.items():
                 for registry_str, feature_names in data.items():
                     # prevent projects show up as features
@@ -445,7 +445,7 @@ def get_features_data(
 
     internal_feature_names = {}
     if isinstance(self, Artifact):
-        inferred_schemas = self.feature_sets.filter(itype="Feature")
+        inferred_schemas = self.schemas.filter(itype="Feature")
         if len(inferred_schemas) > 0:
             for schema in inferred_schemas:
                 # Use _dtype_str instead of dtype, and format for display
@@ -1503,12 +1503,12 @@ class FeatureManager:
             "slot": slot,
         }
         link_record = (
-            self._host.feature_sets.through.objects.using(host_db)
+            self._host.schemas.through.objects.using(host_db)
             .filter(**kwargs)
             .one_or_none()
         )
         if link_record is None:
-            self._host.feature_sets.through(**kwargs).save(using=host_db)
+            self._host.schemas.through(**kwargs).save(using=host_db)
             if slot in self.slots:
                 logger.debug(f"replaced existing {slot} feature set")
             self._slots[slot] = schema  # type: ignore
@@ -1593,7 +1593,7 @@ class FeatureManager:
                 logger.warning(
                     f"updating annotation of artifact {self._host.uid} with feature set for slot: {slot}"
                 )
-                self._host.feature_sets.through.objects.get(
+                self._host.schemas.through.objects.get(
                     artifact_id=self._host.id, slot=slot
                 ).delete()
                 self._host.features._add_schema(schema_self, slot)

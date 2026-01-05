@@ -214,8 +214,8 @@ def get_artifact_or_run_with_related(
         )
 
     if include_schema:
-        annotations["schemas"] = Subquery(
-            model.feature_sets.through.objects.filter(artifact=OuterRef("pk"))
+        annotations["m2m_schemas"] = Subquery(
+            model.schemas.through.objects.filter(artifact=OuterRef("pk"))
             .annotate(
                 data=JSONObject(
                     id=F("id"),
@@ -239,15 +239,15 @@ def get_artifact_or_run_with_related(
     if not record_meta:
         return None
 
-    related_data: dict = {"m2m": {}, "fk": {}, "link": {}, "schemas": {}}
+    related_data: dict = {"m2m": {}, "fk": {}, "link": {}, "m2m_schemas": {}}
     for k, v in record_meta.items():
         if k.startswith("fkfield_") and v is not None:
             related_data["fk"][k[8:]] = v
         elif k.startswith("linkfield_") and v is not None:
             related_data["link"][k[10:]] = v
-        elif k == "schemas":
+        elif k == "m2m_schemas":
             if v:
-                related_data["schemas"] = get_schema_m2m_relations(
+                related_data["m2m_schemas"] = get_schema_m2m_relations(
                     record, {i["schema"]: i["slot"] for i in v}
                 )
 
