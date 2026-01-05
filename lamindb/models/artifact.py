@@ -693,26 +693,26 @@ def get_run(run: Run | None) -> Run | None:
     return run
 
 
-def save_staged_feature_sets(self: Artifact) -> None:
-    if hasattr(self, "_staged_feature_sets"):
+def save_staged_schemas(self: Artifact) -> None:
+    if hasattr(self, "_staged_schemas"):
         from lamindb.models._feature_manager import get_schema_by_slot_
 
-        existing_staged_feature_sets = get_schema_by_slot_(self)
-        saved_staged_feature_sets = {}
-        for key, schema in self._staged_feature_sets.items():
+        existing_staged_schemas = get_schema_by_slot_(self)
+        saved_staged_schemas = {}
+        for key, schema in self._staged_schemas.items():
             if isinstance(schema, Schema) and schema._state.adding:
                 schema.save()
-                saved_staged_feature_sets[key] = schema
-            if key in existing_staged_feature_sets:
+                saved_staged_schemas[key] = schema
+            if key in existing_staged_schemas:
                 # remove existing feature set on the same slot
-                self.schemas.remove(existing_staged_feature_sets[key])
-        if len(saved_staged_feature_sets) > 0:
-            s = "s" if len(saved_staged_feature_sets) > 1 else ""
+                self.schemas.remove(existing_staged_schemas[key])
+        if len(saved_staged_schemas) > 0:
+            s = "s" if len(saved_staged_schemas) > 1 else ""
             display_schema_keys = ",".join(
-                f"'{key}'" for key in saved_staged_feature_sets.keys()
+                f"'{key}'" for key in saved_staged_schemas.keys()
             )
             logger.save(
-                f"saved {len(saved_staged_feature_sets)} feature set{s} for slot{s}:"
+                f"saved {len(saved_staged_schemas)} feature set{s} for slot{s}:"
                 f" {display_schema_keys}"
             )
 
@@ -720,9 +720,9 @@ def save_staged_feature_sets(self: Artifact) -> None:
 def save_schema_links(self: Artifact) -> None:
     from lamindb.models.save import bulk_create
 
-    if hasattr(self, "_staged_feature_sets"):
+    if hasattr(self, "_staged_schemas"):
         links = []
-        for slot, schema in self._staged_feature_sets.items():
+        for slot, schema in self._staged_schemas.items():
             kwargs = {
                 "artifact_id": self.id,
                 "schema_id": schema.id,
@@ -2941,7 +2941,7 @@ def _delete_skip_storage(artifact, *args, **kwargs) -> None:
 
 
 def _save_skip_storage(artifact, **kwargs) -> None:
-    save_staged_feature_sets(artifact)
+    save_staged_schemas(artifact)
     super(Artifact, artifact).save(**kwargs)
     save_schema_links(artifact)
 

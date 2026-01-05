@@ -80,8 +80,8 @@ def get_accessor_by_registry_(host: Artifact | Collection) -> dict:
 def get_schema_by_slot_(host: Artifact) -> dict[str, Schema]:
     # if the host is not yet saved
     if host._state.adding:
-        if hasattr(host, "_staged_feature_sets"):
-            return host._staged_feature_sets
+        if hasattr(host, "_staged_schemas"):
+            return host._staged_schemas
         else:
             return {}
     host_db = host._state.db

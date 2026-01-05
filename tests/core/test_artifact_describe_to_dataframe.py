@@ -60,16 +60,16 @@ def test_describe_to_dataframe_example_dataset():
     df = (
         ln.Artifact.filter(key__startswith="examples/dataset", suffix=".h5ad")
         .order_by("-key")
-        .to_dataframe(include=["feature_sets__hash", "feature_sets__name"])
+        .to_dataframe(include=["schemas__hash", "schemas__name"])
         .drop(["uid"], axis=1)
     )
     expected_data = {
         "key": ["examples/dataset2.h5ad", "examples/dataset1.h5ad"],
-        "feature_sets__hash": [
+        "schemas__hash": [
             set(artifact2.schemas.all().values_list("hash", flat=True)),
             set(artifact.schemas.all().values_list("hash", flat=True)),
         ],
-        "feature_sets__name": [{None}, {None}],
+        "schemas__name": [{None}, {None}],
     }
     expected_df = pd.DataFrame(expected_data)
     _check_df_equality(df, expected_df)
