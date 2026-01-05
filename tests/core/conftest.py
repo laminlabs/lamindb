@@ -55,7 +55,7 @@ def pytest_sessionfinish(session: pytest.Session):
     logger.set_verbosity(1)
     shutil.rmtree("./default_storage_unit_core")
     ln.setup.delete("lamindb-unit-tests-core", force=True)
-    del os.environ["LAMIN_TESTING"]
+    os.environ.pop("LAMIN_TESTING", None)
     if not os.getenv("LAMINDB_TEST_DB_VENDOR") == "sqlite":
         run("docker stop pgtest && docker rm pgtest", shell=True, stdout=DEVNULL)  # noqa: S602
 
