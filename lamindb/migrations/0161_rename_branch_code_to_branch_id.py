@@ -8,31 +8,43 @@ import lamindb.base.fields
 
 def rename_branch_columns(apps, schema_editor):
     """Rename _branch_code to branch_id across all models."""
-    if schema_editor.connection.vendor == "postgresql":
-        with schema_editor.connection.cursor() as cursor:
-            tables = [
-                "lamindb_artifact",
-                "lamindb_collection",
-                "lamindb_feature",
-                "lamindb_featurevalue",
-                "lamindb_project",
-                "lamindb_record",
-                "lamindb_reference",
-                "lamindb_run",
-                "lamindb_schema",
-                "lamindb_storage",
-                "lamindb_transform",
-                "lamindb_ulabel",
-            ]
+    tables = [
+        "lamindb_artifact",
+        "lamindb_collection",
+        "lamindb_feature",
+        "lamindb_featurevalue",
+        "lamindb_project",
+        "lamindb_record",
+        "lamindb_reference",
+        "lamindb_run",
+        "lamindb_schema",
+        "lamindb_storage",
+        "lamindb_transform",
+        "lamindb_ulabel",
+    ]
+
+    with schema_editor.connection.cursor() as cursor:
+        if schema_editor.connection.vendor == "postgresql":
             for table in tables:
                 cursor.execute(
                     f"ALTER TABLE {table} RENAME COLUMN _branch_code TO branch_id;"
                 )
 
-    elif schema_editor.connection.vendor == "sqlite":
-        # For SQLite, we need to use Django's schema editor which handles the table recreation
-        # We'll do this by creating a temporary field and swapping
-        pass  # Django's AlterField will handle this via table recreation
+        elif schema_editor.connection.vendor == "sqlite":
+            # SQLite 3.25.0+ supports ALTER TABLE RENAME COLUMN
+            # For older versions, we need table recreation
+            for table in tables:
+                try:
+                    cursor.execute(
+                        f"ALTER TABLE {table} RENAME COLUMN _branch_code TO branch_id;"
+                    )
+                except Exception as error:
+                    # Fall back to table recreation for older SQLite versions
+                    # This is more complex and would need the full table schema
+                    raise NotImplementedError(
+                        "This migration requires SQLite 3.25.0 or newer. "
+                        "Please upgrade SQLite or manually recreate the tables."
+                    ) from error
 
 
 class Migration(migrations.Migration):
@@ -41,10 +53,79 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        # For PostgreSQL: rename columns directly
-        # For SQLite: this is a no-op, AlterField will handle it
         migrations.RunPython(rename_branch_columns),
-        # Update Django's state - this will trigger table recreation on SQLite
+        migrations.RemoveField(
+            model_name="artifactartifact",
+            name="feature_ref_is_name",
+        ),
+        migrations.RemoveField(
+            model_name="artifactartifact",
+            name="label_ref_is_name",
+        ),
+        migrations.RemoveField(
+            model_name="artifactproject",
+            name="feature_ref_is_name",
+        ),
+        migrations.RemoveField(
+            model_name="artifactproject",
+            name="label_ref_is_name",
+        ),
+        migrations.RemoveField(
+            model_name="artifactrecord",
+            name="feature_ref_is_name",
+        ),
+        migrations.RemoveField(
+            model_name="artifactrecord",
+            name="label_ref_is_name",
+        ),
+        migrations.RemoveField(
+            model_name="artifactreference",
+            name="feature_ref_is_name",
+        ),
+        migrations.RemoveField(
+            model_name="artifactreference",
+            name="label_ref_is_name",
+        ),
+        migrations.RemoveField(
+            model_name="artifactrun",
+            name="feature_ref_is_name",
+        ),
+        migrations.RemoveField(
+            model_name="artifactrun",
+            name="label_ref_is_name",
+        ),
+        migrations.RemoveField(
+            model_name="artifactulabel",
+            name="feature_ref_is_name",
+        ),
+        migrations.RemoveField(
+            model_name="artifactulabel",
+            name="label_ref_is_name",
+        ),
+        migrations.RemoveField(
+            model_name="artifactuser",
+            name="feature_ref_is_name",
+        ),
+        migrations.RemoveField(
+            model_name="artifactuser",
+            name="label_ref_is_name",
+        ),
+        migrations.RemoveField(
+            model_name="collectionrecord",
+            name="feature_ref_is_name",
+        ),
+        migrations.RemoveField(
+            model_name="collectionrecord",
+            name="label_ref_is_name",
+        ),
+        migrations.RemoveField(
+            model_name="collectionulabel",
+            name="feature_ref_is_name",
+        ),
+        migrations.RemoveField(
+            model_name="collectionulabel",
+            name="label_ref_is_name",
+        ),
         migrations.AlterField(
             model_name="artifact",
             name="branch",
