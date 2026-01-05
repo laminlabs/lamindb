@@ -184,7 +184,11 @@ def install_ci(session, group):
         )
         run(
             session,
-            "uv pip install --system -e ./laminhub/backend --no-build-isolation",
+            "uv pip install --system ./laminhub/backend --no-build-isolation",
+        )
+        run(
+            session,
+            "uv pip install --system ./laminhub/backend/central",
         )
 
 
