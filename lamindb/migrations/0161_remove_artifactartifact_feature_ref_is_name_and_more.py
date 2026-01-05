@@ -35,30 +35,6 @@ def rename_branch_columns(apps, schema_editor):
         pass  # Django's AlterField will handle this via table recreation
 
 
-def reverse_rename_branch_columns(apps, schema_editor):
-    """Reverse the column rename."""
-    if schema_editor.connection.vendor == "postgresql":
-        with schema_editor.connection.cursor() as cursor:
-            tables = [
-                "lamindb_artifact",
-                "lamindb_collection",
-                "lamindb_feature",
-                "lamindb_featurevalue",
-                "lamindb_project",
-                "lamindb_record",
-                "lamindb_reference",
-                "lamindb_run",
-                "lamindb_schema",
-                "lamindb_storage",
-                "lamindb_transform",
-                "lamindb_ulabel",
-            ]
-            for table in tables:
-                cursor.execute(
-                    f"ALTER TABLE {table} RENAME COLUMN branch_id TO _branch_code;"
-                )
-
-
 class Migration(migrations.Migration):
     dependencies = [
         ("lamindb", "0160_rename_feature_sets_artifact_schemas"),
@@ -67,10 +43,7 @@ class Migration(migrations.Migration):
     operations = [
         # For PostgreSQL: rename columns directly
         # For SQLite: this is a no-op, AlterField will handle it
-        migrations.RunPython(
-            rename_branch_columns,
-            reverse_rename_branch_columns,
-        ),
+        migrations.RunPython(rename_branch_columns),
         # Update Django's state - this will trigger table recreation on SQLite
         migrations.AlterField(
             model_name="artifact",
