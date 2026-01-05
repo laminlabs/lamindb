@@ -705,7 +705,7 @@ def save_staged_feature_sets(self: Artifact) -> None:
                 saved_staged_feature_sets[key] = schema
             if key in existing_staged_feature_sets:
                 # remove existing feature set on the same slot
-                self.feature_sets.remove(existing_staged_feature_sets[key])
+                self.schemas.remove(existing_staged_feature_sets[key])
         if len(saved_staged_feature_sets) > 0:
             s = "s" if len(saved_staged_feature_sets) > 1 else ""
             display_schema_keys = ",".join(
@@ -728,7 +728,7 @@ def save_schema_links(self: Artifact) -> None:
                 "schema_id": schema.id,
                 "slot": slot,
             }
-            links.append(Artifact.feature_sets.through(**kwargs))
+            links.append(Artifact.schemas.through(**kwargs))
         bulk_create(links, ignore_conflicts=True)
 
 
@@ -865,10 +865,10 @@ def add_labels(
     else:
         validate_feature(feature, records)  # type:ignore
         records_by_registry = defaultdict(list)
-        feature_sets = self.feature_sets.filter(itype="Feature")
+        schemas = self.schemas.filter(itype="Feature")
         internal_features = set()  # type: ignore
-        if len(feature_sets) > 0:
-            for schema in feature_sets:
+        if len(schemas) > 0:
+            for schema in schemas:
                 internal_features = internal_features.union(
                     set(schema.members.values_list("name", flat=True))
                 )  # type: ignore
@@ -1361,7 +1361,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         related_name="validated_artifacts",
     )
     """The schema that validated this artifact in a :class:`~lamindb.curators.core.Curator`."""
-    feature_sets: Schema = models.ManyToManyField(
+    schemas: Schema = models.ManyToManyField(
         Schema, related_name="artifacts", through="ArtifactSchema"
     )
     """The feature sets measured by the artifact."""

@@ -88,7 +88,7 @@ def get_schema_by_slot_(host: Artifact) -> dict[str, Schema]:
     kwargs = {"artifact_id": host.id}
     # otherwise, we need a query
     links_schema = (
-        host.feature_sets.through.objects.using(host_db)
+        host.schemas.through.objects.using(host_db)
         .filter(**kwargs)
         .select_related("schema")
     )
@@ -109,7 +109,7 @@ def get_label_links(
 
 def get_schema_links(host: Artifact | Collection) -> BasicQuerySet:
     kwargs = {"artifact_id": host.id}
-    links_schema = host.feature_sets.through.objects.filter(**kwargs)
+    links_schema = host.schemas.through.objects.filter(**kwargs)
     return links_schema
 
 
@@ -445,7 +445,7 @@ def get_features_data(
 
     internal_feature_names = {}
     if isinstance(self, Artifact):
-        inferred_schemas = self.feature_sets.filter(itype="Feature")
+        inferred_schemas = self.schemas.filter(itype="Feature")
         if len(inferred_schemas) > 0:
             for schema in inferred_schemas:
                 # Use _dtype_str instead of dtype, and format for display
@@ -1503,12 +1503,12 @@ class FeatureManager:
             "slot": slot,
         }
         link_record = (
-            self._host.feature_sets.through.objects.using(host_db)
+            self._host.schemas.through.objects.using(host_db)
             .filter(**kwargs)
             .one_or_none()
         )
         if link_record is None:
-            self._host.feature_sets.through(**kwargs).save(using=host_db)
+            self._host.schemas.through(**kwargs).save(using=host_db)
             if slot in self.slots:
                 logger.debug(f"replaced existing {slot} feature set")
             self._slots[slot] = schema  # type: ignore
@@ -1593,7 +1593,7 @@ class FeatureManager:
                 logger.warning(
                     f"updating annotation of artifact {self._host.uid} with feature set for slot: {slot}"
                 )
-                self._host.feature_sets.through.objects.get(
+                self._host.schemas.through.objects.get(
                     artifact_id=self._host.id, slot=slot
                 ).delete()
                 self._host.features._add_schema(schema_self, slot)

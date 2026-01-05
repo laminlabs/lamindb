@@ -66,8 +66,8 @@ def test_describe_to_dataframe_example_dataset():
     expected_data = {
         "key": ["examples/dataset2.h5ad", "examples/dataset1.h5ad"],
         "feature_sets__hash": [
-            set(artifact2.feature_sets.all().values_list("hash", flat=True)),
-            set(artifact.feature_sets.all().values_list("hash", flat=True)),
+            set(artifact2.schemas.all().values_list("hash", flat=True)),
+            set(artifact.schemas.all().values_list("hash", flat=True)),
         ],
         "feature_sets__name": [{None}, {None}],
     }

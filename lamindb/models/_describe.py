@@ -568,7 +568,7 @@ def describe_sqlite(record):
         if model_name in {"Artifact", "Collection"}:
             many_to_many_fields.append("input_of_runs")
         if model_name == "Artifact":
-            many_to_many_fields.append("feature_sets")
+            many_to_many_fields.append("schemas")
         record = (
             record.__class__.objects.using(record._state.db)
             .prefetch_related(*many_to_many_fields)

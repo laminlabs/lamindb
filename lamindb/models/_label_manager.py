@@ -31,7 +31,7 @@ if TYPE_CHECKING:
     from lamindb.models import Artifact, Collection, SQLRecord
     from lamindb.models.query_set import QuerySet
 
-EXCLUDE_LABELS = {"feature_sets"}
+EXCLUDE_LABELS = {"schemas"}
 
 
 def _get_labels(
@@ -94,7 +94,7 @@ def describe_labels(
         pad_edge=False,
     )
     for related_name, labels in labels_data.items():
-        if not labels or related_name == "feature_sets":
+        if not labels or related_name == "schemas":
             continue
         if isinstance(labels, dict):
             displays = [
