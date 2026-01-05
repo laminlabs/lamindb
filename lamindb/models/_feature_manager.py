@@ -411,7 +411,7 @@ def get_features_data(
                     include_feature_link=True,
                 )
                 related_data = artifact_meta.get("related_data", {})
-            fs_data = related_data.get("schemas", {}) if related_data else {}
+            fs_data = related_data.get("m2m_schemas", {}) if related_data else {}
             for fs_id, (slot, data) in fs_data.items():
                 for registry_str, feature_names in data.items():
                     # prevent projects show up as features
