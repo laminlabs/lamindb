@@ -1611,12 +1611,12 @@ class CatVector:
                 if syn_mapper:
                     warning_message += "\n    for remaining terms:\n"
                 check_organism = ""
-                if self._registry.__base__.__name__ == "BioRecord":
-                    from bionty._organism import is_organism_required
-
-                    if is_organism_required(self._registry, self._field):
-                        organism = self._filter_kwargs.get("organism", None)
-                        check_organism = f"fix organism '{organism}', "
+                if (
+                    self._registry.__base__.__name__ == "BioRecord"
+                    and self._registry.require_organism(field=self._field)
+                ):
+                    organism = self._filter_kwargs.get("organism", None)
+                    check_organism = f"fix organism '{organism}', "
                 warning_message += f"    → {check_organism}fix typos, remove non-existent values, or save terms via: {colors.cyan(non_validated_hint_print)}"
                 if self._subtype_query_set is not None and self._type_record:
                     warning_message += f"\n    → a valid label for subtype '{self._type_record.name}' has to be one of {self._subtype_query_set.to_list('name')}"
