@@ -681,21 +681,6 @@ def migrate_dtype_to_uid_format(connection, input_field: str = "_dtype_str") -> 
         "list[cat[ULabel[",
     ]
 
-    # Check if input field column exists (for migration 0157 when dtype may not exist)
-    if connection.vendor != "sqlite":
-        with connection.cursor() as cursor:
-            cursor.execute(
-                """
-                SELECT column_name
-                FROM information_schema.columns
-                WHERE table_name = 'lamindb_feature' AND column_name = %s
-            """,
-                [input_field],
-            )
-            if not cursor.fetchone():
-                # Column doesn't exist, return early
-                return
-
     # Build SQL query to fetch features matching any pattern
     # Using OR conditions for each pattern
     pattern_conditions = " OR ".join(
