@@ -660,6 +660,85 @@ def resolve_relation_filters(
     return resolved
 
 
+def migrate_dtype_to_uid_format(connection, input_field: str = "_dtype_str") -> None:
+    """Update _dtype_str for nested Record/ULabel types to uid format.
+
+    Converts old format (name-based) dtype strings to new UID-based format.
+    This function is used in migrations to update existing feature records.
+
+    Args:
+        connection: Database connection (from schema_editor.connection)
+        input_field: Field name to read from ("_dtype_str" or "dtype")
+
+    Returns:
+        None. Updates are performed directly in the database.
+    """
+    # Patterns to look for old format (name-based)
+    patterns = [
+        "cat[Record[",
+        "cat[ULabel[",
+        "list[cat[Record[",
+        "list[cat[ULabel[",
+    ]
+
+    # Check if input field column exists (for migration 0157 when dtype may not exist)
+    if connection.vendor != "sqlite":
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT column_name
+                FROM information_schema.columns
+                WHERE table_name = 'lamindb_feature' AND column_name = %s
+            """,
+                [input_field],
+            )
+            if not cursor.fetchone():
+                # Column doesn't exist, return early
+                return
+
+    # Build SQL query to fetch features matching any pattern
+    # Using OR conditions for each pattern
+    pattern_conditions = " OR ".join(
+        [f"{input_field} LIKE '{pattern}%'" for pattern in patterns]
+    )
+
+    query = f"""
+        SELECT id, uid, name, {input_field}
+        FROM lamindb_feature
+        WHERE {pattern_conditions}
+    """
+
+    # Fetch matching features
+    with connection.cursor() as cursor:
+        cursor.execute(query)
+        columns = [col[0] for col in cursor.description]
+        features = [dict(zip(columns, row)) for row in cursor.fetchall()]
+
+    # Convert each feature
+    for feature in features:
+        try:
+            # Convert old format string to objects, then serialize to UID format
+            dtype_objects = dtype_as_object(feature[input_field], old_format=True)
+            new_dtype_str = serialize_dtype(dtype_objects)
+
+            if new_dtype_str != feature[input_field]:
+                # Update using raw SQL
+                update_query = """
+                    UPDATE lamindb_feature
+                    SET _dtype_str = %s
+                    WHERE id = %s
+                """
+                with connection.cursor() as cursor:
+                    cursor.execute(update_query, [new_dtype_str, feature["id"]])
+
+        except Exception as e:
+            # If conversion fails, keep the original value
+            print(
+                f"Warning: Could not convert dtype for feature {feature['name']} ({feature['uid']}) because of error: {e}"
+            )
+            continue
+
+
 def process_init_feature_param(args, kwargs):
     # now we proceed with the user-facing constructor
     if len(args) != 0:

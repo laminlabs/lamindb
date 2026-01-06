@@ -2,6 +2,28 @@
 
 from django.db import migrations
 
+from lamindb.models.feature import migrate_dtype_to_uid_format
+
+
+def migrate_dtype_if_exists(apps, schema_editor):
+    """Migrate dtype field to _dtype_str if dtype column exists."""
+    connection = schema_editor.connection
+
+    if connection.vendor == "sqlite":
+        return
+
+    with connection.cursor() as cursor:
+        # Check if column exists
+        cursor.execute("""
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_name = 'lamindb_feature' AND column_name = 'dtype'
+        """)
+
+        if cursor.fetchone():
+            # Column exists, migrate it
+            migrate_dtype_to_uid_format(schema_editor.connection, input_field="dtype")
+
 
 def remove_dtype_if_exists(apps, schema_editor):
     """Remove dtype field only if it exists."""
@@ -29,6 +51,7 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
+        migrations.RunPython(migrate_dtype_if_exists),
         migrations.RunPython(remove_dtype_if_exists),
         migrations.RemoveField(
             model_name="feature",
