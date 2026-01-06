@@ -56,13 +56,11 @@ def _from_values(
     # new records to be created based on new values
     if len(nonexist_values) > 0:
         if from_source and registry.__base__.__name__ == "BioRecord":
-            from bionty._organism import is_organism_required
-
             # if can and needed, get organism record from the existing records
             if (
                 organism_record is None
                 and len(records) > 0
-                and is_organism_required(registry)
+                and registry.require_organism()
             ):
                 organism_record = records[0].organism
             records_public, unmapped_values = create_records_from_source(
@@ -201,11 +199,11 @@ def create_records_from_source(
     registry = field.field.model  # type: ignore
     records: list = []
     # populate additional fields from public_df
-    from bionty._organism import OrganismNotSet, is_organism_required
+    from bionty._organism import OrganismNotSet
     from bionty._source import filter_public_df_columns, get_source_record
 
     # get the default source
-    if is_organism_required(registry, field) and organism is None:
+    if organism is None and registry.require_organism(field=field):
         raise OrganismNotSet(
             f"`organism` is required to create new {registry.__name__} records from source!"
         )
