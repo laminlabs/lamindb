@@ -173,7 +173,7 @@ def install_ci(session, group):
     if IS_PR or group == "docs":
         run(
             session,
-            "uv pip install --system ./sub/lamindb-setup ./sub/lamin-cli ./sub/bionty",
+            "uv pip install --system ./sub/lamindb-setup ./sub/lamin-cli ./sub/bionty ./sub/wetlab",
         )
     if group == "permissions":
         # have to install after lamindb installation
