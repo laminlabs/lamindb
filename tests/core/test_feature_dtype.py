@@ -632,3 +632,94 @@ def test_feature_constructor_with_old_format_nested_string(ccaplog):
     # Clean up
     experiment_type.delete(permanent=True)
     lab_type.delete(permanent=True)
+
+
+def test_migrate_dtype_to_uid_format():
+    """Test migrate_dtype_to_uid_format() function for migration."""
+    from django.db import connection
+    from lamindb.models.feature import migrate_dtype_to_uid_format
+
+    # Create Record types for testing
+    lab_type = ln.Record(name="LabA", is_type=True).save()
+    experiment_type = ln.Record(name="Experiment", type=lab_type, is_type=True).save()
+    perturbation = ln.ULabel(name="Perturbation", is_type=True).save()
+
+    # Create features with old format strings in _dtype_str
+    feature1 = ln.Feature(name="test_record_old_format", dtype="str").save()
+    feature2 = ln.Feature(name="test_ulabel_old_format", dtype="str").save()
+    feature3 = ln.Feature(name="test_list_record_old_format", dtype="str").save()
+    feature4 = ln.Feature(name="test_list_ulabel_old_format", dtype="str").save()
+
+    # Manually set old format strings using raw SQL
+    old_format_record = "cat[Record[LabA[Experiment]]]"
+    old_format_ulabel = "cat[ULabel[Perturbation]]"
+    old_format_list_record = "list[cat[Record[LabA[Experiment]]]]"
+    old_format_list_ulabel = "list[cat[ULabel[Perturbation]]]"
+
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "UPDATE lamindb_feature SET _dtype_str = %s WHERE id = %s",
+            [old_format_record, feature1.id],
+        )
+        cursor.execute(
+            "UPDATE lamindb_feature SET _dtype_str = %s WHERE id = %s",
+            [old_format_ulabel, feature2.id],
+        )
+        cursor.execute(
+            "UPDATE lamindb_feature SET _dtype_str = %s WHERE id = %s",
+            [old_format_list_record, feature3.id],
+        )
+        cursor.execute(
+            "UPDATE lamindb_feature SET _dtype_str = %s WHERE id = %s",
+            [old_format_list_ulabel, feature4.id],
+        )
+
+    # Refresh features from database
+    feature1.refresh_from_db()
+    feature2.refresh_from_db()
+    feature3.refresh_from_db()
+    feature4.refresh_from_db()
+
+    # Verify old format is present
+    assert feature1._dtype_str == old_format_record
+    assert feature2._dtype_str == old_format_ulabel
+    assert feature3._dtype_str == old_format_list_record
+    assert feature4._dtype_str == old_format_list_ulabel
+
+    # Run migration function
+    migrate_dtype_to_uid_format(connection, input_field="_dtype_str")
+
+    # Refresh features from database
+    feature1.refresh_from_db()
+    feature2.refresh_from_db()
+    feature3.refresh_from_db()
+    feature4.refresh_from_db()
+
+    # Verify conversion to UID format
+    assert feature1._dtype_str == f"cat[Record[{experiment_type.uid}]]"
+    assert feature2._dtype_str == f"cat[ULabel[{perturbation.uid}]]"
+    assert feature3._dtype_str == f"list[cat[Record[{experiment_type.uid}]]]"
+    assert feature4._dtype_str == f"list[cat[ULabel[{perturbation.uid}]]]"
+
+    # Verify old names are not in the converted strings
+    assert "LabA" not in feature1._dtype_str
+    assert "Experiment" not in feature1._dtype_str
+    assert "Perturbation" not in feature2._dtype_str
+    assert "LabA" not in feature3._dtype_str
+    assert "Experiment" not in feature3._dtype_str
+    assert "Perturbation" not in feature4._dtype_str
+
+    # Verify UIDs are present
+    assert experiment_type.uid in feature1._dtype_str
+    assert perturbation.uid in feature2._dtype_str
+    assert experiment_type.uid in feature3._dtype_str
+    assert perturbation.uid in feature4._dtype_str
+
+    # Clean up
+    feature1.delete(permanent=True)
+    feature2.delete(permanent=True)
+    feature3.delete(permanent=True)
+    feature4.delete(permanent=True)
+    experiment_type.delete(permanent=True)
+    lab_type.delete(permanent=True)
+    perturbation.delete(permanent=True)
