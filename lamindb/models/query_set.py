@@ -410,24 +410,22 @@ def get_basic_field_names(
             )
         )
     ]
-    for field_name in [
-        "version",
-        "is_latest",
-        "is_locked",
-        "created_at",
-        "updated_at",
-    ]:
+    for field_name in ["version", "is_latest", "is_locked", "created_at", "updated_at"]:
         if field_name in field_names:
-            field_names.remove(field_name)
-            field_names.append(field_name)
+            field_names.append(field_names.pop(field_names.index(field_name)))
     field_names += [
         f"{field.name}_id"
         for field in qs.model._meta.fields
         if isinstance(field, models.ForeignKey)
     ]
-    if field_names[0] != "uid" and "uid" in field_names:
-        field_names.remove("uid")
-        field_names.insert(0, "uid")
+    # move uid to first position if present
+    if "uid" in field_names:
+        field_names.insert(0, field_names.pop(field_names.index("uid")))
+
+    # move primary key to second position if present
+    pk = qs.model._meta.pk.name if qs.model._meta.pk else None
+    if pk and pk in field_names:
+        field_names.insert(1, field_names.pop(field_names.index(pk)))
     if (
         include or features_input
     ):  # if there is features_input, reduce fields to just the first 3
