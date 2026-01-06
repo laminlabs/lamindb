@@ -2,7 +2,7 @@
 
 .. autoclass:: LaminCheckpoint
 .. autoclass:: SaveConfigCallback
-.. autofunction:: register_features
+.. autofunction:: save_lightning_features
 """
 
 from __future__ import annotations
@@ -22,6 +22,15 @@ if TYPE_CHECKING:
 
     import lightning.pytorch as pl
     from lightning.fabric.utilities.types import _PATH
+
+
+_AUTO_FEATURES = (
+    "is_best_model",
+    "score",
+    "model_rank",
+    "logger_name",
+    "logger_version",
+)
 
 
 def save_lightning_features() -> None:
@@ -53,8 +62,11 @@ class LaminCheckpoint(ModelCheckpoint):
     Extends Lightning's ModelCheckpoint with LaminDB artifact tracking.
     Checkpoints are versioned under a single key.
 
+    If available in the instance, the following features are automatically tracked:
+    `is_best_model`, `score`, `model_rank`, `logger_name`, `logger_version`.
+
     Args:
-        key: The artifact key for checkpoints in LaminDB.
+        key: The artifact key for checkpoints.
         features: Features to annotate checkpoints with.
             Values can be static or None (auto-populated from trainer metrics/attributes).
         dirpath: Local directory for checkpoints.
@@ -76,14 +88,12 @@ class LaminCheckpoint(ModelCheckpoint):
         import lightning as pl
         from lamindb.integrations import lightning as ll
 
-        # Pre-create features
+        # One-time setup
         ll.save_lightning_features()
 
         callback = ll.LaminCheckpoint(
             key="experiments/my_model.ckpt",
-            features={
-                "val_loss": None,  # auto-populated from trainer
-            },
+            features={"val_loss": None},  # auto-populated from trainer
             monitor="val_loss",
             save_top_k=3,
             mode="min",
@@ -127,90 +137,80 @@ class LaminCheckpoint(ModelCheckpoint):
         )
         self.key = key
         self.features = features or {}
+        self._auto_features: set[str] = set()
 
     def setup(
         self, trainer: pl.Trainer, pl_module: pl.LightningModule, stage: str
     ) -> None:
-        """Validate that all specified features exist."""
+        """Validate user features and detect available auto-features."""
         super().setup(trainer, pl_module, stage)
         if trainer.is_global_zero:
-            self._validate_features()
-
-    def _validate_features(self) -> None:
-        """Validate that user-specified features exist."""
-        missing = [
-            name
-            for name in self.features
-            if ln.Feature.filter(name=name).one_or_none() is None
-        ]
-        if missing:
-            s = "s" if len(missing) > 1 else ""
-            raise ValueError(
-                f"Feature{s} {', '.join(missing)} missing. "
-                f"Create {'them' if len(missing) > 1 else 'it'} first."
-            )
+            # Validate user-specified features exist
+            missing = [
+                name
+                for name in self.features
+                if ln.Feature.filter(name=name).one_or_none() is None
+            ]
+            if missing:
+                s = "s" if len(missing) > 1 else ""
+                raise ValueError(
+                    f"Feature{s} {', '.join(missing)} missing. "
+                    f"Create {'them' if len(missing) > 1 else 'it'} first."
+                )
+            # Detect which auto-features are available
+            for name in _AUTO_FEATURES:
+                if ln.Feature.filter(name=name).one_or_none() is not None:
+                    self._auto_features.add(name)
 
     def _save_checkpoint(self, trainer: pl.Trainer, filepath: str) -> None:
         """Save checkpoint locally and upload to LaminDB."""
         super()._save_checkpoint(trainer, filepath)
         if trainer.is_global_zero:
-            self._upload(trainer, filepath)
-
-    def _upload(self, trainer: pl.Trainer, filepath: str) -> None:
-        """Upload checkpoint artifact with associated features."""
-        artifact = ln.Artifact(
-            filepath, key=self.key, kind="model", description="Model checkpoint"
-        )
-        artifact.save()
-
-        feature_values: dict[str, Any] = {}
-
-        # Collect auto-populated values for requested features
-        if "logger_name" in self.features and trainer.loggers:
-            feature_values["logger_name"] = trainer.loggers[0].name
-        if "logger_version" in self.features and trainer.loggers:
-            version = trainer.loggers[0].version
-            feature_values["logger_version"] = (
-                version if isinstance(version, str) else f"version_{version}"
+            artifact = ln.Artifact(
+                filepath, key=self.key, kind="model", description="Model checkpoint"
             )
+            artifact.save()
 
-        is_best = self.best_model_path == filepath
-        if "is_best_model" in self.features:
-            if is_best:
-                self._clear_best_model_flags()
-            feature_values["is_best_model"] = is_best
+            feature_values: dict[str, Any] = {}
 
-        if "score" in self.features and self.current_score is not None:
-            score = self.current_score
-            if torch.is_tensor(score):
-                score = score.item()
-            feature_values["score"] = float(score)
-
-        # User-specified features (non-auto)
-        for name, value in self.features.items():
-            if name in {
-                "is_best_model",
-                "score",
-                "model_rank",
-                "logger_name",
-                "logger_version",
-            }:
-                continue
-            if value is not None:
-                feature_values[name] = value
-            elif hasattr(trainer, name):
-                feature_values[name] = getattr(trainer, name)
-            elif name in trainer.callback_metrics:
-                metric = trainer.callback_metrics[name]
-                feature_values[name] = (
-                    metric.item() if hasattr(metric, "item") else float(metric)
+            # Auto-features (tracked if they exist in lamindb)
+            if "logger_name" in self._auto_features and trainer.loggers:
+                feature_values["logger_name"] = trainer.loggers[0].name
+            if "logger_version" in self._auto_features and trainer.loggers:
+                version = trainer.loggers[0].version
+                feature_values["logger_version"] = (
+                    version if isinstance(version, str) else f"version_{version}"
                 )
 
-        if feature_values:
-            artifact.features.add_values(feature_values)
+            is_best = self.best_model_path == filepath
+            if "is_best_model" in self._auto_features:
+                if is_best:
+                    self._clear_best_model_flags()
+                feature_values["is_best_model"] = is_best
 
-        if "model_rank" in self.features:
-            self._update_model_ranks()
+            if "score" in self._auto_features and self.current_score is not None:
+                score = self.current_score
+                if torch.is_tensor(score):
+                    score = score.item()
+                feature_values["score"] = float(score)
+
+            # User-specified features
+            for name, value in self.features.items():
+                if value is not None:
+                    feature_values[name] = value
+                elif hasattr(trainer, name):
+                    feature_values[name] = getattr(trainer, name)
+                elif name in trainer.callback_metrics:
+                    metric = trainer.callback_metrics[name]
+                    feature_values[name] = (
+                        metric.item() if hasattr(metric, "item") else float(metric)
+                    )
+
+            if feature_values:
+                artifact.features.add_values(feature_values)
+
+            if "model_rank" in self._auto_features:
+                self._update_model_ranks()
 
     def _clear_best_model_flags(self) -> None:
         """Set is_best_model=False on previous best checkpoints."""
@@ -221,7 +221,7 @@ class LaminCheckpoint(ModelCheckpoint):
 
     def _update_model_ranks(self) -> None:
         """Update model_rank feature for all checkpoints under this key."""
-        artifacts = list(ln.Artifact.filter(key=self.key))
+        artifacts = ln.Artifact.filter(key=self.key).to_list()
         scored = []
         for af in artifacts:
             vals = af.features.get_values()
@@ -280,7 +280,7 @@ class SaveConfigCallback(_SaveConfigCallback):
                     overwrite=self.overwrite,
                     multifile=self.multifile,
                 )
-                self._upload_config(trainer, config_path)
+                self._save_config(trainer, config_path)
 
         if trainer.is_global_zero:
             self.save_config(trainer, pl_module, stage)
@@ -288,8 +288,8 @@ class SaveConfigCallback(_SaveConfigCallback):
 
         self.already_saved = trainer.strategy.broadcast(self.already_saved)
 
-    def _upload_config(self, trainer: pl.Trainer, config_path: str) -> None:
-        """Upload config under same key prefix as checkpoints."""
+    def _save_config(self, trainer: pl.Trainer, config_path: Path) -> None:
+        """Save config under same key prefix as checkpoints."""
         checkpoint_cb = self._get_checkpoint_callback(trainer)
         if checkpoint_cb is None:
             return
