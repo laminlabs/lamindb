@@ -74,6 +74,7 @@ def test_artifact_describe():
         .schema: Schema
         .created_by: User
         .input_of_runs: Run
+        .recreating_runs: Run
         .schemas: Schema
         .artifacts: Artifact
         .linked_in_records: Record
