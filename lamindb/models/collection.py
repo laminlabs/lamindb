@@ -170,10 +170,9 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     """:class:`~lamindb.Run` that created the `collection`."""
     input_of_runs: Run = models.ManyToManyField(Run, related_name="input_collections")
     """Runs that use this collection as an input."""
-    _subsequent_runs: Run = models.ManyToManyField(
+    recreating_runs: Run = models.ManyToManyField(
         "Run",
-        related_name="_recreated_collections",
-        db_table="lamindb_collection__previous_runs",  # legacy name, change in lamindb v2
+        related_name="recreated_collections",
     )
     """Runs that re-created the record after initial creation."""
     artifacts: Artifact = models.ManyToManyField(

@@ -671,7 +671,7 @@ def populate_subsequent_run(record: Artifact | Collection, run: Run | None) -> N
     if record.run is None:
         record.run = run
     elif record.run != run:
-        record._subsequent_runs.add(run)
+        record.recreating_runs.add(run)
         record._subsequent_run_id = run.id
 
 
@@ -1341,10 +1341,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     """Run that created the artifact."""
     input_of_runs: Run = models.ManyToManyField(Run, related_name="input_artifacts")
     """Runs that use this artifact as an input."""
-    _subsequent_runs: Run = models.ManyToManyField(
+    recreating_runs: Run = models.ManyToManyField(
         "Run",
-        related_name="_recreated_artifacts",
-        db_table="lamindb_artifact__previous_runs",  # legacy name, change in lamindb v2
+        related_name="recreated_artifacts",
     )
     """Runs that re-created the record after initial creation."""
     collections: Collection

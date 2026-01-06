@@ -149,7 +149,7 @@ def test_track_input_record(create_record, kind):
     ln.track(new_run=True)
     assert ln.context.run != previous_run
     record = create_record(kind)
-    assert ln.context.run in record._subsequent_runs.all()
+    assert ln.context.run in record.recreating_runs.all()
     assert record._subsequent_run_id == ln.context.run.id
     record.cache()
     assert (
@@ -164,7 +164,7 @@ def test_track_input_record(create_record, kind):
     else:
         record = ln.Collection.get(key="test-collection")
     record.cache()
-    assert ln.context.run not in record._subsequent_runs.all()
+    assert ln.context.run not in record.recreating_runs.all()
     assert not hasattr(record, "_subsequent_run_id")
     assert record in getattr(ln.context.run, f"input_{kind}s").all()  # regular input
 
