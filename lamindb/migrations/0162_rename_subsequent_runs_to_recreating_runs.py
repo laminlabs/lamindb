@@ -11,14 +11,8 @@ def rename_m2m_tables(apps, schema_editor):
     ]
 
     with schema_editor.connection.cursor() as cursor:
-        if schema_editor.connection.vendor == "postgresql":
-            for old_name, new_name in tables_to_rename:
-                cursor.execute(f"ALTER TABLE {old_name} RENAME TO {new_name};")
-
-        elif schema_editor.connection.vendor == "sqlite":
-            # SQLite requires a different approach for renaming tables
-            for old_name, new_name in tables_to_rename:
-                cursor.execute(f"ALTER TABLE {old_name} RENAME TO {new_name};")
+        for old_name, new_name in tables_to_rename:
+            cursor.execute(f"ALTER TABLE {old_name} RENAME TO {new_name};")
 
 
 class Migration(migrations.Migration):
