@@ -6,8 +6,8 @@ from django.db import migrations, models
 def rename_m2m_tables(apps, schema_editor):
     """Rename the ManyToMany tables for _subsequent_runs to recreating_runs."""
     tables_to_rename = [
-        ("lamindb_artifact__previous_runs", "lamindb_artifact__recreating_runs"),
-        ("lamindb_collection__previous_runs", "lamindb_collection__recreating_runs"),
+        ("lamindb_artifact__previous_runs", "lamindb_artifact_recreating_runs"),
+        ("lamindb_collection__previous_runs", "lamindb_collection_recreating_runs"),
     ]
 
     with schema_editor.connection.cursor() as cursor:
