@@ -1,5 +1,4 @@
-from pathlib import Path
-from typing import Callable, Generator
+from typing import Generator
 
 import lamindb as ln
 import lightning as pl
@@ -8,13 +7,6 @@ import torch
 from lamindb.integrations import lightning as ll
 from torch import nn
 from torch.utils.data import DataLoader, TensorDataset
-
-
-@pytest.fixture(autouse=True)
-def cleanup_checkpoints() -> Generator[None, None, None]:
-    yield
-    for path in Path().glob("test_checkpoint*.ckpt"):
-        path.unlink(missing_ok=True)
 
 
 @pytest.fixture
@@ -33,97 +25,187 @@ def simple_model() -> pl.LightningModule:
             self.log("train_loss", loss)
             return loss
 
+        def validation_step(self, batch, batch_idx):
+            x, y = batch
+            loss = nn.functional.mse_loss(self(x), y)
+            self.log("val_loss", loss)
+            return loss
+
         def configure_optimizers(self):
             return torch.optim.Adam(self.parameters())
 
-    model = SimpleModel()
-    return model
+    return SimpleModel()
 
 
 @pytest.fixture
-def torch_train_data_dataloader() -> DataLoader:
-    train_data = DataLoader(
+def dataloader() -> DataLoader:
+    return DataLoader(
         TensorDataset(torch.randn(100, 10), torch.randn(100, 1)), batch_size=10
     )
-    return train_data
 
 
-def test_callback_basic(
-    cleanup_checkpoints: Callable,
-    torch_train_data_dataloader: DataLoader,
+@pytest.fixture
+def artifact_key() -> Generator[str, None, None]:
+    key = "test/model.ckpt"
+    yield key
+    for af in ln.Artifact.filter(key=key).to_list():
+        af.delete(permanent=True, storage=True)
+
+
+@pytest.fixture(scope="module")
+def lightning_features() -> None:
+    """Create lightning features."""
+    ll.save_lightning_features()
+
+    # TODO cleanup ran into protected errors -> reinstantiate
+
+
+def test_checkpoint_basic(
     simple_model: pl.LightningModule,
+    dataloader: DataLoader,
+    artifact_key: str,
 ):
-    """Callback should create artifacts for each training epoch."""
-    artifact_key = "test/model.ckpt"
-
-    callback = ll.Callback(path="test_checkpoint.ckpt", key=artifact_key)
-
+    """LaminCheckpoint should create versioned artifacts."""
+    callback = ll.LaminCheckpoint(artifact_key, monitor="train_loss")
     trainer = pl.Trainer(
-        max_epochs=2, callbacks=[callback], enable_checkpointing=False, logger=False
+        max_epochs=2,
+        callbacks=[callback],
+        logger=False,
     )
-    trainer.fit(simple_model, torch_train_data_dataloader)
+    trainer.fit(simple_model, dataloader)
 
-    artifacts = ln.Artifact.filter(key=artifact_key)
-    assert len(artifacts) == 2
-
+    artifacts = ln.Artifact.filter(key=artifact_key).to_list()
+    assert len(artifacts) >= 1
     for af in artifacts:
         assert af.kind == "model"
-        af.delete(permanent=True)
 
 
-def test_callback_with_features(
-    cleanup_checkpoints: Callable,
-    torch_train_data_dataloader: DataLoader,
+def test_checkpoint_with_features(
     simple_model: pl.LightningModule,
+    dataloader: DataLoader,
+    artifact_key: str,
 ):
-    """Callback should annotate artifacts with feature values."""
-    train_loss = ln.Feature(name="train_loss", dtype="float").save()
-    custom_param = ln.Feature(name="custom_param", dtype="str").save()
+    """LaminCheckpoint should annotate artifacts with feature values."""
+    ln.Feature(name="train_loss", dtype=float).save()
+    ln.Feature(name="custom_param", dtype=str).save()
 
-    artifact_key = "test/model_features.ckpt"
-
-    callback = ll.Callback(
-        path="test_checkpoint_features.ckpt",
-        key=artifact_key,
+    callback = ll.LaminCheckpoint(
+        artifact_key,
         features={"train_loss": None, "custom_param": "test_value"},
+        monitor="train_loss",
     )
-
     trainer = pl.Trainer(
-        max_epochs=2, callbacks=[callback], enable_checkpointing=False, logger=False
+        max_epochs=2,
+        callbacks=[callback],
+        logger=False,
     )
-    trainer.fit(simple_model, torch_train_data_dataloader)
+    trainer.fit(simple_model, dataloader)
 
-    artifacts = ln.Artifact.filter(key=artifact_key)
-    assert len(artifacts) == 2
-
+    artifacts = ln.Artifact.filter(key=artifact_key).to_list()
+    assert len(artifacts) >= 1
     for af in artifacts:
         values = af.features.get_values()
         assert "train_loss" in values
         assert values["custom_param"] == "test_value"
-        af.delete(permanent=True)
-
-    train_loss.delete(permanent=True)
-    custom_param.delete(permanent=True)
 
 
-def test_callback_missing_features(
-    cleanup_checkpoints: Callable,
-    torch_train_data_dataloader: DataLoader,
+def test_checkpoint_missing_features(
     simple_model: pl.LightningModule,
+    dataloader: DataLoader,
+    artifact_key: str,
 ):
-    """Callback should raise an error when specified features do not exist."""
-    artifact_key = "test/model_missing.ckpt"
-
-    callback = ll.Callback(
-        path="test_checkpoint_missing.ckpt",
-        key=artifact_key,
+    """LaminCheckpoint should raise an error when specified features do not exist."""
+    callback = ll.LaminCheckpoint(
+        artifact_key,
         features={"nonexistent_feature": None},
+        monitor="train_loss",
     )
-
     trainer = pl.Trainer(
-        max_epochs=1, callbacks=[callback], enable_checkpointing=False, logger=False
+        max_epochs=1,
+        callbacks=[callback],
+        logger=False,
     )
 
-    with pytest.raises(ValueError) as e:
-        trainer.fit(simple_model, torch_train_data_dataloader)
-    assert "Feature nonexistent_feature missing" in str(e.value)
+    with pytest.raises(ValueError, match="Feature nonexistent_feature missing"):
+        trainer.fit(simple_model, dataloader)
+
+
+def test_checkpoint_auto_features(
+    simple_model: pl.LightningModule,
+    dataloader: DataLoader,
+    artifact_key: str,
+    lightning_features: None,
+):
+    """LaminCheckpoint should auto-track lightning features if they exist."""
+    callback = ll.LaminCheckpoint(
+        artifact_key,
+        monitor="train_loss",
+        save_top_k=2,
+    )
+    trainer = pl.Trainer(
+        max_epochs=3,
+        callbacks=[callback],
+        logger=False,
+    )
+    trainer.fit(simple_model, dataloader, val_dataloaders=dataloader)
+
+    artifacts = ln.Artifact.filter(key=artifact_key).to_list()
+    assert len(artifacts) >= 1
+
+    for af in artifacts:
+        values = af.features.get_values()
+        assert "is_best_model" in values
+        assert "score" in values
+        assert "model_rank" in values
+
+
+def test_checkpoint_best_model_tracking(
+    simple_model: pl.LightningModule,
+    dataloader: DataLoader,
+    artifact_key: str,
+    lightning_features: None,
+):
+    """Only one checkpoint should be marked as best model."""
+    callback = ll.LaminCheckpoint(
+        artifact_key,
+        monitor="train_loss",
+        save_top_k=3,
+        mode="min",
+    )
+    trainer = pl.Trainer(
+        max_epochs=3,
+        callbacks=[callback],
+        logger=False,
+    )
+    trainer.fit(simple_model, dataloader)
+
+    artifacts = ln.Artifact.filter(key=artifact_key).to_list()
+    best_count = sum(
+        1 for af in artifacts if af.features.get_values().get("is_best_model") is True
+    )
+    assert best_count == 1
+
+
+def test_checkpoint_model_rank(
+    simple_model: pl.LightningModule,
+    dataloader: DataLoader,
+    artifact_key: str,
+    lightning_features: None,
+):
+    """Checkpoints should have correct model_rank (0 = best)."""
+    callback = ll.LaminCheckpoint(
+        artifact_key,
+        monitor="train_loss",
+        save_top_k=3,
+        mode="min",
+    )
+    trainer = pl.Trainer(
+        max_epochs=3,
+        callbacks=[callback],
+        logger=False,
+    )
+    trainer.fit(simple_model, dataloader)
+
+    artifacts = ln.Artifact.filter(key=artifact_key).to_list()
+    ranks = [af.features.get_values().get("model_rank") for af in artifacts]
+    assert 0 in ranks  # best model has rank 0
