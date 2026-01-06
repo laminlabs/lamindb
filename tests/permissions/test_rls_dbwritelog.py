@@ -9,7 +9,7 @@ import psycopg2
 import pytest
 from django.db import connection, transaction
 from django.db.utils import IntegrityError, InternalError, ProgrammingError
-from hubmodule._dbwrite import uninstall_dbwrite
+from hubmodule.sql_generators._dbwrite import uninstall_dbwrite
 from jwt_utils import sign_jwt
 from lamindb.models.artifact import track_run_input
 from lamindb_setup.core.django import DBToken, db_token_manager
