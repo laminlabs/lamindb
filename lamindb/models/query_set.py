@@ -425,6 +425,7 @@ def get_basic_field_names(
         "version_tag",
         "is_latest",
         "is_locked",
+        "is_type",
         "created_at",
         "updated_at",
     ]:
