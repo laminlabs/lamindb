@@ -265,7 +265,7 @@ class Transform(SQLRecord, IsVersioned):
         version_tag: str | None = kwargs.pop("version_tag", kwargs.pop("version", None))
         kind: TransformKind | None = kwargs.pop("kind", None)
         type: TransformKind | None = kwargs.pop("type", None)
-        if kind is not None:
+        if type is not None:
             warnings.warn(
                 "`type` argument of transform was renamed to `kind` and will be removed in a future release.",
                 DeprecationWarning,
