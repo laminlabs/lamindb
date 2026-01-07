@@ -193,7 +193,7 @@ def test_invalid_transform_type():
     transform = ln.Transform(key="test transform")
     ln.track(transform=transform)
     ln.context._path = None
-    ln.context.run.transform.type = "script"
+    ln.context.run.transform.kind = "script"
     with pytest.raises(ValueError) as error:
         ln.finish()
     assert "Transform type is not allowed to be" in error.exconly()
@@ -361,7 +361,7 @@ def test_run_external_script():
 
 @pytest.mark.parametrize("type", ["notebook", "script"])
 def test_track_notebook_or_script_manually(type):
-    transform = ln.Transform(key="My notebook", type=type)
+    transform = ln.Transform(key="My notebook", kind=type)
     with pytest.raises(ValueError) as error:
         ln.track(transform=transform)
     assert (

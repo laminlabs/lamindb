@@ -224,7 +224,7 @@ class Run(SQLRecord):
 
         Create a run record::
 
-            ln.Transform(key="Cell Ranger", version="7.2.0", type="pipeline").save()
+            ln.Transform(key="Cell Ranger", version="7.2.0", kind="pipeline").save()
             transform = ln.Transform.get(key="Cell Ranger", version="7.2.0")
             run = ln.Run(transform)
 

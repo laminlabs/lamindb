@@ -65,7 +65,7 @@ def test_transform_versioning_based_on_key():
         key="test-pipeline",
         version="1.0",
         source_code="1",
-        type="pipeline",
+        kind="pipeline",
     ).save()
     assert transform1.is_latest
     assert transform1.version_tag == "1.0"
@@ -76,7 +76,7 @@ def test_transform_versioning_based_on_key():
             key="test-pipeline",
             version="1.0",
             source_code="2",
-            type="pipeline",
+            kind="pipeline",
         ).save()
     assert (
         e.exconly()
@@ -87,7 +87,7 @@ def test_transform_versioning_based_on_key():
         key="test-pipeline",
         # do not pass the version tag, which corresponds to: version=None
         source_code="2",
-        type="pipeline",
+        kind="pipeline",
     ).save()
 
     assert transform2.version_tag is None
@@ -100,7 +100,7 @@ def test_transform_versioning_based_on_key():
         key="test-pipeline",
         version="abcd",  # mimic commit hash
         source_code="3",
-        type="pipeline",
+        kind="pipeline",
     ).save()
 
     assert transform3.version_tag == "abcd"
@@ -207,13 +207,13 @@ def test_version_backward_compatibility():
     transform1 = ln.Transform(
         key="test-backward-compat",
         version="1.0",
-        type="pipeline",
+        kind="pipeline",
         source_code="code1",
     ).save()
     transform2 = ln.Transform(
         key="test-backward-compat",
         version="2.0",
-        type="pipeline",
+        kind="pipeline",
         source_code="code2",
     ).save()
 

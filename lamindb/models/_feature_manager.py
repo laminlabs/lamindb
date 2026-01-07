@@ -1095,7 +1095,7 @@ class FeatureManager:
             ]
             run = get_current_tracked_run()
             if run is not None:
-                name = f"{run.transform.type}[{run.transform.key}]"
+                name = f"{run.transform.kind}[{run.transform.key}]"
                 type_hint = f"""  feature_type = ln.Feature(name='{name}', is_type=True).save()"""
                 elements = [type_hint]
                 type_kwarg = ", type=feature_type"

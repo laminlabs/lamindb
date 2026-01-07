@@ -115,7 +115,7 @@ def test_repr_describe():
 def test_validate_literal_fields():
     # validate literal
     with pytest.raises(FieldValidationError):
-        ln.Transform(key="new-name-not-existing-123", type="invalid")
+        ln.Transform(key="new-name-not-existing-123", kind="invalid")
 
 
 def test_init_with_args():
