@@ -257,13 +257,15 @@ def test_suggest_similar_names():
 def test_pass_version():
     # creating a new transform on key retrieves the same transform
     # for as long as no source_code was saved
-    transform = ln.Transform(key="mytransform", version_tag="1").save()
-    assert ln.Transform(key="mytransform", version_tag="1") == transform
+    transform = ln.Transform(key="mytransform", version="1").save()
+    assert transform.version_tag == "1"
+    assert transform.version == "1"
+    assert ln.Transform(key="mytransform", version="1") == transform
     # in case source code is saved
     transform.source_code = "dummy"
     transform.save()
     with pytest.raises(ValueError) as e:
-        ln.Transform(key="mytransform", version_tag="1")
+        ln.Transform(key="mytransform", version="1")
     assert (
         e.exconly()
         == "ValueError: Please change the version tag or leave it `None`, '1' is already taken"

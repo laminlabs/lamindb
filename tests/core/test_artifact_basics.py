@@ -579,10 +579,9 @@ def test_revise_recreate_artifact(example_dataframe: pd.DataFrame, ccaplog):
 
     # create a file and tag it with a version
     key = "my-test-dataset.parquet"
-    artifact = ln.Artifact.from_dataframe(
-        df, key=key, description="test", version_tag="1"
-    )
+    artifact = ln.Artifact.from_dataframe(df, key=key, description="test", version="1")
     assert artifact.version_tag == "1"
+    assert artifact.version == "1"
     assert artifact.uid.endswith("0000")
     assert artifact.path.exists()  # because of cache file already exists
     artifact.save()
@@ -590,7 +589,7 @@ def test_revise_recreate_artifact(example_dataframe: pd.DataFrame, ccaplog):
     assert artifact.suffix == ".parquet"
 
     with pytest.raises(ValueError) as error:
-        artifact_v2 = ln.Artifact.from_dataframe(df, revises=artifact, version_tag="1")
+        artifact_v2 = ln.Artifact.from_dataframe(df, revises=artifact, version="1")
     assert (
         error.exconly()
         == "ValueError: Please change the version tag or leave it `None`, '1' is already taken"
@@ -606,6 +605,9 @@ def test_revise_recreate_artifact(example_dataframe: pd.DataFrame, ccaplog):
     assert artifact_v2.uid.endswith("0001")
     assert artifact_v2.stem_uid == artifact.stem_uid
     assert artifact_v2.version_tag is None
+    assert (
+        artifact_v2.version == artifact_v2.uid[-4:]
+    )  # version falls back to uid suffix
     assert artifact_v2.key == key
     assert artifact.suffix == ".parquet"
     assert artifact_v2.description == "test"
@@ -617,22 +619,24 @@ def test_revise_recreate_artifact(example_dataframe: pd.DataFrame, ccaplog):
     # revise by providing `revises` argument (do not save)
     df.iloc[0, 0] = 0  # mutate dataframe so that hash lookup doesn't trigger
     artifact_v3 = ln.Artifact.from_dataframe(
-        df, description="test1", revises=artifact_v2, version_tag="2"
+        df, description="test1", revises=artifact_v2, version="2"
     )
     assert artifact_v3.uid.endswith("0002")
     assert artifact_v3.stem_uid == artifact.stem_uid
     assert artifact_v3.version_tag == "2"
+    assert artifact_v3.version == "2"
     assert artifact_v3.description == "test1"
     assert artifact_v3.key == key
 
     # revise by matching on `key` (do not save)
     artifact_v3 = ln.Artifact.from_dataframe(
-        df, key=key, description="test1", version_tag="2"
+        df, key=key, description="test1", version="2"
     )
     assert artifact_v3.uid.endswith("0002")
     assert artifact_v3.stem_uid == artifact.stem_uid
     assert artifact_v3.key == key
     assert artifact_v3.version_tag == "2"
+    assert artifact_v3.version == "2"
     assert artifact_v3.description == "test1"
     assert artifact_v3.is_latest
     assert artifact_v2.is_latest
@@ -726,6 +730,7 @@ def test_revise_recreate_artifact(example_dataframe: pd.DataFrame, ccaplog):
     # unversioned file
     artifact = ln.Artifact.from_dataframe(df, description="test2")
     assert artifact.version_tag is None
+    assert artifact.version == artifact.uid[-4:]  # version falls back to uid suffix
 
     # what happens if we don't save the old file?
     # add a test for it!
@@ -735,8 +740,12 @@ def test_revise_recreate_artifact(example_dataframe: pd.DataFrame, ccaplog):
     df.iloc[0, 0] = 101  # mutate dataframe so that hash lookup doesn't trigger
     new_artifact = ln.Artifact.from_dataframe(df, revises=artifact)
     assert artifact.version_tag is None
+    assert artifact.version == artifact.uid[-4:]  # version falls back to uid suffix
     assert new_artifact.stem_uid == artifact.stem_uid
     assert new_artifact.version_tag is None
+    assert (
+        new_artifact.version == new_artifact.uid[-4:]
+    )  # version falls back to uid suffix
     assert new_artifact.description == artifact.description
 
     artifact.delete()

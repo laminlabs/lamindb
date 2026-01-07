@@ -399,15 +399,16 @@ def test_mapped(adata, adata2):
 def test_revise_collection(df, adata):
     # create a versioned collection
     artifact = ln.Artifact.from_dataframe(df, description="test").save()
-    collection = ln.Collection(artifact, key="test-collection", version_tag="1")
+    collection = ln.Collection(artifact, key="test-collection", version="1")
     assert collection.version_tag == "1"
+    assert collection.version == "1"
     assert collection.uid.endswith("0000")
     collection.save()
 
     artifact = ln.Artifact.from_anndata(adata, description="test").save()
 
     with pytest.raises(ValueError) as error:
-        collection_r2 = ln.Collection(artifact, revises=collection, version_tag="1")
+        collection_r2 = ln.Collection(artifact, revises=collection, version="1")
     assert (
         error.exconly()
         == "ValueError: Please change the version tag or leave it `None`, '1' is already taken"
@@ -425,6 +426,9 @@ def test_revise_collection(df, adata):
     assert collection_r2.stem_uid == collection.stem_uid
     assert collection_r2.uid.endswith("0001")
     assert collection_r2.version_tag is None
+    assert (
+        collection_r2.version == collection_r2.uid[-4:]
+    )  # version falls back to uid suffix
     assert collection_r2.key == "test-collection"
 
     collection_r2.save()
@@ -437,10 +441,11 @@ def test_revise_collection(df, adata):
         artifact,
         key="test-collection",
         description="test description3",
-        version_tag="2",
+        version="2",
     )
     assert collection_r3.stem_uid == collection.stem_uid
     assert collection_r3.version_tag == "2"
+    assert collection_r3.version == "2"
     assert collection_r3.uid.endswith("0002")
     assert collection_r3.key == "test-collection"
     assert collection_r3.description == "test description3"
