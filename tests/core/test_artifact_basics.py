@@ -209,7 +209,12 @@ def test_create_from_path_file(get_test_filepaths, key_is_virtual, key, descript
 def test_create_from_path_file_with_explicit_key_is_virtual(
     tsv_file, key_is_virtual, key
 ):
-    artifact = ln.Artifact(tsv_file, key=key, _key_is_virtual=key_is_virtual)
+    artifact = ln.Artifact(
+        tsv_file,
+        description="test explicit key is virtual",
+        key=key,
+        _key_is_virtual=key_is_virtual,
+    )
     assert artifact.key == key
     assert artifact._key_is_virtual == key_is_virtual
     artifact.save()
