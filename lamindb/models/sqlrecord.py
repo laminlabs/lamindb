@@ -970,13 +970,17 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                         self, name_field, kwargs
                     )
                     if exact_match is not None:
-                        if "version" in kwargs:
-                            if kwargs["version"] is not None:
+                        if "vtag" in kwargs or "version" in kwargs:
+                            if (
+                                kwargs.get("vtag") is not None
+                                or kwargs.get("version") is not None
+                            ):
                                 version_comment = " and version"
                                 existing_record = self.__class__.filter(
                                     **{
                                         name_field: kwargs[name_field],
-                                        "version": kwargs["version"],
+                                        "vtag": kwargs.get("vtag")
+                                        or kwargs.get("version"),
                                     }
                                 ).one_or_none()
                             else:

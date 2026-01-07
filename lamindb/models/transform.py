@@ -86,7 +86,7 @@ class Transform(SQLRecord, IsVersioned):
     Args:
         key: `str | None = None` A short name or path-like semantic key.
         type: `TransformType | None = "pipeline"` See :class:`~lamindb.base.types.TransformType`.
-        version: `str | None = None` A version string.
+        vtag: `str | None = None` A version tag string.
         description: `str | None = None` A description.
         reference: `str | None = None` A reference, e.g., a URL.
         reference_type: `str | None = None` A reference type, e.g., 'url'.
@@ -111,7 +111,7 @@ class Transform(SQLRecord, IsVersioned):
 
         Create a transform for a pipeline::
 
-            transform = ln.Transform(key="Cell Ranger", version="7.2.0", type="pipeline").save()
+            transform = ln.Transform(key="Cell Ranger", vtag="7.2.0", type="pipeline").save()
 
         Create a transform from a notebook::
 
@@ -230,7 +230,7 @@ class Transform(SQLRecord, IsVersioned):
         self,
         key: str | None = None,
         type: TransformType | None = None,
-        version: str | None = None,
+        vtag: str | None = None,
         description: str | None = None,
         reference: str | None = None,
         reference_type: str | None = None,
@@ -260,7 +260,7 @@ class Transform(SQLRecord, IsVersioned):
         key: str | None = kwargs.pop("key", None)
         description: str | None = kwargs.pop("description", None)
         revises: Transform | None = kwargs.pop("revises", None)
-        version: str | None = kwargs.pop("version", None)
+        vtag: str | None = kwargs.pop("vtag", kwargs.pop("version", None))
         type: TransformType | None = kwargs.pop("type", "pipeline")
         reference: str | None = kwargs.pop("reference", None)
         reference_type: str | None = kwargs.pop("reference_type", None)
@@ -278,7 +278,7 @@ class Transform(SQLRecord, IsVersioned):
         )
         if not len(kwargs) == 0:
             raise ValueError(
-                "Only key, description, version, type, revises, reference, "
+                "Only key, description, vtag, type, revises, reference, "
                 f"reference_type can be passed, but you passed: {kwargs}"
             )
         if revises is None:
@@ -314,7 +314,7 @@ class Transform(SQLRecord, IsVersioned):
         if revises is not None and key is not None and revises.key != key:
             logger.important(f"renaming transform {revises.key} to {key}")
         new_uid, version, key, description, revises = process_revises(
-            revises, version, key, description, Transform
+            revises, vtag, key, description, Transform
         )
         # this is only because the user-facing constructor allows passing a uid
         # most others don't
@@ -344,7 +344,7 @@ class Transform(SQLRecord, IsVersioned):
             description=description,
             key=key,
             type=type,
-            version=version,
+            vtag=version,
             reference=reference,
             reference_type=reference_type,
             source_code=source_code,
@@ -375,7 +375,7 @@ class Transform(SQLRecord, IsVersioned):
             url: URL of the git repository.
             path: Path to the file within the repository.
             key: Optional key for the transform.
-            version: Optional version tag to checkout in the repository.
+            vtag: Optional version tag to checkout in the repository.
             entrypoint: One or several optional comma-separated entrypoints for the transform.
             branch: Optional branch to checkout.
             skip_hash_lookup: Skip the hash lookup so that a new transform is created even if a transform with the same hash already exists.
@@ -394,9 +394,9 @@ class Transform(SQLRecord, IsVersioned):
                 transform = ln.Transform.from_git(
                     url="https://github.com/openproblems-bio/task_batch_integration",
                     path="main.nf",
-                    version="v2.0.0"
+                    vtag="v2.0.0"
                 ).save()
-                assert transform.version == "v2.0.0"
+                assert transform.vtag == "v2.0.0"
 
             Create a *sliding transform* from a Nextflow repo's `dev` branch.
             Unlike a regular transform, a sliding transform doesn't pin a specific source code state,
@@ -406,7 +406,7 @@ class Transform(SQLRecord, IsVersioned):
                     url="https://github.com/openproblems-bio/task_batch_integration",
                     path="main.nf",
                     branch="dev",
-                    version="dev",
+                    vtag="dev",
                 ).save()
 
         Notes:
@@ -467,7 +467,7 @@ class Transform(SQLRecord, IsVersioned):
         return Transform(
             key=key,
             type="pipeline",
-            version=version,
+            vtag=version,
             reference=reference,
             reference_type=reference_type,
             source_code=source_code,

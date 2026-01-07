@@ -25,8 +25,8 @@ class IsVersioned(models.Model):
 
     _len_stem_uid: int
 
-    version: str | None = CharField(max_length=30, null=True, db_index=True)
-    """Version (default `None`).
+    vtag: str | None = CharField(max_length=30, null=True, db_index=True)
+    """Version tag (default `None`).
 
     Defines version of a family of records characterized by the same `stem_uid`.
 
@@ -104,7 +104,7 @@ class IsVersioned(models.Model):
             )
             logger.success(f"updated path from {old_path} to {new_path}!")
         self.uid = new_uid
-        self.version = version
+        self.vtag = version
         self.save()
         logger.success(f"updated uid from {old_uid} to {new_uid}!")
 
@@ -206,9 +206,9 @@ def create_uid(
                 "`version` parameter must be `None` or `str`, e.g., '0.1', '1', '2', etc."
             )
         if revises is not None:
-            if version == revises.version:
+            if version == revises.vtag:
                 raise ValueError(
-                    f"Please change the version tag or leave it `None`, '{revises.version}' is already taken"
+                    f"Please change the version tag or leave it `None`, '{revises.vtag}' is already taken"
                 )
     return suid + vuid, revises
 

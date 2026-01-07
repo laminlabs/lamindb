@@ -107,7 +107,7 @@ def format_title_with_version(
     title_str = record.key if record.key is not None else ""
     title = Text.assemble(
         (title_str, "cyan3"),
-        (f" ({record.version if record.version else record.uid[-4:]})", "dim"),
+        (f" ({record.vtag if record.vtag else record.uid[-4:]})", "dim"),
         Text.assemble(("\n|   description: ", "dim"), record.description)
         if record.description
         else Text(""),

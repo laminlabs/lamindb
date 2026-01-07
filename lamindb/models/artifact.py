@@ -424,7 +424,7 @@ def get_artifact_kwargs_from_data(
     run: Run | None,
     format: str | None,
     provisional_uid: str,
-    version: str | None,
+    vtag: str | None,
     storage: Storage,
     using_key: str | None = None,
     is_replace: bool = False,
@@ -474,7 +474,7 @@ def get_artifact_kwargs_from_data(
         size, hash, hash_type, n_files, revises = stat_or_artifact
 
     if revises is not None:  # update provisional_uid
-        provisional_uid, revises = create_uid(revises=revises, version=version)
+        provisional_uid, revises = create_uid(revises=revises, version=vtag)
         if settings.cache_dir in path.parents:
             path = path.rename(path.with_name(f"{provisional_uid}{suffix}"))
 
@@ -1474,7 +1474,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         description: str | None = kwargs.pop("description", None)
         revises: Artifact | None = kwargs.pop("revises", None)
         overwrite_versions: bool | None = kwargs.pop("overwrite_versions", None)
-        version: str | None = kwargs.pop("version", None)
+        vtag: str | None = kwargs.pop("vtag", kwargs.pop("version", None))
         schema: Schema | None = kwargs.pop("schema", None)
         features: dict[str, Any] | None = kwargs.pop("features", None)
         skip_hash_lookup: bool = kwargs.pop("skip_hash_lookup", False)
@@ -1574,7 +1574,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         else:
             is_automanaged_path = False
 
-        provisional_uid, revises = create_uid(revises=revises, version=version)
+        provisional_uid, revises = create_uid(revises=revises, version=vtag)
         run = get_run(run)
         kwargs_or_artifact, privates = get_artifact_kwargs_from_data(
             data=path,
@@ -1582,7 +1582,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             run=run,
             format=format,
             provisional_uid=provisional_uid,
-            version=version,
+            vtag=vtag,
             storage=storage,
             using_key=using_key,
             skip_check_exists=skip_check_exists,
@@ -1647,7 +1647,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 if revises is None:
                     uid += "0000"
                 else:
-                    uid, revises = create_uid(revises=revises, version=version)
+                    uid, revises = create_uid(revises=revises, version=vtag)
             kwargs["uid"] = uid
 
         # only set key now so that we don't perform a look-up on it in case revises is passed
@@ -1657,7 +1657,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         if run_id is not None:
             kwargs["run_id"] = run_id
         kwargs["kind"] = kind
-        kwargs["version"] = version
+        kwargs["vtag"] = vtag
         kwargs["description"] = description
         kwargs["branch"] = branch
         kwargs["space"] = space
@@ -1761,7 +1761,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 artifact = ln.Artifact.get("tCUkRcaEjTjhtozp")       # gets latest version for family tCUkRcaEjTjhtozp
                 artifact = ln.Artifact.get("tCUkRcaEjTjhtozp0005")   # gets version 0005 for family tCUkRcaEjTjhtozp
                 artifact = ln.Artifact.get(key="examples/my_file.parquet")               # gets latest version for a key
-                artifact = ln.Artifact.get(key="examples/my_file.parquet", version="2")  # pass a version tag
+                artifact = ln.Artifact.get(key="examples/my_file.parquet", vtag="2")  # pass a version tag
                 artifact = ln.Artifact.get(path="s3://bucket/folder/adata.h5ad")
         """
         if key is not None:
@@ -2382,7 +2382,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             run=run,
             format=format,
             storage=storage,
-            version=None,
+            vtag=None,
             is_replace=True,
         )
 

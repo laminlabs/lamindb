@@ -63,7 +63,7 @@ def test_add_to_version_family(df1, df2):
 def test_transform_versioning_based_on_key():
     transform1 = ln.Transform(
         key="test-pipeline",
-        version="1.0",
+        vtag="1.0",
         source_code="1",
         type="pipeline",
     ).save()
@@ -72,7 +72,7 @@ def test_transform_versioning_based_on_key():
     with pytest.raises(ValueError) as e:
         transform2 = ln.Transform(
             key="test-pipeline",
-            version="1.0",
+            vtag="1.0",
             source_code="2",
             type="pipeline",
         ).save()
@@ -88,19 +88,19 @@ def test_transform_versioning_based_on_key():
         type="pipeline",
     ).save()
 
-    assert transform2.version is None
+    assert transform2.vtag is None
     assert transform2.is_latest
     assert transform2.hash != transform1.hash
-    assert not ln.Transform.get(key="test-pipeline", version="1.0").is_latest
+    assert not ln.Transform.get(key="test-pipeline", vtag="1.0").is_latest
 
     transform3 = ln.Transform(
         key="test-pipeline",
-        version="abcd",  # mimic commit hash
+        vtag="abcd",  # mimic commit hash
         source_code="3",
         type="pipeline",
     ).save()
 
-    assert transform3.version == "abcd"
+    assert transform3.vtag == "abcd"
     assert transform3.is_latest
     assert transform3.hash != transform2.hash
     assert not ln.Transform.get(key="test-pipeline", source_code="2").is_latest
@@ -110,11 +110,11 @@ def test_transform_versioning_based_on_revises():
     # build one version family
     transform_v1 = ln.Transform(description="Introduction").save()
     assert transform_v1.is_latest
-    assert transform_v1.version is None
+    assert transform_v1.vtag is None
 
     # pass the latest version
     transform_v2 = ln.Transform(
-        description="Introduction v2", revises=transform_v1, version="2"
+        description="Introduction v2", revises=transform_v1, vtag="2"
     ).save()
     assert not transform_v1.is_latest
     assert transform_v2.is_latest
@@ -125,7 +125,7 @@ def test_transform_versioning_based_on_revises():
     transform_v3 = ln.Transform(description="Introduction", revises=transform_v1).save()
     assert transform_v3.uid.endswith("0002")
     assert not ln.Transform.objects.get(
-        description="Introduction v2", version="2"
+        description="Introduction v2", vtag="2"
     ).is_latest
     assert transform_v3.is_latest
     transform_v4 = ln.Transform(description="Introduction").save()

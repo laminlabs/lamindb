@@ -570,7 +570,7 @@ def test_revise_recreate_artifact(example_dataframe: pd.DataFrame, ccaplog):
     df = example_dataframe
     # attempt to create a file with an invalid version
     with pytest.raises(ValueError) as error:
-        artifact = ln.Artifact.from_dataframe(df, description="test", version=0)
+        artifact = ln.Artifact.from_dataframe(df, description="test", vtag=0)
     assert (
         error.exconly()
         == "ValueError: `version` parameter must be `None` or `str`, e.g., '0.1', '1',"
@@ -579,8 +579,8 @@ def test_revise_recreate_artifact(example_dataframe: pd.DataFrame, ccaplog):
 
     # create a file and tag it with a version
     key = "my-test-dataset.parquet"
-    artifact = ln.Artifact.from_dataframe(df, key=key, description="test", version="1")
-    assert artifact.version == "1"
+    artifact = ln.Artifact.from_dataframe(df, key=key, description="test", vtag="1")
+    assert artifact.vtag == "1"
     assert artifact.uid.endswith("0000")
     assert artifact.path.exists()  # because of cache file already exists
     artifact.save()
@@ -588,7 +588,7 @@ def test_revise_recreate_artifact(example_dataframe: pd.DataFrame, ccaplog):
     assert artifact.suffix == ".parquet"
 
     with pytest.raises(ValueError) as error:
-        artifact_v2 = ln.Artifact.from_dataframe(df, revises=artifact, version="1")
+        artifact_v2 = ln.Artifact.from_dataframe(df, revises=artifact, vtag="1")
     assert (
         error.exconly()
         == "ValueError: Please change the version tag or leave it `None`, '1' is already taken"
@@ -603,7 +603,7 @@ def test_revise_recreate_artifact(example_dataframe: pd.DataFrame, ccaplog):
     artifact_v2 = ln.Artifact.from_dataframe(df, revises=artifact)
     assert artifact_v2.uid.endswith("0001")
     assert artifact_v2.stem_uid == artifact.stem_uid
-    assert artifact_v2.version is None
+    assert artifact_v2.vtag is None
     assert artifact_v2.key == key
     assert artifact.suffix == ".parquet"
     assert artifact_v2.description == "test"
@@ -615,22 +615,20 @@ def test_revise_recreate_artifact(example_dataframe: pd.DataFrame, ccaplog):
     # revise by providing `revises` argument (do not save)
     df.iloc[0, 0] = 0  # mutate dataframe so that hash lookup doesn't trigger
     artifact_v3 = ln.Artifact.from_dataframe(
-        df, description="test1", revises=artifact_v2, version="2"
+        df, description="test1", revises=artifact_v2, vtag="2"
     )
     assert artifact_v3.uid.endswith("0002")
     assert artifact_v3.stem_uid == artifact.stem_uid
-    assert artifact_v3.version == "2"
+    assert artifact_v3.vtag == "2"
     assert artifact_v3.description == "test1"
     assert artifact_v3.key == key
 
     # revise by matching on `key` (do not save)
-    artifact_v3 = ln.Artifact.from_dataframe(
-        df, key=key, description="test1", version="2"
-    )
+    artifact_v3 = ln.Artifact.from_dataframe(df, key=key, description="test1", vtag="2")
     assert artifact_v3.uid.endswith("0002")
     assert artifact_v3.stem_uid == artifact.stem_uid
     assert artifact_v3.key == key
-    assert artifact_v3.version == "2"
+    assert artifact_v3.vtag == "2"
     assert artifact_v3.description == "test1"
     assert artifact_v3.is_latest
     assert artifact_v2.is_latest
@@ -723,7 +721,7 @@ def test_revise_recreate_artifact(example_dataframe: pd.DataFrame, ccaplog):
 
     # unversioned file
     artifact = ln.Artifact.from_dataframe(df, description="test2")
-    assert artifact.version is None
+    assert artifact.vtag is None
 
     # what happens if we don't save the old file?
     # add a test for it!
@@ -732,9 +730,9 @@ def test_revise_recreate_artifact(example_dataframe: pd.DataFrame, ccaplog):
     # create new file from old file
     df.iloc[0, 0] = 101  # mutate dataframe so that hash lookup doesn't trigger
     new_artifact = ln.Artifact.from_dataframe(df, revises=artifact)
-    assert artifact.version is None
+    assert artifact.vtag is None
     assert new_artifact.stem_uid == artifact.stem_uid
-    assert new_artifact.version is None
+    assert new_artifact.vtag is None
     assert new_artifact.description == artifact.description
 
     artifact.delete()
