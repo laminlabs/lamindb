@@ -111,7 +111,7 @@ class Transform(SQLRecord, IsVersioned):
 
         Create a transform for a pipeline::
 
-            transform = ln.Transform(key="Cell Ranger", vtag="7.2.0", type="pipeline").save()
+            transform = ln.Transform(key="Cell Ranger", version="7.2.0", type="pipeline").save()
 
         Create a transform from a notebook::
 
@@ -394,7 +394,7 @@ class Transform(SQLRecord, IsVersioned):
                 transform = ln.Transform.from_git(
                     url="https://github.com/openproblems-bio/task_batch_integration",
                     path="main.nf",
-                    vtag="v2.0.0"
+                    version="v2.0.0"
                 ).save()
                 assert transform.vtag == "v2.0.0"
 
@@ -406,7 +406,7 @@ class Transform(SQLRecord, IsVersioned):
                     url="https://github.com/openproblems-bio/task_batch_integration",
                     path="main.nf",
                     branch="dev",
-                    vtag="dev",
+                    version="dev",
                 ).save()
 
         Notes:

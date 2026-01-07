@@ -1761,7 +1761,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 artifact = ln.Artifact.get("tCUkRcaEjTjhtozp")       # gets latest version for family tCUkRcaEjTjhtozp
                 artifact = ln.Artifact.get("tCUkRcaEjTjhtozp0005")   # gets version 0005 for family tCUkRcaEjTjhtozp
                 artifact = ln.Artifact.get(key="examples/my_file.parquet")               # gets latest version for a key
-                artifact = ln.Artifact.get(key="examples/my_file.parquet", vtag="2")  # pass a version tag
+                artifact = ln.Artifact.get(key="examples/my_file.parquet", version="2")  # pass a version tag
                 artifact = ln.Artifact.get(path="s3://bucket/folder/adata.h5ad")
         """
         if key is not None:

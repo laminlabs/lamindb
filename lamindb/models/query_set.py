@@ -192,7 +192,9 @@ def get_backward_compat_filter_kwargs(queryset, expressions):
                 "feature_sets": "schemas",
             }
         )
-    else:
+
+    # If no mappings to apply, return expressions as-is
+    if not name_mappings:
         return expressions
     was_list = False
     if isinstance(expressions, list):

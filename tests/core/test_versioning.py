@@ -195,3 +195,50 @@ def test_path_rename():
     assert not old_path.exists()
     new_path.unlink()
     ln.UPath("./test_new_path.txt").unlink()
+
+
+def test_version_backward_compatibility():
+    """Test that queries using version= still work (backward compatibility)."""
+    # Create transforms with different versions and source_code to avoid deduplication
+    transform1 = ln.Transform(
+        key="test-backward-compat", vtag="1.0", type="pipeline", source_code="code1"
+    ).save()
+    transform2 = ln.Transform(
+        key="test-backward-compat", vtag="2.0", type="pipeline", source_code="code2"
+    ).save()
+
+    # Test that we can query using version= (old API)
+    found = ln.Transform.get(key="test-backward-compat", version="1.0")
+    assert found == transform1
+    assert found.vtag == "1.0"
+
+    found = ln.Transform.get(key="test-backward-compat", version="2.0")
+    assert found == transform2
+    assert found.vtag == "2.0"
+
+    # Test filter with version=
+    results = ln.Transform.filter(key="test-backward-compat", version="1.0")
+    assert len(results) == 1
+    assert results.first() == transform1
+
+    # Test with Artifact
+    artifact1 = ln.Artifact.from_dataframe(
+        pd.DataFrame({"col1": [1, 2]}), key="test-artifact.parquet", vtag="1.0"
+    ).save()
+    artifact2 = ln.Artifact.from_dataframe(
+        pd.DataFrame({"col1": [3, 4]}), key="test-artifact.parquet", vtag="2.0"
+    ).save()
+
+    found_artifact = ln.Artifact.get(key="test-artifact.parquet", version="1.0")
+    assert found_artifact == artifact1
+    assert found_artifact.vtag == "1.0"
+
+    found_artifact = ln.Artifact.get(key="test-artifact.parquet", version="2.0")
+    assert found_artifact == artifact2
+    assert found_artifact.vtag == "2.0"
+
+    # Cleanup
+    transform1.delete(permanent=True)
+    transform2.delete(permanent=True)
+    artifact1.delete(permanent=True)
+    artifact2.delete(permanent=True)
