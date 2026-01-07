@@ -8,12 +8,6 @@ import lamindb.base.fields
 def set_is_type_not_null(apps, schema_editor):
     """Set is_type to NOT NULL for feature table."""
     with schema_editor.connection.cursor() as cursor:
-        # First, update all NULL values to FALSE (works for both PostgreSQL and SQLite)
-        cursor.execute(
-            "UPDATE lamindb_feature SET is_type = FALSE WHERE is_type IS NULL;"
-        )
-
-        # Then set NOT NULL constraint only for PostgreSQL
         # SQLite doesn't support ALTER COLUMN to add NOT NULL constraints easily,
         # so we skip it for SQLite
         if schema_editor.connection.vendor == "postgresql":
