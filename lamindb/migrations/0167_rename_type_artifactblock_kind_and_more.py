@@ -69,4 +69,13 @@ class Migration(migrations.Migration):
             old_name="name",
             new_name="context",
         ),
+        migrations.RunSQL(
+            sql=[
+                "UPDATE lamindb_feature SET is_type = FALSE WHERE is_type IS NULL;",
+                "UPDATE lamindb_reference SET is_type = FALSE WHERE is_type IS NULL;",
+                "UPDATE lamindb_schema SET is_type = FALSE WHERE is_type IS NULL;",
+                "UPDATE lamindb_ulabel SET is_type = FALSE WHERE is_type IS NULL;",
+                "UPDATE lamindb_project SET is_type = FALSE WHERE is_type IS NULL;",
+            ],
+        ),
     ]

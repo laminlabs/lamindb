@@ -8,7 +8,6 @@ from django.db import models
 from django.db.models import CASCADE, PROTECT
 
 from lamindb.base.fields import (
-    BooleanField,
     CharField,
     DateTimeField,
     ForeignKey,
@@ -152,11 +151,6 @@ class ULabel(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
     """
     ulabels: ULabel
     """ULabels of this type (can only be non-empty if `is_type` is `True`)."""
-    is_type: bool = BooleanField(default=False, db_index=True, null=True)
-    """Distinguish types from instances of the type.
-
-    For example, a ulabel "Project" would be a type, and the actual projects "Project 1", "Project 2", would be records of that `type`.
-    """
     description: str | None = TextField(null=True)
     """A description."""
     reference: str | None = CharField(max_length=255, db_index=True, null=True)
