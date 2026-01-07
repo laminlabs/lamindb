@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import warnings
 from typing import TYPE_CHECKING, overload
 
 from django.db import models
@@ -262,12 +263,13 @@ class Transform(SQLRecord, IsVersioned):
         description: str | None = kwargs.pop("description", None)
         revises: Transform | None = kwargs.pop("revises", None)
         version_tag: str | None = kwargs.pop("version_tag", kwargs.pop("version", None))
-        # Handle both 'kind' and 'type' for backward compatibility
         kind: TransformKind | None = kwargs.pop("kind", None)
         type: TransformKind | None = kwargs.pop("type", None)
-        if kind is not None and type is not None:
-            raise ValueError(
-                "Cannot specify both 'kind' and 'type'. Use 'kind' instead."
+        if kind is not None:
+            warnings.warn(
+                "`type` argument of transform was renamed to `kind` and will be removed in a future release.",
+                DeprecationWarning,
+                stacklevel=2,
             )
         kind = kind if kind is not None else (type if type is not None else "pipeline")
         reference: str | None = kwargs.pop("reference", None)
