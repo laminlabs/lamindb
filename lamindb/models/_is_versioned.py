@@ -67,6 +67,14 @@ class IsVersioned(models.Model):
         return self.uid[: self._len_stem_uid]  # type: ignore
 
     @property
+    def version(self) -> str:
+        """Version tag or uid suffix.
+
+        Returns the version tag if set, otherwise the last 4 characters of the uid.
+        """
+        return self.vtag if self.vtag else self.uid[-4:]  # type: ignore
+
+    @property
     def versions(self) -> QuerySet:
         """Lists all records of the same version family.
 
