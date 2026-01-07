@@ -549,7 +549,7 @@ class Context:
                 transform_type=transform_type,  # type: ignore
             )
         else:
-            if transform.type in {"notebook", "script"}:
+            if transform.kind in {"notebook", "script"}:
                 raise ValueError(
                     "Use `ln.track()` without passing transform in a notebook or script"
                     " - metadata is automatically parsed"
@@ -574,7 +574,7 @@ class Context:
             new_run = (
                 False
                 if (
-                    self._transform.type == "notebook"
+                    self._transform.kind == "notebook"
                     and self._notebook_runner != "nbconvert"
                 )
                 else True
@@ -626,7 +626,7 @@ class Context:
             self.transform.save()
         log_to_file = None
         if log_to_file is None:
-            log_to_file = self.transform.type != "notebook"
+            log_to_file = self.transform.kind != "notebook"
         if log_to_file:
             self._stream_tracker.start(run)
         logger.important(self._logging_message_track)
@@ -634,7 +634,7 @@ class Context:
             logger.important(self._logging_message_imports)
         if uid_was_none:
             notebook_or_script = (
-                "notebook" if self._transform.type == "notebook" else "script"
+                "notebook" if self._transform.kind == "notebook" else "script"
             )
             r_or_python = "."
             if self._path is not None:
@@ -656,7 +656,7 @@ class Context:
             logger.important_hint(
                 f'recommendation: to identify the {notebook_or_script} across renames, pass the uid: ln{r_or_python}track("{self.transform.uid[:-4]}"{kwargs_str})'
             )
-        if self.transform.type == "script":
+        if self.transform.kind == "script":
             save_context_core(
                 run=run,
                 transform=self.transform,
@@ -722,13 +722,13 @@ class Context:
                 and aux_transform.created_by_id == ln_setup.settings.user.id
             )
             # if the transform source code is unchanged
-            # if aux_transform.type == "notebook", we anticipate the user makes changes to the notebook source code
+            # if aux_transform.kind == "notebook", we anticipate the user makes changes to the notebook source code
             # in an interactive session, hence we *pro-actively bump* the version number by setting `revises` / 'nbconvert' execution is NOT interactive
             # in the second part of the if condition even though the source code is unchanged at point of running track()
             or (
                 aux_transform.hash == transform_hash
                 and (
-                    aux_transform.type != "notebook"
+                    aux_transform.kind != "notebook"
                     or self._notebook_runner == "nbconvert"
                 )
             )
@@ -738,11 +738,11 @@ class Context:
         else:
             uid = f"{aux_transform.uid[:-4]}{increment_base62(aux_transform.uid[-4:])}"
             message = (
-                f"found {aux_transform.type} {aux_transform.key}, making new version"
+                f"found {aux_transform.kind} {aux_transform.key}, making new version"
             )
             if (
                 aux_transform.hash == transform_hash
-                and aux_transform.type == "notebook"
+                and aux_transform.kind == "notebook"
             ):
                 message += " -- anticipating changes"
             elif aux_transform.hash != transform_hash:
@@ -911,7 +911,7 @@ class Context:
                 key=key,
                 reference=transform_ref,
                 reference_type=transform_ref_type,
-                type=transform_type,
+                kind=transform_type,
                 is_flow=is_flow,
             ).save()
             self._logging_message_track += (
@@ -939,7 +939,7 @@ class Context:
                 and not transform_was_saved
             ):
                 raise UpdateContext(
-                    f'{transform.created_by.name} ({transform.created_by.handle}) already works on this draft {transform.type}.\n\nPlease create a revision via `ln.track("{uid[:-4]}{increment_base62(uid[-4:])}")` or a new transform with a *different* key and `ln.track("{base62_12()}0000")`.'
+                    f'{transform.created_by.name} ({transform.created_by.handle}) already works on this draft {transform.kind}.\n\nPlease create a revision via `ln.track("{uid[:-4]}{increment_base62(uid[-4:])}")` or a new transform with a *different* key and `ln.track("{base62_12()}0000")`.'
                 )
             if transform.reference != transform_ref:
                 transform.reference = transform_ref
@@ -952,7 +952,7 @@ class Context:
             if transform_was_saved:
                 bump_revision = False
                 if (
-                    transform.type == "notebook"
+                    transform.kind == "notebook"
                     and self._notebook_runner != "nbconvert"
                 ):
                     # we anticipate the user makes changes to the notebook source code
@@ -967,7 +967,7 @@ class Context:
                     change_type = (
                         "re-running notebook with already-saved source code"
                         if (
-                            transform.type == "notebook"
+                            transform.kind == "notebook"
                             and self._notebook_runner != "nbconvert"
                         )
                         else "source code changed"
@@ -1006,7 +1006,7 @@ class Context:
         if self.run is None:
             raise TrackNotCalled("Please run `ln.track()` before `ln.finish()`")
         if self._path is None:
-            if self.run.transform.type in {"script", "notebook"}:
+            if self.run.transform.kind in {"script", "notebook"}:
                 raise ValueError(
                     "Transform type is not allowed to be 'script' or 'notebook' because `context._path` is `None`."
                 )
@@ -1015,7 +1015,7 @@ class Context:
             # nothing else to do
             return None
         self.run._status_code = 0
-        if self.transform.type == "notebook":
+        if self.transform.kind == "notebook":
             return_code = save_context_core(
                 run=self.run,
                 transform=self.run.transform,
