@@ -496,7 +496,7 @@ def get_artifact_kwargs_from_data(
         real_key_is_set = real_key is not None
         if key_is_virtual is not None and key_is_virtual != real_key_is_set:
             raise ValueError(
-                f"Passing a path in an existing storage {'with' if real_key_is_set else 'without'}"
+                f"Passing a path in an existing storage {'with' if real_key_is_set else 'without'} "
                 f"a virtual key and _key_is_virtual={key_is_virtual} is incompatible."
             )
         # we use an actual storage key if key is not provided explicitly
