@@ -31,10 +31,10 @@ class BlockMixin(IsVersioned):
     """Content of the block."""
     hash: str = CharField(max_length=22, db_index=True, null=True)
     """Content hash of the block."""
-    type: str = CharField(
+    kind: str = CharField(
         max_length=22, db_index=True, default="mdpage", db_default="mdpage"
     )
-    """Type of the block.
+    """Kind of block.
 
     Only current option is: "mdpage" (markdown page).
     """
@@ -59,14 +59,14 @@ class RootBlock(BlockMixin, BaseSQLRecord):
     class Meta:
         app_label = "lamindb"
 
-    name: str = CharField(max_length=255, db_index=True)
-    """The entity for which we want to create a block.
+    context: str = CharField(max_length=255, db_index=True)
+    """The context for which we want to create a block.
 
     Conventions are mostly to take the SQL table name:
-        name = "instance" means instance
-        name = "lamindb_artifact" means artifact
-        name = "lamindb_transform" means transform
-        name = "bionty_celltype" means bionty cell type
+        context = "instance" means instance
+        context = "lamindb_artifact" means artifact
+        context = "lamindb_transform" means transform
+        context = "bionty_celltype" means bionty cell type
     """
 
 
