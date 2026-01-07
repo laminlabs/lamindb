@@ -130,9 +130,7 @@ def test_transform_versioning_based_on_revises():
     # it automatically retrieves the latest version
     transform_v3 = ln.Transform(description="Introduction", revises=transform_v1).save()
     assert transform_v3.uid.endswith("0002")
-    assert not ln.Transform.objects.get(
-        description="Introduction v2", version="2"
-    ).is_latest
+    assert not ln.Transform.get(description="Introduction v2", version="2").is_latest
     assert transform_v3.is_latest
     transform_v4 = ln.Transform(description="Introduction").save()
     assert transform_v4.is_latest
