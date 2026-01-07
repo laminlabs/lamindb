@@ -2958,15 +2958,13 @@ def _save_skip_storage(artifact, **kwargs) -> None:
 
 class ArtifactJsonValue(BaseSQLRecord, IsLink, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
-    artifact: Artifact = ForeignKey(
-        Artifact, CASCADE, related_name="links_featurevalue"
-    )
+    artifact: Artifact = ForeignKey(Artifact, CASCADE, related_name="links_jsonvalue")
     # we follow the lower() case convention rather than snake case for link models
-    featurevalue = ForeignKey(JsonValue, PROTECT, related_name="links_artifact")
+    jsonvalue = ForeignKey(JsonValue, PROTECT, related_name="links_artifact")
 
     class Meta:
         app_label = "lamindb"
-        unique_together = ("artifact", "featurevalue")
+        unique_together = ("artifact", "jsonvalue")
 
 
 class ArtifactUser(BaseSQLRecord, IsLink, TracksRun):

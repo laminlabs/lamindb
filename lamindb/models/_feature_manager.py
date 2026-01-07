@@ -759,7 +759,7 @@ def filter_base(
                         return queryset.exclude(
                             id__in=Subquery(
                                 ArtifactJsonValue.objects.filter(
-                                    featurevalue__feature=feature
+                                    jsonvalue__feature=feature
                                 ).values("artifact_id")
                             )
                         )
@@ -767,7 +767,7 @@ def filter_base(
                         return queryset.exclude(
                             id__in=Subquery(
                                 ArtifactJsonValue.objects.filter(
-                                    featurevalue__feature=feature
+                                    jsonvalue__feature=feature
                                 ).values("artifact_id")
                             )
                         )
@@ -1300,7 +1300,7 @@ class FeatureManager:
                 self._host._feature_values.through(
                     **{
                         f"{self._host.__class__.__name__.lower()}_id": self._host.id,
-                        "featurevalue_id": json_value.id,
+                        "jsonvalue_id": json_value.id,
                     }
                 )
                 for json_value in feature_json_values

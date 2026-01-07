@@ -534,9 +534,9 @@ def delete_run_artifacts(run: Run) -> None:
 
 class RunJsonValue(BaseSQLRecord, IsLink):
     id: int = models.BigAutoField(primary_key=True)
-    run: Run = ForeignKey(Run, CASCADE, related_name="links_featurevalue")
+    run: Run = ForeignKey(Run, CASCADE, related_name="links_jsonvalue")
     # we follow the lower() case convention rather than snake case for link models
-    featurevalue: JsonValue = ForeignKey("JsonValue", PROTECT, related_name="links_run")
+    jsonvalue: JsonValue = ForeignKey("JsonValue", PROTECT, related_name="links_run")
     created_at: datetime = DateTimeField(
         editable=False, db_default=models.functions.Now(), db_index=True
     )
@@ -548,4 +548,4 @@ class RunJsonValue(BaseSQLRecord, IsLink):
 
     class Meta:
         app_label = "lamindb"
-        unique_together = ("run", "featurevalue")
+        unique_together = ("run", "jsonvalue")
