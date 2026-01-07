@@ -220,8 +220,21 @@ def test_create_from_path_folder(get_test_filepaths, key):
     artifact1 = ln.Artifact(test_dirpath, key=key)
     if key is not None and is_in_registered_storage:
         assert artifact1._real_key is not None
+        # should fail because we are passing a path in an existing storage with a virtual key
+        with pytest.raises(ValueError) as error:
+            ln.Artifact(test_dirpath, key=key, _key_is_virtual=False)
+        assert error.exconly().startswith(
+            "ValueError: Passing a path in an existing storage with a virtual key and _key_is_virtual=False is incompatible."
+        )
     else:
         assert artifact1._real_key is None
+    # check that passing _key_is_virtual=True is incompatible with a path in an existing storage without a virtual key
+    if key is None and is_in_registered_storage:
+        with pytest.raises(ValueError) as error:
+            ln.Artifact(test_dirpath, key=key, _key_is_virtual=True)
+        assert error.exconly().startswith(
+            "ValueError: Passing a path in an existing storage without a virtual key and _key_is_virtual=True is incompatible."
+        )
     assert artifact1.n_files == 3
     assert artifact1.hash == hash_test_dir
     assert artifact1._state.adding
