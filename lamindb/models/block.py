@@ -1,7 +1,15 @@
 from datetime import datetime
+from typing import Any
 
 from django.db import models
-from django.db.models import CASCADE, CharField, DateTimeField, ForeignKey, TextField
+from django.db.models import (
+    CASCADE,
+    CharField,
+    DateTimeField,
+    ForeignKey,
+    JSONField,
+    TextField,
+)
 
 from .artifact import Artifact
 from .collection import Collection
@@ -10,7 +18,7 @@ from .project import Project
 from .record import Record
 from .run import Run, User
 from .schema import Schema
-from .sqlrecord import BaseSQLRecord, Branch, IsVersioned, Space
+from .sqlrecord import BaseSQLRecord, Branch, IsVersioned, Space, SQLRecord
 from .transform import Transform
 
 
@@ -38,11 +46,6 @@ class BaseBlock(IsVersioned):
 
     Only current option is: "mdpage" (markdown page).
     """
-    vertical_pos: float = models.FloatField(default=0, db_default=0, db_index=True)
-    """The vertical position of the block in the GUI as a float.
-
-    It can be used to act as a percentage to define absolute positioning or for ordering.
-    """
     created_at: datetime = DateTimeField(
         editable=False, db_default=models.functions.Now(), db_index=True
     )
@@ -51,9 +54,11 @@ class BaseBlock(IsVersioned):
         "User", CASCADE, default=None, related_name="+", null=True
     )
     """Creator of block."""
+    _aux: dict[str, Any] | None = JSONField(default=None, db_default=None, null=True)
+    """Auxiliary field for dictionary-like metadata."""
 
 
-class RootBlock(BaseBlock, BaseSQLRecord):
+class RootBlock(BaseBlock, SQLRecord):
     """A root block for every registry that can appear at the top of the registry root block in the GUI."""
 
     class Meta:

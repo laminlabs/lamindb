@@ -28,10 +28,10 @@ def test_feature_describe():
         .array_size: IntegerField
         .array_shape: JSONField
         .synonyms: TextField
+        .is_type: BooleanField
         .is_locked: BooleanField
         .created_at: DateTimeField
         .updated_at: DateTimeField
-        .is_type: BooleanField
       Relational fields
         .branch: Branch
         .space: Space
