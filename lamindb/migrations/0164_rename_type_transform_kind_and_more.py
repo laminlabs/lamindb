@@ -14,4 +14,12 @@ class Migration(migrations.Migration):
             old_name="type",
             new_name="kind",
         ),
+        migrations.RemoveField(
+            model_name="run",
+            name="_logfile",
+        ),
+        migrations.RemoveField(
+            model_name="transform",
+            name="_template",
+        ),
     ]

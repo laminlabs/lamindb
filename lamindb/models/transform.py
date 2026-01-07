@@ -220,10 +220,6 @@ class Transform(SQLRecord, IsVersioned):
         User, PROTECT, default=current_user_id, related_name="created_transforms"
     )
     """Creator of record."""
-    _template: Transform | None = ForeignKey(
-        "Transform", PROTECT, related_name="_derived_from", default=None, null=True
-    )
-    """Creating template."""
     blocks: TransformBlock
     """Blocks that annotate this artifact."""
 

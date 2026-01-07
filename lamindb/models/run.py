@@ -297,10 +297,6 @@ class Run(SQLRecord):
         "Artifact", PROTECT, null=True, related_name="_report_of", default=None
     )
     """The report of this run such as an `.html` or `.txt` file."""
-    _logfile: Artifact | None = ForeignKey(
-        "Artifact", PROTECT, null=True, related_name="_logfile_of", default=None
-    )
-    """The report of this run such as an `.html` file."""
     environment: Artifact | None = ForeignKey(
         "Artifact", PROTECT, null=True, related_name="_environment_of", default=None
     )
