@@ -7,6 +7,7 @@ from django.db.models import CASCADE, PROTECT, Q
 from lamin_utils import logger
 from lamindb_setup.core.hashing import HASH_LENGTH, hash_file, hash_string
 
+from lamindb.base import deprecated
 from lamindb.base.fields import (
     CharField,
     DateTimeField,
@@ -86,7 +87,6 @@ class Transform(SQLRecord, IsVersioned):
     Args:
         key: `str | None = None` A short name or path-like semantic key.
         kind: `TransformType | None = "pipeline"` See :class:`~lamindb.base.types.TransformType`.
-        type: `TransformType | None = None` (deprecated) Alias for `kind`. Use `kind` instead.
         version: `str | None = None` A version string.
         description: `str | None = None` A description.
         reference: `str | None = None` A reference, e.g., a URL.
@@ -226,21 +226,11 @@ class Transform(SQLRecord, IsVersioned):
     blocks: TransformBlock
     """Blocks that annotate this artifact."""
 
-    @property
-    def type(self) -> TransformType:
-        """Backward-compatible property that returns :attr:`kind`.
-
-        .. deprecated::
-            Use :attr:`kind` instead. This property is provided for backward compatibility.
-        """
-        return self.kind
-
     @overload
     def __init__(
         self,
         key: str | None = None,
         kind: TransformType | None = None,
-        type: TransformType | None = None,
         version: str | None = None,
         description: str | None = None,
         reference: str | None = None,
@@ -496,6 +486,11 @@ class Transform(SQLRecord, IsVersioned):
     def latest_run(self) -> Run:
         """The latest run of this transform."""
         return self.runs.order_by("-started_at").first()
+
+    @property
+    @deprecated(new_name="kind")
+    def type(self) -> TransformType:
+        return self.kind
 
     def view_lineage(self, with_successors: bool = False, distance: int = 5):
         """View lineage of transforms.
