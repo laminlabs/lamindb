@@ -47,7 +47,7 @@ from ._label_manager import _get_labels
 from ._relations import (
     dict_related_model_to_related_name,
 )
-from .feature import Feature, FeatureValue, parse_dtype
+from .feature import Feature, JsonValue, parse_dtype
 from .sqlrecord import SQLRecord
 from .ulabel import ULabel
 
@@ -306,17 +306,17 @@ def get_non_categoricals(
 
     if self.id is not None and isinstance(self, (Artifact, Run, Record)):
         if isinstance(self, Record):
-            _feature_values = self.values_json.values(
+            json_values = self.values_json.values(
                 "feature__name", "feature___dtype_str", "value"
             ).order_by("feature__name")
         else:
-            _feature_values = (
-                self._feature_values.values("feature__name", "feature___dtype_str")
+            json_values = (
+                self.json_values.values("feature__name", "feature___dtype_str")
                 .annotate(values=custom_aggregate("value", self._state.db))
                 .order_by("feature__name")
             )
 
-        for fv in _feature_values:
+        for fv in json_values:
             feature_name = fv["feature__name"]
             feature_dtype = fv["feature___dtype_str"]
             if isinstance(self, Record):
@@ -723,24 +723,18 @@ def filter_base(
 ) -> BasicQuerySet:
     from lamindb.models import Artifact, BasicQuerySet, QuerySet
 
-    # not QuerySet but only BasicQuerySet
     assert isinstance(queryset, BasicQuerySet) and not isinstance(queryset, QuerySet)  # noqa: S101
-
-    registry = queryset.model
-    db = queryset.db
-
-    model = Feature
-    value_model = FeatureValue
     keys_normalized = [key.split("__")[0] for key in expression]
     if not _skip_validation:
-        validated = model.connect(db).validate(keys_normalized, field="name", mute=True)
+        validated = Feature.connect(queryset.db).validate(
+            keys_normalized, field="name", mute=True
+        )
         if sum(validated) != len(keys_normalized):
             raise ValidationError(
                 f"Some keys in the filter expression are not registered as features: {np.array(keys_normalized)[~validated]}"
             )
     new_expression = {}
-    features = model.connect(db).filter(name__in=keys_normalized).distinct()
-    feature_param = "feature"
+    features = Feature.connect(queryset.db).filter(name__in=keys_normalized).distinct()
     for key, value in expression.items():
         split_key = key.split("__")
         normalized_key = split_key[0]
@@ -752,22 +746,22 @@ def filter_base(
         dtype_str = feature._dtype_str
         if not dtype_str.startswith("cat") and not dtype_str.startswith("list[cat"):
             if comparator == "__isnull":
-                if registry is Artifact:
-                    from .artifact import ArtifactFeatureValue
+                if queryset.model is Artifact:
+                    from .artifact import ArtifactJsonValue
 
                     if value:  # True
                         return queryset.exclude(
                             id__in=Subquery(
-                                ArtifactFeatureValue.objects.filter(
-                                    featurevalue__feature=feature
+                                ArtifactJsonValue.objects.filter(
+                                    jsonvalue__feature=feature
                                 ).values("artifact_id")
                             )
                         )
                     else:
                         return queryset.exclude(
                             id__in=Subquery(
-                                ArtifactFeatureValue.objects.filter(
-                                    featurevalue__feature=feature
+                                ArtifactJsonValue.objects.filter(
+                                    jsonvalue__feature=feature
                                 ).values("artifact_id")
                             )
                         )
@@ -784,13 +778,13 @@ def filter_base(
             }:
                 # SQLite seems to prefer comparing strings over numbers
                 value = str(value)
-            expression = {feature_param: feature, f"value{comparator}": value}
-            feature_values = value_model.filter(**expression)
-            new_expression[f"_{feature_param}_values__id__in"] = feature_values
+            expression = {"feature": feature, f"value{comparator}": value}
+            json_values = JsonValue.filter(**expression)
+            new_expression["json_values__id__in"] = json_values
         # categorical features
         elif isinstance(value, (str, SQLRecord, bool)):
             if comparator == "__isnull":
-                if registry is Artifact:
+                if queryset.model is Artifact:
                     dtype_str = feature._dtype_str
                     result = parse_dtype(dtype_str)[0]
                     kwargs = {
@@ -814,7 +808,9 @@ def filter_base(
                     # we need the comparator here because users might query like so
                     # ln.Artifact.filter(experiment__contains="Experi")
                     expression = {f"{field_name}{comparator}": value}
-                    labels = result["registry"].connect(db).filter(**expression)
+                    labels = (
+                        result["registry"].connect(queryset.db).filter(**expression)
+                    )
                     if len(labels) == 0:
                         raise DoesNotExist(
                             f"Did not find a {label_registry.__name__} matching `{field_name}{comparator}={value}`"
@@ -958,15 +954,13 @@ class FeatureManager:
                     feature_record.id
                 )
             else:  # non-categorical features
-                registry_to_features[(FeatureValue, "FeatureValue")].append(
-                    feature_record.id
-                )
+                registry_to_features[(JsonValue, "JsonValue")].append(feature_record.id)
 
         value_records = {}
 
         # query once per registry with all feature_ids
         for (registry, registry_name), feature_ids in registry_to_features.items():
-            if registry_name == "FeatureValue":
+            if registry_name == "JsonValue":
                 # for non-categorical features
                 filters = {
                     "feature_id__in": feature_ids,
@@ -1101,7 +1095,7 @@ class FeatureManager:
             ]
             run = get_current_tracked_run()
             if run is not None:
-                name = f"{run.transform.type}[{run.transform.key}]"
+                name = f"{run.transform.kind}[{run.transform.key}]"
                 type_hint = f"""  feature_type = ln.Feature(name='{name}', is_type=True).save()"""
                 elements = [type_hint]
                 type_kwarg = ", type=feature_type"
@@ -1219,7 +1213,7 @@ class FeatureManager:
                     filter_kwargs["record"] = self._host
                     feature_value = RecordJson(**filter_kwargs)
                 else:
-                    feature_value, _ = FeatureValue.get_or_create(**filter_kwargs)
+                    feature_value, _ = JsonValue.get_or_create(**filter_kwargs)
                 feature_json_values.append(feature_value)
             else:
                 if isinstance(value, SQLRecord) or is_iterable_of_sqlrecord(value):
@@ -1293,16 +1287,16 @@ class FeatureManager:
         if feature_json_values and host_is_record:
             save(feature_json_values)
         elif feature_json_values:
-            to_insert_feature_values = [
+            to_insertjson_values = [
                 record for record in feature_json_values if record._state.adding
             ]
-            if to_insert_feature_values:
-                save(to_insert_feature_values)
+            if to_insertjson_values:
+                save(to_insertjson_values)
             links = [
-                self._host._feature_values.through(
+                self._host.json_values.through(
                     **{
                         f"{self._host.__class__.__name__.lower()}_id": self._host.id,
-                        "featurevalue_id": json_value.id,
+                        "jsonvalue_id": json_value.id,
                     }
                 )
                 for json_value in feature_json_values
@@ -1461,7 +1455,7 @@ class FeatureManager:
                 if host_is_record:
                     feature_values = self._host.values_json.filter(**filter_kwargs)
                 else:
-                    feature_values = self._host._feature_values.filter(**filter_kwargs)
+                    feature_values = self._host.json_values.filter(**filter_kwargs)
                 if not feature_values.exists():
                     logger.warning(
                         f"no feature '{feature_record.name}' {none_message}found on {self._host.__class__.__name__.lower()} '{self._host.uid}'!"
@@ -1472,8 +1466,8 @@ class FeatureManager:
                 else:
                     # the below might leave a dangling feature_value record
                     # but we don't want to pay the price of making another query just to remove this annotation
-                    # we can clean the FeatureValue registry periodically if we want to
-                    self._host._feature_values.remove(*feature_values)
+                    # we can clean the JsonValue registry periodically if we want to
+                    self._host.json_values.remove(*feature_values)
 
     def _add_schema(self, schema: Schema, slot: str) -> None:
         """Annotate artifact with a schema.

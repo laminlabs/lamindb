@@ -9,7 +9,7 @@ from lamin_utils import colors, logger
 from lamindb_setup import settings
 from lamindb_setup._init_instance import get_schema_module_name
 
-from lamindb.models import Feature, FeatureValue, ParamValue, SQLRecord
+from lamindb.models import Feature, JsonValue, SQLRecord
 
 from .models.feature import serialize_pandas_dtype
 
@@ -144,7 +144,7 @@ def view(
             and registry is not SQLRecord
         }
         if module_name == "core":
-            all_registries.update({FeatureValue, ParamValue})
+            all_registries.update({JsonValue})
         if registries is not None:
             filtered_registries = {
                 registry

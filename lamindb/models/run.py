@@ -30,7 +30,7 @@ if TYPE_CHECKING:
     from .artifact import Artifact
     from .block import RunBlock
     from .collection import Collection
-    from .feature import FeatureValue
+    from .feature import JsonValue
     from .project import Project
     from .query_set import QuerySet
     from .record import Record
@@ -224,7 +224,7 @@ class Run(SQLRecord):
 
         Create a run record::
 
-            ln.Transform(key="Cell Ranger", version="7.2.0", type="pipeline").save()
+            ln.Transform(key="Cell Ranger", version="7.2.0", kind="pipeline").save()
             transform = ln.Transform.get(key="Cell Ranger", version="7.2.0")
             run = ln.Run(transform)
 
@@ -297,10 +297,6 @@ class Run(SQLRecord):
         "Artifact", PROTECT, null=True, related_name="_report_of", default=None
     )
     """The report of this run such as an `.html` or `.txt` file."""
-    _logfile: Artifact | None = ForeignKey(
-        "Artifact", PROTECT, null=True, related_name="_logfile_of", default=None
-    )
-    """The report of this run such as an `.html` file."""
     environment: Artifact | None = ForeignKey(
         "Artifact", PROTECT, null=True, related_name="_environment_of", default=None
     )
@@ -333,11 +329,11 @@ class Run(SQLRecord):
     Artifacts are considered recreated if they are reloaded due to a hash lookup match for an existing artifact.
     """
     params: dict = models.JSONField(null=True)
-    """JSON-like parameters."""
-    _feature_values: FeatureValue = models.ManyToManyField(
-        "FeatureValue", through="RunFeatureValue", related_name="runs"
+    """Parameters (plain JSON values)."""
+    json_values: JsonValue = models.ManyToManyField(
+        "JsonValue", through="RunJsonValue", related_name="runs"
     )
-    """Feature values."""
+    """Feature-indexed JSON values."""
     reference: str | None = CharField(max_length=255, db_index=True, null=True)
     """A reference like a URL or an external ID such as from a workflow manager."""
     reference_type: str | None = CharField(max_length=25, db_index=True, null=True)
@@ -536,13 +532,11 @@ def delete_run_artifacts(run: Run) -> None:
             report.delete(permanent=True)
 
 
-class RunFeatureValue(BaseSQLRecord, IsLink):
+class RunJsonValue(BaseSQLRecord, IsLink):
     id: int = models.BigAutoField(primary_key=True)
-    run: Run = ForeignKey(Run, CASCADE, related_name="links_featurevalue")
+    run: Run = ForeignKey(Run, CASCADE, related_name="links_jsonvalue")
     # we follow the lower() case convention rather than snake case for link models
-    featurevalue: FeatureValue = ForeignKey(
-        "FeatureValue", PROTECT, related_name="links_run"
-    )
+    jsonvalue: JsonValue = ForeignKey("JsonValue", PROTECT, related_name="links_run")
     created_at: datetime = DateTimeField(
         editable=False, db_default=models.functions.Now(), db_index=True
     )
@@ -554,4 +548,4 @@ class RunFeatureValue(BaseSQLRecord, IsLink):
 
     class Meta:
         app_label = "lamindb"
-        unique_together = ("run", "featurevalue")
+        unique_together = ("run", "jsonvalue")

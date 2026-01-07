@@ -98,9 +98,7 @@ Run: {ln.context.run.uid[:7]} ({ln.context.run.transform.key})
 
     # clean up
     ln.context.run.delete(permanent=True)
-    ln.models.RunFeatureValue.filter(run__transform=test_transform).delete(
-        permanent=True
-    )
+    ln.models.RunJsonValue.filter(run__transform=test_transform).delete(permanent=True)
     ln.models.RunRecord.filter(run__transform=test_transform).delete(permanent=True)
     ln.context._run = None
     feature1.delete(permanent=True)
@@ -195,7 +193,7 @@ def test_invalid_transform_type():
     transform = ln.Transform(key="test transform")
     ln.track(transform=transform)
     ln.context._path = None
-    ln.context.run.transform.type = "script"
+    ln.context.run.transform.kind = "script"
     with pytest.raises(ValueError) as error:
         ln.finish()
     assert "Transform type is not allowed to be" in error.exconly()
@@ -217,13 +215,13 @@ def test_create_or_load_transform():
         transform_type="notebook",
     )
     assert context._transform.uid == uid
-    assert context._transform.version == version
+    assert context._transform.version_tag == version
     assert context._transform.description == title
     context._create_or_load_transform(
         description=title,
     )
     assert context._transform.uid == uid
-    assert context._transform.version == version
+    assert context._transform.version_tag == version
     assert context._transform.description == title
 
     # now, test an updated transform name
@@ -231,7 +229,7 @@ def test_create_or_load_transform():
         description="updated title",
     )
     assert context._transform.uid == uid
-    assert context._transform.version == version
+    assert context._transform.version_tag == version
     assert context._transform.description == "updated title"
 
     # unset to remove side effects
@@ -363,7 +361,7 @@ def test_run_external_script():
 
 @pytest.mark.parametrize("type", ["notebook", "script"])
 def test_track_notebook_or_script_manually(type):
-    transform = ln.Transform(key="My notebook", type=type)
+    transform = ln.Transform(key="My notebook", kind=type)
     with pytest.raises(ValueError) as error:
         ln.track(transform=transform)
     assert (

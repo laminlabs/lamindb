@@ -51,7 +51,11 @@ def _get_labels(
     if obj.__class__.__name__ == "Artifact" and links:
         related_models["ArtifactArtifact"] = "links_artifact"
     for _, related_name in related_models.items():
-        if related_name not in EXCLUDE_LABELS and not related_name.startswith("_"):
+        if (
+            related_name not in EXCLUDE_LABELS
+            and not related_name.startswith("_")
+            and not related_name == "json_values"
+        ):
             labels[related_name] = getattr(obj, related_name).all()
     return labels
 

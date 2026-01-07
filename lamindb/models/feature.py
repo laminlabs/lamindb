@@ -24,7 +24,6 @@ from pandas.api.types import CategoricalDtype, is_string_dtype
 from pandas.core.dtypes.base import ExtensionDtype
 
 from lamindb.base.fields import (
-    BooleanField,
     CharField,
     ForeignKey,
     JSONField,
@@ -730,7 +729,7 @@ def process_init_feature_param(args, kwargs):
         raise ValueError("Only keyword args allowed")
     name: str = kwargs.pop("name", None)
     dtype: type | str | None = kwargs.pop("dtype", None)
-    is_type: bool = kwargs.pop("is_type", None)
+    is_type: bool = kwargs.pop("is_type", False)
     type_: Feature | str | None = kwargs.pop("type", None)
     description: str | None = kwargs.pop("description", None)
     branch = kwargs.pop("branch", None)
@@ -989,8 +988,6 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     """
     features: Feature
     """Features of this type (can only be non-empty if `is_type` is `True`)."""
-    is_type: bool = BooleanField(default=False, db_index=True, null=True)
-    """Distinguish types from instances of the type."""
     unit: str | None = CharField(max_length=30, db_index=True, null=True)
     """Unit of measure, ideally SI (`m`, `s`, `kg`, etc.) or 'normalized' etc. (optional)."""
     description: str | None = TextField(null=True)
@@ -1030,7 +1027,7 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     )
     """Schemas linked to this feature."""
     # backward fields
-    values: FeatureValue
+    values: JsonValue
     """Values for this feature."""
     projects: Project
     """Annotating projects."""
@@ -1380,13 +1377,13 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     #         return "Artifact"
 
 
-class FeatureValue(SQLRecord, TracksRun):
+class JsonValue(SQLRecord, TracksRun):
     """Non-categorical features values.
 
     Categorical feature values are stored in their respective registries:
     :class:`~lamindb.ULabel`, :class:`~bionty.CellType`, etc.
 
-    Unlike for ULabel, in `FeatureValue`, values are grouped by features and
+    Unlike for ULabel, in `JsonValue`, values are grouped by features and
     not by an ontological hierarchy.
     """
 
