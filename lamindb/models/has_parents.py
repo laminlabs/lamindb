@@ -5,7 +5,6 @@ import builtins
 from typing import TYPE_CHECKING, Literal
 
 import lamindb_setup as ln_setup
-from django.db import models
 from lamin_utils import logger
 
 from ..errors import ValidationError
@@ -147,14 +146,8 @@ def _query_ancestors_of_fk(record: SQLRecord, attr: str) -> SQLRecordList:
     return SQLRecordList(ancestors)
 
 
-class HasParents(models.Model):
+class HasParents:
     """Base class for hierarchical registries (ontologies)."""
-
-    class Meta:
-        abstract = True
-
-    parents = models.ManyToManyField("self", symmetrical=False, related_name="children")
-    """Parent records."""
 
     def view_parents(
         self,
