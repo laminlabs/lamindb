@@ -500,7 +500,7 @@ class Record(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, HasParents
             key = f"sheet_exports/{self.name}{suffix}"
         description = f": {self.description}" if self.description is not None else ""
         transform, _ = Transform.objects.get_or_create(
-            key="__lamindb_record_export__", type="function"
+            key="__lamindb_record_export__", kind="function"
         )
         run = Run(transform, initiated_by_run=context.run).save()
         run.input_records.add(self)
