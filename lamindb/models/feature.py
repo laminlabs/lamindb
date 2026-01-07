@@ -729,7 +729,7 @@ def process_init_feature_param(args, kwargs):
         raise ValueError("Only keyword args allowed")
     name: str = kwargs.pop("name", None)
     dtype: type | str | None = kwargs.pop("dtype", None)
-    is_type: bool = kwargs.pop("is_type", None)
+    is_type: bool = kwargs.pop("is_type", False)
     type_: Feature | str | None = kwargs.pop("type", None)
     description: str | None = kwargs.pop("description", None)
     branch = kwargs.pop("branch", None)
