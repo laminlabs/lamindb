@@ -153,9 +153,7 @@ class HasParents(models.Model):
     class Meta:
         abstract = True
 
-    parents: SQLRecord = models.ManyToManyField(
-        "self", symmetrical=False, related_name="children"
-    )
+    parents = models.ManyToManyField("self", symmetrical=False, related_name="children")
     """Parent records."""
 
     def view_parents(

@@ -163,9 +163,7 @@ class ULabel(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
     """A simple reference like URL or external ID."""
     reference_type: str | None = CharField(max_length=25, db_index=True, null=True)
     """Type of simple reference."""
-    parents: ULabel = models.ManyToManyField(
-        "self", symmetrical=False, related_name="children"
-    )
+    parents: ULabel
     """Parent entities of this ulabel.
 
     For advanced use cases, you can build an ontology under a given `type`.

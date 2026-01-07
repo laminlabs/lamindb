@@ -47,7 +47,7 @@ if TYPE_CHECKING:
     from .schema import Schema
 
 
-class Record(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, HasParents):
+class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates):
     """Flexible metadata records.
 
     Useful for managing samples, donors, cells, compounds, sequences, and other custom entities with their features.
@@ -244,9 +244,7 @@ class Record(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, HasParents
     """Records linked in this record as a value."""
     linked_in_records: Record
     """Records linking this record as a value. Is reverse accessor for `linked_records`."""
-    parents: Record = models.ManyToManyField(
-        "self", symmetrical=False, related_name="children"
-    )
+    parents: Record
     """Ontological parents of this record.
 
     You can build an ontology under a given `type`. For example, introduce a type `CellType` and model the hiearchy of cell types under it via `parents` and `children`.

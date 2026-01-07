@@ -1792,10 +1792,10 @@ class Migration(migrations.Migration):
                 "abstract": False,
             },
             bases=(
+                lamindb.models.has_parents.HasParents,
                 lamindb.models.sqlrecord.HasType,
                 lamindb.models.can_curate.CanCurate,
                 models.Model,
-                lamindb.models.has_parents.HasParents,
             ),
         ),
         migrations.CreateModel(
