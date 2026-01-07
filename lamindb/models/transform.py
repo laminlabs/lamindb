@@ -490,6 +490,10 @@ class Transform(SQLRecord, IsVersioned):
     def type(self) -> TransformKind:
         return self.kind
 
+    @type.setter
+    def type(self, value: TransformKind):
+        self.kind = value
+
     def view_lineage(self, with_successors: bool = False, distance: int = 5):
         """View lineage of transforms.
 
