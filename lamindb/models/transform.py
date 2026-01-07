@@ -381,7 +381,7 @@ class Transform(SQLRecord, IsVersioned):
             url: URL of the git repository.
             path: Path to the file within the repository.
             key: Optional key for the transform.
-            version_tag: Optional version tag to checkout in the repository.
+            version: Optional version tag to checkout in the repository.
             entrypoint: One or several optional comma-separated entrypoints for the transform.
             branch: Optional branch to checkout.
             skip_hash_lookup: Skip the hash lookup so that a new transform is created even if a transform with the same hash already exists.
