@@ -28,8 +28,6 @@ class IsVersioned(models.Model):
     version_tag: str | None = CharField(max_length=30, null=True, db_index=True)
     """Version tag (default `None`).
 
-    Defines version of a family of records characterized by the same `stem_uid`.
-
     Consider using `semantic versioning <https://semver.org>`__
     with `Python versioning <https://peps.python.org/pep-0440/>`__.
     """
@@ -68,9 +66,11 @@ class IsVersioned(models.Model):
 
     @property
     def version(self) -> str:
-        """Version tag or uid suffix.
+        """The version of an object.
 
-        Returns the version tag if set, otherwise the last 4 characters of the uid.
+        Defines version of an object within a family of objects characterized by the same `stem_uid`.
+
+        Returns `.version_tag` if set, otherwise the last 4 characters of the `uid`.
         """
         return self.version_tag if self.version_tag else self.uid[-4:]  # type: ignore
 
@@ -78,8 +78,11 @@ class IsVersioned(models.Model):
     def versions(self) -> QuerySet:
         """Lists all records of the same version family.
 
-        >>> new_artifact = ln.Artifact(df2, revises=artifact).save()
-        >>> new_artifact.versions()
+        Example::
+
+            artifact = ln.Artifact.from_dataframe(df1, key="my_dataset.parquet").save()
+            new_artifact = ln.Artifact.from_dataframe(df2, key="my_dataset.parquet").save()
+            new_artifact.versions.to_dataframe()  # all versions of the artifact in a dataframe
         """
         return (
             self.__class__.connect(self._state.db)
