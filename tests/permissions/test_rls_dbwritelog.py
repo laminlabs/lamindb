@@ -8,7 +8,7 @@ import lamindb as ln
 import psycopg2
 import pytest
 from django.db import connection, transaction
-from django.db.utils import IntegrityError, InternalError, ProgrammingError
+from django.db.utils import InternalError, ProgrammingError
 from hubmodule.sql_generators._dbwrite import uninstall_dbwrite
 from jwt_utils import sign_jwt
 from lamindb.models.artifact import track_run_input
@@ -378,7 +378,6 @@ def test_atomic():
 
 def test_utility_tables():
     # can select in these tables
-    assert ln.User.filter().count() == 1
     assert ln.Space.filter().count() == 5
     # can't select
     assert hm.Account.filter().count() == 0
@@ -391,23 +390,22 @@ def test_utility_tables():
     space.name = "new name"
     with pytest.raises(ProgrammingError):
         space.save()
-    # can't update a user
-    user = ln.User.filter().one()
-    user.name = "new name"
-    # as we allow insert but not update on the user table
-    # it looks like the db raises IntegrityError insead of the rls error
-    # because just tries to insert with the same id and fails
-    with pytest.raises(IntegrityError):
-        user.save()
-    # can insert a user because has write access to a space
-    ln.User(handle="insert_new_user", uid="someuidd").save()
-    assert ln.User.filter().count() == 2
-    # can't insert
     with pytest.raises(ProgrammingError):
         ln.Space(name="new space").save()
-
+    # can't insert
     with pytest.raises(ProgrammingError):
         hm.Account(id=uuid4().hex, uid="accntid2", role="admin").save()
+
+
+def test_user_rls():
+    assert ln.User.filter().count() == 2
+    # should fail because can modify only the current user
+    user = ln.User.get(handle="testuser")
+    user.name = "New Name"
+    user.save()
+    # can insert a user because has write access to a space
+    ln.User(handle="insert_new_user", uid="someuidd").save()
+    assert ln.User.filter().count() == 3
 
 
 def test_write_role():
