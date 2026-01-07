@@ -59,6 +59,9 @@ no_access = ln.Space(name="no access").save()  # type: ignore
 usettings = ln.setup.settings.user
 account = hm.Account(id=usettings._uuid.hex, uid=usettings.uid, role="read").save()
 
+# create a test user object
+ln.User(uid="testuid1", handle="testuser", name="Test User").save()
+
 # no access space
 ulabel = ln.ULabel(name="no_access_ulabel")
 ulabel.space = no_access
