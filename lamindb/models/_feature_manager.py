@@ -723,24 +723,18 @@ def filter_base(
 ) -> BasicQuerySet:
     from lamindb.models import Artifact, BasicQuerySet, QuerySet
 
-    # not QuerySet but only BasicQuerySet
     assert isinstance(queryset, BasicQuerySet) and not isinstance(queryset, QuerySet)  # noqa: S101
-
-    registry = queryset.model
-    db = queryset.db
-
-    model = Feature
-    value_model = JsonValue
     keys_normalized = [key.split("__")[0] for key in expression]
     if not _skip_validation:
-        validated = model.connect(db).validate(keys_normalized, field="name", mute=True)
+        validated = Feature.connect(queryset.db).validate(
+            keys_normalized, field="name", mute=True
+        )
         if sum(validated) != len(keys_normalized):
             raise ValidationError(
                 f"Some keys in the filter expression are not registered as features: {np.array(keys_normalized)[~validated]}"
             )
     new_expression = {}
-    features = model.connect(db).filter(name__in=keys_normalized).distinct()
-    feature_param = "feature"
+    features = Feature.connect(queryset.db).filter(name__in=keys_normalized).distinct()
     for key, value in expression.items():
         split_key = key.split("__")
         normalized_key = split_key[0]
@@ -752,7 +746,7 @@ def filter_base(
         dtype_str = feature._dtype_str
         if not dtype_str.startswith("cat") and not dtype_str.startswith("list[cat"):
             if comparator == "__isnull":
-                if registry is Artifact:
+                if queryset.model is Artifact:
                     from .artifact import ArtifactJsonValue
 
                     if value:  # True
@@ -784,13 +778,13 @@ def filter_base(
             }:
                 # SQLite seems to prefer comparing strings over numbers
                 value = str(value)
-            expression = {feature_param: feature, f"value{comparator}": value}
-            feature_values = value_model.filter(**expression)
-            new_expression[f"_{feature_param}_values__id__in"] = feature_values
+            expression = {"feature": feature, f"value{comparator}": value}
+            json_values = JsonValue.filter(**expression)
+            new_expression["json_values__id__in"] = json_values
         # categorical features
         elif isinstance(value, (str, SQLRecord, bool)):
             if comparator == "__isnull":
-                if registry is Artifact:
+                if queryset.model is Artifact:
                     dtype_str = feature._dtype_str
                     result = parse_dtype(dtype_str)[0]
                     kwargs = {
@@ -814,7 +808,9 @@ def filter_base(
                     # we need the comparator here because users might query like so
                     # ln.Artifact.filter(experiment__contains="Experi")
                     expression = {f"{field_name}{comparator}": value}
-                    labels = result["registry"].connect(db).filter(**expression)
+                    labels = (
+                        result["registry"].connect(queryset.db).filter(**expression)
+                    )
                     if len(labels) == 0:
                         raise DoesNotExist(
                             f"Did not find a {label_registry.__name__} matching `{field_name}{comparator}={value}`"
