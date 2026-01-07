@@ -267,7 +267,7 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 .order_by("-created_at")
                 .first()
             )
-        provisional_uid, version, key, description, revises = process_revises(
+        provisional_uid, vtag, key, description, revises = process_revises(
             revises, vtag, key, description, Collection
         )
         run = get_run(run)
@@ -317,7 +317,7 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 meta_artifact=meta_artifact,
                 hash=hash,
                 run=run,
-                vtag=version,
+                vtag=vtag,
                 branch=branch,
                 branch_id=branch_id,
                 space=space,

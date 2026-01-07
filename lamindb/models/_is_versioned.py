@@ -79,15 +79,15 @@ class IsVersioned(models.Model):
             .order_by("-created_at")
         )
 
-    def _add_to_version_family(self, revises: IsVersioned, version: str | None = None):
+    def _add_to_version_family(self, revises: IsVersioned, vtag: str | None = None):
         """Add current record to a version family.
 
         Args:
             revises: a record that belongs to the version family.
-            version: semantic version of the record.
+            vtag: semantic version tag of the record.
         """
         old_uid = self.uid  # type: ignore
-        new_uid, revises = create_uid(revises=revises, version=version)
+        new_uid, revises = create_uid(revises=revises, vtag=vtag)
         if (
             self.__class__.__name__ == "Artifact"
             and self._real_key is None
@@ -104,7 +104,7 @@ class IsVersioned(models.Model):
             )
             logger.success(f"updated path from {old_path} to {new_path}!")
         self.uid = new_uid
-        self.vtag = version
+        self.vtag = vtag
         self.save()
         logger.success(f"updated uid from {old_uid} to {new_uid}!")
 
@@ -171,7 +171,7 @@ def set_version(version: str | None = None, previous_version: str | None = None)
 
 def create_uid(
     *,
-    version: str | None = None,
+    vtag: str | None = None,
     n_full_id: int = 20,
     revises: IsVersioned | None = None,
 ) -> tuple[str, IsVersioned | None]:
@@ -200,13 +200,13 @@ def create_uid(
     else:
         suid = ids.base62(n_full_id - 4)
         vuid = "0000"
-    if version is not None:
-        if not isinstance(version, str):
+    if vtag is not None:
+        if not isinstance(vtag, str):
             raise ValueError(
-                "`version` parameter must be `None` or `str`, e.g., '0.1', '1', '2', etc."
+                "`vtag` parameter must be `None` or `str`, e.g., '0.1', '1', '2', etc."
             )
         if revises is not None:
-            if version == revises.vtag:
+            if vtag == revises.vtag:
                 raise ValueError(
                     f"Please change the version tag or leave it `None`, '{revises.vtag}' is already taken"
                 )
@@ -215,19 +215,17 @@ def create_uid(
 
 def process_revises(
     revises: IsVersioned | None,
-    version: str | None,
+    vtag: str | None,
     key: str | None,
     description: str | None,
     type: type[IsVersioned],
 ) -> tuple[str, str, str, str, IsVersioned | None]:
     if revises is not None and not isinstance(revises, type):
         raise TypeError(f"`revises` has to be of type `{type.__name__}`")
-    uid, revises = create_uid(
-        revises=revises, version=version, n_full_id=type._len_full_uid
-    )
+    uid, revises = create_uid(revises=revises, vtag=vtag, n_full_id=type._len_full_uid)
     if revises is not None:
         if description is None:
             description = revises.description
         if key is None:
             key = revises.key
-    return uid, version, key, description, revises
+    return uid, vtag, key, description, revises

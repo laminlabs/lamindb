@@ -61,7 +61,7 @@ def test_artifact_describe():
         .hash: CharField
         .n_files: BigIntegerField
         .n_observations: BigIntegerField
-        .version: CharField
+        .vtag: CharField
         .is_latest: BooleanField
         .is_locked: BooleanField
         .created_at: DateTimeField

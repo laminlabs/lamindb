@@ -86,7 +86,7 @@ class Transform(SQLRecord, IsVersioned):
     Args:
         key: `str | None = None` A short name or path-like semantic key.
         type: `TransformType | None = "pipeline"` See :class:`~lamindb.base.types.TransformType`.
-        vtag: `str | None = None` A version tag string.
+        version: `str | None = None` A version string.
         description: `str | None = None` A description.
         reference: `str | None = None` A reference, e.g., a URL.
         reference_type: `str | None = None` A reference type, e.g., 'url'.
@@ -230,7 +230,7 @@ class Transform(SQLRecord, IsVersioned):
         self,
         key: str | None = None,
         type: TransformType | None = None,
-        vtag: str | None = None,
+        version: str | None = None,
         description: str | None = None,
         reference: str | None = None,
         reference_type: str | None = None,
@@ -313,7 +313,7 @@ class Transform(SQLRecord, IsVersioned):
             return None
         if revises is not None and key is not None and revises.key != key:
             logger.important(f"renaming transform {revises.key} to {key}")
-        new_uid, version, key, description, revises = process_revises(
+        new_uid, vtag, key, description, revises = process_revises(
             revises, vtag, key, description, Transform
         )
         # this is only because the user-facing constructor allows passing a uid
@@ -344,7 +344,7 @@ class Transform(SQLRecord, IsVersioned):
             description=description,
             key=key,
             type=type,
-            vtag=version,
+            vtag=vtag,
             reference=reference,
             reference_type=reference_type,
             source_code=source_code,
@@ -467,7 +467,7 @@ class Transform(SQLRecord, IsVersioned):
         return Transform(
             key=key,
             type="pipeline",
-            vtag=version,
+            version=version,
             reference=reference,
             reference_type=reference_type,
             source_code=source_code,

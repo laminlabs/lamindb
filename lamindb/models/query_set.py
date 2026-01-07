@@ -411,7 +411,7 @@ def get_basic_field_names(
         )
     ]
     for field_name in [
-        "version",
+        "vtag",
         "is_latest",
         "is_locked",
         "created_at",
