@@ -260,7 +260,9 @@ class Transform(SQLRecord, IsVersioned):
         key: str | None = kwargs.pop("key", None)
         description: str | None = kwargs.pop("description", None)
         revises: Transform | None = kwargs.pop("revises", None)
-        vtag: str | None = kwargs.pop("vtag", kwargs.pop("version", None))
+        _version_tag: str | None = kwargs.pop(
+            "_version_tag", kwargs.pop("version", None)
+        )
         type: TransformType | None = kwargs.pop("type", "pipeline")
         reference: str | None = kwargs.pop("reference", None)
         reference_type: str | None = kwargs.pop("reference_type", None)
@@ -278,7 +280,7 @@ class Transform(SQLRecord, IsVersioned):
         )
         if not len(kwargs) == 0:
             raise ValueError(
-                "Only key, description, vtag, type, revises, reference, "
+                "Only key, description, _version_tag, type, revises, reference, "
                 f"reference_type can be passed, but you passed: {kwargs}"
             )
         if revises is None:
@@ -313,8 +315,8 @@ class Transform(SQLRecord, IsVersioned):
             return None
         if revises is not None and key is not None and revises.key != key:
             logger.important(f"renaming transform {revises.key} to {key}")
-        new_uid, vtag, key, description, revises = process_revises(
-            revises, vtag, key, description, Transform
+        new_uid, _version_tag, key, description, revises = process_revises(
+            revises, _version_tag, key, description, Transform
         )
         # this is only because the user-facing constructor allows passing a uid
         # most others don't
@@ -344,7 +346,7 @@ class Transform(SQLRecord, IsVersioned):
             description=description,
             key=key,
             type=type,
-            vtag=vtag,
+            _version_tag=_version_tag,
             reference=reference,
             reference_type=reference_type,
             source_code=source_code,
@@ -375,7 +377,7 @@ class Transform(SQLRecord, IsVersioned):
             url: URL of the git repository.
             path: Path to the file within the repository.
             key: Optional key for the transform.
-            vtag: Optional version tag to checkout in the repository.
+            _version_tag: Optional version tag to checkout in the repository.
             entrypoint: One or several optional comma-separated entrypoints for the transform.
             branch: Optional branch to checkout.
             skip_hash_lookup: Skip the hash lookup so that a new transform is created even if a transform with the same hash already exists.
@@ -396,7 +398,7 @@ class Transform(SQLRecord, IsVersioned):
                     path="main.nf",
                     version="v2.0.0"
                 ).save()
-                assert transform.vtag == "v2.0.0"
+                assert transform._version_tag == "v2.0.0"
 
             Create a *sliding transform* from a Nextflow repo's `dev` branch.
             Unlike a regular transform, a sliding transform doesn't pin a specific source code state,

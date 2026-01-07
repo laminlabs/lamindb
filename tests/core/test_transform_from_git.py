@@ -12,7 +12,7 @@ repo: {TEST_URL}
 path: main.nf
 commit:""")
     assert transform1.key == "openproblems-bio/task_batch_integration/main.nf"
-    assert transform1.vtag is None
+    assert transform1._version_tag is None
     assert transform1.reference.startswith(f"{TEST_URL}/blob/")
     assert transform1.reference_type == "url"
 
@@ -22,7 +22,7 @@ commit:""")
 repo: {TEST_URL}
 path: main.nf
 commit:""")
-    assert transform2.vtag == "v2.0.0"
+    assert transform2._version_tag == "v2.0.0"
     assert transform1.source_code != transform2.source_code
     assert transform1.reference != transform2.reference
 

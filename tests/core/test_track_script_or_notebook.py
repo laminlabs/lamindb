@@ -217,13 +217,13 @@ def test_create_or_load_transform():
         transform_type="notebook",
     )
     assert context._transform.uid == uid
-    assert context._transform.vtag == version
+    assert context._transform._version_tag == version
     assert context._transform.description == title
     context._create_or_load_transform(
         description=title,
     )
     assert context._transform.uid == uid
-    assert context._transform.vtag == version
+    assert context._transform._version_tag == version
     assert context._transform.description == title
 
     # now, test an updated transform name
@@ -231,7 +231,7 @@ def test_create_or_load_transform():
         description="updated title",
     )
     assert context._transform.uid == uid
-    assert context._transform.vtag == version
+    assert context._transform._version_tag == version
     assert context._transform.description == "updated title"
 
     # unset to remove side effects

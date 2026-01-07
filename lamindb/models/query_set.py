@@ -180,7 +180,7 @@ def get_backward_compat_filter_kwargs(queryset, expressions):
 
     if issubclass(queryset.model, IsVersioned):
         name_mappings = {
-            "version": "vtag",
+            "version": "_version_tag",
         }
     else:
         name_mappings = {}
@@ -422,7 +422,7 @@ def get_basic_field_names(
         )
     ]
     for field_name in [
-        "vtag",
+        "_version_tag",
         "is_latest",
         "is_locked",
         "created_at",
