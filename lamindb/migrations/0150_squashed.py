@@ -1792,8 +1792,8 @@ class Migration(migrations.Migration):
                 "abstract": False,
             },
             bases=(
-                lamindb.models.has_parents.HasParents,
                 lamindb.models.sqlrecord.HasType,
+                lamindb.models.has_parents.HasParents,
                 lamindb.models.can_curate.CanCurate,
                 models.Model,
             ),
