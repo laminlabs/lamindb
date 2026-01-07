@@ -31,7 +31,7 @@ if TYPE_CHECKING:
     from datetime import datetime
     from pathlib import Path
 
-    from lamindb.base.types import TransformType
+    from lamindb.base.types import TransformKind
 
     from .block import TransformBlock
     from .project import Project, Reference
@@ -86,7 +86,7 @@ class Transform(SQLRecord, IsVersioned):
 
     Args:
         key: `str | None = None` A short name or path-like semantic key.
-        kind: `TransformType | None = "pipeline"` See :class:`~lamindb.base.types.TransformType`.
+        kind: `TransformKind | None = "pipeline"` See :class:`~lamindb.base.types.TransformKind`.
         version: `str | None = None` A version string.
         description: `str | None = None` A description.
         reference: `str | None = None` A reference, e.g., a URL.
@@ -147,12 +147,12 @@ class Transform(SQLRecord, IsVersioned):
     # db_index on description because sometimes we query for equality in the case of artifacts
     description: str | None = TextField(null=True, db_index=True)
     """A description."""
-    kind: TransformType = CharField(
+    kind: TransformKind = CharField(
         max_length=20,
         db_index=True,
         default="pipeline",
     )
-    """:class:`~lamindb.base.types.TransformType` (default `"pipeline"`)."""
+    """:class:`~lamindb.base.types.TransformKind` (default `"pipeline"`)."""
     source_code: str | None = TextField(null=True)
     """Source code of the transform."""
     hash: str | None = CharField(max_length=HASH_LENGTH, db_index=True, null=True)
@@ -230,7 +230,7 @@ class Transform(SQLRecord, IsVersioned):
     def __init__(
         self,
         key: str | None = None,
-        kind: TransformType | None = None,
+        kind: TransformKind | None = None,
         version: str | None = None,
         description: str | None = None,
         reference: str | None = None,
@@ -263,8 +263,8 @@ class Transform(SQLRecord, IsVersioned):
         revises: Transform | None = kwargs.pop("revises", None)
         version_tag: str | None = kwargs.pop("version_tag", kwargs.pop("version", None))
         # Handle both 'kind' and 'type' for backward compatibility
-        kind: TransformType | None = kwargs.pop("kind", None)
-        type: TransformType | None = kwargs.pop("type", None)
+        kind: TransformKind | None = kwargs.pop("kind", None)
+        type: TransformKind | None = kwargs.pop("type", None)
         if kind is not None and type is not None:
             raise ValueError(
                 "Cannot specify both 'kind' and 'type'. Use 'kind' instead."
@@ -489,7 +489,7 @@ class Transform(SQLRecord, IsVersioned):
 
     @property
     @deprecated(new_name="kind")
-    def type(self) -> TransformType:
+    def type(self) -> TransformKind:
         return self.kind
 
     def view_lineage(self, with_successors: bool = False, distance: int = 5):

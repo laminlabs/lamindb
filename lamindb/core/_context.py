@@ -35,7 +35,7 @@ from ._track_environment import track_python_environment
 if TYPE_CHECKING:
     from lamindb_setup.types import UPathStr
 
-    from lamindb.base.types import TransformType
+    from lamindb.base.types import TransformKind
     from lamindb.models import Branch, Project, Space
 
 
@@ -47,8 +47,8 @@ msg_path_failed = "failed to infer notebook path.\nfix: pass `path` to `ln.track
 def detect_and_process_source_code_file(
     *,
     path: UPathStr | None,
-    transform_type: TransformType | None = None,
-) -> tuple[Path, TransformType, str, str]:
+    transform_type: TransformKind | None = None,
+) -> tuple[Path, TransformKind, str, str]:
     """Track source code file and determine transform metadata.
 
     For `.py` files, classified as "script".
@@ -761,7 +761,7 @@ class Context:
         description: str | None = None,
         transform_ref: str | None = None,
         transform_ref_type: str | None = None,
-        transform_type: TransformType = None,
+        transform_type: TransformKind = None,
         key: str | None = None,
         is_flow: bool = False,
     ):
