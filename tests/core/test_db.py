@@ -2,7 +2,7 @@ import lamindb as ln
 
 
 def test_create_to_load():
-    transform = ln.Transform(_version_tag="0", key="test", type="pipeline")
+    transform = ln.Transform(version_tag="0", key="test", type="pipeline")
     transform.save()
     run = ln.Run(transform=transform)
     run.save()

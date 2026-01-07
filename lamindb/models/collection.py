@@ -248,9 +248,7 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         reference_type: str | None = kwargs.pop("reference_type", None)
         run: Run | None = kwargs.pop("run", None)
         revises: Collection | None = kwargs.pop("revises", None)
-        _version_tag: str | None = kwargs.pop(
-            "_version_tag", kwargs.pop("version", None)
-        )
+        version_tag: str | None = kwargs.pop("version_tag", kwargs.pop("version", None))
         skip_hash_lookup: bool = kwargs.pop("skip_hash_lookup", False)
         branch = kwargs.pop("branch", None)
         branch_id = kwargs.pop("branch_id", 1)
@@ -269,8 +267,8 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 .order_by("-created_at")
                 .first()
             )
-        provisional_uid, _version_tag, key, description, revises = process_revises(
-            revises, _version_tag, key, description, Collection
+        provisional_uid, version_tag, key, description, revises = process_revises(
+            revises, version_tag, key, description, Collection
         )
         run = get_run(run)
         if isinstance(artifacts, Artifact):
@@ -319,7 +317,7 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 meta_artifact=meta_artifact,
                 hash=hash,
                 run=run,
-                _version_tag=_version_tag,
+                version_tag=version_tag,
                 branch=branch,
                 branch_id=branch_id,
                 space=space,

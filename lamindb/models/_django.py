@@ -148,7 +148,7 @@ def get_artifact_or_run_with_related(
                     id=F(f"{fk}__id"),
                     key=F(f"{fk}__key"),
                     uid=F(f"{fk}__uid"),
-                    version=F(f"{fk}___version_tag"),
+                    version=F(f"{fk}__version_tag"),
                 )
             elif fk == "created_by":
                 annotations[f"fkfield_{fk}"] = JSONObject(

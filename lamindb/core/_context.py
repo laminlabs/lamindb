@@ -883,18 +883,18 @@ class Context:
             # test inconsistent version passed
             if (
                 transform is not None
-                and transform._version_tag is not None  # type: ignore
-                and self.version != transform._version_tag  # type: ignore
+                and transform.version_tag is not None  # type: ignore
+                and self.version != transform.version_tag  # type: ignore
             ):
                 raise ValueError(
-                    f"Transform is already tagged with version {transform._version_tag}, but you passed {self.version}\n"  # noqa: S608
-                    f"If you want to update the transform version, set it outside ln.track(): transform._version_tag = '{self.version}'; transform.save()"
+                    f"Transform is already tagged with version {transform.version_tag}, but you passed {self.version}\n"  # noqa: S608
+                    f"If you want to update the transform version, set it outside ln.track(): transform.version_tag = '{self.version}'; transform.save()"
                 )
             # test whether version was already used for another member of the family
             if self.uid is not None and len(self.uid) == 16:
                 suid, vuid = (self.uid[:-4], self.uid[-4:])
                 transform = Transform.filter(
-                    uid__startswith=suid, _version_tag=self.version
+                    uid__startswith=suid, version_tag=self.version
                 ).one_or_none()
                 if transform is not None and vuid != transform.uid[-4:]:
                     better_version = bump_version_function(self.version)
@@ -906,7 +906,7 @@ class Context:
             assert key is not None  # noqa: S101
             transform = Transform(  # type: ignore
                 uid=self.uid,
-                _version_tag=self.version,
+                version_tag=self.version,
                 description=description,
                 key=key,
                 reference=transform_ref,

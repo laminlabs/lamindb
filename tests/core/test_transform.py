@@ -35,8 +35,8 @@ def test_revise_transforms():
         )
 
     # create a versioned transform
-    transform = ln.Transform(key="My transform", _version_tag="1")
-    assert transform._version_tag == "1"
+    transform = ln.Transform(key="My transform", version_tag="1")
+    assert transform.version_tag == "1"
     assert len(transform.uid) == ln.Transform._len_full_uid == 16
     assert len(transform.stem_uid) == ln.Transform._len_stem_uid == 12
 
@@ -62,7 +62,7 @@ def test_revise_transforms():
     assert transform_r2.uid != transform.uid
     assert transform_r2.uid.endswith("0001")
     assert transform_r2.stem_uid == transform.stem_uid
-    assert transform_r2._version_tag is None
+    assert transform_r2.version_tag is None
     assert transform_r2.is_latest
     assert transform.is_latest
     transform_r2.save()
@@ -70,10 +70,10 @@ def test_revise_transforms():
 
     # create new transform from newly versioned transform
     transform_r3 = ln.Transform(
-        description="My transform", revises=transform_r2, _version_tag="2"
+        description="My transform", revises=transform_r2, version_tag="2"
     )
     assert transform_r3.stem_uid == transform.stem_uid
-    assert transform_r3._version_tag == "2"
+    assert transform_r3.version_tag == "2"
 
     # default description
     transform_r3 = ln.Transform(revises=transform_r2)
@@ -84,18 +84,18 @@ def test_revise_transforms():
     transform_r2.key = key
     transform_r2.save()
     assert transform_r2.is_latest
-    transform_r3 = ln.Transform(description="My transform", key=key, _version_tag="2")
+    transform_r3 = ln.Transform(description="My transform", key=key, version_tag="2")
     assert transform_r3.uid[:-4] == transform_r2.uid[:-4]
     assert transform_r3.uid.endswith("0001")
     # this only fires if source code was actually saved
     transform_r2.source_code = "something"
     transform_r2.save()
-    transform_r3 = ln.Transform(description="My transform", key=key, _version_tag="2")
+    transform_r3 = ln.Transform(description="My transform", key=key, version_tag="2")
     assert transform_r3.uid[:-4] == transform_r2.uid[:-4]
     assert transform_r3.uid.endswith("0002")
     assert transform_r3.stem_uid == transform_r2.stem_uid
     assert transform_r3.key == key
-    assert transform_r3._version_tag == "2"
+    assert transform_r3.version_tag == "2"
     assert transform_r3.is_latest
     # because the new transform isn't yet saved, the old transform still has
     # is_latest = True
@@ -118,7 +118,7 @@ def test_revise_transforms():
         ln.Transform(x=1)
         assert (
             error.exconly()
-            == "ValueError: Only key, description, _version_tag, type, revises,"
+            == "ValueError: Only key, description, version_tag, type, revises,"
             " reference, reference_type can be passed, but you passed: {'x': 1}"
         )
 
@@ -128,7 +128,7 @@ def test_revise_transforms():
 
     # unversioned transform
     transform = ln.Transform(key="My transform")
-    assert transform._version_tag is None
+    assert transform.version_tag is None
 
     # what happens if we don't save the old transform?
     # add a test for it!
@@ -136,10 +136,10 @@ def test_revise_transforms():
 
     # create new transform from old transform
     new_transform = ln.Transform(description="My new transform", revises=transform)
-    assert transform._version_tag is None
+    assert transform.version_tag is None
     assert new_transform.stem_uid == transform.stem_uid
     assert new_transform.uid.endswith("0001")
-    assert new_transform._version_tag is None
+    assert new_transform.version_tag is None
 
     transform.delete(permanent=True)
 
