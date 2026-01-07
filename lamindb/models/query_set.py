@@ -178,11 +178,20 @@ def get_backward_compat_filter_kwargs(queryset, expressions):
         Artifact,
     )
 
-    if queryset.model is Artifact:
+    if issubclass(queryset.model, IsVersioned):
         name_mappings = {
-            "transform": "run__transform",
-            "feature_sets": "schemas",
+            "version": "vtag",
         }
+    else:
+        name_mappings = {}
+
+    if queryset.model is Artifact:
+        name_mappings.update(
+            {
+                "transform": "run__transform",
+                "feature_sets": "schemas",
+            }
+        )
     else:
         return expressions
     was_list = False
