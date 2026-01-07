@@ -31,6 +31,7 @@ ListLike = Union[list[str], pd.Series, np.array]
 StrField = Union[str, FieldAttr]  # typing.TypeAlias
 
 TransformKind = Literal["pipeline", "notebook", "script", "function", "linker"]
+TransformType = TransformKind  # backward compat
 ArtifactKind = Literal["dataset", "model", "__lamindb_run__", "__lamindb_config__"]
 
 # below is used for Feature.dtype and Param.dtype
