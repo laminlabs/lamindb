@@ -204,6 +204,31 @@ def test_create_from_path_file(get_test_filepaths, key_is_virtual, key, descript
     ln.settings.creation._artifact_use_virtual_keys = True
 
 
+@pytest.mark.parametrize("key_is_virtual", [True, False])
+@pytest.mark.parametrize("key", [None, "my_new_file.tsv"])
+def test_create_from_path_file_with_explicit_key_is_virtual(
+    tsv_file, key_is_virtual, key
+):
+    artifact = ln.Artifact(
+        tsv_file,
+        description="test explicit key is virtual",
+        key=key,
+        _key_is_virtual=key_is_virtual,
+    )
+    assert artifact.key == key
+    assert artifact._key_is_virtual == key_is_virtual
+    artifact.save()
+    assert artifact.path.exists()
+
+    root = lamindb_setup.settings.storage.root
+    if not key_is_virtual and key is not None:
+        assert artifact.path == root / key
+    else:
+        assert artifact.path == root / f".lamindb/{artifact.uid}.tsv"
+
+    artifact.delete(permanent=True, storage=True)
+
+
 @pytest.mark.parametrize("key", [None, "my_new_folder"])
 def test_create_from_path_folder(get_test_filepaths, key):
     # get variables from fixture
@@ -220,8 +245,21 @@ def test_create_from_path_folder(get_test_filepaths, key):
     artifact1 = ln.Artifact(test_dirpath, key=key)
     if key is not None and is_in_registered_storage:
         assert artifact1._real_key is not None
+        # should fail because we are passing a path in an existing storage with a virtual key
+        with pytest.raises(ValueError) as error:
+            ln.Artifact(test_dirpath, key=key, _key_is_virtual=False)
+        assert error.exconly().startswith(
+            "ValueError: Passing a path in an existing storage with a virtual key and _key_is_virtual=False is incompatible."
+        )
     else:
         assert artifact1._real_key is None
+    # check that passing _key_is_virtual=True is incompatible with a path in an existing storage without a virtual key
+    if key is None and is_in_registered_storage:
+        with pytest.raises(ValueError) as error:
+            ln.Artifact(test_dirpath, key=key, _key_is_virtual=True)
+        assert error.exconly().startswith(
+            "ValueError: Passing a path in an existing storage without a virtual key and _key_is_virtual=True is incompatible."
+        )
     assert artifact1.n_files == 3
     assert artifact1.hash == hash_test_dir
     assert artifact1._state.adding

@@ -432,6 +432,7 @@ def get_artifact_kwargs_from_data(
     overwrite_versions: bool | None = None,
     skip_hash_lookup: bool = False,
     to_disk_kwargs: dict[str, Any] | None = None,
+    key_is_virtual: bool | None = None,
 ):
     memory_rep, path, suffix, storage, use_existing_storage_key = process_data(
         provisional_uid,
@@ -491,11 +492,22 @@ def get_artifact_kwargs_from_data(
         overwrite_versions = n_files is not None
 
     if check_path_in_storage:
+        # True here means that we have a path in an existing storage with a virtual key
+        real_key_is_set = real_key is not None
+        if key_is_virtual is not None and key_is_virtual != real_key_is_set:
+            raise ValueError(
+                f"Passing a path in an existing storage {'with' if real_key_is_set else 'without'} "
+                f"a virtual key and _key_is_virtual={key_is_virtual} is incompatible."
+            )
         # we use an actual storage key if key is not provided explicitly
-        key_is_virtual = real_key is not None
+        set_key_is_virtual = real_key_is_set
     else:
         # do we use a virtual or an actual storage key?
-        key_is_virtual = settings.creation._artifact_use_virtual_keys
+        set_key_is_virtual = (
+            settings.creation._artifact_use_virtual_keys
+            if key_is_virtual is None
+            else key_is_virtual
+        )
 
     kwargs = {
         "uid": provisional_uid,
@@ -513,7 +525,7 @@ def get_artifact_kwargs_from_data(
         "n_observations": None,  # to implement
         "run_id": run.id if run is not None else None,
         "run": run,
-        "_key_is_virtual": key_is_virtual,
+        "_key_is_virtual": set_key_is_virtual,
         "revises": revises,
         "_real_key": real_key,
     }
@@ -1494,6 +1506,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         space = kwargs.pop("space", None)
         assert "space_id" not in kwargs, "Please pass space instead of space_id."  # noqa: S101
         format = kwargs.pop("format", None)
+        _key_is_virtual = kwargs.pop("_key_is_virtual", None)
         _is_internal_call = kwargs.pop("_is_internal_call", False)
         skip_check_exists = kwargs.pop("skip_check_exists", False)
         storage_was_passed = False
@@ -1564,6 +1577,10 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         # ahead of constructing the Artifact
         if isinstance(path, (str, Path)) and AUTO_KEY_PREFIX in str(path):
             if _is_internal_call:
+                if _key_is_virtual is False:
+                    raise ValueError(
+                        "Do not pass _key_is_virtual=False with _is_internal_call=True."
+                    )
                 is_automanaged_path = True
                 user_provided_key = key
                 key = None
@@ -1589,6 +1606,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             overwrite_versions=overwrite_versions,
             skip_hash_lookup=skip_hash_lookup,
             to_disk_kwargs=to_disk_kwargs,
+            key_is_virtual=_key_is_virtual,
         )
 
         # an object with the same hash already exists
