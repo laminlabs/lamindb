@@ -151,7 +151,7 @@ class HasType(models.Model):
     class Meta:
         abstract = True
 
-    is_type: bool = BooleanField(default=False, db_index=True)
+    is_type: bool = BooleanField(default=False, db_default=False, db_index=True)
     """Indicates if record is a `type`.
 
     For example, if a record "Compound" is a `type`, the actual compounds "darerinib", "tramerinib", would be instances of that `type`.
