@@ -14,7 +14,7 @@ from .sqlrecord import BaseSQLRecord, Branch, IsVersioned, Space
 from .transform import Transform
 
 
-class BlockMixin(IsVersioned):
+class BaseBlock(IsVersioned):
     class Meta:
         abstract = True
 
@@ -53,7 +53,7 @@ class BlockMixin(IsVersioned):
     """Creator of block."""
 
 
-class RootBlock(BlockMixin, BaseSQLRecord):
+class RootBlock(BaseBlock, BaseSQLRecord):
     """A root block for every registry that can appear at the top of the registry root block in the GUI."""
 
     class Meta:
@@ -70,7 +70,7 @@ class RootBlock(BlockMixin, BaseSQLRecord):
     """
 
 
-class RecordBlock(BlockMixin, BaseSQLRecord):
+class RecordBlock(BaseBlock, BaseSQLRecord):
     """An unstructured notes block that can be attached to a record."""
 
     class Meta:
@@ -80,7 +80,7 @@ class RecordBlock(BlockMixin, BaseSQLRecord):
     """The record to which the block is attached."""
 
 
-class ArtifactBlock(BlockMixin, BaseSQLRecord):
+class ArtifactBlock(BaseBlock, BaseSQLRecord):
     """An unstructured notes block that can be attached to an artifact."""
 
     class Meta:
@@ -90,7 +90,7 @@ class ArtifactBlock(BlockMixin, BaseSQLRecord):
     """The artifact to which the block is attached."""
 
 
-class TransformBlock(BlockMixin, BaseSQLRecord):
+class TransformBlock(BaseBlock, BaseSQLRecord):
     """An unstructured notes block that can be attached to a transform."""
 
     class Meta:
@@ -104,7 +104,7 @@ class TransformBlock(BlockMixin, BaseSQLRecord):
     """The line number in the source code to which the block belongs."""
 
 
-class RunBlock(BlockMixin, BaseSQLRecord):
+class RunBlock(BaseBlock, BaseSQLRecord):
     """An unstructured notes block that can be attached to a run."""
 
     class Meta:
@@ -114,7 +114,7 @@ class RunBlock(BlockMixin, BaseSQLRecord):
     """The run to which the block is attached."""
 
 
-class CollectionBlock(BlockMixin, BaseSQLRecord):
+class CollectionBlock(BaseBlock, BaseSQLRecord):
     """An unstructured notes block that can be attached to a collection."""
 
     class Meta:
@@ -126,7 +126,7 @@ class CollectionBlock(BlockMixin, BaseSQLRecord):
     """The collection to which the block is attached."""
 
 
-class SchemaBlock(BlockMixin, BaseSQLRecord):
+class SchemaBlock(BaseBlock, BaseSQLRecord):
     """An unstructured notes block that can be attached to a schema."""
 
     class Meta:
@@ -136,7 +136,7 @@ class SchemaBlock(BlockMixin, BaseSQLRecord):
     """The schema to which the block is attached."""
 
 
-class FeatureBlock(BlockMixin, BaseSQLRecord):
+class FeatureBlock(BaseBlock, BaseSQLRecord):
     """An unstructured notes block that can be attached to a feature."""
 
     class Meta:
@@ -146,7 +146,7 @@ class FeatureBlock(BlockMixin, BaseSQLRecord):
     """The feature to which the block is attached."""
 
 
-class ProjectBlock(BlockMixin, BaseSQLRecord):
+class ProjectBlock(BaseBlock, BaseSQLRecord):
     """An unstructured notes block that can be attached to a project."""
 
     class Meta:
@@ -156,7 +156,7 @@ class ProjectBlock(BlockMixin, BaseSQLRecord):
     """The project to which the block is attached."""
 
 
-class SpaceBlock(BlockMixin, BaseSQLRecord):
+class SpaceBlock(BaseBlock, BaseSQLRecord):
     """An unstructured notes block that can be attached to a space."""
 
     class Meta:
@@ -166,7 +166,7 @@ class SpaceBlock(BlockMixin, BaseSQLRecord):
     """The space to which the block is attached."""
 
 
-class BranchBlock(BlockMixin, BaseSQLRecord):
+class BranchBlock(BaseBlock, BaseSQLRecord):
     """An unstructured notes block that can be attached to a branch."""
 
     class Meta:
