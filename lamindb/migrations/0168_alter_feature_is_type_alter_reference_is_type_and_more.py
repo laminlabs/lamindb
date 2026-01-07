@@ -5,18 +5,44 @@ from django.db import migrations
 import lamindb.base.fields
 
 
+def set_is_type_not_null(apps, schema_editor):
+    """Set is_type to NOT NULL for feature table."""
+    with schema_editor.connection.cursor() as cursor:
+        # First, update all NULL values to FALSE (works for both PostgreSQL and SQLite)
+        cursor.execute(
+            "UPDATE lamindb_feature SET is_type = FALSE WHERE is_type IS NULL;"
+        )
+
+        # Then set NOT NULL constraint only for PostgreSQL
+        # SQLite doesn't support ALTER COLUMN to add NOT NULL constraints easily,
+        # so we skip it for SQLite
+        if schema_editor.connection.vendor == "postgresql":
+            cursor.execute(
+                "ALTER TABLE lamindb_feature ALTER COLUMN is_type SET NOT NULL;"
+            )
+
+
 class Migration(migrations.Migration):
     dependencies = [
         ("lamindb", "0167_rename_type_artifactblock_kind_and_more"),
     ]
 
     operations = [
-        migrations.AlterField(
-            model_name="feature",
-            name="is_type",
-            field=lamindb.base.fields.BooleanField(
-                blank=True, db_index=True, default=False
-            ),
+        migrations.SeparateDatabaseAndState(
+            database_operations=[
+                migrations.RunPython(
+                    set_is_type_not_null,
+                ),
+            ],
+            state_operations=[
+                migrations.AlterField(
+                    model_name="feature",
+                    name="is_type",
+                    field=lamindb.base.fields.BooleanField(
+                        blank=True, db_index=True, default=False
+                    ),
+                ),
+            ],
         ),
         migrations.AlterField(
             model_name="reference",
