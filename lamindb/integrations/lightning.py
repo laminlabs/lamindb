@@ -61,21 +61,13 @@ class LaminCheckpoint(ModelCheckpoint):
     """ModelCheckpoint that uploads checkpoints to LaminDB.
 
     Extends Lightning's ModelCheckpoint with LaminDB artifact tracking.
-    By default, checkpoints are versioned under a single key using virtual keys.
-
-    If `path_prefix` is set, checkpoints are stored at semantic paths
-    (`{path_prefix}/{filename}`) for predictable deployment paths. Each checkpoint
-    becomes a separate artifact; query with `ln.Artifact.filter(key__startswith=path_prefix)`.
+    Checkpoints are versioned under a single key.
 
     If available in the instance, the following features are automatically tracked:
     `is_best_model`, `score`, `model_rank`, `logger_name`, `logger_version`.
 
     Args:
-        key: The artifact key for checkpoints (used when path_prefix is None).
-            Checkpoints are versioned under this key.
-        path_prefix: If set, store files under this prefix with semantic filenames.
-            Disables virtual keys and versioning. Query results with
-            `ln.Artifact.filter(key__startswith=path_prefix)`.
+        key: The artifact key for checkpoints. Checkpoints are versioned under this key.
         features: Features to annotate checkpoints with. Values can be static
             or None (auto-populated from trainer metrics/attributes).
         dirpath: Local directory for checkpoints.
@@ -100,7 +92,7 @@ class LaminCheckpoint(ModelCheckpoint):
         # One-time setup
         ll.save_lightning_features()
 
-        # Versioned checkpoints (default)
+        # Versioned checkpoints
         callback = ll.LaminCheckpoint(
             key="experiments/my_model.ckpt",
             features={"val_loss": None},  # auto-populated from trainer
@@ -109,23 +101,13 @@ class LaminCheckpoint(ModelCheckpoint):
             mode="min",
         )
 
-        # Semantic paths for deployment
-        callback = ll.LaminCheckpoint(
-            path_prefix="deployments/my_model/",
-            monitor="val_loss",
-            save_top_k=3,
-        )
-        # Files at: deployments/my_model/epoch=1-val_loss=0.5.ckpt, etc.
-        # Query: ln.Artifact.filter(key__startswith="deployments/my_model/")
-
         trainer = pl.Trainer(callbacks=[callback])
     """
 
     def __init__(
         self,
-        key: str | None = None,
+        key: str,
         *,
-        path_prefix: str | None = None,
         features: dict[str, Any] | None = None,
         dirpath: _PATH | None = None,
         monitor: str | None = None,
@@ -141,11 +123,6 @@ class LaminCheckpoint(ModelCheckpoint):
         save_on_train_epoch_end: bool | None = None,
         enable_version_counter: bool = True,
     ) -> None:
-        if key is None and path_prefix is None:
-            raise ValueError("Must specify either 'key' or 'path_prefix'")
-        if key is not None and path_prefix is not None:
-            raise ValueError("Cannot specify both 'key' and 'path_prefix'")
-
         super().__init__(
             dirpath=dirpath,
             monitor=monitor,
@@ -162,7 +139,6 @@ class LaminCheckpoint(ModelCheckpoint):
             enable_version_counter=enable_version_counter,
         )
         self.key = key
-        self.path_prefix = path_prefix
         self.features = features or {}
         self._auto_features: set[str] = set()
 
@@ -190,36 +166,17 @@ class LaminCheckpoint(ModelCheckpoint):
                 if ln.Feature.filter(name=name).one_or_none() is not None:
                     self._auto_features.add(name)
 
-    def _get_artifact_key(self, filepath: str) -> str:
-        """Return the artifact key for this checkpoint."""
-        if self.path_prefix is not None:
-            prefix = self.path_prefix.rstrip("/")
-            return f"{prefix}/{Path(filepath).name}"
-        return self.key  # type: ignore[return-value]
-
-    def _get_key_filter(self) -> dict[str, str]:
-        """Return filter kwargs for querying artifacts from this callback."""
-        if self.path_prefix is not None:
-            return {"key__startswith": self.path_prefix.rstrip("/") + "/"}
-        return {"key": self.key}  # type: ignore[dict-item]
-
     def _save_checkpoint(self, trainer: pl.Trainer, filepath: str) -> None:
         """Save checkpoint locally and upload to LaminDB."""
         super()._save_checkpoint(trainer, filepath)
         if trainer.is_global_zero:
-            use_virtual = self.path_prefix is None
-            initial = ln.settings.creation._artifact_use_virtual_keys
-            try:
-                ln.settings.creation._artifact_use_virtual_keys = use_virtual
-                artifact = ln.Artifact(
-                    filepath,
-                    key=self._get_artifact_key(filepath),
-                    kind="model",
-                    description="Model checkpoint",
-                )
-                artifact.save()
-            finally:
-                ln.settings.creation._artifact_use_virtual_keys = initial
+            artifact = ln.Artifact(
+                filepath,
+                key=self.key,
+                kind="model",
+                description="Model checkpoint",
+            )
+            artifact.save()
 
             feature_values: dict[str, Any] = {}
 
@@ -264,7 +221,7 @@ class LaminCheckpoint(ModelCheckpoint):
 
     def _clear_best_model_flags(self) -> None:
         """Set is_best_model=False on previous best checkpoints."""
-        for artifact in ln.Artifact.filter(**self._get_key_filter()):
+        for artifact in ln.Artifact.filter(key=self.key):
             vals = artifact.features.get_values()
             if vals.get("is_best_model"):
                 artifact.features.remove_values("is_best_model", value=True)
@@ -272,7 +229,7 @@ class LaminCheckpoint(ModelCheckpoint):
 
     def _update_model_ranks(self) -> None:
         """Update model_rank feature for all checkpoints under this key."""
-        artifacts = ln.Artifact.filter(**self._get_key_filter()).to_list()
+        artifacts = ln.Artifact.filter(key=self.key).to_list()
         scored = []
         for af in artifacts:
             vals = af.features.get_values()
@@ -345,21 +302,9 @@ class SaveConfigCallback(_SaveConfigCallback):
         if checkpoint_cb is None:
             return
 
-        use_virtual = checkpoint_cb.path_prefix is None
-        initial = ln.settings.creation._artifact_use_virtual_keys
-        try:
-            ln.settings.creation._artifact_use_virtual_keys = use_virtual
-            if checkpoint_cb.path_prefix is not None:
-                prefix = checkpoint_cb.path_prefix.rstrip("/")
-                key = f"{prefix}/{self.config_filename}"
-            else:
-                key = str(Path(checkpoint_cb.key).parent / self.config_filename)  # type: ignore[arg-type]
-            artifact = ln.Artifact(
-                config_path, key=key, description="Lightning CLI config"
-            )
-            artifact.save()
-        finally:
-            ln.settings.creation._artifact_use_virtual_keys = initial
+        key = str(Path(checkpoint_cb.key).parent / self.config_filename)
+        artifact = ln.Artifact(config_path, key=key, description="Lightning CLI config")
+        artifact.save()
 
     def _get_checkpoint_callback(self, trainer: pl.Trainer) -> LaminCheckpoint | None:
         """Find LaminCheckpoint callback if present."""
