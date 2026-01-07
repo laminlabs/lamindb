@@ -284,7 +284,7 @@ class Transform(SQLRecord, IsVersioned):
         )
         if not len(kwargs) == 0:
             raise ValueError(
-                "Only key, description, version_tag, kind, type, revises, reference, "
+                "Only key, description, version, kind, type, revises, reference, "
                 f"reference_type can be passed, but you passed: {kwargs}"
             )
         if revises is None:
