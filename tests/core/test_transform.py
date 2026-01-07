@@ -27,10 +27,10 @@ def test_transform_recovery_based_on_key():
 def test_revise_transforms():
     # attempt to create a transform with an invalid version
     with pytest.raises(ValueError) as error:
-        transform = ln.Transform(key="My transform", vtag=0)
+        transform = ln.Transform(key="My transform", version=0)
         assert (
             error.exconly()
-            == "ValueError: `vtag` parameter must be `None` or `str`, e.g., '0.1', '1',"
+            == "ValueError: `version` parameter must be `None` or `str`, e.g., '0.1', '1',"
             " '2', etc."
         )
 

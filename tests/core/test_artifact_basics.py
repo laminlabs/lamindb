@@ -570,7 +570,7 @@ def test_revise_recreate_artifact(example_dataframe: pd.DataFrame, ccaplog):
     df = example_dataframe
     # attempt to create a file with an invalid version
     with pytest.raises(ValueError) as error:
-        artifact = ln.Artifact.from_dataframe(df, description="test", vtag=0)
+        artifact = ln.Artifact.from_dataframe(df, description="test", version=0)
     assert (
         error.exconly()
         == "ValueError: `version` parameter must be `None` or `str`, e.g., '0.1', '1',"

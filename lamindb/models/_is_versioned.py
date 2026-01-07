@@ -211,7 +211,7 @@ def create_uid(
     if vtag is not None:
         if not isinstance(vtag, str):
             raise ValueError(
-                "`vtag` parameter must be `None` or `str`, e.g., '0.1', '1', '2', etc."
+                "`version` parameter must be `None` or `str`, e.g., '0.1', '1', '2', etc."
             )
         if revises is not None:
             if vtag == revises.vtag:
