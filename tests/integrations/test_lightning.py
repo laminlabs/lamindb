@@ -1,3 +1,5 @@
+import shutil
+from pathlib import Path
 from typing import Generator
 
 import lamindb as ln
@@ -25,12 +27,6 @@ def simple_model() -> pl.LightningModule:
             self.log("train_loss", loss)
             return loss
 
-        def validation_step(self, batch, batch_idx):
-            x, y = batch
-            loss = nn.functional.mse_loss(self(x), y)
-            self.log("val_loss", loss)
-            return loss
-
         def configure_optimizers(self):
             return torch.optim.Adam(self.parameters())
 
@@ -51,13 +47,25 @@ def artifact_key() -> Generator[str, None, None]:
     for af in ln.Artifact.filter(key=key).to_list():
         af.delete(permanent=True, storage=True)
 
+    checkpoints_dir = Path("checkpoints")
+    if checkpoints_dir.exists():
+        shutil.rmtree(checkpoints_dir)
 
-@pytest.fixture(scope="module")
-def lightning_features() -> None:
+
+@pytest.fixture(scope="session")
+def lightning_features() -> Generator[None, None, None]:
     """Create lightning features."""
     ll.save_lightning_features()
-
-    # TODO cleanup ran into protected errors -> reinstantiate
+    yield
+    for name in (
+        "is_best_model",
+        "score",
+        "model_rank",
+        "logger_name",
+        "logger_version",
+    ):
+        if feat := ln.Feature.filter(name=name).one_or_none():
+            feat.delete(permanent=True)
 
 
 def test_checkpoint_basic(
@@ -147,7 +155,7 @@ def test_checkpoint_auto_features(
         callbacks=[callback],
         logger=False,
     )
-    trainer.fit(simple_model, dataloader, val_dataloaders=dataloader)
+    trainer.fit(simple_model, dataloader)
 
     artifacts = ln.Artifact.filter(key=artifact_key).to_list()
     assert len(artifacts) >= 1
