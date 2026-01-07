@@ -76,6 +76,7 @@ def test_artifact_describe():
         .input_of_runs: Run
         .recreating_runs: Run
         .schemas: Schema
+        .json_values: JsonValue
         .artifacts: Artifact
         .linked_in_records: Record
         .users: User
