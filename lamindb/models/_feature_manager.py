@@ -306,17 +306,17 @@ def get_non_categoricals(
 
     if self.id is not None and isinstance(self, (Artifact, Run, Record)):
         if isinstance(self, Record):
-            _feature_values = self.values_json.values(
+            json_values = self.values_json.values(
                 "feature__name", "feature___dtype_str", "value"
             ).order_by("feature__name")
         else:
-            _feature_values = (
-                self._feature_values.values("feature__name", "feature___dtype_str")
+            json_values = (
+                self.json_values.values("feature__name", "feature___dtype_str")
                 .annotate(values=custom_aggregate("value", self._state.db))
                 .order_by("feature__name")
             )
 
-        for fv in _feature_values:
+        for fv in json_values:
             feature_name = fv["feature__name"]
             feature_dtype = fv["feature___dtype_str"]
             if isinstance(self, Record):
@@ -1291,13 +1291,13 @@ class FeatureManager:
         if feature_json_values and host_is_record:
             save(feature_json_values)
         elif feature_json_values:
-            to_insert_feature_values = [
+            to_insertjson_values = [
                 record for record in feature_json_values if record._state.adding
             ]
-            if to_insert_feature_values:
-                save(to_insert_feature_values)
+            if to_insertjson_values:
+                save(to_insertjson_values)
             links = [
-                self._host._feature_values.through(
+                self._host.json_values.through(
                     **{
                         f"{self._host.__class__.__name__.lower()}_id": self._host.id,
                         "jsonvalue_id": json_value.id,
@@ -1459,7 +1459,7 @@ class FeatureManager:
                 if host_is_record:
                     feature_values = self._host.values_json.filter(**filter_kwargs)
                 else:
-                    feature_values = self._host._feature_values.filter(**filter_kwargs)
+                    feature_values = self._host.json_values.filter(**filter_kwargs)
                 if not feature_values.exists():
                     logger.warning(
                         f"no feature '{feature_record.name}' {none_message}found on {self._host.__class__.__name__.lower()} '{self._host.uid}'!"
@@ -1471,7 +1471,7 @@ class FeatureManager:
                     # the below might leave a dangling feature_value record
                     # but we don't want to pay the price of making another query just to remove this annotation
                     # we can clean the JsonValue registry periodically if we want to
-                    self._host._feature_values.remove(*feature_values)
+                    self._host.json_values.remove(*feature_values)
 
     def _add_schema(self, schema: Schema, slot: str) -> None:
         """Annotate artifact with a schema.

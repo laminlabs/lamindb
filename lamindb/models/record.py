@@ -8,7 +8,6 @@ from django.conf import settings as django_settings
 from django.db import models
 from django.db.models import CASCADE, PROTECT
 from lamin_utils import logger
-from lamindb_setup.core import deprecated
 
 from lamindb.base.fields import (
     CharField,
@@ -473,10 +472,6 @@ class Record(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, HasParents
             desired_order.sort()
         df = reorder_subset_columns_in_df(df, desired_order, position=0)  # type: ignore
         return df.sort_index()  # order by id for now
-
-    @deprecated("to_dataframe")
-    def type_to_dataframe(self) -> pd.DataFrame:
-        return self.to_dataframe()
 
     def to_artifact(
         self, key: str | None = None, suffix: str | None = None

@@ -329,11 +329,11 @@ class Run(SQLRecord):
     Artifacts are considered recreated if they are reloaded due to a hash lookup match for an existing artifact.
     """
     params: dict = models.JSONField(null=True)
-    """JSON-like parameters."""
-    _feature_values: JsonValue = models.ManyToManyField(
+    """Parameters (plain JSON values)."""
+    json_values: JsonValue = models.ManyToManyField(
         "JsonValue", through="RunJsonValue", related_name="runs"
     )
-    """Feature values."""
+    """Feature-indexed JSON values."""
     reference: str | None = CharField(max_length=255, db_index=True, null=True)
     """A reference like a URL or an external ID such as from a workflow manager."""
     reference_type: str | None = CharField(max_length=25, db_index=True, null=True)

@@ -58,4 +58,14 @@ class Migration(migrations.Migration):
             name="runjsonvalue",
             unique_together={("run", "jsonvalue")},
         ),
+        migrations.RenameField(
+            model_name="artifact",
+            old_name="_feature_values",
+            new_name="json_values",
+        ),
+        migrations.RenameField(
+            model_name="run",
+            old_name="_feature_values",
+            new_name="json_values",
+        ),
     ]

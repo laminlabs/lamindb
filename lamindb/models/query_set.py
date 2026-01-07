@@ -621,7 +621,7 @@ def get_feature_annotate_kwargs(
             )
 
     # Handle JSON values (no branch filtering needed)
-    json_values_attribute = "_feature_values" if registry is Artifact else "values_json"
+    json_values_attribute = "json_values" if registry is Artifact else "values_json"
     annotate_kwargs[f"{json_values_attribute}__feature__name"] = F(
         f"{json_values_attribute}__feature__name"
     )
@@ -756,7 +756,7 @@ def reshape_annotate_result(
     pk_name_encoded = fields_map.get(pk_name)  # type: ignore
 
     # --- Process JSON-stored feature values ---
-    json_values_attribute = "_feature_values" if registry is Artifact else "values_json"
+    json_values_attribute = "json_values" if registry is Artifact else "values_json"
     feature_name_col = f"{json_values_attribute}__feature__name"
     feature_value_col = f"{json_values_attribute}__value"
 
