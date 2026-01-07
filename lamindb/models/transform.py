@@ -85,7 +85,8 @@ class Transform(SQLRecord, IsVersioned):
 
     Args:
         key: `str | None = None` A short name or path-like semantic key.
-        type: `TransformType | None = "pipeline"` See :class:`~lamindb.base.types.TransformType`.
+        kind: `TransformType | None = "pipeline"` See :class:`~lamindb.base.types.TransformType`.
+        type: `TransformType | None = None` (deprecated) Alias for `kind`. Use `kind` instead.
         version: `str | None = None` A version string.
         description: `str | None = None` A description.
         reference: `str | None = None` A reference, e.g., a URL.
@@ -111,7 +112,7 @@ class Transform(SQLRecord, IsVersioned):
 
         Create a transform for a pipeline::
 
-            transform = ln.Transform(key="Cell Ranger", version="7.2.0", type="pipeline").save()
+            transform = ln.Transform(key="Cell Ranger", version="7.2.0", kind="pipeline").save()
 
         Create a transform from a notebook::
 
@@ -146,7 +147,7 @@ class Transform(SQLRecord, IsVersioned):
     # db_index on description because sometimes we query for equality in the case of artifacts
     description: str | None = TextField(null=True, db_index=True)
     """A description."""
-    type: TransformType = CharField(
+    kind: TransformType = CharField(
         max_length=20,
         db_index=True,
         default="pipeline",
@@ -225,10 +226,20 @@ class Transform(SQLRecord, IsVersioned):
     blocks: TransformBlock
     """Blocks that annotate this artifact."""
 
+    @property
+    def type(self) -> TransformType:
+        """Backward-compatible property that returns :attr:`kind`.
+
+        .. deprecated::
+            Use :attr:`kind` instead. This property is provided for backward compatibility.
+        """
+        return self.kind
+
     @overload
     def __init__(
         self,
         key: str | None = None,
+        kind: TransformType | None = None,
         type: TransformType | None = None,
         version: str | None = None,
         description: str | None = None,
@@ -261,7 +272,14 @@ class Transform(SQLRecord, IsVersioned):
         description: str | None = kwargs.pop("description", None)
         revises: Transform | None = kwargs.pop("revises", None)
         version_tag: str | None = kwargs.pop("version_tag", kwargs.pop("version", None))
-        type: TransformType | None = kwargs.pop("type", "pipeline")
+        # Handle both 'kind' and 'type' for backward compatibility
+        kind: TransformType | None = kwargs.pop("kind", None)
+        type: TransformType | None = kwargs.pop("type", None)
+        if kind is not None and type is not None:
+            raise ValueError(
+                "Cannot specify both 'kind' and 'type'. Use 'kind' instead."
+            )
+        kind = kind if kind is not None else (type if type is not None else "pipeline")
         reference: str | None = kwargs.pop("reference", None)
         reference_type: str | None = kwargs.pop("reference_type", None)
         branch = kwargs.pop("branch", None)
@@ -278,7 +296,7 @@ class Transform(SQLRecord, IsVersioned):
         )
         if not len(kwargs) == 0:
             raise ValueError(
-                "Only key, description, version_tag, type, revises, reference, "
+                "Only key, description, version_tag, kind, type, revises, reference, "
                 f"reference_type can be passed, but you passed: {kwargs}"
             )
         if revises is None:
@@ -343,7 +361,7 @@ class Transform(SQLRecord, IsVersioned):
             uid=uid,
             description=description,
             key=key,
-            type=type,
+            kind=kind,
             version_tag=version_tag,
             reference=reference,
             reference_type=reference_type,
@@ -466,7 +484,7 @@ class Transform(SQLRecord, IsVersioned):
             reference, reference_type = f"{url}/blob/{commit_hash}/{path}", "url"
         return Transform(
             key=key,
-            type="pipeline",
+            kind="pipeline",
             version=version,
             reference=reference,
             reference_type=reference_type,
