@@ -289,11 +289,11 @@ def validate_literal_fields(record: SQLRecord, kwargs) -> None:
         return None
     if record.__class__.__name__ in "Feature":
         return None
-    from lamindb.base.types import Dtype, TransformKind
+    from lamindb.base.types import ArtifactKind, Dtype, TransformKind
 
     types = {
         "TransformKind": TransformKind,
-        "ArtifactKind": Dtype,
+        "ArtifactKind": ArtifactKind,
         "Dtype": Dtype,
     }
     errors = {}
