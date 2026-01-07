@@ -165,3 +165,5 @@ from .block import (
     BranchBlock,
     SpaceBlock,
 )
+
+FeatureValue = JsonValue  # backward compatibility
