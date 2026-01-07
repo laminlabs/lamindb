@@ -17,7 +17,7 @@ commit:""")
     assert transform1.reference_type == "url"
 
     # test checking out specific version
-    transform2 = ln.Transform.from_git(url=TEST_URL, path="main.nf", vtag="v2.0.0")
+    transform2 = ln.Transform.from_git(url=TEST_URL, path="main.nf", version="v2.0.0")
     assert transform2.source_code.startswith(f"""\
 repo: {TEST_URL}
 path: main.nf
@@ -28,7 +28,7 @@ commit:""")
 
     # test sliding transform from branch
     transform3 = ln.Transform.from_git(
-        url=TEST_URL, path="main.nf", vtag="main", branch="main"
+        url=TEST_URL, path="main.nf", version="main", branch="main"
     )
     assert transform3.source_code.startswith(f"""\
 repo: {TEST_URL}
@@ -75,7 +75,7 @@ def test_transform_from_git_failure_modes():
         ln.Transform.from_git(
             url=TEST_URL,
             path="main.nf",
-            vtag="invalid",
+            version="invalid",
         )
     assert error.exconly().startswith("ValueError: Failed to checkout version invalid")
 
