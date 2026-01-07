@@ -76,17 +76,6 @@ class IsVersioned(models.Model):
 
     @version.setter
     def version(self, value: str | None) -> None:
-        """Set the version.
-
-        Sets `.version_tag` to the passed version.
-
-        Args:
-            value: The version to set. If `None`, clears `version_tag`.
-        """
-        if value is not None and not isinstance(value, str):
-            raise ValueError(
-                "`version` parameter must be `None` or `str`, e.g., '0.1', '1.2', '2025-10-24', etc."
-            )
         self.version_tag = value
 
     @property
