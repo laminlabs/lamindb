@@ -30,7 +30,7 @@ if TYPE_CHECKING:
     from .artifact import Artifact
     from .block import RunBlock
     from .collection import Collection
-    from .feature import FeatureValue
+    from .feature import JsonValue
     from .project import Project
     from .query_set import QuerySet
     from .record import Record
@@ -330,8 +330,8 @@ class Run(SQLRecord):
     """
     params: dict = models.JSONField(null=True)
     """JSON-like parameters."""
-    _feature_values: FeatureValue = models.ManyToManyField(
-        "FeatureValue", through="RunFeatureValue", related_name="runs"
+    _feature_values: JsonValue = models.ManyToManyField(
+        "JsonValue", through="RunJsonValue", related_name="runs"
     )
     """Feature values."""
     reference: str | None = CharField(max_length=255, db_index=True, null=True)
@@ -532,13 +532,11 @@ def delete_run_artifacts(run: Run) -> None:
             report.delete(permanent=True)
 
 
-class RunFeatureValue(BaseSQLRecord, IsLink):
+class RunJsonValue(BaseSQLRecord, IsLink):
     id: int = models.BigAutoField(primary_key=True)
     run: Run = ForeignKey(Run, CASCADE, related_name="links_featurevalue")
     # we follow the lower() case convention rather than snake case for link models
-    featurevalue: FeatureValue = ForeignKey(
-        "FeatureValue", PROTECT, related_name="links_run"
-    )
+    featurevalue: JsonValue = ForeignKey("JsonValue", PROTECT, related_name="links_run")
     created_at: datetime = DateTimeField(
         editable=False, db_default=models.functions.Now(), db_index=True
     )

@@ -1030,7 +1030,7 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     )
     """Schemas linked to this feature."""
     # backward fields
-    values: FeatureValue
+    values: JsonValue
     """Values for this feature."""
     projects: Project
     """Annotating projects."""
@@ -1380,13 +1380,13 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     #         return "Artifact"
 
 
-class FeatureValue(SQLRecord, TracksRun):
+class JsonValue(SQLRecord, TracksRun):
     """Non-categorical features values.
 
     Categorical feature values are stored in their respective registries:
     :class:`~lamindb.ULabel`, :class:`~bionty.CellType`, etc.
 
-    Unlike for ULabel, in `FeatureValue`, values are grouped by features and
+    Unlike for ULabel, in `JsonValue`, values are grouped by features and
     not by an ontological hierarchy.
     """
 

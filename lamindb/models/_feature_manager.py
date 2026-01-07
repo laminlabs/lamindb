@@ -47,7 +47,7 @@ from ._label_manager import _get_labels
 from ._relations import (
     dict_related_model_to_related_name,
 )
-from .feature import Feature, FeatureValue, parse_dtype
+from .feature import Feature, JsonValue, parse_dtype
 from .sqlrecord import SQLRecord
 from .ulabel import ULabel
 
@@ -730,7 +730,7 @@ def filter_base(
     db = queryset.db
 
     model = Feature
-    value_model = FeatureValue
+    value_model = JsonValue
     keys_normalized = [key.split("__")[0] for key in expression]
     if not _skip_validation:
         validated = model.connect(db).validate(keys_normalized, field="name", mute=True)
@@ -753,12 +753,12 @@ def filter_base(
         if not dtype_str.startswith("cat") and not dtype_str.startswith("list[cat"):
             if comparator == "__isnull":
                 if registry is Artifact:
-                    from .artifact import ArtifactFeatureValue
+                    from .artifact import ArtifactJsonValue
 
                     if value:  # True
                         return queryset.exclude(
                             id__in=Subquery(
-                                ArtifactFeatureValue.objects.filter(
+                                ArtifactJsonValue.objects.filter(
                                     featurevalue__feature=feature
                                 ).values("artifact_id")
                             )
@@ -766,7 +766,7 @@ def filter_base(
                     else:
                         return queryset.exclude(
                             id__in=Subquery(
-                                ArtifactFeatureValue.objects.filter(
+                                ArtifactJsonValue.objects.filter(
                                     featurevalue__feature=feature
                                 ).values("artifact_id")
                             )
@@ -958,15 +958,13 @@ class FeatureManager:
                     feature_record.id
                 )
             else:  # non-categorical features
-                registry_to_features[(FeatureValue, "FeatureValue")].append(
-                    feature_record.id
-                )
+                registry_to_features[(JsonValue, "JsonValue")].append(feature_record.id)
 
         value_records = {}
 
         # query once per registry with all feature_ids
         for (registry, registry_name), feature_ids in registry_to_features.items():
-            if registry_name == "FeatureValue":
+            if registry_name == "JsonValue":
                 # for non-categorical features
                 filters = {
                     "feature_id__in": feature_ids,
@@ -1219,7 +1217,7 @@ class FeatureManager:
                     filter_kwargs["record"] = self._host
                     feature_value = RecordJson(**filter_kwargs)
                 else:
-                    feature_value, _ = FeatureValue.get_or_create(**filter_kwargs)
+                    feature_value, _ = JsonValue.get_or_create(**filter_kwargs)
                 feature_json_values.append(feature_value)
             else:
                 if isinstance(value, SQLRecord) or is_iterable_of_sqlrecord(value):
@@ -1472,7 +1470,7 @@ class FeatureManager:
                 else:
                     # the below might leave a dangling feature_value record
                     # but we don't want to pay the price of making another query just to remove this annotation
-                    # we can clean the FeatureValue registry periodically if we want to
+                    # we can clean the JsonValue registry periodically if we want to
                     self._host._feature_values.remove(*feature_values)
 
     def _add_schema(self, schema: Schema, slot: str) -> None:

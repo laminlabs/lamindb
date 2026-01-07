@@ -40,7 +40,7 @@ def test_feature_describe():
         .type: Feature
         .schemas: Schema
         .features: Feature
-        .values: FeatureValue
+        .values: JsonValue
         .projects: Project
         .blocks: FeatureBlock
     """).strip()

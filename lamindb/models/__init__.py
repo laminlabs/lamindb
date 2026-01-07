@@ -36,7 +36,7 @@ Query sets & managers
 Storage of feature values
 -------------------------
 
-.. autoclass:: FeatureValue
+.. autoclass:: JsonValue
 
 Link models for Artifact
 ------------------------
@@ -100,7 +100,7 @@ from .sqlrecord import (
 from .storage import Storage
 from .transform import Transform
 from .run import Run, TracksRun, TracksUpdates, current_run, User
-from .feature import Feature, FeatureValue
+from .feature import Feature, JsonValue
 from .schema import Schema
 from .ulabel import ULabel
 
@@ -117,7 +117,7 @@ from .has_parents import HasParents
 from datetime import datetime as _datetime
 
 # link models
-from .artifact import ArtifactFeatureValue, ArtifactArtifact
+from .artifact import ArtifactJsonValue, ArtifactArtifact
 from .project import (
     ArtifactProject,
     TransformProject,
@@ -133,7 +133,7 @@ from .project import (
     ReferenceRecord,
     ProjectRecord,
 )
-from .run import RunFeatureValue
+from .run import RunJsonValue
 from .schema import (
     SchemaFeature,
     ArtifactSchema,
@@ -165,10 +165,3 @@ from .block import (
     BranchBlock,
     SpaceBlock,
 )
-
-LinkORM = IsLink  # backward compat
-ParamValue = FeatureValue  # backward compat
-ArtifactParamValue = ArtifactFeatureValue  # backward compat
-RunParamValue = RunFeatureValue  # backward compat
-Param = Feature  # backward compat
-BasicRecord = BaseSQLRecord  # backward compat

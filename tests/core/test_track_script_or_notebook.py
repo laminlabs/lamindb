@@ -98,9 +98,7 @@ Run: {ln.context.run.uid[:7]} ({ln.context.run.transform.key})
 
     # clean up
     ln.context.run.delete(permanent=True)
-    ln.models.RunFeatureValue.filter(run__transform=test_transform).delete(
-        permanent=True
-    )
+    ln.models.RunJsonValue.filter(run__transform=test_transform).delete(permanent=True)
     ln.models.RunRecord.filter(run__transform=test_transform).delete(permanent=True)
     ln.context._run = None
     feature1.delete(permanent=True)
