@@ -238,3 +238,4 @@ lightning_logs
 mlruns
 download_mnist
 checkpoints
+test_lightning

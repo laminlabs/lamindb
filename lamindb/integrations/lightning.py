@@ -267,6 +267,7 @@ class LaminCheckpoint(ModelCheckpoint):
         for artifact in ln.Artifact.filter(**self._get_key_filter()):
             vals = artifact.features.get_values()
             if vals.get("is_best_model"):
+                artifact.features.remove_values("is_best_model", value=True)
                 artifact.features.add_values({"is_best_model": False})
 
     def _update_model_ranks(self) -> None:
@@ -276,9 +277,11 @@ class LaminCheckpoint(ModelCheckpoint):
         for af in artifacts:
             vals = af.features.get_values()
             if "score" in vals:
-                scored.append((vals["score"], af))
+                scored.append((vals["score"], vals.get("model_rank"), af))
         scored.sort(key=lambda x: x[0], reverse=(self.mode == "max"))
-        for rank, (_, af) in enumerate(scored):
+        for rank, (_, old_rank, af) in enumerate(scored):
+            if old_rank is not None:
+                af.features.remove_values("model_rank", value=old_rank)
             af.features.add_values({"model_rank": rank})
 
 
