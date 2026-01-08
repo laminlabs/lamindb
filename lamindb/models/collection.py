@@ -170,10 +170,9 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     """:class:`~lamindb.Run` that created the `collection`."""
     input_of_runs: Run = models.ManyToManyField(Run, related_name="input_collections")
     """Runs that use this collection as an input."""
-    _subsequent_runs: Run = models.ManyToManyField(
+    recreating_runs: Run = models.ManyToManyField(
         "Run",
-        related_name="_recreated_collections",
-        db_table="lamindb_collection__previous_runs",  # legacy name, change in lamindb v2
+        related_name="recreated_collections",
     )
     """Runs that re-created the record after initial creation."""
     artifacts: Artifact = models.ManyToManyField(
@@ -249,7 +248,7 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         reference_type: str | None = kwargs.pop("reference_type", None)
         run: Run | None = kwargs.pop("run", None)
         revises: Collection | None = kwargs.pop("revises", None)
-        version: str | None = kwargs.pop("version", None)
+        version_tag: str | None = kwargs.pop("version_tag", kwargs.pop("version", None))
         skip_hash_lookup: bool = kwargs.pop("skip_hash_lookup", False)
         branch = kwargs.pop("branch", None)
         branch_id = kwargs.pop("branch_id", 1)
@@ -268,8 +267,8 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 .order_by("-created_at")
                 .first()
             )
-        provisional_uid, version, key, description, revises = process_revises(
-            revises, version, key, description, Collection
+        provisional_uid, version_tag, key, description, revises = process_revises(
+            revises, version_tag, key, description, Collection
         )
         run = get_run(run)
         if isinstance(artifacts, Artifact):
@@ -318,7 +317,7 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 meta_artifact=meta_artifact,
                 hash=hash,
                 run=run,
-                version=version,
+                version_tag=version_tag,
                 branch=branch,
                 branch_id=branch_id,
                 space=space,

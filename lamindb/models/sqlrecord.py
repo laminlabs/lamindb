@@ -151,7 +151,7 @@ class HasType(models.Model):
     class Meta:
         abstract = True
 
-    is_type: bool = BooleanField(default=False, db_index=True)
+    is_type: bool = BooleanField(default=False, db_default=False, db_index=True)
     """Indicates if record is a `type`.
 
     For example, if a record "Compound" is a `type`, the actual compounds "darerinib", "tramerinib", would be instances of that `type`.
@@ -289,11 +289,11 @@ def validate_literal_fields(record: SQLRecord, kwargs) -> None:
         return None
     if record.__class__.__name__ in "Feature":
         return None
-    from lamindb.base.types import Dtype, TransformType
+    from lamindb.base.types import ArtifactKind, Dtype, TransformKind
 
     types = {
-        "TransformType": TransformType,
-        "ArtifactKind": Dtype,
+        "TransformKind": TransformKind,
+        "ArtifactKind": ArtifactKind,
         "Dtype": Dtype,
     }
     errors = {}
@@ -399,7 +399,7 @@ def suggest_records_with_similar_names(
     # but this isn't reliable: https://laminlabs.slack.com/archives/C04FPE8V01W/p1737812808563409
     # the below needs to be .first() because there might be multiple records with the same
     # name field in case the record is versioned (e.g. for Transform key)
-    if hasattr(record.__class__, "type"):
+    if isinstance(record, HasType):
         if kwargs.get("type", None) is None:
             subset = record.__class__.filter(type__isnull=True)
         else:
@@ -970,13 +970,13 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                         self, name_field, kwargs
                     )
                     if exact_match is not None:
-                        if "version" in kwargs:
-                            if kwargs["version"] is not None:
+                        if "version_tag" in kwargs:
+                            if kwargs.get("version_tag") is not None:
                                 version_comment = " and version"
                                 existing_record = self.__class__.filter(
                                     **{
                                         name_field: kwargs[name_field],
-                                        "version": kwargs["version"],
+                                        "version_tag": kwargs.get("version_tag"),
                                     }
                                 ).one_or_none()
                             else:
@@ -1799,7 +1799,7 @@ def get_transfer_run(record) -> Run:
         search_names = settings.creation.search_names
         settings.creation.search_names = False
         transform = Transform(  # type: ignore
-            uid=uid, description=f"Transfer from `{slug}`", key=key, type="function"
+            uid=uid, description=f"Transfer from `{slug}`", key=key, kind="function"
         ).save()
         settings.creation.search_names = search_names
     # use the global run context to get the initiated_by_run run id

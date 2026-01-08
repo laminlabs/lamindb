@@ -178,12 +178,23 @@ def get_backward_compat_filter_kwargs(queryset, expressions):
         Artifact,
     )
 
-    if queryset.model is Artifact:
+    if issubclass(queryset.model, IsVersioned):
         name_mappings = {
-            "transform": "run__transform",
-            "feature_sets": "schemas",
+            "version": "version_tag",
         }
     else:
+        name_mappings = {}
+
+    if queryset.model is Artifact:
+        name_mappings.update(
+            {
+                "transform": "run__transform",
+                "feature_sets": "schemas",
+            }
+        )
+
+    # If no mappings to apply, return expressions as-is
+    if not name_mappings:
         return expressions
     was_list = False
     if isinstance(expressions, list):
@@ -410,7 +421,14 @@ def get_basic_field_names(
             )
         )
     ]
-    for field_name in ["version", "is_latest", "is_locked", "created_at", "updated_at"]:
+    for field_name in [
+        "version_tag",
+        "is_latest",
+        "is_locked",
+        "is_type",
+        "created_at",
+        "updated_at",
+    ]:
         if field_name in field_names:
             field_names.append(field_names.pop(field_names.index(field_name)))
     field_names += [
@@ -608,7 +626,7 @@ def get_feature_annotate_kwargs(
             )
 
     # Handle JSON values (no branch filtering needed)
-    json_values_attribute = "_feature_values" if registry is Artifact else "values_json"
+    json_values_attribute = "json_values" if registry is Artifact else "values_json"
     annotate_kwargs[f"{json_values_attribute}__feature__name"] = F(
         f"{json_values_attribute}__feature__name"
     )
@@ -743,7 +761,7 @@ def reshape_annotate_result(
     pk_name_encoded = fields_map.get(pk_name)  # type: ignore
 
     # --- Process JSON-stored feature values ---
-    json_values_attribute = "_feature_values" if registry is Artifact else "values_json"
+    json_values_attribute = "json_values" if registry is Artifact else "values_json"
     feature_name_col = f"{json_values_attribute}__feature__name"
     feature_value_col = f"{json_values_attribute}__value"
 

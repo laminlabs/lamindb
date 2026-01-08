@@ -4,7 +4,7 @@ Central object types
 --------------------
 
 .. autoclass:: ArtifactKind
-.. autoclass:: TransformType
+.. autoclass:: TransformKind
 .. autoclass:: Dtype
 
 Basic types
@@ -30,7 +30,8 @@ from lamindb_setup.types import UPathStr  # noqa: F401
 ListLike = Union[list[str], pd.Series, np.array]
 StrField = Union[str, FieldAttr]  # typing.TypeAlias
 
-TransformType = Literal["pipeline", "notebook", "script", "function", "linker"]
+TransformKind = Literal["pipeline", "notebook", "script", "function", "linker"]
+TransformType = TransformKind  # backward compat
 ArtifactKind = Literal["dataset", "model", "__lamindb_run__", "__lamindb_config__"]
 
 # below is used for Feature.dtype and Param.dtype

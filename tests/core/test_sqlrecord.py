@@ -28,10 +28,10 @@ def test_feature_describe():
         .array_size: IntegerField
         .array_shape: JSONField
         .synonyms: TextField
+        .is_type: BooleanField
         .is_locked: BooleanField
         .created_at: DateTimeField
         .updated_at: DateTimeField
-        .is_type: BooleanField
       Relational fields
         .branch: Branch
         .space: Space
@@ -40,7 +40,7 @@ def test_feature_describe():
         .type: Feature
         .schemas: Schema
         .features: Feature
-        .values: FeatureValue
+        .values: JsonValue
         .projects: Project
         .blocks: FeatureBlock
     """).strip()
@@ -61,7 +61,7 @@ def test_artifact_describe():
         .hash: CharField
         .n_files: BigIntegerField
         .n_observations: BigIntegerField
-        .version: CharField
+        .version_tag: CharField
         .is_latest: BooleanField
         .is_locked: BooleanField
         .created_at: DateTimeField
@@ -74,7 +74,9 @@ def test_artifact_describe():
         .schema: Schema
         .created_by: User
         .input_of_runs: Run
+        .recreating_runs: Run
         .schemas: Schema
+        .json_values: JsonValue
         .artifacts: Artifact
         .linked_in_records: Record
         .users: User
@@ -113,7 +115,7 @@ def test_repr_describe():
 def test_validate_literal_fields():
     # validate literal
     with pytest.raises(FieldValidationError):
-        ln.Transform(key="new-name-not-existing-123", type="invalid")
+        ln.Transform(key="new-name-not-existing-123", kind="invalid")
 
 
 def test_init_with_args():
@@ -257,6 +259,8 @@ def test_pass_version():
     # creating a new transform on key retrieves the same transform
     # for as long as no source_code was saved
     transform = ln.Transform(key="mytransform", version="1").save()
+    assert transform.version_tag == "1"
+    assert transform.version == "1"
     assert ln.Transform(key="mytransform", version="1") == transform
     # in case source code is saved
     transform.source_code = "dummy"

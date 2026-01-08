@@ -2,63 +2,12 @@
 
 from django.db import migrations
 
-from lamindb.models.feature import dtype_as_object, serialize_dtype
+from lamindb.models.feature import migrate_dtype_to_uid_format
 
 
 def copy_dtype_to_dtype_str(apps, schema_editor):
     """Update _dtype_str for nested Record/ULabel types to uid format."""
-    # Patterns to look for old format (name-based)
-    patterns = [
-        "cat[Record[",
-        "cat[ULabel[",
-        "list[cat[Record[",
-        "list[cat[ULabel[",
-    ]
-
-    # Get database connection
-    connection = schema_editor.connection
-
-    # Build SQL query to fetch features matching any pattern
-    # Using OR conditions for each pattern
-    pattern_conditions = " OR ".join(
-        [f"_dtype_str LIKE '{pattern}%'" for pattern in patterns]
-    )
-
-    query = f"""
-        SELECT id, uid, name, _dtype_str
-        FROM lamindb_feature
-        WHERE {pattern_conditions}
-    """
-
-    # Fetch matching features
-    with connection.cursor() as cursor:
-        cursor.execute(query)
-        columns = [col[0] for col in cursor.description]
-        features = [dict(zip(columns, row)) for row in cursor.fetchall()]
-
-    # Convert each feature
-    for feature in features:
-        try:
-            # Convert old format string to objects, then serialize to UID format
-            dtype_objects = dtype_as_object(feature["_dtype_str"], old_format=True)
-            new_dtype_str = serialize_dtype(dtype_objects)
-
-            if new_dtype_str != feature["_dtype_str"]:
-                # Update using raw SQL
-                update_query = """
-                    UPDATE lamindb_feature
-                    SET _dtype_str = %s
-                    WHERE id = %s
-                """
-                with connection.cursor() as cursor:
-                    cursor.execute(update_query, [new_dtype_str, feature["id"]])
-
-        except Exception as e:
-            # If conversion fails, keep the original _dtype_str value
-            print(
-                f"Warning: Could not convert dtype for feature {feature['name']} ({feature['uid']}) because of error: {e}"
-            )
-            continue
+    migrate_dtype_to_uid_format(schema_editor.connection, input_field="_dtype_str")
 
 
 class Migration(migrations.Migration):

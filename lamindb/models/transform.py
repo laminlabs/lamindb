@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import warnings
 from typing import TYPE_CHECKING, overload
 
 from django.db import models
@@ -7,6 +8,7 @@ from django.db.models import CASCADE, PROTECT, Q
 from lamin_utils import logger
 from lamindb_setup.core.hashing import HASH_LENGTH, hash_file, hash_string
 
+from lamindb.base import deprecated
 from lamindb.base.fields import (
     CharField,
     DateTimeField,
@@ -30,7 +32,7 @@ if TYPE_CHECKING:
     from datetime import datetime
     from pathlib import Path
 
-    from lamindb.base.types import TransformType
+    from lamindb.base.types import TransformKind
 
     from .block import TransformBlock
     from .project import Project, Reference
@@ -85,7 +87,7 @@ class Transform(SQLRecord, IsVersioned):
 
     Args:
         key: `str | None = None` A short name or path-like semantic key.
-        type: `TransformType | None = "pipeline"` See :class:`~lamindb.base.types.TransformType`.
+        kind: `TransformKind | None = "pipeline"` See :class:`~lamindb.base.types.TransformKind`.
         version: `str | None = None` A version string.
         description: `str | None = None` A description.
         reference: `str | None = None` A reference, e.g., a URL.
@@ -111,7 +113,7 @@ class Transform(SQLRecord, IsVersioned):
 
         Create a transform for a pipeline::
 
-            transform = ln.Transform(key="Cell Ranger", version="7.2.0", type="pipeline").save()
+            transform = ln.Transform(key="Cell Ranger", version="7.2.0", kind="pipeline").save()
 
         Create a transform from a notebook::
 
@@ -146,12 +148,12 @@ class Transform(SQLRecord, IsVersioned):
     # db_index on description because sometimes we query for equality in the case of artifacts
     description: str | None = TextField(null=True, db_index=True)
     """A description."""
-    type: TransformType = CharField(
+    kind: TransformKind = CharField(
         max_length=20,
         db_index=True,
         default="pipeline",
     )
-    """:class:`~lamindb.base.types.TransformType` (default `"pipeline"`)."""
+    """:class:`~lamindb.base.types.TransformKind` (default `"pipeline"`)."""
     source_code: str | None = TextField(null=True)
     """Source code of the transform."""
     hash: str | None = CharField(max_length=HASH_LENGTH, db_index=True, null=True)
@@ -218,10 +220,6 @@ class Transform(SQLRecord, IsVersioned):
         User, PROTECT, default=current_user_id, related_name="created_transforms"
     )
     """Creator of record."""
-    _template: Transform | None = ForeignKey(
-        "Transform", PROTECT, related_name="_derived_from", default=None, null=True
-    )
-    """Creating template."""
     blocks: TransformBlock
     """Blocks that annotate this artifact."""
 
@@ -229,7 +227,7 @@ class Transform(SQLRecord, IsVersioned):
     def __init__(
         self,
         key: str | None = None,
-        type: TransformType | None = None,
+        kind: TransformKind | None = None,
         version: str | None = None,
         description: str | None = None,
         reference: str | None = None,
@@ -260,8 +258,16 @@ class Transform(SQLRecord, IsVersioned):
         key: str | None = kwargs.pop("key", None)
         description: str | None = kwargs.pop("description", None)
         revises: Transform | None = kwargs.pop("revises", None)
-        version: str | None = kwargs.pop("version", None)
-        type: TransformType | None = kwargs.pop("type", "pipeline")
+        version_tag: str | None = kwargs.pop("version_tag", kwargs.pop("version", None))
+        kind: TransformKind | None = kwargs.pop("kind", None)
+        type: TransformKind | None = kwargs.pop("type", None)
+        if type is not None:
+            warnings.warn(
+                "`type` argument of transform was renamed to `kind` and will be removed in a future release.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+        kind = kind if kind is not None else (type if type is not None else "pipeline")
         reference: str | None = kwargs.pop("reference", None)
         reference_type: str | None = kwargs.pop("reference_type", None)
         branch = kwargs.pop("branch", None)
@@ -278,7 +284,7 @@ class Transform(SQLRecord, IsVersioned):
         )
         if not len(kwargs) == 0:
             raise ValueError(
-                "Only key, description, version, type, revises, reference, "
+                "Only key, description, version, kind, type, revises, reference, "
                 f"reference_type can be passed, but you passed: {kwargs}"
             )
         if revises is None:
@@ -313,8 +319,8 @@ class Transform(SQLRecord, IsVersioned):
             return None
         if revises is not None and key is not None and revises.key != key:
             logger.important(f"renaming transform {revises.key} to {key}")
-        new_uid, version, key, description, revises = process_revises(
-            revises, version, key, description, Transform
+        new_uid, version_tag, key, description, revises = process_revises(
+            revises, version_tag, key, description, Transform
         )
         # this is only because the user-facing constructor allows passing a uid
         # most others don't
@@ -343,8 +349,8 @@ class Transform(SQLRecord, IsVersioned):
             uid=uid,
             description=description,
             key=key,
-            type=type,
-            version=version,
+            kind=kind,
+            version_tag=version_tag,
             reference=reference,
             reference_type=reference_type,
             source_code=source_code,
@@ -396,7 +402,7 @@ class Transform(SQLRecord, IsVersioned):
                     path="main.nf",
                     version="v2.0.0"
                 ).save()
-                assert transform.version == "v2.0.0"
+                assert transform.version_tag == "v2.0.0"
 
             Create a *sliding transform* from a Nextflow repo's `dev` branch.
             Unlike a regular transform, a sliding transform doesn't pin a specific source code state,
@@ -466,7 +472,7 @@ class Transform(SQLRecord, IsVersioned):
             reference, reference_type = f"{url}/blob/{commit_hash}/{path}", "url"
         return Transform(
             key=key,
-            type="pipeline",
+            kind="pipeline",
             version=version,
             reference=reference,
             reference_type=reference_type,
@@ -478,6 +484,15 @@ class Transform(SQLRecord, IsVersioned):
     def latest_run(self) -> Run:
         """The latest run of this transform."""
         return self.runs.order_by("-started_at").first()
+
+    @property
+    @deprecated(new_name="kind")
+    def type(self) -> TransformKind:
+        return self.kind
+
+    @type.setter
+    def type(self, value: TransformKind):
+        self.kind = value
 
     def view_lineage(self, with_successors: bool = False, distance: int = 5):
         """View lineage of transforms.
