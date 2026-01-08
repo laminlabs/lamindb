@@ -151,7 +151,7 @@ class Transform(SQLRecord, IsVersioned):
     )
     """A string indicating the kind of transform (default `"pipeline"`).
 
-    One of `"pipeline"`, `"notebook"`, `"script"`, `"function"`, or `"linker"`.
+    One of `"pipeline"`, `"notebook"`, `"script"`, or `"function"`.
     """
     source_code: str | None = TextField(null=True)
     """Source code of the transform."""
