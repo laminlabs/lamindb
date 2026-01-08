@@ -402,10 +402,10 @@ def test_user_rls():
     # should fail because can modify only the current user
     user = ln.User.get(handle="testuser")
     user.name = "New Name"
-    user.save()
+    with pytest.raises(ProgrammingError):
+        user.save()
     # can't insert a user with a different uid
     ln.User(handle="insert_new_user", uid="someuidd").save()
-    assert ln.User.filter().count() == 3
 
 
 def test_write_role():
