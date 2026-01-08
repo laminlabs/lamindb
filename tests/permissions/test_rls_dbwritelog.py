@@ -8,7 +8,7 @@ import lamindb as ln
 import psycopg2
 import pytest
 from django.db import connection, transaction
-from django.db.utils import InternalError, ProgrammingError
+from django.db.utils import IntegrityError, InternalError, ProgrammingError
 from hubmodule.sql_generators._dbwrite import uninstall_dbwrite
 from jwt_utils import sign_jwt
 from lamindb.models.artifact import track_run_input
@@ -408,8 +408,13 @@ def test_user_rls():
     with pytest.raises(ProgrammingError):
         ln.User(handle="insert_new_user", uid="someuidd").save()
     # try to insert a user with the same uid
-    # should not trigger RLS because the uid is the same
-    ln.User(handle="insert_new_user", uid=ln.setup.settings.user.uid).save()
+    # should not trigger RLS because the uid is the same, it should throw an IntegrityError
+    with pytest.raises(IntegrityError):
+        ln.User(handle="insert_new_user", uid=ln.setup.settings.user.uid).save()
+    # can modify the current user
+    user = ln.User.get(1)
+    user.name = "New Name"
+    user.save()
 
 
 def test_write_role():
