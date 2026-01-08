@@ -65,16 +65,18 @@ def test_transform_versioning_based_on_key():
         key="test-pipeline",
         version="1.0",
         source_code="1",
-        type="pipeline",
+        kind="pipeline",
     ).save()
     assert transform1.is_latest
+    assert transform1.version_tag == "1.0"
+    assert transform1.version == "1.0"
 
     with pytest.raises(ValueError) as e:
         transform2 = ln.Transform(
             key="test-pipeline",
             version="1.0",
             source_code="2",
-            type="pipeline",
+            kind="pipeline",
         ).save()
     assert (
         e.exconly()
@@ -85,10 +87,11 @@ def test_transform_versioning_based_on_key():
         key="test-pipeline",
         # do not pass the version tag, which corresponds to: version=None
         source_code="2",
-        type="pipeline",
+        kind="pipeline",
     ).save()
 
-    assert transform2.version is None
+    assert transform2.version_tag is None
+    assert transform2.version == transform2.uid[-4:]  # version falls back to uid suffix
     assert transform2.is_latest
     assert transform2.hash != transform1.hash
     assert not ln.Transform.get(key="test-pipeline", version="1.0").is_latest
@@ -97,9 +100,10 @@ def test_transform_versioning_based_on_key():
         key="test-pipeline",
         version="abcd",  # mimic commit hash
         source_code="3",
-        type="pipeline",
+        kind="pipeline",
     ).save()
 
+    assert transform3.version_tag == "abcd"
     assert transform3.version == "abcd"
     assert transform3.is_latest
     assert transform3.hash != transform2.hash
@@ -110,7 +114,7 @@ def test_transform_versioning_based_on_revises():
     # build one version family
     transform_v1 = ln.Transform(description="Introduction").save()
     assert transform_v1.is_latest
-    assert transform_v1.version is None
+    assert transform_v1.version_tag is None
 
     # pass the latest version
     transform_v2 = ln.Transform(
@@ -119,14 +123,14 @@ def test_transform_versioning_based_on_revises():
     assert not transform_v1.is_latest
     assert transform_v2.is_latest
     assert transform_v2.uid.endswith("0001")
+    assert transform_v2.version_tag == "2"
+    assert transform_v2.version == "2"
 
     # consciously *not* pass the latest version to revises but the previous
     # it automatically retrieves the latest version
     transform_v3 = ln.Transform(description="Introduction", revises=transform_v1).save()
     assert transform_v3.uid.endswith("0002")
-    assert not ln.Transform.objects.get(
-        description="Introduction v2", version="2"
-    ).is_latest
+    assert not ln.Transform.get(description="Introduction v2", version="2").is_latest
     assert transform_v3.is_latest
     transform_v4 = ln.Transform(description="Introduction").save()
     assert transform_v4.is_latest
@@ -195,3 +199,60 @@ def test_path_rename():
     assert not old_path.exists()
     new_path.unlink()
     ln.UPath("./test_new_path.txt").unlink()
+
+
+def test_version_backward_compatibility():
+    """Test that queries using version= still work (backward compatibility)."""
+    # Create transforms with different versions and source_code to avoid deduplication
+    transform1 = ln.Transform(
+        key="test-backward-compat",
+        version="1.0",
+        kind="pipeline",
+        source_code="code1",
+    ).save()
+    transform2 = ln.Transform(
+        key="test-backward-compat",
+        version="2.0",
+        kind="pipeline",
+        source_code="code2",
+    ).save()
+
+    # Test that we can query using version= (old API)
+    found = ln.Transform.get(key="test-backward-compat", version="1.0")
+    assert found == transform1
+    assert found.version_tag == "1.0"
+    assert found.version == "1.0"
+
+    found = ln.Transform.get(key="test-backward-compat", version="2.0")
+    assert found == transform2
+    assert found.version_tag == "2.0"
+    assert found.version == "2.0"
+
+    # Test filter with version=
+    results = ln.Transform.filter(key="test-backward-compat", version="1.0")
+    assert len(results) == 1
+    assert results.first() == transform1
+
+    # Test with Artifact
+    artifact1 = ln.Artifact.from_dataframe(
+        pd.DataFrame({"col1": [1, 2]}), key="test-artifact.parquet", version="1.0"
+    ).save()
+    artifact2 = ln.Artifact.from_dataframe(
+        pd.DataFrame({"col1": [3, 4]}), key="test-artifact.parquet", version="2.0"
+    ).save()
+
+    found_artifact = ln.Artifact.get(key="test-artifact.parquet", version="1.0")
+    assert found_artifact == artifact1
+    assert found_artifact.version_tag == "1.0"
+    assert found_artifact.version == "1.0"
+
+    found_artifact = ln.Artifact.get(key="test-artifact.parquet", version="2.0")
+    assert found_artifact == artifact2
+    assert found_artifact.version_tag == "2.0"
+    assert found_artifact.version == "2.0"
+
+    # Cleanup
+    transform1.delete(permanent=True)
+    transform2.delete(permanent=True)
+    artifact1.delete(permanent=True)
+    artifact2.delete(permanent=True)

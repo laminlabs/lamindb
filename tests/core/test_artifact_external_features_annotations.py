@@ -357,7 +357,7 @@ Here is how to create a feature:
     temperature.delete(permanent=True)
     temperature = ln.Feature(name="temperature", dtype="num").save()
     artifact.features.add_values({"temperature": 27.2})
-    assert artifact._feature_values.first().value == 27.2
+    assert artifact.json_values.first().value == 27.2
 
     # datetime feature
     with pytest.raises(ValidationError) as error:
@@ -476,7 +476,7 @@ Here is how to create a feature:
     bt.CellType.from_source(name="T cell").save()
 
     artifact.features.add_values(features)
-    assert set(artifact._feature_values.all().values_list("value", flat=True)) == {
+    assert set(artifact.json_values.all().values_list("value", flat=True)) == {
         27.2,
         True,
         100.0,
@@ -484,7 +484,7 @@ Here is how to create a feature:
         "2024-12-01T00:00:00",
     }
 
-    assert ln.Artifact.get(_feature_values__value=27.2)
+    assert ln.Artifact.get(json_values__value=27.2)
 
     assert artifact.features.get_values() == {
         "disease": {"MONDO:0004975", "MONDO:0004980"},
@@ -518,7 +518,7 @@ Here is how to create a feature:
 
     # repeat
     artifact.features.add_values(features)
-    assert set(artifact._feature_values.all().values_list("value", flat=True)) == {
+    assert set(artifact.json_values.all().values_list("value", flat=True)) == {
         27.2,
         True,
         100.0,
@@ -610,9 +610,9 @@ def test_add_remove_list_features(ccaplog):
 
     # clean up
     artifact.delete(permanent=True)
-    assert ln.models.FeatureValue.filter(feature__name="list_of_str").count() == 1
+    assert ln.models.JsonValue.filter(feature__name="list_of_str").count() == 1
     feature.delete(permanent=True)
-    assert ln.models.FeatureValue.filter(feature__name="list_of_str").count() == 0
+    assert ln.models.JsonValue.filter(feature__name="list_of_str").count() == 0
     cell_types_feature.delete(permanent=True)
     bt.CellType.filter().delete(permanent=True)
 

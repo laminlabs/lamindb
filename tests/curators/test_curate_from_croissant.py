@@ -15,7 +15,7 @@ def test_curate_artifact_from_croissant(filepath_prefix: str | None):
         == "Mini immuno dataset - A few samples from the immunology dataset"
     )
     assert artifact1.key == "mini_immuno.anndata.zarr"
-    assert artifact1.version == "1.0"
+    assert artifact1.version_tag == "1.0"
     assert (
         artifact1._key_is_virtual
         if filepath_prefix is None
@@ -36,7 +36,7 @@ def test_curate_artifact_from_croissant(filepath_prefix: str | None):
     artifact2 = ln.integrations.curate_from_croissant(croissant_path)
     assert artifact2.description == artifact1.description
     assert artifact2.key == artifact1.key
-    assert artifact2.version is None
+    assert artifact2.version_tag is None
     assert artifact2.stem_uid == artifact1.stem_uid
     assert artifact2.uid != artifact1.uid
     assert (

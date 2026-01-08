@@ -39,6 +39,14 @@ ln.track(space=space_name)
 try:
     assert ln.context.space.name == space_name
     ulabel = ln.ULabel(name="My test ulabel in test space").save()
+
+    # cleanup if the artifact already exists
+    artifact = ln.Artifact(".gitignore", key="mytest")
+    if (
+        artifact_cleanup := ln.Artifact.filter(hash=artifact.hash).one_or_none()
+    ) is not None:
+        artifact_cleanup.delete(permanent=True)
+
     artifact = ln.Artifact(".gitignore", key="mytest").save()
 
     # check that exist

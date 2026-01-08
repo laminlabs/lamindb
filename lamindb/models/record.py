@@ -8,10 +8,8 @@ from django.conf import settings as django_settings
 from django.db import models
 from django.db.models import CASCADE, PROTECT
 from lamin_utils import logger
-from lamindb_setup.core import deprecated
 
 from lamindb.base.fields import (
-    BooleanField,
     CharField,
     DateTimeField,
     ForeignKey,
@@ -214,11 +212,6 @@ class Record(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, HasParents
     """
     records: Record
     """If a type (`is_type=True`), records of this `type`."""
-    is_type: bool = BooleanField(default=False, db_index=True)
-    """Indicates if record is a `type`.
-
-    For example, if a record "Compound" is a `type`, the actual compounds "darerinib", "tramerinib", would be instances of that `type`.
-    """
     description: str | None = TextField(null=True)
     """A description."""
     reference: str | None = CharField(max_length=255, db_index=True, null=True)
@@ -480,10 +473,6 @@ class Record(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, HasParents
         df = reorder_subset_columns_in_df(df, desired_order, position=0)  # type: ignore
         return df.sort_index()  # order by id for now
 
-    @deprecated("to_dataframe")
-    def type_to_dataframe(self) -> pd.DataFrame:
-        return self.to_dataframe()
-
     def to_artifact(
         self, key: str | None = None, suffix: str | None = None
     ) -> Artifact:
@@ -506,7 +495,7 @@ class Record(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, HasParents
             key = f"sheet_exports/{self.name}{suffix}"
         description = f": {self.description}" if self.description is not None else ""
         transform, _ = Transform.objects.get_or_create(
-            key="__lamindb_record_export__", type="function"
+            key="__lamindb_record_export__", kind="function"
         )
         run = Run(transform, initiated_by_run=context.run).save()
         run.input_records.add(self)

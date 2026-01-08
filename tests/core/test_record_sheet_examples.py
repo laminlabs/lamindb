@@ -145,7 +145,7 @@ def test_record_example_compound_treatment(
         "project",
     ]
     assert artifact.run.input_records.count() == 1
-    assert artifact.transform.type == "function"
+    assert artifact.transform.kind == "function"
     # looks something like this:
     # id,uid,name,treatment,cell_line,preparation_date,__lamindb_record_uid__,__lamindb_record_name__
     # 1,S1,Sample 1,treatment1,HEK293T cell,2025-06-01 05:00:00,iCwgKgZELoLtIoGy,sample1

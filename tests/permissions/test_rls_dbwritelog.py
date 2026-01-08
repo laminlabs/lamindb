@@ -9,7 +9,7 @@ import psycopg2
 import pytest
 from django.db import connection, transaction
 from django.db.utils import IntegrityError, InternalError, ProgrammingError
-from hubmodule._dbwrite import uninstall_dbwrite
+from hubmodule.sql_generators._dbwrite import uninstall_dbwrite
 from jwt_utils import sign_jwt
 from lamindb.models.artifact import track_run_input
 from lamindb_setup.core.django import DBToken, db_token_manager
@@ -262,7 +262,7 @@ def test_fine_grained_permissions_account_and_dbwrite():
     # check select of a link table referencing unavailable rows
     assert ln.ULabel.get(name="select_ulabel").projects.all().count() == 0
     # test RootBlock, can do due to write access to some spaces
-    root_block = ln.models.RootBlock(name="instance", content="test").save()
+    root_block = ln.models.RootBlock(context="instance", content="test").save()
     root_block.content = "test 2"
     root_block.save()
     # test SpaceBlock
@@ -533,9 +533,9 @@ def test_dbwrite_uninstall():
 
 
 def test_lamin_dev():
-    script1_path = Path(__file__).parent.resolve() / "scripts/check_lamin_dev.py"
+    script_path = Path(__file__).parent.resolve() / "scripts/check_lamin_dev.py"
     subprocess.run(  # noqa: S602
-        f"python {script1_path}",
+        f"python {script_path}",
         shell=True,
         check=True,
     )
