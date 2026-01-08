@@ -24,6 +24,7 @@ from pandas.api.types import CategoricalDtype, is_string_dtype
 from pandas.core.dtypes.base import ExtensionDtype
 
 from lamindb.base.fields import (
+    BooleanField,
     CharField,
     ForeignKey,
     JSONField,
@@ -828,8 +829,8 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         synonyms: `str | None = None` Bar-separated synonyms.
         nullable: `bool = True` Whether the feature can have null-like values (`None`, `pd.NA`, `NaN`, etc.), see :attr:`~lamindb.Feature.nullable`.
         default_value: `Any | None = None` Default value for the feature.
-        coerce_dtype: `bool = False` When True, attempts to coerce values to the specified dtype
-            during validation, see :attr:`~lamindb.Feature.coerce_dtype`.
+        coerce: `bool | None = None` When True, attempts to coerce values to the specified dtype
+            during validation, see :attr:`~lamindb.Feature.coerce`.
         cat_filters: `dict[str, str] | None = None` Subset a registry by additional filters to define valid categories.
 
     Note:
@@ -960,11 +961,6 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         ]
 
     _name_field: str = "name"
-    _aux_fields: dict[str, tuple[str, type]] = {
-        "0": ("default_value", Any),  # type: ignore
-        "1": ("nullable", bool),
-        "2": ("coerce_dtype", bool),
-    }
 
     id: int = models.AutoField(primary_key=True)
     """Internal id, valid only in one DB instance."""
@@ -1020,6 +1016,12 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     """
     synonyms: str | None = TextField(null=True)
     """Bar-separated (|) synonyms (optional)."""
+    default_value: Any | None = JSONField(null=True, default=None)
+    """A default value that overwrites missing values during standardization."""
+    nullable: bool | None = BooleanField(null=True, default=None)
+    """Whether the feature can have nullable values. None for type-like features."""
+    coerce: bool | None = BooleanField(null=True, default=None)
+    """Whether dtypes should be coerced during validation. None for type-like features."""
     # we define the below ManyToMany on the Feature model because it parallels
     # how other registries (like Gene, Protein, etc.) relate to Schema
     schemas: Schema = models.ManyToManyField(
@@ -1044,9 +1046,9 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         unit: str | None = None,
         description: str | None = None,
         synonyms: str | None = None,
-        nullable: bool = True,
-        default_value: str | None = None,
-        coerce_dtype: bool = False,
+        nullable: bool | None = None,
+        default_value: Any | None = None,
+        coerce: bool | None = None,
         cat_filters: dict[str, str] | None = None,
     ): ...
 
@@ -1065,14 +1067,22 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             super().__init__(*args, **kwargs)
             return None
         default_value = kwargs.pop("default_value", None)
-        nullable = kwargs.pop("nullable", True)  # default value of nullable
+        nullable = kwargs.pop("nullable", None)
         cat_filters = kwargs.pop("cat_filters", None)
-        coerce_dtype = kwargs.pop("coerce_dtype", False)
+        if "coerce_dtype" in kwargs:
+            warnings.warn(
+                "`coerce_dtype` argument was renamed to `coerce` and will be removed in a future release.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            coerce = kwargs.pop("coerce_dtype")
+        else:
+            coerce = kwargs.pop("coerce", None)
         kwargs = process_init_feature_param(args, kwargs)
         super().__init__(*args, **kwargs)
         self.default_value = default_value
         self.nullable = nullable
-        self.coerce_dtype = coerce_dtype
+        self.coerce = coerce
         dtype_str = kwargs.pop("_dtype_str", None)
         if dtype_str == "cat":
             warnings.warn(
@@ -1242,69 +1252,14 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         return self, {}
 
     @property
-    def default_value(self) -> Any:
-        """A default value that overwrites missing values (default `None`).
-
-        This takes effect when you call `Curator.standardize()`.
-
-        If `default_value = None`, missing values like `pd.NA` or `np.nan` are kept.
-        """
-        if self._aux is not None and "af" in self._aux and "0" in self._aux["af"]:  # type: ignore
-            return self._aux["af"]["0"]  # type: ignore
-        else:
-            return None
-
-    @default_value.setter
-    def default_value(self, value: str | None) -> None:
-        self._aux = self._aux or {}
-        self._aux.setdefault("af", {})["0"] = value
-
-    @property
-    def nullable(self) -> bool:
-        """Indicates whether the feature can have nullable values (default `True`).
-
-        Example::
-
-            import lamindb as ln
-            import pandas as pd
-
-            disease = ln.Feature(name="disease", dtype=ln.ULabel, nullable=False).save()
-            schema = ln.Schema(features=[disease]).save()
-            dataset = {"disease": pd.Categorical([pd.NA, "asthma"])}
-            df = pd.DataFrame(dataset)
-            curator = ln.curators.DataFrameCurator(df, schema)
-            with pytest.raises(ln.errors.ValidationError) as error:
-                curator.validate()
-            assert str(error.value).startswith("non-nullable series 'disease' contains null values")
-
-        """
-        if self._aux is not None and "af" in self._aux and "1" in self._aux["af"]:
-            value = self._aux["af"]["1"]
-            return True if value is None else value
-        else:
-            return True
-
-    @nullable.setter
-    def nullable(self, value: bool) -> None:
-        assert isinstance(value, bool), value  # noqa: S101
-        self._aux = self._aux or {}
-        self._aux.setdefault("af", {})["1"] = value
-
-    @property
-    def coerce_dtype(self) -> bool:
-        """Whether dtypes should be coerced during validation.
-
-        For example, a `objects`-dtyped pandas column can be coerced to `categorical` and would pass validation if this is true.
-        """
-        if self._aux is not None and "af" in self._aux and "2" in self._aux["af"]:  # type: ignore
-            return self._aux["af"]["2"]  # type: ignore
-        else:
-            return False
+    @deprecated("Use `.coerce` instead.")
+    def coerce_dtype(self) -> bool | None:
+        """Alias for coerce (backward compatibility)."""
+        return self.coerce
 
     @coerce_dtype.setter
-    def coerce_dtype(self, value: bool) -> None:
-        self._aux = self._aux or {}
-        self._aux.setdefault("af", {})["2"] = value
+    def coerce_dtype(self, value: bool | None) -> None:
+        self.coerce = value
 
     @property
     def dtype(self) -> str | None:

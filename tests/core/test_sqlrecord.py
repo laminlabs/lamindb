@@ -338,7 +338,7 @@ def test_get_record_kwargs():
             "default_value",
             "str | None",
         ),
-        ("coerce_dtype", "bool"),
+        ("coerce", "bool"),
         (
             "cat_filters",
             "dict[str",

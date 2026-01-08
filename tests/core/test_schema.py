@@ -292,16 +292,16 @@ def test_schema_update(
     assert mini_immuno_schema_flexible.hash == orig_hash
     assert ccaplog.text.count(warning_message) == 4
 
-    # change coerce_dtype (an auxiliary field) --------------------------------
+    # change coerce (formerly auxiliary field, now Django field) --------------------------------
 
-    assert not mini_immuno_schema_flexible.coerce_dtype
-    mini_immuno_schema_flexible.coerce_dtype = True
+    assert not mini_immuno_schema_flexible.coerce
+    mini_immuno_schema_flexible.coerce = True
     mini_immuno_schema_flexible.save()
     assert mini_immuno_schema_flexible.hash != orig_hash
     assert ccaplog.text.count(warning_message) == 5
 
     # restore original setting
-    mini_immuno_schema_flexible.coerce_dtype = False
+    mini_immuno_schema_flexible.coerce = False
     mini_immuno_schema_flexible.save()
     assert mini_immuno_schema_flexible.hash == orig_hash
     assert ccaplog.text.count(warning_message) == 6
@@ -549,14 +549,14 @@ def test_schema_already_saved_aux():
         itype=ln.Feature,
         dtype="DataFrame",
         minimal_set=True,
-        coerce_dtype=True,
+        coerce=True,
     ).save()
 
     schema = ln.Schema(
         name="AnnData schema",
         otype="AnnData",
         minimal_set=True,
-        coerce_dtype=True,
+        coerce=True,
         slots={"var": var_schema},
     ).save()
 
@@ -577,14 +577,14 @@ def test_schema_already_saved_aux():
         itype=ln.Feature,
         dtype="DataFrame",
         minimal_set=True,
-        coerce_dtype=True,
+        coerce=True,
     ).save()
 
     schema_2 = ln.Schema(
         name="AnnData schema",
         otype="AnnData",
         minimal_set=True,
-        coerce_dtype=True,
+        coerce=True,
         slots={"var": var_schema_2},
     ).save()
 

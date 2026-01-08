@@ -170,7 +170,7 @@ def test_curators_list_feature_nullable_empty_list():
     schema = ln.Schema(
         name="test_list_feature_schema",
         features=[feature_list, feature_int],
-        coerce_dtype=True,
+        coerce=True,
     ).save()
 
     df = pd.DataFrame({"list_tissue": [], "feature int": []})
@@ -888,7 +888,7 @@ def test_wrong_datatype(df):
         excinfo.value
     )
     assert (
-        "Hint: Consider setting 'coerce_dtype=True' to attempt coercing/converting values during validation to the pre-defined dtype."
+        "Hint: Consider setting 'coerce=True' to attempt coercing/converting values during validation to the pre-defined dtype."
         in str(excinfo.value)
     )
 
@@ -950,7 +950,7 @@ def test_add_new_from_subtype(df):
             ln.Feature(name="sample_name", dtype="str").save(),
             ln.Feature(name="sample_type", dtype=sample_type).save(),
         ],
-        coerce_dtype=True,
+        coerce=True,
     ).save()
 
     curator = ln.curators.DataFrameCurator(df, schema)
