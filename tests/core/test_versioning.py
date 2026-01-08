@@ -135,11 +135,9 @@ def test_transform_versioning_based_on_revises():
     assert transform_v4 == transform_v3
 
     assert len(ln.Transform.filter(key="Introduction")) == 2
-    assert len(ln.Transform.filter(key="Introduction").latest_version()) == 1
+    assert len(ln.Transform.filter(key="Introduction").latest_version) == 1
     assert ln.Transform.get(key="Introduction") == transform_v3
-    assert (
-        ln.Transform.filter(key="Introduction").latest_version().one() == transform_v3
-    )
+    assert ln.Transform.filter(key="Introduction").latest_version.one() == transform_v3
 
     # test get
     assert ln.Transform.get(transform_v3.uid) == transform_v3
@@ -148,7 +146,7 @@ def test_transform_versioning_based_on_revises():
 
     # test empty QuerySet
     assert (
-        ln.Transform.filter(key="IntroductionNotExists").latest_version().one_or_none()
+        ln.Transform.filter(key="IntroductionNotExists").latest_version.one_or_none()
         is None
     )
 
