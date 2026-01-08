@@ -260,7 +260,6 @@ class Transform(SQLRecord, IsVersioned):
         branch_id = kwargs.pop("branch_id", 1)
         space = kwargs.pop("space", None)
         space_id = kwargs.pop("space_id", 1)
-        is_flow: bool = kwargs.pop("is_flow", False)
         skip_hash_lookup: bool = kwargs.pop("skip_hash_lookup", False)
         using_key = kwargs.pop("using_key", None)
         # below is internal use that we'll hopefully be able to eliminate
@@ -341,7 +340,6 @@ class Transform(SQLRecord, IsVersioned):
             reference_type=reference_type,
             source_code=source_code,
             hash=hash,
-            is_flow=is_flow,
             _has_consciously_provided_uid=has_consciously_provided_uid,
             revises=revises,
             branch=branch,
