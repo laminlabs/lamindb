@@ -182,8 +182,8 @@ class User(BaseSQLRecord, CanCurate):
     @overload
     def __init__(
         self,
+        uid: str,
         handle: str,
-        email: str,
         name: str | None,
     ): ...
 
