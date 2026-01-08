@@ -403,7 +403,7 @@ def test_user_rls():
     user = ln.User.get(handle="testuser")
     user.name = "New Name"
     user.save()
-    # can insert a user because has write access to a space
+    # can't insert a user with a different uid
     ln.User(handle="insert_new_user", uid="someuidd").save()
     assert ln.User.filter().count() == 3
 
