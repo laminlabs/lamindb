@@ -73,14 +73,16 @@ class Transform(SQLRecord, IsVersioned):
 
     .. dropdown:: Can I sync transforms to git?
 
-        If you switch on
-        :attr:`~lamindb.core.Settings.sync_git_repo` a script-like transform is
-        synched to its hashed state in a git repository upon calling `ln.track()`::
+        If you set the environment variable `LAMINDB_SYNC_GIT_REPO` or set
+        `ln.settings.sync_git_repo`, a script-like transform is
+        synced to its hashed state in a git repository upon calling `ln.track()`::
 
             ln.settings.sync_git_repo = "https://github.com/laminlabs/lamindb"
             ln.track()
 
-        Alternatively, you create transforms that map pipelines via `Transform.from_git()`.
+        If the hash isn't found in the git repository, an error is thrown.
+
+        You can also create transforms that map pipelines via `Transform.from_git()`.
 
     The definition of transforms and runs is consistent with the OpenLineage
     specification where a `transform` would be called a "job" and a `run` a "run".
@@ -207,7 +209,7 @@ class Transform(SQLRecord, IsVersioned):
     )
     """Creator of record."""
     blocks: TransformBlock
-    """Blocks that annotate this artifact."""
+    """Blocks that annotate this artifact, via :attr:`~lamindb.TransformBlock.transform`."""
 
     @overload
     def __init__(
