@@ -75,7 +75,6 @@ def test_step_parallel():
     # Verify each run has the correct start and finish times
     for run in runs:
         print(f"Run details: {run}")
-        assert run.transform.is_flow is False
         assert run.started_at is not None
         assert run.finished_at is not None
         assert run.started_at < run.finished_at

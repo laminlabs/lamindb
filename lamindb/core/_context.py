@@ -763,7 +763,6 @@ class Context:
         transform_ref_type: str | None = None,
         transform_type: TransformKind = None,
         key: str | None = None,
-        is_flow: bool = False,
     ):
         from .._finish import notebook_to_script
 
@@ -912,7 +911,6 @@ class Context:
                 reference=transform_ref,
                 reference_type=transform_ref_type,
                 kind=transform_type,
-                is_flow=is_flow,
             ).save()
             self._logging_message_track += (
                 f"created Transform('{transform.uid}', key='{transform.key}')"
