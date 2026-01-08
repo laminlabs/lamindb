@@ -112,10 +112,6 @@ class Transform(SQLRecord, IsVersioned):
 
     Examples:
 
-        Create a transform for a pipeline::
-
-            transform = ln.Transform(key="Cell Ranger", version="7.2.0", kind="pipeline").save()
-
         Create a transform by running `ln.track()` in a notebook or a script::
 
             ln.track()
@@ -131,6 +127,16 @@ class Transform(SQLRecord, IsVersioned):
             @ln.step()
             def my_step():
                 print("One step!")
+
+        Create a transform for a pipeline::
+
+            transform = ln.Transform(key="Cell Ranger", version="7.2.0", kind="pipeline").save()
+
+        Create a transform by saving a Python or shell script or a notebook via the CLI::
+
+            lamin save my_script.py
+            lamin save my_script.sh
+            lamin save my_notebook.ipynb
 
     """
 
