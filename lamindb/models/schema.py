@@ -318,7 +318,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun):
     id: int = models.AutoField(primary_key=True)
     """Internal id, valid only in one DB instance."""
     # Before lamindb 1.5, it was 20 char long. Since lamindb 1.5, it is 16 char long.
-    uid: str = CharField(editable=False, unique=True, db_index=True, max_length=20)
+    uid: str = CharField(max_length=20, unique=True, db_index=True, editable=False)
     """A universal id."""
     name: str | None = CharField(max_length=150, null=True, db_index=True)
     """A name."""
@@ -335,7 +335,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun):
 
     Here are a few more examples for type names: `'ExpressionPanel'`, `'ProteinPanel'`, `'Multimodal'`, `'Metadata'`, `'Embedding'`.
     """
-    instances: Schema
+    schemas: Schema
     """Schemas of this type (can only be non-empty if `is_type` is `True`)."""
     itype: str | None = CharField(
         max_length=120, db_index=True, null=True, editable=False
@@ -391,8 +391,6 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun):
     """The artifacts that were validated against this schema with a :class:`~lamindb.curators.core.Curator`."""
     projects: Project
     """Linked projects."""
-    schemas: Schema
-    """Schemas for this type."""
     records: Record
     """Records that were annotated with this schema."""
 
