@@ -96,34 +96,51 @@ class LaminCheckpoint(ModelCheckpoint):
         save_on_train_epoch_end: Run checkpointing at end of training epoch.
         enable_version_counter: Append version to filename to avoid collisions.
 
-    Example::
+    Examples:
 
-        import lightning as pl
-        from lamindb.integrations import lightning as ll
+        Using the API::
 
-        # One-time setup
-        ll.save_lightning_features()
+            import lightning as pl
+            from lamindb.integrations import lightning as ll
 
-        # Versioned checkpoints (for tracking)
-        callback = ll.LaminCheckpoint(
-            key="experiments/my_model.ckpt",
-            features={"val_loss": None},  # auto-populated from trainer
-            monitor="val_loss",
-            save_top_k=3,
-            mode="min",
-        )
+            # One-time setup
+            ll.save_lightning_features()
 
-        # Semantic paths (for deployment)
-        callback = ll.LaminCheckpoint(
-            key="deployments/my_model",
-            path_prefix="deployments/my_model/",
-            monitor="val_loss",
-            save_top_k=3,
-        )
-        # Files at: s3://bucket/deployments/my_model/epoch=0-val_loss=0.5.ckpt
-        # Query: ln.Artifact.filter(key__startswith="deployments/my_model/")
+            # Versioned checkpoints (for tracking)
+            callback = ll.LaminCheckpoint(
+                key="experiments/my_model.ckpt",
+                features={"val_loss": None},  # auto-populated from trainer
+                monitor="val_loss",
+                save_top_k=3,
+                mode="min",
+            )
 
-        trainer = pl.Trainer(callbacks=[callback])
+            # Semantic paths (for deployment)
+            callback = ll.LaminCheckpoint(
+                key="deployments/my_model",
+                path_prefix="deployments/my_model/",
+                monitor="val_loss",
+                save_top_k=3,
+            )
+            # Files at: s3://bucket/deployments/my_model/epoch=0-val_loss=0.5.ckpt
+            # Query: ln.Artifact.filter(key__startswith="deployments/my_model/")
+
+            trainer = pl.Trainer(callbacks=[callback])
+
+        Using the CLI::
+
+            # config.yaml
+            trainer:
+            callbacks:
+                - class_path: lamindb.integrations.lightning.LaminCheckpoint
+                init_args:
+                    key: deployments/my_model
+                    path_prefix: deployments/my_model/
+                    monitor: val_loss
+                    save_top_k: 3
+
+            # Run with:
+            # python main.py fit --config config.yaml
     """
 
     def __init__(
