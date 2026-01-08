@@ -83,7 +83,6 @@ def _create_tracked_decorator(
                     transform_ref=reference,
                     transform_ref_type=reference_type,
                     key=key,
-                    is_flow=is_flow,
                 )
                 transform = local_context.transform
                 transform._update_source_code_from_path(path)
@@ -98,7 +97,6 @@ def _create_tracked_decorator(
                     key=qualified_name,
                     type="function",
                     source_code=inspect.getsource(func),
-                    is_flow=is_flow,
                 ).save()
 
             run = Run(

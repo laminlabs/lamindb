@@ -1241,13 +1241,6 @@ class BasicQuerySet(models.QuerySet):
         """
         return one_helper(self, raise_doesnotexist=False)
 
-    def latest_version(self) -> QuerySet:
-        """Filter every version family by latest version."""
-        if issubclass(self.model, IsVersioned):
-            return self.filter(is_latest=True)
-        else:
-            raise ValueError("SQLRecord isn't subclass of `lamindb.core.IsVersioned`")
-
     @doc_args(_search.__doc__)
     def search(self, string: str, **kwargs):
         """{}"""  # noqa: D415
