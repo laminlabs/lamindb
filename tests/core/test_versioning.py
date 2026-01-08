@@ -39,10 +39,8 @@ def test_bump_version():
 
 
 def test_add_to_version_family(df1, df2):
-    artifact1 = ln.Artifact.from_dataframe(df1, description="test1")
-    artifact1.save()
-    artifact2 = ln.Artifact.from_dataframe(df2, description="test2")
-    artifact2.save()
+    artifact1 = ln.Artifact.from_dataframe(df1, description="test1").save()
+    artifact2 = ln.Artifact.from_dataframe(df2, description="test2").save()
     assert (
         artifact1.uid[: artifact1._len_stem_uid]
         != artifact2.uid[: artifact2._len_stem_uid]
@@ -112,13 +110,13 @@ def test_transform_versioning_based_on_key():
 
 def test_transform_versioning_based_on_revises():
     # build one version family
-    transform_v1 = ln.Transform(description="Introduction").save()
+    transform_v1 = ln.Transform(key="Introduction").save()
     assert transform_v1.is_latest
     assert transform_v1.version_tag is None
 
     # pass the latest version
     transform_v2 = ln.Transform(
-        description="Introduction v2", revises=transform_v1, version="2"
+        key="Introduction v2", revises=transform_v1, version="2"
     ).save()
     assert not transform_v1.is_latest
     assert transform_v2.is_latest
@@ -128,22 +126,19 @@ def test_transform_versioning_based_on_revises():
 
     # consciously *not* pass the latest version to revises but the previous
     # it automatically retrieves the latest version
-    transform_v3 = ln.Transform(description="Introduction", revises=transform_v1).save()
+    transform_v3 = ln.Transform(key="Introduction", revises=transform_v1).save()
     assert transform_v3.uid.endswith("0002")
-    assert not ln.Transform.get(description="Introduction v2", version="2").is_latest
+    assert not ln.Transform.get(key="Introduction v2", version="2").is_latest
     assert transform_v3.is_latest
-    transform_v4 = ln.Transform(description="Introduction").save()
-    assert transform_v4.is_latest
+    # no source code code was yet saved, returning existing transform with same key
+    transform_v4 = ln.Transform(key="Introduction").save()
+    assert transform_v4 == transform_v3
 
-    # add another transform with the same description that's not part of this family
-    # but will also be a hit for the query
-    assert len(ln.Transform.filter(description="Introduction")) == 3
-    assert len(ln.Transform.filter(description="Introduction").latest_version()) == 2
-    transform_v4.delete(permanent=True)
-    assert ln.Transform.get(description="Introduction") == transform_v3
+    assert len(ln.Transform.filter(key="Introduction")) == 2
+    assert len(ln.Transform.filter(key="Introduction").latest_version()) == 1
+    assert ln.Transform.get(key="Introduction") == transform_v3
     assert (
-        ln.Transform.filter(description="Introduction").latest_version().one()
-        == transform_v3
+        ln.Transform.filter(key="Introduction").latest_version().one() == transform_v3
     )
 
     # test get
@@ -153,9 +148,7 @@ def test_transform_versioning_based_on_revises():
 
     # test empty QuerySet
     assert (
-        ln.Transform.filter(description="IntroductionNotExists")
-        .latest_version()
-        .one_or_none()
+        ln.Transform.filter(key="IntroductionNotExists").latest_version().one_or_none()
         is None
     )
 
