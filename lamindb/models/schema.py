@@ -326,7 +326,34 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun):
     coerce: bool | None = BooleanField(null=True, default=None)
     """Whether dtypes should be coerced during validation. None for type-like schemas."""
     flexible: bool | None = BooleanField(null=True, default=None)
-    """Whether validation allows undefined features. None for type-like schemas."""
+    """Indicates how to handle validation and annotation in case features are not defined.
+
+    Examples:
+        Make a rigid schema flexible::
+
+            schema = ln.Schema.get(name="my_schema")
+            schema.flexible = True
+            schema.save()
+
+        During schema creation::
+
+            # if you're not passing features but just defining the itype, defaults to flexible = True
+            schema = ln.Schema(itype=ln.Feature).save()
+            # schema.flexible is True
+
+            # if you're passing features, defaults to flexible = False
+            schema = ln.Schema(
+                features=[ln.Feature(name="my_required_feature", dtype=int).save()],
+            )
+            # schema.flexible is False
+
+            # you can also validate & annotate features in addition to those that you're explicitly defining:
+            schema = ln.Schema(
+                features=[ln.Feature(name="my_required_feature", dtype=int).save()],
+                flexible=True,
+            )
+            # schema.flexible is True
+    """
     type: Schema | None = ForeignKey("self", PROTECT, null=True, related_name="schemas")
     """Type of schema.
 
