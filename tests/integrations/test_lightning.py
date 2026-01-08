@@ -52,6 +52,18 @@ def artifact_key() -> Generator[str, None, None]:
         shutil.rmtree(checkpoints_dir)
 
 
+@pytest.fixture
+def path_prefix() -> Generator[str, None, None]:
+    prefix = "test/deployments/model/"
+    yield prefix
+    for af in ln.Artifact.filter(key__startswith=prefix).to_list():
+        af.delete(permanent=True, storage=True)
+
+    checkpoints_dir = Path("checkpoints")
+    if checkpoints_dir.exists():
+        shutil.rmtree(checkpoints_dir)
+
+
 @pytest.fixture(scope="session")
 def lightning_features() -> Generator[None, None, None]:
     """Create lightning features."""
@@ -217,3 +229,37 @@ def test_checkpoint_model_rank(
     artifacts = ln.Artifact.filter(key=artifact_key).to_list()
     ranks = [af.features.get_values().get("model_rank") for af in artifacts]
     assert 0 in ranks  # best model has rank 0
+
+
+def test_checkpoint_path_prefix(
+    simple_model: pl.LightningModule,
+    dataloader: DataLoader,
+    path_prefix: str,
+    lightning_features: None,
+):
+    """Checkpoints with path_prefix should have semantic storage paths."""
+    callback = ll.LaminCheckpoint(
+        key="test/deployments/model",
+        path_prefix=path_prefix,
+        monitor="train_loss",
+        save_top_k=3,
+    )
+    trainer = pl.Trainer(
+        max_epochs=3,
+        callbacks=[callback],
+        logger=False,
+    )
+    trainer.fit(simple_model, dataloader)
+
+    artifacts = ln.Artifact.filter(key__startswith=path_prefix).to_list()
+    assert len(artifacts) >= 1
+
+    for af in artifacts:
+        # Key should be path_prefix + filename
+        assert af.key.startswith(path_prefix)
+        # Storage path should match key (non-virtual)
+        assert af.key in str(af.path)
+        # Features should still be tracked
+        values = af.features.get_values()
+        assert "is_best_model" in values
+        assert "score" in values
