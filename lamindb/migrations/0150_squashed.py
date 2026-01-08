@@ -1793,9 +1793,9 @@ class Migration(migrations.Migration):
             },
             bases=(
                 lamindb.models.sqlrecord.HasType,
+                lamindb.models.has_parents.HasParents,
                 lamindb.models.can_curate.CanCurate,
                 models.Model,
-                lamindb.models.has_parents.HasParents,
             ),
         ),
         migrations.CreateModel(
