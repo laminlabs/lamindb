@@ -373,6 +373,7 @@ class Transform(SQLRecord, IsVersioned):
         version: str | None = None,
         entrypoint: str | None = None,
         branch: str | None = None,
+        description: str | None = None,
         skip_hash_lookup: bool = False,
     ) -> Transform:
         """Create a transform from a path in a git repository.
@@ -384,6 +385,7 @@ class Transform(SQLRecord, IsVersioned):
             version: Optional version tag to checkout in the repository.
             entrypoint: One or several optional comma-separated entrypoints for the transform.
             branch: Optional branch to checkout.
+            description: Optional description for the transform.
             skip_hash_lookup: Skip the hash lookup so that a new transform is created even if a transform with the same hash already exists.
 
         Examples:
@@ -474,6 +476,7 @@ class Transform(SQLRecord, IsVersioned):
             key=key,
             kind="pipeline",
             version=version,
+            description=description,
             reference=reference,
             reference_type=reference_type,
             source_code=source_code,
