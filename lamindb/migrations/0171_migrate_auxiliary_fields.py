@@ -9,8 +9,8 @@ def migrate_auxiliary_fields(apps, schema_editor):
     Artifact = apps.get_model("lamindb", "Artifact")
     for obj in Artifact.objects.iterator():
         af = (obj._aux or {}).get("af", {})
-        # Set from _aux or default to False
-        obj._save_completed = af.get("0", False)
+        # Set from _aux or default to True (existing artifacts were already saved)
+        obj._save_completed = af.get("0", True)
         # Clean up _aux
         if obj._aux and "af" in obj._aux:
             obj._aux.pop("af", None)
