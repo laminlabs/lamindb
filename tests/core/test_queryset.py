@@ -1,5 +1,3 @@
-# .latest_version is tested in test_versioning.py
-
 import re
 import textwrap
 from contextlib import contextmanager

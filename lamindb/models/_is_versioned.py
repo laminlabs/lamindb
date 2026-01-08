@@ -84,9 +84,8 @@ class IsVersioned(models.Model):
 
         Example::
 
-            artifact = ln.Artifact.from_dataframe(df1, key="my_dataset.parquet").save()
-            new_artifact = ln.Artifact.from_dataframe(df2, key="my_dataset.parquet").save()
-            new_artifact.versions.to_dataframe()  # all versions of the artifact in a dataframe
+            artifact.versions.to_dataframe()       # all versions of the artifact in a dataframe
+            artifact.versions.get(is_latest=True)  # the latest version of the artifact
         """
         return (
             self.__class__.connect(self._state.db)
