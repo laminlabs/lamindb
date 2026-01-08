@@ -1102,6 +1102,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                         "UNIQUE constraint failed" in error_msg
                         or "duplicate key value violates unique constraint" in error_msg
                     )
+                    and hasattr(self, "branch_id")
                 ):
                     unique_field = parse_violated_field_from_error_message(error_msg)
                     # here we query against the all branches with .objects
