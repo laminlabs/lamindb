@@ -152,10 +152,12 @@ def install_ci(session, group):
     elif group == "cli":
         pass
     elif group == "permissions":
-        run(
-            session,
-            "uv pip install --system --no-deps ./laminhub/backend/laminhub_rest/hubmodule",
-        )
+        cmds = "uv pip install --system --no-deps ./laminhub/backend/laminhub_rest/hubmodule"
+        cmds += "\nuv pip install --system -e ./laminhub/backend/utils"
+        cmds += "\nuv pip install --system -e ./laminhub/backend/central"
+        cmds += "\nuv pip install --system -e ./laminhub/backend/dbinstance"
+        cmds += "\nuv pip install --system -e ./laminhub/backend/aws"
+        [run(session, line) for line in cmds.splitlines()]
         # check that just installing psycopg (psycopg3) doesn't break fine-grained access
         # comment out for now, this is also tested in lamindb-setup hub-local
         # run(session, "uv pip install --system psycopg[binary]")
