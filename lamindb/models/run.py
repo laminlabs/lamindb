@@ -202,17 +202,15 @@ class User(BaseSQLRecord, CanCurate):
 
 
 class Run(SQLRecord):
-    """Runs of transforms such as the execution of a script.
-
-    A registry to store runs of transforms, such as an executation of a script.
+    """Runs of transforms such as the executions of a script.
 
     Args:
-        transform: `Transform` A :class:`~lamindb.Transform` record.
-        name: `str | None = None` An optional name.
+        transform: :class:`~lamindb.Transform` A data transformation object.
+        name: `str | None = None` A name.
         params: `dict | None = None` A dictionary of parameters.
-        reference: `str | None = None` For instance, an external ID or a download URL.
+        reference: `str | None = None` For instance, an external ID or URL.
         reference_type: `str | None = None` For instance, `redun_id`, `nextflow_id` or `url`.
-        initiated_by_run: `Run | None = None` The run that triggers this run.
+        initiated_by_run: `Run | None = None` The `run` that triggers this `run`.
 
     See Also:
         :func:`~lamindb.track`
@@ -228,15 +226,10 @@ class Run(SQLRecord):
             transform = ln.Transform.get(key="Cell Ranger", version="7.2.0")
             run = ln.Run(transform)
 
-        Create a global run context for a custom transform::
-
-            ln.track(transform=transform)
-            ln.context.run  # global run
-
-        Track a global run context for a notebook or script::
+        Track a global run of a notebook or script::
 
             ln.track()
-            ln.context.run  # global run
+            ln.context.run  # global run object
 
         You can pass parameters to `Run(transform, params=params)` or add them later::
 
@@ -303,8 +296,6 @@ class Run(SQLRecord):
     """The computational environment for this run.
 
     For instance, `Dockerfile`, `docker image`, `requirements.txt`, `environment.yml`, etc.
-
-    Via `Artifact._environment_of`.
     """
     input_artifacts: Artifact
     """The artifacts serving as input for this run, via :attr:`~lamindb.Artifact.input_of_runs`.

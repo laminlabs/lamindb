@@ -65,7 +65,7 @@ class Transform(SQLRecord, IsVersioned):
     pipeline. If you execute a transform, you generate a run
     (:class:`~lamindb.Run`). A run has inputs and outputs.
 
-    Pipelines are typically created with a workflow tool (Nextflow, Snakemake,
+    Pipelines are typically created with a workflow manager (Nextflow, Snakemake,
     Prefect, Flyte, Dagster, redun, Airflow, ...).
 
     Transforms are versioned so that a given transform version maps on a given
@@ -119,6 +119,18 @@ class Transform(SQLRecord, IsVersioned):
         Create a transform by running `ln.track()` in a notebook or a script::
 
             ln.track()
+
+        Create a transform for a standalone function that acts as its own workflow::
+
+            @ln.flow()
+            def my_workflow():
+                print("Hello, world!")
+
+        Create a transform for a step in a workflow::
+
+            @ln.step()
+            def my_step():
+                print("One step!")
 
     """
 
