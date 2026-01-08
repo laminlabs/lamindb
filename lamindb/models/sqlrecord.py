@@ -1102,6 +1102,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                         "UNIQUE constraint failed" in error_msg
                         or "duplicate key value violates unique constraint" in error_msg
                     )
+                    and hasattr(self, "branch_id")
                 ):
                     unique_field = parse_violated_field_from_error_message(error_msg)
                     # here we query against the all branches with .objects
@@ -1113,7 +1114,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                         logger.warning(
                             f"returning {self.__class__.__name__} record with same {unique_field}: '{getattr(self, unique_field)}'"
                         )
-                    # if the existing record is in a different branch, we move it to the default branch and update its fields
+                    # if the existing record is in a different branch we update its fields
                     else:
                         # modifies the fields of the existing record with new values of self
                         field_names = [i.name for i in self.__class__._meta.fields]

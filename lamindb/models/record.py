@@ -45,7 +45,7 @@ if TYPE_CHECKING:
     from .schema import Schema
 
 
-class Record(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, HasParents):
+class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates):
     """Flexible metadata records.
 
     Useful for managing samples, donors, cells, compounds, sequences, and other custom entities with their features.
