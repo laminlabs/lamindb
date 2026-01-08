@@ -407,6 +407,9 @@ def test_user_rls():
     # can't insert a user with a different uid
     with pytest.raises(ProgrammingError):
         ln.User(handle="insert_new_user", uid="someuidd").save()
+    # also triggers RLS
+    with pytest.raises(ProgrammingError):
+        ln.User(handle="insert_new_user", uid=user.uid).save()
     # try to insert a user with the same uid
     # should not trigger RLS because the uid is the same, it should throw an IntegrityError
     with pytest.raises(IntegrityError):
