@@ -3197,3 +3197,29 @@ def track_run_input(
 Artifact._delete_skip_storage = _delete_skip_storage
 Artifact._save_skip_storage = _save_skip_storage
 Artifact.view_lineage = view_lineage
+
+
+# PostgreSQL migration helper for _save_completed to _aux["storage_completed"]
+
+
+def migrate_save_completed_to_aux_postgres(schema_editor) -> None:
+    """Migrate _save_completed field to _aux['storage_completed'] using PostgreSQL raw SQL.
+
+    This migrates the boolean _save_completed field into the _aux JSON field
+    under the key 'storage_completed', then sets _save_completed to NULL.
+    """
+    schema_editor.execute("""
+        UPDATE lamindb_artifact
+        SET _aux = CASE
+                WHEN _save_completed IS NOT NULL THEN
+                    CASE
+                        WHEN _aux IS NULL THEN
+                            jsonb_build_object('storage_completed', _save_completed)
+                        ELSE
+                            _aux || jsonb_build_object('storage_completed', _save_completed)
+                    END
+                ELSE _aux
+            END,
+            _save_completed = NULL
+        WHERE _save_completed IS NOT NULL
+    """)
