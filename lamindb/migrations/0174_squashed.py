@@ -6126,9 +6126,9 @@ class Migration(migrations.Migration):
             model_name="feature",
             constraint=models.CheckConstraint(
                 condition=models.Q(
-                    ("is_type", True), ("dtype__isnull", False), _connector="OR"
+                    ("is_type", True), ("_dtype_str__isnull", False), _connector="OR"
                 ),
-                name="dtype_not_null_when_is_type_false",
+                name="feature_dtype_str_not_null_when_is_type_false",
             ),
         ),
         migrations.AddConstraint(
