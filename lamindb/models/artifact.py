@@ -1713,6 +1713,10 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         - `None`: no write to storage is needed
         - `False`: write started but not completed
         - `True`: write completed successfully
+
+        `None` exists to avoid unnecessary database hits for cases (registering existing paths) when no write process to a storage ever happens.
+
+        In the JSON field, `None` is represented as an absent `storage_completed` key.
         """
         if self._aux is None:
             return None
