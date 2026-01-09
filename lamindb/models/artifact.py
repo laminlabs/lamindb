@@ -1400,8 +1400,13 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     """The creator of this artifact."""
     _overwrite_versions: bool = BooleanField(default=None)
     """See corresponding property `overwrite_versions`."""
-    _save_completed: bool = BooleanField(default=False, db_default=False)
-    """Whether the artifact was successfully saved to storage."""
+    _save_completed: bool | None = BooleanField(null=True, default=None)
+    """Whether the artifact was successfully saved to storage.
+
+    - `None`: no write to storage is needed
+    - `False`: write started but not completed
+    - `True`: write completed successfully
+    """
     ulabels: ULabel
     """The ulabels annotating this artifact."""
     users: User
