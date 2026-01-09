@@ -39,7 +39,7 @@ def transactions_schema():
             amount_eur,
             currency,
         ],
-        coerce_dtype=True,
+        coerce=True,
     ).save()
 
     yield schema

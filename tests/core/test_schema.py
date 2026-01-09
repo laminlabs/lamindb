@@ -1,10 +1,16 @@
+import os
+
 import bionty as bt
 import lamindb as ln
 import pandas as pd
 import pytest
 from django.db.utils import IntegrityError
 from lamindb.errors import FieldValidationError, InvalidArgument, ValidationError
-from lamindb.models.schema import get_related_name, validate_features
+from lamindb.models.schema import (
+    get_related_name,
+    migrate_auxiliary_fields_postgres,
+    validate_features,
+)
 
 
 @pytest.fixture(scope="module")
@@ -292,16 +298,16 @@ def test_schema_update(
     assert mini_immuno_schema_flexible.hash == orig_hash
     assert ccaplog.text.count(warning_message) == 4
 
-    # change coerce_dtype (an auxiliary field) --------------------------------
+    # change coerce (formerly auxiliary field, now Django field) --------------------------------
 
-    assert not mini_immuno_schema_flexible.coerce_dtype
-    mini_immuno_schema_flexible.coerce_dtype = True
+    assert not mini_immuno_schema_flexible.coerce
+    mini_immuno_schema_flexible.coerce = True
     mini_immuno_schema_flexible.save()
     assert mini_immuno_schema_flexible.hash != orig_hash
     assert ccaplog.text.count(warning_message) == 5
 
     # restore original setting
-    mini_immuno_schema_flexible.coerce_dtype = False
+    mini_immuno_schema_flexible.coerce = False
     mini_immuno_schema_flexible.save()
     assert mini_immuno_schema_flexible.hash == orig_hash
     assert ccaplog.text.count(warning_message) == 6
@@ -549,20 +555,25 @@ def test_schema_already_saved_aux():
         itype=ln.Feature,
         dtype="DataFrame",
         minimal_set=True,
-        coerce_dtype=True,
+        coerce=True,
     ).save()
 
     schema = ln.Schema(
         name="AnnData schema",
         otype="AnnData",
         minimal_set=True,
-        coerce_dtype=True,
+        coerce=True,
         slots={"var": var_schema},
     ).save()
 
-    assert len(schema.slots["var"]._aux["af"].keys()) == 3
+    # _aux["af"] now only contains key "3" (index_feature_uid) since coerce and flexible are Django fields
+    assert len(schema.slots["var"]._aux["af"].keys()) == 1
+    assert "3" in schema.slots["var"]._aux["af"]  # index_feature_uid
+    # coerce and flexible are now proper Django fields
+    assert schema.slots["var"].coerce is True
+    assert schema.slots["var"].flexible is False
 
-    # Attempting to save the same schema again should return the Schema with the same `.aux` fields
+    # Attempting to save the same schema again should return the Schema with the same fields
     var_schema_2 = ln.Schema(
         name="test var",
         index=ln.Feature(
@@ -577,19 +588,21 @@ def test_schema_already_saved_aux():
         itype=ln.Feature,
         dtype="DataFrame",
         minimal_set=True,
-        coerce_dtype=True,
+        coerce=True,
     ).save()
 
     schema_2 = ln.Schema(
         name="AnnData schema",
         otype="AnnData",
         minimal_set=True,
-        coerce_dtype=True,
+        coerce=True,
         slots={"var": var_schema_2},
     ).save()
 
-    assert len(schema.slots["var"]._aux["af"].keys()) == 3
+    assert len(schema.slots["var"]._aux["af"].keys()) == 1
     assert schema.slots["var"]._aux == schema_2.slots["var"]._aux
+    assert schema.slots["var"].coerce == schema_2.slots["var"].coerce
+    assert schema.slots["var"].flexible == schema_2.slots["var"].flexible
 
     schema_2.delete(permanent=True)
     schema.delete(permanent=True)
@@ -647,3 +660,207 @@ def test_composite_component():
     component2.delete(permanent=True)
 
     assert ln.models.SchemaComponent.filter().count() == 0
+
+
+@pytest.mark.skipif(
+    os.getenv("LAMINDB_TEST_DB_VENDOR") != "postgresql",
+    reason="PostgreSQL-specific migration test",
+)
+def test_migrate_auxiliary_fields_postgres():
+    """Test PostgreSQL migration of auxiliary fields for all models.
+
+    This test verifies that migrate_auxiliary_fields_postgres correctly migrates:
+
+    **Artifact:**
+    - _save_completed from _aux['af']['0']
+
+    **Run:**
+    - cli_args from _aux['af']['0']
+
+    **Feature:**
+    - default_value from _aux['af']['0']
+    - nullable from _aux['af']['1'] (default: True)
+    - coerce from _aux['af']['2'] (default: False)
+    - For type features, all values are set to NULL
+
+    **Schema:**
+    - coerce from _aux['af']['0']
+    - flexible from _aux['af']['2'] (or computes from n_members)
+    - Converts negative n_members to NULL
+    - For type schemas, all values are set to NULL
+    - Preserves '1' (optionals) and '3' (index_feature_uid) in _aux
+    """
+    from django.db import connection
+
+    # === Setup test data ===
+
+    # Create a Transform and Run for testing
+    transform = ln.Transform(key="test_migration_transform").save()
+    run = ln.Run(transform=transform).save()
+
+    # Create an Artifact for testing
+    artifact = ln.Artifact(".gitignore", key="test_migration_artifact").save()
+
+    # Create Features for testing (type and regular)
+    type_feature = ln.Feature(
+        name="TestMigrationTypeFeat", dtype=str, is_type=True
+    ).save()
+    regular_feature = ln.Feature(name="test_migration_regular_feat", dtype=str).save()
+
+    # Create Schemas for testing (type and regular)
+    type_schema = ln.Schema(name="TestMigrationTypeSchema", is_type=True).save()
+    feature_for_schema1 = ln.Feature(
+        name="test_migration_schema_feat1", dtype=str
+    ).save()
+    feature_for_schema2 = ln.Feature(
+        name="test_migration_schema_feat2", dtype=str
+    ).save()
+    regular_schema = ln.Schema(
+        name="TestMigrationRegularSchema",
+        features=[feature_for_schema1, feature_for_schema2],
+        coerce=True,
+        flexible=True,
+    ).save()
+
+    # === Set old-style _aux data to simulate pre-migration state ===
+    with connection.cursor() as cursor:
+        # Artifact: set _aux with af containing _save_completed value
+        cursor.execute(
+            """
+            UPDATE lamindb_artifact
+            SET _aux = '{"af": {"0": true}}'::jsonb,
+                _save_completed = NULL
+            WHERE id = %s
+            """,
+            [artifact.id],
+        )
+
+        # Run: set _aux with af containing cli_args value
+        cursor.execute(
+            """
+            UPDATE lamindb_run
+            SET _aux = '{"af": {"0": "--verbose --debug"}}'::jsonb,
+                cli_args = NULL
+            WHERE id = %s
+            """,
+            [run.id],
+        )
+
+        # Feature (type): set _aux with af keys that should result in NULL values
+        cursor.execute(
+            """
+            UPDATE lamindb_feature
+            SET _aux = '{"af": {"0": "default_val", "1": false, "2": true}}'::jsonb,
+                default_value = NULL,
+                nullable = NULL,
+                coerce = NULL
+            WHERE id = %s
+            """,
+            [type_feature.id],
+        )
+
+        # Feature (regular): set _aux with af keys for migration
+        cursor.execute(
+            """
+            UPDATE lamindb_feature
+            SET _aux = '{"af": {"0": "my_default", "1": false, "2": true}}'::jsonb,
+                default_value = NULL,
+                nullable = NULL,
+                coerce = NULL
+            WHERE id = %s
+            """,
+            [regular_feature.id],
+        )
+
+        # Schema (type): set _aux with af keys that should be cleaned
+        cursor.execute(
+            """
+            UPDATE lamindb_schema
+            SET _aux = '{"af": {"0": true, "2": false}}'::jsonb,
+                coerce = NULL,
+                flexible = NULL
+            WHERE id = %s
+            """,
+            [type_schema.id],
+        )
+
+        # Schema (regular): set _aux with af keys including optionals (key "1")
+        cursor.execute(
+            """
+            UPDATE lamindb_schema
+            SET _aux = '{"af": {"0": true, "1": ["uid1", "uid2"], "2": true}}'::jsonb,
+                coerce = NULL,
+                flexible = NULL
+            WHERE id = %s
+            """,
+            [regular_schema.id],
+        )
+
+    # === Run the migration function ===
+    with connection.schema_editor() as schema_editor:
+        migrate_auxiliary_fields_postgres(schema_editor)
+
+    # === Refresh all objects from database ===
+    artifact.refresh_from_db()
+    run.refresh_from_db()
+    type_feature.refresh_from_db()
+    regular_feature.refresh_from_db()
+    type_schema.refresh_from_db()
+    regular_schema.refresh_from_db()
+
+    # === Verify Artifact migration ===
+    assert artifact._save_completed is True  # from _aux['af']['0']
+    # _aux should have 'af' removed (was only key)
+    assert artifact._aux is None or "af" not in artifact._aux
+
+    # === Verify Run migration ===
+    assert run.cli_args == "--verbose --debug"  # from _aux['af']['0']
+    # _aux should have 'af' removed
+    assert run._aux is None or "af" not in run._aux
+
+    # === Verify Feature (type) migration ===
+    # Type features should have all values set to NULL
+    assert type_feature.default_value is None
+    assert type_feature.nullable is None
+    assert type_feature.coerce is None
+    # _aux should have 'af' removed
+    assert type_feature._aux is None or "af" not in type_feature._aux
+
+    # === Verify Feature (regular) migration ===
+    assert regular_feature.default_value == "my_default"  # from _aux['af']['0']
+    assert regular_feature.nullable is False  # from _aux['af']['1']
+    assert regular_feature.coerce is True  # from _aux['af']['2']
+    # _aux should have 'af' removed
+    assert regular_feature._aux is None or "af" not in regular_feature._aux
+
+    # === Verify Schema (type) migration ===
+    assert type_schema.coerce is None
+    assert type_schema.flexible is None
+    assert type_schema.n_members is None
+    # _aux should either be None or not have '0' and '2' keys in 'af'
+    if type_schema._aux is not None and "af" in type_schema._aux:
+        assert "0" not in type_schema._aux["af"]
+        assert "2" not in type_schema._aux["af"]
+
+    # === Verify Schema (regular) migration ===
+    assert regular_schema.coerce is True  # from _aux['af']['0']
+    assert regular_schema.flexible is True  # from _aux['af']['2']
+    # _aux should preserve key '1' (optionals)
+    assert regular_schema._aux is not None
+    assert "af" in regular_schema._aux
+    assert "1" in regular_schema._aux["af"]
+    assert regular_schema._aux["af"]["1"] == ["uid1", "uid2"]
+    # Keys '0' and '2' should be removed
+    assert "0" not in regular_schema._aux["af"]
+    assert "2" not in regular_schema._aux["af"]
+
+    # === Clean up ===
+    regular_schema.delete(permanent=True)
+    type_schema.delete(permanent=True)
+    feature_for_schema1.delete(permanent=True)
+    feature_for_schema2.delete(permanent=True)
+    regular_feature.delete(permanent=True)
+    type_feature.delete(permanent=True)
+    artifact.delete(permanent=True)
+    run.delete(permanent=True)
+    transform.delete(permanent=True)

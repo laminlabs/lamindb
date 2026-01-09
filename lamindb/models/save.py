@@ -108,11 +108,11 @@ def save(
     if artifacts:
         with transaction.atomic():
             for record in artifacts:
-                # will swtich to True after the successful upload / saving
+                # will switch to True after the successful upload / saving
                 if getattr(record, "_local_filepath", None) is not None and getattr(
                     record, "_to_store", False
                 ):
-                    record._is_saved_to_storage_location = False
+                    record._save_completed = False
                 record._save_skip_storage()
         using_key = settings._using_key
         store_artifacts(artifacts, using_key=using_key)
@@ -398,13 +398,13 @@ def store_artifacts(
 
         stored_artifacts += [artifact]
         # update to show successful saving
-        # only update if _is_saved_to_storage_location was set to False before
+        # only update if _save_completed was set to False before
         # this should be a single transaction for the updates of all the artifacts
         # but then it would just abort all artifacts, even successfully saved before
         # TODO: there should also be some kind of exception handling here
         # but this requires proper refactoring
-        if artifact._is_saved_to_storage_location is False:
-            artifact._is_saved_to_storage_location = True
+        if artifact._save_completed is False:
+            artifact._save_completed = True
             super(
                 Artifact, artifact
             ).save()  # each .save is a separate transaction here

@@ -423,7 +423,7 @@ def get_features_data(
                         feature_data[feature_name] = (slot, registry_str)
             schema_data.update(
                 {
-                    slot: (schema, schema.n)  # type: ignore
+                    slot: (schema, schema.n_members)  # type: ignore
                     for slot, schema in get_schema_by_slot_(self).items()
                     if slot not in schema_data
                 }
@@ -441,7 +441,7 @@ def get_features_data(
                     for feature_name in feature_names:
                         feature_data[feature_name] = (slot, schema.itype)
                 else:
-                    schema_data[slot] = (schema, schema.n)
+                    schema_data[slot] = (schema, schema.n_members)
 
     internal_feature_names = {}
     if isinstance(self, Artifact):
@@ -606,7 +606,7 @@ def describe_features(
             create_feature_table(
                 Text.assemble(
                     (slot, "violet"),
-                    (f" ({schema.n}{schema_itype})", "dim"),
+                    (f" ({schema.n_members}{schema_itype})", "dim"),
                 ),
                 "",
                 feature_rows,

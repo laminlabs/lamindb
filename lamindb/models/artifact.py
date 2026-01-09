@@ -1188,9 +1188,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             ),
         ]
 
-    _aux_fields: dict[str, tuple[str, type]] = {
-        "0": ("_is_saved_to_storage_location", bool),
-    }
     _len_full_uid: int = 20
     _len_stem_uid: int = 16
     _name_field: str = "key"
@@ -1403,6 +1400,13 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     """The creator of this artifact."""
     _overwrite_versions: bool = BooleanField(default=None)
     """See corresponding property `overwrite_versions`."""
+    _save_completed: bool | None = BooleanField(null=True, default=None)
+    """Whether the artifact was successfully saved to storage.
+
+    - `None`: no write to storage is needed
+    - `False`: write started but not completed
+    - `True`: write completed successfully
+    """
     ulabels: ULabel
     """The ulabels annotating this artifact."""
     users: User
@@ -2798,23 +2802,14 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         super().delete(permanent=permanent, storage=storage, using_key=using_key)
 
     @property
-    def _is_saved_to_storage_location(self) -> bool | None:
-        """Indicates whether this artifact was correctly written to its storage.
-
-        This is meaningful only after calling `.save()`.
-
-        `None` means no writing was necessary, `True` - that it was written correctly.
-        `False` shows that there was a problem with writing.
-        """
-        if self._aux is not None:
-            return self._aux.get("af", {}).get("0", None)
-        else:
-            return None
+    @deprecated("_save_completed")
+    def _is_saved_to_storage_location(self) -> bool:
+        """Alias for _save_completed (backward compatibility)."""
+        return self._save_completed
 
     @_is_saved_to_storage_location.setter
     def _is_saved_to_storage_location(self, value: bool) -> None:
-        self._aux = self._aux or {}
-        self._aux.setdefault("af", {})["0"] = value
+        self._save_completed = value
 
     def save(
         self,
@@ -2865,14 +2860,12 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             # ensure that the artifact is uploaded
             self._to_store = True
 
-        # _is_saved_to_storage_location indicates whether the saving / upload process is successful
+        # _save_completed indicates whether the saving / upload process is successful
         flag_complete = getattr(self, "_local_filepath", None) is not None and getattr(
             self, "_to_store", False
         )
         if flag_complete:
-            self._is_saved_to_storage_location = (
-                False  # will be updated to True at the end
-            )
+            self._save_completed = False  # will be updated to True at the end
 
         self._save_skip_storage(**kwargs)
 
@@ -2905,10 +2898,10 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             raise exception_upload
         if exception_clear is not None:
             raise exception_clear
-        # the saving / upload process has been successfull, just mark it as such
+        # the saving / upload process has been successful, just mark it as such
         # maybe some error handling here?
         if flag_complete:
-            self._is_saved_to_storage_location = True
+            self._save_completed = True
             # pass kwargs here because it can contain `using` or other things
             # affecting the connection
             super().save(**kwargs)

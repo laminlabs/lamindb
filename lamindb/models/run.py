@@ -7,7 +7,6 @@ from django.db.models import (
     CASCADE,
     PROTECT,
 )
-from lamin_utils import logger
 from lamindb_setup import _check_instance_setup
 
 from lamindb.base.fields import (
@@ -258,9 +257,6 @@ class Run(SQLRecord):
         app_label = "lamindb"
 
     _name_field: str = "started_at"
-    _aux_fields: dict[str, tuple[str, type]] = {
-        "0": ("cli_args", str),
-    }
 
     id: int = models.BigAutoField(primary_key=True)
     """Internal id, valid only in one DB instance."""
@@ -331,6 +327,8 @@ class Run(SQLRecord):
     """A reference like a URL or an external ID such as from a workflow manager."""
     reference_type: str | None = CharField(max_length=25, db_index=True, null=True)
     """The type of the `reference` such as a workflow manager execution ID."""
+    cli_args: str | None = CharField(max_length=1024, null=True, default=None)
+    """CLI arguments if the run was invoked from the command line."""
     created_at: datetime = DateTimeField(
         editable=False, db_default=models.functions.Now(), db_index=True
     )
@@ -451,22 +449,6 @@ class Run(SQLRecord):
             2: "aborted",
         }
         return status_dict.get(self._status_code, "unknown")
-
-    @property
-    def cli_args(self) -> str | None:
-        """CLI arguments if the run was invoked from the command line."""
-        if self._aux is not None and "af" in self._aux and "0" in self._aux["af"]:  # type: ignore
-            return self._aux["af"]["0"]  # type: ignore
-        else:
-            return None
-
-    @cli_args.setter
-    def cli_args(self, value: str) -> None:
-        if not isinstance(value, str) or not (value):
-            logger.warning("did not set empty or non-string cli_args")
-            return
-        self._aux = self._aux or {}
-        self._aux.setdefault("af", {})["0"] = value
 
     @property
     def features(self) -> FeatureManager:

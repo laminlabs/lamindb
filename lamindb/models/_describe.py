@@ -467,9 +467,9 @@ def describe_schema(record: Schema, slot: str | None = None) -> Tree:
     add_two_column_items_to_tree(tree, two_column_items)
 
     # Add features section
-    members_count = record.n
-    members_count_display = f" ({members_count})" if members_count > 0 else ""
-    if members_count > 0 or (record.dtype and record.itype is not None):
+    n_members = record.n_members
+    members_count_display = f" ({n_members})" if n_members else ""
+    if n_members or (record.dtype and record.itype is not None):
         features = tree.add(
             Text.assemble(
                 (
@@ -479,7 +479,7 @@ def describe_schema(record: Schema, slot: str | None = None) -> Tree:
                 (members_count_display, "bold dim"),
             )
         )
-        if members_count > 0:
+        if n_members is not None:
             feature_table = Table(
                 show_header=True, header_style="dim", box=None, pad_edge=False
             )
@@ -488,7 +488,7 @@ def describe_schema(record: Schema, slot: str | None = None) -> Tree:
             feature_table.add_column("dtype", style="", no_wrap=True)
             feature_table.add_column("optional", style="", no_wrap=True)
             feature_table.add_column("nullable", style="", no_wrap=True)
-            feature_table.add_column("coerce_dtype", style="", no_wrap=True)
+            feature_table.add_column("coerce", style="", no_wrap=True)
             feature_table.add_column("default_value", style="", no_wrap=True)
 
             optionals = record.optionals.get()
@@ -498,7 +498,7 @@ def describe_schema(record: Schema, slot: str | None = None) -> Tree:
                     Text(strip_cat(member._dtype_str)),
                     "✓" if optionals.filter(uid=member.uid).exists() else "✗",
                     "✓" if member.nullable else "✗",
-                    "✓" if record.coerce_dtype or member.coerce_dtype else "✗",
+                    "✓" if record.coerce or member.coerce else "✗",
                     str(member.default_value) if member.default_value else "unset",
                 )
 

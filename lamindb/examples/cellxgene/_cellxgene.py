@@ -250,7 +250,7 @@ def create_cellxgene_schema(
         itype=Feature,
         features=[Feature(name="feature_is_filtered", dtype=bool).save()],
         dtype="DataFrame",
-        coerce_dtype=True,
+        coerce=True,
     ).save()
 
     obs_features = [
@@ -271,7 +271,7 @@ def create_cellxgene_schema(
         features=obs_features,
         otype="DataFrame",
         minimal_set=True,
-        coerce_dtype=True,
+        coerce=True,
     ).save()
 
     slots = {"var": var_schema, "obs": obs_schema}
@@ -296,7 +296,7 @@ def create_cellxgene_schema(
             features=uns_features,
             otype="DataFrame",
             minimal_set=True,
-            coerce_dtype=True,
+            coerce=True,
         ).save()
 
         slots["uns"] = uns_schema
@@ -331,7 +331,7 @@ def create_cellxgene_schema(
         name=f"AnnData of CELLxGENE version {schema_version} for {organism} of {', '.join(field_types) if isinstance(field_types, list) else field_types}",
         otype="AnnData",
         minimal_set=True,
-        coerce_dtype=True,
+        coerce=True,
         slots=slots,
     ).save()
 
