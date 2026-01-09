@@ -11,58 +11,79 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AlterField(
-            model_name="artifact",
-            name="_save_completed",
-            field=lamindb.base.fields.BooleanField(blank=True, default=None, null=True),
-        ),
-        migrations.AlterField(
-            model_name="feature",
-            name="coerce",
-            field=lamindb.base.fields.BooleanField(blank=True, default=None, null=True),
-        ),
-        migrations.AlterField(
-            model_name="feature",
-            name="default_value",
-            field=lamindb.base.fields.JSONField(blank=True, default=None, null=True),
-        ),
-        migrations.AlterField(
-            model_name="feature",
-            name="nullable",
-            field=lamindb.base.fields.BooleanField(blank=True, default=None, null=True),
-        ),
-        migrations.AlterField(
-            model_name="run",
-            name="cli_args",
-            field=lamindb.base.fields.CharField(
-                blank=True, default=None, max_length=1024, null=True
-            ),
-        ),
-        migrations.AlterField(
-            model_name="schema",
-            name="coerce",
-            field=lamindb.base.fields.BooleanField(blank=True, default=None, null=True),
-        ),
-        migrations.AlterField(
-            model_name="schema",
-            name="flexible",
-            field=lamindb.base.fields.BooleanField(blank=True, default=None, null=True),
-        ),
-        migrations.AlterField(
-            model_name="schema",
-            name="n_members",
-            field=lamindb.base.fields.IntegerField(blank=True, default=None, null=True),
-        ),
-        migrations.AlterField(
-            model_name="schema",
-            name="uid",
-            field=lamindb.base.fields.CharField(
-                blank=True,
-                db_index=True,
-                default=None,
-                editable=False,
-                max_length=16,
-                unique=True,
-            ),
+        # Update Django's state only - no database changes needed
+        # since lamindb.base.fields are equivalent to Django fields at DB level
+        migrations.SeparateDatabaseAndState(
+            database_operations=[],
+            state_operations=[
+                migrations.AlterField(
+                    model_name="artifact",
+                    name="_save_completed",
+                    field=lamindb.base.fields.BooleanField(
+                        blank=True, default=None, null=True
+                    ),
+                ),
+                migrations.AlterField(
+                    model_name="feature",
+                    name="coerce",
+                    field=lamindb.base.fields.BooleanField(
+                        blank=True, default=None, null=True
+                    ),
+                ),
+                migrations.AlterField(
+                    model_name="feature",
+                    name="default_value",
+                    field=lamindb.base.fields.JSONField(
+                        blank=True, default=None, null=True
+                    ),
+                ),
+                migrations.AlterField(
+                    model_name="feature",
+                    name="nullable",
+                    field=lamindb.base.fields.BooleanField(
+                        blank=True, default=None, null=True
+                    ),
+                ),
+                migrations.AlterField(
+                    model_name="run",
+                    name="cli_args",
+                    field=lamindb.base.fields.CharField(
+                        blank=True, default=None, max_length=1024, null=True
+                    ),
+                ),
+                migrations.AlterField(
+                    model_name="schema",
+                    name="coerce",
+                    field=lamindb.base.fields.BooleanField(
+                        blank=True, default=None, null=True
+                    ),
+                ),
+                migrations.AlterField(
+                    model_name="schema",
+                    name="flexible",
+                    field=lamindb.base.fields.BooleanField(
+                        blank=True, default=None, null=True
+                    ),
+                ),
+                migrations.AlterField(
+                    model_name="schema",
+                    name="n_members",
+                    field=lamindb.base.fields.IntegerField(
+                        blank=True, default=None, null=True
+                    ),
+                ),
+                migrations.AlterField(
+                    model_name="schema",
+                    name="uid",
+                    field=lamindb.base.fields.CharField(
+                        blank=True,
+                        db_index=True,
+                        default=None,
+                        editable=False,
+                        max_length=16,
+                        unique=True,
+                    ),
+                ),
+            ],
         ),
     ]
