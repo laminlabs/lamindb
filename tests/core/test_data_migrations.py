@@ -397,10 +397,10 @@ def test_migrate_save_completed_to_aux_postgres():
     artifact_null.refresh_from_db()
     artifact_with_aux.refresh_from_db()
 
-    assert artifact_true._storage_completed is True
+    assert artifact_true._storage_completed is None
     assert artifact_false._storage_completed is False
     assert artifact_null._storage_completed is None
-    assert artifact_with_aux._storage_completed is True
+    assert artifact_with_aux._storage_completed is None
 
     # === Clean up: remove temporary column and delete artifacts ===
     with connection.cursor() as cursor:

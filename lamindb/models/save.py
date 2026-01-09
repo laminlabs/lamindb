@@ -404,7 +404,7 @@ def store_artifacts(
         # TODO: there should also be some kind of exception handling here
         # but this requires proper refactoring
         if artifact._storage_completed is False:
-            artifact._storage_completed = True
+            artifact._storage_completed = None  # None indicates "not False" and removes the data from the JSON field
             super(
                 Artifact, artifact
             ).save()  # each .save is a separate transaction here

@@ -1710,11 +1710,10 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     def _storage_completed(self) -> bool | None:
         """Whether the artifact was successfully saved to storage.
 
-        - `None`: no write to storage is needed
+        - `None`: undefined
         - `False`: write started but not completed
-        - `True`: write completed successfully
 
-        `None` exists to avoid unnecessary database hits for cases (registering existing paths) when no write process to a storage ever happens.
+        `None` exists to create a sparse structure where the JSON is mostly NULL.
 
         In the JSON field, `None` is represented as an absent `storage_completed` key.
         """
@@ -2909,10 +2908,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             raise exception_upload
         if exception_clear is not None:
             raise exception_clear
-        # the saving / upload process has been successful, just mark it as such
-        # maybe some error handling here?
+        # the saving / upload process has been successful, remove the False flag
         if flag_complete:
-            self._storage_completed = True
+            self._storage_completed = None
             # pass kwargs here because it can contain `using` or other things
             # affecting the connection
             super().save(**kwargs)
@@ -3209,18 +3207,18 @@ Artifact.view_lineage = view_lineage
 def migrate_save_completed_to_aux_postgres(schema_editor) -> None:
     """Migrate _save_completed field to _aux['storage_completed'] using PostgreSQL raw SQL.
 
-    This migrates the boolean _save_completed field into the _aux JSON field
-    under the key 'storage_completed', then sets _save_completed to NULL.
+    This migrates _save_completed=False into _aux['storage_completed']=false.
+    _save_completed=True results in no change to _aux (empty JSON is the default).
     """
     schema_editor.execute("""
         UPDATE lamindb_artifact
         SET _aux = CASE
-                WHEN _save_completed IS NOT NULL THEN
+                WHEN _save_completed = FALSE THEN
                     CASE
                         WHEN _aux IS NULL THEN
-                            jsonb_build_object('storage_completed', _save_completed)
+                            jsonb_build_object('storage_completed', false)
                         ELSE
-                            _aux || jsonb_build_object('storage_completed', _save_completed)
+                            _aux || jsonb_build_object('storage_completed', false)
                     END
                 ELSE _aux
             END,
