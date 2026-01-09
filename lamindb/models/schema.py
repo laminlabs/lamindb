@@ -1231,7 +1231,7 @@ def migrate_auxiliary_fields_postgres(schema_editor) -> None:
     This efficiently migrates auxiliary fields for all affected models:
 
     **Artifact:**
-    - _save_completed from _aux['af']['0']
+    - _storage_completed from _aux['af']['0']
 
     **Run:**
     - cli_args from _aux['af']['0']
@@ -1249,10 +1249,10 @@ def migrate_auxiliary_fields_postgres(schema_editor) -> None:
     - For type schemas (is_type=True), all values are set to NULL
     - Keys '1' (optionals) and '3' (index_feature_uid) are preserved in _aux
     """
-    # Artifact: migrate _save_completed from _aux->'af'->'0'
+    # Artifact: migrate _storage_completed from _aux->'af'->'0'
     schema_editor.execute("""
         UPDATE lamindb_artifact
-        SET _save_completed = (_aux->'af'->>'0')::boolean,
+        SET _storage_completed = (_aux->'af'->>'0')::boolean,
             _aux = CASE
                 WHEN _aux->'af' IS NOT NULL THEN
                     CASE

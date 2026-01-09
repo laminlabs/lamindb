@@ -672,7 +672,7 @@ def test_migrate_auxiliary_fields_postgres():
     This test verifies that migrate_auxiliary_fields_postgres correctly migrates:
 
     **Artifact:**
-    - _save_completed from _aux['af']['0']
+    - _storage_completed from _aux['af']['0']
 
     **Run:**
     - cli_args from _aux['af']['0']
@@ -724,12 +724,12 @@ def test_migrate_auxiliary_fields_postgres():
 
     # === Set old-style _aux data to simulate pre-migration state ===
     with connection.cursor() as cursor:
-        # Artifact: set _aux with af containing _save_completed value
+        # Artifact: set _aux with af containing _storage_completed value
         cursor.execute(
             """
             UPDATE lamindb_artifact
             SET _aux = '{"af": {"0": true}}'::jsonb,
-                _save_completed = NULL
+                _storage_completed = NULL
             WHERE id = %s
             """,
             [artifact.id],
@@ -809,7 +809,7 @@ def test_migrate_auxiliary_fields_postgres():
     regular_schema.refresh_from_db()
 
     # === Verify Artifact migration ===
-    assert artifact._save_completed is True  # from _aux['af']['0']
+    assert artifact._storage_completed is True  # from _aux['af']['0']
     # _aux should have 'af' removed (was only key)
     assert artifact._aux is None or "af" not in artifact._aux
 
