@@ -1219,3 +1219,136 @@ class SchemaComponent(BaseSQLRecord, IsLink, TracksRun):
 
 
 Schema._get_related_name = _get_related_name
+
+
+# PostgreSQL migration helpers for auxiliary fields
+# These are used by migrations to efficiently migrate data from _aux to Django fields
+
+
+def migrate_auxiliary_fields_postgres(schema_editor) -> None:
+    """Migrate _aux['af'] fields to Django fields using PostgreSQL raw SQL.
+
+    This efficiently migrates auxiliary fields for all affected models:
+
+    **Artifact:**
+    - _save_completed from _aux['af']['0']
+
+    **Run:**
+    - cli_args from _aux['af']['0']
+
+    **Feature:**
+    - default_value from _aux['af']['0']
+    - nullable from _aux['af']['1'] (default: True)
+    - coerce from _aux['af']['2'] (default: False)
+    - For type features (is_type=True), all values are set to NULL
+
+    **Schema:**
+    - coerce from _aux['af']['0']
+    - flexible from _aux['af']['2'] (or computed from n_members)
+    - n_members (converted from negative to NULL)
+    - For type schemas (is_type=True), all values are set to NULL
+    - Keys '1' (optionals) and '3' (index_feature_uid) are preserved in _aux
+    """
+    # Artifact: migrate _save_completed from _aux->'af'->'0'
+    schema_editor.execute("""
+        UPDATE lamindb_artifact
+        SET _save_completed = (_aux->'af'->>'0')::boolean,
+            _aux = CASE
+                WHEN _aux->'af' IS NOT NULL THEN
+                    CASE
+                        WHEN _aux - 'af' = '{}'::jsonb THEN NULL
+                        ELSE _aux - 'af'
+                    END
+                ELSE _aux
+            END
+        WHERE _aux IS NOT NULL AND _aux->'af' IS NOT NULL
+    """)
+
+    # Run: migrate cli_args from _aux->'af'->'0'
+    schema_editor.execute("""
+        UPDATE lamindb_run
+        SET cli_args = _aux->'af'->>'0',
+            _aux = CASE
+                WHEN _aux - 'af' = '{}'::jsonb THEN NULL
+                ELSE _aux - 'af'
+            END
+        WHERE _aux IS NOT NULL AND _aux ? 'af'
+    """)
+
+    # Feature: migrate default_value, nullable, coerce
+    # For type features: set all to NULL
+    schema_editor.execute("""
+        UPDATE lamindb_feature
+        SET default_value = NULL,
+            nullable = NULL,
+            coerce = NULL,
+            _aux = CASE
+                WHEN _aux->'af' IS NOT NULL THEN
+                    CASE
+                        WHEN _aux - 'af' = '{}'::jsonb THEN NULL
+                        ELSE _aux - 'af'
+                    END
+                ELSE _aux
+            END
+        WHERE is_type = TRUE
+    """)
+    # For regular features: migrate values with defaults
+    schema_editor.execute("""
+        UPDATE lamindb_feature
+        SET default_value = _aux->'af'->'0',
+            nullable = COALESCE((_aux->'af'->>'1')::boolean, TRUE),
+            coerce = COALESCE((_aux->'af'->>'2')::boolean, FALSE),
+            _aux = CASE
+                WHEN _aux->'af' IS NOT NULL THEN
+                    CASE
+                        WHEN _aux - 'af' = '{}'::jsonb THEN NULL
+                        ELSE _aux - 'af'
+                    END
+                ELSE _aux
+            END
+        WHERE is_type = FALSE OR is_type IS NULL
+    """)
+
+    # Schema: migrate coerce, flexible, n_members
+    # For type schemas: set all to NULL
+    schema_editor.execute("""
+        UPDATE lamindb_schema
+        SET coerce = NULL,
+            flexible = NULL,
+            n_members = NULL,
+            _aux = CASE
+                WHEN _aux->'af' IS NOT NULL THEN
+                    CASE
+                        WHEN ((_aux->'af') #- ARRAY['0'] #- ARRAY['2']) = '{}'::jsonb THEN
+                            CASE WHEN (_aux #- ARRAY['af']) = '{}'::jsonb THEN NULL ELSE _aux #- ARRAY['af'] END
+                        ELSE jsonb_set(_aux #- ARRAY['af'], '{af}', (_aux->'af') #- ARRAY['0'] #- ARRAY['2'])
+                    END
+                ELSE _aux
+            END
+        WHERE is_type = TRUE
+    """)
+    # For regular schemas: migrate values
+    # Keep '1' (optionals) and '3' (index_feature_uid) in _aux
+    schema_editor.execute("""
+        UPDATE lamindb_schema
+        SET coerce = (_aux->'af'->>'0')::boolean,
+            flexible = COALESCE(
+                (_aux->'af'->>'2')::boolean,
+                n_members IS NULL OR n_members < 0
+            ),
+            n_members = CASE WHEN n_members < 0 THEN NULL ELSE n_members END,
+            _aux = CASE
+                WHEN _aux->'af' IS NOT NULL THEN
+                    CASE
+                        WHEN ((_aux->'af') #- ARRAY['0'] #- ARRAY['2']) = '{}'::jsonb THEN
+                            CASE WHEN (_aux #- ARRAY['af']) = '{}'::jsonb THEN NULL ELSE _aux #- ARRAY['af'] END
+                        ELSE jsonb_set(
+                            CASE WHEN (_aux #- ARRAY['af']) = '{}'::jsonb THEN '{}'::jsonb ELSE _aux #- ARRAY['af'] END,
+                            '{af}',
+                            (_aux->'af') #- ARRAY['0'] #- ARRAY['2']
+                        )
+                    END
+                ELSE _aux
+            END
+        WHERE is_type = FALSE OR is_type IS NULL
+    """)

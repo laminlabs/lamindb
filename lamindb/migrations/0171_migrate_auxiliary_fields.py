@@ -2,6 +2,8 @@
 
 from django.db import migrations, models
 
+from lamindb.models.schema import migrate_auxiliary_fields_postgres
+
 
 def truncate_schema_uids(apps, schema_editor):
     """Truncate Schema UIDs from 20 to 16 chars before altering the field."""
@@ -26,110 +28,7 @@ def migrate_auxiliary_fields(apps, schema_editor):
 
     if db_vendor == "postgresql":
         # Raw SQL for PostgreSQL - much faster for large datasets
-
-        # Artifact: migrate _save_completed from _aux->'af'->'0'
-        schema_editor.execute("""
-            UPDATE lamindb_artifact
-            SET _save_completed = (_aux->'af'->>'0')::boolean,
-                _aux = CASE
-                    WHEN _aux->'af' IS NOT NULL THEN
-                        CASE
-                            WHEN _aux - 'af' = '{}'::jsonb THEN NULL
-                            ELSE _aux - 'af'
-                        END
-                    ELSE _aux
-                END
-            WHERE _aux IS NOT NULL AND _aux->'af' IS NOT NULL
-        """)
-
-        # Run: migrate cli_args from _aux->'af'->'0'
-        schema_editor.execute("""
-            UPDATE lamindb_run
-            SET cli_args = _aux->'af'->>'0',
-                _aux = CASE
-                    WHEN _aux - 'af' = '{}'::jsonb THEN NULL
-                    ELSE _aux - 'af'
-                END
-            WHERE _aux IS NOT NULL AND _aux ? 'af'
-        """)
-
-        # Feature: migrate default_value, nullable, coerce
-        # For type features: set all to NULL
-        schema_editor.execute("""
-            UPDATE lamindb_feature
-            SET default_value = NULL,
-                nullable = NULL,
-                coerce = NULL,
-                _aux = CASE
-                    WHEN _aux->'af' IS NOT NULL THEN
-                        CASE
-                            WHEN _aux - 'af' = '{}'::jsonb THEN NULL
-                            ELSE _aux - 'af'
-                        END
-                    ELSE _aux
-                END
-            WHERE is_type = TRUE
-        """)
-        # For regular features: migrate values with defaults
-        schema_editor.execute("""
-            UPDATE lamindb_feature
-            SET default_value = _aux->'af'->'0',
-                nullable = COALESCE((_aux->'af'->>'1')::boolean, TRUE),
-                coerce = COALESCE((_aux->'af'->>'2')::boolean, FALSE),
-                _aux = CASE
-                    WHEN _aux->'af' IS NOT NULL THEN
-                        CASE
-                            WHEN _aux - 'af' = '{}'::jsonb THEN NULL
-                            ELSE _aux - 'af'
-                        END
-                    ELSE _aux
-                END
-            WHERE is_type = FALSE OR is_type IS NULL
-        """)
-
-        # Schema: migrate coerce, flexible, n_members
-        # For type schemas: set all to NULL
-        schema_editor.execute("""
-            UPDATE lamindb_schema
-            SET coerce = NULL,
-                flexible = NULL,
-                n_members = NULL,
-                _aux = CASE
-                    WHEN _aux->'af' IS NOT NULL THEN
-                        CASE
-                            WHEN (_aux->'af' - '0' - '2') = '{}'::jsonb THEN
-                                CASE WHEN _aux - 'af' = '{}'::jsonb THEN NULL ELSE _aux - 'af' END
-                            ELSE jsonb_set(_aux - 'af', '{af}', _aux->'af' - '0' - '2')
-                        END
-                    ELSE _aux
-                END
-            WHERE is_type = TRUE
-        """)
-        # For regular schemas: migrate values
-        # Keep '1' (optionals) and '3' (index_feature_uid) in _aux
-        schema_editor.execute("""
-            UPDATE lamindb_schema
-            SET coerce = (_aux->'af'->>'0')::boolean,
-                flexible = COALESCE(
-                    (_aux->'af'->>'2')::boolean,
-                    n_members IS NULL OR n_members < 0
-                ),
-                n_members = CASE WHEN n_members < 0 THEN NULL ELSE n_members END,
-                _aux = CASE
-                    WHEN _aux->'af' IS NOT NULL THEN
-                        CASE
-                            WHEN (_aux->'af' - '0' - '2') = '{}'::jsonb THEN
-                                CASE WHEN _aux - 'af' = '{}'::jsonb THEN NULL ELSE _aux - 'af' END
-                            ELSE jsonb_set(
-                                CASE WHEN _aux - 'af' = '{}'::jsonb THEN '{}'::jsonb ELSE _aux - 'af' END,
-                                '{af}',
-                                _aux->'af' - '0' - '2'
-                            )
-                        END
-                    ELSE _aux
-                END
-            WHERE is_type = FALSE OR is_type IS NULL
-        """)
+        migrate_auxiliary_fields_postgres(schema_editor)
     else:
         # Python fallback for SQLite
         _migrate_auxiliary_fields_python(apps)
