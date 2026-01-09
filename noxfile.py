@@ -173,12 +173,12 @@ def install_ci(session, group):
         # have to install after lamindb installation
         # because lamindb downgrades django required by laminhub_rest
         cmds = "uv pip install --system sentry_sdk line_profiler setuptools wheel==0.45.1 flit"
-        cmds += "\nuv pip install --system --no-build-isolation ./laminhub/backend "
+        cmds += "\nuv pip install --system --no-build-isolation ./laminhub/backend"
         cmds += "\nuv pip install --system ./laminhub/backend/utils"
         cmds += "\nuv pip install --system ./laminhub/backend/central"
         cmds += "\nuv pip install --system ./laminhub/backend/dbinstance"
         cmds += "\nuv pip install --system ./laminhub/backend/aws"
-        cmds = "\nuv pip install --system --no-deps ./laminhub/backend/laminhub_rest/hubmodule"
+        cmds += "\nuv pip install --system --no-deps ./laminhub/backend/laminhub_rest/hubmodule"
         [run(session, line) for line in cmds.splitlines()]
 
 
