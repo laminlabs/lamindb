@@ -5,22 +5,143 @@ from django.db import migrations, models
 
 def truncate_schema_uids(apps, schema_editor):
     """Truncate Schema UIDs from 20 to 16 chars before altering the field."""
-    Schema = apps.get_model("lamindb", "Schema")
-    for obj in Schema.objects.filter().iterator():
-        if len(obj.uid) > 16:
-            obj.uid = obj.uid[:16]
-            obj.save(update_fields=["uid"])
+    db_vendor = schema_editor.connection.vendor
+    if db_vendor == "postgresql":
+        # Raw SQL for PostgreSQL
+        schema_editor.execute(
+            "UPDATE lamindb_schema SET uid = LEFT(uid, 16) WHERE LENGTH(uid) > 16"
+        )
+    else:
+        # Python fallback for SQLite
+        Schema = apps.get_model("lamindb", "Schema")
+        for obj in Schema.objects.filter().iterator():
+            if len(obj.uid) > 16:
+                obj.uid = obj.uid[:16]
+                obj.save(update_fields=["uid"])
 
 
 def migrate_auxiliary_fields(apps, schema_editor):
-    """Migrate data from _aux['af'] to new fields and truncate Schema UIDs."""
-    # Artifact: migrate _is_saved_to_storage_location -> _save_completed
+    """Migrate data from _aux['af'] to new fields."""
+    db_vendor = schema_editor.connection.vendor
+
+    if db_vendor == "postgresql":
+        # Raw SQL for PostgreSQL - much faster for large datasets
+
+        # Artifact: migrate _save_completed from _aux->'af'->'0'
+        schema_editor.execute("""
+            UPDATE lamindb_artifact
+            SET _save_completed = (_aux->'af'->>'0')::boolean,
+                _aux = CASE
+                    WHEN _aux->'af' IS NOT NULL THEN
+                        CASE
+                            WHEN _aux - 'af' = '{}'::jsonb THEN NULL
+                            ELSE _aux - 'af'
+                        END
+                    ELSE _aux
+                END
+            WHERE _aux IS NOT NULL AND _aux->'af' IS NOT NULL
+        """)
+
+        # Run: migrate cli_args from _aux->'af'->'0'
+        schema_editor.execute("""
+            UPDATE lamindb_run
+            SET cli_args = _aux->'af'->>'0',
+                _aux = CASE
+                    WHEN _aux - 'af' = '{}'::jsonb THEN NULL
+                    ELSE _aux - 'af'
+                END
+            WHERE _aux IS NOT NULL AND _aux ? 'af'
+        """)
+
+        # Feature: migrate default_value, nullable, coerce
+        # For type features: set all to NULL
+        schema_editor.execute("""
+            UPDATE lamindb_feature
+            SET default_value = NULL,
+                nullable = NULL,
+                coerce = NULL,
+                _aux = CASE
+                    WHEN _aux->'af' IS NOT NULL THEN
+                        CASE
+                            WHEN _aux - 'af' = '{}'::jsonb THEN NULL
+                            ELSE _aux - 'af'
+                        END
+                    ELSE _aux
+                END
+            WHERE is_type = TRUE
+        """)
+        # For regular features: migrate values with defaults
+        schema_editor.execute("""
+            UPDATE lamindb_feature
+            SET default_value = _aux->'af'->'0',
+                nullable = COALESCE((_aux->'af'->>'1')::boolean, TRUE),
+                coerce = COALESCE((_aux->'af'->>'2')::boolean, FALSE),
+                _aux = CASE
+                    WHEN _aux->'af' IS NOT NULL THEN
+                        CASE
+                            WHEN _aux - 'af' = '{}'::jsonb THEN NULL
+                            ELSE _aux - 'af'
+                        END
+                    ELSE _aux
+                END
+            WHERE is_type = FALSE OR is_type IS NULL
+        """)
+
+        # Schema: migrate coerce, flexible, n_members
+        # For type schemas: set all to NULL
+        schema_editor.execute("""
+            UPDATE lamindb_schema
+            SET coerce = NULL,
+                flexible = NULL,
+                n_members = NULL,
+                _aux = CASE
+                    WHEN _aux->'af' IS NOT NULL THEN
+                        CASE
+                            WHEN (_aux->'af' - '0' - '2') = '{}'::jsonb THEN
+                                CASE WHEN _aux - 'af' = '{}'::jsonb THEN NULL ELSE _aux - 'af' END
+                            ELSE jsonb_set(_aux - 'af', '{af}', _aux->'af' - '0' - '2')
+                        END
+                    ELSE _aux
+                END
+            WHERE is_type = TRUE
+        """)
+        # For regular schemas: migrate values
+        # Keep '1' (optionals) and '3' (index_feature_uid) in _aux
+        schema_editor.execute("""
+            UPDATE lamindb_schema
+            SET coerce = (_aux->'af'->>'0')::boolean,
+                flexible = COALESCE(
+                    (_aux->'af'->>'2')::boolean,
+                    n_members IS NULL OR n_members < 0
+                ),
+                n_members = CASE WHEN n_members < 0 THEN NULL ELSE n_members END,
+                _aux = CASE
+                    WHEN _aux->'af' IS NOT NULL THEN
+                        CASE
+                            WHEN (_aux->'af' - '0' - '2') = '{}'::jsonb THEN
+                                CASE WHEN _aux - 'af' = '{}'::jsonb THEN NULL ELSE _aux - 'af' END
+                            ELSE jsonb_set(
+                                CASE WHEN _aux - 'af' = '{}'::jsonb THEN '{}'::jsonb ELSE _aux - 'af' END,
+                                '{af}',
+                                _aux->'af' - '0' - '2'
+                            )
+                        END
+                    ELSE _aux
+                END
+            WHERE is_type = FALSE OR is_type IS NULL
+        """)
+    else:
+        # Python fallback for SQLite
+        _migrate_auxiliary_fields_python(apps)
+
+
+def _migrate_auxiliary_fields_python(apps):
+    """Python-based migration for SQLite."""
+    # Artifact: migrate _save_completed
     Artifact = apps.get_model("lamindb", "Artifact")
     for obj in Artifact.objects.iterator():
         af = (obj._aux or {}).get("af", {})
-        # Set from _aux or default to None (no write needed for existing artifacts)
-        obj._save_completed = af.get("0")  # None if not present
-        # Clean up _aux
+        obj._save_completed = af.get("0")
         if obj._aux and "af" in obj._aux:
             obj._aux.pop("af", None)
             if not obj._aux:
@@ -31,7 +152,7 @@ def migrate_auxiliary_fields(apps, schema_editor):
     Run = apps.get_model("lamindb", "Run")
     for obj in Run.objects.filter(_aux__has_key="af").iterator():
         af = obj._aux.get("af", {})
-        obj.cli_args = af.get("0")  # None if not present
+        obj.cli_args = af.get("0")
         obj._aux.pop("af", None)
         if not obj._aux:
             obj._aux = None
@@ -41,48 +162,34 @@ def migrate_auxiliary_fields(apps, schema_editor):
     Feature = apps.get_model("lamindb", "Feature")
     for obj in Feature.objects.iterator():
         af = (obj._aux or {}).get("af", {})
-
         if obj.is_type:
-            # Type-like features: set all to NULL
             obj.default_value = None
             obj.nullable = None
             obj.coerce = None
         else:
-            # Regular features: migrate values or use defaults
-            obj.default_value = af.get("0")  # None if not present
-            obj.nullable = af.get("1", True)  # Default True
-            obj.coerce = af.get("2", False)  # Default False
-
-        # Clean up _aux
+            obj.default_value = af.get("0")
+            obj.nullable = af.get("1", True)
+            obj.coerce = af.get("2", False)
         if obj._aux and "af" in obj._aux:
             obj._aux.pop("af", None)
             if not obj._aux:
                 obj._aux = None
-
         obj.save(update_fields=["default_value", "nullable", "coerce", "_aux"])
 
-    # Schema: migrate coerce, flexible, set n_members to NULL for types
-    # Note: n has already been renamed to n_members by the schema migration
-    # Note: UID truncation is handled separately by truncate_schema_uids before AlterField
+    # Schema: migrate coerce, flexible, n_members
     Schema = apps.get_model("lamindb", "Schema")
     for obj in Schema.objects.iterator():
         af = (obj._aux or {}).get("af", {})
-
         if obj.is_type:
-            # Type-like schemas: set all to NULL
             obj.coerce = None
             obj.flexible = None
             obj.n_members = None
         else:
-            # Regular schemas: migrate values or use defaults
-            obj.coerce = af.get("0")  # None if not present
-            # Convert n_members=-1 to None (new convention for flexible schemas)
+            obj.coerce = af.get("0")
             is_flexible_schema = obj.n_members is None or obj.n_members < 0
             if obj.n_members is not None and obj.n_members < 0:
                 obj.n_members = None
-            # flexible default is n_members is None
             obj.flexible = af.get("2", is_flexible_schema)
-
         # Keep '1' (optionals) and '3' (index_feature_uid) in _aux
         if obj._aux and "af" in obj._aux:
             new_af = {}
@@ -96,7 +203,6 @@ def migrate_auxiliary_fields(apps, schema_editor):
                 obj._aux.pop("af", None)
             if not obj._aux:
                 obj._aux = None
-
         obj.save(update_fields=["coerce", "flexible", "n_members", "_aux"])
 
 
