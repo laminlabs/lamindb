@@ -390,6 +390,7 @@ class Migration(migrations.Migration):
         ),
         ("lamindb", "0173_remove_artifact__save_completed"),
         ("lamindb", "0174_alter_transform_environment"),
+        ("lamindb", "0175_alter_user_options_and_more"),
     ]
 
     dependencies = []  # type: ignore
@@ -5927,30 +5928,6 @@ class Migration(migrations.Migration):
             name="ulabelproject",
             unique_together={("ulabel", "project")},
         ),
-        migrations.AddConstraint(
-            model_name="ulabel",
-            constraint=models.UniqueConstraint(
-                condition=models.Q(
-                    models.Q(("branch_id", -1), _negated=True),
-                    ("is_type", True),
-                    ("type__isnull", True),
-                ),
-                fields=("name",),
-                name="unique_ulabel_type_name_at_root",
-            ),
-        ),
-        migrations.AddConstraint(
-            model_name="ulabel",
-            constraint=models.UniqueConstraint(
-                condition=models.Q(
-                    models.Q(("branch_id", -1), _negated=True),
-                    ("is_type", True),
-                    ("type__isnull", False),
-                ),
-                fields=("name", "type"),
-                name="unique_ulabel_type_name_under_type",
-            ),
-        ),
         migrations.AlterUniqueTogether(
             name="transformulabel",
             unique_together={("transform", "ulabel")},
@@ -5990,30 +5967,6 @@ class Migration(migrations.Migration):
             name="schemacomponent",
             unique_together={("composite", "slot"), ("composite", "slot", "component")},
         ),
-        migrations.AddConstraint(
-            model_name="schema",
-            constraint=models.UniqueConstraint(
-                condition=models.Q(
-                    models.Q(("branch_id", -1), _negated=True),
-                    ("is_type", True),
-                    ("type__isnull", True),
-                ),
-                fields=("name",),
-                name="unique_schema_type_name_at_root",
-            ),
-        ),
-        migrations.AddConstraint(
-            model_name="schema",
-            constraint=models.UniqueConstraint(
-                condition=models.Q(
-                    models.Q(("branch_id", -1), _negated=True),
-                    ("is_type", True),
-                    ("type__isnull", False),
-                ),
-                fields=("name", "type"),
-                name="unique_schema_type_name_under_type",
-            ),
-        ),
         migrations.AlterUniqueTogether(
             name="runulabel",
             unique_together={("run", "ulabel")},
@@ -6034,85 +5987,13 @@ class Migration(migrations.Migration):
             name="referencerecord",
             unique_together={("reference", "feature", "record")},
         ),
-        migrations.AddConstraint(
-            model_name="reference",
-            constraint=models.UniqueConstraint(
-                condition=models.Q(
-                    models.Q(("branch_id", -1), _negated=True),
-                    ("is_type", True),
-                    ("type__isnull", True),
-                ),
-                fields=("name",),
-                name="unique_reference_type_name_at_root",
-            ),
-        ),
-        migrations.AddConstraint(
-            model_name="reference",
-            constraint=models.UniqueConstraint(
-                condition=models.Q(
-                    models.Q(("branch_id", -1), _negated=True),
-                    ("is_type", True),
-                    ("type__isnull", False),
-                ),
-                fields=("name", "type"),
-                name="unique_reference_type_name_under_type",
-            ),
-        ),
         migrations.AlterUniqueTogether(
             name="recorduser",
             unique_together={("record", "feature", "value")},
         ),
-        migrations.AddConstraint(
-            model_name="record",
-            constraint=models.UniqueConstraint(
-                condition=models.Q(
-                    models.Q(("branch_id", -1), _negated=True),
-                    ("is_type", True),
-                    ("type__isnull", True),
-                ),
-                fields=("name",),
-                name="unique_record_type_name_at_root",
-            ),
-        ),
-        migrations.AddConstraint(
-            model_name="record",
-            constraint=models.UniqueConstraint(
-                condition=models.Q(
-                    models.Q(("branch_id", -1), _negated=True),
-                    ("is_type", True),
-                    ("type__isnull", False),
-                ),
-                fields=("name", "type"),
-                name="unique_record_type_name_under_type",
-            ),
-        ),
         migrations.AlterUniqueTogether(
             name="projectrecord",
             unique_together={("project", "feature", "record")},
-        ),
-        migrations.AddConstraint(
-            model_name="project",
-            constraint=models.UniqueConstraint(
-                condition=models.Q(
-                    models.Q(("branch_id", -1), _negated=True),
-                    ("is_type", True),
-                    ("type__isnull", True),
-                ),
-                fields=("name",),
-                name="unique_project_type_name_at_root",
-            ),
-        ),
-        migrations.AddConstraint(
-            model_name="project",
-            constraint=models.UniqueConstraint(
-                condition=models.Q(
-                    models.Q(("branch_id", -1), _negated=True),
-                    ("is_type", True),
-                    ("type__isnull", False),
-                ),
-                fields=("name", "type"),
-                name="unique_project_type_name_under_type",
-            ),
         ),
         migrations.AlterUniqueTogether(
             name="jsonvalue",
@@ -6129,30 +6010,6 @@ class Migration(migrations.Migration):
                     ("is_type", True), ("_dtype_str__isnull", False), _connector="OR"
                 ),
                 name="feature_dtype_str_not_null_when_is_type_false",
-            ),
-        ),
-        migrations.AddConstraint(
-            model_name="feature",
-            constraint=models.UniqueConstraint(
-                condition=models.Q(
-                    models.Q(("branch_id", -1), _negated=True),
-                    ("is_type", True),
-                    ("type__isnull", True),
-                ),
-                fields=("name",),
-                name="unique_feature_type_name_at_root",
-            ),
-        ),
-        migrations.AddConstraint(
-            model_name="feature",
-            constraint=models.UniqueConstraint(
-                condition=models.Q(
-                    models.Q(("branch_id", -1), _negated=True),
-                    ("is_type", True),
-                    ("type__isnull", False),
-                ),
-                fields=("name", "type"),
-                name="unique_feature_type_name_under_type",
             ),
         ),
         migrations.AlterUniqueTogether(
