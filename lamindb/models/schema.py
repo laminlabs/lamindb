@@ -638,8 +638,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun):
                     assert optional_features_manual is None  # noqa: S101
                 if not optional_features and optional_features_manual is not None:
                     optional_features = optional_features_manual
-        elif n_features is None:
-            n_features = -1
+        # n_features stays None if no features passed (flexible schema)
         if dtype is None:
             dtype = None if itype is not None and itype == "Feature" else NUMBER_TYPE
         else:
@@ -647,7 +646,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun):
         if slots:
             if otype is None:
                 raise InvalidArgument("Please pass otype != None for composite schemas")
-        flexible_default = n_features < 0
+        flexible_default = n_features is None
         if flexible is None:
             flexible = flexible_default
         if itype is not None and not isinstance(itype, str):
@@ -669,7 +668,9 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun):
             "coerce": coerce if coerce else None,
             "flexible": flexible,
         }
-        n_features_default = -1
+        n_features_default = (
+            None  # None means flexible schema (no fixed number of features)
+        )
         coerce_default = False
         aux_dict: dict[str, dict[str, bool | str | list[str]]] = {}
 
@@ -709,7 +710,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun):
             list_for_hashing.append(f"{HASH_CODE['flexible']}={flexible}")
         if coerce is not None and coerce != coerce_default:
             list_for_hashing.append(f"{HASH_CODE['coerce_dtype']}={coerce}")
-        if n_features != n_features_default:
+        if n_features is not None and n_features != n_features_default:
             list_for_hashing.append(f"{HASH_CODE['n']}={n_features}")
         if index is not None:
             list_for_hashing.append(f"{HASH_CODE['index']}={index.uid}")

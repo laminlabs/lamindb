@@ -69,10 +69,13 @@ def migrate_auxiliary_fields(apps, schema_editor):
             obj.n_members = None
         else:
             # Regular schemas: migrate values or use defaults
-            obj.coerce = af.get("0", False)  # Default False
-            # flexible default is n_members < 0 for backward compat
-            obj.flexible = af.get("2", obj.n_members < 0 if obj.n_members else False)
-            # n_members already has the value from the renamed n field
+            obj.coerce = af.get("0")  # None if not present
+            # Convert n_members=-1 to None (new convention for flexible schemas)
+            is_flexible_schema = obj.n_members is None or obj.n_members < 0
+            if obj.n_members is not None and obj.n_members < 0:
+                obj.n_members = None
+            # flexible default is n_members is None
+            obj.flexible = af.get("2", is_flexible_schema)
 
         # Keep '1' (optionals) and '3' (index_feature_uid) in _aux
         if obj._aux and "af" in obj._aux:
