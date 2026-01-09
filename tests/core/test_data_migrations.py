@@ -257,10 +257,10 @@ def test_migrate_save_completed_to_aux_postgres():
     """Test PostgreSQL migration of _save_completed to _aux['storage_completed'].
 
     This test verifies that migrate_save_completed_to_aux_postgres correctly:
-    1. Migrates _save_completed=True to _aux['storage_completed']=True
+    1. Leaves _aux unchanged for _save_completed=True (True is the default)
     2. Migrates _save_completed=False to _aux['storage_completed']=False
     3. Sets _save_completed to NULL after migration
-    4. Preserves existing _aux data when adding storage_completed
+    4. Preserves existing _aux data without adding storage_completed for True
     5. Skips artifacts where _save_completed is already NULL
     """
     from django.db import connection
@@ -348,16 +348,14 @@ def test_migrate_save_completed_to_aux_postgres():
     import json
 
     with connection.cursor() as cursor:
-        # Verify artifact_true migration
+        # Verify artifact_true: _aux should remain NULL (True is the default, no need to store)
         cursor.execute(
             "SELECT _save_completed, _aux FROM lamindb_artifact WHERE id = %s",
             [artifact_true.id],
         )
         row = cursor.fetchone()
         assert row[0] is None  # _save_completed should be NULL
-        assert row[1] is not None
-        aux = row[1] if isinstance(row[1], dict) else json.loads(row[1])
-        assert aux.get("storage_completed") is True
+        assert row[1] is None  # _aux should remain NULL for True values
 
         # Verify artifact_false migration
         cursor.execute(
@@ -379,7 +377,7 @@ def test_migrate_save_completed_to_aux_postgres():
         assert row[0] is None
         assert row[1] is None  # should remain NULL
 
-        # Verify artifact_with_aux preserved existing _aux data
+        # Verify artifact_with_aux preserved existing _aux data without adding storage_completed
         cursor.execute(
             "SELECT _save_completed, _aux FROM lamindb_artifact WHERE id = %s",
             [artifact_with_aux.id],
@@ -388,7 +386,7 @@ def test_migrate_save_completed_to_aux_postgres():
         assert row[0] is None  # _save_completed should be NULL
         assert row[1] is not None
         aux = row[1] if isinstance(row[1], dict) else json.loads(row[1])
-        assert aux.get("storage_completed") is True
+        assert "storage_completed" not in aux  # True values don't add storage_completed
         assert aux.get("other_key") == "other_value"  # preserved
 
     # === Verify via property after refresh ===
