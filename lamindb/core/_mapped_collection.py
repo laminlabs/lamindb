@@ -83,7 +83,7 @@ class MappedCollection:
     Args:
         path_list: A list of paths to `AnnData` objects stored in `.h5ad` or `.zarr` formats.
         layers_keys: Keys from the ``.layers`` slot. ``layers_keys=None`` or ``"X"`` in the list
-            retrieves ``.X``.
+            retrieves ``.X``. If it is prefixed with ``"raw."``, it retrieves the key from ``.raw`` slot.
         obsm_keys: Keys from the ``.obsm`` slots.
         obs_keys: Keys from the ``.obs`` slots.
         obs_filter: Select only observations with these values for the given obs columns.
@@ -217,11 +217,12 @@ class MappedCollection:
                     )
                 if self.obsm_keys is not None:
                     for obsm_key in self.obsm_keys:
-                        self._check_csc_raise_error(
-                            store["obsm"][obsm_key],
-                            f"obsm/{obsm_key}",
-                            store_path,
-                        )
+                        if obsm_key in store["obsm"].keys():
+                            self._check_csc_raise_error(
+                                store["obsm"][obsm_key],
+                                f"obsm/{obsm_key}",
+                                store_path,
+                            )
         self.n_obs = sum(self.n_obs_list)
 
         self.indices = np.hstack(self.indices_list)
@@ -376,30 +377,48 @@ class MappedCollection:
         with _Connect(self.storages[storage_idx]) as store:
             out = {}
             for layers_key in self.layers_keys:
-                lazy_data = (
-                    store["X"] if layers_key == "X" else store["layers"][layers_key]
-                )
+                lazy_data = self._get_lazy_data(store, layers_key)
+                if lazy_data is None:
+                    continue
                 out[layers_key] = self._get_data_idx(
                     lazy_data, obs_idx, self.join_vars, var_idxs_join, self.n_vars
                 )
             if self.obsm_keys is not None:
                 for obsm_key in self.obsm_keys:
-                    lazy_data = store["obsm"][obsm_key]
-                    out[f"obsm_{obsm_key}"] = self._get_data_idx(lazy_data, obs_idx)
+                    if obsm_key in store["obsm"].keys():
+                        lazy_data = store["obsm"][obsm_key]
+                        out[f"obsm_{obsm_key}"] = self._get_data_idx(lazy_data, obs_idx)
             out["_store_idx"] = storage_idx
             if self.obs_keys is not None:
                 for label in self.obs_keys:
-                    if label in self._cache_cats:
-                        cats = self._cache_cats[label][storage_idx]
-                        if cats is None:
-                            cats = []
-                    else:
-                        cats = None
-                    label_idx = self._get_obs_idx(store, obs_idx, label, cats)
-                    if label in self.encoders and label_idx is not np.nan:
-                        label_idx = self.encoders[label][label_idx]
-                    out[label] = label_idx
+                    if label in store["obs"].keys():
+                        if label in self._cache_cats:
+                            cats = self._cache_cats[label][storage_idx]
+                            if cats is None:
+                                cats = []
+                        else:
+                            cats = None
+                        label_idx = self._get_obs_idx(store, obs_idx, label, cats)
+                        if label in self.encoders and label_idx is not np.nan:
+                            label_idx = self.encoders[label][label_idx]
+                        out[label] = label_idx
         return out
+
+    def _get_lazy_data(self, store: StorageType, layers_key: str):
+        if layers_key.startswith("raw."):
+            if "raw" in store.keys():  # type: ignore
+                store = store["raw"]  # type: ignore
+                layers_key = layers_key.replace("raw.", "", 1)
+            else:
+                return None
+        if layers_key == "X":
+            lazy_data = store["X"]  # type: ignore
+        else:
+            if layers_key in store["layers"].keys():  # type: ignore
+                lazy_data = store["layers"][layers_key]  # type: ignore
+            else:
+                return None
+        return lazy_data
 
     def _get_data_idx(
         self,
