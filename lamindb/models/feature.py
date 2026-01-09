@@ -81,7 +81,10 @@ def parse_dtype(
         return inner_result
 
     is_composed_cat = dtype_str.startswith("cat[") and dtype_str.endswith("]")
-    result = []
+    result: list[dict[str, Any]] = []
+    # backward compatibility for bare "cat" dtype (deprecated)
+    if dtype_str == "cat":
+        return result
     if is_composed_cat:
         related_registries = dict_module_name_to_model_name(Artifact)
         registries_str = dtype_str.replace("cat[", "")[:-1]  # strip last ]
