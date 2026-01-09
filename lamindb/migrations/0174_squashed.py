@@ -6,7 +6,7 @@ import django.db.models.functions.datetime
 import django.db.models.functions.text
 import pgtrigger.compiler
 import pgtrigger.migrations
-from django.db import migrations, models
+from django.db import connection, migrations, models
 
 import lamindb.base.fields
 import lamindb.base.uids
@@ -360,6 +360,36 @@ class Migration(migrations.Migration):
             "lamindb",
             "0150_rename_params_record_extra_data_and_more",
         ),
+        ("lamindb", "0151_feature_update_feature_on_name_change"),
+        ("lamindb", "0152_run_entrypoint"),
+        ("lamindb", "0153_feature_dtype_str"),
+        ("lamindb", "0154_feature_dtype_str_migrate_data"),
+        ("lamindb", "0155_alter_artifact_artifacts_alter_run_artifacts"),
+        ("lamindb", "0156_rename_record_components_record_linked_records_and_more"),
+        ("lamindb", "0157_big_changes_feature_and_schema"),
+        ("lamindb", "0158_remove_feature__expect_many_and_more"),
+        (
+            "lamindb",
+            "0159_remove_record_update_feature_dtype_on_record_type_name_change_and_more",
+        ),
+        ("lamindb", "0160_rename_feature_sets_artifact_schemas"),
+        ("lamindb", "0161_rename_branch_code_to_branch_id"),
+        ("lamindb", "0162_rename_subsequent_runs_to_recreating_runs"),
+        ("lamindb", "0163_rename_version_artifact_vtag_and_more"),
+        ("lamindb", "0164_rename_type_transform_kind_and_more"),
+        ("lamindb", "0165_alter_runfeaturevalue_unique_together_and_more"),
+        ("lamindb", "0166_rename_featurevalue_artifactjsonvalue_jsonvalue_and_more"),
+        ("lamindb", "0167_rename_type_artifactblock_kind_and_more"),
+        ("lamindb", "0168_alter_feature_is_type_alter_reference_is_type_and_more"),
+        ("lamindb", "0169_alter_feature_is_type_alter_project_is_type_and_more"),
+        ("lamindb", "0170_remove_transform_config_remove_transform_flow_and_more"),
+        ("lamindb", "0171_migrate_auxiliary_fields"),
+        (
+            "lamindb",
+            "0172_alter_artifact__save_completed_alter_feature_coerce_and_more",
+        ),
+        ("lamindb", "0173_remove_artifact__save_completed"),
+        ("lamindb", "0174_alter_transform_environment"),
     ]
 
     dependencies = []  # type: ignore
@@ -5921,21 +5951,6 @@ class Migration(migrations.Migration):
                 name="unique_ulabel_type_name_under_type",
             ),
         ),
-        pgtrigger.migrations.AddTrigger(
-            model_name="ulabel",
-            trigger=pgtrigger.compiler.Trigger(
-                name="prevent_ulabel_type_cycle",
-                sql=pgtrigger.compiler.UpsertTriggerSql(
-                    condition="WHEN (NEW.type_id IS NOT NULL)",
-                    func="\n                        -- Check for direct self-reference\n                        IF NEW.type_id = NEW.id THEN\n                            RAISE EXCEPTION 'Cannot set type: ulabel cannot be its own type';\n                        END IF;\n\n                        -- Check for cycles in the type chain\n                        IF EXISTS (\n                            WITH RECURSIVE type_chain AS (\n                                SELECT type_id, 1 as depth\n                                FROM lamindb_ulabel\n                                WHERE id = NEW.type_id\n\n                                UNION ALL\n\n                                SELECT r.type_id, tc.depth + 1\n                                FROM lamindb_ulabel r\n                                INNER JOIN type_chain tc ON r.id = tc.type_id\n                                WHERE tc.depth < 100\n                            )\n                            SELECT 1 FROM type_chain WHERE type_id = NEW.id\n                        ) THEN\n                            RAISE EXCEPTION 'Cannot set type: would create a cycle';\n                        END IF;\n\n                        RETURN NEW;\n                    ",
-                    hash="53487a8e36a64748418457f7229de6d5cf31e6bd",
-                    operation="UPDATE OR INSERT",
-                    pgid="pgtrigger_prevent_ulabel_type_cycle_863ae",
-                    table="lamindb_ulabel",
-                    when="BEFORE",
-                ),
-            ),
-        ),
         migrations.AlterUniqueTogether(
             name="transformulabel",
             unique_together={("transform", "ulabel")},
@@ -6071,21 +6086,6 @@ class Migration(migrations.Migration):
                 name="unique_record_type_name_under_type",
             ),
         ),
-        pgtrigger.migrations.AddTrigger(
-            model_name="record",
-            trigger=pgtrigger.compiler.Trigger(
-                name="prevent_record_type_cycle",
-                sql=pgtrigger.compiler.UpsertTriggerSql(
-                    condition="WHEN (NEW.type_id IS NOT NULL)",
-                    func="\n                        -- Check for direct self-reference\n                        IF NEW.type_id = NEW.id THEN\n                            RAISE EXCEPTION 'Cannot set type: record cannot be its own type';\n                        END IF;\n\n                        -- Check for cycles in the type chain\n                        IF EXISTS (\n                            WITH RECURSIVE type_chain AS (\n                                SELECT type_id, 1 as depth\n                                FROM lamindb_record\n                                WHERE id = NEW.type_id\n\n                                UNION ALL\n\n                                SELECT r.type_id, tc.depth + 1\n                                FROM lamindb_record r\n                                INNER JOIN type_chain tc ON r.id = tc.type_id\n                                WHERE tc.depth < 100\n                            )\n                            SELECT 1 FROM type_chain WHERE type_id = NEW.id\n                        ) THEN\n                            RAISE EXCEPTION 'Cannot set type: would create a cycle';\n                        END IF;\n\n                        RETURN NEW;\n                    ",
-                    hash="deaab832a066dfec76228f5b7a62a08f334876a9",
-                    operation="UPDATE OR INSERT",
-                    pgid="pgtrigger_prevent_record_type_cycle_56c18",
-                    table="lamindb_record",
-                    when="BEFORE",
-                ),
-            ),
-        ),
         migrations.AlterUniqueTogether(
             name="projectrecord",
             unique_together={("project", "feature", "record")},
@@ -6153,21 +6153,6 @@ class Migration(migrations.Migration):
                 ),
                 fields=("name", "type"),
                 name="unique_feature_type_name_under_type",
-            ),
-        ),
-        pgtrigger.migrations.AddTrigger(
-            model_name="feature",
-            trigger=pgtrigger.compiler.Trigger(
-                name="update_feature_on_name_change",
-                sql=pgtrigger.compiler.UpsertTriggerSql(
-                    condition="WHEN (OLD.name IS DISTINCT FROM NEW.name)",
-                    func="DECLARE\n    old_renamed JSONB;\n    new_renamed JSONB;\n    ts TEXT;\nBEGIN\n    -- Only proceed if name actually changed\n    IF OLD.name IS DISTINCT FROM NEW.name THEN\n        -- Update synonyms\n        IF NEW.synonyms IS NULL OR NEW.synonyms = '' THEN\n            NEW.synonyms := OLD.name;\n        ELSIF position(OLD.name in NEW.synonyms) = 0 THEN\n            NEW.synonyms := NEW.synonyms || '|' || OLD.name;\n        END IF;\n\n        -- Update _aux with rename history\n        ts := TO_CHAR(NOW() AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"');\n\n        -- Get existing renamed history or initialize empty object\n        old_renamed := COALESCE((OLD._aux->>'renamed')::JSONB, '{}'::JSONB);\n\n        -- Add old name with timestamp\n        new_renamed := old_renamed || jsonb_build_object(ts, OLD.name);\n\n        -- Update _aux with new renamed history\n        IF NEW._aux IS NULL THEN\n            NEW._aux := jsonb_build_object('renamed', new_renamed);\n        ELSE\n            NEW._aux := NEW._aux || jsonb_build_object('renamed', new_renamed);\n        END IF;\n    END IF;\n\n    RETURN NEW;\nEND;\n",
-                    hash="5f2e7a65e42c34b0455f0840def52f078726e401",
-                    operation="UPDATE",
-                    pgid="pgtrigger_update_feature_on_name_change_6c32d",
-                    table="lamindb_feature",
-                    when="BEFORE",
-                ),
             ),
         ),
         migrations.AlterUniqueTogether(
@@ -6256,4 +6241,54 @@ class Migration(migrations.Migration):
             ),
         ),
         migrations.RunPython(apply_constraints),
+    ]
+
+
+if connection.vendor == "postgresql":
+    Migration.operations += [
+        pgtrigger.migrations.AddTrigger(
+            model_name="ulabel",
+            trigger=pgtrigger.compiler.Trigger(
+                name="prevent_ulabel_type_cycle",
+                sql=pgtrigger.compiler.UpsertTriggerSql(
+                    condition="WHEN (NEW.type_id IS NOT NULL)",
+                    func="\n                        -- Check for direct self-reference\n                        IF NEW.type_id = NEW.id THEN\n                            RAISE EXCEPTION 'Cannot set type: ulabel cannot be its own type';\n                        END IF;\n\n                        -- Check for cycles in the type chain\n                        IF EXISTS (\n                            WITH RECURSIVE type_chain AS (\n                                SELECT type_id, 1 as depth\n                                FROM lamindb_ulabel\n                                WHERE id = NEW.type_id\n\n                                UNION ALL\n\n                                SELECT r.type_id, tc.depth + 1\n                                FROM lamindb_ulabel r\n                                INNER JOIN type_chain tc ON r.id = tc.type_id\n                                WHERE tc.depth < 100\n                            )\n                            SELECT 1 FROM type_chain WHERE type_id = NEW.id\n                        ) THEN\n                            RAISE EXCEPTION 'Cannot set type: would create a cycle';\n                        END IF;\n\n                        RETURN NEW;\n                    ",
+                    hash="53487a8e36a64748418457f7229de6d5cf31e6bd",
+                    operation="UPDATE OR INSERT",
+                    pgid="pgtrigger_prevent_ulabel_type_cycle_863ae",
+                    table="lamindb_ulabel",
+                    when="BEFORE",
+                ),
+            ),
+        ),
+        pgtrigger.migrations.AddTrigger(
+            model_name="record",
+            trigger=pgtrigger.compiler.Trigger(
+                name="prevent_record_type_cycle",
+                sql=pgtrigger.compiler.UpsertTriggerSql(
+                    condition="WHEN (NEW.type_id IS NOT NULL)",
+                    func="\n                        -- Check for direct self-reference\n                        IF NEW.type_id = NEW.id THEN\n                            RAISE EXCEPTION 'Cannot set type: record cannot be its own type';\n                        END IF;\n\n                        -- Check for cycles in the type chain\n                        IF EXISTS (\n                            WITH RECURSIVE type_chain AS (\n                                SELECT type_id, 1 as depth\n                                FROM lamindb_record\n                                WHERE id = NEW.type_id\n\n                                UNION ALL\n\n                                SELECT r.type_id, tc.depth + 1\n                                FROM lamindb_record r\n                                INNER JOIN type_chain tc ON r.id = tc.type_id\n                                WHERE tc.depth < 100\n                            )\n                            SELECT 1 FROM type_chain WHERE type_id = NEW.id\n                        ) THEN\n                            RAISE EXCEPTION 'Cannot set type: would create a cycle';\n                        END IF;\n\n                        RETURN NEW;\n                    ",
+                    hash="deaab832a066dfec76228f5b7a62a08f334876a9",
+                    operation="UPDATE OR INSERT",
+                    pgid="pgtrigger_prevent_record_type_cycle_56c18",
+                    table="lamindb_record",
+                    when="BEFORE",
+                ),
+            ),
+        ),
+        pgtrigger.migrations.AddTrigger(
+            model_name="feature",
+            trigger=pgtrigger.compiler.Trigger(
+                name="update_feature_on_name_change",
+                sql=pgtrigger.compiler.UpsertTriggerSql(
+                    condition="WHEN (OLD.name IS DISTINCT FROM NEW.name)",
+                    func="DECLARE\n    old_renamed JSONB;\n    new_renamed JSONB;\n    ts TEXT;\nBEGIN\n    -- Only proceed if name actually changed\n    IF OLD.name IS DISTINCT FROM NEW.name THEN\n        -- Update synonyms\n        IF NEW.synonyms IS NULL OR NEW.synonyms = '' THEN\n            NEW.synonyms := OLD.name;\n        ELSIF position(OLD.name in NEW.synonyms) = 0 THEN\n            NEW.synonyms := NEW.synonyms || '|' || OLD.name;\n        END IF;\n\n        -- Update _aux with rename history\n        ts := TO_CHAR(NOW() AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"');\n\n        -- Get existing renamed history or initialize empty object\n        old_renamed := COALESCE((OLD._aux->>'renamed')::JSONB, '{}'::JSONB);\n\n        -- Add old name with timestamp\n        new_renamed := old_renamed || jsonb_build_object(ts, OLD.name);\n\n        -- Update _aux with new renamed history\n        IF NEW._aux IS NULL THEN\n            NEW._aux := jsonb_build_object('renamed', new_renamed);\n        ELSE\n            NEW._aux := NEW._aux || jsonb_build_object('renamed', new_renamed);\n        END IF;\n    END IF;\n\n    RETURN NEW;\nEND;\n",
+                    hash="5f2e7a65e42c34b0455f0840def52f078726e401",
+                    operation="UPDATE",
+                    pgid="pgtrigger_update_feature_on_name_change_6c32d",
+                    table="lamindb_feature",
+                    when="BEFORE",
+                ),
+            ),
+        ),
     ]
