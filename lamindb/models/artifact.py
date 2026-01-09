@@ -1400,13 +1400,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     """The creator of this artifact."""
     _overwrite_versions: bool = BooleanField(default=None)
     """See corresponding property `overwrite_versions`."""
-    _save_completed: bool | None = BooleanField(null=True, default=None)
-    """Whether the artifact was successfully saved to storage.
-
-    - `None`: no write to storage is needed
-    - `False`: write started but not completed
-    - `True`: write completed successfully
-    """
     ulabels: ULabel
     """The ulabels annotating this artifact."""
     users: User
@@ -1712,6 +1705,33 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         versions as in git, but keeps all files for all versions of the folder in storage.
         """
         return self._overwrite_versions
+
+    @property
+    def _storage_completed(self) -> bool | None:
+        """Whether the artifact was successfully saved to storage.
+
+        - `None`: undefined
+        - `False`: write started but not completed
+
+        `None` exists to create a sparse structure where the JSON is mostly NULL.
+
+        In the JSON field, `None` is represented as an absent `storage_completed` key.
+        """
+        if self._aux is None:
+            return None
+        return self._aux.get("storage_completed")
+
+    @_storage_completed.setter
+    def _storage_completed(self, value: bool | None) -> None:
+        if value is None:
+            if self._aux is not None and "storage_completed" in self._aux:
+                del self._aux["storage_completed"]
+                if not self._aux:
+                    self._aux = None
+        else:
+            if self._aux is None:
+                self._aux = {}
+            self._aux["storage_completed"] = value
 
     @property
     @deprecated("schemas")
@@ -2801,16 +2821,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         """
         super().delete(permanent=permanent, storage=storage, using_key=using_key)
 
-    @property
-    @deprecated("_save_completed")
-    def _is_saved_to_storage_location(self) -> bool:
-        """Alias for _save_completed (backward compatibility)."""
-        return self._save_completed
-
-    @_is_saved_to_storage_location.setter
-    def _is_saved_to_storage_location(self, value: bool) -> None:
-        self._save_completed = value
-
     def save(
         self,
         upload: bool | None = None,
@@ -2860,12 +2870,12 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             # ensure that the artifact is uploaded
             self._to_store = True
 
-        # _save_completed indicates whether the saving / upload process is successful
+        # _storage_completed indicates whether the saving / upload process is successful
         flag_complete = getattr(self, "_local_filepath", None) is not None and getattr(
             self, "_to_store", False
         )
         if flag_complete:
-            self._save_completed = False  # will be updated to True at the end
+            self._storage_completed = False  # will be updated to True at the end
 
         self._save_skip_storage(**kwargs)
 
@@ -2898,10 +2908,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             raise exception_upload
         if exception_clear is not None:
             raise exception_clear
-        # the saving / upload process has been successful, just mark it as such
-        # maybe some error handling here?
+        # the saving / upload process has been successful, remove the False flag
         if flag_complete:
-            self._save_completed = True
+            self._storage_completed = None
             # pass kwargs here because it can contain `using` or other things
             # affecting the connection
             super().save(**kwargs)
@@ -3190,3 +3199,29 @@ def track_run_input(
 Artifact._delete_skip_storage = _delete_skip_storage
 Artifact._save_skip_storage = _save_skip_storage
 Artifact.view_lineage = view_lineage
+
+
+# PostgreSQL migration helper for _save_completed to _aux["storage_completed"]
+
+
+def migrate_save_completed_to_aux_postgres(schema_editor) -> None:
+    """Migrate _save_completed field to _aux['storage_completed'] using PostgreSQL raw SQL.
+
+    This migrates _save_completed=False into _aux['storage_completed']=false.
+    _save_completed=True results in no change to _aux (empty JSON is the default).
+    """
+    schema_editor.execute("""
+        UPDATE lamindb_artifact
+        SET _aux = CASE
+                WHEN _save_completed = FALSE THEN
+                    CASE
+                        WHEN _aux IS NULL THEN
+                            jsonb_build_object('storage_completed', false)
+                        ELSE
+                            _aux || jsonb_build_object('storage_completed', false)
+                    END
+                ELSE _aux
+            END,
+            _save_completed = NULL
+        WHERE _save_completed IS NOT NULL
+    """)

@@ -81,7 +81,10 @@ def parse_dtype(
         return inner_result
 
     is_composed_cat = dtype_str.startswith("cat[") and dtype_str.endswith("]")
-    result = []
+    result: list[dict[str, Any]] = []
+    # backward compatibility for bare "cat" dtype (deprecated)
+    if dtype_str == "cat":
+        return result
     if is_composed_cat:
         related_registries = dict_module_name_to_model_name(Artifact)
         registries_str = dtype_str.replace("cat[", "")[:-1]  # strip last ]
@@ -940,24 +943,8 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             ]
         constraints = [
             models.CheckConstraint(
-                condition=models.Q(is_type=True) | models.Q(dtype__isnull=False),
-                name="dtype_not_null_when_is_type_false",
-            ),
-            # unique name for types when type is NULL
-            models.UniqueConstraint(
-                fields=["name"],
-                name="unique_feature_type_name_at_root",
-                condition=models.Q(
-                    ~models.Q(branch_id=-1), type__isnull=True, is_type=True
-                ),
-            ),
-            # unique name for types when type is not NULL
-            models.UniqueConstraint(
-                fields=["name", "type"],
-                name="unique_feature_type_name_under_type",
-                condition=models.Q(
-                    ~models.Q(branch_id=-1), type__isnull=False, is_type=True
-                ),
+                condition=models.Q(is_type=True) | models.Q(_dtype_str__isnull=False),
+                name="feature_dtype_str_not_null_when_is_type_false",
             ),
             # also see raw SQL constraints for `is_type` and `type` FK validity in migrations
         ]

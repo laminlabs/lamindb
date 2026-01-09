@@ -34,6 +34,7 @@ if TYPE_CHECKING:
 
     from lamindb.base.types import TransformKind
 
+    from .artifact import Artifact
     from .block import TransformBlock
     from .project import Project, Reference
     from .record import Record
@@ -181,8 +182,8 @@ class Transform(SQLRecord, IsVersioned):
     """Reference for the transform, e.g., a URL."""
     reference_type: str | None = CharField(max_length=25, db_index=True, null=True)
     """Reference type of the transform, e.g., 'url'."""
-    environment: Transform | None = models.ForeignKey(
-        "Transform", CASCADE, null=True, related_name="_environment_of_transforms"
+    environment: Artifact | None = models.ForeignKey(
+        "Artifact", CASCADE, null=True, related_name="_environment_of_transforms"
     )
     """An environment for executing the transform."""
     runs: Run
