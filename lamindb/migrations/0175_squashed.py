@@ -390,7 +390,7 @@ class Migration(migrations.Migration):
         ),
         ("lamindb", "0173_remove_artifact__save_completed"),
         ("lamindb", "0174_alter_transform_environment"),
-        ("lamindb", "0175_alter_user_options_and_more"),
+        ("lamindb", "0175_remove_type_name_uniqueness"),
     ]
 
     dependencies = []  # type: ignore
