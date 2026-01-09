@@ -3,6 +3,15 @@
 from django.db import migrations, models
 
 
+def truncate_schema_uids(apps, schema_editor):
+    """Truncate Schema UIDs from 20 to 16 chars before altering the field."""
+    Schema = apps.get_model("lamindb", "Schema")
+    for obj in Schema.objects.filter().iterator():
+        if len(obj.uid) > 16:
+            obj.uid = obj.uid[:16]
+            obj.save(update_fields=["uid"])
+
+
 def migrate_auxiliary_fields(apps, schema_editor):
     """Migrate data from _aux['af'] to new fields and truncate Schema UIDs."""
     # Artifact: migrate _is_saved_to_storage_location -> _save_completed
@@ -52,15 +61,12 @@ def migrate_auxiliary_fields(apps, schema_editor):
 
         obj.save(update_fields=["default_value", "nullable", "coerce", "_aux"])
 
-    # Schema: migrate coerce, flexible, set n_members to NULL for types, truncate UID
+    # Schema: migrate coerce, flexible, set n_members to NULL for types
     # Note: n has already been renamed to n_members by the schema migration
+    # Note: UID truncation is handled separately by truncate_schema_uids before AlterField
     Schema = apps.get_model("lamindb", "Schema")
     for obj in Schema.objects.iterator():
         af = (obj._aux or {}).get("af", {})
-
-        # Truncate UID if longer than 16 chars
-        if len(obj.uid) > 16:
-            obj.uid = obj.uid[:16]
 
         if obj.is_type:
             # Type-like schemas: set all to NULL
@@ -91,7 +97,7 @@ def migrate_auxiliary_fields(apps, schema_editor):
             if not obj._aux:
                 obj._aux = None
 
-        obj.save(update_fields=["uid", "coerce", "flexible", "n_members", "_aux"])
+        obj.save(update_fields=["coerce", "flexible", "n_members", "_aux"])
 
 
 class Migration(migrations.Migration):
@@ -150,6 +156,8 @@ class Migration(migrations.Migration):
             name="flexible",
             field=models.BooleanField(null=True, default=None),
         ),
+        # Schema: truncate UIDs before reducing max_length
+        migrations.RunPython(truncate_schema_uids, migrations.RunPython.noop),
         # Schema: reduce uid max_length from 20 to 16
         migrations.AlterField(
             model_name="schema",
@@ -158,6 +166,6 @@ class Migration(migrations.Migration):
                 max_length=16, unique=True, db_index=True, editable=False
             ),
         ),
-        # Run data migration
+        # Run data migration for auxiliary fields
         migrations.RunPython(migrate_auxiliary_fields, migrations.RunPython.noop),
     ]
