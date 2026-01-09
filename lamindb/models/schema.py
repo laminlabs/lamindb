@@ -1012,7 +1012,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun):
         self._dtype_str = value
 
     @property
-    @deprecated("Use `.coerce` instead.")
+    @deprecated("coerce")
     def coerce_dtype(self) -> bool | None:
         """Alias for coerce (backward compatibility)."""
         return self.coerce
@@ -1022,7 +1022,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun):
         self.coerce = value
 
     @property
-    @deprecated("Use `.n_members` instead.")
+    @deprecated("n_members")
     def n(self) -> int | None:
         """Alias for n_members (backward compatibility)."""
         return self.n_members

@@ -560,9 +560,14 @@ def test_schema_already_saved_aux():
         slots={"var": var_schema},
     ).save()
 
-    assert len(schema.slots["var"]._aux["af"].keys()) == 3
+    # _aux["af"] now only contains key "3" (index_feature_uid) since coerce and flexible are Django fields
+    assert len(schema.slots["var"]._aux["af"].keys()) == 1
+    assert "3" in schema.slots["var"]._aux["af"]  # index_feature_uid
+    # coerce and flexible are now proper Django fields
+    assert schema.slots["var"].coerce is True
+    assert schema.slots["var"].flexible is False
 
-    # Attempting to save the same schema again should return the Schema with the same `.aux` fields
+    # Attempting to save the same schema again should return the Schema with the same fields
     var_schema_2 = ln.Schema(
         name="test var",
         index=ln.Feature(
@@ -588,8 +593,10 @@ def test_schema_already_saved_aux():
         slots={"var": var_schema_2},
     ).save()
 
-    assert len(schema.slots["var"]._aux["af"].keys()) == 3
+    assert len(schema.slots["var"]._aux["af"].keys()) == 1
     assert schema.slots["var"]._aux == schema_2.slots["var"]._aux
+    assert schema.slots["var"].coerce == schema_2.slots["var"].coerce
+    assert schema.slots["var"].flexible == schema_2.slots["var"].flexible
 
     schema_2.delete(permanent=True)
     schema.delete(permanent=True)

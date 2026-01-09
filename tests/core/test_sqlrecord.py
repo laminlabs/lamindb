@@ -28,6 +28,9 @@ def test_feature_describe():
         .array_size: IntegerField
         .array_shape: JSONField
         .synonyms: TextField
+        .default_value: JSONField
+        .nullable: BooleanField
+        .coerce: BooleanField
         .is_type: BooleanField
         .is_locked: BooleanField
         .created_at: DateTimeField
@@ -333,12 +336,12 @@ def test_get_record_kwargs():
         ("unit", "str | None"),
         ("description", "str | None"),
         ("synonyms", "str | None"),
-        ("nullable", "bool"),
+        ("nullable", "bool | None"),
         (
             "default_value",
-            "str | None",
+            "Any | None",
         ),
-        ("coerce", "bool"),
+        ("coerce", "bool | None"),
         (
             "cat_filters",
             "dict[str",

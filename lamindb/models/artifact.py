@@ -2802,7 +2802,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         super().delete(permanent=permanent, storage=storage, using_key=using_key)
 
     @property
-    @deprecated("Use `._save_completed` instead.")
+    @deprecated("_save_completed")
     def _is_saved_to_storage_location(self) -> bool:
         """Alias for _save_completed (backward compatibility)."""
         return self._save_completed

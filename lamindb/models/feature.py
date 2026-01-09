@@ -824,13 +824,15 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         dtype: `Dtype | Registry | list[Registry] | FieldAttr` See :class:`~lamindb.base.types.Dtype`.
             For categorical types, you can define to which registry values are
             restricted, e.g., `ln.ULabel` or `ln.ULabel|bt.CellType`.
+        type: `Feature | None = None` A feature type, see :attr:`~lamindb.Feature.type`.
+        is_type: `bool = False` Whether this feature is a type, see :attr:`~lamindb.Feature.is_type`.
         unit: `str | None = None` Unit of measure, ideally SI (`"m"`, `"s"`, `"kg"`, etc.) or `"normalized"` etc.
         description: `str | None = None` A description.
         synonyms: `str | None = None` Bar-separated synonyms.
         nullable: `bool = True` Whether the feature can have null-like values (`None`, `pd.NA`, `NaN`, etc.), see :attr:`~lamindb.Feature.nullable`.
         default_value: `Any | None = None` Default value for the feature.
-        coerce: `bool | None = None` When True, attempts to coerce values to the specified dtype
-            during validation, see :attr:`~lamindb.Feature.coerce`.
+        coerce: `bool | None = None` When `True`, attempts to coerce values to the specified dtype
+            during validation, see :attr:`~lamindb.Feature.coerce`. Defaults to `False` unless `is_type` is `True`.
         cat_filters: `dict[str, str] | None = None` Subset a registry by additional filters to define valid categories.
 
     Note:
@@ -1068,6 +1070,10 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             return None
         default_value = kwargs.pop("default_value", None)
         nullable = kwargs.pop("nullable", None)
+        # Default nullable to True for non-type features
+        is_type = kwargs.get("is_type", False)
+        if nullable is None and not is_type:
+            nullable = True
         cat_filters = kwargs.pop("cat_filters", None)
         if "coerce_dtype" in kwargs:
             warnings.warn(
@@ -1252,7 +1258,7 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         return self, {}
 
     @property
-    @deprecated("Use `.coerce` instead.")
+    @deprecated("coerce")
     def coerce_dtype(self) -> bool | None:
         """Alias for coerce (backward compatibility)."""
         return self.coerce
