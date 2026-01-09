@@ -152,9 +152,7 @@ def install_ci(session, group):
     elif group == "cli":
         pass
     elif group == "permissions":
-        # check that just installing psycopg (psycopg3) doesn't break fine-grained access
-        # this is also tested in lamindb-setup hub-local
-        run(session, "uv pip install --system psycopg[binary]")
+        pass
 
     extras = "," + extras if extras != "" else extras
     run(session, f"uv pip install --system -e .[dev{extras}]")
