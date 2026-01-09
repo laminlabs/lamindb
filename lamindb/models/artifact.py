@@ -1400,13 +1400,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     """The creator of this artifact."""
     _overwrite_versions: bool = BooleanField(default=None)
     """See corresponding property `overwrite_versions`."""
-    _storage_completed: bool | None = BooleanField(null=True, default=None)
-    """Whether the artifact was successfully saved to storage.
-
-    - `None`: no write to storage is needed
-    - `False`: write started but not completed
-    - `True`: write completed successfully
-    """
     ulabels: ULabel
     """The ulabels annotating this artifact."""
     users: User
@@ -1712,6 +1705,30 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         versions as in git, but keeps all files for all versions of the folder in storage.
         """
         return self._overwrite_versions
+
+    @property
+    def _storage_completed(self) -> bool | None:
+        """Whether the artifact was successfully saved to storage.
+
+        - `None`: no write to storage is needed
+        - `False`: write started but not completed
+        - `True`: write completed successfully
+        """
+        if self._aux is None:
+            return None
+        return self._aux.get("storage_completed")
+
+    @_storage_completed.setter
+    def _storage_completed(self, value: bool | None) -> None:
+        if value is None:
+            if self._aux is not None and "storage_completed" in self._aux:
+                del self._aux["storage_completed"]
+                if not self._aux:
+                    self._aux = None
+        else:
+            if self._aux is None:
+                self._aux = {}
+            self._aux["storage_completed"] = value
 
     @property
     @deprecated("schemas")
