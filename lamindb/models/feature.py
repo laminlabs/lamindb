@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 import pgtrigger
 from django.conf import settings as django_settings
-from django.db import models
+from django.db import connection, models
 from django.db.models import CASCADE, PROTECT
 from django.db.models.query_utils import DeferredAttribute
 from django.db.utils import IntegrityError as DjangoIntegrityError
@@ -125,19 +125,96 @@ def get_record_type_from_uid(
 def get_record_type_from_nested_subtypes(
     registry: Registry, subtypes_list: list[str], field_str: str
 ) -> SQLRecord:
-    type_filters = {"name": subtypes_list[-1]}
+    """Get a record type by querying nested subtypes using raw SQL.
+
+    This function only works with Record or ULabel registries.
+    """
+    table_name = registry._meta.db_table
+    final_name = subtypes_list[-1]
+
+    # Build the SQL query with nested joins
+    # For subtypes_list = ["A", "B", "C"], we want:
+    # - Record with name="C"
+    # - Its type has name="B"
+    # - That type's type has name="A"
+
+    params: list[str | bool]
     if len(subtypes_list) > 1:
-        for i, nested_subtype in enumerate(reversed(subtypes_list[:-1])):
-            filter_key = f"{'type__' * (i + 1)}name"
-            type_filters[filter_key] = nested_subtype
+        # Build nested joins for parent types
+        parent_types = list(reversed(subtypes_list[:-1]))
+        joins = []
+        where_clauses = ["t0.name = %s"]  # Final record name
+        params = [final_name]
+
+        for i, parent_type_name in enumerate(parent_types):
+            alias = f"t{i + 1}"
+            prev_alias = f"t{i}"
+            joins.append(
+                f"INNER JOIN {table_name} {alias} ON {prev_alias}.type_id = {alias}.id"
+            )
+            where_clauses.append(f"{alias}.name = %s")
+            where_clauses.append(f"{alias}.is_type = %s")
+            params.extend([parent_type_name, True])
+
+        join_clause = " ".join(joins)
+        where_clause = " AND ".join(where_clauses)
+
+        query = f"""
+            SELECT t0.*
+            FROM {table_name} t0
+            {join_clause}
+            WHERE {where_clause}
+            LIMIT 1
+        """
     else:
-        type_filters["type__isnull"] = True  # type: ignore
+        # Single type, no parent - type must be NULL
+        query = f"""
+            SELECT *
+            FROM {table_name}
+            WHERE name = %s AND type_id IS NULL
+            LIMIT 1
+        """
+        params = [final_name]
+
     try:
-        type_record: SQLRecord = registry.get(**type_filters)
+        with connection.cursor() as cursor:
+            cursor.execute(query, params)
+            columns = [col[0] for col in cursor.description]
+            rows = cursor.fetchall()
+
+            if not rows:
+                raise IntegrityError(
+                    f"No {registry.__name__} type found matching subtypes {subtypes_list} for field `.{field_str}`"
+                )
+
+            if len(rows) > 1:
+                raise IntegrityError(
+                    f"Multiple {registry.__name__} types found matching subtypes {subtypes_list} for field `.{field_str}`"
+                )
+
+            # Create a dictionary from the row data
+            row_dict = dict(zip(columns, rows[0]))
+
+            # Create a minimal mock object with only the fields we need
+            # This avoids querying the database which may not have all columns during migrations
+            # We create a simple object and set its class to the registry for proper error messages
+            type_record: SQLRecord = object.__new__(registry)
+            type_record.id = row_dict.get("id")
+            type_record.uid = row_dict.get("uid")
+            type_record.name = row_dict.get("name")
+            type_record.is_type = row_dict.get("is_type", False)
+            # Initialize _state attribute needed by Django models
+            # Create a minimal state object with the required attributes
+            state = type("ModelState", (), {"adding": False, "db": "default"})()
+            type_record._state = state
+
+    except IntegrityError:
+        raise
     except Exception as e:
         raise IntegrityError(
-            f"Error retrieving {registry.__name__} type with filter {type_filters} for field `.{field_str}`: {e}"
+            f"Error retrieving {registry.__name__} type with subtypes {subtypes_list} for field `.{field_str}`: {e}"
         ) from e
+
     if not type_record.is_type:
         raise InvalidArgument(
             f"The resolved {type_record.__class__.__name__} '{type_record.name}' for field `.{field_str}` is not a type: is_type is False."

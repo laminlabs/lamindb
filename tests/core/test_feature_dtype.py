@@ -89,7 +89,7 @@ def test_serialize_record_objects():
     with pytest.raises(ln.errors.IntegrityError) as error:
         parse_dtype("cat[Record[Sample]]", check_exists=True, old_format=True)
     assert (
-        "Error retrieving Record type with filter {'name': 'Sample', 'type__isnull': True} for field `.name`: Record matching query does not exist."
+        "No Record type found matching subtypes ['Sample'] for field `.name`"
         in error.exconly()
     )
     sample = ln.Record(name="sample").save()
