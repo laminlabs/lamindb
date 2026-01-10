@@ -45,7 +45,7 @@ def test_feature_describe():
         .features: Feature
         .values: JsonValue
         .projects: Project
-        .blocks: FeatureBlock
+        .ablocks: FeatureBlock
     """).strip()
     assert description == ln.Feature.describe(return_str=True)
 
@@ -90,7 +90,7 @@ def test_artifact_describe():
         .records: Record
         .references: Reference
         .projects: Project
-        .blocks: Block
+        .ablocks: ArtifactBlock
       Bionty fields
         .organisms: bionty.Organism
         .genes: bionty.Gene
