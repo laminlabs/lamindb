@@ -1151,7 +1151,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                         logger.warning(
                             f"returning {self.__class__.__name__} record with same {unique_fields}: '{ {field: getattr(self, field) for field in unique_fields} }'"
                         )
-                    # if the existing record is in a different branch we update its fieldss
+                    # if the existing record is in a different branch we update its fields
                     else:
                         # modifies the fields of the existing record with new values of self
                         field_names = [i.name for i in self.__class__._meta.fields]
