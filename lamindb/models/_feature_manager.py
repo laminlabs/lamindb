@@ -562,7 +562,7 @@ def describe_features(
 
     dataset_features_tree_children = []
     for slot, (schema, feature_names_or_n) in schema_data.items():
-        if isinstance(feature_names_or_n, int):
+        if feature_names_or_n is None or isinstance(feature_names_or_n, int):
             feature_rows = []
         else:
             feature_names = feature_names_or_n
