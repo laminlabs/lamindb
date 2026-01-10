@@ -203,6 +203,10 @@ def get_record_type_from_nested_subtypes(
             type_record.uid = row_dict.get("uid")
             type_record.name = row_dict.get("name")
             type_record.is_type = row_dict.get("is_type", False)
+            # Initialize _state attribute needed by Django models
+            # Create a minimal state object with the required attributes
+            state = type("ModelState", (), {"adding": False, "db": "default"})()
+            type_record._state = state
 
     except IntegrityError:
         raise
