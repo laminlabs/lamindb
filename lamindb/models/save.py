@@ -167,7 +167,7 @@ def bulk_create(
                     or "duplicate key value violates unique constraint" in error_msg
                 ):
                     unique_field = parse_violated_field_from_error_message(error_msg)
-                    unique_field_values = [getattr(r, unique_field) for r in batch]
+                    unique_field_values = [getattr(r, unique_field) for r in batch]  # type: ignore
                     # here we query against non-default branches
                     pre_existing_values_not_main_branch = (
                         registry.objects.filter(
@@ -180,7 +180,7 @@ def bulk_create(
                     records_main_branch = [
                         r
                         for r in batch
-                        if getattr(r, unique_field)
+                        if getattr(r, unique_field)  # type: ignore
                         not in pre_existing_values_not_main_branch
                     ]
                     save(records_main_branch)
@@ -192,7 +192,7 @@ def bulk_create(
                         pre_existing_records_not_main_branch = [
                             r
                             for r in batch
-                            if getattr(r, unique_field)
+                            if getattr(r, unique_field)  # type: ignore
                             in pre_existing_values_not_main_branch
                         ]
                         for record in pre_existing_records_not_main_branch:
