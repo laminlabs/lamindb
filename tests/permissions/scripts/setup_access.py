@@ -10,7 +10,7 @@ from hubmodule.dev.setup.install import (
 )
 from hubmodule.sql_generators._rls import RLSGenerator
 from hubmodule.sql_generators._dbwrite import install_dbwrite
-from laminhub_rest.core.postgres import DbRoleHandler
+from laminhub_dbinstance.postgres import DbRoleHandler
 from pathlib import Path
 
 
