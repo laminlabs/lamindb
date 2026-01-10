@@ -58,21 +58,15 @@ class BaseBlock(IsVersioned):
     """Auxiliary field for dictionary-like metadata."""
 
 
-class RootBlock(BaseBlock, SQLRecord):
+class Block(BaseBlock, SQLRecord):
     """A root block for every registry that can appear at the top of the registry root block in the GUI."""
 
     class Meta:
         app_label = "lamindb"
 
-    context: str = CharField(max_length=255, db_index=True)
-    """The context for which we want to create a block.
-
-    Conventions are mostly to take the SQL table name:
-        context = "instance" means instance
-        context = "lamindb_artifact" means artifact
-        context = "lamindb_transform" means transform
-        context = "bionty_celltype" means bionty cell type
-    """
+    # same key as in transform/artifact/collection
+    key: str = CharField(max_length=1024, db_index=True)
+    """The key for which we want to create a block."""
 
 
 class RecordBlock(BaseBlock, BaseSQLRecord):
