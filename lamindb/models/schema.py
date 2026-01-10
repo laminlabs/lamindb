@@ -10,7 +10,6 @@ from lamin_utils import logger
 from lamindb_setup.core import deprecated
 from lamindb_setup.core.hashing import HASH_LENGTH, hash_string
 
-from lamindb.base import ids
 from lamindb.base.fields import (
     BooleanField,
     CharField,
@@ -19,6 +18,7 @@ from lamindb.base.fields import (
     TextField,
 )
 from lamindb.base.types import FieldAttr, ListLike
+from lamindb.base.uids import base62_16
 from lamindb.base.utils import class_and_instance_method
 from lamindb.errors import FieldValidationError, InvalidArgument
 from lamindb.models.feature import parse_cat_dtype
@@ -555,7 +555,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         if validated_kwargs["hash"] in KNOWN_SCHEMAS:
             validated_kwargs["uid"] = KNOWN_SCHEMAS[validated_kwargs["hash"]]
         else:
-            validated_kwargs["uid"] = ids.base62_16()
+            validated_kwargs["uid"] = base62_16()
 
         super().__init__(**validated_kwargs)
 
