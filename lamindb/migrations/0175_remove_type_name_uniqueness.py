@@ -6,6 +6,29 @@ import lamindb.base.fields
 import lamindb.base.uids
 
 
+def remove_constraint_if_exists(apps, schema_editor):
+    """Remove constraint only if it exists."""
+    connection = schema_editor.connection
+
+    if connection.vendor == "sqlite":
+        return
+
+    with connection.cursor() as cursor:
+        # Check if constraint exists
+        cursor.execute("""
+            SELECT constraint_name
+            FROM information_schema.table_constraints
+            WHERE table_name = 'lamindb_feature'
+            AND constraint_name = 'dtype_not_null_when_is_type_false'
+        """)
+
+        if cursor.fetchone():
+            # Constraint exists, remove it
+            cursor.execute(
+                "ALTER TABLE lamindb_feature DROP CONSTRAINT dtype_not_null_when_is_type_false"
+            )
+
+
 class Migration(migrations.Migration):
     dependencies = [
         ("lamindb", "0174_alter_transform_environment"),
@@ -16,9 +39,8 @@ class Migration(migrations.Migration):
             name="user",
             options={},
         ),
-        migrations.RemoveConstraint(
-            model_name="feature",
-            name="dtype_not_null_when_is_type_false",
+        migrations.RunPython(
+            remove_constraint_if_exists, reverse_code=migrations.RunPython.noop
         ),
         migrations.RemoveConstraint(
             model_name="feature",
