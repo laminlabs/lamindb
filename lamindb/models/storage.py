@@ -27,7 +27,7 @@ from lamindb.base.fields import (
     TextField,
 )
 
-from ..base.ids import base62_12
+from ..base.uids import base62_12
 from .run import TracksRun, TracksUpdates
 from .sqlrecord import Space, SQLRecord
 

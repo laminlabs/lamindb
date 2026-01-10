@@ -15,7 +15,7 @@ from lamindb.base.fields import (
 )
 from lamindb.errors import FieldValidationError
 
-from ..base.ids import base62_8
+from ..base.uids import base62_8
 from .can_curate import CanCurate
 from .feature import Feature
 from .has_parents import HasParents, _query_relatives

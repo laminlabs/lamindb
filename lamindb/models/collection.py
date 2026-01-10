@@ -17,7 +17,7 @@ from lamindb.base.fields import (
 )
 from lamindb.base.utils import strict_classmethod
 
-from ..base.ids import base62_20
+from ..base.uids import base62_20
 from ..core._mapped_collection import MappedCollection
 from ..core.storage._backed_access import _open_dataframe
 from ..errors import FieldValidationError

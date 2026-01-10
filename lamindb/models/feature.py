@@ -38,7 +38,7 @@ from lamindb.errors import (
     ValidationError,
 )
 
-from ..base.ids import base62_12
+from ..base.uids import base62_12
 from ._relations import dict_module_name_to_model_name
 from .can_curate import CanCurate
 from .has_parents import _query_relatives

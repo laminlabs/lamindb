@@ -19,7 +19,7 @@ from lamindb.base.fields import (
 from lamindb.base.utils import class_and_instance_method
 from lamindb.errors import FieldValidationError
 
-from ..base.ids import base62_16
+from ..base.uids import base62_16
 from .artifact import Artifact
 from .can_curate import CanCurate
 from .collection import Collection

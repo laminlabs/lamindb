@@ -16,7 +16,7 @@ from django.db.models import Func, IntegerField, Q
 from lamin_utils._logger import logger
 from lamindb_setup.core.hashing import hash_file
 
-from ..base.ids import base62_12
+from ..base.uids import base62_12
 from ..errors import (
     InvalidArgument,
     TrackNotCalled,

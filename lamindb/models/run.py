@@ -18,7 +18,7 @@ from lamindb.base.fields import (
 from lamindb.base.users import current_user_id
 from lamindb.base.utils import strict_classmethod
 
-from ..base.ids import base62_16
+from ..base.uids import base62_16
 from .can_curate import CanCurate
 from .sqlrecord import BaseSQLRecord, IsLink, SQLRecord
 

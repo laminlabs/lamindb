@@ -57,8 +57,8 @@ from ..base.fields import (
     JSONField,
     TextField,
 )
-from ..base.ids import base62_12
 from ..base.types import FieldAttr, StrField
+from ..base.uids import base62_12
 from ..errors import (
     FieldValidationError,
     InvalidArgument,
