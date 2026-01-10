@@ -1099,7 +1099,7 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     """Values for this feature."""
     projects: Project
     """Annotating projects."""
-    blocks: FeatureBlock
+    ablocks: FeatureBlock
     """Blocks that annotate this feature."""
 
     @overload

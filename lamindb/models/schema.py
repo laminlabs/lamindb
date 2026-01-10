@@ -53,6 +53,7 @@ if TYPE_CHECKING:
     from django.db.models.query_utils import DeferredAttribute
 
     from .artifact import Artifact
+    from .block import SchemaBlock
     from .project import Project
     from .query_set import QuerySet, SQLRecordList
     from .record import Record
@@ -403,6 +404,8 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     """Linked projects."""
     records: Record
     """Records that were annotated with this schema."""
+    ablocks: SchemaBlock
+    """Blocks that annotate this schema."""
 
     @overload
     def __init__(

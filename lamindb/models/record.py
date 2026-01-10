@@ -40,7 +40,7 @@ if TYPE_CHECKING:
     from datetime import datetime
 
     from ._feature_manager import FeatureManager
-    from .block import RunBlock
+    from .block import RecordBlock
     from .project import Project, RecordProject, RecordReference, Reference
     from .schema import Schema
 
@@ -275,7 +275,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
     """Collections linked in this record as values."""
     linked_users: User
     """Users linked in this record as values."""
-    blocks: RunBlock
+    ablocks: RecordBlock
     """Blocks that annotate this record."""
     values_json: RecordJson
     """JSON values `(record_id, feature_id, value)`."""

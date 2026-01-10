@@ -1425,7 +1425,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         "Record", through="RecordArtifact", related_name="linked_artifacts"
     )
     """The records linking this artifact as a feature value."""
-    blocks: ArtifactBlock
+    ablocks: ArtifactBlock
     """The blocks that annotate this artifact."""
 
     @overload

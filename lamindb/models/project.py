@@ -34,7 +34,7 @@ if TYPE_CHECKING:
     from datetime import date as DateType
     from datetime import datetime
 
-    from .block import ProjectBlock
+    from .block import Block, ProjectBlock
     from .query_set import QuerySet
 
 
@@ -267,9 +267,13 @@ class Project(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, ValidateF
     """Annotated collections."""
     references: Reference = models.ManyToManyField("Reference", related_name="projects")
     """Annotated references."""
+    blocks: Block = models.ManyToManyField(
+        "Block", through="BlockProject", related_name="projects"
+    )
+    """Annotated blocks."""
     _status_code: int = models.SmallIntegerField(default=0, db_index=True)
     """Status code."""
-    blocks: ProjectBlock
+    ablocks: ProjectBlock
     """Blocks that annotate this project."""
 
     @overload
@@ -452,6 +456,16 @@ class RecordProject(BaseSQLRecord, IsLink):
     class Meta:
         app_label = "lamindb"
         unique_together = ("record", "feature", "value")
+
+
+class BlockProject(BaseSQLRecord, IsLink, TracksRun):
+    id: int = models.BigAutoField(primary_key=True)
+    block = ForeignKey("Block", CASCADE, related_name="links_project")
+    project: Project = ForeignKey(Project, PROTECT, related_name="links_block")
+
+    class Meta:
+        app_label = "lamindb"
+        unique_together = ("block", "project")
 
 
 class ArtifactReference(BaseSQLRecord, IsLink, TracksRun):

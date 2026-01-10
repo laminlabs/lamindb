@@ -9,7 +9,7 @@ import lamindb.base.uids
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("lamindb", "0175_squashed"),
+        ("lamindb", "0175_remove_type_name_uniqueness"),
     ]
 
     operations = [

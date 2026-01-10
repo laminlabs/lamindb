@@ -349,7 +349,7 @@ class Run(SQLRecord, TracksUpdates):
     """The runs that were initiated by this run."""
     projects: Project
     """The projects annotating this run."""
-    blocks: RunBlock
+    ablocks: RunBlock
     """The blocks annotating this run."""
     records: Record
     """The records annotating this run, via :attr:`~lamindb.Record.runs`."""

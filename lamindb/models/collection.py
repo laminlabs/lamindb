@@ -204,7 +204,7 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     """Linked references."""
     records: Record
     """Linked records."""
-    blocks: CollectionBlock
+    ablocks: CollectionBlock
     """Blocks that annotate this collection."""
 
     @overload

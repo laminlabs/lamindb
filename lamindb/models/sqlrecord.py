@@ -1371,7 +1371,7 @@ class Space(BaseSQLRecord):
         "User", CASCADE, default=None, related_name="+", null=True
     )
     """Creator of space."""
-    blocks: SpaceBlock
+    ablocks: SpaceBlock
     """Blocks that annotate this space."""
 
     @overload
@@ -1463,7 +1463,7 @@ class Branch(BaseSQLRecord):
         "User", CASCADE, default=None, related_name="+", null=True
     )
     """Creator of branch."""
-    blocks: BranchBlock
+    ablocks: BranchBlock
     """Blocks that annotate this branch."""
 
     @overload
