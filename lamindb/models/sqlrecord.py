@@ -874,6 +874,7 @@ class Registry(ModelBase):
                         available_fields.add(field_name + "_id")
             if cls.__name__ == "Artifact":
                 available_fields.add("transform")
+                available_fields.add("feature_sets")  # backward compat with lamindb v1
             cls._available_fields = available_fields
         return cls._available_fields
 

@@ -117,6 +117,16 @@ def test_describe_to_dataframe_example_dataset():
     expected_df = pd.DataFrame(expected_data)
     _check_df_equality(df, expected_df)
 
+    # Test filtering artifacts by schemas__in (alternative approach)
+    # Query artifacts that measure CD8A gene by filtering schemas first
+    cd8a = bt.Gene.get(symbol="CD8A")
+    schemas_with_cd8a = ln.Schema.filter(genes=cd8a)
+    df = ln.Artifact.filter(schemas__in=schemas_with_cd8a).to_dataframe()
+    assert set(df["key"]) == {"examples/dataset2.h5ad", "examples/dataset1.h5ad"}
+    # check backward compat query
+    df = ln.Artifact.filter(feature_sets__in=schemas_with_cd8a).to_dataframe()
+    assert set(df["key"]) == {"examples/dataset2.h5ad", "examples/dataset1.h5ad"}
+
     # expected output has italicized elements that can't be tested
     # hence testing is restricted to section content, not headings
     output = artifact.describe(return_str=True)
