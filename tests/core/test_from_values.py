@@ -100,3 +100,11 @@ def test_standardize():
         ["HES4", "TNFRSF4"], field=bt.Gene.symbol, organism="human"
     )
     assert len(results) == 2
+
+
+def test_from_values_no_source():
+    # remove source of ExperimentalFactor
+    source = bt.Source.filter(entity="bionty.ExperimentalFactor").first()
+    source.delete(permanent=True)
+    assert not bt.ExperimentalFactor.from_values(["scrnaseq"])
+    source.save()
