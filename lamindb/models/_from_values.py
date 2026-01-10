@@ -207,7 +207,11 @@ def create_records_from_source(
         raise OrganismNotSet(
             f"`organism` is required to create new {registry.__name__} records from source!"
         )
-    source_record = get_source_record(registry, organism, source)
+    try:
+        source_record = get_source_record(registry, organism, source)
+    except ValueError:
+        # no source found
+        return records, iterable_idx
 
     # create the corresponding PublicOntology object from registry
     try:
