@@ -8,7 +8,7 @@ import anndata as ad
 import pandas as pd
 from upath import UPath
 
-from lamindb.base.ids import base62
+from lamindb.base.uids import base62
 from lamindb.core._settings import settings
 
 if TYPE_CHECKING:

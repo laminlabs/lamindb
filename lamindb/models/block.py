@@ -11,6 +11,7 @@ from django.db.models import (
     TextField,
 )
 
+from ..base.uids import base62_16
 from .artifact import Artifact
 from .collection import Collection
 from .feature import Feature
@@ -32,7 +33,11 @@ class BaseBlock(IsVersioned):
     id = models.BigAutoField(primary_key=True)
     """Internal id, valid only in one DB instance."""
     uid: str = CharField(
-        editable=False, unique=True, db_index=True, max_length=_len_full_uid
+        editable=False,
+        unique=True,
+        db_index=True,
+        max_length=_len_full_uid,
+        default=base62_16,
     )
     """Universal id."""
     content: str = TextField()
@@ -58,21 +63,17 @@ class BaseBlock(IsVersioned):
     """Auxiliary field for dictionary-like metadata."""
 
 
-class RootBlock(BaseBlock, SQLRecord):
+class Block(BaseBlock, SQLRecord):
     """A root block for every registry that can appear at the top of the registry root block in the GUI."""
 
     class Meta:
         app_label = "lamindb"
 
-    context: str = CharField(max_length=255, db_index=True)
-    """The context for which we want to create a block.
-
-    Conventions are mostly to take the SQL table name:
-        context = "instance" means instance
-        context = "lamindb_artifact" means artifact
-        context = "lamindb_transform" means transform
-        context = "bionty_celltype" means bionty cell type
-    """
+    # same key as in transform/artifact/collection
+    key: str = CharField(max_length=1024, db_index=True)
+    """The key for which we want to create a block."""
+    projects: Project
+    """Projects that annotate this block."""
 
 
 class RecordBlock(BaseBlock, BaseSQLRecord):
@@ -81,7 +82,7 @@ class RecordBlock(BaseBlock, BaseSQLRecord):
     class Meta:
         app_label = "lamindb"
 
-    record: Record = ForeignKey(Record, CASCADE, related_name="blocks")
+    record: Record = ForeignKey(Record, CASCADE, related_name="ablocks")
     """The record to which the block is attached."""
 
 
@@ -91,7 +92,7 @@ class ArtifactBlock(BaseBlock, BaseSQLRecord):
     class Meta:
         app_label = "lamindb"
 
-    artifact: Artifact = ForeignKey(Artifact, CASCADE, related_name="blocks")
+    artifact: Artifact = ForeignKey(Artifact, CASCADE, related_name="ablocks")
     """The artifact to which the block is attached."""
 
 
@@ -102,7 +103,7 @@ class TransformBlock(BaseBlock, BaseSQLRecord):
         app_label = "lamindb"
 
     transform: Transform = ForeignKey(
-        Transform, CASCADE, related_name="blocks", null=True
+        Transform, CASCADE, related_name="ablocks", null=True
     )
     """The transform to which the block is attached."""
     line_number: int | None = models.IntegerField(null=True)
@@ -115,7 +116,7 @@ class RunBlock(BaseBlock, BaseSQLRecord):
     class Meta:
         app_label = "lamindb"
 
-    run: Run = ForeignKey(Run, CASCADE, related_name="blocks")
+    run: Run = ForeignKey(Run, CASCADE, related_name="ablocks")
     """The run to which the block is attached."""
 
 
@@ -126,7 +127,7 @@ class CollectionBlock(BaseBlock, BaseSQLRecord):
         app_label = "lamindb"
 
     collection: Collection = ForeignKey(
-        Collection, CASCADE, related_name="blocks", null=True
+        Collection, CASCADE, related_name="ablocks", null=True
     )
     """The collection to which the block is attached."""
 
@@ -137,7 +138,7 @@ class SchemaBlock(BaseBlock, BaseSQLRecord):
     class Meta:
         app_label = "lamindb"
 
-    schema: Schema = ForeignKey(Schema, CASCADE, related_name="blocks")
+    schema: Schema = ForeignKey(Schema, CASCADE, related_name="ablocks")
     """The schema to which the block is attached."""
 
 
@@ -147,7 +148,7 @@ class FeatureBlock(BaseBlock, BaseSQLRecord):
     class Meta:
         app_label = "lamindb"
 
-    feature: Feature = ForeignKey(Feature, CASCADE, related_name="blocks")
+    feature: Feature = ForeignKey(Feature, CASCADE, related_name="ablocks")
     """The feature to which the block is attached."""
 
 
@@ -157,7 +158,7 @@ class ProjectBlock(BaseBlock, BaseSQLRecord):
     class Meta:
         app_label = "lamindb"
 
-    project: Project = ForeignKey(Project, CASCADE, related_name="blocks")
+    project: Project = ForeignKey(Project, CASCADE, related_name="ablocks")
     """The project to which the block is attached."""
 
 
@@ -167,7 +168,7 @@ class SpaceBlock(BaseBlock, BaseSQLRecord):
     class Meta:
         app_label = "lamindb"
 
-    space: Space = ForeignKey(Space, CASCADE, related_name="blocks")
+    space: Space = ForeignKey(Space, CASCADE, related_name="ablocks")
     """The space to which the block is attached."""
 
 
@@ -177,5 +178,15 @@ class BranchBlock(BaseBlock, BaseSQLRecord):
     class Meta:
         app_label = "lamindb"
 
-    branch: Branch = ForeignKey(Branch, CASCADE, related_name="blocks")
+    branch: Branch = ForeignKey(Branch, CASCADE, related_name="ablocks")
     """The branch to which the block is attached."""
+
+
+class ULabelBlock(BaseBlock, BaseSQLRecord):
+    """An unstructured notes block that can be attached to a ulabel."""
+
+    class Meta:
+        app_label = "lamindb"
+
+    ulabel = ForeignKey("ULabel", CASCADE, related_name="ablocks")
+    """The ulabel to which the block is attached."""

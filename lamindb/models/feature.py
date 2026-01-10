@@ -38,7 +38,7 @@ from lamindb.errors import (
     ValidationError,
 )
 
-from ..base.ids import base62_12
+from ..base.uids import base62_12
 from ._relations import dict_module_name_to_model_name
 from .can_curate import CanCurate
 from .has_parents import _query_relatives
@@ -1067,14 +1067,14 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
 
     Total number of elements (product of shape components) of the array.
 
-    - A number or string (a scalar): 1
+    - A number or string (a scalar): 1 or `None`
     - A 50-dimensional embedding: 50
     - A 25 x 25 image: 625
     """
     array_shape: list[int] | None = JSONField(default=None, db_default=None, null=True)
     """Shape of the feature.
 
-    - A number or string (a scalar): [1]
+    - A number or string (a scalar): [1] or `None`
     - A 50-dimensional embedding: [50]
     - A 25 x 25 image: [25, 25]
 
@@ -1099,7 +1099,7 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     """Values for this feature."""
     projects: Project
     """Annotating projects."""
-    blocks: FeatureBlock
+    ablocks: FeatureBlock
     """Blocks that annotate this feature."""
 
     @overload

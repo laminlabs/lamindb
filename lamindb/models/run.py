@@ -18,7 +18,7 @@ from lamindb.base.fields import (
 from lamindb.base.users import current_user_id
 from lamindb.base.utils import strict_classmethod
 
-from ..base.ids import base62_16
+from ..base.uids import base62_16
 from .can_curate import CanCurate
 from .sqlrecord import BaseSQLRecord, IsLink, SQLRecord
 
@@ -200,7 +200,7 @@ class User(BaseSQLRecord, CanCurate):
         super().__init__(*args, **kwargs)
 
 
-class Run(SQLRecord):
+class Run(SQLRecord, TracksUpdates):
     """Runs of transforms such as the executions of a script.
 
     Args:
@@ -349,7 +349,7 @@ class Run(SQLRecord):
     """The runs that were initiated by this run."""
     projects: Project
     """The projects annotating this run."""
-    blocks: RunBlock
+    ablocks: RunBlock
     """The blocks annotating this run."""
     records: Record
     """The records annotating this run, via :attr:`~lamindb.Record.runs`."""

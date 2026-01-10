@@ -57,8 +57,8 @@ from ..base.fields import (
     JSONField,
     TextField,
 )
-from ..base.ids import base62_12
 from ..base.types import FieldAttr, StrField
+from ..base.uids import base62_12
 from ..errors import (
     FieldValidationError,
     InvalidArgument,
@@ -1371,7 +1371,7 @@ class Space(BaseSQLRecord):
         "User", CASCADE, default=None, related_name="+", null=True
     )
     """Creator of space."""
-    blocks: SpaceBlock
+    ablocks: SpaceBlock
     """Blocks that annotate this space."""
 
     @overload
@@ -1463,7 +1463,7 @@ class Branch(BaseSQLRecord):
         "User", CASCADE, default=None, related_name="+", null=True
     )
     """Creator of branch."""
-    blocks: BranchBlock
+    ablocks: BranchBlock
     """Blocks that annotate this branch."""
 
     @overload
@@ -2163,15 +2163,21 @@ class SQLRecordInfo:
                 core_module_fields.append(field)
 
         def _get_related_field_type(field) -> str:
-            field_type = (
-                field.related_model.__get_name_with_module__()
-                .replace(
-                    "Artifact", ""
-                )  # some fields have an unnecessary 'Artifact' in their name
-                .replace(
-                    "Collection", ""
-                )  # some fields have an unnecessary 'Collection' in their name
-            )
+            model_name = field.related_model.__get_name_with_module__()
+            # Extract the class name (after the last dot if there's a module prefix)
+            class_name = model_name.split(".")[-1]
+            # Skip replacement for compound names like ArtifactBlock, FeatureBlock, etc.
+            if class_name.endswith("Block"):
+                # Return just the class name for Block types
+                field_type = class_name
+            else:
+                field_type = (
+                    model_name.replace(
+                        "Artifact", ""
+                    ).replace(  # some fields have an unnecessary 'Artifact' in their name
+                        "Collection", ""
+                    )  # some fields have an unnecessary 'Collection' in their name
+                )
             return (
                 self._get_type_for_field(field.name)
                 if not field_type.strip()

@@ -227,7 +227,7 @@ class Transform(SQLRecord, IsVersioned):
         User, PROTECT, default=current_user_id, related_name="created_transforms"
     )
     """Creator of record."""
-    blocks: TransformBlock
+    ablocks: TransformBlock
     """Blocks that annotate this artifact, via :attr:`~lamindb.TransformBlock.transform`."""
 
     @overload

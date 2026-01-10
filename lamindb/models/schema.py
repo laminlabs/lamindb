@@ -10,7 +10,6 @@ from lamin_utils import logger
 from lamindb_setup.core import deprecated
 from lamindb_setup.core.hashing import HASH_LENGTH, hash_string
 
-from lamindb.base import ids
 from lamindb.base.fields import (
     BooleanField,
     CharField,
@@ -19,6 +18,7 @@ from lamindb.base.fields import (
     TextField,
 )
 from lamindb.base.types import FieldAttr, ListLike
+from lamindb.base.uids import base62_16
 from lamindb.base.utils import class_and_instance_method
 from lamindb.errors import FieldValidationError, InvalidArgument
 from lamindb.models.feature import parse_cat_dtype
@@ -53,6 +53,7 @@ if TYPE_CHECKING:
     from django.db.models.query_utils import DeferredAttribute
 
     from .artifact import Artifact
+    from .block import SchemaBlock
     from .project import Project
     from .query_set import QuerySet, SQLRecordList
     from .record import Record
@@ -178,7 +179,7 @@ KNOWN_SCHEMAS = {  # by hash
 }
 
 
-class Schema(SQLRecord, HasType, CanCurate, TracksRun):
+class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     """Schemas of datasets such as column sets of dataframes.
 
     .. note::
@@ -403,6 +404,8 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun):
     """Linked projects."""
     records: Record
     """Records that were annotated with this schema."""
+    ablocks: SchemaBlock
+    """Blocks that annotate this schema."""
 
     @overload
     def __init__(
@@ -555,7 +558,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun):
         if validated_kwargs["hash"] in KNOWN_SCHEMAS:
             validated_kwargs["uid"] = KNOWN_SCHEMAS[validated_kwargs["hash"]]
         else:
-            validated_kwargs["uid"] = ids.base62_16()
+            validated_kwargs["uid"] = base62_16()
 
         super().__init__(**validated_kwargs)
 
