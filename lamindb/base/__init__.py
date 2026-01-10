@@ -16,5 +16,5 @@ Modules
 
 """
 
-from . import dtypes, fields, types, uids, utils
+from . import dtypes, fields, ids, types, uids, utils
 from .utils import deprecated, doc_args
