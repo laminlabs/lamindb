@@ -262,9 +262,9 @@ def test_fine_grained_permissions_account_and_dbwrite():
     # check select of a link table referencing unavailable rows
     assert ln.ULabel.get(name="select_ulabel").projects.all().count() == 0
     # test RootBlock, can do due to write access to some spaces
-    root_block = ln.models.RootBlock(context="instance", content="test").save()
-    root_block.content = "test 2"
-    root_block.save()
+    block = ln.models.Block(key="README.md", content="test").save()
+    block.content = "test 2"
+    block.save()
     # test SpaceBlock
     space = ln.Space.get(name="select access")
     with pytest.raises(ln.errors.NoWriteAccess):
