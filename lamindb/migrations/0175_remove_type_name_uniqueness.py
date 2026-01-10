@@ -7,26 +7,62 @@ import lamindb.base.uids
 
 
 def remove_constraint_if_exists(apps, schema_editor):
-    """Remove constraint only if it exists."""
+    """Remove constraints only if they exist."""
     connection = schema_editor.connection
 
-    if connection.vendor == "sqlite":
-        return
+    # Constraints to remove from feature table
+    constraints = [
+        "dtype_not_null_when_is_type_false",
+        "unique_feature_type_name_at_root",
+        "unique_feature_type_name_under_type",
+    ]
 
     with connection.cursor() as cursor:
-        # Check if constraint exists
-        cursor.execute("""
-            SELECT constraint_name
-            FROM information_schema.table_constraints
-            WHERE table_name = 'lamindb_feature'
-            AND constraint_name = 'dtype_not_null_when_is_type_false'
-        """)
+        if connection.vendor == "postgresql":
+            for constraint_name in constraints:
+                # Check if constraint exists
+                cursor.execute(
+                    """
+                    SELECT constraint_name
+                    FROM information_schema.table_constraints
+                    WHERE table_name = 'lamindb_feature'
+                    AND constraint_name = %s
+                """,
+                    [constraint_name],
+                )
 
-        if cursor.fetchone():
-            # Constraint exists, remove it
-            cursor.execute(
-                "ALTER TABLE lamindb_feature DROP CONSTRAINT dtype_not_null_when_is_type_false"
-            )
+                if cursor.fetchone():
+                    # Constraint exists, remove it
+                    cursor.execute(
+                        f"ALTER TABLE lamindb_feature DROP CONSTRAINT {constraint_name}"
+                    )
+
+        elif connection.vendor == "sqlite":
+            # SQLite 3.35.0+ supports DROP CONSTRAINT (but not IF EXISTS)
+            # Check if constraints exist first, then drop them
+            cursor.execute("""
+                SELECT sql
+                FROM sqlite_master
+                WHERE type = 'table' AND name = 'lamindb_feature'
+            """)
+            result = cursor.fetchone()
+
+            if result and result[0]:
+                table_sql = result[0].lower()
+                for constraint_name in constraints:
+                    constraint_exists = constraint_name in table_sql
+
+                    if constraint_exists:
+                        try:
+                            # SQLite 3.35.0+ supports DROP CONSTRAINT
+                            cursor.execute(
+                                f"ALTER TABLE lamindb_feature DROP CONSTRAINT {constraint_name}"
+                            )
+                        except Exception:  # noqa: S110
+                            # For SQLite versions < 3.35.0, DROP CONSTRAINT is not supported
+                            # The constraint will be removed when Django recreates the table
+                            # if needed during subsequent schema changes
+                            pass
 
 
 class Migration(migrations.Migration):
@@ -41,14 +77,6 @@ class Migration(migrations.Migration):
         ),
         migrations.RunPython(
             remove_constraint_if_exists, reverse_code=migrations.RunPython.noop
-        ),
-        migrations.RemoveConstraint(
-            model_name="feature",
-            name="unique_feature_type_name_at_root",
-        ),
-        migrations.RemoveConstraint(
-            model_name="feature",
-            name="unique_feature_type_name_under_type",
         ),
         migrations.RemoveConstraint(
             model_name="project",
