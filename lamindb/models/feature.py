@@ -1067,14 +1067,14 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
 
     Total number of elements (product of shape components) of the array.
 
-    - A number or string (a scalar): 1
+    - A number or string (a scalar): 1 or `None`
     - A 50-dimensional embedding: 50
     - A 25 x 25 image: 625
     """
     array_shape: list[int] | None = JSONField(default=None, db_default=None, null=True)
     """Shape of the feature.
 
-    - A number or string (a scalar): [1]
+    - A number or string (a scalar): [1] or `None`
     - A 50-dimensional embedding: [50]
     - A 25 x 25 image: [25, 25]
 

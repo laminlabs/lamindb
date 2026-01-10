@@ -200,7 +200,7 @@ class User(BaseSQLRecord, CanCurate):
         super().__init__(*args, **kwargs)
 
 
-class Run(SQLRecord):
+class Run(SQLRecord, TracksUpdates):
     """Runs of transforms such as the executions of a script.
 
     Args:

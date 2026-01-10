@@ -11,6 +11,7 @@ from django.db.models import (
     TextField,
 )
 
+from ..base.uids import base62_16
 from .artifact import Artifact
 from .collection import Collection
 from .feature import Feature
@@ -32,7 +33,11 @@ class BaseBlock(IsVersioned):
     id = models.BigAutoField(primary_key=True)
     """Internal id, valid only in one DB instance."""
     uid: str = CharField(
-        editable=False, unique=True, db_index=True, max_length=_len_full_uid
+        editable=False,
+        unique=True,
+        db_index=True,
+        max_length=_len_full_uid,
+        default=base62_16,
     )
     """Universal id."""
     content: str = TextField()

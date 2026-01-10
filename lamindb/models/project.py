@@ -17,7 +17,7 @@ from lamindb.base.fields import (
 )
 from lamindb.base.users import current_user_id
 
-from ..base.ids import base62_12
+from ..base.uids import base62_12
 from .artifact import Artifact
 from .can_curate import CanCurate
 from .collection import Collection
@@ -170,12 +170,12 @@ class Project(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, ValidateF
 
     Example:
 
-        ::
+        Create a project and annotate an artifact with it::
 
             project = Project(
-            name="My Project Name",
-            abbr="MPN",
-            url="https://example.com/my_project",
+                name="My Project Name",
+                abbr="MPN",
+                url="https://example.com/my_project",
             ).save()
             artifact.projects.add(project)  # <-- labels the artifact with the project
             ln.track(project=project)       # <-- automtically labels entities during the run
