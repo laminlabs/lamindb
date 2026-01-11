@@ -1360,7 +1360,6 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
 
         You can query by this property as if it was a string field. The query is delegated to the private `_dtype_str` field.
 
-
         Is `None` if `Feature` if `is_type=True`, otherwise a string.
 
         Examples:
@@ -1371,14 +1370,15 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
 
             Examples for `dtype_as_str`::
 
-                feature_num = ln.Feature(name="measurement", dtype=float).save()
-                assert feature_num.dtype_as_str == "float"
+                feature_float = ln.Feature(name="measurement", dtype=float).save()
+                assert feature_float.dtype_as_str == "float"
 
-                feature_str = ln.Feature(name="sample_note", dtype=str).save()
-                assert feature_str.dtype_as_str == "str"
+                sample_type = bt.Record(name="Sample", is_type=True).save()
+                feature_sample = ln.Feature(name="sample", dtype=sample_type).save()
+                assert feature_sample.dtype_as_str == "cat[Record[12345678abcdeFGHI]]  # uid of type record
 
-                feature_list_str = ln.Feature(name="cell_types", dtype=list[str]).save()
-                assert feature_list_str.dtype_as_str == "list[str]"
+                feature_list_float = ln.Feature(name="numbers", dtype=list[float]).save()
+                assert feature_list_float.dtype_as_str == "list[float]"
 
                 feature_ulabel = ln.Feature(name="sample", dtype=ln.ULabel).save()
                 assert feature_ulabel.dtype_as_str == "cat[ULabel]"
@@ -1388,13 +1388,8 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
 
                 feature_list_record = ln.Feature(name="cell_types", dtype=list[bt.CellLine]).save()
                 assert feature_list_record.dtype_as_str == "list[cat[bionty.CellLine]]"
-
-                lab1_type = ln.Feature(name="Lab1", is_type=True).save()
-                lab1_sample_type = bt.Record(name="Sample", is_type=True, type=lab1_type).save()
-                feature_sample = ln.Feature(name="sample", dtype=lab1_sample_type).save()
-                assert feature_sample.dtype_as_str == "cat[Record[12345678abcdeFGHI]]  # uid of type record
         """
-        return self.dtype
+        return self._dtype_str
 
     @property
     def dtype_as_object(self) -> type | SQLRecord | FieldAttr | None:  # type: ignore
@@ -1402,20 +1397,21 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
 
         Example:
 
-            For non-categorical features, returns the Python type::
+            For simple dtypes, returns the built-in Python type::
 
-                feature_num = ln.Feature(name="measurement", dtype=float).save()
-                assert feature_num.dtype_as_object is float
+                feature_float = ln.Feature(name="measurement", dtype=float).save()
+                assert feature_float.dtype_as_object is float
 
-            For categorical features with subtypes, returns the SQLRecord::
+            For features with with `Record` or `ULabel` types, returns the `Record` or `ULabel` object::
 
-                lab1_type = ln.Feature(name="Lab1", is_type=True).save()
-                lab1_sample_type = bt.Record(name="Sample", is_type=True, type=lab1_type).save()
-                feature_sample = ln.Feature(name="sample", dtype=lab1_sample_type).save()
-                assert feature_sample.dtype_as_object == lab1_sample_type
+                sample_type = bt.Record(name="Sample", is_type=True).save()
+                feature_sample = ln.Feature(name="sample", dtype=sample_type).save()
+                assert feature_sample.dtype_as_object == sample_type
 
-            For categorical features without subtypes, returns the field::
+            For features with `Registry` types, returns the `Registry` object or a field (`DeferredAttribute`) object::
 
+                feature_cell_type = ln.Feature(name="cell_type_name", dtype=bt.CellType).save()
+                assert feature_cell_type.dtype_as_object == bt.CellType
                 feature_ontology_id = ln.Feature(name="ontology_id", dtype=bt.CellType.ontology_id).save()
                 assert feature_ontology_id.dtype_as_object == bt.CellType.ontology_id
 
