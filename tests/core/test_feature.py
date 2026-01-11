@@ -215,3 +215,29 @@ def test_feature_from_dict_type(dict_data):
         assert feature.type.name == "Testdata_feature_type"
     ln.Feature.filter(type__isnull=False).delete(permanent=True)
     feature_type.delete(permanent=True)
+
+
+def test_feature_query_by_dtype():
+    """Test querying Feature by dtype (deprecated) and _dtype_str."""
+    str_feat = ln.Feature(name="test_str_feat", dtype=str).save()
+    int_feat = ln.Feature(name="test_int_feat", dtype=int).save()
+    try:
+        # Test querying by _dtype_str (current way)
+        str_features = ln.Feature.filter(_dtype_str="str", name="test_str_feat")
+        assert str_features.count() == 1
+        assert str_features.first() == str_feat
+
+        # Test querying by dtype (deprecated) - should work but issue warning
+        with pytest.warns(
+            DeprecationWarning,
+            match="Querying Feature by `dtype` is deprecated.*Notice the new dtype encoding format",
+        ):
+            str_features_deprecated = ln.Feature.filter(
+                dtype="str", name="test_str_feat"
+            )
+            assert str_features_deprecated.count() == 1
+            assert str_features_deprecated.first() == str_feat
+    finally:
+        # Clean up
+        str_feat.delete(permanent=True)
+        int_feat.delete(permanent=True)

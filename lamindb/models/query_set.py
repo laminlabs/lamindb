@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import ast
 import re
+import warnings
 from collections import UserList, defaultdict
 from collections.abc import Iterable
 from collections.abc import Iterable as IterableType
@@ -211,6 +212,20 @@ def get_backward_compat_filter_kwargs(queryset, expressions):
     for field, value in expressions.items():
         parts = field.split("__")
         if parts[0] in name_mappings:
+            # Issue deprecation warnings
+            if queryset.model is Artifact and parts[0] == "feature_sets":
+                warnings.warn(
+                    "Querying Artifact by `feature_sets` is deprecated. Use `schemas` instead.",
+                    DeprecationWarning,
+                    stacklevel=4,
+                )
+            elif queryset.model is Feature and parts[0] == "dtype":
+                warnings.warn(
+                    "Querying Feature by `dtype` is deprecated. Use `_dtype_str` instead. "
+                    "Notice the new dtype encoding format for Record and ULabel subtypes.",
+                    DeprecationWarning,
+                    stacklevel=4,
+                )
             new_field = name_mappings[parts[0]] + (
                 "__" + "__".join(parts[1:]) if len(parts) > 1 else ""
             )
