@@ -176,6 +176,7 @@ def one_helper(
 def get_backward_compat_filter_kwargs(queryset, expressions):
     from lamindb.models import (
         Artifact,
+        Feature,
     )
 
     if issubclass(queryset.model, IsVersioned):
@@ -190,6 +191,12 @@ def get_backward_compat_filter_kwargs(queryset, expressions):
             {
                 "transform": "run__transform",
                 "feature_sets": "schemas",
+            }
+        )
+    if queryset.model is Feature:
+        name_mappings.update(
+            {
+                "dtype": "_dtype_str",
             }
         )
 
