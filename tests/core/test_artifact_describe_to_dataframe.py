@@ -123,8 +123,11 @@ def test_describe_to_dataframe_example_dataset():
     schemas_with_cd8a = ln.Schema.filter(genes=cd8a)
     df = ln.Artifact.filter(schemas__in=schemas_with_cd8a).to_dataframe()
     assert set(df["key"]) == {"examples/dataset2.h5ad", "examples/dataset1.h5ad"}
-    # check backward compat query
-    df = ln.Artifact.filter(feature_sets__in=schemas_with_cd8a).to_dataframe()
+    # check backward compat query with deprecation warning
+    with pytest.warns(
+        DeprecationWarning, match="Querying Artifact by `feature_sets` is deprecated"
+    ):
+        df = ln.Artifact.filter(feature_sets__in=schemas_with_cd8a).to_dataframe()
     assert set(df["key"]) == {"examples/dataset2.h5ad", "examples/dataset1.h5ad"}
 
     # expected output has italicized elements that can't be tested
