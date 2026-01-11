@@ -198,6 +198,7 @@ def get_backward_compat_filter_kwargs(queryset, expressions):
         name_mappings.update(
             {
                 "dtype": "_dtype_str",
+                "dtype_as_str": "_dtype_str",
             }
         )
 
@@ -221,7 +222,7 @@ def get_backward_compat_filter_kwargs(queryset, expressions):
                 )
             elif queryset.model is Feature and parts[0] == "dtype":
                 warnings.warn(
-                    "Querying Feature by `dtype` is deprecated. Use `_dtype_str` instead. "
+                    "Querying Feature by `dtype` is deprecated. Use `dtype_as_str` instead. "
                     "Notice the new dtype encoding format for Record and ULabel subtypes.",
                     DeprecationWarning,
                     stacklevel=4,

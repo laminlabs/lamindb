@@ -30,7 +30,7 @@ from lamindb.base.fields import (
     JSONField,
     TextField,
 )
-from lamindb.base.types import Dtype, FieldAttr
+from lamindb.base.types import DtypeStr, FieldAttr
 from lamindb.errors import (
     FieldValidationError,
     IntegrityError,
@@ -55,10 +55,12 @@ if TYPE_CHECKING:
     from .artifact import Artifact
     from .block import FeatureBlock
     from .projects import Project
+    from .record import Record
     from .run import Run
     from .schema import Schema
+    from .ulabel import ULabel
 
-FEATURE_DTYPES = set(get_args(Dtype))
+FEATURE_DTYPES = set(get_args(DtypeStr))
 
 
 def parse_dtype(
@@ -901,9 +903,9 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
 
     Args:
         name: `str` Name of the feature, typically a column name.
-        dtype: `Dtype | Registry | list[Registry] | FieldAttr` See :class:`~lamindb.base.types.Dtype`.
-            For categorical types, you can define to which registry values are
-            restricted, e.g., `ln.ULabel` or `ln.ULabel|bt.CellType`.
+        dtype: `type | ULabel | Record | DtypeStr | Registry | list[Registry] | FieldAttr`
+            Types or `ULabel` or `Record` objects representing types.
+            See :class:`~lamindb.base.types.DtypeStr`.
         type: `Feature | None = None` A feature type, see :attr:`~lamindb.Feature.type`.
         is_type: `bool = False` Whether this feature is a type, see :attr:`~lamindb.Feature.is_type`.
         unit: `str | None = None` Unit of measure, ideally SI (`"m"`, `"s"`, `"kg"`, etc.) or `"normalized"` etc.
@@ -1036,8 +1038,8 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     """Universal id, valid across DB instances."""
     name: str = CharField(max_length=150, db_index=True)
     """Name of feature."""
-    _dtype_str: Dtype | str | None = CharField(db_index=True, null=True)
-    """The string-serialized data type (:class:`~lamindb.base.types.Dtype`).
+    _dtype_str: DtypeStr | str | None = CharField(db_index=True, null=True)
+    """The string-serialized data type (:class:`~lamindb.base.types.DtypeStr`).
 
     Note that mutating this field currently does not trigger re-validation of existing values.
     """
@@ -1106,7 +1108,7 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     def __init__(
         self,
         name: str,
-        dtype: Dtype | Registry | list[Registry] | FieldAttr,
+        dtype: DtypeStr | ULabel | Record | Registry | list[Registry] | FieldAttr,
         type: Feature | None = None,
         is_type: bool = False,
         unit: str | None = None,
@@ -1332,6 +1334,7 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         self.coerce = value
 
     @property
+    @deprecated("dtype_as_str")
     def dtype(self) -> str | None:
         """The `dtype` as a string."""
         if self._dtype_str is None:
@@ -1352,8 +1355,43 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             return self._dtype_str
 
     @property
+    def dtype_as_str(self) -> DtypeStr | str | None:
+        """The `dtype` as a string.
+
+        Is `None` if `Feature` if `is_type=True`, otherwise a string.
+
+        Examples:
+
+            ::
+
+                feature_num = ln.Feature(name="measurement", dtype=float).save()
+                assert feature_num.dtype_as_str == "float"
+
+                feature_str = ln.Feature(name="sample_note", dtype=str).save()
+                assert feature_str.dtype_as_str == "str"
+
+                feature_list_str = ln.Feature(name="cell_types", dtype=list[str]).save()
+                assert feature_list_str.dtype_as_str == "list[str]"
+
+                feature_ulabel = ln.Feature(name="sample", dtype=ln.ULabel).save()
+                assert feature_ulabel.dtype_as_str == "cat[ULabel]"
+
+                feature_record = ln.Feature(name="sample", dtype=bt.CellLine).save()
+                assert feature_record.dtype_as_str == "cat[bionty.CellLine]"
+
+                feature_list_record = ln.Feature(name="cell_types", dtype=list[bt.CellLine]).save()
+                assert feature_list_record.dtype_as_str == "list[cat[bionty.CellLine]]"
+
+                lab1_type = ln.Feature(name="Lab1", is_type=True).save()
+                lab1_sample_type = bt.Record(name="Sample", is_type=True, type=lab1_type).save()
+                feature_sample = ln.Feature(name="sample", dtype=lab1_sample_type).save()
+                assert feature_sample.dtype_as_str == "cat[Record[12345678abcdeFGHI]]  # uid of type record
+        """
+        return self.dtype
+
+    @property
     def dtype_as_object(self) -> type | SQLRecord | FieldAttr | None:  # type: ignore
-        """The Python object corresponding to :attr:`~lamindb.Feature.dtype`.
+        """The `dtype` as an object.
 
         Example:
 
@@ -1365,7 +1403,7 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             For categorical features with subtypes, returns the SQLRecord::
 
                 lab1_type = ln.Feature(name="Lab1", is_type=True).save()
-                lab1_sample_type = bt.Record.get(name="Sample", is_type=True, type=lab1_type).save()
+                lab1_sample_type = bt.Record(name="Sample", is_type=True, type=lab1_type).save()
                 feature_sample = ln.Feature(name="sample", dtype=lab1_sample_type).save()
                 assert feature_sample.dtype_as_object == lab1_sample_type
 
