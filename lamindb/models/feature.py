@@ -1358,11 +1358,18 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     def dtype_as_str(self) -> DtypeStr | str | None:
         """The `dtype` as a string.
 
+        You can query by this property as if it was a string field. The query is delegated to the private `_dtype_str` field.
+
+
         Is `None` if `Feature` if `is_type=True`, otherwise a string.
 
         Examples:
 
-            ::
+            Query by `dtype_as_str`::
+
+                ln.Feature.filter(dtype_as_str="float").to_dataframe()
+
+            Examples for `dtype_as_str`::
 
                 feature_num = ln.Feature(name="measurement", dtype=float).save()
                 assert feature_num.dtype_as_str == "float"

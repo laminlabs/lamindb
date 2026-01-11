@@ -227,6 +227,10 @@ def test_feature_query_by_dtype():
         assert str_features.count() == 1
         assert str_features.first() == str_feat
 
+        str_features = ln.Feature.filter(dtype_as_str="str", name="test_str_feat")
+        assert str_features.count() == 1
+        assert str_features.first() == str_feat
+
         # Test querying by dtype (deprecated) - should work but issue warning
         with pytest.warns(
             DeprecationWarning,
