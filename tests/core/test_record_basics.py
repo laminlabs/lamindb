@@ -276,7 +276,7 @@ def test_record_features_add_remove_values():
     df = sheet.to_dataframe()
     target_result = {
         "feature_bool": True,
-        "feature_str": "a string value",
+        "feature_str": "00810702-0006",  # this string value could be cast to datetime!
         "feature_list_str": ["a", "list", "of", "strings"],
         "feature_int": 42,
         "feature_list_int": [1, 2, 3],
