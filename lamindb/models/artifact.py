@@ -1958,7 +1958,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         if isinstance(df, pd.DataFrame):
             artifact.n_observations = len(df)
         else:
-            path = UPath(df)
+            # must be a str or path
+            path = df
             if path.suffix == ".parquet":
                 import pyarrow.parquet as pq
 
