@@ -143,7 +143,7 @@ def install_ci(session, group):
         run(session, "uv pip install --system xarray-dataclasses")
         run(
             session,
-            "uv pip install --system mudata spatialdata",
+            "uv pip install --system mudata spatialdata lightning",
         )
         run(
             session,
