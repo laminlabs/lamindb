@@ -384,3 +384,6 @@ class SaveConfigCallback(_SaveConfigCallback):
 
 
 __all__ = ["Checkpoint", "SaveConfigCallback", "save_lightning_features"]
+
+# backwards compatibility
+Callback = Checkpoint
