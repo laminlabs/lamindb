@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import ast
 import re
+import warnings
 from collections import UserList, defaultdict
 from collections.abc import Iterable
 from collections.abc import Iterable as IterableType
@@ -176,6 +177,7 @@ def one_helper(
 def get_backward_compat_filter_kwargs(queryset, expressions):
     from lamindb.models import (
         Artifact,
+        Feature,
     )
 
     if issubclass(queryset.model, IsVersioned):
@@ -192,6 +194,13 @@ def get_backward_compat_filter_kwargs(queryset, expressions):
                 "feature_sets": "schemas",
             }
         )
+    if queryset.model is Feature:
+        name_mappings.update(
+            {
+                "dtype": "_dtype_str",
+                "dtype_as_str": "_dtype_str",
+            }
+        )
 
     # If no mappings to apply, return expressions as-is
     if not name_mappings:
@@ -204,6 +213,20 @@ def get_backward_compat_filter_kwargs(queryset, expressions):
     for field, value in expressions.items():
         parts = field.split("__")
         if parts[0] in name_mappings:
+            # Issue deprecation warnings
+            if queryset.model is Artifact and parts[0] == "feature_sets":
+                warnings.warn(
+                    "Querying Artifact by `feature_sets` is deprecated. Use `schemas` instead.",
+                    DeprecationWarning,
+                    stacklevel=4,
+                )
+            elif queryset.model is Feature and parts[0] == "dtype":
+                warnings.warn(
+                    "Querying Feature by `dtype` is deprecated. Use `dtype_as_str` instead. "
+                    "Notice the new dtype encoding format for Record and ULabel subtypes.",
+                    DeprecationWarning,
+                    stacklevel=4,
+                )
             new_field = name_mappings[parts[0]] + (
                 "__" + "__".join(parts[1:]) if len(parts) > 1 else ""
             )
@@ -430,16 +453,20 @@ def get_basic_field_names(
         "updated_at",
     ]:
         if field_name in field_names:
-            field_names.remove(field_name)
-            field_names.append(field_name)
+            field_names.append(field_names.pop(field_names.index(field_name)))
     field_names += [
         f"{field.name}_id"
         for field in qs.model._meta.fields
         if isinstance(field, models.ForeignKey)
     ]
-    if field_names[0] != "uid" and "uid" in field_names:
-        field_names.remove("uid")
-        field_names.insert(0, "uid")
+    # move uid to first position if present
+    if "uid" in field_names:
+        field_names.insert(0, field_names.pop(field_names.index("uid")))
+
+    # move primary key to second position if present
+    pk = qs.model._meta.pk.name if qs.model._meta.pk else None
+    if pk and pk in field_names:
+        field_names.insert(1, field_names.pop(field_names.index(pk)))
     if (
         include or features_input
     ):  # if there is features_input, reduce fields to just the first 3
@@ -1236,13 +1263,6 @@ class BasicQuerySet(models.QuerySet):
             ULabel.filter(name="non existing label").one_or_none()
         """
         return one_helper(self, raise_doesnotexist=False)
-
-    def latest_version(self) -> QuerySet:
-        """Filter every version family by latest version."""
-        if issubclass(self.model, IsVersioned):
-            return self.filter(is_latest=True)
-        else:
-            raise ValueError("SQLRecord isn't subclass of `lamindb.core.IsVersioned`")
 
     @doc_args(_search.__doc__)
     def search(self, string: str, **kwargs):

@@ -108,11 +108,11 @@ def save(
     if artifacts:
         with transaction.atomic():
             for record in artifacts:
-                # will swtich to True after the successful upload / saving
+                # will switch to True after the successful upload / saving
                 if getattr(record, "_local_filepath", None) is not None and getattr(
                     record, "_to_store", False
                 ):
-                    record._is_saved_to_storage_location = False
+                    record._storage_completed = False
                 record._save_skip_storage()
         using_key = settings._using_key
         store_artifacts(artifacts, using_key=using_key)
@@ -166,36 +166,58 @@ def bulk_create(
                     "UNIQUE constraint failed" in error_msg
                     or "duplicate key value violates unique constraint" in error_msg
                 ):
-                    unique_field = parse_violated_field_from_error_message(error_msg)
-                    unique_field_values = [getattr(r, unique_field) for r in batch]
-                    # here we query against non-default branches
-                    pre_existing_values_not_main_branch = (
-                        registry.objects.filter(
-                            **{f"{unique_field}__in": unique_field_values}
-                        )
-                        .exclude(branch_id=1)
-                        .values_list(unique_field, flat=True)
-                    )
-                    # the rest of the records can be saved normally
+                    unique_fields = parse_violated_field_from_error_message(error_msg)
+
+                    # Build tuples of unique field values for each record
+                    unique_field_values = [
+                        tuple(getattr(r, field) for field in unique_fields)
+                        for r in batch
+                    ]
+
+                    # Build Q objects for multi-field lookup
+                    from django.db.models import Q
+
+                    q_objects = Q()
+                    for values in unique_field_values:
+                        field_kwargs = {
+                            unique_fields[i]: values[i]
+                            for i in range(len(unique_fields))
+                        }
+                        q_objects |= Q(**field_kwargs)
+
+                    # Query against non-default branches
+                    pre_existing_records_not_main_branch = registry.objects.filter(
+                        q_objects
+                    ).exclude(branch_id=1)
+
+                    # Get the unique field value tuples that already exist
+                    pre_existing_value_tuples = {
+                        tuple(getattr(rec, field) for field in unique_fields)
+                        for rec in pre_existing_records_not_main_branch
+                    }
+
+                    # Records that can be saved normally (not in non-default branches)
                     records_main_branch = [
                         r
                         for r in batch
-                        if getattr(r, unique_field)
-                        not in pre_existing_values_not_main_branch
+                        if tuple(getattr(r, field) for field in unique_fields)
+                        not in pre_existing_value_tuples
                     ]
                     save(records_main_branch)
-                    # now move the pre-existing records to the main branch
-                    if pre_existing_values_not_main_branch.exists():
+
+                    # Now move the pre-existing records to the main branch
+                    if pre_existing_value_tuples:
+                        unique_fields_str = ", ".join(unique_fields)
                         logger.warning(
-                            f"some {model_name} records with the same {unique_field}s already exist in non-default branches - moving them to the default branch"
+                            f"some {model_name} records with the same ({unique_fields_str}) already exist in non-default branches - moving them to the default branch"
                         )
-                        pre_existing_records_not_main_branch = [
+                        pre_existing_records_to_move = [
                             r
                             for r in batch
-                            if getattr(r, unique_field)
-                            in pre_existing_values_not_main_branch
+                            if tuple(getattr(r, field) for field in unique_fields)
+                            in pre_existing_value_tuples
                         ]
-                        for record in pre_existing_records_not_main_branch:
+                        for record in pre_existing_records_to_move:
                             record.save()
                 else:
                     raise e
@@ -398,13 +420,13 @@ def store_artifacts(
 
         stored_artifacts += [artifact]
         # update to show successful saving
-        # only update if _is_saved_to_storage_location was set to False before
+        # only update if _storage_completed was set to False before
         # this should be a single transaction for the updates of all the artifacts
         # but then it would just abort all artifacts, even successfully saved before
         # TODO: there should also be some kind of exception handling here
         # but this requires proper refactoring
-        if artifact._is_saved_to_storage_location is False:
-            artifact._is_saved_to_storage_location = True
+        if artifact._storage_completed is False:
+            artifact._storage_completed = None  # None indicates "not False" and removes the data from the JSON field
             super(
                 Artifact, artifact
             ).save()  # each .save is a separate transaction here

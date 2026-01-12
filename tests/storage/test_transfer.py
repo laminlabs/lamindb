@@ -40,7 +40,7 @@ def test_transfer_from_remote_to_local(ccaplog):
     assert result["related_data"]["m2m"]["tissues"] == {
         2: {
             "id": 2,
-            "uid": "6VHBo6Xs",
+            "uid": "6VHBo6XsJZqmaQ",
             "abbr": None,
             "name": "cortex of kidney",
             "tissue": 2,

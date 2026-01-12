@@ -57,7 +57,7 @@ Link models for Record
 Block models
 ------------
 
-.. autoclass:: RootBlock
+.. autoclass:: Block
 .. autoclass:: ArtifactBlock
 .. autoclass:: TransformBlock
 .. autoclass:: RecordBlock
@@ -154,7 +154,7 @@ from .record import (
     ArtifactRecord,
 )
 from .block import (
-    RootBlock,
+    Block,
     ArtifactBlock,
     TransformBlock,
     RecordBlock,

@@ -469,7 +469,7 @@ class ComponentCurator(Curator):
             features += Feature.filter(name__in=self._dataset.keys()).to_list()
             feature_ids = {feature.id for feature in features}
 
-        if schema.n > 0:
+        if schema.n_members and schema.n_members > 0:
             if schema._index_feature_uid is not None:
                 schema_features = [
                     feature
@@ -511,7 +511,7 @@ class ComponentCurator(Curator):
                             error=f"Column '{feature.name}' failed dtype check for '{dtype_str}'",
                         ),
                         nullable=feature.nullable,
-                        coerce=feature.coerce_dtype,
+                        coerce=feature.coerce,
                         required=required,
                     )
                 elif dtype_str in {
@@ -537,14 +537,14 @@ class ComponentCurator(Curator):
                             error=f"Column '{feature.name}' failed dtype check for '{dtype_str}': got {dtype}",
                         ),
                         nullable=feature.nullable,
-                        coerce=feature.coerce_dtype,
+                        coerce=feature.coerce,
                         required=required,
                     )
                 elif dtype_str == "dict":
                     pandera_columns[feature.name] = pandera.Column(
                         dtype=object,
                         nullable=feature.nullable,
-                        coerce=feature.coerce_dtype,
+                        coerce=feature.coerce,
                         required=required,
                         checks=pandera.Check(
                             lambda s: s.dropna()
@@ -560,7 +560,7 @@ class ComponentCurator(Curator):
                     pandera_columns[feature.name] = pandera.Column(
                         pandera_dtype,
                         nullable=feature.nullable,
-                        coerce=feature.coerce_dtype,
+                        coerce=feature.coerce,
                         required=required,
                     )
                 if dtype_str.startswith("cat") or dtype_str.startswith("list[cat["):
@@ -588,7 +588,7 @@ class ComponentCurator(Curator):
                 )
             self._pandera_schema = pandera.DataFrameSchema(
                 pandera_columns,
-                coerce=schema.coerce_dtype,
+                coerce=schema.coerce,
                 strict=schema.maximal_set,
                 ordered=schema.ordered_set,
                 index=index,
@@ -690,7 +690,7 @@ class ComponentCurator(Curator):
                 has_dtype_error = "WRONG_DATATYPE" in str(err)
                 error_msg = str(err)
                 if has_dtype_error:
-                    error_msg += "   ▶ Hint: Consider setting 'coerce_dtype=True' to attempt coercing/converting values during validation to the pre-defined dtype."
+                    error_msg += "   ▶ Hint: Consider setting 'coerce=True' to attempt coercing/converting values during validation to the pre-defined dtype."
                 raise ValidationError(error_msg) from err
         else:
             self._cat_manager_validate()
@@ -1940,7 +1940,7 @@ def annotate_artifact(
                 index=index_feature,
                 minimal_set=artifact.schema.minimal_set,
                 maximal_set=artifact.schema.maximal_set,
-                coerce_dtype=artifact.schema.coerce_dtype,
+                coerce=artifact.schema.coerce,
                 ordered_set=artifact.schema.ordered_set,
             )
             if (
@@ -1955,7 +1955,7 @@ def annotate_artifact(
                     if artifact.schema.itype == "Composite"  # backward compat
                     else parse_cat_dtype(artifact.schema.itype, is_itype=True)["field"]
                 )
-                feature_set = Schema(itype=itype, n=len(features))
+                feature_set = Schema(itype=itype, n_members=len(features))
 
             ArtifactSchema.objects.update_or_create(
                 artifact=artifact,
@@ -1983,7 +1983,7 @@ def annotate_artifact(
                 index=index_feature,
                 minimal_set=validating_schema.minimal_set,
                 maximal_set=validating_schema.maximal_set,
-                coerce_dtype=validating_schema.coerce_dtype,
+                coerce=validating_schema.coerce,
                 ordered_set=validating_schema.ordered_set,
             )
             if (
@@ -2001,7 +2001,7 @@ def annotate_artifact(
                         artifact.schema.slots[slot].itype, is_itype=True
                     )["field"]
                 )
-                feature_set = Schema(itype=itype, n=len(features))
+                feature_set = Schema(itype=itype, n_members=len(features))
             ArtifactSchema.objects.update_or_create(
                 artifact=artifact, slot=slot, defaults={"schema": feature_set.save()}
             )

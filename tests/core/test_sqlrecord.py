@@ -28,6 +28,9 @@ def test_feature_describe():
         .array_size: IntegerField
         .array_shape: JSONField
         .synonyms: TextField
+        .default_value: JSONField
+        .nullable: BooleanField
+        .coerce: BooleanField
         .is_type: BooleanField
         .is_locked: BooleanField
         .created_at: DateTimeField
@@ -42,7 +45,7 @@ def test_feature_describe():
         .features: Feature
         .values: JsonValue
         .projects: Project
-        .blocks: FeatureBlock
+        .ablocks: FeatureBlock
     """).strip()
     assert description == ln.Feature.describe(return_str=True)
 
@@ -87,7 +90,7 @@ def test_artifact_describe():
         .records: Record
         .references: Reference
         .projects: Project
-        .blocks: Block
+        .ablocks: ArtifactBlock
       Bionty fields
         .organisms: bionty.Organism
         .genes: bionty.Gene
@@ -327,18 +330,18 @@ def test_using():
 def test_get_record_kwargs():
     assert _get_record_kwargs(ln.Feature) == [
         ("name", "str"),
-        ("dtype", "Dtype | Registry | list[Registry] | FieldAttr"),
+        ("dtype", "DtypeStr | ULabel | Record | Registry | list[Registry] | FieldAttr"),
         ("type", "Feature | None"),
         ("is_type", "bool"),
         ("unit", "str | None"),
         ("description", "str | None"),
         ("synonyms", "str | None"),
-        ("nullable", "bool"),
+        ("nullable", "bool | None"),
         (
             "default_value",
-            "str | None",
+            "Any | None",
         ),
-        ("coerce_dtype", "bool"),
+        ("coerce", "bool | None"),
         (
             "cat_filters",
             "dict[str",

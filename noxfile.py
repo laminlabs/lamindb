@@ -152,19 +152,11 @@ def install_ci(session, group):
     elif group == "cli":
         pass
     elif group == "permissions":
-        run(
-            session,
-            "uv pip install --system --no-deps ./laminhub/backend/laminhub_rest/hubmodule",
-        )
-        # check that just installing psycopg (psycopg3) doesn't break fine-grained access
-        # comment out for now, this is also tested in lamindb-setup hub-local
-        # run(session, "uv pip install --system psycopg[binary]")
+        pass
 
     extras = "," + extras if extras != "" else extras
     run(session, f"uv pip install --system -e .[dev{extras}]")
 
-    # needed here till the next release of lamindb-setup
-    run(session, "uv pip install --system httpx_retries")
     # on the release branch, do not use submodules but run with pypi install
     # only exception is the docs group which should always use the submodule
     # to push docs fixes fast
@@ -177,19 +169,15 @@ def install_ci(session, group):
         )
     if group == "permissions":
         # have to install after lamindb installation
-        # because lamindb downgrades django
-        run(
-            session,
-            "uv pip install --system sentry_sdk line_profiler setuptools wheel==0.45.1 flit",
-        )
-        run(
-            session,
-            "uv pip install --system ./laminhub/backend --no-build-isolation",
-        )
-        run(
-            session,
-            "uv pip install --system ./laminhub/backend/central",
-        )
+        # because lamindb downgrades django required by laminhub_rest
+        cmds = "uv pip install --system sentry_sdk line_profiler setuptools wheel==0.45.1 flit"
+        cmds += "\nuv pip install --system --no-build-isolation ./laminhub/backend"
+        cmds += "\nuv pip install --system ./laminhub/backend/utils"
+        cmds += "\nuv pip install --system ./laminhub/backend/central"
+        cmds += "\nuv pip install --system ./laminhub/backend/dbinstance"
+        cmds += "\nuv pip install --system ./laminhub/backend/aws"
+        cmds += "\nuv pip install --system --no-deps ./laminhub/backend/laminhub_rest/hubmodule"
+        [run(session, line) for line in cmds.splitlines()]
 
 
 @nox.session

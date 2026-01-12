@@ -282,7 +282,7 @@ def test_annotate_with_user_feature():
     schema = ln.Schema(
         name="test_schema_user_feature",
         features=[user_feature],
-        coerce_dtype=True,
+        coerce=True,
     ).save()
     sheet = ln.Record(name="A sheet with users", is_type=True, schema=schema).save()
     record = ln.Record(name="first user", type=sheet).save()

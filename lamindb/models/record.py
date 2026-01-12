@@ -19,7 +19,7 @@ from lamindb.base.fields import (
 from lamindb.base.utils import class_and_instance_method
 from lamindb.errors import FieldValidationError
 
-from ..base.ids import base62_16
+from ..base.uids import base62_16
 from .artifact import Artifact
 from .can_curate import CanCurate
 from .collection import Collection
@@ -40,12 +40,12 @@ if TYPE_CHECKING:
     from datetime import datetime
 
     from ._feature_manager import FeatureManager
-    from .block import RunBlock
+    from .block import RecordBlock
     from .project import Project, RecordProject, RecordReference, Reference
     from .schema import Schema
 
 
-class Record(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, HasParents):
+class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates):
     """Flexible metadata records.
 
     Useful for managing samples, donors, cells, compounds, sequences, and other custom entities with their features.
@@ -172,25 +172,7 @@ class Record(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, HasParents
                     """,
                 ),
             ]
-        constraints = [
-            # unique name for types when type is NULL
-            models.UniqueConstraint(
-                fields=["name"],
-                name="unique_record_type_name_at_root",
-                condition=models.Q(
-                    ~models.Q(branch_id=-1), type__isnull=True, is_type=True
-                ),
-            ),
-            # unique name for types when type is not NULL
-            models.UniqueConstraint(
-                fields=["name", "type"],
-                name="unique_record_type_name_under_type",
-                condition=models.Q(
-                    ~models.Q(branch_id=-1), type__isnull=False, is_type=True
-                ),
-            ),
-            # also see raw SQL constraints for `is_type` and `type` FK validity in migrations
-        ]
+        # also see raw SQL constraints for `is_type` and `type` FK validity in migrations
 
     _name_field: str = "name"
 
@@ -293,7 +275,7 @@ class Record(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, HasParents
     """Collections linked in this record as values."""
     linked_users: User
     """Users linked in this record as values."""
-    blocks: RunBlock
+    ablocks: RecordBlock
     """Blocks that annotate this record."""
     values_json: RecordJson
     """JSON values `(record_id, feature_id, value)`."""

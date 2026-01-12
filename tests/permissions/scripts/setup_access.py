@@ -10,7 +10,7 @@ from hubmodule.dev.setup.install import (
 )
 from hubmodule.sql_generators._rls import RLSGenerator
 from hubmodule.sql_generators._dbwrite import install_dbwrite
-from laminhub_rest.core.postgres import DbRoleHandler
+from laminhub_dbinstance.postgres import DbRoleHandler
 from pathlib import Path
 
 
@@ -58,6 +58,9 @@ no_access = ln.Space(name="no access").save()  # type: ignore
 # set read role for the default space
 usettings = ln.setup.settings.user
 account = hm.Account(id=usettings._uuid.hex, uid=usettings.uid, role="read").save()
+
+# create a test user object
+ln.User(uid="testuid1", handle="testuser", name="Test User").save()
 
 # no access space
 ulabel = ln.ULabel(name="no_access_ulabel")

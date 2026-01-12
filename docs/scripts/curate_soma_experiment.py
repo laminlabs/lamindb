@@ -19,7 +19,7 @@ var_schema = ln.Schema(
     features=[
         ln.Feature(name="var_id", dtype=bt.Gene.ensembl_gene_id).save(),
     ],
-    coerce_dtype=True,
+    coerce=True,
 ).save()
 
 soma_schema = ln.Schema(

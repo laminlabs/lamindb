@@ -57,8 +57,8 @@ from ..base.fields import (
     JSONField,
     TextField,
 )
-from ..base.ids import base62_12
 from ..base.types import FieldAttr, StrField
+from ..base.uids import base62_12
 from ..errors import (
     FieldValidationError,
     InvalidArgument,
@@ -194,7 +194,7 @@ def unique_constraint_error_in_error_message(error_msg: str) -> bool:
     )
 
 
-def parse_violated_field_from_error_message(error_msg: str) -> str | None:
+def parse_violated_field_from_error_message(error_msg: str) -> list[str] | None:
     # Even if the model has multiple fields with unique=True,
     # Django will only raise an IntegrityError for one field at a time
     # - whichever constraint is violated first during the database insert/update operation.
@@ -205,11 +205,47 @@ def parse_violated_field_from_error_message(error_msg: str) -> str | None:
                 .split(", ")[0]
                 .split(".")[-1]
             )
+            return [constraint_field]
         else:  # postgres
-            constraint_field = (
-                error_msg.split('"')[1].removesuffix("_key").split("_")[-1]
-            )
-        return constraint_field
+            # Extract constraint name from double quotes
+            constraint_name = error_msg.split('"')[1]
+
+            # Check if it's a multi-column constraint (contains multiple field names)
+            # Format: tablename_field1_field2_..._hash_uniq
+            if "_uniq" in constraint_name:
+                # Remove '_uniq' suffix first
+                constraint_name = constraint_name.removesuffix("_uniq")
+
+                # Remove hash (8 hex characters at the end)
+                parts = constraint_name.split("_")
+                if len(parts[-1]) == 8 and all(
+                    c in "0123456789abcdef" for c in parts[-1]
+                ):
+                    constraint_name = "_".join(parts[:-1])
+
+                # Remove table name prefix (e.g., "bionty_ethnicity_")
+                # Table name is typically the first 2 parts for app_model format
+                parts = constraint_name.split("_")
+                if len(parts) > 2:
+                    # Assume first 2 parts are table name (e.g., "bionty_ethnicity")
+                    field_string = "_".join(parts[2:])
+                else:
+                    field_string = constraint_name
+
+                # Now parse the fields from DETAIL line
+                # DETAIL: Key (name, ontology_id)=(South Asian, HANCESTRO:0006) already exists.
+                if "Key (" in error_msg:
+                    fields_part = error_msg.split("Key (")[1].split(")=")[0]
+                    fields = [f.strip() for f in fields_part.split(",")]
+                    return fields
+
+                # Fallback if DETAIL line not available
+                return [field_string]
+            else:
+                # Single field constraint (ends with _key)
+                constraint_field = constraint_name.removesuffix("_key").split("_")[-1]
+                return [constraint_field]
+
     return None
 
 
@@ -874,6 +910,7 @@ class Registry(ModelBase):
                         available_fields.add(field_name + "_id")
             if cls.__name__ == "Artifact":
                 available_fields.add("transform")
+                available_fields.add("feature_sets")  # backward compat with lamindb v1
             cls._available_fields = available_fields
         return cls._available_fields
 
@@ -1102,18 +1139,19 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                         "UNIQUE constraint failed" in error_msg
                         or "duplicate key value violates unique constraint" in error_msg
                     )
+                    and hasattr(self, "branch_id")
                 ):
-                    unique_field = parse_violated_field_from_error_message(error_msg)
+                    unique_fields = parse_violated_field_from_error_message(error_msg)
                     # here we query against the all branches with .objects
                     pre_existing_record = self.__class__.objects.get(
-                        **{unique_field: getattr(self, unique_field)}
+                        **{field: getattr(self, field) for field in unique_fields}
                     )
                     # if the existing record is in the default branch, we just return it
                     if pre_existing_record.branch_id == 1:
                         logger.warning(
-                            f"returning {self.__class__.__name__} record with same {unique_field}: '{getattr(self, unique_field)}'"
+                            f"returning {self.__class__.__name__} record with same {unique_fields}: '{ {field: getattr(self, field) for field in unique_fields} }'"
                         )
-                    # if the existing record is in a different branch, we move it to the default branch and update its fields
+                    # if the existing record is in a different branch we update its fields
                     else:
                         # modifies the fields of the existing record with new values of self
                         field_names = [i.name for i in self.__class__._meta.fields]
@@ -1333,7 +1371,7 @@ class Space(BaseSQLRecord):
         "User", CASCADE, default=None, related_name="+", null=True
     )
     """Creator of space."""
-    blocks: SpaceBlock
+    ablocks: SpaceBlock
     """Blocks that annotate this space."""
 
     @overload
@@ -1425,7 +1463,7 @@ class Branch(BaseSQLRecord):
         "User", CASCADE, default=None, related_name="+", null=True
     )
     """Creator of branch."""
-    blocks: BranchBlock
+    ablocks: BranchBlock
     """Blocks that annotate this branch."""
 
     @overload
@@ -2125,15 +2163,21 @@ class SQLRecordInfo:
                 core_module_fields.append(field)
 
         def _get_related_field_type(field) -> str:
-            field_type = (
-                field.related_model.__get_name_with_module__()
-                .replace(
-                    "Artifact", ""
-                )  # some fields have an unnecessary 'Artifact' in their name
-                .replace(
-                    "Collection", ""
-                )  # some fields have an unnecessary 'Collection' in their name
-            )
+            model_name = field.related_model.__get_name_with_module__()
+            # Extract the class name (after the last dot if there's a module prefix)
+            class_name = model_name.split(".")[-1]
+            # Skip replacement for compound names like ArtifactBlock, FeatureBlock, etc.
+            if class_name.endswith("Block"):
+                # Return just the class name for Block types
+                field_type = class_name
+            else:
+                field_type = (
+                    model_name.replace(
+                        "Artifact", ""
+                    ).replace(  # some fields have an unnecessary 'Artifact' in their name
+                        "Collection", ""
+                    )  # some fields have an unnecessary 'Collection' in their name
+                )
             return (
                 self._get_type_for_field(field.name)
                 if not field_type.strip()

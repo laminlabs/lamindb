@@ -7,7 +7,7 @@ from django.db import models
 from lamin_utils import logger
 from lamin_utils._base62 import increment_base62
 
-from lamindb.base import ids
+from lamindb.base import uids
 from lamindb.base.fields import (
     BooleanField,
     CharField,
@@ -84,9 +84,8 @@ class IsVersioned(models.Model):
 
         Example::
 
-            artifact = ln.Artifact.from_dataframe(df1, key="my_dataset.parquet").save()
-            new_artifact = ln.Artifact.from_dataframe(df2, key="my_dataset.parquet").save()
-            new_artifact.versions.to_dataframe()  # all versions of the artifact in a dataframe
+            artifact.versions.to_dataframe()       # all versions of the artifact in a dataframe
+            artifact.versions.get(is_latest=True)  # the latest version of the artifact
         """
         return (
             self.__class__.connect(self._state.db)
@@ -215,7 +214,7 @@ def create_uid(
         suid = revises.stem_uid
         vuid = increment_base62(revises.uid[-4:])  # type: ignore
     else:
-        suid = ids.base62(n_full_id - 4)
+        suid = uids.base62(n_full_id - 4)
         vuid = "0000"
     if version_tag is not None:
         if not isinstance(version_tag, str):

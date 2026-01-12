@@ -292,16 +292,16 @@ def test_schema_update(
     assert mini_immuno_schema_flexible.hash == orig_hash
     assert ccaplog.text.count(warning_message) == 4
 
-    # change coerce_dtype (an auxiliary field) --------------------------------
+    # change coerce (formerly auxiliary field, now Django field) --------------------------------
 
-    assert not mini_immuno_schema_flexible.coerce_dtype
-    mini_immuno_schema_flexible.coerce_dtype = True
+    assert not mini_immuno_schema_flexible.coerce
+    mini_immuno_schema_flexible.coerce = True
     mini_immuno_schema_flexible.save()
     assert mini_immuno_schema_flexible.hash != orig_hash
     assert ccaplog.text.count(warning_message) == 5
 
     # restore original setting
-    mini_immuno_schema_flexible.coerce_dtype = False
+    mini_immuno_schema_flexible.coerce = False
     mini_immuno_schema_flexible.save()
     assert mini_immuno_schema_flexible.hash == orig_hash
     assert ccaplog.text.count(warning_message) == 6
@@ -549,20 +549,25 @@ def test_schema_already_saved_aux():
         itype=ln.Feature,
         dtype="DataFrame",
         minimal_set=True,
-        coerce_dtype=True,
+        coerce=True,
     ).save()
 
     schema = ln.Schema(
         name="AnnData schema",
         otype="AnnData",
         minimal_set=True,
-        coerce_dtype=True,
+        coerce=True,
         slots={"var": var_schema},
     ).save()
 
-    assert len(schema.slots["var"]._aux["af"].keys()) == 3
+    # _aux["af"] now only contains key "3" (index_feature_uid) since coerce and flexible are Django fields
+    assert len(schema.slots["var"]._aux["af"].keys()) == 1
+    assert "3" in schema.slots["var"]._aux["af"]  # index_feature_uid
+    # coerce and flexible are now proper Django fields
+    assert schema.slots["var"].coerce is True
+    assert schema.slots["var"].flexible is False
 
-    # Attempting to save the same schema again should return the Schema with the same `.aux` fields
+    # Attempting to save the same schema again should return the Schema with the same fields
     var_schema_2 = ln.Schema(
         name="test var",
         index=ln.Feature(
@@ -577,19 +582,21 @@ def test_schema_already_saved_aux():
         itype=ln.Feature,
         dtype="DataFrame",
         minimal_set=True,
-        coerce_dtype=True,
+        coerce=True,
     ).save()
 
     schema_2 = ln.Schema(
         name="AnnData schema",
         otype="AnnData",
         minimal_set=True,
-        coerce_dtype=True,
+        coerce=True,
         slots={"var": var_schema_2},
     ).save()
 
-    assert len(schema.slots["var"]._aux["af"].keys()) == 3
+    assert len(schema.slots["var"]._aux["af"].keys()) == 1
     assert schema.slots["var"]._aux == schema_2.slots["var"]._aux
+    assert schema.slots["var"].coerce == schema_2.slots["var"].coerce
+    assert schema.slots["var"].flexible == schema_2.slots["var"].flexible
 
     schema_2.delete(permanent=True)
     schema.delete(permanent=True)

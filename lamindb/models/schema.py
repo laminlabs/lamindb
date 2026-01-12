@@ -10,7 +10,6 @@ from lamin_utils import logger
 from lamindb_setup.core import deprecated
 from lamindb_setup.core.hashing import HASH_LENGTH, hash_string
 
-from lamindb.base import ids
 from lamindb.base.fields import (
     BooleanField,
     CharField,
@@ -19,6 +18,7 @@ from lamindb.base.fields import (
     TextField,
 )
 from lamindb.base.types import FieldAttr, ListLike
+from lamindb.base.uids import base62_16
 from lamindb.base.utils import class_and_instance_method
 from lamindb.errors import FieldValidationError, InvalidArgument
 from lamindb.models.feature import parse_cat_dtype
@@ -53,6 +53,7 @@ if TYPE_CHECKING:
     from django.db.models.query_utils import DeferredAttribute
 
     from .artifact import Artifact
+    from .block import SchemaBlock
     from .project import Project
     from .query_set import QuerySet, SQLRecordList
     from .record import Record
@@ -178,7 +179,7 @@ KNOWN_SCHEMAS = {  # by hash
 }
 
 
-class Schema(SQLRecord, HasType, CanCurate, TracksRun):
+class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     """Schemas of datasets such as column sets of dataframes.
 
     .. note::
@@ -211,9 +212,9 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun):
             See :attr:`~lamindb.Schema.optionals` for more-fine-grained control.
         maximal_set: `bool = False` Whether additional features are allowed.
         ordered_set: `bool = False` Whether features are required to be ordered.
-        coerce_dtype: `bool = False` When True, attempts to coerce values to the specified dtype
-            during validation, see :attr:`~lamindb.Schema.coerce_dtype`.
-        n: `int | None = None` A manual way of specifying the number of features in the schema. Is inferred from `features` if passed.
+        coerce: `bool | None = None` When True, attempts to coerce values to the specified dtype
+            during validation, see :attr:`~lamindb.Schema.coerce`.
+        n_members: `int | None = None` A manual way of specifying the number of features in the schema. Is inferred from `features` if passed.
 
     See Also:
         :meth:`~lamindb.Artifact.from_dataframe`
@@ -287,45 +288,55 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun):
     class Meta(SQLRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
         abstract = False
         app_label = "lamindb"
-        constraints = [
-            # unique name for types when type is NULL
-            models.UniqueConstraint(
-                fields=["name"],
-                name="unique_schema_type_name_at_root",
-                condition=models.Q(
-                    ~models.Q(branch_id=-1), type__isnull=True, is_type=True
-                ),
-            ),
-            # unique name for types when type is not NULL
-            models.UniqueConstraint(
-                fields=["name", "type"],
-                name="unique_schema_type_name_under_type",
-                condition=models.Q(
-                    ~models.Q(branch_id=-1), type__isnull=False, is_type=True
-                ),
-            ),
-            # also see raw SQL constraints for `is_type` and `type` FK validity in migrations
-        ]
+        # also see raw SQL constraints for `is_type` and `type` FK validity in migrations
 
     _name_field: str = "name"
     _aux_fields: dict[str, tuple[str, type]] = {
-        "0": ("coerce_dtype", bool),
         "1": ("optionals", list[str]),
-        "2": ("flexible", bool),
         "3": ("index_feature_uid", str),
     }
 
     id: int = models.AutoField(primary_key=True)
     """Internal id, valid only in one DB instance."""
-    # Before lamindb 1.5, it was 20 char long. Since lamindb 1.5, it is 16 char long.
-    uid: str = CharField(editable=False, unique=True, db_index=True, max_length=20)
+    uid: str = CharField(max_length=16, unique=True, db_index=True, editable=False)
     """A universal id."""
     name: str | None = CharField(max_length=150, null=True, db_index=True)
     """A name."""
     description: str | None = TextField(null=True)
     """A description."""
-    n: int = IntegerField()
-    """Number of features in the schema."""
+    n_members: int | None = IntegerField(null=True, default=None)
+    """Number of features in the schema. None for type-like schemas."""
+    coerce: bool | None = BooleanField(null=True, default=None)
+    """Whether dtypes should be coerced during validation. None for type-like schemas."""
+    flexible: bool | None = BooleanField(null=True, default=None)
+    """Indicates how to handle validation and annotation in case features are not defined.
+
+    Examples:
+        Make a rigid schema flexible::
+
+            schema = ln.Schema.get(name="my_schema")
+            schema.flexible = True
+            schema.save()
+
+        During schema creation::
+
+            # if you're not passing features but just defining the itype, defaults to flexible = True
+            schema = ln.Schema(itype=ln.Feature).save()
+            # schema.flexible is True
+
+            # if you're passing features, defaults to flexible = False
+            schema = ln.Schema(
+                features=[ln.Feature(name="my_required_feature", dtype=int).save()],
+            )
+            # schema.flexible is False
+
+            # you can also validate & annotate features in addition to those that you're explicitly defining:
+            schema = ln.Schema(
+                features=[ln.Feature(name="my_required_feature", dtype=int).save()],
+                flexible=True,
+            )
+            # schema.flexible is True
+    """
     type: Schema | None = ForeignKey("self", PROTECT, null=True, related_name="schemas")
     """Type of schema.
 
@@ -335,7 +346,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun):
 
     Here are a few more examples for type names: `'ExpressionPanel'`, `'ProteinPanel'`, `'Multimodal'`, `'Metadata'`, `'Embedding'`.
     """
-    instances: Schema
+    schemas: Schema
     """Schemas of this type (can only be non-empty if `is_type` is `True`)."""
     itype: str | None = CharField(
         max_length=120, db_index=True, null=True, editable=False
@@ -391,10 +402,10 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun):
     """The artifacts that were validated against this schema with a :class:`~lamindb.curators.core.Curator`."""
     projects: Project
     """Linked projects."""
-    schemas: Schema
-    """Schemas for this type."""
     records: Record
     """Records that were annotated with this schema."""
+    ablocks: SchemaBlock
+    """Blocks that annotate this schema."""
 
     @overload
     def __init__(
@@ -417,8 +428,8 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun):
         minimal_set: bool = True,
         maximal_set: bool = False,
         ordered_set: bool = False,
-        coerce_dtype: bool = False,
-        n: int | None = None,
+        coerce: bool | None = None,
+        n_members: int | None = None,
     ): ...
 
     @overload
@@ -454,9 +465,25 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun):
         minimal_set: bool = kwargs.pop("minimal_set", True)
         ordered_set: bool = kwargs.pop("ordered_set", False)
         maximal_set: bool = kwargs.pop("maximal_set", False)
-        coerce_dtype: bool | None = kwargs.pop("coerce_dtype", False)
+        if "coerce_dtype" in kwargs:
+            warnings.warn(
+                "`coerce_dtype` argument was renamed to `coerce` and will be removed in a future release.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            coerce_dtype = kwargs.pop("coerce_dtype")
+        else:
+            coerce_dtype = kwargs.pop("coerce", None)
         using: str | None = kwargs.pop("using", None)
-        n_features: int | None = kwargs.pop("n", None)
+        if "n" in kwargs:
+            warnings.warn(
+                "`n` argument was renamed to `n_members` and will be removed in a future release.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            n_features = kwargs.pop("n")
+        else:
+            n_features = kwargs.pop("n_members", None)
         kwargs.pop("branch", None)
         kwargs.pop("branch_id", 1)
         kwargs.pop("space", None)
@@ -494,7 +521,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun):
             minimal_set=minimal_set,
             ordered_set=ordered_set,
             maximal_set=maximal_set,
-            coerce_dtype=coerce_dtype,
+            coerce=coerce_dtype,
             n_features=n_features,
         )
         if not features and not slots and not is_type and not itype:
@@ -531,7 +558,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun):
         if validated_kwargs["hash"] in KNOWN_SCHEMAS:
             validated_kwargs["uid"] = KNOWN_SCHEMAS[validated_kwargs["hash"]]
         else:
-            validated_kwargs["uid"] = ids.base62_16()
+            validated_kwargs["uid"] = base62_16()
 
         super().__init__(**validated_kwargs)
 
@@ -559,7 +586,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun):
         minimal_set: bool,
         ordered_set: bool,
         maximal_set: bool,
-        coerce_dtype: bool,
+        coerce: bool | None,
         n_features: int | None,
         optional_features_manual: list[Feature] | None = None,
     ) -> tuple[list[Feature], dict[str, Any], list[Feature], Registry, bool]:
@@ -596,8 +623,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun):
                     assert optional_features_manual is None  # noqa: S101
                 if not optional_features and optional_features_manual is not None:
                     optional_features = optional_features_manual
-        elif n_features is None:
-            n_features = -1
+        # n_features stays None if no features passed (flexible schema)
         if dtype is None:
             dtype = None if itype is not None and itype == "Feature" else NUMBER_TYPE
         else:
@@ -605,7 +631,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun):
         if slots:
             if otype is None:
                 raise InvalidArgument("Please pass otype != None for composite schemas")
-        flexible_default = n_features < 0
+        flexible_default = n_features is None
         if flexible is None:
             flexible = flexible_default
         if itype is not None and not isinstance(itype, str):
@@ -619,31 +645,25 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun):
             "is_type": is_type,
             "_dtype_str": dtype,
             "otype": otype,
-            "n": n_features,
+            "n_members": n_features,
             "itype": itype_str,
             "minimal_set": minimal_set,
             "ordered_set": ordered_set,
             "maximal_set": maximal_set,
+            "coerce": coerce if coerce else None,
+            "flexible": flexible,
         }
-        n_features_default = -1
-        coerce_dtype_default = False
+        n_features_default = (
+            None  # None means flexible schema (no fixed number of features)
+        )
+        coerce_default = False
         aux_dict: dict[str, dict[str, bool | str | list[str]]] = {}
 
-        # TODO: leverage a common abstraction across the properties and this here
-
-        # coerce_dtype (key "0")
-        if coerce_dtype:
-            aux_dict.setdefault("af", {})["0"] = coerce_dtype
-
-        # optional features (key "1")
+        # optional features (key "1") - remains in _aux
         if optional_features:
             aux_dict.setdefault("af", {})["1"] = [f.uid for f in optional_features]
 
-        # flexible (key "2")
-        if flexible is not None:
-            aux_dict.setdefault("af", {})["2"] = flexible
-
-        # index feature (key "3")
+        # index feature (key "3") - remains in _aux
         if index is not None:
             aux_dict.setdefault("af", {})["3"] = index.uid
 
@@ -673,9 +693,9 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun):
         # only include in hash if not default so that it's backward compatible with records for which flexible was never set
         if flexible != flexible_default:
             list_for_hashing.append(f"{HASH_CODE['flexible']}={flexible}")
-        if coerce_dtype != coerce_dtype_default:
-            list_for_hashing.append(f"{HASH_CODE['coerce_dtype']}={coerce_dtype}")
-        if n_features != n_features_default:
+        if coerce is not None and coerce != coerce_default:
+            list_for_hashing.append(f"{HASH_CODE['coerce_dtype']}={coerce}")
+        if n_features is not None and n_features != n_features_default:
             list_for_hashing.append(f"{HASH_CODE['n']}={n_features}")
         if index is not None:
             list_for_hashing.append(f"{HASH_CODE['index']}={index.uid}")
@@ -884,8 +904,8 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun):
                 minimal_set=self.minimal_set,
                 ordered_set=self.ordered_set,
                 maximal_set=self.maximal_set,
-                coerce_dtype=self.coerce_dtype,
-                n_features=self.n,
+                coerce=self.coerce,
+                n_features=self.n_members,
                 optional_features_manual=self.optionals.get(),
             )
             if validated_kwargs["hash"] != self.hash:
@@ -902,7 +922,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun):
                             f"you updated the schema hash and might invalidate datasets that were previously validated with this schema:\n{datasets.to_dataframe()}"
                         )
                 self.hash = validated_kwargs["hash"]
-                self.n = validated_kwargs["n"]
+                self.n_members = validated_kwargs["n_members"]
         super().save(*args, **kwargs)
         if hasattr(self, "_slots"):
             # analogous to save_schema_links in core._data.py
@@ -918,7 +938,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun):
             bulk_create(links, ignore_conflicts=True)
             delattr(self, "_slots")
         if hasattr(self, "_features"):
-            assert self.n > 0  # noqa: S101
+            assert self.n_members > 0  # noqa: S101
             using: bool | None = kwargs.pop("using", None)
             related_name, records = self._features
 
@@ -977,64 +997,24 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun):
         self._dtype_str = value
 
     @property
-    def coerce_dtype(self) -> bool:
-        """Whether dtypes should be coerced during validation.
-
-        For example, a `objects`-dtyped pandas column can be coerced to `categorical` and would pass validation if this is true.
-        """
-        if self._aux is not None and "af" in self._aux and "0" in self._aux["af"]:  # type: ignore
-            return self._aux["af"]["0"]  # type: ignore
-        else:
-            return False
+    @deprecated("coerce")
+    def coerce_dtype(self) -> bool | None:
+        """Alias for coerce (backward compatibility)."""
+        return self.coerce
 
     @coerce_dtype.setter
-    def coerce_dtype(self, value: bool) -> None:
-        self._aux = self._aux or {}
-        self._aux.setdefault("af", {})["0"] = value
+    def coerce_dtype(self, value: bool | None) -> None:
+        self.coerce = value
 
     @property
-    def flexible(self) -> bool:
-        """Indicates how to handle validation and annotation in case features are not defined.
+    @deprecated("n_members")
+    def n(self) -> int | None:
+        """Alias for n_members (backward compatibility)."""
+        return self.n_members
 
-        Examples:
-
-            Make a rigid schema flexible::
-
-                schema = ln.Schema.get(name="my_schema")
-                schema.flexible = True
-                schema.save()
-
-            During schema creation::
-
-                # if you're not passing features but just defining the itype, defaults to flexible = True
-                schema = ln.Schema(itype=ln.Feature).save()
-                # schema.flexible is True
-
-                # if you're passing features, defaults to flexible = False
-                schema = ln.Schema(
-                    features=[ln.Feature(name="my_required_feature", dtype=int).save()],
-                )
-                # schema.flexible is False
-
-                # you can also validate & annotate features in addition to those that you're explicitly defining:
-                schema = ln.Schema(
-                    features=[ln.Feature(name="my_required_feature", dtype=int).save()],
-                    flexible=True,
-                )
-                # schema.flexible is True
-
-        """
-        if self._aux is not None and "af" in self._aux and "2" in self._aux["af"]:  # type: ignore
-            return self._aux["af"]["2"]  # type: ignore
-        else:
-            return (
-                self.n < 0
-            )  # is the flexible default, needed for backward compat if flexible was never set
-
-    @flexible.setter
-    def flexible(self, value: bool) -> None:
-        self._aux = self._aux or {}
-        self._aux.setdefault("af", {})["2"] = value
+    @n.setter
+    def n(self, value: int | None) -> None:
+        self.n_members = value
 
     @property
     def index(self) -> None | Feature:
@@ -1224,3 +1204,136 @@ class SchemaComponent(BaseSQLRecord, IsLink, TracksRun):
 
 
 Schema._get_related_name = _get_related_name
+
+
+# PostgreSQL migration helpers for auxiliary fields
+# These are used by migrations to efficiently migrate data from _aux to Django fields
+
+
+def migrate_auxiliary_fields_postgres(schema_editor) -> None:
+    """Migrate _aux['af'] fields to Django fields using PostgreSQL raw SQL.
+
+    This efficiently migrates auxiliary fields for all affected models:
+
+    **Artifact:**
+    - _save_completed from _aux['af']['0']
+
+    **Run:**
+    - cli_args from _aux['af']['0']
+
+    **Feature:**
+    - default_value from _aux['af']['0']
+    - nullable from _aux['af']['1'] (default: True)
+    - coerce from _aux['af']['2'] (default: False)
+    - For type features (is_type=True), all values are set to NULL
+
+    **Schema:**
+    - coerce from _aux['af']['0']
+    - flexible from _aux['af']['2'] (or computed from n_members)
+    - n_members (converted from negative to NULL)
+    - For type schemas (is_type=True), all values are set to NULL
+    - Keys '1' (optionals) and '3' (index_feature_uid) are preserved in _aux
+    """
+    # Artifact: migrate _save_completed from _aux->'af'->'0'
+    schema_editor.execute("""
+        UPDATE lamindb_artifact
+        SET _save_completed = (_aux->'af'->>'0')::boolean,
+            _aux = CASE
+                WHEN _aux->'af' IS NOT NULL THEN
+                    CASE
+                        WHEN _aux - 'af' = '{}'::jsonb THEN NULL
+                        ELSE _aux - 'af'
+                    END
+                ELSE _aux
+            END
+        WHERE _aux IS NOT NULL AND _aux->'af' IS NOT NULL
+    """)
+
+    # Run: migrate cli_args from _aux->'af'->'0'
+    schema_editor.execute("""
+        UPDATE lamindb_run
+        SET cli_args = _aux->'af'->>'0',
+            _aux = CASE
+                WHEN _aux - 'af' = '{}'::jsonb THEN NULL
+                ELSE _aux - 'af'
+            END
+        WHERE _aux IS NOT NULL AND _aux ? 'af'
+    """)
+
+    # Feature: migrate default_value, nullable, coerce
+    # For type features: set all to NULL
+    schema_editor.execute("""
+        UPDATE lamindb_feature
+        SET default_value = NULL,
+            nullable = NULL,
+            coerce = NULL,
+            _aux = CASE
+                WHEN _aux->'af' IS NOT NULL THEN
+                    CASE
+                        WHEN _aux - 'af' = '{}'::jsonb THEN NULL
+                        ELSE _aux - 'af'
+                    END
+                ELSE _aux
+            END
+        WHERE is_type = TRUE
+    """)
+    # For regular features: migrate values with defaults
+    schema_editor.execute("""
+        UPDATE lamindb_feature
+        SET default_value = _aux->'af'->'0',
+            nullable = COALESCE((_aux->'af'->>'1')::boolean, TRUE),
+            coerce = COALESCE((_aux->'af'->>'2')::boolean, FALSE),
+            _aux = CASE
+                WHEN _aux->'af' IS NOT NULL THEN
+                    CASE
+                        WHEN _aux - 'af' = '{}'::jsonb THEN NULL
+                        ELSE _aux - 'af'
+                    END
+                ELSE _aux
+            END
+        WHERE is_type = FALSE OR is_type IS NULL
+    """)
+
+    # Schema: migrate coerce, flexible, n_members
+    # For type schemas: set all to NULL
+    schema_editor.execute("""
+        UPDATE lamindb_schema
+        SET coerce = NULL,
+            flexible = NULL,
+            n_members = NULL,
+            _aux = CASE
+                WHEN _aux->'af' IS NOT NULL THEN
+                    CASE
+                        WHEN ((_aux->'af') #- ARRAY['0'] #- ARRAY['2']) = '{}'::jsonb THEN
+                            CASE WHEN (_aux #- ARRAY['af']) = '{}'::jsonb THEN NULL ELSE _aux #- ARRAY['af'] END
+                        ELSE jsonb_set(_aux #- ARRAY['af'], '{af}', (_aux->'af') #- ARRAY['0'] #- ARRAY['2'])
+                    END
+                ELSE _aux
+            END
+        WHERE is_type = TRUE
+    """)
+    # For regular schemas: migrate values
+    # Keep '1' (optionals) and '3' (index_feature_uid) in _aux
+    schema_editor.execute("""
+        UPDATE lamindb_schema
+        SET coerce = (_aux->'af'->>'0')::boolean,
+            flexible = COALESCE(
+                (_aux->'af'->>'2')::boolean,
+                n_members IS NULL OR n_members < 0
+            ),
+            n_members = CASE WHEN n_members < 0 THEN NULL ELSE n_members END,
+            _aux = CASE
+                WHEN _aux->'af' IS NOT NULL THEN
+                    CASE
+                        WHEN ((_aux->'af') #- ARRAY['0'] #- ARRAY['2']) = '{}'::jsonb THEN
+                            CASE WHEN (_aux #- ARRAY['af']) = '{}'::jsonb THEN NULL ELSE _aux #- ARRAY['af'] END
+                        ELSE jsonb_set(
+                            CASE WHEN (_aux #- ARRAY['af']) = '{}'::jsonb THEN '{}'::jsonb ELSE _aux #- ARRAY['af'] END,
+                            '{af}',
+                            (_aux->'af') #- ARRAY['0'] #- ARRAY['2']
+                        )
+                    END
+                ELSE _aux
+            END
+        WHERE is_type = FALSE OR is_type IS NULL
+    """)

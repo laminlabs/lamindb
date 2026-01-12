@@ -101,7 +101,7 @@ def mudata_papalexi21_subset_schema():
             ln.Feature(name="nFeature_RNA", dtype=int).save(),
             ln.Feature(name="percent.mito", dtype=float).save(),
         ],
-        coerce_dtype=True,
+        coerce=True,
     ).save()
 
     obs_schema_hto = ln.Schema(
@@ -111,7 +111,7 @@ def mudata_papalexi21_subset_schema():
             ln.Feature(name="nFeature_HTO", dtype=int).save(),
             ln.Feature(name="technique", dtype=bt.ExperimentalFactor).save(),
         ],
-        coerce_dtype=True,
+        coerce=True,
     ).save()
 
     var_schema_rna = ln.Schema(
@@ -910,7 +910,7 @@ def test_tiledbsoma_curator(clean_soma_files):
         features=[
             ln.Feature(name="var_id", dtype=bt.Gene.ensembl_gene_id).save(),
         ],
-        coerce_dtype=True,
+        coerce=True,
     ).save()
 
     soma_schema = ln.Schema(

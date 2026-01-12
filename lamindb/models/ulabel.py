@@ -15,7 +15,7 @@ from lamindb.base.fields import (
 )
 from lamindb.errors import FieldValidationError
 
-from ..base.ids import base62_8
+from ..base.uids import base62_8
 from .can_curate import CanCurate
 from .feature import Feature
 from .has_parents import HasParents, _query_relatives
@@ -27,6 +27,7 @@ if TYPE_CHECKING:
     from datetime import datetime
 
     from .artifact import Artifact
+    from .block import ULabelBlock
     from .collection import Collection
     from .project import Project
     from .query_set import QuerySet
@@ -114,25 +115,7 @@ class ULabel(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
                     """,
                 ),
             ]
-        constraints = [
-            # unique name for types when type is NULL
-            models.UniqueConstraint(
-                fields=["name"],
-                name="unique_ulabel_type_name_at_root",
-                condition=models.Q(
-                    ~models.Q(branch_id=-1), type__isnull=True, is_type=True
-                ),
-            ),
-            # unique name for types when type is not NULL
-            models.UniqueConstraint(
-                fields=["name", "type"],
-                name="unique_ulabel_type_name_under_type",
-                condition=models.Q(
-                    ~models.Q(branch_id=-1), type__isnull=False, is_type=True
-                ),
-            ),
-            # also see raw SQL constraints for `is_type` and `type` FK validity in migrations
-        ]
+        # also see raw SQL constraints for `is_type` and `type` FK validity in migrations
 
     _name_field: str = "name"
 
@@ -189,6 +172,8 @@ class ULabel(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         related_name="linked_ulabels",
     )
     """Records linking this ulabel as a value."""
+    ablocks: ULabelBlock
+    """Blocks that annotate this ulabel."""
 
     @overload
     def __init__(
