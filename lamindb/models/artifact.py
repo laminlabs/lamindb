@@ -1942,6 +1942,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             kwargs["format"] = ".csv"
         if schema == "valid_features":
             schema = examples.schemas.valid_features()
+
         to_disk_kwargs: dict[str, Any] = parquet_kwargs or csv_kwargs
         artifact = Artifact(  # type: ignore
             path=df,
@@ -1954,7 +1955,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             to_disk_kwargs=to_disk_kwargs,
             **kwargs,
         )
-        artifact.n_observations = len(df)
+        if isinstance(df, pd.DataFrame):
+            artifact.n_observations = len(df)
         if features is not None:
             artifact._external_features = features
         if schema is not None:
