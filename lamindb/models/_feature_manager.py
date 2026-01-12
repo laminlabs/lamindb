@@ -1150,10 +1150,11 @@ class FeatureManager:
             if self._get_external_schema():
                 raise ValueError("Cannot add values if artifact has external schema.")
         if schema is not None:
-            ExperimentalDictCurator(values, schema).validate()
             feature_records = schema.members.filter(name__in=keys)
         else:
             feature_records = self._get_feature_records(dictionary, feature_field)
+            schema = Schema(feature_records)
+        ExperimentalDictCurator(values, schema).validate()
         return self._add_values(feature_records, dictionary)
 
     def _add_values(self, feature_records, dictionary):
@@ -1169,46 +1170,11 @@ class FeatureManager:
             value = dictionary[feature.name]
             if value is None:
                 continue
-            inferred_type, converted_value, _ = infer_feature_type_convert_json(
-                feature.name,
-                value,
-                mute=True,
-            )
-            dtype_str = feature._dtype_str
-            if dtype_str == "num" or dtype_str == "list[num]":
-                if not ("int" in inferred_type or "float" in inferred_type):
-                    raise TypeError(
-                        f"Value for feature '{feature.name}' with dtype {dtype_str} must be a number, but is {value} with dtype {inferred_type}"
-                    )
-            elif dtype_str.startswith("cat"):
-                if inferred_type != "?":
-                    if not (
-                        inferred_type.startswith("cat")
-                        or inferred_type == "list[cat ? str]"
-                        or isinstance(value, SQLRecord)
-                        or is_iterable_of_sqlrecord(value)
-                    ):
-                        raise TypeError(
-                            f"Value for feature '{feature.name}' with dtype '{dtype_str}' must be a string or record, but is {value} with dtype {inferred_type}"
-                        )
-            elif (
-                (dtype_str == "str" and inferred_type != "cat ? str")
-                or (dtype_str == "list[str]" and inferred_type != "list[cat ? str]")
-                or (
-                    dtype_str.startswith("list[cat")
-                    and not inferred_type.startswith("list[cat")
-                )
-                or (
-                    dtype_str not in {"str", "list[str]"}
-                    and not dtype_str.startswith("list[cat")
-                    and dtype_str != inferred_type
-                )
+            if not (
+                feature.dtype_as_str.startswith("cat")
+                or feature.dtype_as_str.startswith("list[cat")
             ):
-                raise ValidationError(
-                    f"Expected dtype for '{feature.name}' is '{dtype_str}', got '{inferred_type}'"
-                )
-            if not (dtype_str.startswith("cat") or dtype_str.startswith("list[cat")):
-                filter_kwargs = {"feature": feature, "value": converted_value}
+                filter_kwargs = {"feature": feature, "value": value}
                 if host_is_record:
                     filter_kwargs["record"] = self._host
                     feature_value = RecordJson(**filter_kwargs)
