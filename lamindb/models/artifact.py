@@ -1957,6 +1957,15 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         )
         if isinstance(df, pd.DataFrame):
             artifact.n_observations = len(df)
+        else:
+            path = UPath(df)
+            if path.suffix == ".parquet":
+                import pyarrow.parquet as pq
+
+                artifact.n_observations = pq.read_metadata(path).num_rows
+            else:
+                # csv/tsv/others have no metadata and would require a full expensive read
+                artifact.n_observations = None
         if features is not None:
             artifact._external_features = features
         if schema is not None:
