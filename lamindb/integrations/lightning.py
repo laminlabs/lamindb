@@ -1,6 +1,6 @@
 """PyTorch Lightning integration for LaminDB.
 
-.. autoclass:: LaminCheckpoint
+.. autoclass:: Checkpoint
 .. autoclass:: SaveConfigCallback
 .. autofunction:: save_lightning_features
 """
@@ -24,7 +24,7 @@ if TYPE_CHECKING:
     from lightning.fabric.utilities.types import _PATH
 
 
-_AUTO_FEATURES: Final = frozenset(
+_SUPPORTED_AUTO_FEATURES: Final = frozenset(
     {
         "is_best_model",
         "score",
@@ -36,9 +36,9 @@ _AUTO_FEATURES: Final = frozenset(
 
 
 def save_lightning_features() -> None:
-    """Register LaminDB features used by LaminCheckpoint.
+    """Register LaminDB features used by the lightning integration Checkpoint.
 
-    Creates the following features if they don't already exist:
+    Creates the following features if they do not already exist:
 
     - is_best_model (bool): Whether this checkpoint is the best model.
     - score (float): The monitored metric score.
@@ -60,9 +60,9 @@ def save_lightning_features() -> None:
 
 
 class Checkpoint(ModelCheckpoint):
-    """ModelCheckpoint that uploads checkpoints to LaminDB.
+    """ModelCheckpoint that annotates torch lightning checkpoints.
 
-    Extends Lightning's ModelCheckpoint with LaminDB artifact tracking.
+    Extends Lightning's ModelCheckpoint with artifact creation & feature annotation.
 
     Two modes are supported:
 
@@ -109,7 +109,7 @@ class Checkpoint(ModelCheckpoint):
             ll.save_lightning_features()
 
             # Versioned checkpoints (for tracking)
-            callback = ll.LaminCheckpoint(
+            callback = ll.Checkpoint(
                 key="experiments/my_model.ckpt",
                 features={"val_loss": None},  # auto-populated from trainer
                 monitor="val_loss",
@@ -118,7 +118,7 @@ class Checkpoint(ModelCheckpoint):
             )
 
             # Semantic paths (for deployment)
-            callback = ll.LaminCheckpoint(
+            callback = ll.Checkpoint(
                 key="deployments/my_model",
                 path_prefix="deployments/my_model/",
                 monitor="val_loss",
@@ -134,7 +134,7 @@ class Checkpoint(ModelCheckpoint):
             # config.yaml
             trainer:
             callbacks:
-                - class_path: lamindb.integrations.lightning.LaminCheckpoint
+                - class_path: lamindb.integrations.lightning.Checkpoint
                 init_args:
                     key: deployments/my_model
                     path_prefix: deployments/my_model/
@@ -183,7 +183,7 @@ class Checkpoint(ModelCheckpoint):
         self.key = key
         self.path_prefix = path_prefix
         self.features = features or {}
-        self._auto_features: set[str] = set()
+        self._available_auto_features: set[str] = set()
 
     def setup(
         self, trainer: pl.Trainer, pl_module: pl.LightningModule, stage: str
@@ -205,9 +205,9 @@ class Checkpoint(ModelCheckpoint):
                 )
 
             # Detect which auto-features are available
-            for name in _AUTO_FEATURES:
+            for name in _SUPPORTED_AUTO_FEATURES:
                 if ln.Feature.filter(name=name).one_or_none() is not None:
-                    self._auto_features.add(name)
+                    self._available_auto_features.add(name)
 
     def _get_artifact_key(self, filepath: str) -> str:
         """Return the artifact key for this checkpoint."""
@@ -223,36 +223,39 @@ class Checkpoint(ModelCheckpoint):
         return {"key": self.key}  # type: ignore[dict-item]
 
     def _save_checkpoint(self, trainer: pl.Trainer, filepath: str) -> None:
-        """Save checkpoint locally and upload to LaminDB."""
+        """Save checkpoint locally and save to the instance."""
         super()._save_checkpoint(trainer, filepath)
         if trainer.is_global_zero:
             artifact = ln.Artifact(
                 filepath,
                 key=self._get_artifact_key(filepath),
                 kind="model",
-                description="Model checkpoint",
+                description="Lightning model checkpoint",
                 _key_is_virtual=self.path_prefix is None,  # type: ignore[call-overload]
             )
             artifact.save()
 
             feature_values: dict[str, Any] = {}
 
-            # Auto-features (tracked if they exist in lamindb)
-            if "logger_name" in self._auto_features and trainer.loggers:
+            # Auto-features (tracked if they exist in the instance)
+            if "logger_name" in self._available_auto_features and trainer.loggers:
                 feature_values["logger_name"] = trainer.loggers[0].name
-            if "logger_version" in self._auto_features and trainer.loggers:
+            if "logger_version" in self._available_auto_features and trainer.loggers:
                 version = trainer.loggers[0].version
                 feature_values["logger_version"] = (
                     version if isinstance(version, str) else f"version_{version}"
                 )
 
             is_best = self.best_model_path == filepath
-            if "is_best_model" in self._auto_features:
+            if "is_best_model" in self._available_auto_features:
                 if is_best:
                     self._clear_best_model_flags()
                 feature_values["is_best_model"] = is_best
 
-            if "score" in self._auto_features and self.current_score is not None:
+            if (
+                "score" in self._available_auto_features
+                and self.current_score is not None
+            ):
                 score = self.current_score
                 if torch.is_tensor(score):
                     score = score.item()
@@ -273,7 +276,7 @@ class Checkpoint(ModelCheckpoint):
             if feature_values:
                 artifact.features.add_values(feature_values)
 
-            if "model_rank" in self._auto_features:
+            if "model_rank" in self._available_auto_features:
                 self._update_model_ranks()
 
     def _clear_best_model_flags(self) -> None:
@@ -300,26 +303,26 @@ class Checkpoint(ModelCheckpoint):
 
 
 class SaveConfigCallback(_SaveConfigCallback):
-    """SaveConfigCallback that also uploads config to the instance.
+    """SaveConfigCallback that also saves config to the instance.
 
-    Use with LightningCLI to save the resolved config.yaml alongside checkpoints.
+    Use with LightningCLI to save the resolved configuration file alongside checkpoints.
 
     Example::
 
         from lightning.pytorch.cli import LightningCLI
-        from lamindb.integrations.lightning import SaveConfigCallback
+        from lamindb.integrations import lightning as ll
 
         cli = LightningCLI(
             MyModel,
             MyDataModule,
-            save_config_callback=SaveConfigCallback,
+            save_config_callback=ll.SaveConfigCallback,
         )
     """
 
     def setup(
         self, trainer: pl.Trainer, pl_module: pl.LightningModule, stage: str
     ) -> None:
-        """Save resolved config.yaml locally and upload alongside checkpoints."""
+        """Save resolved configuration file alongside checkpoints."""
         if self.already_saved:  # type: ignore
             return
 

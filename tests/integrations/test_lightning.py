@@ -85,7 +85,7 @@ def test_checkpoint_basic(
     dataloader: DataLoader,
     artifact_key: str,
 ):
-    """LaminCheckpoint should create versioned artifacts."""
+    """Checkpoint should create versioned artifacts."""
     callback = ll.Checkpoint(artifact_key, monitor="train_loss")
     trainer = pl.Trainer(
         max_epochs=2,
@@ -105,7 +105,7 @@ def test_checkpoint_with_features(
     dataloader: DataLoader,
     artifact_key: str,
 ):
-    """LaminCheckpoint should annotate artifacts with feature values."""
+    """Checkpoint should annotate artifacts with feature values."""
     ln.Feature(name="train_loss", dtype=float).save()
     ln.Feature(name="custom_param", dtype=str).save()
 
@@ -134,7 +134,7 @@ def test_checkpoint_missing_features(
     dataloader: DataLoader,
     artifact_key: str,
 ):
-    """LaminCheckpoint should raise an error when specified features do not exist."""
+    """Checkpoint should raise an error when specified features do not exist."""
     callback = ll.Checkpoint(
         artifact_key,
         features={"nonexistent_feature": None},
@@ -146,8 +146,9 @@ def test_checkpoint_missing_features(
         logger=False,
     )
 
-    with pytest.raises(ValueError, match="Feature nonexistent_feature missing"):
+    with pytest.raises(ValueError) as e:
         trainer.fit(simple_model, dataloader)
+    assert str(e.value).startswith("Feature nonexistent_feature missing")
 
 
 def test_checkpoint_auto_features(
@@ -156,7 +157,7 @@ def test_checkpoint_auto_features(
     artifact_key: str,
     lightning_features: None,
 ):
-    """LaminCheckpoint should auto-track lightning features if they exist."""
+    """Checkpoint should auto-track lightning features if they exist."""
     callback = ll.Checkpoint(
         artifact_key,
         monitor="train_loss",
