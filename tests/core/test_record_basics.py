@@ -335,6 +335,9 @@ def test_record_features_add_remove_values():
     test_record2 = ln.Record(name="test_record").save()
     # we could also test different ways of formatting but don't yet do that
     # in to_dataframe() we enforce ISO format already
+    feature_date = ln.Feature.get(name="feature_date")
+    feature_date.coerce = True  # have to allow coercion because we're passing a string
+    feature_date.save()
     test_values["feature_date"] = "2024-01-02"
     test_record2.features.add_values(test_values)
     test_record2.type = sheet

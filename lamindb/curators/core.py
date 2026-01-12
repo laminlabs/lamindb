@@ -185,11 +185,16 @@ class Curator:
     """
 
     def __init__(
-        self, dataset: Any, schema: Schema, *, features: dict[str, Any] | None = None
+        self,
+        dataset: Any,
+        schema: Schema,
+        *,
+        features: dict[str, Any] | None = None,
+        require_saved_schema: bool = False,
     ) -> None:
         if not isinstance(schema, Schema):
             raise InvalidArgument("schema argument must be a Schema record.")
-        if schema.pk is None:
+        if require_saved_schema and schema.pk is None:
             raise ValueError(
                 "Schema must be saved before curation. Please save it using '.save()'."
             )
@@ -704,6 +709,7 @@ class DataFrameCurator(SlotsCurator):
         dataset: The DataFrame-like object to validate & annotate.
         schema: A :class:`~lamindb.Schema` object that defines the validation constraints.
         slot: Indicate the slot in a composite curator for a composite data structure.
+        require_saved_schema: Whether the schema must be saved before curation.
 
     Examples:
 
@@ -737,6 +743,7 @@ class DataFrameCurator(SlotsCurator):
         *,
         slot: str | None = None,
         features: dict[str, Any] | None = None,
+        require_saved_schema: bool = True,
     ) -> None:
         # loads or opens dataset, dataset may be an artifact
         super().__init__(dataset=dataset, schema=schema, features=features)
@@ -815,6 +822,7 @@ class ExperimentalDictCurator(DataFrameCurator):
         dataset: dict | Artifact,
         schema: Schema,
         slot: str | None = None,
+        require_saved_schema: bool = False,
     ) -> None:
         if not isinstance(dataset, dict) and not isinstance(dataset, Artifact):
             raise InvalidArgument("The dataset must be a dict or dict-like artifact.")
@@ -824,7 +832,9 @@ class ExperimentalDictCurator(DataFrameCurator):
         else:
             d = dataset
         df = convert_dict_to_dataframe_for_validation(d, schema)
-        super().__init__(df, schema, slot=slot)
+        super().__init__(
+            df, schema, slot=slot, require_saved_schema=require_saved_schema
+        )
 
 
 def _resolve_schema_slot_path(
@@ -1308,7 +1318,7 @@ class CatVector:
         self._registry = self._field.field.model
         self._field_name = self._field.field.name
         self._filter_kwargs = {}
-        if filter_str:
+        if filter_str and filter_str != "unsaved":
             self._filter_kwargs.update(
                 resolve_relation_filters(
                     parse_filter_string(filter_str), self._registry
@@ -1723,7 +1733,11 @@ class DataFrameCatManager:
             source=self._sources.get("columns"),
             cat_manager=self,
             maximal_set=self._maximal_set,
-            filter_str="" if schema.flexible else f"schemas__id={schema.id}",
+            filter_str=""
+            if schema.flexible
+            else "unsaved"
+            if schema.id is None
+            else f"schemas__id={schema.id}",
         )
         for feature in self._categoricals:
             result = parse_dtype(feature._dtype_str)[0]

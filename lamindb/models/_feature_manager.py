@@ -650,7 +650,7 @@ def describe_features(
 
 
 def infer_feature_type_convert_json(
-    key: str, value: Any, mute: bool = False
+    key: str, value: Any, mute: bool = False, dtype_str: str | None = None
 ) -> tuple[str, Any, str]:
     from lamindb.base.dtypes import is_valid_datetime_str
 
@@ -666,7 +666,7 @@ def infer_feature_type_convert_json(
     elif isinstance(value, date):
         return "date", value.isoformat(), message
     elif isinstance(value, str):
-        if datetime_str := is_valid_datetime_str(value):
+        if dtype_str is None and (datetime_str := is_valid_datetime_str(value)):
             dt_type = (
                 "date" if len(value) == 10 else "datetime"
             )  # YYYY-MM-DD is exactly 10 characters
@@ -1154,7 +1154,7 @@ class FeatureManager:
         else:
             feature_records = self._get_feature_records(dictionary, feature_field)
             schema = Schema(feature_records)
-        ExperimentalDictCurator(values, schema).validate()
+        ExperimentalDictCurator(values, schema, require_saved_schema=False).validate()
         return self._add_values(feature_records, dictionary)
 
     def _add_values(self, feature_records, dictionary):
@@ -1174,7 +1174,10 @@ class FeatureManager:
                 feature.dtype_as_str.startswith("cat")
                 or feature.dtype_as_str.startswith("list[cat")
             ):
-                filter_kwargs = {"feature": feature, "value": value}
+                _, converted_value, _ = infer_feature_type_convert_json(
+                    key=feature.name, value=value, dtype_str=feature.dtype_as_str
+                )
+                filter_kwargs = {"feature": feature, "value": converted_value}
                 if host_is_record:
                     filter_kwargs["record"] = self._host
                     feature_value = RecordJson(**filter_kwargs)
