@@ -1169,12 +1169,27 @@ class FeatureManager:
             value = dictionary[feature.name]
             if value is None:
                 continue
-            inferred_type, converted_value, _ = infer_feature_type_convert_json(
-                feature.name,
-                value,
-                mute=True,
-            )
             dtype_str = feature._dtype_str
+            # If feature has explicit dtype "str" or "list[str]", skip datetime inference
+            # to avoid incorrectly interpreting strings like "00810702-0006" as datetime
+            if (dtype_str == "str" and isinstance(value, str)) or (
+                dtype_str == "list[str]"
+                and isinstance(value, list)
+                and all(isinstance(v, str) for v in value)
+            ):
+                # Skip type inference for string values when dtype is explicitly str
+                if dtype_str == "str":
+                    inferred_type = "cat ? str"
+                    converted_value = value
+                else:
+                    inferred_type = "list[cat ? str]"
+                    converted_value = value
+            else:
+                inferred_type, converted_value, _ = infer_feature_type_convert_json(
+                    feature.name,
+                    value,
+                    mute=True,
+                )
             if dtype_str == "num" or dtype_str == "list[num]":
                 if not ("int" in inferred_type or "float" in inferred_type):
                     raise TypeError(
