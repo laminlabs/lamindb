@@ -150,7 +150,7 @@ def test_record_features_add_remove_values():
     # no schema validation
     test_values = {
         "feature_bool": True,
-        "feature_str": "a string value",
+        "feature_str": "00810702-0006",  # this string value could be cast to datetime!
         "feature_list_str": ["a", "list", "of", "strings"],
         "feature_int": 42,
         "feature_list_int": [1, 2, 3],
@@ -175,6 +175,7 @@ def test_record_features_add_remove_values():
         "feature_run": run.uid,
     }
 
+    # test adding values without schema validation (test_record is not part of a sheet)
     test_record.features.add_values(test_values)
     assert test_record.features.get_values() == test_values
 
@@ -219,7 +220,7 @@ def test_record_features_add_remove_values():
         name="test_schema",
     ).save()
     sheet = ln.Record(name="Sheet", is_type=True, schema=schema).save()
-    empty_record = ln.Record(name="empty_record", type=sheet).save()
+    test_record2 = ln.Record(name="test_record2", type=sheet).save()
     df_empty = sheet.to_dataframe()
 
     assert df_empty["feature_bool"].isnull().all()
@@ -265,14 +266,12 @@ def test_record_features_add_remove_values():
     assert df_empty["feature_run"].isnull().all()
     assert df_empty["feature_run"].dtype.name == "category"
 
-    # remove empty record from sheet
-    empty_record.type = None
-    empty_record.save()
+    # add values to test_record2, now subject to schema validation
+    test_record2.features.add_values(test_values)
+    test_record2.features.add_values(test_values)
+    assert test_record2.features.get_values() == test_values
 
-    # sheet with values
-
-    test_record.type = sheet
-    test_record.save()
+    # test sheet export
     df = sheet.to_dataframe()
     target_result = {
         "feature_bool": True,
@@ -322,10 +321,8 @@ def test_record_features_add_remove_values():
 
     sheet_as_artifact.delete(permanent=True)
 
-    # add the empty record back to the sheet and export again
-
-    empty_record.type = sheet
-    empty_record.save()
+    # add an empty record to the sheet and export again
+    empty_record = ln.Record(name="empty_record", type=sheet).save()
     df = sheet.to_dataframe()
     sheet_as_artifact = sheet.to_artifact()
     sheet_as_artifact.delete(permanent=True)
@@ -346,6 +343,7 @@ def test_record_features_add_remove_values():
     # also test export to artifact again
     sheet_as_artifact = sheet.to_artifact()
     sheet_as_artifact.delete(permanent=True)
+    test_record2.delete(permanent=True)
     test_record2.delete(permanent=True)
     empty_record.delete(permanent=True)
 
