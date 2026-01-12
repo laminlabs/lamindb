@@ -86,7 +86,7 @@ def test_checkpoint_basic(
     artifact_key: str,
 ):
     """LaminCheckpoint should create versioned artifacts."""
-    callback = ll.LaminCheckpoint(artifact_key, monitor="train_loss")
+    callback = ll.Checkpoint(artifact_key, monitor="train_loss")
     trainer = pl.Trainer(
         max_epochs=2,
         callbacks=[callback],
@@ -109,7 +109,7 @@ def test_checkpoint_with_features(
     ln.Feature(name="train_loss", dtype=float).save()
     ln.Feature(name="custom_param", dtype=str).save()
 
-    callback = ll.LaminCheckpoint(
+    callback = ll.Checkpoint(
         artifact_key,
         features={"train_loss": None, "custom_param": "test_value"},
         monitor="train_loss",
@@ -135,7 +135,7 @@ def test_checkpoint_missing_features(
     artifact_key: str,
 ):
     """LaminCheckpoint should raise an error when specified features do not exist."""
-    callback = ll.LaminCheckpoint(
+    callback = ll.Checkpoint(
         artifact_key,
         features={"nonexistent_feature": None},
         monitor="train_loss",
@@ -157,7 +157,7 @@ def test_checkpoint_auto_features(
     lightning_features: None,
 ):
     """LaminCheckpoint should auto-track lightning features if they exist."""
-    callback = ll.LaminCheckpoint(
+    callback = ll.Checkpoint(
         artifact_key,
         monitor="train_loss",
         save_top_k=2,
@@ -186,7 +186,7 @@ def test_checkpoint_best_model_tracking(
     lightning_features: None,
 ):
     """Only one checkpoint should be marked as best model."""
-    callback = ll.LaminCheckpoint(
+    callback = ll.Checkpoint(
         artifact_key,
         monitor="train_loss",
         save_top_k=3,
@@ -213,7 +213,7 @@ def test_checkpoint_model_rank(
     lightning_features: None,
 ):
     """Checkpoints should have correct model_rank (0 = best)."""
-    callback = ll.LaminCheckpoint(
+    callback = ll.Checkpoint(
         artifact_key,
         monitor="train_loss",
         save_top_k=3,
@@ -238,7 +238,7 @@ def test_checkpoint_path_prefix(
     lightning_features: None,
 ):
     """Checkpoints with path_prefix should have semantic storage paths."""
-    callback = ll.LaminCheckpoint(
+    callback = ll.Checkpoint(
         key="test/deployments/model",
         path_prefix=path_prefix,
         monitor="train_loss",

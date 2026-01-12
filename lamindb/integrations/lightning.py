@@ -8,7 +8,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any, Final, Literal
 
 import torch
 from lightning.fabric.utilities.cloud_io import get_filesystem
@@ -24,12 +24,14 @@ if TYPE_CHECKING:
     from lightning.fabric.utilities.types import _PATH
 
 
-_AUTO_FEATURES = (
-    "is_best_model",
-    "score",
-    "model_rank",
-    "logger_name",
-    "logger_version",
+_AUTO_FEATURES: Final = frozenset(
+    {
+        "is_best_model",
+        "score",
+        "model_rank",
+        "logger_name",
+        "logger_version",
+    }
 )
 
 
@@ -57,7 +59,7 @@ def save_lightning_features() -> None:
     ln.Feature(name="logger_version", dtype=str).save()
 
 
-class LaminCheckpoint(ModelCheckpoint):
+class Checkpoint(ModelCheckpoint):
     """ModelCheckpoint that uploads checkpoints to LaminDB.
 
     Extends Lightning's ModelCheckpoint with LaminDB artifact tracking.
@@ -103,7 +105,7 @@ class LaminCheckpoint(ModelCheckpoint):
             import lightning as pl
             from lamindb.integrations import lightning as ll
 
-            # One-time setup
+            # Optional one-time setup to enable automated lightning specific feature tracking
             ll.save_lightning_features()
 
             # Versioned checkpoints (for tracking)
@@ -373,12 +375,12 @@ class SaveConfigCallback(_SaveConfigCallback):
         )
         artifact.save()
 
-    def _get_checkpoint_callback(self, trainer: pl.Trainer) -> LaminCheckpoint | None:
+    def _get_checkpoint_callback(self, trainer: pl.Trainer) -> Checkpoint | None:
         """Find LaminCheckpoint callback if present."""
         for cb in trainer.callbacks:
-            if isinstance(cb, LaminCheckpoint):
+            if isinstance(cb, Checkpoint):
                 return cb
         return None
 
 
-__all__ = ["LaminCheckpoint", "SaveConfigCallback", "save_lightning_features"]
+__all__ = ["Checkpoint", "SaveConfigCallback", "save_lightning_features"]
