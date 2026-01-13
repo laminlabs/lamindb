@@ -932,7 +932,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
     # fields to track for dirty changes
     # if not None, will be tracked in self._original_values as {field_name: value}
     # use _id fields for foreign keys
-    TRACK_DIRTY_FIELDS: tuple[str, ...] | None = None
+    TRACK_FIELDS: tuple[str, ...] | None = None
 
     def __init__(self, *args, **kwargs):
         skip_validation = kwargs.pop("_skip_validation", False)
@@ -1055,11 +1055,11 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
         else:
             super().__init__(*args)
         # track original values of fields that are tracked for changes
-        if (track_fields := self.TRACK_DIRTY_FIELDS) is not None:
+        if (track_fields := self.TRACK_FIELDS) is not None:
             self._original_values = {f: self.__dict__.get(f) for f in track_fields}
         else:
             self._original_values = None
-        # TODO: refactor to use TRACK_DIRTY_FIELDS
+        # TODO: refactor to use TRACK_FIELDS
         track_current_key_and_name_values(self)
 
     def _field_changed(self, field_name: str) -> bool:
@@ -1067,9 +1067,9 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
         if self._state.adding:
             return False
         # check if the field is tracked for changes
-        track_fields = self.TRACK_DIRTY_FIELDS
+        track_fields = self.TRACK_FIELDS
         assert track_fields is not None, (
-            "TRACK_DIRTY_FIELDS must be set for the record to track changes"
+            "TRACK_FIELDS must be set for the record to track changes"
         )
         assert field_name in track_fields, (
             f"Field {field_name} is not tracked for changes"
@@ -1112,7 +1112,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
         if pre_existing_record is not None:
             init_self_from_db(self, pre_existing_record)
         else:
-            # TODO: refactor to use TRACK_DIRTY_FIELDS
+            # TODO: refactor to use TRACK_FIELDS
             check_key_change(self)
             check_name_change(self)
             try:
