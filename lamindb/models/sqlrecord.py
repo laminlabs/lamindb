@@ -1058,7 +1058,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                 self._original_values = {}
                 for f in self.TRACK_DIRTY_FIELDS:
                     self._original_values[f] = self.__dict__.get(f)
-        # refactor to use TRACK_DIRTY_FIELDS
+        # TODO: refactor to use TRACK_DIRTY_FIELDS
         track_current_key_and_name_values(self)
 
     def _field_changed(self, field_name: str) -> bool:
@@ -1106,6 +1106,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
         if pre_existing_record is not None:
             init_self_from_db(self, pre_existing_record)
         else:
+            # TODO: refactor to use TRACK_DIRTY_FIELDS
             check_key_change(self)
             check_name_change(self)
             try:
