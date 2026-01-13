@@ -929,7 +929,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
         abstract = True
         base_manager_name = "objects"
 
-    # fields to track for dirty changes
+    # fields to track for changes
     # if not None, will be tracked in self._original_values as {field_name: value}
     # use _id fields for foreign keys
     TRACK_FIELDS: tuple[str, ...] | None = None
