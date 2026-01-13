@@ -1058,7 +1058,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
         if (track_fields := self.TRACK_DIRTY_FIELDS) is not None:
             self._original_values = {f: self.__dict__.get(f) for f in track_fields}
         else:
-            self._original_values = {}
+            self._original_values = None
         # TODO: refactor to use TRACK_DIRTY_FIELDS
         track_current_key_and_name_values(self)
 
