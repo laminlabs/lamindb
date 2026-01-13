@@ -929,6 +929,11 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
         abstract = True
         base_manager_name = "objects"
 
+    # fields to track for dirty changes
+    # if not None, will be tracked in self._original_values as {field_name: value}
+    # use _id fields for foreign keys
+    TRACK_DIRTY_FIELDS: list[str] | None = None
+
     def __init__(self, *args, **kwargs):
         skip_validation = kwargs.pop("_skip_validation", False)
         if not args:
@@ -1049,7 +1054,22 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
             )
         else:
             super().__init__(*args)
+            if self.TRACK_DIRTY_FIELDS is not None:
+                self._original_values = {}
+                for f in self.TRACK_DIRTY_FIELDS:
+                    self._original_values[f] = self.__dict__.get(f)
+        # refactor to use TRACK_DIRTY_FIELDS
         track_current_key_and_name_values(self)
+
+    def _field_changed(self, field_name: str) -> bool:
+        # use _id fields for foreign keys in field_name
+        if not hasattr(self, "_original_values"):
+            return False
+        assert (
+            self.TRACK_DIRTY_FIELDS is not None
+            and field_name in self.TRACK_DIRTY_FIELDS
+        )
+        return self._original_values.get(field_name) != self.__dict__.get(field_name)
 
     def save(self: T, *args, **kwargs) -> T:
         """Save.
