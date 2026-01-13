@@ -78,16 +78,26 @@ def test_bulk_resave_trashed_records():
     import bionty as bt
 
     # first create records from public source
-    records = bt.Ethnicity.from_values(["asian", "white"]).save()
+    source = bt.Source.get(
+        entity="bionty.Ethnicity",
+        organism="human",
+        name="hancestro",
+        version="2025-10-14",
+    )
+    records = bt.Ethnicity.from_values(
+        ["Asian", "European American"], source=source
+    ).save()
     # one parent is also created
     ethnicities = bt.Ethnicity.filter()
-    assert ethnicities.count() == 3
+    assert ethnicities.count() == 6
     # soft delete the records including parent
     ethnicities.delete()
     # then create them again from public source
     # the new records will now have the same uids as they are hashed from the ontology_ids
     assert bt.Ethnicity.filter().count() == 0
-    new_records = bt.Ethnicity.from_values(["asian", "white", "african"])
+    new_records = bt.Ethnicity.from_values(
+        ["Asian", "European American", "African ancestry"], source=source
+    )
     assert new_records[0].branch_id == 1
     assert new_records[0].uid == records[0].uid
     # after saving, the trashed records should be restored
@@ -95,7 +105,7 @@ def test_bulk_resave_trashed_records():
     assert new_records[0].branch_id == 1
     ethnicities = bt.Ethnicity.filter()
     # the parent should also be restored
-    assert ethnicities.count() == 4
+    assert ethnicities.count() == 7
 
     # clean up
     ethnicities.delete(permanent=True)
