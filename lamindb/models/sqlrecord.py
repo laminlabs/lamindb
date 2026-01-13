@@ -1036,6 +1036,8 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                             )
                             init_self_from_db(self, existing_record)
                             update_attributes(self, kwargs)
+                            # track original values after replacing with the existing record
+                            self._populate_tracked_fields()
                             return None
                 super().__init__(**kwargs)
                 if isinstance(self, ValidateFields):
@@ -1055,14 +1057,19 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
         else:
             super().__init__(*args)
         # track original values of fields that are tracked for changes
+        self._populate_tracked_fields()
+        # TODO: refactor to use TRACK_FIELDS
+        track_current_key_and_name_values(self)
+
+    def _populate_tracked_fields(self):
+        """Populate the tracked fields with the original values."""
         if (track_fields := self.TRACK_FIELDS) is not None:
             self._original_values = {f: self.__dict__.get(f) for f in track_fields}
         else:
             self._original_values = None
-        # TODO: refactor to use TRACK_FIELDS
-        track_current_key_and_name_values(self)
 
     def _field_changed(self, field_name: str) -> bool:
+        """Check if the field has changed since the record was saved."""
         # use _id fields for foreign keys in field_name
         if self._state.adding:
             return False
