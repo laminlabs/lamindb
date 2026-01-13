@@ -1963,7 +1963,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             if path.suffix == ".parquet":
                 import pyarrow.parquet as pq
 
-                artifact.n_observations = pq.read_metadata(path.open("rb")).num_rows
+                with path.open("rb") as f:
+                    artifact.n_observations = pq.read_metadata(f).num_rows
             else:
                 # csv/tsv/others have no metadata and would require a full expensive read
                 artifact.n_observations = None
