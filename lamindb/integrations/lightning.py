@@ -52,11 +52,14 @@ def save_lightning_features() -> None:
 
         ll.save_lightning_features()
     """
-    ln.Feature(name="is_best_model", dtype=bool).save()
-    ln.Feature(name="score", dtype=float).save()
-    ln.Feature(name="model_rank", dtype=int).save()
-    ln.Feature(name="logger_name", dtype=str).save()
-    ln.Feature(name="logger_version", dtype=str).save()
+    lightning_type = ln.Feature(
+        name="__LaminDB_lightning__", dtype=str, is_type=True
+    ).save()
+    ln.Feature(name="is_best_model", dtype=bool, type=lightning_type).save()
+    ln.Feature(name="score", dtype=float, type=lightning_type).save()
+    ln.Feature(name="model_rank", dtype=int, type=lightning_type).save()
+    ln.Feature(name="logger_name", dtype=str, type=lightning_type).save()
+    ln.Feature(name="logger_version", dtype=str, type=lightning_type).save()
 
 
 class Checkpoint(ModelCheckpoint):
@@ -66,20 +69,20 @@ class Checkpoint(ModelCheckpoint):
 
     Two modes are supported:
 
-    1. **Versioned** (default): All checkpoints are versioned under ``key``.
+    1. **Versioned** (default): All checkpoints are versioned under `key`.
        Storage paths are managed by LaminDB (virtual keys).
 
-    2. **Deployment**: Set ``path_prefix`` to store checkpoints at predictable semantic
-       paths like ``{path_prefix}/epoch=0-val_loss=0.5.ckpt``.
+    2. **Deployment**: Set `path_prefix` to store checkpoints at predictable semantic
+       paths like `{path_prefix}/epoch=0-val_loss=0.5.ckpt`.
        Each checkpoint is a separate artifact.
-       Query with ``ln.Artifact.filter(key__startswith=path_prefix)``.
+       Query with `ln.Artifact.filter(key__startswith=path_prefix)`.
 
     If available in the instance, the following features are automatically tracked:
     `is_best_model`, `score`, `model_rank`, `logger_name`, `logger_version`.
 
     Args:
         key: The artifact key for checkpoints.
-            Checkpoints are versioned under this key when ``path_prefix`` is not set.
+            Checkpoints are versioned under this key when `path_prefix` is not set.
         path_prefix: If set, store checkpoints at semantic paths under this prefix for deployment.
             Each checkpoint becomes a separate artifact with predictable S3 paths.
         features: Features to annotate checkpoints with.
