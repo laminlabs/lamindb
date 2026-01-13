@@ -1061,8 +1061,9 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
         # TODO: refactor to use TRACK_FIELDS
         track_current_key_and_name_values(self)
 
+    # used in __init__
+    # populates the _original_values dictionary with the original values of the tracked fields
     def _populate_tracked_fields(self):
-        """Populate the tracked fields with the original values."""
         if (track_fields := self.TRACK_FIELDS) is not None:
             self._original_values = {f: self.__dict__.get(f) for f in track_fields}
         else:
