@@ -932,7 +932,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
     # fields to track for dirty changes
     # if not None, will be tracked in self._original_values as {field_name: value}
     # use _id fields for foreign keys
-    TRACK_DIRTY_FIELDS: list[str] | None = None
+    TRACK_DIRTY_FIELDS: tuple[str, ...] | None = None
 
     def __init__(self, *args, **kwargs):
         skip_validation = kwargs.pop("_skip_validation", False)
