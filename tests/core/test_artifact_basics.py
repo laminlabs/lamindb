@@ -1248,3 +1248,28 @@ def test_save_url_with_virtual_key():
     assert cache_path_str.endswith(key)
 
     artifact.delete(permanent=True, storage=False)
+
+
+def test_artifact_space_change(tsv_file):
+    artifact = ln.Artifact(tsv_file, key="test_space_change.tsv").save()
+    space = ln.Space(name="test space change", uid="00000234").save()
+    # test after saving
+    artifact.space = space
+    with pytest.raises(ValueError) as err:
+        artifact.save()
+    assert (
+        "Space cannot be changed after creation for artifacts in auto storage"
+        in err.exconly()
+    )
+    # test after getting from the db
+    artifact = ln.Artifact.get(key="test_space_change.tsv")
+    artifact.space = space
+    with pytest.raises(ValueError) as err:
+        artifact.save()
+    assert (
+        "Space cannot be changed after creation for artifacts in auto storage"
+        in err.exconly()
+    )
+
+    artifact.delete(permanent=True, storage=True)
+    space.delete(permanent=True)

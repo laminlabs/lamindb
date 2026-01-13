@@ -1054,21 +1054,27 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
             )
         else:
             super().__init__(*args)
-            if self.TRACK_DIRTY_FIELDS is not None:
-                self._original_values = {
-                    f: self.__dict__.get(f) for f in self.TRACK_DIRTY_FIELDS
-                }
+        # track original values of fields that are tracked for changes
+        if (track_fields := self.TRACK_DIRTY_FIELDS) is not None:
+            self._original_values = {f: self.__dict__.get(f) for f in track_fields}
+        else:
+            self._original_values = {}
         # TODO: refactor to use TRACK_DIRTY_FIELDS
         track_current_key_and_name_values(self)
 
     def _field_changed(self, field_name: str) -> bool:
         # use _id fields for foreign keys in field_name
-        if not hasattr(self, "_original_values"):
+        if self._state.adding:
             return False
-        assert (
-            self.TRACK_DIRTY_FIELDS is not None
-            and field_name in self.TRACK_DIRTY_FIELDS
+        # check if the field is tracked for changes
+        track_fields = self.TRACK_DIRTY_FIELDS
+        assert track_fields is not None, (
+            "TRACK_DIRTY_FIELDS must be set for the record to track changes"
         )
+        assert field_name in track_fields, (
+            f"Field {field_name} is not tracked for changes"
+        )
+        # check if the field has changed since the record was created
         return self._original_values.get(field_name) != self.__dict__.get(field_name)
 
     def save(self: T, *args, **kwargs) -> T:
