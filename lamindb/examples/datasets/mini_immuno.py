@@ -13,6 +13,7 @@
 
 from __future__ import annotations
 
+from datetime import date
 from typing import TYPE_CHECKING, Literal
 
 import anndata as ad
@@ -64,6 +65,7 @@ def get_dataset1(
     with_outdated_gene: bool = False,
     with_wrong_subtype: bool = False,
     with_index_type_mismatch: bool = False,
+    with_date_as_iso_string: bool = True,
 ) -> pd.DataFrame | ad.AnnData:
     """A small tabular dataset measuring expression & metadata."""
     # define the data in the dataset
@@ -111,7 +113,7 @@ def get_dataset1(
     metadata = {
         "temperature": 21.6,
         "experiment": "Experiment 1",
-        "date_of_study": "2024-12-01",
+        "date_of_study": "2024-12-01" if with_date_as_iso_string else date(2024, 12, 1),
         "study_note": "We had a great time performing this study and the results look compelling.",
     }
     # the dataset as DataFrame
@@ -138,6 +140,7 @@ def get_dataset1(
 def get_dataset2(
     otype: Literal["DataFrame", "AnnData"] = "DataFrame",
     gene_symbols_in_index: bool = False,
+    with_date_as_iso_string: bool = True,
 ) -> pd.DataFrame | ad.AnnData:
     """A second small tabular dataset measuring expression & metadata."""
     if gene_symbols_in_index:
@@ -157,7 +160,7 @@ def get_dataset2(
     metadata = {
         "temperature": 22.6,
         "experiment": "Experiment 2",
-        "date_of_study": "2025-02-13",
+        "date_of_study": "2025-02-13" if with_date_as_iso_string else date(2025, 2, 13),
     }
     dataset_df = pd.DataFrame(
         dataset_dict,
