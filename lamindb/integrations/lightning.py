@@ -191,6 +191,7 @@ class Checkpoint(ModelCheckpoint):
             enable_version_counter=enable_version_counter,
         )
         self.key = key
+        self._user_set_dirpath = dirpath is not None
         self.features = features or {}
         self._available_auto_features: set[str] = set()
         self._run_features_added = False
@@ -221,14 +222,14 @@ class Checkpoint(ModelCheckpoint):
 
     def _get_artifact_key(self, filepath: str) -> str:
         """Return the artifact key for this checkpoint."""
-        if self.dirpath is not None:
+        if self._user_set_dirpath:
             prefix = self.dirpath.rstrip("/")
             return f"{prefix}/{Path(filepath).name}"
         return self.key  # type: ignore[return-value]
 
     def _get_key_filter(self) -> dict[str, str]:
         """Return filter kwargs for querying artifacts from this callback."""
-        if self.dirpath is not None:
+        if self._user_set_dirpath:
             return {"key__startswith": self.dirpath.rstrip("/") + "/"}
         return {"key": self.key}  # type: ignore[dict-item]
 

@@ -53,12 +53,15 @@ def artifact_key() -> Generator[str, None, None]:
 
 
 @pytest.fixture
-def path_prefix() -> Generator[str, None, None]:
+def dirpath() -> Generator[str, None, None]:
     prefix = "test/deployments/model/"
+    resolved = str(Path(prefix).resolve())
     yield prefix
-    for af in ln.Artifact.filter(key__startswith=prefix).to_list():
+    for af in ln.Artifact.filter(key__startswith=resolved).to_list():
         af.delete(permanent=True, storage=True)
-
+    dirpath_path = Path(prefix)
+    if dirpath_path.exists():
+        shutil.rmtree(dirpath_path)
     checkpoints_dir = Path("checkpoints")
     if checkpoints_dir.exists():
         shutil.rmtree(checkpoints_dir)
@@ -232,16 +235,16 @@ def test_checkpoint_model_rank(
     assert 0 in ranks  # best model has rank 0
 
 
-def test_checkpoint_path_prefix(
+def test_checkpoint_dirpath(
     simple_model: pl.LightningModule,
     dataloader: DataLoader,
-    path_prefix: str,
+    dirpath: str,
     lightning_features: None,
 ):
-    """Checkpoints with path_prefix should have semantic storage paths."""
+    """Checkpoints with dirpath should have semantic storage paths."""
     callback = ll.Checkpoint(
         key="test/deployments/model",
-        path_prefix=path_prefix,
+        dirpath=dirpath,
         monitor="train_loss",
         save_top_k=3,
     )
@@ -252,12 +255,13 @@ def test_checkpoint_path_prefix(
     )
     trainer.fit(simple_model, dataloader)
 
-    artifacts = ln.Artifact.filter(key__startswith=path_prefix).to_list()
+    resolved_dirpath = str(callback.dirpath)
+    artifacts = ln.Artifact.filter(key__startswith=resolved_dirpath).to_list()
     assert len(artifacts) >= 1
 
     for af in artifacts:
-        # Key should be path_prefix + filename
-        assert af.key.startswith(path_prefix)
+        # Key should be dirpath
+        assert af.key.startswith(resolved_dirpath)
         # Storage path should match key (non-virtual)
         assert af.key in str(af.path)
         # Features should still be tracked
