@@ -2858,7 +2858,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         # note that storage is not editable after creation
         if (
             self._field_changed("space_id")
-            and self.storage.space_id == self._original_values["space_id"]
+            and (artifact_storage := self.storage).space_id
+            == self._original_values["space_id"]
+            and artifact_storage.instance_uid is not None
         ):
             raise ValueError(
                 "Space cannot be changed because the artifact is in the storage location of another space."
