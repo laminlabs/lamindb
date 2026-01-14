@@ -390,13 +390,17 @@ class SaveConfigCallback(_SaveConfigCallback):
             key = str(Path(checkpoint_cb.key).parent / self.config_filename)
             key_is_virtual = True
 
-        artifact = ln.Artifact(
+        lightning_cli_config_af = ln.Artifact(
             config_path,
             key=key,
             description="Lightning CLI config",
             _key_is_virtual=key_is_virtual,  # type: ignore[call-overload]
         )
-        artifact.save()
+        lightning_cli_config_af.save()
+
+        # Link as input to current run
+        if ln.context.run:
+            ln.context.run.input_artifacts.add(lightning_cli_config_af)
 
     def _get_checkpoint_callback(self, trainer: pl.Trainer) -> Checkpoint | None:
         """Find LaminCheckpoint callback if present."""
