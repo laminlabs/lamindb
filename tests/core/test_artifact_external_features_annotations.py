@@ -34,6 +34,7 @@ def test_artifact_features_add_remove_values():
     feature_artifact_2 = ln.Feature(name="feature_artifact_2", dtype=ln.Artifact).save()
     feature_run = ln.Feature(name="feature_run", dtype=ln.Run.uid).save()
     feature_cell_line = ln.Feature(name="feature_cell_line", dtype=bt.CellLine).save()
+    ln.Feature(name="feature_cell_line_pass_list", dtype=bt.CellLine).save()
     feature_cell_lines = ln.Feature(
         name="feature_cell_lines", dtype=list[bt.CellLine]
     ).save()
