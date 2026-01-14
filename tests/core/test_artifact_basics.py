@@ -456,13 +456,16 @@ def test_create_from_dataframe(example_dataframe: pd.DataFrame):
     path = Path("test_df_from_path.parquet")
     try:
         example_dataframe.to_parquet(path)
-        artifact = ln.Artifact.from_dataframe(path, description="test from path")
-        assert artifact.description == "test from path"
-        assert artifact.otype == "DataFrame"
-        assert artifact.kind == "dataset"
-        assert artifact.n_observations == 2
-        artifact.save()
-        artifact.delete(permanent=True)
+        for path_input in [path, str(path)]:
+            artifact = ln.Artifact.from_dataframe(
+                path_input, description="test from path"
+            )
+            assert artifact.description == "test from path"
+            assert artifact.otype == "DataFrame"
+            assert artifact.kind == "dataset"
+            assert artifact.n_observations == 2
+            artifact.save()
+            artifact.delete(permanent=True)
     finally:
         path.unlink(missing_ok=True)
 

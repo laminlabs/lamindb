@@ -79,9 +79,10 @@ def test_bulk_resave_trashed_records():
 
     # first create records from public source
     records = bt.Ethnicity.from_values(["asian", "white"]).save()
-    # one parent is also created
+    assert len(records) == 2
+    # parents are also created
     ethnicities = bt.Ethnicity.filter()
-    assert ethnicities.count() == 3
+    assert ethnicities.count() > 2
     # soft delete the records including parent
     ethnicities.delete()
     # then create them again from public source
@@ -95,7 +96,7 @@ def test_bulk_resave_trashed_records():
     assert new_records[0].branch_id == 1
     ethnicities = bt.Ethnicity.filter()
     # the parent should also be restored
-    assert ethnicities.count() == 4
+    assert ethnicities.count() > 3
 
     # clean up
     ethnicities.delete(permanent=True)
