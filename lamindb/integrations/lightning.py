@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import warnings
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Final, Literal
 
@@ -410,7 +411,16 @@ class SaveConfigCallback(_SaveConfigCallback):
         return None
 
 
-__all__ = ["Checkpoint", "SaveConfigCallback", "save_lightning_features"]
-
 # backwards compatibility
-Callback = Checkpoint
+def __getattr__(name: str):
+    if name == "Callback":
+        warnings.warn(
+            "ll.Callback is deprecated, use ll.Checkpoint instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return Checkpoint
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+__all__ = ["Checkpoint", "SaveConfigCallback", "save_lightning_features"]
