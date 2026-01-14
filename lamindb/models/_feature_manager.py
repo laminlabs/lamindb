@@ -919,7 +919,7 @@ class FeatureManager:
         return get_features_data(self._host, to_dict=True, external_only=external_only)  # type: ignore
 
     def __getitem__(self, feature: str) -> Any | dict[str, Any]:
-        """Get values records by a feature name.
+        """Get values by feature name.
 
         Args:
             feature: Feature name.
@@ -941,7 +941,7 @@ class FeatureManager:
         host_id = self._host.id
         feature_records = list(Feature.filter(name=feature))
         if not feature_records:
-            return None
+            raise ValidationError(f"Feature with name {feature} not found")
 
         # group cat feature_records by their registry
         registry_to_features = defaultdict(list)
@@ -996,7 +996,10 @@ class FeatureManager:
             if len(feature_values_qs) == 1:
                 value_records[registry_name] = feature_values_qs[0]
             elif len(feature_values_qs) > 1:
-                value_records[registry_name] = SQLRecordList(feature_values_qs)
+                if feature_record.dtype_as_str.startswith("list["):
+                    value_records[registry_name] = SQLRecordList(feature_values_qs)
+                else:
+                    value_records[registry_name] = feature_values_qs
 
         return (
             next(iter(value_records.values()))

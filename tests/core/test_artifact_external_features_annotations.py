@@ -7,6 +7,7 @@ import lamindb as ln
 import pytest
 from lamindb.errors import DoesNotExist, ValidationError
 from lamindb.examples.datasets import mini_immuno
+from lamindb.models.query_set import BasicQuerySet, SQLRecordList
 
 
 # see test_record_basics.py for similar test for records
@@ -23,7 +24,9 @@ def test_artifact_features_add_remove_values():
     feature_list_str = ln.Feature(name="feature_list_str", dtype=list[str]).save()
     feature_int = ln.Feature(name="feature_int", dtype=int).save()
     feature_datetime = ln.Feature(name="feature_datetime", dtype=datetime).save()
-    feature_date = ln.Feature(name="feature_date", dtype=datetime.date).save()
+    feature_date = ln.Feature(
+        name="feature_date", dtype=datetime.date, coerce=True
+    ).save()
     feature_dict = ln.Feature(name="feature_dict", dtype=dict).save()
     feature_type1 = ln.Feature(name="feature_type1", dtype=record_type1).save()
     feature_type1s = ln.Feature(name="feature_type1s", dtype=list[record_type1]).save()
@@ -83,7 +86,13 @@ def test_artifact_features_add_remove_values():
     assert value_artifact.artifacts.to_list() == []
 
     # get_values accessor
-    assert test_artifact.features.get_values() == test_values
+    return_values = test_artifact.features.get_values()
+
+    # special handling if passing a list of categories to a cat feature: it's interpreted as the result of an aggregation
+    # hence upon retrieval it's a set of categories, not a list of categories
+    values_pass_list = return_values.pop("feature_cell_line_pass_list")
+    assert values_pass_list == set(test_values.pop("feature_cell_line_pass_list"))
+    assert return_values == test_values
 
     # __get_item__ accessor
     assert test_artifact.features["feature_str"] == test_values["feature_str"]
@@ -104,13 +113,20 @@ def test_artifact_features_add_remove_values():
     assert test_artifact.features["feature_project"] == test_project
     assert test_artifact.features["feature_cell_line"] == hek293
     assert test_artifact.features["feature_cl_ontology_id"] == hek293
-    assert set(test_artifact.features["feature_cell_lines_pass_list"]) == {hek293, a549}
-    assert set(test_artifact.features["feature_cell_lines"]) == {hek293, a549}
+    value = test_artifact.features["feature_cell_line_pass_list"]
+    assert set(value) == {hek293, a549}
+    assert isinstance(value, BasicQuerySet)
+    value = test_artifact.features["feature_cell_lines"]
+    assert set(value) == {hek293, a549}
+    assert isinstance(value, SQLRecordList)
     assert test_artifact.features["feature_artifact"] == test_artifact
     assert test_artifact.features["feature_artifact_2"] == value_artifact
     assert test_artifact.features["feature_run"] == run
 
     # remove values
+
+    # this was already popped from test_values above
+    test_artifact.features.remove_values("feature_cell_line_pass_list")
 
     test_artifact.features.remove_values("feature_int")
     test_values.pop("feature_int")
@@ -132,7 +148,7 @@ def test_artifact_features_add_remove_values():
     test_values.pop("feature_ulabel")
     assert test_artifact.features.get_values() == test_values
 
-    # test passing a list
+    # test passing a list to remove_values
 
     test_artifact.features.remove_values(["feature_cell_line", "feature_user"])
     test_values.pop("feature_cell_line")

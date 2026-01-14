@@ -436,10 +436,12 @@ def convert_dict_to_dataframe_for_validation(d: dict, schema: Schema) -> pd.Data
     df = pd.DataFrame([d])
     for feature in schema.members:
         # we cannot cast a `list[cat[...]]]` to categorical because lists are not hashable
-        dtype_str = feature._dtype_str
-        if dtype_str.startswith("cat"):
+        if feature.dtype_as_str.startswith("cat"):
             if feature.name in df.columns:
-                df[feature.name] = pd.Categorical(df[feature.name])
+                if isinstance(df.loc[0, feature.name], list):
+                    df.attrs[feature.name] = "list_of_categories"
+                else:
+                    df[feature.name] = pd.Categorical(df[feature.name])
     return df
 
 
@@ -507,7 +509,10 @@ class ComponentCurator(Curator):
                     required = False
                 # series.dtype is "object" if the column has lists types, e.g. [["a", "b"], ["a"], ["b"]]
                 dtype_str = feature._dtype_str
-                if dtype_str.startswith("list[cat"):
+                if (
+                    dtype_str.startswith("list[cat")
+                    or self._dataset.attrs.get(feature.name) == "list_of_categories"
+                ):
                     pandera_columns[feature.name] = pandera.Column(
                         dtype=None,
                         checks=pandera.Check(
@@ -695,7 +700,7 @@ class ComponentCurator(Curator):
                 has_dtype_error = "WRONG_DATATYPE" in str(err)
                 error_msg = str(err)
                 if has_dtype_error:
-                    error_msg += "   ▶ Hint: Consider setting `coerce=True` to attempt coercing values during validation to the required dtype."
+                    error_msg += "   ▶ Hint: Consider setting `feature.coerce = True` to attempt coercing values during validation to the required dtype."
                 raise ValidationError(error_msg) from err
         else:
             self._cat_manager_validate()
