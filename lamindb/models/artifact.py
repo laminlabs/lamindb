@@ -2830,11 +2830,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         """
         super().delete(permanent=permanent, storage=storage, using_key=using_key)
 
-    @property
-    def _is_in_auto_storage(self) -> bool:
-        """Whether the artifact is in auto storage."""
-        return self._real_key is None and (self._key_is_virtual or self._key is None)
-
     def save(
         self,
         upload: bool | None = None,
@@ -2860,9 +2855,13 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
                 artifact = ln.Artifact("./myfile.csv", key="myfile.parquet").save()
         """
-        if self._field_changed("space_id") and self._is_in_auto_storage:
+        # note that storage is not editable after creation
+        if (
+            self._field_changed("space_id")
+            and self.storage.space_id == self._original_values["space_id"]
+        ):
             raise ValueError(
-                "Space cannot be changed after creation for artifacts in auto storage."
+                "Space cannot be changed because the artifact is in the storage location of another space."
             )
 
         if transfer not in {"record", "annotations"}:

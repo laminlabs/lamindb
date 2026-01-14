@@ -1258,7 +1258,7 @@ def test_artifact_space_change(tsv_file):
     with pytest.raises(ValueError) as err:
         artifact.save()
     assert (
-        "Space cannot be changed after creation for artifacts in auto storage"
+        "Space cannot be changed because the artifact is in the storage location of another space."
         in err.exconly()
     )
     # test after getting from the db
@@ -1267,7 +1267,7 @@ def test_artifact_space_change(tsv_file):
     with pytest.raises(ValueError) as err:
         artifact.save()
     assert (
-        "Space cannot be changed after creation for artifacts in auto storage"
+        "Space cannot be changed because the artifact is in the storage location of another space."
         in err.exconly()
     )
 

@@ -1065,7 +1065,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
     # populates the _original_values dictionary with the original values of the tracked fields
     def _populate_tracked_fields(self):
         if (track_fields := self.TRACK_FIELDS) is not None:
-            self._original_values = {f: self.__dict__.get(f) for f in track_fields}
+            self._original_values = {f: self.__dict__[f] for f in track_fields}
         else:
             self._original_values = None
 
@@ -1083,7 +1083,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
             f"Field {field_name} is not tracked for changes"
         )
         # check if the field has changed since the record was created
-        return self._original_values.get(field_name) != self.__dict__.get(field_name)
+        return self._original_values[field_name] != self.__dict__[field_name]
 
     def save(self: T, *args, **kwargs) -> T:
         """Save.
