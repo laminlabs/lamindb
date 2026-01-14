@@ -695,7 +695,7 @@ class ComponentCurator(Curator):
                 has_dtype_error = "WRONG_DATATYPE" in str(err)
                 error_msg = str(err)
                 if has_dtype_error:
-                    error_msg += "   ▶ Hint: Consider setting 'coerce=True' to attempt coercing/converting values during validation to the pre-defined dtype."
+                    error_msg += "   ▶ Hint: Consider setting 'coerce=True' to attempt coercing values during validation to the required dtype."
                 raise ValidationError(error_msg) from err
         else:
             self._cat_manager_validate()
