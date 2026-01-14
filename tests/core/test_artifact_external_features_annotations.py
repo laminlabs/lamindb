@@ -62,6 +62,10 @@ def test_artifact_features_add_remove_values():
         "feature_user": ln.setup.settings.user.handle,
         "feature_project": "test_project",
         "feature_cell_line": "HEK293",
+        "feature_cell_line_pass_list": [
+            "HEK293",
+            "A549 cell",
+        ],  # allowed if observational unit not specified, comes from aggregation
         "feature_cell_lines": ["HEK293", "A549 cell"],
         "feature_cl_ontology_id": "CLO:0001230",
         "feature_artifact": "test-artifact",
@@ -99,6 +103,7 @@ def test_artifact_features_add_remove_values():
     assert test_artifact.features["feature_project"] == test_project
     assert test_artifact.features["feature_cell_line"] == hek293
     assert test_artifact.features["feature_cl_ontology_id"] == hek293
+    assert set(test_artifact.features["feature_cell_lines_pass_list"]) == {hek293, a549}
     assert set(test_artifact.features["feature_cell_lines"]) == {hek293, a549}
     assert test_artifact.features["feature_artifact"] == test_artifact
     assert test_artifact.features["feature_artifact_2"] == value_artifact
