@@ -256,25 +256,28 @@ class ValidateFields:
     pass
 
 
-def is_approx_pascal_case(s):
+def is_approx_pascal_case(s: str) -> bool:
     """Check if the last component of a dotted string is in PascalCase.
 
     Args:
-        s (str): The string to check
-
-    Returns:
-        bool: True if the last component is in PascalCase
-
-    Raises:
-        ValueError: If the last component doesn't start with a capital letter
+        s: The string to check
     """
     if "[" in s:  # this is because we allow types of form 'script[test_script.py]'
         return True
     last_component = s.split(".")[-1]
 
-    if not last_component[0].isupper():
-        raise ValueError(
-            f"'{last_component}' should start with a capital letter given you're defining a type"
+    # Find the first alphabetical character
+    first_letter = None
+    for char in last_component:
+        if char.isalpha():
+            first_letter = char
+            break
+
+    # If no letters exist (e.g., "123" or "___"), decide if that's a fail or pass.
+    # Here, we only warn if we actually find a letter and it's lowercase.
+    if first_letter and not first_letter.isupper():
+        logger.warning(
+            f"Consider starting '{last_component}' with a capital letter given you're defining a type"
         )
 
     return True
@@ -1491,11 +1494,9 @@ class Branch(BaseSQLRecord):
 class SQLRecord(BaseSQLRecord, metaclass=Registry):
     """Metadata record.
 
-    Every `SQLRecord` is a data model that comes with a registry in form of a SQL
-    table in your database.
+    Every `SQLRecord` is a data model that comes with a registry in form of a SQL table in your database.
 
-    Sub-classing `SQLRecord` creates a new registry while instantiating a `SQLRecord`
-    creates a new record.
+    Sub-classing `SQLRecord` creates a new registry while instantiating a `SQLRecord` creates a new record.
 
     {}
 

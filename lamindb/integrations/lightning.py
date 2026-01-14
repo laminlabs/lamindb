@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Final, Literal
 
 import torch
+from lamin_utils import logger
 from lightning.fabric.utilities.cloud_io import get_filesystem
 from lightning.pytorch.callbacks.model_checkpoint import ModelCheckpoint
 from lightning.pytorch.cli import SaveConfigCallback as _SaveConfigCallback
@@ -24,19 +25,15 @@ if TYPE_CHECKING:
     from lightning.fabric.utilities.types import _PATH
 
 
-_SUPPORTED_AUTO_FEATURES: Final = frozenset(
-    {
-        "is_best_model",
-        "score",
-        "model_rank",
-        "logger_name",
-        "logger_version",
-    }
-)
+_RUN_AUTO_FEATURES: Final = frozenset({"logger_name", "logger_version"})
+
+_ARTIFACT_AUTO_FEATURES: Final = frozenset({"is_best_model", "score", "model_rank"})
+
+_SUPPORTED_AUTO_FEATURES: Final = _RUN_AUTO_FEATURES | _ARTIFACT_AUTO_FEATURES
 
 
 def save_lightning_features() -> None:
-    """Register LaminDB features used by the lightning integration Checkpoint.
+    """Register LaminDB features used by the Lightning integration Checkpoint.
 
     Creates the following features if they do not already exist:
 
@@ -52,14 +49,26 @@ def save_lightning_features() -> None:
 
         ll.save_lightning_features()
     """
-    lightning_type = ln.Feature(
-        name="__LaminDB_lightning__", dtype=str, is_type=True
-    ).save()
-    ln.Feature(name="is_best_model", dtype=bool, type=lightning_type).save()
-    ln.Feature(name="score", dtype=float, type=lightning_type).save()
-    ln.Feature(name="model_rank", dtype=int, type=lightning_type).save()
-    ln.Feature(name="logger_name", dtype=str, type=lightning_type).save()
-    ln.Feature(name="logger_version", dtype=str, type=lightning_type).save()
+    # lamindb.lightning is lowercase and would trigger a naming warning -> mute
+    with logger.mute():
+        # normal matching fails because of non-matching dtype (__lamindb_lightning__ vs None)
+        if (
+            lightning_feature_type := ln.Feature.filter(
+                name="lamindb.lightning"
+            ).one_or_none()
+        ) is None:
+            lightning_feature_type = ln.Feature(  # type: ignore[call-overload]
+                name="lamindb.lightning",
+                description="Auto-generated features tracking lightning parameters & metrics",
+                is_type=True,
+            )
+            lightning_feature_type._dtype_str = "__lamindb_lightning__"
+            lightning_feature_type.save()
+    ln.Feature(name="is_best_model", dtype=bool, type=lightning_feature_type).save()
+    ln.Feature(name="score", dtype=float, type=lightning_feature_type).save()
+    ln.Feature(name="model_rank", dtype=int, type=lightning_feature_type).save()
+    ln.Feature(name="logger_name", dtype=str, type=lightning_feature_type).save()
+    ln.Feature(name="logger_version", dtype=str, type=lightning_feature_type).save()
 
 
 class Checkpoint(ModelCheckpoint):
@@ -187,6 +196,7 @@ class Checkpoint(ModelCheckpoint):
         self.path_prefix = path_prefix
         self.features = features or {}
         self._available_auto_features: set[str] = set()
+        self._run_features_added = False
 
     def setup(
         self, trainer: pl.Trainer, pl_module: pl.LightningModule, stage: str
@@ -226,9 +236,26 @@ class Checkpoint(ModelCheckpoint):
         return {"key": self.key}  # type: ignore[dict-item]
 
     def _save_checkpoint(self, trainer: pl.Trainer, filepath: str) -> None:
-        """Save checkpoint locally and save to the instance."""
+        """Save checkpoint locally and to the instance."""
         super()._save_checkpoint(trainer, filepath)
         if trainer.is_global_zero:
+            # Run-level features (once per run)
+            if ln.context.run and not self._run_features_added:
+                run_features = {}
+                if "logger_name" in self._available_auto_features and trainer.loggers:
+                    run_features["logger_name"] = trainer.loggers[0].name
+                if (
+                    "logger_version" in self._available_auto_features
+                    and trainer.loggers
+                ):
+                    version = trainer.loggers[0].version
+                    run_features["logger_version"] = (
+                        version if isinstance(version, str) else f"version_{version}"
+                    )
+                if run_features:
+                    ln.context.run.features.add_values(run_features)
+                self._run_features_added = True
+
             artifact = ln.Artifact(
                 filepath,
                 key=self._get_artifact_key(filepath),
@@ -238,16 +265,8 @@ class Checkpoint(ModelCheckpoint):
             )
             artifact.save()
 
+            # Artifact-level features
             feature_values: dict[str, Any] = {}
-
-            # Auto-features (tracked if they exist in the instance)
-            if "logger_name" in self._available_auto_features and trainer.loggers:
-                feature_values["logger_name"] = trainer.loggers[0].name
-            if "logger_version" in self._available_auto_features and trainer.loggers:
-                version = trainer.loggers[0].version
-                feature_values["logger_version"] = (
-                    version if isinstance(version, str) else f"version_{version}"
-                )
 
             is_best = self.best_model_path == filepath
             if "is_best_model" in self._available_auto_features:
@@ -264,7 +283,7 @@ class Checkpoint(ModelCheckpoint):
                     score = score.item()
                 feature_values["score"] = float(score)
 
-            # User-specified features
+            # User-specified features -> for now also added to artifacts
             for name, value in self.features.items():
                 if value is not None:
                     feature_values[name] = value
