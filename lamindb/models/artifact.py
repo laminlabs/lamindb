@@ -1899,8 +1899,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
         Args:
             df: A `DataFrame` object or a `UPathStr` pointing to a `DataFrame` in storage, e.g. a `.parquet` or `.csv` file.
-            key: A relative path within default storage,
-                e.g., `"myfolder/myfile.parquet"`.
+            key: A relative path within default storage, e.g., `"myfolder/myfile.parquet"`.
             description: A description.
             revises: An old version of the artifact.
             run: The run that creates the artifact.
@@ -1909,8 +1908,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             parquet_kwargs: Additional keyword arguments passed to the
                 `pandas.DataFrame.to_parquet` method, which are passed
                 on to `pyarrow.parquet.ParquetWriter`.
-            csv_kwargs: Additional keyword arguments passed to the
-                `pandas.DataFrame.to_csv` method.
+            csv_kwargs: Additional keyword arguments passed to the `pandas.DataFrame.to_csv` method.
 
         Examples:
 
@@ -2029,8 +2027,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
         Args:
             adata: An `AnnData` object or a path of AnnData-like.
-            key: A relative path within default storage,
-                e.g., `"myfolder/myfile.h5ad"`.
+            key: A relative path within default storage, e.g., `"myfolder/myfile.h5ad"`.
             description: A description.
             revises: An old version of the artifact.
             run: The run that creates the artifact.
@@ -2050,7 +2047,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
             With validation and annotation::
 
-                ln.Artifact.from_dataframe(adata, key="examples/dataset1.h5ad", schema="ensembl_gene_ids_and_valid_features_in_obs").save()
+                ln.Artifact.from_anndata(adata, key="examples/dataset1.h5ad", schema="ensembl_gene_ids_and_valid_features_in_obs").save()
 
             Under-the-hood, this uses the following build-in schema (:func:`~lamindb.examples.schemas.anndata_ensembl_gene_ids_and_valid_features_in_obs`):
 
@@ -2062,7 +2059,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
             .. image:: https://lamin-site-assets.s3.amazonaws.com/.lamindb/gLyfToATM7WUzkWW0001.png
                :width: 800px
-
         """
         from lamindb import examples
 
@@ -2123,8 +2119,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
         Args:
             mdata: A `MuData` object.
-            key: A relative path within default storage,
-                e.g., `"myfolder/myfile.h5mu"`.
+            key: A relative path within default storage, e.g., `"myfolder/myfile.h5mu"`.
             description: A description.
             revises: An old version of the artifact.
             run: The run that creates the artifact.
@@ -2184,8 +2179,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
         Args:
             sdata: A `SpatialData` object.
-            key: A relative path within default storage,
-                e.g., `"myfolder/myfile.zarr"`.
+            key: A relative path within default storage, e.g., `"myfolder/myfile.zarr"`.
             description: A description.
             revises: An old version of the artifact.
             run: The run that creates the artifact.
@@ -2305,10 +2299,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
         Args:
             path: Source path of folder.
-            key: Key for storage destination. If `None` and
-                directory is in a registered location, the inferred `key` will
-                reflect the relative position. If `None` and directory is outside
-                of a registered storage location, the inferred key defaults to `path.name`.
+            key: Key for storage destination.
+                If `None` and directory is in a registered location, the inferred `key` will reflect the relative position.
+                If `None` and directory is outside of a registered storage location, the inferred key defaults to `path.name`.
             run: A `Run` object.
 
         Example::
@@ -2413,7 +2406,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
         Args:
             data: A file path or in-memory dataset object like a `DataFrame`, `AnnData`, `MuData`, or `SpatialData`.
-            run: `Run | bool | None = None` The run that creates the artifact. If `False`, suppress tracking the run.
+            run: `Run | bool | None = None` The run that creates the artifact.
+                If `False`, suppress tracking the run.
                 If `None`, infer the run from the global run context.
             format: `str | None = None` The format of the data to write into storage.
                 If `None`, infer the format from the data.
