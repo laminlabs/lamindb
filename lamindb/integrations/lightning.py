@@ -37,6 +37,7 @@ def save_lightning_features() -> None:
 
     Creates the following features if they do not already exist:
 
+    - lamindb.lightning (feature type): Parent feature type for the below lightning features.
     - is_best_model (bool): Whether this checkpoint is the best model.
     - score (float): The monitored metric score.
     - model_rank (int): Rank among all checkpoints (0 = best).
@@ -81,22 +82,20 @@ class Checkpoint(ModelCheckpoint):
     1. **Versioned** (default): All checkpoints are versioned under `key`.
        Storage paths are managed by LaminDB (virtual keys).
 
-    2. **Deployment**: Set `path_prefix` to store checkpoints at predictable semantic
-       paths like `{path_prefix}/epoch=0-val_loss=0.5.ckpt`.
+    2. **Deployment**: Set `dirpath` to store checkpoints at predictable semantic
+       paths like `{dirpath}/epoch=0-val_loss=0.5.ckpt`.
        Each checkpoint is a separate artifact.
-       Query with `ln.Artifact.filter(key__startswith=path_prefix)`.
+       Query with `ln.Artifact.filter(key__startswith=dirpath)`.
 
     If available in the instance, the following features are automatically tracked:
     `is_best_model`, `score`, `model_rank`, `logger_name`, `logger_version`.
 
     Args:
         key: The artifact key for checkpoints.
-            Checkpoints are versioned under this key when `path_prefix` is not set.
-        path_prefix: If set, store checkpoints at semantic paths under this prefix for deployment.
-            Each checkpoint becomes a separate artifact with predictable S3 paths.
+            Checkpoints are versioned under this key when `dirpath` is not set.
         features: Features to annotate checkpoints with.
             Values can be static or None (auto-populated from trainer metrics/attributes).
-        dirpath: Local directory for checkpoints.
+        dirpath: Directory for checkpoints (reflected in cloud paths).
         monitor: Quantity to monitor for saving best checkpoint.
         verbose: Verbosity mode.
         save_last: Save a copy of the last checkpoint.
@@ -132,7 +131,7 @@ class Checkpoint(ModelCheckpoint):
             # Semantic paths (for deployment)
             callback = ll.Checkpoint(
                 key="deployments/my_model",
-                path_prefix="deployments/my_model/",
+                dirpath="deployments/my_model/",
                 monitor="val_loss",
                 save_top_k=3,
             )
@@ -149,7 +148,7 @@ class Checkpoint(ModelCheckpoint):
                 - class_path: lamindb.integrations.lightning.Checkpoint
                 init_args:
                     key: deployments/my_model
-                    path_prefix: deployments/my_model/
+                    dirpath: deployments/my_model/
                     monitor: val_loss
                     save_top_k: 3
 
@@ -161,7 +160,6 @@ class Checkpoint(ModelCheckpoint):
         self,
         key: str,
         *,
-        path_prefix: str | None = None,
         features: dict[str, Any] | None = None,
         dirpath: _PATH | None = None,
         monitor: str | None = None,
@@ -193,7 +191,6 @@ class Checkpoint(ModelCheckpoint):
             enable_version_counter=enable_version_counter,
         )
         self.key = key
-        self.path_prefix = path_prefix
         self.features = features or {}
         self._available_auto_features: set[str] = set()
         self._run_features_added = False
@@ -224,15 +221,15 @@ class Checkpoint(ModelCheckpoint):
 
     def _get_artifact_key(self, filepath: str) -> str:
         """Return the artifact key for this checkpoint."""
-        if self.path_prefix is not None:
-            prefix = self.path_prefix.rstrip("/")
+        if self.dirpath is not None:
+            prefix = self.dirpath.rstrip("/")
             return f"{prefix}/{Path(filepath).name}"
         return self.key  # type: ignore[return-value]
 
     def _get_key_filter(self) -> dict[str, str]:
         """Return filter kwargs for querying artifacts from this callback."""
-        if self.path_prefix is not None:
-            return {"key__startswith": self.path_prefix.rstrip("/") + "/"}
+        if self.dirpath is not None:
+            return {"key__startswith": self.dirpath.rstrip("/") + "/"}
         return {"key": self.key}  # type: ignore[dict-item]
 
     def _save_checkpoint(self, trainer: pl.Trainer, filepath: str) -> None:
@@ -261,7 +258,7 @@ class Checkpoint(ModelCheckpoint):
                 key=self._get_artifact_key(filepath),
                 kind="model",
                 description="Lightning model checkpoint",
-                _key_is_virtual=self.path_prefix is None,  # type: ignore[call-overload]
+                _key_is_virtual=self.dirpath is None,  # type: ignore[call-overload]
             )
             artifact.save()
 
@@ -384,8 +381,8 @@ class SaveConfigCallback(_SaveConfigCallback):
         if checkpoint_cb is None:
             return
 
-        if checkpoint_cb.path_prefix is not None:
-            prefix = checkpoint_cb.path_prefix.rstrip("/")
+        if checkpoint_cb.dirpath is not None:
+            prefix = checkpoint_cb.dirpath.rstrip("/")
             key = f"{prefix}/{self.config_filename}"
             key_is_virtual = False
         else:
