@@ -1243,6 +1243,8 @@ class FeatureManager:
                     features_labels[result["registry_str"]] += [  # type: ignore
                         (feature, label_record) for label_record in label_records
                     ]
+        # TODO: given we had already validated prior to calling _add_values, this blog below should never be reached
+        # refactor this out if possible
         if not_validated_values:
             hint = ""
             for key, (field, values_list) in not_validated_values.items():

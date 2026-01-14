@@ -358,7 +358,7 @@ Here is how to create a feature:
     with pytest.raises(ValidationError) as error:
         artifact.features.add_values({"experiment": "Experiment 1"})
     assert error.exconly().startswith(
-        "lamindb.errors.ValidationError: These values could not be validated:"
+        "lamindb.errors.ValidationError: 1 term not validated in feature 'experiment'"
     )
     ln.Record(name="Experiment 1").save()
     # now add the label with the feature and make sure that it has the feature annotation
@@ -374,7 +374,7 @@ Here is how to create a feature:
     with pytest.raises(TypeError) as error:
         artifact.features.add_values({"temperature": 27.2})
     assert error.exconly().startswith(
-        "TypeError: Value for feature 'temperature' with dtype 'cat[Record]' must be a string or record"
+        "TypeError: Type mismatch: identifiers are 'numeric' but field_values are 'str/categorical'."
     )
     temperature.delete(permanent=True)
     temperature = ln.Feature(name="temperature", dtype="num").save()
@@ -392,16 +392,13 @@ Here is how to create a feature:
   ln.Feature(name='date_of_experiment', dtype='date').save()"""
     )
 
-    ln.Feature(name="date_of_experiment", dtype="date").save()
+    ln.Feature(name="date_of_experiment", dtype=datetime.date, coerce=True).save()
     with pytest.raises(ValidationError) as error:
         artifact.features.add_values({"date_of_experiment": "Typo2024-12-01"})
-    assert (
-        error.exconly()
-        == """lamindb.errors.ValidationError: Expected dtype for 'date_of_experiment' is 'date', got 'cat ? str'"""
-    )
+    assert "WRONG_DATATYPE" in error.exconly()
     artifact.features.add_values({"date_of_experiment": "2024-12-01"})
 
-    ln.Feature(name="datetime_of_experiment", dtype="datetime").save()
+    ln.Feature(name="datetime_of_experiment", dtype=datetime, coerce=True).save()
     artifact.features.add_values({"datetime_of_experiment": "2024-12-01 00:00:00"})
 
     # bionty feature
@@ -420,7 +417,8 @@ Here is how to create a feature:
         artifact.features.add_values({"organism": mouse})
     assert (
         # ensure the label is saved
-        error.exconly().startswith("lamindb.errors.ValidationError: Please save")
+        error.exconly()
+        == "lamindb.errors.ValidationError: Organism mouse is not saved."
     )
     mouse.save()
     artifact.features.add_values({"organism": mouse})
@@ -429,9 +427,8 @@ Here is how to create a feature:
     # lists of records
     diseases = bt.Disease.from_values(
         ["MONDO:0004975", "MONDO:0004980"], field=bt.Disease.ontology_id
-    )
-    ln.save(diseases)
-    ln.Feature(name="disease", dtype="cat[bionty.Disease.ontology_id]").save()
+    ).save()
+    ln.Feature(name="disease", dtype=bt.Disease.ontology_id).save()
     artifact.features.add_values({"disease": diseases})
     assert len(artifact.diseases.filter()) == 2
     # check get_values returns ontology_ids as specified in the feature dtype

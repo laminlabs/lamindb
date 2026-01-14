@@ -43,6 +43,7 @@ from lamindb.models.feature import (
     parse_filter_string,
     resolve_relation_filters,
 )
+from lamindb.models.query_set import BasicQuerySet, SQLRecordList
 from lamindb.models.sqlrecord import HasType
 
 from ..errors import InvalidArgument, ValidationError
@@ -59,7 +60,6 @@ if TYPE_CHECKING:
     from tiledbsoma._experiment import Experiment as SOMAExperiment
 
     from lamindb.core.types import ScverseDataStructures
-    from lamindb.models.query_set import SQLRecordList
 
 
 def strip_ansi_codes(text):
@@ -438,9 +438,14 @@ def convert_dict_to_dataframe_for_validation(d: dict, schema: Schema) -> pd.Data
         # we cannot cast a `list[cat[...]]]` to categorical because lists are not hashable
         if feature.dtype_as_str.startswith("cat"):
             if feature.name in df.columns:
-                if isinstance(df.loc[0, feature.name], list):
+                value = df.loc[0, feature.name]
+                if isinstance(value, (list, SQLRecordList, set, BasicQuerySet)):
                     df.attrs[feature.name] = "list_of_categories"
                 else:
+                    if isinstance(value, SQLRecord) and value._state.adding:
+                        raise ValidationError(
+                            f"{value.__class__.__name__} {getattr(value, getattr(value, 'name_field', 'name'), value.uid)} is not saved."
+                        )
                     df[feature.name] = pd.Categorical(df[feature.name])
     return df
 
@@ -518,7 +523,7 @@ class ComponentCurator(Curator):
                         checks=pandera.Check(
                             check_dtype("list", feature.nullable),
                             element_wise=False,
-                            error=f"Column '{feature.name}' failed dtype check for '{dtype_str}'",
+                            error=f"Column '{feature.name}' failed dtype check for '{dtype_str}' against (list, nullable={feature.nullable})",
                         ),
                         nullable=feature.nullable,
                         coerce=feature.coerce,
@@ -1447,11 +1452,11 @@ class CatVector:
         model_field = self._registry.__get_name_with_module__()
 
         values = [
-            i
-            for i in self.values
-            if (isinstance(i, str) and i)
-            or (isinstance(i, list) and i)
-            or (isinstance(i, np.ndarray) and i.size > 0)
+            value
+            for value in self.values
+            if (isinstance(value, (str, int, float)) and value)
+            or (isinstance(value, list) and value)
+            or (isinstance(value, np.ndarray) and value.size > 0)
         ]
         if not values:
             return [], []
