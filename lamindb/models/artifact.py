@@ -1902,8 +1902,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
         Args:
             df: A `DataFrame` object or a `UPathStr` pointing to a `DataFrame` in storage, e.g. a `.parquet` or `.csv` file.
-            key: A relative path within default storage,
-                e.g., `"myfolder/myfile.parquet"`.
+            key: A relative path within default storage, e.g., `"myfolder/myfile.parquet"`.
             description: A description.
             revises: An old version of the artifact.
             run: The run that creates the artifact.
@@ -2412,6 +2411,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             data: A file path or in-memory dataset object like a `DataFrame`, `AnnData`, `MuData`, or `SpatialData`.
             run: `Run | bool | None = None` The run that creates the artifact.
                 If `False`, suppress tracking the run.
+                If `None`, infer the run from the global run context.
             format: `str | None = None` The format of the data to write into storage.
                 If `None`, infer the format from the data.
 
