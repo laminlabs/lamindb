@@ -501,8 +501,12 @@ def test_record_features_add_remove_values():
 
 
 def test_date_and_datetime_corruption():
-    feature_datetime = ln.Feature(name="feature_datetime", dtype=datetime).save()
-    feature_date = ln.Feature(name="feature_date", dtype=datetime.date).save()
+    feature_datetime = ln.Feature(
+        name="feature_datetime", dtype=datetime, coerce=True
+    ).save()
+    feature_date = ln.Feature(
+        name="feature_date", dtype=datetime.date, coerce=True
+    ).save()
     schema = ln.Schema(
         [feature_datetime, feature_date], name="test_schema_date_datetime"
     ).save()
