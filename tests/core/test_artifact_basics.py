@@ -1271,5 +1271,5 @@ def test_artifact_space_change(tsv_file):
         in err.exconly()
     )
 
-    artifact.delete(permanent=True, storage=True)
+    artifact.delete(permanent=True)
     space.delete(permanent=True)
