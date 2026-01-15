@@ -190,7 +190,7 @@ class Curator:
         schema: Schema,
         *,
         features: dict[str, Any] | None = None,
-        require_saved_schema: bool = False,
+        require_saved_schema: bool = True,
     ) -> None:
         if not isinstance(schema, Schema):
             raise InvalidArgument("schema argument must be a Schema record.")
