@@ -329,8 +329,14 @@ class SlotsCurator(Curator):
         schema: Schema,
         *,
         features: dict[str, Any] | None = None,
+        require_saved_schema: bool = True,
     ) -> None:
-        super().__init__(dataset=dataset, schema=schema, features=features)
+        super().__init__(
+            dataset=dataset,
+            schema=schema,
+            features=features,
+            require_saved_schema=require_saved_schema,
+        )
         self._slots: dict[str, ComponentCurator] = {}
 
         # used for multimodal data structures (not AnnData)
@@ -470,8 +476,11 @@ class ComponentCurator(Curator):
         dataset: pd.DataFrame | Artifact,
         schema: Schema,
         slot: str | None = None,
+        require_saved_schema: bool = True,
     ) -> None:
-        super().__init__(dataset=dataset, schema=schema)
+        super().__init__(
+            dataset=dataset, schema=schema, require_saved_schema=require_saved_schema
+        )
 
         categoricals = []
         features = []
@@ -756,12 +765,18 @@ class DataFrameCurator(SlotsCurator):
         require_saved_schema: bool = True,
     ) -> None:
         # loads or opens dataset, dataset may be an artifact
-        super().__init__(dataset=dataset, schema=schema, features=features)
+        super().__init__(
+            dataset=dataset,
+            schema=schema,
+            features=features,
+            require_saved_schema=require_saved_schema,
+        )
         # uses open dataset at self._dataset
         self._atomic_curator = ComponentCurator(
             dataset=self._dataset,
             schema=schema,
             slot=slot,
+            require_saved_schema=require_saved_schema,
         )
         # Handle (nested) attrs
         if slot is None and schema.slots:
@@ -779,7 +794,10 @@ class DataFrameCurator(SlotsCurator):
                             )
                         df = convert_dict_to_dataframe_for_validation(data, slot_schema)
                         self._slots[slot_name] = ComponentCurator(
-                            df, slot_schema, slot=slot_name
+                            df,
+                            slot_schema,
+                            slot=slot_name,
+                            require_saved_schema=require_saved_schema,
                         )
                 elif slot_name != "__external__":
                     raise ValueError(
