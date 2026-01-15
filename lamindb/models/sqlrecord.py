@@ -929,6 +929,11 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
         abstract = True
         base_manager_name = "objects"
 
+    # fields to track for changes
+    # if not None, will be tracked in self._original_values as {field_name: value}
+    # use _id fields for foreign keys
+    TRACK_FIELDS: tuple[str, ...] | None = None
+
     def __init__(self, *args, **kwargs):
         skip_validation = kwargs.pop("_skip_validation", False)
         if not args:
@@ -1031,6 +1036,8 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                             )
                             init_self_from_db(self, existing_record)
                             update_attributes(self, kwargs)
+                            # track original values after replacing with the existing record
+                            self._populate_tracked_fields()
                             return None
                 super().__init__(**kwargs)
                 if isinstance(self, ValidateFields):
@@ -1049,7 +1056,34 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
             )
         else:
             super().__init__(*args)
+        # track original values of fields that are tracked for changes
+        self._populate_tracked_fields()
+        # TODO: refactor to use TRACK_FIELDS
         track_current_key_and_name_values(self)
+
+    # used in __init__
+    # populates the _original_values dictionary with the original values of the tracked fields
+    def _populate_tracked_fields(self):
+        if (track_fields := self.TRACK_FIELDS) is not None:
+            self._original_values = {f: self.__dict__[f] for f in track_fields}
+        else:
+            self._original_values = None
+
+    def _field_changed(self, field_name: str) -> bool:
+        """Check if the field has changed since the record was saved."""
+        # use _id fields for foreign keys in field_name
+        if self._state.adding:
+            return False
+        # check if the field is tracked for changes
+        track_fields = self.TRACK_FIELDS
+        assert track_fields is not None, (
+            "TRACK_FIELDS must be set for the record to track changes"
+        )
+        assert field_name in track_fields, (
+            f"Field {field_name} is not tracked for changes"
+        )
+        # check if the field has changed since the record was created
+        return self._original_values[field_name] != self.__dict__[field_name]
 
     def save(self: T, *args, **kwargs) -> T:
         """Save.
@@ -1086,6 +1120,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
         if pre_existing_record is not None:
             init_self_from_db(self, pre_existing_record)
         else:
+            # TODO: refactor to use TRACK_FIELDS
             check_key_change(self)
             check_name_change(self)
             try:

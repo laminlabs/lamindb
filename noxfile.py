@@ -174,9 +174,9 @@ def install_ci(session, group):
         cmds += "\nuv pip install --system --no-build-isolation ./laminhub/backend"
         cmds += "\nuv pip install --system ./laminhub/backend/utils"
         cmds += "\nuv pip install --system ./laminhub/backend/services/central"
-        cmds += "\nuv pip install --system ./laminhub/backend/services/dbinstance"
+        cmds += "\nuv pip install --system ./laminhub/backend/services/instancedb"
         cmds += "\nuv pip install --system ./laminhub/backend/services/aws"
-        cmds += "\nuv pip install --system --no-deps ./laminhub/backend/services/dbinstance/hubmodule"
+        cmds += "\nuv pip install --system --no-deps ./laminhub/backend/services/instancedb/hubmodule"
         [run(session, line) for line in cmds.splitlines()]
 
 

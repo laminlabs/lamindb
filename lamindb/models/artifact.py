@@ -1188,6 +1188,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             ),
         ]
 
+    TRACK_FIELDS = ("space_id",)
+
     _len_full_uid: int = 20
     _len_stem_uid: int = 16
     _name_field: str = "key"
@@ -1524,7 +1526,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 space = run_context.space
             elif setup_settings.space is not None:
                 space = setup_settings.space
-        if space is not None and space != storage.space:
+        # space - storage consistency is also checked in .save() when the space is changed
+        if space is not None and space.id != storage.space_id:
             if storage_was_passed:
                 logger.warning(
                     "storage argument ignored as storage information from space takes precedence"
@@ -2853,6 +2856,17 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
                 artifact = ln.Artifact("./myfile.csv", key="myfile.parquet").save()
         """
+        # when space is passed in init, storage is ignored, so space - storage consistency is enforced there
+        # note that storage is not editable after creation
+        if (
+            self._field_changed("space_id")
+            and (artifact_storage := self.storage).instance_uid is not None
+            and artifact_storage.space_id == self._original_values["space_id"]
+        ):
+            raise ValueError(
+                "Space cannot be changed because the artifact is in the storage location of another space."
+            )
+
         if transfer not in {"record", "annotations"}:
             raise ValueError(
                 f"transfer should be either 'record' or 'annotations', not {transfer}"
