@@ -1527,10 +1527,11 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             elif setup_settings.space is not None:
                 space = setup_settings.space
         # space - storage consistency is also checked in .save() when the space is changed
-        if storage_was_passed and space is not None and space.id != storage.space_id:
-            logger.warning(
-                "storage argument ignored as storage information from space takes precedence"
-            )
+        if space is not None and space.id != storage.space_id:
+            if storage_was_passed:
+                logger.warning(
+                    "storage argument ignored as storage information from space takes precedence"
+                )
             storage_locs_for_space = Storage.filter(space=space)
             n_storage_locs_for_space = len(storage_locs_for_space)
             if n_storage_locs_for_space == 0:
