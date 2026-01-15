@@ -666,7 +666,9 @@ def infer_feature_type_convert_json(
     elif isinstance(value, date):
         return "date", value.isoformat(), message
     elif isinstance(value, str):
-        if dtype_str is None and (datetime_str := is_valid_datetime_str(value)):
+        if dtype_str in {None, "datetime", "date"} and (
+            datetime_str := is_valid_datetime_str(value)
+        ):
             dt_type = (
                 "date" if len(value) == 10 else "datetime"
             )  # YYYY-MM-DD is exactly 10 characters
