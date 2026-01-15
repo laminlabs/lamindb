@@ -1454,12 +1454,15 @@ class CatVector:
         values = [
             value
             for value in self.values
-            if (isinstance(value, (str, int, float)) and value)
+            if (isinstance(value, str) and value)
+            or (isinstance(value, (int, float)) and value == value)
             or (isinstance(value, list) and value)
             or (isinstance(value, np.ndarray) and value.size > 0)
         ]
         if not values:
             return [], []
+
+        print(self._key, values)
 
         # if a value is a list, we need to flatten it
         str_values = _flatten_unique(values)
