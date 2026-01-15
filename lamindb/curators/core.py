@@ -1455,14 +1455,18 @@ class CatVector:
             value
             for value in self.values
             if (isinstance(value, str) and value)
-            or (isinstance(value, (int, float)) and value == value)
+            or (
+                isinstance(value, (int, float))
+                and not isinstance(value, bool)
+                and value == value
+            )
             or (isinstance(value, list) and value)
-            or (isinstance(value, np.ndarray) and value.size > 0)
+            or (
+                isinstance(value, np.ndarray) and value.size > 0 and value.dtype != bool
+            )
         ]
         if not values:
             return [], []
-
-        print(self._key, values)
 
         # if a value is a list, we need to flatten it
         str_values = _flatten_unique(values)

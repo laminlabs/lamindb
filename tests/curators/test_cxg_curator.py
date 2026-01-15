@@ -43,10 +43,10 @@ def test_cxg_curator_5(cxg_schema_factory):
     curator.slots["obs"].standardize()
     with pytest.raises(ln.errors.ValidationError) as e:
         curator.validate()
-        assert (
-            "ValidationError: 1 term not validated in feature 'index' in slot 'var': 'invalid_ensembl_id'"
-            in str(e)
-        )
+    assert (
+        "1 term not validated in feature 'index' in slot 'var': 'invalid_ensembl_id'"
+        in str(e.value)
+    )
 
     # subset adata to remove invalid var index
     adata = adata[
@@ -55,10 +55,10 @@ def test_cxg_curator_5(cxg_schema_factory):
     curator = ln.curators.AnnDataCurator(adata, cxg_schema)
     with pytest.raises(ln.errors.ValidationError) as e:
         curator.validate()
-        assert (
-            "ValidationError: 1 term not validated in feature 'tissue_ontology_term_id' in slot 'obs': 'UBERON:0002048XXX'"
-            in str(e)
-        )
+    assert (
+        "1 term not validated in feature 'tissue_ontology_term_id' in slot 'obs': 'UBERON:0002048XXX'"
+        in str(e.value)
+    )
     # fix typo in obs column
     adata.obs["tissue_ontology_term_id"] = adata.obs["tissue_ontology_term_id"].replace(
         {"UBERON:0002048XXX": "UBERON:0002048"}
