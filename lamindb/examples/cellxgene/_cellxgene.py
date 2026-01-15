@@ -12,7 +12,9 @@ if TYPE_CHECKING:
     from lamindb.base.types import FieldAttr
     from lamindb.models import Schema, SQLRecord
 
-CELLxGENESchemaVersions = Literal["4.0.0", "5.0.0", "5.1.0", "5.2.0", "5.3.0", "6.0.0"]
+CELLxGENESchemaVersions = Literal[
+    "4.0.0", "5.0.0", "5.1.0", "5.2.0", "5.3.0", "6.0.0", "7.0.0"
+]
 CELLxGENEOrganisms = Literal[
     "human",
     "mouse",
@@ -33,7 +35,7 @@ def save_cellxgene_defaults() -> None:
     - "normal" Disease
     - "na" Ethnicity
     - "unknown" entries for DevelopmentalStage, Phenotype, and CellType
-    - "tissue", "organoid", and "cell culture" ULabels (tissue_type)
+    - "tissue", "organoid", "primary cell culture", and "cell line" ULabels (tissue_type)
     - "cell", "nucleus", "na" ULabels (suspension_type)
     """
     import bionty as bt
@@ -70,9 +72,9 @@ def save_cellxgene_defaults() -> None:
     tissue_type = ULabel(
         name="TissueType",
         is_type=True,
-        description='From CellxGene schema. Is "tissue", "organoid", or "cell culture".',
+        description='From CellxGene schema. Is "tissue", "organoid", "primary cell culture", or "cell line".',
     ).save()
-    for name in ["tissue", "organoid", "cell culture"]:
+    for name in ["tissue", "organoid", "primary cell culture", "cell line"]:
         ULabel(name=name, type=tissue_type, description="From CellxGene schema.").save()
 
     # suspension_type
