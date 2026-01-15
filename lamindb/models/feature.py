@@ -913,8 +913,8 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         synonyms: `str | None = None` Bar-separated synonyms.
         nullable: `bool = True` Whether the feature can have null-like values (`None`, `pd.NA`, `NaN`, etc.), see :attr:`~lamindb.Feature.nullable`.
         default_value: `Any | None = None` Default value for the feature.
-        coerce: `bool | None = None` When `True`, attempts to coerce values to the specified dtype
-            during validation, see :attr:`~lamindb.Feature.coerce`. Defaults to `False` unless `is_type` is `True`.
+        coerce: `bool | None = None` When `True`, attempts to coerce values to the specified dtype during validation, see :attr:`~lamindb.Feature.coerce`.
+            Defaults to `False` unless `is_type` is `True`.
         cat_filters: `dict[str, str] | None = None` Subset a registry by additional filters to define valid categories.
 
     Note:
