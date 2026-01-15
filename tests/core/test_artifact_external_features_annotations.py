@@ -659,7 +659,7 @@ def test_add_list_of_cat_features():
             }
         )
     assert error.exconly().startswith(
-        "lamindb.errors.ValidationError: These values could not be validated: {'Record': ('name', ['invalid'])}"
+        "lamindb.errors.ValidationError: 1 term not validated in feature 'single_label_of_type1': 'invalid'"
     )
     # now for list of labels
     with pytest.raises(ValidationError) as error:
@@ -669,7 +669,7 @@ def test_add_list_of_cat_features():
             }
         )
     assert error.exconly().startswith(
-        "lamindb.errors.ValidationError: These values could not be validated: {'Record': ('name', ['invalid', 'invalid2'])}"
+        "lamindb.errors.ValidationError: 2 terms not validated in feature 'list_of_labels_of_type1':"
     )
     artifact.delete(permanent=True)
     # now with schema
