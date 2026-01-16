@@ -74,7 +74,7 @@ def test_artifact_features_add_remove_values():
         # allowed if observational unit not specified, comes from aggregation
         "feature_cell_line_pass_list": ["HEK293", "A-549"],
         "feature_cell_lines": ["HEK293", "A-549"],
-        "feature_cl_ontology_id": "CLO:0001230",
+        "feature_cl_ontology_id": "CVCL_0045",
         "feature_artifact": "test-artifact",
         "feature_artifact_2": "value_artifact.toml",
         "feature_run": run.uid,

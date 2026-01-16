@@ -61,7 +61,7 @@ def test_save_parents():
     import bionty as bt
 
     bt.CellType.from_values(["B cell", "T cell"]).save()
-    assert bt.CellType.get("ryEtgi1yGtAcX2").parents.to_dataframe().shape[0] == 1
+    assert bt.CellType.get(name="B cell").parents.to_dataframe().shape[0] == 1
     bt.CellType.filter().delete(permanent=True)
 
 
