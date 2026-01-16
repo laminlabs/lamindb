@@ -66,10 +66,8 @@ def test_artifact_features_add_remove_values():
         "feature_user": ln.setup.settings.user.handle,
         "feature_project": "test_project",
         "feature_cell_line": "HEK293",
-        "feature_cell_line_pass_list": [
-            "HEK293",
-            "A549 cell",
-        ],  # allowed if observational unit not specified, comes from aggregation
+        # allowed if observational unit not specified, comes from aggregation
+        "feature_cell_line_pass_list": ["HEK293", "A549 cell"],
         "feature_cell_lines": ["HEK293", "A549 cell"],
         "feature_cl_ontology_id": "CLO:0001230",
         "feature_artifact": "test-artifact",
@@ -189,6 +187,13 @@ def test_artifact_features_add_remove_values():
     test_artifact.features.add_values({"feature_date": "2024-01-01"})
     test_values["feature_date"] = date(2024, 1, 1)
     assert test_artifact.features.get_values() == test_values
+
+    # test passing bionty objects instead of strings
+    test_artifact.features.add_values({"feature_cl_ontology_id": [hek293, a549]})
+    test_values["feature_cl_ontology_id"] = {"CLO:0001230", "CLO:0001601"}
+    assert test_artifact.features.get_values() == test_values
+    test_values.pop("feature_cl_ontology_id")
+    test_artifact.features.remove_values("feature_cl_ontology_id")
 
     # test add_values() when there is already something there
 
