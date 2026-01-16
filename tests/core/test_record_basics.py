@@ -464,7 +464,11 @@ def test_record_features_add_remove_values():
     schema.delete(permanent=True)
 
     # clean up rest
+    test_record_id = test_record.id
+    assert ln.models.RecordJson.filter(record_id=test_record_id).count() > 0
     test_record.delete(permanent=True)
+    # test CASCADE deletion of RecordJson
+    assert ln.models.RecordJson.filter(record_id=test_record_id).count() == 0
     sheet.delete(permanent=True)
     feature_str.delete(permanent=True)
     feature_list_str.delete(permanent=True)
