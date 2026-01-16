@@ -52,7 +52,7 @@ def test_artifact_features_add_remove_values():
     value_artifact = ln.Artifact("pyproject.toml", key="value_artifact.toml").save()
     test_project = ln.Project(name="test_project").save()
     hek293 = bt.CellLine.from_source(name="HEK293").save()
-    a549 = bt.CellLine.from_source(name="A549 cell").save()
+    a549 = bt.CellLine.from_source(name="A-549").save()
     gene1 = bt.Gene.from_source(ensembl_gene_id="ENSG00000139618").save()
     gene2 = bt.Gene.from_source(ensembl_gene_id="ENSG00000141510").save()
 
@@ -72,9 +72,9 @@ def test_artifact_features_add_remove_values():
         "feature_project": "test_project",
         "feature_cell_line": "HEK293",
         # allowed if observational unit not specified, comes from aggregation
-        "feature_cell_line_pass_list": ["HEK293", "A549 cell"],
-        "feature_cell_lines": ["HEK293", "A549 cell"],
-        "feature_cl_ontology_id": "CLO:0001230",
+        "feature_cell_line_pass_list": ["HEK293", "A-549"],
+        "feature_cell_lines": ["HEK293", "A-549"],
+        "feature_cl_ontology_id": "CVCL_0045",
         "feature_artifact": "test-artifact",
         "feature_artifact_2": "value_artifact.toml",
         "feature_run": run.uid,
@@ -229,7 +229,7 @@ def test_artifact_features_add_remove_values():
 
     schema = ln.Schema([feature_cell_lines], name="test_schema2").save()
     test_artifact.features.add_values(
-        {"feature_cell_lines": ["HEK293", "A549 cell"]}, schema=schema
+        {"feature_cell_lines": ["HEK293", "A-549"]}, schema=schema
     )
     schema.delete(permanent=True)
 
