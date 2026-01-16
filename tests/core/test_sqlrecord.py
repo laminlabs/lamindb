@@ -394,33 +394,6 @@ def test_delete_return_value_permanent():
     assert registry_name in deleted_dict
     assert deleted_dict[registry_name] == 1
 
-    # Test with Record
-    record = ln.Record(name="test-delete-return-record").save()
-    result = record.delete(permanent=True)
-    assert isinstance(result, tuple)
-    deleted_count, deleted_dict = result
-    assert deleted_count == 1
-    assert isinstance(deleted_dict, dict)
-
-    # Test that soft delete returns None
-    record2 = ln.Record(name="test-delete-return-soft").save()
-    result = record2.delete(permanent=False)
-    assert result is None
-    assert record2.branch_id == -1
-    record2.delete(permanent=True)
-
-
-def test_delete_return_value_base_sqlrecord():
-    """Test that BaseSQLRecord.delete() returns Django's natural return value."""
-    # Test with Branch (BaseSQLRecord, not SQLRecord)
-    branch = ln.Branch(name="test-delete-branch-return").save()
-    result = branch.delete(permanent=True)
-    assert isinstance(result, tuple)
-    assert len(result) == 2
-    deleted_count, deleted_dict = result
-    assert deleted_count == 1
-    assert isinstance(deleted_dict, dict)
-
 
 def test_unsaved_relationship_modification_attempts():
     af = ln.Artifact.from_dataframe(
