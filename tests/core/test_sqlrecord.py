@@ -413,6 +413,14 @@ def test_unsaved_relationship_modification_attempts():
     af.delete(permanent=True)
 
 
+def test_failed_connect():
+    with pytest.raises(ln.setup.errors.InstanceNotFoundError) as error:
+        ln.Artifact.connect("laminlabs/lamindata-not-existing")
+    assert error.exconly().startswith(
+        "lamindb_setup.errors.InstanceNotFoundError: 'laminlabs/lamindata-not-existing' not found: 'instance-not-found'"
+    )
+
+
 def test_unsaved_model_different_instance():
     af = ln.Artifact.connect("laminlabs/lamindata").get(
         key="scrna/micro-macfarland2020.h5ad"

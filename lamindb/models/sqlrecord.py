@@ -36,6 +36,8 @@ from django.db.models.functions import Lower
 from lamin_utils import colors, logger
 from lamindb_setup import settings as setup_settings
 from lamindb_setup._connect_instance import (
+    INSTANCE_NOT_FOUND_MESSAGE,
+    InstanceNotFoundError,
     get_owner_name_from_identifier,
     load_instance_settings,
     update_db_using_local,
@@ -808,9 +810,10 @@ class Registry(ModelBase):
         if not settings_file.exists():
             result = connect_instance_hub(owner=owner, name=name)
             if isinstance(result, str):
-                raise RuntimeError(
-                    f"Failed to load instance {instance}, please check your permissions!"
+                message = INSTANCE_NOT_FOUND_MESSAGE.format(
+                    owner=owner, name=name, hub_result=result
                 )
+                raise InstanceNotFoundError(message)
             iresult, storage = result
             # this can happen if querying via an old instance name
             if [iresult.get("owner"), iresult["name"]] == current_instance_owner_name:
