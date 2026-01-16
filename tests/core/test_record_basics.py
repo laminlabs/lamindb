@@ -150,7 +150,7 @@ def test_record_features_add_remove_values():
     # no schema validation
     test_values = {
         "feature_bool": True,
-        "feature_str": "a string value",
+        "feature_str": "00810702-0006",  # this string value could be cast to datetime! don't change!
         "feature_list_str": ["a", "list", "of", "strings"],
         "feature_int": 42,
         "feature_list_int": [1, 2, 3],
@@ -276,7 +276,7 @@ def test_record_features_add_remove_values():
     df = sheet.to_dataframe()
     target_result = {
         "feature_bool": True,
-        "feature_str": "a string value",
+        "feature_str": "00810702-0006",  # this string value could be cast to datetime!
         "feature_list_str": ["a", "list", "of", "strings"],
         "feature_int": 42,
         "feature_list_int": [1, 2, 3],
@@ -335,6 +335,9 @@ def test_record_features_add_remove_values():
     test_record2 = ln.Record(name="test_record").save()
     # we could also test different ways of formatting but don't yet do that
     # in to_dataframe() we enforce ISO format already
+    feature_date = ln.Feature.get(name="feature_date")
+    feature_date.coerce = True  # have to allow coercion because we're passing a string
+    feature_date.save()
     test_values["feature_date"] = "2024-01-02"
     test_record2.features.add_values(test_values)
     test_record2.type = sheet
@@ -459,7 +462,11 @@ def test_record_features_add_remove_values():
     schema.delete(permanent=True)
 
     # clean up rest
+    test_record_id = test_record.id
+    assert ln.models.RecordJson.filter(record_id=test_record_id).count() > 0
     test_record.delete(permanent=True)
+    # test CASCADE deletion of RecordJson
+    assert ln.models.RecordJson.filter(record_id=test_record_id).count() == 0
     sheet.delete(permanent=True)
     feature_str.delete(permanent=True)
     feature_list_str.delete(permanent=True)
@@ -496,8 +503,12 @@ def test_record_features_add_remove_values():
 
 
 def test_date_and_datetime_corruption():
-    feature_datetime = ln.Feature(name="feature_datetime", dtype=datetime).save()
-    feature_date = ln.Feature(name="feature_date", dtype=datetime.date).save()
+    feature_datetime = ln.Feature(
+        name="feature_datetime", dtype=datetime, coerce=True
+    ).save()
+    feature_date = ln.Feature(
+        name="feature_date", dtype=datetime.date, coerce=True
+    ).save()
     schema = ln.Schema(
         [feature_datetime, feature_date], name="test_schema_date_datetime"
     ).save()
