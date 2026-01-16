@@ -44,12 +44,17 @@ def test_artifact_features_add_remove_values():
     feature_cl_ontology_id = ln.Feature(
         name="feature_cl_ontology_id", dtype=bt.CellLine.ontology_id
     ).save()
+    feature_gene_ontology_id = ln.Feature(
+        name="feature_gene_ontology_id", dtype=bt.Gene.ensembl_gene_id
+    ).save()
 
     test_artifact = ln.Artifact(".gitignore", key="test_artifact").save()
     value_artifact = ln.Artifact("pyproject.toml", key="value_artifact.toml").save()
     test_project = ln.Project(name="test_project").save()
     hek293 = bt.CellLine.from_source(name="HEK293").save()
     a549 = bt.CellLine.from_source(name="A549 cell").save()
+    gene1 = bt.Gene.from_source(ensembl_gene_id="ENSG00000139618").save()
+    gene2 = bt.Gene.from_source(ensembl_gene_id="ENSG00000141510").save()
 
     # no schema validation
 
@@ -188,12 +193,12 @@ def test_artifact_features_add_remove_values():
     test_values["feature_date"] = date(2024, 1, 1)
     assert test_artifact.features.get_values() == test_values
 
-    # test passing bionty objects instead of strings
-    test_artifact.features.add_values({"feature_cl_ontology_id": [hek293, a549]})
-    test_values["feature_cl_ontology_id"] = {"CLO:0001230", "CLO:0001601"}
+    # test passing bionty objects instead of strings (using gene1 and gene2 because organism-dependent ontologies)
+    test_artifact.features.add_values({"feature_gene_ontology_id": [gene1, gene2]})
+    test_values["feature_gene_ontology_id"] = {"ENSG00000139618", "ENSG00000141510"}
     assert test_artifact.features.get_values() == test_values
-    test_values.pop("feature_cl_ontology_id")
-    test_artifact.features.remove_values("feature_cl_ontology_id")
+    test_values.pop("feature_gene_ontology_id")
+    test_artifact.features.remove_values("feature_gene_ontology_id")
 
     # test add_values() when there is already something there
 
@@ -260,8 +265,11 @@ def test_artifact_features_add_remove_values():
     test_project.delete(permanent=True)
     feature_cell_line.delete(permanent=True)
     feature_cl_ontology_id.delete(permanent=True)
+    feature_gene_ontology_id.delete(permanent=True)
     hek293.delete(permanent=True)
     a549.delete(permanent=True)
+    gene1.delete(permanent=True)
+    gene2.delete(permanent=True)
     ulabel.delete(permanent=True)
     artifact.delete(permanent=True)
     run.delete(permanent=True)
