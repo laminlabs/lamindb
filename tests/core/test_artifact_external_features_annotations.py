@@ -45,7 +45,7 @@ def test_artifact_features_add_remove_values():
     value_artifact = ln.Artifact("pyproject.toml", key="value_artifact.toml").save()
     test_project = ln.Project(name="test_project").save()
     hek293 = bt.CellLine.from_source(name="HEK293").save()
-    a549 = bt.CellLine.from_source(name="A549 cell").save()
+    a549 = bt.CellLine.from_source(name="A-549").save()
 
     # no schema validation
 
@@ -62,7 +62,7 @@ def test_artifact_features_add_remove_values():
         "feature_user": ln.setup.settings.user.handle,
         "feature_project": "test_project",
         "feature_cell_line": "HEK293",
-        "feature_cell_lines": ["HEK293", "A549 cell"],
+        "feature_cell_lines": ["HEK293", "A-549"],
         "feature_cl_ontology_id": "CLO:0001230",
         "feature_artifact": "test-artifact",
         "feature_artifact_2": "value_artifact.toml",
@@ -197,7 +197,7 @@ def test_artifact_features_add_remove_values():
 
     schema = ln.Schema([feature_cell_lines], name="test_schema2").save()
     test_artifact.features.add_values(
-        {"feature_cell_lines": ["HEK293", "A549 cell"]}, schema=schema
+        {"feature_cell_lines": ["HEK293", "A-549"]}, schema=schema
     )
     schema.delete(permanent=True)
 
