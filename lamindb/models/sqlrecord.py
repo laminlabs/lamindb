@@ -471,8 +471,9 @@ def delete_record(record: BaseSQLRecord, is_soft: bool = True):
         if is_soft:
             record.branch_id = -1
             record.save()
+            return None
         else:
-            super(BaseSQLRecord, record).delete()
+            return super(BaseSQLRecord, record).delete()
 
     # deal with versioned records
     # if _ovewrite_version = True, there is only a single version and
@@ -496,11 +497,11 @@ def delete_record(record: BaseSQLRecord, is_soft: bool = True):
                 record.is_latest = False
             with transaction.atomic():
                 new_latest.save()
-                delete()
+                result = delete()
             logger.important_hint(f"new latest version is: {new_latest}")
-            return None
+            return result
     # deal with all other cases of the nested if condition now
-    delete()
+    return delete()
 
 
 RECORD_REGISTRY_EXAMPLE = """Example::
@@ -1336,11 +1337,15 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
     def __str__(self) -> str:
         return self.__repr__()
 
-    def delete(self, permanent: bool | None = None) -> None:
+    def delete(self, permanent: bool | None = None):
         """Delete.
 
         Args:
             permanent: For consistency, `False` raises an error, as soft delete is impossible.
+
+        Returns:
+            When `permanent=True`, returns Django's delete return value: a tuple of
+            (deleted_count, {registry_name: count}). Otherwise returns None.
         """
         if permanent is False:
             raise ValueError(
@@ -1348,7 +1353,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                 "use 'permanent=True' or 'permanent=None' for permanent deletion."
             )
 
-        delete_record(self, is_soft=False)
+        return delete_record(self, is_soft=False)
 
 
 class Space(BaseSQLRecord):
@@ -1572,7 +1577,7 @@ class SQLRecord(BaseSQLRecord, metaclass=Registry):
         self.branch_id = 1
         self.save()
 
-    def delete(self, permanent: bool | None = None, **kwargs) -> None:
+    def delete(self, permanent: bool | None = None, **kwargs):
         """Delete record.
 
         If record is `HasType` with `is_type = True`, deletes all descendant records, too.
@@ -1580,6 +1585,10 @@ class SQLRecord(BaseSQLRecord, metaclass=Registry):
         Args:
             permanent: Whether to permanently delete the record (skips trash).
                 If `None`, performs soft delete if the record is not already in the trash.
+
+        Returns:
+            When `permanent=True`, returns Django's delete return value: a tuple of
+            (deleted_count, {registry_name: count}). Otherwise returns None.
 
         Examples:
 
@@ -1589,7 +1598,7 @@ class SQLRecord(BaseSQLRecord, metaclass=Registry):
         """
         if self._state.adding:
             logger.warning("record is not yet saved, delete has no effect")
-            return
+            return None
         name_with_module = self.__class__.__get_name_with_module__()
 
         if name_with_module == "Artifact":
@@ -1619,7 +1628,7 @@ class SQLRecord(BaseSQLRecord, metaclass=Registry):
                     child.delete()
             delete_record(self, is_soft=True)
             logger.important(f"moved record to trash: {self}")
-            return
+            return None
 
         # permanent delete
         if permanent is None:
@@ -1648,8 +1657,10 @@ class SQLRecord(BaseSQLRecord, metaclass=Registry):
                 delete_permanently(
                     self, storage=kwargs["storage"], using_key=kwargs["using_key"]
                 )
+                return None
             if name_with_module != "Artifact":
-                super().delete()
+                return super().delete()
+        return None
 
 
 def _format_django_validation_error(record: SQLRecord, e: DjangoValidationError):
