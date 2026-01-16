@@ -390,7 +390,11 @@ def get_organism_record_from_field(  # type: ignore
         # Check if values contain bionty.Gene objects with organism field
         from collections.abc import Iterable
 
+        # first check if we have Gene objects
         for v in values:
+            # early return to not loop through all values to find a string
+            if isinstance(v, str):
+                break
             if isinstance(v, registry) and v.organism is not None:
                 return v.organism
             # Handle iterables containing Gene objects (but not strings, which are also iterable)
