@@ -650,7 +650,7 @@ def describe_features(
 
 
 def infer_feature_type_convert_json(
-    key: str, value: Any, mute: bool = False
+    key: str, value: Any, mute: bool = False, dtype_str: str | None = None
 ) -> tuple[str, Any, str]:
     from lamindb.base.dtypes import is_valid_datetime_str
 
@@ -666,7 +666,9 @@ def infer_feature_type_convert_json(
     elif isinstance(value, date):
         return "date", value.isoformat(), message
     elif isinstance(value, str):
-        if datetime_str := is_valid_datetime_str(value):
+        if dtype_str in {None, "datetime", "date"} and (
+            datetime_str := is_valid_datetime_str(value)
+        ):
             dt_type = (
                 "date" if len(value) == 10 else "datetime"
             )  # YYYY-MM-DD is exactly 10 characters
@@ -919,7 +921,7 @@ class FeatureManager:
         return get_features_data(self._host, to_dict=True, external_only=external_only)  # type: ignore
 
     def __getitem__(self, feature: str) -> Any | dict[str, Any]:
-        """Get values records by a feature name.
+        """Get values by feature name.
 
         Args:
             feature: Feature name.
@@ -941,7 +943,7 @@ class FeatureManager:
         host_id = self._host.id
         feature_records = list(Feature.filter(name=feature))
         if not feature_records:
-            return None
+            raise ValidationError(f"Feature with name {feature} not found")
 
         # group cat feature_records by their registry
         registry_to_features = defaultdict(list)
@@ -996,7 +998,10 @@ class FeatureManager:
             if len(feature_values_qs) == 1:
                 value_records[registry_name] = feature_values_qs[0]
             elif len(feature_values_qs) > 1:
-                value_records[registry_name] = SQLRecordList(feature_values_qs)
+                if feature_record.dtype_as_str.startswith("list["):
+                    value_records[registry_name] = SQLRecordList(feature_values_qs)
+                else:
+                    value_records[registry_name] = feature_values_qs
 
         return (
             next(iter(value_records.values()))
@@ -1150,10 +1155,11 @@ class FeatureManager:
             if self._get_external_schema():
                 raise ValueError("Cannot add values if artifact has external schema.")
         if schema is not None:
-            ExperimentalDictCurator(values, schema).validate()
             feature_records = schema.members.filter(name__in=keys)
         else:
             feature_records = self._get_feature_records(dictionary, feature_field)
+            schema = Schema(feature_records)
+        ExperimentalDictCurator(values, schema, require_saved_schema=False).validate()
         return self._add_values(feature_records, dictionary)
 
     def _add_values(self, feature_records, dictionary):
@@ -1169,45 +1175,13 @@ class FeatureManager:
             value = dictionary[feature.name]
             if value is None:
                 continue
-            inferred_type, converted_value, _ = infer_feature_type_convert_json(
-                feature.name,
-                value,
-                mute=True,
-            )
-            dtype_str = feature._dtype_str
-            if dtype_str == "num" or dtype_str == "list[num]":
-                if not ("int" in inferred_type or "float" in inferred_type):
-                    raise TypeError(
-                        f"Value for feature '{feature.name}' with dtype {dtype_str} must be a number, but is {value} with dtype {inferred_type}"
-                    )
-            elif dtype_str.startswith("cat"):
-                if inferred_type != "?":
-                    if not (
-                        inferred_type.startswith("cat")
-                        or inferred_type == "list[cat ? str]"
-                        or isinstance(value, SQLRecord)
-                        or is_iterable_of_sqlrecord(value)
-                    ):
-                        raise TypeError(
-                            f"Value for feature '{feature.name}' with dtype '{dtype_str}' must be a string or record, but is {value} with dtype {inferred_type}"
-                        )
-            elif (
-                (dtype_str == "str" and inferred_type != "cat ? str")
-                or (dtype_str == "list[str]" and inferred_type != "list[cat ? str]")
-                or (
-                    dtype_str.startswith("list[cat")
-                    and not inferred_type.startswith("list[cat")
-                )
-                or (
-                    dtype_str not in {"str", "list[str]"}
-                    and not dtype_str.startswith("list[cat")
-                    and dtype_str != inferred_type
-                )
+            if not (
+                feature.dtype_as_str.startswith("cat")
+                or feature.dtype_as_str.startswith("list[cat")
             ):
-                raise ValidationError(
-                    f"Expected dtype for '{feature.name}' is '{dtype_str}', got '{inferred_type}'"
+                _, converted_value, _ = infer_feature_type_convert_json(
+                    key=feature.name, value=value, dtype_str=feature.dtype_as_str
                 )
-            if not (dtype_str.startswith("cat") or dtype_str.startswith("list[cat")):
                 filter_kwargs = {"feature": feature, "value": converted_value}
                 if host_is_record:
                     filter_kwargs["record"] = self._host
@@ -1271,6 +1245,8 @@ class FeatureManager:
                     features_labels[result["registry_str"]] += [  # type: ignore
                         (feature, label_record) for label_record in label_records
                     ]
+        # TODO: given we had already validated prior to calling _add_values, this blog below should never be reached
+        # refactor this out if possible
         if not_validated_values:
             hint = ""
             for key, (field, values_list) in not_validated_values.items():

@@ -36,6 +36,7 @@ from .feature import (
     serialize_pandas_dtype,
 )
 from .has_parents import _query_relatives
+from .query_set import QuerySet, SQLRecordList
 from .run import TracksRun, TracksUpdates
 from .sqlrecord import (
     BaseSQLRecord,
@@ -55,7 +56,6 @@ if TYPE_CHECKING:
     from .artifact import Artifact
     from .block import SchemaBlock
     from .project import Project
-    from .query_set import QuerySet, SQLRecordList
     from .record import Record
 
 
@@ -971,13 +971,16 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     def members(self) -> QuerySet:
         """A queryset for the individual records in the feature set underlying the schema.
 
-        Unlike `schema.features`, `schema.genes`, `schema.proteins`, etc., this queryset is ordered and
-        doesn't require knowledge of the entity.
+        Unlike the many-to-many fields `schema.features`, `schema.genes`, `schema.proteins`, `.members`
+
+            1. returns an ordered `QuerySet` if the schema is saved or a `SQLRecordList` if the schema is unsaved
+            2. doesn't require knowledge of the registry storing the feature identifiers (`ln.Feature`, `bt.Gene`, `bt.Protein`, etc.)
+            3. works for a dynamically created (unsaved) schema
         """
         if self._state.adding:
             # this should return a queryset and not a list...
             # need to fix this
-            return self._features[1]
+            return SQLRecordList(self._features[1])  # type: ignore
         if len(self.features.all()) > 0:
             return self.features.order_by("links_schema__id")
         if self.itype == "Composite" or self.is_type:

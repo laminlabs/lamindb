@@ -7,6 +7,7 @@ import lamindb as ln
 import pytest
 from lamindb.errors import DoesNotExist, ValidationError
 from lamindb.examples.datasets import mini_immuno
+from lamindb.models.query_set import BasicQuerySet, SQLRecordList
 
 
 # see test_record_basics.py for similar test for records
@@ -23,7 +24,9 @@ def test_artifact_features_add_remove_values():
     feature_list_str = ln.Feature(name="feature_list_str", dtype=list[str]).save()
     feature_int = ln.Feature(name="feature_int", dtype=int).save()
     feature_datetime = ln.Feature(name="feature_datetime", dtype=datetime).save()
-    feature_date = ln.Feature(name="feature_date", dtype=datetime.date).save()
+    feature_date = ln.Feature(
+        name="feature_date", dtype=datetime.date, coerce=True
+    ).save()
     feature_dict = ln.Feature(name="feature_dict", dtype=dict).save()
     feature_type1 = ln.Feature(name="feature_type1", dtype=record_type1).save()
     feature_type1s = ln.Feature(name="feature_type1s", dtype=list[record_type1]).save()
@@ -34,11 +37,15 @@ def test_artifact_features_add_remove_values():
     feature_artifact_2 = ln.Feature(name="feature_artifact_2", dtype=ln.Artifact).save()
     feature_run = ln.Feature(name="feature_run", dtype=ln.Run.uid).save()
     feature_cell_line = ln.Feature(name="feature_cell_line", dtype=bt.CellLine).save()
+    ln.Feature(name="feature_cell_line_pass_list", dtype=bt.CellLine).save()
     feature_cell_lines = ln.Feature(
         name="feature_cell_lines", dtype=list[bt.CellLine]
     ).save()
     feature_cl_ontology_id = ln.Feature(
         name="feature_cl_ontology_id", dtype=bt.CellLine.ontology_id
+    ).save()
+    feature_gene_ontology_id = ln.Feature(
+        name="feature_gene_ontology_id", dtype=bt.Gene.ensembl_gene_id
     ).save()
 
     test_artifact = ln.Artifact(".gitignore", key="test_artifact").save()
@@ -46,6 +53,8 @@ def test_artifact_features_add_remove_values():
     test_project = ln.Project(name="test_project").save()
     hek293 = bt.CellLine.from_source(name="HEK293").save()
     a549 = bt.CellLine.from_source(name="A549 cell").save()
+    gene1 = bt.Gene.from_source(ensembl_gene_id="ENSG00000139618").save()
+    gene2 = bt.Gene.from_source(ensembl_gene_id="ENSG00000141510").save()
 
     # no schema validation
 
@@ -62,6 +71,8 @@ def test_artifact_features_add_remove_values():
         "feature_user": ln.setup.settings.user.handle,
         "feature_project": "test_project",
         "feature_cell_line": "HEK293",
+        # allowed if observational unit not specified, comes from aggregation
+        "feature_cell_line_pass_list": ["HEK293", "A549 cell"],
         "feature_cell_lines": ["HEK293", "A549 cell"],
         "feature_cl_ontology_id": "CLO:0001230",
         "feature_artifact": "test-artifact",
@@ -78,7 +89,13 @@ def test_artifact_features_add_remove_values():
     assert value_artifact.artifacts.to_list() == []
 
     # get_values accessor
-    assert test_artifact.features.get_values() == test_values
+    return_values = test_artifact.features.get_values()
+
+    # special handling if passing a list of categories to a cat feature: it's interpreted as the result of an aggregation
+    # hence upon retrieval it's a set of categories, not a list of categories
+    values_pass_list = return_values.pop("feature_cell_line_pass_list")
+    assert values_pass_list == set(test_values.pop("feature_cell_line_pass_list"))
+    assert return_values == test_values
 
     # __get_item__ accessor
     assert test_artifact.features["feature_str"] == test_values["feature_str"]
@@ -99,12 +116,20 @@ def test_artifact_features_add_remove_values():
     assert test_artifact.features["feature_project"] == test_project
     assert test_artifact.features["feature_cell_line"] == hek293
     assert test_artifact.features["feature_cl_ontology_id"] == hek293
-    assert set(test_artifact.features["feature_cell_lines"]) == {hek293, a549}
+    value = test_artifact.features["feature_cell_line_pass_list"]
+    assert set(value) == {hek293, a549}
+    assert isinstance(value, BasicQuerySet)
+    value = test_artifact.features["feature_cell_lines"]
+    assert set(value) == {hek293, a549}
+    assert isinstance(value, SQLRecordList)
     assert test_artifact.features["feature_artifact"] == test_artifact
     assert test_artifact.features["feature_artifact_2"] == value_artifact
     assert test_artifact.features["feature_run"] == run
 
     # remove values
+
+    # this was already popped from test_values above
+    test_artifact.features.remove_values("feature_cell_line_pass_list")
 
     test_artifact.features.remove_values("feature_int")
     test_values.pop("feature_int")
@@ -126,7 +151,7 @@ def test_artifact_features_add_remove_values():
     test_values.pop("feature_ulabel")
     assert test_artifact.features.get_values() == test_values
 
-    # test passing a list
+    # test passing a list to remove_values
 
     test_artifact.features.remove_values(["feature_cell_line", "feature_user"])
     test_values.pop("feature_cell_line")
@@ -167,6 +192,13 @@ def test_artifact_features_add_remove_values():
     test_artifact.features.add_values({"feature_date": "2024-01-01"})
     test_values["feature_date"] = date(2024, 1, 1)
     assert test_artifact.features.get_values() == test_values
+
+    # test passing bionty objects instead of strings (using gene1 and gene2 because organism-dependent ontologies)
+    test_artifact.features.add_values({"feature_gene_ontology_id": [gene1, gene2]})
+    test_values["feature_gene_ontology_id"] = {"ENSG00000139618", "ENSG00000141510"}
+    assert test_artifact.features.get_values() == test_values
+    test_values.pop("feature_gene_ontology_id")
+    test_artifact.features.remove_values("feature_gene_ontology_id")
 
     # test add_values() when there is already something there
 
@@ -233,8 +265,11 @@ def test_artifact_features_add_remove_values():
     test_project.delete(permanent=True)
     feature_cell_line.delete(permanent=True)
     feature_cl_ontology_id.delete(permanent=True)
+    feature_gene_ontology_id.delete(permanent=True)
     hek293.delete(permanent=True)
     a549.delete(permanent=True)
+    gene1.delete(permanent=True)
+    gene2.delete(permanent=True)
     ulabel.delete(permanent=True)
     artifact.delete(permanent=True)
     run.delete(permanent=True)
@@ -336,7 +371,7 @@ Here is how to create a feature:
     with pytest.raises(ValidationError) as error:
         artifact.features.add_values({"experiment": "Experiment 1"})
     assert error.exconly().startswith(
-        "lamindb.errors.ValidationError: These values could not be validated:"
+        "lamindb.errors.ValidationError: 1 term not validated in feature 'experiment'"
     )
     ln.Record(name="Experiment 1").save()
     # now add the label with the feature and make sure that it has the feature annotation
@@ -352,7 +387,7 @@ Here is how to create a feature:
     with pytest.raises(TypeError) as error:
         artifact.features.add_values({"temperature": 27.2})
     assert error.exconly().startswith(
-        "TypeError: Value for feature 'temperature' with dtype 'cat[Record]' must be a string or record"
+        "TypeError: Type mismatch: identifiers are 'numeric' but field_values are 'str/categorical'."
     )
     temperature.delete(permanent=True)
     temperature = ln.Feature(name="temperature", dtype="num").save()
@@ -370,16 +405,13 @@ Here is how to create a feature:
   ln.Feature(name='date_of_experiment', dtype='date').save()"""
     )
 
-    ln.Feature(name="date_of_experiment", dtype="date").save()
+    ln.Feature(name="date_of_experiment", dtype=datetime.date, coerce=True).save()
     with pytest.raises(ValidationError) as error:
         artifact.features.add_values({"date_of_experiment": "Typo2024-12-01"})
-    assert (
-        error.exconly()
-        == """lamindb.errors.ValidationError: Expected dtype for 'date_of_experiment' is 'date', got 'cat ? str'"""
-    )
+    assert "WRONG_DATATYPE" in error.exconly()
     artifact.features.add_values({"date_of_experiment": "2024-12-01"})
 
-    ln.Feature(name="datetime_of_experiment", dtype="datetime").save()
+    ln.Feature(name="datetime_of_experiment", dtype=datetime, coerce=True).save()
     artifact.features.add_values({"datetime_of_experiment": "2024-12-01 00:00:00"})
 
     # bionty feature
@@ -398,7 +430,8 @@ Here is how to create a feature:
         artifact.features.add_values({"organism": mouse})
     assert (
         # ensure the label is saved
-        error.exconly().startswith("lamindb.errors.ValidationError: Please save")
+        error.exconly()
+        == "lamindb.errors.ValidationError: Organism mouse is not saved."
     )
     mouse.save()
     artifact.features.add_values({"organism": mouse})
@@ -407,9 +440,8 @@ Here is how to create a feature:
     # lists of records
     diseases = bt.Disease.from_values(
         ["MONDO:0004975", "MONDO:0004980"], field=bt.Disease.ontology_id
-    )
-    ln.save(diseases)
-    ln.Feature(name="disease", dtype="cat[bionty.Disease.ontology_id]").save()
+    ).save()
+    ln.Feature(name="disease", dtype=bt.Disease.ontology_id).save()
     artifact.features.add_values({"disease": diseases})
     assert len(artifact.diseases.filter()) == 2
     # check get_values returns ontology_ids as specified in the feature dtype
@@ -640,7 +672,7 @@ def test_add_list_of_cat_features():
             }
         )
     assert error.exconly().startswith(
-        "lamindb.errors.ValidationError: These values could not be validated: {'Record': ('name', ['invalid'])}"
+        "lamindb.errors.ValidationError: 1 term not validated in feature 'single_label_of_type1': 'invalid'"
     )
     # now for list of labels
     with pytest.raises(ValidationError) as error:
@@ -650,7 +682,7 @@ def test_add_list_of_cat_features():
             }
         )
     assert error.exconly().startswith(
-        "lamindb.errors.ValidationError: These values could not be validated: {'Record': ('name', ['invalid', 'invalid2'])}"
+        "lamindb.errors.ValidationError: 2 terms not validated in feature 'list_of_labels_of_type1':"
     )
     artifact.delete(permanent=True)
     # now with schema

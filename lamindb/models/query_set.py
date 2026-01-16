@@ -405,8 +405,10 @@ class SQLRecordList(UserList, Generic[T]):
         return self.to_dataframe()
 
     def to_list(
-        self, field: str
+        self, field: str | None = None
     ) -> list[str]:  # meaningful to be parallel with to_list() in QuerySet
+        if field is None:
+            return self.data
         return [getattr(record, field) for record in self.data]
 
     def one(self) -> T:
