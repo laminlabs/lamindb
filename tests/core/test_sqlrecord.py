@@ -279,12 +279,19 @@ def test_pass_version():
 def test_delete():
     record = ln.Record(name="test-delete")
     # record not yet saved, delete has no effect
-    record.delete()
+    result = record.delete()
+    assert result is None
     assert record.branch_id == 1
     record.save()
-    record.delete()
+    result = record.delete()
+    assert result is None
     assert record.branch_id == -1
-    record.delete(permanent=True)
+    result = record.delete(permanent=True)
+    assert isinstance(result, tuple)
+    assert len(result) == 2
+    deleted_count, deleted_dict = result
+    assert deleted_count == 1
+    assert isinstance(deleted_dict, dict)
     assert ln.Record.filter(name="test-delete").exists() is False
 
 
@@ -368,6 +375,51 @@ def test_soft_delete_error():
 
     with pytest.raises(ValueError):
         ln.Branch.filter().first().delete(permanent=False)
+
+
+def test_delete_return_value_permanent():
+    """Test that permanent delete returns Django's natural return value."""
+    # Test with ULabel (simple SQLRecord)
+    ulabel = ln.ULabel(name="test-delete-return").save()
+    result = ulabel.delete(permanent=True)
+    assert isinstance(result, tuple)
+    assert len(result) == 2
+    deleted_count, deleted_dict = result
+    assert deleted_count == 1
+    assert isinstance(deleted_dict, dict)
+    assert len(deleted_dict) > 0
+    # Check that the registry name is in the dict
+    # Django returns app_label.ClassName format
+    registry_name = f"{ulabel._meta.app_label}.{ulabel.__class__.__name__}"
+    assert registry_name in deleted_dict
+    assert deleted_dict[registry_name] == 1
+
+    # Test with Record
+    record = ln.Record(name="test-delete-return-record").save()
+    result = record.delete(permanent=True)
+    assert isinstance(result, tuple)
+    deleted_count, deleted_dict = result
+    assert deleted_count == 1
+    assert isinstance(deleted_dict, dict)
+
+    # Test that soft delete returns None
+    record2 = ln.Record(name="test-delete-return-soft").save()
+    result = record2.delete(permanent=False)
+    assert result is None
+    assert record2.branch_id == -1
+    record2.delete(permanent=True)
+
+
+def test_delete_return_value_base_sqlrecord():
+    """Test that BaseSQLRecord.delete() returns Django's natural return value."""
+    # Test with Branch (BaseSQLRecord, not SQLRecord)
+    branch = ln.Branch(name="test-delete-branch-return").save()
+    result = branch.delete(permanent=True)
+    assert isinstance(result, tuple)
+    assert len(result) == 2
+    deleted_count, deleted_dict = result
+    assert deleted_count == 1
+    assert isinstance(deleted_dict, dict)
 
 
 def test_unsaved_relationship_modification_attempts():
