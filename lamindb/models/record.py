@@ -126,7 +126,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         The features of a `Record` are flexible: you can dynamically define features and add features to a record.
         The fields of a `SQLRecord` are fixed: you need to define them in code and then migrate the underlying database.
 
-        You can configure a `SQLRecord` by subclassing it in a custom schema, for example, as done here: `github.com/laminlabs/wetlab <https://github.com/laminlabs/wetlab>`__
+        You can configure a `SQLRecord` by subclassing it in a custom schema, for example, as done here: `github.com/laminlabs/pertdb <https://github.com/laminlabs/pertdb>`__
 
     """
 

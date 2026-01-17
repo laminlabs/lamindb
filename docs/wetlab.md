@@ -1,5 +1,5 @@
-# `wetlab`
+# `pertdb`
 
 ```{eval-rst}
-.. automodule:: wetlab
+.. automodule:: pertdb
 ```
