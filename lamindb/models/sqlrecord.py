@@ -1532,13 +1532,13 @@ class Branch(BaseSQLRecord):
 
 @doc_args(RECORD_REGISTRY_EXAMPLE)
 class SQLRecord(BaseSQLRecord, metaclass=Registry):
-    """Metadata record.
+    """An object that maps to a row in a SQL table in the database.
 
     Every `SQLRecord` is a data model that comes with a registry in form of a SQL
     table in your database.
 
     Sub-classing `SQLRecord` creates a new registry while instantiating a `SQLRecord`
-    creates a new record.
+    creates a new object.
 
     {}
 
@@ -1558,14 +1558,17 @@ class SQLRecord(BaseSQLRecord, metaclass=Registry):
         db_column="branch_id",
         related_name="+",
     )
-    """Life cycle state of record.
+    """State of object life cycle.
 
-    `branch.name` can be "main" (default branch), "trash" (trash), `branch.name = "archive"` (archived), or any other user-created branch typically planned for merging onto main after review.
+    There are 3 pre-defined branches: `main`, `trash`, and `archive`.
+
+    Users can create branches similar to `git` via `lamin create --branch my_branch`
+    to avoid adding a set of new objects to the main branch.
     """
     space: Space = ForeignKey(Space, PROTECT, default=1, db_default=1, related_name="+")
-    """The space in which the record lives."""
+    """The space in which the object lives."""
     is_locked: bool = BooleanField(default=False, db_default=False)
-    """Whether the record is locked for edits."""
+    """Whether the object is locked for edits."""
     _aux: dict[str, Any] | None = JSONField(default=None, db_default=None, null=True)
     """Auxiliary field for dictionary-like metadata."""
 
@@ -1575,19 +1578,19 @@ class SQLRecord(BaseSQLRecord, metaclass=Registry):
     def restore(self) -> None:
         """Restore from trash onto the main branch.
 
-        Does **not** restore descendant records if the record is `HasType` with `is_type = True`.
+        Does **not** restore descendant objects if the object is `HasType` with `is_type = True`.
         """
         self.branch_id = 1
         self.save()
 
     def delete(self, permanent: bool | None = None, **kwargs):
-        """Delete record.
+        """Delete object.
 
-        If record is `HasType` with `is_type = True`, deletes all descendant records, too.
+        If object is `HasType` with `is_type = True`, deletes all descendant objects, too.
 
         Args:
-            permanent: Whether to permanently delete the record (skips trash).
-                If `None`, performs soft delete if the record is not already in the trash.
+            permanent: Whether to permanently delete the object (skips trash).
+                If `None`, performs soft delete if the object is not already in the trash.
 
         Returns:
             When `permanent=True`, returns Django's delete return value: a tuple of
@@ -1595,9 +1598,9 @@ class SQLRecord(BaseSQLRecord, metaclass=Registry):
 
         Examples:
 
-            For any `SQLRecord` object `record`, call:
+            For any `SQLRecord` object `sqlrecord`, call::
 
-            >>> record.delete()
+                sqlrecord.delete()
         """
         if self._state.adding:
             logger.warning("record is not yet saved, delete has no effect")
