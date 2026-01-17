@@ -672,7 +672,7 @@ class Registry(ModelBase):
             expressions: Fields and values passed as Django query expressions.
 
         Raises:
-            :exc:`lamindb.errors.DoesNotExist`: In case no matching record is found.
+            :exc:`lamindb.errors.ObjectDoesNotExist`: In case no matching record is found.
 
         See Also:
             - Guide: :doc:`registries`
