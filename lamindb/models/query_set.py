@@ -9,7 +9,7 @@ Query sets & managers
 .. autoclass:: ArtifactSet
 .. autoclass:: QueryManager
 .. autoclass:: lamindb.models.query_set.BiontyDB
-.. autoclass:: lamindb.models.query_set.WetlabDB
+.. autoclass:: lamindb.models.query_set.PertdbDB
 
 ...
 """
@@ -1501,7 +1501,7 @@ class BiontyDB(ModuleNamespace):
     Ethnicity: QuerySet[Ethnicity]  # type: ignore[type-arg]
 
 
-class WetlabDB(ModuleNamespace):
+class PertdbDB(ModuleNamespace):
     """Namespace for pertdb registries (Experiment, Biosample, etc.)."""
 
     Experiment: QuerySet[Experiment]  # type: ignore[type-arg]
@@ -1578,11 +1578,11 @@ class DB:
     Space: QuerySet[Space]  # type: ignore[type-arg]
 
     bionty: BiontyDB
-    pertdb: WetlabDB
+    pertdb: PertdbDB
 
     def __init__(self, instance: str):
         self._instance = instance
-        self._cache: dict[str, NonInstantiableQuerySet | BiontyDB | WetlabDB] = {}
+        self._cache: dict[str, NonInstantiableQuerySet | BiontyDB | PertdbDB] = {}
         self._available_registries: set[str] | None = None
 
         owner, instance_name = instance.split("/")
@@ -1591,7 +1591,7 @@ class DB:
         )
         self._modules = ["lamindb"] + list(instance_info.modules)
 
-    def __getattr__(self, name: str) -> NonInstantiableQuerySet | BiontyDB | WetlabDB:
+    def __getattr__(self, name: str) -> NonInstantiableQuerySet | BiontyDB | PertdbDB:
         """Access a registry class or schema namespace for this database instance.
 
         Args:
@@ -1619,7 +1619,7 @@ class DB:
                     f"Schema 'pertdb' not available in instance '{self._instance}'."
                 )
             if "pertdb" not in self._cache:
-                namespace = WetlabDB(self, "pertdb")  # type: ignore
+                namespace = PertdbDB(self, "pertdb")  # type: ignore
                 self._cache["pertdb"] = namespace
             return self._cache["pertdb"]
 

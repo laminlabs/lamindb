@@ -31,7 +31,7 @@ Query sets & managers
 .. autoclass:: ArtifactSet
 .. autoclass:: QueryManager
 .. autoclass:: lamindb.models.query_set.BiontyDB
-.. autoclass:: lamindb.models.query_set.WetlabDB
+.. autoclass:: lamindb.models.query_set.PertdbDB
 
 Storage of feature values
 -------------------------
