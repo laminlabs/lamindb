@@ -56,6 +56,7 @@ if TYPE_CHECKING:
     from .artifact import Artifact
     from .block import SchemaBlock
     from .project import Project
+    from .query_manager import QueryManager
     from .record import Record
 
 
@@ -385,22 +386,22 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
 
     If `True`, no additional features are allowed to be present in the dataset.
     """
-    components: Schema = ManyToManyField(
+    components: QueryManager[Schema] = ManyToManyField(
         "self", through="SchemaComponent", symmetrical=False, related_name="composites"
     )
     """Components of this schema."""
-    composites: Schema
+    composites: QueryManager[Schema]
     """The composite schemas that contains this schema as a component.
 
     For example, an `AnnData` composes multiple schemas: `var[DataFrameT]`, `obs[DataFrame]`, `obsm[Array]`, `uns[dict]`, etc.
     """
-    features: Feature
+    features: QueryManager[Feature]
     """The features contained in the schema."""
-    artifacts: Artifact
+    artifacts: QueryManager[Artifact]
     """The artifacts that measure a feature set that matches this schema."""
     validated_artifacts: Artifact
     """The artifacts that were validated against this schema with a :class:`~lamindb.curators.core.Curator`."""
-    projects: Project
+    projects: QueryManager[Project]
     """Linked projects."""
     records: Record
     """Records that were annotated with this schema."""

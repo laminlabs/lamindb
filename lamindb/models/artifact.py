@@ -120,6 +120,7 @@ if TYPE_CHECKING:
         SpatialDataAccessor,
     )
     from lamindb.core.types import ScverseDataStructures
+    from lamindb.models.query_manager import QueryManager
 
     from ..base.types import (
         ArtifactKind,
@@ -1188,7 +1189,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             ),
         ]
 
-    TRACK_FIELDS = ("space_id",)
+    _TRACK_FIELDS = ("space_id",)
 
     _len_full_uid: int = 20
     _len_stem_uid: int = 16
@@ -1281,11 +1282,11 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     storage: Storage = ForeignKey(
         Storage, PROTECT, related_name="artifacts", editable=False
     )
-    """Storage location, e.g. an S3 or GCP bucket or a local directory."""
+    """Storage location, e.g. an S3 or GCP bucket or a local directory ← :attr:`~lamindb.Storage.artifacts`."""
     suffix: str = CharField(max_length=30, db_index=True, editable=False)
     # Initially, we thought about having this be nullable to indicate folders
     # But, for instance, .zarr is stored in a folder that ends with a .zarr suffix
-    """Path suffix or empty string if no canonical suffix exists.
+    """The path suffix or an empty string if no suffix exists.
 
     This is either a file suffix (`".csv"`, `".h5ad"`, etc.) or the empty string "".
     """
@@ -1300,7 +1301,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         | str
         | None
     ) = CharField(max_length=64, db_index=True, null=True, editable=False)
-    """Object type represented as a string.
+    """The object type represented as a string.
 
     The field is automatically set when using the `from_dataframe()`, `from_anndata()`, ... constructors.
     Unstructured artifacts have `otype=None`.
@@ -1312,28 +1313,32 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     size: int | None = BigIntegerField(
         null=True, db_index=True, default=None, editable=False
     )
-    """Size in bytes.
+    """The size in bytes.
 
     Examples: 1KB is 1e3 bytes, 1MB is 1e6, 1GB is 1e9, 1TB is 1e12 etc.
     """
     hash: str | None = CharField(
         max_length=HASH_LENGTH, db_index=True, null=True, editable=False
     )
-    """Hash or pseudo-hash of artifact content.
+    """The hash or pseudo-hash of the artifact content in storage.
 
     Useful to ascertain integrity and avoid duplication.
+
+    Different versions of the artifact have different hashes.
     """
     n_files: int | None = BigIntegerField(
         null=True, db_index=True, default=None, editable=False
     )
-    """Number of files for folder-like artifacts, `None` for file-like artifacts.
+    """The number of files for folder-like artifacts.
+
+    Is `None` for file-like artifacts.
 
     Note that some arrays are also stored as folders, e.g., `.zarr` or `.tiledbsoma`.
     """
     n_observations: int | None = BigIntegerField(
         null=True, db_index=True, default=None, editable=False
     )
-    """Number of observations.
+    """The number of observations in this artifact.
 
     Typically, this denotes the first array dimension.
     """
@@ -1349,16 +1354,18 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         default=None,
         editable=False,
     )
-    """Run that created the artifact."""
-    input_of_runs: Run = models.ManyToManyField(Run, related_name="input_artifacts")
-    """Runs that use this artifact as an input."""
-    recreating_runs: Run = models.ManyToManyField(
+    """The run that created the artifact ← :attr:`~lamindb.Run.output_artifacts`."""
+    input_of_runs: QueryManager[Run] = models.ManyToManyField(
+        Run, related_name="input_artifacts"
+    )
+    """The runs that use this artifact as an input ← :attr:`~lamindb.Run.input_artifacts`."""
+    recreating_runs: QueryManager[Run] = models.ManyToManyField(
         "Run",
         related_name="recreated_artifacts",
     )
-    """Runs that re-created the record after initial creation."""
-    collections: Collection
-    """The collections that this artifact is part of."""
+    """The runs that re-created the artifact after its initial creation ← :attr:`~lamindb.Run.recreated_artifacts`."""
+    collections: QueryManager[Collection]
+    """The collections that this artifact is part of ← :attr:`~lamindb.Collection.artifacts`."""
     schema: Schema | None = ForeignKey(
         Schema,
         PROTECT,
@@ -1366,14 +1373,14 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         default=None,
         related_name="validated_artifacts",
     )
-    """The validating schema of this artifact with related field :attr:`lamindb.Schema.validated_artifacts`.
+    """The validating schema of this artifact ← :attr:`~lamindb.Schema.validated_artifacts`.
 
     The validating schema is helpful to query artifacts that were validated by the same schema.
     """
-    schemas: Schema = models.ManyToManyField(
+    schemas: QueryManager[Schema] = models.ManyToManyField(
         Schema, related_name="artifacts", through="ArtifactSchema"
     )
-    """The inferred schemas of this artifact with related field :attr:`lamindb.Schema.artifacts`.
+    """The inferred schemas of this artifact ← :attr:`~lamindb.Schema.artifacts`.
 
     The inferred schemas are helpful to answer the question: "Which features are present in the artifact?"
 
@@ -1381,17 +1388,17 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     The inferred schemas link the actual schemas of the artifact, and are
     auto-generated by parsing the artifact content during validation.
     """
-    json_values: JsonValue = models.ManyToManyField(
+    json_values: QueryManager[JsonValue] = models.ManyToManyField(
         JsonValue, through="ArtifactJsonValue", related_name="artifacts"
     )
-    """Feature-indexed JSON values."""
+    """The feature-indexed JSON values annotating this artifact ← :attr:`~lamindb.JsonValue.artifacts`."""
     _key_is_virtual: bool = BooleanField()
     """Indicates whether `key` is virtual or part of an actual file path."""
     # be mindful that below, passing related_name="+" leads to errors
-    _actions: Artifact = models.ManyToManyField(
+    _actions: QueryManager[Artifact] = models.ManyToManyField(
         "self", symmetrical=False, related_name="_action_targets"
     )
-    """Actions to attach for the UI."""
+    """The actions to attach for the UI."""
     created_by: User = ForeignKey(
         "lamindb.User",
         PROTECT,
@@ -1399,36 +1406,36 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         related_name="created_artifacts",
         editable=False,
     )
-    """The creator of this artifact."""
+    """The creator of this artifact ← :attr:`~lamindb.User.created_artifacts`."""
     _overwrite_versions: bool = BooleanField(default=None)
     """See corresponding property `overwrite_versions`."""
-    ulabels: ULabel
-    """The ulabels annotating this artifact."""
-    users: User
-    """The users annotating this artifact."""
-    projects: Project
-    """The projects annotating this artifact."""
-    references: Reference
-    """The references annotating this artifact."""
-    records: Record
-    """The records annotating this artifact."""
-    runs: Run
-    """The runs annotating this artifact."""
-    artifacts: Artifact = models.ManyToManyField(
+    ulabels: QueryManager[ULabel]
+    """The ulabels annotating this artifact ← :attr:`~lamindb.ULabel.artifacts`."""
+    users: QueryManager[User]
+    """The users annotating this artifact ← :attr:`~lamindb.User.artifacts`."""
+    projects: QueryManager[Project]
+    """The projects annotating this artifact ← :attr:`~lamindb.Project.artifacts`."""
+    references: QueryManager[Reference]
+    """The references annotating this artifact ← :attr:`~lamindb.Reference.artifacts`."""
+    records: QueryManager[Record]
+    """The records annotating this artifact ← :attr:`~lamindb.Record.artifacts`."""
+    runs: QueryManager[Run]
+    """The runs annotating this artifact ← :attr:`~lamindb.Run.artifacts`."""
+    artifacts: QueryManager[Artifact] = models.ManyToManyField(
         "Artifact",
         through="ArtifactArtifact",
         symmetrical=False,
         related_name="linked_by_artifacts",
     )
-    """The artifacts that are linked to this artifact as feature values (the annotating artifacts of this artifact)."""
-    linked_by_artifacts: Artifact
-    """The artifacts linking this artifact as a feature value (the artifacts annotated by this artifact)."""
-    linked_in_records: Record = models.ManyToManyField(
+    """The annotating artifacts of this artifact ← :attr:`~lamindb.Artifact.linked_by_artifacts`."""
+    linked_by_artifacts: QueryManager[Artifact]
+    """The artifacts annotated by this artifact ← :attr:`~lamindb.Artifact.artifacts`."""
+    linked_in_records: QueryManager[Record] = models.ManyToManyField(
         "Record", through="RecordArtifact", related_name="linked_artifacts"
     )
-    """The records linking this artifact as a feature value."""
+    """The records linking this artifact as a feature value ← :attr:`~lamindb.Record.linked_artifacts`."""
     ablocks: ArtifactBlock
-    """The blocks that annotate this artifact."""
+    """The blocks that annotate this artifact ← :attr:`~lamindb.ArtifactBlock.artifact`."""
 
     @overload
     def __init__(
@@ -3006,7 +3013,7 @@ class ArtifactJsonValue(BaseSQLRecord, IsLink, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
     artifact: Artifact = ForeignKey(Artifact, CASCADE, related_name="links_jsonvalue")
     # we follow the lower() case convention rather than snake case for link models
-    jsonvalue = ForeignKey(JsonValue, PROTECT, related_name="links_artifact")
+    jsonvalue: JsonValue = ForeignKey(JsonValue, PROTECT, related_name="links_artifact")
 
     class Meta:
         app_label = "lamindb"

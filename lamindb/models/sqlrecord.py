@@ -936,7 +936,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
     # fields to track for changes
     # if not None, will be tracked in self._original_values as {field_name: value}
     # use _id fields for foreign keys
-    TRACK_FIELDS: tuple[str, ...] | None = None
+    _TRACK_FIELDS: tuple[str, ...] | None = None
 
     def __init__(self, *args, **kwargs):
         skip_validation = kwargs.pop("_skip_validation", False)
@@ -1062,13 +1062,13 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
             super().__init__(*args)
         # track original values of fields that are tracked for changes
         self._populate_tracked_fields()
-        # TODO: refactor to use TRACK_FIELDS
+        # TODO: refactor to use _TRACK_FIELDS
         track_current_key_and_name_values(self)
 
     # used in __init__
     # populates the _original_values dictionary with the original values of the tracked fields
     def _populate_tracked_fields(self):
-        if (track_fields := self.TRACK_FIELDS) is not None:
+        if (track_fields := self._TRACK_FIELDS) is not None:
             self._original_values = {f: self.__dict__[f] for f in track_fields}
         else:
             self._original_values = None
@@ -1079,9 +1079,9 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
         if self._state.adding:
             return False
         # check if the field is tracked for changes
-        track_fields = self.TRACK_FIELDS
+        track_fields = self._TRACK_FIELDS
         assert track_fields is not None, (
-            "TRACK_FIELDS must be set for the record to track changes"
+            "_TRACK_FIELDS must be set for the record to track changes"
         )
         assert field_name in track_fields, (
             f"Field {field_name} is not tracked for changes"
@@ -1124,7 +1124,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
         if pre_existing_record is not None:
             init_self_from_db(self, pre_existing_record)
         else:
-            # TODO: refactor to use TRACK_FIELDS
+            # TODO: refactor to use _TRACK_FIELDS
             check_key_change(self)
             check_name_change(self)
             try:
@@ -1379,7 +1379,7 @@ class Space(BaseSQLRecord):
             record.space = space
             record.save()  # saved in space "Our space"
 
-        For more examples and background, see :doc:`docs:access`, in particular, section :ref:`docs:use-a-restricted-space`.
+        For more examples and background, see :doc:`docs:permissions`, in particular, section :ref:`docs:use-a-restricted-space`.
 
     Notes:
 
@@ -1456,7 +1456,17 @@ class Space(BaseSQLRecord):
 class Branch(BaseSQLRecord):
     """Branches for change management with archive and trash states.
 
-    Every `SQLRecord` has a `branch` field, which dictates where a record appears in queries & searches.
+    There are 3 pre-defined branches: `main`, `trash`, and `archive`.
+
+    You can create branches similar to `git` via `lamin create --branch my_branch`.
+
+    To add objects to that new branch rather than the `main` branch, run `lamin switch --branch my_branch`.
+
+    To merge a set of artifacts on the `"my_branch"` branch to the main branch, run::
+
+        ln.Artifact.filter(branch__name="my_branch").update(branch_id=1)
+
+    If you delete an object via `sqlrecord.delete()`, it gets moved to the `trash` branch and scheduled for deletion.
     """
 
     class Meta:
@@ -1532,13 +1542,13 @@ class Branch(BaseSQLRecord):
 
 @doc_args(RECORD_REGISTRY_EXAMPLE)
 class SQLRecord(BaseSQLRecord, metaclass=Registry):
-    """Metadata record.
+    """An object that maps to a row in a SQL table in the database.
 
     Every `SQLRecord` is a data model that comes with a registry in form of a SQL
     table in your database.
 
     Sub-classing `SQLRecord` creates a new registry while instantiating a `SQLRecord`
-    creates a new record.
+    creates a new object.
 
     {}
 
@@ -1558,14 +1568,11 @@ class SQLRecord(BaseSQLRecord, metaclass=Registry):
         db_column="branch_id",
         related_name="+",
     )
-    """Life cycle state of record.
-
-    `branch.name` can be "main" (default branch), "trash" (trash), `branch.name = "archive"` (archived), or any other user-created branch typically planned for merging onto main after review.
-    """
+    """The branch."""
     space: Space = ForeignKey(Space, PROTECT, default=1, db_default=1, related_name="+")
-    """The space in which the record lives."""
+    """The space."""
     is_locked: bool = BooleanField(default=False, db_default=False)
-    """Whether the record is locked for edits."""
+    """Whether the object is locked for edits."""
     _aux: dict[str, Any] | None = JSONField(default=None, db_default=None, null=True)
     """Auxiliary field for dictionary-like metadata."""
 
@@ -1575,19 +1582,19 @@ class SQLRecord(BaseSQLRecord, metaclass=Registry):
     def restore(self) -> None:
         """Restore from trash onto the main branch.
 
-        Does **not** restore descendant records if the record is `HasType` with `is_type = True`.
+        Does **not** restore descendant objects if the object is `HasType` with `is_type = True`.
         """
         self.branch_id = 1
         self.save()
 
     def delete(self, permanent: bool | None = None, **kwargs):
-        """Delete record.
+        """Delete object.
 
-        If record is `HasType` with `is_type = True`, deletes all descendant records, too.
+        If object is `HasType` with `is_type = True`, deletes all descendant objects, too.
 
         Args:
-            permanent: Whether to permanently delete the record (skips trash).
-                If `None`, performs soft delete if the record is not already in the trash.
+            permanent: Whether to permanently delete the object (skips trash).
+                If `None`, performs soft delete if the object is not already in the trash.
 
         Returns:
             When `permanent=True`, returns Django's delete return value: a tuple of
@@ -1595,9 +1602,9 @@ class SQLRecord(BaseSQLRecord, metaclass=Registry):
 
         Examples:
 
-            For any `SQLRecord` object `record`, call:
+            For any `SQLRecord` object `sqlrecord`, call::
 
-            >>> record.delete()
+                sqlrecord.delete()
         """
         if self._state.adding:
             logger.warning("record is not yet saved, delete has no effect")
