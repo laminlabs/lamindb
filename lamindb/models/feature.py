@@ -1100,7 +1100,7 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     # backward fields
     values: JsonValue
     """Values for this feature."""
-    projects: Project
+    projects: QueryManager[Project]
     """Annotating projects."""
     ablocks: FeatureBlock
     """Blocks that annotate this feature."""

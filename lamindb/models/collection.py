@@ -203,11 +203,11 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         Artifact, related_name="+"
     )
     """Actions to attach for the UI."""
-    projects: Project
+    projects: QueryManager[Project]
     """Linked projects ← :attr:`~lamindb.Project.collections`."""
-    references: Reference
+    references: QueryManager[Reference]
     """Linked references ← :attr:`~lamindb.Reference.collections`."""
-    records: Record
+    records: QueryManager[Record]
     """Linked records ← :attr:`~lamindb.Record.collections`."""
     ablocks: CollectionBlock
     """Blocks that annotate this collection ← :attr:`~lamindb.CollectionBlock.collection`."""

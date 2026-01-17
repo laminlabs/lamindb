@@ -1360,7 +1360,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         related_name="recreated_artifacts",
     )
     """Runs that re-created the record after initial creation ← :attr:`~lamindb.Run.recreated_artifacts`."""
-    collections: Collection
+    collections: QueryManager[Collection]
     """The collections that this artifact is part of ← :attr:`~lamindb.Collection.artifacts`."""
     schema: Schema | None = ForeignKey(
         Schema,
@@ -1405,17 +1405,17 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     """The creator of this artifact ← :attr:`~lamindb.User.created_artifacts`."""
     _overwrite_versions: bool = BooleanField(default=None)
     """See corresponding property `overwrite_versions`."""
-    ulabels: ULabel
+    ulabels: QueryManager[ULabel]
     """The ulabels annotating this artifact ← :attr:`~lamindb.ULabel.artifacts`."""
-    users: User
+    users: QueryManager[User]
     """The users annotating this artifact ← :attr:`~lamindb.User.artifacts`."""
-    projects: Project
+    projects: QueryManager[Project]
     """The projects annotating this artifact ← :attr:`~lamindb.Project.artifacts`."""
-    references: Reference
+    references: QueryManager[Reference]
     """The references annotating this artifact ← :attr:`~lamindb.Reference.artifacts`."""
-    records: Record
+    records: QueryManager[Record]
     """The records annotating this artifact ← :attr:`~lamindb.Record.artifacts`."""
-    runs: Run
+    runs: QueryManager[Run]
     """The runs annotating this artifact ← :attr:`~lamindb.Run.artifacts`."""
     artifacts: QueryManager[Artifact] = models.ManyToManyField(
         "Artifact",
@@ -1424,7 +1424,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         related_name="linked_by_artifacts",
     )
     """The artifacts that are linked to this artifact as feature values (the annotating artifacts of this artifact) ← :attr:`~lamindb.Artifact.linked_by_artifacts`."""
-    linked_by_artifacts: Artifact
+    linked_by_artifacts: QueryManager[Artifact]
     """The artifacts linking this artifact as a feature value (the artifacts annotated by this artifact)."""
     linked_in_records: QueryManager[Record] = models.ManyToManyField(
         "Record", through="RecordArtifact", related_name="linked_artifacts"

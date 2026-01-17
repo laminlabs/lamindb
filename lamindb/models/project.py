@@ -130,7 +130,7 @@ class Reference(
         Record, through="ReferenceRecord", related_name="references"
     )
     """Annotated records ← :attr:`~lamindb.Record.references`."""
-    projects: Project
+    projects: QueryManager[Project]
     """Projects that annotate this reference ← :attr:`~lamindb.Project.references`."""
 
     @overload
@@ -216,7 +216,7 @@ class Project(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, ValidateF
         "self", symmetrical=False, related_name="children"
     )
     """Parent projects, the super-projects owning this project ← :attr:`~lamindb.Project.children`."""
-    children: Project
+    children: QueryManager[Project]
     """Child projects, the sub-projects owned by this project.
 
     Reverse accessor for `.parents`.
@@ -225,7 +225,7 @@ class Project(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, ValidateF
         "self", symmetrical=False, related_name="successors"
     )
     """The preceding projects required by this project ← :attr:`~lamindb.Project.successors`."""
-    successors: Project
+    successors: QueryManager[Project]
     """The succeeding projects requiring this project.
 
     Reverse accessor for `.predecessors`.

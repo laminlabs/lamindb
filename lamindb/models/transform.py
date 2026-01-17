@@ -197,7 +197,7 @@ class Transform(SQLRecord, IsVersioned):
         "Record", through="RecordTransform", related_name="linked_transforms"
     )
     """This transform is linked in these records as a value ← :attr:`~lamindb.Record.linked_transforms`."""
-    records: Record
+    records: QueryManager[Record]
     """Records that annotate this transform ← :attr:`~lamindb.Record.transforms`."""
     predecessors: QueryManager[Transform] = models.ManyToManyField(
         "self",
@@ -206,15 +206,15 @@ class Transform(SQLRecord, IsVersioned):
         related_name="successors",
     )
     """Preceding transforms ← :attr:`~lamindb.Transform.successors`."""
-    successors: Transform
+    successors: QueryManager[Transform]
     """Subsequent transforms ← :attr:`~lamindb.Transform.predecessors`.
 
     Allows defining succeeding transforms. Is *not* necessary for data lineage, which is tracked automatically
     whenever an artifact or collection serves as an input for a run.
     """
-    projects: Project
+    projects: QueryManager[Project]
     """Linked projects ← :attr:`~lamindb.Project.transforms`."""
-    references: Reference
+    references: QueryManager[Reference]
     """Linked references ← :attr:`~lamindb.Reference.transforms`."""
     created_at: datetime = DateTimeField(
         editable=False, db_default=models.functions.Now(), db_index=True

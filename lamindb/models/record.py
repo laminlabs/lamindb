@@ -218,7 +218,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         related_name="linked_in_records",
     )
     """Records linked in this record as a value ← :attr:`~lamindb.Record.linked_in_records`."""
-    linked_in_records: Record
+    linked_in_records: QueryManager[Record]
     """Records linking this record as a value. Is reverse accessor for `linked_records`."""
     parents: QueryManager[Record] = models.ManyToManyField(
         "self", symmetrical=False, related_name="children"
@@ -227,7 +227,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
 
     You can build an ontology under a given `type`. For example, introduce a type `CellType` and model the hiearchy of cell types under it via `parents` and `children`.
     """
-    children: Record
+    children: QueryManager[Record]
     """Ontological children of this record. Is reverse accessor for `parents`."""
     # this is handled manually here because we want to se the related_name attribute
     # (this doesn't happen via inheritance of TracksRun, everything else is the same)
@@ -260,25 +260,25 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         Collection, through="CollectionRecord", related_name="records"
     )
     """Collections annotated by this record ← :attr:`~lamindb.Collection.records`."""
-    projects: Project
+    projects: QueryManager[Project]
     """Projects that annotate this record ← :attr:`~lamindb.Project.records`."""
-    references: Reference
+    references: QueryManager[Reference]
     """References that annotate this record ← :attr:`~lamindb.Reference.records`."""
-    linked_transforms: Transform
+    linked_transforms: QueryManager[Transform]
     """Transforms linked in this record as values ← :attr:`~lamindb.Transform.linked_in_records`."""
-    linked_runs: Run
+    linked_runs: QueryManager[Run]
     """Runs linked in this record as values ← :attr:`~lamindb.Run.linked_in_records`."""
-    linked_ulabels: ULabel
+    linked_ulabels: QueryManager[ULabel]
     """ULabels linked in this record as values ← :attr:`~lamindb.ULabel.linked_in_records`."""
-    linked_artifacts: Artifact
+    linked_artifacts: QueryManager[Artifact]
     """Artifacts linked in this record as values ← :attr:`~lamindb.Artifact.linked_in_records`."""
-    linked_projects: Project
+    linked_projects: QueryManager[Project]
     """Projects linked in this record as values ← :attr:`~lamindb.Project.linked_in_records`."""
-    linked_references: Reference
+    linked_references: QueryManager[Reference]
     """References linked in this record as values ← :attr:`~lamindb.Reference.linked_in_records`."""
-    linked_collections: Collection
+    linked_collections: QueryManager[Collection]
     """Collections linked in this record as values ← :attr:`~lamindb.Collection.linked_in_records`."""
-    linked_users: User
+    linked_users: QueryManager[User]
     """Users linked in this record as values ← :attr:`~lamindb.User.linked_in_records`."""
     ablocks: RecordBlock
     """Blocks that annotate this record ← :attr:`~lamindb.RecordBlock.record`."""

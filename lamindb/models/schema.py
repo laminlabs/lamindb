@@ -390,18 +390,18 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         "self", through="SchemaComponent", symmetrical=False, related_name="composites"
     )
     """Components of this schema."""
-    composites: Schema
+    composites: QueryManager[Schema]
     """The composite schemas that contains this schema as a component.
 
     For example, an `AnnData` composes multiple schemas: `var[DataFrameT]`, `obs[DataFrame]`, `obsm[Array]`, `uns[dict]`, etc.
     """
-    features: Feature
+    features: QueryManager[Feature]
     """The features contained in the schema."""
-    artifacts: Artifact
+    artifacts: QueryManager[Artifact]
     """The artifacts that measure a feature set that matches this schema."""
     validated_artifacts: Artifact
     """The artifacts that were validated against this schema with a :class:`~lamindb.curators.core.Curator`."""
-    projects: Project
+    projects: QueryManager[Project]
     """Linked projects."""
     records: Record
     """Records that were annotated with this schema."""

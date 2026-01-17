@@ -150,22 +150,22 @@ class ULabel(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
 
     Say, if you modeled `CellType` as a `ULabel`, you would introduce a type `CellType` and model the hiearchy of cell types under it.
     """
-    children: ULabel
+    children: QueryManager[ULabel]
     """Child entities of this ulabel.
 
     Reverse accessor for parents.
     """
-    transforms: Transform
+    transforms: QueryManager[Transform]
     """The transforms annotated by this ulabel ← :attr:`~lamindb.Transform.ulabels`."""
-    runs: Run
+    runs: QueryManager[Run]
     """The runs annotated by this ulabel ← :attr:`~lamindb.Run.ulabels`."""
     artifacts: QueryManager[Artifact] = models.ManyToManyField(
         "Artifact", through="ArtifactULabel", related_name="ulabels"
     )
     """The artifacts annotated by this ulabel ← :attr:`~lamindb.Artifact.ulabels`."""
-    collections: Collection
+    collections: QueryManager[Collection]
     """The collections annotated by this ulabel ← :attr:`~lamindb.Collection.ulabels`."""
-    projects: Project
+    projects: QueryManager[Project]
     """The projects annotating this ulabel ← :attr:`~lamindb.Project.ulabels`."""
     linked_in_records: QueryManager[Record] = models.ManyToManyField(
         "Record",
