@@ -1722,19 +1722,24 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         """
         if self._aux is None:
             return None
-        return self._aux.get("storage_completed")
+        result = self._aux.get("u")
+        if result == 1:
+            return False
+        else:
+            return result
 
     @_storage_completed.setter
     def _storage_completed(self, value: bool | None) -> None:
-        if value is None:
-            if self._aux is not None and "storage_completed" in self._aux:
-                del self._aux["storage_completed"]
+        if value is None or value is True:
+            if self._aux is not None and "u" in self._aux:
+                del self._aux["u"]
                 if not self._aux:
                     self._aux = None
         else:
             if self._aux is None:
                 self._aux = {}
-            self._aux["storage_completed"] = value
+            assert value is False
+            self._aux["u"] = 1
 
     @property
     @deprecated("schemas")
