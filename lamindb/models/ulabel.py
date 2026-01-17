@@ -128,7 +128,7 @@ class ULabel(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
     name: str = CharField(max_length=150, db_index=True)
     """Name or title of ulabel."""
     type: ULabel | None = ForeignKey("self", PROTECT, null=True, related_name="ulabels")
-    """Type of ulabel, e.g., `"donor"`, `"split"`, etc.
+    """Type of ulabel, e.g., `"donor"`, `"split"`, etc. ← :attr:`~lamindb.ULabel.ulabels`
 
     Allows to group ulabels by type, e.g., all donors, all split ulabels, etc.
     """
@@ -143,7 +143,7 @@ class ULabel(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
     parents: ULabel = models.ManyToManyField(
         "self", symmetrical=False, related_name="children"
     )
-    """Parent entities of this ulabel.
+    """Parent entities of this ulabel ← :attr:`~lamindb.ULabel.children`.
 
     For advanced use cases, you can build an ontology under a given `type`.
 
@@ -155,25 +155,25 @@ class ULabel(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
     Reverse accessor for parents.
     """
     transforms: Transform
-    """The transforms annotated by this ulabel."""
+    """The transforms annotated by this ulabel ← :attr:`~lamindb.Transform.ulabels`."""
     runs: Run
-    """The runs annotated by this ulabel."""
+    """The runs annotated by this ulabel ← :attr:`~lamindb.Run.ulabels`."""
     artifacts: Artifact = models.ManyToManyField(
         "Artifact", through="ArtifactULabel", related_name="ulabels"
     )
-    """The artifacts annotated by this ulabel."""
+    """The artifacts annotated by this ulabel ← :attr:`~lamindb.Artifact.ulabels`."""
     collections: Collection
-    """The collections annotated by this ulabel."""
+    """The collections annotated by this ulabel ← :attr:`~lamindb.Collection.ulabels`."""
     projects: Project
-    """The projects annotated by this ulabel."""
+    """The projects annotating this ulabel ← :attr:`~lamindb.Project.ulabels`."""
     linked_in_records: Record = models.ManyToManyField(
         "Record",
         through="RecordULabel",
         related_name="linked_ulabels",
     )
-    """Records linking this ulabel as a value."""
+    """Records linking this ulabel as a value ← :attr:`~lamindb.Record.linked_ulabels`."""
     ablocks: ULabelBlock
-    """Blocks that annotate this ulabel."""
+    """Blocks that annotate this ulabel ← :attr:`~lamindb.ULabelBlock.ulabel`."""
 
     @overload
     def __init__(

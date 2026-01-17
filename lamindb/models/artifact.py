@@ -1281,7 +1281,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     storage: Storage = ForeignKey(
         Storage, PROTECT, related_name="artifacts", editable=False
     )
-    """Storage location, e.g. an S3 or GCP bucket or a local directory."""
+    """Storage location, e.g. an S3 or GCP bucket or a local directory ← :attr:`~lamindb.Storage.artifacts`."""
     suffix: str = CharField(max_length=30, db_index=True, editable=False)
     # Initially, we thought about having this be nullable to indicate folders
     # But, for instance, .zarr is stored in a folder that ends with a .zarr suffix
@@ -1349,16 +1349,16 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         default=None,
         editable=False,
     )
-    """Run that created the artifact."""
+    """Run that created the artifact ← :attr:`~lamindb.Run.output_artifacts`."""
     input_of_runs: Run = models.ManyToManyField(Run, related_name="input_artifacts")
-    """Runs that use this artifact as an input."""
+    """Runs that use this artifact as an input ← :attr:`~lamindb.Run.input_artifacts`."""
     recreating_runs: Run = models.ManyToManyField(
         "Run",
         related_name="recreated_artifacts",
     )
-    """Runs that re-created the record after initial creation."""
+    """Runs that re-created the record after initial creation ← :attr:`~lamindb.Run.recreated_artifacts`."""
     collections: Collection
-    """The collections that this artifact is part of."""
+    """The collections that this artifact is part of ← :attr:`~lamindb.Collection.artifacts`."""
     schema: Schema | None = ForeignKey(
         Schema,
         PROTECT,
@@ -1366,14 +1366,14 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         default=None,
         related_name="validated_artifacts",
     )
-    """The validating schema of this artifact with related field :attr:`lamindb.Schema.validated_artifacts`.
+    """The validating schema of this artifact ← :attr:`~lamindb.Schema.validated_artifacts`.
 
     The validating schema is helpful to query artifacts that were validated by the same schema.
     """
     schemas: Schema = models.ManyToManyField(
         Schema, related_name="artifacts", through="ArtifactSchema"
     )
-    """The inferred schemas of this artifact with related field :attr:`lamindb.Schema.artifacts`.
+    """The inferred schemas of this artifact ← :attr:`~lamindb.Schema.artifacts`.
 
     The inferred schemas are helpful to answer the question: "Which features are present in the artifact?"
 
@@ -1384,7 +1384,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     json_values: JsonValue = models.ManyToManyField(
         JsonValue, through="ArtifactJsonValue", related_name="artifacts"
     )
-    """Feature-indexed JSON values."""
+    """Feature-indexed JSON values ← :attr:`~lamindb.JsonValue.artifacts`."""
     _key_is_virtual: bool = BooleanField()
     """Indicates whether `key` is virtual or part of an actual file path."""
     # be mindful that below, passing related_name="+" leads to errors
@@ -1399,36 +1399,36 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         related_name="created_artifacts",
         editable=False,
     )
-    """The creator of this artifact."""
+    """The creator of this artifact ← :attr:`~lamindb.User.created_artifacts`."""
     _overwrite_versions: bool = BooleanField(default=None)
     """See corresponding property `overwrite_versions`."""
     ulabels: ULabel
-    """The ulabels annotating this artifact."""
+    """The ulabels annotating this artifact ← :attr:`~lamindb.ULabel.artifacts`."""
     users: User
-    """The users annotating this artifact."""
+    """The users annotating this artifact ← :attr:`~lamindb.User.artifacts`."""
     projects: Project
-    """The projects annotating this artifact."""
+    """The projects annotating this artifact ← :attr:`~lamindb.Project.artifacts`."""
     references: Reference
-    """The references annotating this artifact."""
+    """The references annotating this artifact ← :attr:`~lamindb.Reference.artifacts`."""
     records: Record
-    """The records annotating this artifact."""
+    """The records annotating this artifact ← :attr:`~lamindb.Record.artifacts`."""
     runs: Run
-    """The runs annotating this artifact."""
+    """The runs annotating this artifact ← :attr:`~lamindb.Run.artifacts`."""
     artifacts: Artifact = models.ManyToManyField(
         "Artifact",
         through="ArtifactArtifact",
         symmetrical=False,
         related_name="linked_by_artifacts",
     )
-    """The artifacts that are linked to this artifact as feature values (the annotating artifacts of this artifact)."""
+    """The artifacts that are linked to this artifact as feature values (the annotating artifacts of this artifact) ← :attr:`~lamindb.Artifact.linked_by_artifacts`."""
     linked_by_artifacts: Artifact
     """The artifacts linking this artifact as a feature value (the artifacts annotated by this artifact)."""
     linked_in_records: Record = models.ManyToManyField(
         "Record", through="RecordArtifact", related_name="linked_artifacts"
     )
-    """The records linking this artifact as a feature value."""
+    """The records linking this artifact as a feature value ← :attr:`~lamindb.Record.linked_artifacts`."""
     ablocks: ArtifactBlock
-    """The blocks that annotate this artifact."""
+    """The blocks that annotate this artifact ← :attr:`~lamindb.ArtifactBlock.artifact`."""
 
     @overload
     def __init__(

@@ -268,7 +268,7 @@ class Run(SQLRecord, TracksUpdates):
     name: str | None = CharField(max_length=150, null=True, db_index=True)
     """An optional name for this run."""
     transform: Transform = ForeignKey("Transform", CASCADE, related_name="runs")
-    """The transform that is being run."""
+    """The transform that is being run ← :attr:`~lamindb.Transform.runs`."""
     entrypoint: str | None = CharField(max_length=255, null=True, db_index=True)
     """The entrypoint of the transform.
 
@@ -322,7 +322,7 @@ class Run(SQLRecord, TracksUpdates):
     json_values: JsonValue = models.ManyToManyField(
         "JsonValue", through="RunJsonValue", related_name="runs"
     )
-    """Feature-indexed JSON values."""
+    """Feature-indexed JSON values ← :attr:`~lamindb.JsonValue.runs`."""
     reference: str | None = CharField(max_length=255, db_index=True, null=True)
     """A reference like a URL or an external ID such as from a workflow manager."""
     reference_type: str | None = CharField(max_length=25, db_index=True, null=True)
@@ -336,11 +336,11 @@ class Run(SQLRecord, TracksUpdates):
     created_by: User = ForeignKey(
         "User", CASCADE, default=current_user_id, related_name="created_runs"
     )
-    """The creator of this run."""
+    """The creator of this run ← :attr:`~lamindb.User.created_runs`."""
     ulabels: ULabel = models.ManyToManyField(
         "ULabel", through="RunULabel", related_name="runs"
     )
-    """The ulabels annotating this run."""
+    """The ulabels annotating this run ← :attr:`~lamindb.ULabel.runs`."""
     initiated_by_run: Run | None = ForeignKey(
         "Run", CASCADE, null=True, related_name="initiated_runs", default=None
     )
@@ -348,9 +348,9 @@ class Run(SQLRecord, TracksUpdates):
     initiated_runs: Run
     """The runs that were initiated by this run."""
     projects: Project
-    """The projects annotating this run."""
+    """The projects annotating this run ← :attr:`~lamindb.Project.runs`."""
     ablocks: RunBlock
-    """The blocks annotating this run."""
+    """The blocks annotating this run ← :attr:`~lamindb.RunBlock.run`."""
     records: Record
     """The records annotating this run, via :attr:`~lamindb.Record.runs`."""
     linked_in_records: Record = models.ManyToManyField(

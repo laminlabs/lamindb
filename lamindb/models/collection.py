@@ -163,22 +163,22 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     ulabels: ULabel = models.ManyToManyField(
         "ULabel", through="CollectionULabel", related_name="collections"
     )
-    """ULabels annotating the collection (see :class:`~lamindb.Feature`)."""
+    """ULabels annotating the collection (see :class:`~lamindb.Feature`) ← :attr:`~lamindb.ULabel.collections`."""
     run: Run | None = ForeignKey(
         Run, PROTECT, related_name="output_collections", null=True, default=None
     )
-    """:class:`~lamindb.Run` that created the `collection`."""
+    """:class:`~lamindb.Run` that created the `collection` ← :attr:`~lamindb.Run.output_collections`."""
     input_of_runs: Run = models.ManyToManyField(Run, related_name="input_collections")
-    """Runs that use this collection as an input."""
+    """Runs that use this collection as an input ← :attr:`~lamindb.Run.input_collections`."""
     recreating_runs: Run = models.ManyToManyField(
         "Run",
         related_name="recreated_collections",
     )
-    """Runs that re-created the record after initial creation."""
+    """Runs that re-created the record after initial creation ← :attr:`~lamindb.Run.recreated_collections`."""
     artifacts: Artifact = models.ManyToManyField(
         "Artifact", related_name="collections", through="CollectionArtifact"
     )
-    """Artifacts in collection."""
+    """Artifacts in collection ← :attr:`~lamindb.Artifact.collections`."""
     meta_artifact: Artifact | None = OneToOneField(
         "Artifact",
         PROTECT,
@@ -195,17 +195,17 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     linked_in_records: Record = models.ManyToManyField(
         "Record", through="RecordCollection", related_name="linked_collections"
     )
-    """This collection is linked in these records as a value."""
+    """This collection is linked in these records as a value ← :attr:`~lamindb.Record.linked_collections`."""
     _actions: Artifact = models.ManyToManyField(Artifact, related_name="+")
     """Actions to attach for the UI."""
     projects: Project
-    """Linked projects."""
+    """Linked projects ← :attr:`~lamindb.Project.collections`."""
     references: Reference
-    """Linked references."""
+    """Linked references ← :attr:`~lamindb.Reference.collections`."""
     records: Record
-    """Linked records."""
+    """Linked records ← :attr:`~lamindb.Record.collections`."""
     ablocks: CollectionBlock
-    """Blocks that annotate this collection."""
+    """Blocks that annotate this collection ← :attr:`~lamindb.CollectionBlock.collection`."""
 
     @overload
     def __init__(

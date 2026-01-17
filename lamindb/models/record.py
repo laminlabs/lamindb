@@ -188,7 +188,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
     Names for a given `type` and `space` are constrained to be unique.
     """
     type: Record | None = ForeignKey("self", PROTECT, null=True, related_name="records")
-    """Type of record, e.g., `Sample`, `Donor`, `Cell`, `Compound`, `Sequence`.
+    """Type of record, e.g., `Sample`, `Donor`, `Cell`, `Compound`, `Sequence` ← :attr:`~lamindb.Record.records`.
 
     Allows to group records by type, e.g., all samples, all donors, all cells, all compounds, all sequences.
     """
@@ -205,7 +205,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
     schema: Schema | None = ForeignKey(
         "Schema", CASCADE, null=True, related_name="records"
     )
-    """A schema to enforce for a type.
+    """A schema to enforce for a type ← :attr:`~lamindb.Schema.records`.
 
     This is analogous to the `schema` attribute of an `Artifact`.
     If `is_type` is `True`, the schema is used to enforce features for each record of this type.
@@ -216,13 +216,13 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         symmetrical=False,
         related_name="linked_in_records",
     )
-    """Records linked in this record as a value."""
+    """Records linked in this record as a value ← :attr:`~lamindb.Record.linked_in_records`."""
     linked_in_records: Record
     """Records linking this record as a value. Is reverse accessor for `linked_records`."""
     parents: Record = models.ManyToManyField(
         "self", symmetrical=False, related_name="children"
     )
-    """Ontological parents of this record.
+    """Ontological parents of this record ← :attr:`~lamindb.Record.children`.
 
     You can build an ontology under a given `type`. For example, introduce a type `CellType` and model the hiearchy of cell types under it via `parents` and `children`.
     """
@@ -238,45 +238,45 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         default=current_run,
         editable=False,
     )
-    """Run that created the record."""
+    """Run that created the record ← :attr:`~lamindb.Run.output_records`."""
     input_of_runs: Run = models.ManyToManyField(Run, related_name="input_records")
-    """Runs that use this record as an input."""
+    """Runs that use this record as an input ← :attr:`~lamindb.Run.input_records`."""
     artifacts: Artifact = models.ManyToManyField(
         Artifact, through="ArtifactRecord", related_name="records"
     )
-    """Artifacts annotated by this record."""
+    """Artifacts annotated by this record ← :attr:`~lamindb.Artifact.records`."""
     runs: Run = models.ManyToManyField(Run, through="RunRecord", related_name="records")
-    """Runs annotated by this record."""
+    """Runs annotated by this record ← :attr:`~lamindb.Run.records`."""
     transforms: Transform = models.ManyToManyField(
         Transform, through="TransformRecord", related_name="records"
     )
-    """Transforms annotated by this record."""
+    """Transforms annotated by this record ← :attr:`~lamindb.Transform.records`."""
     collections: Collection = models.ManyToManyField(
         Collection, through="CollectionRecord", related_name="records"
     )
-    """Collections annotated by this record."""
+    """Collections annotated by this record ← :attr:`~lamindb.Collection.records`."""
     projects: Project
-    """Projects that annotate this record."""
+    """Projects that annotate this record ← :attr:`~lamindb.Project.records`."""
     references: Reference
-    """References that annotate this record."""
+    """References that annotate this record ← :attr:`~lamindb.Reference.records`."""
     linked_transforms: Transform
-    """Transforms linked in this record as values."""
+    """Transforms linked in this record as values ← :attr:`~lamindb.Transform.linked_in_records`."""
     linked_runs: Run
-    """Runs linked in this record as values."""
+    """Runs linked in this record as values ← :attr:`~lamindb.Run.linked_in_records`."""
     linked_ulabels: ULabel
-    """ULabels linked in this record as values."""
+    """ULabels linked in this record as values ← :attr:`~lamindb.ULabel.linked_in_records`."""
     linked_artifacts: Artifact
-    """Artifacts linked in this record as values."""
+    """Artifacts linked in this record as values ← :attr:`~lamindb.Artifact.linked_in_records`."""
     linked_projects: Project
-    """Projects linked in this record as values."""
+    """Projects linked in this record as values ← :attr:`~lamindb.Project.linked_in_records`."""
     linked_references: Reference
-    """References linked in this record as values."""
+    """References linked in this record as values ← :attr:`~lamindb.Reference.linked_in_records`."""
     linked_collections: Collection
-    """Collections linked in this record as values."""
+    """Collections linked in this record as values ← :attr:`~lamindb.Collection.linked_in_records`."""
     linked_users: User
-    """Users linked in this record as values."""
+    """Users linked in this record as values ← :attr:`~lamindb.User.linked_in_records`."""
     ablocks: RecordBlock
-    """Blocks that annotate this record."""
+    """Blocks that annotate this record ← :attr:`~lamindb.RecordBlock.record`."""
     values_json: RecordJson
     """JSON values `(record_id, feature_id, value)`."""
     values_record: RecordRecord

@@ -1379,7 +1379,7 @@ class Space(BaseSQLRecord):
             record.space = space
             record.save()  # saved in space "Our space"
 
-        For more examples and background, see :doc:`docs:access`, in particular, section :ref:`docs:use-a-restricted-space`.
+        For more examples and background, see :doc:`docs:permissions`, in particular, section :ref:`docs:use-a-restricted-space`.
 
     Notes:
 

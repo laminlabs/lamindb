@@ -78,7 +78,7 @@ class Reference(
     type: Reference | None = ForeignKey(
         "self", PROTECT, null=True, related_name="references"
     )
-    """Type of reference (e.g., 'Study', 'Paper', 'Preprint').
+    """Type of reference (e.g., 'Study', 'Paper', 'Preprint') ← :attr:`~lamindb.Reference.references`.
 
     Allows to group reference by type, e.g., internal studies vs. all papers etc.
     """
@@ -112,25 +112,25 @@ class Reference(
     artifacts: Artifact = models.ManyToManyField(
         Artifact, through="ArtifactReference", related_name="references"
     )
-    """Annotated artifacts."""
+    """Annotated artifacts ← :attr:`~lamindb.Artifact.references`."""
     transforms: Transform = models.ManyToManyField(
         Transform, through="TransformReference", related_name="references"
     )
-    """Annotated transforms."""
+    """Annotated transforms ← :attr:`~lamindb.Transform.references`."""
     collections: Collection = models.ManyToManyField(
         Collection, through="CollectionReference", related_name="references"
     )
-    """Annotated collections."""
+    """Annotated collections ← :attr:`~lamindb.Collection.references`."""
     linked_in_records: Record = models.ManyToManyField(
         Record, through="RecordReference", related_name="linked_references"
     )
-    """Linked in records."""
+    """Linked in records ← :attr:`~lamindb.Record.linked_references`."""
     records: Record = models.ManyToManyField(
         Record, through="ReferenceRecord", related_name="references"
     )
-    """Annotated records."""
+    """Annotated records ← :attr:`~lamindb.Record.references`."""
     projects: Project
-    """Projects that annotate this reference."""
+    """Projects that annotate this reference ← :attr:`~lamindb.Project.references`."""
 
     @overload
     def __init__(
@@ -200,7 +200,7 @@ class Project(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, ValidateF
     type: Project | None = ForeignKey(
         "self", PROTECT, null=True, related_name="projects"
     )
-    """Type of project (e.g., 'Program', 'Project', 'GithubIssue', 'Task')."""
+    """Type of project (e.g., 'Program', 'Project', 'GithubIssue', 'Task') ← :attr:`~lamindb.Project.projects`."""
     projects: Project
     """Projects of this type (can only be non-empty if `is_type` is `True`)."""
     abbr: str | None = CharField(max_length=32, db_index=True, null=True)
@@ -214,7 +214,7 @@ class Project(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, ValidateF
     parents: Project = models.ManyToManyField(
         "self", symmetrical=False, related_name="children"
     )
-    """Parent projects, the super-projects owning this project."""
+    """Parent projects, the super-projects owning this project ← :attr:`~lamindb.Project.children`."""
     children: Project
     """Child projects, the sub-projects owned by this project.
 
@@ -223,7 +223,7 @@ class Project(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, ValidateF
     predecessors: Project = models.ManyToManyField(
         "self", symmetrical=False, related_name="successors"
     )
-    """The preceding projects required by this project."""
+    """The preceding projects required by this project ← :attr:`~lamindb.Project.successors`."""
     successors: Project
     """The succeeding projects requiring this project.
 
@@ -232,49 +232,49 @@ class Project(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, ValidateF
     artifacts: Artifact = models.ManyToManyField(
         Artifact, through="ArtifactProject", related_name="projects"
     )
-    """Annotated artifacts."""
+    """Annotated artifacts ← :attr:`~lamindb.Artifact.projects`."""
     transforms: Transform = models.ManyToManyField(
         Transform, through="TransformProject", related_name="projects"
     )
-    """Annotated transforms."""
+    """Annotated transforms ← :attr:`~lamindb.Transform.projects`."""
     runs: Run = models.ManyToManyField(
         Run, through="RunProject", related_name="projects"
     )
-    """Annotated runs."""
+    """Annotated runs ← :attr:`~lamindb.Run.projects`."""
     ulabels: ULabel = models.ManyToManyField(
         ULabel, through="ULabelProject", related_name="projects"
     )
-    """Annotated ulabels."""
+    """Annotated ulabels ← :attr:`~lamindb.ULabel.projects`."""
     features: Feature = models.ManyToManyField(
         Feature, through="FeatureProject", related_name="projects"
     )
-    """Annotated features."""
+    """Annotated features ← :attr:`~lamindb.Feature.projects`."""
     schemas: Schema = models.ManyToManyField(
         Schema, through="SchemaProject", related_name="projects"
     )
-    """Annotated schemas."""
+    """Annotated schemas ← :attr:`~lamindb.Schema.projects`."""
     linked_in_records: Record = models.ManyToManyField(
         Record, through="RecordProject", related_name="linked_projects"
     )
-    """Linked in records."""
+    """Linked in records ← :attr:`~lamindb.Record.linked_projects`."""
     records: Record = models.ManyToManyField(
         Record, through="ProjectRecord", related_name="projects"
     )
-    """Annotated records."""
+    """Annotated records ← :attr:`~lamindb.Record.projects`."""
     collections: Collection = models.ManyToManyField(
         Collection, through="CollectionProject", related_name="projects"
     )
-    """Annotated collections."""
+    """Annotated collections ← :attr:`~lamindb.Collection.projects`."""
     references: Reference = models.ManyToManyField("Reference", related_name="projects")
-    """Annotated references."""
+    """Annotated references ← :attr:`~lamindb.Reference.projects`."""
     blocks: Block = models.ManyToManyField(
         "Block", through="BlockProject", related_name="projects"
     )
-    """Annotated blocks."""
+    """Annotated blocks ← :attr:`~lamindb.Block.projects`."""
     _status_code: int = models.SmallIntegerField(default=0, db_index=True)
     """Status code."""
     ablocks: ProjectBlock
-    """Blocks that annotate this project."""
+    """Blocks that annotate this project ← :attr:`~lamindb.ProjectBlock.project`."""
 
     @overload
     def __init__(
