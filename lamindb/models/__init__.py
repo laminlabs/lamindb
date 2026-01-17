@@ -54,22 +54,6 @@ Link models for Record
 .. autoclass:: RecordReference
 .. autoclass:: RecordProject
 
-Block models
-------------
-
-.. autoclass:: Block
-.. autoclass:: ArtifactBlock
-.. autoclass:: TransformBlock
-.. autoclass:: RecordBlock
-.. autoclass:: CollectionBlock
-.. autoclass:: RunBlock
-.. autoclass:: SchemaBlock
-.. autoclass:: ProjectBlock
-.. autoclass:: BranchBlock
-.. autoclass:: SpaceBlock
-.. autoclass:: RunBlock
-.. autoclass:: RecordUser
-
 Utility classes
 ---------------
 
