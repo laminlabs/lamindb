@@ -1456,7 +1456,13 @@ class Space(BaseSQLRecord):
 class Branch(BaseSQLRecord):
     """Branches for change management with archive and trash states.
 
-    Every `SQLRecord` has a `branch` field, which dictates where a record appears in queries & searches.
+    There are 3 pre-defined branches: `main`, `trash`, and `archive`.
+
+    You can create branches similar to `git` via `lamin create --branch my_branch`.
+
+    To add objects to that new branch rather than the `main` branch, run `lamin switch --branch my_branch`.
+
+    If you delete an object via `sqlrecord.delete()`, it gets moved to the `trash` branch and scheduled for deletion.
     """
 
     class Meta:
@@ -1562,8 +1568,11 @@ class SQLRecord(BaseSQLRecord, metaclass=Registry):
 
     There are 3 pre-defined branches: `main`, `trash`, and `archive`.
 
-    Users can create branches similar to `git` via `lamin create --branch my_branch`
-    to avoid adding a set of new objects to the main branch.
+    You can create branches similar to `git` via `lamin create --branch my_branch`.
+
+    To add objects to that new branch rather than the `main` branch, run `lamin switch --branch my_branch`.
+
+    If you delete an object via `sqlrecord.delete()`, it gets moved to the `trash` branch and scheduled for deletion.
     """
     space: Space = ForeignKey(Space, PROTECT, default=1, db_default=1, related_name="+")
     """The space in which the object lives."""
