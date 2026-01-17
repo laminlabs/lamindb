@@ -936,7 +936,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
     # fields to track for changes
     # if not None, will be tracked in self._original_values as {field_name: value}
     # use _id fields for foreign keys
-    TRACK_FIELDS: tuple[str, ...] | None = None
+    _TRACK_FIELDS: tuple[str, ...] | None = None
 
     def __init__(self, *args, **kwargs):
         skip_validation = kwargs.pop("_skip_validation", False)
@@ -1062,13 +1062,13 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
             super().__init__(*args)
         # track original values of fields that are tracked for changes
         self._populate_tracked_fields()
-        # TODO: refactor to use TRACK_FIELDS
+        # TODO: refactor to use _TRACK_FIELDS
         track_current_key_and_name_values(self)
 
     # used in __init__
     # populates the _original_values dictionary with the original values of the tracked fields
     def _populate_tracked_fields(self):
-        if (track_fields := self.TRACK_FIELDS) is not None:
+        if (track_fields := self._TRACK_FIELDS) is not None:
             self._original_values = {f: self.__dict__[f] for f in track_fields}
         else:
             self._original_values = None
@@ -1079,9 +1079,9 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
         if self._state.adding:
             return False
         # check if the field is tracked for changes
-        track_fields = self.TRACK_FIELDS
+        track_fields = self._TRACK_FIELDS
         assert track_fields is not None, (
-            "TRACK_FIELDS must be set for the record to track changes"
+            "_TRACK_FIELDS must be set for the record to track changes"
         )
         assert field_name in track_fields, (
             f"Field {field_name} is not tracked for changes"
@@ -1124,7 +1124,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
         if pre_existing_record is not None:
             init_self_from_db(self, pre_existing_record)
         else:
-            # TODO: refactor to use TRACK_FIELDS
+            # TODO: refactor to use _TRACK_FIELDS
             check_key_change(self)
             check_name_change(self)
             try:

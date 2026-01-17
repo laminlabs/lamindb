@@ -1189,7 +1189,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             ),
         ]
 
-    TRACK_FIELDS = ("space_id",)
+    _TRACK_FIELDS = ("space_id",)
 
     _len_full_uid: int = 20
     _len_stem_uid: int = 16
