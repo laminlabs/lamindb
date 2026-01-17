@@ -50,6 +50,7 @@ if TYPE_CHECKING:
     from ..core.storage import UPath
     from .block import CollectionBlock
     from .project import Project, Reference
+    from .query_manager import QueryManager
     from .query_set import QuerySet
     from .record import Record
     from .transform import Transform
@@ -160,7 +161,7 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     # also for reference_type here, we allow an extra long max_length
     reference_type: str | None = CharField(max_length=25, db_index=True, null=True)
     """Type of reference, e.g., cellxgene Census collection_id."""
-    ulabels: ULabel = models.ManyToManyField(
+    ulabels: QueryManager[ULabel] = models.ManyToManyField(
         "ULabel", through="CollectionULabel", related_name="collections"
     )
     """ULabels annotating the collection (see :class:`~lamindb.Feature`) ← :attr:`~lamindb.ULabel.collections`."""
@@ -168,14 +169,16 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         Run, PROTECT, related_name="output_collections", null=True, default=None
     )
     """:class:`~lamindb.Run` that created the `collection` ← :attr:`~lamindb.Run.output_collections`."""
-    input_of_runs: Run = models.ManyToManyField(Run, related_name="input_collections")
+    input_of_runs: QueryManager[Run] = models.ManyToManyField(
+        Run, related_name="input_collections"
+    )
     """Runs that use this collection as an input ← :attr:`~lamindb.Run.input_collections`."""
-    recreating_runs: Run = models.ManyToManyField(
+    recreating_runs: QueryManager[Run] = models.ManyToManyField(
         "Run",
         related_name="recreated_collections",
     )
     """Runs that re-created the record after initial creation ← :attr:`~lamindb.Run.recreated_collections`."""
-    artifacts: Artifact = models.ManyToManyField(
+    artifacts: QueryManager[Artifact] = models.ManyToManyField(
         "Artifact", related_name="collections", through="CollectionArtifact"
     )
     """Artifacts in collection ← :attr:`~lamindb.Artifact.collections`."""
@@ -192,11 +195,13 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     collection from the artifact via a private field:
     `artifact._meta_of_collection`.
     """
-    linked_in_records: Record = models.ManyToManyField(
+    linked_in_records: QueryManager[Record] = models.ManyToManyField(
         "Record", through="RecordCollection", related_name="linked_collections"
     )
     """This collection is linked in these records as a value ← :attr:`~lamindb.Record.linked_collections`."""
-    _actions: Artifact = models.ManyToManyField(Artifact, related_name="+")
+    _actions: QueryManager[Artifact] = models.ManyToManyField(
+        Artifact, related_name="+"
+    )
     """Actions to attach for the UI."""
     projects: Project
     """Linked projects ← :attr:`~lamindb.Project.collections`."""

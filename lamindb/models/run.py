@@ -31,6 +31,7 @@ if TYPE_CHECKING:
     from .collection import Collection
     from .feature import JsonValue
     from .project import Project
+    from .query_manager import QueryManager
     from .query_set import QuerySet
     from .record import Record
     from .transform import Transform
@@ -152,11 +153,11 @@ class User(BaseSQLRecord, CanCurate):
     """User handle, valid across DB instances (required)."""
     name: str | None = CharField(max_length=150, db_index=True, null=True)
     """Full name (optional)."""  # has to match hub specification, where it's also optional
-    linked_in_records: Record = models.ManyToManyField(
+    linked_in_records: QueryManager[Record] = models.ManyToManyField(
         "Record", through="RecordUser", related_name="linked_users"
     )
     """This user is linked in these records as a value."""
-    artifacts: Artifact = models.ManyToManyField(
+    artifacts: QueryManager[Artifact] = models.ManyToManyField(
         "Artifact",
         through="ArtifactUser",
         through_fields=("user", "artifact"),
@@ -319,7 +320,7 @@ class Run(SQLRecord, TracksUpdates):
     """
     params: dict = models.JSONField(null=True)
     """Parameters (plain JSON values)."""
-    json_values: JsonValue = models.ManyToManyField(
+    json_values: QueryManager[JsonValue] = models.ManyToManyField(
         "JsonValue", through="RunJsonValue", related_name="runs"
     )
     """Feature-indexed JSON values ← :attr:`~lamindb.JsonValue.runs`."""
@@ -337,7 +338,7 @@ class Run(SQLRecord, TracksUpdates):
         "User", CASCADE, default=current_user_id, related_name="created_runs"
     )
     """The creator of this run ← :attr:`~lamindb.User.created_runs`."""
-    ulabels: ULabel = models.ManyToManyField(
+    ulabels: QueryManager[ULabel] = models.ManyToManyField(
         "ULabel", through="RunULabel", related_name="runs"
     )
     """The ulabels annotating this run ← :attr:`~lamindb.ULabel.runs`."""
@@ -353,11 +354,11 @@ class Run(SQLRecord, TracksUpdates):
     """The blocks annotating this run ← :attr:`~lamindb.RunBlock.run`."""
     records: Record
     """The records annotating this run, via :attr:`~lamindb.Record.runs`."""
-    linked_in_records: Record = models.ManyToManyField(
+    linked_in_records: QueryManager[Record] = models.ManyToManyField(
         "Record", through="RecordRun", related_name="linked_runs"
     )
     """This run is linked in these records as a value, via :attr:`~lamindb.Record.linked_runs`."""
-    artifacts: Artifact = models.ManyToManyField(
+    artifacts: QueryManager[Artifact] = models.ManyToManyField(
         "Artifact", through="ArtifactRun", related_name="runs"
     )
     """The artifacts annotated by this run, via :attr:`~lamindb.Artifact.runs`."""

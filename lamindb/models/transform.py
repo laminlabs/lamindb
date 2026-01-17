@@ -37,6 +37,7 @@ if TYPE_CHECKING:
     from .artifact import Artifact
     from .block import TransformBlock
     from .project import Project, Reference
+    from .query_manager import QueryManager
     from .record import Record
     from .ulabel import ULabel
 
@@ -188,17 +189,17 @@ class Transform(SQLRecord, IsVersioned):
     """An environment for executing the transform."""
     runs: Run
     """Runs of this transform ← :attr:`~lamindb.Run.transform`."""
-    ulabels: ULabel = models.ManyToManyField(
+    ulabels: QueryManager[ULabel] = models.ManyToManyField(
         "ULabel", through="TransformULabel", related_name="transforms"
     )
     """ULabel annotations of this transform ← :attr:`~lamindb.ULabel.transforms`."""
-    linked_in_records: Record = models.ManyToManyField(
+    linked_in_records: QueryManager[Record] = models.ManyToManyField(
         "Record", through="RecordTransform", related_name="linked_transforms"
     )
     """This transform is linked in these records as a value ← :attr:`~lamindb.Record.linked_transforms`."""
     records: Record
     """Records that annotate this transform ← :attr:`~lamindb.Record.transforms`."""
-    predecessors: Transform = models.ManyToManyField(
+    predecessors: QueryManager[Transform] = models.ManyToManyField(
         "self",
         through="TransformTransform",
         symmetrical=False,

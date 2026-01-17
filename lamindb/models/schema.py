@@ -56,6 +56,7 @@ if TYPE_CHECKING:
     from .artifact import Artifact
     from .block import SchemaBlock
     from .project import Project
+    from .query_manager import QueryManager
     from .record import Record
 
 
@@ -385,7 +386,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
 
     If `True`, no additional features are allowed to be present in the dataset.
     """
-    components: Schema = ManyToManyField(
+    components: QueryManager[Schema] = ManyToManyField(
         "self", through="SchemaComponent", symmetrical=False, related_name="composites"
     )
     """Components of this schema."""

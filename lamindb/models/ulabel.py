@@ -30,6 +30,7 @@ if TYPE_CHECKING:
     from .block import ULabelBlock
     from .collection import Collection
     from .project import Project
+    from .query_manager import QueryManager
     from .query_set import QuerySet
     from .record import Record
 
@@ -140,7 +141,7 @@ class ULabel(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
     """A simple reference like URL or external ID."""
     reference_type: str | None = CharField(max_length=25, db_index=True, null=True)
     """Type of simple reference."""
-    parents: ULabel = models.ManyToManyField(
+    parents: QueryManager[ULabel] = models.ManyToManyField(
         "self", symmetrical=False, related_name="children"
     )
     """Parent entities of this ulabel ← :attr:`~lamindb.ULabel.children`.
@@ -158,7 +159,7 @@ class ULabel(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
     """The transforms annotated by this ulabel ← :attr:`~lamindb.Transform.ulabels`."""
     runs: Run
     """The runs annotated by this ulabel ← :attr:`~lamindb.Run.ulabels`."""
-    artifacts: Artifact = models.ManyToManyField(
+    artifacts: QueryManager[Artifact] = models.ManyToManyField(
         "Artifact", through="ArtifactULabel", related_name="ulabels"
     )
     """The artifacts annotated by this ulabel ← :attr:`~lamindb.Artifact.ulabels`."""
@@ -166,7 +167,7 @@ class ULabel(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
     """The collections annotated by this ulabel ← :attr:`~lamindb.Collection.ulabels`."""
     projects: Project
     """The projects annotating this ulabel ← :attr:`~lamindb.Project.ulabels`."""
-    linked_in_records: Record = models.ManyToManyField(
+    linked_in_records: QueryManager[Record] = models.ManyToManyField(
         "Record",
         through="RecordULabel",
         related_name="linked_ulabels",

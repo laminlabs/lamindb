@@ -35,6 +35,7 @@ if TYPE_CHECKING:
     from datetime import datetime
 
     from .block import Block, ProjectBlock
+    from .query_manager import QueryManager
     from .query_set import QuerySet
 
 
@@ -109,23 +110,23 @@ class Reference(
     """Abstract or full text of the reference to make it searchable."""
     date: DateType | None = DateField(null=True, default=None)
     """Date of creation or publication of the reference."""
-    artifacts: Artifact = models.ManyToManyField(
+    artifacts: QueryManager[Artifact] = models.ManyToManyField(
         Artifact, through="ArtifactReference", related_name="references"
     )
     """Annotated artifacts ← :attr:`~lamindb.Artifact.references`."""
-    transforms: Transform = models.ManyToManyField(
+    transforms: QueryManager[Transform] = models.ManyToManyField(
         Transform, through="TransformReference", related_name="references"
     )
     """Annotated transforms ← :attr:`~lamindb.Transform.references`."""
-    collections: Collection = models.ManyToManyField(
+    collections: QueryManager[Collection] = models.ManyToManyField(
         Collection, through="CollectionReference", related_name="references"
     )
     """Annotated collections ← :attr:`~lamindb.Collection.references`."""
-    linked_in_records: Record = models.ManyToManyField(
+    linked_in_records: QueryManager[Record] = models.ManyToManyField(
         Record, through="RecordReference", related_name="linked_references"
     )
     """Linked in records ← :attr:`~lamindb.Record.linked_references`."""
-    records: Record = models.ManyToManyField(
+    records: QueryManager[Record] = models.ManyToManyField(
         Record, through="ReferenceRecord", related_name="references"
     )
     """Annotated records ← :attr:`~lamindb.Record.references`."""
@@ -211,7 +212,7 @@ class Project(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, ValidateF
     """Date of start of the project."""
     end_date: DateType | None = DateField(null=True, default=None)
     """Date of start of the project."""
-    parents: Project = models.ManyToManyField(
+    parents: QueryManager[Project] = models.ManyToManyField(
         "self", symmetrical=False, related_name="children"
     )
     """Parent projects, the super-projects owning this project ← :attr:`~lamindb.Project.children`."""
@@ -220,7 +221,7 @@ class Project(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, ValidateF
 
     Reverse accessor for `.parents`.
     """
-    predecessors: Project = models.ManyToManyField(
+    predecessors: QueryManager[Project] = models.ManyToManyField(
         "self", symmetrical=False, related_name="successors"
     )
     """The preceding projects required by this project ← :attr:`~lamindb.Project.successors`."""
@@ -229,45 +230,47 @@ class Project(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, ValidateF
 
     Reverse accessor for `.predecessors`.
     """
-    artifacts: Artifact = models.ManyToManyField(
+    artifacts: QueryManager[Artifact] = models.ManyToManyField(
         Artifact, through="ArtifactProject", related_name="projects"
     )
     """Annotated artifacts ← :attr:`~lamindb.Artifact.projects`."""
-    transforms: Transform = models.ManyToManyField(
+    transforms: QueryManager[Transform] = models.ManyToManyField(
         Transform, through="TransformProject", related_name="projects"
     )
     """Annotated transforms ← :attr:`~lamindb.Transform.projects`."""
-    runs: Run = models.ManyToManyField(
+    runs: QueryManager[Run] = models.ManyToManyField(
         Run, through="RunProject", related_name="projects"
     )
     """Annotated runs ← :attr:`~lamindb.Run.projects`."""
-    ulabels: ULabel = models.ManyToManyField(
+    ulabels: QueryManager[ULabel] = models.ManyToManyField(
         ULabel, through="ULabelProject", related_name="projects"
     )
     """Annotated ulabels ← :attr:`~lamindb.ULabel.projects`."""
-    features: Feature = models.ManyToManyField(
+    features: QueryManager[Feature] = models.ManyToManyField(
         Feature, through="FeatureProject", related_name="projects"
     )
     """Annotated features ← :attr:`~lamindb.Feature.projects`."""
-    schemas: Schema = models.ManyToManyField(
+    schemas: QueryManager[Schema] = models.ManyToManyField(
         Schema, through="SchemaProject", related_name="projects"
     )
     """Annotated schemas ← :attr:`~lamindb.Schema.projects`."""
-    linked_in_records: Record = models.ManyToManyField(
+    linked_in_records: QueryManager[Record] = models.ManyToManyField(
         Record, through="RecordProject", related_name="linked_projects"
     )
     """Linked in records ← :attr:`~lamindb.Record.linked_projects`."""
-    records: Record = models.ManyToManyField(
+    records: QueryManager[Record] = models.ManyToManyField(
         Record, through="ProjectRecord", related_name="projects"
     )
     """Annotated records ← :attr:`~lamindb.Record.projects`."""
-    collections: Collection = models.ManyToManyField(
+    collections: QueryManager[Collection] = models.ManyToManyField(
         Collection, through="CollectionProject", related_name="projects"
     )
     """Annotated collections ← :attr:`~lamindb.Collection.projects`."""
-    references: Reference = models.ManyToManyField("Reference", related_name="projects")
+    references: QueryManager[Reference] = models.ManyToManyField(
+        "Reference", related_name="projects"
+    )
     """Annotated references ← :attr:`~lamindb.Reference.projects`."""
-    blocks: Block = models.ManyToManyField(
+    blocks: QueryManager[Block] = models.ManyToManyField(
         "Block", through="BlockProject", related_name="projects"
     )
     """Annotated blocks ← :attr:`~lamindb.Block.projects`."""

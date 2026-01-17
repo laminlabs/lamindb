@@ -42,6 +42,7 @@ if TYPE_CHECKING:
     from ._feature_manager import FeatureManager
     from .block import RecordBlock
     from .project import Project, RecordProject, RecordReference, Reference
+    from .query_manager import QueryManager
     from .schema import Schema
 
 
@@ -210,7 +211,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
     This is analogous to the `schema` attribute of an `Artifact`.
     If `is_type` is `True`, the schema is used to enforce features for each record of this type.
     """
-    linked_records: Record = models.ManyToManyField(
+    linked_records: QueryManager[Record] = models.ManyToManyField(
         "Record",
         through="RecordRecord",
         symmetrical=False,
@@ -219,7 +220,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
     """Records linked in this record as a value ← :attr:`~lamindb.Record.linked_in_records`."""
     linked_in_records: Record
     """Records linking this record as a value. Is reverse accessor for `linked_records`."""
-    parents: Record = models.ManyToManyField(
+    parents: QueryManager[Record] = models.ManyToManyField(
         "self", symmetrical=False, related_name="children"
     )
     """Ontological parents of this record ← :attr:`~lamindb.Record.children`.
@@ -239,19 +240,23 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         editable=False,
     )
     """Run that created the record ← :attr:`~lamindb.Run.output_records`."""
-    input_of_runs: Run = models.ManyToManyField(Run, related_name="input_records")
+    input_of_runs: QueryManager[Run] = models.ManyToManyField(
+        Run, related_name="input_records"
+    )
     """Runs that use this record as an input ← :attr:`~lamindb.Run.input_records`."""
-    artifacts: Artifact = models.ManyToManyField(
+    artifacts: QueryManager[Artifact] = models.ManyToManyField(
         Artifact, through="ArtifactRecord", related_name="records"
     )
     """Artifacts annotated by this record ← :attr:`~lamindb.Artifact.records`."""
-    runs: Run = models.ManyToManyField(Run, through="RunRecord", related_name="records")
+    runs: QueryManager[Run] = models.ManyToManyField(
+        Run, through="RunRecord", related_name="records"
+    )
     """Runs annotated by this record ← :attr:`~lamindb.Run.records`."""
-    transforms: Transform = models.ManyToManyField(
+    transforms: QueryManager[Transform] = models.ManyToManyField(
         Transform, through="TransformRecord", related_name="records"
     )
     """Transforms annotated by this record ← :attr:`~lamindb.Transform.records`."""
-    collections: Collection = models.ManyToManyField(
+    collections: QueryManager[Collection] = models.ManyToManyField(
         Collection, through="CollectionRecord", related_name="records"
     )
     """Collections annotated by this record ← :attr:`~lamindb.Collection.records`."""
