@@ -3007,7 +3007,7 @@ class ArtifactJsonValue(BaseSQLRecord, IsLink, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
     artifact: Artifact = ForeignKey(Artifact, CASCADE, related_name="links_jsonvalue")
     # we follow the lower() case convention rather than snake case for link models
-    jsonvalue = ForeignKey(JsonValue, PROTECT, related_name="links_artifact")
+    jsonvalue: JsonValue = ForeignKey(JsonValue, PROTECT, related_name="links_artifact")
 
     class Meta:
         app_label = "lamindb"
