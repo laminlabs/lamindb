@@ -36,6 +36,8 @@ if storage_loc is not None:
 
 with pytest.raises(ln.errors.NoStorageLocationForSpace) as error:
     ln.track(space=space_name)  # this fails to save the env artifact
+    ln.context._transform = None
+    ln.context._run = None
 
 # now create the storage location in the space
 storage_loc = ln.Storage("create-s3", space=space).save()
