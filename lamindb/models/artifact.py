@@ -120,6 +120,7 @@ if TYPE_CHECKING:
         SpatialDataAccessor,
     )
     from lamindb.core.types import ScverseDataStructures
+    from lamindb.models.query_manager import QueryManager
 
     from ..base.types import (
         ArtifactKind,
@@ -1370,7 +1371,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
     The validating schema is helpful to query artifacts that were validated by the same schema.
     """
-    schemas: Schema = models.ManyToManyField(
+    schemas: QueryManager[Schema] = models.ManyToManyField(
         Schema, related_name="artifacts", through="ArtifactSchema"
     )
     """The inferred schemas of this artifact ← :attr:`~lamindb.Schema.artifacts`.

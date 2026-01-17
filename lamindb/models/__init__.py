@@ -33,8 +33,8 @@ Query sets & managers
 .. autoclass:: lamindb.models.query_set.BiontyDB
 .. autoclass:: lamindb.models.query_set.PertdbDB
 
-Storage of feature values
--------------------------
+JSON values for annotating artifacts and runs
+---------------------------------------------
 
 .. autoclass:: JsonValue
 

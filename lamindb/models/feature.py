@@ -1444,12 +1444,12 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
 
 
 class JsonValue(SQLRecord, TracksRun):
-    """Non-categorical features values.
+    """JSON values for annotating artifacts and runs.
 
-    Categorical feature values are stored in their respective registries:
+    Categorical values are stored in their respective registries:
     :class:`~lamindb.ULabel`, :class:`~bionty.CellType`, etc.
 
-    Unlike for ULabel, in `JsonValue`, values are grouped by features and
+    Unlike for `ULabel`, in `JsonValue`, values are grouped by features and
     not by an ontological hierarchy.
     """
 
