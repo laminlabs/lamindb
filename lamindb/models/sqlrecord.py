@@ -1462,6 +1462,10 @@ class Branch(BaseSQLRecord):
 
     To add objects to that new branch rather than the `main` branch, run `lamin switch --branch my_branch`.
 
+    To merge a set of artifacts on the `"my_branch"` branch to the main branch, run::
+
+        ln.Artifact.filter(branch__name="my_branch").update(branch_id=1)
+
     If you delete an object via `sqlrecord.delete()`, it gets moved to the `trash` branch and scheduled for deletion.
     """
 
@@ -1564,18 +1568,9 @@ class SQLRecord(BaseSQLRecord, metaclass=Registry):
         db_column="branch_id",
         related_name="+",
     )
-    """State of object life cycle.
-
-    There are 3 pre-defined branches: `main`, `trash`, and `archive`.
-
-    You can create branches similar to `git` via `lamin create --branch my_branch`.
-
-    To add objects to that new branch rather than the `main` branch, run `lamin switch --branch my_branch`.
-
-    If you delete an object via `sqlrecord.delete()`, it gets moved to the `trash` branch and scheduled for deletion.
-    """
+    """The branch."""
     space: Space = ForeignKey(Space, PROTECT, default=1, db_default=1, related_name="+")
-    """The space in which the object lives."""
+    """The space."""
     is_locked: bool = BooleanField(default=False, db_default=False)
     """Whether the object is locked for edits."""
     _aux: dict[str, Any] | None = JSONField(default=None, db_default=None, null=True)
