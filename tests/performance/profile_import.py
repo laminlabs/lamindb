@@ -8,7 +8,7 @@ import lamindb  # noqa: E402, F401
 profiler.stop()
 
 duration = profiler.last_session.duration
-threshold = 2.5
+threshold = 2.0
 
 print(profiler.output_text())
 
