@@ -1743,7 +1743,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         In the JSON field, `None` is represented as an absent `storage_completed` key.
         """
         if self._aux is None:
-            return None
+            return True
         result = self._aux.get("u")
         if result == 1:
             return False
