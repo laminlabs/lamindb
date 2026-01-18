@@ -5,7 +5,7 @@ duration = 1
 
 ln.connect("laminlabs/lamindata")
 ln.track("eraGM939WmQO")
-sheet = ln.Record.get(name="ImportLaminDB")
+sheet = ln.Record.get(name="import_lamindb.py")
 record = ln.Record(type=sheet).save()
 record.features.add_values(
     {
