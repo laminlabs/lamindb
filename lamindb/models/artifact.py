@@ -485,7 +485,7 @@ def get_artifact_kwargs_from_data(
         # if the artifact was unsuccessfully saved, we want to
         # enable re-uploading after returning the artifact object
         # the upload is triggered by whether the privates are returned
-        if not existing_artifact._storage_completed:
+        if existing_artifact._storage_ongoing:
             privates["key"] = key
             returned_privates = privates  # re-upload necessary
         else:
@@ -1732,36 +1732,34 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         return self._overwrite_versions
 
     @property
-    def _storage_completed(self) -> bool:
-        """Whether the artifact was successfully saved to storage.
+    def _storage_ongoing(self) -> bool:
+        """Whether the artifact is still in the process of being saved to storage (uploaded for cloud storage).
 
-        - `None`: undefined
-        - `False`: write started but not completed
+        - `True`: write started but not completed
+        - `False`: storage completed or not yet started
 
-        `None` exists to create a sparse structure where the JSON is mostly NULL.
-
-        In the JSON field, `None` is represented as an absent `storage_completed` key.
+        In the JSON `_aux`field, `True` is represented as `{"so": 1}` and `False` as
+        an absent `"so"` key.
         """
         if self._aux is None:
-            return True
-        result = self._aux.get("u")
-        if result == 1:
             return False
-        else:
+        if self._aux.get("so") == 1:
             return True
+        else:
+            return False
 
-    @_storage_completed.setter
-    def _storage_completed(self, value: bool | None) -> None:
-        if value is None or value is True:
-            if self._aux is not None and "u" in self._aux:
-                del self._aux["u"]
+    @_storage_ongoing.setter
+    def _storage_ongoing(self, value: bool | None) -> None:
+        if value is None or value is False:
+            if self._aux is not None and "so" in self._aux:
+                del self._aux["so"]
                 if not self._aux:
                     self._aux = None
         else:
             if self._aux is None:
                 self._aux = {}
-            assert value is False
-            self._aux["u"] = 1
+            assert value is True
+            self._aux["so"] = 1
 
     @property
     @deprecated("schemas")
@@ -2917,12 +2915,12 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             self._key_is_virtual = True
             # ensure that the artifact is uploaded
             self._to_store = True
-        # _storage_completed indicates whether the saving / upload process is successful
+        # _storage_ongoing indicates whether the storage saving / upload process is ongoing
         flag_complete = getattr(self, "_local_filepath", None) is not None and getattr(
             self, "_to_store", False
         )
         if flag_complete:
-            self._storage_completed = False  # will be updated to True at the end
+            self._storage_ongoing = True  # will be updated to False once complete
 
         self._save_skip_storage(**kwargs)
 
@@ -2955,10 +2953,10 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             raise exception_upload
         if exception_clear is not None:
             raise exception_clear
-        # the saving / upload process has been successful, remove the False flag
+        # the saving / upload process has been successful
         if flag_complete:
-            self._storage_completed = None
-            # pass kwargs here because it can contain `using` or other things
+            self._storage_ongoing = False
+            # pass kwargs below because it can contain `using` or other things
             # affecting the connection
             super().save(**kwargs)
 
