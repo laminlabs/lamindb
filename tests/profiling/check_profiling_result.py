@@ -11,6 +11,10 @@ with open("profile.txt") as f:
     match = re.search(r"Duration:\s+([\d.]+)", content)
     duration = float(match.group(1)) if match else 1.0
 
+print(content)
+
+print(f"Extracted duration: {duration:.3f}s")
+
 ln.connect("laminlabs/lamindata")
 ln.track("eraGM939WmQO")
 sheet = ln.Record.get(name="import_lamindb.py")
