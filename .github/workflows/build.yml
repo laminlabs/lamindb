@@ -167,8 +167,11 @@ jobs:
       - run: nox -s "install_ci(group='unit-core-sqlite')"
       - run: lamin login
       - run: uv pip install --system pyinstrument
-      - run: python tests/profiling/fill_pycache.py
-      - run: python tests/profiling/profile_import_lamindb.py
+      - run: pyinstrument tests/profiling/scripts/import_lamindb.py
+      - run: pyinstrument tests/profiling/scripts/import_lamindb.py
+      - run: pyinstrument tests/profiling/scripts/import_lamindb.py
+      - run: pyinstrument tests/profiling/scripts/import_lamindb.py --renderer pyisession --outfile profiling_session.pyisession
+      - run: python tests/profiling/check_profiling_result.py
 
   docs:
     needs: test

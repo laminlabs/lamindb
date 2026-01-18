@@ -1,7 +1,9 @@
 import lamindb as ln
+from pyinstrument import Session
 
 threshold = 3.2
-duration = 1
+session = Session.load("profiling_session.pyisession")
+duration = session.duration
 
 ln.connect("laminlabs/lamindata")
 ln.track("eraGM939WmQO")
