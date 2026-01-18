@@ -485,7 +485,7 @@ def get_artifact_kwargs_from_data(
         # if the artifact was unsuccessfully saved, we want to
         # enable re-uploading after returning the artifact object
         # the upload is triggered by whether the privates are returned
-        if existing_artifact._storage_completed is False:
+        if not existing_artifact._storage_completed:
             privates["key"] = key
             returned_privates = privates  # re-upload necessary
         else:
@@ -1732,7 +1732,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         return self._overwrite_versions
 
     @property
-    def _storage_completed(self) -> bool | None:
+    def _storage_completed(self) -> bool:
         """Whether the artifact was successfully saved to storage.
 
         - `None`: undefined
@@ -1748,7 +1748,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         if result == 1:
             return False
         else:
-            return result
+            return True
 
     @_storage_completed.setter
     def _storage_completed(self, value: bool | None) -> None:
