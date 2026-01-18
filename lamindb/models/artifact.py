@@ -1742,9 +1742,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         an absent `"so"` key.
         """
         if self._aux is None:
-            return True
-        result = self._aux.get("so")
-        if result == 1:
+            return False
+        if self._aux.get("so") == 1:
             return True
         else:
             return False
