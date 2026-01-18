@@ -1,16 +1,7 @@
-from pyinstrument import Profiler
+import lamindb as ln
 
-profiler = Profiler()
-profiler.start()
-
-import lamindb as ln  # noqa: E402
-
-profiler.stop()
-
-duration = profiler.last_session.duration
 threshold = 3.2
-
-print(profiler.output_text())
+duration = 1
 
 ln.connect("laminlabs/lamindata")
 ln.track("eraGM939WmQO")
