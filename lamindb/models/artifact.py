@@ -483,13 +483,11 @@ def get_artifact_kwargs_from_data(
     if isinstance(stat_or_artifact, Artifact):
         existing_artifact = stat_or_artifact
         # if the artifact was unsuccessfully saved, we want to
-        # enable re-uploading after returning the artifact record
+        # enable re-uploading after returning the artifact object
         # the upload is triggered by whether the privates are returned
-        # because we do not want to upload the exact same file again
-        # we return None here if _storage_completed is not False
         if existing_artifact._storage_completed is False:
             privates["key"] = key
-            returned_privates = privates
+            returned_privates = privates  # re-upload necessary
         else:
             returned_privates = {"key": key}
         return existing_artifact, returned_privates
