@@ -485,7 +485,7 @@ def get_artifact_kwargs_from_data(
         # if the artifact was unsuccessfully saved, we want to
         # enable re-uploading after returning the artifact object
         # the upload is triggered by whether the privates are returned
-        if not existing_artifact._storage_completed:
+        if existing_artifact._storage_ongoing:
             privates["key"] = key
             returned_privates = privates  # re-upload necessary
         else:
@@ -1732,36 +1732,35 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         return self._overwrite_versions
 
     @property
-    def _storage_completed(self) -> bool:
-        """Whether the artifact was successfully saved to storage.
+    def _storage_ongoing(self) -> bool:
+        """Whether the artifact is still in the process of being saved to storage (uploaded for cloud storage).
 
-        - `None`: undefined
-        - `False`: write started but not completed
+        - `True`: write started but not completed
+        - `False`: storage completed or not yet started
 
-        `None` exists to create a sparse structure where the JSON is mostly NULL.
-
-        In the JSON field, `None` is represented as an absent `storage_completed` key.
+        In the JSON `_aux`field, `True` is represented as `{"so": 1}` and `False` as
+        an absent `"so"` key.
         """
         if self._aux is None:
             return True
-        result = self._aux.get("u")
+        result = self._aux.get("so")
         if result == 1:
-            return False
-        else:
             return True
+        else:
+            return False
 
-    @_storage_completed.setter
-    def _storage_completed(self, value: bool | None) -> None:
-        if value is None or value is True:
-            if self._aux is not None and "u" in self._aux:
-                del self._aux["u"]
+    @_storage_ongoing.setter
+    def _storage_ongoing(self, value: bool | None) -> None:
+        if value is None or value is False:
+            if self._aux is not None and "so" in self._aux:
+                del self._aux["so"]
                 if not self._aux:
                     self._aux = None
         else:
             if self._aux is None:
                 self._aux = {}
-            assert value is False
-            self._aux["u"] = 1
+            assert value is True
+            self._aux["so"] = 1
 
     @property
     @deprecated("schemas")
