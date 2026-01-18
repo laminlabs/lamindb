@@ -141,6 +141,14 @@ Developer API
 
 """
 
+from lamindb_setup.lazy_import import enable_lazy_imports
+from lamindb_setup._check_setup import _check_instance_setup
+
+enable_lazy_imports(
+    "lamindb.models",
+    on_load=lambda mod, attr: _check_instance_setup(from_module="lamindb"),
+)
+
 # ruff: noqa: I001
 # denote a release candidate for 0.1.0 with 0.1rc1, 0.1a1, 0.1b1, etc.
 __version__ = "2.0.1"
@@ -152,7 +160,6 @@ _warnings.filterwarnings(
     "ignore", message="The legacy Dask DataFrame implementation is deprecated"
 )
 
-from lamindb_setup._check_setup import _check_instance_setup
 from lamindb_setup._connect_instance import connect
 from lamindb_setup.core.upath import UPath
 
