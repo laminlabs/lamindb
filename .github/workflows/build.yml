@@ -170,7 +170,7 @@ jobs:
       - run: pyinstrument tests/profiling/scripts/import_lamindb.py
       - run: pyinstrument tests/profiling/scripts/import_lamindb.py
       - run: pyinstrument tests/profiling/scripts/import_lamindb.py
-      - run: pyinstrument tests/profiling/scripts/import_lamindb.py > profile.txt
+      - run: pyinstrument tests/profiling/scripts/import_lamindb.py -o profile.txt
       - run: python tests/profiling/check_profiling_result.py
 
   docs:
