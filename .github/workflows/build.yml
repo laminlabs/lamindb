@@ -150,6 +150,8 @@ jobs:
   profile:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    env:
+      LAMIN_API_KEY: ${{ secrets.LAMIN_API_KEY_TESTUSER1 }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -163,6 +165,7 @@ jobs:
                 }}
       - run: pip install "laminci@git+https://github.com/laminlabs/laminci"
       - run: nox -s "install_ci(group='unit-core-sqlite')"
+      - run: lamin login
       - run: uv pip install --system pyinstrument
       - run: python tests/profiling/profile_import_lamindb.py
 
