@@ -7,8 +7,10 @@
    datasets
    cellxgene
    croissant
+   mlflow
+   wandb
 
 """
 
-from . import croissant, datasets, schemas
+from . import croissant, datasets, mlflow, schemas, wandb
 from .cellxgene import _cellxgene

@@ -101,7 +101,7 @@ def rds_filepath():
 
 @pytest.fixture(scope="module")
 def local_anndata_filepath():
-    return ln.core.datasets.anndata_file_pbmc68k_test().resolve()
+    return ln.examples.datasets.anndata_file_pbmc68k_test().resolve()
 
 
 @pytest.fixture(scope="module")
@@ -136,7 +136,7 @@ def test_load_spatialdata(get_small_sdata):
 
 
 def load_blobs__repr__():
-    example_blobs_sdata = ln.core.datasets.spatialdata_blobs()
+    example_blobs_sdata = ln.examples.datasets.spatialdata_blobs()
     blobs_af = ln.Artifact.from_spatialdata(
         example_blobs_sdata, key="example_blobs.zarr"
     ).save()

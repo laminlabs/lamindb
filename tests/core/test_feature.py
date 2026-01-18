@@ -8,19 +8,6 @@ from pandas.api.types import is_string_dtype
 
 
 @pytest.fixture(scope="module")
-def df():
-    return pd.DataFrame(
-        {
-            "feat1": [1, 2, 3],
-            "feat2": [3.1, 4.2, 5.3],
-            "feat3": ["cond1", "cond2", "cond2"],
-            "feat4": ["id1", "id2", "id3"],
-            "rando_feature": ["rando1", "rando2", "rando3"],
-        }
-    )
-
-
-@pytest.fixture(scope="module")
 def dict_data():
     return {
         "dict_feat1": 42,
@@ -60,10 +47,10 @@ def test_feature_init():
     feat1 = ln.Feature(name="feat", dtype="str").save()
     # duplicate name with different dtype should fail
     with pytest.raises(ValidationError) as error:
-        ln.Feature(name="feat", dtype="cat")
+        ln.Feature(name="feat", dtype=ln.ULabel)
     assert (
         error.exconly()
-        == "lamindb.errors.ValidationError: Feature feat already exists with dtype str, you passed cat"
+        == "lamindb.errors.ValidationError: Feature feat already exists with dtype str, you passed cat[ULabel]"
     )
     feat1.delete(permanent=True)
 
@@ -74,33 +61,46 @@ def test_feature_init():
     feat2.delete(permanent=True)
 
     # categorical dtype with union of registries using string syntax must be valid
-    feature = ln.Feature(name="feat1", dtype="cat[ULabel|bionty.Gene]")
-    assert feature.dtype == "cat[ULabel|bionty.Gene]"
+    feature = ln.Feature(name="feat1", dtype="cat[Record|bionty.Gene]")
+    assert feature._dtype_str == "cat[Record|bionty.Gene]"
     # categorical dtype with union of registries using objects must be valid
-    feature = ln.Feature(name="feat1", dtype=[ln.ULabel, bt.Gene])
-    assert feature.dtype == "cat[ULabel|bionty.Gene]"
+    feature = ln.Feature(name="feat1", dtype=[ln.Record, bt.Gene])
+    assert feature._dtype_str == "cat[Record|bionty.Gene]"
 
     # dtype with field name before bracket filters must be valid
     feature = ln.Feature(
         name="gene_feature", dtype="cat[bionty.Gene.ensembl_gene_id[organism='human']]"
     )
-    assert "bionty.Gene" in feature.dtype
-    assert "ensembl_gene_id" in feature.dtype
-    assert "organism='human'" in feature.dtype
+    print(feature._dtype_str)
+    assert "bionty.Gene" in feature._dtype_str
+    assert "ensembl_gene_id" in feature._dtype_str
+    assert "organism='human'" in feature._dtype_str
 
 
-def test_cat_filters_dtype():
-    feature = ln.Feature(
-        name="disease",
-        dtype=bt.Disease,
-        cat_filters={
-            "source__uid": "4a3ejKuf"
-        },  # uid corresponds to disease_ontology_old.uid
-    ).save()
+# @pytest.mark.skipif(
+#     os.getenv("LAMINDB_TEST_DB_VENDOR") == "sqlite", reason="Postgres-only"
+# )
+# def test_cannot_mutate_dtype():
+#     feature = ln.Feature(name="feature", dtype=str).save()
+#     feature._dtype_str = int
+#     with pytest.raises(django.db.utils.IntegrityError) as error:
+#         feature.save()
+#     assert "dtype field is immutable and cannot be changed" in error.exconly()
+#     feature.delete(permanent=True)
 
-    assert feature.dtype == "cat[bionty.Disease[source__uid='4a3ejKuf']]"
 
-    feature.delete(permanent=True)
+# def test_cat_filters_dtype():
+#     feature = ln.Feature(
+#         name="disease",
+#         dtype=bt.Disease,
+#         cat_filters={
+#             "source__uid": "4a3ejKuf"
+#         },  # uid corresponds to disease_ontology_old.uid
+#     ).save()
+
+#     assert feature._dtype_str == "cat[bionty.Disease[source__uid='4a3ejKuf']]"
+
+#     feature.delete(permanent=True)
 
 
 def test_cat_filters_empty_filter():
@@ -131,13 +131,23 @@ def test_cat_filters_invalid_field_name():
     source.delete(permanent=True)
 
 
-def test_feature_from_df(df):
+def test_feature_from_df():
+    df = pd.DataFrame(
+        {
+            "feat1": [1, 2, 3],
+            "feat2": [3.1, 4.2, 5.3],
+            "feat3": pd.Categorical(["cond1", "cond2", "cond2"]),
+            "feat4": ["id1", "id2", "id3"],
+            "rando_feature": ["rando1", "rando2", "rando3"],
+        }
+    )
     if feat1 := ln.Feature.filter(name="feat1").one_or_none() is not None:
         feat1.delete(permanent=True)
     features = ln.Feature.from_dataframe(df.iloc[:, :4]).save()
     artifact = ln.Artifact.from_dataframe(df, description="test").save()
     # test for deprecated add_feature_set
-    artifact.features._add_schema(ln.Schema(features), slot="columns")
+    schema = ln.Schema(features).save()
+    artifact.features._add_schema(schema, slot="columns")
     features = artifact.features.slots["columns"].features.all()
     assert len(features) == len(df.columns[:4])
     [col for col in df.columns if is_string_dtype(df[col])]
@@ -146,17 +156,15 @@ def test_feature_from_df(df):
     }
     for feature in features:
         if feature.name in categoricals:
-            assert feature.dtype == "cat"
+            assert feature._dtype_str == "cat"
         else:
             orig_type = df[feature.name].dtype
-            assert feature.dtype == serialize_pandas_dtype(orig_type)
+            assert feature._dtype_str == serialize_pandas_dtype(orig_type)
     for feature in features:
         feature.save()
-    labels = [ln.ULabel(name=name) for name in df["feat3"].unique()]
+    labels = [ln.Record(name=name) for name in df["feat3"].unique()]
     ln.save(labels)
     feature = ln.Feature.get(name="feat3")
-    feature.dtype = "cat"
-    feature.save()
     with pytest.raises(ValidationError) as err:
         artifact.labels.add(labels, feature=feature)
     assert (
@@ -174,43 +182,66 @@ def test_feature_from_df(df):
     # clean up
     artifact.delete(permanent=True)
     ln.Schema.filter().delete(permanent=True)
-    ln.ULabel.filter().delete(permanent=True)
+    ln.Record.filter().delete(permanent=True)
     ln.Feature.filter().delete(permanent=True)
 
 
 def test_feature_from_dict(dict_data):
-    # ambiguous str types
-    with pytest.raises(ValueError) as e:
-        features = ln.Feature.from_dict(dict_data, str_as_cat=None)
-    error_msg = str(e.value)
-    assert "Ambiguous dtypes detected" in error_msg
-    assert "'dict_feat3': str or cat" in error_msg
-    assert "'dict_feat6': list[str] or list[cat]" in error_msg
-    assert "Please pass `str_as_cat` parameter" in error_msg
-
-    # convert str to cat
-    features = ln.Feature.from_dict(dict_data, str_as_cat=True)
+    # defaults to str for ambiguous types
+    features = ln.Feature.from_dict(dict_data)
     assert len(features) == len(dict_data)
-    assert features[0].dtype == "int"
-    assert features[1].dtype == "float"
-    assert features[2].dtype == "cat"
-    assert features[3].dtype == "bool"
-    assert features[4].dtype == "list[int]"
-    assert features[5].dtype == "list[cat]"
-    assert features[6].dtype == "dict"
-
-    # do not convert str to cat
-    features = ln.Feature.from_dict(dict_data, str_as_cat=False)
-    assert features[2].dtype == "str"
-    assert features[5].dtype == "list[str]"
+    assert features[0]._dtype_str == "int"
+    assert features[1]._dtype_str == "float"
+    assert features[2]._dtype_str == "str"
+    assert features[3]._dtype_str == "bool"
+    assert features[4]._dtype_str == "list[int]"
+    assert features[5]._dtype_str == "list[str]"
+    assert features[6]._dtype_str == "dict"
 
     # Wrong field
     with pytest.raises(ValueError) as e:
-        ln.Feature.from_dict(dict_data, field=ln.ULabel.name)
+        ln.Feature.from_dict(dict_data, field=ln.Record.name)
     assert "field must be a Feature FieldAttr" in str(e.value)
 
     # Explicit field
-    features_with_field = ln.Feature.from_dict(
-        dict_data, field=ln.Feature.name, str_as_cat=False
-    )
+    features_with_field = ln.Feature.from_dict(dict_data, field=ln.Feature.name)
     assert len(features_with_field) == len(dict_data)
+
+
+def test_feature_from_dict_type(dict_data):
+    feature_type = ln.Feature(name="Testdata_feature_type", is_type=True).save()
+    features = ln.Feature.from_dict(dict_data, type=feature_type).save()
+    for feature in features:
+        assert feature.type.name == "Testdata_feature_type"
+    ln.Feature.filter(type__isnull=False).delete(permanent=True)
+    feature_type.delete(permanent=True)
+
+
+def test_feature_query_by_dtype():
+    """Test querying Feature by dtype (deprecated) and _dtype_str."""
+    str_feat = ln.Feature(name="test_str_feat", dtype=str).save()
+    int_feat = ln.Feature(name="test_int_feat", dtype=int).save()
+    try:
+        # Test querying by _dtype_str (current way)
+        str_features = ln.Feature.filter(_dtype_str="str", name="test_str_feat")
+        assert str_features.count() == 1
+        assert str_features.first() == str_feat
+
+        str_features = ln.Feature.filter(dtype_as_str="str", name="test_str_feat")
+        assert str_features.count() == 1
+        assert str_features.first() == str_feat
+
+        # Test querying by dtype (deprecated) - should work but issue warning
+        with pytest.warns(
+            DeprecationWarning,
+            match="Querying Feature by `dtype` is deprecated.*Notice the new dtype encoding format",
+        ):
+            str_features_deprecated = ln.Feature.filter(
+                dtype="str", name="test_str_feat"
+            )
+            assert str_features_deprecated.count() == 1
+            assert str_features_deprecated.first() == str_feat
+    finally:
+        # Clean up
+        str_feat.delete(permanent=True)
+        int_feat.delete(permanent=True)

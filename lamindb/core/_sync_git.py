@@ -8,23 +8,28 @@ from lamindb_setup import settings as setup_settings
 from lamindb_setup.core.hashing import hash_code
 
 from ..core._settings import sanitize_git_repo_url, settings
+from ..errors import BlobHashNotFound
 
 
-class BlobHashNotFound(SystemExit):
-    pass
+def get_git_repo_from_remote(url: str | None = None, depth: int | None = 10) -> Path:
+    """Clone the git repository if not already cloned.
 
-
-def get_git_repo_from_remote() -> Path:
-    repo_url = settings.sync_git_repo
+    If `depth` is provided, a shallow clone is performed and no tags are fetched.
+    """
+    repo_url = url or settings.sync_git_repo
     repo_dir = setup_settings.cache_dir / repo_url.split("/")[-1]
     if repo_dir.exists():
-        logger.warning(f"git repo {repo_dir} already exists locally")
+        logger.debug(f"git repo {repo_dir} already exists locally")
         return repo_dir
     logger.important(
         f"running outside of synched git repo, cloning {repo_url} into {repo_dir}"
     )
+    args = ["git", "clone", f"{repo_url}.git"]
+    if depth is not None:
+        # if depth is provided, will not fetch tags
+        args += ["--depth", f"{depth}"]
     result = subprocess.run(
-        ["git", "clone", "--depth", "10", f"{repo_url}.git"],
+        args,
         capture_output=True,
         cwd=setup_settings.cache_dir,
     )
@@ -177,9 +182,113 @@ def get_transform_reference_from_git_repo(path: Path) -> str:
         if repo_dir is None:
             repo_dir = Path.cwd()
         raise BlobHashNotFound(
-            f"❌ Did not find blob hash {blob_hash} in git repo ({settings.sync_git_repo}) {repo_dir}\n"
-            f"Did you commit the script? -> {path}"
+            f"❌ Did not find blob hash {blob_hash} in git repo: {settings.sync_git_repo}\n"
+            f"Did you commit & push the script to the remote repo? -> {path}"
         )
     gitpath = get_filepath_within_git_repo(commit_hash, blob_hash, repo_dir)
     reference = f"{settings.sync_git_repo}/blob/{commit_hash}/{gitpath}"
     return reference
+
+
+def get_and_validate_git_metadata(
+    url: str,
+    path: str,
+    version: str | None = None,
+    branch: str | None = None,
+) -> tuple[str, str]:
+    """Get metadata from a git repository.
+
+    Args:
+        url: Git repository URL (e.g., "https://github.com/user/repo")
+        path: Path to the main script within the repository
+        version: Optional version/tag to checkout
+        branch: Optional branch name (defaults to repository's default branch)
+
+    Returns:
+        Dictionary containing:
+            - commit_hash: The current commit hash
+            - url: The repository URL
+            - main_script: Path to the main script
+            - revision: The version/tag (if provided)
+            - branch: The branch name
+
+    Raises:
+        RuntimeError: If git operations fail
+        FileNotFoundError: If the specified path does not exist in the repository
+    """
+    url = sanitize_git_repo_url(url)
+    repo_dir = get_git_repo_from_remote(url, depth=None)
+
+    # Determine the branch to use
+    if branch is None:
+        # Get the default branch if not specified
+        result_str = subprocess.run(
+            ["git", "rev-parse", "--abbrev-ref", "origin/HEAD"],
+            capture_output=True,
+            cwd=repo_dir,
+            text=True,
+        )
+        if result_str.returncode == 0:
+            branch = result_str.stdout.strip().split("/")[-1]
+        else:
+            branch = "main"  # fallback to main
+
+    # Fetch the latest changes
+    subprocess.run(
+        ["git", "fetch", "origin"],
+        capture_output=True,
+        cwd=repo_dir,
+        check=True,
+    )
+
+    # Checkout the specified version or branch
+    if version is not None:
+        # Version takes precedence - checkout the tag/version
+        result = subprocess.run(
+            ["git", "checkout", version],
+            capture_output=True,
+            cwd=repo_dir,
+        )
+        if result.returncode != 0:
+            raise ValueError(
+                f"Failed to checkout version {version}: {result.stderr.decode()}"
+            )
+        logger.info(f"checked out version {version}")
+    else:
+        # Checkout the branch
+        result = subprocess.run(
+            ["git", "checkout", f"origin/{branch}"],
+            capture_output=True,
+            cwd=repo_dir,
+        )
+        if result.returncode != 0:
+            raise ValueError(
+                f"Failed to checkout branch {branch}: {result.stderr.decode()}"
+            )
+        logger.info(f"checked out branch {branch}")
+
+    # Get the current commit hash
+    result_str = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        capture_output=True,
+        cwd=repo_dir,
+        text=True,
+    )
+    if result_str.returncode != 0:
+        raise RuntimeError(f"Failed to get commit hash: {result_str.stderr}")
+
+    commit_hash = result_str.stdout.strip()
+
+    assert (  # noqa: S101
+        len(commit_hash) == 40
+    ), f"commit hash |{commit_hash}| is not 40 characters long"
+
+    # Verify that the path exists as a file in the repository
+    file_path = repo_dir / path
+    if not file_path.exists():
+        raise FileNotFoundError(f"Path '{path}' does not exist in repository {url}")
+    if not file_path.is_file():
+        raise FileNotFoundError(
+            f"Path '{path}' exists but is not a file in repository {url}"
+        )
+    return url, commit_hash

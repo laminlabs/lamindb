@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-import warnings
 from typing import TYPE_CHECKING, Any, Literal, overload
 
 import anndata as ad
 import pandas as pd
 from django.db import models
-from django.db.models import CASCADE, PROTECT
+from django.db.models import CASCADE, PROTECT, Q
 from lamin_utils import logger
 from lamindb_setup.core.hashing import HASH_LENGTH, hash_set
 
@@ -16,8 +15,9 @@ from lamindb.base.fields import (
     OneToOneField,
     TextField,
 )
+from lamindb.base.utils import strict_classmethod
 
-from ..base.ids import base62_20
+from ..base.uids import base62_20
 from ..core._mapped_collection import MappedCollection
 from ..core.storage._backed_access import _open_dataframe
 from ..errors import FieldValidationError
@@ -25,11 +25,10 @@ from ..models._is_versioned import process_revises
 from ._is_versioned import IsVersioned
 from .artifact import (
     Artifact,
-    _populate_subsequent_runs_,
-    _track_run_input,
-    describe_artifact_collection,
     get_run,
+    populate_subsequent_run,
     save_schema_links,
+    track_run_input,
 )
 from .has_parents import view_lineage
 from .run import Run, TracksRun, TracksUpdates
@@ -49,52 +48,19 @@ if TYPE_CHECKING:
     from pyarrow.dataset import Dataset as PyArrowDataset
 
     from ..core.storage import UPath
+    from .block import CollectionBlock
     from .project import Project, Reference
+    from .query_manager import QueryManager
     from .query_set import QuerySet
+    from .record import Record
     from .transform import Transform
     from .ulabel import ULabel
-
-
-# below is a draft for the future, see also the tests in test_collection.py
-#
-# class CollectionFeatureManager:
-#     """Query features of artifact in collection."""
-
-#     def __init__(self, collection: Collection):
-#         self._collection = collection
-
-#     def _get_staged_feature_sets_union(self) -> dict[str, Schema]:
-#         links_schema_artifact = Artifact.feature_sets.through.objects.filter(
-#             artifact_id__in=self._collection.artifacts.values_list("id", flat=True)
-#         )
-#         feature_sets_by_slots = defaultdict(list)
-#         for link in links_schema_artifact:
-#             feature_sets_by_slots[link.slot].append(link.schema_id)
-#         feature_sets_union = {}
-#         for slot, schema_ids_slot in feature_sets_by_slots.items():
-#             schema_1 = Schema.get(id=schema_ids_slot[0])
-#             related_name = schema_1._get_related_name()
-#             features_registry = getattr(Schema, related_name).field.model
-#             # this way of writing the __in statement turned out to be the fastest
-#             # evaluated on a link table with 16M entries connecting 500 feature sets with
-#             # 60k genes
-#             feature_ids = (
-#                 features_registry.schemas.through.objects.filter(
-#                     schema_id__in=schema_ids_slot
-#                 )
-#                 .values(f"{features_registry.__name__.lower()}_id")
-#                 .distinct()
-#             )
-#             features = features_registry.filter(id__in=feature_ids)
-#             feature_sets_union[slot] = Schema(features, dtype=schema_1.dtype)
-#         return feature_sets_union
 
 
 def _load_concat_artifacts(
     artifacts: list[Artifact], join: Literal["inner", "outer"] = "outer", **kwargs
 ) -> pd.DataFrame | ad.AnnData:
     suffixes = {artifact.suffix for artifact in artifacts}
-    # Why is that? - Sergei
     if len(suffixes) != 1:
         raise ValueError(
             "Can only load collections where all artifacts have the same suffix"
@@ -130,30 +96,38 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         artifacts: `Artifact | list[Artifact]` One or several artifacts.
         key: `str` A file-path like key, analogous to the `key` parameter of `Artifact` and `Transform`.
         description: `str | None = None` A description.
-        revises: `Collection | None = None` An old version of the collection.
-        run: `Run | None = None` The run that creates the collection.
         meta: `Artifact | None = None` An artifact that defines metadata for the collection.
         reference: `str | None = None` A simple reference, e.g. an external ID or a URL.
         reference_type: `str | None = None` A way to indicate to indicate the type of the simple reference `"url"`.
+        run: `Run | None = None` The run that creates the collection.
+        revises: `Collection | None = None` An old version of the collection.
+        skip_hash_lookup: `bool = False` Skip the hash lookup so that a new collection is created even if a collection with the same hash already exists.
+
 
     See Also:
         :class:`~lamindb.Artifact`
 
     Examples:
 
-        Create a collection from a list of :class:`~lamindb.Artifact` objects:
+        Create a collection from a list of :class:`~lamindb.Artifact` objects::
 
-        >>> collection = ln.Collection([artifact1, artifact2], key="my_project/my_collection")
+            collection = ln.Collection([artifact1, artifact2], key="my_project/my_collection")
 
-        Create a collection that groups a data & a metadata artifact (e.g., here :doc:`docs:rxrx`):
+        Create a collection that groups a data & a metadata artifact (e.g., here :doc:`docs:rxrx`)::
 
-        >>> collection = ln.Collection(data_artifact, key="my_project/my_collection", meta=metadata_artifact)
+            collection = ln.Collection(data_artifact, key="my_project/my_collection", meta=metadata_artifact)
 
     """
 
     class Meta(SQLRecord.Meta, IsVersioned.Meta, TracksRun.Meta, TracksUpdates.Meta):
         abstract = False
         app_label = "lamindb"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["key", "hash"],
+                name="unique_collection_key_hash_not_null",
+            )
+        ]
 
     _len_full_uid: int = 20
     _len_stem_uid: int = 16
@@ -174,10 +148,12 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     # below is the only case in which we use a TextField
     # for description; we do so because users had descriptions exceeding 255 chars
     # in their instances
-    description: str | None = TextField(null=True, db_index=True)
+    description: str | None = TextField(null=True)
     """A description or title."""
     hash: str | None = CharField(
-        max_length=HASH_LENGTH, db_index=True, null=True, unique=True
+        max_length=HASH_LENGTH,
+        db_index=True,
+        null=True,
     )
     """Hash of collection content."""
     reference: str | None = CharField(max_length=255, db_index=True, null=True)
@@ -185,26 +161,27 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     # also for reference_type here, we allow an extra long max_length
     reference_type: str | None = CharField(max_length=25, db_index=True, null=True)
     """Type of reference, e.g., cellxgene Census collection_id."""
-    ulabels: ULabel = models.ManyToManyField(
+    ulabels: QueryManager[ULabel] = models.ManyToManyField(
         "ULabel", through="CollectionULabel", related_name="collections"
     )
-    """ULabels sampled in the collection (see :class:`~lamindb.Feature`)."""
+    """ULabels annotating the collection (see :class:`~lamindb.Feature`) ← :attr:`~lamindb.ULabel.collections`."""
     run: Run | None = ForeignKey(
         Run, PROTECT, related_name="output_collections", null=True, default=None
     )
-    """:class:`~lamindb.Run` that created the `collection`."""
-    input_of_runs: Run = models.ManyToManyField(Run, related_name="input_collections")
-    """Runs that use this collection as an input."""
-    _subsequent_runs: Run = models.ManyToManyField(
-        "Run",
-        related_name="_recreated_collections",
-        db_table="lamindb_collection__previous_runs",  # legacy name, change in lamindb v2
+    """:class:`~lamindb.Run` that created the `collection` ← :attr:`~lamindb.Run.output_collections`."""
+    input_of_runs: QueryManager[Run] = models.ManyToManyField(
+        Run, related_name="input_collections"
     )
-    """Runs that re-created the record after initial creation."""
-    artifacts: Artifact = models.ManyToManyField(
+    """Runs that use this collection as an input ← :attr:`~lamindb.Run.input_collections`."""
+    recreating_runs: QueryManager[Run] = models.ManyToManyField(
+        "Run",
+        related_name="recreated_collections",
+    )
+    """Runs that re-created the record after initial creation ← :attr:`~lamindb.Run.recreated_collections`."""
+    artifacts: QueryManager[Artifact] = models.ManyToManyField(
         "Artifact", related_name="collections", through="CollectionArtifact"
     )
-    """Artifacts in collection."""
+    """Artifacts in collection ← :attr:`~lamindb.Artifact.collections`."""
     meta_artifact: Artifact | None = OneToOneField(
         "Artifact",
         PROTECT,
@@ -218,12 +195,22 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     collection from the artifact via a private field:
     `artifact._meta_of_collection`.
     """
-    _actions: Artifact = models.ManyToManyField(Artifact, related_name="+")
+    linked_in_records: QueryManager[Record] = models.ManyToManyField(
+        "Record", through="RecordCollection", related_name="linked_collections"
+    )
+    """This collection is linked in these records as a value ← :attr:`~lamindb.Record.linked_collections`."""
+    _actions: QueryManager[Artifact] = models.ManyToManyField(
+        Artifact, related_name="+"
+    )
     """Actions to attach for the UI."""
-    projects: Project
-    """Linked projects."""
-    references: Reference
-    """Linked references."""
+    projects: QueryManager[Project]
+    """Linked projects ← :attr:`~lamindb.Project.collections`."""
+    references: QueryManager[Reference]
+    """Linked references ← :attr:`~lamindb.Reference.collections`."""
+    records: QueryManager[Record]
+    """Linked records ← :attr:`~lamindb.Record.collections`."""
+    ablocks: CollectionBlock
+    """Blocks that annotate this collection ← :attr:`~lamindb.CollectionBlock.collection`."""
 
     @overload
     def __init__(
@@ -236,6 +223,7 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         reference_type: str | None = None,
         run: Run | None = None,
         revises: Collection | None = None,
+        skip_hash_lookup: bool = False,
     ): ...
 
     @overload
@@ -259,27 +247,18 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             kwargs.pop("artifacts") if len(args) == 0 else args[0]
         )
         meta_artifact: Artifact | None = kwargs.pop("meta_artifact", None)
-        tmp_key: str | None = kwargs.pop("key", None)
+        key: str | None = kwargs.pop("key", None)
         description: str | None = kwargs.pop("description", None)
         reference: str | None = kwargs.pop("reference", None)
         reference_type: str | None = kwargs.pop("reference_type", None)
         run: Run | None = kwargs.pop("run", None)
         revises: Collection | None = kwargs.pop("revises", None)
-        version: str | None = kwargs.pop("version", None)
+        version_tag: str | None = kwargs.pop("version_tag", kwargs.pop("version", None))
+        skip_hash_lookup: bool = kwargs.pop("skip_hash_lookup", False)
         branch = kwargs.pop("branch", None)
         branch_id = kwargs.pop("branch_id", 1)
         space = kwargs.pop("space", None)
         space_id = kwargs.pop("space_id", 1)
-        key: str
-        if "name" in kwargs:
-            key = kwargs.pop("name")
-            warnings.warn(
-                f"argument `name` will be removed, please pass {key} to `key` instead",
-                FutureWarning,
-                stacklevel=2,
-            )
-        else:
-            key = tmp_key
         if not len(kwargs) == 0:
             valid_keywords = ", ".join(
                 [val[0] for val in _get_record_kwargs(Collection)]
@@ -293,8 +272,8 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 .order_by("-created_at")
                 .first()
             )
-        provisional_uid, version, key, description, revises = process_revises(
-            revises, version, key, description, Collection
+        provisional_uid, version_tag, key, description, revises = process_revises(
+            revises, version_tag, key, description, Collection
         )
         run = get_run(run)
         if isinstance(artifacts, Artifact):
@@ -313,18 +292,25 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                         "Save meta_artifact artifact before creating collection!"
                     )
         # we ignore collections in trash containing the same hash
-        if hash is not None:
-            existing_collection = Collection.filter(hash=hash).one_or_none()
+        if hash is not None and not skip_hash_lookup:
+            # this purposefully leaves out the key that we have
+            # in the hard database unique constraint
+            # so that the user is able to find collections with the same hash across
+            # keys
+            # if this is not desired, set skip_hash_lookup=True
+            existing_collection = Collection.objects.filter(
+                ~Q(branch_id=-1),
+                hash=hash,
+            ).first()
         else:
             existing_collection = None
         if existing_collection is not None:
             logger.warning(
-                f"returning existing collection with same hash: {existing_collection}; if you intended to query to track this collection as an input, use: ln.Collection.get()"
+                f"returning collection with same hash: {existing_collection}; if you intended to query to track this collection as an input, use: ln.Collection.get()"
             )
-            if run is not None:
-                existing_collection._populate_subsequent_runs(run)
             init_self_from_db(self, existing_collection)
             update_attributes(self, {"description": description, "key": key})
+            populate_subsequent_run(self, run)
         else:
             _skip_validation = revises is not None and key == revises.key
             super().__init__(  # type: ignore
@@ -336,7 +322,7 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 meta_artifact=meta_artifact,
                 hash=hash,
                 run=run,
-                version=version,
+                version_tag=version_tag,
                 branch=branch,
                 branch_id=branch_id,
                 space=space,
@@ -345,11 +331,11 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 _skip_validation=_skip_validation,
             )
         self._artifacts = artifacts
-        if revises is not None:
-            _track_run_input(revises, run=run)
-        _track_run_input(artifacts, run=run)
+        if revises is not None and revises.uid != self.uid:
+            track_run_input(revises, run=run)
+        track_run_input(artifacts, run=run)
 
-    @classmethod
+    @strict_classmethod
     def get(
         cls,
         idlike: int | str | None = None,
@@ -365,7 +351,7 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             expressions: Fields and values passed as Django query expressions.
 
         Raises:
-            :exc:`docs:lamindb.errors.DoesNotExist`: In case no matching record is found.
+            :exc:`lamindb.errors.DoesNotExist`: In case no matching record is found.
 
         See Also:
             - Method in `SQLRecord` base class: :meth:`~lamindb.models.SQLRecord.get`
@@ -437,8 +423,7 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
         dataframe = _open_dataframe(paths, engine=engine, **kwargs)
         # track only if successful
-        # is it really needed if tracking is done in self.ordered_artifacts.all()? - Sergei
-        _track_run_input(self, is_run_input)
+        track_run_input(self, is_run_input)
         return dataframe
 
     def mapped(
@@ -538,25 +523,24 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             dtype,
         )
         # track only if successful
-        # is it really needed if tracking is done in self.ordered_artifacts.all()? - Sergei
-        _track_run_input(self, is_run_input)
+        track_run_input(self, is_run_input)
         return ds
 
     def cache(self, is_run_input: bool | None = None) -> list[UPath]:
         """Download cloud artifacts in collection to local cache.
 
-        Follows synching logic: only caches outdated artifacts.
+        Follows syncing logic: only downloads outdated artifacts.
 
-        Returns paths to locally cached on-disk artifacts.
+        Returns ordered paths to locally cached on-disk artifacts via `.ordered_artifacts.all()`:
 
         Args:
             is_run_input: Whether to track this collection as run input.
         """
         path_list = []
         for artifact in self.ordered_artifacts.all():
-            path_list.append(artifact.cache())
-        # is it really needed if tracking is done in self.ordered_artifacts.all()? - Sergei
-        _track_run_input(self, is_run_input)
+            # do not want to track data lineage on the artifact level
+            path_list.append(artifact.cache(is_run_input=False))
+        track_run_input(self, is_run_input)
         return path_list
 
     def load(
@@ -569,12 +553,11 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
         Returns an in-memory concatenated `DataFrame` or `AnnData` object.
         """
-        # cannot call _track_run_input here, see comment further down
+        # cannot call track_run_input here, see comment further down
         artifacts = self.ordered_artifacts.all()
         concat_object = _load_concat_artifacts(artifacts, join, **kwargs)
         # only call it here because there might be errors during load or concat
-        # is it really needed if tracking is done in self.ordered_artifacts.all()? - Sergei
-        _track_run_input(self, is_run_input)
+        track_run_input(self, is_run_input)
         return concat_object
 
     def save(self, using: str | None = None) -> Collection:
@@ -640,7 +623,7 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         you non-deterministic order.
 
         Using the property `.ordered_artifacts` allows to iterate through a set
-        that's ordered in the order of creation.
+        that's ordered by the order of the list that created the collection.
         """
         return self.artifacts.order_by("links_collection__id")
 
@@ -656,17 +639,6 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         """
         return self.artifacts.first()
 
-    def describe(self) -> None:
-        """Describe relations of record.
-
-        Examples:
-            >>> artifact.describe()
-        """
-        return describe_artifact_collection(self)
-
-    def _populate_subsequent_runs(self, run: Run) -> None:
-        _populate_subsequent_runs_(self, run)
-
 
 # internal function, not exposed to user
 def from_artifacts(artifacts: Iterable[Artifact]) -> tuple[str, dict[str, str]]:
@@ -680,9 +652,8 @@ def from_artifacts(artifacts: Iterable[Artifact]) -> tuple[str, dict[str, str]]:
     if len(hashes) != len(hashes_set):
         seen = set()
         non_unique = [x for x in hashes if x in seen or seen.add(x)]  # type: ignore
-        raise ValueError(
-            "Please pass artifacts with distinct hashes: these ones are non-unique"
-            f" {non_unique}"
+        logger.warning(
+            f"your collection contains artifacts with non-unique hashes:  {non_unique}"
         )
     hash = hash_set(hashes_set)
     return hash

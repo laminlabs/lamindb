@@ -24,9 +24,10 @@ from lamindb_setup.core.upath import check_storage_is_empty, create_path
 
 from lamindb.base.fields import (
     CharField,
+    TextField,
 )
 
-from ..base.ids import base62_12
+from ..base.uids import base62_12
 from .run import TracksRun, TracksUpdates
 from .sqlrecord import Space, SQLRecord
 
@@ -44,23 +45,23 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
 
     A storage location is either a directory (local or a folder in the cloud) or
     an entire S3/GCP bucket.
-    A LaminDB instance can manage and read from multiple storage locations. But any
-    storage location is managed by *at most one* LaminDB instance.
 
-    .. dropdown:: Managed vs. read-only storage locations
+    A storage location is written to by at most one LaminDB instance: the location’s *writing instance*.
+    Some locations are not managed with LaminDB and, hence, do not have a writing instance.
 
-        A LaminDB instance can only write artifacts to its managed storage
-        locations.
+    .. dropdown:: Writable vs. read-only storage locations
 
-        The :attr:`~lamindb.Storage.instance_uid` field defines the managing LaminDB instance of a storage location.
-        You can access the `instance_uid` of your current instance through `ln.setup.settings.instance_uid`.
+        The `instance_uid` field of `Storage` defines its *writing instance*.
+        Only if a storage location's `instance_uid` matches your current instance's `uid` (`ln.settings.instance_uid`),
+        you can write to it.
+        All other storage locations are read-only in your current instance.
 
         Here is an example (`source <https://lamin.ai/laminlabs/lamindata/transform/dPco79GYgzag0000>`__).
 
         .. image:: https://lamin-site-assets.s3.amazonaws.com/.lamindb/eHDmIOAxLEoqZ2oK0000.png
            :width: 400px
 
-        Some public storage locations are not be managed by any LaminDB instance: their `instance_uid` is `None`.
+        Some storage locations are not written to by any LaminDB instance, hence, their `instance_uid` is `None`.
 
     .. dropdown:: Managing access to storage locations across instances
 
@@ -68,18 +69,18 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
         through AWS policies that you attach to your S3 bucket.
 
         To enable access management via LaminHub, head over to `https://lamin.ai/{account}/infrastructure`.
-        By clicking the green button that says "Connect S3 bucket", LaminDB will start connecting through federated S3 tokens
-        so that your collaborators access data based on their permissions in LaminHub.
-        :doc:`docs:access` has more details.
+        By clicking the green button that says "Connect S3 bucket", your collaborators will access data
+        based on their LaminHub permissions.
+        :doc:`docs:permissions` has more details.
 
         .. image:: https://lamin-site-assets.s3.amazonaws.com/.lamindb/ze8hkgVxVptSSZEU0000.png
            :width: 800px
 
-        By default, access permissions to a storage location are governed by the access permissions of its managing instance. If you
+        By default, a storage location inherits the access permissions of its instance. If you
         want to further restrict access to a storage location, you can move it into a space::
 
             space = ln.Space.get(name="my-space")
-            storage_loc = ln.Storage.get(root="s3://my-storace-location")
+            storage_loc = ln.Storage.get(root="s3://my-storage-location")
             storage_loc.space = space
             storage_loc.save()
 
@@ -89,7 +90,8 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
         root: `str` The root path of the storage location, e.g., `"./mydir"`, `"s3://my-bucket"`, `"s3://my-bucket/myfolder"`, `"gs://my-bucket/myfolder"`, `"/nfs/shared/datasets/genomics"`, `"/weka/shared/models/"`, ...
         description: `str | None = None` An optional description.
         space: `Space | None = None` A space to restrict access permissions to the storage location.
-        host: `str | None = None` For local storage locations, pass a globally unique host identifier, e.g. `"my-institute-cluster-1"`, `"my-server-abcd"`, ...
+        host: `str | None = None` For local storage locations, a globally unique identifier for the physical machine/server hosting the storage.
+            This distinguishes storage locations that may have the same local path but exist on different servers, e.g. `"my-institute-cluster-1"`, `"my-server-abcd"`.
 
     See Also:
         :attr:`lamindb.core.Settings.storage`
@@ -151,7 +153,7 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
 
             1. Copy or move artifacts into the desired new storage location
             2. Adapt the corresponding record in the {class}`~lamindb.Storage` registry by setting the `root` field to the new location
-            3. If your LaminDB storage location is managed through the hub, you also need to update the storage record on the hub -- contact support
+            3. If your LaminDB storage location is connected to the hub, you also need to update the storage record on the hub
 
     """
 
@@ -169,14 +171,18 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
     """Universal id, valid across DB instances."""
     root: str = CharField(db_index=True, unique=True)
     """Root path of storage (cloud or local path)."""
-    description: str | None = CharField(db_index=True, null=True)
-    """A description of what the storage location is used for (optional)."""
+    description: str | None = TextField(null=True)
+    """A description."""
     type: StorageType = CharField(max_length=30, db_index=True)
     """Can be "local" vs. "s3" vs. "gs". Is auto-detected from the format of the `root` path."""
     region: str | None = CharField(max_length=64, db_index=True, null=True)
     """Storage region for cloud storage locations. Host identifier for local storage locations."""
     instance_uid: str | None = CharField(max_length=12, db_index=True, null=True)
-    """Instance that manages this storage location."""
+    """The writing instance.
+
+    Only the LaminDB instance with this `uid` can write to this storage location.
+    This instance also governs the access permissions of the storage location unless the location is moved into a space.
+    """
     artifacts: Artifact
     """Artifacts contained in this storage location."""
 
@@ -203,7 +209,6 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
     ):
         if len(args) == len(self._meta.concrete_fields):
             super().__init__(*args)
-            self._old_space = self.space
             self._old_space_id = self.space_id
             return None
         if args:
@@ -233,9 +238,10 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
             from .sqlrecord import init_self_from_db
 
             init_self_from_db(self, storage_record)
-            self._old_space = self.space
             self._old_space_id = self.space_id
             return None
+
+        skip_mark_storage_root = kwargs.pop("skip_mark_storage_root", False)
 
         skip_preparation = kwargs.pop("_skip_preparation", False)
         if skip_preparation:
@@ -262,6 +268,7 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
             register_hub=setup_settings.instance.is_on_hub,
             region=kwargs.get("region", None),  # host was renamed to region already
             space_uuid=space_uuid,
+            skip_mark_storage_root=skip_mark_storage_root,
         )
         # ssettings performed validation and normalization of the root path
         kwargs["root"] = ssettings.root_as_str  # noqa: S101
@@ -292,7 +299,8 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
         hub_message = ""
         if setup_settings.instance.is_on_hub and is_managed_by_current_instance:
             instance_owner = setup_settings.instance.owner
-            hub_message = f", see: https://lamin.ai/{instance_owner}/infrastructure"
+            ui_url = setup_settings.instance.ui_url
+            hub_message = f", see: {ui_url}/{instance_owner}/infrastructure"
         managed_message = (
             "created managed"
             if is_managed_by_current_instance
@@ -302,7 +310,6 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
             f"{managed_message} storage location at {kwargs['root']}{is_managed_by_instance}{hub_message}"
         )
         super().__init__(**kwargs)
-        self._old_space = self.space
         self._old_space_id = self.space_id
 
     @property
@@ -328,27 +335,37 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
 
     def save(self, *args, **kwargs):
         """Save the storage record."""
-        if hasattr(self, "_old_space") and hasattr(self, "_old_space_id"):
-            if (
-                self._old_space != self.space or self._old_space_id != self.space_id
-            ):  # space_id is automatically handled by field tracker according to Claude
-                update_storage_with_space(
-                    storage_lnid=self.uid, space_lnid=self.space.uid
-                )
+        if hasattr(self, "_old_space_id") and self._old_space_id != self.space_id:
+            update_storage_with_space(storage_lnid=self.uid, space_lnid=self.space.uid)
         super().save(*args, **kwargs)
         return self
 
-    def delete(self) -> None:  # type: ignore
+    def delete(self, permanent: bool | None = None) -> None:  # type: ignore
         # type ignore is there because we don't use a trash here unlike everywhere else
         """Delete the storage location.
 
         This errors in case the storage location is not empty.
 
         Unlike other `SQLRecord`-based registries, this does *not* move the storage record into the trash.
+
+        Args:
+            permanent: `False` raises an error, as soft delete is impossible.
         """
         from .. import settings
 
-        assert not self.artifacts.exists(), "Cannot delete storage holding artifacts."  # noqa: S101
+        if permanent is False:
+            raise ValueError(
+                "Soft delete is not possible for Storage, "
+                "use 'permanent=True' or 'permanent=None' for permanent deletion."
+            )
+        assert not self.artifacts.exists(), (
+            "Cannot delete storage with artifacts in current instance."
+        )  # noqa: S101
+        # the simple case of a read-only storage location
+        if self.instance_uid != setup_settings.instance.uid:
+            super(SQLRecord, self).delete()
+            return None
+        # now the complicated case of a written/managed storage location
         check_storage_is_empty(self.path)
         assert settings.storage.root_as_str != self.root, (  # noqa: S101
             "Cannot delete the current storage location, switch to another."

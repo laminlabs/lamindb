@@ -8,7 +8,7 @@ from collections import defaultdict
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.utils.functional import partition
 from lamin_utils import logger
 from lamindb_setup.core.upath import LocalPathClasses, UPath
@@ -21,7 +21,11 @@ from ..core.storage.paths import (
     delete_storage_using_key,
     store_file_or_folder,
 )
-from .sqlrecord import SQLRecord
+from .sqlrecord import (
+    UNIQUE_FIELD_NAMES,
+    SQLRecord,
+    parse_violated_field_from_error_message,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -104,11 +108,11 @@ def save(
     if artifacts:
         with transaction.atomic():
             for record in artifacts:
-                # will swtich to True after the successful upload / saving
-                if hasattr(record, "_local_filepath") and getattr(
+                # will switch to True after the successful upload / saving
+                if getattr(record, "_local_filepath", None) is not None and getattr(
                     record, "_to_store", False
                 ):
-                    record._is_saved_to_storage_location = False
+                    record._storage_completed = False
                 record._save_skip_storage()
         using_key = settings._using_key
         store_artifacts(artifacts, using_key=using_key)
@@ -139,8 +143,8 @@ def bulk_create(
         total_records = len(records_list)
         model_name = registry.__name__
         if total_records > batch_size:
-            logger.warning(
-                f"Starting bulk_create for {total_records} {model_name} records in batches of {batch_size}"
+            logger.important(
+                f"starting creation of {total_records} {model_name} records in batches of {batch_size}"
             )
 
         # Process records in batches
@@ -151,10 +155,72 @@ def bulk_create(
 
             if total_records > batch_size:
                 logger.info(
-                    f"Processing batch {batch_num}/{total_batches} for {model_name}: {len(batch)} records"
+                    f"processing batch {batch_num}/{total_batches} for {model_name}: {len(batch)} records"
                 )
-            registry.objects.bulk_create(batch, ignore_conflicts=ignore_conflicts)
-            # records[:] = created  # In-place list update; does not seem to be necessary
+            try:
+                registry.objects.bulk_create(batch, ignore_conflicts=ignore_conflicts)
+            # handle unique constraint violations due to non-default branches
+            except IntegrityError as e:
+                error_msg = str(e)
+                if any(field in error_msg for field in UNIQUE_FIELD_NAMES) and (
+                    "UNIQUE constraint failed" in error_msg
+                    or "duplicate key value violates unique constraint" in error_msg
+                ):
+                    unique_fields = parse_violated_field_from_error_message(error_msg)
+
+                    # Build tuples of unique field values for each record
+                    unique_field_values = [
+                        tuple(getattr(r, field) for field in unique_fields)
+                        for r in batch
+                    ]
+
+                    # Build Q objects for multi-field lookup
+                    from django.db.models import Q
+
+                    q_objects = Q()
+                    for values in unique_field_values:
+                        field_kwargs = {
+                            unique_fields[i]: values[i]
+                            for i in range(len(unique_fields))
+                        }
+                        q_objects |= Q(**field_kwargs)
+
+                    # Query against non-default branches
+                    pre_existing_records_not_main_branch = registry.objects.filter(
+                        q_objects
+                    ).exclude(branch_id=1)
+
+                    # Get the unique field value tuples that already exist
+                    pre_existing_value_tuples = {
+                        tuple(getattr(rec, field) for field in unique_fields)
+                        for rec in pre_existing_records_not_main_branch
+                    }
+
+                    # Records that can be saved normally (not in non-default branches)
+                    records_main_branch = [
+                        r
+                        for r in batch
+                        if tuple(getattr(r, field) for field in unique_fields)
+                        not in pre_existing_value_tuples
+                    ]
+                    save(records_main_branch)
+
+                    # Now move the pre-existing records to the main branch
+                    if pre_existing_value_tuples:
+                        unique_fields_str = ", ".join(unique_fields)
+                        logger.warning(
+                            f"some {model_name} records with the same ({unique_fields_str}) already exist in non-default branches - moving them to the default branch"
+                        )
+                        pre_existing_records_to_move = [
+                            r
+                            for r in batch
+                            if tuple(getattr(r, field) for field in unique_fields)
+                            in pre_existing_value_tuples
+                        ]
+                        for record in pre_existing_records_to_move:
+                            record.save()
+                else:
+                    raise e
 
 
 def bulk_update(
@@ -178,7 +244,7 @@ def bulk_update(
         model_name = registry.__name__
         if total_records > batch_size:
             logger.warning(
-                f"Starting bulk_update for {total_records} {model_name} records in batches of {batch_size}"
+                f"starting update for {total_records} {model_name} records in batches of {batch_size}"
             )
 
         field_names = [
@@ -195,7 +261,7 @@ def bulk_update(
 
             if total_records > batch_size:
                 logger.info(
-                    f"Processing batch {batch_num}/{total_batches} for {model_name}: {len(batch)} records"
+                    f"processing batch {batch_num}/{total_batches} for {model_name}: {len(batch)} records"
                 )
             registry.objects.bulk_update(batch, field_names)
 
@@ -211,7 +277,7 @@ def check_and_attempt_upload(
     # kwargs are propagated to .upload_from in the end
     # if Artifact object is either newly instantiated or replace() was called on
     # a local env it will have a _local_filepath and needs to be uploaded
-    if hasattr(artifact, "_local_filepath"):
+    if getattr(artifact, "_local_filepath", None) is not None:
         try:
             storage_path, cache_path = upload_artifact(
                 artifact,
@@ -224,7 +290,7 @@ def check_and_attempt_upload(
             logger.warning(f"could not upload artifact: {artifact}")
             # clear dangling storages if we were actually uploading or saving
             if getattr(artifact, "_to_store", False):
-                artifact._clear_storagekey = auto_storage_key_from_artifact(artifact)
+                artifact._clear_storagekey = auto_storage_key_from_artifact(artifact)  # type: ignore
             return exception
         # copies (if on-disk) or moves the temporary file (if in-memory) to the cache
         if os.getenv("LAMINDB_MULTI_INSTANCE") is None:
@@ -234,7 +300,15 @@ def check_and_attempt_upload(
             try:
                 copy_or_move_to_cache(artifact, storage_path, cache_path)
             except Exception as e:
-                logger.warning(f"A problem with cache on saving: {e}")
+                if not str(e).startswith(
+                    "[WinError 32] The process cannot access the file "
+                    "because it is being used by another process"
+                ):
+                    # ignore WinError 32 error, this just means that the file is still open on save
+                    # it is saved at this point, so not a big deal if copy or move to cache fails
+                    # this mostly happens for run logs
+                    # just ignore without a warning
+                    logger.warning(f"A problem with cache on saving: {e}")
         # after successful upload, we should remove the attribute so that another call
         # call to save won't upload again, the user should call replace() then
         del artifact._local_filepath
@@ -269,7 +343,9 @@ def copy_or_move_to_cache(
     # non-local storage_path further
     if local_path != cache_path:
         if cache_path.exists():
-            logger.warning(f"replacing the existing cache path {cache_path.as_posix()}")
+            logger.important_hint(
+                f"replacing the existing cache path {cache_path.as_posix()}"
+            )
             if cache_path.is_dir():
                 shutil.rmtree(cache_path)
             else:
@@ -303,18 +379,18 @@ def check_and_attempt_clearing(
     # or if there was an exception during upload
     if hasattr(artifact, "_clear_storagekey"):
         try:
-            if artifact._clear_storagekey is not None:
+            if artifact._clear_storagekey is not None:  # type: ignore
                 delete_msg = delete_storage_using_key(
                     artifact,
-                    artifact._clear_storagekey,
+                    artifact._clear_storagekey,  # type: ignore
                     raise_file_not_found_error=raise_file_not_found_error,
                     using_key=using_key,
                 )
                 if delete_msg != "did-not-delete":
                     logger.success(
-                        f"deleted stale object at storage key {artifact._clear_storagekey}"
+                        f"deleted stale object at storage key {artifact._clear_storagekey}"  # type: ignore
                     )
-                artifact._clear_storagekey = None
+                artifact._clear_storagekey = None  # type: ignore
         except Exception as exception:
             return exception
     # returning None means proceed (either success or no action needed)
@@ -344,13 +420,13 @@ def store_artifacts(
 
         stored_artifacts += [artifact]
         # update to show successful saving
-        # only update if _is_saved_to_storage_location was set to False before
+        # only update if _storage_completed was set to False before
         # this should be a single transaction for the updates of all the artifacts
         # but then it would just abort all artifacts, even successfully saved before
         # TODO: there should also be some kind of exception handling here
         # but this requires proper refactoring
-        if artifact._is_saved_to_storage_location is False:
-            artifact._is_saved_to_storage_location = True
+        if artifact._storage_completed is False:
+            artifact._storage_completed = None  # None indicates "not False" and removes the data from the JSON field
             super(
                 Artifact, artifact
             ).save()  # each .save is a separate transaction here
@@ -360,7 +436,7 @@ def store_artifacts(
             artifact, raise_file_not_found_error=True, using_key=using_key
         )
         if exception is not None:
-            logger.warning(f"clean up of {artifact._clear_storagekey} failed")
+            logger.warning(f"clean up of {artifact._clear_storagekey} failed")  # type: ignore
             break
 
     if exception is not None:
@@ -375,7 +451,7 @@ def store_artifacts(
                     )
                     if exception_clear is not None:
                         logger.warning(
-                            f"clean up of {artifact._clear_storagekey} after the upload error failed"
+                            f"clean up of {artifact._clear_storagekey} after the upload error failed"  # type: ignore
                         )
         error_message = prepare_error_message(artifacts, stored_artifacts, exception)
         # this is bad because we're losing the original traceback

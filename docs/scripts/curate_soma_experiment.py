@@ -3,7 +3,7 @@ import bionty as bt
 import tiledbsoma as soma
 import tiledbsoma.io
 
-adata = ln.core.datasets.mini_immuno.get_dataset1(otype="AnnData")
+adata = ln.examples.datasets.mini_immuno.get_dataset1(otype="AnnData")
 tiledbsoma.io.from_anndata("small_dataset.tiledbsoma", adata, measurement_name="RNA")
 
 obs_schema = ln.Schema(
@@ -19,7 +19,7 @@ var_schema = ln.Schema(
     features=[
         ln.Feature(name="var_id", dtype=bt.Gene.ensembl_gene_id).save(),
     ],
-    coerce_dtype=True,
+    coerce=True,
 ).save()
 
 soma_schema = ln.Schema(

@@ -1,14 +1,17 @@
 from __future__ import annotations
 
 import importlib
-from typing import TYPE_CHECKING, Any, get_args, overload
+import warnings
+from typing import TYPE_CHECKING, Any, cast, get_args, overload
 
 import numpy as np
 import pandas as pd
-from django.db import models
+import pgtrigger
+from django.conf import settings as django_settings
+from django.db import connection, models
 from django.db.models import CASCADE, PROTECT
 from django.db.models.query_utils import DeferredAttribute
-from django.db.utils import IntegrityError
+from django.db.utils import IntegrityError as DjangoIntegrityError
 from lamin_utils import logger
 from lamindb_setup._init_instance import get_schema_module_name
 from lamindb_setup.core import deprecated
@@ -27,40 +30,53 @@ from lamindb.base.fields import (
     JSONField,
     TextField,
 )
-from lamindb.base.types import Dtype, FieldAttr
-from lamindb.errors import DoesNotExist, FieldValidationError, ValidationError
+from lamindb.base.types import DtypeStr, FieldAttr
+from lamindb.errors import (
+    FieldValidationError,
+    IntegrityError,
+    InvalidArgument,
+    ValidationError,
+)
 
-from ..base.ids import base62_12
+from ..base.uids import base62_12
 from ._relations import dict_module_name_to_model_name
 from .can_curate import CanCurate
-from .query_set import SQLRecordList
+from .has_parents import _query_relatives
+from .query_set import QuerySet, SQLRecordList
 from .run import (
     TracksRun,
     TracksUpdates,
 )
-from .sqlrecord import BaseSQLRecord, Registry, SQLRecord, _get_record_kwargs
+from .sqlrecord import BaseSQLRecord, HasType, Registry, SQLRecord, _get_record_kwargs
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
+    from .artifact import Artifact
+    from .block import FeatureBlock
+    from .projects import Project
+    from .query_manager import QueryManager
+    from .record import Record
+    from .run import Run
     from .schema import Schema
+    from .ulabel import ULabel
 
-FEATURE_DTYPES = set(get_args(Dtype))
+FEATURE_DTYPES = set(get_args(DtypeStr))
 
 
-def parse_dtype(dtype_str: str, is_param: bool = False) -> list[dict[str, Any]]:
+def parse_dtype(
+    dtype_str: str, check_exists: bool = False, old_format: bool = False
+) -> list[dict[str, Any]]:
     """Parses feature data type string into a structured list of components."""
     from .artifact import Artifact
 
     allowed_dtypes = FEATURE_DTYPES
-    if is_param:
-        allowed_dtypes.add("dict")
 
     # Handle list[...] types
     if dtype_str.startswith("list[") and dtype_str.endswith("]"):
         inner_dtype_str = dtype_str[5:-1]  # Remove "list[" and "]"
         # Recursively parse the inner type
-        inner_result = parse_dtype(inner_dtype_str, is_param)
+        inner_result = parse_dtype(inner_dtype_str, old_format=old_format)
         # Add "list": True to each component
         for component in inner_result:
             if isinstance(component, dict):
@@ -68,7 +84,10 @@ def parse_dtype(dtype_str: str, is_param: bool = False) -> list[dict[str, Any]]:
         return inner_result
 
     is_composed_cat = dtype_str.startswith("cat[") and dtype_str.endswith("]")
-    result = []
+    result: list[dict[str, Any]] = []
+    # backward compatibility for bare "cat" dtype (deprecated)
+    if dtype_str == "cat":
+        return result
     if is_composed_cat:
         related_registries = dict_module_name_to_model_name(Artifact)
         registries_str = dtype_str.replace("cat[", "")[:-1]  # strip last ]
@@ -76,7 +95,10 @@ def parse_dtype(dtype_str: str, is_param: bool = False) -> list[dict[str, Any]]:
             registry_str_list = registries_str.split("|")
             for cat_single_dtype_str in registry_str_list:
                 single_result = parse_cat_dtype(
-                    cat_single_dtype_str, related_registries
+                    cat_single_dtype_str,
+                    related_registries=related_registries,
+                    check_exists=check_exists,
+                    old_format=old_format,
                 )
                 result.append(single_result)
     elif dtype_str not in allowed_dtypes:
@@ -86,10 +108,192 @@ def parse_dtype(dtype_str: str, is_param: bool = False) -> list[dict[str, Any]]:
     return result
 
 
+def get_record_type_from_uid(
+    registry: Registry,
+    record_uid: str,
+) -> SQLRecord:
+    type_record: SQLRecord = registry.get(record_uid)
+
+    if type_record.branch_id == -1:
+        warning_msg = f"retrieving {registry.__name__} type '{type_record.name}' (uid='{record_uid}') from trash"
+        logger.warning(warning_msg)
+
+    if not type_record.is_type:
+        raise InvalidArgument(
+            f"The resolved {type_record.__class__.__name__} '{type_record.name}' (uid='{record_uid}') is not a type: is_type is False."
+        )
+    return type_record
+
+
+def get_record_type_from_nested_subtypes(
+    registry: Registry, subtypes_list: list[str], field_str: str
+) -> SQLRecord:
+    """Get a record type by querying nested subtypes using raw SQL.
+
+    This function only works with Record or ULabel registries.
+    """
+    table_name = registry._meta.db_table
+    final_name = subtypes_list[-1]
+
+    # Build the SQL query with nested joins
+    # For subtypes_list = ["A", "B", "C"], we want:
+    # - Record with name="C"
+    # - Its type has name="B"
+    # - That type's type has name="A"
+
+    params: list[str | bool]
+    if len(subtypes_list) > 1:
+        # Build nested joins for parent types
+        parent_types = list(reversed(subtypes_list[:-1]))
+        joins = []
+        where_clauses = ["t0.name = %s"]  # Final record name
+        params = [final_name]
+
+        for i, parent_type_name in enumerate(parent_types):
+            alias = f"t{i + 1}"
+            prev_alias = f"t{i}"
+            joins.append(
+                f"INNER JOIN {table_name} {alias} ON {prev_alias}.type_id = {alias}.id"
+            )
+            where_clauses.append(f"{alias}.name = %s")
+            where_clauses.append(f"{alias}.is_type = %s")
+            params.extend([parent_type_name, True])
+
+        join_clause = " ".join(joins)
+        where_clause = " AND ".join(where_clauses)
+
+        query = f"""
+            SELECT t0.*
+            FROM {table_name} t0
+            {join_clause}
+            WHERE {where_clause}
+            LIMIT 1
+        """
+    else:
+        # Single type, no parent - type must be NULL
+        query = f"""
+            SELECT *
+            FROM {table_name}
+            WHERE name = %s AND type_id IS NULL
+            LIMIT 1
+        """
+        params = [final_name]
+
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute(query, params)
+            columns = [col[0] for col in cursor.description]
+            rows = cursor.fetchall()
+
+            if not rows:
+                raise IntegrityError(
+                    f"No {registry.__name__} type found matching subtypes {subtypes_list} for field `.{field_str}`"
+                )
+
+            if len(rows) > 1:
+                raise IntegrityError(
+                    f"Multiple {registry.__name__} types found matching subtypes {subtypes_list} for field `.{field_str}`"
+                )
+
+            # Create a dictionary from the row data
+            row_dict = dict(zip(columns, rows[0]))
+
+            # Create a minimal mock object with only the fields we need
+            # This avoids querying the database which may not have all columns during migrations
+            # We create a simple object and set its class to the registry for proper error messages
+            type_record: SQLRecord = object.__new__(registry)
+            type_record.id = row_dict.get("id")
+            type_record.uid = row_dict.get("uid")
+            type_record.name = row_dict.get("name")
+            type_record.is_type = row_dict.get("is_type", False)
+            # Initialize _state attribute needed by Django models
+            # Create a minimal state object with the required attributes
+            state = type("ModelState", (), {"adding": False, "db": "default"})()
+            type_record._state = state
+
+    except IntegrityError:
+        raise
+    except Exception as e:
+        raise IntegrityError(
+            f"Error retrieving {registry.__name__} type with subtypes {subtypes_list} for field `.{field_str}`: {e}"
+        ) from e
+
+    if not type_record.is_type:
+        raise InvalidArgument(
+            f"The resolved {type_record.__class__.__name__} '{type_record.name}' for field `.{field_str}` is not a type: is_type is False."
+        )
+    return type_record
+
+
+def dtype_as_object(dtype_str: str, old_format: bool = False) -> type | None:
+    def _dtype_as_object_simple(dtype_str: str) -> type | None:
+        if dtype_str == "str":
+            return str
+        elif dtype_str == "int":
+            return int
+        elif dtype_str in ("float", "num"):
+            return float
+        elif dtype_str == "bool":
+            return bool
+        elif dtype_str == "date":
+            from datetime import date
+
+            return date
+        elif dtype_str == "datetime":
+            from datetime import datetime
+
+            return datetime
+        elif dtype_str.startswith("dict"):
+            return dict
+        return None
+
+    if dtype_str is None:
+        return None
+
+    parsed_dtypes = parse_dtype(dtype_str, check_exists=True, old_format=old_format)
+    if len(parsed_dtypes) > 0:
+        dtype_objects = []
+        for parsed_dtype in parsed_dtypes:
+            if parsed_dtype.get("record_uid"):
+                # return the subtype record for dtypes with record_uid
+                dtype_object = get_record_type_from_uid(
+                    parsed_dtype["registry"],
+                    parsed_dtype["record_uid"],
+                )
+            elif parsed_dtype.get("subtypes_list"):
+                dtype_object = get_record_type_from_nested_subtypes(
+                    parsed_dtype["registry"],
+                    parsed_dtype["subtypes_list"],
+                    parsed_dtype["field"],
+                )
+            else:
+                # return field for dtypes without record_uid, e.g. bt.CellType.ontology_id
+                dtype_object = parsed_dtype["field"]
+            # for list, returns list[SQLRecord]
+            dtype_objects.append(
+                list[dtype_object]  # type: ignore
+                if "list" in parsed_dtype and parsed_dtype["list"]
+                else dtype_object
+            )
+        return dtype_objects if len(dtype_objects) > 1 else dtype_objects[0]  # type: ignore
+    elif dtype_str.startswith("list["):
+        # for simple lists, returns list[python_type]
+        dtype_simple_object = _dtype_as_object_simple(
+            dtype_str.removeprefix("list[").removesuffix("]")
+        )
+        return (
+            list[dtype_simple_object] if dtype_simple_object is not None else list  # type: ignore
+        )
+    else:
+        return _dtype_as_object_simple(dtype_str)
+
+
 def parse_cat_dtype(
     dtype_str: str,
     related_registries: dict[str, SQLRecord] | None = None,
     is_itype: bool = False,
+    check_exists: bool = False,
+    old_format: bool = False,
 ) -> dict[str, Any]:
     """Parses a categorical dtype string into its components (registry, field, subtypes)."""
     from .artifact import Artifact
@@ -99,10 +303,9 @@ def parse_cat_dtype(
         related_registries = dict_module_name_to_model_name(Artifact)
 
     # Parse the string considering nested brackets
-    parsed = parse_nested_brackets(dtype_str)
-
+    parsed = parse_nested_brackets(dtype_str, old_format=old_format)
     registry_str = parsed["registry"]
-    sub_type_str = parsed["subtype"]
+    filter_str = parsed["filter_str"]
     field_str = parsed["field"]
 
     if not is_itype:
@@ -128,40 +331,55 @@ def parse_cat_dtype(
         module = importlib.import_module(module_name)
         registry = getattr(module, class_name)
 
-    if sub_type_str != "":
-        pass
-        # validate that the subtype is a record in the registry with is_type = True
-    if field_str != "":
-        pass
-        # validate that field_str is an actual field of the module
-    else:
+    if field_str == "":
         field_str = registry._name_field if hasattr(registry, "_name_field") else "name"
+    assert hasattr(registry, field_str), f"{registry} has no field {field_str}"
 
+    record_uid = parsed.get("record_uid")
+    subtypes_list = parsed.get("subtypes_list")
+
+    # Handle old format (subtypes_list) or new format (record_uid)
+    if subtypes_list and check_exists:
+        # Old format: validate that the Record exists using nested subtypes
+        # subtypes_list is guaranteed to be list[str] when present
+        if isinstance(subtypes_list, list):
+            get_record_type_from_nested_subtypes(
+                registry, cast(list[str], subtypes_list), field_str
+            )
+    elif record_uid and check_exists:
+        get_record_type_from_uid(registry, record_uid)
+
+    if filter_str != "":
+        # TODO: validate or process filter string
+        pass
     result = {
         "registry": registry,  # should be typed as CanCurate
         "registry_str": registry_str,
-        "subtype_str": sub_type_str,
+        "filter_str": filter_str,
         "field_str": field_str,
         "field": getattr(registry, field_str),
     }
 
-    # Add nested subtype information if present
-    if parsed.get("nested_subtypes"):
-        result["nested_subtypes"] = parsed["nested_subtypes"]
+    # Add record_uid if it exists (new format)
+    if record_uid:
+        result["record_uid"] = record_uid
+
+    # Add subtypes_list if it exists (old format)
+    if subtypes_list:
+        result["subtypes_list"] = subtypes_list
 
     return result
 
 
-def parse_nested_brackets(dtype_str: str) -> dict[str, str]:
+def parse_nested_brackets(dtype_str: str, old_format: bool = False) -> dict[str, Any]:
     """Parse dtype string with potentially nested brackets.
 
     Examples:
-        "A" -> {"registry": "A", "subtype": "", "field": ""}
-        "A.field" -> {"registry": "A", "subtype": "", "field": "field"}
-        "A[B]" -> {"registry": "A", "subtype": "B", "field": ""}
-        "A[B].field" -> {"registry": "A", "subtype": "B", "field": "field"}
-        "A[B[C]]" -> {"registry": "A", "subtype": "B[C]", "field": "", "nested_subtypes": ["B", "C"]}
-        "A[B[C]].field" -> {"registry": "A", "subtype": "B[C]", "field": "field", "nested_subtypes": ["B", "C"]}
+        "A" -> {"registry": "A", "filter_str": "", "field": ""}
+        "A.field" -> {"registry": "A", "filter_str": "", "field": "field"}
+        "Record[abcdefg123456]" -> {"registry": "Record", "filter_str": "", "field": "", "record_uid": "abcdefg123456"}
+        "Record[abcdefg123456].name" -> {"registry": "Record", "filter_str": "", "field": "name", "record_uid": "abcdefg123456"}
+        "bionty.Gene.ensembl_gene_id[source__id='abcd']" -> {"registry": "bionty.Gene", "filter_str": "source__id='abcd'", "field": "ensembl_gene_id"}
 
     Args:
         dtype_str: The dtype string to parse
@@ -175,20 +393,20 @@ def parse_nested_brackets(dtype_str: str) -> dict[str, str]:
             parts = dtype_str.split(".")
             if len(parts) == 2 and parts[1][0].isupper():
                 # bionty.CellType
-                return {"registry": dtype_str, "subtype": "", "field": ""}
+                return {"registry": dtype_str, "filter_str": "", "field": ""}
             elif len(parts) == 3:
                 # bionty.CellType.name
                 return {
                     "registry": f"{parts[0]}.{parts[1]}",
-                    "subtype": "",
+                    "filter_str": "",
                     "field": parts[2],
                 }
             else:
                 # ULabel.name
-                return {"registry": parts[0], "subtype": "", "field": parts[1]}
+                return {"registry": parts[0], "filter_str": "", "field": parts[1]}
         else:
             # Simple registry name
-            return {"registry": dtype_str, "subtype": "", "field": ""}
+            return {"registry": dtype_str, "filter_str": "", "field": ""}
 
     # Find the first opening bracket
     first_bracket = dtype_str.index("[")
@@ -222,8 +440,8 @@ def parse_nested_brackets(dtype_str: str) -> dict[str, str]:
     if closing_bracket_pos == -1:
         raise ValueError(f"Unmatched brackets in dtype string: {dtype_str}")
 
-    # Extract subtype (everything between first [ and matching ])
-    subtype_part = dtype_str[first_bracket + 1 : closing_bracket_pos]
+    # Extract content between brackets
+    bracket_content = dtype_str[first_bracket + 1 : closing_bracket_pos]
 
     # Check for field after the closing bracket
     field_part = ""
@@ -235,38 +453,85 @@ def parse_nested_brackets(dtype_str: str) -> dict[str, str]:
     if not field_part and pre_bracket_field:
         field_part = pre_bracket_field
 
-    result = {"registry": registry_part, "subtype": subtype_part, "field": field_part}
+    # Extract UID, subtypes_list, or filter from bracket content
+    # For UID-based format: Record[uid] or ULabel[uid] -> record_uid
+    # For old name-based format: Record[Name] or Record[Parent[Child]] -> subtypes_list
+    # For filter format: registry.field[filter] -> filter_str
+    record_uid = None
+    subtypes_list = None
+    filter_str = ""
 
-    # If subtype contains brackets, extract nested subtypes for reference
-    if "[" in subtype_part:
-        nested_subtypes = extract_nested_subtypes(subtype_part)
-        if nested_subtypes:
-            result["nested_subtypes"] = nested_subtypes  # type: ignore
+    # If registry is Record or ULabel, bracket content could be UID or name(s)
+    if registry_part in ("Record", "ULabel"):
+        if bracket_content:
+            if old_format:
+                # Old format with nested brackets like Record[Parent[Child]]
+                extracted = extract_subtypes_and_filter(bracket_content)
+                subtypes_list = extracted["subtypes_list"]
+                filter_str = extracted["filter_str"]
+            else:
+                record_uid = bracket_content
+    else:
+        # For other registries, bracket content is a filter
+        filter_str = bracket_content if bracket_content else ""
+
+    result = {
+        "registry": registry_part,
+        "filter_str": filter_str,
+        "field": field_part,
+    }
+
+    # Add record_uid if it exists (new format)
+    if record_uid:
+        result["record_uid"] = record_uid
+
+    # Add subtypes_list if it exists (old format)
+    if subtypes_list:
+        result["subtypes_list"] = subtypes_list
 
     return result
 
 
-def extract_nested_subtypes(subtype_str: str) -> list[str]:
-    """Extract all nested subtype levels from a nested subtype string.
+def extract_subtypes_and_filter(subtype_str: str) -> dict[str, Any]:
+    """Extract nested subtypes and optional filter from a nested subtype string.
 
     Examples:
-        "B[C]" -> ["B", "C"]
-        "B[C[D]]" -> ["B", "C", "D"]
-        "B[C[D[E]]]" -> ["B", "C", "D", "E"]
+        "B" -> {"subtypes_list": ["B"], "filter_str": ""}
+        "B[C]" -> {"subtypes_list": ["B", "C"], "filter_str": ""}
+        "B[C[filter='<value>']]" -> {"subtypes_list": ["B", "C"], "filter_str": "filter='<value>'"}
+        "B[C[D]]" -> {"subtypes_list": ["B", "C", "D"], "filter_str": ""}
+        "B[C[D[E]]]" -> {"subtypes_list": ["B", "C", "D", "E"], "filter_str": ""}
+        "B[filter='value']" -> {"subtypes_list": ["B"], "filter_str": "filter='value'"}
+        "Customer[UScustomer[region='US']]" -> {"subtypes_list": ["Customer", "UScustomer"], "filter_str": "region='US'"}
 
     Args:
         subtype_str: The subtype string with potential nesting
 
     Returns:
-        List of subtype levels from outermost to innermost
+        Dictionary with subtypes_list and filter_str
     """
-    subtypes = []
+    subtypes: list[str] = []
+    filter_str = ""
     current = subtype_str
 
-    while "[" in current:
+    while current:
+        if "[" not in current:
+            # No more brackets
+            if current and "=" not in current:
+                # It's a subtype name
+                subtypes.append(current)
+            elif current and "=" in current:
+                # It's a filter
+                filter_str = current
+            break
+
         # Find the first part before the bracket
         bracket_pos = current.index("[")
-        subtypes.append(current[:bracket_pos])
+        part = current[:bracket_pos]
+
+        # Add the part (it's a subtype name)
+        if part:
+            subtypes.append(part)
 
         # Find the matching closing bracket
         bracket_count = 0
@@ -287,11 +552,7 @@ def extract_nested_subtypes(subtype_str: str) -> list[str]:
         # Move to the content inside the brackets
         current = current[bracket_pos + 1 : closing_pos]
 
-    # Add the final innermost subtype
-    if current:
-        subtypes.append(current)
-
-    return subtypes
+    return {"subtypes_list": subtypes, "filter_str": filter_str}
 
 
 def serialize_dtype(
@@ -348,13 +609,20 @@ def serialize_dtype(
             if isinstance(one_dtype, Registry):
                 dtype_str += one_dtype.__get_name_with_module__() + "|"
             elif isinstance(one_dtype, (ULabel, Record)):
-                assert one_dtype.is_type, (  # noqa: S101
-                    f"ulabel has to be a type if acting as dtype, {one_dtype} has `is_type` False"
-                )
+                if one_dtype._state.adding:
+                    raise InvalidArgument(
+                        f"Cannot serialize unsaved objects. Save {one_dtype} via `.save()`."
+                    )
+                if not one_dtype.is_type:
+                    raise InvalidArgument(
+                        f"Cannot serialize non-type {one_dtype.__class__.__name__} '{one_dtype.name}'. Only types (is_type=True) are allowed in dtypes."
+                    )
+                # Use UID-based format: Record[uid] instead of Record[Parent[Child]]
+                nested_string = f"[{one_dtype.uid}]"
                 if isinstance(one_dtype, ULabel):
-                    dtype_str += f"ULabel[{one_dtype.name}]"
+                    dtype_str += f"ULabel{nested_string}"
                 else:
-                    dtype_str += f"Record[{one_dtype.name}]"
+                    dtype_str += f"Record{nested_string}"
             else:
                 name = one_dtype.field.name
                 field_ext = f".{name}" if name != "name" else ""
@@ -373,10 +641,10 @@ def serialize_pandas_dtype(pandas_dtype: ExtensionDtype) -> str:
         if not isinstance(pandas_dtype, CategoricalDtype):
             dtype = "str"
         else:
-            dtype = "cat"
+            dtype = "cat[ULabel]"
     # there are string-like categoricals and "pure" categoricals (pd.Categorical)
     elif isinstance(pandas_dtype, CategoricalDtype):
-        dtype = "cat"
+        dtype = "cat[ULabel]"
     else:
         # strip precision qualifiers
         dtype = "".join(dt for dt in pandas_dtype.name if not dt.isdigit())
@@ -384,8 +652,30 @@ def serialize_pandas_dtype(pandas_dtype: ExtensionDtype) -> str:
             dtype = "int"
     if dtype.startswith("datetime"):
         dtype = dtype.split("[")[0]
-    assert dtype in FEATURE_DTYPES  # noqa: S101
+    if dtype != "cat[ULabel]":
+        assert dtype in FEATURE_DTYPES  # noqa: S101
     return dtype
+
+
+def convert_to_pandas_dtype(lamin_dtype: str) -> str | CategoricalDtype:
+    """Convert LaminDB simplified string representation back to pandas dtype."""
+    dtype_map = {
+        "str": "string",  # nullable string dtype
+        "int": "Int64",  # Nullable integer to handle missing values
+        "num": "float64",
+        "float": "float64",
+        "bool": "boolean",  # Nullable boolean
+        "datetime": "datetime64[ns]",
+        "date": "object",  # preserve Date objects
+        "dict": "object",  # dicts are stored as object dtype in pandas
+    }
+    if lamin_dtype in dtype_map:
+        return dtype_map[lamin_dtype]
+    elif lamin_dtype.startswith("cat"):
+        return CategoricalDtype()
+    elif lamin_dtype.startswith("list"):
+        return "object"  # lists are stored as object dtype in pandas
+    return lamin_dtype
 
 
 def parse_filter_string(filter_str: str) -> dict[str, tuple[str, str | None, str]]:
@@ -437,7 +727,6 @@ def resolve_relation_filters(
         Dict with resolved objects for successful relations, original values for direct fields and failed resolutions.
     """
     resolved = {}
-
     for filter_key, (relation_name, field_name, value) in parsed_filters.items():
         if field_name is not None:  # relation filter
             if hasattr(registry, relation_name):
@@ -446,25 +735,85 @@ def resolve_relation_filters(
                     hasattr(relation_field, "field")
                     and relation_field.field.is_relation
                 ):
-                    try:
-                        related_model = relation_field.field.related_model
-                        related_obj = related_model.get(**{field_name: value})
-                        resolved[relation_name] = related_obj
-                        continue
-                    except (DoesNotExist, AttributeError):
-                        pass  # Fall back to original filter
-        resolved[filter_key] = value
-
+                    related_model = relation_field.field.related_model
+                    related_obj = related_model.get(**{field_name: value})
+                    resolved[relation_name] = related_obj
+        else:
+            resolved[filter_key] = value
     return resolved
 
 
-def process_init_feature_param(args, kwargs, is_param: bool = False):
+def migrate_dtype_to_uid_format(connection, input_field: str = "_dtype_str") -> None:
+    """Update _dtype_str for nested Record/ULabel types to uid format.
+
+    Converts old format (name-based) dtype strings to new UID-based format.
+    This function is used in migrations to update existing feature records.
+
+    Args:
+        connection: Database connection (from schema_editor.connection)
+        input_field: Field name to read from ("_dtype_str" or "dtype")
+
+    Returns:
+        None. Updates are performed directly in the database.
+    """
+    # Patterns to look for old format (name-based)
+    patterns = [
+        "cat[Record[",
+        "cat[ULabel[",
+        "list[cat[Record[",
+        "list[cat[ULabel[",
+    ]
+
+    # Build SQL query to fetch features matching any pattern
+    # Using OR conditions for each pattern
+    pattern_conditions = " OR ".join(
+        [f"{input_field} LIKE '{pattern}%'" for pattern in patterns]
+    )
+
+    query = f"""
+        SELECT id, uid, name, {input_field}
+        FROM lamindb_feature
+        WHERE {pattern_conditions}
+    """
+
+    # Fetch matching features
+    with connection.cursor() as cursor:
+        cursor.execute(query)
+        columns = [col[0] for col in cursor.description]
+        features = [dict(zip(columns, row)) for row in cursor.fetchall()]
+
+    # Convert each feature
+    for feature in features:
+        try:
+            # Convert old format string to objects, then serialize to UID format
+            dtype_objects = dtype_as_object(feature[input_field], old_format=True)
+            new_dtype_str = serialize_dtype(dtype_objects)
+
+            if new_dtype_str != feature[input_field]:
+                # Update using raw SQL
+                update_query = """
+                    UPDATE lamindb_feature
+                    SET _dtype_str = %s
+                    WHERE id = %s
+                """
+                with connection.cursor() as cursor:
+                    cursor.execute(update_query, [new_dtype_str, feature["id"]])
+
+        except Exception as e:
+            # If conversion fails, keep the original value
+            print(
+                f"Warning: Could not convert dtype for feature {feature['name']} ({feature['uid']}) because of error: {e}"
+            )
+            continue
+
+
+def process_init_feature_param(args, kwargs):
     # now we proceed with the user-facing constructor
     if len(args) != 0:
         raise ValueError("Only keyword args allowed")
     name: str = kwargs.pop("name", None)
     dtype: type | str | None = kwargs.pop("dtype", None)
-    is_type: bool = kwargs.pop("is_type", None)
+    is_type: bool = kwargs.pop("is_type", False)
     type_: Feature | str | None = kwargs.pop("type", None)
     description: str | None = kwargs.pop("description", None)
     branch = kwargs.pop("branch", None)
@@ -483,8 +832,7 @@ def process_init_feature_param(args, kwargs, is_param: bool = False):
     kwargs["space"] = space
     kwargs["space_id"] = space_id
     kwargs["_skip_validation"] = _skip_validation
-    if not is_param:
-        kwargs["description"] = description
+    kwargs["description"] = description
     # cast dtype
     if dtype is None and not is_type:
         raise ValidationError(
@@ -494,41 +842,80 @@ def process_init_feature_param(args, kwargs, is_param: bool = False):
     if dtype is not None:
         if not isinstance(dtype, str):
             dtype_str = serialize_dtype(dtype)
-        else:
+        elif dtype in {"num", "path"}:
             dtype_str = dtype
-            parse_dtype(dtype_str, is_param=is_param)
-        kwargs["dtype"] = dtype_str
+        else:
+            logger.warning(
+                f"rather than passing a string '{dtype}' to dtype, consider passing a Python object"
+            )
+            dtype_str = dtype
+            parse_dtype(dtype_str, check_exists=True, old_format=True)
+            if dtype_str.startswith(
+                ("cat[Record[", "cat[ULabel[", "list[cat[Record[", "list[cat[ULabel[")
+            ):
+                # need to convert from old semantic format to new uid-based format
+                dtype_str = serialize_dtype(dtype_as_object(dtype_str, old_format=True))
+        kwargs["_dtype_str"] = dtype_str
     return kwargs
 
 
-class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
-    """Variables, such as dataframe columns or run parameters.
+UPDATE_FEATURE_ON_NAME_CHANGE = """\
+DECLARE
+    old_renamed JSONB;
+    new_renamed JSONB;
+    ts TEXT;
+BEGIN
+    -- Only proceed if name actually changed
+    IF OLD.name IS DISTINCT FROM NEW.name THEN
+        -- Update synonyms
+        IF NEW.synonyms IS NULL OR NEW.synonyms = '' THEN
+            NEW.synonyms := OLD.name;
+        ELSIF position(OLD.name in NEW.synonyms) = 0 THEN
+            NEW.synonyms := NEW.synonyms || '|' || OLD.name;
+        END IF;
 
-    A feature often represents a dimension of a dataset, such as a column in a `DataFrame`.
-    The `Feature` registry organizes metadata of features.
+        -- Update _aux with rename history
+        ts := TO_CHAR(NOW() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"');
 
-    The `Feature` registry helps you organize and query datasets based on their
-    features and corresponding label annotations. For instance, when working
-    with a "T cell" label, it could be measured through different features
-    such as `"cell_type_by_expert"` where an expert manually classified the
-    cell, or `"cell_type_by_model"` where a computational model made the classification.
+        -- Get existing renamed history or initialize empty object
+        old_renamed := COALESCE((OLD._aux->>'renamed')::JSONB, '{}'::JSONB);
 
-    The two most important metadata of a feature are its `name` and the `dtype`.
-    In addition to typical data types, LaminDB has a `"num"` `dtype` to
-    concisely denote the union of all numerical types.
+        -- Add old name with timestamp
+        new_renamed := old_renamed || jsonb_build_object(ts, OLD.name);
+
+        -- Update _aux with new renamed history
+        IF NEW._aux IS NULL THEN
+            NEW._aux := jsonb_build_object('renamed', new_renamed);
+        ELSE
+            NEW._aux := NEW._aux || jsonb_build_object('renamed', new_renamed);
+        END IF;
+    END IF;
+
+    RETURN NEW;
+END;
+"""
+
+
+class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
+    """Dimensions of measurement such as dataframe columns or dictionary keys.
+
+    Features represent *what* is measured in a dataset—the variables or dimensions along which data is organized.
+    They enable you to query datasets based on their structure and corresponding label annotations.
 
     Args:
         name: `str` Name of the feature, typically a column name.
-        dtype: `Dtype | Registry | list[Registry] | FieldAttr` See :class:`~lamindb.base.types.Dtype`.
-            For categorical types, you can define to which registry values are
-            restricted, e.g., `ULabel` or `[ULabel, bionty.CellType]`.
+        dtype: `type | ULabel | Record | DtypeStr | Registry | list[Registry] | FieldAttr`
+            Types or `ULabel` or `Record` objects representing types.
+            See :class:`~lamindb.base.types.DtypeStr`.
+        type: `Feature | None = None` A feature type, see :attr:`~lamindb.Feature.type`.
+        is_type: `bool = False` Whether this feature is a type, see :attr:`~lamindb.Feature.is_type`.
         unit: `str | None = None` Unit of measure, ideally SI (`"m"`, `"s"`, `"kg"`, etc.) or `"normalized"` etc.
         description: `str | None = None` A description.
         synonyms: `str | None = None` Bar-separated synonyms.
         nullable: `bool = True` Whether the feature can have null-like values (`None`, `pd.NA`, `NaN`, etc.), see :attr:`~lamindb.Feature.nullable`.
         default_value: `Any | None = None` Default value for the feature.
-        coerce_dtype: `bool = False` When True, attempts to coerce values to the specified dtype
-            during validation, see :attr:`~lamindb.Feature.coerce_dtype`.
+        coerce: `bool | None = None` When `True`, attempts to coerce values to the specified dtype during validation, see :attr:`~lamindb.Feature.coerce`.
+            Defaults to `False` unless `is_type` is `True`.
         cat_filters: `dict[str, str] | None = None` Subset a registry by additional filters to define valid categories.
 
     Note:
@@ -538,58 +925,79 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
         custom registries to manage high-level derived features like gene sets.
 
     See Also:
-        :meth:`~lamindb.Feature.from_df`
+        :meth:`~lamindb.Feature.from_dataframe`
             Create feature records from DataFrame.
         :attr:`~lamindb.Artifact.features`
             Feature manager of an artifact or collection.
         :class:`~lamindb.ULabel`
             Universal labels.
         :class:`~lamindb.Schema`
-            Feature sets.
+            Sets of features.
 
     Example:
 
-        A simple `"str"` feature.::
+        Features with simple data types::
 
             ln.Feature(name="sample_note", dtype=str).save()
+            ln.Feature(name="temperature_in_celsius", dtype=float).save()
+            ln.Feature(name="read_count", dtype=int).save()
 
-        A dtype `"cat[ULabel]"` can be more easily passed as below.::
+        A categorical feature measuring labels managed in the `ULabel` registry::
 
-            ln.Feature(name="project", dtype=ln.ULabel).save()
+            ln.Feature(name="sample", dtype=ln.ULabel).save()
 
-        A dtype `"cat[ULabel|bionty.CellType]"` can be more easily passed as below.::
+        The same for the `bt.CellType` registry::
 
-            ln.Feature(
-                name="cell_type",
-                dtype=[ln.ULabel, bt.CellType],
-            ).save()
+            ln.Feature(name="cell_type_by_expert", dtype=bt.CellType).save()  # expert annotation
+            ln.Feature(name="cell_type_by_model", dtype=bt.CellType).save()   # model annotation
 
-        A multivalue feature with a list of cell types.::
+        Scope a feature with a **feature type** to distinguish the same feature name across different contexts::
+
+            abc_feature_type = ln.Feature(name="ABC", is_type=True).save()  # ABC could reference a schema, a project, a team, etc.
+            ln.Feature(name="concentration_nM", dtype=float, type=abc_feature_type).save()
+
+            xyz_feature_type = ln.Feature(name="XYZ", is_type=True).save()  # XYZ could reference a schema, a project, a team, etc.
+            ln.Feature(name="concentration_nM", dtype=float, type=xyz_feature_type).save()
+
+            # calling .save() again with the same name and type returns the existing feature
+            ln.Feature(name="concentration_nM", dtype=float, type=xyz_feature_type).save()
+
+        Annotate an artifact with features (works identically for records and runs)::
+
+            artifact.features.add_values({
+                "temperature_in_celsius": 37.5,
+                "sample_note": "Control sample",
+            })
+
+        Query artifacts/records/runs by features::
+
+            ln.Artifact.filter(features__name="temperature_in_celsius")  # artifacts with this feature
+            ln.Artifact.filter(temperature_in_celsius__gt=37)            # artifacts where temperature > 37
+
+        A list dtype::
 
             ln.Feature(
                 name="cell_types",
                 dtype=list[bt.CellType],  # or list[str] for a list of strings
             ).save()
 
-        A path feature.::
+        A path feature::
 
             ln.Feature(
                 name="image_path",
                 dtype="path",   # will be validated as `str`
             ).save()
 
-    Hint:
+    Note:
 
-        *Features* and *labels* denote two ways of using entities to organize data:
+        *Features* vs. *labels*:
 
         1. A feature qualifies *what* is measured, i.e., a numerical or categorical random variable
-        2. A label *is* a measured value, i.e., a category
+        2. A label *is* a measured value of a categorical feature, i.e., a category
 
-        Consider annotating a dataset by that it measured expression of 30k
-        genes: genes relate to the dataset as feature identifiers through a
-        feature set with 30k members. Now consider annotating the artifact by
-        whether that it measured the knock-out of 3 genes: here, the 3 genes act
-        as labels of the dataset.
+        Example: When annotating a dataset that measures expression of 30k genes,
+        the gene identifiers serve as feature identifiers, and the features are expression measurements for these genes.
+        When annotating a dataset whose experiment knocked out 3 specific genes, those genes serve as labels of the dataset.
 
         Re-shaping data can introduce ambiguity among features & labels. If this
         happened, ask yourself what the joint measurement was: a feature
@@ -600,13 +1008,28 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
     class Meta(SQLRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
         abstract = False
         app_label = "lamindb"
+        if (
+            django_settings.DATABASES.get("default", {}).get("ENGINE")
+            == "django.db.backends.postgresql"
+        ):
+            triggers = [
+                pgtrigger.Trigger(
+                    name="update_feature_on_name_change",
+                    operation=pgtrigger.Update,
+                    when=pgtrigger.Before,
+                    condition=pgtrigger.Condition("OLD.name IS DISTINCT FROM NEW.name"),
+                    func=UPDATE_FEATURE_ON_NAME_CHANGE,
+                ),
+            ]
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(is_type=True) | models.Q(_dtype_str__isnull=False),
+                name="feature_dtype_str_not_null_when_is_type_false",
+            ),
+            # also see raw SQL constraints for `is_type` and `type` FK validity in migrations
+        ]
 
     _name_field: str = "name"
-    _aux_fields: dict[str, tuple[str, type]] = {
-        "0": ("default_value", Any),  # type: ignore
-        "1": ("nullable", bool),
-        "2": ("coerce_dtype", bool),
-    }
 
     id: int = models.AutoField(primary_key=True)
     """Internal id, valid only in one DB instance."""
@@ -616,8 +1039,11 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
     """Universal id, valid across DB instances."""
     name: str = CharField(max_length=150, db_index=True)
     """Name of feature."""
-    dtype: Dtype | None = CharField(db_index=True, null=True)
-    """Data type (:class:`~lamindb.base.types.Dtype`)."""
+    _dtype_str: DtypeStr | str | None = CharField(db_index=True, null=True)
+    """The string-serialized data type (:class:`~lamindb.base.types.DtypeStr`).
+
+    Note that mutating this field currently does not trigger re-validation of existing values.
+    """
     type: Feature | None = ForeignKey(
         "self", PROTECT, null=True, related_name="features"
     )
@@ -627,11 +1053,9 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
     """
     features: Feature
     """Features of this type (can only be non-empty if `is_type` is `True`)."""
-    is_type: bool = BooleanField(default=False, db_index=True, null=True)
-    """Distinguish types from instances of the type."""
     unit: str | None = CharField(max_length=30, db_index=True, null=True)
     """Unit of measure, ideally SI (`m`, `s`, `kg`, etc.) or 'normalized' etc. (optional)."""
-    description: str | None = CharField(db_index=True, null=True)
+    description: str | None = TextField(null=True)
     """A description."""
     array_rank: int = models.SmallIntegerField(default=0, db_index=True)
     """Rank of feature.
@@ -646,58 +1070,54 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
 
     Total number of elements (product of shape components) of the array.
 
-    - A number or string (a scalar): 1
+    - A number or string (a scalar): 1 or `None`
     - A 50-dimensional embedding: 50
     - A 25 x 25 image: 625
     """
     array_shape: list[int] | None = JSONField(default=None, db_default=None, null=True)
     """Shape of the feature.
 
-    - A number or string (a scalar): [1]
+    - A number or string (a scalar): [1] or `None`
     - A 50-dimensional embedding: [50]
     - A 25 x 25 image: [25, 25]
 
     Is stored as a list rather than a tuple because it's serialized as JSON.
     """
-    proxy_dtype: Dtype | None = CharField(default=None, null=True)
-    """Proxy data type.
-
-    If the feature is an image it's often stored via a path to the image file. Hence, while the dtype might be
-    image with a certain shape, the proxy dtype would be str.
-    """
     synonyms: str | None = TextField(null=True)
     """Bar-separated (|) synonyms (optional)."""
-    # we define the below ManyToMany on the feature model because it parallels
+    default_value: Any | None = JSONField(null=True, default=None)
+    """A default value that overwrites missing values during standardization."""
+    nullable: bool | None = BooleanField(null=True, default=None)
+    """Whether the feature can have nullable values. None for type-like features."""
+    coerce: bool | None = BooleanField(null=True, default=None)
+    """Whether dtypes should be coerced during validation. None for type-like features."""
+    # we define the below ManyToMany on the Feature model because it parallels
     # how other registries (like Gene, Protein, etc.) relate to Schema
-    # it makes the API more consistent
-    schemas: Schema = models.ManyToManyField(
+    schemas: QueryManager[Schema] = models.ManyToManyField(
         "Schema", through="SchemaFeature", related_name="features"
     )
-    """Feature sets linked to this feature."""
-    _expect_many: bool = models.BooleanField(default=None, db_default=None, null=True)
-    """Indicates whether values for this feature are expected to occur a single or multiple times for an artifact (default `None`).
-
-    - if it's `True` (default), the values come from an observation-level aggregation and a dtype of `datetime` on the observation-level means `set[datetime]` on the artifact-level
-    - if it's `False` it's an artifact-level value and datetime means datetime; this is an edge case because an arbitrary artifact would always be a set of arbitrary measurements that would need to be aggregated ("one just happens to measure a single cell line in that artifact")
-    """
-    _curation: dict[str, Any] = JSONField(default=None, db_default=None, null=True)
+    """Schemas linked to this feature."""
     # backward fields
-    values: FeatureValue
+    values: JsonValue
     """Values for this feature."""
+    projects: QueryManager[Project]
+    """Annotating projects."""
+    ablocks: FeatureBlock
+    """Blocks that annotate this feature."""
 
     @overload
     def __init__(
         self,
         name: str,
-        dtype: Dtype | Registry | list[Registry] | FieldAttr,
+        dtype: DtypeStr | ULabel | Record | Registry | list[Registry] | FieldAttr,
         type: Feature | None = None,
         is_type: bool = False,
         unit: str | None = None,
         description: str | None = None,
         synonyms: str | None = None,
-        nullable: bool = True,
-        default_value: str | None = None,
-        coerce_dtype: bool = False,
+        nullable: bool | None = None,
+        default_value: Any | None = None,
+        coerce: bool | None = None,
         cat_filters: dict[str, str] | None = None,
     ): ...
 
@@ -716,15 +1136,34 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
             super().__init__(*args, **kwargs)
             return None
         default_value = kwargs.pop("default_value", None)
-        nullable = kwargs.pop("nullable", True)  # default value of nullable
+        nullable = kwargs.pop("nullable", None)
+        # Default nullable to True for non-type features
+        is_type = kwargs.get("is_type", False)
+        if nullable is None and not is_type:
+            nullable = True
         cat_filters = kwargs.pop("cat_filters", None)
-        coerce_dtype = kwargs.pop("coerce_dtype", False)
+        if "coerce_dtype" in kwargs:
+            warnings.warn(
+                "`coerce_dtype` argument was renamed to `coerce` and will be removed in a future release.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            coerce = kwargs.pop("coerce_dtype")
+        else:
+            coerce = kwargs.pop("coerce", None)
         kwargs = process_init_feature_param(args, kwargs)
         super().__init__(*args, **kwargs)
         self.default_value = default_value
         self.nullable = nullable
-        self.coerce_dtype = coerce_dtype
-        dtype_str = kwargs.pop("dtype", None)
+        self.coerce = coerce
+        dtype_str = kwargs.pop("_dtype_str", None)
+        if dtype_str == "cat":
+            warnings.warn(
+                "dtype `cat` is deprecated and will be removed in the future - "
+                "please use `ln.Record` or `ln.ULabel` instead",
+                DeprecationWarning,
+                stacklevel=2,
+            )
         if cat_filters:
             if "|" in dtype_str:
                 raise ValidationError(
@@ -764,18 +1203,21 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
                 f"{key}='{value}'" for (key, value) in cat_filters.items()
             )
             dtype_str = dtype_str.replace("]", f"[{fill_in}]]")
-            self.dtype = dtype_str
+            self._dtype_str = dtype_str
         if not self._state.adding:
-            if not (
-                self.dtype.startswith("cat")
-                if dtype_str == "cat"
-                else dtype_str.startswith("cat")
-                if self.dtype == "cat"
-                else self.dtype == dtype_str
-            ):
+            if self._dtype_str != dtype_str:
                 raise ValidationError(
-                    f"Feature {self.name} already exists with dtype {self.dtype}, you passed {dtype_str}"
+                    f"Feature {self.name} already exists with dtype {self._dtype_str}, you passed {dtype_str}"
                 )
+
+    # manually sync this docstring across all other children of HasType
+    def query_features(self) -> QuerySet:
+        """Query features of sub types.
+
+        While `.features` retrieves the features with the current type, this method
+        also retrieves sub types and the features with sub types of the current type.
+        """
+        return _query_relatives([self], "features")  # type: ignore
 
     @classmethod
     def from_dataframe(
@@ -788,18 +1230,21 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
             field: FieldAttr for Feature model validation, defaults to Feature.name
             mute: Whether to mute Feature creation similar names found warnings
         """
+        from lamindb.models import ULabel
+
         field = Feature.name if field is None else field
         registry = field.field.model  # type: ignore
         if registry != Feature:
             raise ValueError("field must be a Feature FieldAttr!")
 
         categoricals = categoricals_from_df(df)
-        dtypes = {}
+        dtypes: dict[str, type | SQLRecord | FieldAttr] = {}
         for name, col in df.items():
             if name in categoricals:
-                dtypes[name] = "cat"
+                dtypes[name] = ULabel
             else:
-                dtypes[name] = serialize_pandas_dtype(col.dtype)
+                dtype_str = serialize_pandas_dtype(col.dtype)
+                dtypes[name] = dtype_as_object(dtype_str)
 
         if mute:
             original_verbosity = logger._verbosity
@@ -827,15 +1272,15 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
         dictionary: dict[str, Any],
         field: FieldAttr | None = None,
         *,
-        str_as_cat: bool | None = None,
+        type: Feature | None = None,
         mute: bool = False,
     ) -> SQLRecordList:
         """Create Feature records for dictionary keys.
 
         Args:
             dictionary: Source dictionary to extract key information from
-            field: FieldAttr for Feature model validation, defaults to Feature.name
-            str_as_cat: Whether to interpret string values as categorical
+            field: FieldAttr for Feature model validation, defaults to `Feature.name`
+            type: Feature type of all created features
             mute: Whether to mute dtype inference and feature creation warnings
         """
         from lamindb.models._feature_manager import infer_feature_type_convert_json
@@ -846,53 +1291,22 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
             raise ValueError("field must be a Feature FieldAttr!")
 
         dtypes = {}
-        ambiguous_keys = []
         for key, value in dictionary.items():
             dtype, _, message = infer_feature_type_convert_json(key, value, mute=mute)
-
             if dtype == "cat ? str":
-                if str_as_cat is None:
-                    ambiguous_keys.append(
-                        (key, "str or cat", message.strip("# ") if message else "")
-                    )
-                    continue
-                if str_as_cat:
-                    dtype = "cat"
-                else:
-                    dtype = "str"
-
+                dtype = "str"
             elif dtype == "list[cat ? str]":
-                if str_as_cat is None:
-                    ambiguous_keys.append(
-                        (
-                            key,
-                            "list[str] or list[cat]",
-                            message.strip("# ") if message else "",
-                        )
-                    )
-                    continue
-                if str_as_cat:
-                    dtype = "list[cat]"
-                else:
-                    dtype = "list[str]"
-
+                dtype = "list[str]"
             dtypes[key] = dtype
-
-        if ambiguous_keys:
-            error_msg = "Ambiguous dtypes detected. Please pass `str_as_cat` parameter or create features explicitly:\n"
-            for key, options, msg in ambiguous_keys:
-                error_msg += f"  '{key}': {options}"
-                if msg:
-                    error_msg += f" ({msg})"
-                error_msg += "\n"
-            error_msg += "\nUse `str_as_cat=True` to treat strings as categorical, or `str_as_cat=False` for plain strings."
-            raise ValueError(error_msg)
 
         if mute:
             original_verbosity = logger._verbosity
             logger.set_verbosity(0)
         try:
-            features = [Feature(name=key, dtype=dtype) for key, dtype in dtypes.items()]  # type: ignore
+            features = [
+                Feature(name=key, dtype=dtype, type=type)
+                for key, dtype in dtypes.items()
+            ]  # type: ignore
             assert len(features) == len(dictionary)  # noqa: S101
             return SQLRecordList(features)
         finally:
@@ -911,70 +1325,99 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
         return self, {}
 
     @property
-    def default_value(self) -> Any:
-        """A default value that overwrites missing values (default `None`).
-
-        This takes effect when you call `Curator.standardize()`.
-
-        If `default_value = None`, missing values like `pd.NA` or `np.nan` are kept.
-        """
-        if self._aux is not None and "af" in self._aux and "0" in self._aux["af"]:  # type: ignore
-            return self._aux["af"]["0"]  # type: ignore
-        else:
-            return None
-
-    @default_value.setter
-    def default_value(self, value: str | None) -> None:
-        self._aux = self._aux or {}
-        self._aux.setdefault("af", {})["0"] = value
-
-    @property
-    def nullable(self) -> bool:
-        """Indicates whether the feature can have nullable values (default `True`).
-
-        Example::
-
-            import lamindb as ln
-            import pandas as pd
-
-            disease = ln.Feature(name="disease", dtype=ln.ULabel, nullable=False).save()
-            schema = ln.Schema(features=[disease]).save()
-            dataset = {"disease": pd.Categorical([pd.NA, "asthma"])}
-            df = pd.DataFrame(dataset)
-            curator = ln.curators.DataFrameCurator(df, schema)
-            try:
-                curator.validate()
-            except ln.errors.ValidationError as e:
-                assert str(e).startswith("non-nullable series 'disease' contains null values")
-
-        """
-        if self._aux is not None and "af" in self._aux and "1" in self._aux["af"]:
-            value = self._aux["af"]["1"]
-            return True if value is None else value
-        else:
-            return True
-
-    @nullable.setter
-    def nullable(self, value: bool) -> None:
-        assert isinstance(value, bool), value  # noqa: S101
-        self._aux = self._aux or {}
-        self._aux.setdefault("af", {})["1"] = value
-
-    @property
-    def coerce_dtype(self) -> bool:
-        """Whether dtypes should be coerced during validation.
-
-        For example, a `objects`-dtyped pandas column can be coerced to `categorical` and would pass validation if this is true.
-        """
-        if self._aux is not None and "af" in self._aux and "2" in self._aux["af"]:  # type: ignore
-            return self._aux["af"]["2"]  # type: ignore
-        else:
-            return False
+    @deprecated("coerce")
+    def coerce_dtype(self) -> bool | None:
+        """Alias for coerce (backward compatibility)."""
+        return self.coerce
 
     @coerce_dtype.setter
-    def coerce_dtype(self, value: bool) -> None:
-        self._aux = self._aux or {}
-        self._aux.setdefault("af", {})["2"] = value
+    def coerce_dtype(self, value: bool | None) -> None:
+        self.coerce = value
+
+    @property
+    @deprecated("dtype_as_str")
+    def dtype(self) -> str | None:
+        """The `dtype` as a string."""
+        if self._dtype_str is None:
+            return None
+        if self._dtype_str.startswith(
+            ("cat[Record[", "cat[ULabel[", "list[cat[Record[", "list[cat[ULabel[")
+        ):
+            if self._dtype_str.startswith("list["):
+                dtype_str = self._dtype_str.replace("list[", "")[:-1]
+            else:
+                dtype_str = self._dtype_str
+            record_object = dtype_as_object(dtype_str)
+            nested_string = f"[{record_object.name}]"  # type: ignore
+            for t in record_object.query_types():  # type: ignore
+                nested_string = f"[{t.name}{nested_string}]"
+            return self._dtype_str.replace(f"[{record_object.uid}]", nested_string)  # type: ignore
+        else:
+            return self._dtype_str
+
+    @property
+    def dtype_as_str(self) -> DtypeStr | str | None:
+        """The `dtype` as a string.
+
+        You can query by this property as if it was a string field. The query is delegated to the private `_dtype_str` field.
+
+        Is `None` if `Feature` if `is_type=True`, otherwise a string.
+
+        Examples:
+
+            Query by `dtype_as_str`::
+
+                ln.Feature.filter(dtype_as_str="float").to_dataframe()
+
+            Examples for `dtype_as_str`::
+
+                feature_float = ln.Feature(name="measurement", dtype=float).save()
+                assert feature_float.dtype_as_str == "float"
+
+                sample_type = bt.Record(name="Sample", is_type=True).save()
+                feature_sample = ln.Feature(name="sample", dtype=sample_type).save()
+                assert feature_sample.dtype_as_str == "cat[Record[12345678abcdeFGHI]]  # uid of type record
+
+                feature_list_float = ln.Feature(name="numbers", dtype=list[float]).save()
+                assert feature_list_float.dtype_as_str == "list[float]"
+
+                feature_ulabel = ln.Feature(name="sample", dtype=ln.ULabel).save()
+                assert feature_ulabel.dtype_as_str == "cat[ULabel]"
+
+                feature_record = ln.Feature(name="sample", dtype=bt.CellLine).save()
+                assert feature_record.dtype_as_str == "cat[bionty.CellLine]"
+
+                feature_list_record = ln.Feature(name="cell_types", dtype=list[bt.CellLine]).save()
+                assert feature_list_record.dtype_as_str == "list[cat[bionty.CellLine]]"
+        """
+        return self._dtype_str
+
+    @property
+    def dtype_as_object(self) -> type | SQLRecord | FieldAttr | None:  # type: ignore
+        """The `dtype` as an object.
+
+        Example:
+
+            For simple dtypes, returns the built-in Python type::
+
+                feature_float = ln.Feature(name="measurement", dtype=float).save()
+                assert feature_float.dtype_as_object is float
+
+            For features with with `Record` or `ULabel` types, returns the `Record` or `ULabel` object::
+
+                sample_type = bt.Record(name="Sample", is_type=True).save()
+                feature_sample = ln.Feature(name="sample", dtype=sample_type).save()
+                assert feature_sample.dtype_as_object == sample_type
+
+            For features with `Registry` types, returns the `Registry` object or a field (`DeferredAttribute`) object::
+
+                feature_cell_type = ln.Feature(name="cell_type_name", dtype=bt.CellType).save()
+                assert feature_cell_type.dtype_as_object == bt.CellType
+                feature_ontology_id = ln.Feature(name="ontology_id", dtype=bt.CellType.ontology_id).save()
+                assert feature_ontology_id.dtype_as_object == bt.CellType.ontology_id
+
+        """
+        return dtype_as_object(self._dtype_str)
 
     # we'll enable this later
     # @property
@@ -1001,13 +1444,13 @@ class Feature(SQLRecord, CanCurate, TracksRun, TracksUpdates):
     #         return "Artifact"
 
 
-class FeatureValue(SQLRecord, TracksRun):
-    """Non-categorical features values.
+class JsonValue(SQLRecord, TracksRun):
+    """JSON values for annotating artifacts and runs.
 
-    Categorical feature values are stored in their respective registries:
+    Categorical values are stored in their respective registries:
     :class:`~lamindb.ULabel`, :class:`~bionty.CellType`, etc.
 
-    Unlike for ULabel, in `FeatureValue`, values are grouped by features and
+    Unlike for `ULabel`, in `JsonValue`, values are grouped by features and
     not by an ontological hierarchy.
     """
 
@@ -1028,6 +1471,10 @@ class FeatureValue(SQLRecord, TracksRun):
     """The JSON-like value."""
     hash: str = CharField(max_length=HASH_LENGTH, null=True, db_index=True)
     """Value hash."""
+    artifacts: Artifact
+    """Artifacts annotated with this feature value."""
+    runs: Run
+    """Runs annotated with this feature value."""
 
     class Meta(BaseSQLRecord.Meta, TracksRun.Meta):
         app_label = "lamindb"
@@ -1045,7 +1492,7 @@ class FeatureValue(SQLRecord, TracksRun):
                 cls.objects.create(feature=feature, value=value, hash=hash),
                 False,
             )
-        except IntegrityError:
+        except DjangoIntegrityError:
             return cls.objects.get(feature=feature, hash=hash), True
 
 

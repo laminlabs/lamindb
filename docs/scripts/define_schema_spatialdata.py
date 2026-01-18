@@ -11,18 +11,18 @@ attrs_schema = ln.Schema(
 
 sample_schema = ln.Schema(
     features=[
-        ln.Feature(name="disease", dtype=bt.Disease, coerce_dtype=True).save(),
+        ln.Feature(name="disease", dtype=bt.Disease, coerce=True).save(),
         ln.Feature(
             name="developmental_stage",
             dtype=bt.DevelopmentalStage,
-            coerce_dtype=True,
+            coerce=True,
         ).save(),
     ],
 ).save()
 
 tech_schema = ln.Schema(
     features=[
-        ln.Feature(name="assay", dtype=bt.ExperimentalFactor, coerce_dtype=True).save(),
+        ln.Feature(name="assay", dtype=bt.ExperimentalFactor, coerce=True).save(),
     ],
 ).save()
 

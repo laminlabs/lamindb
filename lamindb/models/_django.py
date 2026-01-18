@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Any
 
 from django.contrib.postgres.aggregates import ArrayAgg
 from django.db import connection
-from django.db.models import F, OuterRef, Q, Subquery
+from django.db.models import CharField, F, OuterRef, Q, Subquery
 from django.db.models.fields.related import ForeignKey, ManyToManyField
 from django.db.models.fields.reverse_related import ManyToManyRel, ManyToOneRel
 from django.db.models.functions import JSONObject
@@ -14,6 +14,8 @@ from .schema import Schema
 
 if TYPE_CHECKING:
     from .artifact import Artifact, Collection
+    from .record import Record
+    from .run import Run
 
 
 def patch_many_to_many_descriptor() -> None:
@@ -76,8 +78,8 @@ def get_related_model(model, field_name):
         return f"Error: {str(e)}"
 
 
-def get_artifact_with_related(
-    artifact: Artifact,
+def get_artifact_or_run_with_related(
+    record: Artifact | Run | Record,
     include_fk: bool = False,
     include_m2m: bool = False,
     include_feature_link: bool = False,
@@ -86,9 +88,14 @@ def get_artifact_with_related(
     """Fetch an artifact with its related data."""
     from ._label_manager import EXCLUDE_LABELS
     from .can_curate import get_name_field
+    from .query_set import get_default_branch_ids
 
-    model = artifact.__class__
-    schema_modules = get_schema_modules(artifact._state.db)
+    model = record.__class__
+    is_record = record.__class__.__name__ == "Record"
+    entity_field_name = record.__class__.__name__.lower()
+    if entity_field_name in {"run", "record"} and include_schema:
+        include_schema = False  # runs do not have feature sets
+    schema_modules = get_schema_modules(record._state.db)
 
     foreign_key_fields = [
         f.name
@@ -98,24 +105,25 @@ def get_artifact_with_related(
 
     # Create the map that the conversion function will need.
     # It maps the target model class to the m2m field name, e.g.,
-    # {<class 'Ulabel'>: 'ulabels', <class 'CellType'>: 'cell_types'}
+    # {'Ulabel': 'ulabels', 'CellType': 'cell_types'}
     m2m_model_to_field_map = {}
     if include_m2m:
-        full_map = dict_related_model_to_related_name(
-            model, instance=artifact._state.db
-        )
+        full_map = dict_related_model_to_related_name(model, instance=record._state.db)
         m2m_model_to_field_map = {
             model_cls: field_name
             for model_cls, field_name in full_map.items()
             if not field_name.startswith("_") and field_name not in EXCLUDE_LABELS
         }
-    list(m2m_model_to_field_map.values())
+        if is_record:
+            m2m_model_to_field_map["Run"] = "linked_runs"
+        else:
+            m2m_model_to_field_map["Run"] = "runs"
     link_tables = (
         []
         if not include_feature_link
         else list(
             dict_related_model_to_related_name(
-                model, links=True, instance=artifact._state.db
+                model, links=True, instance=record._state.db
             ).values()
         )
     )
@@ -131,8 +139,20 @@ def get_artifact_with_related(
             if fk == "run":
                 annotations[f"fkfield_{fk}"] = JSONObject(
                     id=F(f"{fk}__id"),
-                    name=F(f"{fk}__{name_field}"),
+                    name=F(f"{fk}__name"),
+                    uid=F(f"{fk}__uid"),
                     transform_key=F(f"{fk}__transform__key"),
+                )
+            elif fk == "transform":
+                annotations[f"fkfield_{fk}"] = JSONObject(
+                    id=F(f"{fk}__id"),
+                    key=F(f"{fk}__key"),
+                    uid=F(f"{fk}__uid"),
+                    version=F(f"{fk}__version_tag"),
+                )
+            elif fk == "created_by":
+                annotations[f"fkfield_{fk}"] = JSONObject(
+                    id=F(f"{fk}__id"), name=F(f"{fk}__{name_field}")
                 )
             else:
                 annotations[f"fkfield_{fk}"] = JSONObject(
@@ -141,33 +161,61 @@ def get_artifact_with_related(
 
     for link in link_tables:
         link_model = getattr(model, link).rel.related_model
-        if (
-            not hasattr(link_model, "feature")
-            or link_model.__name__ == "RecordArtifact"
+        if not hasattr(link_model, "feature"):
+            continue
+        if not is_record and link_model.__name__ in {
+            "RecordArtifact",
+            "RecordRun",
+        }:
+            continue
+        if is_record and (
+            not link_model.__name__.startswith("Record")
+            or link_model.__name__
+            in {
+                "RecordJson",
+            }
         ):
             continue
-        label_field = link.removeprefix("links_").replace("_", "")
+        if not is_record and not link_model.__name__ == "ArtifactArtifact":
+            label_field = link.removeprefix("links_").replace("_", "")
+        else:
+            label_field = "value"
         related_model = link_model._meta.get_field(label_field).related_model
+        # manually include "name" as pertdb.Compound.name is a TextField due to no length limitation
+        char_field_names = [
+            field.name
+            for field in related_model._meta.concrete_fields
+            if isinstance(field, CharField) or field.name == "name"
+        ]
         name_field = get_name_field(related_model)
         label_field_name = f"{label_field}__{name_field}"
+        filter_kwargs = {entity_field_name: OuterRef("pk")}
+        if link_model.__name__ not in {
+            "RecordUser",
+            "ArtifactUser",
+        }:  # user does not have branch
+            filter_kwargs[f"{label_field}__branch_id__in"] = get_default_branch_ids()
         annotations[f"linkfield_{link}"] = Subquery(
-            link_model.objects.filter(artifact=OuterRef("pk"))
+            link_model.objects.filter(**filter_kwargs)
             .annotate(
                 data=JSONObject(
                     id=F("id"),
                     feature=F("feature"),
                     **{label_field: F(label_field)},
-                    **{label_field + "_display": F(label_field_name)},
+                    **{
+                        label_field + "_display": F(label_field_name)
+                    },  # display field is the name field
+                    **{uf: F(f"{label_field}__{uf}") for uf in char_field_names},
                 )
             )
-            .values("artifact")
+            .values(entity_field_name)
             .annotate(json_agg=ArrayAgg("data"))
             .values("json_agg")
         )
 
     if include_schema:
-        annotations["schemas"] = Subquery(
-            model.feature_sets.through.objects.filter(artifact=OuterRef("pk"))
+        annotations["m2m_schemas"] = Subquery(
+            model.schemas.through.objects.filter(artifact=OuterRef("pk"))
             .annotate(
                 data=JSONObject(
                     id=F("id"),
@@ -175,32 +223,32 @@ def get_artifact_with_related(
                     schema=F("schema"),
                 )
             )
-            .values("artifact")
+            .values(entity_field_name)
             .annotate(json_agg=ArrayAgg("data"))
             .values("json_agg")
         )
 
-    artifact_meta = (
-        model.objects.using(artifact._state.db)
-        .filter(uid=artifact.uid)
+    record_meta = (
+        model.objects.using(record._state.db)
+        .filter(uid=record.uid)
         .annotate(**annotations)
         .values(*["id", "uid"], *annotations.keys())
         .first()
     )
 
-    if not artifact_meta:
+    if not record_meta:
         return None
 
-    related_data: dict = {"m2m": {}, "fk": {}, "link": {}, "schemas": {}}
-    for k, v in artifact_meta.items():
+    related_data: dict = {"m2m": {}, "fk": {}, "link": {}, "m2m_schemas": {}}
+    for k, v in record_meta.items():
         if k.startswith("fkfield_") and v is not None:
             related_data["fk"][k[8:]] = v
         elif k.startswith("linkfield_") and v is not None:
             related_data["link"][k[10:]] = v
-        elif k == "schemas":
+        elif k == "m2m_schemas":
             if v:
-                related_data["schemas"] = get_schema_m2m_relations(
-                    artifact, {i["schema"]: i["slot"] for i in v}
+                related_data["m2m_schemas"] = get_schema_m2m_relations(
+                    record, {i["schema"]: i["slot"] for i in v}
                 )
 
     def convert_link_data_to_m2m(
@@ -209,19 +257,22 @@ def get_artifact_with_related(
         m2m_model_map: dict,  # The pre-computed map from Step 1
     ) -> dict:
         """Converts link data to M2M-style data using a pre-computed model-to-field-name map."""
+        # link_data: {'links_tissue': [{'id': 1, 'uid': '1fIFAQJY', 'abbr': None, 'name': 'brain', 'tissue': 1, 'feature': 1, 'ontology_id': 'UBERON:0000955', 'tissue_display': 'brain'}, {'id': 2, 'uid': '7Tt4iEKc', 'abbr': None, 'name': 'lung', 'tissue': 10, 'feature': 1, 'ontology_id': 'UBERON:0002048', 'tissue_display': 'lung'}], 'links_cell_type': [{'id': 1, 'uid': '3QnZfoBk', 'abbr': None, 'name': 'neuron', 'feature': 2, 'celltype': 1, 'ontology_id': 'CL:0000540', 'celltype_display': 'neuron'}]}
         m2m_data = {}
         for link_name, records in link_data.items():
             if not records:
                 continue
             link_model = getattr(model, link_name).rel.related_model
-            id_field_name = link_name.removeprefix("links_").replace("_", "")
+            if not is_record:
+                id_field_name = link_name.removeprefix("links_").replace("_", "")
+            else:
+                id_field_name = "value"
             final_target_model = link_model._meta.get_field(id_field_name).related_model
             m2m_field_name = m2m_model_map.get(
                 final_target_model.__get_name_with_module__()
             )
-            display_field_name = f"{id_field_name}_display"
             m2m_data[m2m_field_name] = {
-                record[id_field_name]: record[display_field_name] for record in records
+                record[id_field_name]: record for record in records
             }
         return m2m_data
 
@@ -229,7 +280,7 @@ def get_artifact_with_related(
         related_data["link"], model=model, m2m_model_map=m2m_model_to_field_map
     )
     return {
-        **{name: artifact_meta[name] for name in ["id", "uid"]},
+        **{name: record_meta[name] for name in ["id", "uid"]},
         "related_data": related_data,
     }
 
@@ -334,7 +385,7 @@ def get_schema_m2m_relations(artifact: Artifact, slot_schema: dict, limit: int =
         related_names[name] = related_model.__get_name_with_module__()
 
     schema_m2m = (
-        Schema.objects.using(artifact._state.db)
+        Schema.connect(artifact._state.db)
         .filter(id__in=slot_schema.keys())
         .annotate(**annotations)
         .values("id", *annotations.keys())

@@ -8,6 +8,8 @@ from django.core.exceptions import FieldDoesNotExist
 from django.db.models import Manager, QuerySet
 from lamin_utils import colors, logger
 
+from lamindb.base.utils import strict_classmethod
+
 from ..errors import ValidationError
 from ._from_values import (
     _format_values,
@@ -66,7 +68,7 @@ def _inspect(
     values = _concat_lists(values)
 
     field_str = get_name_field(cls, field=field)
-    queryset = cls.all() if isinstance(cls, (QuerySet, Manager)) else cls.objects.all()
+    queryset = cls.all() if isinstance(cls, (QuerySet, Manager)) else cls.filter().all()
     registry = queryset.model
     model_name = registry._meta.model.__name__
     if isinstance(source, SQLRecord):
@@ -81,17 +83,17 @@ def _inspect(
     _check_if_record_in_db(organism_record, queryset.db)
 
     # do not inspect synonyms if the field is not name field
-    inspect_synonyms = True
+    standardize = True
     if hasattr(registry, "_name_field") and field_str != registry._name_field:
-        inspect_synonyms = False
+        standardize = False
 
     # inspect in the DB
     result_db = inspect(
         df=_filter_queryset_with_organism(queryset=queryset, organism=organism_record),
         identifiers=values,
         field=field_str,
+        standardize=standardize,
         mute=mute,
-        inspect_synonyms=inspect_synonyms,
     )
     nonval = set(result_db.non_validated).difference(result_db.synonyms_mapper.keys())
 
@@ -103,7 +105,7 @@ def _inspect(
                 values=nonval,
                 field=field_str,
                 mute=True,
-                inspect_synonyms=inspect_synonyms,
+                standardize=standardize,
             )
             public_validated = public_result.validated
             public_mapper = public_result.synonyms_mapper
@@ -170,7 +172,7 @@ def _validate(
 
     field_str = get_name_field(cls, field=field)
 
-    queryset = cls.all() if isinstance(cls, (QuerySet, Manager)) else cls.objects.all()
+    queryset = cls.all() if isinstance(cls, (QuerySet, Manager)) else cls.filter().all()
     registry = queryset.model
     if isinstance(source, SQLRecord):
         _check_if_record_in_db(source, queryset.db)
@@ -191,10 +193,8 @@ def _validate(
     )
     if field_values.empty:
         if not mute:
-            msg = (
-                f"Your {cls.__name__} registry is empty, consider populating it first!"
-            )
-            if hasattr(cls, "source_id"):
+            msg = f"Your {queryset.model.__name__} registry is empty, consider populating it first!"
+            if hasattr(queryset.model, "source_id"):
                 msg += "\n   → use `.import_source()` to import records from a source, e.g. a public ontology"
             logger.warning(msg)
         return np.array([False] * len(values))
@@ -221,7 +221,7 @@ def _standardize(
     return_mapper: bool = False,
     case_sensitive: bool = False,
     mute: bool = False,
-    source_aware: bool = True,
+    from_source: bool = True,
     keep: Literal["first", "last", False] = "first",
     synonyms_field: str = "synonyms",
     organism: str | SQLRecord | None = None,
@@ -238,7 +238,7 @@ def _standardize(
     return_field_str = get_name_field(
         cls, field=field if return_field is None else return_field
     )
-    queryset = cls.all() if isinstance(cls, (QuerySet, Manager)) else cls.objects.all()
+    queryset = cls.all() if isinstance(cls, (QuerySet, Manager)) else cls.filter().all()
     registry = queryset.model
     if isinstance(source, SQLRecord):
         _check_if_record_in_db(source, queryset.db)
@@ -293,7 +293,7 @@ def _standardize(
             return result
 
     # map synonyms in public source
-    if hasattr(registry, "source_id") and source_aware:
+    if hasattr(registry, "source_id") and from_source:
         mapper = {}
         if return_mapper:
             mapper = std_names_db
@@ -358,7 +358,7 @@ def _add_or_remove_synonyms(
         from IPython.display import display
 
         syns_all = (
-            record.__class__.objects.exclude(synonyms="").exclude(synonyms=None).all()  # type: ignore
+            record.__class__.filter().exclude(synonyms="").exclude(synonyms=None)  # type: ignore
         )
         if len(syns_all) == 0:
             return
@@ -457,7 +457,7 @@ def _filter_queryset_with_organism(
 class CanCurate:
     """Base class providing :class:`~lamindb.models.SQLRecord`-based validation."""
 
-    @classmethod
+    @strict_classmethod
     def inspect(
         cls,
         values: ListLike,
@@ -513,7 +513,7 @@ class CanCurate:
             from_source=from_source,
         )
 
-    @classmethod
+    @strict_classmethod
     def validate(
         cls,
         values: ListLike,
@@ -567,7 +567,7 @@ class CanCurate:
             source=source,
         )
 
-    @classmethod
+    @strict_classmethod
     def from_values(
         cls,
         values: ListLike,
@@ -575,6 +575,8 @@ class CanCurate:
         create: bool = False,
         organism: Union[SQLRecord, str, None] = None,
         source: SQLRecord | None = None,
+        standardize: bool = True,
+        from_source: bool = True,
         mute: bool = False,
     ) -> SQLRecordList:
         """Bulk create validated records by parsing values for an identifier such as a name or an id).
@@ -585,13 +587,15 @@ class CanCurate:
             create: Whether to create records if they don't exist.
             organism: A `bionty.Organism` name or record.
             source: A `bionty.Source` record to validate against to create records for.
+            standardize: Whether to standardize synonyms in the values.
+            from_source: Whether to create records from public source.
             mute: Whether to mute logging.
 
         Returns:
             A list of validated records. For bionty registries. Also returns knowledge-coupled records.
 
         Notes:
-            For more info, see tutorial: :doc:`docs:bio-registries`.
+            For more info, see tutorial: :doc:`docs:manage-ontologies`.
 
         Example::
 
@@ -617,7 +621,7 @@ class CanCurate:
             mute=mute,
         )
 
-    @classmethod
+    @strict_classmethod
     def standardize(
         cls,
         values: Iterable,
@@ -627,7 +631,7 @@ class CanCurate:
         return_mapper: bool = False,
         case_sensitive: bool = False,
         mute: bool = False,
-        source_aware: bool = True,
+        from_source: bool = True,
         keep: Literal["first", "last", False] = "first",
         synonyms_field: str = "synonyms",
         organism: Union[str, SQLRecord, None] = None,
@@ -643,7 +647,7 @@ class CanCurate:
             return_mapper: If `True`, returns `{input_value: standardized_name}`.
             case_sensitive: Whether the mapping is case sensitive.
             mute: Whether to mute logging.
-            source_aware: Whether to standardize from public source. Defaults to `True` for BioRecord registries.
+            from_source: Whether to standardize from public source. Defaults to `True` for BioRecord registries.
             keep: When a synonym maps to multiple names, determines which duplicates to mark as `pd.DataFrame.duplicated`:
                 - `"first"`: returns the first mapped standardized name
                 - `"last"`: returns the last mapped standardized name
@@ -692,7 +696,7 @@ class CanCurate:
             case_sensitive=case_sensitive,
             mute=mute,
             strict_source=strict_source,
-            source_aware=source_aware,
+            from_source=from_source,
             keep=keep,
             synonyms_field=synonyms_field,
             organism=organism,

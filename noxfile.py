@@ -25,6 +25,7 @@ CI = os.environ.get("CI")
 GROUPS = {}
 GROUPS["tutorial"] = [
     "transfer.ipynb",
+    "README.ipynb",
     "arrays.ipynb",
     "registries.ipynb",
 ]
@@ -33,7 +34,7 @@ GROUPS["guide"] = [
     "curate.ipynb",
 ]
 GROUPS["biology"] = [
-    "bio-registries.ipynb",
+    "manage-ontologies.ipynb",
 ]
 
 
@@ -65,14 +66,17 @@ def install(session):
 @nox.parametrize(
     "group",
     [
-        "unit-core",
+        "unit-core-sqlite",
+        "unit-core-postgres",
         "unit-storage",
+        "no-instance",
         "tutorial",
         "guide",
         "biology",
         "faq",
         "storage",
         "curator",
+        "integrations",
         "docs",
         "cli",
         "permissions",
@@ -80,8 +84,8 @@ def install(session):
 )
 def install_ci(session, group):
     extras = ""
-    if group == "unit-core":
-        extras += "zarr,fcs"
+    if group in ["unit-core-sqlite", "unit-core-postgres"]:
+        extras += "fcs"
         # tiledbsoma dependency, specifying it here explicitly
         # otherwise there are problems with uv resolver
         run(session, "uv pip install --system scanpy")
@@ -92,7 +96,7 @@ def install_ci(session, group):
         run(session, "uv pip install --system xarray-dataclasses")
         run(session, "uv pip install --system spatialdata")
     elif group == "unit-storage":
-        extras += "zarr,bionty,gcp"
+        extras += "zarr_v2,gcp"
         run(session, "uv pip install --system huggingface_hub")
         # tiledbsoma dependency, specifying it here explicitly
         # otherwise there are problems with uv resolver
@@ -101,27 +105,26 @@ def install_ci(session, group):
         run(session, "uv pip install --system polars")
     elif group == "tutorial":
         # anndata here to prevent installing older version on release
-        run(session, "uv pip install --system huggingface_hub polars anndata==0.12.1")
+        run(session, "uv pip install --system huggingface_hub polars anndata==0.12.2")
     elif group == "guide":
-        extras += "zarr"
+        extras += "zarr_v2"
         run(session, "uv pip install --system scanpy mudata spatialdata tiledbsoma")
     elif group == "biology":
         extras += "fcs"
         run(session, "uv pip install --system ipywidgets")
     elif group == "faq":
-        extras += "zarr"
+        extras += "zarr_v2"
     elif group == "storage":
-        extras += "zarr"
+        extras += "zarr_v2"
         run(
             session,
-            "uv pip install --system --no-deps ./sub/wetlab",
+            "uv pip install --system --no-deps ./sub/pertdb",
         )
         run(session, "uv pip install --system vitessce")
     elif group == "curator":
-        extras += "zarr"
         run(
             session,
-            "uv pip install --system --no-deps ./sub/wetlab",
+            "uv pip install --system --no-deps ./sub/pertdb",
         )
         # spatialdata dependency, specifying it here explicitly
         # otherwise there are problems with uv resolver
@@ -131,8 +134,10 @@ def install_ci(session, group):
             "uv pip install --system spatialdata",
         )
         run(session, "uv pip install --system tiledbsoma")
+    elif group == "integrations":
+        run(session, "uv pip install --system lightning")
     elif group == "docs":
-        extras += "bionty,zarr"
+        extras += "zarr_v2"
         # spatialdata dependency, specifying it here explicitly
         # otherwise there are problems with uv resolver
         run(session, "uv pip install --system xarray-dataclasses")
@@ -142,33 +147,16 @@ def install_ci(session, group):
         )
         run(
             session,
-            "uv pip install --system --no-deps ./sub/wetlab",
+            "uv pip install --system --no-deps ./sub/pertdb",
         )
     elif group == "cli":
         pass
     elif group == "permissions":
-        run(
-            session,
-            "uv pip install --system --no-deps ./laminhub/rest-hub/laminhub_rest/hubmodule",
-        )
-        # check that just installing psycopg (psycopg3) doesn't break fine-grained access
-        # comment out for now, this is also tested in lamindb-setup hub-local
-        # run(session, "uv pip install --system psycopg[binary]")
+        pass
 
     extras = "," + extras if extras != "" else extras
     run(session, f"uv pip install --system -e .[dev{extras}]")
 
-    if group == "permissions":
-        # have to install after lamindb installation
-        # because lamindb downgrades django
-        run(
-            session,
-            "uv pip install --system sentry_sdk line_profiler setuptools wheel==0.45.1 flit",
-        )
-        run(
-            session,
-            "uv pip install --system -e ./laminhub/rest-hub --no-build-isolation",
-        )
     # on the release branch, do not use submodules but run with pypi install
     # only exception is the docs group which should always use the submodule
     # to push docs fixes fast
@@ -177,13 +165,19 @@ def install_ci(session, group):
     if IS_PR or group == "docs":
         run(
             session,
-            "uv pip install --system --no-deps ./sub/lamindb-setup ./sub/lamin-cli",
+            "uv pip install --system ./sub/lamindb-setup ./sub/lamin-cli ./sub/bionty ./sub/pertdb",
         )
-        if "bionty" in extras:
-            run(
-                session,
-                "uv pip install --system --no-deps ./sub/bionty",
-            )
+    if group == "permissions":
+        # have to install after lamindb installation
+        # because lamindb downgrades django required by laminhub_rest
+        cmds = "uv pip install --system sentry_sdk line_profiler setuptools wheel==0.45.1 flit"
+        cmds += "\nuv pip install --system --no-build-isolation ./laminhub/backend"
+        cmds += "\nuv pip install --system ./laminhub/backend/utils"
+        cmds += "\nuv pip install --system ./laminhub/backend/services/central"
+        cmds += "\nuv pip install --system ./laminhub/backend/services/instancedb"
+        cmds += "\nuv pip install --system ./laminhub/backend/services/aws"
+        cmds += "\nuv pip install --system --no-deps ./laminhub/backend/services/instancedb/hubmodule"
+        [run(session, line) for line in cmds.splitlines()]
 
 
 @nox.session
@@ -223,9 +217,12 @@ def configure_coverage(session) -> None:
 @nox.parametrize(
     "group",
     [
-        "unit-core",
+        "unit-core-sqlite",
+        "unit-core-postgres",
         "unit-storage",
+        "no-instance",
         "curator",
+        "integrations",
         "tutorial",
         "guide",
         "biology",
@@ -236,19 +233,36 @@ def configure_coverage(session) -> None:
     ],
 )
 def test(session, group):
-    login_testuser2(session)
-    login_testuser1(session)
+    # we likely don't need auth in many other groups, but have to carefully expand this
+    if group not in {"curator", "no-instance"}:
+        login_testuser2(session)
+        login_testuser1(session)
+    # this is mostly needed for the docs so that we don't render Django's entire public API
     run(session, "lamin settings set private-django-api true")
     coverage_args = "--cov=lamindb --cov-config=pyproject.toml --cov-append --cov-report=term-missing"
     duration_args = "--durations=10"
-    if group == "unit-core":
+
+    env = os.environ.copy()
+    if group == "unit-core-sqlite":
+        env["LAMINDB_TEST_DB_VENDOR"] = "sqlite"
         run(
             session,
             f"pytest {coverage_args} ./tests/core {duration_args}",
+            env=env,
+        )
+    elif group == "unit-core-postgres":
+        env["LAMINDB_TEST_DB_VENDOR"] = "postgresql"
+        run(
+            session,
+            f"pytest {coverage_args} ./tests/core {duration_args}",
+            env=env,
         )
     elif group == "unit-storage":
         login_testuser2(session)  # shouldn't be necessary but is for now
-        run(session, f"pytest -s {coverage_args} ./tests/storage {duration_args}")
+        run(session, f"pytest {coverage_args} ./tests/storage {duration_args}")
+    elif group == "no-instance":
+        run(session, "lamin disconnect")
+        run(session, f"pytest {coverage_args} ./tests/no_instance {duration_args}")
     elif group == "tutorial":
         run(session, "lamin logout")
         run(
@@ -273,6 +287,8 @@ def test(session, group):
             session,
             f"pytest {coverage_args} tests/curators {duration_args}",
         )
+    elif group == "integrations":
+        run(session, f"pytest -s {coverage_args} tests/integrations")
     elif group == "cli":
         run(
             session,
@@ -363,8 +379,36 @@ def clidocs(session):
 
 
 @nox.session
+def cp_scripts(session):
+    content = open("README.md").read()
+    open("README_stripped.md", "w").write(
+        "\n".join(
+            line
+            for line in content.split("\n")
+            if not line.strip().startswith("accessor = artifact.open()")
+        )
+    )
+    os.system("jupytext README_stripped.md --to notebook --output ./docs/README.ipynb")
+    os.system("cp ./tests/core/test_artifact_parquet.py ./docs/scripts/")
+    os.system("cp ./lamindb/examples/schemas/define_valid_features.py ./docs/scripts/")
+    os.system(
+        "cp ./lamindb/examples/schemas/define_schema_anndata_ensembl_gene_ids_and_valid_features_in_obs.py ./docs/scripts/"
+    )
+    os.system(
+        "cp ./lamindb/examples/datasets/define_mini_immuno_features_labels.py ./docs/scripts/"
+    )
+    os.system(
+        "cp ./lamindb/examples/datasets/define_mini_immuno_schema_flexible.py ./docs/scripts/"
+    )
+    os.system(
+        "cp ./lamindb/examples/datasets/save_mini_immuno_datasets.py ./docs/scripts/"
+    )
+
+
+@nox.session
 def docs(session):
     # move artifacts into right place
+    run(session, "lamin settings set private-django-api true")
     for group in ["tutorial", "guide", "biology", "faq", "storage"]:
         if Path(f"./docs-{group}").exists():
             if Path(f"./docs/{group}").exists():
@@ -376,7 +420,7 @@ def docs(session):
                 path.rename(f"./docs/{path.name}")
     run(
         session,
-        "lamin init --storage ./docsbuild --modules bionty,wetlab",
+        "lamin init --storage ./docsbuild --modules bionty,pertdb",
     )
     build_docs(session, strip_prefix=True, strict=False)
     upload_docs_artifact(aws=True)

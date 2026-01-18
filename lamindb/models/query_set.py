@@ -1,18 +1,45 @@
+"""Models library.
+
+...
+
+Query sets & managers
+---------------------
+.. autoclass:: BasicQuerySet
+.. autoclass:: QuerySet
+.. autoclass:: ArtifactSet
+.. autoclass:: QueryManager
+.. autoclass:: lamindb.models.query_set.BiontyDB
+.. autoclass:: lamindb.models.query_set.PertdbDB
+
+...
+"""
+
 from __future__ import annotations
 
+import ast
 import re
-from collections import UserList
+import warnings
+from collections import UserList, defaultdict
 from collections.abc import Iterable
 from collections.abc import Iterable as IterableType
-from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Generic, NamedTuple, TypeVar
+from importlib import import_module
+from typing import TYPE_CHECKING, Any, Generic, NamedTuple, TypeVar, final
 
+import lamindb_setup as ln_setup
 import pandas as pd
 from django.core.exceptions import FieldError
 from django.db import models
-from django.db.models import F, ForeignKey, ManyToManyField, Q, Subquery
+from django.db.models import (
+    F,
+    FilteredRelation,
+    ForeignKey,
+    ManyToManyField,
+    Q,
+    Subquery,
+)
 from django.db.models.fields.related import ForeignObjectRel
 from lamin_utils import logger
+from lamindb_setup import settings as setup_settings
 from lamindb_setup.core import deprecated
 from lamindb_setup.core._docs import doc_args
 
@@ -23,18 +50,58 @@ from .query_manager import _lookup, _search
 from .sqlrecord import Registry, SQLRecord
 
 if TYPE_CHECKING:
+    from bionty.models import (
+        CellLine,
+        CellMarker,
+        CellType,
+        DevelopmentalStage,
+        Disease,
+        Ethnicity,
+        ExperimentalFactor,
+        Gene,
+        Organism,
+        Pathway,
+        Phenotype,
+        Protein,
+        Tissue,
+    )
+    from pertdb.models import (
+        Biologic,
+        Biosample,
+        CombinationPerturbation,
+        Compound,
+        CompoundPerturbation,
+        Donor,
+        EnvironmentalPerturbation,
+        Experiment,
+        GeneticPerturbation,
+        PerturbationTarget,
+        Techsample,
+        Well,
+    )
+
     from lamindb.base.types import ListLike, StrField
+    from lamindb.models import (
+        Artifact,
+        Branch,
+        Collection,
+        Feature,
+        Project,
+        Record,
+        Reference,
+        Run,
+        Schema,
+        Space,
+        Storage,
+        Transform,
+        ULabel,
+        User,
+    )
 
 T = TypeVar("T")
 
 
 pd.set_option("display.max_columns", 200)
-
-
-# def format_and_convert_to_local_time(series: pd.Series):
-#     tzinfo = datetime.now().astimezone().tzinfo
-#     timedelta = tzinfo.utcoffset(datetime.now())  # type: ignore
-#     return (series + timedelta).dt.strftime("%Y-%m-%d %H:%M:%S %Z")
 
 
 def get_keys_from_df(data: list, registry: SQLRecord) -> list[str]:
@@ -57,6 +124,28 @@ def get_keys_from_df(data: list, registry: SQLRecord) -> list[str]:
             if isinstance(field, models.ForeignKey)
         ]
     return keys
+
+
+def get_default_branch_ids(branch: Branch | None = None) -> list[int]:
+    """Return branch IDs to include in default queries.
+
+    By default, queries include records on the main branch (branch_id=1) but exclude trashed (branch_id=-1)
+    and archived records (branch_id=0). This matches behavior of familiar tools like GitHub, Slack, and
+    email clients.
+
+    If a user switches to another branch via `lamin switch branch`, the main branch will still be included.
+
+    Returns:
+        List containing the default branch and current branch if different.
+    """
+    if branch is None:
+        branch_id = setup_settings.branch.id
+    else:
+        branch_id = branch.id
+    branch_ids = [branch_id]
+    if branch_id != 1:  # add the main branch by default
+        branch_ids.append(1)
+    return branch_ids
 
 
 def one_helper(
@@ -88,22 +177,33 @@ def one_helper(
 def get_backward_compat_filter_kwargs(queryset, expressions):
     from lamindb.models import (
         Artifact,
-        Collection,
-        Transform,
+        Feature,
     )
 
-    if queryset.model in {Collection, Transform}:
+    if issubclass(queryset.model, IsVersioned):
         name_mappings = {
-            "visibility": "branch_id",
-            "_branch_code": "branch_id",
-        }
-    elif queryset.model is Artifact:
-        name_mappings = {
-            "visibility": "branch_id",
-            "_branch_code": "branch_id",
-            "transform": "run__transform",
+            "version": "version_tag",
         }
     else:
+        name_mappings = {}
+
+    if queryset.model is Artifact:
+        name_mappings.update(
+            {
+                "transform": "run__transform",
+                "feature_sets": "schemas",
+            }
+        )
+    if queryset.model is Feature:
+        name_mappings.update(
+            {
+                "dtype": "_dtype_str",
+                "dtype_as_str": "_dtype_str",
+            }
+        )
+
+    # If no mappings to apply, return expressions as-is
+    if not name_mappings:
         return expressions
     was_list = False
     if isinstance(expressions, list):
@@ -113,6 +213,20 @@ def get_backward_compat_filter_kwargs(queryset, expressions):
     for field, value in expressions.items():
         parts = field.split("__")
         if parts[0] in name_mappings:
+            # Issue deprecation warnings
+            if queryset.model is Artifact and parts[0] == "feature_sets":
+                warnings.warn(
+                    "Querying Artifact by `feature_sets` is deprecated. Use `schemas` instead.",
+                    DeprecationWarning,
+                    stacklevel=4,
+                )
+            elif queryset.model is Feature and parts[0] == "dtype":
+                warnings.warn(
+                    "Querying Feature by `dtype` is deprecated. Use `dtype_as_str` instead. "
+                    "Notice the new dtype encoding format for Record and ULabel subtypes.",
+                    DeprecationWarning,
+                    stacklevel=4,
+                )
             new_field = name_mappings[parts[0]] + (
                 "__" + "__".join(parts[1:]) if len(parts) > 1 else ""
             )
@@ -122,7 +236,7 @@ def get_backward_compat_filter_kwargs(queryset, expressions):
     return list(mapped.keys()) if was_list else mapped
 
 
-def process_expressions(queryset: QuerySet, expressions: dict) -> dict:
+def process_expressions(queryset: QuerySet, queries: tuple, expressions: dict) -> dict:
     def _map_databases(value: Any, key: str, target_db: str) -> tuple[str, Any]:
         if isinstance(value, SQLRecord):
             if value._state.db != target_db:
@@ -150,24 +264,54 @@ def process_expressions(queryset: QuerySet, expressions: dict) -> dict:
 
         return key, value
 
+    branch_fields = {"branch", "branch_id"}
+    branch_prefixes = ("branch__", "branch_id__")
+
+    def queries_contain_branch(queries: tuple) -> bool:
+        """Check if any Q object in queries references branch or branch_id."""
+
+        def check_q_object(q: Q) -> bool:
+            # Q objects store their conditions in q.children
+            for child in q.children:
+                if isinstance(child, tuple) and len(child) == 2:
+                    # Normal condition: (key, value)
+                    key = child[0]
+                    if key in branch_fields or key.startswith(branch_prefixes):
+                        return True
+                elif isinstance(child, Q):
+                    # Nested Q object
+                    if check_q_object(child):
+                        return True
+            return False
+
+        return any(check_q_object(q) for q in queries if isinstance(q, Q))
+
     expressions = get_backward_compat_filter_kwargs(
         queryset,
         expressions,
     )
     if issubclass(queryset.model, SQLRecord):
-        # branch_id is set to 1 unless expressions contains id or uid
-        if not (
-            "id" in expressions
-            or "uid" in expressions
-            or "uid__startswith" in expressions
-        ):
-            if not any(e.startswith("branch_id") for e in expressions):
-                expressions["branch_id"] = 1  # default branch_id
-            # if branch_id is None, do not apply a filter
-            # otherwise, it would mean filtering for NULL values, which doesn't make
-            # sense for a non-NULLABLE column
-            elif "branch_id" in expressions and expressions["branch_id"] is None:
-                expressions.pop("branch_id")
+        # branch_id is set to 1 unless expressions contains id, uid or hash
+        id_uid_hash = {"id", "uid", "hash", "id__in", "uid__in", "hash__in"}
+        if not any(expression in id_uid_hash for expression in expressions):
+            expressions_have_branch = False
+            for expression in expressions:
+                if expression in branch_fields or expression.startswith(
+                    branch_prefixes
+                ):
+                    expressions_have_branch = True
+                    break
+            if not expressions_have_branch and not queries_contain_branch(queries):
+                expressions["branch_id__in"] = get_default_branch_ids()
+            else:
+                # if branch_id is None, do not apply a filter
+                # otherwise, it would mean filtering for NULL values, which doesn't make
+                # sense for a non-NULLABLE column
+                if "branch_id" in expressions and expressions["branch_id"] is None:
+                    expressions.pop("branch_id")
+                if "branch" in expressions and expressions["branch"] is None:
+                    expressions.pop("branch")
+
     if queryset._db is not None:
         # only check for database mismatch if there is a defined database on the
         # queryset
@@ -225,9 +369,7 @@ def get(
             return one_helper(qs, DOESNOTEXIST_MSG)
     else:
         assert idlike is None  # noqa: S101
-        expressions = process_expressions(qs, expressions)
-        # don't want branch_id here in .get(), only in .filter()
-        expressions.pop("branch_id", None)
+        expressions = process_expressions(qs, [], expressions)
         # inject is_latest for consistency with idlike
         is_latest_was_not_in_expressions = "is_latest" not in expressions
         if issubclass(registry, IsVersioned) and is_latest_was_not_in_expressions:
@@ -241,7 +383,7 @@ def get(
                 result = qs.filter(**expressions).order_by("-created_at").first()
                 if result is not None:
                     return result
-            raise registry.DoesNotExist from e
+            raise e
 
 
 class SQLRecordList(UserList, Generic[T]):
@@ -263,13 +405,11 @@ class SQLRecordList(UserList, Generic[T]):
         return self.to_dataframe()
 
     def to_list(
-        self, field: str
+        self, field: str | None = None
     ) -> list[str]:  # meaningful to be parallel with to_list() in QuerySet
+        if field is None:
+            return self.data
         return [getattr(record, field) for record in self.data]
-
-    @deprecated(new_name="to_list")
-    def list(self, field: str) -> list[str]:
-        return self.to_list(field)
 
     def one(self) -> T:
         """Exactly one result. Throws error if there are more or none."""
@@ -289,35 +429,46 @@ def get_basic_field_names(
     features_input: bool | list[str] | str,
 ) -> list[str]:
     exclude_field_names = ["updated_at"]
+    include_private_fields = False
+    if "privates" in include:
+        include_private_fields = True
+        include.remove("privates")
     field_names = [
         field.name
         for field in qs.model._meta.fields
         if (
             not isinstance(field, models.ForeignKey)
             and field.name not in exclude_field_names
+            and (
+                not field.name.startswith("_")
+                or include_private_fields
+                or (field.name == "_dtype_str" and qs.model.__name__ == "Feature")
+            )
         )
     ]
+    for field_name in [
+        "version_tag",
+        "is_latest",
+        "is_locked",
+        "is_type",
+        "created_at",
+        "updated_at",
+    ]:
+        if field_name in field_names:
+            field_names.append(field_names.pop(field_names.index(field_name)))
     field_names += [
         f"{field.name}_id"
         for field in qs.model._meta.fields
         if isinstance(field, models.ForeignKey)
     ]
-    for field_name in [
-        "version",
-        "is_latest",
-        "run_id",
-        "created_at",
-        "created_by_id",
-        "updated_at",
-        "_aux",
-        "branch_id",
-    ]:
-        if field_name in field_names:
-            field_names.remove(field_name)
-            field_names.append(field_name)
-    if field_names[0] != "uid" and "uid" in field_names:
-        field_names.remove("uid")
-        field_names.insert(0, "uid")
+    # move uid to first position if present
+    if "uid" in field_names:
+        field_names.insert(0, field_names.pop(field_names.index("uid")))
+
+    # move primary key to second position if present
+    pk = qs.model._meta.pk.name if qs.model._meta.pk else None
+    if pk and pk in field_names:
+        field_names.insert(1, field_names.pop(field_names.index(pk)))
     if (
         include or features_input
     ):  # if there is features_input, reduce fields to just the first 3
@@ -332,70 +483,107 @@ def get_feature_annotate_kwargs(
     registry: Registry,
     features: bool | list[str] | str | None,
     qs: QuerySet | None = None,
-) -> tuple[dict[str, Any], list[str], QuerySet]:
+) -> tuple[dict[str, Any], QuerySet, dict[str, Any]]:
     from lamindb.models import (
         Artifact,
         Feature,
         Record,
         RecordJson,
+        ULabel,
     )
+    from lamindb.models.feature import parse_dtype
 
     if registry not in {Artifact, Record}:
         raise ValueError(
             f"features=True is only applicable for Artifact and Record, not {registry.__name__}"
         )
 
+    feature_ids = []
     if features == "queryset":
         ids_list = qs.values_list("id", flat=True)
-        feature_names = []
         for obj in registry._meta.related_objects:
-            if not hasattr(getattr(registry, obj.related_name), "through"):
+            related_name_attr = getattr(registry, obj.related_name, None)
+            if related_name_attr is None or not hasattr(related_name_attr, "through"):
                 continue
-            links = getattr(registry, obj.related_name).through.filter(
-                **{registry.__name__.lower() + "_id__in": ids_list}
+            link_model = related_name_attr.through
+            if (
+                not hasattr(link_model, "feature")
+                or link_model.__name__ == "Record_parents"
+            ):
+                continue
+            filter_field = registry.__name__.lower()
+            if not hasattr(link_model, filter_field):
+                potential_fields = []
+                for field in link_model._meta.get_fields():
+                    if field.is_relation and field.related_model is registry:
+                        potential_fields.append(field.name)
+                if len(potential_fields) == 1:
+                    filter_field = potential_fields[0]
+                else:
+                    continue
+            links = link_model.objects.using(qs.db).filter(
+                **{filter_field + "_id__in": ids_list}
             )
-            feature_names_for_link_model = links.values_list("feature__name", flat=True)
-            feature_names += feature_names_for_link_model
+            feature_ids_for_link_model = links.values_list("feature__id", flat=True)
+            feature_ids += feature_ids_for_link_model
         if registry is Record:
             # this request is not strictly necessary, but it makes the resulting reshaped
             # dataframe consistent
-            feature_names += RecordJson.filter(record_id__in=ids_list).values_list(
-                "feature__name", flat=True
+            feature_ids += RecordJson.filter(record_id__in=ids_list).values_list(
+                "feature__id", flat=True
             )
-        features = list(set(feature_names))  # remove duplicates
+        feature_ids = list(set(feature_ids))  # remove duplicates
 
-    feature_qs = Feature.filter()
+    feature_qs = Feature.connect(None if qs is None else qs.db).filter(
+        _dtype_str__isnull=False
+    )
     if isinstance(features, list):
         feature_qs = feature_qs.filter(name__in=features)
-        feature_names = features
-    else:  # features is True -- only consider categorical features from ULabel and non-categorical features
+        if len(features) != feature_qs.count():
+            logger.warning(
+                f"found features and passed features differ:\n - passed: {features}\n - found: {feature_qs.to_list('name')}"
+            )
+    elif feature_ids:
+        feature_qs = feature_qs.filter(id__in=feature_ids)
+    else:
         feature_qs = feature_qs.filter(
-            Q(~Q(dtype__startswith="cat["))
-            | Q(dtype__startswith="cat[ULabel")
-            | Q(dtype__startswith="cat[Record")
+            ~Q(_dtype_str__startswith="cat[")
+            | Q(_dtype_str__startswith="cat[ULabel")
+            | Q(_dtype_str__startswith="cat[Record")
         )
-        feature_names = feature_qs.to_list("name")
         logger.important(
-            f"queried for all categorical features with dtype ULabel or Record and non-categorical features: ({len(feature_names)}) {feature_names}"
+            f"queried for all categorical features of dtypes Record or ULabel and non-categorical features: ({len(feature_qs)}) {feature_qs.to_list('name')}"
         )
     # Get the categorical features
     cat_feature_types = {
-        feature.dtype.replace("cat[", "").replace("]", "")
+        parse_dtype(feature._dtype_str)[0]["registry_str"]
         for feature in feature_qs
-        if feature.dtype.startswith("cat[")
+        if feature._dtype_str.startswith("cat[")
+        or feature._dtype_str.startswith("list[cat[")
     }
+    # fields to annotate
+    cat_feature_fields = defaultdict(list)
+    for feature in feature_qs:
+        dtype_str = feature._dtype_str
+        if dtype_str.startswith("cat[") or dtype_str.startswith("list[cat["):
+            dtype_info = parse_dtype(dtype_str)[0]
+            registry_str = dtype_info["registry_str"]
+            field_name = dtype_info["field_str"]
+            cat_feature_fields[registry_str].append(field_name)
     # Get relationships of labels and features
     link_models_on_models = {
         getattr(
             registry, obj.related_name
-        ).through.__get_name_with_module__(): obj.related_model.__get_name_with_module__()
+        ).through.__get_name_with_module__(): obj.related_model
         for obj in registry._meta.related_objects
         if obj.related_model.__get_name_with_module__() in cat_feature_types
+        and hasattr(getattr(registry, obj.related_name), "through")
+        and hasattr(getattr(registry, obj.related_name).through, "feature_id")
     }
     if registry is Artifact:
-        link_models_on_models["ArtifactULabel"] = "ULabel"
+        link_models_on_models["ArtifactULabel"] = ULabel
     else:
-        link_models_on_models["RecordRecord"] = "Record"
+        link_models_on_models["RecordRecord"] = Record
     link_attributes_on_models = {
         obj.related_name: link_models_on_models[
             obj.related_model.__get_name_with_module__()
@@ -410,32 +598,68 @@ def get_feature_annotate_kwargs(
             )
         )
     }
-    # Prepare Django's annotate for features
+    # Prepare Django's annotate for features with filtering
+    filtered_relations = {}
     annotate_kwargs = {}
-    for link_attr, feature_type in link_attributes_on_models.items():
+
+    for link_attr, feature_type_model in link_attributes_on_models.items():
+        feature_type = feature_type_model.__get_name_with_module__()
         if link_attr == "links_project" and registry is Record:
-            # we're only interested in values_project when "annotating" records
+            # we're only interested in _values_project when "annotating" records
             continue
-        annotate_kwargs[f"{link_attr}__feature__name"] = F(
-            f"{link_attr}__feature__name"
-        )
+
+        # Determine field name
         if registry is Artifact:
             field_name = (
                 feature_type.split(".")[1] if "." in feature_type else feature_type
             ).lower()
         else:
             field_name = "value"
-        annotate_kwargs[f"{link_attr}__{field_name}__name"] = F(
-            f"{link_attr}__{field_name}__name"
+
+        # Determine if this value model needs branch filtering
+        # Skip user relations (RecordUser, ArtifactUser don't have branch)
+        should_filter_branch = link_attr not in {"values_user", "links_user"}
+
+        # Create filtered relation for the value model
+        value_relation_path = f"{link_attr}__{field_name}"
+        filtered_value_relation_name = f"filtered_{link_attr}_{field_name}"
+
+        if should_filter_branch:
+            filtered_relations[filtered_value_relation_name] = FilteredRelation(
+                value_relation_path,
+                condition=Q(
+                    **{
+                        f"{value_relation_path}__branch_id__in": get_default_branch_ids()
+                    }
+                ),
+            )
+        else:
+            # No branch filtering needed
+            filtered_relations[filtered_value_relation_name] = FilteredRelation(
+                value_relation_path
+            )
+
+        # Add annotation for feature name (feature doesn't have branch_id)
+        annotate_kwargs[f"{link_attr}__feature__name"] = F(
+            f"{link_attr}__feature__name"
         )
-    json_values_attribute = "_feature_values" if registry is Artifact else "values_json"
+
+        # Add annotations for categorical feature fields using the filtered relation
+        for field in cat_feature_fields[feature_type]:
+            annotate_kwargs[f"{link_attr}__{field_name}__{field}"] = F(
+                f"{filtered_value_relation_name}__{field}"
+            )
+
+    # Handle JSON values (no branch filtering needed)
+    json_values_attribute = "json_values" if registry is Artifact else "values_json"
     annotate_kwargs[f"{json_values_attribute}__feature__name"] = F(
         f"{json_values_attribute}__feature__name"
     )
     annotate_kwargs[f"{json_values_attribute}__value"] = F(
         f"{json_values_attribute}__value"
     )
-    return annotate_kwargs, feature_names, feature_qs
+
+    return annotate_kwargs, feature_qs, filtered_relations
 
 
 # https://claude.ai/share/16280046-6ae5-4f6a-99ac-dec01813dc3c
@@ -492,11 +716,32 @@ def analyze_lookup_cardinality(
 def reorder_subset_columns_in_df(
     df: pd.DataFrame, column_order: list[str], position=3
 ) -> pd.DataFrame:
+    """Reorder subset of columns in dataframe to specified position."""
     valid_columns = [col for col in column_order if col in df.columns]
     all_cols = df.columns.tolist()
     remaining_cols = [col for col in all_cols if col not in valid_columns]
     new_order = remaining_cols[:position] + valid_columns + remaining_cols[position:]
     return df[new_order]
+
+
+def encode_lamindb_fields_as_columns(
+    registry: Registry, fields: str | list[str]
+) -> str | dict[str, str]:
+    """Encode laminDB specific fields in dataframe with __lamindb_{model_name}_{field_name}__.
+
+    This is needed when reshaping dataframes with features to avoid conflicts between
+    laminDB fields and feature names.
+    """
+
+    def encode(field: str) -> str:
+        return f"__lamindb_{registry._meta.model_name}_{field}__"
+
+    registry_field_names = {field.name for field in registry._meta.concrete_fields}
+
+    if isinstance(fields, str):
+        return encode(fields) if fields in registry_field_names else fields
+
+    return {field: encode(field) for field in fields if field in registry_field_names}
 
 
 # https://lamin.ai/laminlabs/lamindata/transform/BblTiuKxsb2g0003
@@ -506,122 +751,202 @@ def reshape_annotate_result(
     df: pd.DataFrame,
     field_names: list[str],
     cols_from_include: dict[str, str] | None,
-    feature_names: list[str],
     feature_qs: QuerySet | None,
 ) -> pd.DataFrame:
     """Reshapes tidy table to wide format.
 
     Args:
-        field_names: List of basic fields to include in result
+        registry: The registry model (e.g., Artifact)
         df: Input dataframe with experimental data
-        extra_columns: Dict specifying additional columns to process with types ('one' or 'many')
-            e.g., {'ulabels__name': 'many', 'created_by__name': 'one'}
-        feature_names: Feature names.
+        field_names: List of basic fields to include in result
+        cols_from_include: Dict specifying additional columns to process with types
+            ('one' or 'many'), e.g., {'ulabels__name': 'many', 'created_by__name': 'one'}
+        feature_qs: QuerySet of features
     """
     from lamindb.models import Artifact
 
     cols_from_include = cols_from_include or {}
 
-    json_values_attribute = "_feature_values" if registry is Artifact else "values_json"
-
-    # initialize result with basic fields, need a copy as we're modifying it
-    # will give us warnings otherwise
+    # Initialize result with basic fields (need a copy since we're modifying it)
     result = df[field_names].copy()
-    # process features if requested
-    if feature_names:
-        # handle json values
-        feature_cols = [
-            f"{json_values_attribute}__feature__name",
-            f"{json_values_attribute}__value",
-        ]
-        if all(col in df.columns for col in feature_cols):
-            # Create two separate dataframes - one for dict values and one for non-dict values
-            is_dict = df[f"{json_values_attribute}__value"].apply(
-                lambda x: isinstance(x, dict)
+    pk_name = registry._meta.pk.name
+
+    # ========== no features requested ==========
+    if feature_qs is None or not feature_qs.exists():
+        if cols_from_include:
+            result = process_cols_from_include(df, result, cols_from_include, pk_name)
+        return result.drop_duplicates(subset=[pk_name])
+
+    # ========== process features ==========
+
+    # Encode Django field names to avoid conflicts with feature names
+    fields_map = encode_lamindb_fields_as_columns(registry, df.columns)
+    df_encoded = df.rename(columns=fields_map)
+    result_encoded = result.rename(columns=fields_map)
+    pk_name_encoded = fields_map.get(pk_name)  # type: ignore
+
+    # --- Process JSON-stored feature values ---
+    json_values_attribute = "json_values" if registry is Artifact else "values_json"
+    feature_name_col = f"{json_values_attribute}__feature__name"
+    feature_value_col = f"{json_values_attribute}__value"
+
+    if all(col in df_encoded.columns for col in [feature_name_col, feature_value_col]):
+        # Separate dict and non-dict values for different aggregation strategies
+        is_dict_or_list = df_encoded[feature_value_col].apply(
+            lambda x: isinstance(x, (dict, list))
+        )
+        dict_or_list_df = df_encoded[is_dict_or_list]
+        non_dict_or_list_df = df_encoded[~is_dict_or_list]
+
+        # Aggregate: sets for non-dict values, first for dict values
+        groupby_cols = [pk_name_encoded, feature_name_col]
+        non_dict_or_list_features = non_dict_or_list_df.groupby(groupby_cols)[
+            feature_value_col
+        ].agg(set)
+        dict_or_list_features = dict_or_list_df.groupby(groupby_cols)[
+            feature_value_col
+        ].agg("first")
+
+        # Combine and pivot to wide format
+        combined_features = pd.concat(
+            [non_dict_or_list_features, dict_or_list_features]
+        )
+        feature_values = combined_features.unstack().reset_index()
+
+        if not feature_values.empty:
+            result_encoded = result_encoded.join(
+                feature_values.set_index(pk_name_encoded),
+                on=pk_name_encoded,
             )
-            dict_df, non_dict_df = df[is_dict], df[~is_dict]
 
-            # Process non-dict values using set aggregation
-            non_dict_features = non_dict_df.groupby(
-                ["id", f"{json_values_attribute}__feature__name"]
-            )[f"{json_values_attribute}__value"].agg(set)
+    # --- Process categorical/linked features ---
+    links_prefix = "links_" if registry is Artifact else ("links_", "values_")
+    links_features = [
+        col
+        for col in df.columns
+        if "feature__name" in col and col.startswith(links_prefix)
+    ]
 
-            # Process dict values using first aggregation
-            dict_features = dict_df.groupby(
-                ["id", f"{json_values_attribute}__feature__name"]
-            )[f"{json_values_attribute}__value"].agg("first")
+    if links_features:
+        result_encoded = process_links_features(
+            df_encoded,
+            result_encoded,
+            links_features,
+            feature_qs,
+            pk_name_encoded,
+        )
 
-            # Combine the results
-            combined_features = pd.concat([non_dict_features, dict_features])
+    # --- Apply type conversions based on feature metadata ---
+    def extract_and_check_scalar(series: pd.Series) -> tuple[pd.Series, bool]:
+        """Extract single elements and return if column is now scalar."""
+        has_multiple_values = False
 
-            # Unstack and reset index
-            feature_values = combined_features.unstack().reset_index()
-            if not feature_values.empty:
-                result = result.join(
-                    feature_values.set_index("id"),
-                    on="id",
+        def extract_and_track(value):
+            nonlocal has_multiple_values
+            if not hasattr(value, "__len__") or isinstance(value, str):
+                return value
+            if len(value) != 1:
+                has_multiple_values = True
+                return value
+            return next(iter(value))
+
+        extracted = series.apply(extract_and_track)
+        is_scalar = not has_multiple_values
+        return extracted, is_scalar
+
+    for feature in feature_qs:
+        if feature.name not in result_encoded.columns:
+            continue
+
+        result_encoded[feature.name], is_scalar = extract_and_check_scalar(
+            result_encoded[feature.name]
+        )
+
+        if is_scalar:
+            dtype_str = feature._dtype_str
+            if dtype_str.startswith("cat"):
+                result_encoded[feature.name] = result_encoded[feature.name].astype(
+                    "category"
+                )
+            if dtype_str == "datetime":
+                # format and utc args are needed for mixed data
+                # pandera expects timezone-naive datetime objects, and hence,
+                # we need to localize with None
+                result_encoded[feature.name] = pd.to_datetime(
+                    result_encoded[feature.name], format="ISO8601", utc=True
+                ).dt.tz_localize(None)
+            if dtype_str == "date":
+                # see comments for datetime
+                result_encoded[feature.name] = (
+                    pd.to_datetime(
+                        result_encoded[feature.name],
+                        format="ISO8601",
+                        utc=True,
+                    )
+                    .dt.tz_localize(None)
+                    .dt.date
+                )
+            if dtype_str == "bool":
+                result_encoded[feature.name] = result_encoded[feature.name].astype(
+                    "boolean"
                 )
 
-        # handle categorical features
-        links_prefix = "links_" if registry is Artifact else ("links_", "values_")
-        links_features = [
-            col
-            for col in df.columns
-            if "feature__name" in col and col.startswith(links_prefix)
-        ]
+        dtype_str = feature._dtype_str
+        if dtype_str.startswith("list"):
+            mask = result_encoded[feature.name].notna()
+            result_encoded.loc[mask, feature.name] = result_encoded.loc[
+                mask, feature.name
+            ].apply(lambda x: list(x) if isinstance(x, (set, list)) else [x])
 
-        if links_features:
-            result = process_links_features(df, result, links_features, feature_names)
-
-        def extract_single_element(s):
-            if not hasattr(s, "__len__"):  # is NaN or other scalar
-                return s
-            if len(s) != 1:
-                # TODO: below should depend on feature._expect_many
-                # logger.warning(
-                #     f"expected single value because `feature._expect_many is False` but got set {len(s)} elements: {s}"
-                # )
-                return s
-            return next(iter(s))
-
-        for feature in feature_qs:
-            if feature.name in result.columns:
-                # TODO: make dependent on feature._expect_many through
-                # lambda x: extract_single_element(x, feature)
-                result[feature.name] = result[feature.name].apply(
-                    extract_single_element
+        if dtype_str == "dict":
+            # this is the case when a dict is stored as a string; won't happen
+            # within lamindb but might for external data
+            if isinstance(result_encoded[feature.name].iloc[0], str):
+                result_encoded[feature.name] = result_encoded[feature.name].apply(
+                    lambda x: ast.literal_eval(x) if isinstance(x, str) else x
                 )
-                if feature.dtype.startswith("cat"):
-                    try:
-                        # Try to convert to category - this will fail if complex objects remain
-                        result[feature.name] = result[feature.name].astype("category")
-                    except (TypeError, ValueError):
-                        # If conversion fails, the column still contains complex objects
-                        pass
-                if feature.dtype.startswith("datetime"):
-                    try:
-                        # Try to convert to category - this will fail if complex objects remain
-                        result[feature.name] = pd.to_datetime(result[feature.name])
-                    except (TypeError, ValueError):
-                        # If conversion fails, the column still contains complex objects
-                        pass
 
-        # sort columns
-        result = reorder_subset_columns_in_df(result, feature_names)
+    # --- Finalize result ---
 
+    # Reorder columns to prioritize features
+    result_encoded = reorder_subset_columns_in_df(
+        result_encoded,
+        feature_qs.to_list("name"),  # type: ignore
+    )
+
+    # Process additional included columns
     if cols_from_include:
-        result = process_cols_from_include(df, result, cols_from_include)
+        cols_from_include_encoded = {
+            fields_map.get(k, k): v  # type: ignore
+            for k, v in cols_from_include.items()
+        }
+        result_encoded = process_cols_from_include(
+            df_encoded, result_encoded, cols_from_include_encoded, pk_name_encoded
+        )
 
-    return result.drop_duplicates(subset=["id"])
+    # Decode field names back to original, except where conflicts exist
+    # (e.g., if a feature is also named 'id', keep the encoded field name)
+    decode_map = {
+        encoded: original
+        for original, encoded in fields_map.items()  # type: ignore
+        if original not in result_encoded.columns
+    }
+
+    return result_encoded.drop_duplicates(subset=[pk_name_encoded]).rename(
+        columns=decode_map
+    )
 
 
 def process_links_features(
     df: pd.DataFrame,
     result: pd.DataFrame,
     feature_cols: list[str],
-    features: bool | list[str],
+    feature_qs: QuerySet | None,
+    pk_name: str = "id",
 ) -> pd.DataFrame:
     """Process links_XXX feature columns."""
+    from lamindb.models.feature import parse_dtype
+
     # this loops over different entities that might be linked under a feature
     for feature_col in feature_cols:
         links_attribute = "links_" if feature_col.startswith("links_") else "values_"
@@ -632,7 +957,6 @@ def process_links_features(
             col
             for col in df.columns
             if col.startswith(f"{links_attribute}{prefix}__")
-            and col.endswith("__name")
             and "feature__name" not in col
         ]
 
@@ -643,20 +967,25 @@ def process_links_features(
         feature_names = df[feature_col].unique()
         feature_names = feature_names[~pd.isna(feature_names)]
 
-        # Filter features if specific ones requested
-        if isinstance(features, list):
-            feature_names = [f for f in feature_names if f in features]
-
-        for feature_name in feature_names:
-            mask = df[feature_col] == feature_name
-            feature_values = df[mask].groupby("id")[value_col].agg(set)
-            result.insert(3, feature_name, result["id"].map(feature_values))
+        for feature in feature_qs:
+            if feature.name not in feature_names:
+                continue
+            if feature.name in result.columns:
+                continue
+            field_name = parse_dtype(feature._dtype_str)[0]["field_str"]
+            value_col = [c for c in value_cols if c.endswith(f"__{field_name}")][0]
+            mask = (df[feature_col] == feature.name) & df[value_col].notna()
+            feature_values = df[mask].groupby(pk_name)[value_col].agg(set)
+            result.insert(3, feature.name, result[pk_name].map(feature_values))
 
     return result
 
 
 def process_cols_from_include(
-    df: pd.DataFrame, result: pd.DataFrame, extra_columns: dict[str, str]
+    df: pd.DataFrame,
+    result: pd.DataFrame,
+    extra_columns: dict[str, str],
+    pk_name: str = "id",
 ) -> pd.DataFrame:
     """Process additional columns based on their specified types."""
     for col, col_type in extra_columns.items():
@@ -665,8 +994,8 @@ def process_cols_from_include(
         if col in result.columns:
             continue
 
-        values = df.groupby("id")[col].agg(set if col_type == "many" else "first")
-        result.insert(3, col, result["id"].map(values))
+        values = df.groupby(pk_name)[col].agg(set if col_type == "many" else "first")
+        result.insert(3, col, result[pk_name].map(values))
 
     return result
 
@@ -676,19 +1005,15 @@ def _queryset_class_factory(
 ) -> type[models.QuerySet]:
     from lamindb.models import Artifact, ArtifactSet
 
-    # If the model is Artifact, create a new class
-    # for BasicQuerySet or QuerySet that inherits from ArtifactSet.
-    # This allows to add artifact specific functionality to all classes
-    # inheriting from BasicQuerySet.
-    # Thus all query sets of artifacts (and only of artifacts)
-    # will have functions from ArtifactSet.
+    # If the model is Artifact, create a new class for BasicQuerySet or QuerySet that inherits from ArtifactSet.
+    # This allows to add artifact specific functionality to all classes inheriting from BasicQuerySet.
+    # Thus all query sets of artifacts (and only of artifacts) will have functions from ArtifactSet.
     if registry is Artifact and not issubclass(queryset_cls, ArtifactSet):
         new_cls = type(
             "Artifact" + queryset_cls.__name__, (queryset_cls, ArtifactSet), {}
         )
     else:
         new_cls = queryset_cls
-
     return new_cls
 
 
@@ -728,69 +1053,120 @@ class BasicQuerySet(models.QuerySet):
     @doc_args(SQLRecord.to_dataframe.__doc__)
     def to_dataframe(
         self,
+        *,
         include: str | list[str] | None = None,
-        features: bool | list[str] | str | None = None,
+        features: str | list[str] | None = None,
+        limit: int | None = 100,
+        order_by: str | None = "-id",
     ) -> pd.DataFrame:
         """{}"""  # noqa: D415
-        time = datetime.now(timezone.utc)
+        if (
+            self.model.__name__ == "Artifact"
+            and "kind" not in str(self.query.where)
+            and self.query.low_mark
+            == 0  # this should be 0, not None, it represent OFFSET = 0
+            and self.query.high_mark
+            is None  # this should be None, it represent _no_ LIMIT
+        ):
+            subset = self.exclude(**{"kind__startswith": "__lamindb"})
+        else:
+            subset = self
+        # check if queryset is already ordered
+        is_ordered = bool(subset.query.order_by)
+        # Only apply order_by if not already ordered and order_by is specified
+        if not is_ordered and order_by is not None:
+            subset = subset.order_by(order_by)
+        if limit is not None:
+            subset = subset[:limit]
         if include is None:
             include_input = []
         elif isinstance(include, str):
             include_input = [include]
         else:
             include_input = include
+        if "features" in include_input:
+            include_input.remove("features")
+            if features is None:
+                # indicate the default features with True
+                # should refactor this in the future
+                features = True  # type: ignore
         features_input = [] if features is None else features
-        include = get_backward_compat_filter_kwargs(self, include_input)
-        field_names = get_basic_field_names(self, include_input, features_input)
+        include = get_backward_compat_filter_kwargs(subset, include_input)
+        field_names = get_basic_field_names(subset, include_input, features_input)
 
         annotate_kwargs = {}
-        feature_names: list[str] = []
+        filtered_relations = {}  # type: ignore
         feature_qs = None
         if features:
-            feature_annotate_kwargs, feature_names, feature_qs = (
-                get_feature_annotate_kwargs(self.model, features, self)
+            feature_annotate_kwargs, feature_qs, filtered_relations = (
+                get_feature_annotate_kwargs(subset.model, features, subset)
             )
-            time = logger.debug("finished feature_annotate_kwargs", time=time)
             annotate_kwargs.update(feature_annotate_kwargs)
         if include_input:
             include_input = include_input.copy()[::-1]  # type: ignore
             include_kwargs = {s: F(s) for s in include_input if s not in field_names}
             annotate_kwargs.update(include_kwargs)
         if annotate_kwargs:
-            id_subquery = self.values("id")
-            time = logger.debug("finished get id values", time=time)
+            id_subquery = subset.values("id")
             # for annotate, we want the queryset without filters so that joins don't affect the annotations
-            query_set_without_filters = self.model.objects.using(self._db).filter(
+            query_set_without_filters = subset.model.objects.using(subset.db).filter(
                 id__in=Subquery(id_subquery)
             )
-            time = logger.debug("finished get query_set_without_filters", time=time)
-            if self.query.order_by:
+            if subset.query.order_by:
                 # Apply the same ordering to the new queryset
                 query_set_without_filters = query_set_without_filters.order_by(
-                    *self.query.order_by
+                    *subset.query.order_by
                 )
-                time = logger.debug("finished order by", time=time)
+            if filtered_relations:
+                query_set_without_filters = query_set_without_filters.annotate(
+                    **filtered_relations
+                )
             queryset = query_set_without_filters.annotate(**annotate_kwargs)
-            time = logger.debug("finished annotate", time=time)
         else:
-            queryset = self
+            queryset = subset
 
+        # our main problem with this approach is that we lose ordering in categorical lists
+        # we'd need to respect ordering through the primary key on the link table, but that's
+        # another refactoring effort
+        # we have the correct ordering in `features.get_values()`, though
         df = pd.DataFrame(queryset.values(*field_names, *list(annotate_kwargs.keys())))
         if len(df) == 0:
             df = pd.DataFrame({}, columns=field_names)
             return df
-        time = logger.debug("finished creating first dataframe", time=time)
         cols_from_include = analyze_lookup_cardinality(self.model, include_input)  # type: ignore
-        time = logger.debug("finished analyze_lookup_cardinality", time=time)
         df_reshaped = reshape_annotate_result(
-            self.model, df, field_names, cols_from_include, feature_names, feature_qs
+            self.model, df, field_names, cols_from_include, feature_qs
         )
-        time = logger.debug("finished reshape_annotate_result", time=time)
         pk_name = self.model._meta.pk.name
-        pk_column_name = pk_name if pk_name in df.columns else f"{pk_name}_id"
-        if pk_column_name in df_reshaped.columns:
-            df_reshaped = df_reshaped.set_index(pk_column_name)
-        time = logger.debug("finished", time=time)
+        encoded_pk_name = encode_lamindb_fields_as_columns(self.model, pk_name)
+        if encoded_pk_name in df_reshaped.columns:
+            df_reshaped = df_reshaped.set_index(encoded_pk_name)
+        else:
+            pk_column_name = pk_name if pk_name in df.columns else f"{pk_name}_id"
+            if pk_column_name in df_reshaped.columns:
+                df_reshaped = df_reshaped.set_index(pk_column_name)
+
+        # cast floats and ints where appropriate
+        # this is currently needed because the UI writes into the JSON field through JS
+        # and thus a `10` might be a float, not an int
+        # note: also type casting within reshape_annotate_result
+        if feature_qs is not None:
+            for feature in feature_qs:
+                if feature.name in df_reshaped.columns:
+                    current_dtype = df_reshaped[feature.name].dtype
+                    dtype_str = feature._dtype_str
+                    if dtype_str == "int" and not pd.api.types.is_integer_dtype(
+                        current_dtype
+                    ):
+                        df_reshaped[feature.name] = df_reshaped[feature.name].astype(
+                            "Int64"  # nullable integer dtype
+                        )
+                    elif dtype_str == "float" and not pd.api.types.is_float_dtype(
+                        current_dtype
+                    ):
+                        df_reshaped[feature.name] = df_reshaped[feature.name].astype(
+                            float
+                        )
         return df_reshaped
 
     @deprecated(new_name="to_dataframe")
@@ -799,7 +1175,11 @@ class BasicQuerySet(models.QuerySet):
         include: str | list[str] | None = None,
         features: bool | list[str] | str | None = None,
     ) -> pd.DataFrame:
-        return self.to_dataframe(include, features)
+        return self.to_dataframe(include=include, features=features)
+
+    def describe(self, return_str: bool = False) -> str | None:
+        """Describe the query set to learn about available fields."""
+        return self.model.describe(return_str=return_str)
 
     def delete(self, *args, permanent: bool | None = None, **kwargs):
         """Delete all records in the query set.
@@ -807,6 +1187,7 @@ class BasicQuerySet(models.QuerySet):
         Args:
             permanent: Whether to permanently delete the record (skips trash).
                 Is only relevant for records that have the `branch` field.
+                If `None`, uses soft delete for records that have the `branch` field, hard delete otherwise.
 
         Note:
             Calling `delete()` twice on the same queryset does NOT permanently delete in bulk operations.
@@ -814,9 +1195,9 @@ class BasicQuerySet(models.QuerySet):
 
         Examples:
 
-            For any `QuerySet` object `qs`, call:
+            For a `QuerySet` object `qs`, call::
 
-            >>> qs.delete()
+                qs.delete()
         """
         from lamindb.models import Artifact, Collection, Run, Storage, Transform
 
@@ -826,8 +1207,9 @@ class BasicQuerySet(models.QuerySet):
                 record.delete(*args, permanent=permanent, **kwargs)
         elif self.model is Storage:  # storage does not have soft delete
             if permanent is False:
-                logger.warning(
-                    "the Storage registry doesn't support soft delete, hard deleting"
+                raise ValueError(
+                    "Soft delete is not possible for Storage, "
+                    "use 'permanent=True' or 'permanent=None' for permanent deletion."
                 )
             for record in self:
                 record.delete()
@@ -837,8 +1219,9 @@ class BasicQuerySet(models.QuerySet):
                 self.update(branch_id=-1)
             else:
                 if permanent is False:
-                    logger.warning(
-                        f"model {self.model.__name__} doesn't support soft delete, hard deleting"
+                    raise ValueError(
+                        f"Soft delete is not possible for {self.model.__name__}, "
+                        "use 'permanent=True' for permanent deletion."
                     )
                 super().delete(*args, **kwargs)
 
@@ -847,9 +1230,10 @@ class BasicQuerySet(models.QuerySet):
 
         Note that the order in this list is only meaningful if you ordered the underlying query set with `.order_by()`.
 
-        Examples:
-            >>> queryset.to_list()  # list of records
-            >>> queryset.to_list("name")  # list of values
+        Examples::
+
+            queryset.to_list()  # list of records
+            queryset.to_list("name")  # list of values
         """
         if field is None:
             return list(self)
@@ -857,15 +1241,12 @@ class BasicQuerySet(models.QuerySet):
             # list casting is necessary because values_list does not return a list
             return list(self.values_list(field, flat=True))
 
-    @deprecated(new_name="to_list")
-    def list(self, field: str | None = None) -> list[SQLRecord] | list[str]:
-        return self.to_list(field)
-
     def first(self) -> SQLRecord | None:
         """If non-empty, the first result in the query set, otherwise ``None``.
 
-        Examples:
-            >>> queryset.first()
+        Examples::
+
+            queryset.first()
         """
         if len(self) == 0:
             return None
@@ -878,18 +1259,12 @@ class BasicQuerySet(models.QuerySet):
     def one_or_none(self) -> SQLRecord | None:
         """At most one result. Returns it if there is one, otherwise returns ``None``.
 
-        Examples:
-            >>> ULabel.filter(name="benchmark").one_or_none()
-            >>> ULabel.filter(name="non existing label").one_or_none()
+        Examples::
+
+            ULabel.filter(name="benchmark").one_or_none()
+            ULabel.filter(name="non existing label").one_or_none()
         """
         return one_helper(self, raise_doesnotexist=False)
-
-    def latest_version(self) -> QuerySet:
-        """Filter every version family by latest version."""
-        if issubclass(self.model, IsVersioned):
-            return self.filter(is_latest=True)
-        else:
-            raise ValueError("SQLRecord isn't subclass of `lamindb.core.IsVersioned`")
 
     @doc_args(_search.__doc__)
     def search(self, string: str, **kwargs):
@@ -947,8 +1322,6 @@ class QuerySet(BasicQuerySet):
         if "Cannot resolve keyword" in str(error):
             field = str(error).split("'")[1]
             avail_fields = self.model.__get_available_fields__()
-            if "_branch_code" in avail_fields:
-                avail_fields.remove("_branch_code")  # backward compat
             fields = ", ".join(sorted(avail_fields))
             raise FieldError(
                 f"Unknown field '{field}'. Available fields: {fields}"
@@ -986,11 +1359,11 @@ class QuerySet(BasicQuerySet):
             raise  # pragma: no cover
 
         if is_run_input is not False:  # might be None or True or Run
-            from .artifact import Artifact, _track_run_input
+            from .artifact import Artifact, track_run_input
             from .collection import Collection
 
             if isinstance(record, (Artifact, Collection)):
-                _track_run_input(record, is_run_input)
+                track_run_input(record, is_run_input)
 
         return record
 
@@ -999,7 +1372,6 @@ class QuerySet(BasicQuerySet):
         from lamindb.models import Artifact, Record, Run
 
         registry = self.model
-
         if not expressions.pop("_skip_filter_with_features", False) and registry in {
             Artifact,
             Run,
@@ -1007,27 +1379,287 @@ class QuerySet(BasicQuerySet):
         }:
             from ._feature_manager import filter_with_features
 
-            return filter_with_features(self, *queries, **expressions)
+            qs = filter_with_features(self, *queries, **expressions)
+        else:
+            # Suggest to use __name for related fields such as id when not passed
+            for field, value in expressions.items():
+                if (
+                    isinstance(value, str)
+                    and value.strip("-").isalpha()
+                    and "__" not in field
+                    and hasattr(registry, field)
+                ):
+                    field_attr = getattr(registry, field)
+                    if hasattr(field_attr, "field") and field_attr.field.related_model:
+                        raise FieldError(
+                            f"Invalid lookup '{value}' for {field}. Did you mean {field}__name?"
+                        )
+            expressions = process_expressions(self, queries, expressions)
+            # need to run a query if queries or expressions are not empty
+            if queries or expressions:
+                try:
+                    return super().filter(*queries, **expressions)
+                except FieldError as e:
+                    self._handle_unknown_field(e)
+            qs = self
+        return qs
 
-        # Suggest to use __name for related fields such as id when not passed
-        for field, value in expressions.items():
-            if (
-                isinstance(value, str)
-                and value.strip("-").isalpha()
-                and "__" not in field
-                and hasattr(registry, field)
-            ):
-                field_attr = getattr(registry, field)
-                if hasattr(field_attr, "field") and field_attr.field.related_model:
-                    raise FieldError(
-                        f"Invalid lookup '{value}' for {field}. Did you mean {field}__name?"
-                    )
 
-        expressions = process_expressions(self, expressions)
-        # need to run a query if queries or expressions are not empty
-        if queries or expressions:
-            try:
-                return super().filter(*queries, **expressions)
-            except FieldError as e:
-                self._handle_unknown_field(e)
-        return self
+@final
+class NonInstantiableQuerySet:
+    """Wrapper around QuerySet that prevents instantiation while preserving query methods."""
+
+    def __init__(self, qs: QuerySet, registry_name: str):
+        self._qs = qs
+        self._name = registry_name
+
+    def __repr__(self) -> str:
+        return f"<QuerySet [{self._name}]>"
+
+    def __call__(self, *args, **kwargs):
+        raise TypeError(
+            f"Cannot instantiate {self._name} from DB. "
+            f"Use {self._name}.filter(), {self._name}.get(), etc. to query records."
+        )
+
+    def __getattr__(self, attr):
+        return getattr(self._qs, attr)
+
+
+class ModuleNamespace:
+    """Namespace for accessing registries from a specific schema module.
+
+    Args:
+        query_db: Parent DB instance.
+        module_name: Name of the schema module (e.g., 'bionty', 'pertdb').
+    """
+
+    def __init__(self, query_db: DB, module_name: str):
+        self._query_db = query_db
+        self._module_name = module_name
+        self._cache: dict[str, NonInstantiableQuerySet] = {}
+
+    def __getattr__(self, name: str) -> NonInstantiableQuerySet:
+        """Access a registry class from this schema module.
+
+        Args:
+            name: Registry class name (e.g., 'Gene', 'CellType').
+
+        Returns:
+            QuerySet for the specified registry scoped to the parent instance.
+        """
+        if name in self._cache:
+            return self._cache[name]
+
+        try:
+            schema_module = import_module(self._module_name)
+            if hasattr(schema_module, name):
+                model_class = getattr(schema_module, name)
+                queryset = model_class.connect(self._query_db._instance)
+                wrapped = NonInstantiableQuerySet(queryset, name)
+                self._cache[name] = wrapped
+                return wrapped
+        except (ImportError, AttributeError):
+            pass
+
+        raise AttributeError(
+            f"Registry '{name}' not found in lamindb. Use .bt.{name} or .pertdb.{name} for schema-specific registries."
+        )
+
+    def __dir__(self) -> list[str]:
+        """Return list of available registries in this schema module."""
+        base_attrs = [attr for attr in object.__dir__(self) if not attr.startswith("_")]
+        try:
+            schema_module = import_module(self._module_name)
+            if hasattr(schema_module, "__all__"):
+                registries = set()
+                for class_name in schema_module.__all__:
+                    model_class = getattr(schema_module, class_name, None)
+                    if model_class and hasattr(model_class, "connect"):
+                        registries.add(class_name)
+                return sorted(set(base_attrs) | registries)
+        except ImportError:
+            pass
+        return base_attrs
+
+
+class BiontyDB(ModuleNamespace):
+    """Namespace for Bionty registries (Gene, CellType, Disease, etc.)."""
+
+    Gene: QuerySet[Gene]  # type: ignore[type-arg]
+    Protein: QuerySet[Protein]  # type: ignore[type-arg]
+    CellType: QuerySet[CellType]  # type: ignore[type-arg]
+    Disease: QuerySet[Disease]  # type: ignore[type-arg]
+    Phenotype: QuerySet[Phenotype]  # type: ignore[type-arg]
+    Pathway: QuerySet[Pathway]  # type: ignore[type-arg]
+    Tissue: QuerySet[Tissue]  # type: ignore[type-arg]
+    CellLine: QuerySet[CellLine]  # type: ignore[type-arg]
+    CellMarker: QuerySet[CellMarker]  # type: ignore[type-arg]
+    Organism: QuerySet[Organism]  # type: ignore[type-arg]
+    ExperimentalFactor: QuerySet[ExperimentalFactor]  # type: ignore[type-arg]
+    DevelopmentalStage: QuerySet[DevelopmentalStage]  # type: ignore[type-arg]
+    Ethnicity: QuerySet[Ethnicity]  # type: ignore[type-arg]
+
+
+class PertdbDB(ModuleNamespace):
+    """Namespace for pertdb registries (Experiment, Biosample, etc.)."""
+
+    Experiment: QuerySet[Experiment]  # type: ignore[type-arg]
+    Biosample: QuerySet[Biosample]  # type: ignore[type-arg]
+    Techsample: QuerySet[Techsample]  # type: ignore[type-arg]
+    Donor: QuerySet[Donor]  # type: ignore[type-arg]
+    GeneticPerturbation: QuerySet[GeneticPerturbation]  # type: ignore[type-arg]
+    Biologic: QuerySet[Biologic]  # type: ignore[type-arg]
+    Compound: QuerySet[Compound]  # type: ignore[type-arg]
+    CompoundPerturbation: QuerySet[CompoundPerturbation]  # type: ignore[type-arg]
+    EnvironmentalPerturbation: QuerySet[EnvironmentalPerturbation]  # type: ignore[type-arg]
+    CombinationPerturbation: QuerySet[CombinationPerturbation]  # type: ignore[type-arg]
+    Well: QuerySet[Well]  # type: ignore[type-arg]
+    PerturbationTarget: QuerySet[PerturbationTarget]  # type: ignore[type-arg]
+
+
+class DB:
+    """Query any registry of any instance.
+
+    Args:
+        instance: Instance identifier in format "account/instance".
+
+    Examples:
+
+        Query objects from an instance::
+
+            db = ln.DB("laminlabs/cellxgene")
+
+        Query artifacts and filter by `suffix`::
+
+            db.Artifact.filter(suffix=".h5ad").to_dataframe()
+
+        Get a single artifact by uid::
+
+            artifact = db.Artifact.get("abcDEF123456")
+
+        Query records and filter by name::
+
+            db.Record.filter(name__startswith="sample").to_dataframe()
+
+        Get a cell type object::
+
+            t_cell = db.bionty.CellType.get(name="T cell")
+
+        Create a lookup object to auto-complete all cell types in the database::
+
+            cell_types = db.bionty.CellType.lookup()
+
+        Return a `DataFrame` with additional info::
+
+            db.Artifact.filter(
+                suffix=".h5ad",
+                description__contains="immune",
+                size__gt=1e9,  # size > 1GB
+                cell_types__name__in=["B cell", "T cell"],
+            ).order_by("created_at").to_dataframe(
+                include=["cell_types__name", "created_by__handle"]  # include additional info
+            ).head()
+    """
+
+    Artifact: QuerySet[Artifact]  # type: ignore[type-arg]
+    Collection: QuerySet[Collection]  # type: ignore[type-arg]
+    Transform: QuerySet[Transform]  # type: ignore[type-arg]
+    Run: QuerySet[Run]  # type: ignore[type-arg]
+    User: QuerySet[User]  # type: ignore[type-arg]
+    Storage: QuerySet[Storage]  # type: ignore[type-arg]
+    Feature: QuerySet[Feature]  # type: ignore[type-arg]
+    ULabel: QuerySet[ULabel]  # type: ignore[type-arg]
+    Record: QuerySet[Record]  # type: ignore[type-arg]
+    Schema: QuerySet[Schema]  # type: ignore[type-arg]
+    Project: QuerySet[Project]  # type: ignore[type-arg]
+    Reference: QuerySet[Reference]  # type: ignore[type-arg]
+    Branch: QuerySet[Branch]  # type: ignore[type-arg]
+    Space: QuerySet[Space]  # type: ignore[type-arg]
+
+    bionty: BiontyDB
+    pertdb: PertdbDB
+
+    def __init__(self, instance: str):
+        self._instance = instance
+        self._cache: dict[str, NonInstantiableQuerySet | BiontyDB | PertdbDB] = {}
+        self._available_registries: set[str] | None = None
+
+        owner, instance_name = instance.split("/")
+        instance_info = ln_setup._connect_instance._connect_instance(
+            owner=owner, name=instance_name
+        )
+        self._modules = ["lamindb"] + list(instance_info.modules)
+
+    def __getattr__(self, name: str) -> NonInstantiableQuerySet | BiontyDB | PertdbDB:
+        """Access a registry class or schema namespace for this database instance.
+
+        Args:
+            name: Registry class name (e.g., 'Artifact', 'Collection') or schema namespace ('bionty', 'pertdb').
+
+        Returns:
+            QuerySet for the specified registry or schema namespace scoped to this instance.
+        """
+        if name in self._cache:
+            return self._cache[name]
+
+        if name == "bionty":
+            if "bionty" not in self._modules:
+                raise AttributeError(
+                    f"Schema 'bionty' not available in instance '{self._instance}'."
+                )
+            if "bionty" not in self._cache:
+                namespace = BiontyDB(self, "bionty")
+                self._cache["bionty"] = namespace
+            return self._cache["bionty"]
+
+        if name == "pertdb":
+            if "pertdb" not in self._modules:
+                raise AttributeError(
+                    f"Schema 'pertdb' not available in instance '{self._instance}'."
+                )
+            if "pertdb" not in self._cache:
+                namespace = PertdbDB(self, "pertdb")  # type: ignore
+                self._cache["pertdb"] = namespace
+            return self._cache["pertdb"]
+
+        try:
+            lamindb_module = import_module("lamindb")
+            if hasattr(lamindb_module, name):
+                model_class = getattr(lamindb_module, name)
+                queryset = model_class.connect(self._instance)
+                wrapped = NonInstantiableQuerySet(queryset, name)
+                self._cache[name] = wrapped
+                return wrapped
+        except (ImportError, AttributeError):
+            pass
+
+        raise AttributeError(
+            f"Registry '{name}' not found in lamindb core registries. Use .bionty.{name} or .pertdb.{name} for schema-specific registries."
+        )
+
+    def __repr__(self) -> str:
+        return f"DB('{self._instance}')"
+
+    def __dir__(self) -> list[str]:
+        """Return list of available registries and schema namespaces."""
+        base_attrs = [attr for attr in super().__dir__() if not attr.startswith("_")]
+
+        lamindb_registries = set()
+        try:
+            lamindb_module = import_module("lamindb")
+            if hasattr(lamindb_module, "__all__"):
+                for class_name in lamindb_module.__all__:
+                    model_class = getattr(lamindb_module, class_name, None)
+                    if model_class and hasattr(model_class, "connect"):
+                        lamindb_registries.add(class_name)
+        except ImportError:
+            pass
+
+        module_namespaces = set()
+        if "bionty" in self._modules:
+            module_namespaces.add("bionty")
+        if "pertdb" in self._modules:
+            module_namespaces.add("pertdb")
+
+        return sorted(set(base_attrs) | lamindb_registries | module_namespaces)

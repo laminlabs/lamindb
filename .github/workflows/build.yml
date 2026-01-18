@@ -24,19 +24,31 @@ jobs:
               - 'lamindb/curators/**'
               - 'lamindb/examples/cellxgene/**'
               - 'tests/curators/**'
+            integrations:
+              - 'lamindb/integrations/**'
+              - 'tests/integrations/**'
 
       - id: set-matrix
         shell: bash
         run: |
-          BASE_GROUPS=$(jq -n -c '["unit-core", "unit-storage", "tutorial", "guide", "biology", "faq", "storage", "cli", "permissions"]')
+          BASE_GROUPS=$(jq -n -c '["unit-core-sqlite", "unit-core-postgres", "unit-storage", "tutorial", "guide", "biology", "faq", "storage", "cli", "permissions"]')
+          ADDITIONAL_GROUPS=[]
 
-          if [[ "${{ github.event_name }}" == "push" || "${{ steps.changes.outputs.curator }}" == "true" ]]; then
-            # Run everything on push or when curator paths change
-            MATRIX=$(jq -n -c --argjson groups "$BASE_GROUPS" '{group: ($groups + ["curator"])}')
+          if [[ "${{ github.event_name }}" == "push" || "${{ github.event_name }}" == "repository_dispatch" ]]; then
+            # Run everything on push and dispatch
+            ADDITIONAL_GROUPS=$(jq -n -c '["curator", "integrations"]')
           else
-            # Otherwise only run base groups
-            MATRIX=$(jq -n -c --argjson groups "$BASE_GROUPS" '{group: $groups}')
+            # Otherwise check which paths changed
+            if [[ "${{ steps.changes.outputs.curator }}" == "true" ]]; then
+              ADDITIONAL_GROUPS=$(jq -n -c --argjson groups "$ADDITIONAL_GROUPS" '$groups + ["curator"]')
+            fi
+            if [[ "${{ steps.changes.outputs.integrations }}" == "true" ]]; then
+              ADDITIONAL_GROUPS=$(jq -n -c --argjson groups "$ADDITIONAL_GROUPS" '$groups + ["integrations"]')
+            fi
           fi
+
+          # Combine base groups with any additional groups
+          MATRIX=$(jq -n -c --argjson base "$BASE_GROUPS" --argjson additional "$ADDITIONAL_GROUPS" '{group: ($base + $additional)}')
 
           # Output as single line for GitHub Actions
           echo "matrix=$(echo "$MATRIX" | jq -c .)" >> $GITHUB_OUTPUT
@@ -66,7 +78,7 @@ jobs:
           path: laminhub
           ref: main
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: |
             ${{ github.ref == 'refs/heads/release' && '3.11' ||
@@ -80,22 +92,22 @@ jobs:
           key: pre-commit-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
 
       - name: cache postgres
-        if: ${{ matrix.group == 'faq' || matrix.group == 'unit-core' || matrix.group == 'unit-storage' || matrix.group == 'permissions'}}
+        if: ${{ matrix.group == 'faq' || matrix.group == 'unit-core-postgres' || matrix.group == 'unit-storage' || matrix.group == 'permissions'}}
         id: cache-postgres
         uses: actions/cache@v4
         with:
           path: ~/postgres.tar
           key: cache-postgres-0
-
+          restore-keys: |
+            cache-postgres-
       - name: cache postgres miss
-        if: ${{ steps.cache-postgres.outputs.cache-hit != 'true' }}
+        if: ${{ (matrix.group == 'faq' || matrix.group == 'unit-core-postgres' || matrix.group == 'unit-storage' || matrix.group == 'permissions') && steps.cache-postgres.outputs.cache-hit != 'true' }}
         run: docker pull postgres:latest && docker image save postgres:latest --output ~/postgres.tar
-
       - name: cache postgres use
-        if: ${{ steps.cache-postgres.outputs.cache-hit == 'true' }}
+        if: ${{ (matrix.group == 'faq' || matrix.group == 'unit-core-postgres' || matrix.group == 'unit-storage' || matrix.group == 'permissions') && steps.cache-postgres.outputs.cache-hit == 'true' }}
         run: docker image load --input ~/postgres.tar
 
-      - run: pip install "laminci@git+https://x-access-token:${{ secrets.LAMIN_BUILD_DOCS }}@github.com/laminlabs/laminci"
+      - run: pip install "laminci@git+https://github.com/laminlabs/laminci"
 
       - run: nox -s configure_coverage -- '${{needs.pre-filter.outputs.matrix}}'
 
@@ -117,7 +129,8 @@ jobs:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
-
+      - run: nox -s cp_scripts
+        if: ${{ matrix.group == 'tutorial' }}
       - run: nox -s "test(group='${{ matrix.group }}')"
 
       - name: upload coverage
@@ -157,13 +170,14 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
       - run: pip install "laminci@git+https://x-access-token:${{ secrets.LAMIN_BUILD_DOCS }}@github.com/laminlabs/laminci"
       - run: nox -s "install_ci(group='docs')"
       - uses: actions/download-artifact@v4
       - run: nox -s clidocs
+      - run: nox -s cp_scripts
       - run: nox -s docs
       - run: rm -r ./_build/html/.doctrees # do not want to deploy with cloudflare
       - uses: cloudflare/wrangler-action@v3
@@ -195,7 +209,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.13"
       - run: |

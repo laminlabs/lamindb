@@ -1,7 +1,6 @@
 import re
 
 import anndata as ad
-import bionty as bt
 import lamindb as ln
 import numpy as np
 import pandas as pd
@@ -36,7 +35,6 @@ def adata2():
 
 
 def test_from_single_artifact(adata):
-    bt.settings.organism = "human"
     features = ln.Feature.from_dataframe(adata.obs)
     validated = ln.Feature.validate(
         [feature.name for feature in features], field="name"
@@ -66,11 +64,11 @@ def test_from_single_artifact(adata):
     assert ln.Artifact.filter(id=artifact.id).one_or_none() is None
 
 
-def test_edge_cases(df):
+def test_edge_cases(df, ccaplog):
     with pytest.raises(
         FieldValidationError,
         match=re.escape(
-            "Only artifacts, key, description, meta, reference, reference_type, run, revises can be passed"
+            "Only artifacts, key, description, meta, reference, reference_type, run, revises, skip_hash_lookup can be passed"
         ),
     ) as error:
         ln.Collection(df, invalid_param=1)
@@ -89,12 +87,8 @@ def test_edge_cases(df):
         "ValueError: Not all artifacts are yet saved, please save them"
     )
     artifact.save()
-    with pytest.raises(ValueError) as error:
-        ln.Collection([artifact, artifact])
-    assert str(error.exconly()).startswith(
-        "ValueError: Please pass artifacts with distinct hashes: these ones are"
-        " non-unique"
-    )
+    ln.Collection([artifact, artifact], key="test-collection")
+    assert "your collection contains artifacts with non-unique hashes:" in ccaplog.text
     artifact.delete(permanent=True)
 
 
@@ -133,7 +127,8 @@ def test_from_consistent_artifacts(adata, adata2):
     artifact2 = ln.Artifact.from_anndata(adata2, key="my_test.h5ad").save()
     transform = ln.Transform(key="My test transform").save()
     run = ln.Run(transform).save()
-    collection = ln.Collection([artifact1, artifact2], key="My test", run=run)
+    initial_key = "My test"
+    collection = ln.Collection([artifact1, artifact2], key=initial_key, run=run)
     assert collection._state.adding
     collection.save()
     assert set(collection.run.input_artifacts.all()) == {artifact1, artifact2}
@@ -147,9 +142,26 @@ def test_from_consistent_artifacts(adata, adata2):
 
     # re-run with hash-based lookup
     collection2 = ln.Collection([artifact1, artifact2], key="My test 1", run=run)
-    assert not collection2._state.adding
-    assert collection2.id == collection.id
-    assert collection2.key == "My test 1"
+    assert collection2 == collection
+    assert collection2.key == "My test 1"  # key is updated
+
+    # skip hash lookup
+    collection2 = ln.Collection(
+        [artifact1, artifact2], key="My test 1", run=run, skip_hash_lookup=True
+    )
+    assert collection2 != collection
+
+    # let hash uniqueness constraint fail and database return the existing record
+    collection2 = ln.Collection(
+        [artifact1, artifact2], key=initial_key, run=run, skip_hash_lookup=True
+    ).save()
+    assert collection2 == collection
+
+    # move to trash and then re-run
+    collection.delete()
+    collection2 = ln.Collection([artifact1, artifact2], key="My test 2", run=run)
+    assert collection2 != collection
+    assert collection2.key == "My test 2"
 
     collection.delete(permanent=True)
     artifact1.delete(permanent=True)
@@ -388,6 +400,7 @@ def test_revise_collection(df, adata):
     # create a versioned collection
     artifact = ln.Artifact.from_dataframe(df, description="test").save()
     collection = ln.Collection(artifact, key="test-collection", version="1")
+    assert collection.version_tag == "1"
     assert collection.version == "1"
     assert collection.uid.endswith("0000")
     collection.save()
@@ -396,7 +409,10 @@ def test_revise_collection(df, adata):
 
     with pytest.raises(ValueError) as error:
         collection_r2 = ln.Collection(artifact, revises=collection, version="1")
-    assert error.exconly() == "ValueError: Please increment the previous version: '1'"
+    assert (
+        error.exconly()
+        == "ValueError: Please change the version tag or leave it `None`, '1' is already taken"
+    )
 
     with pytest.raises(TypeError):
         ln.Collection(adata, revises="wrong-type")
@@ -409,7 +425,10 @@ def test_revise_collection(df, adata):
     collection_r2 = ln.Collection(artifact, key="test-collection")
     assert collection_r2.stem_uid == collection.stem_uid
     assert collection_r2.uid.endswith("0001")
-    assert collection_r2.version is None
+    assert collection_r2.version_tag is None
+    assert (
+        collection_r2.version == collection_r2.uid[-4:]
+    )  # version falls back to uid suffix
     assert collection_r2.key == "test-collection"
 
     collection_r2.save()
@@ -419,9 +438,13 @@ def test_revise_collection(df, adata):
     artifact = ln.Artifact.from_dataframe(df, description="test")
     artifact.save()
     collection_r3 = ln.Collection(
-        artifact, key="test-collection", description="test description3", version="2"
+        artifact,
+        key="test-collection",
+        description="test description3",
+        version="2",
     )
     assert collection_r3.stem_uid == collection.stem_uid
+    assert collection_r3.version_tag == "2"
     assert collection_r3.version == "2"
     assert collection_r3.uid.endswith("0002")
     assert collection_r3.key == "test-collection"
@@ -494,7 +517,7 @@ def test_describe_collection(adata, capsys):
     assert "collection" in captured.out.lower()
 
     # test describing from a remote postgres instance with less modules
-    collection = ln.Collection.using("laminlabs/cellxgene").first()
+    collection = ln.Collection.connect("laminlabs/lamin-dev").first()
     collection.describe()
     captured = capsys.readouterr()
     assert len(captured.out) > 50

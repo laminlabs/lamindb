@@ -1,17 +1,14 @@
 """Loaders in :class:`lamindb.Artifact.load`.
 
-.. autosummary::
-   :toctree: .
-
-   SUPPORTED_SUFFIXES
-   load_fcs
-   load_tsv
-   load_h5ad
-   load_h5mu
-   load_html
-   load_json
-   load_image
-   load_svg
+.. autodata:: SUPPORTED_SUFFIXES
+.. autofunction:: load_fcs
+.. autofunction:: load_tsv
+.. autofunction:: load_h5ad
+.. autofunction:: load_h5mu
+.. autofunction:: load_html
+.. autofunction:: load_json
+.. autofunction:: load_image
+.. autofunction:: load_svg
 
 """
 
@@ -25,12 +22,12 @@ from typing import TYPE_CHECKING, Any
 import pandas as pd
 from anndata import read_h5ad
 from lamin_utils import logger
+from lamindb_setup import settings as setup_settings
 from lamindb_setup.core.upath import (
     create_path,
+    extract_suffix_from_path,
     infer_filesystem,
 )
-
-from ..core._settings import settings
 
 if TYPE_CHECKING:
     from anndata import AnnData
@@ -144,6 +141,11 @@ def load_svg(path: UPathStr) -> None | UPathStr:
         return path
 
 
+def load_txt(path: Path) -> str:
+    """Load `.txt` file to `str`."""
+    return path.read_text(encoding="utf-8")
+
+
 def load_rds(path: UPathStr) -> UPathStr:
     """Just warn when trying to load `.rds`."""
     logger.warning("Please use `laminr` to load `.rds` files")
@@ -153,16 +155,20 @@ def load_rds(path: UPathStr) -> UPathStr:
 FILE_LOADERS = {
     ".csv": pd.read_csv,
     ".csv.gz": pd.read_csv,
+    ".csv.tar.gz": pd.read_csv,
     ".tsv": load_tsv,
     ".tsv.gz": load_tsv,
+    ".tsv.tar.gz": load_tsv,
     ".h5ad": load_h5ad,
     ".h5ad.gz": load_h5ad,
+    ".h5ad.tar.gz": load_h5ad,
     ".parquet": pd.read_parquet,
-    ".parquet.gz": pd.read_parquet,  # this doesn't work for externally gzipped files, REMOVE LATER
     ".fcs": load_fcs,
     ".zarr": load_zarr,
+    ".anndata.zarr": load_zarr,
     ".html": load_html,
     ".json": load_json,
+    ".vitessce.json": load_json,
     ".yaml": load_yaml,
     ".h5mu": load_h5mu,
     ".gif": load_image,
@@ -170,6 +176,8 @@ FILE_LOADERS = {
     ".png": load_image,
     ".svg": load_svg,
     ".rds": load_rds,
+    ".txt": load_txt,
+    ".fasta": load_txt,
 }
 
 SUPPORTED_SUFFIXES = [sfx for sfx in FILE_LOADERS.keys() if sfx != ".rds"]
@@ -187,21 +195,13 @@ def load_to_memory(
     May return None in interactive sessions for images.
     """
     filepath = create_path(filepath)
-
-    # infer the correct suffix when .gz is present
-    suffixes = filepath.suffixes
-    suffix = (
-        "".join(suffixes[-2:])
-        if len(suffixes) > 1 and ".gz" in suffixes
-        else filepath.suffix
-    )
-
+    suffix = extract_suffix_from_path(filepath)
     loader = FILE_LOADERS.get(suffix, None)
     if loader is None:
         raise NotImplementedError(
             f"There is no loader for {suffix} files. Use .cache() to get the path."
         )
 
-    filepath = settings._storage_settings.cloud_to_local(filepath, print_progress=True)
+    filepath = setup_settings.paths.cloud_to_local(filepath, print_progress=True)
 
     return loader(filepath, **kwargs)

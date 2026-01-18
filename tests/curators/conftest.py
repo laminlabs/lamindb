@@ -7,14 +7,14 @@ import pytest
 
 def pytest_sessionstart():
     t_execute_start = perf_counter()
-    ln_setup.init(storage="./testdb", modules="bionty,wetlab")
+    ln_setup.init(storage="./test-curators-db", modules="bionty")
     total_time_elapsed = perf_counter() - t_execute_start
     print(f"time to setup the instance: {total_time_elapsed:.1f}s")
 
 
 def pytest_sessionfinish(session: pytest.Session):
-    shutil.rmtree("./testdb")
-    ln_setup.delete("testdb", force=True)
+    shutil.rmtree("./test-curators-db")
+    ln_setup.delete("test-curators-db", force=True)
 
 
 @pytest.fixture
@@ -22,10 +22,8 @@ def ccaplog(caplog):
     """Add caplog handler to our custom logger at session start."""
     from lamin_utils._logger import logger
 
-    # Add caplog's handler to our custom logger
     logger.addHandler(caplog.handler)
 
     yield caplog
 
-    # Clean up at the end of the session
     logger.removeHandler(caplog.handler)

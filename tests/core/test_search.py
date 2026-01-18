@@ -5,7 +5,7 @@ import pytest
 
 @pytest.fixture(scope="module")
 def prepare_cell_type_registry():
-    bt.CellType.filter().all().delete(permanent=True)
+    bt.CellType.filter().delete(permanent=True)
     records = [
         {
             "ontology_id": "CL:0000084",
@@ -40,7 +40,7 @@ def prepare_cell_type_registry():
         public_records.append(record)
     ln.save(public_records)
     yield "prepared"
-    bt.CellType.filter().all().delete(permanent=True)
+    bt.CellType.filter().delete(permanent=True)
 
 
 def test_search_synonyms(prepare_cell_type_registry):

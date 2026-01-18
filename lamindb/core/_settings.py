@@ -8,9 +8,11 @@ import lamindb_setup as ln_setup
 from lamin_utils import colors, logger
 from lamindb_setup import settings as setup_settings
 from lamindb_setup._set_managed_storage import set_managed_storage
-from lamindb_setup.core import deprecated
 from lamindb_setup.core._settings_instance import sanitize_git_repo_url
-from lamindb_setup.core._settings_storage import StorageSettings
+from lamindb_setup.core._settings_storage import (
+    StorageSettings,
+    convert_root_path_to_str,
+)
 
 from .subsettings._annotation_settings import AnnotationSettings, annotation_settings
 from .subsettings._creation_settings import CreationSettings, creation_settings
@@ -50,8 +52,7 @@ class Settings:
     """
 
     def __init__(self):
-        self._verbosity_int: int = 1  # warning-level logging
-        logger.set_verbosity(self._verbosity_int)
+        self._verbosity_int: int = logger._verbosity
         self._sync_git_repo: str | None = None
 
     def __repr__(self) -> str:  # pragma: no cover
@@ -142,21 +143,31 @@ class Settings:
     def sync_git_repo(self) -> str | None:
         """Sync transforms with scripts in git repository.
 
-        Provide the full git repo URL.
+        If set, scripts will be synced with the specified git repository.
+
+        Example::
+
+            ln.settings.sync_git_repo = https://github.com/laminlabs/schmidt22
+
+        You can also pass the git repo URL via the environment variable `LAMINDB_SYNC_GIT_REPO`::
+
+            export LAMINDB_SYNC_GIT_REPO=https://github.com/laminlabs/schmidt22
+
+        You'll then see::
+
+            ln.settings.sync_git_repo
+            #> 'https://github.com/laminlabs/schmidt22'
+
         """
         if self._sync_git_repo is not None:
             return self._sync_git_repo
-        elif os.environ.get("LAMINDB_MULTI_INSTANCE") == "true":
-            return None
+        elif os.environ.get("LAMINDB_SYNC_GIT_REPO") is not None:
+            return sanitize_git_repo_url(os.environ["LAMINDB_SYNC_GIT_REPO"])
         else:
             return setup_settings.instance.git_repo
 
     @sync_git_repo.setter
     def sync_git_repo(self, value) -> None:
-        """Sync transforms with scripts in git repository.
-
-        For example: `ln.settings.sync_git_repo = https://github.com/laminlabs/redun-lamin`
-        """
         self._sync_git_repo = sanitize_git_repo_url(value)
         if not self._sync_git_repo.startswith("https://"):  # pragma: nocover
             raise ValueError("git repository URL must start with 'https://'.")
@@ -177,11 +188,11 @@ class Settings:
             ln.settings.storage.root
             #> UPath('s3://my-bucket')
 
-        You can write artifacts to other storage locations by switching the current default storage location::
+        Switch the current default storage location::
 
             ln.settings.storage = "s3://some-bucket"
 
-        You can also pass additional fsspec kwargs via::
+        Pass additional `fsspec` `kwargs` via::
 
             kwargs = dict(
                 profile="some_profile", # fsspec arg
@@ -193,29 +204,28 @@ class Settings:
 
     @storage.setter
     def storage(self, path_kwargs: str | Path | UPath | tuple[str | UPath, Mapping]):
-        import lamindb as ln
+        from ..models import Storage
 
         if isinstance(path_kwargs, tuple):
             path, kwargs = path_kwargs
-            # we should ultimately deprecate passing host here, I think
             if isinstance(kwargs, str):
                 kwargs = {"host": kwargs}
         else:
             path, kwargs = path_kwargs, {}
-        ssettings = StorageSettings(root=path)  # there is no need to pass kwargs here!
-        exists = ln.Storage.filter(root=ssettings.root_as_str).one_or_none()
+        root_as_str = convert_root_path_to_str(path)
+        exists = Storage.filter(root=root_as_str).one_or_none()
         if exists is None:
             response = input(
-                f"Storage location {ssettings.root_as_str} does not yet exist. Do you want to continue with creating it? (y/n) "
+                f"Storage location {root_as_str} does not yet exist in the current instance. Do you want to continue with creating it? (y/n) "
             )
-            # logger.warning(f"deprecated call because storage location does **not yet** exist; going forward, please create through ln.Storage(root={path}).save() going forward")
+            # logger.warning(f"deprecated call because storage location does **not yet** exist; please create through ln.Storage(root={path}).save()")
             if response != "y":
                 return None
             set_managed_storage(path, **kwargs)
         else:
             if exists.instance_uid != ln_setup.settings.instance.uid:
                 raise ValueError(
-                    f"Storage {ssettings.root_as_str} exists in another instance ({exists.instance_uid}), cannot write to it from here."
+                    f"Storage {root_as_str} exists in another instance ({exists.instance_uid}), cannot write to it from here."
                 )
             ssettings = StorageSettings(
                 root=exists.root,
@@ -267,16 +277,6 @@ class Settings:
                     f"Storage {ssettings.root_as_str} exists in another instance ({exists.instance_uid}), cannot write to it from here."
                 )
         ln_setup.settings.instance.local_storage = local_root
-
-    @property
-    @deprecated("local_storage")
-    def storage_local(self) -> StorageSettings:
-        return self.local_storage
-
-    @storage_local.setter
-    @deprecated("local_storage")
-    def storage_local(self, local_root_host: tuple[Path | str, str]):
-        self.local_storage = local_root_host  # type: ignore
 
     @property
     def verbosity(self) -> str:

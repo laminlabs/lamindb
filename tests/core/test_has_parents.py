@@ -1,22 +1,22 @@
+import bionty as bt
 import lamindb as ln
-from lamindb.models.has_parents import _add_emoji
 
 
 def test_view_parents():
-    label1 = ln.ULabel(name="label1")
-    label2 = ln.ULabel(name="label2")
+    label1 = ln.Record(name="label1")
+    label2 = ln.Record(name="label2")
     label1.save()
     label2.save()
     label1.parents.add(label2)
-    label1.view_parents(ln.ULabel.name, distance=1)
+    label1.view_parents(ln.Record.name, distance=1)
     label1.delete(permanent=True)
     label2.delete(permanent=True)
 
 
 def test_query_parents_children():
-    label1 = ln.ULabel(name="label1").save()
-    label2 = ln.ULabel(name="label2").save()
-    label3 = ln.ULabel(name="label3").save()
+    label1 = ln.Record(name="label1").save()
+    label2 = ln.Record(name="label2").save()
+    label3 = ln.Record(name="label3").save()
     label1.children.add(label2)
     label2.children.add(label3)
     parents = label3.query_parents()
@@ -28,15 +28,6 @@ def test_query_parents_children():
     label1.delete(permanent=True)
     label2.delete(permanent=True)
     label3.delete(permanent=True)
-
-
-def test_add_emoji():
-    transform = ln.Transform(key="test-12345", type="upload")
-    assert _add_emoji(transform, label="transform") == "🖥️ transform"
-    transform.save()
-    run = ln.Run(transform=transform)
-    assert _add_emoji(run, label="run") == "🖥️ run"
-    transform.delete(permanent=True)
 
 
 def test_view_lineage_circular():
@@ -51,3 +42,28 @@ def test_view_lineage_circular():
     artifact.view_lineage()
     artifact.delete(permanent=True)
     transform.delete(permanent=True)
+
+
+def test_view_parents_connected_instance():
+    ct = bt.CellType.connect("laminlabs/cellxgene").first()
+
+    if ct and hasattr(ct, "parents"):
+        ct.view_parents(distance=2, with_children=True)
+
+
+def test_query_relatives_connected_instance():
+    ct = bt.CellType.connect("laminlabs/cellxgene").filter(name="T cell").first()
+
+    if ct:
+        parents = ct.query_parents()
+        assert parents.db == "laminlabs/cellxgene"
+
+        children = ct.query_children()
+        assert children.db == "laminlabs/cellxgene"
+
+
+def test_view_lineage_connected_instance():
+    af = ln.Artifact.connect("laminlabs/cellxgene").first()
+
+    if af and af.run:
+        af.view_lineage()

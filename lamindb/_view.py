@@ -9,7 +9,7 @@ from lamin_utils import colors, logger
 from lamindb_setup import settings
 from lamindb_setup._init_instance import get_schema_module_name
 
-from lamindb.models import Feature, FeatureValue, ParamValue, SQLRecord
+from lamindb.models import Feature, JsonValue, SQLRecord
 
 from .models.feature import serialize_pandas_dtype
 
@@ -94,23 +94,21 @@ def display_df_with_descriptions(
 
 
 def view(
-    df: pd.DataFrame | None = None,
+    *,
     limit: int = 7,
     modules: str | None = None,
     registries: list[str] | None = None,
+    df: pd.DataFrame | None = None,
 ) -> None:
     """View metadata.
 
     Args:
-        df: A DataFrame to display.
         limit: Display the latest `n` records
         modules: schema module to view. Default's to
             `None` and displays all registry modules.
         registries: List of SQLRecord names. Defaults to
             `None` and lists all registries.
-
-    Examples:
-        >>> ln.view()
+        df: A DataFrame to display.
     """
     if df is not None:
         descriptions = {
@@ -146,7 +144,7 @@ def view(
             and registry is not SQLRecord
         }
         if module_name == "core":
-            all_registries.update({FeatureValue, ParamValue})
+            all_registries.update({JsonValue})
         if registries is not None:
             filtered_registries = {
                 registry

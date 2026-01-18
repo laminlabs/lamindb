@@ -1,53 +1,88 @@
 """A data framework for biology.
 
-Data lineage
-============
+Installation::
 
-Track inputs, outputs & environment of a notebook or script run.
+   pip install lamindb
+
+If you just want to *read* data from a LaminDB instance, use :class:`~lamindb.DB`::
+
+   import lamindb as ln
+
+   db = ln.DB("laminlabs/cellxgene")
+
+To *write* data, connect to a writable instance::
+
+   lamin login
+   lamin connect account/name
+
+You can create an instance at `lamin.ai <https://lamin.ai>`__ and invite collaborators.
+If you prefer to work with a local database (no login required), run::
+
+    lamin init --storage ./quickstart-data --modules bionty
+
+LaminDB will then auto-connect upon import and you can then create & save objects like this::
+
+   import lamindb as ln
+   # → connected lamindb: account/instance
+
+   ln.Artifact("./my_dataset.parquet", key="datasets/my_dataset.parquet").save()
+
+Lineage
+=======
+
+Track inputs, outputs, parameters, and environments of notebooks, scripts, and functions.
 
 .. autosummary::
    :toctree: .
 
    track
    finish
+   flow
+   step
 
-Decorate a function with `@tracked()` to track inputs, outputs & environment of function executions.
+Artifacts & storage locations
+=============================
 
-.. autosummary::
-   :toctree: .
-
-   tracked
-
-Registries
-==========
-
-Manage artifacts and transforms.
+Files, folders & arrays and their storage locations.
 
 .. autosummary::
    :toctree: .
 
    Artifact
    Storage
-   Transform
-   Run
 
-Validate and annotate artifacts.
+Transforms & runs
+=================
+
+Data transformations and their executions.
 
 .. autosummary::
    :toctree: .
 
-   Feature
-   ULabel
-   Schema
+   Transform
+   Run
 
-Manage flexible records to track, e.g., samples or donors.
+Records, labels, features & schemas
+===================================
+
+Create labels and manage flexible records, e.g., for samples or donors.
 
 .. autosummary::
    :toctree: .
 
    Record
+   ULabel
 
-Manage projects.
+Define features & schemas to validate artifacts & records.
+
+.. autosummary::
+   :toctree: .
+
+   Feature
+   Schema
+
+Project management
+==================
 
 .. autosummary::
    :toctree: .
@@ -58,16 +93,16 @@ Manage projects.
    Space
    Branch
    Reference
-   Person
 
-Other
-=====
+Basic utilities
+===============
 
-Functions and classes.
+Connecting, viewing database content, accessing settings & run context.
 
 .. autosummary::
    :toctree: .
 
+   DB
    connect
    view
    save
@@ -75,7 +110,8 @@ Functions and classes.
    settings
    context
 
-Curators and integrations.
+Curators and integrations
+=========================
 
 .. autosummary::
    :toctree: .
@@ -83,7 +119,8 @@ Curators and integrations.
    curators
    integrations
 
-Examples, errors, and setup.
+Examples, errors & setup
+========================
 
 .. autosummary::
    :toctree: .
@@ -92,7 +129,8 @@ Examples, errors, and setup.
    errors
    setup
 
-Low-level functionality.
+Developer API
+=============
 
 .. autosummary::
    :toctree: .
@@ -101,20 +139,11 @@ Low-level functionality.
    core
    models
 
-Backwards compatibility.
-
-.. autosummary::
-   :toctree: .
-
-   Param
-   FeatureSet
-   Curator
-
 """
 
 # ruff: noqa: I001
 # denote a release candidate for 0.1.0 with 0.1rc1, 0.1a1, 0.1b1, etc.
-__version__ = "1.11a1"
+__version__ = "2.0.1"
 
 import warnings as _warnings
 
@@ -131,17 +160,14 @@ from . import base, errors, setup
 
 _check_instance_setup(from_module="lamindb")
 
-from ._tracked import tracked
+from .core._functions import flow, step, tracked
 from ._view import view
 from .core._context import context
 from .core._settings import settings
-from .curators._legacy import CatManager as Curator
 from .models import (
     Artifact,
     Collection,
     Feature,
-    FeatureSet,  # backward compat
-    Person,
     Project,
     Reference,
     Run,
@@ -153,6 +179,7 @@ from .models import (
     Space,
     Branch,
     Record,
+    DB,
 )
 from .models.save import save
 from . import core
@@ -164,6 +191,7 @@ track = context._track
 finish = context._finish
 settings.__doc__ = """Global live settings (:class:`~lamindb.core.Settings`)."""
 context.__doc__ = """Global run context (:class:`~lamindb.core.Context`)."""
+
 from django.db.models import Q
 
 Param = Feature  # backward compat
@@ -172,7 +200,8 @@ __all__ = [
     # data lineage
     "track",
     "finish",
-    "tracked",
+    "step",
+    "flow",
     # registries
     "Artifact",
     "Storage",
@@ -188,7 +217,6 @@ __all__ = [
     "Space",
     "Branch",
     "Reference",
-    "Person",
     # other
     "connect",
     "view",
@@ -196,6 +224,7 @@ __all__ = [
     "UPath",
     "settings",
     "context",
+    "DB",
     # curators and integrations
     "curators",
     "integrations",

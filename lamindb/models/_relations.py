@@ -83,8 +83,17 @@ def dict_related_model_to_related_name(
             record.name is not None
             and include(record.related_model)
             and record.related_model.__get_module_name__() in schema_modules
+            and not (
+                (
+                    record.related_name
+                    if not isinstance(record, ManyToManyField)
+                    else record.name
+                ).startswith("linked_in_")
+            )
         )
     }
+    if "RecordRecord" in d:
+        d["RecordRecord"] = "values_record"
     return d
 
 
@@ -101,7 +110,7 @@ def get_related_name(features_type: type[SQLRecord]) -> str:
             f"Can't create feature sets from {features_type.__name__} because it's not"
             " related to it!\nYou need to create a link model between Schema and"
             " your SQLRecord in your custom module.\nTo do so, add a"
-            " line:\n_feature_sets = models.ManyToMany(Schema,"
+            " line:\n_schemas = models.ManyToMany(Schema,"
             " related_name='mythings')\n"
         )
     return candidates[0]

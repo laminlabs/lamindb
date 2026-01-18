@@ -23,7 +23,6 @@ from django.db.models.lookups import (
     Regex,
     StartsWith,
 )
-from lamin_utils import logger
 from lamin_utils._lookup import Lookup
 from lamindb_setup.core import deprecated
 from lamindb_setup.core._docs import doc_args
@@ -58,9 +57,11 @@ def _search(
         :meth:`~lamindb.models.SQLRecord.lookup`
 
     Examples:
-        >>> ulabels = ln.ULabel.from_values(["ULabel1", "ULabel2", "ULabel3"], field="name")
-        >>> ln.save(ulabels)
-        >>> ln.ULabel.search("ULabel2")
+
+        ::
+
+            records = ln.Record.from_values(["Label1", "Label2", "Label3"], field="name").save()
+            ln.Record.search("Label2")
     """
     if string is None:
         raise ValueError("Cannot search for None value! Please pass a valid string.")
@@ -194,16 +195,27 @@ def _lookup(
         :meth:`~lamindb.models.SQLRecord.search`
 
     Examples:
-        >>> import bionty as bt
-        >>> bt.settings.organism = "human"
-        >>> bt.Gene.from_source(symbol="ADGB-DT").save()
-        >>> lookup = bt.Gene.lookup()
-        >>> lookup.adgb_dt
-        >>> lookup_dict = lookup.dict()
-        >>> lookup_dict['ADGB-DT']
-        >>> lookup_by_ensembl_id = bt.Gene.lookup(field="ensembl_gene_id")
-        >>> genes.ensg00000002745
-        >>> lookup_return_symbols = bt.Gene.lookup(field="ensembl_gene_id", return_field="symbol")
+
+        Lookup via auto-complete on `.`::
+
+            import bionty as bt
+            bt.Gene.from_source(symbol="ADGB-DT").save()
+            lookup = bt.Gene.lookup()
+            lookup.adgb_dt
+
+        Look up via auto-complete in dictionary::
+
+            lookup_dict = lookup.dict()
+            lookup_dict['ADGB-DT']
+
+        Look up via a specific field::
+
+            lookup_by_ensembl_id = bt.Gene.lookup(field="ensembl_gene_id")
+            genes.ensg00000002745
+
+        Return a specific field value instead of the full record::
+
+            lookup_return_symbols = bt.Gene.lookup(field="ensembl_gene_id", return_field="symbol")
     """
     from .sqlrecord import get_name_field
 
@@ -236,57 +248,24 @@ class QueryManager(Manager):
 
     Examples:
 
-        >>> ln.save(ln.ULabel.from_values(["ULabel1", "ULabel2", "ULabel3"], field="name"))  # noqa
-        >>> labels = ln.ULabel.filter(name__icontains = "label").all()
-        >>> ln.ULabel(name="ULabel1").save()
-        >>> label = ln.ULabel.get(name="ULabel1")
-        >>> label.parents.set(labels)
-        >>> manager = label.parents
-        >>> manager.to_dataframe()
+        Populate the `.parents` ManyToMany relationship (a `QueryManager`)::
+
+            ln.Record.from_values(["Label1", "Label2", "Label3"], field="name")).save()
+            labels = ln.Record.filter(name__icontains="label")
+            label1 = ln.Record.get(name="Label1")
+            label1.parents.set(labels)
+
+        Convert all linked parents to a `DataFrame`::
+
+            label1.parents.to_dataframe()
     """
 
-    def _track_run_input_manager(self):
-        if hasattr(self, "source_field_name") and hasattr(self, "target_field_name"):
-            if (
-                self.source_field_name == "collection"
-                and self.target_field_name == "artifact"
-            ):
-                from lamindb import settings
-                from lamindb.core._context import context
-                from lamindb.models.artifact import (
-                    WARNING_RUN_TRANSFORM,
-                    _track_run_input,
-                )
-
-                if (
-                    context.run is None
-                    and not settings.creation.artifact_silence_missing_run_warning
-                ):
-                    logger.warning(WARNING_RUN_TRANSFORM)
-                _track_run_input(self.instance)
-
     def to_list(self, field: str | None = None):
-        """Populate a list with the results.
-
-        Examples:
-            >>> ln.save(ln.ULabel.from_values(["ULabel1", "ULabel2", "ULabel3"], field="name"))
-            >>> labels = ln.ULabel.filter(name__icontains="label").all()
-            >>> ln.ULabel(name="ULabel1").save()
-            >>> label = ln.ULabel.get(name="ULabel1")
-            >>> label.parents.set(labels)
-            >>> label.parents.to_list()
-            >>> label.parents.to_list("name")
-            ['ULabel1', 'ULabel2', 'ULabel3']
-        """
+        """Populate a list."""
         if field is None:
             return list(self.all())
         else:
-            self._track_run_input_manager()
             return list(self.values_list(field, flat=True))
-
-    @deprecated(new_name="to_list")
-    def list(self, field: str | None = None):
-        return self.to_list(field)
 
     def to_dataframe(self, **kwargs):
         """Convert to DataFrame.
@@ -298,14 +277,6 @@ class QueryManager(Manager):
     @deprecated(new_name="to_dataframe")
     def df(self, **kwargs):
         return self.to_dataframe(**kwargs)
-
-    def all(self):
-        """Return QuerySet of all.
-
-        For `**kwargs`, see :meth:`lamindb.models.QuerySet.df`.
-        """
-        self._track_run_input_manager()
-        return super().all()
 
     @doc_args(_search.__doc__)
     def search(self, string: str, **kwargs):

@@ -7,8 +7,10 @@ from typing import TYPE_CHECKING, Literal
 import lamindb_setup as ln_setup
 from lamin_utils import logger
 
+from ..errors import ValidationError
+from .query_set import SQLRecordList, get_default_branch_ids
 from .run import Run
-from .sqlrecord import format_field_value, get_name_field
+from .sqlrecord import HasType, format_field_value, get_name_field
 
 if TYPE_CHECKING:
     from graphviz import Digraph
@@ -17,38 +19,131 @@ if TYPE_CHECKING:
 
     from .artifact import Artifact
     from .collection import Collection
-    from .query_set import QuerySet
+    from .query_set import BasicQuerySet, QuerySet
     from .sqlrecord import SQLRecord
-    from .transform import Transform
 
 LAMIN_GREEN_LIGHTER = "#10b981"
 LAMIN_GREEN_DARKER = "#065f46"
+TRANSFORM_VIOLET = "#eff2ff"
 GREEN_FILL = "honeydew"
-TRANSFORM_EMOJIS = {
-    "notebook": "📔",
-    "upload": "🖥️",
-    "pipeline": "🧩",
-    "script": "📝",
-    "function": "🔧",
-    "linker": "🧲",
-}
 is_run_from_ipython = getattr(builtins, "__IPYTHON__", False)
 
 
 # this is optimized to have fewer recursive calls
 # also len of QuerySet can be costly at times
 def _query_relatives(
-    records: QuerySet | list[SQLRecord],
-    attr: str,
-    cls: type[HasParents],
+    records: BasicQuerySet | list[HasParents],
+    attr: Literal["children", "parents"] | str,
 ) -> QuerySet:
-    relatives = cls.objects.none()  # type: ignore
-    if len(records) == 0:
-        return relatives
+    branch_ids = get_default_branch_ids()
+
+    if hasattr(records, "values_list"):
+        model = records.model  # type: ignore
+        using_db = records.db  # type: ignore
+        frontier_ids = set(records.values_list("id", flat=True))
+    else:
+        record = records[0]
+        model = record.__class__
+        using_db = record._state.db  # type: ignore
+        frontier_ids = {r.id for r in records}  # type: ignore
+
+    if attr == "children":
+        attr_filter = "parents__id__in"
+    elif attr == "parents":
+        attr_filter = "children__id__in"
+    else:
+        attr_filter = "type__id__in"
+
+    seen_ids = set(frontier_ids)  # copies
+    results = set()
+
+    while frontier_ids:
+        relatives_qs = model.connect(using_db).filter(
+            branch_id__in=branch_ids, **{attr_filter: frontier_ids}
+        )
+        next_ids = set(relatives_qs.values_list("id", flat=True)) - seen_ids
+        if not next_ids:
+            break
+        results.update(next_ids)
+        seen_ids.update(next_ids)
+        frontier_ids = next_ids
+
+    return model.connect(using_db).filter(id__in=results)
+
+
+def keep_topmost_matches(records: list[HasType] | SQLRecordList) -> SQLRecordList:
+    """Keep only the topmost (least specific) match."""
+    if not records:
+        return SQLRecordList([])
+
+    # Group by name
+    records_by_name: dict[str, list[HasType]] = {}
     for record in records:
-        relatives = relatives.union(getattr(record, attr).all())
-    relatives = relatives.union(_query_relatives(relatives, attr, cls))
-    return relatives
+        if record.name not in records_by_name:
+            records_by_name[record.name] = []
+        records_by_name[record.name].append(record)
+
+    # Fast path: single match per name
+    result: SQLRecordList = SQLRecordList([])
+    needs_depth_computation = {}
+
+    for name, name_records in records_by_name.items():
+        if len(name_records) == 1:
+            result.append(name_records[0])
+        else:
+            # Check if any have type_id=None (trivially topmost)
+            root_records = [r for r in name_records if r.type_id is None]
+            if len(root_records) == 1:
+                result.append(root_records[0])
+            elif len(root_records) > 1:
+                class_name = records[0].__class__.__name__
+                raise ValidationError(
+                    f"Ambiguous match for {class_name} '{name}': found {len(root_records)} "
+                    f"root-level {class_name.lower()}s"
+                )
+            else:
+                # All have type_id, need depth computation
+                needs_depth_computation[name] = name_records
+
+    # Only compute depths if necessary
+    if needs_depth_computation:
+
+        def get_depth(record):
+            current_type = record.type
+            depth = 1
+            while current_type.type_id is not None:
+                current_type = current_type.type
+                depth += 1
+            return depth
+
+        for name, name_records in needs_depth_computation.items():
+            records_with_depth = [(r, get_depth(r)) for r in name_records]
+            min_depth = min(depth for _, depth in records_with_depth)
+            topmost = [r for r, depth in records_with_depth if depth == min_depth]
+            class_name = records[0].__class__.__name__
+            if len(topmost) > 1:
+                raise ValidationError(
+                    f"Ambiguous match for {class_name} '{name}': found {len(topmost)} {class_name.lower()}s "
+                    f"at depth {min_depth} (under types: {[r.type.name for r in topmost]})"
+                )
+
+            result.append(topmost[0])
+
+    return result
+
+
+def _query_ancestors_of_fk(record: SQLRecord, attr: str) -> SQLRecordList:
+    from .query_set import get_default_branch_ids
+
+    branch_ids = get_default_branch_ids()
+    ancestors = []
+
+    current = getattr(record, attr)
+    while current is not None and current.branch_id in branch_ids:
+        ancestors.append(current)
+        current = getattr(current, attr)
+
+    return SQLRecordList(ancestors)
 
 
 class HasParents:
@@ -124,18 +219,11 @@ class HasParents:
 
     def query_parents(self) -> QuerySet:
         """Query parents in an ontology."""
-        return _query_relatives([self], "parents", self.__class__)  # type: ignore
+        return _query_relatives([self], "parents")  # type: ignore
 
     def query_children(self) -> QuerySet:
         """Query children in an ontology."""
-        return _query_relatives([self], "children", self.__class__)  # type: ignore
-
-
-def _transform_emoji(transform: Transform):
-    if transform is not None:
-        return TRANSFORM_EMOJIS.get(transform.type, "💫")
-    else:
-        return TRANSFORM_EMOJIS["pipeline"]
+        return _query_relatives([self], "children")  # type: ignore
 
 
 def view_digraph(u: Digraph):
@@ -166,20 +254,13 @@ def view_digraph(u: Digraph):
 def view_lineage(
     data: Artifact | Collection, with_children: bool = True, return_graph: bool = False
 ) -> Digraph | None:
-    """Graph of data flow.
-
-    Notes:
-        For more info, see use cases: :doc:`docs:data-flow`.
-
-    Examples:
-        >>> collection.view_lineage()
-        >>> artifact.view_lineage()
-    """
+    """View data lineage graph."""
     if ln_setup.settings.instance.is_on_hub:
         instance_slug = ln_setup.settings.instance.slug
+        ui_url = ln_setup.settings.instance.ui_url
         entity_slug = data.__class__.__name__.lower()
         logger.important(
-            f"explore at: https://lamin.ai/{instance_slug}/{entity_slug}/{data.uid}"
+            f"explore at: {ui_url}/{instance_slug}/{entity_slug}/{data.uid}"
         )
 
     import graphviz
@@ -189,8 +270,6 @@ def view_lineage(
         df_values += _get_all_child_runs(data)
     df_edges = _df_edges_from_runs(df_values)
 
-    data_label = _record_label(data)
-
     def add_node(
         record: Run | Artifact | Collection,
         node_id: str,
@@ -198,9 +277,9 @@ def view_lineage(
         u: graphviz.Digraph,
     ):
         if isinstance(record, Run):
-            fillcolor = "gainsboro"
+            fillcolor = TRANSFORM_VIOLET
         else:
-            fillcolor = GREEN_FILL
+            fillcolor = "white"
         u.node(
             node_id,
             label=node_label,
@@ -212,8 +291,8 @@ def view_lineage(
     u = graphviz.Digraph(
         f"{data._meta.model_name}_{data.uid}",
         node_attr={
-            "fillcolor": GREEN_FILL,
-            "color": LAMIN_GREEN_DARKER,
+            "fillcolor": "white",
+            "color": "darkgrey",
             "fontname": "Helvetica",
             "fontsize": "10",
         },
@@ -226,12 +305,12 @@ def view_lineage(
             add_node(row["target_record"], row["target"], row["target_label"], u)
 
         u.edge(row["source"], row["target"], color="dimgrey")
-    # label the searched file
+
     u.node(
         f"{data._meta.model_name}_{data.uid}",
-        label=data_label,
+        label=get_record_label(data),
         style="rounded,filled",
-        fillcolor=LAMIN_GREEN_LIGHTER,
+        fillcolor="white",
         shape="box",
     )
 
@@ -299,8 +378,6 @@ def view_parents(
     else:
         return None
 
-    record_label = _record_label(record, field)
-
     u = graphviz.Digraph(
         record.uid,
         node_attr={
@@ -315,11 +392,7 @@ def view_parents(
     )
     u.node(
         record.uid,
-        label=(
-            _record_label(record)
-            if record.__class__.__name__ == "Transform"
-            else _add_emoji(record, record_label)
-        ),
+        label=(get_record_label(record)),
         fillcolor=LAMIN_GREEN_LIGHTER,
     )
     if df_edges is not None:
@@ -343,22 +416,28 @@ def _get_parents(
         key = attr_name
     else:
         key = "children" if attr_name == "parents" else "successors"  # type: ignore
+
+    using_db = record._state.db
     model = record.__class__
     condition = f"{key}__{field}"
-    results = model.filter(**{condition: record.__getattribute__(field)}).all()
+    field_value = getattr(record, field)
+
+    results = model.connect(using_db).filter(**{condition: field_value})
     if distance < 2:
         return results
 
     d = 2
     while d < distance:
+        # this grows in the loop,
+        # i.e. children__children__name -> children__children__children__name -> ...
         condition = f"{key}__{condition}"
-        records = model.filter(**{condition: record.__getattribute__(field)})
+        records = model.connect(using_db).filter(**{condition: field_value})
 
         try:
             if not records.exists():
                 return results
 
-            results = results | records.all()
+            results = results | records
             d += 1
         except Exception:
             # For OperationalError:
@@ -379,6 +458,7 @@ def _df_edges_from_parents(
         key = "children" if children else "parents"
     else:
         key = "successors" if children else "predecessors"
+
     parents = _get_parents(
         record=record,
         field=field,
@@ -386,7 +466,8 @@ def _df_edges_from_parents(
         children=children,
         attr_name=attr_name,
     )
-    all = record.__class__.objects
+    using_db = record._state.db
+    all = record.__class__.objects.using(using_db)
     records = parents | all.filter(id=record.id)
     df = records.distinct().to_dataframe(include=[f"{key}__id"])
     if f"{key}__id" not in df.columns:
@@ -404,81 +485,43 @@ def _df_edges_from_parents(
     df_edges["source_record"] = df_edges["source"].apply(lambda x: all.get(id=x))
     df_edges["target_record"] = df_edges["target"].apply(lambda x: all.get(id=x))
     if record.__class__.__name__ == "Transform":
-        df_edges["source_label"] = df_edges["source_record"].apply(_record_label)
-        df_edges["target_label"] = df_edges["target_record"].apply(_record_label)
+        df_edges["source_label"] = df_edges["source_record"].apply(get_record_label)
+        df_edges["target_label"] = df_edges["target_record"].apply(get_record_label)
     else:
         df_edges["source_label"] = df_edges["source_record"].apply(
-            lambda x: _record_label(x, field)
+            lambda x: get_record_label(x, field)
         )
         df_edges["target_label"] = df_edges["target_record"].apply(
-            lambda x: _record_label(x, field)
+            lambda x: get_record_label(x, field)
         )
     df_edges["source"] = df_edges["source_record"].apply(lambda x: x.uid)
     df_edges["target"] = df_edges["target_record"].apply(lambda x: x.uid)
     return df_edges
 
 
-def _record_label(record: SQLRecord, field: str | None = None):
+def get_record_label(record: SQLRecord, field: str | None = None):
     from .artifact import Artifact
     from .collection import Collection
     from .transform import Transform
 
-    if isinstance(record, Artifact):
-        if record.description is None:
-            name = record.key
-        else:
-            name = record.description.replace("&", "&amp;")
-
-        return (
-            rf'<📄 {name}<BR/><FONT COLOR="GREY" POINT-SIZE="10"'
-            rf' FACE="Monospace">uid={record.uid}<BR/>suffix={record.suffix}</FONT>>'
+    if isinstance(record, (Artifact, Collection, Transform)):
+        title = (
+            record.key.replace("&", "&amp;") if record.key is not None else record.uid
         )
-    elif isinstance(record, Collection):
-        name = record.name.replace("&", "&amp;")
-        return (
-            rf'<🍱 {name}<BR/><FONT COLOR="GREY" POINT-SIZE="10"'
-            rf' FACE="Monospace">uid={record.uid}<BR/>version={record.version}</FONT>>'
-        )
+        return rf"<{title}>"
     elif isinstance(record, Run):
-        if record.transform.description:
-            name = f"{record.transform.description.replace('&', '&amp;')}"
-        elif record.transform.key:
-            name = f"{record.transform.key.replace('&', '&amp;')}"
-        else:
-            name = f"{record.transform.uid}"
-        user_display = (
-            record.created_by.handle
-            if record.created_by.name is None
-            else record.created_by.name
-        )
+        title = record.transform.key.replace("&", "&amp;")
+        if record.entrypoint is not None:
+            title += f": {record.entrypoint}"
         return (
-            rf'<{TRANSFORM_EMOJIS.get(str(record.transform.type), "💫")} {name}<BR/><FONT COLOR="GREY" POINT-SIZE="10"'
-            rf' FACE="Monospace">uid={record.transform.uid}<BR/>type={record.transform.type},'
-            rf" user={user_display}<BR/>run={format_field_value(record.started_at)}</FONT>>"
-        )
-    elif isinstance(record, Transform):
-        name = f"{record.name.replace('&', '&amp;')}"
-        return (
-            rf'<{TRANSFORM_EMOJIS.get(str(record.type), "💫")} {name}<BR/><FONT COLOR="GREY" POINT-SIZE="10"'
-            rf' FACE="Monospace">uid={record.uid}<BR/>type={record.type},'
-            rf" user={record.created_by.name}<BR/>updated_at={format_field_value(record.updated_at)}</FONT>>"
+            rf'<{title}<BR/><FONT COLOR="GREY" POINT-SIZE="10">'
+            rf"run at {format_field_value(record.started_at)}</FONT>>"
         )
     else:
-        name = record.__getattribute__(field)
-        return (
-            rf'<{name}<BR/><FONT COLOR="GREY" POINT-SIZE="10"'
-            rf' FACE="Monospace">uid={record.uid}</FONT>>'
-        )
-
-
-def _add_emoji(record: SQLRecord, label: str):
-    if record.__class__.__name__ == "Transform":
-        emoji = TRANSFORM_EMOJIS.get(record.type, "💫")
-    elif record.__class__.__name__ == "Run":
-        emoji = TRANSFORM_EMOJIS.get(record.transform.type, "💫")
-    else:
-        emoji = ""
-    return f"{emoji} {label}"
+        if field is None:
+            field = get_name_field(record)
+        title = record.__getattribute__(field)
+        return rf"<{title}>"
 
 
 def _get_all_parent_runs(data: Artifact | Collection) -> list:
@@ -541,9 +584,7 @@ def _get_all_child_runs(data: Artifact | Collection) -> list:
         runs.update(
             {
                 f.run
-                for f in data.run.output_collections.all()
-                .filter(branch_id__in=[0, 1])
-                .all()
+                for f in data.run.output_collections.all().filter(branch_id__in=[0, 1])
             }
         )
     while runs.difference(all_runs):
@@ -599,6 +640,6 @@ def _df_edges_from_runs(df_values: list):
     df = df.drop_duplicates().dropna()
     df["source"] = [f"{i._meta.model_name}_{i.uid}" for i in df["source_record"]]
     df["target"] = [f"{i._meta.model_name}_{i.uid}" for i in df["target_record"]]
-    df["source_label"] = df["source_record"].apply(_record_label)
-    df["target_label"] = df["target_record"].apply(_record_label)
+    df["source_label"] = df["source_record"].apply(get_record_label)
+    df["target_label"] = df["target_record"].apply(get_record_label)
     return df

@@ -13,8 +13,7 @@
 
 from __future__ import annotations
 
-import sys
-from pathlib import Path
+from datetime import date
 from typing import TYPE_CHECKING, Literal
 
 import anndata as ad
@@ -30,11 +29,7 @@ def define_features_labels() -> None:
     .. literalinclude:: scripts/define_mini_immuno_features_labels.py
         :language: python
     """
-    docs_path = Path(__file__).parent.parent.parent.parent / "docs" / "scripts"
-    if str(docs_path) not in sys.path:
-        sys.path.append(str(docs_path))
-
-    import define_mini_immuno_features_labels  # noqa
+    from . import define_mini_immuno_features_labels  # noqa
 
 
 def define_mini_immuno_schema_flexible() -> Schema:
@@ -45,12 +40,8 @@ def define_mini_immuno_schema_flexible() -> Schema:
     """
     from lamindb.models import Schema
 
-    docs_path = Path(__file__).parent.parent.parent.parent / "docs" / "scripts"
-    if str(docs_path) not in sys.path:
-        sys.path.append(str(docs_path))
-
     define_features_labels()
-    import define_mini_immuno_schema_flexible  # noqa
+    from . import define_mini_immuno_schema_flexible  # noqa
 
     return Schema.get(name="Mini immuno schema")
 
@@ -61,11 +52,7 @@ def save_mini_immuno_datasets():
     .. literalinclude:: scripts/save_mini_immuno_datasets.py
         :language: python
     """
-    docs_path = Path(__file__).parent.parent.parent.parent / "docs" / "scripts"
-    if str(docs_path) not in sys.path:
-        sys.path.append(str(docs_path))
-
-    import save_mini_immuno_datasets  # noqa
+    from . import save_mini_immuno_datasets  # noqa
 
 
 def get_dataset1(
@@ -78,6 +65,7 @@ def get_dataset1(
     with_outdated_gene: bool = False,
     with_wrong_subtype: bool = False,
     with_index_type_mismatch: bool = False,
+    with_date_as_iso_string: bool = True,
 ) -> pd.DataFrame | ad.AnnData:
     """A small tabular dataset measuring expression & metadata."""
     # define the data in the dataset
@@ -125,7 +113,7 @@ def get_dataset1(
     metadata = {
         "temperature": 21.6,
         "experiment": "Experiment 1",
-        "date_of_study": "2024-12-01",
+        "date_of_study": "2024-12-01" if with_date_as_iso_string else date(2024, 12, 1),
         "study_note": "We had a great time performing this study and the results look compelling.",
     }
     # the dataset as DataFrame
@@ -150,9 +138,11 @@ def get_dataset1(
 
 
 def get_dataset2(
-    otype: Literal["DataFrame", "AnnData"],
+    otype: Literal["DataFrame", "AnnData"] = "DataFrame",
     gene_symbols_in_index: bool = False,
+    with_date_as_iso_string: bool = True,
 ) -> pd.DataFrame | ad.AnnData:
+    """A second small tabular dataset measuring expression & metadata."""
     if gene_symbols_in_index:
         var_ids = ["CD8A", "CD4", "CD38"]
     else:
@@ -170,7 +160,7 @@ def get_dataset2(
     metadata = {
         "temperature": 22.6,
         "experiment": "Experiment 2",
-        "date_of_study": "2025-02-13",
+        "date_of_study": "2025-02-13" if with_date_as_iso_string else date(2025, 2, 13),
     }
     dataset_df = pd.DataFrame(
         dataset_dict,

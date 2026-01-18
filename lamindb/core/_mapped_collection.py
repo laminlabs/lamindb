@@ -634,8 +634,8 @@ class MappedCollection:
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
 
-    @staticmethod
-    def torch_worker_init_fn(worker_id):
+    @classmethod
+    def torch_worker_init_fn(cls, worker_id):
         """`worker_init_fn` for `torch.utils.data.DataLoader`.
 
         Improves performance for `num_workers > 1`.

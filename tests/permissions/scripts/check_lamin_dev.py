@@ -1,17 +1,16 @@
+import subprocess
+
 import lamindb as ln
+import pytest
 from lamindb_setup.core._hub_core import select_space, select_storage
 
 
 def cleanup(records):
     for record in records:
         try:
-            if isinstance(record, ln.models.SQLRecord) and not isinstance(
-                record, ln.Storage
-            ):
-                record.delete(permanent=True)
-            else:
-                # no permanent arg for BaseSQLRecord
-                record.delete()
+            if isinstance(record, ln.Storage):
+                record.artifacts.all().delete(permanent=True)
+            record.delete(permanent=True)
         except Exception as e:
             print(f"Failed deleting {record}: {e}")
 
@@ -23,21 +22,39 @@ ln.connect("laminlabs/lamin-dev")
 assert ln.setup.settings.instance.slug == "laminlabs/lamin-dev"
 
 # check that the rename resolves correctly (it was renamed)
-assert ln.Artifact.using("laminlabs/lamin-dev1072025").db == "default"
+assert ln.Artifact.connect("laminlabs/lamin-dev1072025").db == "default"
 
-# make a new storage location that's goverened by the space
 space_name = "Our test space for CI"
 space = ln.Space.get(name=space_name)
+
+# check that we throw an error if no storage location is managed by the space
+storage_loc = ln.Storage.filter(space=space).one_or_none()
+if storage_loc is not None:
+    ln.Run.filter(report__storage=storage_loc).delete(permanent=True)
+    storage_loc.artifacts.all().delete(permanent=True)
+    storage_loc.delete(permanent=True)
+
+with pytest.raises(ln.errors.NoStorageLocationForSpace) as error:
+    ln.track(space=space_name)  # this fails to save the env artifact
+    ln.context._transform = None
+    ln.context._run = None
+
+# now create the storage location in the space
 storage_loc = ln.Storage("create-s3", space=space).save()
-
 ln.track(space=space_name)
-
 try:
     assert ln.context.space.name == space_name
     ulabel = ln.ULabel(name="My test ulabel in test space").save()
+
+    # cleanup if the artifact already exists
+    artifact = ln.Artifact(".gitignore", key="mytest")
+    if (
+        artifact_cleanup := ln.Artifact.filter(hash=artifact.hash).one_or_none()
+    ) is not None:
+        artifact_cleanup.delete(permanent=True)
+
     artifact = ln.Artifact(".gitignore", key="mytest").save()
 
-    # checks
     # check that exist
     ln.ULabel.get(name="My test ulabel in test space")
     ln.Artifact.get(key="mytest")
@@ -47,7 +64,7 @@ try:
     # the below check doesn't work: another worker might have associated another storage location with the space, and then the artifact ends up in that
     # assert artifact.storage == storage_loc
     # hence this check
-    assert artifact.storage in ln.Storage.filter(space=space).all()
+    assert artifact.storage in ln.Storage.filter(space=space)
     assert ln.context.transform.space == space
     assert ln.context.run.space == space
 
@@ -60,6 +77,22 @@ try:
     response_space = select_space(lnid=space2.uid)
     assert response_storage["space_id"] == response_space["id"]
 
+    # connect to the instance before saving
+    subprocess.run(  # noqa: S602
+        "lamin connect laminlabs/lamin-dev",
+        shell=True,
+        check=True,
+    )
+    result = subprocess.run(  # noqa: S602
+        "lamin save .gitignore --key mytest --space 'Our test space for CI 2'",
+        shell=True,
+        capture_output=True,
+    )
+    assert "key='mytest'" in result.stdout.decode()
+    assert "storage path:" in result.stdout.decode()
+    assert result.returncode == 0
+
+finally:
     cleanup(
         (
             ulabel,
@@ -69,14 +102,3 @@ try:
             storage_loc,
         )
     )
-except Exception as e:
-    cleanup(
-        (
-            ulabel,
-            artifact,
-            ln.context.transform.latest_run,
-            ln.context.transform,
-            storage_loc,
-        )
-    )
-    raise e

@@ -1,7 +1,7 @@
 import lamindb as ln
 
-schema = ln.core.datasets.mini_immuno.define_mini_immuno_schema_flexible()
-df = ln.core.datasets.small_dataset1(otype="DataFrame")
+schema = ln.examples.datasets.mini_immuno.define_mini_immuno_schema_flexible()
+df = ln.examples.datasets.mini_immuno.get_dataset1(otype="DataFrame")
 df.pop("donor")  # remove donor column to trigger validation error
 try:
     artifact = ln.Artifact.from_dataframe(

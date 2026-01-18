@@ -15,31 +15,27 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
 ]
 dependencies = [
-    # Lamin PINNED packages
-    "lamin_utils==0.15.0",
-    "lamin_cli==1.7.0",
-    "lamindb_setup[aws]==1.10.0",
-    # Lamin OPTIONAL packages, included to avoid users forgetting about passing extras,
-    # which has happened very often these past years
-    # these are small packages with few dependencies
-    "bionty>=1.7a1", # do NOT pin, is bounded in bionty
-    "wetlab>=1.5a1", # do NOT pin, is bounded in wetlab
-    # Jupyter -- these are also small packages with few & small dependencies
-    "nbproject==0.11.1",  # keep pinning
+    # LaminDB core modules
+    "lamin_utils==0.16.2",  # 30kB pure python, no dependencies
+    "lamin_cli==1.11.0",     # 30kB pure python, no dependencies
+    "lamindb_setup[aws]==1.18.1",  # dependencies like Django & fsspec
+    # LaminDB optional modules, included to avoid users forgetting about extras
+    "bionty==2.0.0", # 30kB pure python, no dependencies
+    "pertdb==2.0.0",  # 30kB pure python, no dependencies
+    "wetlab==2.0.1",  # backward compat with pertdb
+    # Jupyter -- small packages with few & small dependencies
     "jupytext",
-    "nbconvert>=7.2.1", # avoid lxml[html_clean] dependency
-    "mistune!=3.1.0",  # there is a bug in it
+    "nbconvert>=7.2.1",  # bound to avoid lxml[html_clean] dependency
+    "nbproject==0.11.1",  # lamin module, adds orjson
     # Others
     "pyyaml",
     "pyarrow",
     "pandera>=0.24.0",
     "typing_extensions!=4.6.0",
     "python-dateutil",
-    "pandas>=2.0.0", # for .infer_objects(copy=False) in lamin-utils
-    # backed sparse is incompatible with 1.15.0 for anndata 1.11.1
-    # vitessce requires anndata<=1.11.0 now
-    "scipy<1.15.0",
-    "anndata>=0.8.0,<=0.12.1",  # will upgrade to new anndata releases
+    "pandas>=2.0.0,<3.0.0",  # for .infer_objects(copy=False) in lamin-utils; not yet compatible with Pandas 3.0.0
+    "anndata>=0.8.0,<=0.12.7",  # backed sparse is incompatible with scipy 1.15.0 for anndata 1.11.1
+    "scipy<1.17.0", # 1.17.0 is incompatible with anndata<0.12.7
     "fsspec",
     "graphviz",
     "psycopg2-binary",
@@ -52,7 +48,7 @@ Home = "https://github.com/laminlabs/lamindb"
 gcp = [
     "lamindb_setup[gcp]",
 ]
-zarr = [
+zarr_v2 = [
     "numcodecs<0.16.0", # 0.16.0 breaks zarr<3.0.*
     "zarr>=2.16.0,<3.0.0a0", # not yet compatible with 3.0.*
 ]
@@ -68,7 +64,7 @@ dev = [
     "laminci>=0.3",
     "pytest>=6.0",
     "coverage",
-    "pytest-cov",
+    "pytest-cov<7.0.0",  # v7 drops support for subprocess measurement
     "mudata",
     # others
     "nbproject_test>=0.6.0",
@@ -170,8 +166,14 @@ lint.ignore = [
     "S607",
     # Prefer absolute imports over relative imports from parent modules
     "TID252",
+    # Asserts
+    "S101",
     # Standard pseudo-random generators are not suitable for cryptographic purposes
     "S311",
+    # Starting a process with a shell: seems safe, but may be changed in the future; consider rewriting without `shell`
+    "S605",
+    # Possible SQL injection vector through string-based query construction
+    "S608",
     # All of the below TODO 3.10 refactor, temporarily disable
     "UP007",
     "UP038",
@@ -202,8 +204,10 @@ testpaths = [
     "tests",
 ]
 filterwarnings = [
-    "ignore::DeprecationWarning:botocore.*",
+    "ignore::SyntaxWarning:pronto",
+    "ignore:::pronto.ontology",
     "ignore::UserWarning:xarray_schema",
+    "ignore::DeprecationWarning:botocore.*",
     "ignore::DeprecationWarning:xarray_schema",
     "ignore::DeprecationWarning:geopandas",
     "ignore::DeprecationWarning:tiledbsoma",
@@ -211,7 +215,8 @@ filterwarnings = [
     "ignore::FutureWarning:spatialdata",
     "ignore::FutureWarning:mudata",
     "ignore::UserWarning:anndata",
-    "ignore:Jupyter is migrating its paths to use standard platformdirs:DeprecationWarning"
+    "ignore:Jupyter is migrating its paths to use standard platformdirs:DeprecationWarning",
+    "ignore:The 'train_dataloader' does not have many workers:UserWarning",
 ]
 markers = [
     "pg_integration: tests that require an external PostgreSQL instance"
@@ -225,7 +230,7 @@ exclude_lines = [
 ]
 
 [tool.coverage.run]
-omit = ["**/core/datasets/*", "**/migrations/*", "**/core/_compat.py", "**/core/types.py"]
+omit = ["**/core/datasets/*", "**/migrations/*", "**/curators/_legacy.py", "**/core/_compat.py", "**/core/types.py"]
 
 [tool.flit.sdist]
 exclude = [

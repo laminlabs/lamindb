@@ -4,7 +4,6 @@ from collections import defaultdict
 from typing import TYPE_CHECKING
 
 from django.db import connections
-from lamin_utils import logger
 from rich.table import Column, Table
 from rich.text import Text
 from rich.tree import Tree
@@ -23,17 +22,16 @@ from ._describe import (
     NAME_WIDTH,
     TYPE_WIDTH,
     VALUES_WIDTH,
-    describe_header,
     format_rich_tree,
 )
-from ._django import get_artifact_with_related, get_related_model
+from ._django import get_artifact_or_run_with_related, get_related_model
 from ._relations import dict_related_model_to_related_name
 
 if TYPE_CHECKING:
     from lamindb.models import Artifact, Collection, SQLRecord
     from lamindb.models.query_set import QuerySet
 
-EXCLUDE_LABELS = {"feature_sets"}
+EXCLUDE_LABELS = {"schemas"}
 
 
 def _get_labels(
@@ -50,9 +48,14 @@ def _get_labels(
     related_models = dict_related_model_to_related_name(
         obj.__class__, links=links, instance=instance
     )
-
+    if obj.__class__.__name__ == "Artifact" and links:
+        related_models["ArtifactArtifact"] = "links_artifact"
     for _, related_name in related_models.items():
-        if related_name not in EXCLUDE_LABELS and not related_name.startswith("_"):
+        if (
+            related_name not in EXCLUDE_LABELS
+            and not related_name.startswith("_")
+            and not related_name == "json_values"
+        ):
             labels[related_name] = getattr(obj, related_name).all()
     return labels
 
@@ -65,29 +68,27 @@ def _get_labels_postgres(
     This is a postgres-specific approach that uses django Subquery.
     """
     if m2m_data is None:
-        artifact_meta = get_artifact_with_related(self, include_m2m=True)
+        artifact_meta = get_artifact_or_run_with_related(self, include_m2m=True)
         m2m_data = artifact_meta.get("related_data", {}).get("m2m", {})
     return m2m_data
 
 
 def describe_labels(
     self: Artifact | Collection,
-    labels_data: dict | None = None,
-    tree: Tree | None = None,
-    as_subtree: bool = False,
-):
-    """Describe labels associated with an artifact or collection."""
-    if not self._state.adding and connections[self._state.db].vendor == "postgresql":
-        labels_data = _get_labels_postgres(self, labels_data)
+    related_data: dict | None = None,
+) -> Tree | None:
+    """Describe labels."""
+    labels_data = related_data.get("m2m") if related_data is not None else None
+    if labels_data is None:
+        if (
+            not self._state.adding
+            and connections[self._state.db].vendor == "postgresql"
+        ):
+            labels_data = _get_labels_postgres(self, labels_data)
+        if not labels_data:
+            labels_data = _get_labels(self, instance=self._state.db)
     if not labels_data:
-        labels_data = _get_labels(self, instance=self._state.db)
-
-    # initialize tree
-    if tree is None:
-        tree = describe_header(self)
-    if not labels_data:
-        return tree
-
+        return None
     labels_table = Table(
         Column("", style="", no_wrap=True, width=NAME_WIDTH),
         Column("", style="dim", no_wrap=True, width=TYPE_WIDTH),
@@ -97,10 +98,16 @@ def describe_labels(
         pad_edge=False,
     )
     for related_name, labels in labels_data.items():
-        if not labels or related_name == "feature_sets":
+        if not labels or related_name == "schemas":
             continue
-        if isinstance(labels, dict):  # postgres, labels are a dict[id, name]
-            print_values = _format_values(labels.values(), n=10, quotes=False)
+        if isinstance(labels, dict):
+            displays = [
+                d[key]
+                for d in labels.values()
+                for key in d.keys()
+                if key.endswith("_display")
+            ]
+            print_values = _format_values(displays, n=10, quotes=False)
         else:  # labels are a QuerySet
             field = get_name_field(labels)
             print_values = _format_values(
@@ -112,23 +119,17 @@ def describe_labels(
             labels_table.add_row(
                 f".{related_name}", Text(type_str, style="dim"), print_values
             )
-
-    labels_header = Text("Labels", style="bold green_yellow")
-    if as_subtree:
-        if labels_table.rows:
-            labels_tree = Tree(labels_header, guide_style="dim")
-            labels_tree.add(labels_table)
-            return labels_tree
-    else:
-        if labels_table.rows:
-            labels_tree = tree.add(labels_header)
-            labels_tree.add(labels_table)
-        return tree
+    tree = None
+    if labels_table.rows:  # we might not have rows even if labels_data was non-empty
+        tree = Tree(Text("Labels", style="bold green_yellow"), guide_style="dim")
+        tree.add(labels_table)
+    return tree
 
 
 def _save_validated_records(
     labels: QuerySet | list | dict,
 ) -> list[str]:
+    """Save validated records from public based on ontology_id_fields."""
     if not labels:
         return []
     registry = labels[0].__class__
@@ -159,15 +160,15 @@ def _save_validated_records(
 
 
 def save_validated_records(
-    labels: QuerySet | list | dict,
+    records: QuerySet | list | dict,
 ) -> list[str] | dict[str, list[str]]:
-    """Save validated labels from public based on ontology_id_fields."""
-    if isinstance(labels, dict):
+    """Save validated records from public based on ontology_id_fields."""
+    if isinstance(records, dict):
         return {
-            registry: _save_validated_records(registry_labels)
-            for registry, registry_labels in labels.items()
+            registry: _save_validated_records(registry_records)
+            for registry, registry_records in records.items()
         }
-    return _save_validated_records(labels)
+    return _save_validated_records(records)
 
 
 class LabelManager:
@@ -187,9 +188,7 @@ class LabelManager:
     def describe(self, return_str=True) -> str:
         """Describe the labels."""
         tree = describe_labels(self._host)
-        return format_rich_tree(
-            tree, fallback="no linked labels", return_str=return_str
-        )
+        return format_rich_tree(tree, return_str=return_str)
 
     def add(
         self,
@@ -227,13 +226,15 @@ class LabelManager:
         """Add labels from an artifact or collection to another artifact or collection.
 
         Examples:
-            >>> artifact1 = ln.Artifact(pd.DataFrame(index=[0, 1])).save()
-            >>> artifact2 = ln.Artifact(pd.DataFrame(index=[2, 3])).save()
-            >>> ulabels = ln.ULabel.from_values(["Label1", "Label2"], field="name")
-            >>> ln.save(ulabels)
-            >>> labels = ln.ULabel.filter(name__icontains = "label").all()
-            >>> artifact1.ulabels.set(labels)
-            >>> artifact2.labels.add_from(artifact1)
+
+            ::
+
+                artifact1 = ln.Artifact(pd.DataFrame(index=[0, 1])).save()
+                artifact2 = ln.Artifact(pd.DataFrame(index=[2, 3])).save()
+                records = ln.Record.from_values(["Label1", "Label2"], field="name").save()
+                labels = ln.Record.filter(name__icontains = "label")
+                artifact1.records.set(labels)
+                artifact2.labels.add_from(artifact1)
         """
         if transfer_logs is None:
             transfer_logs = {"mapped": [], "transferred": [], "run": None}
@@ -260,10 +261,8 @@ class LabelManager:
                     key = None
                     keys.append(key)
                 else:
-                    links = (
-                        getattr(label, f"links_{data_name_lower}")
-                        .filter(**{f"{data_name_lower}_id": data.id})
-                        .all()
+                    links = getattr(label, f"links_{data_name_lower}").filter(
+                        **{f"{data_name_lower}_id": data.id}
                     )
                     for link in links:
                         if link.feature is not None:
@@ -307,24 +306,3 @@ class LabelManager:
                     getattr(self._host, related_name).add(
                         *feature_labels, through_defaults={"feature_id": feature_id}
                     )
-
-    def make_external(self, label: SQLRecord) -> None:
-        """Make a label external, aka dissociate label from internal features.
-
-        Args:
-            label: Label record to make external.
-        """
-        d = dict_related_model_to_related_name(self._host)
-        registry = label.__class__
-        related_name = d.get(registry.__get_name_with_module__())
-        link_model = getattr(self._host, related_name).through
-        link_records = link_model.filter(
-            artifact_id=self._host.id, **{f"{registry.__name__.lower()}_id": label.id}
-        )
-        features = link_records.values_list("feature__name", flat=True).distinct()
-        s = "s" if len(features) > 1 else ""
-        link_records.update(feature_id=None, feature_ref_is_name=None)
-        logger.warning(
-            f'{registry.__name__} "{getattr(label, label._name_field)}" is no longer associated with the following feature{s}:\n'
-            f"{list(features)}"
-        )

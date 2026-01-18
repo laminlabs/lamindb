@@ -1,14 +1,11 @@
 """Curator utilities.
 
-.. autosummary::
-   :toctree: .
-
-   Curator
-   SlotsCurator
-   ComponentCurator
-   CatVector
-   CatLookup
-   DataFrameCatManager
+.. autoclass:: Curator
+.. autoclass:: SlotsCurator
+.. autoclass:: ComponentCurator
+.. autoclass:: CatVector
+.. autoclass:: CatLookup
+.. autoclass:: DataFrameCatManager
 
 """
 
@@ -35,7 +32,7 @@ from lamindb.models import (
     Schema,
     SQLRecord,
 )
-from lamindb.models._from_values import _format_values
+from lamindb.models._from_values import _format_values, _from_values
 from lamindb.models.artifact import (
     data_is_scversedatastructure,
     data_is_soma_experiment,
@@ -46,8 +43,12 @@ from lamindb.models.feature import (
     parse_filter_string,
     resolve_relation_filters,
 )
+from lamindb.models.query_set import BasicQuerySet, SQLRecordList
+from lamindb.models.sqlrecord import HasType
 
 from ..errors import InvalidArgument, ValidationError
+from ..models._from_values import get_organism_record_from_field
+from ..models.feature import get_record_type_from_uid
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -59,7 +60,6 @@ if TYPE_CHECKING:
     from tiledbsoma._experiment import Experiment as SOMAExperiment
 
     from lamindb.core.types import ScverseDataStructures
-    from lamindb.models.query_set import SQLRecordList
 
 
 def strip_ansi_codes(text):
@@ -93,7 +93,7 @@ class CatLookup:
         slots = slots or {}
         if isinstance(categoricals, list):
             categoricals = {
-                feature.name: parse_dtype(feature.dtype)[0]["field"]
+                feature.name: parse_dtype(feature._dtype_str)[0]["field"]
                 for feature in categoricals
             }
         self._categoricals = {**categoricals, **slots}
@@ -168,6 +168,8 @@ Returns:
     A saved artifact record.
 """
 
+LAMINDB_COLUMN_PREFIX_REGEX = r"^__lamindb_.*$"
+
 
 class Curator:
     """Curator base class.
@@ -182,41 +184,55 @@ class Curator:
         - :class:`~lamindb.curators.TiledbsomaExperimentCurator`
     """
 
-    def __init__(self, dataset: Any, schema: Schema | None = None):
+    def __init__(
+        self,
+        dataset: Any,
+        schema: Schema,
+        *,
+        features: dict[str, Any] | None = None,
+        require_saved_schema: bool = True,
+    ) -> None:
         if not isinstance(schema, Schema):
             raise InvalidArgument("schema argument must be a Schema record.")
-
-        if schema.pk is None:
+        if require_saved_schema and schema.pk is None:
             raise ValueError(
                 "Schema must be saved before curation. Please save it using '.save()'."
             )
-
-        self._artifact: Artifact = None  # pass the dataset as an artifact
-        self._dataset: Any = dataset  # pass the dataset as a UPathStr or data object
-        if isinstance(self._dataset, Artifact):
-            self._artifact = self._dataset
+        self._artifact: Artifact | None = None
+        self._dataset: Any = None
+        # self._dataset is set below, it is opened or loaded if dataset is an Artifact
+        if isinstance(dataset, Artifact):
+            self._artifact = dataset
             if self._artifact.otype in {
                 "DataFrame",
                 "AnnData",
                 "MuData",
                 "SpatialData",
             }:
-                # Open remote AnnData Artifacts
-                if not isinstance(self._artifact.path, LocalPathClasses):
-                    if self._artifact.otype in {
-                        "AnnData",
-                    }:
-                        try:
-                            self._dataset = self._dataset.open(mode="r")
-                        # open can raise various errors. Fall back to loading into memory if open fails
-                        except Exception as e:
-                            logger.warning(
-                                f"Unable to open remote AnnData Artifact: {e}. Falling back to loading into memory."
-                            )
-                            self._dataset = self._dataset.load(is_run_input=False)
-                else:
-                    self._dataset = self._dataset.load(is_run_input=False)
-        self._schema: Schema | None = schema
+                if (
+                    not isinstance(self._artifact.path, LocalPathClasses)
+                    and self._artifact.otype == "AnnData"
+                ):
+                    try:
+                        self._dataset = self._artifact.open(mode="r")
+                        logger.important(
+                            "opened remote artifact for streaming during validation"
+                        )
+                    except Exception as e:
+                        logger.warning(
+                            f"unable to open remote AnnData Artifact: {e}, falling back to loading into memory"
+                        )
+                if self._dataset is None:
+                    logger.important("loading artifact into memory for validation")
+                    self._dataset = self._artifact.load(is_run_input=False)
+            else:
+                raise InvalidArgument(
+                    f"Cannot load or open artifact of this type: {self._artifact}"
+                )
+        else:
+            self._dataset = dataset
+        self._schema: Schema = schema
+        self._external_features: dict[str, Any] = features
         self._is_validated: bool = False
 
     @doc_args(VALIDATE_DOCSTRING)
@@ -289,13 +305,7 @@ class Curator:
 
         artifact_info = ""
         if self._artifact is not None:
-            artifact_uid = getattr(self._artifact, "uid", str(self._artifact))
-            short_uid = (
-                str(artifact_uid)[:8] + "..."
-                if len(str(artifact_uid)) > 8
-                else str(artifact_uid)
-            )
-            artifact_info = f", artifact: {colors.italic(short_uid)}"
+            artifact_info = f", artifact: {colors.italic(self._artifact.uid)}"
 
         return (
             f"{cls_name}{artifact_info}(Schema: {schema_str}{extra_info}{status_str})"
@@ -317,8 +327,16 @@ class SlotsCurator(Curator):
         self,
         dataset: Artifact | ScverseDataStructures | SOMAExperiment,
         schema: Schema,
+        *,
+        features: dict[str, Any] | None = None,
+        require_saved_schema: bool = True,
     ) -> None:
-        super().__init__(dataset=dataset, schema=schema)
+        super().__init__(
+            dataset=dataset,
+            schema=schema,
+            features=features,
+            require_saved_schema=require_saved_schema,
+        )
         self._slots: dict[str, ComponentCurator] = {}
 
         # used for multimodal data structures (not AnnData)
@@ -336,8 +354,25 @@ class SlotsCurator(Curator):
     @doc_args(VALIDATE_DOCSTRING)
     def validate(self) -> None:
         """{}"""  # noqa: D415
+        if "__external__" in self._schema.slots:
+            validation_schema = self._schema.slots["__external__"]
+            if not self._external_features:
+                if self._artifact is not None and not self._artifact._state.adding:
+                    logger.important(
+                        "no new external features provided, using existing external features of artifact for validation"
+                    )
+                    self._external_features = self._artifact.features.get_values(
+                        external_only=True
+                    )
+                else:
+                    raise ValidationError(
+                        "External features slot is defined in schema but no external features were provided."
+                    )
+            ExperimentalDictCurator(
+                self._external_features, validation_schema
+            ).validate()
         for slot, curator in self._slots.items():
-            logger.info(f"validating slot {slot} ...")
+            logger.debug(f"validating slot {slot} ...")
             curator.validate()
         # set _is_validated to True as no slot raised an error
         self._is_validated = True
@@ -377,7 +412,6 @@ class SlotsCurator(Curator):
                 ),
                 (data_is_soma_experiment, Artifact.from_tiledbsoma),
             ]
-
             for type_check, af_constructor in type_mapping:
                 if type_check(self._dataset):
                     self._artifact = af_constructor(  # type: ignore
@@ -388,13 +422,13 @@ class SlotsCurator(Curator):
                         run=run,
                     )
                     break
-
         cat_vectors = {}
         for curator in self._slots.values():
             for key, cat_vector in curator.cat._cat_vectors.items():
                 cat_vectors[key] = cat_vector
-
         self._artifact.schema = self._schema
+        if self._external_features:
+            self._artifact._external_features = self._external_features
         self._artifact.save()
         return annotate_artifact(  # type: ignore
             self._artifact,
@@ -403,8 +437,25 @@ class SlotsCurator(Curator):
         )
 
 
-# This is also currently used as DictCurator by flattening dictionaries into wide DataFrames.
-# Such an approach was never intended and there is room for a DictCurator in the future.
+def convert_dict_to_dataframe_for_validation(d: dict, schema: Schema) -> pd.DataFrame:
+    """Convert a dictionary to a DataFrame for validation against a schema."""
+    df = pd.DataFrame([d])
+    for feature in schema.members:
+        # we cannot cast a `list[cat[...]]]` to categorical because lists are not hashable
+        if feature.dtype_as_str.startswith("cat"):
+            if feature.name in df.columns:
+                value = df.loc[0, feature.name]
+                if isinstance(value, (list, SQLRecordList, set, BasicQuerySet)):
+                    df.attrs[feature.name] = "list_of_categories"
+                else:
+                    if isinstance(value, SQLRecord) and value._state.adding:
+                        raise ValidationError(
+                            f"{value.__class__.__name__} {getattr(value, getattr(value, 'name_field', 'name'), value.uid)} is not saved."
+                        )
+                    df[feature.name] = pd.Categorical(df[feature.name])
+    return df
+
+
 # For more context, read https://laminlabs.slack.com/archives/C07DB677JF6/p1753994077716099 and
 # https://www.notion.so/laminlabs/Add-a-DictCurator-2422aeaa55e180b9a513f91d13970836
 class ComponentCurator(Curator):
@@ -425,8 +476,11 @@ class ComponentCurator(Curator):
         dataset: pd.DataFrame | Artifact,
         schema: Schema,
         slot: str | None = None,
+        require_saved_schema: bool = True,
     ) -> None:
-        super().__init__(dataset=dataset, schema=schema)
+        super().__init__(
+            dataset=dataset, schema=schema, require_saved_schema=require_saved_schema
+        )
 
         categoricals = []
         features = []
@@ -436,7 +490,7 @@ class ComponentCurator(Curator):
             features += Feature.filter(name__in=self._dataset.keys()).to_list()
             feature_ids = {feature.id for feature in features}
 
-        if schema.n > 0:
+        if schema.n_members and schema.n_members > 0:
             if schema._index_feature_uid is not None:
                 schema_features = [
                     feature
@@ -457,6 +511,7 @@ class ComponentCurator(Curator):
             assert schema.itype is not None  # noqa: S101
 
         pandera_columns = {}
+        self._pandera_schema = None
         if features or schema._index_feature_uid is not None:
             # populate features
             if schema.minimal_set:
@@ -467,12 +522,29 @@ class ComponentCurator(Curator):
                 else:
                     required = False
                 # series.dtype is "object" if the column has lists types, e.g. [["a", "b"], ["a"], ["b"]]
-                if feature.dtype in {
+                dtype_str = feature._dtype_str
+                if (
+                    dtype_str.startswith("list[cat")
+                    or self._dataset.attrs.get(feature.name) == "list_of_categories"
+                ):
+                    pandera_columns[feature.name] = pandera.Column(
+                        dtype=None,
+                        checks=pandera.Check(
+                            check_dtype("list", feature.nullable),
+                            element_wise=False,
+                            error=f"Column '{feature.name}' failed dtype check for '{dtype_str}' against (list, nullable={feature.nullable})",
+                        ),
+                        nullable=feature.nullable,
+                        coerce=feature.coerce,
+                        required=required,
+                    )
+                elif dtype_str in {
                     "int",
                     "float",
+                    "bool",
                     "num",
                     "path",
-                } or feature.dtype.startswith("list"):
+                } or dtype_str.startswith("list"):
                     if isinstance(self._dataset, pd.DataFrame):
                         dtype = (
                             self._dataset[feature.name].dtype
@@ -484,29 +556,38 @@ class ComponentCurator(Curator):
                     pandera_columns[feature.name] = pandera.Column(
                         dtype=None,
                         checks=pandera.Check(
-                            check_dtype(feature.dtype),
+                            check_dtype(dtype_str, feature.nullable),
                             element_wise=False,
-                            error=f"Column '{feature.name}' failed dtype check for '{feature.dtype}': got {dtype}",
+                            error=f"Column '{feature.name}' failed dtype check for '{dtype_str}': got {dtype}",
                         ),
                         nullable=feature.nullable,
-                        coerce=feature.coerce_dtype,
+                        coerce=feature.coerce,
                         required=required,
+                    )
+                elif dtype_str == "dict":
+                    pandera_columns[feature.name] = pandera.Column(
+                        dtype=object,
+                        nullable=feature.nullable,
+                        coerce=feature.coerce,
+                        required=required,
+                        checks=pandera.Check(
+                            lambda s: s.dropna()
+                            .apply(lambda x: isinstance(x, dict))
+                            .all(),
+                            error="Non-null values must be dicts",
+                        ),
                     )
                 else:
                     pandera_dtype = (
-                        feature.dtype
-                        if not feature.dtype.startswith("cat")
-                        else "category"
+                        dtype_str if not dtype_str.startswith("cat") else "category"
                     )
                     pandera_columns[feature.name] = pandera.Column(
                         pandera_dtype,
                         nullable=feature.nullable,
-                        coerce=feature.coerce_dtype,
+                        coerce=feature.coerce,
                         required=required,
                     )
-                if feature.dtype.startswith("cat") or feature.dtype.startswith(
-                    "list[cat["
-                ):
+                if dtype_str.startswith("cat") or dtype_str.startswith("list[cat["):
                     # validate categoricals if the column is required or if the column is present
                     # but exclude the index feature from column categoricals
                     if (required or feature.name in self._dataset.keys()) and (
@@ -518,27 +599,33 @@ class ComponentCurator(Curator):
             # so, we're typing it as `str` here
             if schema.index is not None:
                 index = pandera.Index(
-                    schema.index.dtype
-                    if not schema.index.dtype.startswith("cat")
+                    schema.index._dtype_str
+                    if not schema.index._dtype_str.startswith("cat")
                     else str
                 )
             else:
                 index = None
-
+            if schema.maximal_set:
+                # allow any columns starting with "__lamindb" even if maximal_set is True
+                pandera_columns[LAMINDB_COLUMN_PREFIX_REGEX] = pandera.Column(
+                    regex=True, required=False
+                )
             self._pandera_schema = pandera.DataFrameSchema(
                 pandera_columns,
-                coerce=schema.coerce_dtype,
+                coerce=schema.coerce,
                 strict=schema.maximal_set,
                 ordered=schema.ordered_set,
                 index=index,
             )
-        # in the DataFrameCatManager, we use the
-        # actual columns of the dataset, not the pandera columns
-        # the pandera columns might have additional optional columns
-        if schema.itype == "Composite":
+        if (
+            schema.itype == "Composite"
+        ):  # backward compat, should be migrated to Feature.name
             columns_field = Feature.name
         else:
             columns_field = parse_cat_dtype(schema.itype, is_itype=True)["field"]
+        # in the DataFrameCatManager, we use the
+        # actual columns of the dataset, not the pandera columns
+        # the pandera columns might have additional optional columns
         self._cat_manager = DataFrameCatManager(
             self._dataset,
             columns_field=columns_field,
@@ -546,6 +633,7 @@ class ComponentCurator(Curator):
             index=schema.index,
             slot=slot,
             maximal_set=schema.maximal_set,
+            schema=schema,
         )
 
     @property
@@ -573,7 +661,8 @@ class ComponentCurator(Curator):
                         if feature.default_value is not None
                         else pd.NA
                     )
-                    if feature.dtype.startswith("cat"):
+                    dtype_str = feature._dtype_str
+                    if dtype_str.startswith("cat"):
                         self._dataset[feature.name] = pd.Categorical(
                             [fill_value] * len(self._dataset)
                         )
@@ -614,7 +703,7 @@ class ComponentCurator(Curator):
     @doc_args(VALIDATE_DOCSTRING)
     def validate(self) -> None:
         """{}"""  # noqa: D415
-        if self._schema.n > 0:
+        if self._pandera_schema is not None:
             try:
                 # first validate through pandera
                 self._pandera_schema.validate(self._dataset, lazy=True)
@@ -625,39 +714,10 @@ class ComponentCurator(Curator):
                 has_dtype_error = "WRONG_DATATYPE" in str(err)
                 error_msg = str(err)
                 if has_dtype_error:
-                    error_msg += "   ▶ Hint: Consider setting 'coerce_datatype=True' to attempt coercing/converting values during validation to the pre-defined dtype."
+                    error_msg += "   ▶ Hint: Consider setting `feature.coerce = True` to attempt coercing values during validation to the required dtype."
                 raise ValidationError(error_msg) from err
         else:
             self._cat_manager_validate()
-
-    @doc_args(SAVE_ARTIFACT_DOCSTRING)
-    def save_artifact(
-        self,
-        *,
-        key: str | None = None,
-        description: str | None = None,
-        revises: Artifact | None = None,
-        run: Run | None = None,
-    ) -> Artifact:
-        """{}"""  # noqa: D415
-        if not self._is_validated:
-            self.validate()  # raises ValidationError if doesn't validate
-        if self._artifact is None:
-            self._artifact = Artifact.from_dataframe(
-                self._dataset,
-                key=key,
-                description=description,
-                revises=revises,
-                run=run,
-                format=".csv" if key is not None and key.endswith(".csv") else None,
-            )
-
-        self._artifact.schema = self._schema
-        self._artifact.save()
-        return annotate_artifact(  # type: ignore
-            self._artifact,
-            cat_vectors=self.cat._cat_vectors,
-        )
 
 
 class DataFrameCurator(SlotsCurator):
@@ -668,6 +728,7 @@ class DataFrameCurator(SlotsCurator):
         dataset: The DataFrame-like object to validate & annotate.
         schema: A :class:`~lamindb.Schema` object that defines the validation constraints.
         slot: Indicate the slot in a composite curator for a composite data structure.
+        require_saved_schema: Whether the schema must be saved before curation.
 
     Examples:
 
@@ -698,18 +759,25 @@ class DataFrameCurator(SlotsCurator):
         self,
         dataset: pd.DataFrame | Artifact,
         schema: Schema,
+        *,
         slot: str | None = None,
+        features: dict[str, Any] | None = None,
+        require_saved_schema: bool = True,
     ) -> None:
-        super().__init__(dataset=dataset, schema=schema)
-
-        # Create atomic curator for features only
-        if len(self._schema.features.all()) > 0:
-            self._atomic_curator = ComponentCurator(
-                dataset=dataset,
-                schema=schema,
-                slot=slot,
-            )
-
+        # loads or opens dataset, dataset may be an artifact
+        super().__init__(
+            dataset=dataset,
+            schema=schema,
+            features=features,
+            require_saved_schema=require_saved_schema,
+        )
+        # uses open dataset at self._dataset
+        self._atomic_curator = ComponentCurator(
+            dataset=self._dataset,
+            schema=schema,
+            slot=slot,
+            require_saved_schema=require_saved_schema,
+        )
         # Handle (nested) attrs
         if slot is None and schema.slots:
             for slot_name, slot_schema in schema.slots.items():
@@ -724,11 +792,14 @@ class DataFrameCurator(SlotsCurator):
                             data = _resolve_schema_slot_path(
                                 attrs_dict, deeper_keys, slot_name, "attrs"
                             )
-                        df = pd.DataFrame([data])
+                        df = convert_dict_to_dataframe_for_validation(data, slot_schema)
                         self._slots[slot_name] = ComponentCurator(
-                            df, slot_schema, slot=slot_name
+                            df,
+                            slot_schema,
+                            slot=slot_name,
+                            require_saved_schema=require_saved_schema,
                         )
-                else:
+                elif slot_name != "__external__":
                     raise ValueError(
                         f"Slot '{slot_name}' is not supported for DataFrameCurator. Must be 'attrs'."
                     )
@@ -736,9 +807,7 @@ class DataFrameCurator(SlotsCurator):
     @property
     def cat(self) -> DataFrameCatManager:
         """Manage categoricals by updating registries."""
-        if hasattr(self, "_atomic_curator"):
-            return self._atomic_curator.cat
-        raise AttributeError("cat is only available for slots DataFrameCurator")
+        return self._atomic_curator.cat
 
     def standardize(self) -> None:
         """Standardize the dataset.
@@ -746,20 +815,16 @@ class DataFrameCurator(SlotsCurator):
         - Adds missing columns for features
         - Fills missing values for features with default values
         """
-        if hasattr(self, "_atomic_curator"):
-            self._atomic_curator.standardize()
-        else:
-            for slot_curator in self._slots.values():
-                slot_curator.standardize()
+        self._atomic_curator.standardize()
+        for slot_curator in self._slots.values():
+            slot_curator.standardize()
 
     @doc_args(VALIDATE_DOCSTRING)
     def validate(self) -> None:
         """{}."""
-        if hasattr(self, "_atomic_curator"):
-            self._atomic_curator.validate()
-            self._is_validated = self._atomic_curator._is_validated
-        if self._schema.itype == "Composite":
-            super().validate()
+        self._atomic_curator.validate()
+        self._is_validated = self._atomic_curator._is_validated
+        super().validate()
 
     @doc_args(SAVE_ARTIFACT_DOCSTRING)
     def save_artifact(
@@ -768,19 +833,36 @@ class DataFrameCurator(SlotsCurator):
         """{}."""
         if not self._is_validated:
             self.validate()
-
-        if self._slots:
-            self._slots["columns"] = self._atomic_curator
-            try:
-                return super().save_artifact(
-                    key=key, description=description, revises=revises, run=run
-                )
-            finally:
-                del self._slots["columns"]
-        else:
-            return self._atomic_curator.save_artifact(
+        self._slots["columns"] = self._atomic_curator
+        try:
+            return super().save_artifact(
                 key=key, description=description, revises=revises, run=run
             )
+        finally:
+            del self._slots["columns"]
+
+
+class ExperimentalDictCurator(DataFrameCurator):
+    """Curator for `dict` based on `DataFrameCurator`."""
+
+    def __init__(
+        self,
+        dataset: dict | Artifact,
+        schema: Schema,
+        slot: str | None = None,
+        require_saved_schema: bool = False,
+    ) -> None:
+        if not isinstance(dataset, dict) and not isinstance(dataset, Artifact):
+            raise InvalidArgument("The dataset must be a dict or dict-like artifact.")
+        if isinstance(dataset, Artifact):
+            assert dataset.otype == "dict", "Artifact must be of otype 'dict'."  # noqa: S101
+            d = dataset.load(is_run_input=False)
+        else:
+            d = dataset
+        df = convert_dict_to_dataframe_for_validation(d, schema)
+        super().__init__(
+            df, schema, slot=slot, require_saved_schema=require_saved_schema
+        )
 
 
 def _resolve_schema_slot_path(
@@ -803,13 +885,18 @@ def _resolve_schema_slot_path(
         base_path += f"['{key}']"
         try:
             current = current[key]
-        except KeyError:
+        except (
+            KeyError,
+            TypeError,
+        ):  # if not a dict, raises TypeError; if a dict and key not found, raises KeyError
             available = (
-                list(current.keys()) if isinstance(current, dict) else "not a dict"
+                list(current.keys())
+                if isinstance(current, dict)
+                else "none (not a dict)"
             )
             raise InvalidArgument(
                 f"Schema slot '{slot}' requires keys {base_path} but key '{key}' "
-                f"not found. Available keys at this level: {available}"
+                f"not found. Available keys at this level: {available}."
             ) from None
 
     return current
@@ -911,7 +998,7 @@ class AnnDataCurator(SlotsCurator):
         super().__init__(dataset=dataset, schema=schema)
         if not data_is_scversedatastructure(self._dataset, "AnnData"):
             raise InvalidArgument("dataset must be AnnData-like.")
-        if schema.otype and schema.otype != "AnnData":
+        if schema.otype != "AnnData":
             raise InvalidArgument("Schema otype must be 'AnnData'.")
 
         for slot, slot_schema in schema.slots.items():
@@ -1237,7 +1324,8 @@ class CatVector:
         source: SQLRecord | None = None,  # The ontology source to validate against.
         feature: Feature | None = None,
         cat_manager: DataFrameCatManager | None = None,
-        subtype_str: str = "",
+        filter_str: str = "",
+        record_uid: str | None = None,
         maximal_set: bool = True,  # whether unvalidated categoricals cause validation failure.
     ) -> None:
         self._values_getter = values_getter
@@ -1245,30 +1333,50 @@ class CatVector:
         self._field = field
         self._key = key
         self._source = source
-        self._organism = None
         self._validated: None | list[str] = None
         self._non_validated: None | list[str] = None
         self._synonyms: None | dict[str, str] = None
-        self._subtype_str = subtype_str
+        self._record_uid = record_uid
         self._subtype_query_set = None
         self._cat_manager = cat_manager
         self.feature = feature
         self.records = None
         self._maximal_set = maximal_set
-
-        self._all_filters = {"source": self._source, "organism": self._organism}
-
-        if self._subtype_str and "=" in self._subtype_str:
-            self._all_filters.update(
+        self._type_record = None
+        self._registry = self._field.field.model
+        self._field_name = self._field.field.name
+        self._filter_kwargs = {}
+        if filter_str and filter_str != "unsaved":
+            self._filter_kwargs.update(
                 resolve_relation_filters(
-                    parse_filter_string(self._subtype_str), self._field.field.model
+                    parse_filter_string(filter_str), self._registry
                 )  # type: ignore
             )
+        if self._registry.__base__.__name__ == "BioRecord":
+            if self._source is not None:
+                self._filter_kwargs["source"] = self._source
+            organism_record = get_organism_record_from_field(
+                field=self._field,
+                organism=self._filter_kwargs.get("organism"),
+                values=self.values,
+            )
+            if organism_record is not None:
+                self._filter_kwargs["organism"] = organism_record
+        self._filter_kwargs = get_current_filter_kwargs(
+            self._registry, self._filter_kwargs
+        )
 
-        if hasattr(field.field.model, "_name_field"):
-            label_ref_is_name = field.field.name == field.field.model._name_field
+        # get the dtype associated record based on the record_uid
+        if self._record_uid:
+            self._type_record = get_record_type_from_uid(
+                self._registry,
+                self._record_uid,
+            )
+
+        if hasattr(self._registry, "_name_field"):
+            label_ref_is_name = self._field_name == self._registry._name_field
         else:
-            label_ref_is_name = field.field.name == "name"
+            label_ref_is_name = self._field_name == "name"
         self.label_ref_is_name = label_ref_is_name
 
     @property
@@ -1356,26 +1464,24 @@ class CatVector:
 
     def _add_validated(self) -> tuple[list, list]:
         """Save features or labels records in the default instance."""
+        from lamindb.models.has_parents import keep_topmost_matches
         from lamindb.models.save import save as ln_save
 
-        registry = self._field.field.model
-        field_name = self._field.field.name
-        model_field = registry.__get_name_with_module__()
-        filter_kwargs = get_current_filter_kwargs(registry, self._all_filters)
-
-        valid_from_values_kwargs = {}
-        for key, value in filter_kwargs.items():
-            if key in {"field", "organism", "source", "mute"}:
-                valid_from_values_kwargs[key] = value
-            elif hasattr(registry, key) and "__" not in key:
-                valid_from_values_kwargs[key] = value
+        model_field = self._registry.__get_name_with_module__()
 
         values = [
-            i
-            for i in self.values
-            if (isinstance(i, str) and i)
-            or (isinstance(i, list) and i)
-            or (isinstance(i, np.ndarray) and i.size > 0)
+            value
+            for value in self.values
+            if (isinstance(value, str) and value)
+            or (
+                isinstance(value, (int, float))
+                and not isinstance(value, bool)
+                and value == value
+            )
+            or (isinstance(value, list) and value)
+            or (
+                isinstance(value, np.ndarray) and value.size > 0 and value.dtype != bool
+            )
         ]
         if not values:
             return [], []
@@ -1383,34 +1489,45 @@ class CatVector:
         # if a value is a list, we need to flatten it
         str_values = _flatten_unique(values)
 
+        # if values are SQLRecord, we don't need to validate them
+        if all(isinstance(v, SQLRecord) for v in str_values):
+            assert all(v._state.adding is False for v in str_values), (
+                "All records must be saved."
+            )
+            self.records = str_values  # type: ignore
+            validated_values = str_values  # type: ignore
+            return validated_values, []
+
         # inspect the default instance and save validated records from public
-        if self._subtype_str != "" and "=" not in self._subtype_str:
-            related_name = registry._meta.get_field("type").remote_field.related_name
-            type_record = registry.get(name=self._subtype_str)
-            if registry.__name__ == "Record":
-                self._subtype_query_set = type_record.query_children()
+        if issubclass(self._registry, HasType):
+            if self._type_record is None:
+                self._subtype_query_set = self._registry.filter()
             else:
-                self._subtype_query_set = getattr(type_record, related_name).all()
+                query_sub_types = getattr(
+                    self._type_record, f"query_{self._registry.__name__.lower()}s"
+                )
+                self._subtype_query_set = query_sub_types()
             values_array = np.array(str_values)
             validated_mask = self._subtype_query_set.validate(  # type: ignore
-                values_array, field=self._field, **filter_kwargs, mute=True
+                values_array, field=self._field, mute=True
             )
-            validated_labels, non_validated_labels = (
-                values_array[validated_mask],
-                values_array[~validated_mask],
+            validated_values, non_validated_values = (
+                list(set(values_array[validated_mask])),
+                list(set(values_array[~validated_mask])),
             )
-            records = registry.from_values(
-                validated_labels,
-                field=self._field,
-                **valid_from_values_kwargs,
-                mute=True,
-            )
+            records = self._subtype_query_set.filter(  # type: ignore
+                **{f"{self._field_name}__in": validated_values}, **self._filter_kwargs
+            ).to_list()
+            records = keep_topmost_matches(records)
         else:
-            existing_and_public_records = registry.from_values(
-                str_values, field=self._field, **valid_from_values_kwargs, mute=True
+            existing_and_public_records = _from_values(
+                str_values,
+                field=self._field,
+                mute=True,
+                **self._filter_kwargs,  # type: ignore
             )
-            existing_and_public_labels = [
-                getattr(r, field_name) for r in existing_and_public_records
+            existing_and_public_values = [
+                getattr(r, self._field_name) for r in existing_and_public_records
             ]
             # public records that are not already in the database
             public_records = [r for r in existing_and_public_records if r._state.adding]
@@ -1423,25 +1540,27 @@ class CatVector:
             if len(public_records) > 0:
                 logger.info(f"saving validated records of '{self._key}'")
                 ln_save(public_records)
-                labels_saved_public = [getattr(r, field_name) for r in public_records]
+                values_saved_public = [
+                    getattr(r, self._field_name) for r in public_records
+                ]
                 # log the saved public labels
                 # the term "transferred" stresses that this is always in the context of transferring
                 # labels from a public ontology or a different instance to the present instance
-                if len(labels_saved_public) > 0:
-                    s = "s" if len(labels_saved_public) > 1 else ""
+                if len(values_saved_public) > 0:
+                    s = "s" if len(values_saved_public) > 1 else ""
                     logger.success(
-                        f'added {len(labels_saved_public)} record{s} {colors.green("from_public")} with {model_field} for "{self._key}": {_format_values(labels_saved_public)}'
+                        f'added {len(values_saved_public)} record{s} {colors.green("from_public")} with {model_field} for "{self._key}": {_format_values(values_saved_public)}'
                     )
                     # non-validated records from the default instance
-            non_validated_labels = [
-                i for i in str_values if i not in existing_and_public_labels
+            non_validated_values = [
+                i for i in str_values if i not in existing_and_public_values
             ]
-            validated_labels = existing_and_public_labels
+            validated_values = existing_and_public_values
             records = existing_and_public_records
 
         self.records = records
-        # validated, non-validated
-        return validated_labels, non_validated_labels
+        # validated values, non-validated values
+        return validated_values, non_validated_values
 
     def _add_new(
         self,
@@ -1453,35 +1572,30 @@ class CatVector:
         """Add new labels to the registry."""
         from lamindb.models.save import save as ln_save
 
-        registry = self._field.field.model
-        field_name = self._field.field.name
         non_validated_records: SQLRecordList[Any] = []  # type: ignore
-        type_record = None
-        if self._subtype_str != "" and "=" not in self._subtype_str:
-            type_record = registry.get(name=self._subtype_str)
-        if df is not None and registry == Feature:
+        if df is not None and self._registry == Feature:
             nonval_columns = Feature.inspect(df.columns, mute=True).non_validated
             non_validated_records = Feature.from_dataframe(df.loc[:, nonval_columns])
         else:
-            if (
-                self._organism
-                and hasattr(registry, "organism")
-                and registry._meta.get_field("organism").is_relation
-            ):
-                # make sure organism record is saved to the current instance
-                create_kwargs["organism"] = _save_organism(name=self._organism)
-
+            organism_record = self._filter_kwargs.get("organism", None)
             for value in values:
-                init_kwargs = {field_name: value}
-                if registry == Feature:
+                init_kwargs = {self._field_name: value}
+                if self._registry == Feature:
                     init_kwargs["dtype"] = "cat" if dtype is None else dtype
-                if type_record is not None:
-                    # if subtype_str is set, we need to set the type for new records
-                    init_kwargs["type"] = type_record
-                non_validated_records.append(registry(**init_kwargs, **create_kwargs))
+                if self._type_record is not None:
+                    # if type_record is set, we need to set the type for new records
+                    init_kwargs["type"] = self._type_record
+                if organism_record is not None:
+                    init_kwargs["organism"] = organism_record
+                # here we create non-validated records skipping validation since we already ensured that they don't exist
+                non_validated_records.append(
+                    self._registry(
+                        **init_kwargs, **create_kwargs, _skip_validation=True
+                    )
+                )
         if len(non_validated_records) > 0:
             ln_save(non_validated_records)
-            model_field = colors.italic(registry.__get_name_with_module__())
+            model_field = colors.italic(self._registry.__get_name_with_module__())
             s = "s" if len(values) > 1 else ""
             logger.success(
                 f'added {len(values)} record{s} with {model_field} for "{self._key}": {_format_values(values)}'
@@ -1492,43 +1606,23 @@ class CatVector:
         values: list[str],
     ) -> tuple[list[str], dict]:
         """Validate ontology terms using LaminDB registries."""
-        registry = self._field.field.model
-        field_name = self._field.field.name
-        model_field = f"{registry.__name__}.{field_name}"
-
-        kwargs_current = get_current_filter_kwargs(registry, self._all_filters)
-
-        valid_inspect_kwargs = {}
-        for key, value in kwargs_current.items():
-            if key in {"field", "organism", "source", "mute", "from_source"}:
-                valid_inspect_kwargs[key] = value
-            elif hasattr(registry, key) and "__" not in key:
-                valid_inspect_kwargs[key] = value
+        model_field = f"{self._registry.__name__}.{self._field_name}"
 
         # inspect values from the default instance, excluding public
-        registry_or_queryset = registry
+        registry_or_queryset = self._registry
         if self._subtype_query_set is not None:
             registry_or_queryset = self._subtype_query_set
-        inspect_result = registry_or_queryset.inspect(
+
+        # first inspect against the registry
+        inspect_result = registry_or_queryset.filter(**self._filter_kwargs).inspect(
             values,
             field=self._field,
             mute=True,
             from_source=False,
-            **valid_inspect_kwargs,
         )
+        # here non_validated includes synonyms and new values
         non_validated = inspect_result.non_validated
         syn_mapper = inspect_result.synonyms_mapper
-
-        # inspect the non-validated values from public (BioRecord only)
-        values_validated = []
-        if hasattr(registry, "public"):
-            public_records = registry.from_values(
-                non_validated,
-                field=self._field,
-                mute=True,
-                **valid_inspect_kwargs,
-            )
-            values_validated += [getattr(r, field_name) for r in public_records]
 
         # logging messages
         if self._cat_manager is not None:
@@ -1540,7 +1634,6 @@ class CatVector:
         non_validated_hint_print = (
             f"curator{slot_prefix}.cat.add_new_from('{self._key}')"
         )
-        non_validated = [i for i in non_validated if i not in values_validated]
         n_non_validated = len(non_validated)
         if n_non_validated == 0:
             logger.success(
@@ -1551,6 +1644,7 @@ class CatVector:
             s = "" if n_non_validated == 1 else "s"
             print_values = _format_values(non_validated)
             warning_message = f"{colors.red(f'{n_non_validated} term{s}')} not validated in feature '{self._key}'{in_slot}: {colors.red(print_values)}\n"
+            # log synonyms if any
             if syn_mapper:
                 s = "" if len(syn_mapper) == 1 else "s"
                 syn_mapper_print = _format_values(
@@ -1561,9 +1655,16 @@ class CatVector:
             if n_non_validated > len(syn_mapper):
                 if syn_mapper:
                     warning_message += "\n    for remaining terms:\n"
-                warning_message += f"    → fix typos, remove non-existent values, or save terms via: {colors.cyan(non_validated_hint_print)}"
-                if self._subtype_query_set is not None:
-                    warning_message += f"\n    → a valid label for subtype '{self._subtype_str}' has to be one of {self._subtype_query_set.to_list('name')}"
+                check_organism = ""
+                if (
+                    self._registry.__base__.__name__ == "BioRecord"
+                    and self._registry.require_organism(field=self._field)
+                ):
+                    organism = self._filter_kwargs.get("organism", None)
+                    check_organism = f"fix organism '{organism}', "
+                warning_message += f"    → {check_organism}fix typos, remove non-existent values, or save terms via: {colors.cyan(non_validated_hint_print)}"
+                if self._subtype_query_set is not None and self._type_record:
+                    warning_message += f"\n    → a valid label for subtype '{self._type_record.name}' has to be one of {self._subtype_query_set.to_list('name')}"
             logger.info(f'mapping "{self._key}" on {colors.italic(model_field)}')
             logger.warning(warning_message)
             if self._cat_manager is not None:
@@ -1580,8 +1681,7 @@ class CatVector:
 
     def standardize(self) -> None:
         """Standardize the vector."""
-        registry = self._field.field.model
-        if not hasattr(registry, "standardize"):
+        if not hasattr(self._registry, "standardize"):
             return self.values
         if self._synonyms is None:
             self.validate()
@@ -1633,6 +1733,7 @@ class DataFrameCatManager:
         index: Feature | None = None,
         slot: str | None = None,
         maximal_set: bool = False,
+        schema: Schema | None = None,
     ) -> None:
         self._non_validated = None
         self._index = index
@@ -1650,9 +1751,13 @@ class DataFrameCatManager:
         self._cat_vectors: dict[str, CatVector] = {}
         self._slot = slot
         self._maximal_set = maximal_set
-
+        columns = self._dataset.keys()
+        if maximal_set:
+            columns = [
+                col for col in columns if not re.match(LAMINDB_COLUMN_PREFIX_REGEX, col)
+            ]
         self._cat_vectors["columns"] = CatVector(
-            values_getter=lambda: self._dataset.keys(),  # lambda ensures the inplace update
+            values_getter=lambda: columns,  # lambda ensures the inplace update
             values_setter=lambda new_values: setattr(
                 self._dataset, "columns", pd.Index(new_values)
             )
@@ -1663,38 +1768,46 @@ class DataFrameCatManager:
             source=self._sources.get("columns"),
             cat_manager=self,
             maximal_set=self._maximal_set,
+            filter_str=""
+            if schema.flexible
+            else "unsaved"
+            if schema.id is None
+            else f"schemas__id={schema.id}",
         )
         for feature in self._categoricals:
-            result = parse_dtype(feature.dtype)[
-                0
-            ]  # TODO: support composite dtypes for categoricals
+            result = parse_dtype(feature._dtype_str)[0]
             key = feature.name
-            field = result["field"]
-            subtype_str = result["subtype_str"]
-            self._cat_vectors[key] = CatVector(
-                values_getter=lambda k=key: self._dataset[
-                    k
-                ],  # Capture key as default argument
-                values_setter=lambda new_values, k=key: self._dataset.__setitem__(
-                    k, new_values
-                ),
-                field=field,
-                key=key,
-                source=self._sources.get(key),
-                feature=feature,
-                cat_manager=self,
-                subtype_str=subtype_str,
-            )
-        if index is not None and index.dtype.startswith("cat"):
-            result = parse_dtype(index.dtype)[0]
-            field = result["field"]
+            # only create CatVector if the key exists in the DataFrame
+            if key in self._dataset.columns:
+                self._cat_vectors[key] = CatVector(
+                    values_getter=lambda k=key: self._dataset[
+                        k
+                    ],  # Capture key as default argument
+                    values_setter=lambda new_values, k=key: self._dataset.__setitem__(
+                        k, new_values
+                    ),
+                    field=result["field"],
+                    key=key,
+                    source=self._sources.get(key),
+                    feature=feature,
+                    cat_manager=self,
+                    filter_str=result["filter_str"],
+                    record_uid=result.get("record_uid"),
+                )
+        if index is not None and index._dtype_str.startswith("cat"):
+            result = parse_dtype(index._dtype_str)[0]
             key = "index"
             self._cat_vectors[key] = CatVector(
                 values_getter=self._dataset.index,
-                field=field,
+                values_setter=lambda new_values: setattr(
+                    self._dataset, "index", new_values
+                ),
+                field=result["field"],
                 key=key,
                 feature=index,
                 cat_manager=self,
+                filter_str=result["filter_str"],
+                record_uid=result.get("record_uid"),
             )
 
     @property
@@ -1753,7 +1866,6 @@ class DataFrameCatManager:
     def validate(self) -> bool:
         """Validate variables and categorical observations."""
         self._validate_category_error_messages = ""  # reset the error messages
-
         validated = True
         for key, cat_vector in self._cat_vectors.items():
             logger.info(f"validating vector {key}")
@@ -1814,7 +1926,7 @@ class DataFrameCatManager:
 
 
 def get_current_filter_kwargs(
-    registry: type[SQLRecord], kwargs: dict[str, SQLRecord]
+    registry: type[SQLRecord], kwargs: dict[str, str | SQLRecord]
 ) -> dict:
     """Make sure the source and organism are saved in the same database as the registry."""
     db = registry.filter().db
@@ -1830,29 +1942,6 @@ def get_current_filter_kwargs(
     return filter_kwargs
 
 
-def get_organism_kwargs(
-    field: FieldAttr, organism: str | None = None, values: Any = None
-) -> dict[str, str]:
-    """Check if a registry needs an organism and return the organism name."""
-    registry = field.field.model
-    if registry.__base__.__name__ == "BioRecord":
-        import bionty as bt
-        from bionty._organism import is_organism_required
-
-        from ..models._from_values import get_organism_record_from_field
-
-        if is_organism_required(registry):
-            if organism is not None or bt.settings.organism is not None:
-                return {"organism": organism or bt.settings.organism.name}
-            else:
-                organism_record = get_organism_record_from_field(
-                    field, organism=organism, values=values
-                )
-                if organism_record is not None:
-                    return {"organism": organism_record.name}
-    return {}
-
-
 def annotate_artifact(
     artifact: Artifact,
     *,
@@ -1861,6 +1950,7 @@ def annotate_artifact(
 ) -> Artifact:
     from .. import settings
     from ..models.artifact import add_labels
+    from ..models.schema import ArtifactSchema
 
     if cat_vectors is None:
         cat_vectors = {}
@@ -1868,7 +1958,7 @@ def annotate_artifact(
     # annotate with labels
     for key, cat_vector in cat_vectors.items():
         if (
-            cat_vector._field.field.model == Feature
+            cat_vector._registry == Feature
             or key == "columns"
             or key == "var_index"
             or cat_vector.records is None
@@ -1883,8 +1973,6 @@ def annotate_artifact(
             artifact,
             records=cat_vector.records,
             feature=cat_vector.feature,
-            feature_ref_is_name=None,  # do not need anymore
-            label_ref_is_name=cat_vector.label_ref_is_name,
             from_curator=True,
         )
 
@@ -1901,7 +1989,7 @@ def annotate_artifact(
                 index=index_feature,
                 minimal_set=artifact.schema.minimal_set,
                 maximal_set=artifact.schema.maximal_set,
-                coerce_dtype=artifact.schema.coerce_dtype,
+                coerce=artifact.schema.coerce,
                 ordered_set=artifact.schema.ordered_set,
             )
             if (
@@ -1913,13 +2001,17 @@ def annotate_artifact(
                 )
                 itype = (
                     Feature.name
-                    if artifact.schema.itype == "Composite"
+                    if artifact.schema.itype == "Composite"  # backward compat
                     else parse_cat_dtype(artifact.schema.itype, is_itype=True)["field"]
                 )
-                feature_set = Schema(itype=itype, n=len(features))
-            artifact.feature_sets.add(
-                feature_set.save(), through_defaults={"slot": "columns"}
+                feature_set = Schema(itype=itype, n_members=len(features))
+
+            ArtifactSchema.objects.update_or_create(
+                artifact=artifact,
+                slot="columns",
+                defaults={"schema": feature_set.save()},
             )
+
     else:
         for slot, slot_curator in curator._slots.items():
             # var_index is backward compat (2025-05-01)
@@ -1940,7 +2032,7 @@ def annotate_artifact(
                 index=index_feature,
                 minimal_set=validating_schema.minimal_set,
                 maximal_set=validating_schema.maximal_set,
-                coerce_dtype=validating_schema.coerce_dtype,
+                coerce=validating_schema.coerce,
                 ordered_set=validating_schema.ordered_set,
             )
             if (
@@ -1952,19 +2044,21 @@ def annotate_artifact(
                 )
                 itype = (
                     Feature.name
-                    if artifact.schema.slots[slot].itype == "Composite"
+                    if artifact.schema.slots[slot].itype
+                    == "Composite"  # backward compat
                     else parse_cat_dtype(
                         artifact.schema.slots[slot].itype, is_itype=True
                     )["field"]
                 )
-                feature_set = Schema(itype=itype, n=len(features))
-            artifact.feature_sets.add(
-                feature_set.save(), through_defaults={"slot": slot}
+                feature_set = Schema(itype=itype, n_members=len(features))
+            ArtifactSchema.objects.update_or_create(
+                artifact=artifact, slot=slot, defaults={"schema": feature_set.save()}
             )
 
     slug = ln_setup.settings.instance.slug
     if ln_setup.settings.instance.is_remote:  # pdagma: no cover
-        logger.important(f"go to https://lamin.ai/{slug}/artifact/{artifact.uid}")
+        ui_url = ln_setup.settings.instance.ui_url
+        logger.important(f"go to {ui_url}/{slug}/artifact/{artifact.uid}")
     return artifact
 
 
@@ -1986,20 +2080,3 @@ def _flatten_unique(series: pd.Series[list[Any] | Any]) -> list[Any]:
 
     # Return the keys as a list, preserving order
     return list(result.keys())
-
-
-def _save_organism(name: str):
-    """Save an organism record."""
-    import bionty as bt
-
-    organism = bt.Organism.filter(name=name).one_or_none()
-    if organism is None:
-        organism = bt.Organism.from_source(name=name)
-        if organism is None:
-            raise ValidationError(
-                f'Organism "{name}" not found from public reference\n'
-                f'      → please save it from a different source: bt.Organism.from_source(name="{name}", source).save()'
-                f'      → or manually save it without source: bt.Organism(name="{name}").save()'
-            )
-        organism.save()
-    return organism

@@ -2,7 +2,8 @@
 
 Is available also when no instance is setup.
 
-Modules:
+Modules
+-------
 
 .. autosummary::
    :toctree: .
@@ -11,17 +12,11 @@ Modules:
    types
    fields
    dtypes
-
-Utils:
-
-.. autosummary::
-   :toctree: .
-
-   doc_args
-   deprecated
+   utils
 
 """
 
-from lamindb_setup.core import deprecated, doc_args
+from . import dtypes, fields, types, uids, utils
+from .utils import deprecated, doc_args
 
-from . import dtypes, fields, types, uids
+__all__ = ["dtypes", "fields", "types", "uids", "utils"]

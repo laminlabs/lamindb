@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 import builtins
+import gzip
 import inspect
 import os
 import re
+import shutil
 import sys
 from collections import defaultdict
 from itertools import chain
-from pathlib import PurePosixPath
+from pathlib import Path, PurePosixPath
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -23,6 +25,7 @@ import lamindb_setup as ln_setup
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import IntegrityError, ProgrammingError, connections, models, transaction
 from django.db.models import CASCADE, PROTECT, Field, Manager, QuerySet
+from django.db.models import ForeignKey as django_ForeignKey
 from django.db.models.base import ModelBase
 from django.db.models.fields.related import (
     ManyToManyField,
@@ -33,6 +36,8 @@ from django.db.models.functions import Lower
 from lamin_utils import colors, logger
 from lamindb_setup import settings as setup_settings
 from lamindb_setup._connect_instance import (
+    INSTANCE_NOT_FOUND_MESSAGE,
+    InstanceNotFoundError,
     get_owner_name_from_identifier,
     load_instance_settings,
     update_db_using_local,
@@ -42,22 +47,24 @@ from lamindb_setup.core._hub_core import connect_instance_hub
 from lamindb_setup.core._settings_store import instance_settings_file
 from lamindb_setup.core.django import DBToken, db_token_manager
 from lamindb_setup.core.upath import extract_suffix_from_path
+from upath import UPath
 
-from lamindb.base import deprecated
+from lamindb.base.utils import class_and_instance_method, deprecated
 
 from ..base.fields import (
+    BooleanField,
     CharField,
     DateTimeField,
     ForeignKey,
     JSONField,
+    TextField,
 )
-from ..base.ids import base62_12
 from ..base.types import FieldAttr, StrField
+from ..base.uids import base62_12
 from ..errors import (
     FieldValidationError,
     InvalidArgument,
     NoWriteAccess,
-    SQLRecordNameChangeIntegrityError,
     ValidationError,
 )
 from ._is_versioned import IsVersioned
@@ -69,12 +76,22 @@ if TYPE_CHECKING:
     import pandas as pd
 
     from .artifact import Artifact
+    from .block import BranchBlock, SpaceBlock
+    from .query_set import SQLRecordList
     from .run import Run, User
     from .transform import Transform
 
 
 T = TypeVar("T", bound="SQLRecord")
 IPYTHON = getattr(builtins, "__IPYTHON__", False)
+UNIQUE_FIELD_NAMES = {
+    "root",
+    "ontology_id",
+    "uid",
+    "scientific_name",
+    "ensembl_gene_id",
+    "uniprotkb_id",
+}
 
 
 # -------------------------------------------------------------------------------------
@@ -113,15 +130,125 @@ IPYTHON = getattr(builtins, "__IPYTHON__", False)
 #     "a dance of words, where clarity meets brevity. Every syllable counts,"
 #     "illustrating the skill in compact expression, ensuring the essence of the"
 #     "message shines through within the exacting limit."
-# This is a good maximal length for a description field.
 
 
 class IsLink:
     pass
 
 
+class HasType(models.Model):
+    """Mixin for registries that have a hierarchical `type` assigned.
+
+    Such registries have a `.type` foreign key pointing to themselves.
+
+    A `type` hence allows hierarchically grouping records under types.
+
+    For instance, using the example of `ln.Record`::
+
+        experiment_type = ln.Record(name="Experiment", is_type=True).save()
+        experiment1 = ln.Record(name="Experiment 1", type=experiment_type).save()
+        experiment2 = ln.Record(name="Experiment 2", type=experiment_type).save()
+    """
+
+    class Meta:
+        abstract = True
+
+    is_type: bool = BooleanField(default=False, db_default=False, db_index=True)
+    """Indicates if record is a `type`.
+
+    For example, if a record "Compound" is a `type`, the actual compounds "darerinib", "tramerinib", would be instances of that `type`.
+    """
+
+    def query_types(self) -> SQLRecordList:
+        """Query types of a record recursively.
+
+        While `.type` retrieves the `type`, this method
+        retrieves all super types of that `type`::
+
+            # Create type hierarchy
+            type1 = model_class(name="Type1", is_type=True).save()
+            type2 = model_class(name="Type2", is_type=True, type=type1).save()
+            type3 = model_class(name="Type3", is_type=True, type=type2).save()
+
+            # Create a record with type3
+            record = model_class(name=f"{model_name}3", type=type3).save()
+
+            # Query super types
+            super_types = record.query_types()
+            assert super_types[0] == type3
+            assert super_types[1] == type2
+            assert super_types[2] == type1
+        """
+        from .has_parents import _query_ancestors_of_fk
+
+        return _query_ancestors_of_fk(self, "type")  # type: ignore
+
+
 def deferred_attribute__repr__(self):
     return f"FieldAttr({self.field.model.__name__}.{self.field.name})"
+
+
+def unique_constraint_error_in_error_message(error_msg: str) -> bool:
+    """Check if the error message indicates a unique constraint violation."""
+    return (
+        "UNIQUE constraint failed" in error_msg  # SQLite
+        or "duplicate key value violates unique constraint" in error_msg  # Postgre
+    )
+
+
+def parse_violated_field_from_error_message(error_msg: str) -> list[str] | None:
+    # Even if the model has multiple fields with unique=True,
+    # Django will only raise an IntegrityError for one field at a time
+    # - whichever constraint is violated first during the database insert/update operation.
+    if unique_constraint_error_in_error_message(error_msg):
+        if "UNIQUE constraint failed" in error_msg:  # sqlite
+            constraint_field = (
+                error_msg.removeprefix("UNIQUE constraint failed: ")
+                .split(", ")[0]
+                .split(".")[-1]
+            )
+            return [constraint_field]
+        else:  # postgres
+            # Extract constraint name from double quotes
+            constraint_name = error_msg.split('"')[1]
+
+            # Check if it's a multi-column constraint (contains multiple field names)
+            # Format: tablename_field1_field2_..._hash_uniq
+            if "_uniq" in constraint_name:
+                # Remove '_uniq' suffix first
+                constraint_name = constraint_name.removesuffix("_uniq")
+
+                # Remove hash (8 hex characters at the end)
+                parts = constraint_name.split("_")
+                if len(parts[-1]) == 8 and all(
+                    c in "0123456789abcdef" for c in parts[-1]
+                ):
+                    constraint_name = "_".join(parts[:-1])
+
+                # Remove table name prefix (e.g., "bionty_ethnicity_")
+                # Table name is typically the first 2 parts for app_model format
+                parts = constraint_name.split("_")
+                if len(parts) > 2:
+                    # Assume first 2 parts are table name (e.g., "bionty_ethnicity")
+                    field_string = "_".join(parts[2:])
+                else:
+                    field_string = constraint_name
+
+                # Now parse the fields from DETAIL line
+                # DETAIL: Key (name, ontology_id)=(South Asian, HANCESTRO:0006) already exists.
+                if "Key (" in error_msg:
+                    fields_part = error_msg.split("Key (")[1].split(")=")[0]
+                    fields = [f.strip() for f in fields_part.split(",")]
+                    return fields
+
+                # Fallback if DETAIL line not available
+                return [field_string]
+            else:
+                # Single field constraint (ends with _key)
+                constraint_field = constraint_name.removesuffix("_key").split("_")[-1]
+                return [constraint_field]
+
+    return None
 
 
 FieldAttr.__repr__ = deferred_attribute__repr__  # type: ignore
@@ -156,18 +283,24 @@ def is_approx_pascal_case(s):
 
 
 def init_self_from_db(self: SQLRecord, existing_record: SQLRecord):
+    from .run import current_run
+
     new_args = [
         getattr(existing_record, field.attname) for field in self._meta.concrete_fields
     ]
     super(self.__class__, self).__init__(*new_args)
     self._state.adding = False  # mimic from_db
     self._state.db = "default"
+    # if run was not set on the existing record, set it to the current_run
+    if hasattr(self, "run_id") and self.run_id is None and current_run() is not None:
+        logger.warning(f"run was not set on {self}, setting to current run")
+        self.run = current_run()
 
 
 def update_attributes(record: SQLRecord, attributes: dict[str, str]):
     for key, value in attributes.items():
         if getattr(record, key) != value and value is not None:
-            if key not in {"uid", "dtype", "otype", "hash"}:
+            if key not in {"uid", "_dtype_str", "otype", "hash"}:
                 logger.warning(f"updated {key} from {getattr(record, key)} to {value}")
                 setattr(record, key, value)
             else:
@@ -176,7 +309,7 @@ def update_attributes(record: SQLRecord, attributes: dict[str, str]):
                     if key == "hash"
                     else f"keeping {getattr(record, key)}"
                 )
-                logger.warning(
+                logger.debug(
                     f"ignoring tentative value {value} for {key}, {hash_message}"
                 )
 
@@ -194,11 +327,11 @@ def validate_literal_fields(record: SQLRecord, kwargs) -> None:
         return None
     if record.__class__.__name__ in "Feature":
         return None
-    from lamindb.base.types import Dtype, TransformType
+    from lamindb.base.types import ArtifactKind, Dtype, TransformKind
 
     types = {
-        "TransformType": TransformType,
-        "ArtifactKind": Dtype,
+        "TransformKind": TransformKind,
+        "ArtifactKind": ArtifactKind,
         "Dtype": Dtype,
     }
     errors = {}
@@ -277,6 +410,15 @@ def validate_fields(record: SQLRecord, kwargs):
                 f"name '{kwargs['name']}' for type ends with 's', in case you're naming with plural, consider the singular for a type name"
             )
         is_approx_pascal_case(kwargs["name"])
+    if (
+        "type" in kwargs
+        and isinstance(kwargs["type"], HasType)
+        and not kwargs["type"].is_type
+    ):
+        object_name = record.__class__.__name__.lower()
+        raise ValueError(
+            f"You can only assign a {object_name} with `is_type=True` as `type` to another {object_name}, but this doesn't have it: {kwargs['type']}"
+        )
     # validate literals
     validate_literal_fields(record, kwargs)
 
@@ -295,11 +437,18 @@ def suggest_records_with_similar_names(
     # but this isn't reliable: https://laminlabs.slack.com/archives/C04FPE8V01W/p1737812808563409
     # the below needs to be .first() because there might be multiple records with the same
     # name field in case the record is versioned (e.g. for Transform key)
-    exact_match = record.__class__.filter(**{name_field: kwargs[name_field]}).first()
+    if isinstance(record, HasType):
+        if kwargs.get("type", None) is None:
+            subset = record.__class__.filter(type__isnull=True)
+        else:
+            subset = record.__class__.filter(type=kwargs["type"])
+    else:
+        subset = record.__class__
+    exact_match = subset.filter(**{name_field: kwargs[name_field]}).first()
     if exact_match is not None:
         return exact_match
     queryset = _search(
-        record.__class__,
+        subset,
         kwargs[name_field],
         field=name_field,
         truncate_string=True,
@@ -324,8 +473,9 @@ def delete_record(record: BaseSQLRecord, is_soft: bool = True):
         if is_soft:
             record.branch_id = -1
             record.save()
+            return None
         else:
-            super(BaseSQLRecord, record).delete()
+            return super(BaseSQLRecord, record).delete()
 
     # deal with versioned records
     # if _ovewrite_version = True, there is only a single version and
@@ -349,11 +499,11 @@ def delete_record(record: BaseSQLRecord, is_soft: bool = True):
                 record.is_latest = False
             with transaction.atomic():
                 new_latest.save()
-                delete()
-            logger.warning(f"new latest version is: {new_latest}")
-            return None
+                result = delete()
+            logger.important_hint(f"new latest version is: {new_latest}")
+            return result
     # deal with all other cases of the nested if condition now
-    delete()
+    return delete()
 
 
 RECORD_REGISTRY_EXAMPLE = """Example::
@@ -373,6 +523,35 @@ RECORD_REGISTRY_EXAMPLE = """Example::
         # `Experiment` refers to the registry, which you can query
         df = Experiment.filter(name__startswith="my ").to_dataframe()
 """
+
+
+def _synchronize_clone(storage_root: str) -> str | None:
+    """Synchronizes a clone to the local SQLite path.
+
+    Args:
+        storage_root: The storage root path of the (target) instance
+    """
+    cloud_db_path = UPath(storage_root) / ".lamindb" / "lamin.db"
+    local_sqlite_path = ln_setup.settings.cache_dir / cloud_db_path.path.lstrip("/")
+
+    if local_sqlite_path.exists():
+        return f"sqlite:///{local_sqlite_path}"
+
+    local_sqlite_path.parent.mkdir(parents=True, exist_ok=True)
+    cloud_db_path_gz = UPath(str(cloud_db_path) + ".gz", anon=True)
+    local_sqlite_path_gz = Path(str(local_sqlite_path) + ".gz")
+
+    try:
+        cloud_db_path_gz.synchronize_to(
+            local_sqlite_path_gz, error_no_origin=True, print_progress=True
+        )
+        with gzip.open(local_sqlite_path_gz, "rb") as f_in:
+            with open(local_sqlite_path, "wb") as f_out:
+                shutil.copyfileobj(f_in, f_out)
+        return f"sqlite:///{local_sqlite_path}"
+    except (FileNotFoundError, PermissionError):
+        logger.debug("Clone not found. Falling back to normal access...")
+        return None
 
 
 # this is the metaclass for SQLRecord
@@ -433,8 +612,20 @@ class Registry(ModelBase):
                 result.append(attr)
         return result
 
-    def __repr__(cls) -> str:
-        return registry_repr(cls)
+    def describe(cls, return_str: bool = False) -> str | None:
+        """Describe the fields of the registry."""
+        from ._describe import strip_ansi_from_string as _strip_ansi
+
+        repr_str = f"{colors.green(cls.__name__)}\n"
+        info = SQLRecordInfo(cls)
+        repr_str += info.get_simple_fields(return_str=True)
+        repr_str += info.get_relational_fields(return_str=True)
+        repr_str = repr_str.rstrip("\n")
+        if return_str:
+            return _strip_ansi(repr_str)
+        else:
+            print(repr_str)
+            return None
 
     @doc_args(_lookup.__doc__)
     def lookup(
@@ -453,16 +644,13 @@ class Registry(ModelBase):
             queries: One or multiple `Q` objects.
             expressions: Fields and values passed as Django query expressions.
 
-        Returns:
-            A :class:`~lamindb.models.QuerySet`.
-
         See Also:
             - Guide: :doc:`docs:registries`
             - Django documentation: `Queries <https://docs.djangoproject.com/en/stable/topics/db/queries/>`__
 
         Examples:
-            >>> ln.ULabel(name="my label").save()
-            >>> ln.ULabel.filter(name__startswith="my").to_dataframe()
+            >>> ln.Project(name="my label").save()
+            >>> ln.Project.filter(name__startswith="my").to_dataframe()
         """
         from .query_set import QuerySet
 
@@ -484,18 +672,18 @@ class Registry(ModelBase):
             expressions: Fields and values passed as Django query expressions.
 
         Raises:
-            :exc:`docs:lamindb.errors.DoesNotExist`: In case no matching record is found.
+            :exc:`lamindb.errors.ObjectDoesNotExist`: In case no matching record is found.
 
         See Also:
-            - Guide: :doc:`docs:registries`
+            - Guide: :doc:`registries`
             - Django documentation: `Queries <https://docs.djangoproject.com/en/stable/topics/db/queries/>`__
 
         Examples:
 
             ::
 
-                ulabel = ln.ULabel.get("FvtpPJLJ")
-                ulabel = ln.ULabel.get(name="my-label")
+                record = ln.Record.get("FvtpPJLJ")
+                record = ln.Record.get(name="my-label")
         """
         from .query_set import QuerySet
 
@@ -503,56 +691,62 @@ class Registry(ModelBase):
 
     def to_dataframe(
         cls,
+        *,
         include: str | list[str] | None = None,
-        features: bool | list[str] | str = False,
-        limit: int = 100,
+        features: str | list[str] | None = None,
+        limit: int | None = 100,
+        order_by: str | None = "-id",
     ) -> pd.DataFrame:
-        """Convert to `pd.DataFrame`.
+        """Evaluate and convert to `pd.DataFrame`.
 
-        By default, shows all direct fields, except `updated_at`.
+        By default, maps simple fields and foreign keys onto `DataFrame` columns.
 
-        Use arguments `include` or `feature` to include other data.
+        Guide: :doc:`docs:registries`
 
         Args:
-            include: Related fields to include as columns. Takes strings of
-                form `"ulabels__name"`, `"cell_types__name"`, etc. or a list
-                of such strings.
-            features: If a list of feature names, filters
-                :class:`~lamindb.Feature` down to these features.
-                If `True`, prints all features with dtypes in the core schema module.
-                If `"queryset"`, infers the features used within the set of artifacts or records.
-                Only available for `Artifact` and `Record`.
-            limit: Maximum number of rows to display from a Pandas DataFrame.
-                Defaults to 100 to reduce database load.
+            include: Related data to include as columns. Takes strings of
+                form `"records__name"`, `"cell_types__name"`, etc. or a list
+                of such strings. For `Artifact`, `Record`, and `Run`, can also pass `"features"`
+                to include features with data types pointing to entities in the core schema.
+                If `"privates"`, includes private fields (fields starting with `_`).
+            features: Configure the features to include. Can be a feature name or a list of such names.
+                If `"queryset"`, infers the features used within the current queryset.
+                Only available for `Artifact`, `Record`, and `Run`.
+            limit: Maximum number of rows to display. If `None`, includes all results.
+            order_by: Field name to order the records by. Prefix with '-' for descending order.
+                Defaults to '-id' to get the most recent records. This argument is ignored
+                if the queryset is already ordered or if the specified field does not exist.
 
         Examples:
 
-            Include the name of the creator in the `DataFrame`:
+            Include the name of the creator::
 
-            >>> ln.ULabel.to_dataframe(include="created_by__name"])
+                ln.Record.to_dataframe(include="created_by__name"])
 
-            Include display of features for `Artifact`:
+            Include features::
 
-            >>> df = ln.Artifact.to_dataframe(features=True)
-            >>> ln.view(df)  # visualize with type annotations
+                ln.Artifact.to_dataframe(include="features")
 
-            Only include select features:
+            Include selected features::
 
-            >>> df = ln.Artifact.to_dataframe(features=["cell_type_by_expert", "cell_type_by_model"])
+                ln.Artifact.to_dataframe(features=["cell_type_by_expert", "cell_type_by_model"])
         """
-        query_set = cls.filter()
-        if hasattr(cls, "updated_at"):
-            query_set = query_set.order_by("-updated_at")
-        return query_set[:limit].to_dataframe(include=include, features=features)
+        return cls.filter().to_dataframe(
+            include=include, features=features, order_by=order_by, limit=limit
+        )
 
     @deprecated(new_name="to_dataframe")
     def df(
         cls,
+        *,
         include: str | list[str] | None = None,
-        features: bool | list[str] | str = False,
-        limit: int = 100,
+        features: str | list[str] | None = None,
+        limit: int | None = 100,
+        order_by: str | None = "-id",
     ) -> pd.DataFrame:
-        return cls.to_dataframe(include, features, limit)
+        return cls.to_dataframe(
+            include=include, features=features, limit=limit, order_by=order_by
+        )
 
     @doc_args(_search.__doc__)
     def search(
@@ -572,36 +766,41 @@ class Registry(ModelBase):
             case_sensitive=case_sensitive,
         )
 
+    @deprecated(new_name="connect")
     def using(
         cls,
         instance: str | None,
     ) -> QuerySet:
-        """Use a non-default LaminDB instance.
+        return cls.connect(
+            instance=instance,
+        )
+
+    def connect(
+        cls,
+        instance: str | None,
+    ) -> QuerySet:
+        """Query a non-default LaminDB instance.
 
         Args:
             instance: An instance identifier of form "account_handle/instance_name".
 
         Examples:
-            >>> ln.ULabel.using("account_handle/instance_name").search("ULabel7", field="name")
-                        uid    score
-            name
-            ULabel7  g7Hk9b2v  100.0
-            ULabel5  t4Jm6s0q   75.0
-            ULabel6  r2Xw8p1z   75.0
+
+            ::
+
+                ln.Record.connect("account_handle/instance_name").search("label7", field="name")
         """
         from .query_set import QuerySet
 
-        # connection already established
-        if instance in connections:
-            return QuerySet(model=cls, using=instance)
         # we're in the default instance
         if instance is None or instance == "default":
             return QuerySet(model=cls, using=None)
+        # connection already established
+        if instance in connections:
+            return QuerySet(model=cls, using=instance)
 
         owner, name = get_owner_name_from_identifier(instance)
         current_instance_owner_name: list[str] = setup_settings.instance.slug.split("/")
-        if [owner, name] == current_instance_owner_name:
-            return QuerySet(model=cls, using=None)
 
         # move on to different instances
         cache_using_filepath = (
@@ -611,10 +810,11 @@ class Registry(ModelBase):
         if not settings_file.exists():
             result = connect_instance_hub(owner=owner, name=name)
             if isinstance(result, str):
-                raise RuntimeError(
-                    f"Failed to load instance {instance}, please check your permissions!"
+                message = INSTANCE_NOT_FOUND_MESSAGE.format(
+                    owner=owner, name=name, hub_result=result
                 )
-            iresult, _ = result
+                raise InstanceNotFoundError(message)
+            iresult, storage = result
             # this can happen if querying via an old instance name
             if [iresult.get("owner"), iresult["name"]] == current_instance_owner_name:
                 return QuerySet(model=cls, using=None)
@@ -623,27 +823,55 @@ class Registry(ModelBase):
             source_modules = set(  # noqa
                 [mod for mod in iresult["schema_str"].split(",") if mod != ""]
             )
-            # this just retrives the full connection string from iresult
-            db = update_db_using_local(iresult, settings_file)
+
+            # Try to connect to a clone if targeting a public instance but fall back to normal access if access failed
+            db = None
+            if (
+                "_public" in iresult["db_user_name"]
+                and "postgresql" in iresult["db_scheme"]
+            ):
+                db = _synchronize_clone(storage["root"])
+            if db is None:
+                if [
+                    iresult.get("owner"),
+                    iresult["name"],
+                ] == current_instance_owner_name:
+                    return QuerySet(model=cls, using=None)
+                db = update_db_using_local(iresult, settings_file)
+                is_fine_grained_access = (
+                    iresult["fine_grained_access"]
+                    and iresult["db_permissions"] == "jwt"
+                )
+            else:
+                is_fine_grained_access = False
+
             cache_using_filepath.write_text(
                 f"{iresult['lnid']}\n{iresult['schema_str']}", encoding="utf-8"
             )
-            # need to set the token if it is a fine_grained_access and the user is jwt (not public)
-            is_fine_grained_access = (
-                iresult["fine_grained_access"] and iresult["db_permissions"] == "jwt"
-            )
+
             # access_db can take both: the dict from connect_instance_hub and isettings
             into_db_token = iresult
         else:
             isettings = load_instance_settings(settings_file)
             source_modules = isettings.modules
-            db = isettings.db
+            db = None
+            if "public" in isettings.db and isettings.dialect == "postgresql":
+                db = _synchronize_clone(isettings.storage.root_as_str)
+
+            # Try to connect to a clone if targeting a public instance but fall back to normal access if access failed
+            if db is None:
+                if [isettings.owner, isettings.name] == current_instance_owner_name:
+                    return QuerySet(model=cls, using=None)
+                db = isettings.db
+                is_fine_grained_access = (
+                    isettings._fine_grained_access
+                    and isettings._db_permissions == "jwt"
+                )
+            else:
+                is_fine_grained_access = False
+
             cache_using_filepath.write_text(
                 f"{isettings.uid}\n{','.join(source_modules)}", encoding="utf-8"
-            )
-            # need to set the token if it is a fine_grained_access and the user is jwt (not public)
-            is_fine_grained_access = (
-                isettings._fine_grained_access and isettings._db_permissions == "jwt"
             )
             # access_db can take both: the dict from connect_instance_hub and isettings
             into_db_token = isettings
@@ -658,6 +886,7 @@ class Registry(ModelBase):
         if is_fine_grained_access:
             db_token = DBToken(into_db_token)
             db_token_manager.set(db_token, instance)
+
         return QuerySet(model=cls, using=instance)
 
     def __get_module_name__(cls) -> str:
@@ -677,17 +906,16 @@ class Registry(ModelBase):
 
     def __get_available_fields__(cls) -> set[str]:
         if cls._available_fields is None:
-            cls._available_fields = {
-                f.name
-                for f in cls._meta.get_fields()
-                if not f.name.startswith("_")
-                and not f.name.startswith("links_")
-                and not f.name.endswith("_id")
-            }
+            available_fields = set()
+            for field in cls._meta.get_fields():
+                if not (field_name := field.name).startswith(("_", "links_")):
+                    available_fields.add(field_name)
+                    if isinstance(field, django_ForeignKey):
+                        available_fields.add(field_name + "_id")
             if cls.__name__ == "Artifact":
-                cls._available_fields.add("visibility")  # backward compat
-                cls._available_fields.add("_branch_code")  # backward compat
-                cls._available_fields.add("transform")
+                available_fields.add("transform")
+                available_fields.add("feature_sets")  # backward compat with lamindb v1
+            cls._available_fields = available_fields
         return cls._available_fields
 
 
@@ -704,6 +932,11 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
     class Meta:
         abstract = True
         base_manager_name = "objects"
+
+    # fields to track for changes
+    # if not None, will be tracked in self._original_values as {field_name: value}
+    # use _id fields for foreign keys
+    _TRACK_FIELDS: tuple[str, ...] | None = None
 
     def __init__(self, *args, **kwargs):
         skip_validation = kwargs.pop("_skip_validation", False)
@@ -783,13 +1016,13 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                         self, name_field, kwargs
                     )
                     if exact_match is not None:
-                        if "version" in kwargs:
-                            if kwargs["version"] is not None:
+                        if "version_tag" in kwargs:
+                            if kwargs.get("version_tag") is not None:
                                 version_comment = " and version"
                                 existing_record = self.__class__.filter(
                                     **{
                                         name_field: kwargs[name_field],
-                                        "version": kwargs["version"],
+                                        "version_tag": kwargs.get("version_tag"),
                                     }
                                 ).one_or_none()
                             else:
@@ -802,11 +1035,13 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                             existing_record = exact_match
                         if existing_record is not None:
                             logger.important(
-                                f"returning existing {self.__class__.__name__} record with same"
+                                f"returning {self.__class__.__name__.lower()} with same"
                                 f" {name_field}{version_comment}: '{kwargs[name_field]}'"
                             )
                             init_self_from_db(self, existing_record)
                             update_attributes(self, kwargs)
+                            # track original values after replacing with the existing record
+                            self._populate_tracked_fields()
                             return None
                 super().__init__(**kwargs)
                 if isinstance(self, ValidateFields):
@@ -825,7 +1060,34 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
             )
         else:
             super().__init__(*args)
+        # track original values of fields that are tracked for changes
+        self._populate_tracked_fields()
+        # TODO: refactor to use _TRACK_FIELDS
         track_current_key_and_name_values(self)
+
+    # used in __init__
+    # populates the _original_values dictionary with the original values of the tracked fields
+    def _populate_tracked_fields(self):
+        if (track_fields := self._TRACK_FIELDS) is not None:
+            self._original_values = {f: self.__dict__[f] for f in track_fields}
+        else:
+            self._original_values = None
+
+    def _field_changed(self, field_name: str) -> bool:
+        """Check if the field has changed since the record was saved."""
+        # use _id fields for foreign keys in field_name
+        if self._state.adding:
+            return False
+        # check if the field is tracked for changes
+        track_fields = self._TRACK_FIELDS
+        assert track_fields is not None, (
+            "_TRACK_FIELDS must be set for the record to track changes"
+        )
+        assert field_name in track_fields, (
+            f"Field {field_name} is not tracked for changes"
+        )
+        # check if the field has changed since the record was created
+        return self._original_values[field_name] != self.__dict__[field_name]
 
     def save(self: T, *args, **kwargs) -> T:
         """Save.
@@ -862,6 +1124,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
         if pre_existing_record is not None:
             init_self_from_db(self, pre_existing_record)
         else:
+            # TODO: refactor to use _TRACK_FIELDS
             check_key_change(self)
             check_name_change(self)
             try:
@@ -880,45 +1143,91 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                     super().save(*args, **kwargs)
             except (IntegrityError, ProgrammingError) as e:
                 error_msg = str(e)
-                # two possible error messages for hash duplication
-                # "duplicate key value violates unique constraint"
-                # "UNIQUE constraint failed"
+                # error for hash/uid duplication
                 if (
-                    self.__class__.__name__ in {"Transform", "Artifact"}
+                    self.__class__.__name__ in {"Transform", "Artifact", "Collection"}
                     and isinstance(e, IntegrityError)
                     and "hash" in error_msg
-                    and (
-                        "UNIQUE constraint failed" in error_msg
-                        or "duplicate key value violates unique constraint" in error_msg
-                    )
+                    and unique_constraint_error_in_error_message(error_msg)
                 ):
-                    pre_existing_record = self.__class__.get(hash=self.hash)
+                    # we also need to include the key here because hash can be the same across keys
+                    query_fields = {"hash": self.hash, "key": self.key}
+                    if self.__class__.__name__ == "Artifact":
+                        # in case of artifact, also storage is needed
+                        query_fields["storage"] = self.storage
+                    # the get here is Django's get and not aware of the trash or other branches
+                    # but generally we bypass branch_id in queries for hash also in LaminDB's get()
+                    pre_existing_record = self.__class__.get(**query_fields)
+                    from_trash = (
+                        "from trash" if pre_existing_record.branch_id == -1 else ""
+                    )
+                    pre_existing_record.branch_id = 1  # move to default branch
                     logger.warning(
-                        f"returning {self.__class__.__name__.lower()} with same hash: {pre_existing_record}"
+                        f"returning {self.__class__.__name__.lower()} {from_trash} with same hash & key: {pre_existing_record}"
                     )
                     init_self_from_db(self, pre_existing_record)
                 elif (
-                    self.__class__.__name__ == "Storage"
-                    and isinstance(e, IntegrityError)
-                    and "root" in error_msg
-                    or "uid" in error_msg
+                    isinstance(e, IntegrityError)
+                    # for Storage, even if uid was in the error message, we can retrieve based on
+                    # the root because it's going to be the same root
+                    and any(field in error_msg for field in UNIQUE_FIELD_NAMES)
+                    and (
+                        "_type_name_at_" not in error_msg
+                    )  # constraints for unique type names in Record, ULabel, etc.
                     and (
                         "UNIQUE constraint failed" in error_msg
                         or "duplicate key value violates unique constraint" in error_msg
                     )
+                    and hasattr(self, "branch_id")
                 ):
-                    # even if uid was in the error message, we can retrieve based on
-                    # the root because it's going to be the same root
-                    pre_existing_record = self.__class__.get(root=self.root)
+                    unique_fields = parse_violated_field_from_error_message(error_msg)
+                    # here we query against the all branches with .objects
+                    pre_existing_record = self.__class__.objects.get(
+                        **{field: getattr(self, field) for field in unique_fields}
+                    )
+                    # if the existing record is in the default branch, we just return it
+                    if pre_existing_record.branch_id == 1:
+                        logger.warning(
+                            f"returning {self.__class__.__name__} record with same {unique_fields}: '{ {field: getattr(self, field) for field in unique_fields} }'"
+                        )
+                    # if the existing record is in a different branch we update its fields
+                    else:
+                        # modifies the fields of the existing record with new values of self
+                        field_names = [i.name for i in self.__class__._meta.fields]
+                        update_attributes(
+                            pre_existing_record,
+                            {f: getattr(self, f) for f in field_names},
+                        )
+                        pre_existing_record.save()
                     init_self_from_db(self, pre_existing_record)
                 elif (
                     isinstance(e, ProgrammingError)
-                    and hasattr(self, "space")
                     and "new row violates row-level security policy" in error_msg
+                    and (
+                        (is_locked := getattr(self, "is_locked", False))
+                        or hasattr(self, "space")
+                    )
                 ):
+                    if is_locked:
+                        no_write_msg = "It is not allowed to modify or create locked ('is_locked=True') records."
+                    else:
+                        no_write_msg = (
+                            f"You're not allowed to write to the space '{self.space.name}'.\n"
+                            "Please contact administrators of the space if you need write access."
+                        )
+                    raise NoWriteAccess(no_write_msg) from None
+                elif (
+                    isinstance(e, ProgrammingError)
+                    and "permission denied for table" in error_msg
+                    and (isettings := setup_settings.instance)._db_permissions
+                    == "public"
+                ):
+                    slug = isettings.slug
                     raise NoWriteAccess(
-                        f"You’re not allowed to write to the space '{self.space.name}'.\n"
-                        "Please contact an administrator of the space if you need write access."
+                        f"You are trying to write to '{slug}' with public (read-only) permissions.\n"
+                        "Please contact administrators to make you a collaborator if you need write access.\n"
+                        f"If you are already a collaborator, please do 'lamin connect {slug}' in console, "
+                        "restart the python session and try again."
                     ) from None
                 else:
                     raise
@@ -964,17 +1273,117 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                 self.projects.add(ln.context.project)
         return self
 
-    def delete(self) -> None:
-        """Delete."""
-        delete_record(self, is_soft=False)
+    @class_and_instance_method
+    def describe(cls_or_self, return_str: bool = False) -> None | str:
+        """Describe record including relations.
+
+        Args:
+            return_str: Return a string instead of printing.
+        """
+        from ._describe import describe_postgres_sqlite
+
+        if isinstance(cls_or_self, type):
+            return type(cls_or_self).describe(cls_or_self, return_str=return_str)  # type: ignore
+        else:
+            return describe_postgres_sqlite(cls_or_self, return_str=return_str)
+
+    def __repr__(
+        self: SQLRecord,
+        include_foreign_keys: bool = True,
+        exclude_field_names: list[str] | None = None,
+    ) -> str:
+        if exclude_field_names is None:
+            exclude_field_names = ["id", "updated_at", "source_code"]
+        field_names = [
+            field.name
+            for field in self._meta.fields
+            if (
+                not isinstance(field, ForeignKey)
+                and field.name not in exclude_field_names
+            )
+        ]
+        if include_foreign_keys:
+            field_names += [
+                f"{field.name}_id"
+                for field in self._meta.fields
+                if isinstance(field, ForeignKey)
+            ]
+        if "created_at" in field_names:
+            field_names.remove("created_at")
+            field_names.append("created_at")
+        if "is_locked" in field_names:
+            field_names.remove("is_locked")
+            field_names.append("is_locked")
+        if field_names[0] != "uid" and "uid" in field_names:
+            field_names.remove("uid")
+            field_names.insert(0, "uid")
+        fields_str = {}
+        for k in field_names:
+            if k == "n" and getattr(self, k) < 0:
+                # only needed for Schema
+                continue
+            if (
+                not k.startswith("_")
+                or (k == "_dtype_str" and self.__class__.__name__ == "Feature")
+            ) and hasattr(self, k):
+                value = getattr(self, k)
+                # Force strip the time component of the version
+                if k == "version" and value:
+                    fields_str[k] = f"'{str(value).split()[0]}'"
+                else:
+                    fields_str[k] = format_field_value(value)
+        fields_joined_str = ", ".join(
+            [f"{k}={fields_str[k]}" for k in fields_str if fields_str[k] is not None]
+        )
+        return f"{self.__class__.__name__}({fields_joined_str})"
+
+    def __str__(self) -> str:
+        return self.__repr__()
+
+    def delete(self, permanent: bool | None = None):
+        """Delete.
+
+        Args:
+            permanent: For consistency, `False` raises an error, as soft delete is impossible.
+
+        Returns:
+            When `permanent=True`, returns Django's delete return value: a tuple of
+            (deleted_count, {registry_name: count}). Otherwise returns None.
+        """
+        if permanent is False:
+            raise ValueError(
+                f"Soft delete is not possible for {self.__class__.__name__}, "
+                "use 'permanent=True' or 'permanent=None' for permanent deletion."
+            )
+
+        return delete_record(self, is_soft=False)
 
 
 class Space(BaseSQLRecord):
-    """Workspaces with managed access for specific users or teams.
+    """Spaces with managed access for specific users or teams.
 
-    Guide: :doc:`docs:access`.
+    If not setting a space, a :class:`~lamindb.models.SQLRecord` object is accessible to all collaborators of the LaminDB instance because its :attr:`~lamindb.models.SQLRecord.space` field defaults to the built-in `all` space.
+    You can create a restricted space through LaminHub either on the instance settings page or the *Spaces* tab of your account page.
 
-    All data in this registry is synchronized from LaminHub so that spaces can be shared and reused across multiple LaminDB instances.
+    Examples:
+
+        After creating a restricted space through LaminHub, create an artifact in the space::
+
+            space = ln.Space.get(name="Our space")  # get a space
+            ln.Artifact("./test.txt", key="test.txt", space=space).save()  # save artifact in space
+
+        You can also move an existing object into a space::
+
+            space = ln.Space.get(name="Our space")  # select a space
+            record = ln.Record.get(name="existing label")
+            record.space = space
+            record.save()  # saved in space "Our space"
+
+        For more examples and background, see :doc:`docs:permissions`, in particular, section :ref:`docs:use-a-restricted-space`.
+
+    Notes:
+
+        All data in this registry is synchronized from LaminHub so that spaces can be shared and reused across multiple LaminDB instances.
     """
 
     class Meta:
@@ -995,7 +1404,7 @@ class Space(BaseSQLRecord):
         db_index=True,
     )
     """Universal id."""
-    description: str | None = CharField(null=True)
+    description: str | None = TextField(null=True)
     """Description of space."""
     created_at: datetime = DateTimeField(
         editable=False, db_default=models.functions.Now(), db_index=True
@@ -1005,6 +1414,8 @@ class Space(BaseSQLRecord):
         "User", CASCADE, default=None, related_name="+", null=True
     )
     """Creator of space."""
+    ablocks: SpaceBlock
+    """Blocks that annotate this space."""
 
     @overload
     def __init__(
@@ -1045,7 +1456,17 @@ class Space(BaseSQLRecord):
 class Branch(BaseSQLRecord):
     """Branches for change management with archive and trash states.
 
-    Every `SQLRecord` has a `branch` field, which dictates where a record appears in queries & searches.
+    There are 3 pre-defined branches: `main`, `trash`, and `archive`.
+
+    You can create branches similar to `git` via `lamin create --branch my_branch`.
+
+    To add objects to that new branch rather than the `main` branch, run `lamin switch --branch my_branch`.
+
+    To merge a set of artifacts on the `"my_branch"` branch to the main branch, run::
+
+        ln.Artifact.filter(branch__name="my_branch").update(branch_id=1)
+
+    If you delete an object via `sqlrecord.delete()`, it gets moved to the `trash` branch and scheduled for deletion.
     """
 
     class Meta:
@@ -1083,7 +1504,9 @@ class Branch(BaseSQLRecord):
 
     This id is useful if one wants to apply the same patch to many database instances.
     """
-    description: str | None = CharField(null=True)
+    space: Space = ForeignKey(Space, PROTECT, default=1, db_default=1, related_name="+")
+    """The space associated with the branch."""
+    description: str | None = TextField(null=True)
     """Description of branch."""
     created_at: datetime = DateTimeField(
         editable=False, db_default=models.functions.Now(), db_index=True
@@ -1093,6 +1516,8 @@ class Branch(BaseSQLRecord):
         "User", CASCADE, default=None, related_name="+", null=True
     )
     """Creator of branch."""
+    ablocks: BranchBlock
+    """Blocks that annotate this branch."""
 
     @overload
     def __init__(
@@ -1117,13 +1542,13 @@ class Branch(BaseSQLRecord):
 
 @doc_args(RECORD_REGISTRY_EXAMPLE)
 class SQLRecord(BaseSQLRecord, metaclass=Registry):
-    """Metadata record.
+    """An object that maps to a row in a SQL table in the database.
 
     Every `SQLRecord` is a data model that comes with a registry in form of a SQL
     table in your database.
 
     Sub-classing `SQLRecord` creates a new registry while instantiating a `SQLRecord`
-    creates a new record.
+    creates a new object.
 
     {}
 
@@ -1134,48 +1559,56 @@ class SQLRecord(BaseSQLRecord, metaclass=Registry):
     machine learning or biological models.
     """
 
+    # we need the db_default when not interacting via django directly on a required field
     branch: Branch = ForeignKey(
         Branch,
         PROTECT,
         default=1,
         db_default=1,
-        db_column="_branch_code",
+        db_column="branch_id",
         related_name="+",
     )
-    """Whether record is on a branch or in another "special state"."""
+    """The branch."""
     space: Space = ForeignKey(Space, PROTECT, default=1, db_default=1, related_name="+")
-    """The space in which the record lives."""
+    """The space."""
+    is_locked: bool = BooleanField(default=False, db_default=False)
+    """Whether the object is locked for edits."""
     _aux: dict[str, Any] | None = JSONField(default=None, db_default=None, null=True)
     """Auxiliary field for dictionary-like metadata."""
 
     class Meta:
         abstract = True
 
-    @property
-    @deprecated("branch_id")
-    def _branch_code(self) -> int:
-        """Deprecated alias for `branch`."""
-        return self.branch_id
+    def restore(self) -> None:
+        """Restore from trash onto the main branch.
 
-    @_branch_code.setter
-    def _branch_code(self, value: int):
-        self.branch_id = value
+        Does **not** restore descendant objects if the object is `HasType` with `is_type = True`.
+        """
+        self.branch_id = 1
+        self.save()
 
-    def delete(self, permanent: bool | None = None, **kwargs) -> None:
-        """Delete record.
+    def delete(self, permanent: bool | None = None, **kwargs):
+        """Delete object.
+
+        If object is `HasType` with `is_type = True`, deletes all descendant objects, too.
 
         Args:
-            permanent: Whether to permanently delete the record (skips trash).
+            permanent: Whether to permanently delete the object (skips trash).
+                If `None`, performs soft delete if the object is not already in the trash.
+
+        Returns:
+            When `permanent=True`, returns Django's delete return value: a tuple of
+            (deleted_count, {registry_name: count}). Otherwise returns None.
 
         Examples:
 
-            For any `SQLRecord` object `record`, call:
+            For any `SQLRecord` object `sqlrecord`, call::
 
-            >>> record.delete()
+                sqlrecord.delete()
         """
         if self._state.adding:
             logger.warning("record is not yet saved, delete has no effect")
-            return
+            return None
         name_with_module = self.__class__.__get_name_with_module__()
 
         if name_with_module == "Artifact":
@@ -1191,21 +1624,28 @@ class SQLRecord(BaseSQLRecord, metaclass=Registry):
                 raise IntegrityError(
                     "Cannot simply delete artifacts outside of this instance's managed storage locations."
                     "\n(1) If you only want to delete the metadata record in this instance, pass `storage=False`"
-                    f"\n(2) If you want to delete the artifact in storage, please load the managing lamindb instance (uid={self.storage.instance_uid})."
+                    f"\n(2) If you want to delete the artifact in storage, please connect to the writing lamindb instance (uid={self.storage.instance_uid})."
                     f"\nThese are all managed storage locations of this instance:\n{Storage.filter(instance_uid=isettings.uid).to_dataframe()}"
                 )
 
         # change branch_id to trash
         trash_branch_id = -1
         if self.branch_id > trash_branch_id and permanent is not True:
+            if isinstance(self, HasType) and self.is_type:
+                for child in getattr(
+                    self, f"query_{self.__class__.__name__.lower()}s"
+                )():
+                    child.delete()
             delete_record(self, is_soft=True)
-            logger.warning(f"moved record to trash (branch_id = -1): {self}")
-            return
+            logger.important(f"moved record to trash: {self}")
+            return None
 
         # permanent delete
         if permanent is None:
+            object_type_name = self.__class__.__name__
+            log_identifier = self.uid if hasattr(self, "uid") else self.pk
             response = input(
-                f"Record {self.uid} is already in trash! Are you sure you want to delete it from your"
+                f"{object_type_name} {log_identifier} is already in trash! Are you sure you want to delete it from your"
                 " database? You can't undo this action. (y/n) "
             )
             confirm_delete = response == "y"
@@ -1227,8 +1667,10 @@ class SQLRecord(BaseSQLRecord, metaclass=Registry):
                 delete_permanently(
                     self, storage=kwargs["storage"], using_key=kwargs["using_key"]
                 )
+                return None
             if name_with_module != "Artifact":
-                super().delete()
+                return super().delete()
+        return None
 
 
 def _format_django_validation_error(record: SQLRecord, e: DjangoValidationError):
@@ -1369,7 +1811,7 @@ def add_db_connection(db: str, using: str):
     connections.settings[using] = db_config
 
 
-REGISTRY_UNIQUE_FIELD = {"storage": "root", "feature": "name", "ulabel": "name"}
+REGISTRY_UNIQUE_FIELD = {"storage": "root", "ulabel": "name"}
 
 
 def update_fk_to_default_db(
@@ -1442,7 +1884,7 @@ def get_transfer_run(record) -> Run:
         ln_setup.settings.cache_dir / f"instance--{owner}--{name}--uid.txt"
     )
     if not cache_using_filepath.exists():
-        raise SystemExit("Need to call .using() before")
+        raise SystemExit("Need to call .connect() before")
     instance_uid = cache_using_filepath.read_text().split("\n")[0]
     key = f"__lamindb_transfer__/{instance_uid}"
     uid = instance_uid + "0000"
@@ -1451,7 +1893,7 @@ def get_transfer_run(record) -> Run:
         search_names = settings.creation.search_names
         settings.creation.search_names = False
         transform = Transform(  # type: ignore
-            uid=uid, description=f"Transfer from `{slug}`", key=key, type="function"
+            uid=uid, description=f"Transfer from `{slug}`", key=key, kind="function"
         ).save()
         settings.creation.search_names = search_names
     # use the global run context to get the initiated_by_run run id
@@ -1528,8 +1970,8 @@ def track_current_key_and_name_values(record: SQLRecord):
     # below, we're using __dict__ to avoid triggering the refresh from the database
     # which can lead to a recursion
     if isinstance(record, Artifact):
-        record._old_key = record.__dict__.get("key")
-        record._old_suffix = record.__dict__.get("suffix")
+        record._old_key = record.__dict__.get("key")  # type: ignore
+        record._old_suffix = record.__dict__.get("suffix")  # type: ignore
     elif hasattr(record, "_name_field"):
         record._old_name = record.__dict__.get(record._name_field)
 
@@ -1540,7 +1982,6 @@ def check_name_change(record: SQLRecord):
         Artifact,
         Collection,
         Feature,
-        Record,
         Schema,
         Storage,
         Transform,
@@ -1566,49 +2007,39 @@ def check_name_change(record: SQLRecord):
     registry = record.__class__.__name__
 
     if old_name != new_name:
-        # when a label is renamed, only raise a warning if it has a feature
-        if hasattr(record, "artifacts") and not isinstance(record, (Record, Storage)):
+        if hasattr(record, "artifacts") and not isinstance(record, Storage):
             linked_records = (
+                # find all artifacts that are linked to this label via a feature with dtype
+                # matching on the name aka "[registry]"
                 record.artifacts.through.filter(
-                    label_ref_is_name=True, **{f"{registry.lower()}_id": record.pk}
+                    feature___dtype_str__contains=f"[{registry}]",
+                    **{f"{registry.lower()}_id": record.pk},
                 )
-                .exclude(feature_id=None)  # must have a feature
-                .distinct()
             )
-            artifact_ids = linked_records.to_list("artifact__uid")
-            n = len(artifact_ids)
+            artifact_uids = list(set(linked_records.to_list("artifact__uid")))
+            n = len(artifact_uids)
             if n > 0:
                 s = "s" if n > 1 else ""
+                es = "es" if n == 1 else ""
                 logger.error(
-                    f"You are trying to {colors.red('rename label')} from '{old_name}' to '{new_name}'!\n"
-                    f"   → The following {n} artifact{s} {colors.red('will no longer be validated')}: {artifact_ids}\n\n"
-                    f"{colors.bold('To rename this label')}, make it external:\n"
-                    f"   → run `artifact.labels.make_external(label)`\n\n"
-                    f"After renaming, consider re-curating the above artifact{s}:\n"
-                    f'   → in each dataset, manually modify label "{old_name}" to "{new_name}"\n'
-                    f"   → run `ln.Curator`\n"
+                    f"by {colors.red('renaming label')} from '{old_name}' to '{new_name}' "
+                    f"{n} artifact{s} no longer match{es} the label name in storage: {artifact_uids}\n\n"
+                    f"   → consider re-curating\n"
                 )
-                raise SQLRecordNameChangeIntegrityError
-
-        # when a feature is renamed
         elif isinstance(record, Feature):
-            # only internal features are associated with schemas
-            linked_artifacts = Artifact.filter(feature_sets__features=record).to_list(
-                "uid"
-            )
-            n = len(linked_artifacts)
+            # only internal features of schemas with `itype=Feature` are prone to getting out of sync
+            artifact_uids = Artifact.filter(
+                schemas__features=record, schemas__itype="Feature"
+            ).to_list("uid")
+            n = len(artifact_uids)
             if n > 0:
                 s = "s" if n > 1 else ""
-                logger.error(
-                    f"You are trying to {colors.red('rename feature')} from '{old_name}' to '{new_name}'!\n"
-                    f"   → The following {n} artifact{s} {colors.red('will no longer be validated')}: {linked_artifacts}\n\n"
-                    f"{colors.bold('To rename this feature')}, make it external:\n"
-                    "   → run `artifact.features.make_external(feature)`\n\n"
-                    f"After renaming, consider re-curating the above artifact{s}:\n"
-                    f"   → in each dataset, manually modify feature '{old_name}' to '{new_name}'\n"
-                    f"   → run `ln.Curator`\n"
+                es = "es" if n == 1 else ""
+                logger.warning(
+                    f"by {colors.red('renaming feature')} from '{old_name}' to '{new_name}' "
+                    f"{n} artifact{s} no longer match{es} the feature name in storage: {artifact_uids}\n"
+                    "  → consider re-curating"
                 )
-                raise SQLRecordNameChangeIntegrityError
 
 
 def check_key_change(record: Union[Artifact, Transform]):
@@ -1617,12 +2048,14 @@ def check_key_change(record: Union[Artifact, Transform]):
 
     if not isinstance(record, Artifact) or not hasattr(record, "_old_key"):
         return
-    if record._old_suffix != record.suffix:
+    if hasattr(record, "_skip_key_change_check") and record._skip_key_change_check:
+        return
+    if record._old_suffix != record.suffix:  # type: ignore
         raise InvalidArgument(
-            f"Changing the `.suffix` of an artifact is not allowed! You tried to change it from '{record._old_suffix}' to '{record.suffix}'."
+            f"Changing the `.suffix` of an artifact is not allowed! You tried to change it from '{record._old_suffix}' to '{record.suffix}'."  # type: ignore
         )
 
-    old_key = record._old_key
+    old_key = record._old_key  # type: ignore
     new_key = record.key
 
     if old_key != new_key:
@@ -1649,12 +2082,11 @@ def check_key_change(record: Union[Artifact, Transform]):
             )
 
 
-def format_field_value(value: datetime | str | Any) -> Any:
+def format_field_value(value: datetime | str | Any, none: str = "None") -> str:
     from datetime import datetime
 
     if isinstance(value, datetime):
         return value.strftime("%Y-%m-%d %H:%M:%S %Z")
-
     if isinstance(value, str):
         try:
             value = datetime.fromisoformat(value)
@@ -1662,8 +2094,9 @@ def format_field_value(value: datetime | str | Any) -> Any:
         except ValueError:
             pass
         return f"'{value}'"
-    else:
-        return value
+    if value is None:
+        return none
+    return str(value)
 
 
 class SQLRecordInfo:
@@ -1761,6 +2194,21 @@ class SQLRecordInfo:
             class_specific_relational_fields + filtered_non_class_specific
         )
 
+        # For Record class, move linked_in fields to the end
+        if self.registry.__name__ == "Record":
+            regular_fields = [
+                f
+                for f in ordered_relational_fields
+                if not f.name.startswith(("linked_", "values_"))
+            ]
+            linked_fields = [
+                f for f in ordered_relational_fields if f.name.startswith("linked_")
+            ]
+            values_fields = [
+                f for f in ordered_relational_fields if f.name.startswith("values_")
+            ]
+            ordered_relational_fields = regular_fields + linked_fields + values_fields
+
         core_module_fields = []
         external_modules_fields = []
         for field in ordered_relational_fields:
@@ -1771,15 +2219,21 @@ class SQLRecordInfo:
                 core_module_fields.append(field)
 
         def _get_related_field_type(field) -> str:
-            field_type = (
-                field.related_model.__get_name_with_module__()
-                .replace(
-                    "Artifact", ""
-                )  # some fields have an unnecessary 'Artifact' in their name
-                .replace(
-                    "Collection", ""
-                )  # some fields have an unnecessary 'Collection' in their name
-            )
+            model_name = field.related_model.__get_name_with_module__()
+            # Extract the class name (after the last dot if there's a module prefix)
+            class_name = model_name.split(".")[-1]
+            # Skip replacement for compound names like ArtifactBlock, FeatureBlock, etc.
+            if class_name.endswith("Block"):
+                # Return just the class name for Block types
+                field_type = class_name
+            else:
+                field_type = (
+                    model_name.replace(
+                        "Artifact", ""
+                    ).replace(  # some fields have an unnecessary 'Artifact' in their name
+                        "Collection", ""
+                    )  # some fields have an unnecessary 'Collection' in their name
+                )
             return (
                 self._get_type_for_field(field.name)
                 if not field_type.strip()
@@ -1839,75 +2293,6 @@ class SQLRecordInfo:
                         repr_str += "".join(ext_module_fields)
 
             return repr_str
-
-
-def registry_repr(cls):
-    """Shows fields."""
-    repr_str = f"{colors.green(cls.__name__)}\n"
-    info = SQLRecordInfo(cls)
-    repr_str += info.get_simple_fields(return_str=True)
-    repr_str += info.get_relational_fields(return_str=True)
-    repr_str = repr_str.rstrip("\n")
-    return repr_str
-
-
-def record_repr(
-    self: SQLRecord, include_foreign_keys: bool = True, exclude_field_names=None
-) -> str:
-    if exclude_field_names is None:
-        exclude_field_names = ["id", "updated_at", "source_code"]
-    field_names = [
-        field.name
-        for field in self._meta.fields
-        if (not isinstance(field, ForeignKey) and field.name not in exclude_field_names)
-    ]
-    if include_foreign_keys:
-        field_names += [
-            f"{field.name}_id"
-            for field in self._meta.fields
-            if isinstance(field, ForeignKey)
-        ]
-    if "created_at" in field_names:
-        field_names.remove("created_at")
-        field_names.append("created_at")
-    if field_names[0] != "uid" and "uid" in field_names:
-        field_names.remove("uid")
-        field_names.insert(0, "uid")
-    fields_str = {}
-    for k in field_names:
-        if k == "n" and getattr(self, k) < 0:
-            # only needed for Schema
-            continue
-        if not k.startswith("_") and hasattr(self, k):
-            value = getattr(self, k)
-            # Force strip the time component of the version
-            if k == "version" and value:
-                fields_str[k] = f"'{str(value).split()[0]}'"
-            else:
-                fields_str[k] = format_field_value(value)
-    fields_joined_str = ", ".join(
-        [f"{k}={fields_str[k]}" for k in fields_str if fields_str[k] is not None]
-    )
-    return f"{self.__class__.__name__}({fields_joined_str})"
-
-
-# below is code to further format the repr of a record
-#
-# def format_repr(
-#     record: SQLRecord, exclude_field_names: str | list[str] | None = None
-# ) -> str:
-#     if isinstance(exclude_field_names, str):
-#         exclude_field_names = [exclude_field_names]
-#     exclude_field_names_init = ["id", "created_at", "updated_at"]
-#     if exclude_field_names is not None:
-#         exclude_field_names_init += exclude_field_names
-#     return record.__repr__(
-#         include_foreign_keys=False, exclude_field_names=exclude_field_names_init
-#     )
-
-
-SQLRecord.__repr__ = record_repr  # type: ignore
-SQLRecord.__str__ = record_repr  # type: ignore
 
 
 class Migration(BaseSQLRecord):

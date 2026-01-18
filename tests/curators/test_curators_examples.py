@@ -12,12 +12,11 @@ import pytest
 import tiledbsoma
 import tiledbsoma.io
 from lamindb.core import datasets
-from lamindb.core.types import FieldAttr
 from lamindb.errors import InvalidArgument, ValidationError
 
 
 @pytest.fixture(scope="module")
-def small_dataset1_schema():
+def mini_immuno_schema():
     # define labels
     perturbation = ln.ULabel(name="Perturbation", is_type=True).save()
     ln.ULabel(name="DMSO", type=perturbation).save()
@@ -35,7 +34,7 @@ def small_dataset1_schema():
 
     # define schema
     schema = ln.Schema(
-        name="small_dataset1_obs_level_metadata_curator_tests",
+        name="mini_immuno_obs_level_metadata_curator_tests",
         features=[
             ln.Feature(name="perturbation", dtype=perturbation).save(),
             ln.Feature(name="sample_note", dtype=str).save(),
@@ -90,8 +89,8 @@ def mudata_papalexi21_subset_schema():
     obs_schema = ln.Schema(
         name="mudata_papalexi21_subset_obs_schema",
         features=[
-            ln.Feature(name="perturbation", dtype="cat[ULabel[Perturbation]]").save(),
-            ln.Feature(name="replicate", dtype="cat[ULabel[Replicate]]").save(),
+            ln.Feature(name="perturbation", dtype=perturbation).save(),
+            ln.Feature(name="replicate", dtype=replicate).save(),
         ],
     ).save()
 
@@ -102,7 +101,7 @@ def mudata_papalexi21_subset_schema():
             ln.Feature(name="nFeature_RNA", dtype=int).save(),
             ln.Feature(name="percent.mito", dtype=float).save(),
         ],
-        coerce_dtype=True,
+        coerce=True,
     ).save()
 
     obs_schema_hto = ln.Schema(
@@ -112,7 +111,7 @@ def mudata_papalexi21_subset_schema():
             ln.Feature(name="nFeature_HTO", dtype=int).save(),
             ln.Feature(name="technique", dtype=bt.ExperimentalFactor).save(),
         ],
-        coerce_dtype=True,
+        coerce=True,
     ).save()
 
     var_schema_rna = ln.Schema(
@@ -189,17 +188,18 @@ def spatialdata_blobs_schema():
     bt.Disease.filter().delete(permanent=True)
 
 
-def test_dataframe_curator(small_dataset1_schema: ln.Schema):
+def test_dataframe_curator(mini_immuno_schema: ln.Schema):
     """Test DataFrame curator implementation."""
 
-    ln.settings.verbosity = "info"
+    # Get the perturbation ULabel (created in mini_immuno_schema fixture)
+    perturbation = ln.ULabel.get(name="Perturbation", is_type=True)
 
     # invalid simple dtype (float)
     feature_to_fail = ln.Feature(name="treatment_time_h", dtype=float).save()
     schema = ln.Schema(
-        name="small_dataset1_obs_level_metadata_v2",
+        name="mini_immuno_obs_level_metadata_v2",
         features=[
-            ln.Feature(name="perturbation", dtype="cat[ULabel[Perturbation]]").save(),
+            ln.Feature(name="perturbation", dtype=perturbation).save(),
             ln.Feature(name="sample_note", dtype=str).save(),
             ln.Feature(name="cell_type_by_expert", dtype=bt.CellType).save(),
             ln.Feature(name="cell_type_by_model", dtype=bt.CellType).save(),
@@ -220,7 +220,7 @@ def test_dataframe_curator(small_dataset1_schema: ln.Schema):
 
     # Wrong subtype
     df = datasets.mini_immuno.get_dataset1(otype="DataFrame", with_wrong_subtype=True)
-    curator = ln.curators.DataFrameCurator(df, small_dataset1_schema)
+    curator = ln.curators.DataFrameCurator(df, mini_immuno_schema)
     with pytest.raises(ln.errors.ValidationError) as error:
         curator.validate()
     assert (
@@ -232,7 +232,7 @@ def test_dataframe_curator(small_dataset1_schema: ln.Schema):
 
     # Typo
     df = datasets.mini_immuno.get_dataset1(otype="DataFrame", with_typo=True)
-    curator = ln.curators.DataFrameCurator(df, small_dataset1_schema)
+    curator = ln.curators.DataFrameCurator(df, mini_immuno_schema)
     with pytest.raises(ln.errors.ValidationError) as error:
         curator.validate()
     assert (
@@ -242,22 +242,22 @@ def test_dataframe_curator(small_dataset1_schema: ln.Schema):
     → a valid label for subtype 'Perturbation' has to be one of ['DMSO', 'IFNG']"""
     )
 
-    df = datasets.small_dataset1(otype="DataFrame")
-    curator = ln.curators.DataFrameCurator(df, small_dataset1_schema)
+    df = datasets.mini_immuno.get_dataset1(otype="DataFrame")
+    curator = ln.curators.DataFrameCurator(df, mini_immuno_schema)
     artifact = curator.save_artifact(key="examples/dataset1.parquet")
 
-    assert artifact.schema == small_dataset1_schema
+    assert artifact.schema == mini_immuno_schema
     assert artifact.features.slots["columns"].n == 5
     assert (
         artifact.features.describe(return_str=True)
         == """\
-Artifact .parquet · DataFrame · dataset
+Artifact: examples/dataset1.parquet (0000)
 └── Dataset features
-    └── columns • 5         [Feature]
-        cell_type_by_expe…  cat[bionty.CellType]    B cell, CD8-positive, alpha…
-        cell_type_by_model  cat[bionty.CellType]    B cell, T cell
-        perturbation        cat[ULabel[Perturbati…  DMSO, IFNG
-        sample_label        cat[ULabel]             sample1, sample2, sample3
+    └── columns (5)
+        cell_type_by_expe…  bionty.CellType         B cell, CD8-positive, alpha…
+        cell_type_by_model  bionty.CellType         B cell, T cell
+        perturbation        ULabel[Perturbation]    DMSO, IFNG
+        sample_label        ULabel                  sample1, sample2, sample3
         sample_note         str"""
     )
     assert set(artifact.features.get_values()["sample_label"]) == {
@@ -276,12 +276,15 @@ Artifact .parquet · DataFrame · dataset
 
     # a second dataset with missing values
     ln.ULabel.from_values(["sample4", "sample5", "sample6"], create=True).save()
-    df = ln.core.datasets.small_dataset2(otype="DataFrame", gene_symbols_in_index=True)
-    curator = ln.curators.DataFrameCurator(df, small_dataset1_schema)
-    try:
+    df = ln.examples.datasets.mini_immuno.get_dataset2(
+        otype="DataFrame", gene_symbols_in_index=True
+    )
+    curator = ln.curators.DataFrameCurator(df, mini_immuno_schema)
+    with pytest.raises(ln.errors.ValidationError) as error:
         curator.validate()
-    except ln.errors.ValidationError as error:
-        assert "column 'sample_note' not in dataframe" in str(error)
+    assert "column 'sample_note' not in dataframe" in error.exconly()
+    assert "column 'cell_type_by_expert' not in dataframe" in error.exconly()
+
     curator.standardize()
     curator.validate()
 
@@ -290,7 +293,9 @@ Artifact .parquet · DataFrame · dataset
 
 def test_dataframe_curator_index():
     """Test validating a DataFrame index."""
-    df = datasets.small_dataset1(otype="DataFrame", with_index_type_mismatch=True)
+    df = datasets.mini_immuno.get_dataset1(
+        otype="DataFrame", with_index_type_mismatch=True
+    )
     feature = ln.Feature(name="test", dtype="str").save()
     schema = ln.Schema(index=feature).save()
     curator = ln.curators.DataFrameCurator(df, schema)
@@ -302,12 +307,12 @@ def test_dataframe_curator_index():
     feature.delete(permanent=True)
 
 
-def test_dataframe_curator_validate_all_annotate_cat(small_dataset1_schema):
+def test_dataframe_curator_validate_all_annotate_cat(mini_immuno_schema):
     """Do not pass any features."""
     schema = ln.Schema(itype=ln.Feature).save()
     assert schema.flexible
 
-    df = datasets.small_dataset1(otype="DataFrame")
+    df = datasets.mini_immuno.get_dataset1(otype="DataFrame")
     artifact = ln.Artifact.from_dataframe(
         df, key="examples/dataset1.parquet", schema=schema
     ).save()
@@ -328,7 +333,7 @@ def test_dataframe_curator_validate_all_annotate_cat(small_dataset1_schema):
     schema.delete(permanent=True)
 
 
-def test_dataframe_curator_validate_all_annotate_cat2(small_dataset1_schema):
+def test_dataframe_curator_validate_all_annotate_cat2(mini_immuno_schema):
     """Combine half-specifying features, half not."""
     schema = ln.Schema(
         itype=ln.Feature,
@@ -337,7 +342,7 @@ def test_dataframe_curator_validate_all_annotate_cat2(small_dataset1_schema):
     ).save()
     assert schema.flexible
 
-    df = datasets.small_dataset1(otype="DataFrame")
+    df = datasets.mini_immuno.get_dataset1(otype="DataFrame")
     curator = ln.curators.DataFrameCurator(df, schema)
     artifact = curator.save_artifact(key="examples/dataset1.parquet")
     assert set(artifact.features.get_values()["perturbation"]) == {
@@ -378,7 +383,11 @@ def test_dataframe_attrs_validation(study_metadata_schema, include_attrs_slot):
             otype="DataFrame",
         ).save()
 
-    bad_schema = ln.Schema(slots={"doesnotexist": schema}, otype="DataFrame").save()
+    bad_schema = ln.Schema(
+        features=[perturbation_feature],
+        slots={"doesnotexist": schema},
+        otype="DataFrame",
+    ).save()
 
     with pytest.raises(ValueError) as e:
         curator = ln.curators.DataFrameCurator(df, schema=bad_schema)
@@ -509,8 +518,8 @@ def test_schema_mixed_ensembl_symbols(ccaplog):
     schema.delete(permanent=True)
 
 
-def test_anndata_curator_different_components(small_dataset1_schema: ln.Schema):
-    obs_schema = small_dataset1_schema
+def test_anndata_curator_different_components(mini_immuno_schema: ln.Schema):
+    obs_schema = mini_immuno_schema
 
     for add_comp in ["var.T", "obs", "uns"]:
         var_schema = ln.Schema(
@@ -531,11 +540,11 @@ def test_anndata_curator_different_components(small_dataset1_schema: ln.Schema):
             components["uns"] = uns_schema
 
         anndata_schema = ln.Schema(
-            name="small_dataset1_anndata_schema",
+            name="mini_immuno_anndata_schema",
             otype="AnnData",
             slots=components,
         ).save()
-        assert small_dataset1_schema.id is not None, small_dataset1_schema
+        assert mini_immuno_schema.id is not None, mini_immuno_schema
         assert anndata_schema.slots["var.T"] == var_schema
         if add_comp == "obs":
             assert anndata_schema.slots["obs"] == obs_schema
@@ -543,14 +552,14 @@ def test_anndata_curator_different_components(small_dataset1_schema: ln.Schema):
             assert anndata_schema.slots["uns"] == uns_schema
 
         describe_output = anndata_schema.describe(return_str=True)
-        assert "small_dataset1_anndata_schema" in describe_output
+        assert "mini_immuno_anndata_schema" in describe_output
         assert "scRNA_seq_var_schema" in describe_output
         if add_comp == "obs":
-            assert "small_dataset1_obs_level_metadata" in describe_output
+            assert "mini_immuno_anndata_schema" in describe_output
         if add_comp == "uns":
             assert "flexible_uns_schema" in describe_output
 
-        adata = datasets.small_dataset1(otype="AnnData")
+        adata = datasets.mini_immuno.get_dataset1(otype="AnnData")
         curator = ln.curators.AnnDataCurator(adata, anndata_schema)
         assert curator.slots["var.T"].__class__.__name__ == "ComponentCurator"
         if add_comp == "obs":
@@ -568,10 +577,6 @@ def test_anndata_curator_different_components(small_dataset1_schema: ln.Schema):
         assert artifact.features.slots["var.T"].n == 3  # 3 genes get linked
         if add_comp == "obs":
             assert artifact.features.slots["obs"] == obs_schema
-            # deprecated
-            assert artifact.features._schema_by_slot["obs"] == obs_schema
-            assert artifact.features._feature_set_by_slot["obs"] == obs_schema
-
             assert set(artifact.features.get_values()["cell_type_by_expert"]) == {
                 "CD8-positive, alpha-beta T cell",
                 "B cell",
@@ -600,7 +605,9 @@ def test_anndata_curator_varT_curation():
         slots=components,
     ).save()
     for with_gene_typo in [True, False]:
-        adata = datasets.small_dataset1(otype="AnnData", with_gene_typo=with_gene_typo)
+        adata = datasets.mini_immuno.get_dataset1(
+            otype="AnnData", with_gene_typo=with_gene_typo
+        )
         if with_gene_typo:
             with pytest.raises(ValidationError) as error:
                 artifact = ln.Artifact.from_anndata(
@@ -646,7 +653,9 @@ def test_anndata_curator_varT_curation_legacy(ccaplog):
         slots=components,
     ).save()
     for with_gene_typo in [True, False]:
-        adata = datasets.small_dataset1(otype="AnnData", with_gene_typo=with_gene_typo)
+        adata = datasets.mini_immuno.get_dataset1(
+            otype="AnnData", with_gene_typo=with_gene_typo
+        )
         if with_gene_typo:
             with pytest.raises(ValidationError) as error:
                 artifact = ln.Artifact.from_anndata(
@@ -681,7 +690,7 @@ def test_anndata_curator_varT_curation_legacy(ccaplog):
 
 def test_anndata_curator_nested_uns(study_metadata_schema, anndata_uns_schema):
     """Test AnnDataCurator with nested uns slot validation."""
-    adata = datasets.small_dataset1(otype="AnnData")
+    adata = datasets.mini_immuno.get_dataset1(otype="AnnData")
     adata.uns["study_metadata"] = adata.uns.copy()
 
     curator = ln.curators.AnnDataCurator(adata, anndata_uns_schema)
@@ -696,42 +705,48 @@ def test_anndata_curator_nested_uns(study_metadata_schema, anndata_uns_schema):
         "uns:study_metadata"
     ].features.first() == ln.Feature.get(name="temperature")
 
-    adata = datasets.small_dataset1(otype="AnnData")
-    bad_schema = ln.Schema(
+    adata = datasets.mini_immuno.get_dataset1(otype="AnnData")
+    bad_schema1 = ln.Schema(
         otype="AnnData",
         slots={"uns:nonexistent": study_metadata_schema},
     ).save()
     with pytest.raises(InvalidArgument) as e:
-        ln.curators.AnnDataCurator(adata, bad_schema)
+        ln.curators.AnnDataCurator(adata, bad_schema1)
     assert (
-        "Schema slot 'uns:study_metadata' requires keys uns['study_metadata'] but key 'study_metadata' not found."
+        "Schema slot 'uns:nonexistent' requires keys uns['nonexistent'] but key 'nonexistent' not found."
         in str(e.value)
     )
 
     with pytest.raises(InvalidArgument) as e:
-        bad_schema = ln.Schema(
+        bad_schema2 = ln.Schema(
             otype="AnnData",
             slots={"uns:temperature:nonexistent_nested": study_metadata_schema},
         ).save()
-        ln.curators.AnnDataCurator(adata, bad_schema)
-    assert "key 'study_metadata' not found" in str(e.value)
+        ln.curators.AnnDataCurator(adata, bad_schema2)
+    assert (
+        "Schema slot 'uns:temperature:nonexistent_nested' requires keys uns['temperature']['nonexistent_nested'] but key 'nonexistent_nested' not found. Available keys at this level: none (not a dict)."
+        in str(e.value)
+    )
 
-    # Clean up
+    inferred_sets = artifact.schemas.all()
+    for inferred_set in inferred_sets:
+        artifact.schemas.remove(inferred_set)
     artifact.delete(permanent=True)
-    bad_schema.delete(permanent=True)
+    bad_schema1.delete(permanent=True)
+    bad_schema2.delete(permanent=True)
     anndata_uns_schema.delete(permanent=True)
 
 
-def test_anndata_curator_no_var(small_dataset1_schema: ln.Schema):
-    assert small_dataset1_schema.id is not None, small_dataset1_schema
+def test_anndata_curator_no_var(mini_immuno_schema: ln.Schema):
+    assert mini_immuno_schema.id is not None, mini_immuno_schema
     # test no var schema
     anndata_schema_no_var = ln.Schema(
-        name="small_dataset1_anndata_schema_no_var",
+        name="mini_immuno_anndata_schema_no_var",
         otype="AnnData",
-        slots={"obs": small_dataset1_schema},
+        slots={"obs": mini_immuno_schema},
     ).save()
-    assert small_dataset1_schema.id is not None, small_dataset1_schema
-    adata = datasets.small_dataset1(otype="AnnData")
+    assert mini_immuno_schema.id is not None, mini_immuno_schema
+    adata = datasets.mini_immuno.get_dataset1(otype="AnnData")
     curator = ln.curators.AnnDataCurator(adata, anndata_schema_no_var)
 
     artifact = curator.save_artifact(key="examples/dataset1_no_var.h5ad")
@@ -740,42 +755,44 @@ def test_anndata_curator_no_var(small_dataset1_schema: ln.Schema):
 
 
 def test_mudata_curator(
-    mudata_papalexi21_subset_schema: ln.Schema, small_dataset1_schema: ln.Schema
+    mudata_papalexi21_subset_schema: ln.Schema, mini_immuno_schema: ln.Schema
 ):
     mudata_schema = mudata_papalexi21_subset_schema
-    mdata = ln.core.datasets.mudata_papalexi21_subset()
-    # TODO: refactor organism
-    bt.settings.organism = "human"
+    mdata = ln.examples.datasets.mudata_papalexi21_subset()
     # wrong dataset
     with pytest.raises(InvalidArgument):
         ln.curators.MuDataCurator(pd.DataFrame(), mudata_schema)
     # wrong schema
     with pytest.raises(InvalidArgument):
-        ln.curators.MuDataCurator(mdata, small_dataset1_schema)
-    curator = ln.curators.MuDataCurator(mdata, mudata_schema)
-    assert curator.slots.keys() == {
-        "obs",
-        "rna:obs",
-        "hto:obs",
-        "rna:var",
-    }
-    ln.settings.verbosity = "hint"
-    curator.validate()
-    curator.slots["rna:var"].cat.standardize("columns")
-    curator.slots["rna:var"].cat.add_new_from("columns")
-    artifact = curator.save_artifact(key="mudata_papalexi21_subset.h5mu")
-    assert artifact.schema == mudata_schema
-    assert set(artifact.features.slots.keys()) == {
-        "obs",
-        "rna:var",
-        "rna:obs",
-        "hto:obs",
-    }
+        ln.curators.MuDataCurator(mdata, mini_immuno_schema)
+    try:
+        # TODO: allow set cat_filters for a Schema with itype
+        bt.settings.organism = "human"
+        curator = ln.curators.MuDataCurator(mdata, mudata_schema)
+        assert curator.slots.keys() == {
+            "obs",
+            "rna:obs",
+            "hto:obs",
+            "rna:var",
+        }
+        curator.validate()
+        curator.slots["rna:var"].cat.standardize("columns")
+        curator.slots["rna:var"].cat.add_new_from("columns")
+        artifact = curator.save_artifact(key="mudata_papalexi21_subset.h5mu")
+        assert artifact.schema == mudata_schema
+        assert set(artifact.features.slots.keys()) == {
+            "obs",
+            "rna:var",
+            "rna:obs",
+            "hto:obs",
+        }
 
-    artifact.delete(permanent=True)
-    mudata_schema.delete(permanent=True)
-    small_dataset1_schema.delete(permanent=True)
-    Path("papalexi21_subset.h5mu").unlink(missing_ok=True)
+        artifact.delete(permanent=True)
+        mudata_schema.delete(permanent=True)
+        mini_immuno_schema.delete(permanent=True)
+        Path("papalexi21_subset.h5mu").unlink(missing_ok=True)
+    finally:
+        bt.settings.organism = None
 
 
 def test_mudata_curator_nested_uns(study_metadata_schema):
@@ -784,7 +801,7 @@ def test_mudata_curator_nested_uns(study_metadata_schema):
     This test verifies the behavior of both the MuData `.uns` slots and a `.uns` slot of
     an AnnData object inside the MuData object that gets specified using the key `:` syntax.
     """
-    mdata = ln.core.datasets.mudata_papalexi21_subset(with_uns=True)
+    mdata = ln.examples.datasets.mudata_papalexi21_subset(with_uns=True)
 
     site_uns_schema = ln.Schema(
         features=[
@@ -828,7 +845,7 @@ def test_mudata_curator_nested_uns(study_metadata_schema):
 def test_spatialdata_curator(
     spatialdata_blobs_schema: ln.Schema,
 ):
-    spatialdata = ln.core.datasets.spatialdata_blobs()
+    spatialdata = ln.examples.datasets.spatialdata_blobs()
 
     # wrong dataset
     with pytest.raises(InvalidArgument):
@@ -858,56 +875,26 @@ def test_spatialdata_curator(
         "tables:table:var.T",
     }
     assert artifact.features.get_values()["disease"] == "Alzheimer disease"
-
     assert (
         artifact.features.describe(return_str=True)
-        == """Artifact .zarr · SpatialData · dataset
+        == """Artifact: examples/spatialdata1.zarr (0000)
 └── Dataset features
-    ├── attrs:bio • 2       [Feature]
-    │   developmental_sta…  cat[bionty.Developmen…  adult stage
-    │   disease             cat[bionty.Disease]     Alzheimer disease
-    ├── attrs:tech • 1      [Feature]
-    │   assay               cat[bionty.Experiment…  Visium Spatial Gene Express…
-    ├── attrs • 2           [Feature]
+    ├── attrs:bio (2)
+    │   developmental_sta…  bionty.DevelopmentalS…  adult stage
+    │   disease             bionty.Disease          Alzheimer disease
+    ├── attrs:tech (1)
+    │   assay               bionty.ExperimentalFa…  Visium Spatial Gene Express…
+    ├── attrs (2)
     │   bio                 dict
     │   tech                dict
-    ├── tables:table:obs …  [Feature]
+    ├── tables:table:obs …
     │   sample_region       str
-    └── tables:table:var.…  [bionty.Gene.ensembl_…
-        BRCA2               num
-        BRAF                num"""
+    └── tables:table:var.…
+        BRAF                num
+        BRCA2               num"""
     )
 
     artifact.delete(permanent=True)
-
-
-def test_soma_curator(curator_params: dict[str, str | FieldAttr]):
-    """Test SOMA curator implementation."""
-    adata = datasets.small_dataset1(otype="AnnData")
-    tiledbsoma.io.from_anndata(
-        "./small_dataset1.tiledbsoma", adata, measurement_name="RNA"
-    )
-
-    curator = ln.Curator.from_tiledbsoma(  # type: ignore
-        "./small_dataset1.tiledbsoma",
-        var_index={"RNA": ("var_id", bt.Gene.ensembl_gene_id)},
-        **curator_params,
-    )
-    artifact = curator.save_artifact(key="examples/dataset1.tiledbsoma")
-
-    assert set(artifact.features.get_values()["cell_type_by_expert"]) == {
-        "CD8-positive, alpha-beta T cell",
-        "B cell",
-    }
-    assert set(artifact.features.get_values()["cell_type_by_model"]) == {
-        "T cell",
-        "B cell",
-    }
-
-    assert artifact._key_is_virtual
-
-    artifact.delete(permanent=True)
-    shutil.rmtree("./small_dataset1.tiledbsoma")
 
 
 def test_tiledbsoma_curator(clean_soma_files):
@@ -923,7 +910,7 @@ def test_tiledbsoma_curator(clean_soma_files):
         features=[
             ln.Feature(name="var_id", dtype=bt.Gene.ensembl_gene_id).save(),
         ],
-        coerce_dtype=True,
+        coerce=True,
     ).save()
 
     soma_schema = ln.Schema(
@@ -935,20 +922,21 @@ def test_tiledbsoma_curator(clean_soma_files):
     ).save()
 
     # Convert AnnData to SOMA format
-    adata = ln.core.datasets.small_dataset1(otype="AnnData")
+    adata = ln.examples.datasets.mini_immuno.get_dataset1(otype="AnnData")
     tiledbsoma.io.from_anndata(
         "small_dataset.tiledbsoma", adata, measurement_name="RNA"
     )
 
     # Test with invalid dataset
-    with pytest.raises(ln.errors.InvalidArgument):
+    with pytest.raises(ln.errors.InvalidArgument) as e:
         ln.curators.TiledbsomaExperimentCurator(adata, soma_schema)
+    assert "dataset must be SOMAExperiment-like." in str(e.value)
 
     # Test with invalid schema
-    min_schema = ln.Schema(features=[]).save()
     with tiledbsoma.Experiment.open("small_dataset.tiledbsoma") as experiment:
-        with pytest.raises(ln.errors.InvalidArgument):
-            ln.curators.TiledbsomaExperimentCurator(experiment, schema=min_schema)
+        with pytest.raises(ln.errors.InvalidArgument) as e:
+            ln.curators.TiledbsomaExperimentCurator(experiment, schema=var_schema)
+        assert "Schema otype must be 'tiledbsoma'." in str(e.value)
 
     with tiledbsoma.Experiment.open("small_dataset.tiledbsoma") as experiment:
         curator = ln.curators.TiledbsomaExperimentCurator(experiment, soma_schema)
@@ -978,8 +966,10 @@ def test_tiledbsoma_curator(clean_soma_files):
         }
 
     # Altered data (gene typo)
-    adata_typo = ln.core.datasets.small_dataset1(otype="AnnData", with_gene_typo=True)
-    typo_soma_path = "./small_dataset1_typo.tiledbsoma"
+    adata_typo = ln.examples.datasets.mini_immuno.get_dataset1(
+        otype="AnnData", with_gene_typo=True
+    )
+    typo_soma_path = "./mini_immuno_dataset1_typo.tiledbsoma"
     tiledbsoma.io.from_anndata(typo_soma_path, adata_typo, measurement_name="RNA")
     with tiledbsoma.Experiment.open(typo_soma_path) as experiment_typo:
         curator_typo = ln.curators.TiledbsomaExperimentCurator(
@@ -994,7 +984,6 @@ def test_tiledbsoma_curator(clean_soma_files):
     # Clean up
     shutil.rmtree(typo_soma_path)
     artifact.delete(permanent=True)
-    min_schema.delete(permanent=True)
     soma_schema.delete(permanent=True)
     var_schema.delete(permanent=True)
     obs_schema.delete(permanent=True)

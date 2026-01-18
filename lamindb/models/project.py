@@ -8,26 +8,25 @@ from django.db.models import CASCADE, PROTECT
 
 from lamindb.base.fields import (
     BigIntegerField,
-    BooleanField,
     CharField,
     DateField,
     DateTimeField,
-    EmailField,
     ForeignKey,
     TextField,
     URLField,
 )
 from lamindb.base.users import current_user_id
 
-from ..base.ids import base62_8, base62_12
+from ..base.uids import base62_12
 from .artifact import Artifact
 from .can_curate import CanCurate
 from .collection import Collection
 from .feature import Feature
+from .has_parents import _query_relatives
 from .record import Record
 from .run import Run, TracksRun, TracksUpdates, User
 from .schema import Schema
-from .sqlrecord import BaseSQLRecord, IsLink, SQLRecord, ValidateFields
+from .sqlrecord import BaseSQLRecord, HasType, IsLink, SQLRecord, ValidateFields
 from .transform import Transform
 from .ulabel import ULabel
 
@@ -35,80 +34,37 @@ if TYPE_CHECKING:
     from datetime import date as DateType
     from datetime import datetime
 
-
-class Person(SQLRecord, CanCurate, TracksRun, TracksUpdates, ValidateFields):
-    """People such as authors of a study or collaborators in a project.
-
-    This registry is distinct from `User` and exists for project management.
-
-    You'll soon be able to conveniently create persons from users.
-
-    Example:
-        >>> person = Person(
-        ...     name="Jane Doe",
-        ...     email="jane.doe@example.com",
-        ...     internal=True,
-        ... ).save()
-    """
-
-    class Meta(SQLRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
-        abstract = False
-        app_label = "lamindb"
-
-    id: int = models.AutoField(primary_key=True)
-    """Internal id, valid only in one DB instance."""
-    uid: str = CharField(
-        editable=False, unique=True, max_length=8, db_index=True, default=base62_8
-    )
-    """Universal id, valid across DB instances."""
-    name: str = CharField(db_index=True)
-    """Name of the person (forename(s) lastname)."""
-    email: str | None = EmailField(null=True, default=None)
-    """Email of the person."""
-    external: bool = BooleanField(default=True, db_index=True)
-    """Whether the person is external to the organization."""
-    records: Record = models.ManyToManyField(
-        Record, through="RecordPerson", related_name="linked_people"
-    )
-    """Linked records."""
-
-    @overload
-    def __init__(
-        self,
-        name: str,
-        email: str | None = None,
-        external: bool = True,
-    ): ...
-
-    @overload
-    def __init__(
-        self,
-        *db_args,
-    ): ...
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    from .block import Block, ProjectBlock
+    from .query_manager import QueryManager
+    from .query_set import QuerySet
 
 
-class Reference(SQLRecord, CanCurate, TracksRun, TracksUpdates, ValidateFields):
+class Reference(
+    SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, ValidateFields
+):
     """References such as internal studies, papers, documents, or URLs.
 
     Example:
-        >>> reference = Reference(
-        ...     name="A Paper Title",
-        ...     abbr="APT",
-        ...     url="https://doi.org/10.1000/xyz123",
-        ...     pubmed_id=12345678,
-        ...     doi="10.1000/xyz123",
-        ...     description="Good paper.",
-        ...     text="Some text I want to be searchable.",
-        ...     date=date(2023, 11, 21),
-        ... ).save()
+
+        Create a reference object::
+
+            reference = Reference(
+                name="A Paper Title",
+                abbr="APT",
+                url="https://doi.org/10.1000/xyz123",
+                pubmed_id=12345678,
+                doi="10.1000/xyz123",
+                description="Good paper.",
+                text="Some text I want to be searchable.",
+                date=date(2023, 11, 21),
+            ).save()
+
     """
 
     class Meta(SQLRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
         abstract = False
         app_label = "lamindb"
+        # also see raw SQL constraints for `is_type` and `type` FK validity in migrations
 
     id: int = models.AutoField(primary_key=True)
     """Internal id, valid only in one DB instance."""
@@ -118,17 +74,17 @@ class Reference(SQLRecord, CanCurate, TracksRun, TracksUpdates, ValidateFields):
     """Universal id, valid across DB instances."""
     name: str = CharField(db_index=True)
     """Title or name of the reference document."""
+    description: str | None = TextField(null=True)
+    """A description."""
     type: Reference | None = ForeignKey(
         "self", PROTECT, null=True, related_name="references"
     )
-    """Type of reference (e.g., 'Study', 'Paper', 'Preprint').
+    """Type of reference (e.g., 'Study', 'Paper', 'Preprint') ← :attr:`~lamindb.Reference.references`.
 
     Allows to group reference by type, e.g., internal studies vs. all papers etc.
     """
     references: Reference
     """References of this type (can only be non-empty if `is_type` is `True`)."""
-    is_type: bool = BooleanField(default=False, db_index=True, null=True)
-    """Distinguish types from instances of the type."""
     abbr: str | None = CharField(
         max_length=32,
         db_index=True,
@@ -150,30 +106,32 @@ class Reference(SQLRecord, CanCurate, TracksRun, TracksUpdates, ValidateFields):
         ],
     )
     """Digital Object Identifier (DOI) for the reference."""
-    description: str | None = CharField(null=True, db_index=True)
-    """Description of the reference."""
-    text: str | None = TextField(null=True, db_index=True)
+    text: str | None = TextField(null=True)
     """Abstract or full text of the reference to make it searchable."""
     date: DateType | None = DateField(null=True, default=None)
     """Date of creation or publication of the reference."""
-    authors: Person = models.ManyToManyField(Person, related_name="references")
-    """All people associated with this reference."""
-    artifacts: Artifact = models.ManyToManyField(
+    artifacts: QueryManager[Artifact] = models.ManyToManyField(
         Artifact, through="ArtifactReference", related_name="references"
     )
-    """Artifacts associated with this reference."""
-    transforms: Artifact = models.ManyToManyField(
+    """Annotated artifacts ← :attr:`~lamindb.Artifact.references`."""
+    transforms: QueryManager[Transform] = models.ManyToManyField(
         Transform, through="TransformReference", related_name="references"
     )
-    """Transforms associated with this reference."""
-    collections: Artifact = models.ManyToManyField(
+    """Annotated transforms ← :attr:`~lamindb.Transform.references`."""
+    collections: QueryManager[Collection] = models.ManyToManyField(
         Collection, through="CollectionReference", related_name="references"
     )
-    """Collections associated with this reference."""
-    records: Record = models.ManyToManyField(
+    """Annotated collections ← :attr:`~lamindb.Collection.references`."""
+    linked_in_records: QueryManager[Record] = models.ManyToManyField(
         Record, through="RecordReference", related_name="linked_references"
     )
-    """Linked records."""
+    """Linked in records ← :attr:`~lamindb.Record.linked_references`."""
+    records: QueryManager[Record] = models.ManyToManyField(
+        Record, through="ReferenceRecord", related_name="references"
+    )
+    """Annotated records ← :attr:`~lamindb.Record.references`."""
+    projects: QueryManager[Project]
+    """Projects that annotate this reference ← :attr:`~lamindb.Project.references`."""
 
     @overload
     def __init__(
@@ -199,25 +157,36 @@ class Reference(SQLRecord, CanCurate, TracksRun, TracksUpdates, ValidateFields):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
+    def query_references(self) -> QuerySet:
+        """Query references of sub types.
 
-class Project(SQLRecord, CanCurate, TracksRun, TracksUpdates, ValidateFields):
-    """Projects to label artifacts, transforms, and runs.
+        While `.references` retrieves the references with the current type, this method
+        also retrieves sub types and the references with sub types of the current type.
+        """
+        return _query_relatives([self], "references")  # type: ignore
 
-    Example::
 
-        project = Project(
-           name="My Project Name",
-           abbr="MPN",
-           url="https://example.com/my_project",
-        ).save()
-        artifact.projects.add(project)  # <-- labels the artifact with the project
-        ln.track(project=project)       # <-- automtically labels entities during the run
+class Project(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, ValidateFields):
+    """Projects to label artifacts, transforms, records, and runs.
+
+    Example:
+
+        Create a project and annotate an artifact with it::
+
+            project = Project(
+                name="My Project Name",
+                abbr="MPN",
+                url="https://example.com/my_project",
+            ).save()
+            artifact.projects.add(project)  # <-- labels the artifact with the project
+            ln.track(project=project)       # <-- automtically labels entities during the run
 
     """
 
     class Meta(SQLRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
         abstract = False
         app_label = "lamindb"
+        # also see raw SQL constraints for `is_type` and `type` FK validity in migrations
 
     id: int = models.AutoField(primary_key=True)
     """Internal id, valid only in one DB instance."""
@@ -227,14 +196,14 @@ class Project(SQLRecord, CanCurate, TracksRun, TracksUpdates, ValidateFields):
     """Universal id, valid across DB instances."""
     name: str = CharField(db_index=True)
     """Title or name of the Project."""
+    description: str | None = TextField(null=True)
+    """A description."""
     type: Project | None = ForeignKey(
         "self", PROTECT, null=True, related_name="projects"
     )
-    """Type of project (e.g., 'Program', 'Project', 'GithubIssue', 'Task')."""
+    """Type of project (e.g., 'Program', 'Project', 'GithubIssue', 'Task') ← :attr:`~lamindb.Project.projects`."""
     projects: Project
     """Projects of this type (can only be non-empty if `is_type` is `True`)."""
-    is_type: bool = BooleanField(default=False, db_index=True, null=True)
-    """Distinguish types from instances of the type."""
     abbr: str | None = CharField(max_length=32, db_index=True, null=True)
     """An abbreviation."""
     url: str | None = URLField(max_length=255, null=True, default=None)
@@ -243,68 +212,72 @@ class Project(SQLRecord, CanCurate, TracksRun, TracksUpdates, ValidateFields):
     """Date of start of the project."""
     end_date: DateType | None = DateField(null=True, default=None)
     """Date of start of the project."""
-    parents: Project = models.ManyToManyField(
+    parents: QueryManager[Project] = models.ManyToManyField(
         "self", symmetrical=False, related_name="children"
     )
-    """Parent projects, the super-projects owning this project."""
-    children: Project
+    """Parent projects, the super-projects owning this project ← :attr:`~lamindb.Project.children`."""
+    children: QueryManager[Project]
     """Child projects, the sub-projects owned by this project.
 
     Reverse accessor for `.parents`.
     """
-    predecessors: Project = models.ManyToManyField(
+    predecessors: QueryManager[Project] = models.ManyToManyField(
         "self", symmetrical=False, related_name="successors"
     )
-    """The preceding projects required by this project."""
-    successors: Project
+    """The preceding projects required by this project ← :attr:`~lamindb.Project.successors`."""
+    successors: QueryManager[Project]
     """The succeeding projects requiring this project.
 
     Reverse accessor for `.predecessors`.
     """
-    people: Person = models.ManyToManyField(
-        Person, through="PersonProject", related_name="projects"
-    )
-    """Linked people."""
-    artifacts: Artifact = models.ManyToManyField(
+    artifacts: QueryManager[Artifact] = models.ManyToManyField(
         Artifact, through="ArtifactProject", related_name="projects"
     )
-    """Linked artifacts."""
-    transforms: Transform = models.ManyToManyField(
+    """Annotated artifacts ← :attr:`~lamindb.Artifact.projects`."""
+    transforms: QueryManager[Transform] = models.ManyToManyField(
         Transform, through="TransformProject", related_name="projects"
     )
-    """Linked transforms."""
-    runs: Run = models.ManyToManyField(
+    """Annotated transforms ← :attr:`~lamindb.Transform.projects`."""
+    runs: QueryManager[Run] = models.ManyToManyField(
         Run, through="RunProject", related_name="projects"
     )
-    """Linked transforms."""
-    ulabels: ULabel = models.ManyToManyField(
+    """Annotated runs ← :attr:`~lamindb.Run.projects`."""
+    ulabels: QueryManager[ULabel] = models.ManyToManyField(
         ULabel, through="ULabelProject", related_name="projects"
     )
-    """Linked ulabels."""
-    features: ULabel = models.ManyToManyField(
+    """Annotated ulabels ← :attr:`~lamindb.ULabel.projects`."""
+    features: QueryManager[Feature] = models.ManyToManyField(
         Feature, through="FeatureProject", related_name="projects"
     )
-    """Linked features."""
-    schemas: ULabel = models.ManyToManyField(
+    """Annotated features ← :attr:`~lamindb.Feature.projects`."""
+    schemas: QueryManager[Schema] = models.ManyToManyField(
         Schema, through="SchemaProject", related_name="projects"
     )
-    """Linked schemas."""
-    linked_in_records: Record = models.ManyToManyField(
+    """Annotated schemas ← :attr:`~lamindb.Schema.projects`."""
+    linked_in_records: QueryManager[Record] = models.ManyToManyField(
         Record, through="RecordProject", related_name="linked_projects"
     )
-    """Linked records."""
-    records: Record = models.ManyToManyField(
+    """Linked in records ← :attr:`~lamindb.Record.linked_projects`."""
+    records: QueryManager[Record] = models.ManyToManyField(
         Record, through="ProjectRecord", related_name="projects"
     )
-    """Annotated record."""
-    collections: Collection = models.ManyToManyField(
+    """Annotated records ← :attr:`~lamindb.Record.projects`."""
+    collections: QueryManager[Collection] = models.ManyToManyField(
         Collection, through="CollectionProject", related_name="projects"
     )
-    """Linked collections."""
-    references: Reference = models.ManyToManyField("Reference", related_name="projects")
-    """Linked references."""
+    """Annotated collections ← :attr:`~lamindb.Collection.projects`."""
+    references: QueryManager[Reference] = models.ManyToManyField(
+        "Reference", related_name="projects"
+    )
+    """Annotated references ← :attr:`~lamindb.Reference.projects`."""
+    blocks: QueryManager[Block] = models.ManyToManyField(
+        "Block", through="BlockProject", related_name="projects"
+    )
+    """Annotated blocks ← :attr:`~lamindb.Block.projects`."""
     _status_code: int = models.SmallIntegerField(default=0, db_index=True)
     """Status code."""
+    ablocks: ProjectBlock
+    """Blocks that annotate this project ← :attr:`~lamindb.ProjectBlock.project`."""
 
     @overload
     def __init__(
@@ -327,6 +300,14 @@ class Project(SQLRecord, CanCurate, TracksRun, TracksUpdates, ValidateFields):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
+    def query_projects(self) -> QuerySet:
+        """Query projects of sub types.
+
+        While `.projects` retrieves the projects with the current type, this method
+        also retrieves sub types and the projects with sub types of the current type.
+        """
+        return _query_relatives([self], "projects")  # type: ignore
+
 
 class ArtifactProject(BaseSQLRecord, IsLink, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
@@ -339,8 +320,6 @@ class ArtifactProject(BaseSQLRecord, IsLink, TracksRun):
         default=None,
         related_name="links_artifactproject",
     )
-    label_ref_is_name: bool | None = BooleanField(null=True, default=None)
-    feature_ref_is_name: bool | None = BooleanField(null=True, default=None)
 
     class Meta:
         app_label = "lamindb"
@@ -402,17 +381,6 @@ class ULabelProject(BaseSQLRecord, IsLink, TracksRun):
         unique_together = ("ulabel", "project")
 
 
-class PersonProject(BaseSQLRecord, IsLink, TracksRun):
-    id: int = models.BigAutoField(primary_key=True)
-    person: Person = ForeignKey(Person, CASCADE, related_name="links_project")
-    project: Project = ForeignKey(Project, PROTECT, related_name="links_person")
-    role: str | None = CharField(null=True, default=None)
-
-    class Meta:
-        app_label = "lamindb"
-        unique_together = ("person", "project")
-
-
 class FeatureProject(BaseSQLRecord, IsLink, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
     feature: Feature = ForeignKey(Feature, CASCADE, related_name="links_project")
@@ -433,15 +401,22 @@ class SchemaProject(BaseSQLRecord, IsLink, TracksRun):
         unique_together = ("schema", "project")
 
 
-class RecordPerson(BaseSQLRecord, IsLink):
+# for annotation of records with references, RecordReference is for storing reference values
+class ReferenceRecord(BaseSQLRecord, IsLink, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
-    record: Record = ForeignKey(Record, CASCADE, related_name="values_person")
-    feature: Feature = ForeignKey(Feature, PROTECT, related_name="links_recordperson")
-    value: Person = ForeignKey(Person, PROTECT, related_name="links_record")
+    reference: Reference = ForeignKey(Reference, PROTECT, related_name="links_record")
+    feature: Feature | None = ForeignKey(
+        Feature,
+        PROTECT,
+        null=True,
+        default=None,
+        related_name="links_referencerecord",
+    )
+    record: Record = ForeignKey(Record, CASCADE, related_name="links_reference")
 
     class Meta:
         app_label = "lamindb"
-        unique_together = ("record", "feature", "value")
+        unique_together = ("reference", "feature", "record")
 
 
 class RecordReference(BaseSQLRecord, IsLink):
@@ -450,7 +425,7 @@ class RecordReference(BaseSQLRecord, IsLink):
     feature: Feature = ForeignKey(
         Feature, PROTECT, related_name="links_recordreference"
     )
-    value: Reference = ForeignKey(Reference, PROTECT, related_name="links_record")
+    value: Reference = ForeignKey(Reference, PROTECT, related_name="links_in_record")
 
     class Meta:
         app_label = "lamindb"
@@ -460,7 +435,6 @@ class RecordReference(BaseSQLRecord, IsLink):
 # for annotation of records with projects, RecordProject is for storing project values
 class ProjectRecord(BaseSQLRecord, IsLink, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
-    record: Record = ForeignKey(Record, CASCADE, related_name="links_project")
     project: Project = ForeignKey(Project, PROTECT, related_name="links_record")
     feature: Feature | None = ForeignKey(
         Feature,
@@ -469,11 +443,11 @@ class ProjectRecord(BaseSQLRecord, IsLink, TracksRun):
         default=None,
         related_name="links_projectrecord",
     )
+    record: Record = ForeignKey(Record, CASCADE, related_name="links_project")
 
     class Meta:
-        # can have the same label linked to the same artifact if the feature is different
         app_label = "lamindb"
-        unique_together = ("record", "project", "feature")
+        unique_together = ("project", "feature", "record")
 
 
 class RecordProject(BaseSQLRecord, IsLink):
@@ -487,6 +461,16 @@ class RecordProject(BaseSQLRecord, IsLink):
         unique_together = ("record", "feature", "value")
 
 
+class BlockProject(BaseSQLRecord, IsLink, TracksRun):
+    id: int = models.BigAutoField(primary_key=True)
+    block = ForeignKey("Block", CASCADE, related_name="links_project")
+    project: Project = ForeignKey(Project, PROTECT, related_name="links_block")
+
+    class Meta:
+        app_label = "lamindb"
+        unique_together = ("block", "project")
+
+
 class ArtifactReference(BaseSQLRecord, IsLink, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
     artifact: Artifact = ForeignKey(Artifact, CASCADE, related_name="links_reference")
@@ -498,12 +482,9 @@ class ArtifactReference(BaseSQLRecord, IsLink, TracksRun):
         default=None,
         related_name="links_artifactreference",
     )
-    label_ref_is_name: bool | None = BooleanField(null=True, default=None)
-    feature_ref_is_name: bool | None = BooleanField(null=True, default=None)
 
     class Meta:
         app_label = "lamindb"
-        # can have the same label linked to the same artifact if the feature is different
         unique_together = ("artifact", "reference", "feature")
 
 

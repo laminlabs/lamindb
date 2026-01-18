@@ -25,12 +25,14 @@ AUTO_KEY_PREFIX = ".lamindb/"
 
 # add type annotations back asap when re-organizing the module
 def auto_storage_key_from_artifact(artifact: Artifact):
-    if artifact.key is None or artifact._key_is_virtual:
+    if (real_key := artifact._real_key) is not None:
+        return real_key
+    key = artifact.key
+    if key is None or artifact._key_is_virtual:
         return auto_storage_key_from_artifact_uid(
             artifact.uid, artifact.suffix, artifact.overwrite_versions
         )
-    else:
-        return artifact.key
+    return artifact.key
 
 
 def auto_storage_key_from_artifact_uid(
@@ -88,7 +90,7 @@ def attempt_accessing_path(
             )
     else:
         if artifact._state.db not in ("default", None) and using_key is None:
-            storage = Storage.using(artifact._state.db).get(id=artifact.storage_id)
+            storage = Storage.connect(artifact._state.db).get(id=artifact.storage_id)
         else:
             storage = Storage.objects.using(using_key).get(id=artifact.storage_id)
         # find a better way than passing None to instance_settings in the future!
@@ -100,8 +102,8 @@ def attempt_accessing_path(
 def filepath_from_artifact(
     artifact: Artifact, using_key: str | None = None
 ) -> tuple[UPath, StorageSettings | None]:
-    if hasattr(artifact, "_local_filepath") and artifact._local_filepath is not None:
-        return artifact._local_filepath.resolve(), None
+    if (local_filepath := getattr(artifact, "_local_filepath", None)) is not None:
+        return local_filepath.resolve(), None
     storage_key = auto_storage_key_from_artifact(artifact)
     path, storage_settings = attempt_accessing_path(
         artifact, storage_key, using_key=using_key
@@ -121,7 +123,12 @@ def _cache_key_from_artifact_storage(
         and storage_settings is not None
         and artifact.is_latest
     ):
-        cache_key = (storage_settings.root / artifact.key).path
+        root = storage_settings.root
+        cache_key = (root / artifact.key).path
+        # .path does not strip protocol for http
+        # have to do it manually
+        if root.protocol in {"http", "https"}:
+            cache_key = cache_key.split("://", 1)[-1]
     return cache_key
 
 

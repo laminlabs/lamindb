@@ -1,25 +1,49 @@
 """Errors.
 
-.. autosummary::
-   :toctree: .
+Django.
 
-   ValidationError
-   InvalidArgument
-   DoesNotExist
-   NotebookNotSaved
-   UnknownStorageLocation
-   MissingContextUID
-   UpdateContext
-   IntegrityError
-   FieldValidationError
-   SQLRecordNameChangeIntegrityError
-   NoWriteAccess
+.. autoexception:: ObjectDoesNotExist
+.. autoexception:: MultipleObjectsReturned
+
+LaminDB.
+
+.. autoexception:: ValidationError
+.. autoexception:: InvalidArgument
+.. autoexception:: NotebookNotSaved
+.. autoexception:: UnknownStorageLocation
+.. autoexception:: MissingContextUID
+.. autoexception:: UpdateContext
+.. autoexception:: IntegrityError
+.. autoexception:: FieldValidationError
+.. autoexception:: NoWriteAccess
+.. autoexception:: BlobHashNotFound
 
 """
 
-# inheriting from SystemExit has the sole purpose of suppressing
-# the traceback - this isn't optimal but the current best solution
-# https://laminlabs.slack.com/archives/C04A0RMA0SC/p1726856875597489
+# -------------------------------------------------------------------------------------
+# Django
+# -------------------------------------------------------------------------------------
+
+from django.core.exceptions import (
+    MultipleObjectsReturned,  # noqa: F401
+    ObjectDoesNotExist,  # noqa: F401
+)
+
+ObjectDoesNotExist.__doc__ = """Object does not exist.
+
+This is an alias for `django.core.exceptions.ObjectDoesNotExist`.
+"""
+DoesNotExist = ObjectDoesNotExist  # backward compat
+
+MultipleObjectsReturned.__doc__ = """Multiple objects returned.
+
+This is an alias for `django.core.exceptions.MultipleObjectsReturned`.
+"""
+MultipleResultsFound = MultipleObjectsReturned  # backward compat
+
+# -------------------------------------------------------------------------------------
+# lamindb
+# -------------------------------------------------------------------------------------
 
 
 class ValidationError(Exception):
@@ -52,28 +76,14 @@ class UnknownStorageLocation(Exception):
     pass
 
 
-# equivalent to Django's DoesNotExist
-# and SQLAlchemy's NoResultFound
-class DoesNotExist(Exception):
-    """No record found."""
-
-    pass
-
-
-class MultipleResultsFound(Exception):
-    """Multiple records found."""
+class NoStorageLocationForSpace(Exception):
+    """No storage location found for space."""
 
     pass
 
 
 class InconsistentKey(Exception):
     """Inconsistent transform or artifact `key`."""
-
-    pass
-
-
-class SQLRecordNameChangeIntegrityError(Exception):
-    """Custom exception for name change errors."""
 
     pass
 
@@ -99,20 +109,26 @@ class IntegrityError(Exception):
     pass
 
 
-class MissingContextUID(SystemExit):
+class MissingContextUID(Exception):
     """User didn't define transform settings."""
 
     pass
 
 
-class UpdateContext(SystemExit):
+class UpdateContext(Exception):
     """Transform settings require update."""
 
     pass
 
 
+class BlobHashNotFound(Exception):
+    """Blob hash not found in git or storage."""
+
+    pass
+
+
 # -------------------------------------------------------------------------------------
-# record
+# CRUD
 # -------------------------------------------------------------------------------------
 
 

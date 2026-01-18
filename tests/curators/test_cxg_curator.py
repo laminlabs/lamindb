@@ -35,7 +35,7 @@ def test_cxg_curator_5(cxg_schema_factory):
     cxg_schema = cxg_schema_factory("5.2.0", field_types=["name", "ontology_id"])
 
     # test invalid var index and typo in obs column
-    adata = ln.core.datasets.small_dataset3_cellxgene(
+    adata = ln.examples.datasets.small_dataset3_cellxgene(
         with_obs_defaults=True, with_obs_typo=True, with_var_typo=True
     )
     curator = ln.curators.AnnDataCurator(adata, cxg_schema)
@@ -43,10 +43,10 @@ def test_cxg_curator_5(cxg_schema_factory):
     curator.slots["obs"].standardize()
     with pytest.raises(ln.errors.ValidationError) as e:
         curator.validate()
-        assert (
-            "ValidationError: 1 term not validated in feature 'index' in slot 'var': 'invalid_ensembl_id'"
-            in str(e)
-        )
+    assert (
+        "1 term not validated in feature 'index' in slot 'var': 'invalid_ensembl_id'"
+        in str(e.value)
+    )
 
     # subset adata to remove invalid var index
     adata = adata[
@@ -55,10 +55,10 @@ def test_cxg_curator_5(cxg_schema_factory):
     curator = ln.curators.AnnDataCurator(adata, cxg_schema)
     with pytest.raises(ln.errors.ValidationError) as e:
         curator.validate()
-        assert (
-            "ValidationError: 1 term not validated in feature 'tissue_ontology_term_id' in slot 'obs': 'UBERON:0002048XXX'"
-            in str(e)
-        )
+    assert (
+        "1 term not validated in feature 'tissue_ontology_term_id' in slot 'obs': 'UBERON:0002048XXX'"
+        in str(e.value)
+    )
     # fix typo in obs column
     adata.obs["tissue_ontology_term_id"] = adata.obs["tissue_ontology_term_id"].replace(
         {"UBERON:0002048XXX": "UBERON:0002048"}
@@ -66,7 +66,7 @@ def test_cxg_curator_5(cxg_schema_factory):
     artifact = curator.save_artifact(key="examples/dataset-curated-against-cxg-5.h5ad")
 
     # test missing obs columns
-    adata = ln.core.datasets.small_dataset3_cellxgene(with_obs_defaults=False)
+    adata = ln.examples.datasets.small_dataset3_cellxgene(with_obs_defaults=False)
     adata = adata[:, ~adata.var.index.isin({"invalid_ensembl_id"})].copy()
     curator = ln.curators.AnnDataCurator(adata, cxg_schema)
     with pytest.raises(ln.errors.ValidationError) as e:
@@ -97,7 +97,7 @@ def test_cxg_curator_6_spatial(cxg_schema_factory):
         "6.0.0", spatial_library_id="library_123", field_types="ontology_id"
     )
 
-    adata = ln.core.datasets.small_dataset3_cellxgene(
+    adata = ln.examples.datasets.small_dataset3_cellxgene(
         with_obs_defaults=True, with_uns_organism=True, with_uns_spatial=True
     )
     # delete a necessary component from uns["spatial"]

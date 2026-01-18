@@ -8,14 +8,13 @@ from lamindb.errors import ValidationError
 def test_inspect():
     ln.Schema.filter().delete(permanent=True)
     bt.Gene.filter().delete(permanent=True)
-    bt.settings.organism = "human"
-    result = bt.Gene.inspect("TCF7", "symbol")
+    result = bt.Gene.inspect("TCF7", "symbol", organism="human")
     assert result.validated == []
 
-    bt.Gene.from_source(symbol="TCF7").save()
-    result = bt.Gene.inspect("TCF7")
+    bt.Gene.from_source(symbol="TCF7", organism="human").save()
+    result = bt.Gene.inspect("TCF7", organism="human")
     assert bt.Gene.validate("TCF7", organism="human")
-    result = bt.Gene.inspect(["TCF7", "ABC1"], "symbol")
+    result = bt.Gene.inspect(["TCF7", "ABC1"], "symbol", organism="human")
     assert result.validated == ["TCF7"]
 
     # clean up
@@ -54,29 +53,33 @@ def test_inspect_source():
 
 
 def test_standardize():
-    bt.settings.organism = "human"
-
     # synonym not in the database
-    result = bt.Gene.standardize(["ABC1", "PDCD1"])
+    result = bt.Gene.standardize(["ABC1", "PDCD1"], organism="human")
     assert result == ["HEATR6", "PDCD1"]
 
-    result = bt.Gene.standardize(["ABC1", "PDCD1"], field=bt.Gene.symbol)
+    result = bt.Gene.standardize(
+        ["ABC1", "PDCD1"], field=bt.Gene.symbol, organism="human"
+    )
     assert result == ["HEATR6", "PDCD1"]
 
-    mapper = bt.Gene.standardize(["ABC1", "PDCD1"], return_mapper=True)
+    mapper = bt.Gene.standardize(
+        ["ABC1", "PDCD1"], return_mapper=True, organism="human"
+    )
     assert mapper == {"ABC1": "HEATR6"}
 
     # synonym already in the database
-    bt.Gene.from_source(symbol="LMNA").save()
-    mapper = bt.Gene.standardize(["ABC1", "LMN1"], return_mapper=True)
+    bt.Gene.from_source(symbol="LMNA", organism="human").save()
+    mapper = bt.Gene.standardize(["ABC1", "LMN1"], return_mapper=True, organism="human")
     assert mapper == {"LMN1": "LMNA", "ABC1": "HEATR6"}
-    assert bt.Gene.standardize(["LMNA"]) == ["LMNA"]
-    assert bt.Gene.standardize("LMNA") == "LMNA"
-    assert bt.Gene.standardize(["LMN1"], return_mapper=True) == {"LMN1": "LMNA"}
+    assert bt.Gene.standardize(["LMNA"], organism="human") == ["LMNA"]
+    assert bt.Gene.standardize("LMNA", organism="human") == "LMNA"
+    assert bt.Gene.standardize(["LMN1"], return_mapper=True, organism="human") == {
+        "LMN1": "LMNA"
+    }
 
 
-def test_standardize_source_aware():
-    result = bt.Gene.standardize(["ABC1", "PDCD1"], source_aware=False)
+def test_standardize_from_source():
+    result = bt.Gene.standardize(["ABC1", "PDCD1"], from_source=False)
     assert result == ["ABC1", "PDCD1"]
 
 
@@ -84,7 +87,7 @@ def test_add_remove_synonym():
     bt.CellType.filter().delete(permanent=True)
 
     # a registry that doesn't have a synonyms column
-    user = ln.User.get(handle="testuser1")
+    user = ln.User.get(handle=ln.setup.settings.user.handle)
     with pytest.raises(NotImplementedError):
         user.add_synonym("syn")
 
@@ -146,7 +149,7 @@ def test_set_abbr():
 
 
 def test_validate_int():
-    result = ln.User.validate([1, 2], field=ln.User.id)
+    result = ln.User.validate([1, 2, 3], field=ln.User.id)
     assert result.sum() == 1
 
 
@@ -165,3 +168,14 @@ def test_synonym_mapping():
     assert result.synonyms_mapper == {}
 
     bt.Gene.filter().delete(permanent=True)
+
+
+def test_validate_called_on_object_raises_error():
+    """Test that calling validate() on an object raises TypeError."""
+    label = ln.ULabel(name="test_label").save()
+    with pytest.raises(TypeError) as error:
+        label.validate(["test_value"])
+    assert (
+        "ULabel.validate() is a class method and must be called on the ULabel class, not on a ULabel object"
+        in str(error.value)
+    )

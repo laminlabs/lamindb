@@ -3,7 +3,7 @@ import lamindb as ln
 import pandas as pd
 import pytest
 from django.db.utils import IntegrityError
-from lamindb.errors import FieldValidationError, ValidationError
+from lamindb.errors import FieldValidationError, InvalidArgument, ValidationError
 from lamindb.models.schema import get_related_name, validate_features
 
 
@@ -21,19 +21,24 @@ def df():
 
 def test_schema_from_values():
     gene_symbols = ["TCF7", "MYC"]
-    bt.settings.organism = "human"
-    bt.Gene.filter(symbol__in=gene_symbols).all().delete(permanent=True)
+    bt.Gene.filter(symbol__in=gene_symbols).delete(permanent=True)
     with pytest.raises(ValidationError) as error:
-        schema = ln.Schema.from_values(gene_symbols, bt.Gene.symbol, dtype=int)
+        schema = ln.Schema.from_values(
+            gene_symbols, bt.Gene.symbol, dtype=int, organism="human"
+        )
     assert error.exconly().startswith(
         "lamindb.errors.ValidationError: These values could not be validated:"
     )
-    ln.save(bt.Gene.from_values(gene_symbols, "symbol"))
-    schema = ln.Schema.from_values(gene_symbols, bt.Gene.symbol)
+    ln.save(bt.Gene.from_values(gene_symbols, "symbol", organism="human"))
+    schema = ln.Schema.from_values(gene_symbols, bt.Gene.symbol, organism="human")
     # below should be a queryset and not a list
-    assert set(schema.members) == set(bt.Gene.from_values(gene_symbols, "symbol"))
+    assert set(schema.members) == set(
+        bt.Gene.from_values(gene_symbols, "symbol", organism="human")
+    )
     assert schema.dtype == "num"  # this is NUMBER_TYPE
-    schema = ln.Schema.from_values(gene_symbols, bt.Gene.symbol, dtype=int)
+    schema = ln.Schema.from_values(
+        gene_symbols, bt.Gene.symbol, dtype=int, organism="human"
+    )
     assert schema._state.adding
     assert schema.dtype == "int"
     assert schema.itype == "bionty.Gene"
@@ -42,7 +47,9 @@ def test_schema_from_values():
     id = schema.id
     # test that the schema is retrieved from the database
     # in case it already exists
-    schema = ln.Schema.from_values(gene_symbols, bt.Gene.symbol, dtype=int)
+    schema = ln.Schema.from_values(
+        gene_symbols, bt.Gene.symbol, dtype=int, organism="human"
+    )
     assert not schema._state.adding
     assert id == schema.id
     schema.delete(permanent=True)
@@ -56,8 +63,6 @@ def test_schema_from_values():
         schema = ln.Schema.from_values(
             ["weird_name"], field=ln.Feature.name, dtype="float"
         )
-    with pytest.raises(ValidationError):
-        ln.Schema.from_values(["name"], field=ln.Feature.name, dtype="float")
 
 
 def test_schema_from_records(df):
@@ -91,8 +96,8 @@ def test_schema_from_records(df):
 
 def test_schema_from_df(df):
     # test using type
-    bt.settings.organism = "human"
-    genes = [bt.Gene(symbol=name) for name in df.columns]
+    human = bt.Organism.from_source(name="human").save()
+    genes = [bt.Gene(symbol=name, organism=human) for name in df.columns]
     ln.save(genes)
     with pytest.raises(ValueError) as error:
         ln.Schema.from_dataframe(df, field=bt.Gene.symbol)
@@ -122,8 +127,7 @@ def test_validate_features():
         validate_features(["feature"])
     with pytest.raises(TypeError):
         validate_features({"feature"})
-    transform = ln.Transform(key="test")
-    transform.save()
+    transform = ln.Transform(key="test").save()
     # This is just a type check
     with pytest.raises(TypeError) as error:
         validate_features([transform, ln.Run(transform)])
@@ -150,15 +154,15 @@ def test_edge_cases():
 
 @pytest.fixture(scope="module")
 def mini_immuno_schema_flexible():
-    schema = ln.core.datasets.mini_immuno.define_mini_immuno_schema_flexible()
+    schema = ln.examples.datasets.mini_immuno.define_mini_immuno_schema_flexible()
 
     yield schema
 
     ln.Schema.filter().delete(permanent=True)
     ln.Feature.filter().delete(permanent=True)
     bt.Gene.filter().delete(permanent=True)
-    ln.ULabel.filter(type__isnull=False).delete(permanent=True)
-    ln.ULabel.filter().delete(permanent=True)
+    ln.Record.filter(type__isnull=False).delete(permanent=True)
+    ln.Record.filter().delete(permanent=True)
     bt.CellType.filter().delete(permanent=True)
 
 
@@ -220,7 +224,7 @@ def test_schema_update_implicit_through_name_equality(
 
     assert schema.hash != orig_hash
     assert ccaplog.text.count(warning_message) == 3  # warning raised
-    ln.core.datasets.mini_immuno.define_mini_immuno_schema_flexible()
+    ln.examples.datasets.mini_immuno.define_mini_immuno_schema_flexible()
 
     artifact.delete(permanent=True)
 
@@ -288,16 +292,16 @@ def test_schema_update(
     assert mini_immuno_schema_flexible.hash == orig_hash
     assert ccaplog.text.count(warning_message) == 4
 
-    # change coerce_dtype (an auxiliary field) --------------------------------
+    # change coerce (formerly auxiliary field, now Django field) --------------------------------
 
-    assert not mini_immuno_schema_flexible.coerce_dtype
-    mini_immuno_schema_flexible.coerce_dtype = True
+    assert not mini_immuno_schema_flexible.coerce
+    mini_immuno_schema_flexible.coerce = True
     mini_immuno_schema_flexible.save()
     assert mini_immuno_schema_flexible.hash != orig_hash
     assert ccaplog.text.count(warning_message) == 5
 
     # restore original setting
-    mini_immuno_schema_flexible.coerce_dtype = False
+    mini_immuno_schema_flexible.coerce = False
     mini_immuno_schema_flexible.save()
     assert mini_immuno_schema_flexible.hash == orig_hash
     assert ccaplog.text.count(warning_message) == 6
@@ -336,6 +340,41 @@ def test_schema_update(
     artifact.delete(permanent=True)
 
 
+def test_schema_mutations_feature_removal(
+    mini_immuno_schema_flexible: ln.Schema, ccaplog
+):
+    feature1 = ln.Feature.get(name="perturbation")
+    feature2 = ln.Feature.get(name="cell_type_by_model")
+    dummy_artifact = ln.Artifact(".gitignore", key=".gitignore").save()
+    # define the schema the first time
+    schema = ln.Schema(name="My test schema X", features=[feature1, feature2]).save()
+    assert schema.features.count() == 2
+    dummy_artifact.schema = schema  # pretend artifact was validated with this schema
+    dummy_artifact.save()
+    # define the schema the first time
+    schema1 = ln.Schema(name="My test schema X", features=[feature2]).save()
+    # retrieves same schema because of name equality
+    assert ccaplog.text.count("you're removing these features:") == 1
+    assert (
+        ccaplog.text.count("you updated the schema hash and might invalidate datasets")
+        == 1
+    )
+    assert schema1 == schema
+    assert schema1.features.count() == 1
+    dummy_artifact.delete(permanent=True)
+    schema.delete(permanent=True)
+
+
+def test_schema_add_remove_optional_features(mini_immuno_schema_flexible: ln.Schema):
+    schema = mini_immuno_schema_flexible
+    initial_hash = schema.hash
+    feature_project = ln.Feature(name="project", dtype=ln.Project).save()
+    schema.add_optional_features([feature_project])
+    assert schema.hash != initial_hash
+    schema.remove_optional_features([feature_project])
+    assert schema.hash == initial_hash
+
+
 def test_schema_components(mini_immuno_schema_flexible: ln.Schema):
     obs_schema = mini_immuno_schema_flexible
     var_schema = ln.Schema(
@@ -352,20 +391,15 @@ def test_schema_components(mini_immuno_schema_flexible: ln.Schema):
     ).save()
     assert var_schema == var_schema2
 
-    try:
+    with pytest.raises(InvalidArgument) as error:
         ln.Schema(
-            name="small_dataset1_anndata_schema",
-            otype="AnnData",
+            name="mini_immuno_anndata_schema",
             slots={"obs": obs_schema, "var": var_schema},
         ).save()
-    except ln.errors.InvalidArgument:
-        assert (
-            str(ln.errors.InvalidArgument)
-            == "Please pass otype != None for composite schemas"
-        )
+    assert str(error.value) == "Please pass otype != None for composite schemas"
 
     anndata_schema = ln.Schema(
-        name="small_dataset1_anndata_schema",
+        name="mini_immuno_anndata_schema",
         otype="AnnData",
         slots={"obs": obs_schema, "var": var_schema},
     ).save()
@@ -377,10 +411,9 @@ def test_schema_components(mini_immuno_schema_flexible: ln.Schema):
     ).save()
     # try adding another schema under slot "var"
     # we want to trigger the unique constraint on slot
-    try:
+    with pytest.raises(IntegrityError) as error:
         anndata_schema.components.add(var_schema2, through_defaults={"slot": "var"})
-    except IntegrityError as error:
-        assert str(error).startswith("duplicate key value violates unique constraint")
+    assert "unique" in str(error.value).lower()
 
     anndata_schema.delete(permanent=True)
     var_schema2.delete(permanent=True)
@@ -414,6 +447,18 @@ def test_mini_immuno_schema_flexible(mini_immuno_schema_flexible):
             "j=HASH_OF_FEATURE_UIDS",  # this last hash is not deterministic in a unit test
         ][:6]
     )
+
+
+def test_schema_recovery_based_on_hash(mini_immuno_schema_flexible: ln.Schema):
+    feature1 = ln.Feature.get(name="perturbation")
+    feature2 = ln.Feature.get(name="cell_type_by_model")
+    schema = ln.Schema(features=[feature1, feature2]).save()
+    schema2 = ln.Schema(features=[feature1, feature2])
+    assert schema == schema2
+    schema.delete()
+    schema2 = ln.Schema(features=[feature1, feature2])
+    assert schema != schema2
+    schema.delete(permanent=True)
 
 
 def test_schemas_dataframe():
@@ -459,19 +504,22 @@ def test_schemas_anndata():
         slots={"obs": obs_schema, "var.T": varT_schema.save()},
     )
     assert schema._list_for_hashing == [
-        "1gocc_TJ1RU2bMwDRK-WUA",
-        "kMi7B_N88uu-YnbTLDU-DA",
+        "a=num",
+        "c=True",
+        "d=False",
+        "e=False",
+        "l=GPZ-TzvKRhdC1PQAhlFiow",
     ]
     assert schema.name == "anndata_ensembl_gene_ids_and_valid_features_in_obs"
-    assert schema.itype == "Composite"
-    assert schema.hash == "GTxxM36n9tocphLfdbNt9g"
+    assert schema.itype is None
+    assert schema.hash == "aqGWHvyY49W_PHELUMiBMw"
 
     # test the convenience function
     schema = ln.examples.schemas.anndata_ensembl_gene_ids_and_valid_features_in_obs()
     assert schema.uid == "0000000000000002"
     assert schema.name == "anndata_ensembl_gene_ids_and_valid_features_in_obs"
-    assert schema.itype == "Composite"
-    assert schema.hash == "GTxxM36n9tocphLfdbNt9g"
+    assert schema.itype is None
+    assert schema.hash == "aqGWHvyY49W_PHELUMiBMw"
     varT_schema = schema.slots["var.T"]
     assert varT_schema.uid == "0000000000000001"
     assert varT_schema.name == "valid_ensembl_gene_ids"
@@ -501,20 +549,25 @@ def test_schema_already_saved_aux():
         itype=ln.Feature,
         dtype="DataFrame",
         minimal_set=True,
-        coerce_dtype=True,
+        coerce=True,
     ).save()
 
     schema = ln.Schema(
         name="AnnData schema",
         otype="AnnData",
         minimal_set=True,
-        coerce_dtype=True,
+        coerce=True,
         slots={"var": var_schema},
     ).save()
 
-    assert len(schema.slots["var"]._aux["af"].keys()) == 3
+    # _aux["af"] now only contains key "3" (index_feature_uid) since coerce and flexible are Django fields
+    assert len(schema.slots["var"]._aux["af"].keys()) == 1
+    assert "3" in schema.slots["var"]._aux["af"]  # index_feature_uid
+    # coerce and flexible are now proper Django fields
+    assert schema.slots["var"].coerce is True
+    assert schema.slots["var"].flexible is False
 
-    # Attempting to save the same schema again should return the Schema with the same `.aux` fields
+    # Attempting to save the same schema again should return the Schema with the same fields
     var_schema_2 = ln.Schema(
         name="test var",
         index=ln.Feature(
@@ -529,26 +582,28 @@ def test_schema_already_saved_aux():
         itype=ln.Feature,
         dtype="DataFrame",
         minimal_set=True,
-        coerce_dtype=True,
+        coerce=True,
     ).save()
 
     schema_2 = ln.Schema(
         name="AnnData schema",
         otype="AnnData",
         minimal_set=True,
-        coerce_dtype=True,
+        coerce=True,
         slots={"var": var_schema_2},
     ).save()
 
-    assert len(schema.slots["var"]._aux["af"].keys()) == 3
+    assert len(schema.slots["var"]._aux["af"].keys()) == 1
     assert schema.slots["var"]._aux == schema_2.slots["var"]._aux
+    assert schema.slots["var"].coerce == schema_2.slots["var"].coerce
+    assert schema.slots["var"].flexible == schema_2.slots["var"].flexible
 
     schema_2.delete(permanent=True)
     schema.delete(permanent=True)
 
 
 def test_schema_not_saved_describe():
-    schema = ln.Schema()
+    schema = ln.Schema(name="NotSavedSchema", is_type=True)
     with pytest.raises(ValueError) as e:
         schema.describe()
     assert "Schema must be saved before describing" in str(e.value)
@@ -561,7 +616,41 @@ def test_schema_is_type():
     assert BioSample.hash is None
     assert BioSample.type == Sample
     assert BioSample.is_type
-
+    # create a schema without any features or slots or itype or is_type=True
+    with pytest.raises(InvalidArgument) as e:
+        ln.Schema(name="TechSample", type=Sample)
+    assert "Please pass features or slots or itype or set is_type=True" in str(e.value)
     # clean up
     BioSample.delete(permanent=True)
     Sample.delete(permanent=True)
+
+
+# see test_component_composite in test_transform.py
+def test_composite_component():
+    composite = ln.Schema(name="composite", itype=ln.Feature).save()
+    component1 = ln.Schema(name="component1", itype=bt.CellType).save()
+    component2 = ln.Schema(name="component2", itype=bt.CellMarker).save()
+    composite.components.add(component1, through_defaults={"slot": "slot1"})
+    composite.components.add(component2, through_defaults={"slot": "slot2"})
+
+    assert len(composite.components.all()) == 2
+    assert composite.links_component.count() == 2
+    assert set(composite.links_component.all().to_list("slot")) == {"slot1", "slot2"}
+    assert composite.links_component.first().composite == composite
+    assert composite.composites.count() == 0
+    assert composite.links_composite.count() == 0
+
+    ln.models.SchemaComponent.filter(composite=composite).delete(permanent=True)
+
+    link = ln.models.SchemaComponent(
+        composite=composite, component=component1, slot="var"
+    ).save()
+    assert link in composite.links_component.all()
+    assert link in component1.links_composite.all()
+    assert link.slot == "var"
+
+    composite.delete(permanent=True)
+    component1.delete(permanent=True)
+    component2.delete(permanent=True)
+
+    assert ln.models.SchemaComponent.filter().count() == 0

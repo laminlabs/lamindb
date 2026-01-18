@@ -2,12 +2,19 @@
 
 ```{toctree}
 :hidden:
+:caption: "Overview"
+
+README
+```
+
+```{toctree}
+:hidden:
 :caption: "How to"
 
 query-search
 track
 curate
-bio-registries
+manage-ontologies
 transfer
 ```
 
