@@ -164,7 +164,7 @@ jobs:
       - run: pip install "laminci@git+https://github.com/laminlabs/laminci"
       - run: nox -s "install_ci(group='unit-core-sqlite')"
       - run: uv pip install --system pyinstrument
-      - run: python tests/performance/profile_import.py
+      - run: python tests/profiling/profile_import_lamindb.py
 
   docs:
     needs: test
