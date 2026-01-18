@@ -55,8 +55,8 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
     In some cases you may prefer a simple label without features: then consider :class:`~lamindb.ULabel`.
 
     Args:
-        name: `str` A name.
-        description: `str` A description.
+        name: `str | None = None` A name.
+        description: `str | None = None` A description.
         type: `Record | None = None` The type of this record.
         is_type: `bool = False` Whether this record is a type (a record that
             classifies other records).
@@ -306,7 +306,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
     @overload
     def __init__(
         self,
-        name: str,
+        name: str | None = None,
         type: Record | None = None,
         is_type: bool = False,
         description: str | None = None,
