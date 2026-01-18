@@ -460,14 +460,6 @@ def get_artifact_kwargs_from_data(
         check_path_in_storage = True
     else:
         storage = storage
-
-    if not isinstance(path, LocalPathClasses):
-        local_filepath = None
-        cloud_filepath = path
-    else:
-        local_filepath = path
-        cloud_filepath = None
-
     stat_or_artifact = get_stat_or_artifact(
         path=path,
         storage=storage,
@@ -476,6 +468,12 @@ def get_artifact_kwargs_from_data(
         is_replace=is_replace,
         skip_hash_lookup=skip_hash_lookup,
     )
+    if not isinstance(path, LocalPathClasses):
+        local_filepath = None
+        cloud_filepath = path
+    else:
+        local_filepath = path
+        cloud_filepath = None
     privates = {
         "local_filepath": local_filepath,
         "cloud_filepath": cloud_filepath,
@@ -484,18 +482,17 @@ def get_artifact_kwargs_from_data(
     }
     if isinstance(stat_or_artifact, Artifact):
         existing_artifact = stat_or_artifact
-        if run is not None:
-            existing_artifact._populate_subsequent_runs(run)
         # if the artifact was unsuccessfully saved, we want to
         # enable re-uploading after returning the artifact record
         # the upload is triggered by whether the privates are returned
         # because we do not want to upload the exact same file again
-        # we return None here if _is_saved_to_storage_location is not False
+        # we return None here if _storage_completed is not False
         if existing_artifact._storage_completed is False:
-            return_privates = privates
+            privates["key"] = key
+            returned_privates = privates
         else:
-            return_privates = None
-        return existing_artifact, return_privates
+            returned_privates = {"key": key}
+        return existing_artifact, returned_privates
     else:
         size, hash, hash_type, n_files, revises = stat_or_artifact
 
@@ -1629,7 +1626,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         )
 
         def set_private_attributes():
-            if data is not None and privates is not None:
+            if path is not None and "local_filepath" in privates:
                 self._local_filepath = privates["local_filepath"]
                 self._cloud_filepath = privates["cloud_filepath"]
                 self._memory_rep = privates["memory_rep"]
@@ -1641,7 +1638,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
             init_self_from_db(self, kwargs_or_artifact)
             # update key from inferred value
-            key = privates
+            key = privates.pop("key")
             # adding "key" here is dangerous because key might be auto-populated
             attr_to_update = {"description": description}
             if schema is not None:
