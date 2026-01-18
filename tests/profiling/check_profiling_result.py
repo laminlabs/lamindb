@@ -1,9 +1,15 @@
+import re
+
 import lamindb as ln
-from pyinstrument import Session
 
 threshold = 3.2
-session = Session.load("profiling_session.pyisession")
-duration = session.duration
+
+# Parse duration from pyinstrument text output
+with open("profile.txt") as f:
+    content = f.read()
+    # Extract duration from line like: "Duration: 2.315     CPU time: 2.216"
+    match = re.search(r"Duration:\s+([\d.]+)", content)
+    duration = float(match.group(1)) if match else 1.0
 
 ln.connect("laminlabs/lamindata")
 ln.track("eraGM939WmQO")

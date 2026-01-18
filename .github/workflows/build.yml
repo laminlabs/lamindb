@@ -170,7 +170,7 @@ jobs:
       - run: pyinstrument tests/profiling/scripts/import_lamindb.py
       - run: pyinstrument tests/profiling/scripts/import_lamindb.py
       - run: pyinstrument tests/profiling/scripts/import_lamindb.py
-      - run: pyinstrument tests/profiling/scripts/import_lamindb.py --renderer pyisession --outfile profiling_session.pyisession
+      - run: pyinstrument tests/profiling/scripts/import_lamindb.py > profile.txt
       - run: python tests/profiling/check_profiling_result.py
 
   docs:
