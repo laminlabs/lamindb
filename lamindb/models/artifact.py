@@ -496,10 +496,12 @@ def get_artifact_kwargs_from_data(
     else:
         size, hash, hash_type, n_files, revises = stat_or_artifact
 
+    # update local path
     if revises is not None:  # update provisional_uid
         provisional_uid, revises = create_uid(revises=revises, version_tag=version_tag)
         if settings.cache_dir in path.parents:
             path = path.rename(path.with_name(f"{provisional_uid}{suffix}"))
+            privates["local_filepath"] = path
 
     log_storage_hint(
         check_path_in_storage=check_path_in_storage,
