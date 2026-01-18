@@ -2915,12 +2915,12 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             self._key_is_virtual = True
             # ensure that the artifact is uploaded
             self._to_store = True
-        # _storage_completed indicates whether the saving / upload process is successful
+        # _storage_ongoing indicates whether the storage saving / upload process is ongoing
         flag_complete = getattr(self, "_local_filepath", None) is not None and getattr(
             self, "_to_store", False
         )
         if flag_complete:
-            self._storage_completed = False  # will be updated to True at the end
+            self._storage_ongoing = True  # will be updated to False once complete
 
         self._save_skip_storage(**kwargs)
 
@@ -2953,10 +2953,10 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             raise exception_upload
         if exception_clear is not None:
             raise exception_clear
-        # the saving / upload process has been successful, remove the False flag
+        # the saving / upload process has been successful
         if flag_complete:
-            self._storage_completed = None
-            # pass kwargs here because it can contain `using` or other things
+            self._storage_ongoing = False
+            # pass kwargs below because it can contain `using` or other things
             # affecting the connection
             super().save(**kwargs)
 

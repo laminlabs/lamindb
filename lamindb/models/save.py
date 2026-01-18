@@ -112,7 +112,7 @@ def save(
                 if getattr(record, "_local_filepath", None) is not None and getattr(
                     record, "_to_store", False
                 ):
-                    record._storage_completed = False
+                    record._storage_ongoing = True
                 record._save_skip_storage()
         using_key = settings._using_key
         store_artifacts(artifacts, using_key=using_key)
