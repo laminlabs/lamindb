@@ -147,6 +147,25 @@ jobs:
           name: docs-${{ matrix.group }}
           path: ./docs/${{ matrix.group }}
 
+  profile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: |
+            ${{ github.ref == 'refs/heads/release' && '3.11' ||
+                '3.13'
+                }}
+      - run: pip install "laminci@git+https://github.com/laminlabs/laminci"
+      - run: nox -s "install_ci(group='unit-core-sqlite')"
+      - run: uv pip install pyinstrument
+      - run: python tests/performance/profile_import.py
+
   docs:
     needs: test
     runs-on: ubuntu-latest
