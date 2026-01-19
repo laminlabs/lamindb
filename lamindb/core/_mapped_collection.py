@@ -83,7 +83,7 @@ class MappedCollection:
     Args:
         path_list: A list of paths to `AnnData` objects stored in `.h5ad` or `.zarr` formats.
         layers_keys: Keys from the ``.layers`` slot. ``layers_keys=None`` or ``"X"`` in the list
-            retrieves ``.X``.
+            retrieves ``.X``. If it is prefixed with ``"raw."``, it retrieves the key from ``.raw`` slot.
         obsm_keys: Keys from the ``.obsm`` slots.
         obs_keys: Keys from the ``.obs`` slots.
         obs_filter: Select only observations with these values for the given obs columns.
@@ -175,6 +175,8 @@ class MappedCollection:
             if self.encode_labels:
                 self._make_encoders(self.encode_labels)  # type: ignore
 
+        self._cache_keys()
+
         self.n_obs_list = []
         self.indices_list = []
         for i, storage in enumerate(self.storages):
@@ -217,11 +219,12 @@ class MappedCollection:
                     )
                 if self.obsm_keys is not None:
                     for obsm_key in self.obsm_keys:
-                        self._check_csc_raise_error(
-                            store["obsm"][obsm_key],
-                            f"obsm/{obsm_key}",
-                            store_path,
-                        )
+                        if obsm_key in self._cache_obsm_keys[i]:
+                            self._check_csc_raise_error(
+                                store["obsm"][obsm_key],
+                                f"obsm/{obsm_key}",
+                                store_path,
+                            )
         self.n_obs = sum(self.n_obs_list)
 
         self.indices = np.hstack(self.indices_list)
@@ -266,6 +269,28 @@ class MappedCollection:
                             _decode(cats) if isinstance(cats[0], bytes) else cats[...]
                         )
                     self._cache_cats[label].append(cats)
+
+    def _cache_keys(self):
+        self._cache_obsm_keys = []
+        self._cache_obs_keys = []
+        self._cache_layers_keys = []
+        self._cache_has_raw = []
+        for storage in self.storages:
+            with _Connect(storage) as store:
+                obsm_keys_in_store = (
+                    set(store["obsm"].keys()) if "obsm" in store.keys() else set()
+                )
+                self._cache_obsm_keys.append(obsm_keys_in_store)
+                obs_keys_in_store = (
+                    set(store["obs"].keys()) if "obs" in store.keys() else set()
+                )
+                self._cache_obs_keys.append(obs_keys_in_store)
+                layers_keys_in_store = (
+                    set(store["layers"].keys()) if "layers" in store.keys() else set()
+                )
+                self._cache_layers_keys.append(layers_keys_in_store)
+                has_raw = "raw" in store.keys()
+                self._cache_has_raw.append(has_raw)
 
     def _make_encoders(self, encode_labels: list):
         for label in encode_labels:
@@ -376,30 +401,48 @@ class MappedCollection:
         with _Connect(self.storages[storage_idx]) as store:
             out = {}
             for layers_key in self.layers_keys:
-                lazy_data = (
-                    store["X"] if layers_key == "X" else store["layers"][layers_key]
-                )
+                lazy_data = self._get_lazy_data(store, layers_key, storage_idx)
+                if lazy_data is None:
+                    continue
                 out[layers_key] = self._get_data_idx(
                     lazy_data, obs_idx, self.join_vars, var_idxs_join, self.n_vars
                 )
             if self.obsm_keys is not None:
                 for obsm_key in self.obsm_keys:
-                    lazy_data = store["obsm"][obsm_key]
-                    out[f"obsm_{obsm_key}"] = self._get_data_idx(lazy_data, obs_idx)
+                    if obsm_key in self._cache_obsm_keys[storage_idx]:
+                        lazy_data = store["obsm"][obsm_key]
+                        out[f"obsm_{obsm_key}"] = self._get_data_idx(lazy_data, obs_idx)
             out["_store_idx"] = storage_idx
             if self.obs_keys is not None:
                 for label in self.obs_keys:
-                    if label in self._cache_cats:
-                        cats = self._cache_cats[label][storage_idx]
-                        if cats is None:
-                            cats = []
-                    else:
-                        cats = None
-                    label_idx = self._get_obs_idx(store, obs_idx, label, cats)
-                    if label in self.encoders and label_idx is not np.nan:
-                        label_idx = self.encoders[label][label_idx]
-                    out[label] = label_idx
+                    if label in self._cache_obs_keys[storage_idx]:
+                        if label in self._cache_cats:
+                            cats = self._cache_cats[label][storage_idx]
+                            if cats is None:
+                                cats = []
+                        else:
+                            cats = None
+                        label_idx = self._get_obs_idx(store, obs_idx, label, cats)
+                        if label in self.encoders and label_idx is not np.nan:
+                            label_idx = self.encoders[label][label_idx]
+                        out[label] = label_idx
         return out
+
+    def _get_lazy_data(self, store: StorageType, layers_key: str, storage_idx: int):
+        if layers_key.startswith("raw."):
+            if self._cache_has_raw[storage_idx]:
+                store = store["raw"]  # type: ignore
+                layers_key = layers_key.replace("raw.", "", 1)
+            else:
+                return None
+        if layers_key == "X":
+            lazy_data = store["X"]  # type: ignore
+        else:
+            if layers_key in self._cache_layers_keys[storage_idx]:
+                lazy_data = store["layers"][layers_key]  # type: ignore
+            else:
+                return None
+        return lazy_data
 
     def _get_data_idx(
         self,
