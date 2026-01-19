@@ -13,7 +13,7 @@ Query, trace, and validate datasets and models at scale. Automate context for ag
 
 Reproducing results or understanding how a dataset or model was created can be a pain.
 Training models across thousands of datasets — from LIMS and ELNs to orthogonal assays and cross-team silos — is even harder.
-In the age of AI agents, maintaining an overview and ensuring data quality across a project is more complex than ever.
+In the age of agents, maintaining an overview and ensuring data quality across a project is more complex than ever.
 
 Unlike code (git) or tables (data warehouses), biological data has lacked a dedicated, API-first management framework.
 It has been relegated to structureless data lakes, rigid SQL warehouses, or tabular lakehouses designed for domains with far fewer entities, concepts, and specialized formats.
@@ -97,7 +97,7 @@ accessor = artifact.open()     # return a streaming accessor
 You can query 14 built-in registries (`Artifact`, `Storage`, `Feature`, `Record`, etc.) and additional registries via plug-ins (e.g. in `bionty`, 13 registries for biological entities via `Disease`, `CellType`, `Tissue`, etc. mapping >20 public ontologies), for example:
 
 ```python
-diseases = db.bionty.Disease.lookup()    # a lookup object to auto-complete diseases
+diseases = db.bionty.Disease.lookup()  # a lookup object to auto-complete diseases
 df = db.Artifact.filter(diseases=diseases.alzheimer_disease).to_dataframe()  # filter by fields
 ```
 
