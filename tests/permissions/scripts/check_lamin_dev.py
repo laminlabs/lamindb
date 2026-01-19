@@ -29,9 +29,15 @@ space = ln.Space.get(name=space_name)
 
 # check that we throw an error if no storage location is managed by the space
 storage_loc = ln.Storage.filter(space=space).one_or_none()
-assert storage_loc is None, "there should be no storage location for the space yet"
+if storage_loc is not None:
+    ln.Run.filter(report__storage=storage_loc).delete(permanent=True)
+    storage_loc.artifacts.all().delete(permanent=True)
+    storage_loc.delete(permanent=True)
+
 with pytest.raises(ln.errors.NoStorageLocationForSpace) as error:
     ln.track(space=space_name)  # this fails to save the env artifact
+    ln.context._transform = None
+    ln.context._run = None
 
 # now create the storage location in the space
 storage_loc = ln.Storage("create-s3", space=space).save()

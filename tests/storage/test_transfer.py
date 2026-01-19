@@ -23,8 +23,8 @@ def test_transfer_from_remote_to_local(ccaplog):
     ln.ULabel.filter().delete(permanent=True)
     bt.CellType.filter().delete(permanent=True)
 
-    # test transfer from an instance with an extra schema module: wetlab
-    # we also made sure that the artifact here has a wetlab label attached
+    # test transfer from an instance with an extra schema module: pertdb
+    # we also made sure that the artifact here has a pertdb label attached
 
     # transfer 1st artifact
     artifact1 = ln.Artifact.connect("laminlabs/lamin-dev").get("livFRRpM")
@@ -102,7 +102,7 @@ def test_transfer_from_remote_to_local(ccaplog):
     organism_remote = artifact1.organisms.get(name="human")
 
     artifact1.save(transfer="annotations")
-    # assert MODULE_WASNT_CONFIGURED_MESSAGE_TEMPLATE.format("wetlab") in ccaplog.text
+    # assert MODULE_WASNT_CONFIGURED_MESSAGE_TEMPLATE.format("pertdb") in ccaplog.text
 
     # check all ids are adjusted
     assert id_remote != artifact1.id

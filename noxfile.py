@@ -118,13 +118,13 @@ def install_ci(session, group):
         extras += "zarr_v2"
         run(
             session,
-            "uv pip install --system --no-deps ./sub/wetlab",
+            "uv pip install --system --no-deps ./sub/pertdb",
         )
         run(session, "uv pip install --system vitessce")
     elif group == "curator":
         run(
             session,
-            "uv pip install --system --no-deps ./sub/wetlab",
+            "uv pip install --system --no-deps ./sub/pertdb",
         )
         # spatialdata dependency, specifying it here explicitly
         # otherwise there are problems with uv resolver
@@ -147,7 +147,7 @@ def install_ci(session, group):
         )
         run(
             session,
-            "uv pip install --system --no-deps ./sub/wetlab",
+            "uv pip install --system --no-deps ./sub/pertdb",
         )
     elif group == "cli":
         pass
@@ -165,7 +165,7 @@ def install_ci(session, group):
     if IS_PR or group == "docs":
         run(
             session,
-            "uv pip install --system ./sub/lamindb-setup ./sub/lamin-cli ./sub/bionty ./sub/wetlab",
+            "uv pip install --system ./sub/lamindb-setup ./sub/lamin-cli ./sub/bionty ./sub/pertdb",
         )
     if group == "permissions":
         # have to install after lamindb installation
@@ -173,10 +173,10 @@ def install_ci(session, group):
         cmds = "uv pip install --system sentry_sdk line_profiler setuptools wheel==0.45.1 flit"
         cmds += "\nuv pip install --system --no-build-isolation ./laminhub/backend"
         cmds += "\nuv pip install --system ./laminhub/backend/utils"
-        cmds += "\nuv pip install --system ./laminhub/backend/central"
-        cmds += "\nuv pip install --system ./laminhub/backend/dbinstance"
-        cmds += "\nuv pip install --system ./laminhub/backend/aws"
-        cmds += "\nuv pip install --system --no-deps ./laminhub/backend/laminhub_rest/hubmodule"
+        cmds += "\nuv pip install --system ./laminhub/backend/services/central"
+        cmds += "\nuv pip install --system ./laminhub/backend/services/instancedb"
+        cmds += "\nuv pip install --system ./laminhub/backend/services/aws"
+        cmds += "\nuv pip install --system --no-deps ./laminhub/backend/services/instancedb/hubmodule"
         [run(session, line) for line in cmds.splitlines()]
 
 
@@ -420,7 +420,7 @@ def docs(session):
                 path.rename(f"./docs/{path.name}")
     run(
         session,
-        "lamin init --storage ./docsbuild --modules bionty,wetlab",
+        "lamin init --storage ./docsbuild --modules bionty,pertdb",
     )
     build_docs(session, strip_prefix=True, strict=False)
     upload_docs_artifact(aws=True)

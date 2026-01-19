@@ -2,20 +2,18 @@ import shutil
 from pathlib import Path
 from typing import Generator
 
-import anndata as ad
 import lamindb as ln
-import mudata as md
 import numpy as np
 import pandas as pd
 import pytest
-import spatialdata as sd
-import tiledbsoma
-import tiledbsoma.io
 from scipy.sparse import csr_matrix
 
 
 @pytest.fixture(scope="session")
 def get_small_adata():
+    # shouldn't need anndata installed to run tests
+    import anndata as ad
+
     return ad.AnnData(
         X=np.array([[1, 2, 3], [4, 5, 6]]),
         obs={"feat1": ["A", "B"]},
@@ -26,6 +24,10 @@ def get_small_adata():
 
 @pytest.fixture(scope="session")
 def get_small_mdata():
+    # shouldn't need mudata installed to run tests
+    import anndata as ad
+    import mudata as md
+
     adata1 = ad.AnnData(
         X=np.array([[1, 2, 3], [4, 5, 6]]),
         obs={"feat1": ["A", "B"]},
@@ -45,6 +47,10 @@ def get_small_mdata():
 
 @pytest.fixture(scope="session")
 def get_small_sdata():
+    # shouldn't need spatialdata installed to run tests
+    import anndata as ad
+    import spatialdata as sd
+
     adata = ad.AnnData(
         X=csr_matrix(np.array([[0.1, 0.2], [0.3, 0.4]])),
         obs=pd.DataFrame(index=["cell1", "cell2"]),
@@ -65,6 +71,10 @@ def get_small_sdata():
 
 @pytest.fixture(scope="session")
 def get_small_soma_experiment():
+    # shouldn't need tilebdomsa installed to run tests
+    import tiledbsoma
+    import tiledbsoma.io
+
     adata = ln.examples.datasets.mini_immuno.get_dataset1(otype="AnnData")
     tiledbsoma.io.from_anndata("test.tiledbsoma", adata, measurement_name="RNA")
 

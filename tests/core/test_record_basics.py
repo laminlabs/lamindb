@@ -117,7 +117,7 @@ def test_record_features_add_remove_values():
     test_record = ln.Record(name="test_record").save()
     test_project = ln.Project(name="test_project").save()
     hek293 = bt.CellLine.from_source(name="HEK293").save()
-    a549 = bt.CellLine.from_source(name="A549 cell").save()
+    a549 = bt.CellLine.from_source(name="A-549").save()
     tmem276 = bt.Gene.from_source(symbol="Tmem276", organism="mouse").save()
 
     # test feature.dtype_as_object
@@ -149,7 +149,7 @@ def test_record_features_add_remove_values():
     # no schema validation
     test_values = {
         "feature_bool": True,
-        "feature_str": "a string value",
+        "feature_str": "00810702-0006",  # this string value could be cast to datetime! don't change!
         "feature_list_str": ["a", "list", "of", "strings"],
         "feature_int": 42,
         "feature_list_int": [1, 2, 3],
@@ -166,9 +166,9 @@ def test_record_features_add_remove_values():
         "feature_user": ln.setup.settings.user.handle,
         "feature_project": "test_project",
         "feature_cell_line": "HEK293",
-        "feature_cell_lines": ["HEK293", "A549 cell"],
+        "feature_cell_lines": ["HEK293", "A-549"],
         "feature_gene": "Tmem276",
-        "feature_cl_ontology_id": "CLO:0001230",
+        "feature_cl_ontology_id": "CVCL_0045",
         "feature_artifact": "test-artifact",
         "feature_collection": "test-collection",
         "feature_run": run.uid,
@@ -275,7 +275,7 @@ def test_record_features_add_remove_values():
     df = sheet.to_dataframe()
     target_result = {
         "feature_bool": True,
-        "feature_str": "a string value",
+        "feature_str": "00810702-0006",  # this string value could be cast to datetime!
         "feature_list_str": ["a", "list", "of", "strings"],
         "feature_int": 42,
         "feature_list_int": [1, 2, 3],
@@ -291,7 +291,7 @@ def test_record_features_add_remove_values():
         "feature_user": ln.setup.settings.user.handle,
         "feature_project": "test_project",
         "feature_cell_line": "HEK293",
-        "feature_cl_ontology_id": "CLO:0001230",
+        "feature_cl_ontology_id": "CVCL_0045",
         "feature_gene": "Tmem276",
         "feature_artifact": "test-artifact",
         "feature_collection": "test-collection",
@@ -306,7 +306,7 @@ def test_record_features_add_remove_values():
     assert set(result_feature_type1s) == {"entity1", "entity2"}
     assert isinstance(result_feature_type1s, list)
     result_feature_cell_lines = result.pop("feature_cell_lines")
-    assert set(result_feature_cell_lines) == {"HEK293", "A549 cell"}
+    assert set(result_feature_cell_lines) == {"HEK293", "A-549"}
     assert isinstance(result_feature_cell_lines, list)
     assert result == target_result
 
@@ -334,6 +334,9 @@ def test_record_features_add_remove_values():
     test_record2 = ln.Record(name="test_record").save()
     # we could also test different ways of formatting but don't yet do that
     # in to_dataframe() we enforce ISO format already
+    feature_date = ln.Feature.get(name="feature_date")
+    feature_date.coerce = True  # have to allow coercion because we're passing a string
+    feature_date.save()
     test_values["feature_date"] = "2024-01-02"
     test_record2.features.add_values(test_values)
     test_record2.type = sheet
@@ -362,7 +365,7 @@ def test_record_features_add_remove_values():
     assert set(result_feature_type1s) == {"entity2"}
     assert isinstance(result_feature_type1s, list)
     result_feature_cell_lines = result.pop("feature_cell_lines")
-    assert set(result_feature_cell_lines) == {"HEK293", "A549 cell"}
+    assert set(result_feature_cell_lines) == {"HEK293", "A-549"}
     assert isinstance(result_feature_cell_lines, list)
     target_result.pop("feature_type1")
     assert pd.isna(result.pop("feature_type1"))
@@ -442,9 +445,7 @@ def test_record_features_add_remove_values():
     schema = ln.Schema([feature_cell_lines], name="test_schema2").save()
     test_form = ln.Record(name="TestForm", is_type=True, schema=schema).save()
     test_record_in_form = ln.Record(name="test_record_in_form", type=test_form).save()
-    test_record_in_form.features.add_values(
-        {"feature_cell_lines": ["HEK293", "A549 cell"]}
-    )
+    test_record_in_form.features.add_values({"feature_cell_lines": ["HEK293", "A-549"]})
     test_record_in_form.delete(permanent=True)
     test_form.delete(permanent=True)
     schema.delete(permanent=True)
@@ -460,7 +461,11 @@ def test_record_features_add_remove_values():
     schema.delete(permanent=True)
 
     # clean up rest
+    test_record_id = test_record.id
+    assert ln.models.RecordJson.filter(record_id=test_record_id).count() > 0
     test_record.delete(permanent=True)
+    # test CASCADE deletion of RecordJson
+    assert ln.models.RecordJson.filter(record_id=test_record_id).count() == 0
     sheet.delete(permanent=True)
     feature_str.delete(permanent=True)
     feature_list_str.delete(permanent=True)
@@ -497,8 +502,12 @@ def test_record_features_add_remove_values():
 
 
 def test_date_and_datetime_corruption():
-    feature_datetime = ln.Feature(name="feature_datetime", dtype=datetime).save()
-    feature_date = ln.Feature(name="feature_date", dtype=datetime.date).save()
+    feature_datetime = ln.Feature(
+        name="feature_datetime", dtype=datetime, coerce=True
+    ).save()
+    feature_date = ln.Feature(
+        name="feature_date", dtype=datetime.date, coerce=True
+    ).save()
     schema = ln.Schema(
         [feature_datetime, feature_date], name="test_schema_date_datetime"
     ).save()
@@ -557,12 +566,12 @@ def test_only_list_type_features_and_field_qualifiers():
     test_sheet = ln.Record(name="TestSheet", is_type=True, schema=schema).save()
     record = ln.Record(name="test_record", type=test_sheet).save()
     hek293 = bt.CellLine.from_source(name="HEK293").save()
-    a549 = bt.CellLine.from_source(name="A549 cell").save()
+    a549 = bt.CellLine.from_source(name="A-549").save()
     uberon2369 = bt.Tissue.from_source(ontology_id="UBERON:0002369").save()
     uberon5172 = bt.Tissue.from_source(ontology_id="UBERON:0005172").save()
 
     test_values = {
-        "feature_cell_lines": ["HEK293", "A549 cell"],
+        "feature_cell_lines": ["HEK293", "A-549"],
         "feature_list_ontology_id": ["UBERON:0002369", "UBERON:0005172"],
     }
 
@@ -573,7 +582,7 @@ def test_only_list_type_features_and_field_qualifiers():
     result = df.to_dict(orient="records")[0]
     assert isinstance(result["feature_cell_lines"], list)
     assert isinstance(result["feature_list_ontology_id"], list)
-    assert set(result["feature_cell_lines"]) == {"HEK293", "A549 cell"}
+    assert set(result["feature_cell_lines"]) == {"HEK293", "A-549"}
     assert set(result["feature_list_ontology_id"]) == {
         "UBERON:0002369",
         "UBERON:0005172",

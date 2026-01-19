@@ -387,9 +387,29 @@ def get_organism_record_from_field(  # type: ignore
         and len(values) > 0
         and organism is None
     ):
+        # Check if values contain bionty.Gene objects with organism field
+        from collections.abc import Iterable
+
+        # first check if we have Gene objects
+        for v in values:
+            # early return to not loop through all values to find a string
+            if isinstance(v, str):
+                break
+            if isinstance(v, registry) and v.organism is not None:
+                return v.organism
+            # Handle iterables containing Gene objects (but not strings, which are also iterable)
+            elif isinstance(v, Iterable) and not isinstance(v, str):
+                for item in v:
+                    if isinstance(item, registry) and item.organism is not None:
+                        return item.organism
+
+        # If no bionty.Gene with organism found, fall back to string-based inference
         # pass the first ensembl id that starts with ENS to infer organism
-        first_ensembl = next((i for i in values if i.startswith("ENS")), "")
-        return infer_organism_from_ensembl_id(first_ensembl, using_key)
+        first_ensembl = next(
+            (v for v in values if isinstance(v, str) and v.startswith("ENS")), ""
+        )
+        if first_ensembl:
+            return infer_organism_from_ensembl_id(first_ensembl, using_key)
 
     return create_or_get_organism_record(
         organism=organism, registry=registry, field=field

@@ -5,6 +5,8 @@ README_stripped.md
 docs/scripts/test_artifact_parquet.py
 README.ipynb
 docs/sample.fasta
+docs/faq/sample.fasta
+docs/faq/test-acid/
 docs/scripts/define_mini_immuno_features_labels.py
 docs/scripts/define_mini_immuno_schema_flexible.py
 docs/scripts/define_schema_anndata_ensembl_gene_ids_and_valid_features_in_obs.py

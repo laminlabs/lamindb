@@ -236,7 +236,7 @@ from datetime import date
 
 ln.Feature(name="gc_content", dtype=float).save()
 ln.Feature(name="experiment_note", dtype=str).save()
-ln.Feature(name="experiment_date", dtype=date).save()
+ln.Feature(name="experiment_date", dtype=date, coerce=True).save()  # accept date strings
 ```
 
 During annotation, feature names and data types are validated against these definitions:
