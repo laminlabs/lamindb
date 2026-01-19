@@ -9,7 +9,7 @@
 	url = https://github.com/laminlabs/bionty
 [submodule "sub/wetlab"]
 	path = sub/pertdb
-	url = https://github.com/laminlabs/wetlab
+	url = https://github.com/laminlabs/pertdb
 [submodule "sub/cellxgene-lamin"]
 	path = sub/cellxgene-lamin
 	url = https://github.com/laminlabs/cellxgene-lamin.git
