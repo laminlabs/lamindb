@@ -98,9 +98,7 @@ You can query 14 built-in registries (`Artifact`, `Storage`, `Feature`, `Record`
 
 ```python
 diseases = db.bionty.Disease.lookup()    # a lookup object to auto-complete diseases
-df = db.Artifact.filter(
-    diseases=diseases.alzheimer_disease  # filter by fields
-).to_dataframe()
+df = db.Artifact.filter(diseases=diseases.alzheimer_disease).to_dataframe()  # filter by fields
 ```
 
 ### Configure your database
