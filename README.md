@@ -81,10 +81,13 @@ To get a [specific dataset](https://lamin.ai/laminlabs/cellxgene/artifact/BnMwC3
 
 ```python
 artifact = db.Artifact.get("BnMwC3KZz0BuKftR")  # a metadata object for a dataset
-artifact.describe()                             # describe metadata
+artifact.describe()                             # describe the context of the dataset
 ```
 
+<details>
+<summary>See the output.</summary>
 <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/mxlUQiRLMU4Zos6k0001.png" width="550">
+</details>
 
 Access the content of the artifact via:
 
