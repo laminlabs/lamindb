@@ -89,7 +89,7 @@ artifact.describe()                             # describe the context of the da
 <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/mxlUQiRLMU4Zos6k0001.png" width="550">
 </details>
 
-Access the content of the artifact via:
+Access the content of the dataset via:
 
 ```python
 local_path = artifact.cache()  # return a local path from a cache
