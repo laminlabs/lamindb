@@ -16,7 +16,7 @@ classifiers = [
 ]
 dependencies = [
     # LaminDB core modules
-    "lamin_utils==0.16.2",  # 30kB pure python, no dependencies
+    "lamin_utils==0.16.3",  # 30kB pure python, no dependencies
     "lamin_cli==1.11.0",     # 30kB pure python, no dependencies
     "lamindb_setup[aws]==1.18.1",  # dependencies like Django & fsspec
     # LaminDB optional modules, included to avoid users forgetting about extras
