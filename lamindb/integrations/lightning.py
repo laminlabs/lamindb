@@ -12,7 +12,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Final, Literal
 
 import lightning.pytorch as pl
-import torch
 from lamin_utils import logger
 from lightning.fabric.utilities.cloud_io import get_filesystem
 from lightning.pytorch.callbacks.model_checkpoint import ModelCheckpoint
@@ -116,10 +115,13 @@ class Checkpoint(ModelCheckpoint):
                 save_top_k=3,
             )
 
+            trainer = pl.Trainer(callbacks=[callback])
+            trainer.fit(model, dataloader)
+
             # Query checkpoints
             ln.Artifact.filter(key__startswith=callback.dirpath)
 
-            trainer = pl.Trainer(callbacks=[callback])
+
 
         Using the CLI::
 
@@ -245,6 +247,9 @@ class Checkpoint(ModelCheckpoint):
                 if is_best:
                     self._clear_best_model_flags()
                 feature_values["is_best_model"] = is_best
+
+            # lazy import for faster import of the class
+            import torch
 
             if (
                 "score" in self._available_auto_features
@@ -374,6 +379,8 @@ class SaveConfigCallback(_SaveConfigCallback):
 
 
 # backwards compatibility
+# We keep the full class around because it's short and it's cumbersome to write
+# full backwards compatibility code because of the rather different interfaces and behavior
 class Callback(pl.Callback):
     """Saves checkpoints to LaminDB after each training epoch.
 
