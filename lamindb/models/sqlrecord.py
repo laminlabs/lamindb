@@ -1549,20 +1549,15 @@ class SQLRecord(BaseSQLRecord, metaclass=Registry):
 
     Every `SQLRecord` is a data model that comes with a registry in form of a SQL table in your database.
 
-    <<<<<<< HEAD
-    Sub-classing `SQLRecord` creates a new registry while instantiating a `SQLRecord` creates a new record.
-    =======
-    Sub-classing `SQLRecord` creates a new registry while instantiating a `SQLRecord`
-    creates a new object.
-    >>>>>>> 0ba796826d2f1dc61042d17c11ed6d2aebf13a7b
+    Sub-classing `SQLRecord` creates a new registry while instantiating a `SQLRecord` creates a new object.
 
     {}
 
     `SQLRecord`'s metaclass is :class:`~lamindb.models.Registry`.
 
-    `SQLRecord` inherits from Django's `Model` class. Why does LaminDB call it `SQLRecord`
-    and not `Model`? The term `SQLRecord` can't lead to confusion with statistical,
-    machine learning or biological models.
+    `SQLRecord` inherits from Django's `Model` class.
+    Why does LaminDB call it `SQLRecord` and not `Model`?
+    The term `SQLRecord` can't lead to confusion with statistical, machine learning or biological models.
     """
 
     # we need the db_default when not interacting via django directly on a required field

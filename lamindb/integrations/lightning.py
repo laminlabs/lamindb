@@ -78,15 +78,15 @@ class Checkpoint(ModelCheckpoint):
     Extends Lightning's ModelCheckpoint with artifact creation & feature annotation.
     Checkpoints are stored at semantic paths like `{dirpath}/epoch=0-val_loss=0.5.ckpt`.
     Each checkpoint is a separate artifact.
-    Query with `ln.Artifact.filter(key__startswith=dirpath)`.
+    Query with `ln.Artifact.filter(key__startswith=callback.dirpath)`.
 
     If available in the instance, the following features are automatically tracked:
     `is_best_model`, `score`, `model_rank`, `logger_name`, `logger_version`.
 
     Args:
         dirpath: Directory for checkpoints (reflected in cloud paths).
-        features: Features to annotate checkpoints with. Values can be static
-            or None (auto-populated from trainer metrics/attributes).
+        features: Features to annotate checkpoints with.
+            Values can be static or None (auto-populated from trainer metrics/attributes).
         monitor: Quantity to monitor for saving best checkpoint.
         verbose: Verbosity mode.
         save_last: Save a copy of the last checkpoint.
@@ -101,6 +101,7 @@ class Checkpoint(ModelCheckpoint):
         enable_version_counter: Append version to filename to avoid collisions.
 
     Examples:
+
         Using the API::
 
             import lightning as pl
@@ -115,8 +116,8 @@ class Checkpoint(ModelCheckpoint):
                 save_top_k=3,
             )
 
-            # Files at: s3://bucket/deployments/my_model/epoch=0-val_loss=0.5.ckpt
-            # Query: ln.Artifact.filter(key__startswith="deployments/my_model/")
+            # Query checkpoints
+            ln.Artifact.filter(key__startswith=callback.dirpath)
 
             trainer = pl.Trainer(callbacks=[callback])
 
@@ -207,7 +208,7 @@ class Checkpoint(ModelCheckpoint):
         return {"key__startswith": self.dirpath.rstrip("/") + "/"}
 
     def _save_checkpoint(self, trainer: pl.Trainer, filepath: str) -> None:
-        """Save checkpoint locally and to the instance."""
+        """Save checkpoint to the instance."""
         super()._save_checkpoint(trainer, filepath)
 
         if trainer.is_global_zero:
@@ -353,12 +354,9 @@ class SaveConfigCallback(_SaveConfigCallback):
         if checkpoint_cb is None:
             return
 
-        prefix = checkpoint_cb.dirpath.rstrip("/")
-        key = f"{prefix}/{self.config_filename}"
-
         lightning_cli_config_af = ln.Artifact(
             config_path,
-            key=key,
+            key=f"{checkpoint_cb.dirpath.rstrip('/')}/{self.config_filename}",
             description="Lightning CLI config",
         )
         lightning_cli_config_af.save()
