@@ -243,3 +243,31 @@ def test_checkpoint_semantic_paths(
         values = af.features.get_values()
         assert "is_best_model" in values
         assert "score" in values
+
+
+def test_callback_deprecated(
+    simple_model: pl.LightningModule,
+    dataloader: DataLoader,
+    tmp_path: Path,
+):
+    """Deprecated Callback should still work."""
+    key = f"test/legacy/{tmp_path.name}/model.ckpt"
+    path = tmp_path / "model.ckpt"
+
+    with pytest.warns(DeprecationWarning, match="use ll.Checkpoint instead"):
+        callback = ll.Callback(path=path, key=key)
+
+    trainer = pl.Trainer(
+        max_epochs=1,
+        callbacks=[callback],
+        logger=False,
+    )
+    trainer.fit(simple_model, dataloader)
+
+    artifacts = ln.Artifact.filter(key=key).to_list()
+    assert len(artifacts) >= 1
+    assert artifacts[0].kind == "model"
+
+    # cleanup
+    for af in artifacts:
+        af.delete(permanent=True, storage=True)

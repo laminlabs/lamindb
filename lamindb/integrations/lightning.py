@@ -11,6 +11,7 @@ import warnings
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Final, Literal
 
+import lightning.pytorch as pl
 import torch
 from lamin_utils import logger
 from lightning.fabric.utilities.cloud_io import get_filesystem
@@ -22,7 +23,6 @@ import lamindb as ln
 if TYPE_CHECKING:
     from datetime import timedelta
 
-    import lightning.pytorch as pl
     from lightning.fabric.utilities.types import _PATH
 
 
@@ -374,15 +374,68 @@ class SaveConfigCallback(_SaveConfigCallback):
 
 
 # backwards compatibility
-def __getattr__(name: str):
-    if name == "Callback":
+class Callback(pl.Callback):
+    """Saves checkpoints to LaminDB after each training epoch.
+
+    .. deprecated::
+        Use :class:`Checkpoint` instead for new code.
+
+    Args:
+        path: A local path to the checkpoint.
+        key: The `key` for the checkpoint artifact.
+        features: Features to annotate the checkpoint.
+    """
+
+    def __init__(
+        self,
+        path: str | Path,
+        key: str,
+        features: dict[str, Any] | None = None,
+    ):
         warnings.warn(
             "ll.Callback is deprecated, use ll.Checkpoint instead",
             DeprecationWarning,
             stacklevel=2,
         )
-        return Checkpoint
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+        self.path = Path(path)
+        self.key = key
+        self.features = features or {}
+
+    def on_train_start(
+        self, trainer: pl.Trainer, pl_module: pl.LightningModule
+    ) -> None:
+        """Validates that features exist for all specified params."""
+        missing = [
+            name
+            for name in self.features
+            if ln.Feature.filter(name=name).one_or_none() is None
+        ]
+        if missing:
+            s = "s" if len(missing) > 1 else ""
+            raise ValueError(
+                f"Feature{s} {', '.join(missing)} missing. "
+                f"Create {'them' if len(missing) > 1 else 'it'} first."
+            )
+
+    def on_train_epoch_end(
+        self, trainer: pl.Trainer, pl_module: pl.LightningModule
+    ) -> None:
+        """Saves model checkpoint at the end of each epoch."""
+        trainer.save_checkpoint(self.path)
+        artifact = ln.Artifact(self.path, key=self.key, kind="model").save()
+
+        feature_values = dict(self.features)
+        for name in self.features:
+            if hasattr(trainer, name):
+                feature_values[name] = getattr(trainer, name)
+            elif name in trainer.callback_metrics:
+                metric = trainer.callback_metrics[name]
+                feature_values[name] = (
+                    metric.item() if hasattr(metric, "item") else float(metric)
+                )
+
+        if feature_values:
+            artifact.features.add_values(feature_values)
 
 
 __all__ = ["Checkpoint", "SaveConfigCallback", "save_lightning_features"]
