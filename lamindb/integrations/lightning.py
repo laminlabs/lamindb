@@ -27,9 +27,7 @@ if TYPE_CHECKING:
 
 
 _RUN_AUTO_FEATURES: Final = frozenset({"logger_name", "logger_version"})
-
 _ARTIFACT_AUTO_FEATURES: Final = frozenset({"is_best_model", "score", "model_rank"})
-
 _SUPPORTED_AUTO_FEATURES: Final = _RUN_AUTO_FEATURES | _ARTIFACT_AUTO_FEATURES
 
 
@@ -66,6 +64,7 @@ def save_lightning_features() -> None:
             )
             lightning_feature_type._dtype_str = "__lamindb_lightning__"
             lightning_feature_type.save()
+
     ln.Feature(name="is_best_model", dtype=bool, type=lightning_feature_type).save()
     ln.Feature(name="score", dtype=float, type=lightning_feature_type).save()
     ln.Feature(name="model_rank", dtype=int, type=lightning_feature_type).save()
@@ -77,26 +76,17 @@ class Checkpoint(ModelCheckpoint):
     """ModelCheckpoint that annotates torch lightning checkpoints.
 
     Extends Lightning's ModelCheckpoint with artifact creation & feature annotation.
-
-    Two modes are supported:
-
-    1. **Versioned** (default): All checkpoints are versioned under `key`.
-       Storage paths are managed by LaminDB (virtual keys).
-
-    2. **Deployment**: Set `dirpath` to store checkpoints at predictable semantic
-       paths like `{dirpath}/epoch=0-val_loss=0.5.ckpt`.
-       Each checkpoint is a separate artifact.
-       Query with `ln.Artifact.filter(key__startswith=dirpath)`.
+    Checkpoints are stored at semantic paths like `{dirpath}/epoch=0-val_loss=0.5.ckpt`.
+    Each checkpoint is a separate artifact.
+    Query with `ln.Artifact.filter(key__startswith=dirpath)`.
 
     If available in the instance, the following features are automatically tracked:
     `is_best_model`, `score`, `model_rank`, `logger_name`, `logger_version`.
 
     Args:
-        key: The artifact key for checkpoints.
-            Checkpoints are versioned under this key when `dirpath` is not set.
-        features: Features to annotate checkpoints with.
-            Values can be static or None (auto-populated from trainer metrics/attributes).
         dirpath: Directory for checkpoints (reflected in cloud paths).
+        features: Features to annotate checkpoints with. Values can be static
+            or None (auto-populated from trainer metrics/attributes).
         monitor: Quantity to monitor for saving best checkpoint.
         verbose: Verbosity mode.
         save_last: Save a copy of the last checkpoint.
@@ -111,7 +101,6 @@ class Checkpoint(ModelCheckpoint):
         enable_version_counter: Append version to filename to avoid collisions.
 
     Examples:
-
         Using the API::
 
             import lightning as pl
@@ -120,22 +109,12 @@ class Checkpoint(ModelCheckpoint):
             # Optional one-time setup to enable automated lightning specific feature tracking
             ll.save_lightning_features()
 
-            # Versioned checkpoints (for tracking)
             callback = ll.Checkpoint(
-                key="experiments/my_model.ckpt",
-                features={"val_loss": None},  # auto-populated from trainer
-                monitor="val_loss",
-                save_top_k=3,
-                mode="min",
-            )
-
-            # Semantic paths (for deployment)
-            callback = ll.Checkpoint(
-                key="deployments/my_model",
                 dirpath="deployments/my_model/",
                 monitor="val_loss",
                 save_top_k=3,
             )
+
             # Files at: s3://bucket/deployments/my_model/epoch=0-val_loss=0.5.ckpt
             # Query: ln.Artifact.filter(key__startswith="deployments/my_model/")
 
@@ -145,10 +124,9 @@ class Checkpoint(ModelCheckpoint):
 
             # config.yaml
             trainer:
-            callbacks:
+              callbacks:
                 - class_path: lamindb.integrations.lightning.Checkpoint
-                init_args:
-                    key: deployments/my_model
+                  init_args:
                     dirpath: deployments/my_model/
                     monitor: val_loss
                     save_top_k: 3
@@ -159,10 +137,9 @@ class Checkpoint(ModelCheckpoint):
 
     def __init__(
         self,
-        key: str,
+        dirpath: _PATH,
         *,
         features: dict[str, Any] | None = None,
-        dirpath: _PATH | None = None,
         monitor: str | None = None,
         verbose: bool = False,
         save_last: bool | None = None,
@@ -191,8 +168,6 @@ class Checkpoint(ModelCheckpoint):
             save_on_train_epoch_end=save_on_train_epoch_end,
             enable_version_counter=enable_version_counter,
         )
-        self.key = key
-        self._user_set_dirpath = dirpath is not None
         self.features = features or {}
         self._available_auto_features: set[str] = set()
         self._run_features_added = False
@@ -202,6 +177,7 @@ class Checkpoint(ModelCheckpoint):
     ) -> None:
         """Validate user features and detect available auto-features."""
         super().setup(trainer, pl_module, stage)
+
         if trainer.is_global_zero:
             # Validate user-specified features exist
             missing = [
@@ -223,20 +199,17 @@ class Checkpoint(ModelCheckpoint):
 
     def _get_artifact_key(self, filepath: str) -> str:
         """Return the artifact key for this checkpoint."""
-        if self._user_set_dirpath:
-            prefix = self.dirpath.rstrip("/")
-            return f"{prefix}/{Path(filepath).name}"
-        return self.key  # type: ignore[return-value]
+        prefix = self.dirpath.rstrip("/")
+        return f"{prefix}/{Path(filepath).name}"
 
     def _get_key_filter(self) -> dict[str, str]:
         """Return filter kwargs for querying artifacts from this callback."""
-        if self._user_set_dirpath:
-            return {"key__startswith": self.dirpath.rstrip("/") + "/"}
-        return {"key": self.key}  # type: ignore[dict-item]
+        return {"key__startswith": self.dirpath.rstrip("/") + "/"}
 
     def _save_checkpoint(self, trainer: pl.Trainer, filepath: str) -> None:
         """Save checkpoint locally and to the instance."""
         super()._save_checkpoint(trainer, filepath)
+
         if trainer.is_global_zero:
             # Run-level features (once per run)
             if ln.context.run and not self._run_features_added:
@@ -260,7 +233,6 @@ class Checkpoint(ModelCheckpoint):
                 key=self._get_artifact_key(filepath),
                 kind="model",
                 description="Lightning model checkpoint",
-                _key_is_virtual=self.dirpath is None,  # type: ignore[call-overload]
             )
             artifact.save()
 
@@ -351,7 +323,6 @@ class SaveConfigCallback(_SaveConfigCallback):
         if self.save_to_log_dir and log_dir is not None:
             config_path = Path(log_dir) / self.config_filename
             fs = get_filesystem(log_dir)
-
             if not self.overwrite:
                 file_exists = (
                     fs.isfile(config_path) if trainer.is_global_zero else False
@@ -374,7 +345,6 @@ class SaveConfigCallback(_SaveConfigCallback):
             if trainer.is_global_zero:
                 self.save_config(trainer, pl_module, stage)
                 self.already_saved = True
-
             self.already_saved = trainer.strategy.broadcast(self.already_saved)
 
     def _save_config(self, trainer: pl.Trainer, config_path: Path) -> None:
@@ -383,19 +353,13 @@ class SaveConfigCallback(_SaveConfigCallback):
         if checkpoint_cb is None:
             return
 
-        if checkpoint_cb.dirpath is not None:
-            prefix = checkpoint_cb.dirpath.rstrip("/")
-            key = f"{prefix}/{self.config_filename}"
-            key_is_virtual = False
-        else:
-            key = str(Path(checkpoint_cb.key).parent / self.config_filename)
-            key_is_virtual = True
+        prefix = checkpoint_cb.dirpath.rstrip("/")
+        key = f"{prefix}/{self.config_filename}"
 
         lightning_cli_config_af = ln.Artifact(
             config_path,
             key=key,
             description="Lightning CLI config",
-            _key_is_virtual=key_is_virtual,  # type: ignore[call-overload]
         )
         lightning_cli_config_af.save()
 

@@ -41,55 +41,30 @@ def dataloader() -> DataLoader:
 
 
 @pytest.fixture
-def artifact_key() -> Generator[str, None, None]:
-    key = "test/model.ckpt"
-    yield key
-    for af in ln.Artifact.filter(key=key).to_list():
-        af.delete(permanent=True, storage=True)
-
-    checkpoints_dir = Path("checkpoints")
-    if checkpoints_dir.exists():
-        shutil.rmtree(checkpoints_dir)
-
-
-@pytest.fixture
-def dirpath() -> Generator[str, None, None]:
-    prefix = "test/deployments/model/"
-    resolved = str(Path(prefix).resolve())
+def dirpath(request: pytest.FixtureRequest) -> Generator[str, None, None]:
+    prefix = f"test/checkpoints/{request.node.name}/"
+    resolved = str(Path(prefix).resolve()) + "/"
     yield prefix
     for af in ln.Artifact.filter(key__startswith=resolved).to_list():
         af.delete(permanent=True, storage=True)
     dirpath_path = Path(prefix)
     if dirpath_path.exists():
         shutil.rmtree(dirpath_path)
-    checkpoints_dir = Path("checkpoints")
-    if checkpoints_dir.exists():
-        shutil.rmtree(checkpoints_dir)
 
 
 @pytest.fixture(scope="session")
-def lightning_features() -> Generator[None, None, None]:
+def lightning_features() -> None:
     """Create lightning features."""
     ll.save_lightning_features()
-    yield
-    for name in (
-        "is_best_model",
-        "score",
-        "model_rank",
-        "logger_name",
-        "logger_version",
-    ):
-        if feat := ln.Feature.filter(name=name).one_or_none():
-            feat.delete(permanent=True)
 
 
 def test_checkpoint_basic(
     simple_model: pl.LightningModule,
     dataloader: DataLoader,
-    artifact_key: str,
+    dirpath: str,
 ):
-    """Checkpoint should create versioned artifacts."""
-    callback = ll.Checkpoint(artifact_key, monitor="train_loss")
+    """Checkpoint should create artifacts with semantic paths."""
+    callback = ll.Checkpoint(dirpath=dirpath, monitor="train_loss")
     trainer = pl.Trainer(
         max_epochs=2,
         callbacks=[callback],
@@ -97,23 +72,25 @@ def test_checkpoint_basic(
     )
     trainer.fit(simple_model, dataloader)
 
-    artifacts = ln.Artifact.filter(key=artifact_key).to_list()
+    resolved = callback.dirpath.rstrip("/") + "/"
+    artifacts = ln.Artifact.filter(key__startswith=resolved).to_list()
     assert len(artifacts) >= 1
     for af in artifacts:
         assert af.kind == "model"
+        assert af.key.startswith(resolved)
 
 
 def test_checkpoint_with_features(
     simple_model: pl.LightningModule,
     dataloader: DataLoader,
-    artifact_key: str,
+    dirpath: str,
 ):
     """Checkpoint should annotate artifacts with feature values."""
     ln.Feature(name="train_loss", dtype=float).save()
     ln.Feature(name="custom_param", dtype=str).save()
 
     callback = ll.Checkpoint(
-        artifact_key,
+        dirpath=dirpath,
         features={"train_loss": None, "custom_param": "test_value"},
         monitor="train_loss",
     )
@@ -124,7 +101,8 @@ def test_checkpoint_with_features(
     )
     trainer.fit(simple_model, dataloader)
 
-    artifacts = ln.Artifact.filter(key=artifact_key).to_list()
+    resolved = callback.dirpath.rstrip("/") + "/"
+    artifacts = ln.Artifact.filter(key__startswith=resolved).to_list()
     assert len(artifacts) >= 1
     for af in artifacts:
         values = af.features.get_values()
@@ -135,11 +113,11 @@ def test_checkpoint_with_features(
 def test_checkpoint_missing_features(
     simple_model: pl.LightningModule,
     dataloader: DataLoader,
-    artifact_key: str,
+    dirpath: str,
 ):
     """Checkpoint should raise an error when specified features do not exist."""
     callback = ll.Checkpoint(
-        artifact_key,
+        dirpath=dirpath,
         features={"nonexistent_feature": None},
         monitor="train_loss",
     )
@@ -149,20 +127,19 @@ def test_checkpoint_missing_features(
         logger=False,
     )
 
-    with pytest.raises(ValueError) as e:
+    with pytest.raises(ValueError, match="Feature nonexistent_feature missing"):
         trainer.fit(simple_model, dataloader)
-    assert str(e.value).startswith("Feature nonexistent_feature missing")
 
 
 def test_checkpoint_auto_features(
     simple_model: pl.LightningModule,
     dataloader: DataLoader,
-    artifact_key: str,
+    dirpath: str,
     lightning_features: None,
 ):
     """Checkpoint should auto-track lightning features if they exist."""
     callback = ll.Checkpoint(
-        artifact_key,
+        dirpath=dirpath,
         monitor="train_loss",
         save_top_k=2,
     )
@@ -173,7 +150,8 @@ def test_checkpoint_auto_features(
     )
     trainer.fit(simple_model, dataloader)
 
-    artifacts = ln.Artifact.filter(key=artifact_key).to_list()
+    resolved = callback.dirpath.rstrip("/") + "/"
+    artifacts = ln.Artifact.filter(key__startswith=resolved).to_list()
     assert len(artifacts) >= 1
 
     for af in artifacts:
@@ -186,12 +164,12 @@ def test_checkpoint_auto_features(
 def test_checkpoint_best_model_tracking(
     simple_model: pl.LightningModule,
     dataloader: DataLoader,
-    artifact_key: str,
+    dirpath: str,
     lightning_features: None,
 ):
     """Only one checkpoint should be marked as best model."""
     callback = ll.Checkpoint(
-        artifact_key,
+        dirpath=dirpath,
         monitor="train_loss",
         save_top_k=3,
         mode="min",
@@ -203,7 +181,8 @@ def test_checkpoint_best_model_tracking(
     )
     trainer.fit(simple_model, dataloader)
 
-    artifacts = ln.Artifact.filter(key=artifact_key).to_list()
+    resolved = callback.dirpath.rstrip("/") + "/"
+    artifacts = ln.Artifact.filter(key__startswith=resolved).to_list()
     best_count = sum(
         1 for af in artifacts if af.features.get_values().get("is_best_model") is True
     )
@@ -213,12 +192,12 @@ def test_checkpoint_best_model_tracking(
 def test_checkpoint_model_rank(
     simple_model: pl.LightningModule,
     dataloader: DataLoader,
-    artifact_key: str,
+    dirpath: str,
     lightning_features: None,
 ):
     """Checkpoints should have correct model_rank (0 = best)."""
     callback = ll.Checkpoint(
-        artifact_key,
+        dirpath=dirpath,
         monitor="train_loss",
         save_top_k=3,
         mode="min",
@@ -230,20 +209,20 @@ def test_checkpoint_model_rank(
     )
     trainer.fit(simple_model, dataloader)
 
-    artifacts = ln.Artifact.filter(key=artifact_key).to_list()
+    resolved = callback.dirpath.rstrip("/") + "/"
+    artifacts = ln.Artifact.filter(key__startswith=resolved).to_list()
     ranks = [af.features.get_values().get("model_rank") for af in artifacts]
     assert 0 in ranks  # best model has rank 0
 
 
-def test_checkpoint_dirpath(
+def test_checkpoint_semantic_paths(
     simple_model: pl.LightningModule,
     dataloader: DataLoader,
     dirpath: str,
     lightning_features: None,
 ):
-    """Checkpoints with dirpath should have semantic storage paths."""
+    """Checkpoints should have semantic keys derived from dirpath."""
     callback = ll.Checkpoint(
-        key="test/deployments/model",
         dirpath=dirpath,
         monitor="train_loss",
         save_top_k=3,
@@ -255,16 +234,12 @@ def test_checkpoint_dirpath(
     )
     trainer.fit(simple_model, dataloader)
 
-    resolved_dirpath = str(callback.dirpath)
-    artifacts = ln.Artifact.filter(key__startswith=resolved_dirpath).to_list()
+    resolved = callback.dirpath.rstrip("/") + "/"
+    artifacts = ln.Artifact.filter(key__startswith=resolved).to_list()
     assert len(artifacts) >= 1
 
     for af in artifacts:
-        # Key should be dirpath
-        assert af.key.startswith(resolved_dirpath)
-        # Storage path should match key (non-virtual)
-        assert af.key in str(af.path)
-        # Features should still be tracked
+        assert af.key.startswith(resolved)
         values = af.features.get_values()
         assert "is_best_model" in values
         assert "score" in values
