@@ -44,8 +44,10 @@ def dataloader() -> DataLoader:
 def dirpath(request: pytest.FixtureRequest) -> Generator[str, None, None]:
     prefix = f"test/checkpoints/{request.node.name}/"
     resolved = str(Path(prefix).resolve()) + "/"
+
     yield prefix
-    for af in ln.Artifact.filter(key__startswith=resolved).to_list():
+
+    for af in ln.Artifact.filter(key__startswith=resolved):
         af.delete(permanent=True, storage=True)
     dirpath_path = Path(prefix)
     if dirpath_path.exists():
@@ -53,9 +55,17 @@ def dirpath(request: pytest.FixtureRequest) -> Generator[str, None, None]:
 
 
 @pytest.fixture(scope="session")
-def lightning_features() -> None:
+def lightning_features() -> Generator[None, None, None]:
     """Create lightning features."""
     ll.save_lightning_features()
+
+    yield
+
+    if lightning_type := ln.Feature.filter(name="lamindb.lightning").one_or_none():
+        for feat in ln.Feature.filter(type=lightning_type):
+            for af in ln.Artifact.filter(schemas__features=feat):
+                af.delete(permanent=True, storage=True)
+            feat.delete(permanent=True)
 
 
 def test_checkpoint_basic(
@@ -73,7 +83,7 @@ def test_checkpoint_basic(
     trainer.fit(simple_model, dataloader)
 
     resolved = callback.dirpath.rstrip("/") + "/"
-    artifacts = ln.Artifact.filter(key__startswith=resolved).to_list()
+    artifacts = ln.Artifact.filter(key__startswith=resolved)
     assert len(artifacts) >= 1
     for af in artifacts:
         assert af.kind == "model"
@@ -102,7 +112,7 @@ def test_checkpoint_with_features(
     trainer.fit(simple_model, dataloader)
 
     resolved = callback.dirpath.rstrip("/") + "/"
-    artifacts = ln.Artifact.filter(key__startswith=resolved).to_list()
+    artifacts = ln.Artifact.filter(key__startswith=resolved)
     assert len(artifacts) >= 1
     for af in artifacts:
         values = af.features.get_values()
@@ -151,7 +161,7 @@ def test_checkpoint_auto_features(
     trainer.fit(simple_model, dataloader)
 
     resolved = callback.dirpath.rstrip("/") + "/"
-    artifacts = ln.Artifact.filter(key__startswith=resolved).to_list()
+    artifacts = ln.Artifact.filter(key__startswith=resolved)
     assert len(artifacts) >= 1
 
     for af in artifacts:
@@ -182,7 +192,7 @@ def test_checkpoint_best_model_tracking(
     trainer.fit(simple_model, dataloader)
 
     resolved = callback.dirpath.rstrip("/") + "/"
-    artifacts = ln.Artifact.filter(key__startswith=resolved).to_list()
+    artifacts = ln.Artifact.filter(key__startswith=resolved)
     best_count = sum(
         1 for af in artifacts if af.features.get_values().get("is_best_model") is True
     )
@@ -210,7 +220,7 @@ def test_checkpoint_model_rank(
     trainer.fit(simple_model, dataloader)
 
     resolved = callback.dirpath.rstrip("/") + "/"
-    artifacts = ln.Artifact.filter(key__startswith=resolved).to_list()
+    artifacts = ln.Artifact.filter(key__startswith=resolved)
     ranks = [af.features.get_values().get("model_rank") for af in artifacts]
     assert 0 in ranks  # best model has rank 0
 
@@ -235,7 +245,7 @@ def test_checkpoint_semantic_paths(
     trainer.fit(simple_model, dataloader)
 
     resolved = callback.dirpath.rstrip("/") + "/"
-    artifacts = ln.Artifact.filter(key__startswith=resolved).to_list()
+    artifacts = ln.Artifact.filter(key__startswith=resolved)
     assert len(artifacts) >= 1
 
     for af in artifacts:
@@ -264,7 +274,7 @@ def test_callback_deprecated(
     )
     trainer.fit(simple_model, dataloader)
 
-    artifacts = ln.Artifact.filter(key=key).to_list()
+    artifacts = ln.Artifact.filter(key=key)
     assert len(artifacts) >= 1
     assert artifacts[0].kind == "model"
 

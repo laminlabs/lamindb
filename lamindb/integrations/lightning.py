@@ -121,8 +121,6 @@ class Checkpoint(ModelCheckpoint):
             # Query checkpoints
             ln.Artifact.filter(key__startswith=callback.dirpath)
 
-
-
         Using the CLI::
 
             # config.yaml
