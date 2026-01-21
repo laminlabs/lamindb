@@ -48,7 +48,7 @@ from ._relations import (
     dict_related_model_to_related_name,
 )
 from .feature import Feature, JsonValue, parse_dtype
-from .sqlrecord import SQLRecord, SQLRecordList
+from .sqlrecord import SQLRecord
 from .ulabel import ULabel
 
 if TYPE_CHECKING:
@@ -60,7 +60,7 @@ if TYPE_CHECKING:
         Collection,
         IsLink,
     )
-    from lamindb.models.query_set import BasicQuerySet
+    from lamindb.models.query_set import BasicQuerySet, SQLRecordList
 
     from ..base.types import DtypeStr
     from .record import Record
@@ -945,6 +945,8 @@ class FeatureManager:
             #> Tissue(id=1, name='brain', ...)
         """
         from collections import defaultdict
+
+        from .query_set import SQLRecordList
 
         host_name = self._host.__class__.__name__
         host_id = self._host.id
