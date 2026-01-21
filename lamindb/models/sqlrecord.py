@@ -264,25 +264,11 @@ def is_approx_pascal_case(s: str) -> bool:
     Args:
         s: The string to check
     """
-    if "[" in s:  # this is because we allow types of form 'script[test_script.py]'
+    if "[" in s:
         return True
     last_component = s.split(".")[-1]
 
-    # Find the first alphabetical character
-    first_letter = None
-    for char in last_component:
-        if char.isalpha():
-            first_letter = char
-            break
-
-    # If no letters exist (e.g., "123" or "___"), decide if that's a fail or pass.
-    # Here, we only warn if we actually find a letter and it's lowercase.
-    if first_letter and not first_letter.isupper():
-        logger.warning(
-            f"Consider starting '{last_component}' with a capital letter given you're defining a type"
-        )
-
-    return True
+    return last_component[:1].isupper() and "_" not in last_component
 
 
 def init_self_from_db(self: SQLRecord, existing_record: SQLRecord):

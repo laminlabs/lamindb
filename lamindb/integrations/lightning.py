@@ -12,7 +12,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Final, Literal
 
 import lightning.pytorch as pl
-from lamin_utils import logger
 from lightning.fabric.utilities.cloud_io import get_filesystem
 from lightning.pytorch.callbacks.model_checkpoint import ModelCheckpoint
 from lightning.pytorch.cli import SaveConfigCallback as _SaveConfigCallback
@@ -48,21 +47,19 @@ def save_lightning_features() -> None:
 
         ll.save_lightning_features()
     """
-    # lamindb.lightning is lowercase and would trigger a naming warning -> mute
-    with logger.mute():
-        # normal matching fails because of non-matching dtype (__lamindb_lightning__ vs None)
-        if (
-            lightning_feature_type := ln.Feature.filter(
-                name="lamindb.lightning"
-            ).one_or_none()
-        ) is None:
-            lightning_feature_type = ln.Feature(  # type: ignore[call-overload]
-                name="lamindb.lightning",
-                description="Auto-generated features tracking lightning parameters & metrics",
-                is_type=True,
-            )
-            lightning_feature_type._dtype_str = "__lamindb_lightning__"
-            lightning_feature_type.save()
+    # normal matching fails because of non-matching dtype (__lamindb_lightning__ vs None)
+    if (
+        lightning_feature_type := ln.Feature.filter(
+            name="lamindb.lightning"
+        ).one_or_none()
+    ) is None:
+        lightning_feature_type = ln.Feature(  # type: ignore[call-overload]
+            name="lamindb.lightning",
+            description="Auto-generated features tracking lightning parameters & metrics",
+            is_type=True,
+        )
+        lightning_feature_type._dtype_str = "__lamindb_lightning__"
+        lightning_feature_type.save()
 
     ln.Feature(name="is_best_model", dtype=bool, type=lightning_feature_type).save()
     ln.Feature(name="score", dtype=float, type=lightning_feature_type).save()
