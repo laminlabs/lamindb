@@ -62,7 +62,7 @@ if TYPE_CHECKING:
     )
     from lamindb.models.query_set import BasicQuerySet, SQLRecordList
 
-    from ..base.types import DtypeStr
+    from ..base.types import DtypeObject
     from .record import Record
     from .run import Run
 
@@ -924,11 +924,11 @@ class FeatureManager:
     def __getitem__(
         self, feature: str
     ) -> (
-        DtypeStr
+        DtypeObject
         | BasicQuerySet
         | SQLRecord
         | SQLRecordList
-        | dict[str, DtypeStr | BasicQuerySet | SQLRecord | SQLRecordList]
+        | dict[str, DtypeObject | BasicQuerySet | SQLRecord | SQLRecordList]
     ):
         """Get values by feature name.
 

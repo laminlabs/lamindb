@@ -18,6 +18,7 @@ Basic types
 
 from __future__ import annotations
 
+import datetime
 from typing import Literal, Union
 
 import numpy as np
@@ -33,6 +34,7 @@ StrField = Union[str, FieldAttr]  # typing.TypeAlias
 TransformKind = Literal["pipeline", "notebook", "script", "function"]
 TransformType = TransformKind  # backward compat
 ArtifactKind = Literal["dataset", "model", "__lamindb_run__", "__lamindb_config__"]
+DtypeObject = int | float | str | bool | datetime.date | datetime.datetime | dict
 
 DtypeStr = Literal[
     "num",  # numericals
