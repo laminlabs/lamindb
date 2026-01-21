@@ -6,23 +6,24 @@
 
 # LaminDB - A data framework for biology
 
-Makes your data queryable, traceable, reproducible, and FAIR. One API: lakehouse, lineage, feature store, ontologies, LIMS, ELN.
+Query, trace, and validate datasets and models at scale. Automate context for agents and humans. One API: lakehouse, lineage, feature store, ontologies, bio-registries & formats.
 
 <details>
 <summary>Why?</summary>
 
-Reproducing analytical results or understanding how a dataset or model was created can be a pain.
-Training models on historical data, LIMS & ELN systems, orthogonal assays, or datasets from other teams is even harder.
-Even maintaining an overview of a project's datasets & analyses is more difficult than it should be.
+Reproducing results or understanding how a dataset or model was created can be a pain.
+Training models across thousands of datasets — from LIMS and ELNs to orthogonal assays and cross-team silos — is even harder.
+In the age of agents, maintaining an overview and ensuring data quality across a project is more complex than ever.
 
-Biological datasets are typically managed with versioned storage systems, GUI-focused platforms, structureless data lakes, rigid data warehouses (SQL, monolithic arrays), or tabular lakehouses.
+Unlike code (git) or tables (data warehouses), biological data has lacked a dedicated, API-first management framework.
+It has been relegated to structureless data lakes, rigid SQL warehouses, or tabular lakehouses designed for domains with far fewer entities, concepts, and specialized formats.
 
-LaminDB extends the lakehouse architecture to biological registries & datasets beyond tables (`DataFrame`, `AnnData`, `.zarr`, `.tiledbsoma`, …).
-It provides enough structure to enable queries across many datasets, enough freedom to keep the pace of R&D high, and rich context in form of data lineage and metadata for humans and AI.
+LaminDB addresses this at the core with a lineage-native lakehouse architecture that understands bio-registries and formats (`DataFrame`, `AnnData`, `.zarr`, …).
+This provides enough structure to query across many datasets and enough freedom for high-paced R&D, while automating rich context on top of versioning, change management, and other industry standards.
 
 </details>
 
-<img width="800px" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/BunYmHkyFLITlM5M0005.png">
+<img width="800px" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/BunYmHkyFLITlM5M0006.png">
 
 Highlights:
 
@@ -67,7 +68,7 @@ pip install lamindb
 
 ### Query databases
 
-Browse databases at [lamin.ai/explore](https://lamin.ai/explore), e.g., [lamin.ai/laminlabs/cellxgene](https://lamin.ai/laminlabs/cellxgene). To query it:
+You can browse public databases at [lamin.ai/explore](https://lamin.ai/explore). To query [laminlabs/cellxgene](https://lamin.ai/laminlabs/cellxgene), run:
 
 ```python
 import lamindb as ln
@@ -76,16 +77,19 @@ db = ln.DB("laminlabs/cellxgene")  # a database object for queries
 df = db.Artifact.to_dataframe()    # a dataframe listing datasets & models
 ```
 
-Let's get [a dataset](https://lamin.ai/laminlabs/cellxgene/artifact/BnMwC3KZz0BuKftR) for Alzheimer's disease:
+To get a [specific dataset](https://lamin.ai/laminlabs/cellxgene/artifact/BnMwC3KZz0BuKftR), run:
 
 ```python
 artifact = db.Artifact.get("BnMwC3KZz0BuKftR")  # a metadata object for a dataset
-artifact.describe()                             # describe metadata
+artifact.describe()                             # describe the context of the dataset
 ```
 
-<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/mxlUQiRLMU4Zos6k0000.png" width="550">
+<details>
+<summary>See the output.</summary>
+<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/mxlUQiRLMU4Zos6k0001.png" width="550">
+</details>
 
-Access the content of the artifact via:
+Access the content of the dataset via:
 
 ```python
 local_path = artifact.cache()  # return a local path from a cache
@@ -93,19 +97,11 @@ adata = artifact.load()        # load object into memory
 accessor = artifact.open()     # return a streaming accessor
 ```
 
-If you want to query other types of entities, e.g., diseases, here is how to do it:
+You can query 14 built-in registries (`Artifact`, `Storage`, `Feature`, `Record`, etc.) and additional registries via plug-ins (e.g. in `bionty`, 13 registries for biological entities via `Disease`, `CellType`, `Tissue`, etc. mapping >20 public ontologies), for example:
 
 ```python
-diseases = db.bionty.Disease.lookup()    # a lookup object to auto-complete diseases
-df = db.Artifact.filter(
-    diseases=diseases.alzheimer_disease  # filter by fields
-).to_dataframe()
-```
-
-This is how you can query 14 built-in registries in `lamindb` (`Artifact`, `Storage`, `Feature`, `Record`, etc.) and 13 biological entities in `bionty` (`Disease`, `CellType`, `Tissue`, etc.) mapping >20 public ontologies. To learn what you can query by, call:
-
-```python
-db.Artifact.describe()
+diseases = db.bionty.Disease.lookup()  # a lookup object to auto-complete diseases
+df = db.Artifact.filter(diseases=diseases.alzheimer_disease).to_dataframe()  # filter by fields
 ```
 
 ### Configure your database
