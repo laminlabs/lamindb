@@ -60,8 +60,9 @@ if TYPE_CHECKING:
         Collection,
         IsLink,
     )
-    from lamindb.models.query_set import BasicQuerySet
+    from lamindb.models.query_set import BasicQuerySet, SQLRecordList
 
+    from ..base.types import DtypeObject
     from .record import Record
     from .run import Run
 
@@ -920,7 +921,15 @@ class FeatureManager:
         """
         return get_features_data(self._host, to_dict=True, external_only=external_only)  # type: ignore
 
-    def __getitem__(self, feature: str) -> Any | dict[str, Any]:
+    def __getitem__(
+        self, feature: str
+    ) -> (
+        DtypeObject
+        | BasicQuerySet
+        | SQLRecord
+        | SQLRecordList
+        | dict[str, DtypeObject | BasicQuerySet | SQLRecord | SQLRecordList]
+    ):
         """Get values by feature name.
 
         Args:
