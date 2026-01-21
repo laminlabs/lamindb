@@ -281,3 +281,36 @@ def test_callback_deprecated(
     # cleanup
     for af in artifacts:
         af.delete(permanent=True, storage=True)
+
+
+@pytest.mark.parametrize(
+    "overwrite_versions,should_raise", [(False, True), (True, False)]
+)
+def test_checkpoint_overwrite(
+    simple_model: pl.LightningModule,
+    dataloader: DataLoader,
+    dirpath: str,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    overwrite_versions: bool,
+    should_raise: bool,
+):
+    """Checkpoint should raise when artifact exists unless overwrite_versions=True."""
+    dummy = tmp_path / "dummy.ckpt"
+    dummy.write_bytes(b"dummy")
+    fixed_key = f"{dirpath.rstrip('/')}/fixed.ckpt"
+    ln.Artifact(dummy, key=fixed_key).save()
+
+    callback = ll.Checkpoint(dirpath=dirpath, overwrite_versions=overwrite_versions)
+    monkeypatch.setattr(callback, "_get_artifact_key", lambda _: fixed_key)
+    trainer = pl.Trainer(max_epochs=1, callbacks=[callback], logger=False)
+
+    if should_raise:
+        with pytest.raises(ValueError, match="already exists"):
+            trainer.fit(simple_model, dataloader)
+
+    else:
+        trainer.fit(simple_model, dataloader)
+
+    for af in ln.Artifact.filter(key=fixed_key):
+        af.delete(permanent=True, storage=True)

@@ -98,6 +98,7 @@ class Checkpoint(ModelCheckpoint):
         every_n_epochs: Checkpoint every N epochs.
         save_on_train_epoch_end: Run checkpointing at end of training epoch.
         enable_version_counter: Append version to filename to avoid collisions.
+        overwrite_versions: Whether to overwrite existing checkpoints.
 
     Examples:
 
@@ -153,6 +154,7 @@ class Checkpoint(ModelCheckpoint):
         every_n_epochs: int | None = None,
         save_on_train_epoch_end: bool | None = None,
         enable_version_counter: bool = True,
+        overwrite_versions: bool = False,
     ) -> None:
         super().__init__(
             dirpath=dirpath,
@@ -172,6 +174,7 @@ class Checkpoint(ModelCheckpoint):
         self.features = features or {}
         self._available_auto_features: set[str] = set()
         self._run_features_added = False
+        self.overwrite_versions = overwrite_versions
 
     def setup(
         self, trainer: pl.Trainer, pl_module: pl.LightningModule, stage: str
@@ -228,6 +231,14 @@ class Checkpoint(ModelCheckpoint):
                 if run_features:
                     ln.context.run.features.add_values(run_features)
                 self._run_features_added = True
+
+            if (
+                ln.Artifact.filter(key=self._get_artifact_key(filepath)).one_or_none()
+            ) and not self.overwrite_versions:
+                raise ValueError(
+                    f"Artifact with key '{self._get_artifact_key(filepath)}' already exists. "
+                    "Choose a new dirpath or pass overwrite_versions=True."
+                )
 
             artifact = ln.Artifact(
                 filepath,
