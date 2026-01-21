@@ -48,7 +48,7 @@ from ._relations import (
     dict_related_model_to_related_name,
 )
 from .feature import Feature, JsonValue, parse_dtype
-from .sqlrecord import SQLRecord
+from .sqlrecord import SQLRecord, SQLRecordList
 from .ulabel import ULabel
 
 if TYPE_CHECKING:
@@ -62,6 +62,7 @@ if TYPE_CHECKING:
     )
     from lamindb.models.query_set import BasicQuerySet
 
+    from ..base.types import DtypeStr
     from .record import Record
     from .run import Run
 
@@ -920,7 +921,15 @@ class FeatureManager:
         """
         return get_features_data(self._host, to_dict=True, external_only=external_only)  # type: ignore
 
-    def __getitem__(self, feature: str) -> Any | dict[str, Any]:
+    def __getitem__(
+        self, feature: str
+    ) -> (
+        DtypeStr
+        | BasicQuerySet
+        | SQLRecord
+        | SQLRecordList
+        | dict[str, DtypeStr | BasicQuerySet | SQLRecord | SQLRecordList]
+    ):
         """Get values by feature name.
 
         Args:
@@ -936,8 +945,6 @@ class FeatureManager:
             #> Tissue(id=1, name='brain', ...)
         """
         from collections import defaultdict
-
-        from .query_set import SQLRecordList
 
         host_name = self._host.__class__.__name__
         host_id = self._host.id
