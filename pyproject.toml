@@ -16,13 +16,13 @@ classifiers = [
 ]
 dependencies = [
     # LaminDB core modules
-    "lamin_utils==0.16.2",  # 30kB pure python, no dependencies
+    "lamin_utils==0.16.3",  # 30kB pure python, no dependencies
     "lamin_cli==1.11.0",     # 30kB pure python, no dependencies
-    "lamindb_setup[aws]==1.18.1",  # dependencies like Django & fsspec
+    "lamindb_setup[aws]==1.18.2",  # dependencies like Django & fsspec
     # LaminDB optional modules, included to avoid users forgetting about extras
     "bionty==2.0.0", # 30kB pure python, no dependencies
-    "pertdb==2.0.0",  # 30kB pure python, no dependencies
-    "wetlab==2.0.1",  # backward compat with pertdb
+    "pertdb==2.0.2",  # 30kB pure python, no dependencies
+    "wetlab>=2.0.0,<2.1.0",  # backward compat with pertdb
     # Jupyter -- small packages with few & small dependencies
     "jupytext",
     "nbconvert>=7.2.1",  # bound to avoid lxml[html_clean] dependency
