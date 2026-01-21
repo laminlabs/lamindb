@@ -11,6 +11,25 @@ from torch import nn
 from torch.utils.data import DataLoader, TensorDataset
 
 
+@pytest.fixture(autouse=True)
+def cleanup_checkpoints() -> Generator[None, None, None]:
+    """Clean up checkpoint files and directories after each test."""
+    yield
+    checkpoints_dir = Path("checkpoints")
+    if checkpoints_dir.exists():
+        shutil.rmtree(checkpoints_dir)
+
+
+@pytest.fixture(autouse=True, scope="session")
+def cleanup_test_dir() -> Generator[None, None, None]:
+    """Clean up test directory after all tests."""
+    yield
+    for dirname in ("lightning_checkpoints", "test_lightning"):
+        dirpath = Path(dirname)
+        if dirpath.exists():
+            shutil.rmtree(dirpath)
+
+
 @pytest.fixture
 def simple_model() -> pl.LightningModule:
     class SimpleModel(pl.LightningModule):
@@ -42,7 +61,7 @@ def dataloader() -> DataLoader:
 
 @pytest.fixture
 def dirpath(request: pytest.FixtureRequest) -> Generator[str, None, None]:
-    prefix = f"test/checkpoints/{request.node.name}/"
+    prefix = f"lightning_checkpoints/{request.node.name}/"
     resolved = str(Path(prefix).resolve()) + "/"
 
     yield prefix

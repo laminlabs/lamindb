@@ -264,7 +264,7 @@ def is_approx_pascal_case(s: str) -> bool:
     Args:
         s: The string to check
     """
-    if "[" in s:
+    if "[" in s:  # this is because we allow types of form 'script[test_script.py]'
         return True
     last_component = s.split(".")[-1]
 
