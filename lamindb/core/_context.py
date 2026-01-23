@@ -791,7 +791,7 @@ class Context:
             aux_transform = None
 
         # determine the transform key
-        if self.uid is None and key is None:
+        if key is None:
             if ln_setup.settings.dev_dir is not None:
                 try:
                     key = self._path.relative_to(ln_setup.settings.dev_dir).as_posix()
