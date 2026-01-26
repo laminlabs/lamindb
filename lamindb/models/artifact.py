@@ -2920,6 +2920,10 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             self, "_to_store", False
         )
         if flag_complete:
+            if not self._local_filepath.exists():
+                raise FileNotFoundError(
+                    f"Unable to save the artifact because the local path {self._local_filepath} does not exist."
+                )
             self._storage_ongoing = True  # will be updated to False once complete
 
         self._save_skip_storage(**kwargs)
