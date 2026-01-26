@@ -59,10 +59,10 @@ Here is how to create a feature:
         == f"""\
 Run: {ln.context.run.uid[:7]} ({ln.context.run.transform.key})
 └── Features
-    └── label_param         Record                  my_label
-        param1              int                     1
-        param2              str                     my-string
-        param3              float                   3.14"""
+    └── label_param         Record                   my_label
+        param1              int                      1
+        param2              str                      my-string
+        param3              float                    3.14"""
     )
     # also call describe() plainly without further checks
     ln.context.run.describe()
