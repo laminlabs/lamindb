@@ -537,7 +537,7 @@ Here is how to create a feature:
 |   description: test
 └── Features
     └── cell_type_by_expe…  bionty.CellType          T cell
-        disease             bionty.Disease.ontolo…   MONDO:0004975, MONDO:00049
+        disease             bionty.Disease.ontolo…   MONDO:0004975, MONDO:00049...
         donor               Record                   U0123
         experiment          Record                   Experiment 1, Experiment 2
         organism            bionty.Organism          mouse
