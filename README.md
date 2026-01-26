@@ -23,7 +23,7 @@ This provides enough structure to query across many datasets and enough freedom 
 
 </details>
 
-<img width="800px" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/BunYmHkyFLITlM5M0006.png">
+<img width="800px" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/BunYmHkyFLITlM5M000B.svg">
 
 Highlights:
 
@@ -170,8 +170,8 @@ artifact.describe()
 Here is how to access the data lineage context:
 
 ```python
-run = artifact.run                  # get the run record
-transform = artifact.run.transform  # get the transform record
+run = artifact.run                  # get the run object
+transform = artifact.run.transform  # get the transform object
 ```
 
 <details>
@@ -190,7 +190,7 @@ transform.describe()
 <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/JYwmHBbgf2MRCfgL0000.png" width="550" />
 </details>
 
-### Lake: labeling & queries by fields
+### Labeling & queries by fields
 
 You can label an artifact by running:
 
@@ -223,7 +223,7 @@ ln.Artifact.to_dataframe(include=["created_by__name", "storage__root"])  # inclu
 
 Note: The query syntax for `DB` objects and for your default database is the same.
 
-### Lake: rich annotation & queries by features
+### Queries by features
 
 You can annotate datasets and samples with features. Let's define some:
 
@@ -282,7 +282,7 @@ ln.Record.search("p53").to_dataframe()
 
 You can also create relationships of entities and -- if you connect your LaminDB instance to LaminHub -- edit them like Excel sheets in a GUI.
 
-### Lake: versioning
+### Data versioning
 
 If you change source code or datasets, LaminDB manages their versioning for you.
 Assume you run a new version of our `create-fasta.py` script to create a new version of `sample.fasta`.
