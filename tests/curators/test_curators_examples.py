@@ -254,10 +254,10 @@ def test_dataframe_curator(mini_immuno_schema: ln.Schema):
 Artifact: examples/dataset1.parquet (0000)
 └── Dataset features
     └── columns (5)
-        cell_type_by_expe…  bionty.CellType         B cell, CD8-positive, alpha…
-        cell_type_by_model  bionty.CellType         B cell, T cell
-        perturbation        ULabel[Perturbation]    DMSO, IFNG
-        sample_label        ULabel                  sample1, sample2, sample3
+        cell_type_by_expe…  bionty.CellType          B cell, CD8-positive, alph…
+        cell_type_by_model  bionty.CellType          B cell, T cell
+        perturbation        ULabel[Perturbation]     DMSO, IFNG
+        sample_label        ULabel                   sample1, sample2, sample3
         sample_note         str"""
     )
     assert set(artifact.features.get_values()["sample_label"]) == {
@@ -880,10 +880,10 @@ def test_spatialdata_curator(
         == """Artifact: examples/spatialdata1.zarr (0000)
 └── Dataset features
     ├── attrs:bio (2)
-    │   developmental_sta…  bionty.DevelopmentalS…  adult stage
-    │   disease             bionty.Disease          Alzheimer disease
+    │   developmental_sta…  bionty.DevelopmentalSt…  adult stage
+    │   disease             bionty.Disease           Alzheimer disease
     ├── attrs:tech (1)
-    │   assay               bionty.ExperimentalFa…  Visium Spatial Gene Express…
+    │   assay               bionty.ExperimentalFac…  Visium Spatial Gene Expres…
     ├── attrs (2)
     │   bio                 dict
     │   tech                dict
