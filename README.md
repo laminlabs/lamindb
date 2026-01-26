@@ -4,18 +4,19 @@
 [![pypi](https://img.shields.io/pypi/v/lamindb?color=blue&label=pypi%20package)](https://pypi.org/project/lamindb)
 [![PyPI Downloads](https://img.shields.io/pepy/dt/lamindb?logo=pypi)](https://pepy.tech/project/lamindb)
 
-# LaminDB - A data framework for biology
+# LaminDB
 
-Query, trace, and validate datasets and models at scale with an open-source framework. With one API, you get: lakehouse, lineage, feature store, ontologies, bio-registries & formats.
+LaminDB is an open-source data framework for biology to query, trace, and validate datasets and models at scale.
+With one API, you get: lakehouse, lineage, feature store, ontologies, bio-registries & formats.
 
 <details>
 <summary>Why?</summary>
 
-Being able to reproduce results and understand how a dataset or model was created is now more important than ever, but has often been a pain even before the age of agents.
-Training models across thousands of datasets — from LIMS and ELNs to orthogonal assays and cross-team silos — is now a learning opportunity, but has been impossible in most organizations.
-Ensuring data quality & queryability has both become more complex and important than ever, but unlike code (git) or tables (data warehouses), biological data have lacked a dedicated, API-first management framework.
+Reproducing results and understanding how a dataset or model was created is now more important than ever, but was a pain even before the age of agents.
+Training models across thousands of datasets — from LIMS and ELNs to orthogonal assays and cross-team silos — is now a learning opportunity, but was typically impossible.
+Ensuring data quality & queryability has both become more complex and important than ever, but unlike code (git) or tables (data warehouses), biological data have lacked a dedicated, API-first data management framework.
 
-Hence, LaminDB provides a lineage-native data lakehouse that understands bio-registries and formats (`AnnData`, `.zarr`, …) to enable scaled learning operations.
+LaminDB provides a lineage-native data lakehouse that understands bio-registries and formats (`AnnData`, `.zarr`, …) to enable scaled learning operations.
 It provides queries across many datasets with enough freedom to maintain high-paced R&D while automating rich context on top of versioning, change management, and other industry standards.
 
 </details>
