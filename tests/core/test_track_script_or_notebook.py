@@ -394,7 +394,7 @@ def test_notebook_to_script_notebooknode_metadata(tmp_path):
     nbformat.write(nb, notebook_path)
     notebook_to_script("Test", notebook_path)
 
-    # Now test that NotebookNode can be serialized (fails without the additional representer)
+    # Now test that NotebookNode can be serialized (fails without discarding metadata)
     data = {
         "jupyter": {"kernelspec": nbformat.NotebookNode({"display_name": "python3"})}
     }
