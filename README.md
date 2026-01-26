@@ -30,11 +30,11 @@ Highlights:
 - **feature store** → manage features & labels; leverage batch loading
 - **FAIR datasets** → validate & annotate `DataFrame`, `AnnData`, `SpatialData`, `parquet`, `zarr`, …
 - **LIMS & ELN** → manage experimental metadata, ontologies & markdown notes
-- **unified access** → storage locations (local, S3, GCP, …), SQL databases (Postgres, SQLite) & ontologies
-- **reproducible** → auto-track source code & compute environments, auto-version data, code & reports
+- **unified access** → single API for storage locations (local, S3, GCP, …), SQL databases (Postgres, SQLite) & ontologies
+- **reproducible** → auto-track source code & compute environments with data, code & report versioning
 - **zero lock-in & scalable** → runs in your infrastructure; not a client for a rate-limited REST API
 - **integrations** → [vitessce](https://docs.lamin.ai/vitessce), [nextflow](https://docs.lamin.ai/nextflow), [redun](https://docs.lamin.ai/redun), and [more](https://docs.lamin.ai/integrations)
-- **extendable** → create custom plug-ins based on the Django ORM
+- **extensible** → create custom plug-ins based on the Django ORM
 
 If you want a GUI: [LaminHub](https://lamin.ai) is a data collaboration hub built on LaminDB similar to how GitHub is built on git.
 
