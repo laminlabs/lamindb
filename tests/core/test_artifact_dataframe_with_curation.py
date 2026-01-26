@@ -227,8 +227,8 @@ Artifact: test_df_with_external_features.parquet (0000)
 │       feat1               int
 │       feat2               int
 └── External features
-    └── feature_a           str                     x
-        feature_b           str                     y"""
+    └── feature_a           str                      x
+        feature_b           str                      y"""
     )
     with pytest.raises(ValueError) as error:
         artifact.features.remove_values("feature_a", value="x")
