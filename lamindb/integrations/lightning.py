@@ -169,11 +169,11 @@ class Checkpoint(ModelCheckpoint):
             save_on_train_epoch_end=save_on_train_epoch_end,
             enable_version_counter=enable_version_counter,
         )
+        self.features = features or {}
         if invalid_feature_keys := set(self.features) - {"run", "artifact"}:  # type: ignore
             raise ValueError(
                 f"Invalid feature keys: {invalid_feature_keys}. Use 'run' and/or 'artifact'."
             )
-        self.features = features or {}
         self._run_features = self.features.get("run", {})
         self._artifact_features = self.features.get("artifact", {})
         self._available_auto_features: set[str] = set()
