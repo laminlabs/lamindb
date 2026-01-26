@@ -35,7 +35,7 @@ def get_current_tracked_run() -> Run | None:
 
 
 def _create_tracked_decorator(
-    uid: str | None = None, is_flow: bool = True
+    uid: str | None = None, is_flow: bool = True, global_run: bool = False
 ) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """Internal helper to create tracked decorators.
 
@@ -124,6 +124,9 @@ def _create_tracked_decorator(
 
             # Set the run in context and execute function
             token = current_tracked_run.set(run)
+            # If it's a flow, set the global run context as we do in `ln.track()`
+            if global_run and global_context.run is None:
+                global_context._run = run
             try:
                 result = func(*args, **kwargs)
                 run.finished_at = datetime.now(timezone.utc)
@@ -131,6 +134,8 @@ def _create_tracked_decorator(
                 run.save()
                 return result
             finally:
+                if global_run and global_context.run == current_tracked_run.get():
+                    global_context._run = None
                 current_tracked_run.reset(token)
 
         return wrapper_tracked
@@ -138,18 +143,23 @@ def _create_tracked_decorator(
     return decorator_tracked
 
 
-def flow(uid: str | None = None) -> Callable[[Callable[P, R]], Callable[P, R]]:
+def flow(
+    uid: str | None = None, global_run: bool = True
+) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """Use `@flow()` to track a function as a workflow.
 
     You will be able to see inputs, outputs, and parameters of the function in the data lineage graph.
 
     The decorator creates a :class:`~lamindb.Transform` object that maps onto the file in which the function is defined.
     The function maps onto an entrypoint of the `transform`.
-
     A function execution creates a :class:`~lamindb.Run` object that stores the function name in `run.entrypoint`.
+
+    By default, like `ln.track()`, creates a global run context that can be accessed with `ln.context.run`.
 
     Args:
         uid: Persist the uid to identify a transform across renames.
+        global_run: If no global run context exists, create one that can be accessed with `ln.context.run`.
+            Set this to `False` if you want to track concurrent executions of a `flow()` in the same Python process.
 
     Examples:
 
@@ -171,13 +181,14 @@ def flow(uid: str | None = None) -> Callable[[Callable[P, R]], Callable[P, R]]:
 
 
     """
-    return _create_tracked_decorator(uid=uid, is_flow=True)
+    return _create_tracked_decorator(uid=uid, is_flow=True, global_run=global_run)
 
 
 def step(uid: str | None = None) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """Use `@step()` to track a function as a step.
 
-    Behaves like :func:`~lamindb.flow()`, but acts as a step in a workflow.
+    Behaves like :func:`~lamindb.flow()`, but acts as a step in a workflow and does not create a global run context.
+    It errors if no initiating run (either global or local run context) exists.
 
     See :func:`~lamindb.flow()` for examples.
 

@@ -1,4 +1,3 @@
-import concurrent.futures
 from pathlib import Path
 from typing import Iterable
 
@@ -6,7 +5,7 @@ import lamindb as ln
 import pandas as pd
 
 
-@ln.flow()
+@ln.flow(global_run=True)
 def process_chunk(
     chunk_id: int, artifact_param: ln.Artifact, records_params: Iterable[ln.Record]
 ) -> str:
@@ -20,45 +19,22 @@ def process_chunk(
     # Save it as an artifact
     key = f"chunk_{chunk_id}.parquet"
     artifact = ln.Artifact.from_dataframe(df, key=key).save()
+    assert ln.context.run is not None
     return artifact.key
 
 
-def test_flow_parallel():
-    # Number of parallel executions
-    n_parallel = 1  # for step we test 3 parallel executions, for flow we set to 1 because sometimes CI is flaky
+def test_flow():
     param_artifact = ln.Artifact(".gitignore", key="param_artifact").save()
     ln.Record(name="record1").save(), ln.Record(name="record2").save()
     records_params = ln.Record.filter(name__startswith="record")
 
-    # Use ThreadPoolExecutor for parallel execution
-    with concurrent.futures.ThreadPoolExecutor(max_workers=n_parallel) as executor:
-        # Submit all tasks
-        futures = [
-            executor.submit(process_chunk, i, param_artifact, records_params)
-            for i in range(n_parallel)
-        ]
-        # Get results as they complete
-        chunk_keys = [
-            future.result() for future in concurrent.futures.as_completed(futures)
-        ]
-
-    # Verify results
-    # Each execution should have created its own artifact with unique run
-    print(f"Created artifacts with keys: {chunk_keys}")
-    artifacts = [ln.Artifact.get(key=key) for key in chunk_keys]
+    assert ln.context.run is None
+    artifact_key = process_chunk(1, param_artifact, records_params)
+    assert ln.context.run is None
+    artifacts = [ln.Artifact.get(key=key) for key in [artifact_key]]
     same_hash_artifacts = ln.Artifact.filter(description="file_with_same_hash")
 
-    # Check that we got the expected number of artifacts
-    assert len(artifacts) == n_parallel
-    assert (
-        len(same_hash_artifacts) == 1
-    )  # only one artifact with the same hash should exist
-
-    # Verify each artifact has its own unique run
     runs = [artifact.run for artifact in artifacts]
-    run_ids = [run.id for run in runs]
-    print(f"Run IDs: {run_ids}")
-    assert len(set(run_ids)) == n_parallel  # all runs should be unique
 
     # Verify each run has the correct start and finish times
     for run in runs:
@@ -85,8 +61,3 @@ def test_flow_parallel():
     Path("file_with_same_hash.txt").unlink()
     for run in runs:
         run.delete(permanent=True)
-
-    ln.context._uid = None
-    ln.context._run = None
-    ln.context._transform = None
-    ln.context._path = None
