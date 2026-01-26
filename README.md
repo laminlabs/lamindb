@@ -279,7 +279,7 @@ You can also create relationships of entities and edit them like Excel sheets in
 
 ### Data versioning
 
-If you change source code or datasets, LaminDB manages their versioning for you.
+If you change source code or datasets, LaminDB manages versioning for you.
 Assume you run a new version of our `create-fasta.py` script to create a new version of `sample.fasta`.
 
 ```python
@@ -291,7 +291,7 @@ ln.Artifact("sample.fasta", key="sample.fasta", features={"design_sample": "P53m
 ln.finish()
 ```
 
-If you now query by `key`, you'll get the latest version of this artifact.
+If you now query by `key`, you'll get the latest version of this artifact with the latest version of the source code linked with previous versions of artifact and source code are easily queryable:
 
 ```python
 artifact = ln.Artifact.get(key="sample.fasta")  # get artifact by key
