@@ -536,16 +536,16 @@ Here is how to create a feature:
         == """Artifact:  (0000)
 |   description: test
 └── Features
-    └── cell_type_by_expe…  bionty.CellType         T cell
-        disease             bionty.Disease.ontolo…  MONDO:0004975, MONDO:0004980
-        donor               Record                  U0123
-        experiment          Record                  Experiment 1, Experiment 2
-        organism            bionty.Organism         mouse
-        project             Record                  project_1
-        date_of_experiment  date                    2024-12-01
-        datetime_of_exper…  datetime                2024-12-01 00:00:00
-        is_validated        bool                    True
-        temperature         num                     27.2, 100.0"""
+    └── cell_type_by_expe…  bionty.CellType          T cell
+        disease             bionty.Disease.ontolog…  MONDO:0004975, MONDO:00049…
+        donor               Record                   U0123
+        experiment          Record                   Experiment 1, Experiment 2
+        organism            bionty.Organism          mouse
+        project             Record                   project_1
+        date_of_experiment  date                     2024-12-01
+        datetime_of_exper…  datetime                 2024-12-01 00:00:00
+        is_validated        bool                     True
+        temperature         num                      27.2, 100.0"""
     )
 
     # repeat

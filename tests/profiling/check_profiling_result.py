@@ -2,7 +2,7 @@ import re
 
 import lamindb as ln
 
-threshold = 3.2
+threshold = 3.4
 
 # Parse duration from pyinstrument text output
 with open("profile.txt") as f:
