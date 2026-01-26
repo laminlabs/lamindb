@@ -152,7 +152,6 @@ def flow(
 
     The decorator creates a :class:`~lamindb.Transform` object that maps onto the file in which the function is defined.
     The function maps onto an entrypoint of the `transform`.
-
     A function execution creates a :class:`~lamindb.Run` object that stores the function name in `run.entrypoint`.
 
     By default, like `ln.track()`, creates a global run context that can be accessed with `ln.context.run`.
