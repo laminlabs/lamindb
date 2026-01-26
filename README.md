@@ -135,12 +135,6 @@ To sync a file into a local cache (artifacts) or development directory (transfor
 lamin load --key examples/myfile.txt
 ```
 
-To delete a file:
-
-```shell
-lamin delete --key examples/myfile.txt
-```
-
 ### Lineage
 
 To create a dataset while tracking source code, inputs, outputs, logs, and environment:
