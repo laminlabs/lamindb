@@ -2583,26 +2583,29 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             and objects of type :class:`~lamindb.core.storage.AnnDataAccessor`, :class:`~lamindb.core.storage.SpatialDataAccessor`, :class:`~lamindb.core.storage.BackedAccessor`,
             :class:`tiledbsoma:tiledbsoma.Collection`, :class:`tiledbsoma.Experiment`, :class:`tiledbsoma.Measurement`.
 
-        Notes:
-            For more info, see guide: :doc:`/arrays`.
-
         Examples:
 
-            Open an `AnnData`-like artifact::
+            Open a `DataFrame`-like artifact via :class:`pyarrow:pyarrow.dataset.Dataset`::
+
+                artifact = ln.Artifact.get(key="sequences/mydataset.parquet")
+                artifact.open()
+                #> pyarrow._dataset.FileSystemDataset
+
+            Open a `DataFrame`-like artifact via `polars.LazyFrame <https://docs.pola.rs/api/python/stable/reference/lazyframe/>`__::
+
+                artifact = ln.Artifact.get(key="sequences/mydataset.parquet")
+                with artifact.open(engine="polars") as df:
+                    # use the `polars.LazyFrame` object similar to a `DataFrame` object
+
+            Open an `AnnData`-like artifact via :class:`~lamindb.core.storage.AnnDataAccessor`::
 
                 import lamindb as ln
 
-                artifact = ln.Artifact.get(key="lndb-storage/pbmc68k.h5ad")
-                artifact.open()
-                #> AnnDataAccessor object with n_obs × n_vars = 70 × 765
-                #>     constructed for the AnnData object pbmc68k.h5ad
-                #>     ...
+                artifact = ln.Artifact.get(key="scrna/mydataset.h5ad")
+                with artifact.open() as adata:
+                    # use the `AnnDataAccessor` similar to an `AnnData` object
 
-            Open a `DataFrame`-like artifact::
-
-                artifact = ln.Artifact.get(key="lndb-storage/df.parquet")
-                artifact.open()
-                #> pyarrow._dataset.FileSystemDataset
+            For more examples and background, see guide: :doc:`/arrays`.
 
         """
         if self._overwrite_versions and not self.is_latest:
