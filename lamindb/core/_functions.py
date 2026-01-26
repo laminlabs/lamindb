@@ -134,6 +134,8 @@ def _create_tracked_decorator(
                 run.save()
                 return result
             finally:
+                if global_run and global_context.run == current_tracked_run:
+                    global_context._run = None
                 current_tracked_run.reset(token)
 
         return wrapper_tracked
