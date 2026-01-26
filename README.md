@@ -159,7 +159,7 @@ artifact.describe()      # general context of the artifact
 artifact.view_lineage()  # fine-grained lineage
 ```
 
-<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/BOTCBgHDAvwglN3U0004.png" width="550"><img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/EkQATsQL5wqC95Wj0006.png" width="140">
+<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/BOTCBgHDAvwglN3U0004.png" width="550"> <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/EkQATsQL5wqC95Wj0006.png" width="140">
 
 Here is how to access the generating `run` and `transform` objects programmatically:
 
