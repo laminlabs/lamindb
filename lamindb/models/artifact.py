@@ -2585,13 +2585,13 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
         Examples:
 
-            Open a `DataFrame`-like artifact via `pyarrow` via :class:`pyarrow:pyarrow.dataset.Dataset`::
+            Open a `DataFrame`-like artifact via :class:`pyarrow:pyarrow.dataset.Dataset`::
 
                 artifact = ln.Artifact.get(key="sequences/mydataset.parquet")
                 artifact.open()
                 #> pyarrow._dataset.FileSystemDataset
 
-            Open a `DataFrame`-like artifact via `polars` via `polars.LazyFrame <https://docs.pola.rs/api/python/stable/reference/lazyframe/>`__::
+            Open a `DataFrame`-like artifact via `polars.LazyFrame <https://docs.pola.rs/api/python/stable/reference/lazyframe/>`__::
 
                 artifact = ln.Artifact.get(key="sequences/mydataset.parquet")
                 with artifact.open(engine="polars") as df:
