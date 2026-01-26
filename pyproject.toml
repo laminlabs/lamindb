@@ -39,6 +39,7 @@ dependencies = [
     "fsspec",
     "graphviz",
     "psycopg2-binary",
+    "rich<14.3.0" #TMP TEST
 ]
 
 [project.urls]
