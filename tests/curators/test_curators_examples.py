@@ -880,10 +880,10 @@ def test_spatialdata_curator(
         == """Artifact: examples/spatialdata1.zarr (0000)
 └── Dataset features
     ├── attrs:bio (2)
-    │   developmental_sta…  bionty.DevelopmentalSt…   adult stage
+    │   developmental_sta…  bionty.DevelopmentalSt…  adult stage
     │   disease             bionty.Disease           Alzheimer disease
     ├── attrs:tech (1)
-    │   assay               bionty.ExperimentalFa…   Visium Spatial Gene Express…
+    │   assay               bionty.ExperimentalFac…  Visium Spatial Gene Expres…
     ├── attrs (2)
     │   bio                 dict
     │   tech                dict
