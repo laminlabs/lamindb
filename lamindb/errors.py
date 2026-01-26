@@ -17,6 +17,7 @@ LaminDB.
 .. autoexception:: FieldValidationError
 .. autoexception:: NoWriteAccess
 .. autoexception:: BlobHashNotFound
+.. autoexception:: FileNotInDevDir
 
 """
 
@@ -134,5 +135,11 @@ class BlobHashNotFound(Exception):
 
 class NoWriteAccess(Exception):
     """No write access to a space."""
+
+    pass
+
+
+class FileNotInDevDir(Exception):
+    """File path is not within the configured dev directory."""
 
     pass

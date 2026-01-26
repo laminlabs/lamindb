@@ -7,7 +7,6 @@ from django.db.models import (
     CASCADE,
     PROTECT,
 )
-from lamin_utils import logger
 from lamindb_setup import _check_instance_setup
 
 from lamindb.base.fields import (
@@ -19,7 +18,7 @@ from lamindb.base.fields import (
 from lamindb.base.users import current_user_id
 from lamindb.base.utils import strict_classmethod
 
-from ..base.ids import base62_16
+from ..base.uids import base62_16
 from .can_curate import CanCurate
 from .sqlrecord import BaseSQLRecord, IsLink, SQLRecord
 
@@ -30,8 +29,9 @@ if TYPE_CHECKING:
     from .artifact import Artifact
     from .block import RunBlock
     from .collection import Collection
-    from .feature import FeatureValue
+    from .feature import JsonValue
     from .project import Project
+    from .query_manager import QueryManager
     from .query_set import QuerySet
     from .record import Record
     from .transform import Transform
@@ -153,11 +153,11 @@ class User(BaseSQLRecord, CanCurate):
     """User handle, valid across DB instances (required)."""
     name: str | None = CharField(max_length=150, db_index=True, null=True)
     """Full name (optional)."""  # has to match hub specification, where it's also optional
-    linked_in_records: Record = models.ManyToManyField(
+    linked_in_records: QueryManager[Record] = models.ManyToManyField(
         "Record", through="RecordUser", related_name="linked_users"
     )
     """This user is linked in these records as a value."""
-    artifacts: Artifact = models.ManyToManyField(
+    artifacts: QueryManager[Artifact] = models.ManyToManyField(
         "Artifact",
         through="ArtifactUser",
         through_fields=("user", "artifact"),
@@ -182,8 +182,8 @@ class User(BaseSQLRecord, CanCurate):
     @overload
     def __init__(
         self,
+        uid: str,
         handle: str,
-        email: str,
         name: str | None,
     ): ...
 
@@ -201,18 +201,16 @@ class User(BaseSQLRecord, CanCurate):
         super().__init__(*args, **kwargs)
 
 
-class Run(SQLRecord):
-    """Runs of transforms such as the execution of a script.
-
-    A registry to store runs of transforms, such as an executation of a script.
+class Run(SQLRecord, TracksUpdates):
+    """Runs of transforms such as the executions of a script.
 
     Args:
-        transform: `Transform` A :class:`~lamindb.Transform` record.
-        name: `str | None = None` An optional name.
+        transform: :class:`~lamindb.Transform` A data transformation object.
+        name: `str | None = None` A name.
         params: `dict | None = None` A dictionary of parameters.
-        reference: `str | None = None` For instance, an external ID or a download URL.
+        reference: `str | None = None` For instance, an external ID or URL.
         reference_type: `str | None = None` For instance, `redun_id`, `nextflow_id` or `url`.
-        initiated_by_run: `Run | None = None` The run that triggers this run.
+        initiated_by_run: `Run | None = None` The `run` that triggers this `run`.
 
     See Also:
         :func:`~lamindb.track`
@@ -224,19 +222,14 @@ class Run(SQLRecord):
 
         Create a run record::
 
-            ln.Transform(key="Cell Ranger", version="7.2.0", type="pipeline").save()
+            ln.Transform(key="Cell Ranger", version="7.2.0", kind="pipeline").save()
             transform = ln.Transform.get(key="Cell Ranger", version="7.2.0")
             run = ln.Run(transform)
 
-        Create a global run context for a custom transform::
-
-            ln.track(transform=transform)
-            ln.context.run  # global run
-
-        Track a global run context for a notebook or script::
+        Track a global run of a notebook or script::
 
             ln.track()
-            ln.context.run  # global run
+            ln.context.run  # global run object
 
         You can pass parameters to `Run(transform, params=params)` or add them later::
 
@@ -265,9 +258,6 @@ class Run(SQLRecord):
         app_label = "lamindb"
 
     _name_field: str = "started_at"
-    _aux_fields: dict[str, tuple[str, type]] = {
-        "0": ("cli_args", str),
-    }
 
     id: int = models.BigAutoField(primary_key=True)
     """Internal id, valid only in one DB instance."""
@@ -277,9 +267,9 @@ class Run(SQLRecord):
     )
     """Universal id, valid across DB instances."""
     name: str | None = CharField(max_length=150, null=True, db_index=True)
-    """A name."""
+    """An optional name for this run."""
     transform: Transform = ForeignKey("Transform", CASCADE, related_name="runs")
-    """The transform :class:`~lamindb.Transform` that is being run."""
+    """The transform that is being run ← :attr:`~lamindb.Transform.runs`."""
     entrypoint: str | None = CharField(max_length=255, null=True, db_index=True)
     """The entrypoint of the transform.
 
@@ -288,91 +278,90 @@ class Run(SQLRecord):
     started_at: datetime = DateTimeField(
         editable=False, db_default=models.functions.Now(), db_index=True
     )
-    """Start time of run."""
+    """The time this run started."""
     finished_at: datetime | None = DateTimeField(db_index=True, null=True, default=None)
-    """Finished time of run."""
+    """The time this run finished or aborted."""
     # we don't want to make below a OneToOne because there could be the same trivial report
     # generated for many different runs
     report: Artifact | None = ForeignKey(
         "Artifact", PROTECT, null=True, related_name="_report_of", default=None
     )
-    """Report of run, e.g.. n html file."""
-    _logfile: Artifact | None = ForeignKey(
-        "Artifact", PROTECT, null=True, related_name="_logfile_of", default=None
-    )
-    """Report of run, e.g.. n html file."""
+    """The report of this run such as an `.html` or `.txt` file."""
     environment: Artifact | None = ForeignKey(
         "Artifact", PROTECT, null=True, related_name="_environment_of", default=None
     )
-    """Computational environment for the run.
+    """The computational environment for this run.
 
     For instance, `Dockerfile`, `docker image`, `requirements.txt`, `environment.yml`, etc.
     """
-    input_artifacts: Artifact
-    """The artifacts serving as input for this run.
-
-    Related accessor: :attr:`~lamindb.Artifact.input_of_runs`.
+    input_artifacts: QueryManager[Artifact]
+    """The artifacts serving as input for this run, via :attr:`~lamindb.Artifact.input_of_runs`.
     """
     output_artifacts: Artifact
-    """The artifacts generated by this run.
-
-    Related accessor: via :attr:`~lamindb.Artifact.run`
+    """The artifacts generated by this run, via :attr:`~lamindb.Artifact.run`.
     """
-    input_collections: Collection
-    """The collections serving as input for this run."""
-    output_collections: Collection
-    """The collections generated by this run."""
-    input_records: Record
-    """The collections serving as input for this run."""
+    recreated_artifacts: QueryManager[Artifact]
+    """The output artifacts that were recreated by this run but originally created in another run, via :attr:`~lamindb.Artifact.recreating_runs`.
+
+    Artifacts are considered recreated if they are reloaded due to a hash lookup match for an existing artifact.
+    """
+    input_records: QueryManager[Record]
+    """The collections serving as input for this run, via :attr:`~lamindb.Record.input_of_runs`."""
     output_records: Record
-    """The collections generated by this run."""
+    """The collections generated by this run, via :attr:`~lamindb.Record.run`."""
+    input_collections: QueryManager[Collection]
+    """The collections serving as input for this run, via :attr:`~lamindb.Collection.input_of_runs`."""
+    output_collections: Collection
+    """The collections generated by this run, via :attr:`~lamindb.Collection.run`."""
+    recreated_collections: QueryManager[Collection]
+    """The output collections that were recreated by this run but originally created in another run, via :attr:`~lamindb.Collection.recreating_runs`.
+
+    Artifacts are considered recreated if they are reloaded due to a hash lookup match for an existing artifact.
+    """
     params: dict = models.JSONField(null=True)
-    """JSON-like parameters."""
-    _feature_values: FeatureValue = models.ManyToManyField(
-        "FeatureValue", through="RunFeatureValue", related_name="runs"
+    """Parameters (plain JSON values)."""
+    json_values: QueryManager[JsonValue] = models.ManyToManyField(
+        "JsonValue", through="RunJsonValue", related_name="runs"
     )
-    """Feature values."""
+    """Feature-indexed JSON values ← :attr:`~lamindb.JsonValue.runs`."""
     reference: str | None = CharField(max_length=255, db_index=True, null=True)
-    """A reference like a URL or external ID (such as from a workflow manager)."""
+    """A reference like a URL or an external ID such as from a workflow manager."""
     reference_type: str | None = CharField(max_length=25, db_index=True, null=True)
-    """Type of reference such as a workflow manager execution ID."""
+    """The type of the `reference` such as a workflow manager execution ID."""
+    cli_args: str | None = CharField(max_length=1024, null=True, default=None)
+    """CLI arguments if the run was invoked from the command line."""
     created_at: datetime = DateTimeField(
         editable=False, db_default=models.functions.Now(), db_index=True
     )
-    """Time of first creation. Mismatches ``started_at`` if the run is re-run."""
+    """The time of creation of this run."""
     created_by: User = ForeignKey(
         "User", CASCADE, default=current_user_id, related_name="created_runs"
     )
-    """Creator of run."""
-    ulabels: ULabel = models.ManyToManyField(
+    """The creator of this run ← :attr:`~lamindb.User.created_runs`."""
+    ulabels: QueryManager[ULabel] = models.ManyToManyField(
         "ULabel", through="RunULabel", related_name="runs"
     )
-    """ULabel annotations of this transform."""
+    """The ulabels annotating this run ← :attr:`~lamindb.ULabel.runs`."""
     initiated_by_run: Run | None = ForeignKey(
         "Run", CASCADE, null=True, related_name="initiated_runs", default=None
     )
-    """The run that triggered the current run.
-
-    This is not a preceding run. The preceding runs ("predecessors") is the set
-    of runs that produced the output artifacts that serve as the inputs for the
-    present run.
-    """
+    """The run that initiated this run, via :attr:`~lamindb.Run.initiated_runs`."""
     initiated_runs: Run
-    """Runs that were initiated by this run."""
-    projects: Project
-    """Linked projects."""
-    blocks: RunBlock
-    """Blocks that annotate this run."""
-    records: Record
-    """Records that annotate this run."""
-    linked_in_records: Record = models.ManyToManyField(
+    """The runs that were initiated by this run."""
+    projects: QueryManager[Project]
+    """The projects annotating this run ← :attr:`~lamindb.Project.runs`."""
+    ablocks: RunBlock
+    """The blocks annotating this run ← :attr:`~lamindb.RunBlock.run`."""
+    records: QueryManager[Record]
+    """The records annotating this run, via :attr:`~lamindb.Record.runs`."""
+    linked_in_records: QueryManager[Record] = models.ManyToManyField(
         "Record", through="RecordRun", related_name="linked_runs"
     )
-    """This run is linked in these records as a value."""
-    artifacts: Artifact = models.ManyToManyField(
-        "Artifact", through="ArtifactRun", related_name="linked_runs"
+    """This run is linked in these records as a value, via :attr:`~lamindb.Record.linked_runs`."""
+    artifacts: QueryManager[Artifact] = models.ManyToManyField(
+        "Artifact", through="ArtifactRun", related_name="runs"
     )
-    """The artifacts annotated by this run."""
+    """The artifacts annotated by this run, via :attr:`~lamindb.Artifact.runs`."""
     _is_consecutive: bool | None = BooleanField(null=True)
     """Indicates whether code was consecutively executed. Is relevant for notebooks."""
     _status_code: int = models.SmallIntegerField(
@@ -463,22 +452,6 @@ class Run(SQLRecord):
         return status_dict.get(self._status_code, "unknown")
 
     @property
-    def cli_args(self) -> str | None:
-        """CLI arguments if the run was invoked from the command line."""
-        if self._aux is not None and "af" in self._aux and "0" in self._aux["af"]:  # type: ignore
-            return self._aux["af"]["0"]  # type: ignore
-        else:
-            return None
-
-    @cli_args.setter
-    def cli_args(self, value: str) -> None:
-        if not isinstance(value, str) or not (value):
-            logger.warning("did not set empty or non-string cli_args")
-            return
-        self._aux = self._aux or {}
-        self._aux.setdefault("af", {})["0"] = value
-
-    @property
     def features(self) -> FeatureManager:
         """Manage annotations with features."""
         from ._feature_manager import FeatureManager
@@ -535,13 +508,11 @@ def delete_run_artifacts(run: Run) -> None:
             report.delete(permanent=True)
 
 
-class RunFeatureValue(BaseSQLRecord, IsLink):
+class RunJsonValue(BaseSQLRecord, IsLink):
     id: int = models.BigAutoField(primary_key=True)
-    run: Run = ForeignKey(Run, CASCADE, related_name="links_featurevalue")
+    run: Run = ForeignKey(Run, CASCADE, related_name="links_jsonvalue")
     # we follow the lower() case convention rather than snake case for link models
-    featurevalue: FeatureValue = ForeignKey(
-        "FeatureValue", PROTECT, related_name="links_run"
-    )
+    jsonvalue: JsonValue = ForeignKey("JsonValue", PROTECT, related_name="links_run")
     created_at: datetime = DateTimeField(
         editable=False, db_default=models.functions.Now(), db_index=True
     )
@@ -553,4 +524,4 @@ class RunFeatureValue(BaseSQLRecord, IsLink):
 
     class Meta:
         app_label = "lamindb"
-        unique_together = ("run", "featurevalue")
+        unique_together = ("run", "jsonvalue")

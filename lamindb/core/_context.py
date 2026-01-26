@@ -14,11 +14,11 @@ from typing import TYPE_CHECKING, TextIO
 import lamindb_setup as ln_setup
 from django.db.models import Func, IntegerField, Q
 from lamin_utils._logger import logger
-from lamindb_setup.core import deprecated
 from lamindb_setup.core.hashing import hash_file
 
-from ..base.ids import base62_12
+from ..base.uids import base62_12
 from ..errors import (
+    FileNotInDevDir,
     InvalidArgument,
     TrackNotCalled,
     UpdateContext,
@@ -36,7 +36,7 @@ from ._track_environment import track_python_environment
 if TYPE_CHECKING:
     from lamindb_setup.types import UPathStr
 
-    from lamindb.base.types import TransformType
+    from lamindb.base.types import TransformKind
     from lamindb.models import Branch, Project, Space
 
 
@@ -48,8 +48,8 @@ msg_path_failed = "failed to infer notebook path.\nfix: pass `path` to `ln.track
 def detect_and_process_source_code_file(
     *,
     path: UPathStr | None,
-    transform_type: TransformType | None = None,
-) -> tuple[Path, TransformType, str, str]:
+    transform_type: TransformKind | None = None,
+) -> tuple[Path, TransformKind, str, str]:
     """Track source code file and determine transform metadata.
 
     For `.py` files, classified as "script".
@@ -375,15 +375,6 @@ class Context:
         self._description = value
 
     @property
-    @deprecated(new_name="description")
-    def name(self) -> str | None:
-        return self._description
-
-    @name.setter
-    def name(self, value: str | None):
-        self._description = value
-
-    @property
     def uid(self) -> str | None:
         """`uid` argument for `context.transform`."""
         return self._uid
@@ -443,7 +434,7 @@ class Context:
             project: A project (or its `name` or `uid`) for labeling entities.
             space: A restricted space (or its `name` or `uid`) in which to store entities.
                 Default: the `"all"` space. Note that bionty entities ignore this setting and always get written to the `"all"` space.
-                If you want to manually move entities to a different space, set the `.space` field (:doc:`docs:access`).
+                If you want to manually move entities to a different space, set the `.space` field (:doc:`docs:permissions`).
             branch: A branch (or its `name` or `uid`) on which to store records.
             features: A dictionary of features & values to track for the run.
             params: A dictionary of params & values to track for the run.
@@ -559,7 +550,7 @@ class Context:
                 transform_type=transform_type,  # type: ignore
             )
         else:
-            if transform.type in {"notebook", "script"}:
+            if transform.kind in {"notebook", "script"}:
                 raise ValueError(
                     "Use `ln.track()` without passing transform in a notebook or script"
                     " - metadata is automatically parsed"
@@ -584,7 +575,7 @@ class Context:
             new_run = (
                 False
                 if (
-                    self._transform.type == "notebook"
+                    self._transform.kind == "notebook"
                     and self._notebook_runner != "nbconvert"
                 )
                 else True
@@ -636,7 +627,7 @@ class Context:
             self.transform.save()
         log_to_file = None
         if log_to_file is None:
-            log_to_file = self.transform.type != "notebook"
+            log_to_file = self.transform.kind != "notebook"
         if log_to_file:
             self._stream_tracker.start(run)
         logger.important(self._logging_message_track)
@@ -644,7 +635,7 @@ class Context:
             logger.important(self._logging_message_imports)
         if uid_was_none:
             notebook_or_script = (
-                "notebook" if self._transform.type == "notebook" else "script"
+                "notebook" if self._transform.kind == "notebook" else "script"
             )
             r_or_python = "."
             if self._path is not None:
@@ -666,7 +657,7 @@ class Context:
             logger.important_hint(
                 f'recommendation: to identify the {notebook_or_script} across renames, pass the uid: ln{r_or_python}track("{self.transform.uid[:-4]}"{kwargs_str})'
             )
-        if self.transform.type == "script":
+        if self.transform.kind == "script":
             save_context_core(
                 run=run,
                 transform=self.transform,
@@ -732,13 +723,13 @@ class Context:
                 and aux_transform.created_by_id == ln_setup.settings.user.id
             )
             # if the transform source code is unchanged
-            # if aux_transform.type == "notebook", we anticipate the user makes changes to the notebook source code
+            # if aux_transform.kind == "notebook", we anticipate the user makes changes to the notebook source code
             # in an interactive session, hence we *pro-actively bump* the version number by setting `revises` / 'nbconvert' execution is NOT interactive
             # in the second part of the if condition even though the source code is unchanged at point of running track()
             or (
                 aux_transform.hash == transform_hash
                 and (
-                    aux_transform.type != "notebook"
+                    aux_transform.kind != "notebook"
                     or self._notebook_runner == "nbconvert"
                 )
             )
@@ -748,11 +739,11 @@ class Context:
         else:
             uid = f"{aux_transform.uid[:-4]}{increment_base62(aux_transform.uid[-4:])}"
             message = (
-                f"found {aux_transform.type} {aux_transform.key}, making new version"
+                f"found {aux_transform.kind} {aux_transform.key}, making new version"
             )
             if (
                 aux_transform.hash == transform_hash
-                and aux_transform.type == "notebook"
+                and aux_transform.kind == "notebook"
             ):
                 message += " -- anticipating changes"
             elif aux_transform.hash != transform_hash:
@@ -771,9 +762,8 @@ class Context:
         description: str | None = None,
         transform_ref: str | None = None,
         transform_ref_type: str | None = None,
-        transform_type: TransformType = None,
+        transform_type: TransformKind = None,
         key: str | None = None,
-        is_flow: bool = False,
     ):
         from .._finish import notebook_to_script
 
@@ -803,7 +793,17 @@ class Context:
         # determine the transform key
         if key is None:
             if ln_setup.settings.dev_dir is not None:
-                key = self._path.relative_to(ln_setup.settings.dev_dir).as_posix()
+                try:
+                    key = self._path.relative_to(ln_setup.settings.dev_dir).as_posix()
+                except ValueError as e:
+                    if "subpath" in str(e):
+                        raise FileNotInDevDir(
+                            f"Path {self._path} is not within the configured dev directory "
+                            f"({ln_setup.settings.dev_dir}).\n"
+                            "Hint: Set dev directory to None via:\n"
+                            "  lamin settings set dev-dir none"
+                        ) from e
+                    raise
             else:
                 key = self._path.name
         # if the user did not pass a uid and there is no matching aux_transform
@@ -893,18 +893,18 @@ class Context:
             # test inconsistent version passed
             if (
                 transform is not None
-                and transform.version is not None  # type: ignore
-                and self.version != transform.version  # type: ignore
+                and transform.version_tag is not None  # type: ignore
+                and self.version != transform.version_tag  # type: ignore
             ):
                 raise ValueError(
-                    f"Transform is already tagged with version {transform.version}, but you passed {self.version}\n"  # noqa: S608
-                    f"If you want to update the transform version, set it outside ln.track(): transform.version = '{self.version}'; transform.save()"
+                    f"Transform is already tagged with version {transform.version_tag}, but you passed {self.version}\n"  # noqa: S608
+                    f"If you want to update the transform version, set it outside ln.track(): transform.version_tag = '{self.version}'; transform.save()"
                 )
             # test whether version was already used for another member of the family
             if self.uid is not None and len(self.uid) == 16:
                 suid, vuid = (self.uid[:-4], self.uid[-4:])
                 transform = Transform.filter(
-                    uid__startswith=suid, version=self.version
+                    uid__startswith=suid, version_tag=self.version
                 ).one_or_none()
                 if transform is not None and vuid != transform.uid[-4:]:
                     better_version = bump_version_function(self.version)
@@ -916,13 +916,12 @@ class Context:
             assert key is not None  # noqa: S101
             transform = Transform(  # type: ignore
                 uid=self.uid,
-                version=self.version,
+                version_tag=self.version,
                 description=description,
                 key=key,
                 reference=transform_ref,
                 reference_type=transform_ref_type,
-                type=transform_type,
-                is_flow=is_flow,
+                kind=transform_type,
             ).save()
             self._logging_message_track += (
                 f"created Transform('{transform.uid}', key='{transform.key}')"
@@ -949,7 +948,7 @@ class Context:
                 and not transform_was_saved
             ):
                 raise UpdateContext(
-                    f'{transform.created_by.name} ({transform.created_by.handle}) already works on this draft {transform.type}.\n\nPlease create a revision via `ln.track("{uid[:-4]}{increment_base62(uid[-4:])}")` or a new transform with a *different* key and `ln.track("{base62_12()}0000")`.'
+                    f'{transform.created_by.name} ({transform.created_by.handle}) already works on this draft {transform.kind}.\n\nPlease create a revision via `ln.track("{uid[:-4]}{increment_base62(uid[-4:])}")` or a new transform with a *different* key and `ln.track("{base62_12()}0000")`.'
                 )
             if transform.reference != transform_ref:
                 transform.reference = transform_ref
@@ -962,7 +961,7 @@ class Context:
             if transform_was_saved:
                 bump_revision = False
                 if (
-                    transform.type == "notebook"
+                    transform.kind == "notebook"
                     and self._notebook_runner != "nbconvert"
                 ):
                     # we anticipate the user makes changes to the notebook source code
@@ -977,7 +976,7 @@ class Context:
                     change_type = (
                         "re-running notebook with already-saved source code"
                         if (
-                            transform.type == "notebook"
+                            transform.kind == "notebook"
                             and self._notebook_runner != "nbconvert"
                         )
                         else "source code changed"
@@ -1016,7 +1015,7 @@ class Context:
         if self.run is None:
             raise TrackNotCalled("Please run `ln.track()` before `ln.finish()`")
         if self._path is None:
-            if self.run.transform.type in {"script", "notebook"}:
+            if self.run.transform.kind in {"script", "notebook"}:
                 raise ValueError(
                     "Transform type is not allowed to be 'script' or 'notebook' because `context._path` is `None`."
                 )
@@ -1025,7 +1024,7 @@ class Context:
             # nothing else to do
             return None
         self.run._status_code = 0
-        if self.transform.type == "notebook":
+        if self.transform.kind == "notebook":
             return_code = save_context_core(
                 run=self.run,
                 transform=self.run.transform,
@@ -1055,14 +1054,6 @@ class Context:
         self._transform = None
         self._version = None
         self._description = None
-
-    @deprecated("ln.track()")
-    def track(self, *args, **kwargs):
-        return self._track(*args, **kwargs)
-
-    @deprecated("ln.finish()")
-    def finish(self, *args, **kwargs):
-        return self._finish(*args, **kwargs)
 
 
 context: Context = Context()

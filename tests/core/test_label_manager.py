@@ -51,7 +51,7 @@ def test_labels_add(adata):
     artifact.labels.add(label, feature=experiment)
     # check that the feature was updated with type = "Record"
     feature = ln.Feature.get(name="experiment")
-    assert feature.dtype == "cat[Record]"
+    assert feature._dtype_str == "cat[Record]"
     with pytest.raises(TypeError):
         experiments = artifact.labels.get("experiment")
     # check that the label is there, it's exactly one label with name "Experiment 1"
@@ -161,7 +161,7 @@ def test_labels_add_using_anndata(adata):
     assert organism_link.organism.name == "mouse"
     assert organism_link.feature.name == "organism"
     feature = ln.Feature.get(name="organism")
-    assert feature.dtype == "cat[bionty.Organism]"
+    assert feature._dtype_str == "cat[bionty.Organism]"
 
     # now we add cell types & tissues and run checks
     ln.Feature(name="cell_type", dtype=bt.CellType).save()
@@ -183,11 +183,11 @@ def test_labels_add_using_anndata(adata):
     tissue = ln.Feature(name="tissue", dtype="cat[bionty.Tissue|Record]").save()
     add_labels(artifact, tissues, feature=tissue, from_curator=True)
     feature = ln.Feature.get(name="cell_type")
-    assert feature.dtype == "cat[bionty.CellType]"
+    assert feature._dtype_str == "cat[bionty.CellType]"
     feature = ln.Feature.get(name="cell_type_by_expert")
-    assert feature.dtype == "cat[bionty.CellType]"
+    assert feature._dtype_str == "cat[bionty.CellType]"
     feature = ln.Feature.get(name="tissue")
-    assert feature.dtype == "cat[bionty.Tissue|Record]"
+    assert feature._dtype_str == "cat[bionty.Tissue|Record]"
     diseases = [ln.Record(name=name) for name in adata.obs["disease"].unique()]
     ln.save(diseases)
     add_labels(artifact, diseases, feature=features.disease, from_curator=True)
@@ -264,14 +264,12 @@ def test_labels_get(get_mini_csv: Path):  # noqa: F811
     with pytest.raises(TypeError):
         artifact.labels.get("x")  # type: ignore
     # no linked labels
-    feature_name_feature = ln.Feature(name="feature name", dtype="cat")
-    feature_name_feature.save()
-    schema = ln.Schema(features=[feature_name_feature])
-    schema.save()
+    feature_name_feature = ln.Feature(name="feature name", dtype=ln.ULabel).save()
+    schema = ln.Schema(features=[feature_name_feature]).save()
     artifact.save()
     # test for deprecated add_schema
     artifact.features._add_schema(schema, slot="random")
-    assert artifact.feature_sets.first() == schema
+    assert artifact.schemas.first() == schema
     artifact.delete(permanent=True, storage=True)
     schema.delete(permanent=True)
     feature_name_feature.delete(permanent=True)

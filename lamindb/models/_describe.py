@@ -107,7 +107,7 @@ def format_title_with_version(
     title_str = record.key if record.key is not None else ""
     title = Text.assemble(
         (title_str, "cyan3"),
-        (f" ({record.version if record.version else record.uid[-4:]})", "dim"),
+        (f" ({record.version})", "dim"),
         Text.assemble(("\n|   description: ", "dim"), record.description)
         if record.description
         else Text(""),
@@ -467,9 +467,9 @@ def describe_schema(record: Schema, slot: str | None = None) -> Tree:
     add_two_column_items_to_tree(tree, two_column_items)
 
     # Add features section
-    members_count = record.n
-    members_count_display = f" ({members_count})" if members_count > 0 else ""
-    if members_count > 0 or (record.dtype and record.itype is not None):
+    n_members = record.n_members
+    members_count_display = f" ({n_members})" if n_members else ""
+    if n_members or (record.dtype and record.itype is not None):
         features = tree.add(
             Text.assemble(
                 (
@@ -479,7 +479,7 @@ def describe_schema(record: Schema, slot: str | None = None) -> Tree:
                 (members_count_display, "bold dim"),
             )
         )
-        if members_count > 0:
+        if n_members is not None:
             feature_table = Table(
                 show_header=True, header_style="dim", box=None, pad_edge=False
             )
@@ -488,17 +488,17 @@ def describe_schema(record: Schema, slot: str | None = None) -> Tree:
             feature_table.add_column("dtype", style="", no_wrap=True)
             feature_table.add_column("optional", style="", no_wrap=True)
             feature_table.add_column("nullable", style="", no_wrap=True)
-            feature_table.add_column("coerce_dtype", style="", no_wrap=True)
+            feature_table.add_column("coerce", style="", no_wrap=True)
             feature_table.add_column("default_value", style="", no_wrap=True)
 
             optionals = record.optionals.get()
             for member in record.members:
                 feature_table.add_row(
                     member.name,
-                    Text(strip_cat(member.dtype)),
+                    Text(strip_cat(member._dtype_str)),
                     "✓" if optionals.filter(uid=member.uid).exists() else "✗",
                     "✓" if member.nullable else "✗",
-                    "✓" if record.coerce_dtype or member.coerce_dtype else "✗",
+                    "✓" if record.coerce or member.coerce else "✗",
                     str(member.default_value) if member.default_value else "unset",
                 )
 
@@ -568,7 +568,7 @@ def describe_sqlite(record):
         if model_name in {"Artifact", "Collection"}:
             many_to_many_fields.append("input_of_runs")
         if model_name == "Artifact":
-            many_to_many_fields.append("feature_sets")
+            many_to_many_fields.append("schemas")
         record = (
             record.__class__.objects.using(record._state.db)
             .prefetch_related(*many_to_many_fields)

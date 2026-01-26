@@ -85,7 +85,7 @@ Artifact: test_df.parquet (0000)
     └── columns (1)
         feat1               int"""
     )
-    inferred_schema_link = artifact.feature_sets.through.get(artifact_id=artifact.id)
+    inferred_schema_link = artifact.schemas.through.get(artifact_id=artifact.id)
     assert inferred_schema_link.slot == "columns"
     assert inferred_schema_link.schema.members.count() == 1
     assert inferred_schema_link.schema.members.first() == feat1
@@ -99,8 +99,8 @@ Artifact: test_df.parquet (0000)
 def test_artifact_dataframe_with_features(example_dataframe: pd.DataFrame):
     """Test column names encoding when features with the same names are present."""
     artifact = ln.Artifact.from_dataframe(example_dataframe, key="df.parquet").save()
-    id_feature = ln.Feature(name="id", dtype="int").save()
-    uid_feature = ln.Feature(name="uid", dtype="str").save()
+    id_feature = ln.Feature(name="id", dtype=int).save()
+    uid_feature = ln.Feature(name="uid", dtype=str).save()
     artifact.features.add_values({"id": 1, "uid": "test-uid"})
     df = ln.Artifact.filter(key="df.parquet").to_dataframe(
         include=["description"], features=True
@@ -227,8 +227,8 @@ Artifact: test_df_with_external_features.parquet (0000)
 │       feat1               int
 │       feat2               int
 └── External features
-    └── feature_a           str                     x
-        feature_b           str                     y"""
+    └── feature_a           str                      x
+        feature_b           str                      y"""
     )
     with pytest.raises(ValueError) as error:
         artifact.features.remove_values("feature_a", value="x")
@@ -268,8 +268,8 @@ Artifact: test_df_with_external_features.parquet (0000)
     assert artifact.features.get_values() == {"feature_a": "z", "feature_b": "y"}
 
     # clean up everything
-    inferred_schema = artifact.feature_sets.all()[0]
-    artifact.feature_sets.remove(inferred_schema.id)
+    inferred_schema = artifact.schemas.all()[0]
+    artifact.schemas.remove(inferred_schema.id)
     inferred_schema.delete(permanent=True)
     artifact.delete(permanent=True)
     schema_with_mistake.delete(permanent=True)

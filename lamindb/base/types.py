@@ -4,8 +4,8 @@ Central object types
 --------------------
 
 .. autoclass:: ArtifactKind
-.. autoclass:: TransformType
-.. autoclass:: Dtype
+.. autoclass:: TransformKind
+.. autoclass:: DtypeStr
 
 Basic types
 -----------
@@ -18,6 +18,7 @@ Basic types
 
 from __future__ import annotations
 
+import datetime
 from typing import Literal, Union
 
 import numpy as np
@@ -30,12 +31,12 @@ from lamindb_setup.types import UPathStr  # noqa: F401
 ListLike = Union[list[str], pd.Series, np.array]
 StrField = Union[str, FieldAttr]  # typing.TypeAlias
 
-TransformType = Literal["pipeline", "notebook", "script", "function", "linker"]
+TransformKind = Literal["pipeline", "notebook", "script", "function"]
+TransformType = TransformKind  # backward compat
 ArtifactKind = Literal["dataset", "model", "__lamindb_run__", "__lamindb_config__"]
+DtypeObject = int | float | str | bool | datetime.date | datetime.datetime | dict
 
-# below is used for Feature.dtype and Param.dtype
-Dtype = Literal[
-    "cat",  # categoricals
+DtypeStr = Literal[
     "num",  # numericals
     "str",  # string
     "int",  # integer / numpy.integer
@@ -47,7 +48,7 @@ Dtype = Literal[
     "object",  # this is a pandas input dtype, we're only using it for complicated types, not for strings
     "path",  # path, validated as str, but specially treated in the UI
 ]
-"""Data type.
+"""String-serialized data type.
 
 String-serialized representations of common data types.
 
@@ -57,7 +58,6 @@ Overview
 ============  ============  =================================================
 description   lamindb       pandas
 ============  ============  =================================================
-categorical   `"cat"`       `category`
 numerical     `"num"`       `int | float`
 integer       `"int"`       `int64 | int32 | int16 | int8 | uint | ...`
 float         `"float"`     `float64 | float32 | float16 | float8 | ...`
@@ -71,18 +71,16 @@ path          `"path"`      `str` (pandas does not have a dedicated path type, v
 Categoricals
 ============
 
-Beyond indicating that a feature is a categorical, `lamindb` allows you to define the registry to which values are restricted.
+`lamindb` allows you to define a registry to which categoricals values are restricted.
 
-For example, `'cat[ULabel]'` or `'cat[bionty.CellType]'` indicate that permissible values are from the `ULabel` or `CellType` registry, respectively.
+For example, `'cat[ULabel]'` or `'cat[bionty.CellType]'` indicate that permissible values are stored in the `name` field of the `ULabel` or `CellType` registry, respectively.
 
-You can also reference multiple registries, e.g., `'cat[ULabel|bionty.CellType]'` indicates that values can be from either registry.
-
-You can also restrict to sub-types defined in registries via the `type` column, e.g., `'cat[ULabel[CellMedium]]'` indicates that values must be of type `CellMedium` within the `ULabel` registry.
+You can also restrict to sub-types defined in registries via the `type` column, e.g., `'cat[ULabel[123456ABCDEFG]]'` indicates that values must be of the type with `uid="123456ABCDEFG"` within the `ULabel` registry.
 
 Literal
 =======
 
-A `Dtype` object in `lamindb` is a `Literal` up to further specification of `"cat"`.
+A `DtypeStr` object in `lamindb` is a `Literal` up to further specification of `"cat"`.
 
 """
-FeatureDtype = Dtype  # backward compat
+Dtype = DtypeStr  # backward compat

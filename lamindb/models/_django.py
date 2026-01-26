@@ -114,8 +114,10 @@ def get_artifact_or_run_with_related(
             for model_cls, field_name in full_map.items()
             if not field_name.startswith("_") and field_name not in EXCLUDE_LABELS
         }
-        # below shouldn't be necessary
-        m2m_model_to_field_map["Run"] = "linked_runs"
+        if is_record:
+            m2m_model_to_field_map["Run"] = "linked_runs"
+        else:
+            m2m_model_to_field_map["Run"] = "runs"
     link_tables = (
         []
         if not include_feature_link
@@ -146,7 +148,7 @@ def get_artifact_or_run_with_related(
                     id=F(f"{fk}__id"),
                     key=F(f"{fk}__key"),
                     uid=F(f"{fk}__uid"),
-                    version=F(f"{fk}__version"),
+                    version=F(f"{fk}__version_tag"),
                 )
             elif fk == "created_by":
                 annotations[f"fkfield_{fk}"] = JSONObject(
@@ -179,7 +181,7 @@ def get_artifact_or_run_with_related(
         else:
             label_field = "value"
         related_model = link_model._meta.get_field(label_field).related_model
-        # manually include "name" as wetlab.Compound.name is a TextField due to no length limitation
+        # manually include "name" as pertdb.Compound.name is a TextField due to no length limitation
         char_field_names = [
             field.name
             for field in related_model._meta.concrete_fields
@@ -212,8 +214,8 @@ def get_artifact_or_run_with_related(
         )
 
     if include_schema:
-        annotations["schemas"] = Subquery(
-            model.feature_sets.through.objects.filter(artifact=OuterRef("pk"))
+        annotations["m2m_schemas"] = Subquery(
+            model.schemas.through.objects.filter(artifact=OuterRef("pk"))
             .annotate(
                 data=JSONObject(
                     id=F("id"),
@@ -237,15 +239,15 @@ def get_artifact_or_run_with_related(
     if not record_meta:
         return None
 
-    related_data: dict = {"m2m": {}, "fk": {}, "link": {}, "schemas": {}}
+    related_data: dict = {"m2m": {}, "fk": {}, "link": {}, "m2m_schemas": {}}
     for k, v in record_meta.items():
         if k.startswith("fkfield_") and v is not None:
             related_data["fk"][k[8:]] = v
         elif k.startswith("linkfield_") and v is not None:
             related_data["link"][k[10:]] = v
-        elif k == "schemas":
+        elif k == "m2m_schemas":
             if v:
-                related_data["schemas"] = get_schema_m2m_relations(
+                related_data["m2m_schemas"] = get_schema_m2m_relations(
                     record, {i["schema"]: i["slot"] for i in v}
                 )
 
@@ -383,7 +385,7 @@ def get_schema_m2m_relations(artifact: Artifact, slot_schema: dict, limit: int =
         related_names[name] = related_model.__get_name_with_module__()
 
     schema_m2m = (
-        Schema.using(artifact._state.db)
+        Schema.connect(artifact._state.db)
         .filter(id__in=slot_schema.keys())
         .annotate(**annotations)
         .values("id", *annotations.keys())

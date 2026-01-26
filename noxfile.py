@@ -118,13 +118,13 @@ def install_ci(session, group):
         extras += "zarr_v2"
         run(
             session,
-            "uv pip install --system --no-deps ./sub/wetlab",
+            "uv pip install --system --no-deps ./sub/pertdb",
         )
         run(session, "uv pip install --system vitessce")
     elif group == "curator":
         run(
             session,
-            "uv pip install --system --no-deps ./sub/wetlab",
+            "uv pip install --system --no-deps ./sub/pertdb",
         )
         # spatialdata dependency, specifying it here explicitly
         # otherwise there are problems with uv resolver
@@ -147,24 +147,16 @@ def install_ci(session, group):
         )
         run(
             session,
-            "uv pip install --system --no-deps ./sub/wetlab",
+            "uv pip install --system --no-deps ./sub/pertdb",
         )
     elif group == "cli":
         pass
     elif group == "permissions":
-        run(
-            session,
-            "uv pip install --system --no-deps ./laminhub/rest-hub/laminhub_rest/hubmodule",
-        )
-        # check that just installing psycopg (psycopg3) doesn't break fine-grained access
-        # comment out for now, this is also tested in lamindb-setup hub-local
-        # run(session, "uv pip install --system psycopg[binary]")
+        pass
 
     extras = "," + extras if extras != "" else extras
     run(session, f"uv pip install --system -e .[dev{extras}]")
 
-    # needed here till the next release of lamindb-setup
-    run(session, "uv pip install --system httpx_retries")
     # on the release branch, do not use submodules but run with pypi install
     # only exception is the docs group which should always use the submodule
     # to push docs fixes fast
@@ -173,19 +165,19 @@ def install_ci(session, group):
     if IS_PR or group == "docs":
         run(
             session,
-            "uv pip install --system ./sub/lamindb-setup ./sub/lamin-cli ./sub/bionty",
+            "uv pip install --system ./sub/lamindb-setup ./sub/lamin-cli ./sub/bionty ./sub/pertdb",
         )
     if group == "permissions":
         # have to install after lamindb installation
-        # because lamindb downgrades django
-        run(
-            session,
-            "uv pip install --system sentry_sdk line_profiler setuptools wheel==0.45.1 flit",
-        )
-        run(
-            session,
-            "uv pip install --system -e ./laminhub/rest-hub --no-build-isolation",
-        )
+        # because lamindb downgrades django required by laminhub_rest
+        cmds = "uv pip install --system sentry_sdk line_profiler setuptools wheel==0.45.1 flit"
+        cmds += "\nuv pip install --system --no-build-isolation ./laminhub/backend"
+        cmds += "\nuv pip install --system ./laminhub/backend/utils"
+        cmds += "\nuv pip install --system ./laminhub/backend/services/central"
+        cmds += "\nuv pip install --system ./laminhub/backend/services/instancedb"
+        cmds += "\nuv pip install --system ./laminhub/backend/services/aws"
+        cmds += "\nuv pip install --system --no-deps ./laminhub/backend/services/instancedb/hubmodule"
+        [run(session, line) for line in cmds.splitlines()]
 
 
 @nox.session
@@ -428,7 +420,7 @@ def docs(session):
                 path.rename(f"./docs/{path.name}")
     run(
         session,
-        "lamin init --storage ./docsbuild --modules bionty,wetlab",
+        "lamin init --storage ./docsbuild --modules bionty,pertdb",
     )
     build_docs(session, strip_prefix=True, strict=False)
     upload_docs_artifact(aws=True)

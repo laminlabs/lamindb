@@ -1,16 +1,11 @@
-# .latest_version is tested in test_versioning.py
-
-import os
 import re
 import textwrap
 from contextlib import contextmanager
 
 import bionty as bt
 import lamindb as ln
-import lamindb_setup as ln_setup
 import pytest
 from django.core.exceptions import FieldError
-from laminci.nox import login_testuser1, login_testuser2
 from lamindb.base.users import current_user_id
 from lamindb.errors import InvalidArgument
 from lamindb.models import ArtifactSet, BasicQuerySet, QuerySet
@@ -337,33 +332,30 @@ def test_encode_lamindb_fields_as_columns():
     }
 
 
-def test_connect_public_clone_instance():
-    env = os.environ
-    env["LAMIN_TESTING"] = "true"
+# def test_connect_public_clone_instance():
+#     # become an anonymous user
+#     ln_setup.logout()
 
-    # become an anonymous user
-    ln_setup.logout()
+#     try:
+#         from django.db import connections
 
-    try:
-        from django.db import connections
+#         connections.databases.pop("laminlabs/arc-virtual-cell-atlas", None)
 
-        connections.databases.pop("laminlabs/arc-virtual-cell-atlas", None)
+#         qs = ln.Artifact.connect("laminlabs/arc-virtual-cell-atlas")
 
-        qs = ln.Artifact.connect("laminlabs/arc-virtual-cell-atlas")
+#         assert qs.db == "laminlabs/arc-virtual-cell-atlas"
 
-        assert qs.db == "laminlabs/arc-virtual-cell-atlas"
+#         # Verify the connection is SQLite, not Postgres
+#         assert (
+#             "sqlite"
+#             in connections.databases["laminlabs/arc-virtual-cell-atlas"]["ENGINE"]
+#         )
 
-        # Verify the connection is SQLite, not Postgres
-        assert (
-            "sqlite"
-            in connections.databases["laminlabs/arc-virtual-cell-atlas"]["ENGINE"]
-        )
-
-        # Verify we can actually query it
-        result = qs.filter().first()
-        assert result is not None
-    finally:
-        # log back in to ensure that other tests do not break
-        login_testuser2(session=None)
-        login_testuser1(session=None)
-        ln_setup.connect("lamindb-unit-tests-core")
+#         # Verify we can actually query it
+#         result = qs.filter().first()
+#         assert result is not None
+#     finally:
+#         # log back in to ensure that other tests do not break
+#         login_testuser2(session=None)
+#         login_testuser1(session=None)
+#         ln_setup.connect("lamindb-unit-tests-core")

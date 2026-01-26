@@ -127,8 +127,7 @@ def test_validate_features():
         validate_features(["feature"])
     with pytest.raises(TypeError):
         validate_features({"feature"})
-    transform = ln.Transform(key="test")
-    transform.save()
+    transform = ln.Transform(key="test").save()
     # This is just a type check
     with pytest.raises(TypeError) as error:
         validate_features([transform, ln.Run(transform)])
@@ -293,16 +292,16 @@ def test_schema_update(
     assert mini_immuno_schema_flexible.hash == orig_hash
     assert ccaplog.text.count(warning_message) == 4
 
-    # change coerce_dtype (an auxiliary field) --------------------------------
+    # change coerce (formerly auxiliary field, now Django field) --------------------------------
 
-    assert not mini_immuno_schema_flexible.coerce_dtype
-    mini_immuno_schema_flexible.coerce_dtype = True
+    assert not mini_immuno_schema_flexible.coerce
+    mini_immuno_schema_flexible.coerce = True
     mini_immuno_schema_flexible.save()
     assert mini_immuno_schema_flexible.hash != orig_hash
     assert ccaplog.text.count(warning_message) == 5
 
     # restore original setting
-    mini_immuno_schema_flexible.coerce_dtype = False
+    mini_immuno_schema_flexible.coerce = False
     mini_immuno_schema_flexible.save()
     assert mini_immuno_schema_flexible.hash == orig_hash
     assert ccaplog.text.count(warning_message) == 6
@@ -550,20 +549,25 @@ def test_schema_already_saved_aux():
         itype=ln.Feature,
         dtype="DataFrame",
         minimal_set=True,
-        coerce_dtype=True,
+        coerce=True,
     ).save()
 
     schema = ln.Schema(
         name="AnnData schema",
         otype="AnnData",
         minimal_set=True,
-        coerce_dtype=True,
+        coerce=True,
         slots={"var": var_schema},
     ).save()
 
-    assert len(schema.slots["var"]._aux["af"].keys()) == 3
+    # _aux["af"] now only contains key "3" (index_feature_uid) since coerce and flexible are Django fields
+    assert len(schema.slots["var"]._aux["af"].keys()) == 1
+    assert "3" in schema.slots["var"]._aux["af"]  # index_feature_uid
+    # coerce and flexible are now proper Django fields
+    assert schema.slots["var"].coerce is True
+    assert schema.slots["var"].flexible is False
 
-    # Attempting to save the same schema again should return the Schema with the same `.aux` fields
+    # Attempting to save the same schema again should return the Schema with the same fields
     var_schema_2 = ln.Schema(
         name="test var",
         index=ln.Feature(
@@ -578,19 +582,21 @@ def test_schema_already_saved_aux():
         itype=ln.Feature,
         dtype="DataFrame",
         minimal_set=True,
-        coerce_dtype=True,
+        coerce=True,
     ).save()
 
     schema_2 = ln.Schema(
         name="AnnData schema",
         otype="AnnData",
         minimal_set=True,
-        coerce_dtype=True,
+        coerce=True,
         slots={"var": var_schema_2},
     ).save()
 
-    assert len(schema.slots["var"]._aux["af"].keys()) == 3
+    assert len(schema.slots["var"]._aux["af"].keys()) == 1
     assert schema.slots["var"]._aux == schema_2.slots["var"]._aux
+    assert schema.slots["var"].coerce == schema_2.slots["var"].coerce
+    assert schema.slots["var"].flexible == schema_2.slots["var"].flexible
 
     schema_2.delete(permanent=True)
     schema.delete(permanent=True)
@@ -617,3 +623,34 @@ def test_schema_is_type():
     # clean up
     BioSample.delete(permanent=True)
     Sample.delete(permanent=True)
+
+
+# see test_component_composite in test_transform.py
+def test_composite_component():
+    composite = ln.Schema(name="composite", itype=ln.Feature).save()
+    component1 = ln.Schema(name="component1", itype=bt.CellType).save()
+    component2 = ln.Schema(name="component2", itype=bt.CellMarker).save()
+    composite.components.add(component1, through_defaults={"slot": "slot1"})
+    composite.components.add(component2, through_defaults={"slot": "slot2"})
+
+    assert len(composite.components.all()) == 2
+    assert composite.links_component.count() == 2
+    assert set(composite.links_component.all().to_list("slot")) == {"slot1", "slot2"}
+    assert composite.links_component.first().composite == composite
+    assert composite.composites.count() == 0
+    assert composite.links_composite.count() == 0
+
+    ln.models.SchemaComponent.filter(composite=composite).delete(permanent=True)
+
+    link = ln.models.SchemaComponent(
+        composite=composite, component=component1, slot="var"
+    ).save()
+    assert link in composite.links_component.all()
+    assert link in component1.links_composite.all()
+    assert link.slot == "var"
+
+    composite.delete(permanent=True)
+    component1.delete(permanent=True)
+    component2.delete(permanent=True)
+
+    assert ln.models.SchemaComponent.filter().count() == 0

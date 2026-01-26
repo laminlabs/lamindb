@@ -7,7 +7,7 @@ from django.db import models
 from lamin_utils import logger
 from lamin_utils._base62 import increment_base62
 
-from lamindb.base import ids
+from lamindb.base import uids
 from lamindb.base.fields import (
     BooleanField,
     CharField,
@@ -25,10 +25,8 @@ class IsVersioned(models.Model):
 
     _len_stem_uid: int
 
-    version: str | None = CharField(max_length=30, null=True, db_index=True)
-    """Version (default `None`).
-
-    Defines version of a family of records characterized by the same `stem_uid`.
+    version_tag: str | None = CharField(max_length=30, null=True, db_index=True)
+    """Version tag (default `None`).
 
     Consider using `semantic versioning <https://semver.org>`__
     with `Python versioning <https://peps.python.org/pep-0440/>`__.
@@ -67,11 +65,27 @@ class IsVersioned(models.Model):
         return self.uid[: self._len_stem_uid]  # type: ignore
 
     @property
+    def version(self) -> str:
+        """The version of an object.
+
+        Defines version of an object within a family of objects characterized by the same `stem_uid`.
+
+        Returns `.version_tag` if set, otherwise the last 4 characters of the `uid`.
+        """
+        return self.version_tag if self.version_tag else self.uid[-4:]  # type: ignore
+
+    @version.setter
+    def version(self, value: str | None) -> None:
+        self.version_tag = value
+
+    @property
     def versions(self) -> QuerySet:
         """Lists all records of the same version family.
 
-        >>> new_artifact = ln.Artifact(df2, revises=artifact).save()
-        >>> new_artifact.versions()
+        Example::
+
+            artifact.versions.to_dataframe()       # all versions of the artifact in a dataframe
+            artifact.versions.get(is_latest=True)  # the latest version of the artifact
         """
         return (
             self.__class__.connect(self._state.db)
@@ -79,15 +93,17 @@ class IsVersioned(models.Model):
             .order_by("-created_at")
         )
 
-    def _add_to_version_family(self, revises: IsVersioned, version: str | None = None):
+    def _add_to_version_family(
+        self, revises: IsVersioned, version_tag: str | None = None
+    ):
         """Add current record to a version family.
 
         Args:
             revises: a record that belongs to the version family.
-            version: semantic version of the record.
+            version_tag: semantic version tag of the record.
         """
         old_uid = self.uid  # type: ignore
-        new_uid, revises = create_uid(revises=revises, version=version)
+        new_uid, revises = create_uid(revises=revises, version_tag=version_tag)
         if (
             self.__class__.__name__ == "Artifact"
             and self._real_key is None
@@ -104,7 +120,7 @@ class IsVersioned(models.Model):
             )
             logger.success(f"updated path from {old_path} to {new_path}!")
         self.uid = new_uid
-        self.version = version
+        self.version_tag = version_tag
         self.save()
         logger.success(f"updated uid from {old_uid} to {new_uid}!")
 
@@ -171,7 +187,7 @@ def set_version(version: str | None = None, previous_version: str | None = None)
 
 def create_uid(
     *,
-    version: str | None = None,
+    version_tag: str | None = None,
     n_full_id: int = 20,
     revises: IsVersioned | None = None,
 ) -> tuple[str, IsVersioned | None]:
@@ -198,24 +214,24 @@ def create_uid(
         suid = revises.stem_uid
         vuid = increment_base62(revises.uid[-4:])  # type: ignore
     else:
-        suid = ids.base62(n_full_id - 4)
+        suid = uids.base62(n_full_id - 4)
         vuid = "0000"
-    if version is not None:
-        if not isinstance(version, str):
+    if version_tag is not None:
+        if not isinstance(version_tag, str):
             raise ValueError(
                 "`version` parameter must be `None` or `str`, e.g., '0.1', '1', '2', etc."
             )
         if revises is not None:
-            if version == revises.version:
+            if version_tag == revises.version_tag:
                 raise ValueError(
-                    f"Please change the version tag or leave it `None`, '{revises.version}' is already taken"
+                    f"Please change the version tag or leave it `None`, '{revises.version_tag}' is already taken"
                 )
     return suid + vuid, revises
 
 
 def process_revises(
     revises: IsVersioned | None,
-    version: str | None,
+    version_tag: str | None,
     key: str | None,
     description: str | None,
     type: type[IsVersioned],
@@ -223,11 +239,11 @@ def process_revises(
     if revises is not None and not isinstance(revises, type):
         raise TypeError(f"`revises` has to be of type `{type.__name__}`")
     uid, revises = create_uid(
-        revises=revises, version=version, n_full_id=type._len_full_uid
+        revises=revises, version_tag=version_tag, n_full_id=type._len_full_uid
     )
     if revises is not None:
         if description is None:
             description = revises.description
         if key is None:
             key = revises.key
-    return uid, version, key, description, revises
+    return uid, version_tag, key, description, revises

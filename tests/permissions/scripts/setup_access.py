@@ -2,11 +2,15 @@ import lamindb as ln  # noqa
 import hubmodule
 import hubmodule.models as hm
 from uuid import uuid4
-from hubmodule._migrate import _apply_migrations_with_tracking
-from hubmodule._setup import _setup_extensions, _setup_secret, _install_utils_db_modules
-from hubmodule._rls import RLSGenerator
-from hubmodule._dbwrite import install_dbwrite
-from laminhub_rest.core.postgres import DbRoleHandler
+from hubmodule.dev.migrate.deploy import _apply_migrations_with_tracking
+from hubmodule.dev.setup.install import (
+    _setup_extensions,
+    _setup_secret,
+    _setup_utils_db_modules,
+)
+from hubmodule.sql_generators._rls import RLSGenerator
+from hubmodule.sql_generators._dbwrite import install_dbwrite
+from laminhub_instancedb.postgres import DbRoleHandler
 from pathlib import Path
 
 
@@ -29,7 +33,7 @@ jwt_db_url = create_jwt_user(pgurl, jwt_role_name=jwt_role_name)
 
 _setup_extensions(pgurl)
 _setup_secret(pgurl)
-_install_utils_db_modules(pgurl)
+_setup_utils_db_modules(pgurl)
 migrations_sql_dir = Path(hubmodule.__file__).parent / "sql/0004_migrations"
 _apply_migrations_with_tracking(pgurl, migrations_sql_dir)
 
@@ -54,6 +58,9 @@ no_access = ln.Space(name="no access").save()  # type: ignore
 # set read role for the default space
 usettings = ln.setup.settings.user
 account = hm.Account(id=usettings._uuid.hex, uid=usettings.uid, role="read").save()
+
+# create a test user object
+ln.User(uid="testuid1", handle="testuser", name="Test User").save()
 
 # no access space
 ulabel = ln.ULabel(name="no_access_ulabel")

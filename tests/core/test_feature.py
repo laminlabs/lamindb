@@ -62,18 +62,19 @@ def test_feature_init():
 
     # categorical dtype with union of registries using string syntax must be valid
     feature = ln.Feature(name="feat1", dtype="cat[Record|bionty.Gene]")
-    assert feature.dtype == "cat[Record|bionty.Gene]"
+    assert feature._dtype_str == "cat[Record|bionty.Gene]"
     # categorical dtype with union of registries using objects must be valid
     feature = ln.Feature(name="feat1", dtype=[ln.Record, bt.Gene])
-    assert feature.dtype == "cat[Record|bionty.Gene]"
+    assert feature._dtype_str == "cat[Record|bionty.Gene]"
 
     # dtype with field name before bracket filters must be valid
     feature = ln.Feature(
         name="gene_feature", dtype="cat[bionty.Gene.ensembl_gene_id[organism='human']]"
     )
-    assert "bionty.Gene" in feature.dtype
-    assert "ensembl_gene_id" in feature.dtype
-    assert "organism='human'" in feature.dtype
+    print(feature._dtype_str)
+    assert "bionty.Gene" in feature._dtype_str
+    assert "ensembl_gene_id" in feature._dtype_str
+    assert "organism='human'" in feature._dtype_str
 
 
 # @pytest.mark.skipif(
@@ -81,7 +82,7 @@ def test_feature_init():
 # )
 # def test_cannot_mutate_dtype():
 #     feature = ln.Feature(name="feature", dtype=str).save()
-#     feature.dtype = int
+#     feature._dtype_str = int
 #     with pytest.raises(django.db.utils.IntegrityError) as error:
 #         feature.save()
 #     assert "dtype field is immutable and cannot be changed" in error.exconly()
@@ -97,7 +98,7 @@ def test_feature_init():
 #         },  # uid corresponds to disease_ontology_old.uid
 #     ).save()
 
-#     assert feature.dtype == "cat[bionty.Disease[source__uid='4a3ejKuf']]"
+#     assert feature._dtype_str == "cat[bionty.Disease[source__uid='4a3ejKuf']]"
 
 #     feature.delete(permanent=True)
 
@@ -155,10 +156,10 @@ def test_feature_from_df():
     }
     for feature in features:
         if feature.name in categoricals:
-            assert feature.dtype == "cat"
+            assert feature._dtype_str == "cat"
         else:
             orig_type = df[feature.name].dtype
-            assert feature.dtype == serialize_pandas_dtype(orig_type)
+            assert feature._dtype_str == serialize_pandas_dtype(orig_type)
     for feature in features:
         feature.save()
     labels = [ln.Record(name=name) for name in df["feat3"].unique()]
@@ -189,26 +190,13 @@ def test_feature_from_dict(dict_data):
     # defaults to str for ambiguous types
     features = ln.Feature.from_dict(dict_data)
     assert len(features) == len(dict_data)
-    assert features[0].dtype == "int"
-    assert features[1].dtype == "float"
-    assert features[2].dtype == "str"
-    assert features[3].dtype == "bool"
-    assert features[4].dtype == "list[int]"
-    assert features[5].dtype == "list[str]"
-    assert features[6].dtype == "dict"
-
-    # deprecated: convert str to cat
-    with pytest.warns(DeprecationWarning, match="str_as_cat.*deprecated"):
-        features = ln.Feature.from_dict(dict_data, str_as_cat=True)
-    assert len(features) == len(dict_data)
-    assert features[2].dtype == "cat"
-    assert features[5].dtype == "list[cat]"
-
-    # deprecated: do not convert str to cat
-    with pytest.warns(DeprecationWarning, match="str_as_cat.*deprecated"):
-        features = ln.Feature.from_dict(dict_data, str_as_cat=False)
-    assert features[2].dtype == "str"
-    assert features[5].dtype == "list[str]"
+    assert features[0]._dtype_str == "int"
+    assert features[1]._dtype_str == "float"
+    assert features[2]._dtype_str == "str"
+    assert features[3]._dtype_str == "bool"
+    assert features[4]._dtype_str == "list[int]"
+    assert features[5]._dtype_str == "list[str]"
+    assert features[6]._dtype_str == "dict"
 
     # Wrong field
     with pytest.raises(ValueError) as e:
@@ -222,11 +210,38 @@ def test_feature_from_dict(dict_data):
 
 def test_feature_from_dict_type(dict_data):
     feature_type = ln.Feature(name="Testdata_feature_type", is_type=True).save()
-    with pytest.warns(DeprecationWarning, match="str_as_cat.*deprecated"):
-        features = ln.Feature.from_dict(
-            dict_data, str_as_cat=True, type=feature_type
-        ).save()
+    features = ln.Feature.from_dict(dict_data, type=feature_type).save()
     for feature in features:
         assert feature.type.name == "Testdata_feature_type"
     ln.Feature.filter(type__isnull=False).delete(permanent=True)
     feature_type.delete(permanent=True)
+
+
+def test_feature_query_by_dtype():
+    """Test querying Feature by dtype (deprecated) and _dtype_str."""
+    str_feat = ln.Feature(name="test_str_feat", dtype=str).save()
+    int_feat = ln.Feature(name="test_int_feat", dtype=int).save()
+    try:
+        # Test querying by _dtype_str (current way)
+        str_features = ln.Feature.filter(_dtype_str="str", name="test_str_feat")
+        assert str_features.count() == 1
+        assert str_features.first() == str_feat
+
+        str_features = ln.Feature.filter(dtype_as_str="str", name="test_str_feat")
+        assert str_features.count() == 1
+        assert str_features.first() == str_feat
+
+        # Test querying by dtype (deprecated) - should work but issue warning
+        with pytest.warns(
+            DeprecationWarning,
+            match="Querying Feature by `dtype` is deprecated.*Notice the new dtype encoding format",
+        ):
+            str_features_deprecated = ln.Feature.filter(
+                dtype="str", name="test_str_feat"
+            )
+            assert str_features_deprecated.count() == 1
+            assert str_features_deprecated.first() == str_feat
+    finally:
+        # Clean up
+        str_feat.delete(permanent=True)
+        int_feat.delete(permanent=True)

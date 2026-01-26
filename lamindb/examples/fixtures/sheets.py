@@ -36,8 +36,8 @@ def populate_sheets_compound_treatment():
     # populate treatment1
     treatment1 = ln.Record(name="treatment1", type=treatments_sheet).save()
     ln.models.RecordRecord(record=treatment1, feature=compound, value=drug1).save()
-    assert drug1 in treatment1.components.all()  # noqa: S101
-    assert treatment1 in drug1.composites.all()  # noqa: S101
+    assert drug1 in treatment1.linked_records.all()
+    assert treatment1 in drug1.linked_in_records.all()
     ln.models.RecordJson(record=treatment1, feature=concentration, value="2nM").save()
     # populate treatment2
     treatment2 = ln.Record(name="treatment2", type=treatments_sheet).save()
@@ -57,7 +57,9 @@ def populate_sheets_compound_treatment():
     treatment = ln.Feature(name="treatment", dtype=treatment_type).save()
     cell_line = ln.Feature(name="cell_line", dtype=bt.CellLine).save()
     preparation_date = ln.Feature(name="preparation_date", dtype="datetime").save()
-    cell_line.dtype = "cat[bionty.CellLine]"  # might have previously been set to "cat"
+    cell_line._dtype_str = (
+        "cat[bionty.CellLine]"  # might have previously been set to "cat"
+    )
     cell_line.save()
     sample_schema1 = ln.Schema(
         name="My samples schema 2025-06",
@@ -195,7 +197,7 @@ def populate_nextflow_sheet_with_samples():
     nextflow_schema = ln.Schema(
         name="RNA-seq standard",
         features=[
-            ln.Feature(name="sample", dtype="cat[Record[BioSample]]").save(),
+            ln.Feature(name="sample", dtype=biosample_type).save(),
             ln.Feature(name="fastq_1", dtype=str).save(),
             ln.Feature(name="fastq_2", dtype=str).save(),
             ln.Feature(name="expected_cells", dtype=int).save(),

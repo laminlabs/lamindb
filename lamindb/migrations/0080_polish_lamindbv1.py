@@ -5,7 +5,7 @@ import django.db.models.functions.datetime
 from django.db import migrations, models
 
 import lamindb.base.fields
-import lamindb.base.ids
+import lamindb.base.uids
 import lamindb.base.users
 import lamindb.models
 
@@ -52,7 +52,7 @@ class Migration(migrations.Migration):
             field=lamindb.base.fields.CharField(
                 blank=True,
                 db_index=True,
-                default=lamindb.base.ids.base62_20,
+                default=lamindb.base.uids.base62_20,
                 editable=False,
                 max_length=20,
                 unique=True,
@@ -64,7 +64,7 @@ class Migration(migrations.Migration):
             field=lamindb.base.fields.CharField(
                 blank=True,
                 db_index=True,
-                default=lamindb.base.ids.base62_12,
+                default=lamindb.base.uids.base62_12,
                 editable=False,
                 max_length=12,
                 unique=True,
@@ -76,7 +76,7 @@ class Migration(migrations.Migration):
             field=lamindb.base.fields.CharField(
                 blank=True,
                 db_index=True,
-                default=lamindb.base.ids.base62_8,
+                default=lamindb.base.uids.base62_8,
                 editable=False,
                 max_length=8,
                 unique=True,
@@ -99,7 +99,7 @@ class Migration(migrations.Migration):
             field=lamindb.base.fields.CharField(
                 blank=True,
                 db_index=True,
-                default=lamindb.base.ids.base62_12,
+                default=lamindb.base.uids.base62_12,
                 editable=False,
                 max_length=12,
                 unique=True,
@@ -111,7 +111,7 @@ class Migration(migrations.Migration):
             field=lamindb.base.fields.CharField(
                 blank=True,
                 db_index=True,
-                default=lamindb.base.ids.base62_12,
+                default=lamindb.base.uids.base62_12,
                 editable=False,
                 max_length=12,
                 unique=True,
@@ -123,7 +123,7 @@ class Migration(migrations.Migration):
             field=lamindb.base.fields.CharField(
                 blank=True,
                 db_index=True,
-                default=lamindb.base.ids.base62_20,
+                default=lamindb.base.uids.base62_20,
                 editable=False,
                 max_length=20,
                 unique=True,
@@ -160,7 +160,7 @@ class Migration(migrations.Migration):
             field=lamindb.base.fields.CharField(
                 blank=True,
                 db_index=True,
-                default=lamindb.base.ids.base62_12,
+                default=lamindb.base.uids.base62_12,
                 editable=False,
                 max_length=12,
                 unique=True,
@@ -172,7 +172,7 @@ class Migration(migrations.Migration):
             field=lamindb.base.fields.CharField(
                 blank=True,
                 db_index=True,
-                default=lamindb.base.ids.base62_12,
+                default=lamindb.base.uids.base62_12,
                 editable=False,
                 max_length=12,
                 unique=True,
@@ -196,7 +196,7 @@ class Migration(migrations.Migration):
             field=lamindb.base.fields.CharField(
                 blank=True,
                 db_index=True,
-                default=lamindb.base.ids.base62_8,
+                default=lamindb.base.uids.base62_8,
                 editable=False,
                 max_length=8,
                 unique=True,

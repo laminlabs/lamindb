@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import warnings
 from typing import TYPE_CHECKING, Any, Literal, overload
 
 import anndata as ad
@@ -18,7 +17,7 @@ from lamindb.base.fields import (
 )
 from lamindb.base.utils import strict_classmethod
 
-from ..base.ids import base62_20
+from ..base.uids import base62_20
 from ..core._mapped_collection import MappedCollection
 from ..core.storage._backed_access import _open_dataframe
 from ..errors import FieldValidationError
@@ -51,6 +50,7 @@ if TYPE_CHECKING:
     from ..core.storage import UPath
     from .block import CollectionBlock
     from .project import Project, Reference
+    from .query_manager import QueryManager
     from .query_set import QuerySet
     from .record import Record
     from .transform import Transform
@@ -161,26 +161,27 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     # also for reference_type here, we allow an extra long max_length
     reference_type: str | None = CharField(max_length=25, db_index=True, null=True)
     """Type of reference, e.g., cellxgene Census collection_id."""
-    ulabels: ULabel = models.ManyToManyField(
+    ulabels: QueryManager[ULabel] = models.ManyToManyField(
         "ULabel", through="CollectionULabel", related_name="collections"
     )
-    """ULabels annotating the collection (see :class:`~lamindb.Feature`)."""
+    """ULabels annotating the collection (see :class:`~lamindb.Feature`) ← :attr:`~lamindb.ULabel.collections`."""
     run: Run | None = ForeignKey(
         Run, PROTECT, related_name="output_collections", null=True, default=None
     )
-    """:class:`~lamindb.Run` that created the `collection`."""
-    input_of_runs: Run = models.ManyToManyField(Run, related_name="input_collections")
-    """Runs that use this collection as an input."""
-    _subsequent_runs: Run = models.ManyToManyField(
-        "Run",
-        related_name="_recreated_collections",
-        db_table="lamindb_collection__previous_runs",  # legacy name, change in lamindb v2
+    """:class:`~lamindb.Run` that created the `collection` ← :attr:`~lamindb.Run.output_collections`."""
+    input_of_runs: QueryManager[Run] = models.ManyToManyField(
+        Run, related_name="input_collections"
     )
-    """Runs that re-created the record after initial creation."""
-    artifacts: Artifact = models.ManyToManyField(
+    """Runs that use this collection as an input ← :attr:`~lamindb.Run.input_collections`."""
+    recreating_runs: QueryManager[Run] = models.ManyToManyField(
+        "Run",
+        related_name="recreated_collections",
+    )
+    """Runs that re-created the record after initial creation ← :attr:`~lamindb.Run.recreated_collections`."""
+    artifacts: QueryManager[Artifact] = models.ManyToManyField(
         "Artifact", related_name="collections", through="CollectionArtifact"
     )
-    """Artifacts in collection."""
+    """Artifacts in collection ← :attr:`~lamindb.Artifact.collections`."""
     meta_artifact: Artifact | None = OneToOneField(
         "Artifact",
         PROTECT,
@@ -194,20 +195,22 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     collection from the artifact via a private field:
     `artifact._meta_of_collection`.
     """
-    linked_in_records: Record = models.ManyToManyField(
+    linked_in_records: QueryManager[Record] = models.ManyToManyField(
         "Record", through="RecordCollection", related_name="linked_collections"
     )
-    """This collection is linked in these records as a value."""
-    _actions: Artifact = models.ManyToManyField(Artifact, related_name="+")
+    """This collection is linked in these records as a value ← :attr:`~lamindb.Record.linked_collections`."""
+    _actions: QueryManager[Artifact] = models.ManyToManyField(
+        Artifact, related_name="+"
+    )
     """Actions to attach for the UI."""
-    projects: Project
-    """Linked projects."""
-    references: Reference
-    """Linked references."""
-    records: Record
-    """Linked records."""
-    blocks: CollectionBlock
-    """Blocks that annotate this collection."""
+    projects: QueryManager[Project]
+    """Linked projects ← :attr:`~lamindb.Project.collections`."""
+    references: QueryManager[Reference]
+    """Linked references ← :attr:`~lamindb.Reference.collections`."""
+    records: QueryManager[Record]
+    """Linked records ← :attr:`~lamindb.Record.collections`."""
+    ablocks: CollectionBlock
+    """Blocks that annotate this collection ← :attr:`~lamindb.CollectionBlock.collection`."""
 
     @overload
     def __init__(
@@ -244,28 +247,18 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             kwargs.pop("artifacts") if len(args) == 0 else args[0]
         )
         meta_artifact: Artifact | None = kwargs.pop("meta_artifact", None)
-        tmp_key: str | None = kwargs.pop("key", None)
+        key: str | None = kwargs.pop("key", None)
         description: str | None = kwargs.pop("description", None)
         reference: str | None = kwargs.pop("reference", None)
         reference_type: str | None = kwargs.pop("reference_type", None)
         run: Run | None = kwargs.pop("run", None)
         revises: Collection | None = kwargs.pop("revises", None)
-        version: str | None = kwargs.pop("version", None)
+        version_tag: str | None = kwargs.pop("version_tag", kwargs.pop("version", None))
         skip_hash_lookup: bool = kwargs.pop("skip_hash_lookup", False)
         branch = kwargs.pop("branch", None)
         branch_id = kwargs.pop("branch_id", 1)
         space = kwargs.pop("space", None)
         space_id = kwargs.pop("space_id", 1)
-        key: str
-        if "name" in kwargs:
-            key = kwargs.pop("name")
-            warnings.warn(
-                f"argument `name` will be removed, please pass {key} to `key` instead",
-                FutureWarning,
-                stacklevel=2,
-            )
-        else:
-            key = tmp_key
         if not len(kwargs) == 0:
             valid_keywords = ", ".join(
                 [val[0] for val in _get_record_kwargs(Collection)]
@@ -279,8 +272,8 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 .order_by("-created_at")
                 .first()
             )
-        provisional_uid, version, key, description, revises = process_revises(
-            revises, version, key, description, Collection
+        provisional_uid, version_tag, key, description, revises = process_revises(
+            revises, version_tag, key, description, Collection
         )
         run = get_run(run)
         if isinstance(artifacts, Artifact):
@@ -329,7 +322,7 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 meta_artifact=meta_artifact,
                 hash=hash,
                 run=run,
-                version=version,
+                version_tag=version_tag,
                 branch=branch,
                 branch_id=branch_id,
                 space=space,

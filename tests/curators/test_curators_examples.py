@@ -89,8 +89,8 @@ def mudata_papalexi21_subset_schema():
     obs_schema = ln.Schema(
         name="mudata_papalexi21_subset_obs_schema",
         features=[
-            ln.Feature(name="perturbation", dtype="cat[ULabel[Perturbation]]").save(),
-            ln.Feature(name="replicate", dtype="cat[ULabel[Replicate]]").save(),
+            ln.Feature(name="perturbation", dtype=perturbation).save(),
+            ln.Feature(name="replicate", dtype=replicate).save(),
         ],
     ).save()
 
@@ -101,7 +101,7 @@ def mudata_papalexi21_subset_schema():
             ln.Feature(name="nFeature_RNA", dtype=int).save(),
             ln.Feature(name="percent.mito", dtype=float).save(),
         ],
-        coerce_dtype=True,
+        coerce=True,
     ).save()
 
     obs_schema_hto = ln.Schema(
@@ -111,7 +111,7 @@ def mudata_papalexi21_subset_schema():
             ln.Feature(name="nFeature_HTO", dtype=int).save(),
             ln.Feature(name="technique", dtype=bt.ExperimentalFactor).save(),
         ],
-        coerce_dtype=True,
+        coerce=True,
     ).save()
 
     var_schema_rna = ln.Schema(
@@ -191,12 +191,15 @@ def spatialdata_blobs_schema():
 def test_dataframe_curator(mini_immuno_schema: ln.Schema):
     """Test DataFrame curator implementation."""
 
+    # Get the perturbation ULabel (created in mini_immuno_schema fixture)
+    perturbation = ln.ULabel.get(name="Perturbation", is_type=True)
+
     # invalid simple dtype (float)
     feature_to_fail = ln.Feature(name="treatment_time_h", dtype=float).save()
     schema = ln.Schema(
         name="mini_immuno_obs_level_metadata_v2",
         features=[
-            ln.Feature(name="perturbation", dtype="cat[ULabel[Perturbation]]").save(),
+            ln.Feature(name="perturbation", dtype=perturbation).save(),
             ln.Feature(name="sample_note", dtype=str).save(),
             ln.Feature(name="cell_type_by_expert", dtype=bt.CellType).save(),
             ln.Feature(name="cell_type_by_model", dtype=bt.CellType).save(),
@@ -251,10 +254,10 @@ def test_dataframe_curator(mini_immuno_schema: ln.Schema):
 Artifact: examples/dataset1.parquet (0000)
 └── Dataset features
     └── columns (5)
-        cell_type_by_expe…  bionty.CellType         B cell, CD8-positive, alpha…
-        cell_type_by_model  bionty.CellType         B cell, T cell
-        perturbation        ULabel[Perturbation]    DMSO, IFNG
-        sample_label        ULabel                  sample1, sample2, sample3
+        cell_type_by_expe…  bionty.CellType          B cell, CD8-positive, alph…
+        cell_type_by_model  bionty.CellType          B cell, T cell
+        perturbation        ULabel[Perturbation]     DMSO, IFNG
+        sample_label        ULabel                   sample1, sample2, sample3
         sample_note         str"""
     )
     assert set(artifact.features.get_values()["sample_label"]) == {
@@ -574,10 +577,6 @@ def test_anndata_curator_different_components(mini_immuno_schema: ln.Schema):
         assert artifact.features.slots["var.T"].n == 3  # 3 genes get linked
         if add_comp == "obs":
             assert artifact.features.slots["obs"] == obs_schema
-            # deprecated
-            assert artifact.features._schema_by_slot["obs"] == obs_schema
-            assert artifact.features._feature_set_by_slot["obs"] == obs_schema
-
             assert set(artifact.features.get_values()["cell_type_by_expert"]) == {
                 "CD8-positive, alpha-beta T cell",
                 "B cell",
@@ -729,9 +728,9 @@ def test_anndata_curator_nested_uns(study_metadata_schema, anndata_uns_schema):
         in str(e.value)
     )
 
-    inferred_sets = artifact.feature_sets.all()
+    inferred_sets = artifact.schemas.all()
     for inferred_set in inferred_sets:
-        artifact.feature_sets.remove(inferred_set)
+        artifact.schemas.remove(inferred_set)
     artifact.delete(permanent=True)
     bad_schema1.delete(permanent=True)
     bad_schema2.delete(permanent=True)
@@ -881,18 +880,18 @@ def test_spatialdata_curator(
         == """Artifact: examples/spatialdata1.zarr (0000)
 └── Dataset features
     ├── attrs:bio (2)
-    │   developmental_sta…  bionty.DevelopmentalS…  adult stage
-    │   disease             bionty.Disease          Alzheimer disease
+    │   developmental_sta…  bionty.DevelopmentalSt…  adult stage
+    │   disease             bionty.Disease           Alzheimer disease
     ├── attrs:tech (1)
-    │   assay               bionty.ExperimentalFa…  Visium Spatial Gene Express…
+    │   assay               bionty.ExperimentalFac…  Visium Spatial Gene Expres…
     ├── attrs (2)
     │   bio                 dict
     │   tech                dict
     ├── tables:table:obs …
     │   sample_region       str
     └── tables:table:var.…
-        BRCA2               num
-        BRAF                num"""
+        BRAF                num
+        BRCA2               num"""
     )
 
     artifact.delete(permanent=True)
@@ -911,7 +910,7 @@ def test_tiledbsoma_curator(clean_soma_files):
         features=[
             ln.Feature(name="var_id", dtype=bt.Gene.ensembl_gene_id).save(),
         ],
-        coerce_dtype=True,
+        coerce=True,
     ).save()
 
     soma_schema = ln.Schema(

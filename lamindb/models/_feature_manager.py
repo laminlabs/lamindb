@@ -5,25 +5,20 @@ from collections import defaultdict
 from collections.abc import Iterable
 from datetime import date, datetime
 from itertools import compress
-from typing import TYPE_CHECKING, Any, MutableMapping
+from typing import TYPE_CHECKING, Any
 
-import anndata as ad
 import numpy as np
 import pandas as pd
-from anndata import AnnData
 from django.contrib.postgres.aggregates import ArrayAgg
 from django.db import connections
 from django.db.models import Aggregate, Subquery
 from django.db.utils import IntegrityError
 from lamin_utils import logger
-from lamindb_setup.core.hashing import hash_set
-from lamindb_setup.core.upath import create_path
 from lamindb_setup.errors import ModuleWasntConfigured
 from rich.table import Column, Table
 from rich.text import Text
 from rich.tree import Tree
 
-from lamindb.core.storage import LocalPathClasses
 from lamindb.errors import DoesNotExist, InvalidArgument, ValidationError
 from lamindb.models._from_values import _format_values
 from lamindb.models.feature import (
@@ -40,7 +35,6 @@ from lamindb.models.sqlrecord import (
     transfer_to_default_db,
 )
 
-from ..base import deprecated
 from ._describe import (
     NAME_WIDTH,
     TYPE_WIDTH,
@@ -53,7 +47,7 @@ from ._label_manager import _get_labels
 from ._relations import (
     dict_related_model_to_related_name,
 )
-from .feature import Feature, FeatureValue, parse_dtype
+from .feature import Feature, JsonValue, parse_dtype
 from .sqlrecord import SQLRecord
 from .ulabel import ULabel
 
@@ -66,8 +60,9 @@ if TYPE_CHECKING:
         Collection,
         IsLink,
     )
-    from lamindb.models.query_set import BasicQuerySet
+    from lamindb.models.query_set import BasicQuerySet, SQLRecordList
 
+    from ..base.types import DtypeObject
     from .record import Record
     from .run import Run
 
@@ -86,15 +81,15 @@ def get_accessor_by_registry_(host: Artifact | Collection) -> dict:
 def get_schema_by_slot_(host: Artifact) -> dict[str, Schema]:
     # if the host is not yet saved
     if host._state.adding:
-        if hasattr(host, "_staged_feature_sets"):
-            return host._staged_feature_sets
+        if hasattr(host, "_staged_schemas"):
+            return host._staged_schemas
         else:
             return {}
     host_db = host._state.db
     kwargs = {"artifact_id": host.id}
     # otherwise, we need a query
     links_schema = (
-        host.feature_sets.through.objects.using(host_db)
+        host.schemas.through.objects.using(host_db)
         .filter(**kwargs)
         .select_related("schema")
     )
@@ -115,7 +110,7 @@ def get_label_links(
 
 def get_schema_links(host: Artifact | Collection) -> BasicQuerySet:
     kwargs = {"artifact_id": host.id}
-    links_schema = host.feature_sets.through.objects.filter(**kwargs)
+    links_schema = host.schemas.through.objects.filter(**kwargs)
     return links_schema
 
 
@@ -137,6 +132,46 @@ def strip_cat(feature_dtype: str) -> str:
     else:
         dtype_stripped_cat = feature_dtype
     return dtype_stripped_cat
+
+
+def format_dtype_for_display(dtype_str: str) -> str:
+    """Format dtype string for display, replacing Record[uid] or ULabel[uid] with Record[TypeName] or ULabel[TypeName]."""
+    from .feature import parse_dtype
+    from .record import Record
+    from .ulabel import ULabel
+
+    # Check if this is a Record[uid] or ULabel[uid] format
+    if ("Record[" in dtype_str or "ULabel[" in dtype_str) and "]" in dtype_str:
+        try:
+            parsed = parse_dtype(dtype_str)
+            if parsed and parsed[0].get("record_uid"):
+                record_uid = parsed[0]["record_uid"]
+                registry_str = parsed[0].get("registry_str", "")
+                try:
+                    # Determine which registry to use
+                    if registry_str == "Record":
+                        record_type = Record.get(uid=record_uid)
+                        # Replace Record[uid] with Record[TypeName]
+                        dtype_str = dtype_str.replace(
+                            f"Record[{record_uid}]", f"Record[{record_type.name}]"
+                        )
+                    elif registry_str == "ULabel":
+                        record_type = ULabel.get(uid=record_uid)
+                        # Replace ULabel[uid] with ULabel[TypeName]
+                        dtype_str = dtype_str.replace(
+                            f"ULabel[{record_uid}]", f"ULabel[{record_type.name}]"
+                        )
+                except Exception as e:
+                    # If we can't find the record, just return the original
+                    logger.debug(
+                        f"Could not find {registry_str} with uid '{record_uid}' for display formatting: {e}"
+                    )
+        except Exception as e:
+            # If parsing fails, return the original
+            logger.debug(
+                f"Could not parse dtype string '{dtype_str}' for display formatting: {e}"
+            )
+    return dtype_str
 
 
 # Custom aggregation for SQLite
@@ -190,7 +225,7 @@ def get_categoricals_postgres(
     feature_dict = {
         id: (name, dtype)
         for id, name, dtype in Feature.connect(self._state.db).values_list(
-            "id", "name", "dtype"
+            "id", "name", "_dtype_str"
         )
     }
 
@@ -240,19 +275,20 @@ def get_categoricals_sqlite(
                 continue
             if hasattr(link, "feature_id") and link.feature_id is not None:
                 feature = Feature.objects.using(self._state.db).get(id=link.feature_id)
-                feature_field = parse_dtype(feature.dtype)[0]["field_str"]
+                dtype_str = feature._dtype_str
+                feature_field = parse_dtype(dtype_str)[0]["field_str"]
                 link_attr = get_link_attr(link, self)
                 label = getattr(link, link_attr)
                 if hasattr(label, "branch_id"):
                     if label.branch_id not in get_default_branch_ids():
                         continue
                 label_name = getattr(label, feature_field)
-                dict_key = (feature.name, feature.dtype)
+                dict_key = (feature.name, dtype_str)
                 if dict_key not in result:
                     result[dict_key] = (
-                        set() if not feature.dtype.startswith("list[cat") else []
+                        set() if not dtype_str.startswith("list[cat") else []
                     )
-                if feature.dtype.startswith("list[cat"):
+                if dtype_str.startswith("list[cat"):
                     result[dict_key].append(label_name)
                 else:
                     result[dict_key].add(label_name)
@@ -271,19 +307,19 @@ def get_non_categoricals(
 
     if self.id is not None and isinstance(self, (Artifact, Run, Record)):
         if isinstance(self, Record):
-            _feature_values = self.values_json.values(
-                "feature__name", "feature__dtype", "value"
+            json_values = self.values_json.values(
+                "feature__name", "feature___dtype_str", "value"
             ).order_by("feature__name")
         else:
-            _feature_values = (
-                self._feature_values.values("feature__name", "feature__dtype")
+            json_values = (
+                self.json_values.values("feature__name", "feature___dtype_str")
                 .annotate(values=custom_aggregate("value", self._state.db))
                 .order_by("feature__name")
             )
 
-        for fv in _feature_values:
+        for fv in json_values:
             feature_name = fv["feature__name"]
-            feature_dtype = fv["feature__dtype"]
+            feature_dtype = fv["feature___dtype_str"]
             if isinstance(self, Record):
                 values = fv["value"]
             else:
@@ -376,7 +412,7 @@ def get_features_data(
                     include_feature_link=True,
                 )
                 related_data = artifact_meta.get("related_data", {})
-            fs_data = related_data.get("schemas", {}) if related_data else {}
+            fs_data = related_data.get("m2m_schemas", {}) if related_data else {}
             for fs_id, (slot, data) in fs_data.items():
                 for registry_str, feature_names in data.items():
                     # prevent projects show up as features
@@ -388,7 +424,7 @@ def get_features_data(
                         feature_data[feature_name] = (slot, registry_str)
             schema_data.update(
                 {
-                    slot: (schema, schema.n)  # type: ignore
+                    slot: (schema, schema.n_members)  # type: ignore
                     for slot, schema in get_schema_by_slot_(self).items()
                     if slot not in schema_data
                 }
@@ -406,16 +442,21 @@ def get_features_data(
                     for feature_name in feature_names:
                         feature_data[feature_name] = (slot, schema.itype)
                 else:
-                    schema_data[slot] = (schema, schema.n)
+                    schema_data[slot] = (schema, schema.n_members)
 
     internal_feature_names = {}
     if isinstance(self, Artifact):
-        inferred_schemas = self.feature_sets.filter(itype="Feature")
+        inferred_schemas = self.schemas.filter(itype="Feature")
         if len(inferred_schemas) > 0:
             for schema in inferred_schemas:
-                internal_feature_names.update(
-                    dict(schema.members.values_list("name", "dtype"))
-                )
+                # Use _dtype_str instead of dtype, and format for display
+                feature_dtypes = dict(schema.members.values_list("name", "_dtype_str"))
+                # Format Record[uid] to Record[TypeName] for display
+                formatted_dtypes = {
+                    name: format_dtype_for_display(dtype_str) if dtype_str else ""
+                    for name, dtype_str in feature_dtypes.items()
+                }
+                internal_feature_names.update(formatted_dtypes)
 
     # categorical feature values
     # Get the categorical data using the appropriate method
@@ -464,10 +505,13 @@ def get_features_data(
             else:
                 printed_values = str(converted_values)
 
+            # Format dtype for display (replace Record[uid] with Record[TypeName])
+            display_dtype = format_dtype_for_display(feature_dtype)
+
             # Sort into internal/external
             feature_info = (
                 feature_name,
-                Text(strip_cat(feature_dtype), style="dim"),
+                Text(strip_cat(display_dtype), style="dim"),
                 printed_values,
             )
             if feature_name in internal_feature_names:
@@ -519,7 +563,7 @@ def describe_features(
 
     dataset_features_tree_children = []
     for slot, (schema, feature_names_or_n) in schema_data.items():
-        if isinstance(feature_names_or_n, int):
+        if feature_names_or_n is None or isinstance(feature_names_or_n, int):
             feature_rows = []
         else:
             feature_names = feature_names_or_n
@@ -563,7 +607,7 @@ def describe_features(
             create_feature_table(
                 Text.assemble(
                     (slot, "violet"),
-                    (f" ({schema.n}{schema_itype})", "dim"),
+                    (f" ({schema.n_members}{schema_itype})", "dim"),
                 ),
                 "",
                 feature_rows,
@@ -607,7 +651,7 @@ def describe_features(
 
 
 def infer_feature_type_convert_json(
-    key: str, value: Any, mute: bool = False
+    key: str, value: Any, mute: bool = False, dtype_str: str | None = None
 ) -> tuple[str, Any, str]:
     from lamindb.base.dtypes import is_valid_datetime_str
 
@@ -623,7 +667,9 @@ def infer_feature_type_convert_json(
     elif isinstance(value, date):
         return "date", value.isoformat(), message
     elif isinstance(value, str):
-        if datetime_str := is_valid_datetime_str(value):
+        if dtype_str in {None, "datetime", "date"} and (
+            datetime_str := is_valid_datetime_str(value)
+        ):
             dt_type = (
                 "date" if len(value) == 10 else "datetime"
             )  # YYYY-MM-DD is exactly 10 characters
@@ -680,24 +726,18 @@ def filter_base(
 ) -> BasicQuerySet:
     from lamindb.models import Artifact, BasicQuerySet, QuerySet
 
-    # not QuerySet but only BasicQuerySet
     assert isinstance(queryset, BasicQuerySet) and not isinstance(queryset, QuerySet)  # noqa: S101
-
-    registry = queryset.model
-    db = queryset.db
-
-    model = Feature
-    value_model = FeatureValue
     keys_normalized = [key.split("__")[0] for key in expression]
     if not _skip_validation:
-        validated = model.connect(db).validate(keys_normalized, field="name", mute=True)
+        validated = Feature.connect(queryset.db).validate(
+            keys_normalized, field="name", mute=True
+        )
         if sum(validated) != len(keys_normalized):
             raise ValidationError(
                 f"Some keys in the filter expression are not registered as features: {np.array(keys_normalized)[~validated]}"
             )
     new_expression = {}
-    features = model.connect(db).filter(name__in=keys_normalized).distinct()
-    feature_param = "feature"
+    features = Feature.connect(queryset.db).filter(name__in=keys_normalized).distinct()
     for key, value in expression.items():
         split_key = key.split("__")
         normalized_key = split_key[0]
@@ -706,26 +746,25 @@ def filter_base(
             comparator = f"__{split_key[1]}"
         feature = features.get(name=normalized_key)
         # non-categorical features
-        if not feature.dtype.startswith("cat") and not feature.dtype.startswith(
-            "list[cat"
-        ):
+        dtype_str = feature._dtype_str
+        if not dtype_str.startswith("cat") and not dtype_str.startswith("list[cat"):
             if comparator == "__isnull":
-                if registry is Artifact:
-                    from .artifact import ArtifactFeatureValue
+                if queryset.model is Artifact:
+                    from .artifact import ArtifactJsonValue
 
                     if value:  # True
                         return queryset.exclude(
                             id__in=Subquery(
-                                ArtifactFeatureValue.objects.filter(
-                                    featurevalue__feature=feature
+                                ArtifactJsonValue.objects.filter(
+                                    jsonvalue__feature=feature
                                 ).values("artifact_id")
                             )
                         )
                     else:
                         return queryset.exclude(
                             id__in=Subquery(
-                                ArtifactFeatureValue.objects.filter(
-                                    featurevalue__feature=feature
+                                ArtifactJsonValue.objects.filter(
+                                    jsonvalue__feature=feature
                                 ).values("artifact_id")
                             )
                         )
@@ -742,14 +781,15 @@ def filter_base(
             }:
                 # SQLite seems to prefer comparing strings over numbers
                 value = str(value)
-            expression = {feature_param: feature, f"value{comparator}": value}
-            feature_values = value_model.filter(**expression)
-            new_expression[f"_{feature_param}_values__id__in"] = feature_values
+            expression = {"feature": feature, f"value{comparator}": value}
+            json_values = JsonValue.filter(**expression)
+            new_expression["json_values__id__in"] = json_values
         # categorical features
         elif isinstance(value, (str, SQLRecord, bool)):
             if comparator == "__isnull":
-                if registry is Artifact:
-                    result = parse_dtype(feature.dtype)[0]
+                if queryset.model is Artifact:
+                    dtype_str = feature._dtype_str
+                    result = parse_dtype(dtype_str)[0]
                     kwargs = {
                         f"links_{result['registry'].__name__.lower()}__feature": feature
                     }
@@ -763,14 +803,17 @@ def filter_base(
                 # we distinguish cases in which we have multiple label matches vs. one
                 label = None
                 labels = None
-                result = parse_dtype(feature.dtype)[0]
+                dtype_str = feature._dtype_str
+                result = parse_dtype(dtype_str)[0]
                 label_registry = result["registry"]
                 if isinstance(value, str):
                     field_name = result["field"].field.name
                     # we need the comparator here because users might query like so
                     # ln.Artifact.filter(experiment__contains="Experi")
                     expression = {f"{field_name}{comparator}": value}
-                    labels = result["registry"].connect(db).filter(**expression)
+                    labels = (
+                        result["registry"].connect(queryset.db).filter(**expression)
+                    )
                     if len(labels) == 0:
                         raise DoesNotExist(
                             f"Did not find a {label_registry.__name__} matching `{field_name}{comparator}={value}`"
@@ -834,8 +877,6 @@ def filter_with_features(
             features = ", ".join(sorted(np.array(keys_normalized)[~features_validated]))
             message = f"feature names: {features}"
             avail_fields = registry.__get_available_fields__()
-            if "_branch_code" in avail_fields:
-                avail_fields.remove("_branch_code")  # backward compat
             fields = ", ".join(sorted(avail_fields))
             raise InvalidArgument(
                 f"You can query either by available fields: {fields}\n"
@@ -844,76 +885,6 @@ def filter_with_features(
     else:
         qs = queryset.filter(*queries, **filter_kwargs)
     return qs
-
-
-# for deprecated functionality
-def _unify_staged_feature_sets_by_hash(
-    feature_sets: MutableMapping[str, Schema],
-):
-    unique_values: dict[str, Any] = {}
-
-    for key, value in feature_sets.items():
-        value_hash = value.hash  # Assuming each value has a .hash attribute
-        if value_hash in unique_values:
-            feature_sets[key] = unique_values[value_hash]
-        else:
-            unique_values[value_hash] = value
-
-    return feature_sets
-
-
-# for deprecated functionality
-def parse_staged_feature_sets_from_anndata(
-    adata: AnnData,
-    var_field: FieldAttr | None = None,
-    obs_field: FieldAttr = Feature.name,
-    uns_field: FieldAttr | None = None,
-    mute: bool = False,
-    organism: str | SQLRecord | None = None,
-) -> dict:
-    data_parse = adata
-    if not isinstance(adata, AnnData):  # is a path
-        filepath = create_path(adata)  # returns Path for local
-        if not isinstance(filepath, LocalPathClasses):
-            from lamindb import settings
-            from lamindb.core.storage._backed_access import backed_access
-
-            using_key = settings._using_key
-            data_parse = backed_access(filepath, using_key=using_key)
-        else:
-            data_parse = ad.read_h5ad(filepath, backed="r")
-        dtype = "float"
-    else:
-        dtype = "float" if adata.X is None else serialize_pandas_dtype(adata.X.dtype)
-    feature_sets = {}
-    if var_field is not None:
-        schema_var = Schema.from_values(
-            data_parse.var.index,
-            var_field,
-            dtype=dtype,
-            mute=mute,
-            organism=organism,
-            raise_validation_error=False,
-        )
-        if schema_var is not None:
-            feature_sets["var"] = schema_var
-    if obs_field is not None and len(data_parse.obs.columns) > 0:
-        schema_obs = Schema.from_dataframe(
-            df=data_parse.obs,
-            field=obs_field,
-            mute=mute,
-            organism=organism,
-        )
-        if schema_obs is not None:
-            feature_sets["obs"] = schema_obs
-    if uns_field is not None and len(data_parse.uns) > 0:
-        validated_features = Feature.from_values(  # type: ignore
-            data_parse.uns.keys(), field=uns_field, organism=organism
-        )
-        if len(validated_features) > 0:
-            schema_uns = Schema(validated_features, dtype=None, otype="dict")
-            feature_sets["uns"] = schema_uns
-    return feature_sets
 
 
 class FeatureManager:
@@ -950,8 +921,16 @@ class FeatureManager:
         """
         return get_features_data(self._host, to_dict=True, external_only=external_only)  # type: ignore
 
-    def __getitem__(self, feature: str) -> Any | dict[str, Any]:
-        """Get values records by a feature name.
+    def __getitem__(
+        self, feature: str
+    ) -> (
+        DtypeObject
+        | BasicQuerySet
+        | SQLRecord
+        | SQLRecordList
+        | dict[str, DtypeObject | BasicQuerySet | SQLRecord | SQLRecordList]
+    ):
+        """Get values by feature name.
 
         Args:
             feature: Feature name.
@@ -973,12 +952,12 @@ class FeatureManager:
         host_id = self._host.id
         feature_records = list(Feature.filter(name=feature))
         if not feature_records:
-            return None
+            raise ValidationError(f"Feature with name {feature} not found")
 
         # group cat feature_records by their registry
         registry_to_features = defaultdict(list)
         for feature_record in feature_records:
-            parsed_dtype = parse_dtype(feature_record.dtype)
+            parsed_dtype = parse_dtype(feature_record._dtype_str)
             if len(parsed_dtype) > 0:  # categorical features
                 registry = parsed_dtype[0]["registry"]
                 registry_name = registry.__get_name_with_module__()
@@ -986,15 +965,13 @@ class FeatureManager:
                     feature_record.id
                 )
             else:  # non-categorical features
-                registry_to_features[(FeatureValue, "FeatureValue")].append(
-                    feature_record.id
-                )
+                registry_to_features[(JsonValue, "JsonValue")].append(feature_record.id)
 
         value_records = {}
 
         # query once per registry with all feature_ids
         for (registry, registry_name), feature_ids in registry_to_features.items():
-            if registry_name == "FeatureValue":
+            if registry_name == "JsonValue":
                 # for non-categorical features
                 filters = {
                     "feature_id__in": feature_ids,
@@ -1003,7 +980,7 @@ class FeatureManager:
                 dtype_values = (
                     registry.objects.filter(**filters)
                     .distinct()
-                    .values_list("feature__dtype", "value")
+                    .values_list("feature___dtype_str", "value")
                 )
                 feature_values_qs = []
                 for dtype, value in dtype_values:
@@ -1030,7 +1007,10 @@ class FeatureManager:
             if len(feature_values_qs) == 1:
                 value_records[registry_name] = feature_values_qs[0]
             elif len(feature_values_qs) > 1:
-                value_records[registry_name] = SQLRecordList(feature_values_qs)
+                if feature_record.dtype_as_str.startswith("list["):
+                    value_records[registry_name] = SQLRecordList(feature_values_qs)
+                else:
+                    value_records[registry_name] = feature_values_qs
 
         return (
             next(iter(value_records.values()))
@@ -1061,21 +1041,18 @@ class FeatureManager:
     def _add_label_feature_links(
         self,
         features_labels,
-        *,
-        label_ref_is_name: bool | None = None,
-        feature_ref_is_name: bool | None = None,
     ):
         host_name = self._host.__class__.__name__.lower()
         host_is_record = host_name == "record"
         related_names = dict_related_model_to_related_name(self._host.__class__)
         if host_is_record:
-            # the related model to related name is ambiguous if two M2M exist
-            related_names["Record"] = "components"
+            related_names["Record"] = "linked_records"
             related_names["Project"] = "linked_projects"
             related_names["Artifact"] = "linked_artifacts"
             related_names["Collection"] = "linked_collections"
-        # same convention for Artifact & Record
-        related_names["Run"] = "linked_runs"
+            related_names["Run"] = "linked_runs"
+        else:
+            related_names["Run"] = "runs"
         for class_name, registry_features_labels in features_labels.items():
             if not host_is_record and class_name == "Collection":
                 continue
@@ -1094,8 +1071,6 @@ class FeatureManager:
                             "artifact_id": self._host.id,
                             "feature_id": feature.id,
                             field_name: label.id,
-                            "feature_ref_is_name": feature_ref_is_name,
-                            "label_ref_is_name": label_ref_is_name,
                         }
                     )
                     for (feature, label) in registry_features_labels
@@ -1134,7 +1109,7 @@ class FeatureManager:
             ]
             run = get_current_tracked_run()
             if run is not None:
-                name = f"{run.transform.type}[{run.transform.key}]"
+                name = f"{run.transform.kind}[{run.transform.key}]"
                 type_hint = f"""  feature_type = ln.Feature(name='{name}', is_type=True).save()"""
                 elements = [type_hint]
                 type_kwarg = ", type=feature_type"
@@ -1189,10 +1164,11 @@ class FeatureManager:
             if self._get_external_schema():
                 raise ValueError("Cannot add values if artifact has external schema.")
         if schema is not None:
-            ExperimentalDictCurator(values, schema).validate()
             feature_records = schema.members.filter(name__in=keys)
         else:
             feature_records = self._get_feature_records(dictionary, feature_field)
+            schema = Schema(feature_records)
+        ExperimentalDictCurator(values, schema, require_saved_schema=False).validate()
         return self._add_values(feature_records, dictionary)
 
     def _add_values(self, feature_records, dictionary):
@@ -1208,52 +1184,19 @@ class FeatureManager:
             value = dictionary[feature.name]
             if value is None:
                 continue
-            inferred_type, converted_value, _ = infer_feature_type_convert_json(
-                feature.name,
-                value,
-                mute=True,
-            )
-            if feature.dtype == "num" or feature.dtype == "list[num]":
-                if not ("int" in inferred_type or "float" in inferred_type):
-                    raise TypeError(
-                        f"Value for feature '{feature.name}' with dtype {feature.dtype} must be a number, but is {value} with dtype {inferred_type}"
-                    )
-            elif feature.dtype.startswith("cat"):
-                if inferred_type != "?":
-                    if not (
-                        inferred_type.startswith("cat")
-                        or inferred_type == "list[cat ? str]"
-                        or isinstance(value, SQLRecord)
-                        or is_iterable_of_sqlrecord(value)
-                    ):
-                        raise TypeError(
-                            f"Value for feature '{feature.name}' with dtype '{feature.dtype}' must be a string or record, but is {value} with dtype {inferred_type}"
-                        )
-            elif (
-                (feature.dtype == "str" and inferred_type != "cat ? str")
-                or (feature.dtype == "list[str]" and inferred_type != "list[cat ? str]")
-                or (
-                    feature.dtype.startswith("list[cat")
-                    and not inferred_type.startswith("list[cat")
-                )
-                or (
-                    feature.dtype not in {"str", "list[str]"}
-                    and not feature.dtype.startswith("list[cat")
-                    and feature.dtype != inferred_type
-                )
-            ):
-                raise ValidationError(
-                    f"Expected dtype for '{feature.name}' is '{feature.dtype}', got '{inferred_type}'"
-                )
             if not (
-                feature.dtype.startswith("cat") or feature.dtype.startswith("list[cat")
+                feature.dtype_as_str.startswith("cat")
+                or feature.dtype_as_str.startswith("list[cat")
             ):
+                _, converted_value, _ = infer_feature_type_convert_json(
+                    key=feature.name, value=value, dtype_str=feature.dtype_as_str
+                )
                 filter_kwargs = {"feature": feature, "value": converted_value}
                 if host_is_record:
                     filter_kwargs["record"] = self._host
                     feature_value = RecordJson(**filter_kwargs)
                 else:
-                    feature_value, _ = FeatureValue.get_or_create(**filter_kwargs)
+                    feature_value, _ = JsonValue.get_or_create(**filter_kwargs)
                 feature_json_values.append(feature_value)
             else:
                 if isinstance(value, SQLRecord) or is_iterable_of_sqlrecord(value):
@@ -1274,8 +1217,9 @@ class FeatureManager:
                         values = [value]  # type: ignore
                     else:
                         values = value  # type: ignore
-                    if feature.dtype == "cat":
-                        feature.dtype += "[ULabel]"
+                    if feature._dtype_str == "cat":
+                        new_dtype_str = feature._dtype_str + "[ULabel]"
+                        feature._dtype_str = new_dtype_str
                         feature.save()
                         result = {
                             "registry_str": "ULabel",
@@ -1283,7 +1227,7 @@ class FeatureManager:
                             "field": ULabel.name,
                         }
                     else:
-                        result = parse_dtype(feature.dtype)[0]
+                        result = parse_dtype(feature._dtype_str)[0]
                     if issubclass(result["registry"], CanCurate):  # type: ignore
                         validated = result["registry"].validate(  # type: ignore
                             values, field=result["field"], mute=True
@@ -1310,6 +1254,8 @@ class FeatureManager:
                     features_labels[result["registry_str"]] += [  # type: ignore
                         (feature, label_record) for label_record in label_records
                     ]
+        # TODO: given we had already validated prior to calling _add_values, this blog below should never be reached
+        # refactor this out if possible
         if not_validated_values:
             hint = ""
             for key, (field, values_list) in not_validated_values.items():
@@ -1326,16 +1272,16 @@ class FeatureManager:
         if feature_json_values and host_is_record:
             save(feature_json_values)
         elif feature_json_values:
-            to_insert_feature_values = [
+            to_insertjson_values = [
                 record for record in feature_json_values if record._state.adding
             ]
-            if to_insert_feature_values:
-                save(to_insert_feature_values)
+            if to_insertjson_values:
+                save(to_insertjson_values)
             links = [
-                self._host._feature_values.through(
+                self._host.json_values.through(
                     **{
                         f"{self._host.__class__.__name__.lower()}_id": self._host.id,
-                        "featurevalue_id": json_value.id,
+                        "jsonvalue_id": json_value.id,
                     }
                 )
                 for json_value in feature_json_values
@@ -1456,8 +1402,10 @@ class FeatureManager:
                         raise ValueError("Cannot remove values for dataset features.")
             filter_kwargs = {"feature": feature_record}
             none_message = f"with value {value!r} " if value is not None else ""
-            if feature_record.dtype.startswith(("cat[", "list[cat")):  # type: ignore
-                feature_registry = parse_dtype(feature_record.dtype)[0]["registry_str"]
+            if feature_record._dtype_str.startswith(("cat[", "list[cat")):  # type: ignore
+                feature_registry = parse_dtype(feature_record._dtype_str)[0][
+                    "registry_str"
+                ]
                 if "." in feature_registry:
                     parts = feature_registry.split(".")
                     app_label = parts[0]
@@ -1492,7 +1440,7 @@ class FeatureManager:
                 if host_is_record:
                     feature_values = self._host.values_json.filter(**filter_kwargs)
                 else:
-                    feature_values = self._host._feature_values.filter(**filter_kwargs)
+                    feature_values = self._host.json_values.filter(**filter_kwargs)
                 if not feature_values.exists():
                     logger.warning(
                         f"no feature '{feature_record.name}' {none_message}found on {self._host.__class__.__name__.lower()} '{self._host.uid}'!"
@@ -1503,8 +1451,8 @@ class FeatureManager:
                 else:
                     # the below might leave a dangling feature_value record
                     # but we don't want to pay the price of making another query just to remove this annotation
-                    # we can clean the FeatureValue registry periodically if we want to
-                    self._host._feature_values.remove(*feature_values)
+                    # we can clean the JsonValue registry periodically if we want to
+                    self._host.json_values.remove(*feature_values)
 
     def _add_schema(self, schema: Schema, slot: str) -> None:
         """Annotate artifact with a schema.
@@ -1527,12 +1475,12 @@ class FeatureManager:
             "slot": slot,
         }
         link_record = (
-            self._host.feature_sets.through.objects.using(host_db)
+            self._host.schemas.through.objects.using(host_db)
             .filter(**kwargs)
             .one_or_none()
         )
         if link_record is None:
-            self._host.feature_sets.through(**kwargs).save(using=host_db)
+            self._host.schemas.through(**kwargs).save(using=host_db)
             if slot in self.slots:
                 logger.debug(f"replaced existing {slot} feature set")
             self._slots[slot] = schema  # type: ignore
@@ -1617,186 +1565,7 @@ class FeatureManager:
                 logger.warning(
                     f"updating annotation of artifact {self._host.uid} with feature set for slot: {slot}"
                 )
-                self._host.feature_sets.through.objects.get(
+                self._host.schemas.through.objects.get(
                     artifact_id=self._host.id, slot=slot
                 ).delete()
                 self._host.features._add_schema(schema_self, slot)
-
-    @deprecated("none")
-    def make_external(self, feature: Feature) -> None:
-        """Make a feature external.
-
-        This removes a feature from `artifact.feature_sets` and thereby no longer marks it
-        as a dataset feature.
-
-        Args:
-            feature: A feature.
-        """
-        if not isinstance(feature, Feature):
-            raise TypeError("feature must be a Feature record!")
-        feature_sets = Schema.filter(features=feature)
-        for fs in feature_sets:
-            f = Feature.filter(uid=feature.uid)
-            features_updated = fs.members.difference(f)
-            if len(features_updated) > 0:
-                # re-compute the hash of feature sets based on the updated members
-                features_hash = hash_set({feature.uid for feature in features_updated})
-                fs.hash = features_hash
-                fs.n = len(features_updated)
-                fs.save()
-            # delete the link between the feature and the feature set
-            Schema.features.through.objects.filter(
-                feature_id=feature.id, schema_id=fs.id
-            ).delete()
-            # if no members are left in the schema, delete it
-            if len(features_updated) == 0:
-                logger.warning(f"deleting empty feature set: {fs}")
-                fs.artifacts.set([])
-                fs.delete()
-
-    @deprecated("_add_schema")
-    def add_schema(self, schema: Schema, slot: str) -> None:
-        return self._add_schema(schema, slot)
-
-    @deprecated("_add_schema")
-    def add_feature_set(self, schema: Schema, slot: str) -> None:
-        return self._add_schema(schema, slot)
-
-    @property
-    @deprecated("slots")
-    def _schema_by_slot(self):
-        return self.slots
-
-    @property
-    def _feature_set_by_slot(self):
-        return self.slots
-
-    # no longer called from within curator
-    # deprecated
-    def _add_set_from_df(
-        self,
-        field: FieldAttr = Feature.name,
-        organism: str | None = None,
-        mute: bool = False,
-    ):
-        """Add feature set corresponding to column names of DataFrame."""
-        assert self._host.otype == "DataFrame"  # noqa: S101
-        df = self._host.load(is_run_input=False)
-        schema = Schema.from_dataframe(
-            df=df,
-            field=field,
-            mute=mute,
-            organism=organism,
-        )
-        self._host._staged_feature_sets = {"columns": schema}
-        self._host.save()
-
-    # deprecated
-    def _add_set_from_anndata(
-        self,
-        var_field: FieldAttr | None = None,
-        obs_field: FieldAttr | None = Feature.name,
-        uns_field: FieldAttr | None = None,
-        mute: bool = False,
-        organism: str | SQLRecord | None = None,
-    ):
-        """Add features from AnnData."""
-        assert self._host.otype == "AnnData"  # noqa: S101
-
-        # parse and register features
-        adata = self._host.load(is_run_input=False)
-        feature_sets = parse_staged_feature_sets_from_anndata(
-            adata,
-            var_field=var_field,
-            obs_field=obs_field,
-            uns_field=uns_field,
-            mute=mute,
-            organism=organism,
-        )
-
-        # link feature sets
-        self._host._staged_feature_sets = feature_sets
-        self._host.save()
-
-    # deprecated
-    def _add_set_from_mudata(
-        self,
-        var_fields: dict[str, FieldAttr] | None = None,
-        obs_fields: dict[str, FieldAttr] | None = None,
-        mute: bool = False,
-        organism: str | SQLRecord | None = None,
-    ):
-        """Add features from MuData."""
-        if obs_fields is None:
-            obs_fields = {}
-        assert self._host.otype == "MuData"  # noqa: S101
-
-        # parse and register features
-        mdata = self._host.load(is_run_input=False)
-        feature_sets = {}
-
-        obs_features = Feature.from_values(mdata.obs.columns)  # type: ignore
-        if len(obs_features) > 0:
-            feature_sets["obs"] = Schema(features=obs_features)
-        for modality, field in var_fields.items():
-            modality_fs = parse_staged_feature_sets_from_anndata(
-                mdata[modality],
-                var_field=field,
-                obs_field=obs_fields.get(modality, Feature.name),
-                mute=mute,
-                organism=organism,
-            )
-            for k, v in modality_fs.items():
-                feature_sets[f"['{modality}'].{k}"] = v
-
-        # link feature sets
-        self._host._staged_feature_sets = _unify_staged_feature_sets_by_hash(
-            feature_sets
-        )
-        self._host.save()
-
-    # deprecated
-    def _add_set_from_spatialdata(
-        self,
-        sample_metadata_key: str,
-        sample_metadata_field: FieldAttr = Feature.name,
-        var_fields: dict[str, FieldAttr] | None = None,
-        obs_fields: dict[str, FieldAttr] | None = None,
-        mute: bool = False,
-        organism: str | SQLRecord | None = None,
-    ):
-        """Add features from SpatialData."""
-        obs_fields, var_fields = obs_fields or {}, var_fields or {}
-        assert self._host.otype == "SpatialData"  # noqa: S101
-
-        # parse and register features
-        sdata = self._host.load(is_run_input=False)
-        feature_sets = {}
-
-        # sample features
-        sample_features = Feature.from_values(
-            sdata.get_attrs(
-                key=sample_metadata_key, return_as="df", flatten=True
-            ).columns,
-            field=sample_metadata_field,
-        )  # type: ignore
-        if len(sample_features) > 0:
-            feature_sets[sample_metadata_key] = Schema(features=sample_features)
-
-        # table features
-        for table, field in var_fields.items():
-            table_fs = parse_staged_feature_sets_from_anndata(
-                sdata[table],
-                var_field=field,
-                obs_field=obs_fields.get(table, Feature.name),
-                mute=mute,
-                organism=organism,
-            )
-            for k, v in table_fs.items():
-                feature_sets[f"['{table}'].{k}"] = v
-
-        # link feature sets
-        self._host._staged_feature_sets = _unify_staged_feature_sets_by_hash(
-            feature_sets
-        )
-        self._host.save()

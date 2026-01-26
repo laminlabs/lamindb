@@ -23,8 +23,8 @@ def test_transfer_from_remote_to_local(ccaplog):
     ln.ULabel.filter().delete(permanent=True)
     bt.CellType.filter().delete(permanent=True)
 
-    # test transfer from an instance with an extra schema module: wetlab
-    # we also made sure that the artifact here has a wetlab label attached
+    # test transfer from an instance with an extra schema module: pertdb
+    # we also made sure that the artifact here has a pertdb label attached
 
     # transfer 1st artifact
     artifact1 = ln.Artifact.connect("laminlabs/lamin-dev").get("livFRRpM")
@@ -40,7 +40,7 @@ def test_transfer_from_remote_to_local(ccaplog):
     assert result["related_data"]["m2m"]["tissues"] == {
         2: {
             "id": 2,
-            "uid": "6VHBo6Xs",
+            "uid": "6VHBo6XsJZqmaQ",
             "abbr": None,
             "name": "cortex of kidney",
             "tissue": 2,
@@ -73,8 +73,8 @@ def test_transfer_from_remote_to_local(ccaplog):
             "ulabel_display": "na",
         },
     ]
-    assert result["related_data"]["schemas"][615][0] == "obs"
-    assert result["related_data"]["schemas"][615][1] == {
+    assert result["related_data"]["m2m_schemas"][615][0] == "obs"
+    assert result["related_data"]["m2m_schemas"][615][1] == {
         "Feature": [
             "donor_id",
             "development_stage",
@@ -102,7 +102,7 @@ def test_transfer_from_remote_to_local(ccaplog):
     organism_remote = artifact1.organisms.get(name="human")
 
     artifact1.save(transfer="annotations")
-    # assert MODULE_WASNT_CONFIGURED_MESSAGE_TEMPLATE.format("wetlab") in ccaplog.text
+    # assert MODULE_WASNT_CONFIGURED_MESSAGE_TEMPLATE.format("pertdb") in ccaplog.text
 
     # check all ids are adjusted
     assert id_remote != artifact1.id
@@ -216,13 +216,16 @@ def test_using_query_by_feature():
     assert ln.Artifact.connect("laminlabs/cellxgene").filter(n_of_donors__gte=100)
 
 
-def test_transfer_features_uid():
-    """Test that a new feature is created based on uid."""
-    existing_tissue_feature = ln.Feature.get(name="tissue")
-    artifact = ln.Artifact.connect("laminlabs/pertdata").get("aT2dp4hC6XDwrafN")
-    artifact.save(transfer="annotations")
-    # now a new feature called "tissue" is created because the uid is different
-    newly_transferred_tissue_feature = ln.Feature.get(
-        name="tissue", schemas__artifacts__uid=artifact.uid
-    )
-    assert existing_tissue_feature.uid != newly_transferred_tissue_feature.uid
+# TODO: uncomment after migrations
+# def test_transfer_features_uid():
+#     """Test that a new feature is created based on uid."""
+#     existing_tissue_feature = (
+#         ln.Feature.connect("laminlabs/lamin-dev").get(name="tissue").save()
+#     )
+#     artifact = ln.Artifact.connect("laminlabs/pertdata").get("aT2dp4hC6XDwrafN")
+#     artifact.save(transfer="annotations")
+#     # now a new feature called "tissue" is created because the uid is different
+#     newly_transferred_tissue_feature = ln.Feature.get(
+#         name="tissue", schemas__artifacts__uid=artifact.uid
+#     )
+#     assert existing_tissue_feature.uid != newly_transferred_tissue_feature.uid

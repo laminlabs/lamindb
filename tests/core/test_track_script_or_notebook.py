@@ -59,10 +59,10 @@ Here is how to create a feature:
         == f"""\
 Run: {ln.context.run.uid[:7]} ({ln.context.run.transform.key})
 └── Features
-    └── label_param         Record                  my_label
-        param1              int                     1
-        param2              str                     my-string
-        param3              float                   3.14"""
+    └── label_param         Record                   my_label
+        param1              int                      1
+        param2              str                      my-string
+        param3              float                    3.14"""
     )
     # also call describe() plainly without further checks
     ln.context.run.describe()
@@ -71,10 +71,7 @@ Run: {ln.context.run.uid[:7]} ({ln.context.run.transform.key})
     param4 = ln.Feature(name="param4", dtype="int").save()
     with pytest.raises(ValidationError) as exc:
         ln.track(transform=test_transform, features=kwargs)
-    assert (
-        exc.exconly()
-        == """lamindb.errors.ValidationError: Expected dtype for 'param4' is 'int', got 'list[int]'"""
-    )
+    assert "Column 'param4' failed dtype check for 'int': got object" in exc.exconly()
     # fix param4 dtype
     param4.delete(permanent=True)
     param4 = ln.Feature(name="param4", dtype=list[int]).save()
@@ -98,9 +95,7 @@ Run: {ln.context.run.uid[:7]} ({ln.context.run.transform.key})
 
     # clean up
     ln.context.run.delete(permanent=True)
-    ln.models.RunFeatureValue.filter(run__transform=test_transform).delete(
-        permanent=True
-    )
+    ln.models.RunJsonValue.filter(run__transform=test_transform).delete(permanent=True)
     ln.models.RunRecord.filter(run__transform=test_transform).delete(permanent=True)
     ln.context._run = None
     feature1.delete(permanent=True)
@@ -149,7 +144,7 @@ def test_track_input_record(create_record, kind):
     ln.track(new_run=True)
     assert ln.context.run != previous_run
     record = create_record(kind)
-    assert ln.context.run in record._subsequent_runs.all()
+    assert ln.context.run in record.recreating_runs.all()
     assert record._subsequent_run_id == ln.context.run.id
     record.cache()
     assert (
@@ -164,7 +159,7 @@ def test_track_input_record(create_record, kind):
     else:
         record = ln.Collection.get(key="test-collection")
     record.cache()
-    assert ln.context.run not in record._subsequent_runs.all()
+    assert ln.context.run not in record.recreating_runs.all()
     assert not hasattr(record, "_subsequent_run_id")
     assert record in getattr(ln.context.run, f"input_{kind}s").all()  # regular input
 
@@ -195,7 +190,7 @@ def test_invalid_transform_type():
     transform = ln.Transform(key="test transform")
     ln.track(transform=transform)
     ln.context._path = None
-    ln.context.run.transform.type = "script"
+    ln.context.run.transform.kind = "script"
     with pytest.raises(ValueError) as error:
         ln.finish()
     assert "Transform type is not allowed to be" in error.exconly()
@@ -217,13 +212,13 @@ def test_create_or_load_transform():
         transform_type="notebook",
     )
     assert context._transform.uid == uid
-    assert context._transform.version == version
+    assert context._transform.version_tag == version
     assert context._transform.description == title
     context._create_or_load_transform(
         description=title,
     )
     assert context._transform.uid == uid
-    assert context._transform.version == version
+    assert context._transform.version_tag == version
     assert context._transform.description == title
 
     # now, test an updated transform name
@@ -231,7 +226,7 @@ def test_create_or_load_transform():
         description="updated title",
     )
     assert context._transform.uid == uid
-    assert context._transform.version == version
+    assert context._transform.version_tag == version
     assert context._transform.description == "updated title"
 
     # unset to remove side effects
@@ -363,7 +358,7 @@ def test_run_external_script():
 
 @pytest.mark.parametrize("type", ["notebook", "script"])
 def test_track_notebook_or_script_manually(type):
-    transform = ln.Transform(key="My notebook", type=type)
+    transform = ln.Transform(key="My notebook", kind=type)
     with pytest.raises(ValueError) as error:
         ln.track(transform=transform)
     assert (

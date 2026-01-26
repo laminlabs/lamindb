@@ -7,9 +7,7 @@ from django.conf import settings as django_settings
 from django.db import models
 from django.db.models import CASCADE, PROTECT
 
-from lamindb.base import deprecated
 from lamindb.base.fields import (
-    BooleanField,
     CharField,
     DateTimeField,
     ForeignKey,
@@ -17,7 +15,7 @@ from lamindb.base.fields import (
 )
 from lamindb.errors import FieldValidationError
 
-from ..base.ids import base62_8
+from ..base.uids import base62_8
 from .can_curate import CanCurate
 from .feature import Feature
 from .has_parents import HasParents, _query_relatives
@@ -29,104 +27,12 @@ if TYPE_CHECKING:
     from datetime import datetime
 
     from .artifact import Artifact
+    from .block import ULabelBlock
     from .collection import Collection
     from .project import Project
+    from .query_manager import QueryManager
     from .query_set import QuerySet
     from .record import Record
-
-
-# also see analogous SQL on Record
-UPDATE_FEATURE_DTYPE_ON_ULABEL_TYPE_NAME_CHANGE = """\
-WITH RECURSIVE old_ulabel_path AS (
-    -- Start with OLD values directly, don't query the table
-    SELECT
-        OLD.id as id,
-        OLD.name as name,
-        OLD.type_id as type_id,
-        OLD.name::TEXT AS path,
-        1 as depth
-
-    UNION ALL
-
-    SELECT
-        r.id,
-        r.name,
-        r.type_id,
-        r.name || '[' || rp.path AS path,
-        rp.depth + 1
-    FROM lamindb_ulabel r
-    INNER JOIN old_ulabel_path rp ON r.id = rp.type_id
-),
-paths AS (
-    SELECT
-        path as old_path,
-        REPLACE(path, OLD.name, NEW.name) as new_path
-    FROM old_ulabel_path
-    ORDER BY depth DESC
-    LIMIT 1
-)
-UPDATE lamindb_feature
-SET dtype = REPLACE(dtype, paths.old_path, paths.new_path)
-FROM paths
-WHERE dtype LIKE '%cat[ULabel[%'
-  AND dtype LIKE '%' || paths.old_path || '%';
-
-RETURN NEW;
-"""
-
-
-# also see analogous SQL on Record
-UPDATE_FEATURE_DTYPE_ON_ULABEL_TYPE_CHANGE = """\
-WITH RECURSIVE old_ulabel_path AS (
-    SELECT
-        OLD.id as id,
-        OLD.name as name,
-        OLD.type_id as type_id,
-        OLD.name::TEXT AS path,
-        1 as depth
-
-    UNION ALL
-
-    SELECT
-        r.id,
-        r.name,
-        r.type_id,
-        r.name || '[' || rp.path || ']' AS path,
-        rp.depth + 1
-    FROM lamindb_ulabel r
-    INNER JOIN old_ulabel_path rp ON r.id = rp.type_id
-),
-new_ulabel_path AS (
-    SELECT
-        NEW.id as id,
-        NEW.name as name,
-        NEW.type_id as type_id,
-        NEW.name::TEXT AS path,
-        1 as depth
-
-    UNION ALL
-
-    SELECT
-        r.id,
-        r.name,
-        r.type_id,
-        r.name || '[' || rp.path || ']' AS path,
-        rp.depth + 1
-    FROM lamindb_ulabel r
-    INNER JOIN new_ulabel_path rp ON r.id = rp.type_id
-),
-paths AS (
-    SELECT
-        (SELECT path FROM old_ulabel_path ORDER BY depth DESC LIMIT 1) as old_path,
-        (SELECT path FROM new_ulabel_path ORDER BY depth DESC LIMIT 1) as new_path
-)
-UPDATE lamindb_feature
-SET dtype = REPLACE(dtype, 'cat[ULabel[' || paths.old_path || ']]', 'cat[ULabel[' || paths.new_path || ']]')
-FROM paths
-WHERE dtype LIKE '%cat[ULabel[' || paths.old_path || ']]%';
-
-RETURN NEW;
-"""
 
 
 class ULabel(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates):
@@ -177,24 +83,6 @@ class ULabel(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         ):
             triggers = [
                 pgtrigger.Trigger(
-                    name="update_feature_dtype_on_ulabel_type_name_change",
-                    operation=pgtrigger.Update,
-                    when=pgtrigger.After,
-                    condition=pgtrigger.Condition(
-                        "OLD.name IS DISTINCT FROM NEW.name AND NEW.is_type"
-                    ),
-                    func=UPDATE_FEATURE_DTYPE_ON_ULABEL_TYPE_NAME_CHANGE,
-                ),
-                pgtrigger.Trigger(
-                    name="update_feature_dtype_on_ulabel_type_change",
-                    operation=pgtrigger.Update,
-                    when=pgtrigger.After,
-                    condition=pgtrigger.Condition(
-                        "OLD.type_id IS DISTINCT FROM NEW.type_id AND NEW.is_type"
-                    ),
-                    func=UPDATE_FEATURE_DTYPE_ON_ULABEL_TYPE_CHANGE,
-                ),
-                pgtrigger.Trigger(
                     name="prevent_ulabel_type_cycle",
                     operation=pgtrigger.Update | pgtrigger.Insert,
                     when=pgtrigger.Before,
@@ -228,25 +116,7 @@ class ULabel(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
                     """,
                 ),
             ]
-        constraints = [
-            # unique name for types when type is NULL
-            models.UniqueConstraint(
-                fields=["name"],
-                name="unique_ulabel_type_name_at_root",
-                condition=models.Q(
-                    ~models.Q(branch_id=-1), type__isnull=True, is_type=True
-                ),
-            ),
-            # unique name for types when type is not NULL
-            models.UniqueConstraint(
-                fields=["name", "type"],
-                name="unique_ulabel_type_name_under_type",
-                condition=models.Q(
-                    ~models.Q(branch_id=-1), type__isnull=False, is_type=True
-                ),
-            ),
-            # also see raw SQL constraints for `is_type` and `type` FK validity in migrations
-        ]
+        # also see raw SQL constraints for `is_type` and `type` FK validity in migrations
 
     _name_field: str = "name"
 
@@ -259,55 +129,52 @@ class ULabel(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
     name: str = CharField(max_length=150, db_index=True)
     """Name or title of ulabel."""
     type: ULabel | None = ForeignKey("self", PROTECT, null=True, related_name="ulabels")
-    """Type of ulabel, e.g., `"donor"`, `"split"`, etc.
+    """Type of ulabel, e.g., `"donor"`, `"split"`, etc. ← :attr:`~lamindb.ULabel.ulabels`
 
     Allows to group ulabels by type, e.g., all donors, all split ulabels, etc.
     """
     ulabels: ULabel
     """ULabels of this type (can only be non-empty if `is_type` is `True`)."""
-    is_type: bool = BooleanField(default=False, db_index=True, null=True)
-    """Distinguish types from instances of the type.
-
-    For example, a ulabel "Project" would be a type, and the actual projects "Project 1", "Project 2", would be records of that `type`.
-    """
     description: str | None = TextField(null=True)
     """A description."""
     reference: str | None = CharField(max_length=255, db_index=True, null=True)
     """A simple reference like URL or external ID."""
     reference_type: str | None = CharField(max_length=25, db_index=True, null=True)
     """Type of simple reference."""
-    parents: ULabel = models.ManyToManyField(
+    parents: QueryManager[ULabel] = models.ManyToManyField(
         "self", symmetrical=False, related_name="children"
     )
-    """Parent entities of this ulabel.
+    """Parent entities of this ulabel ← :attr:`~lamindb.ULabel.children`.
 
     For advanced use cases, you can build an ontology under a given `type`.
 
     Say, if you modeled `CellType` as a `ULabel`, you would introduce a type `CellType` and model the hiearchy of cell types under it.
     """
-    children: ULabel
+    children: QueryManager[ULabel]
     """Child entities of this ulabel.
 
     Reverse accessor for parents.
     """
-    transforms: Transform
-    """The transforms annotated by this ulabel."""
-    runs: Run
-    """The runs annotated by this ulabel."""
-    artifacts: Artifact = models.ManyToManyField(
+    transforms: QueryManager[Transform]
+    """The transforms annotated by this ulabel ← :attr:`~lamindb.Transform.ulabels`."""
+    runs: QueryManager[Run]
+    """The runs annotated by this ulabel ← :attr:`~lamindb.Run.ulabels`."""
+    artifacts: QueryManager[Artifact] = models.ManyToManyField(
         "Artifact", through="ArtifactULabel", related_name="ulabels"
     )
-    """The artifacts annotated by this ulabel."""
-    collections: Collection
-    """The collections annotated by this ulabel."""
-    projects: Project
-    """The projects annotated by this ulabel."""
-    linked_in_records: Record = models.ManyToManyField(
+    """The artifacts annotated by this ulabel ← :attr:`~lamindb.Artifact.ulabels`."""
+    collections: QueryManager[Collection]
+    """The collections annotated by this ulabel ← :attr:`~lamindb.Collection.ulabels`."""
+    projects: QueryManager[Project]
+    """The projects annotating this ulabel ← :attr:`~lamindb.Project.ulabels`."""
+    linked_in_records: QueryManager[Record] = models.ManyToManyField(
         "Record",
         through="RecordULabel",
         related_name="linked_ulabels",
     )
-    """Records linking this ulabel as a value."""
+    """Records linking this ulabel as a value ← :attr:`~lamindb.Record.linked_ulabels`."""
+    ablocks: ULabelBlock
+    """Blocks that annotate this ulabel ← :attr:`~lamindb.ULabelBlock.ulabel`."""
 
     @overload
     def __init__(
@@ -376,12 +243,6 @@ class ULabel(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         """
         return _query_relatives([self], "ulabels")  # type: ignore
 
-    @property
-    @deprecated("ulabels")
-    def records(self) -> list[ULabel]:
-        """Return all instances of this type."""
-        return self.ulabels
-
 
 class ArtifactULabel(BaseSQLRecord, IsLink, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
@@ -390,8 +251,6 @@ class ArtifactULabel(BaseSQLRecord, IsLink, TracksRun):
     feature: Feature | None = ForeignKey(
         Feature, PROTECT, null=True, related_name="links_artifactulabel", default=None
     )
-    label_ref_is_name: bool | None = BooleanField(null=True)
-    feature_ref_is_name: bool | None = BooleanField(null=True)
 
     class Meta:
         # can have the same label linked to the same artifact if the feature is
@@ -437,8 +296,6 @@ class CollectionULabel(BaseSQLRecord, IsLink, TracksRun):
     feature: Feature | None = ForeignKey(
         Feature, PROTECT, null=True, related_name="links_collectionulabel", default=None
     )
-    label_ref_is_name: bool | None = BooleanField(null=True)
-    feature_ref_is_name: bool | None = BooleanField(null=True)
 
     class Meta:
         app_label = "lamindb"

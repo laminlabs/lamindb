@@ -22,18 +22,19 @@ def test_feature_describe():
       Simple fields
         .uid: CharField
         .name: CharField
-        .dtype: CharField
         .unit: CharField
         .description: TextField
         .array_rank: SmallIntegerField
         .array_size: IntegerField
         .array_shape: JSONField
-        .proxy_dtype: CharField
         .synonyms: TextField
+        .default_value: JSONField
+        .nullable: BooleanField
+        .coerce: BooleanField
+        .is_type: BooleanField
         .is_locked: BooleanField
         .created_at: DateTimeField
         .updated_at: DateTimeField
-        .is_type: BooleanField
       Relational fields
         .branch: Branch
         .space: Space
@@ -42,9 +43,9 @@ def test_feature_describe():
         .type: Feature
         .schemas: Schema
         .features: Feature
-        .values: FeatureValue
+        .values: JsonValue
         .projects: Project
-        .blocks: FeatureBlock
+        .ablocks: FeatureBlock
     """).strip()
     assert description == ln.Feature.describe(return_str=True)
 
@@ -63,7 +64,7 @@ def test_artifact_describe():
         .hash: CharField
         .n_files: BigIntegerField
         .n_observations: BigIntegerField
-        .version: CharField
+        .version_tag: CharField
         .is_latest: BooleanField
         .is_locked: BooleanField
         .created_at: DateTimeField
@@ -76,18 +77,20 @@ def test_artifact_describe():
         .schema: Schema
         .created_by: User
         .input_of_runs: Run
-        .feature_sets: Schema
+        .recreating_runs: Run
+        .schemas: Schema
+        .json_values: JsonValue
         .artifacts: Artifact
         .linked_in_records: Record
         .users: User
-        .linked_runs: Run
+        .runs: Run
         .ulabels: ULabel
-        .linked_artifacts: Artifact
+        .linked_by_artifacts: Artifact
         .collections: Collection
         .records: Record
         .references: Reference
         .projects: Project
-        .blocks: Block
+        .ablocks: ArtifactBlock
       Bionty fields
         .organisms: bionty.Organism
         .genes: bionty.Gene
@@ -115,7 +118,7 @@ def test_repr_describe():
 def test_validate_literal_fields():
     # validate literal
     with pytest.raises(FieldValidationError):
-        ln.Transform(key="new-name-not-existing-123", type="invalid")
+        ln.Transform(key="new-name-not-existing-123", kind="invalid")
 
 
 def test_init_with_args():
@@ -259,6 +262,8 @@ def test_pass_version():
     # creating a new transform on key retrieves the same transform
     # for as long as no source_code was saved
     transform = ln.Transform(key="mytransform", version="1").save()
+    assert transform.version_tag == "1"
+    assert transform.version == "1"
     assert ln.Transform(key="mytransform", version="1") == transform
     # in case source code is saved
     transform.source_code = "dummy"
@@ -274,12 +279,19 @@ def test_pass_version():
 def test_delete():
     record = ln.Record(name="test-delete")
     # record not yet saved, delete has no effect
-    record.delete()
+    result = record.delete()
+    assert result is None
     assert record.branch_id == 1
     record.save()
-    record.delete()
+    result = record.delete()
+    assert result is None
     assert record.branch_id == -1
-    record.delete(permanent=True)
+    result = record.delete(permanent=True)
+    assert isinstance(result, tuple)
+    assert len(result) == 2
+    deleted_count, deleted_dict = result
+    assert deleted_count == 1
+    assert isinstance(deleted_dict, dict)
     assert ln.Record.filter(name="test-delete").exists() is False
 
 
@@ -325,18 +337,18 @@ def test_using():
 def test_get_record_kwargs():
     assert _get_record_kwargs(ln.Feature) == [
         ("name", "str"),
-        ("dtype", "Dtype | Registry | list[Registry] | FieldAttr"),
+        ("dtype", "DtypeStr | ULabel | Record | Registry | list[Registry] | FieldAttr"),
         ("type", "Feature | None"),
         ("is_type", "bool"),
         ("unit", "str | None"),
         ("description", "str | None"),
         ("synonyms", "str | None"),
-        ("nullable", "bool"),
+        ("nullable", "bool | None"),
         (
             "default_value",
-            "str | None",
+            "Any | None",
         ),
-        ("coerce_dtype", "bool"),
+        ("coerce", "bool | None"),
         (
             "cat_filters",
             "dict[str",
@@ -365,6 +377,24 @@ def test_soft_delete_error():
         ln.Branch.filter().first().delete(permanent=False)
 
 
+def test_delete_return_value_permanent():
+    """Test that permanent delete returns Django's natural return value."""
+    # Test with ULabel (simple SQLRecord)
+    ulabel = ln.ULabel(name="test-delete-return").save()
+    result = ulabel.delete(permanent=True)
+    assert isinstance(result, tuple)
+    assert len(result) == 2
+    deleted_count, deleted_dict = result
+    assert deleted_count == 1
+    assert isinstance(deleted_dict, dict)
+    assert len(deleted_dict) > 0
+    # Check that the registry name is in the dict
+    # Django returns app_label.ClassName format
+    registry_name = f"{ulabel._meta.app_label}.{ulabel.__class__.__name__}"
+    assert registry_name in deleted_dict
+    assert deleted_dict[registry_name] == 1
+
+
 def test_unsaved_relationship_modification_attempts():
     af = ln.Artifact.from_dataframe(
         pd.DataFrame({"col1": [1, 2, 3], "col2": [4, 5, 6]}), description="testme"
@@ -381,6 +411,14 @@ def test_unsaved_relationship_modification_attempts():
 
     new_label.delete(permanent=True)
     af.delete(permanent=True)
+
+
+def test_failed_connect():
+    with pytest.raises(ln.setup.errors.InstanceNotFoundError) as error:
+        ln.Artifact.connect("laminlabs/lamindata-not-existing")
+    assert error.exconly().startswith(
+        "lamindb_setup.errors.InstanceNotFoundError: 'laminlabs/lamindata-not-existing' not found: 'instance-not-found'"
+    )
 
 
 def test_unsaved_model_different_instance():

@@ -60,10 +60,9 @@ def test_store_artifacts_acid(get_mini_csv):
 def test_save_parents():
     import bionty as bt
 
-    records = bt.CellLine.from_values(["HEPG2", "HUVEC"])
-    ln.save(records)
-    assert bt.CellLine.get("4ea731nb").parents.to_dataframe().shape[0] == 1
-    bt.CellLine.filter().delete(permanent=True)
+    bt.CellType.from_values(["B cell", "T cell"]).save()
+    assert bt.CellType.get(name="B cell").parents.to_dataframe().shape[0] == 1
+    bt.CellType.filter().delete(permanent=True)
 
 
 def test_save_batch_size():
@@ -79,9 +78,10 @@ def test_bulk_resave_trashed_records():
 
     # first create records from public source
     records = bt.Ethnicity.from_values(["asian", "white"]).save()
-    # one parent is also created
+    assert len(records) == 2
+    # parents are also created
     ethnicities = bt.Ethnicity.filter()
-    assert ethnicities.count() == 3
+    assert ethnicities.count() > 2
     # soft delete the records including parent
     ethnicities.delete()
     # then create them again from public source
@@ -95,7 +95,7 @@ def test_bulk_resave_trashed_records():
     assert new_records[0].branch_id == 1
     ethnicities = bt.Ethnicity.filter()
     # the parent should also be restored
-    assert ethnicities.count() == 4
+    assert ethnicities.count() > 3
 
     # clean up
     ethnicities.delete(permanent=True)

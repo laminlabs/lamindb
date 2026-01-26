@@ -143,7 +143,7 @@ Developer API
 
 # ruff: noqa: I001
 # denote a release candidate for 0.1.0 with 0.1rc1, 0.1a1, 0.1b1, etc.
-__version__ = "1.17.0"
+__version__ = "2.0.1"
 
 import warnings as _warnings
 
@@ -164,12 +164,10 @@ from .core._functions import flow, step, tracked
 from ._view import view
 from .core._context import context
 from .core._settings import settings
-from .curators._legacy import CatManager as Curator
 from .models import (
     Artifact,
     Collection,
     Feature,
-    FeatureSet,  # backward compat
     Project,
     Reference,
     Run,
@@ -202,7 +200,8 @@ __all__ = [
     # data lineage
     "track",
     "finish",
-    "tracked",
+    "step",
+    "flow",
     # registries
     "Artifact",
     "Storage",

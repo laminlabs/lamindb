@@ -8,10 +8,8 @@ from django.conf import settings as django_settings
 from django.db import models
 from django.db.models import CASCADE, PROTECT
 from lamin_utils import logger
-from lamindb_setup.core import deprecated
 
 from lamindb.base.fields import (
-    BooleanField,
     CharField,
     DateTimeField,
     ForeignKey,
@@ -21,7 +19,7 @@ from lamindb.base.fields import (
 from lamindb.base.utils import class_and_instance_method
 from lamindb.errors import FieldValidationError
 
-from ..base.ids import base62_16
+from ..base.uids import base62_16
 from .artifact import Artifact
 from .can_curate import CanCurate
 from .collection import Collection
@@ -42,106 +40,13 @@ if TYPE_CHECKING:
     from datetime import datetime
 
     from ._feature_manager import FeatureManager
-    from .block import RunBlock
+    from .block import RecordBlock
     from .project import Project, RecordProject, RecordReference, Reference
+    from .query_manager import QueryManager
     from .schema import Schema
 
 
-# also see analogous SQL on ULabel
-UPDATE_FEATURE_DTYPE_ON_RECORD_TYPE_NAME_CHANGE = """\
-WITH RECURSIVE old_record_path AS (
-    -- Start with OLD values directly, don't query the table
-    SELECT
-        OLD.id as id,
-        OLD.name as name,
-        OLD.type_id as type_id,
-        OLD.name::TEXT AS path,
-        1 as depth
-
-    UNION ALL
-
-    SELECT
-        r.id,
-        r.name,
-        r.type_id,
-        r.name || '[' || rp.path AS path,
-        rp.depth + 1
-    FROM lamindb_record r
-    INNER JOIN old_record_path rp ON r.id = rp.type_id
-),
-paths AS (
-    SELECT
-        path as old_path,
-        REPLACE(path, OLD.name, NEW.name) as new_path
-    FROM old_record_path
-    ORDER BY depth DESC
-    LIMIT 1
-)
-UPDATE lamindb_feature
-SET dtype = REPLACE(dtype, paths.old_path, paths.new_path)
-FROM paths
-WHERE dtype LIKE '%cat[Record[%'
-  AND dtype LIKE '%' || paths.old_path || '%';
-
-RETURN NEW;
-"""
-
-
-# also see analogous SQL on ULabel
-UPDATE_FEATURE_DTYPE_ON_RECORD_TYPE_CHANGE = """\
-WITH RECURSIVE old_record_path AS (
-    SELECT
-        OLD.id as id,
-        OLD.name as name,
-        OLD.type_id as type_id,
-        OLD.name::TEXT AS path,
-        1 as depth
-
-    UNION ALL
-
-    SELECT
-        r.id,
-        r.name,
-        r.type_id,
-        r.name || '[' || rp.path || ']' AS path,
-        rp.depth + 1
-    FROM lamindb_record r
-    INNER JOIN old_record_path rp ON r.id = rp.type_id
-),
-new_record_path AS (
-    SELECT
-        NEW.id as id,
-        NEW.name as name,
-        NEW.type_id as type_id,
-        NEW.name::TEXT AS path,
-        1 as depth
-
-    UNION ALL
-
-    SELECT
-        r.id,
-        r.name,
-        r.type_id,
-        r.name || '[' || rp.path || ']' AS path,
-        rp.depth + 1
-    FROM lamindb_record r
-    INNER JOIN new_record_path rp ON r.id = rp.type_id
-),
-paths AS (
-    SELECT
-        (SELECT path FROM old_record_path ORDER BY depth DESC LIMIT 1) as old_path,
-        (SELECT path FROM new_record_path ORDER BY depth DESC LIMIT 1) as new_path
-)
-UPDATE lamindb_feature
-SET dtype = REPLACE(dtype, 'cat[Record[' || paths.old_path || ']]', 'cat[Record[' || paths.new_path || ']]')
-FROM paths
-WHERE dtype LIKE '%cat[Record[' || paths.old_path || ']]%';
-
-RETURN NEW;
-"""
-
-
-class Record(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, HasParents):
+class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates):
     """Flexible metadata records.
 
     Useful for managing samples, donors, cells, compounds, sequences, and other custom entities with their features.
@@ -150,8 +55,8 @@ class Record(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, HasParents
     In some cases you may prefer a simple label without features: then consider :class:`~lamindb.ULabel`.
 
     Args:
-        name: `str` A name.
-        description: `str` A description.
+        name: `str | None = None` A name.
+        description: `str | None = None` A description.
         type: `Record | None = None` The type of this record.
         is_type: `bool = False` Whether this record is a type (a record that
             classifies other records).
@@ -222,7 +127,7 @@ class Record(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, HasParents
         The features of a `Record` are flexible: you can dynamically define features and add features to a record.
         The fields of a `SQLRecord` are fixed: you need to define them in code and then migrate the underlying database.
 
-        You can configure a `SQLRecord` by subclassing it in a custom schema, for example, as done here: `github.com/laminlabs/wetlab <https://github.com/laminlabs/wetlab>`__
+        You can configure a `SQLRecord` by subclassing it in a custom schema, for example, as done here: `github.com/laminlabs/pertdb <https://github.com/laminlabs/pertdb>`__
 
     """
 
@@ -234,24 +139,6 @@ class Record(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, HasParents
             == "django.db.backends.postgresql"
         ):
             triggers = [
-                pgtrigger.Trigger(
-                    name="update_feature_dtype_on_record_type_name_change",
-                    operation=pgtrigger.Update,
-                    when=pgtrigger.After,
-                    condition=pgtrigger.Condition(
-                        "OLD.name IS DISTINCT FROM NEW.name AND NEW.is_type"
-                    ),
-                    func=UPDATE_FEATURE_DTYPE_ON_RECORD_TYPE_NAME_CHANGE,
-                ),
-                pgtrigger.Trigger(
-                    name="update_feature_dtype_on_record_type_change",
-                    operation=pgtrigger.Update,
-                    when=pgtrigger.After,
-                    condition=pgtrigger.Condition(
-                        "OLD.type_id IS DISTINCT FROM NEW.type_id AND NEW.is_type"
-                    ),
-                    func=UPDATE_FEATURE_DTYPE_ON_RECORD_TYPE_CHANGE,
-                ),
                 pgtrigger.Trigger(
                     name="prevent_record_type_cycle",
                     operation=pgtrigger.Update | pgtrigger.Insert,
@@ -286,25 +173,7 @@ class Record(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, HasParents
                     """,
                 ),
             ]
-        constraints = [
-            # unique name for types when type is NULL
-            models.UniqueConstraint(
-                fields=["name"],
-                name="unique_record_type_name_at_root",
-                condition=models.Q(
-                    ~models.Q(branch_id=-1), type__isnull=True, is_type=True
-                ),
-            ),
-            # unique name for types when type is not NULL
-            models.UniqueConstraint(
-                fields=["name", "type"],
-                name="unique_record_type_name_under_type",
-                condition=models.Q(
-                    ~models.Q(branch_id=-1), type__isnull=False, is_type=True
-                ),
-            ),
-            # also see raw SQL constraints for `is_type` and `type` FK validity in migrations
-        ]
+        # also see raw SQL constraints for `is_type` and `type` FK validity in migrations
 
     _name_field: str = "name"
 
@@ -320,17 +189,12 @@ class Record(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, HasParents
     Names for a given `type` and `space` are constrained to be unique.
     """
     type: Record | None = ForeignKey("self", PROTECT, null=True, related_name="records")
-    """Type of record, e.g., `Sample`, `Donor`, `Cell`, `Compound`, `Sequence`.
+    """Type of record, e.g., `Sample`, `Donor`, `Cell`, `Compound`, `Sequence` ← :attr:`~lamindb.Record.records`.
 
     Allows to group records by type, e.g., all samples, all donors, all cells, all compounds, all sequences.
     """
     records: Record
     """If a type (`is_type=True`), records of this `type`."""
-    is_type: bool = BooleanField(default=False, db_index=True)
-    """Indicates if record is a `type`.
-
-    For example, if a record "Compound" is a `type`, the actual compounds "darerinib", "tramerinib", would be instances of that `type`.
-    """
     description: str | None = TextField(null=True)
     """A description."""
     reference: str | None = CharField(max_length=255, db_index=True, null=True)
@@ -342,27 +206,28 @@ class Record(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, HasParents
     schema: Schema | None = ForeignKey(
         "Schema", CASCADE, null=True, related_name="records"
     )
-    """A schema to enforce for a type.
+    """A schema to enforce for a type ← :attr:`~lamindb.Schema.records`.
 
     This is analogous to the `schema` attribute of an `Artifact`.
     If `is_type` is `True`, the schema is used to enforce features for each record of this type.
     """
-    # naming convention in analogy to Schema, but probably better would linked_records in analogy with other
-    # record relationships
-    components: Record = models.ManyToManyField(
-        "Record", through="RecordRecord", symmetrical=False, related_name="composites"
+    linked_records: QueryManager[Record] = models.ManyToManyField(
+        "Record",
+        through="RecordRecord",
+        symmetrical=False,
+        related_name="linked_in_records",
     )
-    """Records linked in this record as a value."""
-    composites: Record  # consider renaming to linked_in_records in LaminDB 2
-    """Records linking this record as a value. Is reverse accessor for `components`."""
-    parents: Record = models.ManyToManyField(
+    """Records linked in this record as a value ← :attr:`~lamindb.Record.linked_in_records`."""
+    linked_in_records: QueryManager[Record]
+    """Records linking this record as a value. Is reverse accessor for `linked_records`."""
+    parents: QueryManager[Record] = models.ManyToManyField(
         "self", symmetrical=False, related_name="children"
     )
-    """Ontological parents of this record.
+    """Ontological parents of this record ← :attr:`~lamindb.Record.children`.
 
     You can build an ontology under a given `type`. For example, introduce a type `CellType` and model the hiearchy of cell types under it via `parents` and `children`.
     """
-    children: Record
+    children: QueryManager[Record]
     """Ontological children of this record. Is reverse accessor for `parents`."""
     # this is handled manually here because we want to se the related_name attribute
     # (this doesn't happen via inheritance of TracksRun, everything else is the same)
@@ -374,43 +239,49 @@ class Record(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, HasParents
         default=current_run,
         editable=False,
     )
-    """Run that created the record."""
-    input_of_runs: Run = models.ManyToManyField(Run, related_name="input_records")
-    """Runs that use this record as an input."""
-    artifacts: Artifact = models.ManyToManyField(
+    """Run that created the record ← :attr:`~lamindb.Run.output_records`."""
+    input_of_runs: QueryManager[Run] = models.ManyToManyField(
+        Run, related_name="input_records"
+    )
+    """Runs that use this record as an input ← :attr:`~lamindb.Run.input_records`."""
+    artifacts: QueryManager[Artifact] = models.ManyToManyField(
         Artifact, through="ArtifactRecord", related_name="records"
     )
-    """Artifacts annotated by this record."""
-    runs: Run = models.ManyToManyField(Run, through="RunRecord", related_name="records")
-    """Runs annotated by this record."""
-    transforms: Transform = models.ManyToManyField(
+    """Artifacts annotated by this record ← :attr:`~lamindb.Artifact.records`."""
+    runs: QueryManager[Run] = models.ManyToManyField(
+        Run, through="RunRecord", related_name="records"
+    )
+    """Runs annotated by this record ← :attr:`~lamindb.Run.records`."""
+    transforms: QueryManager[Transform] = models.ManyToManyField(
         Transform, through="TransformRecord", related_name="records"
     )
-    """Transforms annotated by this record."""
-    collections: Collection = models.ManyToManyField(
+    """Transforms annotated by this record ← :attr:`~lamindb.Transform.records`."""
+    collections: QueryManager[Collection] = models.ManyToManyField(
         Collection, through="CollectionRecord", related_name="records"
     )
-    """Collections annotated by this record."""
-    projects: Project
-    """Projects that annotate this record."""
-    references: Reference
-    """References that annotate this record."""
-    linked_runs: Run
-    """Runs linked in this record as values."""
-    linked_ulabels: ULabel
-    """ULabels linked in this record as values."""
-    linked_artifacts: Artifact
-    """Artifacts linked in this record as values."""
-    linked_projects: Project
-    """Projects linked in this record as values."""
-    linked_references: Reference
-    """References linked in this record as values."""
-    linked_collections: Collection
-    """Collections linked in this record as values."""
-    linked_users: User
-    """Users linked in this record as values."""
-    blocks: RunBlock
-    """Blocks that annotate this record."""
+    """Collections annotated by this record ← :attr:`~lamindb.Collection.records`."""
+    projects: QueryManager[Project]
+    """Projects that annotate this record ← :attr:`~lamindb.Project.records`."""
+    references: QueryManager[Reference]
+    """References that annotate this record ← :attr:`~lamindb.Reference.records`."""
+    linked_transforms: QueryManager[Transform]
+    """Transforms linked in this record as values ← :attr:`~lamindb.Transform.linked_in_records`."""
+    linked_runs: QueryManager[Run]
+    """Runs linked in this record as values ← :attr:`~lamindb.Run.linked_in_records`."""
+    linked_ulabels: QueryManager[ULabel]
+    """ULabels linked in this record as values ← :attr:`~lamindb.ULabel.linked_in_records`."""
+    linked_artifacts: QueryManager[Artifact]
+    """Artifacts linked in this record as values ← :attr:`~lamindb.Artifact.linked_in_records`."""
+    linked_projects: QueryManager[Project]
+    """Projects linked in this record as values ← :attr:`~lamindb.Project.linked_in_records`."""
+    linked_references: QueryManager[Reference]
+    """References linked in this record as values ← :attr:`~lamindb.Reference.linked_in_records`."""
+    linked_collections: QueryManager[Collection]
+    """Collections linked in this record as values ← :attr:`~lamindb.Collection.linked_in_records`."""
+    linked_users: QueryManager[User]
+    """Users linked in this record as values ← :attr:`~lamindb.User.linked_in_records`."""
+    ablocks: RecordBlock
+    """Blocks that annotate this record ← :attr:`~lamindb.RecordBlock.record`."""
     values_json: RecordJson
     """JSON values `(record_id, feature_id, value)`."""
     values_record: RecordRecord
@@ -419,10 +290,14 @@ class Record(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, HasParents
     """ULabel values with their features `(record_id, feature_id, value_id)`."""
     values_user: RecordUser
     """User values with their features `(record_id, feature_id, value_id)`."""
+    values_transform: RecordTransform
+    """Transform values with their features `(record_id, feature_id, value_id)`."""
     values_run: RecordRun
     """Run values with their features `(record_id, feature_id, value_id)`."""
     values_artifact: RecordArtifact
     """Artifact values with their features `(record_id, feature_id, value_id)`."""
+    values_collection: RecordCollection
+    """Collection values with their features `(record_id, feature_id, value_id)`."""
     values_reference: RecordReference
     """Reference values with their features `(record_id, feature_id, value_id)`."""
     values_project: RecordProject
@@ -431,7 +306,7 @@ class Record(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, HasParents
     @overload
     def __init__(
         self,
-        name: str,
+        name: str | None = None,
         type: Record | None = None,
         is_type: bool = False,
         description: str | None = None,
@@ -505,11 +380,6 @@ class Record(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, HasParents
         """Check if record is a `sheet`, i.e., `self.is_type and self.schema is not None`."""
         return self.schema is not None and self.is_type
 
-    @property
-    @deprecated("is_sheet")
-    def is_form(self) -> bool:
-        return self.is_sheet
-
     def query_parents(self) -> QuerySet:
         """Query all parents of a record recursively.
 
@@ -581,7 +451,7 @@ class Record(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, HasParents
             for feature in all_features:
                 if feature.name not in df.columns:
                     df[feature.name] = pd.Series(
-                        dtype=convert_to_pandas_dtype(feature.dtype)
+                        dtype=convert_to_pandas_dtype(feature._dtype_str)
                     )
         else:
             # sort alphabetically for now
@@ -589,10 +459,6 @@ class Record(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, HasParents
             desired_order.sort()
         df = reorder_subset_columns_in_df(df, desired_order, position=0)  # type: ignore
         return df.sort_index()  # order by id for now
-
-    @deprecated("to_dataframe")
-    def type_to_dataframe(self) -> pd.DataFrame:
-        return self.to_dataframe()
 
     def to_artifact(
         self, key: str | None = None, suffix: str | None = None
@@ -616,7 +482,7 @@ class Record(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, HasParents
             key = f"sheet_exports/{self.name}{suffix}"
         description = f": {self.description}" if self.description is not None else ""
         transform, _ = Transform.objects.get_or_create(
-            key="__lamindb_record_export__", type="function"
+            key="__lamindb_record_export__", kind="function"
         )
         run = Run(transform, initiated_by_run=context.run).save()
         run.input_records.add(self)
@@ -647,13 +513,9 @@ class RecordJson(BaseSQLRecord, IsLink):
 # for storing record-like values in records
 class RecordRecord(BaseSQLRecord, IsLink):
     id: int = models.BigAutoField(primary_key=True)
-    record: Record = ForeignKey(
-        Record, CASCADE, related_name="values_record"
-    )  # composite
+    record: Record = ForeignKey(Record, CASCADE, related_name="values_record")
     feature: Feature = ForeignKey(Feature, PROTECT, related_name="links_recordrecord")
-    value: Record = ForeignKey(
-        Record, PROTECT, related_name="links_record"
-    )  # component
+    value: Record = ForeignKey(Record, PROTECT, related_name="links_record")
 
     class Meta:
         app_label = "lamindb"
@@ -737,8 +599,6 @@ class ArtifactRecord(BaseSQLRecord, IsLink, TracksRun):
     feature: Feature = ForeignKey(
         Feature, PROTECT, null=True, related_name="links_artifactrecord"
     )
-    label_ref_is_name: bool | None = BooleanField(null=True)
-    feature_ref_is_name: bool | None = BooleanField(null=True)
 
     class Meta:
         app_label = "lamindb"
@@ -769,8 +629,6 @@ class CollectionRecord(BaseSQLRecord, IsLink, TracksRun):
     feature: Feature = ForeignKey(
         Feature, PROTECT, null=True, related_name="links_collectionrecord"
     )
-    label_ref_is_name: bool | None = BooleanField(null=True)
-    feature_ref_is_name: bool | None = BooleanField(null=True)
 
     class Meta:
         app_label = "lamindb"

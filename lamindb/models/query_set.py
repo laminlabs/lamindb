@@ -9,7 +9,7 @@ Query sets & managers
 .. autoclass:: ArtifactSet
 .. autoclass:: QueryManager
 .. autoclass:: lamindb.models.query_set.BiontyDB
-.. autoclass:: lamindb.models.query_set.WetlabDB
+.. autoclass:: lamindb.models.query_set.PertdbDB
 
 ...
 """
@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import ast
 import re
+import warnings
 from collections import UserList, defaultdict
 from collections.abc import Iterable
 from collections.abc import Iterable as IterableType
@@ -64,7 +65,7 @@ if TYPE_CHECKING:
         Protein,
         Tissue,
     )
-    from wetlab.models import (
+    from pertdb.models import (
         Biologic,
         Biosample,
         CombinationPerturbation,
@@ -176,22 +177,33 @@ def one_helper(
 def get_backward_compat_filter_kwargs(queryset, expressions):
     from lamindb.models import (
         Artifact,
-        Collection,
-        Transform,
+        Feature,
     )
 
-    if queryset.model in {Collection, Transform}:
+    if issubclass(queryset.model, IsVersioned):
         name_mappings = {
-            "visibility": "branch_id",
-            "_branch_code": "branch_id",
-        }
-    elif queryset.model is Artifact:
-        name_mappings = {
-            "visibility": "branch_id",
-            "_branch_code": "branch_id",
-            "transform": "run__transform",
+            "version": "version_tag",
         }
     else:
+        name_mappings = {}
+
+    if queryset.model is Artifact:
+        name_mappings.update(
+            {
+                "transform": "run__transform",
+                "feature_sets": "schemas",
+            }
+        )
+    if queryset.model is Feature:
+        name_mappings.update(
+            {
+                "dtype": "_dtype_str",
+                "dtype_as_str": "_dtype_str",
+            }
+        )
+
+    # If no mappings to apply, return expressions as-is
+    if not name_mappings:
         return expressions
     was_list = False
     if isinstance(expressions, list):
@@ -201,6 +213,20 @@ def get_backward_compat_filter_kwargs(queryset, expressions):
     for field, value in expressions.items():
         parts = field.split("__")
         if parts[0] in name_mappings:
+            # Issue deprecation warnings
+            if queryset.model is Artifact and parts[0] == "feature_sets":
+                warnings.warn(
+                    "Querying Artifact by `feature_sets` is deprecated. Use `schemas` instead.",
+                    DeprecationWarning,
+                    stacklevel=4,
+                )
+            elif queryset.model is Feature and parts[0] == "dtype":
+                warnings.warn(
+                    "Querying Feature by `dtype` is deprecated. Use `dtype_as_str` instead. "
+                    "Notice the new dtype encoding format for Record and ULabel subtypes.",
+                    DeprecationWarning,
+                    stacklevel=4,
+                )
             new_field = name_mappings[parts[0]] + (
                 "__" + "__".join(parts[1:]) if len(parts) > 1 else ""
             )
@@ -379,13 +405,11 @@ class SQLRecordList(UserList, Generic[T]):
         return self.to_dataframe()
 
     def to_list(
-        self, field: str
+        self, field: str | None = None
     ) -> list[str]:  # meaningful to be parallel with to_list() in QuerySet
+        if field is None:
+            return self.data
         return [getattr(record, field) for record in self.data]
-
-    @deprecated(new_name="to_list")
-    def list(self, field: str) -> list[str]:
-        return self.to_list(field)
 
     def one(self) -> T:
         """Exactly one result. Throws error if there are more or none."""
@@ -415,27 +439,36 @@ def get_basic_field_names(
         if (
             not isinstance(field, models.ForeignKey)
             and field.name not in exclude_field_names
-            and (not field.name.startswith("_") or include_private_fields)
+            and (
+                not field.name.startswith("_")
+                or include_private_fields
+                or (field.name == "_dtype_str" and qs.model.__name__ == "Feature")
+            )
         )
     ]
     for field_name in [
-        "version",
+        "version_tag",
         "is_latest",
         "is_locked",
+        "is_type",
         "created_at",
         "updated_at",
     ]:
         if field_name in field_names:
-            field_names.remove(field_name)
-            field_names.append(field_name)
+            field_names.append(field_names.pop(field_names.index(field_name)))
     field_names += [
         f"{field.name}_id"
         for field in qs.model._meta.fields
         if isinstance(field, models.ForeignKey)
     ]
-    if field_names[0] != "uid" and "uid" in field_names:
-        field_names.remove("uid")
-        field_names.insert(0, "uid")
+    # move uid to first position if present
+    if "uid" in field_names:
+        field_names.insert(0, field_names.pop(field_names.index("uid")))
+
+    # move primary key to second position if present
+    pk = qs.model._meta.pk.name if qs.model._meta.pk else None
+    if pk and pk in field_names:
+        field_names.insert(1, field_names.pop(field_names.index(pk)))
     if (
         include or features_input
     ):  # if there is features_input, reduce fields to just the first 3
@@ -502,7 +535,7 @@ def get_feature_annotate_kwargs(
         feature_ids = list(set(feature_ids))  # remove duplicates
 
     feature_qs = Feature.connect(None if qs is None else qs.db).filter(
-        dtype__isnull=False
+        _dtype_str__isnull=False
     )
     if isinstance(features, list):
         feature_qs = feature_qs.filter(name__in=features)
@@ -514,24 +547,26 @@ def get_feature_annotate_kwargs(
         feature_qs = feature_qs.filter(id__in=feature_ids)
     else:
         feature_qs = feature_qs.filter(
-            ~Q(dtype__startswith="cat[")
-            | Q(dtype__startswith="cat[ULabel")
-            | Q(dtype__startswith="cat[Record")
+            ~Q(_dtype_str__startswith="cat[")
+            | Q(_dtype_str__startswith="cat[ULabel")
+            | Q(_dtype_str__startswith="cat[Record")
         )
         logger.important(
             f"queried for all categorical features of dtypes Record or ULabel and non-categorical features: ({len(feature_qs)}) {feature_qs.to_list('name')}"
         )
     # Get the categorical features
     cat_feature_types = {
-        parse_dtype(feature.dtype)[0]["registry_str"]
+        parse_dtype(feature._dtype_str)[0]["registry_str"]
         for feature in feature_qs
-        if feature.dtype.startswith("cat[") or feature.dtype.startswith("list[cat[")
+        if feature._dtype_str.startswith("cat[")
+        or feature._dtype_str.startswith("list[cat[")
     }
     # fields to annotate
     cat_feature_fields = defaultdict(list)
     for feature in feature_qs:
-        if feature.dtype.startswith("cat[") or feature.dtype.startswith("list[cat["):
-            dtype_info = parse_dtype(feature.dtype)[0]
+        dtype_str = feature._dtype_str
+        if dtype_str.startswith("cat[") or dtype_str.startswith("list[cat["):
+            dtype_info = parse_dtype(dtype_str)[0]
             registry_str = dtype_info["registry_str"]
             field_name = dtype_info["field_str"]
             cat_feature_fields[registry_str].append(field_name)
@@ -616,7 +651,7 @@ def get_feature_annotate_kwargs(
             )
 
     # Handle JSON values (no branch filtering needed)
-    json_values_attribute = "_feature_values" if registry is Artifact else "values_json"
+    json_values_attribute = "json_values" if registry is Artifact else "values_json"
     annotate_kwargs[f"{json_values_attribute}__feature__name"] = F(
         f"{json_values_attribute}__feature__name"
     )
@@ -751,7 +786,7 @@ def reshape_annotate_result(
     pk_name_encoded = fields_map.get(pk_name)  # type: ignore
 
     # --- Process JSON-stored feature values ---
-    json_values_attribute = "_feature_values" if registry is Artifact else "values_json"
+    json_values_attribute = "json_values" if registry is Artifact else "values_json"
     feature_name_col = f"{json_values_attribute}__feature__name"
     feature_value_col = f"{json_values_attribute}__value"
 
@@ -828,18 +863,19 @@ def reshape_annotate_result(
         )
 
         if is_scalar:
-            if feature.dtype.startswith("cat"):
+            dtype_str = feature._dtype_str
+            if dtype_str.startswith("cat"):
                 result_encoded[feature.name] = result_encoded[feature.name].astype(
                     "category"
                 )
-            if feature.dtype == "datetime":
+            if dtype_str == "datetime":
                 # format and utc args are needed for mixed data
                 # pandera expects timezone-naive datetime objects, and hence,
                 # we need to localize with None
                 result_encoded[feature.name] = pd.to_datetime(
                     result_encoded[feature.name], format="ISO8601", utc=True
                 ).dt.tz_localize(None)
-            if feature.dtype == "date":
+            if dtype_str == "date":
                 # see comments for datetime
                 result_encoded[feature.name] = (
                     pd.to_datetime(
@@ -850,18 +886,19 @@ def reshape_annotate_result(
                     .dt.tz_localize(None)
                     .dt.date
                 )
-            if feature.dtype == "bool":
+            if dtype_str == "bool":
                 result_encoded[feature.name] = result_encoded[feature.name].astype(
                     "boolean"
                 )
 
-        if feature.dtype.startswith("list"):
+        dtype_str = feature._dtype_str
+        if dtype_str.startswith("list"):
             mask = result_encoded[feature.name].notna()
             result_encoded.loc[mask, feature.name] = result_encoded.loc[
                 mask, feature.name
             ].apply(lambda x: list(x) if isinstance(x, (set, list)) else [x])
 
-        if feature.dtype == "dict":
+        if dtype_str == "dict":
             # this is the case when a dict is stored as a string; won't happen
             # within lamindb but might for external data
             if isinstance(result_encoded[feature.name].iloc[0], str):
@@ -935,7 +972,7 @@ def process_links_features(
                 continue
             if feature.name in result.columns:
                 continue
-            field_name = parse_dtype(feature.dtype)[0]["field_str"]
+            field_name = parse_dtype(feature._dtype_str)[0]["field_str"]
             value_col = [c for c in value_cols if c.endswith(f"__{field_name}")][0]
             mask = (df[feature_col] == feature.name) & df[value_col].notna()
             feature_values = df[mask].groupby(pk_name)[value_col].agg(set)
@@ -1117,13 +1154,14 @@ class BasicQuerySet(models.QuerySet):
             for feature in feature_qs:
                 if feature.name in df_reshaped.columns:
                     current_dtype = df_reshaped[feature.name].dtype
-                    if feature.dtype == "int" and not pd.api.types.is_integer_dtype(
+                    dtype_str = feature._dtype_str
+                    if dtype_str == "int" and not pd.api.types.is_integer_dtype(
                         current_dtype
                     ):
                         df_reshaped[feature.name] = df_reshaped[feature.name].astype(
                             "Int64"  # nullable integer dtype
                         )
-                    elif feature.dtype == "float" and not pd.api.types.is_float_dtype(
+                    elif dtype_str == "float" and not pd.api.types.is_float_dtype(
                         current_dtype
                     ):
                         df_reshaped[feature.name] = df_reshaped[feature.name].astype(
@@ -1203,10 +1241,6 @@ class BasicQuerySet(models.QuerySet):
             # list casting is necessary because values_list does not return a list
             return list(self.values_list(field, flat=True))
 
-    @deprecated(new_name="to_list")
-    def list(self, field: str | None = None) -> list[SQLRecord] | list[str]:
-        return self.to_list(field)
-
     def first(self) -> SQLRecord | None:
         """If non-empty, the first result in the query set, otherwise ``None``.
 
@@ -1231,13 +1265,6 @@ class BasicQuerySet(models.QuerySet):
             ULabel.filter(name="non existing label").one_or_none()
         """
         return one_helper(self, raise_doesnotexist=False)
-
-    def latest_version(self) -> QuerySet:
-        """Filter every version family by latest version."""
-        if issubclass(self.model, IsVersioned):
-            return self.filter(is_latest=True)
-        else:
-            raise ValueError("SQLRecord isn't subclass of `lamindb.core.IsVersioned`")
 
     @doc_args(_search.__doc__)
     def search(self, string: str, **kwargs):
@@ -1295,8 +1322,6 @@ class QuerySet(BasicQuerySet):
         if "Cannot resolve keyword" in str(error):
             field = str(error).split("'")[1]
             avail_fields = self.model.__get_available_fields__()
-            if "_branch_code" in avail_fields:
-                avail_fields.remove("_branch_code")  # backward compat
             fields = ", ".join(sorted(avail_fields))
             raise FieldError(
                 f"Unknown field '{field}'. Available fields: {fields}"
@@ -1406,7 +1431,7 @@ class ModuleNamespace:
 
     Args:
         query_db: Parent DB instance.
-        module_name: Name of the schema module (e.g., 'bionty', 'wetlab').
+        module_name: Name of the schema module (e.g., 'bionty', 'pertdb').
     """
 
     def __init__(self, query_db: DB, module_name: str):
@@ -1438,7 +1463,7 @@ class ModuleNamespace:
             pass
 
         raise AttributeError(
-            f"Registry '{name}' not found in lamindb. Use .bt.{name} or .wl.{name} for schema-specific registries."
+            f"Registry '{name}' not found in lamindb. Use .bt.{name} or .pertdb.{name} for schema-specific registries."
         )
 
     def __dir__(self) -> list[str]:
@@ -1476,8 +1501,8 @@ class BiontyDB(ModuleNamespace):
     Ethnicity: QuerySet[Ethnicity]  # type: ignore[type-arg]
 
 
-class WetlabDB(ModuleNamespace):
-    """Namespace for wetlab registries (Experiment, Biosample, etc.)."""
+class PertdbDB(ModuleNamespace):
+    """Namespace for pertdb registries (Experiment, Biosample, etc.)."""
 
     Experiment: QuerySet[Experiment]  # type: ignore[type-arg]
     Biosample: QuerySet[Biosample]  # type: ignore[type-arg]
@@ -1553,11 +1578,11 @@ class DB:
     Space: QuerySet[Space]  # type: ignore[type-arg]
 
     bionty: BiontyDB
-    wetlab: WetlabDB
+    pertdb: PertdbDB
 
     def __init__(self, instance: str):
         self._instance = instance
-        self._cache: dict[str, NonInstantiableQuerySet | BiontyDB | WetlabDB] = {}
+        self._cache: dict[str, NonInstantiableQuerySet | BiontyDB | PertdbDB] = {}
         self._available_registries: set[str] | None = None
 
         owner, instance_name = instance.split("/")
@@ -1566,11 +1591,11 @@ class DB:
         )
         self._modules = ["lamindb"] + list(instance_info.modules)
 
-    def __getattr__(self, name: str) -> NonInstantiableQuerySet | BiontyDB | WetlabDB:
+    def __getattr__(self, name: str) -> NonInstantiableQuerySet | BiontyDB | PertdbDB:
         """Access a registry class or schema namespace for this database instance.
 
         Args:
-            name: Registry class name (e.g., 'Artifact', 'Collection') or schema namespace ('bionty', 'wetlab').
+            name: Registry class name (e.g., 'Artifact', 'Collection') or schema namespace ('bionty', 'pertdb').
 
         Returns:
             QuerySet for the specified registry or schema namespace scoped to this instance.
@@ -1588,15 +1613,15 @@ class DB:
                 self._cache["bionty"] = namespace
             return self._cache["bionty"]
 
-        if name == "wetlab":
-            if "wetlab" not in self._modules:
+        if name == "pertdb":
+            if "pertdb" not in self._modules:
                 raise AttributeError(
-                    f"Schema 'wetlab' not available in instance '{self._instance}'."
+                    f"Schema 'pertdb' not available in instance '{self._instance}'."
                 )
-            if "wetlab" not in self._cache:
-                namespace = WetlabDB(self, "wetlab")  # type: ignore
-                self._cache["wetlab"] = namespace
-            return self._cache["wetlab"]
+            if "pertdb" not in self._cache:
+                namespace = PertdbDB(self, "pertdb")  # type: ignore
+                self._cache["pertdb"] = namespace
+            return self._cache["pertdb"]
 
         try:
             lamindb_module = import_module("lamindb")
@@ -1610,7 +1635,7 @@ class DB:
             pass
 
         raise AttributeError(
-            f"Registry '{name}' not found in lamindb core registries. Use .bionty.{name} or .wetlab.{name} for schema-specific registries."
+            f"Registry '{name}' not found in lamindb core registries. Use .bionty.{name} or .pertdb.{name} for schema-specific registries."
         )
 
     def __repr__(self) -> str:
@@ -1634,7 +1659,7 @@ class DB:
         module_namespaces = set()
         if "bionty" in self._modules:
             module_namespaces.add("bionty")
-        if "wetlab" in self._modules:
-            module_namespaces.add("wetlab")
+        if "pertdb" in self._modules:
+            module_namespaces.add("pertdb")
 
         return sorted(set(base_attrs) | lamindb_registries | module_namespaces)

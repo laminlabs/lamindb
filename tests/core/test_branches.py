@@ -18,11 +18,7 @@ def testbranch_id():
     assert len(result) == 0
     result = ln.Collection.filter(key="testbranch_id", branch_id=1)
     assert len(result) == 0
-    result = ln.Collection.filter(key="testbranch_id", visibility=1)
-    assert len(result) == 0
     result = ln.Collection.filter(key="testbranch_id", branch_id=None)
-    assert len(result) == 1
-    result = ln.Collection.filter(key="testbranch_id", visibility=None)
     assert len(result) == 1
 
     # restore

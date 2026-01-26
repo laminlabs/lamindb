@@ -27,7 +27,7 @@ from lamindb.base.fields import (
     TextField,
 )
 
-from ..base.ids import base62_12
+from ..base.uids import base62_12
 from .run import TracksRun, TracksUpdates
 from .sqlrecord import Space, SQLRecord
 
@@ -71,7 +71,7 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
         To enable access management via LaminHub, head over to `https://lamin.ai/{account}/infrastructure`.
         By clicking the green button that says "Connect S3 bucket", your collaborators will access data
         based on their LaminHub permissions.
-        :doc:`docs:access` has more details.
+        :doc:`docs:permissions` has more details.
 
         .. image:: https://lamin-site-assets.s3.amazonaws.com/.lamindb/ze8hkgVxVptSSZEU0000.png
            :width: 800px

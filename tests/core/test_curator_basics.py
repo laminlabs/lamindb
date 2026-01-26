@@ -170,7 +170,7 @@ def test_curators_list_feature_nullable_empty_list():
     schema = ln.Schema(
         name="test_list_feature_schema",
         features=[feature_list, feature_int],
-        coerce_dtype=True,
+        coerce=True,
     ).save()
 
     df = pd.DataFrame({"list_tissue": [], "feature int": []})
@@ -413,21 +413,21 @@ def test_curator_schema_feature_mapping():
     lab_b_type.delete(permanent=True)
 
 
-def test_dtypes_at_different_levels():
+def test_dtypes_at_different_levels(ccaplog):
     sample_type_root = ln.Record(name="Sample", is_type=True).save()
     lab_a_type = ln.Record(name="LabA", is_type=True).save()
     sample_type_a = ln.Record(name="Sample", is_type=True, type=lab_a_type).save()
     s1_lab_a = ln.Record(name="s1", type=sample_type_a).save()
     df = pd.DataFrame({"biosample_name": pd.Categorical(["s1"])})
     feature = ln.Feature(name="biosample_name", dtype=sample_type_root).save()
+    schema = ln.Schema(features=[feature]).save()
     sample_type_root.delete()
     df = pd.DataFrame({"biosample_name": pd.Categorical(["s1"])})
-    with pytest.raises(ln.errors.IntegrityError) as error:
-        ln.curators.DataFrameCurator(df, ln.examples.schemas.valid_features())
-    assert (
-        "Error retrieving Record type with filter {'name': 'Sample', 'type__isnull': True} for field `.name`: Record matching query does not exist."
-        in error.exconly()
-    )
+    # UID-based lookup can find records in trash, so curator creation should succeed
+    # but a warning should be printed
+    curator = ln.curators.DataFrameCurator(df, schema)
+    assert "from trash" in ccaplog.text
+    schema.delete(permanent=True)
     sample_type_root.restore()
     curator = ln.curators.DataFrameCurator(df, ln.examples.schemas.valid_features())
     with pytest.raises(ln.errors.ValidationError) as error:
@@ -578,7 +578,7 @@ def test_pandera_dataframe_schema(
 
 def test_schema_not_saved(df):
     """Attempting to validate an unsaved Schema must error."""
-    feature = ln.Feature(name="cell_type", dtype="str").save()
+    feature = ln.Feature(name="cell_type", dtype=str).save()
     schema = ln.Schema(features=[feature])
 
     with pytest.raises(ValueError) as excinfo:
@@ -888,7 +888,7 @@ def test_wrong_datatype(df):
         excinfo.value
     )
     assert (
-        "Hint: Consider setting 'coerce_dtype=True' to attempt coercing/converting values during validation to the pre-defined dtype."
+        "Hint: Consider setting `feature.coerce = True` to attempt coercing values during validation to the required dtype."
         in str(excinfo.value)
     )
 
@@ -930,7 +930,7 @@ def test_hash_index_feature(df):
     artifact = ln.Artifact.from_dataframe(
         df_index, key="curated_df.parquet", schema=schema_index
     ).save()
-    assert artifact.feature_sets.all().one() == schema_index
+    assert artifact.schemas.all().one() == schema_index
 
     # clean up
     artifact.delete(permanent=True)
@@ -948,9 +948,9 @@ def test_add_new_from_subtype(df):
         features=[
             ln.Feature(name="sample_id", dtype="str").save(),
             ln.Feature(name="sample_name", dtype="str").save(),
-            ln.Feature(name="sample_type", dtype="cat[Record[SampleType]]").save(),
+            ln.Feature(name="sample_type", dtype=sample_type).save(),
         ],
-        coerce_dtype=True,
+        coerce=True,
     ).save()
 
     curator = ln.curators.DataFrameCurator(df, schema)

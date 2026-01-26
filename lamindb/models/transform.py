@@ -32,10 +32,12 @@ if TYPE_CHECKING:
     from datetime import datetime
     from pathlib import Path
 
-    from lamindb.base.types import TransformType
+    from lamindb.base.types import TransformKind
 
+    from .artifact import Artifact
     from .block import TransformBlock
     from .project import Project, Reference
+    from .query_manager import QueryManager
     from .record import Record
     from .ulabel import ULabel
 
@@ -65,7 +67,7 @@ class Transform(SQLRecord, IsVersioned):
     pipeline. If you execute a transform, you generate a run
     (:class:`~lamindb.Run`). A run has inputs and outputs.
 
-    Pipelines are typically created with a workflow tool (Nextflow, Snakemake,
+    Pipelines are typically created with a workflow manager (Nextflow, Snakemake,
     Prefect, Flyte, Dagster, redun, Airflow, ...).
 
     Transforms are versioned so that a given transform version maps on a given
@@ -73,27 +75,28 @@ class Transform(SQLRecord, IsVersioned):
 
     .. dropdown:: Can I sync transforms to git?
 
-        If you switch on
-        :attr:`~lamindb.core.Settings.sync_git_repo` a script-like transform is
-        synched to its hashed state in a git repository upon calling `ln.track()`::
+        If you set the environment variable `LAMINDB_SYNC_GIT_REPO` or set
+        `ln.settings.sync_git_repo`, a script-like transform is
+        synced to its hashed state in a git repository upon calling `ln.track()`::
 
             ln.settings.sync_git_repo = "https://github.com/laminlabs/lamindb"
             ln.track()
 
-        Alternatively, you create transforms that map pipelines via `Transform.from_git()`.
+        If the hash isn't found in the git repository, an error is thrown.
+
+        You can also create transforms that map pipelines via `Transform.from_git()`.
 
     The definition of transforms and runs is consistent with the OpenLineage
     specification where a `transform` would be called a "job" and a `run` a "run".
 
     Args:
         key: `str | None = None` A short name or path-like semantic key.
-        type: `TransformType | None = "pipeline"` See :class:`~lamindb.base.types.TransformType`.
+        kind: `TransformKind | None = "pipeline"` See :class:`~lamindb.base.types.TransformKind`.
         version: `str | None = None` A version string.
         description: `str | None = None` A description.
         reference: `str | None = None` A reference, e.g., a URL.
         reference_type: `str | None = None` A reference type, e.g., 'url'.
         source_code: `str | None = None` Source code of the transform.
-        is_flow: `bool = False` Whether this transform is a standalone workflow.
         revises: `Transform | None = None` An old version of the transform.
         skip_hash_lookup: `bool = False` Skip the hash lookup so that a new transform is created even if a transform with the same hash already exists.
 
@@ -111,13 +114,31 @@ class Transform(SQLRecord, IsVersioned):
 
     Examples:
 
-        Create a transform for a pipeline::
-
-            transform = ln.Transform(key="Cell Ranger", version="7.2.0", type="pipeline").save()
-
-        Create a transform from a notebook::
+        Create a transform by running `ln.track()` in a notebook or a script::
 
             ln.track()
+
+        Create a transform for a standalone function that acts as its own workflow::
+
+            @ln.flow()
+            def my_workflow():
+                print("Hello, world!")
+
+        Create a transform for a step in a workflow::
+
+            @ln.step()
+            def my_step():
+                print("One step!")
+
+        Create a transform for a pipeline::
+
+            transform = ln.Transform(key="Cell Ranger", version="7.2.0", kind="pipeline").save()
+
+        Create a transform by saving a Python or shell script or a notebook via the CLI::
+
+            lamin save my_script.py
+            lamin save my_script.sh
+            lamin save my_notebook.ipynb
 
     """
 
@@ -136,11 +157,8 @@ class Transform(SQLRecord, IsVersioned):
         editable=False, unique=True, db_index=True, max_length=_len_full_uid
     )
     """Universal id."""
-    # the fact that key is nullable is consistent with Transform
-    # it might turn out that there will never really be a use case for this
-    # but there likely also isn't much harm in it except for the mixed type
-    # max length for key is 1014 and equals the max lenght of an S3 key & artifact key
-    key: str | None = CharField(db_index=True, null=True, max_length=1024)
+    # the max length equals the max length of an S3 key & the artifact key
+    key: str = CharField(db_index=True, max_length=1024)
     """A name or "/"-separated path-like string.
 
     All transforms with the same key are part of the same version family.
@@ -148,12 +166,15 @@ class Transform(SQLRecord, IsVersioned):
     # db_index on description because sometimes we query for equality in the case of artifacts
     description: str | None = TextField(null=True, db_index=True)
     """A description."""
-    type: TransformType = CharField(
+    kind: TransformKind = CharField(
         max_length=20,
         db_index=True,
         default="pipeline",
     )
-    """:class:`~lamindb.base.types.TransformType` (default `"pipeline"`)."""
+    """A string indicating the kind of transform (default `"pipeline"`).
+
+    One of `"pipeline"`, `"notebook"`, `"script"`, or `"function"`.
+    """
     source_code: str | None = TextField(null=True)
     """Source code of the transform."""
     hash: str | None = CharField(max_length=HASH_LENGTH, db_index=True, null=True)
@@ -162,52 +183,39 @@ class Transform(SQLRecord, IsVersioned):
     """Reference for the transform, e.g., a URL."""
     reference_type: str | None = CharField(max_length=25, db_index=True, null=True)
     """Reference type of the transform, e.g., 'url'."""
-    config: str | None = models.JSONField(null=True)
-    """Optional configuration for the transform."""
-    is_flow: bool = models.BooleanField(default=False, db_default=False, db_index=True)
-    """Whether this transform is a flow orchestrating other transforms."""
-    flow: Transform | None = models.ForeignKey(
-        "Transform", CASCADE, null=True, related_name="steps"
-    )
-    """The top-level transform that orchestrates or contextualizes this transform."""
-    steps: Transform
-    """Steps defined within this flow."""
-    environment: Transform | None = models.ForeignKey(
-        "Transform", CASCADE, null=True, related_name="_environment_of_transforms"
+    environment: Artifact | None = models.ForeignKey(
+        "Artifact", CASCADE, null=True, related_name="_environment_of_transforms"
     )
     """An environment for executing the transform."""
     runs: Run
-    """Runs of this transform."""
-    ulabels: ULabel = models.ManyToManyField(
+    """Runs of this transform ← :attr:`~lamindb.Run.transform`."""
+    ulabels: QueryManager[ULabel] = models.ManyToManyField(
         "ULabel", through="TransformULabel", related_name="transforms"
     )
-    """ULabel annotations of this transform."""
-    linked_in_records: Record = models.ManyToManyField(
+    """ULabel annotations of this transform ← :attr:`~lamindb.ULabel.transforms`."""
+    linked_in_records: QueryManager[Record] = models.ManyToManyField(
         "Record", through="RecordTransform", related_name="linked_transforms"
     )
-    """This transform is linked in these records as a value."""
-    transforms: Record
-    """Records that annotate this transform."""
-    predecessors: Transform = models.ManyToManyField(
+    """This transform is linked in these records as a value ← :attr:`~lamindb.Record.linked_transforms`."""
+    records: QueryManager[Record]
+    """Records that annotate this transform ← :attr:`~lamindb.Record.transforms`."""
+    predecessors: QueryManager[Transform] = models.ManyToManyField(
         "self",
         through="TransformTransform",
         symmetrical=False,
         related_name="successors",
     )
-    """Preceding transforms.
+    """Preceding transforms ← :attr:`~lamindb.Transform.successors`."""
+    successors: QueryManager[Transform]
+    """Subsequent transforms ← :attr:`~lamindb.Transform.predecessors`.
 
-    Allows *manually* defining preceding transforms. Is typically not necessary as data lineage is
-    automatically tracked via runs whenever an artifact or collection serves as an input for a run.
+    Allows defining succeeding transforms. Is *not* necessary for data lineage, which is tracked automatically
+    whenever an artifact or collection serves as an input for a run.
     """
-    successors: Transform
-    """Subsequent transforms.
-
-    See :attr:`~lamindb.Transform.predecessors`.
-    """
-    projects: Project
-    """Linked projects."""
-    references: Reference
-    """Linked references."""
+    projects: QueryManager[Project]
+    """Linked projects ← :attr:`~lamindb.Project.transforms`."""
+    references: QueryManager[Reference]
+    """Linked references ← :attr:`~lamindb.Reference.transforms`."""
     created_at: datetime = DateTimeField(
         editable=False, db_default=models.functions.Now(), db_index=True
     )
@@ -219,19 +227,15 @@ class Transform(SQLRecord, IsVersioned):
     created_by: User = ForeignKey(
         User, PROTECT, default=current_user_id, related_name="created_transforms"
     )
-    """Creator of record."""
-    _template: Transform | None = ForeignKey(
-        "Transform", PROTECT, related_name="_derived_from", default=None, null=True
-    )
-    """Creating template."""
-    blocks: TransformBlock
-    """Blocks that annotate this artifact."""
+    """Creator of record ← :attr:`~lamindb.User.created_transforms`."""
+    ablocks: TransformBlock
+    """Blocks that annotate this transform ← :attr:`~lamindb.TransformBlock.transform`."""
 
     @overload
     def __init__(
         self,
         key: str | None = None,
-        type: TransformType | None = None,
+        kind: TransformKind | None = None,
         version: str | None = None,
         description: str | None = None,
         reference: str | None = None,
@@ -262,33 +266,24 @@ class Transform(SQLRecord, IsVersioned):
         key: str | None = kwargs.pop("key", None)
         description: str | None = kwargs.pop("description", None)
         revises: Transform | None = kwargs.pop("revises", None)
-        version: str | None = kwargs.pop("version", None)
-        type: TransformType | None = kwargs.pop("type", "pipeline")
+        version_tag: str | None = kwargs.pop("version_tag", kwargs.pop("version", None))
+        kind: TransformKind | None = kwargs.pop("kind", None)
+        type: TransformKind | None = kwargs.pop("type", None)
+        if type is not None:
+            warnings.warn(
+                "`type` argument of transform was renamed to `kind` and will be removed in a future release.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+        kind = kind if kind is not None else (type if type is not None else "pipeline")
         reference: str | None = kwargs.pop("reference", None)
         reference_type: str | None = kwargs.pop("reference_type", None)
         branch = kwargs.pop("branch", None)
         branch_id = kwargs.pop("branch_id", 1)
         space = kwargs.pop("space", None)
         space_id = kwargs.pop("space_id", 1)
-        is_flow: bool = kwargs.pop("is_flow", False)
         skip_hash_lookup: bool = kwargs.pop("skip_hash_lookup", False)
         using_key = kwargs.pop("using_key", None)
-        if "name" in kwargs:
-            if key is None:
-                key = kwargs.pop("name")
-                warnings.warn(
-                    f"`name` will be removed soon, please pass '{key}' to `key` instead",
-                    FutureWarning,
-                    stacklevel=2,
-                )
-            else:
-                # description wasn't exist, so no check necessary
-                description = kwargs.pop("name")
-                warnings.warn(
-                    f"`name` will be removed soon, please pass '{description}' to `description` instead",
-                    FutureWarning,
-                    stacklevel=2,
-                )
         # below is internal use that we'll hopefully be able to eliminate
         uid: str | None = kwargs.pop("uid") if "uid" in kwargs else None
         source_code: str | None = (
@@ -296,7 +291,7 @@ class Transform(SQLRecord, IsVersioned):
         )
         if not len(kwargs) == 0:
             raise ValueError(
-                "Only key, description, version, type, revises, reference, "
+                "Only key, description, version, kind, type, revises, reference, "
                 f"reference_type can be passed, but you passed: {kwargs}"
             )
         if revises is None:
@@ -331,8 +326,8 @@ class Transform(SQLRecord, IsVersioned):
             return None
         if revises is not None and key is not None and revises.key != key:
             logger.important(f"renaming transform {revises.key} to {key}")
-        new_uid, version, key, description, revises = process_revises(
-            revises, version, key, description, Transform
+        new_uid, version_tag, key, description, revises = process_revises(
+            revises, version_tag, key, description, Transform
         )
         # this is only because the user-facing constructor allows passing a uid
         # most others don't
@@ -361,13 +356,12 @@ class Transform(SQLRecord, IsVersioned):
             uid=uid,
             description=description,
             key=key,
-            type=type,
-            version=version,
+            kind=kind,
+            version_tag=version_tag,
             reference=reference,
             reference_type=reference_type,
             source_code=source_code,
             hash=hash,
-            is_flow=is_flow,
             _has_consciously_provided_uid=has_consciously_provided_uid,
             revises=revises,
             branch=branch,
@@ -375,15 +369,6 @@ class Transform(SQLRecord, IsVersioned):
             space=space,
             space_id=space_id,
         )
-
-    @property
-    @deprecated("key")
-    def name(self) -> str:
-        """Name of the transform.
-
-        Splits `key` on `/` and returns the last element.
-        """
-        return self.key.split("/")[-1]
 
     @classmethod
     def from_git(
@@ -394,6 +379,7 @@ class Transform(SQLRecord, IsVersioned):
         version: str | None = None,
         entrypoint: str | None = None,
         branch: str | None = None,
+        description: str | None = None,
         skip_hash_lookup: bool = False,
     ) -> Transform:
         """Create a transform from a path in a git repository.
@@ -405,6 +391,7 @@ class Transform(SQLRecord, IsVersioned):
             version: Optional version tag to checkout in the repository.
             entrypoint: One or several optional comma-separated entrypoints for the transform.
             branch: Optional branch to checkout.
+            description: Optional description for the transform.
             skip_hash_lookup: Skip the hash lookup so that a new transform is created even if a transform with the same hash already exists.
 
         Examples:
@@ -423,7 +410,7 @@ class Transform(SQLRecord, IsVersioned):
                     path="main.nf",
                     version="v2.0.0"
                 ).save()
-                assert transform.version == "v2.0.0"
+                assert transform.version_tag == "v2.0.0"
 
             Create a *sliding transform* from a Nextflow repo's `dev` branch.
             Unlike a regular transform, a sliding transform doesn't pin a specific source code state,
@@ -493,8 +480,9 @@ class Transform(SQLRecord, IsVersioned):
             reference, reference_type = f"{url}/blob/{commit_hash}/{path}", "url"
         return Transform(
             key=key,
-            type="pipeline",
+            kind="pipeline",
             version=version,
+            description=description,
             reference=reference,
             reference_type=reference_type,
             source_code=source_code,
@@ -505,6 +493,15 @@ class Transform(SQLRecord, IsVersioned):
     def latest_run(self) -> Run:
         """The latest run of this transform."""
         return self.runs.order_by("-started_at").first()
+
+    @property
+    @deprecated(new_name="kind")
+    def type(self) -> TransformKind:
+        return self.kind
+
+    @type.setter
+    def type(self, value: TransformKind):
+        self.kind = value
 
     def view_lineage(self, with_successors: bool = False, distance: int = 5):
         """View lineage of transforms.

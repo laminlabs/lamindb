@@ -23,7 +23,6 @@ from django.db.models.lookups import (
     Regex,
     StartsWith,
 )
-from lamin_utils import logger
 from lamin_utils._lookup import Lookup
 from lamindb_setup.core import deprecated
 from lamindb_setup.core._docs import doc_args
@@ -261,37 +260,12 @@ class QueryManager(Manager):
             label1.parents.to_dataframe()
     """
 
-    def track_run_input_manager(self):
-        if hasattr(self, "source_field_name") and hasattr(self, "target_field_name"):
-            if (
-                self.source_field_name == "collection"
-                and self.target_field_name == "artifact"
-            ):
-                from lamindb import settings
-                from lamindb.core._context import context
-                from lamindb.models.artifact import (
-                    WARNING_RUN_TRANSFORM,
-                    track_run_input,
-                )
-
-                if (
-                    context.run is None
-                    and not settings.creation.artifact_silence_missing_run_warning
-                ):
-                    logger.warning(WARNING_RUN_TRANSFORM)
-                track_run_input(self.instance)
-
     def to_list(self, field: str | None = None):
         """Populate a list."""
         if field is None:
             return list(self.all())
         else:
-            self.track_run_input_manager()
             return list(self.values_list(field, flat=True))
-
-    @deprecated(new_name="to_list")
-    def list(self, field: str | None = None):
-        return self.to_list(field)
 
     def to_dataframe(self, **kwargs):
         """Convert to DataFrame.
@@ -303,14 +277,6 @@ class QueryManager(Manager):
     @deprecated(new_name="to_dataframe")
     def df(self, **kwargs):
         return self.to_dataframe(**kwargs)
-
-    def all(self):
-        """Return QuerySet of all.
-
-        For `**kwargs`, see :meth:`lamindb.models.QuerySet.to_dataframe`.
-        """
-        self.track_run_input_manager()
-        return super().all()
 
     @doc_args(_search.__doc__)
     def search(self, string: str, **kwargs):

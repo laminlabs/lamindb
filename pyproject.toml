@@ -16,12 +16,13 @@ classifiers = [
 ]
 dependencies = [
     # LaminDB core modules
-    "lamin_utils==0.16.2",  # 30kB pure python, no dependencies
-    "lamin_cli==1.10.0",     # 30kB pure python, no dependencies
-    "lamindb_setup[aws]==1.17.0",  # dependencies like Django & fsspec
+    "lamin_utils==0.16.3",  # 30kB pure python, no dependencies
+    "lamin_cli==1.11.0",     # 30kB pure python, no dependencies
+    "lamindb_setup[aws]==1.18.2",  # dependencies like Django & fsspec
     # LaminDB optional modules, included to avoid users forgetting about extras
-    "bionty==1.10.0",  # pronto dependency
-    "wetlab==1.6.1",  # 30kB pure python, no dependencies
+    "bionty==2.1.0", # 30kB pure python, no dependencies
+    "pertdb==2.0.2",  # 30kB pure python, no dependencies
+    "wetlab>=2.0.0,<2.1.0",  # backward compat with pertdb
     # Jupyter -- small packages with few & small dependencies
     "jupytext",
     "nbconvert>=7.2.1",  # bound to avoid lxml[html_clean] dependency
@@ -34,6 +35,7 @@ dependencies = [
     "python-dateutil",
     "pandas>=2.0.0,<3.0.0",  # for .infer_objects(copy=False) in lamin-utils; not yet compatible with Pandas 3.0.0
     "anndata>=0.8.0,<=0.12.7",  # backed sparse is incompatible with scipy 1.15.0 for anndata 1.11.1
+    "scipy<1.17.0", # 1.17.0 is incompatible with anndata<0.12.7
     "fsspec",
     "graphviz",
     "psycopg2-binary",
@@ -170,6 +172,8 @@ lint.ignore = [
     "S311",
     # Starting a process with a shell: seems safe, but may be changed in the future; consider rewriting without `shell`
     "S605",
+    # Possible SQL injection vector through string-based query construction
+    "S608",
     # All of the below TODO 3.10 refactor, temporarily disable
     "UP007",
     "UP038",

@@ -204,6 +204,31 @@ def test_create_from_path_file(get_test_filepaths, key_is_virtual, key, descript
     ln.settings.creation._artifact_use_virtual_keys = True
 
 
+@pytest.mark.parametrize("key_is_virtual", [True, False])
+@pytest.mark.parametrize("key", [None, "my_new_file.tsv"])
+def test_create_from_path_file_with_explicit_key_is_virtual(
+    tsv_file, key_is_virtual, key
+):
+    artifact = ln.Artifact(
+        tsv_file,
+        description="test explicit key is virtual",
+        key=key,
+        _key_is_virtual=key_is_virtual,
+    )
+    assert artifact.key == key
+    assert artifact._key_is_virtual == key_is_virtual
+    artifact.save()
+    assert artifact.path.exists()
+
+    root = lamindb_setup.settings.storage.root
+    if not key_is_virtual and key is not None:
+        assert artifact.path == root / key
+    else:
+        assert artifact.path == root / f".lamindb/{artifact.uid}.tsv"
+
+    artifact.delete(permanent=True, storage=True)
+
+
 @pytest.mark.parametrize("key", [None, "my_new_folder"])
 def test_create_from_path_folder(get_test_filepaths, key):
     # get variables from fixture
@@ -220,8 +245,21 @@ def test_create_from_path_folder(get_test_filepaths, key):
     artifact1 = ln.Artifact(test_dirpath, key=key)
     if key is not None and is_in_registered_storage:
         assert artifact1._real_key is not None
+        # should fail because we are passing a path in an existing storage with a virtual key
+        with pytest.raises(ValueError) as error:
+            ln.Artifact(test_dirpath, key=key, _key_is_virtual=False)
+        assert error.exconly().startswith(
+            "ValueError: Passing a path in an existing storage with a virtual key and _key_is_virtual=False is incompatible."
+        )
     else:
         assert artifact1._real_key is None
+    # check that passing _key_is_virtual=True is incompatible with a path in an existing storage without a virtual key
+    if key is None and is_in_registered_storage:
+        with pytest.raises(ValueError) as error:
+            ln.Artifact(test_dirpath, key=key, _key_is_virtual=True)
+        assert error.exconly().startswith(
+            "ValueError: Passing a path in an existing storage without a virtual key and _key_is_virtual=True is incompatible."
+        )
     assert artifact1.n_files == 3
     assert artifact1.hash == hash_test_dir
     assert artifact1._state.adding
@@ -414,6 +452,23 @@ def test_create_from_dataframe(example_dataframe: pd.DataFrame):
 
     artifact.delete(permanent=True)
 
+    # test from_dataframe with a path
+    path = Path("test_df_from_path.parquet")
+    try:
+        example_dataframe.to_parquet(path)
+        for path_input in [path, str(path)]:
+            artifact = ln.Artifact.from_dataframe(
+                path_input, description="test from path"
+            )
+            assert artifact.description == "test from path"
+            assert artifact.otype == "DataFrame"
+            assert artifact.kind == "dataset"
+            assert artifact.n_observations == 2
+            artifact.save()
+            artifact.delete(permanent=True)
+    finally:
+        path.unlink(missing_ok=True)
+
 
 def test_dataframe_validate_suffix(example_dataframe: pd.DataFrame):
     df = example_dataframe
@@ -580,6 +635,7 @@ def test_revise_recreate_artifact(example_dataframe: pd.DataFrame, ccaplog):
     # create a file and tag it with a version
     key = "my-test-dataset.parquet"
     artifact = ln.Artifact.from_dataframe(df, key=key, description="test", version="1")
+    assert artifact.version_tag == "1"
     assert artifact.version == "1"
     assert artifact.uid.endswith("0000")
     assert artifact.path.exists()  # because of cache file already exists
@@ -603,7 +659,10 @@ def test_revise_recreate_artifact(example_dataframe: pd.DataFrame, ccaplog):
     artifact_v2 = ln.Artifact.from_dataframe(df, revises=artifact)
     assert artifact_v2.uid.endswith("0001")
     assert artifact_v2.stem_uid == artifact.stem_uid
-    assert artifact_v2.version is None
+    assert artifact_v2.version_tag is None
+    assert (
+        artifact_v2.version == artifact_v2.uid[-4:]
+    )  # version falls back to uid suffix
     assert artifact_v2.key == key
     assert artifact.suffix == ".parquet"
     assert artifact_v2.description == "test"
@@ -619,6 +678,7 @@ def test_revise_recreate_artifact(example_dataframe: pd.DataFrame, ccaplog):
     )
     assert artifact_v3.uid.endswith("0002")
     assert artifact_v3.stem_uid == artifact.stem_uid
+    assert artifact_v3.version_tag == "2"
     assert artifact_v3.version == "2"
     assert artifact_v3.description == "test1"
     assert artifact_v3.key == key
@@ -630,6 +690,7 @@ def test_revise_recreate_artifact(example_dataframe: pd.DataFrame, ccaplog):
     assert artifact_v3.uid.endswith("0002")
     assert artifact_v3.stem_uid == artifact.stem_uid
     assert artifact_v3.key == key
+    assert artifact_v3.version_tag == "2"
     assert artifact_v3.version == "2"
     assert artifact_v3.description == "test1"
     assert artifact_v3.is_latest
@@ -723,7 +784,8 @@ def test_revise_recreate_artifact(example_dataframe: pd.DataFrame, ccaplog):
 
     # unversioned file
     artifact = ln.Artifact.from_dataframe(df, description="test2")
-    assert artifact.version is None
+    assert artifact.version_tag is None
+    assert artifact.version == artifact.uid[-4:]  # version falls back to uid suffix
 
     # what happens if we don't save the old file?
     # add a test for it!
@@ -732,9 +794,13 @@ def test_revise_recreate_artifact(example_dataframe: pd.DataFrame, ccaplog):
     # create new file from old file
     df.iloc[0, 0] = 101  # mutate dataframe so that hash lookup doesn't trigger
     new_artifact = ln.Artifact.from_dataframe(df, revises=artifact)
-    assert artifact.version is None
+    assert artifact.version_tag is None
+    assert artifact.version == artifact.uid[-4:]  # version falls back to uid suffix
     assert new_artifact.stem_uid == artifact.stem_uid
-    assert new_artifact.version is None
+    assert new_artifact.version_tag is None
+    assert (
+        new_artifact.version == new_artifact.uid[-4:]
+    )  # version falls back to uid suffix
     assert new_artifact.description == artifact.description
 
     artifact.delete()
@@ -1182,3 +1248,28 @@ def test_save_url_with_virtual_key():
     assert cache_path_str.endswith(key)
 
     artifact.delete(permanent=True, storage=False)
+
+
+def test_artifact_space_change(tsv_file):
+    artifact = ln.Artifact(tsv_file, key="test_space_change.tsv").save()
+    space = ln.Space(name="test space change", uid="00000234").save()
+    # test after saving
+    artifact.space = space
+    with pytest.raises(ValueError) as err:
+        artifact.save()
+    assert (
+        "Space cannot be changed because the artifact is in the storage location of another space."
+        in err.exconly()
+    )
+    # test after getting from the db
+    artifact = ln.Artifact.get(key="test_space_change.tsv")
+    artifact.space = space
+    with pytest.raises(ValueError) as err:
+        artifact.save()
+    assert (
+        "Space cannot be changed because the artifact is in the storage location of another space."
+        in err.exconly()
+    )
+
+    artifact.delete(permanent=True)
+    space.delete(permanent=True)

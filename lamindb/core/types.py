@@ -10,7 +10,7 @@ from lamindb.base.types import (
     FieldAttr,
     ListLike,
     StrField,
-    TransformType,
+    TransformKind,
 )
 
 MuData = TypeVar("MuData")

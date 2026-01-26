@@ -56,13 +56,11 @@ def _from_values(
     # new records to be created based on new values
     if len(nonexist_values) > 0:
         if from_source and registry.__base__.__name__ == "BioRecord":
-            from bionty._organism import is_organism_required
-
             # if can and needed, get organism record from the existing records
             if (
                 organism_record is None
                 and len(records) > 0
-                and is_organism_required(registry)
+                and registry.require_organism()
             ):
                 organism_record = records[0].organism
             records_public, unmapped_values = create_records_from_source(
@@ -201,15 +199,19 @@ def create_records_from_source(
     registry = field.field.model  # type: ignore
     records: list = []
     # populate additional fields from public_df
-    from bionty._organism import OrganismNotSet, is_organism_required
+    from bionty._organism import OrganismNotSet
     from bionty._source import filter_public_df_columns, get_source_record
 
     # get the default source
-    if is_organism_required(registry, field) and organism is None:
+    if organism is None and registry.require_organism(field=field):
         raise OrganismNotSet(
             f"`organism` is required to create new {registry.__name__} records from source!"
         )
-    source_record = get_source_record(registry, organism, source)
+    try:
+        source_record = get_source_record(registry, organism, source)
+    except ValueError:
+        # no source found
+        return records, iterable_idx
 
     # create the corresponding PublicOntology object from registry
     try:
@@ -385,9 +387,29 @@ def get_organism_record_from_field(  # type: ignore
         and len(values) > 0
         and organism is None
     ):
+        # Check if values contain bionty.Gene objects with organism field
+        from collections.abc import Iterable
+
+        # first check if we have Gene objects
+        for v in values:
+            # early return to not loop through all values to find a string
+            if isinstance(v, str):
+                break
+            if isinstance(v, registry) and v.organism is not None:
+                return v.organism
+            # Handle iterables containing Gene objects (but not strings, which are also iterable)
+            elif isinstance(v, Iterable) and not isinstance(v, str):
+                for item in v:
+                    if isinstance(item, registry) and item.organism is not None:
+                        return item.organism
+
+        # If no bionty.Gene with organism found, fall back to string-based inference
         # pass the first ensembl id that starts with ENS to infer organism
-        first_ensembl = next((i for i in values if i.startswith("ENS")), "")
-        return infer_organism_from_ensembl_id(first_ensembl, using_key)
+        first_ensembl = next(
+            (v for v in values if isinstance(v, str) and v.startswith("ENS")), ""
+        )
+        if first_ensembl:
+            return infer_organism_from_ensembl_id(first_ensembl, using_key)
 
     return create_or_get_organism_record(
         organism=organism, registry=registry, field=field

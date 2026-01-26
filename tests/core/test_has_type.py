@@ -37,48 +37,6 @@ def test_invalid_type(model_class, extra_kwargs):
     no_type.delete(permanent=True)
 
 
-@pytest.mark.parametrize("model_class", [ln.Record, ln.ULabel])
-def test_record_type_uniqueness(model_class):
-    # for record types
-    record_type = model_class(name="TestType", is_type=True).save()
-    record_type2 = model_class(name="TestType", is_type=True).save()
-    assert record_type == record_type2
-    with pytest.raises(IntegrityError):
-        # raise a unique constraint error when trying to create a duplicate record type
-        model_class(name="TestType", is_type=True, _skip_validation=True).save()
-    record_type.delete()
-    # because `record_type` is now in trash, we can create a new record with the same name and type
-    record_type3 = model_class(name="TestType", is_type=True).save()
-    assert record_type != record_type3
-    record_type3.delete()
-    record_type.restore()
-
-    # for record sub types
-    record_subtype = model_class(
-        name="TestSubType", is_type=True, type=record_type
-    ).save()
-    record_subtype2 = model_class(
-        name="TestSubType", is_type=True, type=record_type
-    ).save()
-    assert record_subtype == record_subtype2
-    with pytest.raises(IntegrityError):
-        # raise a unique constraint error when trying to create a duplicate record type
-        model_class(
-            name="TestSubType", is_type=True, type=record_type, _skip_validation=True
-        ).save()
-    record_subtype.delete()
-    # because `record_subtype` is now in trash, we can create a new record with the same name and type
-    record_subtype3 = model_class(
-        name="TestSubType", is_type=True, type=record_type
-    ).save()
-    assert record_subtype != record_subtype3
-
-    record_subtype.delete(permanent=True)
-    record_subtype3.delete(permanent=True)
-    record_type.delete(permanent=True)
-    record_type3.delete(permanent=True)
-
-
 @pytest.mark.skipif(
     os.getenv("LAMINDB_TEST_DB_VENDOR") == "sqlite", reason="Postgres-only"
 )

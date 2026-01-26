@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Collection, Literal, NamedTuple
 
 import pandas as pd
-from lamindb_setup.core import deprecated
 from lamindb_setup.core.upath import UPath
 from packaging import version
 
@@ -24,11 +23,6 @@ CELLxGENEOrganisms = Literal[
     "sars-2",
 ]
 FieldType = Literal["ontology_id", "name"]
-
-
-@deprecated(new_name="save_cellxgene_defaults")
-def save_cxg_defaults() -> None:
-    return save_cellxgene_defaults()
 
 
 def save_cellxgene_defaults() -> None:
@@ -158,22 +152,6 @@ def _create_cellxgene_sources(
     return key_to_source
 
 
-@deprecated(new_name="create_cellxgene_schema")
-def get_cxg_schema(
-    schema_version: CELLxGENESchemaVersions,
-    *,
-    field_types: FieldType | Collection[FieldType] = "ontology_id",
-    organism: CELLxGENEOrganisms = "human",
-    spatial_library_id: str | None = None,
-) -> Schema:
-    return create_cellxgene_schema(
-        schema_version,
-        field_types=field_types,
-        organism=organism,
-        spatial_library_id=spatial_library_id,
-    )
-
-
 def create_cellxgene_schema(
     schema_version: CELLxGENESchemaVersions,
     *,
@@ -272,7 +250,7 @@ def create_cellxgene_schema(
         itype=Feature,
         features=[Feature(name="feature_is_filtered", dtype=bool).save()],
         dtype="DataFrame",
-        coerce_dtype=True,
+        coerce=True,
     ).save()
 
     obs_features = [
@@ -293,7 +271,7 @@ def create_cellxgene_schema(
         features=obs_features,
         otype="DataFrame",
         minimal_set=True,
-        coerce_dtype=True,
+        coerce=True,
     ).save()
 
     slots = {"var": var_schema, "obs": obs_schema}
@@ -318,7 +296,7 @@ def create_cellxgene_schema(
             features=uns_features,
             otype="DataFrame",
             minimal_set=True,
-            coerce_dtype=True,
+            coerce=True,
         ).save()
 
         slots["uns"] = uns_schema
@@ -353,7 +331,7 @@ def create_cellxgene_schema(
         name=f"AnnData of CELLxGENE version {schema_version} for {organism} of {', '.join(field_types) if isinstance(field_types, list) else field_types}",
         otype="AnnData",
         minimal_set=True,
-        coerce_dtype=True,
+        coerce=True,
         slots=slots,
     ).save()
 

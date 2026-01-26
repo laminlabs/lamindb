@@ -20,6 +20,7 @@ from laminci.db import setup_local_test_postgres
 def pytest_sessionstart():
     t_execute_start = perf_counter()
     ln_setup._TESTING = True
+    os.environ["LAMIN_TESTING"] = "true"
     is_postgresql = os.getenv("LAMINDB_TEST_DB_VENDOR") == "postgresql"
     if is_postgresql:
         print("running tests on PostgreSQL")
@@ -54,6 +55,7 @@ def pytest_sessionfinish(session: pytest.Session):
     logger.set_verbosity(1)
     shutil.rmtree("./default_storage_unit_core")
     ln.setup.delete("lamindb-unit-tests-core", force=True)
+    del os.environ["LAMIN_TESTING"]
     if not os.getenv("LAMINDB_TEST_DB_VENDOR") == "sqlite":
         run("docker stop pgtest && docker rm pgtest", shell=True, stdout=DEVNULL)  # noqa: S602
 

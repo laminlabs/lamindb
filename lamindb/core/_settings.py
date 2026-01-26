@@ -8,7 +8,6 @@ import lamindb_setup as ln_setup
 from lamin_utils import colors, logger
 from lamindb_setup import settings as setup_settings
 from lamindb_setup._set_managed_storage import set_managed_storage
-from lamindb_setup.core import deprecated
 from lamindb_setup.core._settings_instance import sanitize_git_repo_url
 from lamindb_setup.core._settings_storage import (
     StorageSettings,
@@ -278,16 +277,6 @@ class Settings:
                     f"Storage {ssettings.root_as_str} exists in another instance ({exists.instance_uid}), cannot write to it from here."
                 )
         ln_setup.settings.instance.local_storage = local_root
-
-    @property
-    @deprecated("local_storage")
-    def storage_local(self) -> StorageSettings:
-        return self.local_storage
-
-    @storage_local.setter
-    @deprecated("local_storage")
-    def storage_local(self, local_root_host: tuple[Path | str, str]):
-        self.local_storage = local_root_host  # type: ignore
 
     @property
     def verbosity(self) -> str:

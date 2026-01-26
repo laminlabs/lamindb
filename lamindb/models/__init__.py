@@ -31,15 +31,20 @@ Query sets & managers
 .. autoclass:: ArtifactSet
 .. autoclass:: QueryManager
 .. autoclass:: lamindb.models.query_set.BiontyDB
-.. autoclass:: lamindb.models.query_set.WetlabDB
+.. autoclass:: lamindb.models.query_set.PertdbDB
 
-Storage of feature values
--------------------------
+JSON values for annotating artifacts and runs
+---------------------------------------------
 
-.. autoclass:: FeatureValue
+.. autoclass:: JsonValue
 
-Link models
------------
+Link models for Artifact
+------------------------
+
+.. autoclass:: ArtifactArtifact
+
+Link models for Record
+----------------------
 
 .. autoclass:: RecordRecord
 .. autoclass:: RecordJson
@@ -52,7 +57,7 @@ Link models
 Block models
 ------------
 
-.. autoclass:: RootBlock
+.. autoclass:: Block
 .. autoclass:: ArtifactBlock
 .. autoclass:: TransformBlock
 .. autoclass:: RecordBlock
@@ -95,7 +100,7 @@ from .sqlrecord import (
 from .storage import Storage
 from .transform import Transform
 from .run import Run, TracksRun, TracksUpdates, current_run, User
-from .feature import Feature, FeatureValue
+from .feature import Feature, JsonValue
 from .schema import Schema
 from .ulabel import ULabel
 
@@ -111,10 +116,8 @@ from .artifact_set import ArtifactSet
 from .has_parents import HasParents
 from datetime import datetime as _datetime
 
-FeatureSet = Schema  # backward compat
-
 # link models
-from .artifact import ArtifactFeatureValue
+from .artifact import ArtifactJsonValue, ArtifactArtifact
 from .project import (
     ArtifactProject,
     TransformProject,
@@ -130,7 +133,7 @@ from .project import (
     ReferenceRecord,
     ProjectRecord,
 )
-from .run import RunFeatureValue
+from .run import RunJsonValue
 from .schema import (
     SchemaFeature,
     ArtifactSchema,
@@ -151,7 +154,7 @@ from .record import (
     ArtifactRecord,
 )
 from .block import (
-    RootBlock,
+    Block,
     ArtifactBlock,
     TransformBlock,
     RecordBlock,
@@ -163,9 +166,4 @@ from .block import (
     SpaceBlock,
 )
 
-LinkORM = IsLink  # backward compat
-ParamValue = FeatureValue  # backward compat
-ArtifactParamValue = ArtifactFeatureValue  # backward compat
-RunParamValue = RunFeatureValue  # backward compat
-Param = Feature  # backward compat
-BasicRecord = BaseSQLRecord  # backward compat
+FeatureValue = JsonValue  # backward compatibility

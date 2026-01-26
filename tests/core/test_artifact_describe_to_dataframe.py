@@ -60,16 +60,16 @@ def test_describe_to_dataframe_example_dataset():
     df = (
         ln.Artifact.filter(key__startswith="examples/dataset", suffix=".h5ad")
         .order_by("-key")
-        .to_dataframe(include=["feature_sets__hash", "feature_sets__name"])
+        .to_dataframe(include=["schemas__hash", "schemas__name"])
         .drop(["uid"], axis=1)
     )
     expected_data = {
         "key": ["examples/dataset2.h5ad", "examples/dataset1.h5ad"],
-        "feature_sets__hash": [
-            set(artifact2.feature_sets.all().values_list("hash", flat=True)),
-            set(artifact.feature_sets.all().values_list("hash", flat=True)),
+        "schemas__hash": [
+            set(artifact2.schemas.all().values_list("hash", flat=True)),
+            set(artifact.schemas.all().values_list("hash", flat=True)),
         ],
-        "feature_sets__name": [{None}, {None}],
+        "schemas__name": [{None}, {None}],
     }
     expected_df = pd.DataFrame(expected_data)
     _check_df_equality(df, expected_df)
@@ -117,6 +117,19 @@ def test_describe_to_dataframe_example_dataset():
     expected_df = pd.DataFrame(expected_data)
     _check_df_equality(df, expected_df)
 
+    # Test filtering artifacts by schemas__in (alternative approach)
+    # Query artifacts that measure CD8A gene by filtering schemas first
+    cd8a = bt.Gene.get(symbol="CD8A")
+    schemas_with_cd8a = ln.Schema.filter(genes=cd8a)
+    df = ln.Artifact.filter(schemas__in=schemas_with_cd8a).to_dataframe()
+    assert set(df["key"]) == {"examples/dataset2.h5ad", "examples/dataset1.h5ad"}
+    # check backward compat query with deprecation warning
+    with pytest.warns(
+        DeprecationWarning, match="Querying Artifact by `feature_sets` is deprecated"
+    ):
+        df = ln.Artifact.filter(feature_sets__in=schemas_with_cd8a).to_dataframe()
+    assert set(df["key"]) == {"examples/dataset2.h5ad", "examples/dataset1.h5ad"}
+
     # expected output has italicized elements that can't be tested
     # hence testing is restricted to section content, not headings
     output = artifact.describe(return_str=True)
@@ -133,20 +146,20 @@ def test_describe_to_dataframe_example_dataset():
         == """Artifact: examples/dataset1.h5ad (0000)
 ├── Dataset features
 │   ├── obs (4)
-│   │   cell_type_by_expe…  bionty.CellType         B cell, CD8-positive, alpha…
-│   │   cell_type_by_model  bionty.CellType         B cell, T cell
-│   │   perturbation        Record                  DMSO, IFNG
+│   │   cell_type_by_expe…  bionty.CellType          B cell, CD8-positive, alph…
+│   │   cell_type_by_model  bionty.CellType          B cell, T cell
+│   │   perturbation        Record                   DMSO, IFNG
 │   │   sample_note         str
 │   └── var.T (3 bionty.G…
 │       CD14                num
 │       CD4                 num
 │       CD8A                num
 └── External features
-    └── experiment          Record                  Experiment 1
-        date_of_study       date                    2024-12-01
-        study_metadata      dict                    {'detail1': '123', 'detail2…
-        study_note          str                     We had a great time perform…
-        temperature         float                   21.6"""
+    └── experiment          Record                   Experiment 1
+        date_of_study       date                     2024-12-01
+        study_metadata      dict                     {'detail1': '123', 'detail…
+        study_note          str                      We had a great time perfor…
+        temperature         float                    21.6"""
     )
 
     # labels section
@@ -178,14 +191,14 @@ def test_describe_to_dataframe_example_dataset():
     }
 
     # test that only external feature are removed upon artifact.features.remove_values()
-    all_feature_values = artifact.features.get_values()
+    alljson_values = artifact.features.get_values()
     adata = artifact.load()
     just_internal = {}
     for col in adata.obs.columns:
-        if col in all_feature_values:
-            just_internal[col] = all_feature_values[col]
+        if col in alljson_values:
+            just_internal[col] = alljson_values[col]
     artifact.features.remove_values()
-    assert just_internal != all_feature_values
+    assert just_internal != alljson_values
     assert just_internal == artifact.features.get_values()
 
     artifact.delete(permanent=True)

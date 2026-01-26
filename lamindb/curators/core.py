@@ -43,11 +43,12 @@ from lamindb.models.feature import (
     parse_filter_string,
     resolve_relation_filters,
 )
+from lamindb.models.query_set import BasicQuerySet, SQLRecordList
 from lamindb.models.sqlrecord import HasType
 
 from ..errors import InvalidArgument, ValidationError
 from ..models._from_values import get_organism_record_from_field
-from ..models.feature import get_record_type_from_nested_subtypes
+from ..models.feature import get_record_type_from_uid
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -59,7 +60,6 @@ if TYPE_CHECKING:
     from tiledbsoma._experiment import Experiment as SOMAExperiment
 
     from lamindb.core.types import ScverseDataStructures
-    from lamindb.models.query_set import SQLRecordList
 
 
 def strip_ansi_codes(text):
@@ -93,7 +93,7 @@ class CatLookup:
         slots = slots or {}
         if isinstance(categoricals, list):
             categoricals = {
-                feature.name: parse_dtype(feature.dtype)[0]["field"]
+                feature.name: parse_dtype(feature._dtype_str)[0]["field"]
                 for feature in categoricals
             }
         self._categoricals = {**categoricals, **slots}
@@ -185,11 +185,16 @@ class Curator:
     """
 
     def __init__(
-        self, dataset: Any, schema: Schema, *, features: dict[str, Any] | None = None
+        self,
+        dataset: Any,
+        schema: Schema,
+        *,
+        features: dict[str, Any] | None = None,
+        require_saved_schema: bool = True,
     ) -> None:
         if not isinstance(schema, Schema):
             raise InvalidArgument("schema argument must be a Schema record.")
-        if schema.pk is None:
+        if require_saved_schema and schema.pk is None:
             raise ValueError(
                 "Schema must be saved before curation. Please save it using '.save()'."
             )
@@ -324,8 +329,14 @@ class SlotsCurator(Curator):
         schema: Schema,
         *,
         features: dict[str, Any] | None = None,
+        require_saved_schema: bool = True,
     ) -> None:
-        super().__init__(dataset=dataset, schema=schema, features=features)
+        super().__init__(
+            dataset=dataset,
+            schema=schema,
+            features=features,
+            require_saved_schema=require_saved_schema,
+        )
         self._slots: dict[str, ComponentCurator] = {}
 
         # used for multimodal data structures (not AnnData)
@@ -431,9 +442,17 @@ def convert_dict_to_dataframe_for_validation(d: dict, schema: Schema) -> pd.Data
     df = pd.DataFrame([d])
     for feature in schema.members:
         # we cannot cast a `list[cat[...]]]` to categorical because lists are not hashable
-        if feature.dtype.startswith("cat"):
+        if feature.dtype_as_str.startswith("cat"):
             if feature.name in df.columns:
-                df[feature.name] = pd.Categorical(df[feature.name])
+                value = df.loc[0, feature.name]
+                if isinstance(value, (list, SQLRecordList, set, BasicQuerySet)):
+                    df.attrs[feature.name] = "list_of_categories"
+                else:
+                    if isinstance(value, SQLRecord) and value._state.adding:
+                        raise ValidationError(
+                            f"{value.__class__.__name__} {getattr(value, getattr(value, 'name_field', 'name'), value.uid)} is not saved."
+                        )
+                    df[feature.name] = pd.Categorical(df[feature.name])
     return df
 
 
@@ -457,8 +476,11 @@ class ComponentCurator(Curator):
         dataset: pd.DataFrame | Artifact,
         schema: Schema,
         slot: str | None = None,
+        require_saved_schema: bool = True,
     ) -> None:
-        super().__init__(dataset=dataset, schema=schema)
+        super().__init__(
+            dataset=dataset, schema=schema, require_saved_schema=require_saved_schema
+        )
 
         categoricals = []
         features = []
@@ -468,7 +490,7 @@ class ComponentCurator(Curator):
             features += Feature.filter(name__in=self._dataset.keys()).to_list()
             feature_ids = {feature.id for feature in features}
 
-        if schema.n > 0:
+        if schema.n_members and schema.n_members > 0:
             if schema._index_feature_uid is not None:
                 schema_features = [
                     feature
@@ -500,25 +522,29 @@ class ComponentCurator(Curator):
                 else:
                     required = False
                 # series.dtype is "object" if the column has lists types, e.g. [["a", "b"], ["a"], ["b"]]
-                if feature.dtype.startswith("list[cat"):
+                dtype_str = feature._dtype_str
+                if (
+                    dtype_str.startswith("list[cat")
+                    or self._dataset.attrs.get(feature.name) == "list_of_categories"
+                ):
                     pandera_columns[feature.name] = pandera.Column(
                         dtype=None,
                         checks=pandera.Check(
                             check_dtype("list", feature.nullable),
                             element_wise=False,
-                            error=f"Column '{feature.name}' failed dtype check for '{feature.dtype}'",
+                            error=f"Column '{feature.name}' failed dtype check for '{dtype_str}' against (list, nullable={feature.nullable})",
                         ),
                         nullable=feature.nullable,
-                        coerce=feature.coerce_dtype,
+                        coerce=feature.coerce,
                         required=required,
                     )
-                elif feature.dtype in {
+                elif dtype_str in {
                     "int",
                     "float",
                     "bool",
                     "num",
                     "path",
-                } or feature.dtype.startswith("list"):
+                } or dtype_str.startswith("list"):
                     if isinstance(self._dataset, pd.DataFrame):
                         dtype = (
                             self._dataset[feature.name].dtype
@@ -530,19 +556,19 @@ class ComponentCurator(Curator):
                     pandera_columns[feature.name] = pandera.Column(
                         dtype=None,
                         checks=pandera.Check(
-                            check_dtype(feature.dtype, feature.nullable),
+                            check_dtype(dtype_str, feature.nullable),
                             element_wise=False,
-                            error=f"Column '{feature.name}' failed dtype check for '{feature.dtype}': got {dtype}",
+                            error=f"Column '{feature.name}' failed dtype check for '{dtype_str}': got {dtype}",
                         ),
                         nullable=feature.nullable,
-                        coerce=feature.coerce_dtype,
+                        coerce=feature.coerce,
                         required=required,
                     )
-                elif feature.dtype == "dict":
+                elif dtype_str == "dict":
                     pandera_columns[feature.name] = pandera.Column(
                         dtype=object,
                         nullable=feature.nullable,
-                        coerce=feature.coerce_dtype,
+                        coerce=feature.coerce,
                         required=required,
                         checks=pandera.Check(
                             lambda s: s.dropna()
@@ -553,19 +579,15 @@ class ComponentCurator(Curator):
                     )
                 else:
                     pandera_dtype = (
-                        feature.dtype
-                        if not feature.dtype.startswith("cat")
-                        else "category"
+                        dtype_str if not dtype_str.startswith("cat") else "category"
                     )
                     pandera_columns[feature.name] = pandera.Column(
                         pandera_dtype,
                         nullable=feature.nullable,
-                        coerce=feature.coerce_dtype,
+                        coerce=feature.coerce,
                         required=required,
                     )
-                if feature.dtype.startswith("cat") or feature.dtype.startswith(
-                    "list[cat["
-                ):
+                if dtype_str.startswith("cat") or dtype_str.startswith("list[cat["):
                     # validate categoricals if the column is required or if the column is present
                     # but exclude the index feature from column categoricals
                     if (required or feature.name in self._dataset.keys()) and (
@@ -577,8 +599,8 @@ class ComponentCurator(Curator):
             # so, we're typing it as `str` here
             if schema.index is not None:
                 index = pandera.Index(
-                    schema.index.dtype
-                    if not schema.index.dtype.startswith("cat")
+                    schema.index._dtype_str
+                    if not schema.index._dtype_str.startswith("cat")
                     else str
                 )
             else:
@@ -590,7 +612,7 @@ class ComponentCurator(Curator):
                 )
             self._pandera_schema = pandera.DataFrameSchema(
                 pandera_columns,
-                coerce=schema.coerce_dtype,
+                coerce=schema.coerce,
                 strict=schema.maximal_set,
                 ordered=schema.ordered_set,
                 index=index,
@@ -639,7 +661,8 @@ class ComponentCurator(Curator):
                         if feature.default_value is not None
                         else pd.NA
                     )
-                    if feature.dtype.startswith("cat"):
+                    dtype_str = feature._dtype_str
+                    if dtype_str.startswith("cat"):
                         self._dataset[feature.name] = pd.Categorical(
                             [fill_value] * len(self._dataset)
                         )
@@ -691,7 +714,7 @@ class ComponentCurator(Curator):
                 has_dtype_error = "WRONG_DATATYPE" in str(err)
                 error_msg = str(err)
                 if has_dtype_error:
-                    error_msg += "   ▶ Hint: Consider setting 'coerce_dtype=True' to attempt coercing/converting values during validation to the pre-defined dtype."
+                    error_msg += "   ▶ Hint: Consider setting `feature.coerce = True` to attempt coercing values during validation to the required dtype."
                 raise ValidationError(error_msg) from err
         else:
             self._cat_manager_validate()
@@ -705,6 +728,7 @@ class DataFrameCurator(SlotsCurator):
         dataset: The DataFrame-like object to validate & annotate.
         schema: A :class:`~lamindb.Schema` object that defines the validation constraints.
         slot: Indicate the slot in a composite curator for a composite data structure.
+        require_saved_schema: Whether the schema must be saved before curation.
 
     Examples:
 
@@ -738,14 +762,21 @@ class DataFrameCurator(SlotsCurator):
         *,
         slot: str | None = None,
         features: dict[str, Any] | None = None,
+        require_saved_schema: bool = True,
     ) -> None:
         # loads or opens dataset, dataset may be an artifact
-        super().__init__(dataset=dataset, schema=schema, features=features)
+        super().__init__(
+            dataset=dataset,
+            schema=schema,
+            features=features,
+            require_saved_schema=require_saved_schema,
+        )
         # uses open dataset at self._dataset
         self._atomic_curator = ComponentCurator(
             dataset=self._dataset,
             schema=schema,
             slot=slot,
+            require_saved_schema=require_saved_schema,
         )
         # Handle (nested) attrs
         if slot is None and schema.slots:
@@ -763,7 +794,10 @@ class DataFrameCurator(SlotsCurator):
                             )
                         df = convert_dict_to_dataframe_for_validation(data, slot_schema)
                         self._slots[slot_name] = ComponentCurator(
-                            df, slot_schema, slot=slot_name
+                            df,
+                            slot_schema,
+                            slot=slot_name,
+                            require_saved_schema=require_saved_schema,
                         )
                 elif slot_name != "__external__":
                     raise ValueError(
@@ -816,6 +850,7 @@ class ExperimentalDictCurator(DataFrameCurator):
         dataset: dict | Artifact,
         schema: Schema,
         slot: str | None = None,
+        require_saved_schema: bool = False,
     ) -> None:
         if not isinstance(dataset, dict) and not isinstance(dataset, Artifact):
             raise InvalidArgument("The dataset must be a dict or dict-like artifact.")
@@ -825,7 +860,9 @@ class ExperimentalDictCurator(DataFrameCurator):
         else:
             d = dataset
         df = convert_dict_to_dataframe_for_validation(d, schema)
-        super().__init__(df, schema, slot=slot)
+        super().__init__(
+            df, schema, slot=slot, require_saved_schema=require_saved_schema
+        )
 
 
 def _resolve_schema_slot_path(
@@ -1288,11 +1325,9 @@ class CatVector:
         feature: Feature | None = None,
         cat_manager: DataFrameCatManager | None = None,
         filter_str: str = "",
-        subtypes_list: list[str] = None,
+        record_uid: str | None = None,
         maximal_set: bool = True,  # whether unvalidated categoricals cause validation failure.
     ) -> None:
-        if subtypes_list is None:
-            subtypes_list = []
         self._values_getter = values_getter
         self._values_setter = values_setter
         self._field = field
@@ -1301,7 +1336,7 @@ class CatVector:
         self._validated: None | list[str] = None
         self._non_validated: None | list[str] = None
         self._synonyms: None | dict[str, str] = None
-        self._subtypes_list = subtypes_list
+        self._record_uid = record_uid
         self._subtype_query_set = None
         self._cat_manager = cat_manager
         self.feature = feature
@@ -1311,7 +1346,7 @@ class CatVector:
         self._registry = self._field.field.model
         self._field_name = self._field.field.name
         self._filter_kwargs = {}
-        if filter_str:
+        if filter_str and filter_str != "unsaved":
             self._filter_kwargs.update(
                 resolve_relation_filters(
                     parse_filter_string(filter_str), self._registry
@@ -1331,10 +1366,11 @@ class CatVector:
             self._registry, self._filter_kwargs
         )
 
-        # get the dtype associated record based on the nested subtypes
-        if self._subtypes_list:
-            self._type_record = get_record_type_from_nested_subtypes(
-                self._registry, self._subtypes_list, self._field.field.name
+        # get the dtype associated record based on the record_uid
+        if self._record_uid:
+            self._type_record = get_record_type_from_uid(
+                self._registry,
+                self._record_uid,
             )
 
         if hasattr(self._registry, "_name_field"):
@@ -1434,11 +1470,18 @@ class CatVector:
         model_field = self._registry.__get_name_with_module__()
 
         values = [
-            i
-            for i in self.values
-            if (isinstance(i, str) and i)
-            or (isinstance(i, list) and i)
-            or (isinstance(i, np.ndarray) and i.size > 0)
+            value
+            for value in self.values
+            if (isinstance(value, str) and value)
+            or (
+                isinstance(value, (int, float))
+                and not isinstance(value, bool)
+                and value == value
+            )
+            or (isinstance(value, list) and value)
+            or (
+                isinstance(value, np.ndarray) and value.size > 0 and value.dtype != bool
+            )
         ]
         if not values:
             return [], []
@@ -1613,15 +1656,15 @@ class CatVector:
                 if syn_mapper:
                     warning_message += "\n    for remaining terms:\n"
                 check_organism = ""
-                if self._registry.__base__.__name__ == "BioRecord":
-                    from bionty._organism import is_organism_required
-
-                    if is_organism_required(self._registry, self._field):
-                        organism = self._filter_kwargs.get("organism", None)
-                        check_organism = f"fix organism '{organism}', "
+                if (
+                    self._registry.__base__.__name__ == "BioRecord"
+                    and self._registry.require_organism(field=self._field)
+                ):
+                    organism = self._filter_kwargs.get("organism", None)
+                    check_organism = f"fix organism '{organism}', "
                 warning_message += f"    → {check_organism}fix typos, remove non-existent values, or save terms via: {colors.cyan(non_validated_hint_print)}"
-                if self._subtype_query_set is not None and self._subtypes_list:
-                    warning_message += f"\n    → a valid label for subtype '{self._subtypes_list[-1]}' has to be one of {self._subtype_query_set.to_list('name')}"
+                if self._subtype_query_set is not None and self._type_record:
+                    warning_message += f"\n    → a valid label for subtype '{self._type_record.name}' has to be one of {self._subtype_query_set.to_list('name')}"
             logger.info(f'mapping "{self._key}" on {colors.italic(model_field)}')
             logger.warning(warning_message)
             if self._cat_manager is not None:
@@ -1725,10 +1768,14 @@ class DataFrameCatManager:
             source=self._sources.get("columns"),
             cat_manager=self,
             maximal_set=self._maximal_set,
-            filter_str="" if schema.flexible else f"schemas__id={schema.id}",
+            filter_str=""
+            if schema.flexible
+            else "unsaved"
+            if schema.id is None
+            else f"schemas__id={schema.id}",
         )
         for feature in self._categoricals:
-            result = parse_dtype(feature.dtype)[0]
+            result = parse_dtype(feature._dtype_str)[0]
             key = feature.name
             # only create CatVector if the key exists in the DataFrame
             if key in self._dataset.columns:
@@ -1745,10 +1792,10 @@ class DataFrameCatManager:
                     feature=feature,
                     cat_manager=self,
                     filter_str=result["filter_str"],
-                    subtypes_list=result["subtypes_list"],
+                    record_uid=result.get("record_uid"),
                 )
-        if index is not None and index.dtype.startswith("cat"):
-            result = parse_dtype(index.dtype)[0]
+        if index is not None and index._dtype_str.startswith("cat"):
+            result = parse_dtype(index._dtype_str)[0]
             key = "index"
             self._cat_vectors[key] = CatVector(
                 values_getter=self._dataset.index,
@@ -1760,7 +1807,7 @@ class DataFrameCatManager:
                 feature=index,
                 cat_manager=self,
                 filter_str=result["filter_str"],
-                subtypes_list=result["subtypes_list"],
+                record_uid=result.get("record_uid"),
             )
 
     @property
@@ -1926,8 +1973,6 @@ def annotate_artifact(
             artifact,
             records=cat_vector.records,
             feature=cat_vector.feature,
-            feature_ref_is_name=None,  # do not need anymore
-            label_ref_is_name=cat_vector.label_ref_is_name,
             from_curator=True,
         )
 
@@ -1944,7 +1989,7 @@ def annotate_artifact(
                 index=index_feature,
                 minimal_set=artifact.schema.minimal_set,
                 maximal_set=artifact.schema.maximal_set,
-                coerce_dtype=artifact.schema.coerce_dtype,
+                coerce=artifact.schema.coerce,
                 ordered_set=artifact.schema.ordered_set,
             )
             if (
@@ -1959,7 +2004,7 @@ def annotate_artifact(
                     if artifact.schema.itype == "Composite"  # backward compat
                     else parse_cat_dtype(artifact.schema.itype, is_itype=True)["field"]
                 )
-                feature_set = Schema(itype=itype, n=len(features))
+                feature_set = Schema(itype=itype, n_members=len(features))
 
             ArtifactSchema.objects.update_or_create(
                 artifact=artifact,
@@ -1987,7 +2032,7 @@ def annotate_artifact(
                 index=index_feature,
                 minimal_set=validating_schema.minimal_set,
                 maximal_set=validating_schema.maximal_set,
-                coerce_dtype=validating_schema.coerce_dtype,
+                coerce=validating_schema.coerce,
                 ordered_set=validating_schema.ordered_set,
             )
             if (
@@ -2005,7 +2050,7 @@ def annotate_artifact(
                         artifact.schema.slots[slot].itype, is_itype=True
                     )["field"]
                 )
-                feature_set = Schema(itype=itype, n=len(features))
+                feature_set = Schema(itype=itype, n_members=len(features))
             ArtifactSchema.objects.update_or_create(
                 artifact=artifact, slot=slot, defaults={"schema": feature_set.save()}
             )
