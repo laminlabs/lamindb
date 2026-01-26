@@ -155,11 +155,12 @@ def flow(
 
     A function execution creates a :class:`~lamindb.Run` object that stores the function name in `run.entrypoint`.
 
-    Unless `global_run=False`, a `@ln.flow()`-decorated function creates a global run context that can be accessed with `ln.context.run` just like `ln.track()`.
+    By default, like `ln.track()`, creates a global run context that can be accessed with `ln.context.run`.
 
     Args:
         uid: Persist the uid to identify a transform across renames.
-        global_run: If no global run context exists, create one that can be accessed with `ln.context.run` just like `ln.track()`.
+        global_run: If no global run context exists, create one that can be accessed with `ln.context.run`.
+            Set this to `False` if you want to track concurrent executions of a `flow()` in the same Python process.
 
     Examples:
 
