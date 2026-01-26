@@ -125,7 +125,7 @@ def _create_tracked_decorator(
             # Set the run in context and execute function
             token = current_tracked_run.set(run)
             # If it's a flow, set the global run context as we do in `ln.track()`
-            if is_flow and global_context.run is None and global_run:
+            if global_run and global_context.run is None:
                 global_context._run = run
             try:
                 result = func(*args, **kwargs)
