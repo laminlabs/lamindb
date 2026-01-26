@@ -129,10 +129,16 @@ To save a file or folder from the command line, run:
 lamin save myfile.txt --key examples/myfile.txt
 ```
 
-To load the file, run:
+To sync a file into a local cache (artifacts) or development directory (transforms), run:
 
 ```shell
 lamin load --key examples/myfile.txt
+```
+
+To delete a file:
+
+```shell
+lamin delete --key examples/myfile.txt
 ```
 
 ### Lineage
@@ -153,24 +159,18 @@ Running this snippet as a script (`python create-fasta.py`) produces the followi
 
 ```python
 artifact = ln.Artifact.get(key="sample.fasta")  # get artifact by key
-artifact.view_lineage()
-```
-
-<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/EkQATsQL5wqC95Wj0006.png" width="200">
-
-You'll know how that artifact was created and what it's used for.
-
-```python
-artifact.describe()
+artifact.describe()      # general context of the artifact
+artifact.view_lineage()  # fine-grained lineage
 ```
 
 <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/BOTCBgHDAvwglN3U0004.png" width="550">
+<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/EkQATsQL5wqC95Wj0006.png" width="140">
 
-Here is how to access the data lineage context:
+Here is how to access the generating `run` and `transform` objects programmatically:
 
 ```python
-run = artifact.run                  # get the run object
-transform = artifact.run.transform  # get the transform object
+run = artifact.run              # get the run object
+transform = artifact.transform  # get the transform object
 ```
 
 <details>
@@ -209,9 +209,9 @@ ln.Artifact.filter(ulabels=my_label, projects=project).to_dataframe()
 You can also query by the metadata that lamindb automatically collects:
 
 ```python
-ln.Artifact.filter(run=run).to_dataframe()                # query all artifacts created by a run
-ln.Artifact.filter(transform=transform).to_dataframe()    # query all artifacts created by a transform
-ln.Artifact.filter(size__gt=1e6).to_dataframe()           # query all artifacts bigger than 1MB
+ln.Artifact.filter(run=run).to_dataframe()              # query artifacts created by a run
+ln.Artifact.filter(transform=transform).to_dataframe()  # query artifacts created by a transform
+ln.Artifact.filter(size__gt=1e6).to_dataframe()         # query artifacts bigger than 1MB
 ```
 
 If you want to include more information into the resulting dataframe, pass `include`.
@@ -244,7 +244,7 @@ artifact.features.add_values({
 })
 ```
 
-Now that the data is annotated, you can query for it:
+Query for it:
 
 ```python
 ln.Artifact.filter(experiment_date="2025-10-24").to_dataframe()  # query all artifacts annotated with `experiment_date`
@@ -261,12 +261,12 @@ ln.Artifact.to_dataframe(include="features")  # include the feature annotations
 You can create records for the entities underlying your experiments: samples, perturbations, instruments, etc., for example:
 
 ```python
-sample = ln.Record(name="Sample", is_type=True).save()  # type sample
+sample = ln.Record(name="Sample", is_type=True).save()  # create entity type: Sample
 ln.Record(name="P53mutant1", type=sample).save()        # sample 1
 ln.Record(name="P53mutant2", type=sample).save()        # sample 2
 ```
 
-Define the corresponding features and annotate:
+Define features and annotate an artifact with a sample:
 
 ```python
 ln.Feature(name="design_sample", dtype=sample).save()
@@ -279,7 +279,7 @@ You can query & search the `Record` registry in the same way as `Artifact` or `R
 ln.Record.search("p53").to_dataframe()
 ```
 
-You can also create relationships of entities and -- if you connect your LaminDB instance to LaminHub -- edit them like Excel sheets in a GUI.
+You can also create relationships of entities and edit them like Excel sheets in a GUI via LaminHub.
 
 ### Data versioning
 
@@ -318,7 +318,7 @@ df = pd.DataFrame({
 ln.Artifact.from_dataframe(df, key="my_datasets/sequences.parquet").save()  # no validation
 ```
 
-To validate & annotate the content of the dataframe, use a built-in `schema`:
+To validate & annotate the content of the dataframe, use the built-in schema `valid_features`:
 
 ```python
 ln.Feature(name="sequence_str", dtype=str).save()  # define a remaining feature
@@ -330,11 +330,11 @@ artifact = ln.Artifact.from_dataframe(
 artifact.describe()
 ```
 
-Now you know which schema the dataset satisfies. You can filter for datasets by schema and then launch distributed queries and batch loading.
+You can filter for datasets by schema and then launch distributed queries and batch loading.
 
 ### Lakehouse beyond tables
 
-To validate an `AnnData` with a built-in `schema` call:
+To validate an `AnnData` with built-in schema `ensembl_gene_ids_and_valid_features_in_obs`, call:
 
 ```python
 import anndata as ad
@@ -345,7 +345,6 @@ adata = ad.AnnData(
     obs=pd.DataFrame({'cell_type_by_model': ['T cell', 'B cell', 'NK cell'] * 7}),
     var=pd.DataFrame(index=[f'ENSG{i:011d}' for i in range(10)])
 )
-
 artifact = ln.Artifact.from_anndata(
     adata,
     key="my_datasets/scrna.h5ad",
@@ -354,11 +353,11 @@ artifact = ln.Artifact.from_anndata(
 artifact.describe()
 ```
 
-To validate a `spatialdata` or any other array-like dataset, you need to construct a `Schema`. You can do this by composing the schema of a complicated object from simple `pandera`/`pydantic`-like schemas: [docs.lamin.ai/curate](https://docs.lamin.ai/curate).
+To validate a `spatialdata` or any other array-like dataset, you need to construct a `Schema`. You can do this by composing the schema of a complicated object from simple `pandera`-style schemas: [docs.lamin.ai/curate](https://docs.lamin.ai/curate).
 
 ### Ontologies
 
-Plugin `bionty` gives you >20 of them as `SQLRecord` registries. This was used to validate the `ENSG` ids in the `adata` just before.
+Plugin `bionty` gives you >20 public ontologies as `SQLRecord` registries. This was used to validate the `ENSG` ids in the `adata` just before.
 
 ```python
 import bionty as bt
@@ -366,6 +365,8 @@ import bionty as bt
 bt.CellType.import_source()  # import the default ontology
 bt.CellType.to_dataframe()   # your extendable cell type ontology in a simple registry
 ```
+
+Read more: [docs.lamin.ai/manage-ontologies](https://docs.lamin.ai/manage-ontologies).
 
 ### Workflow managers
 
