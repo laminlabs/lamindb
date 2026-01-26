@@ -163,6 +163,18 @@ def notebook_to_script(  # type: ignore
     title: str, notebook_path: Path, script_path: Path | None = None
 ) -> None | str:
     import jupytext
+    import yaml
+    from nbformat import NotebookNode
+
+    # PyYAML's SafeDumper.represent_data() only checks yaml_representers for exact type match on mro[0].
+    # The MRO fallback loop only checks yaml_multi_representers, which is empty.
+    # So dict subclasses like NotebookNode fail to serialize even though dict is in yaml_representers.
+    # This is a known issue: https://github.com/yaml/pyyaml/issues/142
+    yaml.add_representer(
+        NotebookNode,
+        lambda dumper, data: dumper.represent_dict(data),
+        Dumper=yaml.SafeDumper,
+    )
 
     notebook = jupytext.read(notebook_path)
     py_content = jupytext.writes(notebook, fmt="py:percent")
