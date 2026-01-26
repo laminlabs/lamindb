@@ -6,20 +6,17 @@
 
 # LaminDB - A data framework for biology
 
-Query, trace, and validate datasets and models at scale. Automate context for agents and humans. One API: lakehouse, lineage, feature store, ontologies, bio-registries & formats.
+Query, trace, and validate datasets and models at scale with an open-source framework. With one API, you get: lakehouse, lineage, feature store, ontologies, bio-registries & formats.
 
 <details>
 <summary>Why?</summary>
 
-Reproducing results or understanding how a dataset or model was created can be a pain.
-Training models across thousands of datasets — from LIMS and ELNs to orthogonal assays and cross-team silos — is even harder.
-In the age of agents, maintaining an overview and ensuring data quality across a project is more complex than ever.
+Being able to reproduce results and understand how a dataset or model was created is now more important than ever, but has often been a pain even before the age of agents.
+Training models across thousands of datasets — from LIMS and ELNs to orthogonal assays and cross-team silos — is now a learning opportunity, but has been impossible in most organizations.
+Ensuring data quality & queryability has both become more complex and important than ever, but unlike code (git) or tables (data warehouses), biological data have lacked a dedicated, API-first management framework.
 
-Unlike code (git) or tables (data warehouses), biological data has lacked a dedicated, API-first management framework.
-It has been relegated to structureless data lakes, rigid SQL warehouses, or tabular lakehouses designed for domains with far fewer entities, concepts, and specialized formats.
-
-LaminDB addresses this at the core with a lineage-native lakehouse architecture that understands bio-registries and formats (`DataFrame`, `AnnData`, `.zarr`, …).
-This provides enough structure to query across many datasets and enough freedom for high-paced R&D, while automating rich context on top of versioning, change management, and other industry standards.
+Hence, LaminDB provides a lineage-native data lakehouse that understands bio-registries and formats (`AnnData`, `.zarr`, …) to enable scaled learning operations.
+It provides queries across many datasets with enough freedom to maintain high-paced R&D while automating rich context on top of versioning, change management, and other industry standards.
 
 </details>
 
