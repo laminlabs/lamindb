@@ -118,9 +118,14 @@ def test_checkpoint_with_features(
     ln.Feature(name="train_loss", dtype=float).save()
     ln.Feature(name="custom_param", dtype=str).save()
 
+    ln.track()
+
     callback = ll.Checkpoint(
         dirpath=dirpath,
-        features={"train_loss": None, "custom_param": "test_value"},
+        features={
+            "artifact": {"train_loss": None},
+            "run": {"custom_param": "test_value"},
+        },
         monitor="train_loss",
     )
     trainer = pl.Trainer(
@@ -136,7 +141,10 @@ def test_checkpoint_with_features(
     for af in artifacts:
         values = af.features.get_values()
         assert "train_loss" in values
-        assert values["custom_param"] == "test_value"
+
+    assert ln.context.run.features.get_values()["custom_param"] == "test_value"
+
+    ln.finish()
 
 
 def test_checkpoint_missing_features(
@@ -147,7 +155,7 @@ def test_checkpoint_missing_features(
     """Checkpoint should raise an error when specified features do not exist."""
     callback = ll.Checkpoint(
         dirpath=dirpath,
-        features={"nonexistent_feature": None},
+        features={"artifact": {"nonexistent_feature": None}},
         monitor="train_loss",
     )
     trainer = pl.Trainer(
@@ -333,3 +341,12 @@ def test_checkpoint_overwrite(
 
     for af in ln.Artifact.filter(key=fixed_key):
         af.delete(permanent=True, storage=True)
+
+
+def test_checkpoint_invalid_feature_keys(dirpath: str):
+    """Checkpoint should raise on invalid feature keys."""
+    with pytest.raises(ValueError, match="Invalid feature keys"):
+        ll.Checkpoint(
+            dirpath=dirpath,
+            features={"invalid_key": {"foo": "bar"}},  # type: ignore
+        )

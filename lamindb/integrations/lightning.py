@@ -81,8 +81,9 @@ class Checkpoint(ModelCheckpoint):
 
     Args:
         dirpath: Directory for checkpoints (reflected in cloud paths).
-        features: Features to annotate checkpoints with.
-            Values can be static or None (auto-populated from trainer metrics/attributes).
+        features: Features to annotate runs and artifacts.
+            Use "run" key for run-level features (static metadata).
+            Use "artifact" key for artifact-level features (values can be static or None for auto-population from trainer metrics/attributes).
         monitor: Quantity to monitor for saving best checkpoint.
         verbose: Verbosity mode.
         save_last: Save a copy of the last checkpoint.
@@ -138,7 +139,7 @@ class Checkpoint(ModelCheckpoint):
         self,
         dirpath: _PATH,
         *,
-        features: dict[str, Any] | None = None,
+        features: dict[Literal["run", "artifact"], dict[str, Any]] | None = None,
         monitor: str | None = None,
         verbose: bool = False,
         save_last: bool | None = None,
@@ -168,7 +169,13 @@ class Checkpoint(ModelCheckpoint):
             save_on_train_epoch_end=save_on_train_epoch_end,
             enable_version_counter=enable_version_counter,
         )
+        if invalid_feature_keys := set(self.features) - {"run", "artifact"}:  # type: ignore
+            raise ValueError(
+                f"Invalid feature keys: {invalid_feature_keys}. Use 'run' and/or 'artifact'."
+            )
         self.features = features or {}
+        self._run_features = self.features.get("run", {})
+        self._artifact_features = self.features.get("artifact", {})
         self._available_auto_features: set[str] = set()
         self._run_features_added = False
         self.overwrite_versions = overwrite_versions
@@ -181,9 +188,10 @@ class Checkpoint(ModelCheckpoint):
 
         if trainer.is_global_zero:
             # Validate user-specified features exist
+            all_feature_names = set(self._run_features) | set(self._artifact_features)
             missing = [
                 name
-                for name in self.features
+                for name in all_feature_names
                 if ln.Feature.filter(name=name).one_or_none() is None
             ]
             if missing:
@@ -193,7 +201,9 @@ class Checkpoint(ModelCheckpoint):
                     f"Create {'them' if len(missing) > 1 else 'it'} first."
                 )
 
-            # Detect which auto-features are available
+            if ln.context.run and self._run_features:
+                ln.context.run.features.add_values(self._run_features)
+
             for name in _SUPPORTED_AUTO_FEATURES:
                 if ln.Feature.filter(name=name).one_or_none() is not None:
                     self._available_auto_features.add(name)
@@ -266,8 +276,8 @@ class Checkpoint(ModelCheckpoint):
                     score = score.item()
                 feature_values["score"] = float(score)
 
-            # User-specified features -> for now also added to artifacts
-            for name, value in self.features.items():
+            # User-specified artifact features
+            for name, value in self._artifact_features.items():
                 if value is not None:
                     feature_values[name] = value
                 elif hasattr(trainer, name):
