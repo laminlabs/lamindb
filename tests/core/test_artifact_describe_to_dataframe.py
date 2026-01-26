@@ -146,7 +146,7 @@ def test_describe_to_dataframe_example_dataset():
         == """Artifact: examples/dataset1.h5ad (0000)
 ├── Dataset features
 │   ├── obs (4)
-│   │   cell_type_by_expe…  bionty.CellType          B cell, CD8-positive, alpha…
+│   │   cell_type_by_expe…  bionty.CellType          B cell, CD8-positive, alph…
 │   │   cell_type_by_model  bionty.CellType          B cell, T cell
 │   │   perturbation        Record                   DMSO, IFNG
 │   │   sample_note         str
@@ -157,8 +157,8 @@ def test_describe_to_dataframe_example_dataset():
 └── External features
     └── experiment          Record                   Experiment 1
         date_of_study       date                     2024-12-01
-        study_metadata      dict                     {'detail1': '123', 'detail2…
-        study_note          str                      We had a great time perform…
+        study_metadata      dict                     {'detail1': '123', 'detail…
+        study_note          str                      We had a great time perfor…
         temperature         float                    21.6"""
     )
 
