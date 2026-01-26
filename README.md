@@ -23,7 +23,7 @@ This provides enough structure to query across many datasets and enough freedom 
 
 </details>
 
-<img width="800px" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/BunYmHkyFLITlM5M000B.svg">
+<img width="800px" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/BunYmHkyFLITlM5M000C.svg">
 
 Highlights:
 
