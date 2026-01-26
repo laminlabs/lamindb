@@ -12,8 +12,8 @@ With one API, you get: lakehouse, lineage, feature store, ontologies, bio-regist
 <details>
 <summary>Why?</summary>
 
-Reproducing results and understanding how a dataset or model was created is now more important than ever, but was a pain even before 10 agents ran an analysis.
-Training models across thousands of datasets — from LIMS and ELNs to orthogonal assays and cross-team silos — is now a learning opportunity, but was typically impossible.
+Reproducing results and understanding how a dataset or model was created is now more important than ever, but was a struggle even before the age of agents.
+Training models across thousands of datasets — from LIMS and ELNs to orthogonal assays and cross-team silos — is now a big learning opportunity, but has historically been impossible.
 While code has git and tables have data warehouses, biological data has lacked a dedicated, API-first management framework to ensure quality and queryability.
 
 LaminDB fills the gap with a lineage-native data lakehouse that understands bio-registries and formats (`AnnData`, `.zarr`, …) to enable scaled learning operations.
