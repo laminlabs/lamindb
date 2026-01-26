@@ -6,7 +6,7 @@ import lamindb as ln
 import pandas as pd
 
 
-@ln.flow()
+@ln.flow(global_run=False)
 def process_chunk(
     chunk_id: int, artifact_param: ln.Artifact, records_params: Iterable[ln.Record]
 ) -> str:
