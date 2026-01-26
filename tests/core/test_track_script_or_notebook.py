@@ -382,6 +382,26 @@ def test_clean_r_notebook_html():
     orig_notebook_path.write_text(content.replace(get_shortcut(), "SHORTCUT"))
 
 
+def test_notebook_to_script_notebooknode_metadata(tmp_path):
+    """Test that notebook_to_script handles NotebookNode metadata https://github.com/laminlabs/lamindb/issues/3480."""
+    import nbformat
+    import yaml
+    from lamindb._finish import notebook_to_script
+
+    # Create and convert a minimal notebook to trigger representer registration
+    nb = nbformat.v4.new_notebook()
+    notebook_path = tmp_path / "test.ipynb"
+    nbformat.write(nb, notebook_path)
+    notebook_to_script("Test", notebook_path)
+
+    # Now test that NotebookNode can be serialized (fails without the additional representer)
+    data = {
+        "jupyter": {"kernelspec": nbformat.NotebookNode({"display_name": "python3"})}
+    }
+    result = yaml.safe_dump(data)
+    assert "display_name: python3" in result
+
+
 class MockRun:
     def __init__(self, uid):
         self.uid = uid
