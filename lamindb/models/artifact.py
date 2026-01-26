@@ -2915,15 +2915,17 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             self._key_is_virtual = True
             # ensure that the artifact is uploaded
             self._to_store = True
+
+        local_filepath = getattr(self, "_local_filepath", None)
+        has_local_filepath = local_filepath is not None
+        if has_local_filepath and not local_filepath.exists():
+            raise FileNotFoundError(
+                f"Unable to save the artifact because the local path {local_filepath} does not exist."
+            )
+
+        flag_complete = has_local_filepath and getattr(self, "_to_store", False)
         # _storage_ongoing indicates whether the storage saving / upload process is ongoing
-        flag_complete = getattr(self, "_local_filepath", None) is not None and getattr(
-            self, "_to_store", False
-        )
         if flag_complete:
-            if not self._local_filepath.exists():
-                raise FileNotFoundError(
-                    f"Unable to save the artifact because the local path {self._local_filepath} does not exist."
-                )
             self._storage_ongoing = True  # will be updated to False once complete
 
         self._save_skip_storage(**kwargs)
