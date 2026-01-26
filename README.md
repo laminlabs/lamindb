@@ -135,6 +135,8 @@ To sync a file into a local cache (artifacts) or development directory (transfor
 lamin load --key examples/myfile.txt
 ```
 
+Read more: [docs.lamin.ai/cli](https://docs.lamin.ai/cli).
+
 ### Lineage
 
 To create a dataset while tracking source code, inputs, outputs, logs, and environment:
@@ -362,11 +364,11 @@ bt.CellType.to_dataframe()   # your extendable cell type ontology in a simple re
 
 Read more: [docs.lamin.ai/manage-ontologies](https://docs.lamin.ai/manage-ontologies).
 
-### Workflow managers
+### Workflow management
 
-LaminDB is not a workflow manager, but it integrates well with existing workflow managers and can subsitute them in some settings.
+LaminDB integrates well with computational workflow/pipeline managers, e.g. with Nextflow or redun: [docs.lamin.ai/pipelines](https://docs.lamin.ai/pipelines)
 
-In [github.com/laminlabs/schmidt22](https://github.com/laminlabs/schmidt22) we manage several workflows, scripts, and notebooks to re-construct the project of [Schmidt _el al._ (2022)](https://pubmed.ncbi.nlm.nih.gov/35113687/). A phenotypic CRISPRa screening result is integrated with scRNA-seq data. Here is one of the input artifacts:
+In some cases, LaminDB can offer a simpler alternative. In [github.com/laminlabs/schmidt22](https://github.com/laminlabs/schmidt22) we manage several workflows, scripts, and notebooks to re-construct the project of [Schmidt _el al._ (2022)](https://pubmed.ncbi.nlm.nih.gov/35113687/). A phenotypic CRISPRa screening result is integrated with scRNA-seq data. Here is one of the input artifacts:
 
 <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/JvLaK9Icj11eswQn0000.png" width="850">
 
@@ -375,5 +377,3 @@ And here is the lineage of the final result:
 <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/KQmzmmLOeBN0C8Yk0004.png" width="850">
 
 You can explore it [here](https://lamin.ai/laminlabs/lamindata/artifact/W1AiST5wLrbNEyVq0001).
-
-If you'd like to integrate with Nextflow, Snakemake, or redun, see here: [docs.lamin.ai/pipelines](https://docs.lamin.ai/pipelines)
