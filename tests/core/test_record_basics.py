@@ -7,7 +7,7 @@ import lamindb as ln
 import pandas as pd
 import pytest
 from django.db import IntegrityError
-from lamindb.errors import DoesNotExist, FieldValidationError
+from lamindb.errors import FieldValidationError
 
 
 def test_record():
@@ -201,7 +201,7 @@ def test_record_features_add_remove_values():
         "lamindb.errors.InvalidArgument: You can query either by available fields:"
     )
     # DoesNotExist (no Record named "nonexistent_entity" exists)
-    with pytest.raises(DoesNotExist) as error:
+    with pytest.raises(ln.errors.ObjectDoesNotExist) as error:
         ln.Record.filter(feature_type1="nonexistent_entity").one()
     assert "Did not find" in error.exconly()
 
@@ -223,7 +223,7 @@ def test_record_features_add_remove_values():
         ln.Record.filter(feature_cl_ontology_id__contains="0045").one() == test_record
     )
     # DoesNotExist (Record not found: feature_project)
-    with pytest.raises(DoesNotExist) as error:
+    with pytest.raises(ln.errors.ObjectDoesNotExist) as error:
         ln.Record.filter(feature_project="nonexistent_project").one()
     assert "Did not find" in error.exconly()
     # __contains returns multiple (add second record, assert, then remove)
