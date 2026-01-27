@@ -12,6 +12,7 @@ import pandas as pd
 from django.contrib.postgres.aggregates import ArrayAgg
 from django.db import connections
 from django.db.models import Aggregate, Subquery
+from django.db.models.expressions import RawSQL
 from django.db.utils import IntegrityError
 from lamin_utils import logger
 from lamindb_setup.errors import ModuleWasntConfigured
@@ -836,21 +837,50 @@ def filter_base(
                     f"currently not supporting `{comparator}`, using `__icontains` instead"
                 )
                 comparator = "__icontains"
-            if connections[feature._state.db].vendor == "sqlite" and comparator in {
-                "__gt",
-                "__lt",
-                "__gte",
-                "__lte",
-            }:
-                # SQLite seems to prefer comparing strings over numbers
-                value = str(value)
-            filter_expr = {"feature": feature, f"value{comparator}": value}
-            if queryset.model is Record:
-                value_qs = RecordJson.objects.using(queryset.db).filter(**filter_expr)
-                new_expression["values_json__id__in"] = value_qs
+            use_numeric_sqlite = (
+                connections[feature._state.db].vendor == "sqlite"
+                and comparator in {"__gt", "__lt", "__gte", "__lte"}
+                and dtype_str in ("int", "float", "num")
+            )
+            if use_numeric_sqlite:
+                # Numeric comparison via json_extract + CAST (avoids lexicographic comparison)
+                num_val_raw = RawSQL("CAST(json_extract(value, '$') AS REAL)", ())
+                if queryset.model is Record:
+                    value_qs = (
+                        RecordJson.objects.using(queryset.db)
+                        .filter(feature=feature)
+                        .annotate(num_val=num_val_raw)
+                        .filter(**{f"num_val{comparator}": value})
+                    )
+                    new_expression["values_json__id__in"] = value_qs
+                else:
+                    json_values = (
+                        JsonValue.objects.using(queryset.db)
+                        .filter(feature=feature)
+                        .annotate(num_val=num_val_raw)
+                        .filter(**{f"num_val{comparator}": value})
+                    )
+                    new_expression["json_values__id__in"] = json_values
             else:
-                json_values = JsonValue.objects.using(queryset.db).filter(**filter_expr)
-                new_expression["json_values__id__in"] = json_values
+                if connections[feature._state.db].vendor == "sqlite" and comparator in {
+                    "__gt",
+                    "__lt",
+                    "__gte",
+                    "__lte",
+                }:
+                    # SQLite: lexicographic comparison for non-numeric dtypes (date, datetime, str)
+                    value = str(value)
+                filter_expr = {"feature": feature, f"value{comparator}": value}
+                if queryset.model is Record:
+                    value_qs = RecordJson.objects.using(queryset.db).filter(
+                        **filter_expr
+                    )
+                    new_expression["values_json__id__in"] = value_qs
+                else:
+                    json_values = JsonValue.objects.using(queryset.db).filter(
+                        **filter_expr
+                    )
+                    new_expression["json_values__id__in"] = json_values
         # categorical features
         elif isinstance(value, (str, SQLRecord, bool)):
             dtype_str = feature._dtype_str

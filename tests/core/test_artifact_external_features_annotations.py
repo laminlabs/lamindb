@@ -1,6 +1,5 @@
 # ruff: noqa: F811
 
-import os
 from datetime import date, datetime
 
 import bionty as bt
@@ -192,14 +191,16 @@ def test_artifact_features_add_remove_query():
     # Numeric comparators __lt, __gt (int, float, num)
     assert ln.Artifact.filter(feature_int__lt=21).one_or_none() is None
     assert len(ln.Artifact.filter(feature_int__gt=21)) >= 1
-    # float/num __lt/__gt: skip on SQLite (JSON string comparison breaks numeric order)
-    if os.getenv("LAMINDB_TEST_DB_VENDOR") != "sqlite":
-        assert ln.Artifact.filter(feature_float__lt=5.0).one() == test_artifact
-        assert ln.Artifact.filter(feature_float__gt=1.0).one() == test_artifact
-        assert ln.Artifact.filter(feature_float__gt=10.0).one_or_none() is None
-        assert ln.Artifact.filter(feature_num__lt=5.0).one() == test_artifact
-        assert ln.Artifact.filter(feature_num__gt=1.0).one() == test_artifact
-        assert ln.Artifact.filter(feature_num__gt=10.0).one_or_none() is None
+    # int __lt/__gt that would fail with string comparison (42 vs 5, 42 vs 100)
+    assert ln.Artifact.filter(feature_int__lt=5).one_or_none() is None
+    assert ln.Artifact.filter(feature_int__gt=100).one_or_none() is None
+    # float/num __lt/__gt (numeric comparison on SQLite via json_extract + CAST)
+    assert ln.Artifact.filter(feature_float__lt=5.0).one() == test_artifact
+    assert ln.Artifact.filter(feature_float__gt=1.0).one() == test_artifact
+    assert ln.Artifact.filter(feature_float__gt=10.0).one_or_none() is None
+    assert ln.Artifact.filter(feature_num__lt=5.0).one() == test_artifact
+    assert ln.Artifact.filter(feature_num__gt=1.0).one() == test_artifact
+    assert ln.Artifact.filter(feature_num__gt=10.0).one_or_none() is None
     # Date and datetime comparators (ISO strings)
     assert ln.Artifact.filter(feature_date__lt="2024-01-02").one() == test_artifact
     assert ln.Artifact.filter(feature_date__gt="2023-12-31").one() == test_artifact
