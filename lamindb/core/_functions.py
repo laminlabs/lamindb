@@ -157,7 +157,7 @@ def _create_tracked_decorator(
 
 def flow(
     uid: str | None = None,
-    global_run: Literal["memorize", "clear", "none"] = "memorize",
+    global_run: Literal["memorize", "clear", "none"] = "clear",
 ) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """Use `@flow()` to track a function as a workflow.
 
@@ -167,14 +167,13 @@ def flow(
     The function maps onto an entrypoint of the `transform`.
     A function execution creates a :class:`~lamindb.Run` object that stores the function name in `run.entrypoint`.
 
-    By default, like `ln.track()`, creates a global run context that can be accessed with `ln.context.run` and
-    does not clear after the function completes. This is useful in the context of functions that act as lazy schedulers (e.g. in `redun`).
+    By default, like `ln.track()`, creates a global run context that can be accessed with `ln.context.run`.
 
     Args:
         uid: Persist the uid to identify a transform across renames.
-        global_run: If `"memorize"`, set the global run context `ln.context.run` and do not clear after the function completes.
+        global_run: If `"clear"`, set the global run context `ln.context.run` and clear after the function completes.
+            If `"memorize"`, set the global run context and do not clear after the function completes.
             Set this to `"none"` if you want to track concurrent executions of a `flow()` in the same Python process.
-            Set this to `"clear"` if you want to clear the global run context after the flow completes.
 
     Examples:
 
