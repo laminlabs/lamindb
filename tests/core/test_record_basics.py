@@ -7,7 +7,7 @@ import lamindb as ln
 import pandas as pd
 import pytest
 from django.db import IntegrityError
-from lamindb.errors import FieldValidationError
+from lamindb.errors import DoesNotExist, FieldValidationError
 
 
 def test_record():
@@ -73,7 +73,7 @@ def test_invalid_type_record_with_schema():
     schema.delete(permanent=True)
 
 
-# see test_artifact_external_features_annotations.py for similar test for Artifacts (populate and query by features)
+# see test_artifact_features_add_remove_query in test_artifact_external_features_annotations.py for similar test for Artifacts (populate and query by features)
 def test_record_features_add_remove_values():
     record_type1 = ln.Record(name="RecordType1", is_type=True).save()
     record_entity1 = ln.Record(name="entity1", type=record_type1).save()
@@ -179,6 +179,7 @@ def test_record_features_add_remove_values():
     assert test_record.features.get_values() == test_values
 
     # --- Query by features (same data as above) ---
+    # Equality
     assert ln.Record.filter(feature_str=test_values["feature_str"]).one() == test_record
     assert ln.Record.filter(feature_int=42).one() == test_record
     assert (
@@ -188,6 +189,22 @@ def test_record_features_add_remove_values():
     # Categorical feature filters (Record and bionty)
     assert ln.Record.filter(feature_type1="entity1").one() == test_record
     assert ln.Record.filter(feature_cell_line="HEK293").one() == test_record
+    # Datetime and date (filter uses ISO strings as stored in JSON)
+    assert ln.Record.filter(feature_datetime="2024-01-01T12:00:00").one() == test_record
+    assert ln.Record.filter(feature_date="2024-01-01").one() == test_record
+    # __contains (categorical)
+    assert ln.Record.filter(feature_cell_line__contains="HEK").one() == test_record
+    assert ln.Record.filter(feature_type1__contains="entity").one() == test_record
+    # Invalid field
+    with pytest.raises(ln.errors.InvalidArgument) as error:
+        ln.Record.filter(feature_str_typo="x", feature_int=42).one()
+    assert error.exconly().startswith(
+        "lamindb.errors.InvalidArgument: You can query either by available fields:"
+    )
+    # DoesNotExist (no Record named "nonexistent_entity" exists)
+    with pytest.raises(DoesNotExist) as error:
+        ln.Record.filter(feature_type1="nonexistent_entity").one()
+    assert "Did not find" in error.exconly()
 
     # ManyToMany accesors
 

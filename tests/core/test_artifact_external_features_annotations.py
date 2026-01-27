@@ -11,7 +11,7 @@ from lamindb.models.query_set import BasicQuerySet, SQLRecordList
 
 
 # see test_record_basics.py for similar test for records (populate and query by features)
-def test_artifact_features_add_remove_values():
+def test_artifact_features_add_remove_query():
     record_type1 = ln.Record(name="RecordType1", is_type=True).save()
     record_entity1 = ln.Record(name="entity1", type=record_type1).save()
     record_entity2 = ln.Record(name="entity2", type=record_type1).save()
@@ -127,6 +127,7 @@ def test_artifact_features_add_remove_values():
     assert test_artifact.features["feature_run"] == run
 
     # --- Query by features (same data as above) ---
+    # Equality
     assert ln.Artifact.filter(feature_str="a string value").one() == test_artifact
     assert ln.Artifact.filter(feature_int=42).one() == test_artifact
     assert ln.Artifact.filter(feature_type1="entity1").one() == test_artifact
@@ -135,6 +136,25 @@ def test_artifact_features_add_remove_values():
         ln.Artifact.filter(feature_str="a string value", feature_int=42).one()
         == test_artifact
     )
+    # Datetime and date (filter uses ISO strings as stored in JSON)
+    assert (
+        ln.Artifact.filter(feature_datetime="2024-01-01T12:00:00").one()
+        == test_artifact
+    )
+    assert ln.Artifact.filter(feature_date="2024-01-01").one() == test_artifact
+    # __contains (categorical)
+    assert ln.Artifact.filter(feature_cell_line__contains="HEK").one() == test_artifact
+    assert ln.Artifact.filter(feature_type1__contains="entity").one() == test_artifact
+    # Invalid field
+    with pytest.raises(ln.errors.InvalidArgument) as error:
+        ln.Artifact.filter(feature_str_typo="x", feature_int=42).one()
+    assert error.exconly().startswith(
+        "lamindb.errors.InvalidArgument: You can query either by available fields:"
+    )
+    # DoesNotExist (no Record named "nonexistent_entity" exists)
+    with pytest.raises(DoesNotExist) as error:
+        ln.Artifact.filter(feature_type1="nonexistent_entity").one()
+    assert "Did not find" in error.exconly()
 
     # remove values
 
@@ -366,7 +386,7 @@ def test_features_add_with_schema():
 
 
 def test_features_add_remove_error_behavior():
-    """Add/remove/validation behavior and feature-based filter (comparators, invalid field, DoesNotExist)."""
+    """Add/remove/validation behavior."""
     adata = ln.examples.datasets.anndata_with_obs()
     artifact = ln.Artifact.from_anndata(adata, description="test").save()
     with pytest.raises(ValidationError) as error:
@@ -568,40 +588,6 @@ Here is how to create a feature:
         "2024-12-01",
         "2024-12-01T00:00:00",
     }
-
-    # Feature-based query tests (invalid field, comparators, bionty, DoesNotExist)
-    with pytest.raises(ln.errors.InvalidArgument) as error:
-        ln.Artifact.filter(temperature_with_typo=100.0, project="project_1").one()
-    assert error.exconly().startswith(
-        "lamindb.errors.InvalidArgument: You can query either by available fields:"
-    )
-
-    ln.Artifact.filter(temperature=100.0)
-    ln.Artifact.filter(project="project_1")
-    ln.Artifact.filter(is_validated=True)
-    ln.Artifact.filter(temperature=100.0, project="project_1", donor="U0123").one()
-    # for bionty
-    assert (
-        artifact == ln.Artifact.filter(disease=diseases[0]).one()
-    )  # value is a record
-    assert (
-        artifact == ln.Artifact.filter(disease="MONDO:0004975").one()
-    )  # value is a string
-    assert artifact == ln.Artifact.filter(disease__contains="0004975").one()
-
-    # test not finding the Record
-    with pytest.raises(DoesNotExist) as error:
-        ln.Artifact.filter(project="project__1")
-    assert "Did not find a Record matching" in error.exconly()
-
-    # test comparator
-    assert artifact == ln.Artifact.filter(experiment__contains="ment 1").one()
-    # due to the __in comparator, we get the same artifact twice below
-    # print(ln.Artifact.to_dataframe(features=["experiment"]))
-    # print(ln.Artifact.filter(experiment__contains="Experi").to_dataframe(features=["experiment"]))
-    assert len(ln.Artifact.filter(experiment__contains="Experi")) == 2
-    assert ln.Artifact.filter(temperature__lt=21.0).one_or_none() is None
-    assert len(ln.Artifact.filter(temperature__gt=21.0)) >= 1
 
     # test remove_values
     artifact.features.remove_values("date_of_experiment")
