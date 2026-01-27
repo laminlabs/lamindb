@@ -5,7 +5,6 @@ from datetime import date, datetime
 import bionty as bt
 import lamindb as ln
 import pytest
-from lamindb.errors import DoesNotExist, ValidationError
 from lamindb.examples.datasets import mini_immuno
 from lamindb.models.query_set import BasicQuerySet, SQLRecordList
 
@@ -157,8 +156,8 @@ def test_artifact_features_add_remove_query():
     assert error.exconly().startswith(
         "lamindb.errors.InvalidArgument: You can query either by available fields:"
     )
-    # DoesNotExist (no Record named "nonexistent_entity" exists)
-    with pytest.raises(DoesNotExist) as error:
+    # ln.errors.ObjectDoesNotExist (no object named "nonexistent_entity" exists)
+    with pytest.raises(ln.errors.ObjectDoesNotExist) as error:
         ln.Artifact.filter(feature_type1="nonexistent_entity").one()
     assert "Did not find" in error.exconly()
 
@@ -180,8 +179,8 @@ def test_artifact_features_add_remove_query():
         ln.Artifact.filter(feature_cl_ontology_id__contains="0045").one()
         == test_artifact
     )
-    # DoesNotExist (Record not found: feature_project)
-    with pytest.raises(DoesNotExist) as error:
+    # ln.errors.ObjectDoesNotExist (object not found: feature_project)
+    with pytest.raises(ln.errors.ObjectDoesNotExist) as error:
         ln.Artifact.filter(feature_project="nonexistent_project").one()
     assert "Did not find" in error.exconly()
     # __contains returns multiple (add second artifact, assert, then remove)
@@ -446,7 +445,7 @@ def test_features_add_with_schema():
     split = ln.Feature(name="split", dtype="str").save()
     schema = ln.Schema([species, split]).save()
 
-    with pytest.raises(ValidationError) as e:
+    with pytest.raises(ln.errors.ValidationError) as e:
         artifact.features.add_values({"doesnot": "exist"}, schema=schema)
     assert "column 'split' not in dataframe" in str(e.value)
 
@@ -464,7 +463,7 @@ def test_features_add_remove_error_behavior():
     """Add/remove/validation behavior."""
     adata = ln.examples.datasets.anndata_with_obs()
     artifact = ln.Artifact.from_anndata(adata, description="test").save()
-    with pytest.raises(ValidationError) as error:
+    with pytest.raises(ln.errors.ValidationError) as error:
         artifact.features.add_values({"experiment": "Experiment 1"})
     assert (
         error.exconly()
@@ -474,7 +473,7 @@ Here is how to create a feature:
   ln.Feature(name='experiment', dtype='cat ? str').save()"""
     )
     ln.Feature(name="experiment", dtype=ln.Record).save()
-    with pytest.raises(ValidationError) as error:
+    with pytest.raises(ln.errors.ValidationError) as error:
         artifact.features.add_values({"experiment": "Experiment 1"})
     assert error.exconly().startswith(
         "lamindb.errors.ValidationError: 1 term not validated in feature 'experiment'"
@@ -501,7 +500,7 @@ Here is how to create a feature:
     assert artifact.json_values.first().value == 27.2
 
     # datetime feature
-    with pytest.raises(ValidationError) as error:
+    with pytest.raises(ln.errors.ValidationError) as error:
         artifact.features.add_values({"date_of_experiment": "2024-12-01"})
     assert (
         error.exconly()
@@ -512,7 +511,7 @@ Here is how to create a feature:
     )
 
     ln.Feature(name="date_of_experiment", dtype=datetime.date, coerce=True).save()
-    with pytest.raises(ValidationError) as error:
+    with pytest.raises(ln.errors.ValidationError) as error:
         artifact.features.add_values({"date_of_experiment": "Typo2024-12-01"})
     assert "WRONG_DATATYPE" in error.exconly()
     artifact.features.add_values({"date_of_experiment": "2024-12-01"})
@@ -522,7 +521,7 @@ Here is how to create a feature:
 
     # bionty feature
     mouse = bt.Organism.from_source(name="mouse")
-    with pytest.raises(ValidationError) as error:
+    with pytest.raises(ln.errors.ValidationError) as error:
         artifact.features.add_values({"organism": mouse})
     assert (
         error.exconly()
@@ -532,7 +531,7 @@ Here is how to create a feature:
   ln.Feature(name='organism', dtype='cat[bionty.Organism]').save()"""
     )
     ln.Feature(name="organism", dtype=bt.Organism).save()
-    with pytest.raises(ValidationError) as error:
+    with pytest.raises(ln.errors.ValidationError) as error:
         artifact.features.add_values({"organism": mouse})
     assert (
         # ensure the label is saved
@@ -568,7 +567,7 @@ Here is how to create a feature:
         "temperature": 100.0,
         "donor": "U0123",
     }
-    with pytest.raises(ValidationError) as error:
+    with pytest.raises(ln.errors.ValidationError) as error:
         artifact.features.add_values(features)
     assert (
         error.exconly()
@@ -587,7 +586,7 @@ Here is how to create a feature:
     ln.Feature(name="cell_type_by_expert", dtype=bt.CellType).save()
     ln.Feature(name="donor", dtype=ln.Record).save()
 
-    with pytest.raises(ValidationError) as error:
+    with pytest.raises(ln.errors.ValidationError) as error:
         artifact.features.add_values(features)
         error_msg = error.exconly()
 
@@ -738,7 +737,7 @@ def test_add_list_of_cat_features():
         key=".gitignore",
     ).save()
     # now just use add_values()
-    with pytest.raises(ValidationError) as error:
+    with pytest.raises(ln.errors.ValidationError) as error:
         artifact.features.add_values(
             {
                 "single_label_of_type1": "invalid",
@@ -748,7 +747,7 @@ def test_add_list_of_cat_features():
         "lamindb.errors.ValidationError: 1 term not validated in feature 'single_label_of_type1': 'invalid'"
     )
     # now for list of labels
-    with pytest.raises(ValidationError) as error:
+    with pytest.raises(ln.errors.ValidationError) as error:
         artifact.features.add_values(
             {
                 "list_of_labels_of_type1": ["invalid", "invalid2"],
