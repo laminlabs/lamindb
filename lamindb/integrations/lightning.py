@@ -215,6 +215,7 @@ class Checkpoint(ModelCheckpoint):
         self._artifact_features = self.features.get("artifact", {})
         self._available_auto_features: set[str] = set()
         self._run_features_added = False
+        self._hparams_yaml_saved = False
         self.overwrite_versions = overwrite_versions
 
     def setup(
@@ -281,6 +282,8 @@ class Checkpoint(ModelCheckpoint):
 
         if ln.context.run:
             ln.context.run.input_artifacts.add(hparams_artifact)
+
+        self._hparams_yaml_saved = True
 
     def _save_checkpoint(self, trainer: pl.Trainer, filepath: str) -> None:
         """Save checkpoint to the instance."""
