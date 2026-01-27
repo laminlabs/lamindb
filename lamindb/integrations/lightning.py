@@ -24,7 +24,17 @@ if TYPE_CHECKING:
     from lightning.fabric.utilities.types import _PATH
 
 
-_RUN_AUTO_FEATURES: Final = frozenset({"logger_name", "logger_version"})
+_RUN_AUTO_FEATURES: Final = frozenset(
+    {
+        "logger_name",
+        "logger_version",
+        "max_epochs",
+        "max_steps",
+        "precision",
+        "accumulate_grad_batches",
+        "gradient_clip_val",
+    }
+)
 _ARTIFACT_AUTO_FEATURES: Final = frozenset({"is_best_model", "score", "model_rank"})
 _SUPPORTED_AUTO_FEATURES: Final = _RUN_AUTO_FEATURES | _ARTIFACT_AUTO_FEATURES
 
@@ -40,6 +50,11 @@ def save_lightning_features() -> None:
     - model_rank (int): Rank among all checkpoints (0 = best).
     - logger_name (str): Name from the first Lightning logger.
     - logger_version (str): Version from the first Lightning logger.
+    - max_epochs (int): Maximum number of epochs.
+    - max_steps (int): Maximum number of training steps.
+    - precision (str): Training precision (e.g., "32", "16-mixed", "bf16").
+    - accumulate_grad_batches (int): Number of batches to accumulate gradients over.
+    - gradient_clip_val (float): Gradient clipping value.
 
     Example::
 
@@ -66,6 +81,15 @@ def save_lightning_features() -> None:
     ln.Feature(name="model_rank", dtype=int, type=lightning_feature_type).save()
     ln.Feature(name="logger_name", dtype=str, type=lightning_feature_type).save()
     ln.Feature(name="logger_version", dtype=str, type=lightning_feature_type).save()
+    ln.Feature(name="max_epochs", dtype=int, type=lightning_feature_type).save()
+    ln.Feature(name="max_steps", dtype=int, type=lightning_feature_type).save()
+    ln.Feature(name="precision", dtype=str, type=lightning_feature_type).save()
+    ln.Feature(
+        name="accumulate_grad_batches", dtype=int, type=lightning_feature_type
+    ).save()
+    ln.Feature(
+        name="gradient_clip_val", dtype=float, type=lightning_feature_type
+    ).save()
 
 
 class Checkpoint(ModelCheckpoint):
@@ -77,7 +101,8 @@ class Checkpoint(ModelCheckpoint):
     Query with `ln.Artifact.filter(key__startswith=callback.dirpath)`.
 
     If available in the instance, the following features are automatically tracked:
-    `is_best_model`, `score`, `model_rank`, `logger_name`, `logger_version`.
+    `is_best_model`, `score`, `model_rank`, `logger_name`, `logger_version`,
+    `max_epochs`, `max_steps`, `precision`, `accumulate_grad_batches`, `gradient_clip_val`.
 
     Args:
         dirpath: Directory for checkpoints (reflected in cloud paths).
@@ -235,6 +260,36 @@ class Checkpoint(ModelCheckpoint):
                     run_features["logger_version"] = (
                         version if isinstance(version, str) else f"version_{version}"
                     )
+                # Trainer config
+                if (
+                    "max_epochs" in self._available_auto_features
+                    and trainer.max_epochs is not None
+                ):
+                    run_features["max_epochs"] = trainer.max_epochs
+                if (
+                    "max_steps" in self._available_auto_features
+                    and trainer.max_steps is not None
+                ):
+                    run_features["max_steps"] = trainer.max_steps
+                if "precision" in self._available_auto_features:
+                    run_features["precision"] = str(trainer.precision)
+                if "accumulate_grad_batches" in self._available_auto_features:
+                    run_features["accumulate_grad_batches"] = (
+                        trainer.accumulate_grad_batches
+                    )
+                if (
+                    "gradient_clip_val" in self._available_auto_features
+                    and trainer.gradient_clip_val is not None
+                ):
+                    run_features["gradient_clip_val"] = float(trainer.gradient_clip_val)
+                # Model hyperparameters
+                if (
+                    hasattr(trainer.lightning_module, "hparams")
+                    and trainer.lightning_module.hparams
+                ):
+                    for name, value in trainer.lightning_module.hparams.items():
+                        if ln.Feature.filter(name=name).one_or_none() is not None:
+                            run_features[name] = value
                 if run_features:
                     ln.context.run.features.add_values(run_features)
                 self._run_features_added = True

@@ -350,3 +350,107 @@ def test_checkpoint_invalid_feature_keys(dirpath: str):
             dirpath=dirpath,
             features={"invalid_key": {"foo": "bar"}},  # type: ignore
         )
+
+
+def test_checkpoint_hparams(
+    dataloader: DataLoader,
+    dirpath: str,
+):
+    """Checkpoint should auto-capture model hparams if features exist."""
+
+    class ModelWithHparams(pl.LightningModule):
+        def __init__(self, hidden_size: int = 32, learning_rate: float = 0.001):
+            super().__init__()
+            self.save_hyperparameters()
+            self.layer = nn.Linear(10, hidden_size)
+            self.out = nn.Linear(hidden_size, 1)
+
+        def forward(self, x):
+            return self.out(torch.relu(self.layer(x)))
+
+        def training_step(self, batch, batch_idx):
+            x, y = batch
+            loss = nn.functional.mse_loss(self(x), y)
+            self.log("train_loss", loss)
+            return loss
+
+        def configure_optimizers(self):
+            return torch.optim.Adam(self.parameters(), lr=self.hparams.learning_rate)
+
+    ln.Feature(name="hidden_size", dtype=int).save()
+    ln.Feature(name="learning_rate", dtype=float).save()
+
+    ln.track()
+
+    model = ModelWithHparams(hidden_size=64, learning_rate=0.01)
+    callback = ll.Checkpoint(dirpath=dirpath, monitor="train_loss")
+    trainer = pl.Trainer(max_epochs=1, callbacks=[callback], logger=False)
+    trainer.fit(model, dataloader)
+
+    run_features = ln.context.run.features.get_values()
+    assert run_features["hidden_size"] == 64
+    assert run_features["learning_rate"] == 0.01
+
+    all_feature_names = ["hidden_size", "learning_rate"]
+
+    # cleanup
+    ln.context.run.features.remove_values(all_feature_names)
+
+    ln.finish()
+
+    for feat_name in all_feature_names:
+        feat = ln.Feature.filter(name=feat_name).one()
+        # remove_values() only removes the link, not the JsonValue records
+        # which still reference the feature via a protected foreign key
+        ln.models.RunJsonValue.filter(jsonvalue__feature=feat).delete()
+        ln.models.JsonValue.filter(feature=feat).delete(permanent=True)
+        feat.delete(permanent=True)
+
+
+def test_checkpoint_trainer_config(
+    simple_model: pl.LightningModule,
+    dataloader: DataLoader,
+    dirpath: str,
+):
+    """Checkpoint should auto-capture trainer config if features exist."""
+    ln.track()
+
+    callback = ll.Checkpoint(dirpath=dirpath, monitor="train_loss")
+    trainer = pl.Trainer(
+        max_epochs=5,
+        max_steps=100,
+        precision="32",
+        accumulate_grad_batches=2,
+        gradient_clip_val=0.5,
+        callbacks=[callback],
+        logger=False,
+    )
+    trainer.fit(simple_model, dataloader)
+
+    run_features = ln.context.run.features.get_values()
+    assert run_features["max_epochs"] == 5
+    assert run_features["max_steps"] == 100
+    assert run_features["precision"] == "32-true"
+    assert run_features["accumulate_grad_batches"] == 2
+    assert run_features["gradient_clip_val"] == 0.5
+
+    all_feature_names = [
+        "max_epochs",
+        "max_steps",
+        "precision",
+        "accumulate_grad_batches",
+        "gradient_clip_val",
+    ]
+
+    # cleanup
+    ln.context.run.features.remove_values(all_feature_names)
+
+    ln.finish()
+
+    for feat_name in all_feature_names:
+        feat = ln.Feature.filter(name=feat_name).one()
+        # remove_values() only removes the link, not the JsonValue records
+        # which still reference the feature via a protected foreign key
+        ln.models.RunJsonValue.filter(jsonvalue__feature=feat).delete()
+        ln.models.JsonValue.filter(feature=feat).delete(permanent=True)
+        feat.delete(permanent=True)
