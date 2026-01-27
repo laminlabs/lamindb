@@ -215,7 +215,6 @@ class Checkpoint(ModelCheckpoint):
         self._artifact_features = self.features.get("artifact", {})
         self._available_auto_features: set[str] = set()
         self._run_features_added = False
-        self._hparams_yaml_saved = False
         self.overwrite_versions = overwrite_versions
 
     def setup(
@@ -283,14 +282,11 @@ class Checkpoint(ModelCheckpoint):
         if ln.context.run:
             ln.context.run.input_artifacts.add(hparams_artifact)
 
-        self._hparams_yaml_saved = True
-
     def _save_checkpoint(self, trainer: pl.Trainer, filepath: str) -> None:
         """Save checkpoint to the instance."""
         super()._save_checkpoint(trainer, filepath)
 
         if trainer.is_global_zero:
-            # Save hparams.yaml if available
             self._save_hparams_yaml(trainer)
 
             # Run-level features (once per run)
@@ -307,36 +303,27 @@ class Checkpoint(ModelCheckpoint):
                         version if isinstance(version, str) else f"version_{version}"
                     )
                 # Trainer config
-                if (
-                    "max_epochs" in self._available_auto_features
-                    and trainer.max_epochs is not None
-                ):
-                    run_features["max_epochs"] = trainer.max_epochs
-                if (
-                    "max_steps" in self._available_auto_features
-                    and trainer.max_steps is not None
-                ):
-                    run_features["max_steps"] = trainer.max_steps
-                if "precision" in self._available_auto_features:
-                    run_features["precision"] = str(trainer.precision)
-                if "accumulate_grad_batches" in self._available_auto_features:
-                    run_features["accumulate_grad_batches"] = (
-                        trainer.accumulate_grad_batches
-                    )
-                if (
-                    "gradient_clip_val" in self._available_auto_features
-                    and trainer.gradient_clip_val is not None
-                ):
-                    run_features["gradient_clip_val"] = float(trainer.gradient_clip_val)
-                if (
-                    "monitor" in self._available_auto_features
-                    and self.monitor is not None
-                ):
-                    run_features["monitor"] = self.monitor
-                if "save_weights_only" in self._available_auto_features:
-                    run_features["save_weights_only"] = self.save_weights_only
-                if "mode" in self._available_auto_features:
-                    run_features["mode"] = self.mode
+                # (value, transform, skip_if_none) - skip_if_none=True for optional Lightning config
+                trainer_config_values = {
+                    "max_epochs": (trainer.max_epochs, None, True),
+                    "max_steps": (trainer.max_steps, None, True),
+                    "precision": (trainer.precision, str, False),
+                    "accumulate_grad_batches": (
+                        trainer.accumulate_grad_batches,
+                        None,
+                        False,
+                    ),
+                    "gradient_clip_val": (trainer.gradient_clip_val, float, True),
+                    "monitor": (self.monitor, None, True),
+                    "save_weights_only": (self.save_weights_only, None, False),
+                    "mode": (self.mode, None, False),
+                }
+
+                for key, (value, transform, skip_none) in trainer_config_values.items():
+                    if key in self._available_auto_features and not (
+                        skip_none and value is None
+                    ):
+                        run_features[key] = transform(value) if transform else value
                 # Model hyperparameters
                 if (
                     hasattr(trainer.lightning_module, "hparams")
