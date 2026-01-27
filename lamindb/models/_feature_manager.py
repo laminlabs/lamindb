@@ -1104,9 +1104,8 @@ class FeatureManager:
         for class_name, registry_features_labels in features_labels.items():
             if not host_is_record and class_name == "Collection":
                 continue
-            feature = registry_features_labels[0][0]
-            result = parse_dtype(feature._dtype_str)[0]
-            label_registry = result["registry"]
+            registry_features_labels[0][0]
+            label_registry = registry_features_labels[0][1].__class__
             link_model, value_field_name, _ = get_categorical_link_info(
                 self._host.__class__, label_registry, instance=instance
             )
