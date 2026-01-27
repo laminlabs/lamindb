@@ -29,7 +29,7 @@ def test_step_parallel():
         process_chunk(4)
     assert (
         err.exconly()
-        == "RuntimeError: Please track the global run context before using @ln.step(): ln.track()"
+        == "RuntimeError: Please track the global run context before using @ln.step(): ln.track() or @ln.flow()"
     )
 
     # Ensure tracking is on

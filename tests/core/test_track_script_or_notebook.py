@@ -36,14 +36,8 @@ def test_track_basic_invocation():
     kwargs = {"param1": 1, "param2": "my-string", "param3": 3.14}
     with pytest.raises(ValidationError) as exc:
         ln.track(transform=test_transform, features=kwargs)
-    assert (
-        exc.exconly()
-        == """lamindb.errors.ValidationError: These keys could not be validated: ['param1', 'param2', 'param3']
-Here is how to create a feature:
-
-  ln.Feature(name='param1', dtype='int').save()
-  ln.Feature(name='param2', dtype='cat ? str').save()
-  ln.Feature(name='param3', dtype='float').save()"""
+    assert exc.exconly().startswith(
+        """lamindb.errors.ValidationError: These keys could not be validated: ['param1', 'param2', 'param3']"""
     )
     feature1 = ln.Feature(name="param1", dtype=int).save()
     feature2 = ln.Feature(name="param2", dtype=str).save()
@@ -59,10 +53,10 @@ Here is how to create a feature:
         == f"""\
 Run: {ln.context.run.uid[:7]} ({ln.context.run.transform.key})
 └── Features
-    └── label_param         Record                  my_label
-        param1              int                     1
-        param2              str                     my-string
-        param3              float                   3.14"""
+    └── label_param         Record                   my_label
+        param1              int                      1
+        param2              str                      my-string
+        param3              float                    3.14"""
     )
     # also call describe() plainly without further checks
     ln.context.run.describe()

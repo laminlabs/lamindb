@@ -2,7 +2,7 @@ import functools
 import inspect
 from contextvars import ContextVar
 from datetime import datetime, timezone
-from typing import Callable, ParamSpec, TypeVar
+from typing import Callable, Literal, ParamSpec, TypeVar
 
 from lamin_utils import logger
 
@@ -35,7 +35,9 @@ def get_current_tracked_run() -> Run | None:
 
 
 def _create_tracked_decorator(
-    uid: str | None = None, is_flow: bool = True
+    uid: str | None = None,
+    is_flow: bool = True,
+    global_run: Literal["memorize", "clear", "none"] = "none",
 ) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """Internal helper to create tracked decorators.
 
@@ -59,16 +61,16 @@ def _create_tracked_decorator(
             )
 
             initiated_by_run = get_current_tracked_run()
-            if initiated_by_run is None:
-                if global_context.run is None:
-                    if not is_flow:
-                        raise RuntimeError(
-                            "Please track the global run context before using @ln.step(): ln.track()"
-                        )
-                    else:
-                        initiated_by_run = None
-                else:
-                    initiated_by_run = global_context.run
+            if global_context.run is None:
+                if not is_flow:
+                    raise RuntimeError(
+                        "Please track the global run context before using @ln.step(): ln.track() or @ln.flow()"
+                    )
+            else:
+                if is_flow:
+                    raise RuntimeError(
+                        "Please clear the global run context before using @ln.flow(): no `ln.track()` or `@ln.flow(global_run='clear')`"
+                    )
 
             # get the fully qualified module name, including submodules
             module_path = func.__module__.replace(".", "/")
@@ -124,13 +126,28 @@ def _create_tracked_decorator(
 
             # Set the run in context and execute function
             token = current_tracked_run.set(run)
+            # If it's a flow, set the global run context as we do in `ln.track()`
+            # Because we error above if a global run context already exists,
+            # there is no danger of overwriting the global run context.
+            if global_run in {"memorize", "clear"}:
+                global_context._run = run
             try:
                 result = func(*args, **kwargs)
                 run.finished_at = datetime.now(timezone.utc)
                 run._status_code = 0  # completed
                 run.save()
                 return result
+            except Exception as e:
+                run.finished_at = datetime.now(timezone.utc)
+                run._status_code = 1  # errored
+                run.save()
+                raise e
             finally:
+                if (
+                    global_run == "clear"
+                    and global_context.run == current_tracked_run.get()
+                ):
+                    global_context._run = None
                 current_tracked_run.reset(token)
 
         return wrapper_tracked
@@ -138,18 +155,25 @@ def _create_tracked_decorator(
     return decorator_tracked
 
 
-def flow(uid: str | None = None) -> Callable[[Callable[P, R]], Callable[P, R]]:
+def flow(
+    uid: str | None = None,
+    global_run: Literal["memorize", "clear", "none"] = "clear",
+) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """Use `@flow()` to track a function as a workflow.
 
     You will be able to see inputs, outputs, and parameters of the function in the data lineage graph.
 
     The decorator creates a :class:`~lamindb.Transform` object that maps onto the file in which the function is defined.
     The function maps onto an entrypoint of the `transform`.
-
     A function execution creates a :class:`~lamindb.Run` object that stores the function name in `run.entrypoint`.
+
+    By default, like `ln.track()`, creates a global run context that can be accessed with `ln.context.run`.
 
     Args:
         uid: Persist the uid to identify a transform across renames.
+        global_run: If `"clear"`, set the global run context `ln.context.run` and clear after the function completes.
+            If `"memorize"`, set the global run context and do not clear after the function completes.
+            Set this to `"none"` if you want to track concurrent executions of a `flow()` in the same Python process.
 
     Examples:
 
@@ -171,13 +195,14 @@ def flow(uid: str | None = None) -> Callable[[Callable[P, R]], Callable[P, R]]:
 
 
     """
-    return _create_tracked_decorator(uid=uid, is_flow=True)
+    return _create_tracked_decorator(uid=uid, is_flow=True, global_run=global_run)
 
 
 def step(uid: str | None = None) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """Use `@step()` to track a function as a step.
 
-    Behaves like :func:`~lamindb.flow()`, but acts as a step in a workflow.
+    Behaves like :func:`~lamindb.flow()`, but acts as a step in a workflow and does not create a global run context.
+    It errors if no initiating run (either global or local run context) exists.
 
     See :func:`~lamindb.flow()` for examples.
 
