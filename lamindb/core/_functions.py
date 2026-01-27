@@ -165,11 +165,12 @@ def flow(
     The function maps onto an entrypoint of the `transform`.
     A function execution creates a :class:`~lamindb.Run` object that stores the function name in `run.entrypoint`.
 
-    By default, like `ln.track()`, creates a global run context that can be accessed with `ln.context.run`.
+    By default, like `ln.track()`, creates a global run context that can be accessed with `ln.context.run` and
+    does not clear after the function completes. This is useful in the context of functions that act as lazy schedulers (e.g. in `redun`).
 
     Args:
         uid: Persist the uid to identify a transform across renames.
-        global_run: If no global run context exists, create one that can be accessed with `ln.context.run`.
+        global_run: If no global run context exists, create one that can be accessed with `ln.context.run` and do not clear after the function completes.
             Set this to `"none"` if you want to track concurrent executions of a `flow()` in the same Python process.
             Set this to `"clear"` if you want to clear the global run context after the flow completes.
 
