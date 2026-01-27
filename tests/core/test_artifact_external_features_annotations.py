@@ -10,7 +10,7 @@ from lamindb.examples.datasets import mini_immuno
 from lamindb.models.query_set import BasicQuerySet, SQLRecordList
 
 
-# see test_record_basics.py for similar test for records
+# see test_record_basics.py for similar test for records (populate and query by features)
 def test_artifact_features_add_remove_values():
     record_type1 = ln.Record(name="RecordType1", is_type=True).save()
     record_entity1 = ln.Record(name="entity1", type=record_type1).save()
@@ -125,6 +125,16 @@ def test_artifact_features_add_remove_values():
     assert test_artifact.features["feature_artifact"] == test_artifact
     assert test_artifact.features["feature_artifact_2"] == value_artifact
     assert test_artifact.features["feature_run"] == run
+
+    # --- Query by features (same data as above) ---
+    assert ln.Artifact.filter(feature_str="a string value").one() == test_artifact
+    assert ln.Artifact.filter(feature_int=42).one() == test_artifact
+    assert ln.Artifact.filter(feature_type1="entity1").one() == test_artifact
+    assert ln.Artifact.filter(feature_cell_line="HEK293").one() == test_artifact
+    assert (
+        ln.Artifact.filter(feature_str="a string value", feature_int=42).one()
+        == test_artifact
+    )
 
     # remove values
 
@@ -356,6 +366,7 @@ def test_features_add_with_schema():
 
 
 def test_features_add_remove_error_behavior():
+    """Add/remove/validation behavior and feature-based filter (comparators, invalid field, DoesNotExist)."""
     adata = ln.examples.datasets.anndata_with_obs()
     artifact = ln.Artifact.from_anndata(adata, description="test").save()
     with pytest.raises(ValidationError) as error:
@@ -558,6 +569,7 @@ Here is how to create a feature:
         "2024-12-01T00:00:00",
     }
 
+    # Feature-based query tests (invalid field, comparators, bionty, DoesNotExist)
     with pytest.raises(ln.errors.InvalidArgument) as error:
         ln.Artifact.filter(temperature_with_typo=100.0, project="project_1").one()
     assert error.exconly().startswith(

@@ -73,7 +73,7 @@ def test_invalid_type_record_with_schema():
     schema.delete(permanent=True)
 
 
-# see test_artifact_features_annotations.py for similar test for Artifacts
+# see test_artifact_external_features_annotations.py for similar test for Artifacts (populate and query by features)
 def test_record_features_add_remove_values():
     record_type1 = ln.Record(name="RecordType1", is_type=True).save()
     record_entity1 = ln.Record(name="entity1", type=record_type1).save()
@@ -177,6 +177,15 @@ def test_record_features_add_remove_values():
 
     test_record.features.add_values(test_values)
     assert test_record.features.get_values() == test_values
+
+    # --- Query by features (same data as above) ---
+    # Non-categorical features only; categorical (Record/bionty) feature queries for Record are not yet in filter_base.
+    assert ln.Record.filter(feature_str=test_values["feature_str"]).one() == test_record
+    assert ln.Record.filter(feature_int=42).one() == test_record
+    assert (
+        ln.Record.filter(feature_str=test_values["feature_str"], feature_int=42).one()
+        == test_record
+    )
 
     # ManyToMany accesors
 

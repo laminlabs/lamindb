@@ -725,6 +725,7 @@ def filter_base(
     **expression,
 ) -> BasicQuerySet:
     from lamindb.models import Artifact, BasicQuerySet, QuerySet
+    from lamindb.models.record import Record, RecordJson
 
     assert isinstance(queryset, BasicQuerySet) and not isinstance(queryset, QuerySet)  # noqa: S101
     keys_normalized = [key.split("__")[0] for key in expression]
@@ -781,9 +782,13 @@ def filter_base(
             }:
                 # SQLite seems to prefer comparing strings over numbers
                 value = str(value)
-            expression = {"feature": feature, f"value{comparator}": value}
-            json_values = JsonValue.filter(**expression)
-            new_expression["json_values__id__in"] = json_values
+            filter_expr = {"feature": feature, f"value{comparator}": value}
+            if queryset.model is Record:
+                value_qs = RecordJson.objects.using(queryset.db).filter(**filter_expr)
+                new_expression["values_json__id__in"] = value_qs
+            else:
+                json_values = JsonValue.objects.using(queryset.db).filter(**filter_expr)
+                new_expression["json_values__id__in"] = json_values
         # categorical features
         elif isinstance(value, (str, SQLRecord, bool)):
             if comparator == "__isnull":
