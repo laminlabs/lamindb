@@ -84,6 +84,11 @@ def lightning_features() -> Generator[None, None, None]:
         for feat in ln.Feature.filter(type=lightning_type):
             for af in ln.Artifact.filter(schemas__features=feat):
                 af.delete(permanent=True, storage=True)
+            # JSONValues are lingering and also need to be deleted
+            ln.models.RunJsonValue.filter(jsonvalue__feature=feat).delete(
+                permanent=True
+            )
+            ln.models.JsonValue.filter(feature=feat).delete(permanent=True)
             feat.delete(permanent=True)
 
 
@@ -352,10 +357,7 @@ def test_checkpoint_invalid_feature_keys(dirpath: str):
         )
 
 
-def test_checkpoint_hparams(
-    dataloader: DataLoader,
-    dirpath: str,
-):
+def test_checkpoint_hparams(dataloader: DataLoader, dirpath: str, lightning_features):
     """Checkpoint should auto-capture model hparams if features exist."""
 
     class ModelWithHparams(pl.LightningModule):
@@ -387,24 +389,46 @@ def test_checkpoint_hparams(
     trainer = pl.Trainer(max_epochs=1, callbacks=[callback], logger=False)
     trainer.fit(model, dataloader)
 
-    run_features = ln.context.run.features.get_values()
+    run = ln.context.run
+    run_features = run.features.get_values()
     assert run_features["hidden_size"] == 64
     assert run_features["learning_rate"] == 0.01
 
-    all_feature_names = ["hidden_size", "learning_rate"]
-
-    # cleanup
-    ln.context.run.features.remove_values(all_feature_names)
-
     ln.finish()
 
-    for feat_name in all_feature_names:
-        feat = ln.Feature.filter(name=feat_name).one()
-        # remove_values() only removes the link, not the JsonValue records
-        # which still reference the feature via a protected foreign key
-        ln.models.RunJsonValue.filter(jsonvalue__feature=feat).delete()
-        ln.models.JsonValue.filter(feature=feat).delete(permanent=True)
-        feat.delete(permanent=True)
+
+def test_checkpoint_datamodule_hparams(
+    simple_model: pl.LightningModule, dirpath: str, lightning_features
+):
+    """Checkpoint should auto-capture datamodule hparams if features exist."""
+
+    class DataModuleWithHparams(pl.LightningDataModule):
+        def __init__(self, batch_size: int = 32, num_workers: int = 4):
+            super().__init__()
+            self.save_hyperparameters()
+
+        def train_dataloader(self):
+            return DataLoader(
+                TensorDataset(torch.randn(100, 10), torch.randn(100, 1)),
+                batch_size=self.hparams.batch_size,
+            )
+
+    ln.Feature(name="batch_size", dtype=int).save()
+    ln.Feature(name="num_workers", dtype=int).save()
+
+    ln.track()
+
+    datamodule = DataModuleWithHparams(batch_size=16, num_workers=2)
+    callback = ll.Checkpoint(dirpath=dirpath, monitor="train_loss")
+    trainer = pl.Trainer(max_epochs=1, callbacks=[callback], logger=False)
+    trainer.fit(simple_model, datamodule=datamodule)
+
+    run = ln.context.run
+    run_features = run.features.get_values()
+    assert run_features["batch_size"] == 16
+    assert run_features["num_workers"] == 2
+
+    ln.finish()
 
 
 def test_checkpoint_trainer_config(
@@ -415,7 +439,12 @@ def test_checkpoint_trainer_config(
     """Checkpoint should auto-capture trainer config if features exist."""
     ln.track()
 
-    callback = ll.Checkpoint(dirpath=dirpath, monitor="train_loss")
+    callback = ll.Checkpoint(
+        dirpath=dirpath,
+        monitor="train_loss",
+        save_weights_only=True,
+        mode="min",
+    )
     trainer = pl.Trainer(
         max_epochs=5,
         max_steps=100,
@@ -434,29 +463,57 @@ def test_checkpoint_trainer_config(
     assert run_features["accumulate_grad_batches"] == 2
     assert run_features["gradient_clip_val"] == 0.5
     assert run_features["monitor"] == "train_loss"
-    assert run_features["save_weights_only"] is False
+    assert run_features["save_weights_only"] is True
     assert run_features["mode"] == "min"
-
-    all_feature_names = [
-        "max_epochs",
-        "max_steps",
-        "precision",
-        "accumulate_grad_batches",
-        "gradient_clip_val",
-        "monitor",
-        "save_weights_only",
-        "mode",
-    ]
-
-    # cleanup
-    ln.context.run.features.remove_values(all_feature_names)
 
     ln.finish()
 
-    for feat_name in all_feature_names:
-        feat = ln.Feature.filter(name=feat_name).one()
-        # remove_values() only removes the link, not the JsonValue records
-        # which still reference the feature via a protected foreign key
-        ln.models.RunJsonValue.filter(jsonvalue__feature=feat).delete()
-        ln.models.JsonValue.filter(feature=feat).delete(permanent=True)
-        feat.delete(permanent=True)
+
+def test_checkpoint_hparams_yaml_with_hparams(
+    dataloader: DataLoader,
+    dirpath: str,
+    tmp_path: Path,
+):
+    """Checkpoint should save hparams.yaml when model has hyperparameters."""
+    from lightning.pytorch.loggers import CSVLogger
+
+    class ModelWithHparams(pl.LightningModule):
+        def __init__(self, hidden_size: int = 32):
+            super().__init__()
+            self.save_hyperparameters()
+            self.layer = nn.Linear(10, hidden_size)
+            self.out = nn.Linear(hidden_size, 1)
+
+        def forward(self, x):
+            return self.out(torch.relu(self.layer(x)))
+
+        def training_step(self, batch, batch_idx):
+            x, y = batch
+            loss = nn.functional.mse_loss(self(x), y)
+            self.log("train_loss", loss)
+            return loss
+
+        def configure_optimizers(self):
+            return torch.optim.Adam(self.parameters())
+
+    logger = CSVLogger(save_dir=tmp_path, name="test_logs")
+
+    model = ModelWithHparams(hidden_size=64)
+    callback = ll.Checkpoint(dirpath=dirpath, monitor="train_loss")
+    trainer = pl.Trainer(
+        max_epochs=1,
+        callbacks=[callback],
+        logger=logger,
+    )
+    trainer.fit(model, dataloader)
+
+    resolved_dirpath = callback.dirpath.rstrip("/")
+    hparams_key = f"{resolved_dirpath}/hparams.yaml"
+    hparams_artifact = ln.Artifact.filter(key=hparams_key).one_or_none()
+
+    assert hparams_artifact is not None
+    assert hparams_artifact.description == "Lightning run hyperparameters"
+
+    # cleanup
+    hparams_artifact.delete(permanent=True)
+    shutil.rmtree(tmp_path / "test_logs", ignore_errors=True)

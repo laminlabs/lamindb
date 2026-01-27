@@ -113,6 +113,9 @@ class Checkpoint(ModelCheckpoint):
     `is_best_model`, `score`, `model_rank`, `logger_name`, `logger_version`,`max_epochs`, `max_steps`,
     `precision`, `accumulate_grad_batches`, `gradient_clip_val`, `monitor`, `save_weights_only`, `mode`.
 
+    Additionally, model hyperparameters (from `pl_module.hparams`) and datamodule hyperparameters
+    (from `trainer.datamodule.hparams`) are captured if corresponding features exist.
+
     Args:
         dirpath: Directory for checkpoints (reflected in cloud paths).
         features: Features to annotate runs and artifacts.
@@ -212,6 +215,7 @@ class Checkpoint(ModelCheckpoint):
         self._artifact_features = self.features.get("artifact", {})
         self._available_auto_features: set[str] = set()
         self._run_features_added = False
+        self._hparams_yaml_saved = False
         self.overwrite_versions = overwrite_versions
 
     def setup(
@@ -251,11 +255,44 @@ class Checkpoint(ModelCheckpoint):
         """Return filter kwargs for querying artifacts from this callback."""
         return {"key__startswith": self.dirpath.rstrip("/") + "/"}
 
+    def _save_hparams_yaml(self, trainer: pl.Trainer) -> None:
+        """Save hparams.yaml if it exists in the log directory."""
+        if self._hparams_yaml_saved:
+            return
+
+        log_dir = trainer.log_dir
+        if log_dir is None:
+            return
+
+        hparams_path = Path(log_dir) / "hparams.yaml"
+        if not hparams_path.exists():
+            return
+
+        artifact_key = f"{self.dirpath.rstrip('/')}/hparams.yaml"
+        if ln.Artifact.filter(key=artifact_key).one_or_none() is not None:
+            if not self.overwrite_versions:
+                return
+
+        hparams_artifact = ln.Artifact(
+            hparams_path,
+            key=artifact_key,
+            description="Lightning run hyperparameters",
+        )
+        hparams_artifact.save()
+
+        if ln.context.run:
+            ln.context.run.input_artifacts.add(hparams_artifact)
+
+        self._hparams_yaml_saved = True
+
     def _save_checkpoint(self, trainer: pl.Trainer, filepath: str) -> None:
         """Save checkpoint to the instance."""
         super()._save_checkpoint(trainer, filepath)
 
         if trainer.is_global_zero:
+            # Save hparams.yaml if available
+            self._save_hparams_yaml(trainer)
+
             # Run-level features (once per run)
             if ln.context.run and not self._run_features_added:
                 run_features = {}
@@ -306,6 +343,15 @@ class Checkpoint(ModelCheckpoint):
                     and trainer.lightning_module.hparams
                 ):
                     for name, value in trainer.lightning_module.hparams.items():
+                        if ln.Feature.filter(name=name).one_or_none() is not None:
+                            run_features[name] = value
+                # DataModule hyperparameters
+                if (
+                    trainer.datamodule is not None
+                    and hasattr(trainer.datamodule, "hparams")
+                    and trainer.datamodule.hparams
+                ):
+                    for name, value in trainer.datamodule.hparams.items():
                         if ln.Feature.filter(name=name).one_or_none() is not None:
                             run_features[name] = value
                 if run_features:
