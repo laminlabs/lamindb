@@ -433,6 +433,9 @@ def test_checkpoint_trainer_config(
     assert run_features["precision"] == "32-true"
     assert run_features["accumulate_grad_batches"] == 2
     assert run_features["gradient_clip_val"] == 0.5
+    assert run_features["monitor"] == "train_loss"
+    assert run_features["save_weights_only"] is False
+    assert run_features["mode"] == "min"
 
     all_feature_names = [
         "max_epochs",
@@ -440,6 +443,9 @@ def test_checkpoint_trainer_config(
         "precision",
         "accumulate_grad_batches",
         "gradient_clip_val",
+        "monitor",
+        "save_weights_only",
+        "mode",
     ]
 
     # cleanup

@@ -33,6 +33,9 @@ _RUN_AUTO_FEATURES: Final = frozenset(
         "precision",
         "accumulate_grad_batches",
         "gradient_clip_val",
+        "monitor",
+        "save_weights_only",
+        "mode",
     }
 )
 _ARTIFACT_AUTO_FEATURES: Final = frozenset({"is_best_model", "score", "model_rank"})
@@ -55,6 +58,9 @@ def save_lightning_features() -> None:
     - precision (str): Training precision (e.g., "32", "16-mixed", "bf16").
     - accumulate_grad_batches (int): Number of batches to accumulate gradients over.
     - gradient_clip_val (float): Gradient clipping value.
+    - monitor (str): Metric name being monitored.
+    - save_weights_only (bool): Whether only model weights are saved.
+    - mode (str): Optimization mode ("min" or "max").
 
     Example::
 
@@ -90,6 +96,9 @@ def save_lightning_features() -> None:
     ln.Feature(
         name="gradient_clip_val", dtype=float, type=lightning_feature_type
     ).save()
+    ln.Feature(name="monitor", dtype=str, type=lightning_feature_type).save()
+    ln.Feature(name="save_weights_only", dtype=bool, type=lightning_feature_type).save()
+    ln.Feature(name="mode", dtype=str, type=lightning_feature_type).save()
 
 
 class Checkpoint(ModelCheckpoint):
@@ -101,8 +110,8 @@ class Checkpoint(ModelCheckpoint):
     Query with `ln.Artifact.filter(key__startswith=callback.dirpath)`.
 
     If available in the instance, the following features are automatically tracked:
-    `is_best_model`, `score`, `model_rank`, `logger_name`, `logger_version`,
-    `max_epochs`, `max_steps`, `precision`, `accumulate_grad_batches`, `gradient_clip_val`.
+    `is_best_model`, `score`, `model_rank`, `logger_name`, `logger_version`,`max_epochs`, `max_steps`,
+    `precision`, `accumulate_grad_batches`, `gradient_clip_val`, `monitor`, `save_weights_only`, `mode`.
 
     Args:
         dirpath: Directory for checkpoints (reflected in cloud paths).
@@ -282,6 +291,15 @@ class Checkpoint(ModelCheckpoint):
                     and trainer.gradient_clip_val is not None
                 ):
                     run_features["gradient_clip_val"] = float(trainer.gradient_clip_val)
+                if (
+                    "monitor" in self._available_auto_features
+                    and self.monitor is not None
+                ):
+                    run_features["monitor"] = self.monitor
+                if "save_weights_only" in self._available_auto_features:
+                    run_features["save_weights_only"] = self.save_weights_only
+                if "mode" in self._available_auto_features:
+                    run_features["mode"] = self.mode
                 # Model hyperparameters
                 if (
                     hasattr(trainer.lightning_module, "hparams")
@@ -359,13 +377,15 @@ class Checkpoint(ModelCheckpoint):
 
     def _update_model_ranks(self) -> None:
         """Update model_rank feature for all checkpoints under this key."""
-        artifacts = ln.Artifact.filter(**self._get_key_filter()).to_list()
+        artifacts = ln.Artifact.filter(**self._get_key_filter())
+
         scored = []
         for af in artifacts:
             vals = af.features.get_values()
             if "score" in vals:
                 scored.append((vals["score"], vals.get("model_rank"), af))
         scored.sort(key=lambda x: x[0], reverse=(self.mode == "max"))
+
         for rank, (_, old_rank, af) in enumerate(scored):
             if old_rank is not None:
                 af.features.remove_values("model_rank", value=old_rank)
