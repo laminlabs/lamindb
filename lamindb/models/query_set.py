@@ -67,17 +67,12 @@ if TYPE_CHECKING:
     )
     from pertdb.models import (
         Biologic,
-        Biosample,
         CombinationPerturbation,
         Compound,
         CompoundPerturbation,
-        Donor,
         EnvironmentalPerturbation,
-        Experiment,
         GeneticPerturbation,
         PerturbationTarget,
-        Techsample,
-        Well,
     )
 
     from lamindb.base.types import ListLike, StrField
@@ -1502,19 +1497,14 @@ class BiontyDB(ModuleNamespace):
 
 
 class PertdbDB(ModuleNamespace):
-    """Namespace for pertdb registries (Experiment, Biosample, etc.)."""
+    """Namespace for `PertDB` registries (Biologic, Compound, etc.)."""
 
-    Experiment: QuerySet[Experiment]  # type: ignore[type-arg]
-    Biosample: QuerySet[Biosample]  # type: ignore[type-arg]
-    Techsample: QuerySet[Techsample]  # type: ignore[type-arg]
-    Donor: QuerySet[Donor]  # type: ignore[type-arg]
-    GeneticPerturbation: QuerySet[GeneticPerturbation]  # type: ignore[type-arg]
     Biologic: QuerySet[Biologic]  # type: ignore[type-arg]
     Compound: QuerySet[Compound]  # type: ignore[type-arg]
     CompoundPerturbation: QuerySet[CompoundPerturbation]  # type: ignore[type-arg]
+    GeneticPerturbation: QuerySet[GeneticPerturbation]  # type: ignore[type-arg]
     EnvironmentalPerturbation: QuerySet[EnvironmentalPerturbation]  # type: ignore[type-arg]
     CombinationPerturbation: QuerySet[CombinationPerturbation]  # type: ignore[type-arg]
-    Well: QuerySet[Well]  # type: ignore[type-arg]
     PerturbationTarget: QuerySet[PerturbationTarget]  # type: ignore[type-arg]
 
 
