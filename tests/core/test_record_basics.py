@@ -179,13 +179,15 @@ def test_record_features_add_remove_values():
     assert test_record.features.get_values() == test_values
 
     # --- Query by features (same data as above) ---
-    # Non-categorical features only; categorical (Record/bionty) feature queries for Record are not yet in filter_base.
     assert ln.Record.filter(feature_str=test_values["feature_str"]).one() == test_record
     assert ln.Record.filter(feature_int=42).one() == test_record
     assert (
         ln.Record.filter(feature_str=test_values["feature_str"], feature_int=42).one()
         == test_record
     )
+    # Categorical feature filters (Record and bionty)
+    assert ln.Record.filter(feature_type1="entity1").one() == test_record
+    assert ln.Record.filter(feature_cell_line="HEK293").one() == test_record
 
     # ManyToMany accesors
 
