@@ -2,7 +2,7 @@ import functools
 import inspect
 from contextvars import ContextVar
 from datetime import datetime, timezone
-from typing import Callable, ParamSpec, TypeVar
+from typing import Callable, Literal, ParamSpec, TypeVar
 
 from lamin_utils import logger
 
@@ -35,7 +35,9 @@ def get_current_tracked_run() -> Run | None:
 
 
 def _create_tracked_decorator(
-    uid: str | None = None, is_flow: bool = True, global_run: bool = False
+    uid: str | None = None,
+    is_flow: bool = True,
+    global_run: Literal["memorize", "clear", "none"] = "none",
 ) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """Internal helper to create tracked decorators.
 
@@ -125,7 +127,7 @@ def _create_tracked_decorator(
             # Set the run in context and execute function
             token = current_tracked_run.set(run)
             # If it's a flow, set the global run context as we do in `ln.track()`
-            if global_run and global_context.run is None:
+            if global_run in {"memorize", "clear"} and global_context.run is None:
                 global_context._run = run
             try:
                 result = func(*args, **kwargs)
@@ -133,8 +135,16 @@ def _create_tracked_decorator(
                 run._status_code = 0  # completed
                 run.save()
                 return result
+            except Exception as e:
+                run.finished_at = datetime.now(timezone.utc)
+                run._status_code = 1  # errored
+                run.save()
+                raise e
             finally:
-                if global_run and global_context.run == current_tracked_run.get():
+                if (
+                    global_run == "clear"
+                    and global_context.run == current_tracked_run.get()
+                ):
                     global_context._run = None
                 current_tracked_run.reset(token)
 
@@ -144,7 +154,8 @@ def _create_tracked_decorator(
 
 
 def flow(
-    uid: str | None = None, global_run: bool = True
+    uid: str | None = None,
+    global_run: Literal["memorize", "clear", "none"] = "memorize",
 ) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """Use `@flow()` to track a function as a workflow.
 
@@ -159,7 +170,8 @@ def flow(
     Args:
         uid: Persist the uid to identify a transform across renames.
         global_run: If no global run context exists, create one that can be accessed with `ln.context.run`.
-            Set this to `False` if you want to track concurrent executions of a `flow()` in the same Python process.
+            Set this to `"none"` if you want to track concurrent executions of a `flow()` in the same Python process.
+            Set this to `"clear"` if you want to clear the global run context after the flow completes.
 
     Examples:
 
