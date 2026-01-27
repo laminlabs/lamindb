@@ -1,5 +1,6 @@
 # ruff: noqa: F811
 
+import os
 from datetime import date, datetime
 
 import bionty as bt
@@ -23,6 +24,8 @@ def test_artifact_features_add_remove_query():
     feature_str = ln.Feature(name="feature_str", dtype=str).save()
     feature_list_str = ln.Feature(name="feature_list_str", dtype=list[str]).save()
     feature_int = ln.Feature(name="feature_int", dtype=int).save()
+    feature_float = ln.Feature(name="feature_float", dtype=float).save()
+    feature_num = ln.Feature(name="feature_num", dtype="num").save()
     feature_datetime = ln.Feature(name="feature_datetime", dtype=datetime).save()
     feature_date = ln.Feature(
         name="feature_date", dtype=datetime.date, coerce=True
@@ -62,6 +65,8 @@ def test_artifact_features_add_remove_query():
         "feature_str": "a string value",
         "feature_list_str": ["value1", "value2", "value3"],
         "feature_int": 42,
+        "feature_float": 3.14,
+        "feature_num": 2.71,
         "feature_datetime": datetime(2024, 1, 1, 12, 0, 0),
         "feature_date": date(2024, 1, 1),
         "feature_dict": {"key": "value", "number": 123, "list": [1, 2, 3]},
@@ -101,6 +106,8 @@ def test_artifact_features_add_remove_query():
     assert test_artifact.features["feature_str"] == test_values["feature_str"]
     assert test_artifact.features["feature_list_str"] == test_values["feature_list_str"]
     assert test_artifact.features["feature_int"] == test_values["feature_int"]
+    assert test_artifact.features["feature_float"] == test_values["feature_float"]
+    assert test_artifact.features["feature_num"] == test_values["feature_num"]
     assert test_artifact.features["feature_datetime"] == test_values["feature_datetime"]
     assert test_artifact.features["feature_date"] == test_values["feature_date"]
     assert test_artifact.features["feature_dict"] == test_values["feature_dict"]
@@ -156,6 +163,60 @@ def test_artifact_features_add_remove_query():
         ln.Artifact.filter(feature_type1="nonexistent_entity").one()
     assert "Did not find" in error.exconly()
 
+    # Combined filter (3 keys)
+    assert (
+        ln.Artifact.filter(
+            feature_str="a string value",
+            feature_int=42,
+            feature_type1="entity1",
+        ).one()
+        == test_artifact
+    )
+    # Bionty: filter by record
+    assert ln.Artifact.filter(feature_cell_line=hek293).one() == test_artifact
+    # Bionty: filter by ontology_id string
+    assert ln.Artifact.filter(feature_cl_ontology_id="CVCL_0045").one() == test_artifact
+    # Bionty __contains (ontology_id)
+    assert (
+        ln.Artifact.filter(feature_cl_ontology_id__contains="0045").one()
+        == test_artifact
+    )
+    # DoesNotExist (Record not found: feature_project)
+    with pytest.raises(DoesNotExist) as error:
+        ln.Artifact.filter(feature_project="nonexistent_project").one()
+    assert "Did not find" in error.exconly()
+    # __contains returns multiple (add second artifact, assert, then remove)
+    value_artifact.features.add_values({"feature_type1": "entity2"})
+    assert len(ln.Artifact.filter(feature_type1__contains="entity")) == 2
+    value_artifact.features.remove_values("feature_type1")
+    # Numeric comparators __lt, __gt (int, float, num)
+    assert ln.Artifact.filter(feature_int__lt=21).one_or_none() is None
+    assert len(ln.Artifact.filter(feature_int__gt=21)) >= 1
+    # float/num __lt/__gt: skip on SQLite (JSON string comparison breaks numeric order)
+    if os.getenv("LAMINDB_TEST_DB_VENDOR") != "sqlite":
+        assert ln.Artifact.filter(feature_float__lt=5.0).one() == test_artifact
+        assert ln.Artifact.filter(feature_float__gt=1.0).one() == test_artifact
+        assert ln.Artifact.filter(feature_float__gt=10.0).one_or_none() is None
+        assert ln.Artifact.filter(feature_num__lt=5.0).one() == test_artifact
+        assert ln.Artifact.filter(feature_num__gt=1.0).one() == test_artifact
+        assert ln.Artifact.filter(feature_num__gt=10.0).one_or_none() is None
+    # Date and datetime comparators (ISO strings)
+    assert ln.Artifact.filter(feature_date__lt="2024-01-02").one() == test_artifact
+    assert ln.Artifact.filter(feature_date__gt="2023-12-31").one() == test_artifact
+    assert ln.Artifact.filter(feature_date__gt="2024-01-02").one_or_none() is None
+    assert (
+        ln.Artifact.filter(feature_datetime__lt="2024-01-01T13:00:00").one()
+        == test_artifact
+    )
+    assert (
+        ln.Artifact.filter(feature_datetime__gt="2024-01-01T11:00:00").one()
+        == test_artifact
+    )
+    assert (
+        ln.Artifact.filter(feature_datetime__lt="2024-01-01T11:00:00").one_or_none()
+        is None
+    )
+
     # remove values
 
     # this was already popped from test_values above
@@ -163,6 +224,10 @@ def test_artifact_features_add_remove_query():
 
     test_artifact.features.remove_values("feature_int")
     test_values.pop("feature_int")
+    test_artifact.features.remove_values("feature_float")
+    test_values.pop("feature_float")
+    test_artifact.features.remove_values("feature_num")
+    test_values.pop("feature_num")
     assert test_artifact.features.get_values() == test_values
 
     test_artifact.features.remove_values("feature_date")
@@ -198,7 +263,14 @@ def test_artifact_features_add_remove_query():
 
     # test passing None has no effect, does not lead to annotation
 
-    test_artifact.features.add_values({"feature_int": None, "feature_type1": None})
+    test_artifact.features.add_values(
+        {
+            "feature_int": None,
+            "feature_float": None,
+            "feature_num": None,
+            "feature_type1": None,
+        }
+    )
     assert test_artifact.features.get_values() == test_values
 
     # test bulk removal
@@ -277,6 +349,8 @@ def test_artifact_features_add_remove_query():
     feature_str.delete(permanent=True)
     feature_list_str.delete(permanent=True)
     feature_int.delete(permanent=True)
+    feature_float.delete(permanent=True)
+    feature_num.delete(permanent=True)
     feature_datetime.delete(permanent=True)
     feature_date.delete(permanent=True)
     feature_type1.delete(permanent=True)
