@@ -55,7 +55,7 @@ if TYPE_CHECKING:
     from .artifact import Artifact
     from .block import FeatureBlock
     from .projects import Project
-    from .query_manager import QueryManager
+    from .query_manager import RelatedManager
     from .record import Record
     from .run import Run
     from .schema import Schema
@@ -1093,14 +1093,14 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     """Whether dtypes should be coerced during validation. None for type-like features."""
     # we define the below ManyToMany on the Feature model because it parallels
     # how other registries (like Gene, Protein, etc.) relate to Schema
-    schemas: QueryManager[Schema] = models.ManyToManyField(
+    schemas: RelatedManager[Schema] = models.ManyToManyField(
         "Schema", through="SchemaFeature", related_name="features"
     )
     """Schemas linked to this feature."""
     # backward fields
     values: JsonValue
     """Values for this feature."""
-    projects: QueryManager[Project]
+    projects: RelatedManager[Project]
     """Annotating projects."""
     ablocks: FeatureBlock
     """Blocks that annotate this feature."""
