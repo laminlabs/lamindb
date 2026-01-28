@@ -309,11 +309,24 @@ class RelatedManager(QueryManager):
 
     Examples:
 
-        Add parent labels through a `parents` ManyToMany field::
+        Populate the `.parents` ManyToMany relationship (a `RelatedManager`)::
 
-            label1.parents.add(label2, label3)
-            label1.parents.set([label2, label3])
+            ln.Record.from_values(["Label1", "Label2", "Label3"], field="name")).save()
+            labels = ln.Record.filter(name__icontains="label")
+            label1 = ln.Record.get(name="Label1")
+            label1.parents.set(labels)
+
+        Convert all linked parents to a `DataFrame`::
+
+            label1.parents.to_dataframe()
+
+        Remove a parent label::
+
             label1.parents.remove(label2)
+
+        Clear all parent labels::
+
+            label1.parents.clear()
 
     """
 
