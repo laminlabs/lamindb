@@ -295,3 +295,40 @@ class QueryManager(Manager):
         # QueryManager returns BasicQuerySet because it is problematic to redefine .filter and .get
         # for a query set used by the default manager
         return BasicQuerySet(model=self.model, using=self._db, hints=self._hints)
+
+
+# below is just for typing / docs
+# Django achieves the same thing with a dynamically generated class
+class RelatedManager(QueryManager):
+    """Manager for many-to-many and reverse foreign key relationships.
+
+    Provides relationship manipulation methods.
+
+    See Also:
+        :class:`lamindb.models.QueryManager`
+
+    Examples:
+
+        Add parent labels through a `parents` ManyToMany field::
+
+            label1.parents.add(label2, label3)
+            label1.parents.set([label2, label3])
+            label1.parents.remove(label2)
+
+    """
+
+    def add(self, *objs, bulk: bool = True) -> None:
+        """Add objects to the relationship."""
+        ...
+
+    def set(self, objs, *, bulk: bool = True, clear: bool = False) -> None:
+        """Set the relationship to the specified objects."""
+        ...
+
+    def remove(self, *objs, bulk: bool = True) -> None:
+        """Remove objects from the relationship."""
+        ...
+
+    def clear(self) -> None:
+        """Remove all objects from the relationship."""
+        ...
