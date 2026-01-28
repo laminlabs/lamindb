@@ -37,7 +37,7 @@ if TYPE_CHECKING:
     from .artifact import Artifact
     from .block import TransformBlock
     from .project import Project, Reference
-    from .query_manager import QueryManager
+    from .query_manager import RelatedManager
     from .record import Record
     from .ulabel import ULabel
 
@@ -189,32 +189,32 @@ class Transform(SQLRecord, IsVersioned):
     """An environment for executing the transform."""
     runs: Run
     """Runs of this transform ← :attr:`~lamindb.Run.transform`."""
-    ulabels: QueryManager[ULabel] = models.ManyToManyField(
+    ulabels: RelatedManager[ULabel] = models.ManyToManyField(
         "ULabel", through="TransformULabel", related_name="transforms"
     )
     """ULabel annotations of this transform ← :attr:`~lamindb.ULabel.transforms`."""
-    linked_in_records: QueryManager[Record] = models.ManyToManyField(
+    linked_in_records: RelatedManager[Record] = models.ManyToManyField(
         "Record", through="RecordTransform", related_name="linked_transforms"
     )
     """This transform is linked in these records as a value ← :attr:`~lamindb.Record.linked_transforms`."""
-    records: QueryManager[Record]
+    records: RelatedManager[Record]
     """Records that annotate this transform ← :attr:`~lamindb.Record.transforms`."""
-    predecessors: QueryManager[Transform] = models.ManyToManyField(
+    predecessors: RelatedManager[Transform] = models.ManyToManyField(
         "self",
         through="TransformTransform",
         symmetrical=False,
         related_name="successors",
     )
     """Preceding transforms ← :attr:`~lamindb.Transform.successors`."""
-    successors: QueryManager[Transform]
+    successors: RelatedManager[Transform]
     """Subsequent transforms ← :attr:`~lamindb.Transform.predecessors`.
 
     Allows defining succeeding transforms. Is *not* necessary for data lineage, which is tracked automatically
     whenever an artifact or collection serves as an input for a run.
     """
-    projects: QueryManager[Project]
+    projects: RelatedManager[Project]
     """Linked projects ← :attr:`~lamindb.Project.transforms`."""
-    references: QueryManager[Reference]
+    references: RelatedManager[Reference]
     """Linked references ← :attr:`~lamindb.Reference.transforms`."""
     created_at: datetime = DateTimeField(
         editable=False, db_default=models.functions.Now(), db_index=True

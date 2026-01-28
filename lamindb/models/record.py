@@ -42,7 +42,7 @@ if TYPE_CHECKING:
     from ._feature_manager import FeatureManager
     from .block import RecordBlock
     from .project import Project, RecordProject, RecordReference, Reference
-    from .query_manager import QueryManager
+    from .query_manager import RelatedManager
     from .schema import Schema
 
 
@@ -211,23 +211,23 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
     This is analogous to the `schema` attribute of an `Artifact`.
     If `is_type` is `True`, the schema is used to enforce features for each record of this type.
     """
-    linked_records: QueryManager[Record] = models.ManyToManyField(
+    linked_records: RelatedManager[Record] = models.ManyToManyField(
         "Record",
         through="RecordRecord",
         symmetrical=False,
         related_name="linked_in_records",
     )
     """Records linked in this record as a value ← :attr:`~lamindb.Record.linked_in_records`."""
-    linked_in_records: QueryManager[Record]
+    linked_in_records: RelatedManager[Record]
     """Records linking this record as a value. Is reverse accessor for `linked_records`."""
-    parents: QueryManager[Record] = models.ManyToManyField(
+    parents: RelatedManager[Record] = models.ManyToManyField(
         "self", symmetrical=False, related_name="children"
     )
     """Ontological parents of this record ← :attr:`~lamindb.Record.children`.
 
     You can build an ontology under a given `type`. For example, introduce a type `CellType` and model the hiearchy of cell types under it via `parents` and `children`.
     """
-    children: QueryManager[Record]
+    children: RelatedManager[Record]
     """Ontological children of this record. Is reverse accessor for `parents`."""
     # this is handled manually here because we want to se the related_name attribute
     # (this doesn't happen via inheritance of TracksRun, everything else is the same)
@@ -240,45 +240,45 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         editable=False,
     )
     """Run that created the record ← :attr:`~lamindb.Run.output_records`."""
-    input_of_runs: QueryManager[Run] = models.ManyToManyField(
+    input_of_runs: RelatedManager[Run] = models.ManyToManyField(
         Run, related_name="input_records"
     )
     """Runs that use this record as an input ← :attr:`~lamindb.Run.input_records`."""
-    artifacts: QueryManager[Artifact] = models.ManyToManyField(
+    artifacts: RelatedManager[Artifact] = models.ManyToManyField(
         Artifact, through="ArtifactRecord", related_name="records"
     )
     """Artifacts annotated by this record ← :attr:`~lamindb.Artifact.records`."""
-    runs: QueryManager[Run] = models.ManyToManyField(
+    runs: RelatedManager[Run] = models.ManyToManyField(
         Run, through="RunRecord", related_name="records"
     )
     """Runs annotated by this record ← :attr:`~lamindb.Run.records`."""
-    transforms: QueryManager[Transform] = models.ManyToManyField(
+    transforms: RelatedManager[Transform] = models.ManyToManyField(
         Transform, through="TransformRecord", related_name="records"
     )
     """Transforms annotated by this record ← :attr:`~lamindb.Transform.records`."""
-    collections: QueryManager[Collection] = models.ManyToManyField(
+    collections: RelatedManager[Collection] = models.ManyToManyField(
         Collection, through="CollectionRecord", related_name="records"
     )
     """Collections annotated by this record ← :attr:`~lamindb.Collection.records`."""
-    projects: QueryManager[Project]
+    projects: RelatedManager[Project]
     """Projects that annotate this record ← :attr:`~lamindb.Project.records`."""
-    references: QueryManager[Reference]
+    references: RelatedManager[Reference]
     """References that annotate this record ← :attr:`~lamindb.Reference.records`."""
-    linked_transforms: QueryManager[Transform]
+    linked_transforms: RelatedManager[Transform]
     """Transforms linked in this record as values ← :attr:`~lamindb.Transform.linked_in_records`."""
-    linked_runs: QueryManager[Run]
+    linked_runs: RelatedManager[Run]
     """Runs linked in this record as values ← :attr:`~lamindb.Run.linked_in_records`."""
-    linked_ulabels: QueryManager[ULabel]
+    linked_ulabels: RelatedManager[ULabel]
     """ULabels linked in this record as values ← :attr:`~lamindb.ULabel.linked_in_records`."""
-    linked_artifacts: QueryManager[Artifact]
+    linked_artifacts: RelatedManager[Artifact]
     """Artifacts linked in this record as values ← :attr:`~lamindb.Artifact.linked_in_records`."""
-    linked_projects: QueryManager[Project]
+    linked_projects: RelatedManager[Project]
     """Projects linked in this record as values ← :attr:`~lamindb.Project.linked_in_records`."""
-    linked_references: QueryManager[Reference]
+    linked_references: RelatedManager[Reference]
     """References linked in this record as values ← :attr:`~lamindb.Reference.linked_in_records`."""
-    linked_collections: QueryManager[Collection]
+    linked_collections: RelatedManager[Collection]
     """Collections linked in this record as values ← :attr:`~lamindb.Collection.linked_in_records`."""
-    linked_users: QueryManager[User]
+    linked_users: RelatedManager[User]
     """Users linked in this record as values ← :attr:`~lamindb.User.linked_in_records`."""
     ablocks: RecordBlock
     """Blocks that annotate this record ← :attr:`~lamindb.RecordBlock.record`."""

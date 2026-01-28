@@ -112,7 +112,7 @@ from ._feature_manager import FeatureManager
 from ._label_manager import LabelManager
 from .collection import Collection, CollectionArtifact
 from .project import Project, Reference
-from .query_manager import QueryManager, RelatedManager
+from .query_manager import RelatedManager
 from .query_set import BasicQuerySet, QuerySet, DB, SQLRecordList
 from .artifact_set import ArtifactSet
 from .has_parents import HasParents
