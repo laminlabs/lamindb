@@ -350,10 +350,22 @@ def clidocs(session):
                     help_string = help_dict["help"].replace("Usage: main", "lamin")
                     help_docstring = help_dict["docstring"]
 
+                    pyr_alt_delimiter = "→ Python/R alternative:"
+
+                    if pyr_alt_delimiter in help_docstring:
+                        help_docstring, pyr_alt_string = help_docstring.split(
+                            pyr_alt_delimiter
+                        )
+                    else:
+                        pyr_alt_string = ""
+
                     page += f"### {command_name}\n\n"
                     if help_docstring:
-                        page += f"{help_docstring}\n\n"
-                    page += f"Usage:\n```text\n{help_string}\n```\n\n"
+                        page += f"{help_docstring}\n"
+                    command_block = f"```text\n{help_string}\n```"
+                    page += f"\n\nOptions:\n\n{command_block}\n\n"
+                    if pyr_alt_string:
+                        page += f"{pyr_alt_delimiter}{pyr_alt_string}\n\n"
 
         # Add any remaining commands that aren't in groups
         remaining_commands = []
