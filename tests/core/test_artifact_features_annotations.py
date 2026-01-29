@@ -5,13 +5,12 @@ from datetime import date, datetime
 import bionty as bt
 import lamindb as ln
 import pytest
-from lamindb.errors import DoesNotExist, ValidationError
 from lamindb.examples.datasets import mini_immuno
 from lamindb.models.query_set import BasicQuerySet, SQLRecordList
 
 
-# see test_record_basics.py for similar test for records
-def test_artifact_features_add_remove_values():
+# see test_record_basics.py for similar test for records (populate and query by features)
+def test_artifact_features_add_remove_query():
     record_type1 = ln.Record(name="RecordType1", is_type=True).save()
     record_entity1 = ln.Record(name="entity1", type=record_type1).save()
     record_entity2 = ln.Record(name="entity2", type=record_type1).save()
@@ -23,6 +22,8 @@ def test_artifact_features_add_remove_values():
     feature_str = ln.Feature(name="feature_str", dtype=str).save()
     feature_list_str = ln.Feature(name="feature_list_str", dtype=list[str]).save()
     feature_int = ln.Feature(name="feature_int", dtype=int).save()
+    feature_float = ln.Feature(name="feature_float", dtype=float).save()
+    feature_num = ln.Feature(name="feature_num", dtype="num").save()
     feature_datetime = ln.Feature(name="feature_datetime", dtype=datetime).save()
     feature_date = ln.Feature(
         name="feature_date", dtype=datetime.date, coerce=True
@@ -62,6 +63,8 @@ def test_artifact_features_add_remove_values():
         "feature_str": "a string value",
         "feature_list_str": ["value1", "value2", "value3"],
         "feature_int": 42,
+        "feature_float": 3.14,
+        "feature_num": 2.71,
         "feature_datetime": datetime(2024, 1, 1, 12, 0, 0),
         "feature_date": date(2024, 1, 1),
         "feature_dict": {"key": "value", "number": 123, "list": [1, 2, 3]},
@@ -101,6 +104,8 @@ def test_artifact_features_add_remove_values():
     assert test_artifact.features["feature_str"] == test_values["feature_str"]
     assert test_artifact.features["feature_list_str"] == test_values["feature_list_str"]
     assert test_artifact.features["feature_int"] == test_values["feature_int"]
+    assert test_artifact.features["feature_float"] == test_values["feature_float"]
+    assert test_artifact.features["feature_num"] == test_values["feature_num"]
     assert test_artifact.features["feature_datetime"] == test_values["feature_datetime"]
     assert test_artifact.features["feature_date"] == test_values["feature_date"]
     assert test_artifact.features["feature_dict"] == test_values["feature_dict"]
@@ -126,6 +131,92 @@ def test_artifact_features_add_remove_values():
     assert test_artifact.features["feature_artifact_2"] == value_artifact
     assert test_artifact.features["feature_run"] == run
 
+    # --- Query by features (same data as above) ---
+    # Equality
+    assert ln.Artifact.filter(feature_str="a string value").one() == test_artifact
+    assert ln.Artifact.filter(feature_int=42).one() == test_artifact
+    assert ln.Artifact.filter(feature_type1="entity1").one() == test_artifact
+    assert ln.Artifact.filter(feature_cell_line="HEK293").one() == test_artifact
+    assert (
+        ln.Artifact.filter(feature_str="a string value", feature_int=42).one()
+        == test_artifact
+    )
+    # Datetime and date (filter uses ISO strings as stored in JSON)
+    assert (
+        ln.Artifact.filter(feature_datetime="2024-01-01T12:00:00").one()
+        == test_artifact
+    )
+    assert ln.Artifact.filter(feature_date="2024-01-01").one() == test_artifact
+    # __contains (categorical)
+    assert ln.Artifact.filter(feature_cell_line__contains="HEK").one() == test_artifact
+    assert ln.Artifact.filter(feature_type1__contains="entity").one() == test_artifact
+    # Invalid field
+    with pytest.raises(ln.errors.InvalidArgument) as error:
+        ln.Artifact.filter(feature_str_typo="x", feature_int=42).one()
+    assert error.exconly().startswith(
+        "lamindb.errors.InvalidArgument: You can query either by available fields:"
+    )
+    # ln.errors.ObjectDoesNotExist (no object named "nonexistent_entity" exists)
+    with pytest.raises(ln.errors.ObjectDoesNotExist) as error:
+        ln.Artifact.filter(feature_type1="nonexistent_entity").one()
+    assert "Did not find" in error.exconly()
+
+    # Combined filter (3 keys)
+    assert (
+        ln.Artifact.filter(
+            feature_str="a string value",
+            feature_int=42,
+            feature_type1="entity1",
+        ).one()
+        == test_artifact
+    )
+    # Bionty: filter by record
+    assert ln.Artifact.filter(feature_cell_line=hek293).one() == test_artifact
+    # Bionty: filter by ontology_id string
+    assert ln.Artifact.filter(feature_cl_ontology_id="CVCL_0045").one() == test_artifact
+    # Bionty __contains (ontology_id)
+    assert (
+        ln.Artifact.filter(feature_cl_ontology_id__contains="0045").one()
+        == test_artifact
+    )
+    # ln.errors.ObjectDoesNotExist (object not found: feature_project)
+    with pytest.raises(ln.errors.ObjectDoesNotExist) as error:
+        ln.Artifact.filter(feature_project="nonexistent_project").one()
+    assert "Did not find" in error.exconly()
+    # __contains returns multiple (add second artifact, assert, then remove)
+    value_artifact.features.add_values({"feature_type1": "entity2"})
+    assert len(ln.Artifact.filter(feature_type1__contains="entity")) == 2
+    value_artifact.features.remove_values("feature_type1")
+    # Numeric comparators __lt, __gt (int, float, num)
+    assert ln.Artifact.filter(feature_int__lt=21).one_or_none() is None
+    assert len(ln.Artifact.filter(feature_int__gt=21)) >= 1
+    # int __lt/__gt that would fail with string comparison (42 vs 5, 42 vs 100)
+    assert ln.Artifact.filter(feature_int__lt=5).one_or_none() is None
+    assert ln.Artifact.filter(feature_int__gt=100).one_or_none() is None
+    # float/num __lt/__gt (numeric comparison on SQLite via json_extract + CAST)
+    assert ln.Artifact.filter(feature_float__lt=5.0).one() == test_artifact
+    assert ln.Artifact.filter(feature_float__gt=1.0).one() == test_artifact
+    assert ln.Artifact.filter(feature_float__gt=10.0).one_or_none() is None
+    assert ln.Artifact.filter(feature_num__lt=5.0).one() == test_artifact
+    assert ln.Artifact.filter(feature_num__gt=1.0).one() == test_artifact
+    assert ln.Artifact.filter(feature_num__gt=10.0).one_or_none() is None
+    # Date and datetime comparators (ISO strings)
+    assert ln.Artifact.filter(feature_date__lt="2024-01-02").one() == test_artifact
+    assert ln.Artifact.filter(feature_date__gt="2023-12-31").one() == test_artifact
+    assert ln.Artifact.filter(feature_date__gt="2024-01-02").one_or_none() is None
+    assert (
+        ln.Artifact.filter(feature_datetime__lt="2024-01-01T13:00:00").one()
+        == test_artifact
+    )
+    assert (
+        ln.Artifact.filter(feature_datetime__gt="2024-01-01T11:00:00").one()
+        == test_artifact
+    )
+    assert (
+        ln.Artifact.filter(feature_datetime__lt="2024-01-01T11:00:00").one_or_none()
+        is None
+    )
+
     # remove values
 
     # this was already popped from test_values above
@@ -133,6 +224,10 @@ def test_artifact_features_add_remove_values():
 
     test_artifact.features.remove_values("feature_int")
     test_values.pop("feature_int")
+    test_artifact.features.remove_values("feature_float")
+    test_values.pop("feature_float")
+    test_artifact.features.remove_values("feature_num")
+    test_values.pop("feature_num")
     assert test_artifact.features.get_values() == test_values
 
     test_artifact.features.remove_values("feature_date")
@@ -168,7 +263,14 @@ def test_artifact_features_add_remove_values():
 
     # test passing None has no effect, does not lead to annotation
 
-    test_artifact.features.add_values({"feature_int": None, "feature_type1": None})
+    test_artifact.features.add_values(
+        {
+            "feature_int": None,
+            "feature_float": None,
+            "feature_num": None,
+            "feature_type1": None,
+        }
+    )
     assert test_artifact.features.get_values() == test_values
 
     # test bulk removal
@@ -247,6 +349,8 @@ def test_artifact_features_add_remove_values():
     feature_str.delete(permanent=True)
     feature_list_str.delete(permanent=True)
     feature_int.delete(permanent=True)
+    feature_float.delete(permanent=True)
+    feature_num.delete(permanent=True)
     feature_datetime.delete(permanent=True)
     feature_date.delete(permanent=True)
     feature_type1.delete(permanent=True)
@@ -341,7 +445,7 @@ def test_features_add_with_schema():
     split = ln.Feature(name="split", dtype="str").save()
     schema = ln.Schema([species, split]).save()
 
-    with pytest.raises(ValidationError) as e:
+    with pytest.raises(ln.errors.ValidationError) as e:
         artifact.features.add_values({"doesnot": "exist"}, schema=schema)
     assert "column 'split' not in dataframe" in str(e.value)
 
@@ -356,9 +460,10 @@ def test_features_add_with_schema():
 
 
 def test_features_add_remove_error_behavior():
+    """Add/remove/validation behavior."""
     adata = ln.examples.datasets.anndata_with_obs()
     artifact = ln.Artifact.from_anndata(adata, description="test").save()
-    with pytest.raises(ValidationError) as error:
+    with pytest.raises(ln.errors.ValidationError) as error:
         artifact.features.add_values({"experiment": "Experiment 1"})
     assert (
         error.exconly()
@@ -368,7 +473,7 @@ Here is how to create a feature:
   ln.Feature(name='experiment', dtype='cat ? str').save()"""
     )
     ln.Feature(name="experiment", dtype=ln.Record).save()
-    with pytest.raises(ValidationError) as error:
+    with pytest.raises(ln.errors.ValidationError) as error:
         artifact.features.add_values({"experiment": "Experiment 1"})
     assert error.exconly().startswith(
         "lamindb.errors.ValidationError: 1 term not validated in feature 'experiment'"
@@ -395,7 +500,7 @@ Here is how to create a feature:
     assert artifact.json_values.first().value == 27.2
 
     # datetime feature
-    with pytest.raises(ValidationError) as error:
+    with pytest.raises(ln.errors.ValidationError) as error:
         artifact.features.add_values({"date_of_experiment": "2024-12-01"})
     assert (
         error.exconly()
@@ -406,7 +511,7 @@ Here is how to create a feature:
     )
 
     ln.Feature(name="date_of_experiment", dtype=datetime.date, coerce=True).save()
-    with pytest.raises(ValidationError) as error:
+    with pytest.raises(ln.errors.ValidationError) as error:
         artifact.features.add_values({"date_of_experiment": "Typo2024-12-01"})
     assert "WRONG_DATATYPE" in error.exconly()
     artifact.features.add_values({"date_of_experiment": "2024-12-01"})
@@ -416,7 +521,7 @@ Here is how to create a feature:
 
     # bionty feature
     mouse = bt.Organism.from_source(name="mouse")
-    with pytest.raises(ValidationError) as error:
+    with pytest.raises(ln.errors.ValidationError) as error:
         artifact.features.add_values({"organism": mouse})
     assert (
         error.exconly()
@@ -426,7 +531,7 @@ Here is how to create a feature:
   ln.Feature(name='organism', dtype='cat[bionty.Organism]').save()"""
     )
     ln.Feature(name="organism", dtype=bt.Organism).save()
-    with pytest.raises(ValidationError) as error:
+    with pytest.raises(ln.errors.ValidationError) as error:
         artifact.features.add_values({"organism": mouse})
     assert (
         # ensure the label is saved
@@ -462,7 +567,7 @@ Here is how to create a feature:
         "temperature": 100.0,
         "donor": "U0123",
     }
-    with pytest.raises(ValidationError) as error:
+    with pytest.raises(ln.errors.ValidationError) as error:
         artifact.features.add_values(features)
     assert (
         error.exconly()
@@ -481,7 +586,7 @@ Here is how to create a feature:
     ln.Feature(name="cell_type_by_expert", dtype=bt.CellType).save()
     ln.Feature(name="donor", dtype=ln.Record).save()
 
-    with pytest.raises(ValidationError) as error:
+    with pytest.raises(ln.errors.ValidationError) as error:
         artifact.features.add_values(features)
         error_msg = error.exconly()
 
@@ -558,39 +663,6 @@ Here is how to create a feature:
         "2024-12-01T00:00:00",
     }
 
-    with pytest.raises(ln.errors.InvalidArgument) as error:
-        ln.Artifact.filter(temperature_with_typo=100.0, project="project_1").one()
-    assert error.exconly().startswith(
-        "lamindb.errors.InvalidArgument: You can query either by available fields:"
-    )
-
-    ln.Artifact.filter(temperature=100.0)
-    ln.Artifact.filter(project="project_1")
-    ln.Artifact.filter(is_validated=True)
-    ln.Artifact.filter(temperature=100.0, project="project_1", donor="U0123").one()
-    # for bionty
-    assert (
-        artifact == ln.Artifact.filter(disease=diseases[0]).one()
-    )  # value is a record
-    assert (
-        artifact == ln.Artifact.filter(disease="MONDO:0004975").one()
-    )  # value is a string
-    assert artifact == ln.Artifact.filter(disease__contains="0004975").one()
-
-    # test not finding the Record
-    with pytest.raises(DoesNotExist) as error:
-        ln.Artifact.filter(project="project__1")
-    assert "Did not find a Record matching" in error.exconly()
-
-    # test comparator
-    assert artifact == ln.Artifact.filter(experiment__contains="ment 1").one()
-    # due to the __in comparator, we get the same artifact twice below
-    # print(ln.Artifact.to_dataframe(features=["experiment"]))
-    # print(ln.Artifact.filter(experiment__contains="Experi").to_dataframe(features=["experiment"]))
-    assert len(ln.Artifact.filter(experiment__contains="Experi")) == 2
-    assert ln.Artifact.filter(temperature__lt=21.0).one_or_none() is None
-    assert len(ln.Artifact.filter(temperature__gt=21.0)) >= 1
-
     # test remove_values
     artifact.features.remove_values("date_of_experiment")
     alzheimer = bt.Disease.get(name="Alzheimer disease")
@@ -665,7 +737,7 @@ def test_add_list_of_cat_features():
         key=".gitignore",
     ).save()
     # now just use add_values()
-    with pytest.raises(ValidationError) as error:
+    with pytest.raises(ln.errors.ValidationError) as error:
         artifact.features.add_values(
             {
                 "single_label_of_type1": "invalid",
@@ -675,7 +747,7 @@ def test_add_list_of_cat_features():
         "lamindb.errors.ValidationError: 1 term not validated in feature 'single_label_of_type1': 'invalid'"
     )
     # now for list of labels
-    with pytest.raises(ValidationError) as error:
+    with pytest.raises(ln.errors.ValidationError) as error:
         artifact.features.add_values(
             {
                 "list_of_labels_of_type1": ["invalid", "invalid2"],

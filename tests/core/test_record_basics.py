@@ -73,7 +73,7 @@ def test_invalid_type_record_with_schema():
     schema.delete(permanent=True)
 
 
-# see test_artifact_features_annotations.py for similar test for Artifacts
+# see test_artifact_features_add_remove_query in test_artifact_external_features_annotations.py for similar test for Artifacts (populate and query by features)
 def test_record_features_add_remove_values():
     record_type1 = ln.Record(name="RecordType1", is_type=True).save()
     record_entity1 = ln.Record(name="entity1", type=record_type1).save()
@@ -177,6 +177,90 @@ def test_record_features_add_remove_values():
 
     test_record.features.add_values(test_values)
     assert test_record.features.get_values() == test_values
+
+    # --- Query by features (same data as above) ---
+    # Equality
+    assert ln.Record.filter(feature_str=test_values["feature_str"]).one() == test_record
+    assert ln.Record.filter(feature_int=42).one() == test_record
+    assert ln.Record.filter(feature_type1="entity1").one() == test_record
+    assert ln.Record.filter(feature_cell_line="HEK293").one() == test_record
+    assert (
+        ln.Record.filter(feature_str=test_values["feature_str"], feature_int=42).one()
+        == test_record
+    )
+    # Datetime and date (filter uses ISO strings as stored in JSON)
+    assert ln.Record.filter(feature_datetime="2024-01-01T12:00:00").one() == test_record
+    assert ln.Record.filter(feature_date="2024-01-01").one() == test_record
+    # __contains (categorical)
+    assert ln.Record.filter(feature_cell_line__contains="HEK").one() == test_record
+    assert ln.Record.filter(feature_type1__contains="entity").one() == test_record
+    # Invalid field
+    with pytest.raises(ln.errors.InvalidArgument) as error:
+        ln.Record.filter(feature_str_typo="x", feature_int=42).one()
+    assert error.exconly().startswith(
+        "lamindb.errors.InvalidArgument: You can query either by available fields:"
+    )
+    # DoesNotExist (no Record named "nonexistent_entity" exists)
+    with pytest.raises(ln.errors.ObjectDoesNotExist) as error:
+        ln.Record.filter(feature_type1="nonexistent_entity").one()
+    assert "Did not find" in error.exconly()
+
+    # Combined filter (3 keys)
+    assert (
+        ln.Record.filter(
+            feature_str=test_values["feature_str"],
+            feature_int=42,
+            feature_type1="entity1",
+        ).one()
+        == test_record
+    )
+    # Bionty: filter by record
+    assert ln.Record.filter(feature_cell_line=hek293).one() == test_record
+    # Bionty: filter by ontology_id string
+    assert ln.Record.filter(feature_cl_ontology_id="CVCL_0045").one() == test_record
+    # Bionty __contains (ontology_id)
+    assert (
+        ln.Record.filter(feature_cl_ontology_id__contains="0045").one() == test_record
+    )
+    # DoesNotExist (Record not found: feature_project)
+    with pytest.raises(ln.errors.ObjectDoesNotExist) as error:
+        ln.Record.filter(feature_project="nonexistent_project").one()
+    assert "Did not find" in error.exconly()
+    # __contains returns multiple (add second record, assert, then remove)
+    value_record = ln.Record(name="query_test_value_record").save()
+    value_record.features.add_values({"feature_type1": "entity2"})
+    assert len(ln.Record.filter(feature_type1__contains="entity")) == 2
+    value_record.features.remove_values("feature_type1")
+    value_record.delete(permanent=True)
+    # Numeric comparators __lt, __gt (int, float, num)
+    assert ln.Record.filter(feature_int__lt=21).one_or_none() is None
+    assert len(ln.Record.filter(feature_int__gt=21)) >= 1
+    # int __lt/__gt that would fail with string comparison (42 vs 5, 42 vs 100)
+    assert ln.Record.filter(feature_int__lt=5).one_or_none() is None
+    assert ln.Record.filter(feature_int__gt=100).one_or_none() is None
+    # float/num __lt/__gt (numeric comparison on SQLite via json_extract + CAST)
+    assert ln.Record.filter(feature_float__lt=5.0).one() == test_record
+    assert ln.Record.filter(feature_float__gt=1.0).one() == test_record
+    assert ln.Record.filter(feature_float__gt=10.0).one_or_none() is None
+    assert ln.Record.filter(feature_num__lt=5.0).one() == test_record
+    assert ln.Record.filter(feature_num__gt=1.0).one() == test_record
+    assert ln.Record.filter(feature_num__gt=10.0).one_or_none() is None
+    # Date and datetime comparators (ISO strings)
+    assert ln.Record.filter(feature_date__lt="2024-01-02").one() == test_record
+    assert ln.Record.filter(feature_date__gt="2023-12-31").one() == test_record
+    assert ln.Record.filter(feature_date__gt="2024-01-02").one_or_none() is None
+    assert (
+        ln.Record.filter(feature_datetime__lt="2024-01-01T13:00:00").one()
+        == test_record
+    )
+    assert (
+        ln.Record.filter(feature_datetime__gt="2024-01-01T11:00:00").one()
+        == test_record
+    )
+    assert (
+        ln.Record.filter(feature_datetime__lt="2024-01-01T11:00:00").one_or_none()
+        is None
+    )
 
     # ManyToMany accesors
 
