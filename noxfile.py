@@ -3,7 +3,7 @@ import shutil
 from pathlib import Path
 
 import nox
-from laminci import convert_executable_md_files_to_ipynb, upload_docs_artifact
+from laminci import convert_executable_md_files, upload_docs_artifact
 from laminci.nox import (
     build_docs,
     login_testuser1,
@@ -228,7 +228,7 @@ def prepare(session):
         )
     )
     os.system("jupytext README_stripped.md --to notebook --output ./docs/README.ipynb")
-    convert_executable_md_files_to_ipynb()
+    convert_executable_md_files()
     os.system("cp ./tests/core/test_artifact_parquet.py ./docs/scripts/")
     os.system("cp ./lamindb/examples/schemas/define_valid_features.py ./docs/scripts/")
     os.system(
