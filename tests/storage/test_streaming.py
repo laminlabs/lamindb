@@ -302,7 +302,7 @@ def test_from_lazy():
 def test_from_lazy_cloud():
     """Covers from_lazy docstring: local (zarr.open) and cloud (FsspecStore)."""
     previous_storage = ln.setup.settings.storage.root_as_str
-    ln.settings.storage = "s3://lamindb-ci/test-data"
+    ln.settings.storage = "s3://lamindb-ci/storage"
     lazy = ln.Artifact.from_lazy(
         suffix=".zarr", overwrite_versions=True, key="stream_test.zarr"
     )
