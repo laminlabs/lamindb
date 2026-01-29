@@ -32,8 +32,9 @@ Highlights:
 - **LIMS & ELN** → manage experimental metadata, ontologies & markdown notes
 - **unified access** → single API for storage locations (local, S3, GCP, …), SQL databases (Postgres, SQLite) & ontologies
 - **reproducible** → auto-track source code & compute environments with data, code & report versioning
-- **zero lock-in & scalable** → runs in your infrastructure; not a client for a rate-limited REST API
-- **simple** → just `pip install` a Python package, no complicated setup
+- **zero lock-in** → runs in your infrastructure on open standards (Postgres, SQLite, `parquet`, `zarr`, etc.)
+- **scalable** → you hit storage & database directly through your `pydata` or R stack, no REST API involved
+- **simple** → just `pip install` a Python package
 - **integrations** → [vitessce](https://docs.lamin.ai/vitessce), [nextflow](https://docs.lamin.ai/nextflow), [redun](https://docs.lamin.ai/redun), and [more](https://docs.lamin.ai/integrations)
 - **extensible** → create custom plug-ins based on the Django ORM
 
