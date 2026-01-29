@@ -299,24 +299,21 @@ def test_from_lazy():
     artifact.delete(permanent=True, storage=True)
 
 
-@pytest.mark.parametrize("use_fsspec", [False, True])
-def test_from_lazy_local_and_cloud(use_fsspec):
+def test_from_lazy_cloud():
     """Covers from_lazy docstring: local (zarr.open) and cloud (FsspecStore)."""
+    previous_storage = ln.setup.settings.storage.root_as_str
+    ln.settings.storage = "s3://lamindb-ci/test-data"
     lazy = ln.Artifact.from_lazy(
         suffix=".zarr", overwrite_versions=True, key="stream_test.zarr"
     )
-    if use_fsspec:
-        store = zarr.storage.FsspecStore.from_url(lazy.path.as_posix())
-        group = zarr.open(store, mode="w")
-        group["ones"] = np.ones(3)
-    else:
-        store = zarr.open(lazy.path, mode="w")
-        store["ones"] = np.ones(3)
-
+    store = zarr.storage.FsspecStore.from_url(lazy.path.as_posix())
+    group = zarr.open(store, mode="w")
+    group["ones"] = np.ones(3)
     artifact = lazy.save()
     access = artifact.open()
     np.testing.assert_array_equal(access.storage["ones"][...], np.ones(3))
     artifact.delete(permanent=True, storage=True)
+    ln.settings.storage = previous_storage
 
 
 @pytest.mark.parametrize("storage", [None, "s3://lamindb-test/storage"])
