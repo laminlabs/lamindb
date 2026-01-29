@@ -2,8 +2,6 @@
 executable_via: python
 ---
 
-[![Jupyter Notebook](https://img.shields.io/badge/Source%20on%20GitHub-orange)](https://github.com/laminlabs/lamindb/blob/main/docs/manage-ontologies.ipynb)
-
 # Manage biological ontologies
 
 This guide shows how to manage ontologies for basic biological entities based on plugin {mod}`bionty`.

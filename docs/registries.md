@@ -2,8 +2,6 @@
 executable_via: python
 ---
 
-[![Jupyter Notebook](https://img.shields.io/badge/Source%20on%20GitHub-orange)](https://github.com/laminlabs/lamindb/blob/main/docs/registries.ipynb)
-
 # Query & search registries
 
 This guide walks through different ways of querying & searching LaminDB registries.
