@@ -1,3 +1,7 @@
+---
+executable_via: python
+---
+
 # Slice & stream arrays
 
 We saw how LaminDB allows to query & search across artifacts using registries: {doc}`registries`.
