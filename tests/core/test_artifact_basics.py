@@ -1280,6 +1280,10 @@ def test_passing_foreign_keys_ids(tsv_file):
     first_run = ln.Run(transform).save()
     second_run = ln.Run(transform).save()
 
+    # check that passing a wrong type errors
+    with pytest.raises(AssertionError):
+        ln.Artifact(tsv_file, space=transform)
+
     with pytest.raises(ValueError) as err:
         ln.Artifact(tsv_file, run=first_run, run_id=first_run.id)
     assert "Do not pass both Run and its id at the same time." in err.exconly()
