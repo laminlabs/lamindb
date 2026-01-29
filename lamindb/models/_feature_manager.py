@@ -12,6 +12,7 @@ import pandas as pd
 from django.contrib.postgres.aggregates import ArrayAgg
 from django.db import connections
 from django.db.models import Aggregate, Subquery
+from django.db.models.expressions import RawSQL
 from django.db.utils import IntegrityError
 from lamin_utils import logger
 from lamindb_setup.errors import ModuleWasntConfigured
@@ -114,13 +115,75 @@ def get_schema_links(host: Artifact | Collection) -> BasicQuerySet:
     return links_schema
 
 
-def get_link_attr(link: IsLink | type[IsLink], data: Artifact | Collection) -> str:
+def get_link_attr(
+    link: IsLink | type[IsLink],
+    data: Artifact | Collection | Run | type,
+) -> str:
     link_model_name = link.__class__.__name__
     if link_model_name in {"Registry", "ModelBase"}:  # we passed the type of the link
         link_model_name = link.__name__  # type: ignore
     if link_model_name.startswith("Record") or link_model_name == "ArtifactArtifact":
         return "value"
-    return link_model_name.replace(data.__class__.__name__, "").lower()
+    host_name = data.__name__ if isinstance(data, type) else data.__class__.__name__
+    return link_model_name.replace(host_name, "").lower()
+
+
+def get_categorical_link_info(
+    host_class: type[SQLRecord],
+    label_registry: type[SQLRecord],
+    instance: str | None = None,
+) -> tuple[type[SQLRecord], str, str]:
+    """Resolve (link_model, value_field_name, filter_accessor_name) for (host_class, label_registry).
+
+    Used by filter_base (categorical path) and _add_label_feature_links.
+    """
+    host_name = host_class.__name__.lower()
+
+    if host_name == "record":
+        d = dict_related_model_to_related_name(
+            host_class, links=True, instance=instance
+        )
+        for rel in host_class._meta.related_objects:
+            link_model = rel.related_model
+            key = link_model.__get_name_with_module__()
+            if key not in d:
+                continue
+            if not hasattr(link_model, "feature_id") or not hasattr(
+                link_model, "value"
+            ):
+                continue
+            value_fk = link_model._meta.get_field("value")
+            if (
+                value_fk.remote_field is None
+                or value_fk.remote_field.model != label_registry
+            ):
+                continue
+            accessor = d[key]
+            return (link_model, "value", accessor)
+        raise ValueError(
+            f"No categorical link model for Record + {label_registry.__name__}. "
+            "Ensure the label registry has a Record* link model (e.g. RecordRecord, RecordULabel) "
+            "or a bionty link model (e.g. RecordCellLine) in loaded schema modules."
+        )
+
+    # Artifact, Run, or Collection
+    attr_map = {
+        "artifact": "artifacts",
+        "run": "runs",
+        "collection": "collections",
+    }
+    attr = attr_map.get(host_name)
+    if not attr or not hasattr(label_registry, attr):
+        raise ValueError(
+            f"{label_registry.__name__} has no {attr or host_name!r} relation; "
+            "cannot resolve categorical link for this host."
+        )
+    through = getattr(label_registry, attr).through
+    link_model = through
+    host_fk = host_name  # "artifact", "run", "collection"
+    value_field = get_link_attr(link_model, host_class)
+    filter_accessor = getattr(link_model, host_fk).field._related_name
+    return (link_model, value_field, filter_accessor)
 
 
 def strip_cat(feature_dtype: str) -> str:
@@ -725,6 +788,7 @@ def filter_base(
     **expression,
 ) -> BasicQuerySet:
     from lamindb.models import Artifact, BasicQuerySet, QuerySet
+    from lamindb.models.record import Record, RecordJson
 
     assert isinstance(queryset, BasicQuerySet) and not isinstance(queryset, QuerySet)  # noqa: S101
     keys_normalized = [key.split("__")[0] for key in expression]
@@ -773,68 +837,90 @@ def filter_base(
                     f"currently not supporting `{comparator}`, using `__icontains` instead"
                 )
                 comparator = "__icontains"
-            if connections[feature._state.db].vendor == "sqlite" and comparator in {
-                "__gt",
-                "__lt",
-                "__gte",
-                "__lte",
-            }:
-                # SQLite seems to prefer comparing strings over numbers
-                value = str(value)
-            expression = {"feature": feature, f"value{comparator}": value}
-            json_values = JsonValue.filter(**expression)
-            new_expression["json_values__id__in"] = json_values
+            use_numeric_sqlite = (
+                connections[feature._state.db].vendor == "sqlite"
+                and comparator in {"__gt", "__lt", "__gte", "__lte"}
+                and dtype_str in ("int", "float", "num")
+            )
+            if use_numeric_sqlite:
+                # Numeric comparison via json_extract + CAST (avoids lexicographic comparison)
+                num_val_raw = RawSQL("CAST(json_extract(value, '$') AS REAL)", ())
+                if queryset.model is Record:
+                    value_qs = (
+                        RecordJson.objects.using(queryset.db)
+                        .filter(feature=feature)
+                        .annotate(num_val=num_val_raw)
+                        .filter(**{f"num_val{comparator}": value})
+                    )
+                    new_expression["values_json__id__in"] = value_qs
+                else:
+                    json_values = (
+                        JsonValue.objects.using(queryset.db)
+                        .filter(feature=feature)
+                        .annotate(num_val=num_val_raw)
+                        .filter(**{f"num_val{comparator}": value})
+                    )
+                    new_expression["json_values__id__in"] = json_values
+            else:
+                if connections[feature._state.db].vendor == "sqlite" and comparator in {
+                    "__gt",
+                    "__lt",
+                    "__gte",
+                    "__lte",
+                }:
+                    # SQLite: lexicographic comparison for non-numeric dtypes (date, datetime, str)
+                    value = str(value)
+                filter_expr = {"feature": feature, f"value{comparator}": value}
+                if queryset.model is Record:
+                    value_qs = RecordJson.objects.using(queryset.db).filter(
+                        **filter_expr
+                    )
+                    new_expression["values_json__id__in"] = value_qs
+                else:
+                    json_values = JsonValue.objects.using(queryset.db).filter(
+                        **filter_expr
+                    )
+                    new_expression["json_values__id__in"] = json_values
         # categorical features
         elif isinstance(value, (str, SQLRecord, bool)):
+            dtype_str = feature._dtype_str
+            result = parse_dtype(dtype_str)[0]
+            label_registry = result["registry"]
+            _, value_field_name, filter_accessor_name = get_categorical_link_info(
+                queryset.model, label_registry, instance=queryset.db
+            )
             if comparator == "__isnull":
-                if queryset.model is Artifact:
-                    dtype_str = feature._dtype_str
-                    result = parse_dtype(dtype_str)[0]
-                    kwargs = {
-                        f"links_{result['registry'].__name__.lower()}__feature": feature
-                    }
-                    if value:  # True
-                        return queryset.exclude(**kwargs)
-                    else:
-                        return queryset.filter(**kwargs)
-            else:
-                # because SQL is sensitive to whether querying with __in or not
-                # and might return multiple equivalent records for the latter
-                # we distinguish cases in which we have multiple label matches vs. one
-                label = None
-                labels = None
-                dtype_str = feature._dtype_str
-                result = parse_dtype(dtype_str)[0]
-                label_registry = result["registry"]
-                if isinstance(value, str):
-                    field_name = result["field"].field.name
-                    # we need the comparator here because users might query like so
-                    # ln.Artifact.filter(experiment__contains="Experi")
-                    expression = {f"{field_name}{comparator}": value}
-                    labels = (
-                        result["registry"].connect(queryset.db).filter(**expression)
-                    )
-                    if len(labels) == 0:
-                        raise DoesNotExist(
-                            f"Did not find a {label_registry.__name__} matching `{field_name}{comparator}={value}`"
-                        )
-                    elif len(labels) == 1:
-                        label = labels[0]
-                elif isinstance(value, SQLRecord):
-                    label = value
-                accessor_name = (
-                    label_registry.artifacts.through.artifact.field._related_name
-                )
-                new_expression[f"{accessor_name}__feature"] = feature
-                if label is not None:
-                    # simplified query if we have exactly one label
-                    new_expression[
-                        f"{accessor_name}__{label_registry.__name__.lower()}"
-                    ] = label
+                kwargs = {f"{filter_accessor_name}__feature": feature}
+                if value:  # True
+                    return queryset.exclude(**kwargs)
                 else:
-                    new_expression[
-                        f"{accessor_name}__{label_registry.__name__.lower()}__in"
-                    ] = labels
+                    return queryset.filter(**kwargs)
+            # because SQL is sensitive to whether querying with __in or not
+            # and might return multiple equivalent records for the latter
+            # we distinguish cases in which we have multiple label matches vs. one
+            label = None
+            labels = None
+            if isinstance(value, str):
+                field_name = result["field"].field.name
+                # we need the comparator here because users might query like so
+                # ln.Artifact.filter(experiment__contains="Experi")
+                expression = {f"{field_name}{comparator}": value}
+                labels = result["registry"].connect(queryset.db).filter(**expression)
+                if len(labels) == 0:
+                    raise DoesNotExist(
+                        f"Did not find a {label_registry.__name__} matching `{field_name}{comparator}={value}`"
+                    )
+                elif len(labels) == 1:
+                    label = labels[0]
+            elif isinstance(value, SQLRecord):
+                label = value
+            new_expression[f"{filter_accessor_name}__feature"] = feature
+            if label is not None:
+                new_expression[f"{filter_accessor_name}__{value_field_name}"] = label
+            else:
+                new_expression[f"{filter_accessor_name}__{value_field_name}__in"] = (
+                    labels
+                )
             # if passing a list of records, we want to
             # find artifacts that are annotated by all of them at the same
             # time; hence, we don't want the __in construct that we use to match strings
@@ -1044,49 +1130,27 @@ class FeatureManager:
     ):
         host_name = self._host.__class__.__name__.lower()
         host_is_record = host_name == "record"
-        related_names = dict_related_model_to_related_name(self._host.__class__)
-        if host_is_record:
-            related_names["Record"] = "linked_records"
-            related_names["Project"] = "linked_projects"
-            related_names["Artifact"] = "linked_artifacts"
-            related_names["Collection"] = "linked_collections"
-            related_names["Run"] = "linked_runs"
-        else:
-            related_names["Run"] = "runs"
+        instance = getattr(self._host._state, "db", None)
         for class_name, registry_features_labels in features_labels.items():
             if not host_is_record and class_name == "Collection":
                 continue
-            related_name = related_names[class_name]  # e.g., "ulabels"
-            IsLink = getattr(self._host, related_name).through
-            if host_is_record or class_name == "Artifact":
-                field_name = "value_id"
-            else:
-                field_name = (
-                    f"{get_link_attr(IsLink, self._host)}_id"  # e.g., ulabel_id
+            registry_features_labels[0][0]
+            label_registry = registry_features_labels[0][1].__class__
+            link_model, value_field_name, _ = get_categorical_link_info(
+                self._host.__class__, label_registry, instance=instance
+            )
+            field_name = f"{value_field_name}_id"
+            host_fk = f"{host_name}_id"
+            links = [
+                link_model(
+                    **{
+                        host_fk: self._host.id,
+                        "feature_id": ftr.id,
+                        field_name: label.id,
+                    }
                 )
-            if host_name == "artifact":
-                links = [
-                    IsLink(
-                        **{
-                            "artifact_id": self._host.id,
-                            "feature_id": feature.id,
-                            field_name: label.id,
-                        }
-                    )
-                    for (feature, label) in registry_features_labels
-                ]
-            else:  # Run
-                links = [
-                    IsLink(
-                        **{
-                            f"{host_name}_id": self._host.id,
-                            "feature_id": feature.id,
-                            field_name: label.id,
-                        }
-                    )
-                    for (feature, label) in registry_features_labels
-                ]
-            # a link might already exist
+                for (ftr, label) in registry_features_labels
+            ]
             try:
                 save(links, ignore_conflicts=False)
             except Exception:

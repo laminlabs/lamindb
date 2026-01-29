@@ -129,8 +129,8 @@ jobs:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
-      - run: nox -s cp_scripts
-        if: ${{ matrix.group == 'tutorial' }}
+      - run: nox -s prepare
+        if: ${{ !startsWith(matrix.group, 'unit-') }}
       - run: nox -s "test(group='${{ matrix.group }}')"
 
       - name: upload coverage
@@ -163,15 +163,12 @@ jobs:
             ${{ github.ref == 'refs/heads/release' && '3.11' ||
                 '3.13'
                 }}
-      - run: pip install "laminci@git+https://github.com/laminlabs/laminci"
+      - run: pip install git+https://github.com/laminlabs/laminci
       - run: nox -s "install_ci(group='unit-core-sqlite')"
+      - run: uv pip install --system git+https://github.com/laminlabs/laminprofiler
       - run: lamin login
-      - run: uv pip install --system pyinstrument
-      - run: pyinstrument tests/profiling/scripts/import_lamindb.py
-      - run: pyinstrument tests/profiling/scripts/import_lamindb.py
-      - run: pyinstrument tests/profiling/scripts/import_lamindb.py
-      - run: pyinstrument tests/profiling/scripts/import_lamindb.py > profile.txt
-      - run: python tests/profiling/check_profiling_result.py
+      - run: lamin connect laminlabs/lamindata
+      - run: laminprofiler check tests/profiling/import_lamindb.py --threshold 3.4
 
   docs:
     needs: test
@@ -203,7 +200,7 @@ jobs:
       - run: nox -s "install_ci(group='docs')"
       - uses: actions/download-artifact@v4
       - run: nox -s clidocs
-      - run: nox -s cp_scripts
+      - run: nox -s prepare
       - run: nox -s docs
       - run: rm -r ./_build/html/.doctrees # do not want to deploy with cloudflare
       - uses: cloudflare/wrangler-action@v3
