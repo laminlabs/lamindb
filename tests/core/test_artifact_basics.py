@@ -1273,3 +1273,31 @@ def test_artifact_space_change(tsv_file):
 
     artifact.delete(permanent=True)
     space.delete(permanent=True)
+
+
+def test_passing_foreign_keys_ids(tsv_file):
+    transform = ln.Transform(key="test passings foreign keys ids").save()
+    first_run = ln.Run(transform).save()
+    second_run = ln.Run(transform).save()
+
+    # check that passing a wrong type errors
+    with pytest.raises(AssertionError):
+        ln.Artifact(tsv_file, space=transform)
+
+    with pytest.raises(ValueError) as err:
+        ln.Artifact(tsv_file, run=first_run, run_id=first_run.id)
+    assert "Do not pass both Run and its id at the same time." in err.exconly()
+
+    artifact = ln.Artifact(tsv_file, run=first_run, key="test_fk.tsv").save()
+    artifact_id = artifact.id
+    assert artifact.run == first_run
+
+    artifact = ln.Artifact(tsv_file, run_id=second_run.id)  # same hash
+    assert artifact.id == artifact_id
+    assert artifact._subsequent_run_id == second_run.id
+    assert second_run in artifact.recreating_runs.all()
+
+    artifact.delete(permanent=True)
+    second_run.delete(permanent=True)
+    first_run.delete(permanent=True)
+    transform.delete(permanent=True)
