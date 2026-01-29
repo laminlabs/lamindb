@@ -1039,7 +1039,10 @@ T = TypeVar("T", bound=BaseSQLRecord)
 
 
 def _sqlrecord_or_id(
-    model: type[T], sqlrecord: T | None, sqlrecord_id: int | None
+    model: type[T],
+    sqlrecord: T | None,
+    sqlrecord_id: int | None,
+    check_type: bool = True,
 ) -> T | None:
     if sqlrecord is not None and sqlrecord_id is not None:
         raise ValueError(
@@ -1049,7 +1052,7 @@ def _sqlrecord_or_id(
     if sqlrecord is None and sqlrecord_id is None:
         return None
     elif sqlrecord is not None:
-        assert isinstance(sqlrecord, model)
+        assert not check_type or isinstance(sqlrecord, model)
         return sqlrecord
     elif sqlrecord_id is not None:
         return model.objects.get(id=sqlrecord_id)
@@ -1568,8 +1571,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
                 validation_schema = schema
                 ExperimentalDictCurator(features, validation_schema).validate()
-        run: Run | None = _sqlrecord_or_id(
-            Run, kwargs.pop("run", None), kwargs.pop("run_id", None)
+        # check_type is False because run can be False also, see get_run
+        run: Run | None | bool = _sqlrecord_or_id(
+            Run, kwargs.pop("run", None), kwargs.pop("run_id", None), check_type=False
         )
         branch: Branch | None = _sqlrecord_or_id(
             Branch, kwargs.pop("branch", None), kwargs.pop("branch_id", None)
