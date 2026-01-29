@@ -1882,7 +1882,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         """Create a lazy artifact for streaming to auto-generated internal paths.
 
         This is needed when it is desirable to stream to a `lamindb` auto-generated internal path
-        and register the path as an artifact.
+        and register the path as an artifact. It allows writing directly into the default cloud
+        (or local) storage of the current instance and then saving as an :class:`~lamindb.Artifact`.
 
         The lazy artifact object (see :class:`~lamindb.models.LazyArtifact`) creates a real artifact
         on `.save()` with the provided arguments.
@@ -1897,10 +1898,18 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
         Examples:
 
-            Create a lazy artifact, write to the path and save to get a real artifact::
+            Local storage: create a lazy artifact, stream to the path, then save::
 
                 lazy = ln.Artifact.from_lazy(suffix=".zarr", overwrite_versions=True, key="mydata.zarr")
-                zarr.open(lazy.path, mode="w")["test"] = np.array(["test"]) # stream to the path
+                zarr.open(lazy.path, mode="w")["test"] = np.array(["test"])
+                artifact = lazy.save()
+
+            Cloud storage (e.g. S3): use `zarr.storage.FsspecStore` to stream arrays::
+
+                lazy = ln.Artifact.from_lazy(suffix=".zarr", overwrite_versions=True, key="mydata.zarr")
+                store = zarr.storage.FsspecStore.from_url(lazy.path.as_posix())
+                group = zarr.open(store, mode="w")
+                group["ones"] = np.ones(3)
                 artifact = lazy.save()
         """
         args = {"key": key, "description": description, "run": run, **kwargs}
