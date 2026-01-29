@@ -3,7 +3,7 @@ import shutil
 from pathlib import Path
 
 import nox
-from laminci import upload_docs_artifact
+from laminci import process_markdown, upload_docs_artifact
 from laminci.nox import (
     build_docs,
     login_testuser1,
@@ -401,6 +401,19 @@ def cp_scripts(session):
         )
     )
     os.system("jupytext README_stripped.md --to notebook --output ./docs/README.ipynb")
+    for docs_dir in [Path("docs"), Path("docs/faq")]:
+        for md_path in docs_dir.glob("*.md"):
+            head = md_path.read_text().splitlines()[:20]
+            if "execute_via:" not in "\n".join(head):
+                continue
+            stem = md_path.stem
+            processed = md_path.parent / f"{stem}_processed.md"
+            notebook_path = md_path.parent / f"{stem}.ipynb"
+            process_markdown(str(md_path), str(processed))
+            os.system(
+                f"jupytext --from md:markdown {processed} --to notebook --output {notebook_path}"
+            )
+            os.system(f"rm {md_path} {processed}")
     os.system("cp ./tests/core/test_artifact_parquet.py ./docs/scripts/")
     os.system("cp ./lamindb/examples/schemas/define_valid_features.py ./docs/scripts/")
     os.system(
@@ -435,4 +448,4 @@ def docs(session):
         "lamin init --storage ./docsbuild --modules bionty,pertdb",
     )
     build_docs(session, strip_prefix=True, strict=False)
-    upload_docs_artifact(aws=True)
+    upload_docs_artifact()
