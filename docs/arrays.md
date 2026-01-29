@@ -1,5 +1,3 @@
-[![Markdown](https://img.shields.io/badge/Source%20on%20GitHub-orange)](https://github.com/laminlabs/lamindb/blob/main/docs/arrays.md)
-
 # Slice & stream arrays
 
 We saw how LaminDB allows to query & search across artifacts using registries: {doc}`registries`.
