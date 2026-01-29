@@ -114,6 +114,23 @@ def test_cxg_curator_6_spatial(cxg_schema_factory):
     curator.validate()
 
 
+def test_cxg_curator_7(cxg_schema_factory):
+    """Tests CELLxGENE 7.0.0 schema with updated tissue_type values."""
+    cxg_schema = cxg_schema_factory("7.0.0", field_types="ontology_id")
+
+    # Verify tissue_type ULabels include new values
+    tissue_type_labels = ln.ULabel.filter(type__name="TissueType").to_list("name")
+    assert "primary cell culture" in tissue_type_labels
+    assert "cell line" in tissue_type_labels
+    assert "cell culture" not in tissue_type_labels
+
+    adata = ln.examples.datasets.small_dataset3_cellxgene(
+        with_obs_defaults=True, with_uns_organism=True
+    )
+    curator = ln.curators.AnnDataCurator(adata, cxg_schema)
+    curator.validate()
+
+
 def test_invalid_field_type():
     with pytest.raises(ValueError) as e:
         ln.examples.cellxgene.create_cellxgene_schema(
