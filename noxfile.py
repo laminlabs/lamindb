@@ -1,4 +1,5 @@
 import os
+import re
 import shutil
 from pathlib import Path
 
@@ -390,6 +391,13 @@ def clidocs(session):
     generate_cli_docs()
 
 
+def add_hide_output_tags(input_file, output_file):
+    """Add hide-output tags to all code cells in a markdown file."""
+    content = open(input_file).read()
+    content = re.sub(r"```python\n", r'```python tags=["hide-output"]\n', content)
+    open(output_file, "w").write(content)
+
+
 @nox.session
 def cp_scripts(session):
     content = open("README.md").read()
@@ -401,6 +409,11 @@ def cp_scripts(session):
         )
     )
     os.system("jupytext README_stripped.md --to notebook --output ./docs/README.ipynb")
+    add_hide_output_tags("docs/arrays.md", "docs/arrays_tagged.md")
+    os.system(
+        "jupytext docs/arrays_tagged.md --to notebook --output ./docs/arrays.ipynb"
+    )
+    os.system("rm docs/arrays.md docs/arrays_tagged.md")
     os.system("cp ./tests/core/test_artifact_parquet.py ./docs/scripts/")
     os.system("cp ./lamindb/examples/schemas/define_valid_features.py ./docs/scripts/")
     os.system(
