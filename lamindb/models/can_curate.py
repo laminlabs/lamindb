@@ -308,9 +308,9 @@ def _standardize(
             return _return(result=std_names_db, mapper=mapper)
 
         nonval = np.array(std_names_db)[~val_res]
-        std_names_bt_mapper = registry.public(organism=organism_record).standardize(
-            nonval, return_mapper=True, mute=True, **_kwargs
-        )
+        std_names_bt_mapper = registry.public(
+            organism=organism_record, source=source
+        ).standardize(nonval, return_mapper=True, mute=True, **_kwargs)
 
         if len(std_names_bt_mapper) > 0 and not mute:
             s = "" if len(std_names_bt_mapper) == 1 else "s"

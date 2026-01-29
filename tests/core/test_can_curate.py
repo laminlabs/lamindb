@@ -171,11 +171,30 @@ def test_synonym_mapping():
 
 
 def test_validate_called_on_object_raises_error():
-    """Test that calling validate() on an object raises TypeError."""
+    """Calling validate() on an object must raise TypeError."""
     label = ln.ULabel(name="test_label").save()
     with pytest.raises(TypeError) as error:
         label.validate(["test_value"])
     assert (
         "ULabel.validate() is a class method and must be called on the ULabel class, not on a ULabel object"
         in str(error.value)
+    )
+
+
+def test_standardize_source():
+    """When passing a specific source to standardize, any matched public records must come from the passed source."""
+    # 'HANCESTRO:0006' in Hancestro 3.0 but 'HANCESTRO:0848' in later versions
+    assert (
+        bt.Ethnicity.standardize(
+            ["South Asian"],
+            field="name",
+            return_field="ontology_id",
+            source=bt.Source(
+                entity="bionty.Ethnicity",
+                version="3.0",
+                name="hancestro",
+                organism="human",
+            ),
+        )[0]
+        == "HANCESTRO:0006"
     )
