@@ -83,7 +83,9 @@ from .save import check_and_attempt_clearing, check_and_attempt_upload
 from .schema import Schema
 from .sqlrecord import (
     BaseSQLRecord,
+    Branch,
     IsLink,
+    Space,
     SQLRecord,
     _get_record_kwargs,
 )
@@ -130,7 +132,6 @@ if TYPE_CHECKING:
     from .collection import Collection
     from .project import Project, Reference
     from .record import Record
-    from .sqlrecord import Branch, Space
     from .transform import Transform
 
 
