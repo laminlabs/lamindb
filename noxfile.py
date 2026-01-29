@@ -404,7 +404,7 @@ def cp_scripts(session):
     for docs_dir in [Path("docs"), Path("docs/faq")]:
         for md_path in docs_dir.glob("*.md"):
             head = md_path.read_text().splitlines()[:20]
-            if "executable_via:" not in "\n".join(head):
+            if "execute_via:" not in "\n".join(head):
                 continue
             stem = md_path.stem
             processed = md_path.parent / f"{stem}_processed.md"
