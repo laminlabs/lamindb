@@ -64,6 +64,7 @@ schema_version,entity,organism,source,version
 6.0.0,Gene,human,ensembl,release-110
 6.0.0,Gene,mouse,ensembl,release-110
 7.0.0,CellType,all,cl,2025-07-30
+7.0.0,CellLine,all,cellosaurus,53.0
 7.0.0,ExperimentalFactor,all,efo,3.82.0
 7.0.0,Ethnicity,human,hancestro,2025-04-01
 7.0.0,DevelopmentalStage,human,hsapdv,2025-01-23
