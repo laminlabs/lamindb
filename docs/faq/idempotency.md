@@ -1,3 +1,7 @@
+---
+executable_via: python
+---
+
 # Will data get duplicated upon re-running code?
 
 LaminDB's operations are idempotent in the sense defined here, which allows you to re-run code without duplicating data.

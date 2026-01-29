@@ -1,3 +1,7 @@
+---
+executable_via: python
+---
+
 # Why should I not index datasets with gene symbols?
 
 Gene symbols are widely used for readability, particularly for visualization. However, indexing datasets with gene symbols presents challenges:

@@ -1,3 +1,7 @@
+---
+executable_via: python
+---
+
 # How do I validate & annotate arbitrary data structures?
 
 This guide walks through the low-level API that lets you validate iterables.

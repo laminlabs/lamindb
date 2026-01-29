@@ -1,3 +1,7 @@
+---
+executable_via: python
+---
+
 # Django field validation
 
 [Django field validation](https://docs.djangoproject.com/en/5.1/ref/validators/) are enabled for models that inherit the `ValidateFields` class.

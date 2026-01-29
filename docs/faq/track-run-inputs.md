@@ -1,3 +1,7 @@
+---
+executable_via: python
+---
+
 # Can I disable tracking run inputs?
 
 Yes, if you switch {attr}`~lamindb.core.Settings.track_run_inputs` to `False`.

@@ -1,3 +1,7 @@
+---
+executable_via: python
+---
+
 # Will data & metadata stay in sync?
 
 Here, we walk through different errors that can occur while saving artifacts & metadata records, and show that the LaminDB instance does not get corrupted by dangling metadata or artifacts.

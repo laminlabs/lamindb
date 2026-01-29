@@ -1,3 +1,7 @@
+---
+executable_via: python
+---
+
 # Where to store external links and IDs?
 
 When registering data in LaminDB, you might want to store a reference link or ID to indicate the source of the collection.

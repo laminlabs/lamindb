@@ -1,3 +1,7 @@
+---
+executable_via: python
+---
+
 # How does search work?
 
 ```python

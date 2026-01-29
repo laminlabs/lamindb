@@ -1,3 +1,7 @@
+---
+executable_via: python
+---
+
 # Transfer data
 
 This guide shows how to transfer data from a source database into the currently connected database.

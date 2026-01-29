@@ -1,3 +1,7 @@
+---
+executable_via: python
+---
+
 # What happens if I import a schema module without lamindb?
 
 ```python

@@ -1,3 +1,7 @@
+---
+executable_via: python
+---
+
 # Keep artifacts local in a cloud instance
 
 If you want to default to keeping artifacts local in a cloud instance, enable {attr}`~lamindb.setup.core.InstanceSettings.keep_artifacts_local`.

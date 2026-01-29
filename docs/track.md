@@ -1,3 +1,7 @@
+---
+executable_via: python
+---
+
 # Manage notebooks, scripts & workflows
 
 If you don't have a `lamindb` instance, here's how to create one:

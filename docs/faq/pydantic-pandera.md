@@ -1,3 +1,7 @@
+---
+executable_via: python
+---
+
 # Pydantic & Pandera vs. LaminDB
 
 This doc explains conceptual differences between data validation with `pydantic`, `pandera`, and `LaminDB`.

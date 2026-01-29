@@ -1,3 +1,7 @@
+---
+executable_via: python
+---
+
 [![Jupyter Notebook](https://img.shields.io/badge/Source%20on%20GitHub-orange)](https://github.com/laminlabs/lamindb/blob/main/docs/registries.ipynb)
 
 # Query & search registries
