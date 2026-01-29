@@ -410,7 +410,9 @@ def cp_scripts(session):
             processed = md_path.parent / f"{stem}_processed.md"
             notebook_path = md_path.parent / f"{stem}.ipynb"
             process_markdown(str(md_path), str(processed))
-            os.system(f"jupytext {processed} --to notebook --output {notebook_path}")
+            os.system(
+                f"jupytext --from md:markdown {processed} --to notebook --output {notebook_path}"
+            )
             os.system(f"rm {md_path} {processed}")
     os.system("cp ./tests/core/test_artifact_parquet.py ./docs/scripts/")
     os.system("cp ./lamindb/examples/schemas/define_valid_features.py ./docs/scripts/")
