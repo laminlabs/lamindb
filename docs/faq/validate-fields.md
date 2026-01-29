@@ -1,5 +1,5 @@
 ---
-executable_via: python
+execute_via: python
 ---
 
 # Django field validation

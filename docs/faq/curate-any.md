@@ -1,5 +1,5 @@
 ---
-executable_via: python
+execute_via: python
 ---
 
 # How do I validate & annotate arbitrary data structures?

@@ -1,5 +1,5 @@
 ---
-executable_via: python
+execute_via: python
 ---
 
 # Will data get duplicated upon re-running code?
