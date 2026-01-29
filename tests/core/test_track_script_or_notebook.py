@@ -376,6 +376,25 @@ def test_clean_r_notebook_html():
     orig_notebook_path.write_text(content.replace(get_shortcut(), "SHORTCUT"))
 
 
+def test_notebook_to_script_notebooknode_metadata(tmp_path):
+    """Test that notebook_to_script handles NotebookNode metadata.
+
+    https://github.com/laminlabs/lamindb/issues/3480
+    """
+    import nbformat
+    from lamindb._finish import notebook_to_script
+
+    nb = nbformat.v4.new_notebook()
+    nb.metadata["kernelspec"] = nbformat.NotebookNode({"display_name": "python3"})
+    notebook_path = tmp_path / "test.ipynb"
+    nbformat.write(nb, notebook_path)
+
+    # This would raise RepresenterError without metadata.clear()
+    result = notebook_to_script("Test", notebook_path)
+    assert result is not None
+    assert "NotebookNode" not in result
+
+
 class MockRun:
     def __init__(self, uid):
         self.uid = uid
