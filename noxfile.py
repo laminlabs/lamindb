@@ -401,11 +401,14 @@ def cp_scripts(session):
         )
     )
     os.system("jupytext README_stripped.md --to notebook --output ./docs/README.ipynb")
-    process_markdown("docs/arrays.md", "docs/arrays_processed.md")
-    os.system(
-        "jupytext docs/arrays_processed.md --to notebook --output ./docs/arrays.ipynb"
-    )
-    os.system("rm docs/arrays.md docs/arrays_processed.md")
+    for docs_dir in [Path("docs"), Path("docs/faq")]:
+        for md_path in docs_dir.glob("*.md"):
+            stem = md_path.stem
+            processed = md_path.parent / f"{stem}_processed.md"
+            notebook_path = md_path.parent / f"{stem}.ipynb"
+            process_markdown(str(md_path), str(processed))
+            os.system(f"jupytext {processed} --to notebook --output {notebook_path}")
+            os.system(f"rm {md_path} {processed}")
     os.system("cp ./tests/core/test_artifact_parquet.py ./docs/scripts/")
     os.system("cp ./lamindb/examples/schemas/define_valid_features.py ./docs/scripts/")
     os.system(
