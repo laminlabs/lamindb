@@ -58,7 +58,8 @@ repos:
             --disable-error-code=annotation-unchecked,
             --disable-error-code=type-arg,
           ]
-        additional_dependencies: ["types-requests", "types-attrs"]
+        additional_dependencies:
+          ["types-requests", "types-attrs", "types-PyYAML"]
         exclude: |
           (?x)(
               test_notebooks.py|

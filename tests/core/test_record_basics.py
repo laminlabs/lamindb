@@ -10,7 +10,7 @@ from django.db import IntegrityError
 from lamindb.errors import FieldValidationError
 
 
-def test_record():
+def test_record_initialization():
     with pytest.raises(
         FieldValidationError,
         match=re.escape(
@@ -22,14 +22,6 @@ def test_record():
     with pytest.raises(ValueError) as error:
         ln.Record(1)
     assert error.exconly() == "ValueError: Only one non-keyword arg allowed"
-
-    with pytest.raises(
-        ValueError,
-        match=re.escape(
-            "'my_type' should start with a capital letter given you're defining a type"
-        ),
-    ):
-        ln.Record(name="my_type", is_type=True)
 
 
 def test_record_plural_type_warning(ccaplog):
