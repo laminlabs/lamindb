@@ -129,7 +129,7 @@ jobs:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
-      - run: nox -s cp_scripts
+      - run: nox -s prepare
         if: ${{ !startsWith(matrix.group, 'unit-') }}
       - run: nox -s "test(group='${{ matrix.group }}')"
 
@@ -200,7 +200,7 @@ jobs:
       - run: nox -s "install_ci(group='docs')"
       - uses: actions/download-artifact@v4
       - run: nox -s clidocs
-      - run: nox -s cp_scripts
+      - run: nox -s prepare
       - run: nox -s docs
       - run: rm -r ./_build/html/.doctrees # do not want to deploy with cloudflare
       - uses: cloudflare/wrangler-action@v3
