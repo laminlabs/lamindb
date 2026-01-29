@@ -42,6 +42,7 @@ if TYPE_CHECKING:
     from ._feature_manager import FeatureManager
     from .block import RecordBlock
     from .project import Project, RecordProject, RecordReference, Reference
+    from .query_manager import RelatedManager
     from .schema import Schema
 
 
@@ -54,8 +55,8 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
     In some cases you may prefer a simple label without features: then consider :class:`~lamindb.ULabel`.
 
     Args:
-        name: `str` A name.
-        description: `str` A description.
+        name: `str | None = None` A name.
+        description: `str | None = None` A description.
         type: `Record | None = None` The type of this record.
         is_type: `bool = False` Whether this record is a type (a record that
             classifies other records).
@@ -126,7 +127,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         The features of a `Record` are flexible: you can dynamically define features and add features to a record.
         The fields of a `SQLRecord` are fixed: you need to define them in code and then migrate the underlying database.
 
-        You can configure a `SQLRecord` by subclassing it in a custom schema, for example, as done here: `github.com/laminlabs/wetlab <https://github.com/laminlabs/wetlab>`__
+        You can configure a `SQLRecord` by subclassing it in a custom schema, for example, as done here: `github.com/laminlabs/pertdb <https://github.com/laminlabs/pertdb>`__
 
     """
 
@@ -188,7 +189,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
     Names for a given `type` and `space` are constrained to be unique.
     """
     type: Record | None = ForeignKey("self", PROTECT, null=True, related_name="records")
-    """Type of record, e.g., `Sample`, `Donor`, `Cell`, `Compound`, `Sequence`.
+    """Type of record, e.g., `Sample`, `Donor`, `Cell`, `Compound`, `Sequence` ← :attr:`~lamindb.Record.records`.
 
     Allows to group records by type, e.g., all samples, all donors, all cells, all compounds, all sequences.
     """
@@ -205,28 +206,28 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
     schema: Schema | None = ForeignKey(
         "Schema", CASCADE, null=True, related_name="records"
     )
-    """A schema to enforce for a type.
+    """A schema to enforce for a type ← :attr:`~lamindb.Schema.records`.
 
     This is analogous to the `schema` attribute of an `Artifact`.
     If `is_type` is `True`, the schema is used to enforce features for each record of this type.
     """
-    linked_records: Record = models.ManyToManyField(
+    linked_records: RelatedManager[Record] = models.ManyToManyField(
         "Record",
         through="RecordRecord",
         symmetrical=False,
         related_name="linked_in_records",
     )
-    """Records linked in this record as a value."""
-    linked_in_records: Record
+    """Records linked in this record as a value ← :attr:`~lamindb.Record.linked_in_records`."""
+    linked_in_records: RelatedManager[Record]
     """Records linking this record as a value. Is reverse accessor for `linked_records`."""
-    parents: Record = models.ManyToManyField(
+    parents: RelatedManager[Record] = models.ManyToManyField(
         "self", symmetrical=False, related_name="children"
     )
-    """Ontological parents of this record.
+    """Ontological parents of this record ← :attr:`~lamindb.Record.children`.
 
     You can build an ontology under a given `type`. For example, introduce a type `CellType` and model the hiearchy of cell types under it via `parents` and `children`.
     """
-    children: Record
+    children: RelatedManager[Record]
     """Ontological children of this record. Is reverse accessor for `parents`."""
     # this is handled manually here because we want to se the related_name attribute
     # (this doesn't happen via inheritance of TracksRun, everything else is the same)
@@ -238,45 +239,49 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         default=current_run,
         editable=False,
     )
-    """Run that created the record."""
-    input_of_runs: Run = models.ManyToManyField(Run, related_name="input_records")
-    """Runs that use this record as an input."""
-    artifacts: Artifact = models.ManyToManyField(
+    """Run that created the record ← :attr:`~lamindb.Run.output_records`."""
+    input_of_runs: RelatedManager[Run] = models.ManyToManyField(
+        Run, related_name="input_records"
+    )
+    """Runs that use this record as an input ← :attr:`~lamindb.Run.input_records`."""
+    artifacts: RelatedManager[Artifact] = models.ManyToManyField(
         Artifact, through="ArtifactRecord", related_name="records"
     )
-    """Artifacts annotated by this record."""
-    runs: Run = models.ManyToManyField(Run, through="RunRecord", related_name="records")
-    """Runs annotated by this record."""
-    transforms: Transform = models.ManyToManyField(
+    """Artifacts annotated by this record ← :attr:`~lamindb.Artifact.records`."""
+    runs: RelatedManager[Run] = models.ManyToManyField(
+        Run, through="RunRecord", related_name="records"
+    )
+    """Runs annotated by this record ← :attr:`~lamindb.Run.records`."""
+    transforms: RelatedManager[Transform] = models.ManyToManyField(
         Transform, through="TransformRecord", related_name="records"
     )
-    """Transforms annotated by this record."""
-    collections: Collection = models.ManyToManyField(
+    """Transforms annotated by this record ← :attr:`~lamindb.Transform.records`."""
+    collections: RelatedManager[Collection] = models.ManyToManyField(
         Collection, through="CollectionRecord", related_name="records"
     )
-    """Collections annotated by this record."""
-    projects: Project
-    """Projects that annotate this record."""
-    references: Reference
-    """References that annotate this record."""
-    linked_transforms: Transform
-    """Transforms linked in this record as values."""
-    linked_runs: Run
-    """Runs linked in this record as values."""
-    linked_ulabels: ULabel
-    """ULabels linked in this record as values."""
-    linked_artifacts: Artifact
-    """Artifacts linked in this record as values."""
-    linked_projects: Project
-    """Projects linked in this record as values."""
-    linked_references: Reference
-    """References linked in this record as values."""
-    linked_collections: Collection
-    """Collections linked in this record as values."""
-    linked_users: User
-    """Users linked in this record as values."""
+    """Collections annotated by this record ← :attr:`~lamindb.Collection.records`."""
+    projects: RelatedManager[Project]
+    """Projects that annotate this record ← :attr:`~lamindb.Project.records`."""
+    references: RelatedManager[Reference]
+    """References that annotate this record ← :attr:`~lamindb.Reference.records`."""
+    linked_transforms: RelatedManager[Transform]
+    """Transforms linked in this record as values ← :attr:`~lamindb.Transform.linked_in_records`."""
+    linked_runs: RelatedManager[Run]
+    """Runs linked in this record as values ← :attr:`~lamindb.Run.linked_in_records`."""
+    linked_ulabels: RelatedManager[ULabel]
+    """ULabels linked in this record as values ← :attr:`~lamindb.ULabel.linked_in_records`."""
+    linked_artifacts: RelatedManager[Artifact]
+    """Artifacts linked in this record as values ← :attr:`~lamindb.Artifact.linked_in_records`."""
+    linked_projects: RelatedManager[Project]
+    """Projects linked in this record as values ← :attr:`~lamindb.Project.linked_in_records`."""
+    linked_references: RelatedManager[Reference]
+    """References linked in this record as values ← :attr:`~lamindb.Reference.linked_in_records`."""
+    linked_collections: RelatedManager[Collection]
+    """Collections linked in this record as values ← :attr:`~lamindb.Collection.linked_in_records`."""
+    linked_users: RelatedManager[User]
+    """Users linked in this record as values ← :attr:`~lamindb.User.linked_in_records`."""
     ablocks: RecordBlock
-    """Blocks that annotate this record."""
+    """Blocks that annotate this record ← :attr:`~lamindb.RecordBlock.record`."""
     values_json: RecordJson
     """JSON values `(record_id, feature_id, value)`."""
     values_record: RecordRecord
@@ -301,7 +306,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
     @overload
     def __init__(
         self,
-        name: str,
+        name: str | None = None,
         type: Record | None = None,
         is_type: bool = False,
         description: str | None = None,

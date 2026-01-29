@@ -147,6 +147,29 @@ jobs:
           name: docs-${{ matrix.group }}
           path: ./docs/${{ matrix.group }}
 
+  profile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      LAMIN_API_KEY: ${{ secrets.LAMIN_API_KEY_TESTUSER1 }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: |
+            ${{ github.ref == 'refs/heads/release' && '3.11' ||
+                '3.13'
+                }}
+      - run: pip install git+https://github.com/laminlabs/laminci
+      - run: nox -s "install_ci(group='unit-core-sqlite')"
+      - run: uv pip install --system git+https://github.com/laminlabs/laminprofiler
+      - run: lamin login
+      - run: lamin connect laminlabs/lamindata
+      - run: laminprofiler check tests/profiling/import_lamindb.py --threshold 3.4
+
   docs:
     needs: test
     runs-on: ubuntu-latest

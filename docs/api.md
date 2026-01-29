@@ -17,5 +17,5 @@ lamindb
 :hidden:
 
 bionty
-wetlab
+pertdb
 ```

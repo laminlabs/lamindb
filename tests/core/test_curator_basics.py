@@ -578,7 +578,7 @@ def test_pandera_dataframe_schema(
 
 def test_schema_not_saved(df):
     """Attempting to validate an unsaved Schema must error."""
-    feature = ln.Feature(name="cell_type", dtype="str").save()
+    feature = ln.Feature(name="cell_type", dtype=str).save()
     schema = ln.Schema(features=[feature])
 
     with pytest.raises(ValueError) as excinfo:
@@ -888,7 +888,7 @@ def test_wrong_datatype(df):
         excinfo.value
     )
     assert (
-        "Hint: Consider setting 'coerce=True' to attempt coercing/converting values during validation to the pre-defined dtype."
+        "Hint: Consider setting `feature.coerce = True` to attempt coercing values during validation to the required dtype."
         in str(excinfo.value)
     )
 

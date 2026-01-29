@@ -57,7 +57,7 @@ def file_fcs_alpert19(populate_registries: bool = False) -> Path:  # pragma: no 
 
 
 def file_jpg_paradisi05() -> Path:
-    """Return jpg file example.
+    """JPG file example.
 
     Originally from: https://upload.wikimedia.org/wikipedia/commons/2/28/Laminopathic_nuclei.jpg
     """
@@ -140,13 +140,12 @@ def dir_iris_images() -> UPath:  # pragma: no cover
 
     Provenance: https://lamin.ai/laminlabs/lamindata/transform/3q4MpQxRL2qZ5zKv
 
-    The problem is that the same artifact was also ingested by the downstream
-    demo notebook:
+    The problem is that the same artifact was also ingested by the downstream demo notebook:
     https://lamin.ai/laminlabs/lamindata/transform/NJvdsWWbJlZS5zKv
 
     This is why on the UI, the artifact shows up as output of the downstream
-    demo notebook rather than the upstream curation notebook. The lineage
-    information should still be captured by
+    demo notebook rather than the upstream curation notebook.
+    The lineage information should still be captured by
     https://github.com/laminlabs/lnschema-core/blob/a90437e91dfbd6b9002f18c3e978bd0f9c9a632d/lamindb/models.py#L2050-L2052
     but we don't use this in the UI yet.
     """
@@ -354,7 +353,7 @@ def anndata_suo22_Visium10X():  # pragma: no cover
 
 
 def mudata_papalexi21_subset(with_uns: bool = False) -> MuData:  # pragma: no cover
-    """A subsetted mudata from papalexi21.
+    """A subsetted MuData from papalexi21.
 
     To reproduce the subsetting:
         >>> !wget https://figshare.com/ndownloader/files/36509460
@@ -503,13 +502,13 @@ def df_iris_in_meter_study2() -> pd.DataFrame:
 
 def dir_scrnaseq_cellranger(
     sample_name: str, basedir: str | Path = "./", output_only: bool = True
-):  # pragma: no cover
-    """Generate mock cell ranger outputs.
+) -> Path:  # pragma: no cover
+    """Mock cell ranger outputs.
 
     Args:
         sample_name: name of the sample
         basedir: run directory
-        output_only: only generate output files
+        output_only: only return output files
     """
     basedir = Path(basedir)
 

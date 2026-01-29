@@ -4,25 +4,24 @@
 [![pypi](https://img.shields.io/pypi/v/lamindb?color=blue&label=pypi%20package)](https://pypi.org/project/lamindb)
 [![PyPI Downloads](https://img.shields.io/pepy/dt/lamindb?logo=pypi)](https://pepy.tech/project/lamindb)
 
-# LaminDB - A data framework for biology
+# LaminDB
 
-Makes your data queryable, traceable, reproducible, and FAIR. One API: lakehouse, lineage, feature store, ontologies, LIMS, ELN.
+LaminDB is an open-source data framework for biology to query, trace, and validate datasets and models at scale.
+With one API, you get: lakehouse, lineage, feature store, ontologies, bio-registries & formats.
 
 <details>
 <summary>Why?</summary>
 
-Reproducing analytical results or understanding how a dataset or model was created can be a pain.
-Training models on historical data, LIMS & ELN systems, orthogonal assays, or datasets from other teams is even harder.
-Even maintaining an overview of a project's datasets & analyses is more difficult than it should be.
+Reproducing results and understanding how a dataset or model was created is now more important than ever, but was a struggle even before the age of agents.
+Training models across thousands of datasets — from LIMS and ELNs to orthogonal assays and cross-team silos — is now a big learning opportunity, but has historically been impossible.
+While code has git and tables have data warehouses, biological data has lacked a dedicated, API-first management framework to ensure quality and queryability.
 
-Biological datasets are typically managed with versioned storage systems, GUI-focused platforms, structureless data lakes, rigid data warehouses (SQL, monolithic arrays), or tabular lakehouses.
-
-LaminDB extends the lakehouse architecture to biological registries & datasets beyond tables (`DataFrame`, `AnnData`, `.zarr`, `.tiledbsoma`, …).
-It provides enough structure to enable queries across many datasets, enough freedom to keep the pace of R&D high, and rich context in form of data lineage and metadata for humans and AI.
+LaminDB fills the gap with a lineage-native data lakehouse that understands bio-registries and formats (`AnnData`, `.zarr`, …) to enable scaled learning operations.
+It provides queries across many datasets with enough freedom to maintain high-paced R&D while automating rich context on top of versioning, change management, and other industry standards.
 
 </details>
 
-<img width="800px" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/BunYmHkyFLITlM5M0005.png">
+<img width="800px" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/BunYmHkyFLITlM5M000C.svg">
 
 Highlights:
 
@@ -31,11 +30,13 @@ Highlights:
 - **feature store** → manage features & labels; leverage batch loading
 - **FAIR datasets** → validate & annotate `DataFrame`, `AnnData`, `SpatialData`, `parquet`, `zarr`, …
 - **LIMS & ELN** → manage experimental metadata, ontologies & markdown notes
-- **unified access** → storage locations (local, S3, GCP, …), SQL databases (Postgres, SQLite) & ontologies
-- **reproducible** → auto-track source code & compute environments, auto-version data, code & reports
-- **zero lock-in & scalable** → runs in your infrastructure; not a client for a rate-limited REST API
+- **unified access** → single API for storage locations (local, S3, GCP, …), SQL databases (Postgres, SQLite) & ontologies
+- **reproducible** → auto-track source code & compute environments with data, code & report versioning
+- **zero lock-in** → runs in your infrastructure on open standards (Postgres, SQLite, `parquet`, `zarr`, etc.)
+- **scalable** → you hit storage & database directly through your `pydata` or R stack, no REST API involved
+- **simple** → just `pip install` a Python package
 - **integrations** → [vitessce](https://docs.lamin.ai/vitessce), [nextflow](https://docs.lamin.ai/nextflow), [redun](https://docs.lamin.ai/redun), and [more](https://docs.lamin.ai/integrations)
-- **extendable** → create custom plug-ins based on the Django ORM
+- **extensible** → create custom plug-ins based on the Django ORM
 
 If you want a GUI: [LaminHub](https://lamin.ai) is a data collaboration hub built on LaminDB similar to how GitHub is built on git.
 
@@ -67,7 +68,7 @@ pip install lamindb
 
 ### Query databases
 
-Browse databases at [lamin.ai/explore](https://lamin.ai/explore), e.g., [lamin.ai/laminlabs/cellxgene](https://lamin.ai/laminlabs/cellxgene). To query it:
+You can browse public databases at [lamin.ai/explore](https://lamin.ai/explore). To query [laminlabs/cellxgene](https://lamin.ai/laminlabs/cellxgene), run:
 
 ```python
 import lamindb as ln
@@ -76,16 +77,19 @@ db = ln.DB("laminlabs/cellxgene")  # a database object for queries
 df = db.Artifact.to_dataframe()    # a dataframe listing datasets & models
 ```
 
-Let's get [a dataset](https://lamin.ai/laminlabs/cellxgene/artifact/BnMwC3KZz0BuKftR) for Alzheimer's disease:
+To get a [specific dataset](https://lamin.ai/laminlabs/cellxgene/artifact/BnMwC3KZz0BuKftR), run:
 
 ```python
 artifact = db.Artifact.get("BnMwC3KZz0BuKftR")  # a metadata object for a dataset
-artifact.describe()                             # describe metadata
+artifact.describe()                             # describe the context of the dataset
 ```
 
-<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/mxlUQiRLMU4Zos6k0000.png" width="550">
+<details>
+<summary>See the output.</summary>
+<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/mxlUQiRLMU4Zos6k0001.png" width="550">
+</details>
 
-Access the content of the artifact via:
+Access the content of the dataset via:
 
 ```python
 local_path = artifact.cache()  # return a local path from a cache
@@ -93,19 +97,11 @@ adata = artifact.load()        # load object into memory
 accessor = artifact.open()     # return a streaming accessor
 ```
 
-If you want to query other types of entities, e.g., diseases, here is how to do it:
+You can query 14 built-in registries (`Artifact`, `Storage`, `Feature`, `Record`, etc.) and additional registries via plug-ins (e.g. in `bionty`, 13 registries for biological entities via `Disease`, `CellType`, `Tissue`, etc. mapping >20 public ontologies), for example:
 
 ```python
-diseases = db.bionty.Disease.lookup()    # a lookup object to auto-complete diseases
-df = db.Artifact.filter(
-    diseases=diseases.alzheimer_disease  # filter by fields
-).to_dataframe()
-```
-
-This is how you can query 14 built-in registries in `lamindb` (`Artifact`, `Storage`, `Feature`, `Record`, etc.) and 13 biological entities in `bionty` (`Disease`, `CellType`, `Tissue`, etc.) mapping >20 public ontologies. To learn what you can query by, call:
-
-```python
-db.Artifact.describe()
+diseases = db.bionty.Disease.lookup()  # a lookup object to auto-complete diseases
+df = db.Artifact.filter(diseases=diseases.alzheimer_disease).to_dataframe()  # filter by fields
 ```
 
 ### Configure your database
@@ -134,11 +130,13 @@ To save a file or folder from the command line, run:
 lamin save myfile.txt --key examples/myfile.txt
 ```
 
-To load the file, run:
+To sync a file into a local cache (artifacts) or development directory (transforms), run:
 
 ```shell
 lamin load --key examples/myfile.txt
 ```
+
+Read more: [docs.lamin.ai/cli](https://docs.lamin.ai/cli).
 
 ### Lineage
 
@@ -158,24 +156,17 @@ Running this snippet as a script (`python create-fasta.py`) produces the followi
 
 ```python
 artifact = ln.Artifact.get(key="sample.fasta")  # get artifact by key
-artifact.view_lineage()
+artifact.describe()      # general context of the artifact
+artifact.view_lineage()  # fine-grained lineage
 ```
 
-<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/EkQATsQL5wqC95Wj0006.png" width="200">
+<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/BOTCBgHDAvwglN3U0004.png" width="550"> <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/EkQATsQL5wqC95Wj0006.png" width="140">
 
-You'll know how that artifact was created and what it's used for.
-
-```python
-artifact.describe()
-```
-
-<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/BOTCBgHDAvwglN3U0004.png" width="550">
-
-Here is how to access the data lineage context:
+Here is how to access the generating `run` and `transform` objects programmatically:
 
 ```python
-run = artifact.run                  # get the run record
-transform = artifact.run.transform  # get the transform record
+run = artifact.run              # get the run object
+transform = artifact.transform  # get the transform object
 ```
 
 <details>
@@ -194,7 +185,7 @@ transform.describe()
 <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/JYwmHBbgf2MRCfgL0000.png" width="550" />
 </details>
 
-### Lake: labeling & queries by fields
+### Labeling & queries by fields
 
 You can label an artifact by running:
 
@@ -214,9 +205,9 @@ ln.Artifact.filter(ulabels=my_label, projects=project).to_dataframe()
 You can also query by the metadata that lamindb automatically collects:
 
 ```python
-ln.Artifact.filter(run=run).to_dataframe()                # query all artifacts created by a run
-ln.Artifact.filter(transform=transform).to_dataframe()    # query all artifacts created by a transform
-ln.Artifact.filter(size__gt=1e6).to_dataframe()           # query all artifacts bigger than 1MB
+ln.Artifact.filter(run=run).to_dataframe()              # query artifacts created by a run
+ln.Artifact.filter(transform=transform).to_dataframe()  # query artifacts created by a transform
+ln.Artifact.filter(size__gt=1e6).to_dataframe()         # query artifacts bigger than 1MB
 ```
 
 If you want to include more information into the resulting dataframe, pass `include`.
@@ -227,7 +218,7 @@ ln.Artifact.to_dataframe(include=["created_by__name", "storage__root"])  # inclu
 
 Note: The query syntax for `DB` objects and for your default database is the same.
 
-### Lake: rich annotation & queries by features
+### Queries by features
 
 You can annotate datasets and samples with features. Let's define some:
 
@@ -236,7 +227,7 @@ from datetime import date
 
 ln.Feature(name="gc_content", dtype=float).save()
 ln.Feature(name="experiment_note", dtype=str).save()
-ln.Feature(name="experiment_date", dtype=date).save()
+ln.Feature(name="experiment_date", dtype=date, coerce=True).save()  # accept date strings
 ```
 
 During annotation, feature names and data types are validated against these definitions:
@@ -249,7 +240,7 @@ artifact.features.add_values({
 })
 ```
 
-Now that the data is annotated, you can query for it:
+Query for it:
 
 ```python
 ln.Artifact.filter(experiment_date="2025-10-24").to_dataframe()  # query all artifacts annotated with `experiment_date`
@@ -266,12 +257,12 @@ ln.Artifact.to_dataframe(include="features")  # include the feature annotations
 You can create records for the entities underlying your experiments: samples, perturbations, instruments, etc., for example:
 
 ```python
-sample = ln.Record(name="Sample", is_type=True).save()  # type sample
+sample = ln.Record(name="Sample", is_type=True).save()  # create entity type: Sample
 ln.Record(name="P53mutant1", type=sample).save()        # sample 1
 ln.Record(name="P53mutant2", type=sample).save()        # sample 2
 ```
 
-Define the corresponding features and annotate:
+Define features and annotate an artifact with a sample:
 
 ```python
 ln.Feature(name="design_sample", dtype=sample).save()
@@ -284,11 +275,11 @@ You can query & search the `Record` registry in the same way as `Artifact` or `R
 ln.Record.search("p53").to_dataframe()
 ```
 
-You can also create relationships of entities and -- if you connect your LaminDB instance to LaminHub -- edit them like Excel sheets in a GUI.
+You can also create relationships of entities and edit them like Excel sheets in a GUI via LaminHub.
 
-### Lake: versioning
+### Data versioning
 
-If you change source code or datasets, LaminDB manages their versioning for you.
+If you change source code or datasets, LaminDB manages versioning for you.
 Assume you run a new version of our `create-fasta.py` script to create a new version of `sample.fasta`.
 
 ```python
@@ -300,7 +291,7 @@ ln.Artifact("sample.fasta", key="sample.fasta", features={"design_sample": "P53m
 ln.finish()
 ```
 
-If you now query by `key`, you'll get the latest version of this artifact.
+If you now query by `key`, you'll get the latest version of this artifact with the latest version of the source code linked with previous versions of artifact and source code are easily queryable:
 
 ```python
 artifact = ln.Artifact.get(key="sample.fasta")  # get artifact by key
@@ -323,7 +314,7 @@ df = pd.DataFrame({
 ln.Artifact.from_dataframe(df, key="my_datasets/sequences.parquet").save()  # no validation
 ```
 
-To validate & annotate the content of the dataframe, use a built-in `schema`:
+To validate & annotate the content of the dataframe, use the built-in schema `valid_features`:
 
 ```python
 ln.Feature(name="sequence_str", dtype=str).save()  # define a remaining feature
@@ -335,11 +326,11 @@ artifact = ln.Artifact.from_dataframe(
 artifact.describe()
 ```
 
-Now you know which schema the dataset satisfies. You can filter for datasets by schema and then launch distributed queries and batch loading.
+You can filter for datasets by schema and then launch distributed queries and batch loading.
 
 ### Lakehouse beyond tables
 
-To validate an `AnnData` with a built-in `schema` call:
+To validate an `AnnData` with built-in schema `ensembl_gene_ids_and_valid_features_in_obs`, call:
 
 ```python
 import anndata as ad
@@ -350,7 +341,6 @@ adata = ad.AnnData(
     obs=pd.DataFrame({'cell_type_by_model': ['T cell', 'B cell', 'NK cell'] * 7}),
     var=pd.DataFrame(index=[f'ENSG{i:011d}' for i in range(10)])
 )
-
 artifact = ln.Artifact.from_anndata(
     adata,
     key="my_datasets/scrna.h5ad",
@@ -359,11 +349,11 @@ artifact = ln.Artifact.from_anndata(
 artifact.describe()
 ```
 
-To validate a `spatialdata` or any other array-like dataset, you need to construct a `Schema`. You can do this by composing the schema of a complicated object from simple `pandera`/`pydantic`-like schemas: [docs.lamin.ai/curate](https://docs.lamin.ai/curate).
+To validate a `spatialdata` or any other array-like dataset, you need to construct a `Schema`. You can do this by composing the schema of a complicated object from simple `pandera`-style schemas: [docs.lamin.ai/curate](https://docs.lamin.ai/curate).
 
 ### Ontologies
 
-Plugin `bionty` gives you >20 of them as `SQLRecord` registries. This was used to validate the `ENSG` ids in the `adata` just before.
+Plugin `bionty` gives you >20 public ontologies as `SQLRecord` registries. This was used to validate the `ENSG` ids in the `adata` just before.
 
 ```python
 import bionty as bt
@@ -372,11 +362,13 @@ bt.CellType.import_source()  # import the default ontology
 bt.CellType.to_dataframe()   # your extendable cell type ontology in a simple registry
 ```
 
-### Workflow managers
+Read more: [docs.lamin.ai/manage-ontologies](https://docs.lamin.ai/manage-ontologies).
 
-LaminDB is not a workflow manager, but it integrates well with existing workflow managers and can subsitute them in some settings.
+### Workflow management
 
-In [github.com/laminlabs/schmidt22](https://github.com/laminlabs/schmidt22) we manage several workflows, scripts, and notebooks to re-construct the project of [Schmidt _el al._ (2022)](https://pubmed.ncbi.nlm.nih.gov/35113687/). A phenotypic CRISPRa screening result is integrated with scRNA-seq data. Here is one of the input artifacts:
+LaminDB integrates well with computational workflow/pipeline managers, e.g. with Nextflow or redun: [docs.lamin.ai/pipelines](https://docs.lamin.ai/pipelines)
+
+In some cases, LaminDB can offer a simpler alternative. In [github.com/laminlabs/schmidt22](https://github.com/laminlabs/schmidt22) we manage several workflows, scripts, and notebooks to re-construct the project of [Schmidt _el al._ (2022)](https://pubmed.ncbi.nlm.nih.gov/35113687/). A phenotypic CRISPRa screening result is integrated with scRNA-seq data. Here is one of the input artifacts:
 
 <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/JvLaK9Icj11eswQn0000.png" width="850">
 
@@ -385,5 +377,3 @@ And here is the lineage of the final result:
 <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/KQmzmmLOeBN0C8Yk0004.png" width="850">
 
 You can explore it [here](https://lamin.ai/laminlabs/lamindata/artifact/W1AiST5wLrbNEyVq0001).
-
-If you'd like to integrate with Nextflow, Snakemake, or redun, see here: [docs.lamin.ai/pipelines](https://docs.lamin.ai/pipelines)

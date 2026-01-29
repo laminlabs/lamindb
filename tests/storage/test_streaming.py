@@ -299,6 +299,22 @@ def test_from_lazy():
     artifact.delete(permanent=True, storage=True)
 
 
+def test_from_lazy_cloud():
+    previous_storage = ln.setup.settings.storage.root_as_str
+    ln.settings.storage = "s3://lamindb-test/storage"
+    lazy = ln.Artifact.from_lazy(
+        suffix=".zarr", overwrite_versions=True, key="stream_test.zarr"
+    )
+    store = zarr.storage.FsspecStore.from_url(lazy.path.as_posix())
+    group = zarr.open(store, mode="w")
+    group["ones"] = np.ones(3)
+    artifact = lazy.save()
+    access = artifact.open()
+    np.testing.assert_array_equal(access.storage["ones"][...], np.ones(3))
+    artifact.delete(permanent=True, storage=True)
+    ln.settings.storage = previous_storage
+
+
 @pytest.mark.parametrize("storage", [None, "s3://lamindb-test/storage"])
 def test_write_read_tiledbsoma(storage):
     if storage is not None:

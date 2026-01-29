@@ -112,7 +112,7 @@ def save(
                 if getattr(record, "_local_filepath", None) is not None and getattr(
                     record, "_to_store", False
                 ):
-                    record._storage_completed = False
+                    record._storage_ongoing = True
                 record._save_skip_storage()
         using_key = settings._using_key
         store_artifacts(artifacts, using_key=using_key)
@@ -420,16 +420,15 @@ def store_artifacts(
 
         stored_artifacts += [artifact]
         # update to show successful saving
-        # only update if _storage_completed was set to False before
+        # only update if _storage_ongoing was set to True before
         # this should be a single transaction for the updates of all the artifacts
-        # but then it would just abort all artifacts, even successfully saved before
+        # but then it would just abort all artifacts, even those successfully stored before
         # TODO: there should also be some kind of exception handling here
-        # but this requires proper refactoring
-        if artifact._storage_completed is False:
-            artifact._storage_completed = None  # None indicates "not False" and removes the data from the JSON field
-            super(
-                Artifact, artifact
-            ).save()  # each .save is a separate transaction here
+        # but this requires refactoring
+        if artifact._storage_ongoing:
+            artifact._storage_ongoing = False
+            # each .save() is a separate transaction below
+            super(Artifact, artifact).save()
         # if check_and_attempt_upload was successful
         # then this can have only ._clear_storagekey from .replace
         exception = check_and_attempt_clearing(

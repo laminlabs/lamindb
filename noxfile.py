@@ -96,7 +96,7 @@ def install_ci(session, group):
         run(session, "uv pip install --system xarray-dataclasses")
         run(session, "uv pip install --system spatialdata")
     elif group == "unit-storage":
-        extras += "zarr_v2,gcp"
+        extras += "gcp"
         run(session, "uv pip install --system huggingface_hub")
         # tiledbsoma dependency, specifying it here explicitly
         # otherwise there are problems with uv resolver
@@ -118,13 +118,13 @@ def install_ci(session, group):
         extras += "zarr_v2"
         run(
             session,
-            "uv pip install --system --no-deps ./sub/wetlab",
+            "uv pip install --system --no-deps ./sub/pertdb",
         )
         run(session, "uv pip install --system vitessce")
     elif group == "curator":
         run(
             session,
-            "uv pip install --system --no-deps ./sub/wetlab",
+            "uv pip install --system --no-deps ./sub/pertdb",
         )
         # spatialdata dependency, specifying it here explicitly
         # otherwise there are problems with uv resolver
@@ -147,7 +147,7 @@ def install_ci(session, group):
         )
         run(
             session,
-            "uv pip install --system --no-deps ./sub/wetlab",
+            "uv pip install --system --no-deps ./sub/pertdb",
         )
     elif group == "cli":
         pass
@@ -165,7 +165,7 @@ def install_ci(session, group):
     if IS_PR or group == "docs":
         run(
             session,
-            "uv pip install --system ./sub/lamindb-setup ./sub/lamin-cli ./sub/bionty ./sub/wetlab",
+            "uv pip install --system ./sub/lamindb-setup ./sub/lamin-cli ./sub/bionty ./sub/pertdb",
         )
     if group == "permissions":
         # have to install after lamindb installation
@@ -350,10 +350,22 @@ def clidocs(session):
                     help_string = help_dict["help"].replace("Usage: main", "lamin")
                     help_docstring = help_dict["docstring"]
 
+                    pyr_alt_delimiter = "→ Python/R alternative:"
+
+                    if pyr_alt_delimiter in help_docstring:
+                        help_docstring, pyr_alt_string = help_docstring.split(
+                            pyr_alt_delimiter
+                        )
+                    else:
+                        pyr_alt_string = ""
+
                     page += f"### {command_name}\n\n"
                     if help_docstring:
-                        page += f"{help_docstring}\n\n"
-                    page += f"Usage:\n```text\n{help_string}\n```\n\n"
+                        page += f"{help_docstring}\n"
+                    command_block = f"```text\n{help_string}\n```"
+                    page += f"\n\nOptions:\n\n{command_block}\n\n"
+                    if pyr_alt_string:
+                        page += f"{pyr_alt_delimiter}{pyr_alt_string}\n\n"
 
         # Add any remaining commands that aren't in groups
         remaining_commands = []
@@ -420,7 +432,7 @@ def docs(session):
                 path.rename(f"./docs/{path.name}")
     run(
         session,
-        "lamin init --storage ./docsbuild --modules bionty,wetlab",
+        "lamin init --storage ./docsbuild --modules bionty,pertdb",
     )
     build_docs(session, strip_prefix=True, strict=False)
     upload_docs_artifact(aws=True)

@@ -36,6 +36,8 @@ from django.db.models.functions import Lower
 from lamin_utils import colors, logger
 from lamindb_setup import settings as setup_settings
 from lamindb_setup._connect_instance import (
+    INSTANCE_NOT_FOUND_MESSAGE,
+    InstanceNotFoundError,
     get_owner_name_from_identifier,
     load_instance_settings,
     update_db_using_local,
@@ -471,8 +473,9 @@ def delete_record(record: BaseSQLRecord, is_soft: bool = True):
         if is_soft:
             record.branch_id = -1
             record.save()
+            return None
         else:
-            super(BaseSQLRecord, record).delete()
+            return super(BaseSQLRecord, record).delete()
 
     # deal with versioned records
     # if _ovewrite_version = True, there is only a single version and
@@ -496,11 +499,11 @@ def delete_record(record: BaseSQLRecord, is_soft: bool = True):
                 record.is_latest = False
             with transaction.atomic():
                 new_latest.save()
-                delete()
+                result = delete()
             logger.important_hint(f"new latest version is: {new_latest}")
-            return None
+            return result
     # deal with all other cases of the nested if condition now
-    delete()
+    return delete()
 
 
 RECORD_REGISTRY_EXAMPLE = """Example::
@@ -669,7 +672,7 @@ class Registry(ModelBase):
             expressions: Fields and values passed as Django query expressions.
 
         Raises:
-            :exc:`lamindb.errors.DoesNotExist`: In case no matching record is found.
+            :exc:`lamindb.errors.ObjectDoesNotExist`: In case no matching record is found.
 
         See Also:
             - Guide: :doc:`registries`
@@ -807,9 +810,10 @@ class Registry(ModelBase):
         if not settings_file.exists():
             result = connect_instance_hub(owner=owner, name=name)
             if isinstance(result, str):
-                raise RuntimeError(
-                    f"Failed to load instance {instance}, please check your permissions!"
+                message = INSTANCE_NOT_FOUND_MESSAGE.format(
+                    owner=owner, name=name, hub_result=result
                 )
+                raise InstanceNotFoundError(message)
             iresult, storage = result
             # this can happen if querying via an old instance name
             if [iresult.get("owner"), iresult["name"]] == current_instance_owner_name:
@@ -929,6 +933,11 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
         abstract = True
         base_manager_name = "objects"
 
+    # fields to track for changes
+    # if not None, will be tracked in self._original_values as {field_name: value}
+    # use _id fields for foreign keys
+    _TRACK_FIELDS: tuple[str, ...] | None = None
+
     def __init__(self, *args, **kwargs):
         skip_validation = kwargs.pop("_skip_validation", False)
         if not args:
@@ -1031,6 +1040,8 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                             )
                             init_self_from_db(self, existing_record)
                             update_attributes(self, kwargs)
+                            # track original values after replacing with the existing record
+                            self._populate_tracked_fields()
                             return None
                 super().__init__(**kwargs)
                 if isinstance(self, ValidateFields):
@@ -1049,7 +1060,34 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
             )
         else:
             super().__init__(*args)
+        # track original values of fields that are tracked for changes
+        self._populate_tracked_fields()
+        # TODO: refactor to use _TRACK_FIELDS
         track_current_key_and_name_values(self)
+
+    # used in __init__
+    # populates the _original_values dictionary with the original values of the tracked fields
+    def _populate_tracked_fields(self):
+        if (track_fields := self._TRACK_FIELDS) is not None:
+            self._original_values = {f: self.__dict__[f] for f in track_fields}
+        else:
+            self._original_values = None
+
+    def _field_changed(self, field_name: str) -> bool:
+        """Check if the field has changed since the record was saved."""
+        # use _id fields for foreign keys in field_name
+        if self._state.adding:
+            return False
+        # check if the field is tracked for changes
+        track_fields = self._TRACK_FIELDS
+        assert track_fields is not None, (
+            "_TRACK_FIELDS must be set for the record to track changes"
+        )
+        assert field_name in track_fields, (
+            f"Field {field_name} is not tracked for changes"
+        )
+        # check if the field has changed since the record was created
+        return self._original_values[field_name] != self.__dict__[field_name]
 
     def save(self: T, *args, **kwargs) -> T:
         """Save.
@@ -1086,6 +1124,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
         if pre_existing_record is not None:
             init_self_from_db(self, pre_existing_record)
         else:
+            # TODO: refactor to use _TRACK_FIELDS
             check_key_change(self)
             check_name_change(self)
             try:
@@ -1301,11 +1340,15 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
     def __str__(self) -> str:
         return self.__repr__()
 
-    def delete(self, permanent: bool | None = None) -> None:
+    def delete(self, permanent: bool | None = None):
         """Delete.
 
         Args:
             permanent: For consistency, `False` raises an error, as soft delete is impossible.
+
+        Returns:
+            When `permanent=True`, returns Django's delete return value: a tuple of
+            (deleted_count, {registry_name: count}). Otherwise returns None.
         """
         if permanent is False:
             raise ValueError(
@@ -1313,7 +1356,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                 "use 'permanent=True' or 'permanent=None' for permanent deletion."
             )
 
-        delete_record(self, is_soft=False)
+        return delete_record(self, is_soft=False)
 
 
 class Space(BaseSQLRecord):
@@ -1336,7 +1379,7 @@ class Space(BaseSQLRecord):
             record.space = space
             record.save()  # saved in space "Our space"
 
-        For more examples and background, see :doc:`docs:access`, in particular, section :ref:`docs:use-a-restricted-space`.
+        For more examples and background, see :doc:`docs:permissions`, in particular, section :ref:`docs:use-a-restricted-space`.
 
     Notes:
 
@@ -1413,7 +1456,17 @@ class Space(BaseSQLRecord):
 class Branch(BaseSQLRecord):
     """Branches for change management with archive and trash states.
 
-    Every `SQLRecord` has a `branch` field, which dictates where a record appears in queries & searches.
+    There are 3 pre-defined branches: `main`, `trash`, and `archive`.
+
+    You can create branches similar to `git` via `lamin create --branch my_branch`.
+
+    To add objects to that new branch rather than the `main` branch, run `lamin switch --branch my_branch`.
+
+    To merge a set of artifacts on the `"my_branch"` branch to the main branch, run::
+
+        ln.Artifact.filter(branch__name="my_branch").update(branch_id=1)
+
+    If you delete an object via `sqlrecord.delete()`, it gets moved to the `trash` branch and scheduled for deletion.
     """
 
     class Meta:
@@ -1489,13 +1542,13 @@ class Branch(BaseSQLRecord):
 
 @doc_args(RECORD_REGISTRY_EXAMPLE)
 class SQLRecord(BaseSQLRecord, metaclass=Registry):
-    """Metadata record.
+    """An object that maps to a row in a SQL table in the database.
 
     Every `SQLRecord` is a data model that comes with a registry in form of a SQL
     table in your database.
 
     Sub-classing `SQLRecord` creates a new registry while instantiating a `SQLRecord`
-    creates a new record.
+    creates a new object.
 
     {}
 
@@ -1515,14 +1568,11 @@ class SQLRecord(BaseSQLRecord, metaclass=Registry):
         db_column="branch_id",
         related_name="+",
     )
-    """Life cycle state of record.
-
-    `branch.name` can be "main" (default branch), "trash" (trash), `branch.name = "archive"` (archived), or any other user-created branch typically planned for merging onto main after review.
-    """
+    """The branch."""
     space: Space = ForeignKey(Space, PROTECT, default=1, db_default=1, related_name="+")
-    """The space in which the record lives."""
+    """The space."""
     is_locked: bool = BooleanField(default=False, db_default=False)
-    """Whether the record is locked for edits."""
+    """Whether the object is locked for edits."""
     _aux: dict[str, Any] | None = JSONField(default=None, db_default=None, null=True)
     """Auxiliary field for dictionary-like metadata."""
 
@@ -1532,29 +1582,33 @@ class SQLRecord(BaseSQLRecord, metaclass=Registry):
     def restore(self) -> None:
         """Restore from trash onto the main branch.
 
-        Does **not** restore descendant records if the record is `HasType` with `is_type = True`.
+        Does **not** restore descendant objects if the object is `HasType` with `is_type = True`.
         """
         self.branch_id = 1
         self.save()
 
-    def delete(self, permanent: bool | None = None, **kwargs) -> None:
-        """Delete record.
+    def delete(self, permanent: bool | None = None, **kwargs):
+        """Delete object.
 
-        If record is `HasType` with `is_type = True`, deletes all descendant records, too.
+        If object is `HasType` with `is_type = True`, deletes all descendant objects, too.
 
         Args:
-            permanent: Whether to permanently delete the record (skips trash).
-                If `None`, performs soft delete if the record is not already in the trash.
+            permanent: Whether to permanently delete the object (skips trash).
+                If `None`, performs soft delete if the object is not already in the trash.
+
+        Returns:
+            When `permanent=True`, returns Django's delete return value: a tuple of
+            (deleted_count, {registry_name: count}). Otherwise returns None.
 
         Examples:
 
-            For any `SQLRecord` object `record`, call:
+            For any `SQLRecord` object `sqlrecord`, call::
 
-            >>> record.delete()
+                sqlrecord.delete()
         """
         if self._state.adding:
             logger.warning("record is not yet saved, delete has no effect")
-            return
+            return None
         name_with_module = self.__class__.__get_name_with_module__()
 
         if name_with_module == "Artifact":
@@ -1584,7 +1638,7 @@ class SQLRecord(BaseSQLRecord, metaclass=Registry):
                     child.delete()
             delete_record(self, is_soft=True)
             logger.important(f"moved record to trash: {self}")
-            return
+            return None
 
         # permanent delete
         if permanent is None:
@@ -1613,8 +1667,10 @@ class SQLRecord(BaseSQLRecord, metaclass=Registry):
                 delete_permanently(
                     self, storage=kwargs["storage"], using_key=kwargs["using_key"]
                 )
+                return None
             if name_with_module != "Artifact":
-                super().delete()
+                return super().delete()
+        return None
 
 
 def _format_django_validation_error(record: SQLRecord, e: DjangoValidationError):

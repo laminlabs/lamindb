@@ -73,7 +73,7 @@ def test_invalid_type_record_with_schema():
     schema.delete(permanent=True)
 
 
-# see test_artifact_features_annotations.py for similar test for Artifacts
+# see test_artifact_features_add_remove_query in test_artifact_external_features_annotations.py for similar test for Artifacts (populate and query by features)
 def test_record_features_add_remove_values():
     record_type1 = ln.Record(name="RecordType1", is_type=True).save()
     record_entity1 = ln.Record(name="entity1", type=record_type1).save()
@@ -118,7 +118,7 @@ def test_record_features_add_remove_values():
     test_record = ln.Record(name="test_record").save()
     test_project = ln.Project(name="test_project").save()
     hek293 = bt.CellLine.from_source(name="HEK293").save()
-    a549 = bt.CellLine.from_source(name="A549 cell").save()
+    a549 = bt.CellLine.from_source(name="A-549").save()
     tmem276 = bt.Gene.from_source(symbol="Tmem276", organism="mouse").save()
 
     # test feature.dtype_as_object
@@ -150,7 +150,7 @@ def test_record_features_add_remove_values():
     # no schema validation
     test_values = {
         "feature_bool": True,
-        "feature_str": "a string value",
+        "feature_str": "00810702-0006",  # this string value could be cast to datetime! don't change!
         "feature_list_str": ["a", "list", "of", "strings"],
         "feature_int": 42,
         "feature_list_int": [1, 2, 3],
@@ -167,9 +167,9 @@ def test_record_features_add_remove_values():
         "feature_user": ln.setup.settings.user.handle,
         "feature_project": "test_project",
         "feature_cell_line": "HEK293",
-        "feature_cell_lines": ["HEK293", "A549 cell"],
+        "feature_cell_lines": ["HEK293", "A-549"],
         "feature_gene": "Tmem276",
-        "feature_cl_ontology_id": "CLO:0001230",
+        "feature_cl_ontology_id": "CVCL_0045",
         "feature_artifact": "test-artifact",
         "feature_collection": "test-collection",
         "feature_run": run.uid,
@@ -177,6 +177,90 @@ def test_record_features_add_remove_values():
 
     test_record.features.add_values(test_values)
     assert test_record.features.get_values() == test_values
+
+    # --- Query by features (same data as above) ---
+    # Equality
+    assert ln.Record.filter(feature_str=test_values["feature_str"]).one() == test_record
+    assert ln.Record.filter(feature_int=42).one() == test_record
+    assert ln.Record.filter(feature_type1="entity1").one() == test_record
+    assert ln.Record.filter(feature_cell_line="HEK293").one() == test_record
+    assert (
+        ln.Record.filter(feature_str=test_values["feature_str"], feature_int=42).one()
+        == test_record
+    )
+    # Datetime and date (filter uses ISO strings as stored in JSON)
+    assert ln.Record.filter(feature_datetime="2024-01-01T12:00:00").one() == test_record
+    assert ln.Record.filter(feature_date="2024-01-01").one() == test_record
+    # __contains (categorical)
+    assert ln.Record.filter(feature_cell_line__contains="HEK").one() == test_record
+    assert ln.Record.filter(feature_type1__contains="entity").one() == test_record
+    # Invalid field
+    with pytest.raises(ln.errors.InvalidArgument) as error:
+        ln.Record.filter(feature_str_typo="x", feature_int=42).one()
+    assert error.exconly().startswith(
+        "lamindb.errors.InvalidArgument: You can query either by available fields:"
+    )
+    # DoesNotExist (no Record named "nonexistent_entity" exists)
+    with pytest.raises(ln.errors.ObjectDoesNotExist) as error:
+        ln.Record.filter(feature_type1="nonexistent_entity").one()
+    assert "Did not find" in error.exconly()
+
+    # Combined filter (3 keys)
+    assert (
+        ln.Record.filter(
+            feature_str=test_values["feature_str"],
+            feature_int=42,
+            feature_type1="entity1",
+        ).one()
+        == test_record
+    )
+    # Bionty: filter by record
+    assert ln.Record.filter(feature_cell_line=hek293).one() == test_record
+    # Bionty: filter by ontology_id string
+    assert ln.Record.filter(feature_cl_ontology_id="CVCL_0045").one() == test_record
+    # Bionty __contains (ontology_id)
+    assert (
+        ln.Record.filter(feature_cl_ontology_id__contains="0045").one() == test_record
+    )
+    # DoesNotExist (Record not found: feature_project)
+    with pytest.raises(ln.errors.ObjectDoesNotExist) as error:
+        ln.Record.filter(feature_project="nonexistent_project").one()
+    assert "Did not find" in error.exconly()
+    # __contains returns multiple (add second record, assert, then remove)
+    value_record = ln.Record(name="query_test_value_record").save()
+    value_record.features.add_values({"feature_type1": "entity2"})
+    assert len(ln.Record.filter(feature_type1__contains="entity")) == 2
+    value_record.features.remove_values("feature_type1")
+    value_record.delete(permanent=True)
+    # Numeric comparators __lt, __gt (int, float, num)
+    assert ln.Record.filter(feature_int__lt=21).one_or_none() is None
+    assert len(ln.Record.filter(feature_int__gt=21)) >= 1
+    # int __lt/__gt that would fail with string comparison (42 vs 5, 42 vs 100)
+    assert ln.Record.filter(feature_int__lt=5).one_or_none() is None
+    assert ln.Record.filter(feature_int__gt=100).one_or_none() is None
+    # float/num __lt/__gt (numeric comparison on SQLite via json_extract + CAST)
+    assert ln.Record.filter(feature_float__lt=5.0).one() == test_record
+    assert ln.Record.filter(feature_float__gt=1.0).one() == test_record
+    assert ln.Record.filter(feature_float__gt=10.0).one_or_none() is None
+    assert ln.Record.filter(feature_num__lt=5.0).one() == test_record
+    assert ln.Record.filter(feature_num__gt=1.0).one() == test_record
+    assert ln.Record.filter(feature_num__gt=10.0).one_or_none() is None
+    # Date and datetime comparators (ISO strings)
+    assert ln.Record.filter(feature_date__lt="2024-01-02").one() == test_record
+    assert ln.Record.filter(feature_date__gt="2023-12-31").one() == test_record
+    assert ln.Record.filter(feature_date__gt="2024-01-02").one_or_none() is None
+    assert (
+        ln.Record.filter(feature_datetime__lt="2024-01-01T13:00:00").one()
+        == test_record
+    )
+    assert (
+        ln.Record.filter(feature_datetime__gt="2024-01-01T11:00:00").one()
+        == test_record
+    )
+    assert (
+        ln.Record.filter(feature_datetime__lt="2024-01-01T11:00:00").one_or_none()
+        is None
+    )
 
     # ManyToMany accesors
 
@@ -276,7 +360,7 @@ def test_record_features_add_remove_values():
     df = sheet.to_dataframe()
     target_result = {
         "feature_bool": True,
-        "feature_str": "a string value",
+        "feature_str": "00810702-0006",  # this string value could be cast to datetime!
         "feature_list_str": ["a", "list", "of", "strings"],
         "feature_int": 42,
         "feature_list_int": [1, 2, 3],
@@ -292,7 +376,7 @@ def test_record_features_add_remove_values():
         "feature_user": ln.setup.settings.user.handle,
         "feature_project": "test_project",
         "feature_cell_line": "HEK293",
-        "feature_cl_ontology_id": "CLO:0001230",
+        "feature_cl_ontology_id": "CVCL_0045",
         "feature_gene": "Tmem276",
         "feature_artifact": "test-artifact",
         "feature_collection": "test-collection",
@@ -307,7 +391,7 @@ def test_record_features_add_remove_values():
     assert set(result_feature_type1s) == {"entity1", "entity2"}
     assert isinstance(result_feature_type1s, list)
     result_feature_cell_lines = result.pop("feature_cell_lines")
-    assert set(result_feature_cell_lines) == {"HEK293", "A549 cell"}
+    assert set(result_feature_cell_lines) == {"HEK293", "A-549"}
     assert isinstance(result_feature_cell_lines, list)
     assert result == target_result
 
@@ -335,6 +419,9 @@ def test_record_features_add_remove_values():
     test_record2 = ln.Record(name="test_record").save()
     # we could also test different ways of formatting but don't yet do that
     # in to_dataframe() we enforce ISO format already
+    feature_date = ln.Feature.get(name="feature_date")
+    feature_date.coerce = True  # have to allow coercion because we're passing a string
+    feature_date.save()
     test_values["feature_date"] = "2024-01-02"
     test_record2.features.add_values(test_values)
     test_record2.type = sheet
@@ -363,7 +450,7 @@ def test_record_features_add_remove_values():
     assert set(result_feature_type1s) == {"entity2"}
     assert isinstance(result_feature_type1s, list)
     result_feature_cell_lines = result.pop("feature_cell_lines")
-    assert set(result_feature_cell_lines) == {"HEK293", "A549 cell"}
+    assert set(result_feature_cell_lines) == {"HEK293", "A-549"}
     assert isinstance(result_feature_cell_lines, list)
     target_result.pop("feature_type1")
     assert pd.isna(result.pop("feature_type1"))
@@ -443,9 +530,7 @@ def test_record_features_add_remove_values():
     schema = ln.Schema([feature_cell_lines], name="test_schema2").save()
     test_form = ln.Record(name="TestForm", is_type=True, schema=schema).save()
     test_record_in_form = ln.Record(name="test_record_in_form", type=test_form).save()
-    test_record_in_form.features.add_values(
-        {"feature_cell_lines": ["HEK293", "A549 cell"]}
-    )
+    test_record_in_form.features.add_values({"feature_cell_lines": ["HEK293", "A-549"]})
     test_record_in_form.delete(permanent=True)
     test_form.delete(permanent=True)
     schema.delete(permanent=True)
@@ -461,7 +546,11 @@ def test_record_features_add_remove_values():
     schema.delete(permanent=True)
 
     # clean up rest
+    test_record_id = test_record.id
+    assert ln.models.RecordJson.filter(record_id=test_record_id).count() > 0
     test_record.delete(permanent=True)
+    # test CASCADE deletion of RecordJson
+    assert ln.models.RecordJson.filter(record_id=test_record_id).count() == 0
     sheet.delete(permanent=True)
     feature_str.delete(permanent=True)
     feature_list_str.delete(permanent=True)
@@ -498,8 +587,12 @@ def test_record_features_add_remove_values():
 
 
 def test_date_and_datetime_corruption():
-    feature_datetime = ln.Feature(name="feature_datetime", dtype=datetime).save()
-    feature_date = ln.Feature(name="feature_date", dtype=datetime.date).save()
+    feature_datetime = ln.Feature(
+        name="feature_datetime", dtype=datetime, coerce=True
+    ).save()
+    feature_date = ln.Feature(
+        name="feature_date", dtype=datetime.date, coerce=True
+    ).save()
     schema = ln.Schema(
         [feature_datetime, feature_date], name="test_schema_date_datetime"
     ).save()
@@ -558,12 +651,12 @@ def test_only_list_type_features_and_field_qualifiers():
     test_sheet = ln.Record(name="TestSheet", is_type=True, schema=schema).save()
     record = ln.Record(name="test_record", type=test_sheet).save()
     hek293 = bt.CellLine.from_source(name="HEK293").save()
-    a549 = bt.CellLine.from_source(name="A549 cell").save()
+    a549 = bt.CellLine.from_source(name="A-549").save()
     uberon2369 = bt.Tissue.from_source(ontology_id="UBERON:0002369").save()
     uberon5172 = bt.Tissue.from_source(ontology_id="UBERON:0005172").save()
 
     test_values = {
-        "feature_cell_lines": ["HEK293", "A549 cell"],
+        "feature_cell_lines": ["HEK293", "A-549"],
         "feature_list_ontology_id": ["UBERON:0002369", "UBERON:0005172"],
     }
 
@@ -574,7 +667,7 @@ def test_only_list_type_features_and_field_qualifiers():
     result = df.to_dict(orient="records")[0]
     assert isinstance(result["feature_cell_lines"], list)
     assert isinstance(result["feature_list_ontology_id"], list)
-    assert set(result["feature_cell_lines"]) == {"HEK293", "A549 cell"}
+    assert set(result["feature_cell_lines"]) == {"HEK293", "A-549"}
     assert set(result["feature_list_ontology_id"]) == {
         "UBERON:0002369",
         "UBERON:0005172",

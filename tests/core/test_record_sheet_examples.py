@@ -86,8 +86,8 @@ def test_record_example_compound_treatment(
     )
     assert dictionary == {
         "cell_line": [
-            "HEK293T cell",
-            "HEK293T cell",
+            "HEK293T",
+            "HEK293T",
         ],
         "__lamindb_record_name__": [
             "sample2",
@@ -117,8 +117,8 @@ def test_record_example_compound_treatment(
         "uid": ["S1", "S2"],
         "name": ["Sample 1", "Sample 2"],
         "cell_line": [
-            "HEK293T cell",
-            "HEK293T cell",
+            "HEK293T",
+            "HEK293T",
         ],
         "preparation_date": [
             pd.to_datetime("2025-06-01T05:00:00"),
@@ -148,12 +148,12 @@ def test_record_example_compound_treatment(
     assert artifact.transform.kind == "function"
     # looks something like this:
     # id,uid,name,treatment,cell_line,preparation_date,__lamindb_record_uid__,__lamindb_record_name__
-    # 1,S1,Sample 1,treatment1,HEK293T cell,2025-06-01 05:00:00,iCwgKgZELoLtIoGy,sample1
-    # 2,S2,Sample 2,treatment2,HEK293T cell,2025-06-01 06:00:00,qvU9m7VF6fSdsqJs,sample2
+    # 1,S1,Sample 1,treatment1,HEK293T,2025-06-01 05:00:00,iCwgKgZELoLtIoGy,sample1
+    # 2,S2,Sample 2,treatment2,HEK293T,2025-06-01 06:00:00,qvU9m7VF6fSdsqJs,sample2
     assert len(artifact.load()) == 2  # two rows in the dataframe
     assert artifact.path.read_text().startswith("""\
 id,uid,name,treatment,cell_line,preparation_date,project,__lamindb_record_uid__,__lamindb_record_name__
-1,S1,Sample 1,treatment1,HEK293T cell,2025-06-01 05:00:00,Project 1""")
+1,S1,Sample 1,treatment1,HEK293T,2025-06-01 05:00:00,Project 1""")
     assert artifact.key == f"sheet_exports/{sample_sheet1.name}.csv"
     assert artifact.description.startswith(f"Export of sheet {sample_sheet1.uid}")
     assert artifact._state.adding is False
@@ -161,12 +161,12 @@ id,uid,name,treatment,cell_line,preparation_date,project,__lamindb_record_uid__,
     assert artifact.features.describe(return_str=True).endswith("""\
 └── Dataset features
     └── columns (7)
-        cell_line           bionty.CellLine         HEK293T cell
+        cell_line           bionty.CellLine          HEK293T
         id                  int
         name                str
         preparation_date    datetime
-        project             Project                 Project 1
-        treatment           Record[Treatment]       treatment1, treatment2
+        project             Project                  Project 1
+        treatment           Record[Treatment]        treatment1, treatment2
         uid                 str""")
     # re-run the export which triggers hash lookup
     sample_sheet1.to_artifact()
@@ -247,7 +247,7 @@ Sample_X,https://raw.githubusercontent.com/nf-core/test-datasets/scrnaseq/testda
         expected_cells      int
         fastq_1             str
         fastq_2             str
-        sample              Record[BioSample]       Sample_X, Sample_Y
+        sample              Record[BioSample]        Sample_X, Sample_Y
         seq_center          str""")
 
     related_schemas = list(artifact.schemas.all())

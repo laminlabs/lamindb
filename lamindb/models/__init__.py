@@ -30,11 +30,12 @@ Query sets & managers
 .. autoclass:: QuerySet
 .. autoclass:: ArtifactSet
 .. autoclass:: QueryManager
+.. autoclass:: RelatedManager
 .. autoclass:: lamindb.models.query_set.BiontyDB
-.. autoclass:: lamindb.models.query_set.WetlabDB
+.. autoclass:: lamindb.models.query_set.PertdbDB
 
-Storage of feature values
--------------------------
+JSON values for annotating artifacts and runs
+---------------------------------------------
 
 .. autoclass:: JsonValue
 
@@ -82,6 +83,7 @@ Utility classes
 """
 
 # ruff: noqa: I001
+
 from lamin_utils._inspect import InspectResult
 from ._is_versioned import IsVersioned
 from .can_curate import CanCurate
@@ -110,7 +112,7 @@ from ._feature_manager import FeatureManager
 from ._label_manager import LabelManager
 from .collection import Collection, CollectionArtifact
 from .project import Project, Reference
-from .query_manager import QueryManager
+from .query_manager import RelatedManager
 from .query_set import BasicQuerySet, QuerySet, DB, SQLRecordList
 from .artifact_set import ArtifactSet
 from .has_parents import HasParents

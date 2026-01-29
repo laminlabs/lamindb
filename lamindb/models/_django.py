@@ -181,7 +181,7 @@ def get_artifact_or_run_with_related(
         else:
             label_field = "value"
         related_model = link_model._meta.get_field(label_field).related_model
-        # manually include "name" as wetlab.Compound.name is a TextField due to no length limitation
+        # manually include "name" as pertdb.Compound.name is a TextField due to no length limitation
         char_field_names = [
             field.name
             for field in related_model._meta.concrete_fields

@@ -9,7 +9,7 @@ Query sets & managers
 .. autoclass:: ArtifactSet
 .. autoclass:: QueryManager
 .. autoclass:: lamindb.models.query_set.BiontyDB
-.. autoclass:: lamindb.models.query_set.WetlabDB
+.. autoclass:: lamindb.models.query_set.PertdbDB
 
 ...
 """
@@ -65,19 +65,14 @@ if TYPE_CHECKING:
         Protein,
         Tissue,
     )
-    from wetlab.models import (
+    from pertdb.models import (
         Biologic,
-        Biosample,
         CombinationPerturbation,
         Compound,
         CompoundPerturbation,
-        Donor,
         EnvironmentalPerturbation,
-        Experiment,
         GeneticPerturbation,
         PerturbationTarget,
-        Techsample,
-        Well,
     )
 
     from lamindb.base.types import ListLike, StrField
@@ -405,8 +400,10 @@ class SQLRecordList(UserList, Generic[T]):
         return self.to_dataframe()
 
     def to_list(
-        self, field: str
+        self, field: str | None = None
     ) -> list[str]:  # meaningful to be parallel with to_list() in QuerySet
+        if field is None:
+            return self.data
         return [getattr(record, field) for record in self.data]
 
     def one(self) -> T:
@@ -1429,7 +1426,7 @@ class ModuleNamespace:
 
     Args:
         query_db: Parent DB instance.
-        module_name: Name of the schema module (e.g., 'bionty', 'wetlab').
+        module_name: Name of the schema module (e.g., 'bionty', 'pertdb').
     """
 
     def __init__(self, query_db: DB, module_name: str):
@@ -1461,7 +1458,7 @@ class ModuleNamespace:
             pass
 
         raise AttributeError(
-            f"Registry '{name}' not found in lamindb. Use .bt.{name} or .wl.{name} for schema-specific registries."
+            f"Registry '{name}' not found in lamindb. Use .bt.{name} or .pertdb.{name} for schema-specific registries."
         )
 
     def __dir__(self) -> list[str]:
@@ -1499,20 +1496,15 @@ class BiontyDB(ModuleNamespace):
     Ethnicity: QuerySet[Ethnicity]  # type: ignore[type-arg]
 
 
-class WetlabDB(ModuleNamespace):
-    """Namespace for wetlab registries (Experiment, Biosample, etc.)."""
+class PertdbDB(ModuleNamespace):
+    """Namespace for `PertDB` registries (Biologic, Compound, etc.)."""
 
-    Experiment: QuerySet[Experiment]  # type: ignore[type-arg]
-    Biosample: QuerySet[Biosample]  # type: ignore[type-arg]
-    Techsample: QuerySet[Techsample]  # type: ignore[type-arg]
-    Donor: QuerySet[Donor]  # type: ignore[type-arg]
-    GeneticPerturbation: QuerySet[GeneticPerturbation]  # type: ignore[type-arg]
     Biologic: QuerySet[Biologic]  # type: ignore[type-arg]
     Compound: QuerySet[Compound]  # type: ignore[type-arg]
     CompoundPerturbation: QuerySet[CompoundPerturbation]  # type: ignore[type-arg]
+    GeneticPerturbation: QuerySet[GeneticPerturbation]  # type: ignore[type-arg]
     EnvironmentalPerturbation: QuerySet[EnvironmentalPerturbation]  # type: ignore[type-arg]
     CombinationPerturbation: QuerySet[CombinationPerturbation]  # type: ignore[type-arg]
-    Well: QuerySet[Well]  # type: ignore[type-arg]
     PerturbationTarget: QuerySet[PerturbationTarget]  # type: ignore[type-arg]
 
 
@@ -1576,11 +1568,11 @@ class DB:
     Space: QuerySet[Space]  # type: ignore[type-arg]
 
     bionty: BiontyDB
-    wetlab: WetlabDB
+    pertdb: PertdbDB
 
     def __init__(self, instance: str):
         self._instance = instance
-        self._cache: dict[str, NonInstantiableQuerySet | BiontyDB | WetlabDB] = {}
+        self._cache: dict[str, NonInstantiableQuerySet | BiontyDB | PertdbDB] = {}
         self._available_registries: set[str] | None = None
 
         owner, instance_name = instance.split("/")
@@ -1589,11 +1581,11 @@ class DB:
         )
         self._modules = ["lamindb"] + list(instance_info.modules)
 
-    def __getattr__(self, name: str) -> NonInstantiableQuerySet | BiontyDB | WetlabDB:
+    def __getattr__(self, name: str) -> NonInstantiableQuerySet | BiontyDB | PertdbDB:
         """Access a registry class or schema namespace for this database instance.
 
         Args:
-            name: Registry class name (e.g., 'Artifact', 'Collection') or schema namespace ('bionty', 'wetlab').
+            name: Registry class name (e.g., 'Artifact', 'Collection') or schema namespace ('bionty', 'pertdb').
 
         Returns:
             QuerySet for the specified registry or schema namespace scoped to this instance.
@@ -1611,15 +1603,15 @@ class DB:
                 self._cache["bionty"] = namespace
             return self._cache["bionty"]
 
-        if name == "wetlab":
-            if "wetlab" not in self._modules:
+        if name == "pertdb":
+            if "pertdb" not in self._modules:
                 raise AttributeError(
-                    f"Schema 'wetlab' not available in instance '{self._instance}'."
+                    f"Schema 'pertdb' not available in instance '{self._instance}'."
                 )
-            if "wetlab" not in self._cache:
-                namespace = WetlabDB(self, "wetlab")  # type: ignore
-                self._cache["wetlab"] = namespace
-            return self._cache["wetlab"]
+            if "pertdb" not in self._cache:
+                namespace = PertdbDB(self, "pertdb")  # type: ignore
+                self._cache["pertdb"] = namespace
+            return self._cache["pertdb"]
 
         try:
             lamindb_module = import_module("lamindb")
@@ -1633,7 +1625,7 @@ class DB:
             pass
 
         raise AttributeError(
-            f"Registry '{name}' not found in lamindb core registries. Use .bionty.{name} or .wetlab.{name} for schema-specific registries."
+            f"Registry '{name}' not found in lamindb core registries. Use .bionty.{name} or .pertdb.{name} for schema-specific registries."
         )
 
     def __repr__(self) -> str:
@@ -1657,7 +1649,7 @@ class DB:
         module_namespaces = set()
         if "bionty" in self._modules:
             module_namespaces.add("bionty")
-        if "wetlab" in self._modules:
-            module_namespaces.add("wetlab")
+        if "pertdb" in self._modules:
+            module_namespaces.add("pertdb")
 
         return sorted(set(base_attrs) | lamindb_registries | module_namespaces)

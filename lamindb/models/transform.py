@@ -37,6 +37,7 @@ if TYPE_CHECKING:
     from .artifact import Artifact
     from .block import TransformBlock
     from .project import Project, Reference
+    from .query_manager import RelatedManager
     from .record import Record
     from .ulabel import ULabel
 
@@ -187,34 +188,34 @@ class Transform(SQLRecord, IsVersioned):
     )
     """An environment for executing the transform."""
     runs: Run
-    """Runs of this transform, via :attr:`~lamindb.Run.transform`."""
-    ulabels: ULabel = models.ManyToManyField(
+    """Runs of this transform ← :attr:`~lamindb.Run.transform`."""
+    ulabels: RelatedManager[ULabel] = models.ManyToManyField(
         "ULabel", through="TransformULabel", related_name="transforms"
     )
-    """ULabel annotations of this transform, via :attr:`~lamindb.ULabel.transforms`."""
-    linked_in_records: Record = models.ManyToManyField(
+    """ULabel annotations of this transform ← :attr:`~lamindb.ULabel.transforms`."""
+    linked_in_records: RelatedManager[Record] = models.ManyToManyField(
         "Record", through="RecordTransform", related_name="linked_transforms"
     )
-    """This transform is linked in these records as a value, via :attr:`~lamindb.Record.linked_transforms`."""
-    records: Record
-    """Records that annotate this transform, via :attr:`~lamindb.Record.transforms`."""
-    predecessors: Transform = models.ManyToManyField(
+    """This transform is linked in these records as a value ← :attr:`~lamindb.Record.linked_transforms`."""
+    records: RelatedManager[Record]
+    """Records that annotate this transform ← :attr:`~lamindb.Record.transforms`."""
+    predecessors: RelatedManager[Transform] = models.ManyToManyField(
         "self",
         through="TransformTransform",
         symmetrical=False,
         related_name="successors",
     )
-    """Preceding transforms, see :attr:`~lamindb.Transform.successors`."""
-    successors: Transform
-    """Subsequent transforms, see :attr:`~lamindb.Transform.predecessors`.
+    """Preceding transforms ← :attr:`~lamindb.Transform.successors`."""
+    successors: RelatedManager[Transform]
+    """Subsequent transforms ← :attr:`~lamindb.Transform.predecessors`.
 
     Allows defining succeeding transforms. Is *not* necessary for data lineage, which is tracked automatically
     whenever an artifact or collection serves as an input for a run.
     """
-    projects: Project
-    """Linked projects, via :attr:`~lamindb.Project.transforms`."""
-    references: Reference
-    """Linked references, via :attr:`~lamindb.Reference.transforms`."""
+    projects: RelatedManager[Project]
+    """Linked projects ← :attr:`~lamindb.Project.transforms`."""
+    references: RelatedManager[Reference]
+    """Linked references ← :attr:`~lamindb.Reference.transforms`."""
     created_at: datetime = DateTimeField(
         editable=False, db_default=models.functions.Now(), db_index=True
     )
@@ -226,9 +227,9 @@ class Transform(SQLRecord, IsVersioned):
     created_by: User = ForeignKey(
         User, PROTECT, default=current_user_id, related_name="created_transforms"
     )
-    """Creator of record."""
+    """Creator of record ← :attr:`~lamindb.User.created_transforms`."""
     ablocks: TransformBlock
-    """Blocks that annotate this artifact, via :attr:`~lamindb.TransformBlock.transform`."""
+    """Blocks that annotate this transform ← :attr:`~lamindb.TransformBlock.transform`."""
 
     @overload
     def __init__(

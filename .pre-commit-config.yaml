@@ -56,6 +56,7 @@ repos:
             --no-strict-optional,
             --ignore-missing-imports,
             --disable-error-code=annotation-unchecked,
+            --disable-error-code=type-arg,
           ]
         additional_dependencies: ["types-requests", "types-attrs"]
         exclude: |
