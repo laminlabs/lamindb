@@ -5,7 +5,7 @@ import shutil
 import warnings
 from collections import defaultdict
 from pathlib import Path, PurePath, PurePosixPath
-from typing import TYPE_CHECKING, Any, Iterator, Literal, Union, overload
+from typing import TYPE_CHECKING, Any, Iterator, Literal, TypeVar, Union, overload
 
 import fsspec
 import lamindb_setup as ln_setup
@@ -1034,6 +1034,26 @@ class LazyArtifact:
         )
 
 
+T = TypeVar("T", bound=BaseSQLRecord)
+
+
+def _sqlrecord_or_id(
+    model: type[T], sqlrecord: T | None, sqlrecord_id: int | None
+) -> T | None:
+    if sqlrecord is not None and sqlrecord_id is not None:
+        raise ValueError(
+            f"Do not pass both {model.__name__} and its id at the same time."
+        )
+
+    if sqlrecord is None and sqlrecord_id is None:
+        return None
+    elif sqlrecord is not None:
+        assert isinstance(sqlrecord, model)
+        return sqlrecord
+    elif sqlrecord_id is not None:
+        return model.objects.get(id=sqlrecord_id)
+
+
 class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     """Datasets & models stored as files, folders, or arrays.
 
@@ -1493,21 +1513,53 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             path = kwargs.pop("data")
         else:
             path = kwargs.pop("path") if len(args) == 0 else args[0]
+
         kind: str = kwargs.pop("kind", None)
         key: str | None = kwargs.pop("key", None)
-        run_id: int | None = kwargs.pop("run_id", None)  # for REST API
-        run: Run | None = kwargs.pop("run", None)
         using_key = kwargs.pop("using_key", None)
         description: str | None = kwargs.pop("description", None)
         revises: Artifact | None = kwargs.pop("revises", None)
+        if revises is not None:
+            if not isinstance(revises, Artifact):
+                raise TypeError("`revises` has to be of type `Artifact`")
+            if description is None:
+                description = revises.description
         overwrite_versions: bool | None = kwargs.pop("overwrite_versions", None)
         version_tag: str | None = kwargs.pop("version_tag", kwargs.pop("version", None))
-        schema: Schema | None = kwargs.pop("schema", None)
         features: dict[str, Any] | None = kwargs.pop("features", None)
         skip_hash_lookup: bool = kwargs.pop("skip_hash_lookup", False)
         to_disk_kwargs: dict[str, Any] | None = kwargs.pop("to_disk_kwargs", None)
+        format = kwargs.pop("format", None)
+        _key_is_virtual = kwargs.pop("_key_is_virtual", None)
+        _is_internal_call = kwargs.pop("_is_internal_call", False)
+        skip_check_exists = kwargs.pop("skip_check_exists", False)
+
+        if key is not None and AUTO_KEY_PREFIX in key:
+            raise ValueError(
+                f"Do not pass key that contains a managed storage path in `{AUTO_KEY_PREFIX}`"
+            )
+        # below is for internal calls that require defining the storage location
+        # ahead of constructing the Artifact
+        if isinstance(path, (str, Path)) and AUTO_KEY_PREFIX in str(path):
+            if _is_internal_call:
+                if _key_is_virtual is False:
+                    raise ValueError(
+                        "Do not pass _key_is_virtual=False with _is_internal_call=True."
+                    )
+                is_automanaged_path = True
+                user_provided_key = key
+                key = None
+            else:
+                raise ValueError(
+                    f"Do not pass path inside the `{AUTO_KEY_PREFIX}` directory."
+                )
+        else:
+            is_automanaged_path = False
 
         # validate external features if passed with a schema
+        schema: Schema | None = _sqlrecord_or_id(
+            Schema, kwargs.pop("schema", None), kwargs.pop("schema_id", None)
+        )
         if features is not None:
             self._external_features = features
             if schema is not None:
@@ -1515,18 +1567,20 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
                 validation_schema = schema
                 ExperimentalDictCurator(features, validation_schema).validate()
-
-        branch = kwargs.pop("branch", None)
-        assert "branch_id" not in kwargs, "Please pass branch instead of branch_id."  # noqa: S101
-        space = kwargs.pop("space", None)
-        assert "space_id" not in kwargs, "Please pass space instead of space_id."  # noqa: S101
-        format = kwargs.pop("format", None)
-        _key_is_virtual = kwargs.pop("_key_is_virtual", None)
-        _is_internal_call = kwargs.pop("_is_internal_call", False)
-        skip_check_exists = kwargs.pop("skip_check_exists", False)
+        run: Run | None = _sqlrecord_or_id(
+            Run, kwargs.pop("run", None), kwargs.pop("run_id", None)
+        )
+        branch: Branch | None = _sqlrecord_or_id(
+            Branch, kwargs.pop("branch", None), kwargs.pop("branch_id", None)
+        )
+        space: Space | None = _sqlrecord_or_id(
+            Space, kwargs.pop("space", None), kwargs.pop("space_id", None)
+        )
+        storage: Storage | None = _sqlrecord_or_id(
+            Storage, kwargs.pop("storage", None), kwargs.pop("storage_id", None)
+        )
         storage_was_passed = False
-        if "storage" in kwargs:
-            storage = kwargs.pop("storage")
+        if storage is not None:
             storage_was_passed = True
         elif (
             setup_settings.instance.keep_artifacts_local
@@ -1580,32 +1634,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             )
         if revises is not None and key is not None and revises.key != key:
             logger.warning(f"renaming artifact from '{revises.key}' to {key}")
-        if revises is not None:
-            if not isinstance(revises, Artifact):
-                raise TypeError("`revises` has to be of type `Artifact`")
-            if description is None:
-                description = revises.description
-        if key is not None and AUTO_KEY_PREFIX in key:
-            raise ValueError(
-                f"Do not pass key that contains a managed storage path in `{AUTO_KEY_PREFIX}`"
-            )
-        # below is for internal calls that require defining the storage location
-        # ahead of constructing the Artifact
-        if isinstance(path, (str, Path)) and AUTO_KEY_PREFIX in str(path):
-            if _is_internal_call:
-                if _key_is_virtual is False:
-                    raise ValueError(
-                        "Do not pass _key_is_virtual=False with _is_internal_call=True."
-                    )
-                is_automanaged_path = True
-                user_provided_key = key
-                key = None
-            else:
-                raise ValueError(
-                    f"Do not pass path inside the `{AUTO_KEY_PREFIX}` directory."
-                )
-        else:
-            is_automanaged_path = False
 
         provisional_uid, revises = create_uid(revises=revises, version_tag=version_tag)
         run = get_run(run)
@@ -1694,8 +1722,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         if revises is not None and revises.key is not None and kwargs["key"] is None:
             kwargs["key"] = revises.key
 
-        if run_id is not None:
-            kwargs["run_id"] = run_id
         kwargs["kind"] = kind
         kwargs["version_tag"] = version_tag
         kwargs["description"] = description
