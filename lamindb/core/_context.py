@@ -48,7 +48,7 @@ msg_path_failed = "failed to infer notebook path.\nfix: pass `path` to `ln.track
 def detect_and_process_source_code_file(
     *,
     path: UPathStr | None,
-    transform_type: TransformKind | None = None,
+    transform_kind: TransformKind | None = None,
 ) -> tuple[Path, TransformKind, str, str]:
     """Track source code file and determine transform metadata.
 
@@ -60,9 +60,9 @@ def detect_and_process_source_code_file(
         path: Path to the source code file. If None, infers from call stack.
 
     Returns:
-        Tuple of (path, transform_type, reference, reference_type).
+        Tuple of (path, transform_kind, reference, reference_type).
         - path: Path object to the source file
-        - transform_type: "script" or "notebook"
+        - transform_kind: "script" or "notebook"
         - reference: Git reference URL if sync_git_repo is set, else None
         - reference_type: "url" if reference exists, else None
 
@@ -90,14 +90,14 @@ def detect_and_process_source_code_file(
     # also see the script_to_notebook() in the CLI _load.py where the title is extracted
     # from the source code YAML and updated with the transform description
     # note that ipynb notebooks are handled in a separate function (_track_notebook())
-    if transform_type is None:
-        transform_type = "notebook" if path.suffix in {".Rmd", ".qmd"} else "script"
+    if transform_kind is None:
+        transform_kind = "notebook" if path.suffix in {".Rmd", ".qmd"} else "script"
     reference = None
     reference_type = None
     if settings.sync_git_repo is not None and path.suffix != ".ipynb":
         reference = get_transform_reference_from_git_repo(path)
         reference_type = "url"
-    return path, transform_type, reference, reference_type
+    return path, transform_kind, reference, reference_type
 
 
 def get_uid_ext(version: str) -> str:
@@ -545,7 +545,7 @@ class Context:
                     description=None,
                     transform_ref=None,
                     transform_ref_type=None,
-                    transform_type=transform_kind,  # type: ignore
+                    transform_kind=transform_kind,  # type: ignore
                     key=key,
                     source_code=source_code,
                 )
@@ -554,13 +554,13 @@ class Context:
                     self._path, description = self._track_notebook(
                         path_str=path, pypackages=pypackages
                     )
-                    transform_type = "notebook"
+                    transform_kind = "notebook"
                     transform_ref = None
                     transform_ref_type = None
                 else:
                     (
                         self._path,
-                        transform_type,
+                        transform_kind,
                         transform_ref,
                         transform_ref_type,
                     ) = detect_and_process_source_code_file(path=path)
@@ -570,7 +570,7 @@ class Context:
                     description=description,
                     transform_ref=transform_ref,
                     transform_ref_type=transform_ref_type,
-                    transform_type=transform_type,  # type: ignore
+                    transform_kind=transform_kind,  # type: ignore
                 )
         else:
             if transform.kind in {"notebook", "script"}:
@@ -786,7 +786,7 @@ class Context:
         description: str | None = None,
         transform_ref: str | None = None,
         transform_ref_type: str | None = None,
-        transform_type: TransformKind = None,
+        transform_kind: TransformKind = None,
         key: str | None = None,
         source_code: str | None = None,
     ):
@@ -909,7 +909,7 @@ class Context:
                 # the user might have a made a copy of the notebook or script
                 # and actually wants to create a new transform
                 if aux_transform is not None and not aux_transform.key.endswith(key):
-                    prompt = f"Found transform with same hash but different key: {aux_transform.key}. Did you rename your {transform_type} to {key} (1) or intentionally made a copy (2)?"
+                    prompt = f"Found transform with same hash but different key: {aux_transform.key}. Did you rename your {transform_kind} to {key} (1) or intentionally made a copy (2)?"
                     response = (
                         "1" if os.getenv("LAMIN_TESTING") == "true" else input(prompt)
                     )
@@ -963,7 +963,7 @@ class Context:
                 "key": key,
                 "reference": transform_ref,
                 "reference_type": transform_ref_type,
-                "kind": transform_type,
+                "kind": transform_kind,
             }
             if source_code is not None:
                 transform_kwargs["source_code"] = source_code
