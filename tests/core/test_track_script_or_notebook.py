@@ -180,7 +180,7 @@ def test_finish_before_track():
     assert "Please run `ln.track()` before `ln.finish()" in error.exconly()
 
 
-def test_invalid_transform_type():
+def test_invalid_transform_kind():
     transform = ln.Transform(key="test transform")
     ln.track(transform=transform)
     ln.context._path = None
@@ -203,7 +203,7 @@ def test_create_or_load_transform():
     context._path.touch(exist_ok=True)
     context._create_or_load_transform(
         description=title,
-        transform_type="notebook",
+        transform_kind="notebook",
     )
     assert context._transform.uid == uid
     assert context._transform.version_tag == version
