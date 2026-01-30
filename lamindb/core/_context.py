@@ -556,13 +556,13 @@ class Context:
             transform_ref = None
             transform_ref_type = None
             if source_code is not None:
-                if key is None:
-                    raise InvalidArgument(
-                        "key is required when source_code is passed to track()"
-                    )
                 transform_kind = kind if kind is not None else "function"
-                if path is not None:
-                    self._path = Path(path)
+                assert key is not None, (
+                    "`key` cannot be `None` when `source_code` is passed to `track()`."
+                )
+                assert path is None, (
+                    "`path` cannot be passed when `source_code` is passed to `track()`."
+                )
             else:
                 if is_run_from_ipython:
                     self._path, description = self._track_notebook(
