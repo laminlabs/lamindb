@@ -22,7 +22,7 @@ Query artifacts in the `laminlabs/lamindata` instance:
 ```python
 db = ln.DB("laminlabs/lamindata")
 artifacts = db.Artifact.filter(is_latest=True)  # query latest versions of artifacts
-artifacts.to_dataframe().head()
+artifacts.to_dataframe()
 ```
 
 You can now further subset or search the {class}`~lamindb.models.QuerySet`. Here we already know what we're looking for:
