@@ -88,15 +88,17 @@ Run: {ln.context.run.uid[:7]} ({ln.context.run.transform.key})
     assert record.run == ln.context.run
 
     # test that we can call ln.finish() also for pipeline-like transforms
-    assert ln.context.run.finished_at is None
+    run = ln.context.run
+    assert run.finished_at is None
     ln.finish()
-    assert ln.context.run.finished_at is not None
+    assert (
+        run.finished_at is not None
+    )  # context is cleared after finish(); use captured run
 
     # clean up
-    ln.context.run.delete(permanent=True)
+    run.delete(permanent=True)
     ln.models.RunJsonValue.filter(run__transform=test_transform).delete(permanent=True)
     ln.models.RunRecord.filter(run__transform=test_transform).delete(permanent=True)
-    ln.context._run = None
     feature1.delete(permanent=True)
     feature2.delete(permanent=True)
     feature3.delete(permanent=True)
