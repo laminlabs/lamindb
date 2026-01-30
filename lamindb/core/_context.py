@@ -534,29 +534,20 @@ class Context:
         self._path = None
         if transform is None:
             description = None
+            transform_ref = None
+            transform_ref_type = None
             if source_code is not None:
                 if key is None:
                     raise InvalidArgument(
                         "key is required when source_code is passed to track()"
                     )
-                self._path = None
                 transform_kind = kind if kind is not None else "function"
-                self._create_or_load_transform(
-                    description=None,
-                    transform_ref=None,
-                    transform_ref_type=None,
-                    transform_kind=transform_kind,  # type: ignore
-                    key=key,
-                    source_code=source_code,
-                )
             else:
                 if is_run_from_ipython:
                     self._path, description = self._track_notebook(
                         path_str=path, pypackages=pypackages
                     )
                     transform_kind = "notebook"
-                    transform_ref = None
-                    transform_ref_type = None
                 else:
                     (
                         self._path,
@@ -564,14 +555,16 @@ class Context:
                         transform_ref,
                         transform_ref_type,
                     ) = detect_and_process_source_code_file(path=path)
-                if description is None:
-                    description = self._description
-                self._create_or_load_transform(
-                    description=description,
-                    transform_ref=transform_ref,
-                    transform_ref_type=transform_ref_type,
-                    transform_kind=transform_kind,  # type: ignore
-                )
+            if description is None:
+                description = self._description
+            self._create_or_load_transform(
+                description=description,
+                transform_ref=transform_ref,
+                transform_ref_type=transform_ref_type,
+                transform_kind=transform_kind,
+                key=key,
+                source_code=source_code,
+            )
         else:
             if transform.kind in {"notebook", "script"}:
                 raise ValueError(
