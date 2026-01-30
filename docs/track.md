@@ -69,6 +69,9 @@ lamin load https://lamin.ai/laminlabs/lamindata/transform/F4L3oC6QsZvQ
 If no development directory is set, script & notebooks keys equal their filenames.
 Otherwise, script & notebooks keys equal the relative path in the development directory.
 
+**Packaged vs non-packaged:** Code run from inside a **package** (caller's module has a dotted name, e.g. `mypackage.submodule`) uses the fully qualified module path as the transform key (e.g. `mypackage/submodule.py`) and is **not** required to be inside the development directory.
+**Non-packaged** scripts (e.g. run as `__main__` or a single file) **must** be inside the development directory when one is set; otherwise {class}`~lamindb.errors.FileNotInDevDir` is raised.
+
 To set the development directory to your current shell development directory, run:
 
 ```bash
