@@ -258,28 +258,17 @@ class ValidateFields:
     pass
 
 
-def is_approx_pascal_case(s):
+def is_approx_pascal_case(s: str) -> bool:
     """Check if the last component of a dotted string is in PascalCase.
 
     Args:
-        s (str): The string to check
-
-    Returns:
-        bool: True if the last component is in PascalCase
-
-    Raises:
-        ValueError: If the last component doesn't start with a capital letter
+        s: The string to check
     """
     if "[" in s:  # this is because we allow types of form 'script[test_script.py]'
         return True
     last_component = s.split(".")[-1]
 
-    if not last_component[0].isupper():
-        raise ValueError(
-            f"'{last_component}' should start with a capital letter given you're defining a type"
-        )
-
-    return True
+    return last_component[:1].isupper() and "_" not in last_component
 
 
 def init_self_from_db(self: SQLRecord, existing_record: SQLRecord):
@@ -1544,19 +1533,17 @@ class Branch(BaseSQLRecord):
 class SQLRecord(BaseSQLRecord, metaclass=Registry):
     """An object that maps to a row in a SQL table in the database.
 
-    Every `SQLRecord` is a data model that comes with a registry in form of a SQL
-    table in your database.
+    Every `SQLRecord` is a data model that comes with a registry in form of a SQL table in your database.
 
-    Sub-classing `SQLRecord` creates a new registry while instantiating a `SQLRecord`
-    creates a new object.
+    Sub-classing `SQLRecord` creates a new registry while instantiating a `SQLRecord` creates a new object.
 
     {}
 
     `SQLRecord`'s metaclass is :class:`~lamindb.models.Registry`.
 
-    `SQLRecord` inherits from Django's `Model` class. Why does LaminDB call it `SQLRecord`
-    and not `Model`? The term `SQLRecord` can't lead to confusion with statistical,
-    machine learning or biological models.
+    `SQLRecord` inherits from Django's `Model` class.
+    Why does LaminDB call it `SQLRecord` and not `Model`?
+    The term `SQLRecord` can't lead to confusion with statistical, machine learning or biological models.
     """
 
     # we need the db_default when not interacting via django directly on a required field

@@ -3,7 +3,7 @@ import shutil
 from pathlib import Path
 
 import nox
-from laminci import process_markdown, upload_docs_artifact
+from laminci import convert_executable_md_files, upload_docs_artifact
 from laminci.nox import (
     build_docs,
     login_testuser1,
@@ -143,7 +143,7 @@ def install_ci(session, group):
         run(session, "uv pip install --system xarray-dataclasses")
         run(
             session,
-            "uv pip install --system mudata spatialdata",
+            "uv pip install --system mudata spatialdata lightning",
         )
         run(
             session,
@@ -211,6 +211,38 @@ def configure_coverage(session) -> None:
         tomlkit.dump(config, f)
 
     print(base_config_path.read_text())
+
+
+@nox.session
+def prepare(session):
+    """Create executable files to run during a test session.
+
+    Is not needed for unit tests!
+    """
+    content = open("README.md").read()
+    open("README_stripped.md", "w").write(
+        "\n".join(
+            line
+            for line in content.split("\n")
+            if not line.strip().startswith("accessor = artifact.open()")
+        )
+    )
+    os.system("jupytext README_stripped.md --to notebook --output ./docs/README.ipynb")
+    convert_executable_md_files()
+    os.system("cp ./tests/core/test_artifact_parquet.py ./docs/scripts/")
+    os.system("cp ./lamindb/examples/schemas/define_valid_features.py ./docs/scripts/")
+    os.system(
+        "cp ./lamindb/examples/schemas/define_schema_anndata_ensembl_gene_ids_and_valid_features_in_obs.py ./docs/scripts/"
+    )
+    os.system(
+        "cp ./lamindb/examples/datasets/define_mini_immuno_features_labels.py ./docs/scripts/"
+    )
+    os.system(
+        "cp ./lamindb/examples/datasets/define_mini_immuno_schema_flexible.py ./docs/scripts/"
+    )
+    os.system(
+        "cp ./lamindb/examples/datasets/save_mini_immuno_datasets.py ./docs/scripts/"
+    )
 
 
 @nox.session
@@ -388,46 +420,6 @@ def clidocs(session):
         Path("./docs/cli.md").write_text(page)
 
     generate_cli_docs()
-
-
-@nox.session
-def cp_scripts(session):
-    content = open("README.md").read()
-    open("README_stripped.md", "w").write(
-        "\n".join(
-            line
-            for line in content.split("\n")
-            if not line.strip().startswith("accessor = artifact.open()")
-        )
-    )
-    os.system("jupytext README_stripped.md --to notebook --output ./docs/README.ipynb")
-    for docs_dir in [Path("docs"), Path("docs/faq")]:
-        for md_path in docs_dir.glob("*.md"):
-            head = md_path.read_text().splitlines()[:20]
-            if "execute_via:" not in "\n".join(head):
-                continue
-            stem = md_path.stem
-            processed = md_path.parent / f"{stem}_processed.md"
-            notebook_path = md_path.parent / f"{stem}.ipynb"
-            process_markdown(str(md_path), str(processed))
-            os.system(
-                f"jupytext --from md:markdown {processed} --to notebook --output {notebook_path}"
-            )
-            os.system(f"rm {md_path} {processed}")
-    os.system("cp ./tests/core/test_artifact_parquet.py ./docs/scripts/")
-    os.system("cp ./lamindb/examples/schemas/define_valid_features.py ./docs/scripts/")
-    os.system(
-        "cp ./lamindb/examples/schemas/define_schema_anndata_ensembl_gene_ids_and_valid_features_in_obs.py ./docs/scripts/"
-    )
-    os.system(
-        "cp ./lamindb/examples/datasets/define_mini_immuno_features_labels.py ./docs/scripts/"
-    )
-    os.system(
-        "cp ./lamindb/examples/datasets/define_mini_immuno_schema_flexible.py ./docs/scripts/"
-    )
-    os.system(
-        "cp ./lamindb/examples/datasets/save_mini_immuno_datasets.py ./docs/scripts/"
-    )
 
 
 @nox.session

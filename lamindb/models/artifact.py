@@ -2378,7 +2378,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
             import lamindb as ln
 
-            dir_path = ln.examples.datasets.generate_cell_ranger_files("sample_001", ln.settings.storage)
+            dir_path = ln.examples.datasets.dir_scrnaseq_cellranger("sample_001", ln.settings.storage)
             ln.Artifact.from_dir(dir_path).save()  # creates one artifact per file in dir_path
         """
         folderpath: UPath = create_path(path)  # returns Path for local
