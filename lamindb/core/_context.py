@@ -424,16 +424,13 @@ class Context:
         new_run: bool | None = None,
         path: str | None = None,
         pypackages: bool | None = None,
-        source_code: str | None = None,
         key: str | None = None,
+        source_code: str | None = None,
         kind: TransformKind | None = None,
     ) -> None:
         """Track a run of a notebook or script.
 
         Populates the global run :class:`~lamindb.context` with :class:`~lamindb.Transform` & :class:`~lamindb.Run` objects and tracks the compute environment.
-
-        When ``source_code`` is passed, ``path`` is ignored. In that case ``key`` is
-        required and ``kind`` defaults to ``"function"``.
 
         Args:
             transform: A transform (stem) `uid` (or record). If `None`, auto-creates a `transform` with its `uid`.
@@ -447,14 +444,12 @@ class Context:
             new_run: If `False`, loads the latest run of transform
                 (default notebook), if `True`, creates new run (default non-notebook).
             path: Filepath of notebook or script. Only needed if it can't be
-                automatically detected. Ignored when ``source_code`` is passed.
+                automatically detected. Ignored when `source_code` is passed.
             pypackages: If `True` or `None`, infers Python packages used in a notebook.
-            source_code: Source code string for the transform. When provided, ``path``
-                is not used; ``key`` is required and ``kind`` defaults to ``"function"``.
-            key: Transform key (e.g. module path or qualified name). Required when
-                ``source_code`` is passed.
-            kind: Transform kind (e.g. ``"function"``). Defaults to ``"function"``
-                when ``source_code`` is passed.
+            key: Transform key.
+            source_code: Source code string for the transform. When provided, `path`
+                is not used; `key` is required and `kind` defaults to `"function"`.
+            kind: Transform kind (e.g. `"function"`).
 
         Examples:
 
@@ -554,28 +549,21 @@ class Context:
                     key=key,
                     source_code=source_code,
                 )
-            elif is_run_from_ipython:
-                self._path, description = self._track_notebook(
-                    path_str=path, pypackages=pypackages
-                )
-                transform_type = "notebook"
-                transform_ref = None
-                transform_ref_type = None
-                if description is None:
-                    description = self._description
-                self._create_or_load_transform(
-                    description=description,
-                    transform_ref=transform_ref,
-                    transform_ref_type=transform_ref_type,
-                    transform_type=transform_type,  # type: ignore
-                )
             else:
-                (
-                    self._path,
-                    transform_type,
-                    transform_ref,
-                    transform_ref_type,
-                ) = detect_and_process_source_code_file(path=path)
+                if is_run_from_ipython:
+                    self._path, description = self._track_notebook(
+                        path_str=path, pypackages=pypackages
+                    )
+                    transform_type = "notebook"
+                    transform_ref = None
+                    transform_ref_type = None
+                else:
+                    (
+                        self._path,
+                        transform_type,
+                        transform_ref,
+                        transform_ref_type,
+                    ) = detect_and_process_source_code_file(path=path)
                 if description is None:
                     description = self._description
                 self._create_or_load_transform(
