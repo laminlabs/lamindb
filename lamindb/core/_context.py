@@ -448,9 +448,9 @@ class Context:
         Populates the global run :class:`~lamindb.context` with :class:`~lamindb.Transform` & :class:`~lamindb.Run` objects and tracks the compute environment.
 
         Args:
-            transform: A transform (stem) `uid` (or record). If `None`, auto-creates a `transform` with its `uid`.
-            project: A project (or its `name` or `uid`) for labeling entities.
-            space: A restricted space (or its `name` or `uid`) in which to store entities.
+            transform: A transform (stem) `uid` or object. If `None`, auto-creates a `transform` with its `uid`.
+            project: A project or its `name` or `uid` for labeling entities created during the run.
+            space: A restricted space or its `name` or `uid` in which to store entities created during the run.
                 Default: the `"all"` space. Note that bionty entities ignore this setting and always get written to the `"all"` space.
                 If you want to manually move entities to a different space, set the `.space` field (:doc:`docs:permissions`).
             branch: A branch (or its `name` or `uid`) on which to store records.
@@ -458,17 +458,15 @@ class Context:
             params: A dictionary of params & values to track for the run.
             new_run: If `False`, loads the latest run of transform
                 (default notebook), if `True`, creates new run (default non-notebook).
-            path: Filepath of notebook or script. Only needed if it can't be
-                automatically detected. Ignored when `source_code` is passed.
             pypackages: If `True` or `None`, infers Python packages used in a notebook.
             key: Transform key.
-            source_code: Source code string for the transform. When provided, `path`
-                is not used; `key` is required and `kind` defaults to `"function"`.
-            kind: Transform kind (e.g. `"function"`).
+            path: Filepath of a notebook or script.
+            source_code: Source code.
+            kind: Transform kind.
             entrypoint: Optional entrypoint name (e.g. function qualname) for the run.
-            initiated_by_run: Optional parent run that triggered this run (for steps/flows).
+            initiated_by_run: Optional parent run that triggered this run.
             stream_tracking: If set, override whether to capture stdout/stderr to run logs.
-                Used by the flow/step decorator: flows get logs (True), steps do not (False).
+                Used by the flow/step decorator: flows get logs (`True`), steps do not (`False`).
 
         Examples:
 
