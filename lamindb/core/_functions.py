@@ -59,8 +59,6 @@ def _create_tracked_decorator(
                     transform_kind="function",
                 )
             )
-
-            initiated_by_run = get_current_tracked_run()
             if global_context.run is None:
                 if not is_flow:
                     raise RuntimeError(
@@ -72,11 +70,14 @@ def _create_tracked_decorator(
                         "Please clear the global run context before using @ln.flow(): no `ln.track()` or `@ln.flow(global_run='clear')`"
                     )
 
+            initiated_by_run = get_current_tracked_run()
             # get the fully qualified module name, including submodules
             module_path = func.__module__.replace(".", "/")
             key = (
                 module_path if module_path not in {"__main__", "__mp_main__"} else None
             )
+            if key is not None:
+                key = f"{key}.py"
             if path.exists():
                 local_context = Context(uid=uid, path=path)
                 local_context._create_or_load_transform(
