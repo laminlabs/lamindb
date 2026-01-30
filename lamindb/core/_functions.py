@@ -69,14 +69,11 @@ def _create_tracked_decorator(
                 if module_path not in {"__main__", "__mp_main__"}
                 else None
             )
-            if key is None and initiated_by_run is not None:
-                key = initiated_by_run.transform.key
-
-            local_context = Context(uid=uid, path=path)
-            local_context._track(
-                path=str(path) if path is not None else None,
+            context = Context(uid=uid, path=path)
+            context._track(
+                path=path,
                 key=key,
-                source_code=inspect.getsource(func),
+                source_code=inspect.getsource(func) if path is None else None,
                 kind="function",
                 entrypoint=func.__qualname__,
                 params=params,
@@ -84,16 +81,15 @@ def _create_tracked_decorator(
                 initiated_by_run=initiated_by_run,
                 stream_tracking=is_flow,
             )
-
-            token = current_tracked_run.set(local_context.run)
+            token = current_tracked_run.set(context.run)
             if global_run in {"memorize", "clear"}:
-                global_context._run = local_context.run
+                global_context._run = context.run
             try:
                 result = func(*args, **kwargs)
-                local_context._finish()
+                context._finish()
                 return result
             except Exception as e:
-                run = local_context.run
+                run = context.run
                 run.finished_at = datetime.now(timezone.utc)
                 run._status_code = 1  # errored
                 run.save()

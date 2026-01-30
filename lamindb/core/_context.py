@@ -434,7 +434,7 @@ class Context:
         features: dict | None = None,
         params: dict | None = None,
         new_run: bool | None = None,
-        path: str | None = None,
+        path: str | Path | None = None,
         pypackages: bool | None = None,
         key: str | None = None,
         source_code: str | None = None,
@@ -715,7 +715,7 @@ class Context:
     def _track_notebook(
         self,
         *,
-        path_str: str | None,
+        path_str: str | Path | None,
         pypackages: bool | None = None,
     ) -> tuple[Path, str | None]:
         if path_str is None:
