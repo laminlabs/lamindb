@@ -1,10 +1,4 @@
-[![codecov](https://codecov.io/gh/laminlabs/lamindb/branch/main/graph/badge.svg?token=VKMRJ7OWR3)](https://codecov.io/gh/laminlabs/lamindb)
-[![Docs](https://img.shields.io/badge/docs-humans-yellow)](https://docs.lamin.ai)
-[![DocsLLMs](https://img.shields.io/badge/docs-LLMs-yellow)](https://docs.lamin.ai/summary.md)
-[![pypi](https://img.shields.io/pypi/v/lamindb?color=blue&label=pypi%20package)](https://pypi.org/project/lamindb)
-[![PyPI Downloads](https://img.shields.io/pepy/dt/lamindb?logo=pypi)](https://pepy.tech/project/lamindb)
-
-# LaminDB
+# LaminDB [![docs](https://img.shields.io/badge/docs-yellow)](https://docs.lamin.ai) [![llms.txt](https://img.shields.io/badge/llms.txt-orange)](https://docs.lamin.ai/llms.txt) [![codecov](https://codecov.io/gh/laminlabs/lamindb/branch/main/graph/badge.svg?token=VKMRJ7OWR3)](https://codecov.io/gh/laminlabs/lamindb) [![pypi](https://img.shields.io/pypi/v/lamindb?color=blue&label=PyPI)](https://pypi.org/project/lamindb) [![cran](https://www.r-pkg.org/badges/version/laminr?color=green)](https://cran.r-project.org/package=laminr) [![stars](https://img.shields.io/github/stars/laminlabs/lamindb?style=flat&logo=GitHub&label=&color=gray)](https://github.com/laminlabs/lamindb) [![downloads](https://static.pepy.tech/personalized-badge/lamindb?period=total&units=INTERNATIONAL_SYSTEM&left_color=GRAY&right_color=GRAY&left_text=%E2%AC%87%EF%B8%8F)](https://pepy.tech/project/lamindb)
 
 LaminDB is an open-source data framework for biology to query, trace, and validate datasets and models at scale.
 With one API, you get: lakehouse, lineage, feature store, ontologies, bio-registries & formats.
@@ -12,11 +6,11 @@ With one API, you get: lakehouse, lineage, feature store, ontologies, bio-regist
 <details>
 <summary>Why?</summary>
 
-Reproducing results and understanding how a dataset or model was created is now more important than ever, but was a struggle even before the age of agents.
-Training models across thousands of datasets — from LIMS and ELNs to orthogonal assays and cross-team silos — is now a big learning opportunity, but has historically been impossible.
-While code has git and tables have data warehouses, biological data has lacked a dedicated, API-first management framework to ensure quality and queryability.
+Reproducing and understanding how datasets, models, and workflows were created is crucial to high-quality R&D — especially as agents increasingly contribute to it.
+At the same time, training models across thousands of datasets — from LIMS and ELNs to orthogonal assays and cross-team silos — is now a major learning opportunity, but requires queryable, validated data at scale.
+Robustly scaled learning operations require what has lacked in biology: an API-first data management framework comparable to git for code or warehouses for tables.
 
-LaminDB fills the gap with a lineage-native data lakehouse that understands bio-registries and formats (`AnnData`, `.zarr`, …) to enable scaled learning operations.
+LaminDB fills the gap with a lineage-native data lakehouse that understands bio-registries and formats (`AnnData`, `.zarr`, …).
 It provides queries across many datasets with enough freedom to maintain high-paced R&D while automating rich context on top of versioning, change management, and other industry standards.
 
 </details>
@@ -56,7 +50,7 @@ Scientists & engineers in pharma, biotech, and academia, including:
 
 ## Docs
 
-Copy [summary.md](https://docs.lamin.ai/summary.md) into an LLM chat and let AI explain or read the [docs](https://docs.lamin.ai).
+Copy [llms.txt](https://docs.lamin.ai/llms.txt) into an LLM chat and let AI explain or read the [docs](https://docs.lamin.ai).
 
 ## Quickstart
 
