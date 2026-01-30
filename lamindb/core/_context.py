@@ -878,16 +878,19 @@ class Context:
             if len(transforms) != 0:
                 message = ""
                 found_key = False
-                for aux_transform in transforms:
-                    # check whether the transform key is in the path
-                    # that's not going to be the case for keys that have "/" in them and don't match the folder
-                    if aux_transform.key in self._path.as_posix():
-                        key = aux_transform.key
-                        uid, target_transform, message = self._process_aux_transform(
-                            aux_transform, transform_hash
-                        )
-                        found_key = True
-                        break
+                if self._path is not None:
+                    for aux_transform in transforms:
+                        # check whether the transform key is in the path
+                        # that's not going to be the case for keys that have "/" in them and don't match the folder
+                        if aux_transform.key in self._path.as_posix():
+                            key = aux_transform.key
+                            uid, target_transform, message = (
+                                self._process_aux_transform(
+                                    aux_transform, transform_hash
+                                )
+                            )
+                            found_key = True
+                            break
                 if not found_key:
                     plural_s = "s" if len(transforms) > 1 else ""
                     transforms_str = "\n".join(
