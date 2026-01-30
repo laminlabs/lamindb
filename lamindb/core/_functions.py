@@ -62,7 +62,10 @@ def _create_tracked_decorator(
 
             initiated_by_run = get_current_tracked_run()
             path_raw = inspect.getsourcefile(func)
-            path: Path | None = Path(path_raw) if path_raw is not None else None
+            path = None
+            # do not pass path when function is defined in an ipython cell
+            if path_raw is not None and not path_raw.startswith("<"):
+                path = Path(path_raw)
             module_path = func.__module__.replace(".", "/")
             key = (
                 f"{module_path}.py"
