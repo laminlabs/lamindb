@@ -595,17 +595,14 @@ class Context:
             self._transform = transform_exists
 
         if new_run is None:  # for notebooks, default to loading latest runs
-            if source_code is not None:
-                new_run = True
-            else:
-                new_run = (
-                    False
-                    if (
-                        self._transform.kind == "notebook"
-                        and self._notebook_runner != "nbconvert"
-                    )
-                    else True
-                )  # type: ignore
+            new_run = (
+                False
+                if (
+                    self._transform.kind == "notebook"
+                    and self._notebook_runner != "nbconvert"
+                )
+                else True
+            )  # type: ignore
 
         run = None
         if not new_run:  # try loading latest run by same user
@@ -791,12 +788,7 @@ class Context:
         source_code: str | None = None,
     ):
         if source_code is not None:
-            if key is None:
-                raise InvalidArgument(
-                    "key is required when source_code is passed to _create_or_load_transform"
-                )
             transform_hash = hash_string(source_code)
-            aux_transform = Transform.filter(hash=transform_hash).first()
         else:
             from .._finish import notebook_to_script
 
@@ -818,11 +810,12 @@ class Context:
                         "skipping notebook hash comparison, notebook kernel running on a different machine"
                     )
                     transform_hash = None
-            # see whether we find a transform with the exact same hash
-            if transform_hash is not None:
-                aux_transform = Transform.filter(hash=transform_hash).first()
-            else:
-                aux_transform = None
+
+        # see whether we find a transform with the exact same hash
+        if transform_hash is not None:
+            aux_transform = Transform.filter(hash=transform_hash).first()
+        else:
+            aux_transform = None
 
         # determine the transform key (only when path-based; key is required when source_code)
         if key is None:
