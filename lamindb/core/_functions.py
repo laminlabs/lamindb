@@ -72,6 +72,12 @@ def _create_tracked_decorator(
                 if module_path not in {"__main__", "__mp_main__"}
                 else None
             )
+            if (
+                key is None
+                and path is None
+                and module_path in {"__main__", "__mp_main__"}
+            ):
+                key = f"{initiated_by_run.transform.key}"
             context = Context(uid=uid, path=path)
             context._track(
                 path=path,
