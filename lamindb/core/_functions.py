@@ -69,6 +69,10 @@ def _create_tracked_decorator(
                     raise RuntimeError(
                         "Please clear the global run context before using @ln.flow(): no `ln.track()` or `@ln.flow(global_run='clear')`"
                     )
+            # Bind arguments to get a mapping of parameter names to values
+            bound_args = sig.bind(*args, **kwargs)
+            bound_args.apply_defaults()
+            params = dict(bound_args.arguments)
 
             initiated_by_run = get_current_tracked_run()
             # get the fully qualified module name, including submodules
@@ -115,11 +119,6 @@ def _create_tracked_decorator(
                 if cli_args:
                     logger.important(f"function invoked with: {cli_args}")
                     run.cli_args = cli_args
-
-            # Bind arguments to get a mapping of parameter names to values
-            bound_args = sig.bind(*args, **kwargs)
-            bound_args.apply_defaults()
-            params = dict(bound_args.arguments)
 
             # Add parameters to the run
             run.params = serialize_params_to_json(params)
