@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING, TextIO
 import lamindb_setup as ln_setup
 from django.db.models import Func, IntegerField, Q
 from lamin_utils._logger import logger
-from lamindb_setup.core.hashing import hash_file
+from lamindb_setup.core.hashing import hash_file, hash_string
 
 from ..base.uids import base62_12
 from ..errors import (
@@ -424,10 +424,16 @@ class Context:
         new_run: bool | None = None,
         path: str | None = None,
         pypackages: bool | None = None,
+        source_code: str | None = None,
+        key: str | None = None,
+        kind: TransformKind | None = None,
     ) -> None:
         """Track a run of a notebook or script.
 
         Populates the global run :class:`~lamindb.context` with :class:`~lamindb.Transform` & :class:`~lamindb.Run` objects and tracks the compute environment.
+
+        When ``source_code`` is passed, ``path`` is ignored. In that case ``key`` is
+        required and ``kind`` defaults to ``"function"``.
 
         Args:
             transform: A transform (stem) `uid` (or record). If `None`, auto-creates a `transform` with its `uid`.
@@ -441,8 +447,14 @@ class Context:
             new_run: If `False`, loads the latest run of transform
                 (default notebook), if `True`, creates new run (default non-notebook).
             path: Filepath of notebook or script. Only needed if it can't be
-                automatically detected.
+                automatically detected. Ignored when ``source_code`` is passed.
             pypackages: If `True` or `None`, infers Python packages used in a notebook.
+            source_code: Source code string for the transform. When provided, ``path``
+                is not used; ``key`` is required and ``kind`` defaults to ``"function"``.
+            key: Transform key (e.g. module path or qualified name). Required when
+                ``source_code`` is passed.
+            kind: Transform kind (e.g. ``"function"``). Defaults to ``"function"``
+                when ``source_code`` is passed.
 
         Examples:
 
@@ -527,13 +539,36 @@ class Context:
         self._path = None
         if transform is None:
             description = None
-            if is_run_from_ipython:
+            if source_code is not None:
+                if key is None:
+                    raise InvalidArgument(
+                        "key is required when source_code is passed to track()"
+                    )
+                self._path = None
+                transform_kind = kind if kind is not None else "function"
+                self._create_or_load_transform(
+                    description=None,
+                    transform_ref=None,
+                    transform_ref_type=None,
+                    transform_type=transform_kind,  # type: ignore
+                    key=key,
+                    source_code=source_code,
+                )
+            elif is_run_from_ipython:
                 self._path, description = self._track_notebook(
                     path_str=path, pypackages=pypackages
                 )
                 transform_type = "notebook"
                 transform_ref = None
                 transform_ref_type = None
+                if description is None:
+                    description = self._description
+                self._create_or_load_transform(
+                    description=description,
+                    transform_ref=transform_ref,
+                    transform_ref_type=transform_ref_type,
+                    transform_type=transform_type,  # type: ignore
+                )
             else:
                 (
                     self._path,
@@ -541,14 +576,14 @@ class Context:
                     transform_ref,
                     transform_ref_type,
                 ) = detect_and_process_source_code_file(path=path)
-            if description is None:
-                description = self._description
-            self._create_or_load_transform(
-                description=description,
-                transform_ref=transform_ref,
-                transform_ref_type=transform_ref_type,
-                transform_type=transform_type,  # type: ignore
-            )
+                if description is None:
+                    description = self._description
+                self._create_or_load_transform(
+                    description=description,
+                    transform_ref=transform_ref,
+                    transform_ref_type=transform_ref_type,
+                    transform_type=transform_type,  # type: ignore
+                )
         else:
             if transform.kind in {"notebook", "script"}:
                 raise ValueError(
@@ -572,14 +607,17 @@ class Context:
             self._transform = transform_exists
 
         if new_run is None:  # for notebooks, default to loading latest runs
-            new_run = (
-                False
-                if (
-                    self._transform.kind == "notebook"
-                    and self._notebook_runner != "nbconvert"
-                )
-                else True
-            )  # type: ignore
+            if source_code is not None:
+                new_run = True
+            else:
+                new_run = (
+                    False
+                    if (
+                        self._transform.kind == "notebook"
+                        and self._notebook_runner != "nbconvert"
+                    )
+                    else True
+                )  # type: ignore
 
         run = None
         if not new_run:  # try loading latest run by same user
@@ -633,13 +671,11 @@ class Context:
         logger.important(self._logging_message_track)
         if self._logging_message_imports:
             logger.important(self._logging_message_imports)
-        if uid_was_none:
+        if uid_was_none and self._path is not None:
             notebook_or_script = (
                 "notebook" if self._transform.kind == "notebook" else "script"
             )
-            r_or_python = "."
-            if self._path is not None:
-                r_or_python = "." if self._path.suffix in {".py", ".ipynb"} else "$"
+            r_or_python = "." if self._path.suffix in {".py", ".ipynb"} else "$"
             project_str = (
                 f', project="{project if isinstance(project, str) else project.name}"'
                 if project is not None
@@ -657,7 +693,7 @@ class Context:
             logger.important_hint(
                 f'recommendation: to identify the {notebook_or_script} across renames, pass the uid: ln{r_or_python}track("{self.transform.uid[:-4]}"{kwargs_str})'
             )
-        if self.transform.kind == "script":
+        if self.transform.kind == "script" and self._path is not None:
             save_context_core(
                 run=run,
                 transform=self.transform,
@@ -764,33 +800,43 @@ class Context:
         transform_ref_type: str | None = None,
         transform_type: TransformKind = None,
         key: str | None = None,
+        source_code: str | None = None,
     ):
-        from .._finish import notebook_to_script
-
-        if not self._path.suffix == ".ipynb":
-            _, transform_hash, _ = hash_file(self._path)
-        else:
-            # need to convert to stripped py:percent format for hashing
-            source_code_path = ln_setup.settings.cache_dir / self._path.name.replace(
-                ".ipynb", ".py"
-            )
-            if (
-                self._path.exists()
-            ):  # notebook kernel might be running on a different machine
-                notebook_to_script(description, self._path, source_code_path)
-                _, transform_hash, _ = hash_file(source_code_path)
-            else:
-                logger.debug(
-                    "skipping notebook hash comparison, notebook kernel running on a different machine"
+        if source_code is not None:
+            if key is None:
+                raise InvalidArgument(
+                    "key is required when source_code is passed to _create_or_load_transform"
                 )
-                transform_hash = None
-        # see whether we find a transform with the exact same hash
-        if transform_hash is not None:
+            transform_hash = hash_string(source_code)
             aux_transform = Transform.filter(hash=transform_hash).first()
         else:
-            aux_transform = None
+            from .._finish import notebook_to_script
 
-        # determine the transform key
+            if not self._path.suffix == ".ipynb":
+                _, transform_hash, _ = hash_file(self._path)
+            else:
+                # need to convert to stripped py:percent format for hashing
+                source_code_path = (
+                    ln_setup.settings.cache_dir
+                    / self._path.name.replace(".ipynb", ".py")
+                )
+                if (
+                    self._path.exists()
+                ):  # notebook kernel might be running on a different machine
+                    notebook_to_script(description, self._path, source_code_path)
+                    _, transform_hash, _ = hash_file(source_code_path)
+                else:
+                    logger.debug(
+                        "skipping notebook hash comparison, notebook kernel running on a different machine"
+                    )
+                    transform_hash = None
+            # see whether we find a transform with the exact same hash
+            if transform_hash is not None:
+                aux_transform = Transform.filter(hash=transform_hash).first()
+            else:
+                aux_transform = None
+
+        # determine the transform key (only when path-based; key is required when source_code)
         if key is None:
             if ln_setup.settings.dev_dir is not None:
                 try:
@@ -809,44 +855,52 @@ class Context:
         # if the user did not pass a uid and there is no matching aux_transform
         # need to search for the transform based on the key
         if self.uid is None and aux_transform is None:
+            if source_code is not None:
+                # No path: use provided key only, no path-based matching
+                uid = f"{base62_12()}0000"
+                target_transform = None
+                self.uid, transform = uid, target_transform
+            else:
 
-            class SlashCount(Func):
-                template = "LENGTH(%(expressions)s) - LENGTH(REPLACE(%(expressions)s, '/', ''))"
-                output_field = IntegerField()
+                class SlashCount(Func):
+                    template = "LENGTH(%(expressions)s) - LENGTH(REPLACE(%(expressions)s, '/', ''))"
+                    output_field = IntegerField()
 
-            # we need to traverse from greater depth to shorter depth so that we match better matches first
-            transforms = (
-                Transform.filter(key__endswith=key, is_latest=True)
-                .annotate(slash_count=SlashCount("key"))
-                .order_by("-slash_count")
-            )
-            uid = f"{base62_12()}0000"
-            target_transform = None
-            if len(transforms) != 0:
-                message = ""
-                found_key = False
-                for aux_transform in transforms:
-                    # check whether the transform key is in the path
-                    # that's not going to be the case for keys that have "/" in them and don't match the folder
-                    if aux_transform.key in self._path.as_posix():
-                        key = aux_transform.key
-                        uid, target_transform, message = self._process_aux_transform(
-                            aux_transform, transform_hash
+                # we need to traverse from greater depth to shorter depth so that we match better matches first
+                transforms = (
+                    Transform.filter(key__endswith=key, is_latest=True)
+                    .annotate(slash_count=SlashCount("key"))
+                    .order_by("-slash_count")
+                )
+                uid = f"{base62_12()}0000"
+                target_transform = None
+                if len(transforms) != 0:
+                    message = ""
+                    found_key = False
+                    for aux_transform in transforms:
+                        # check whether the transform key is in the path
+                        # that's not going to be the case for keys that have "/" in them and don't match the folder
+                        if aux_transform.key in self._path.as_posix():
+                            key = aux_transform.key
+                            uid, target_transform, message = (
+                                self._process_aux_transform(
+                                    aux_transform, transform_hash
+                                )
+                            )
+                            found_key = True
+                            break
+                    if not found_key:
+                        plural_s = "s" if len(transforms) > 1 else ""
+                        transforms_str = "\n".join(
+                            [
+                                f"    {transform.uid} → {transform.key}"
+                                for transform in transforms
+                            ]
                         )
-                        found_key = True
-                        break
-                if not found_key:
-                    plural_s = "s" if len(transforms) > 1 else ""
-                    transforms_str = "\n".join(
-                        [
-                            f"    {transform.uid} → {transform.key}"
-                            for transform in transforms
-                        ]
-                    )
-                    message = f"ignoring transform{plural_s} with same filename in different folder:\n{transforms_str}"
-                if message != "":
-                    logger.important(message)
-            self.uid, transform = uid, target_transform
+                        message = f"ignoring transform{plural_s} with same filename in different folder:\n{transforms_str}"
+                    if message != "":
+                        logger.important(message)
+                self.uid, transform = uid, target_transform
         # the user did pass the uid
         elif self.uid is not None and len(self.uid) == 16:
             transform = Transform.filter(uid=self.uid).one_or_none()
@@ -914,15 +968,18 @@ class Context:
         # make a new transform record
         if transform is None:
             assert key is not None  # noqa: S101
-            transform = Transform(  # type: ignore
-                uid=self.uid,
-                version_tag=self.version,
-                description=description,
-                key=key,
-                reference=transform_ref,
-                reference_type=transform_ref_type,
-                kind=transform_type,
-            ).save()
+            transform_kwargs: dict = {
+                "uid": self.uid,
+                "version_tag": self.version,
+                "description": description,
+                "key": key,
+                "reference": transform_ref,
+                "reference_type": transform_ref_type,
+                "kind": transform_type,
+            }
+            if source_code is not None:
+                transform_kwargs["source_code"] = source_code
+            transform = Transform(**transform_kwargs).save()  # type: ignore
             self._logging_message_track += (
                 f"created Transform('{transform.uid}', key='{transform.key}')"
             )
