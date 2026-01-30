@@ -28,7 +28,7 @@ artifacts.to_dataframe()
 You can now further subset or search the {class}`~lamindb.models.QuerySet`. Here we already know what we're looking for:
 
 ```python
-artifact = artifacts.get(schmidt22/gws-crispr-ifng-hits.parquet)
+artifact = artifacts.get(key="example_datasets/mini_immuno/dataset1.h5ad")
 artifact.describe()
 ```
 
@@ -93,14 +93,14 @@ artifact.run.initiated_by_run.transform
 Upon re-transferring a record, it will identify that the record already exists in the target database and simply map the record.
 
 ```python
-artifact = artifacts.get(schmidt22/gws-crispr-ifng-hits.parquet)
+artifact = artifacts.get(key="example_datasets/mini_immuno/dataset1.h5ad")
 artifact.save()
 ```
 
 If you also want to transfer annotations of the artifact, you can pass `transfer="annotations"` to `save()`. Just note that this might populate your target database with metadata that doesn't match the conventions you want to enforce.
 
 ```python
-artifact = artifacts.get(schmidt22/gws-crispr-ifng-hits.parquet)
+artifact = artifacts.get(key="example_datasets/mini_immuno/dataset1.h5ad")
 artifact.save(transfer="annotations")
 ```
 
