@@ -53,7 +53,7 @@ def _create_tracked_decorator(
         @functools.wraps(func)
         def wrapper_tracked(*args: P.args, **kwargs: P.kwargs) -> R:
             # Get function metadata
-            path, transform_kind, reference, reference_type = (
+            path, transform_kind, reference, reference_type, _ = (
                 detect_and_process_source_code_file(
                     path=inspect.getsourcefile(func),
                     transform_kind="function",

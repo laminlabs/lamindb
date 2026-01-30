@@ -2,12 +2,17 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 import lamindb as ln
 import lamindb_setup as ln_setup
 import pytest
 from lamindb._finish import clean_r_notebook_html, get_shortcut
-from lamindb.core._context import LogStreamTracker, context
+from lamindb.core._context import (
+    LogStreamTracker,
+    context,
+    detect_and_process_source_code_file,
+)
 from lamindb.errors import TrackNotCalled, ValidationError
 
 SCRIPTS_DIR = Path(__file__).parent.resolve() / "scripts"
@@ -171,6 +176,55 @@ def test_track_notebook_untitled():
         "Your notebook file name is 'Untitled.ipynb', please rename it before tracking. You might have to re-start your notebook kernel."
         in error.exconly()
     )
+
+
+def test_detect_and_process_source_code_file_returns_key_from_module_for_package():
+    """When path is inferred from stack and caller __name__ has '.', key_from_module is module path."""
+    script_path = str(SCRIPTS_DIR / "script-to-test-versioning.py")
+    mock_frame = MagicMock()
+    mock_frame.f_globals = {"__name__": "mypackage.mymodule"}
+    with patch("inspect.stack") as mock_stack:
+        mock_stack.return_value = [
+            MagicMock(),
+            MagicMock(),
+            (
+                mock_frame,
+                script_path,
+                MagicMock(),
+                MagicMock(),
+                MagicMock(),
+                MagicMock(),
+            ),
+        ]
+        path, kind, ref, ref_type, key_from_module = (
+            detect_and_process_source_code_file(path=None)
+        )
+    assert key_from_module == "mypackage/mymodule.py"
+    assert path == Path(script_path)
+
+
+def test_detect_and_process_source_code_file_returns_none_key_for_script():
+    """When path is inferred from stack and caller __name__ has no '.', key_from_module is None."""
+    script_path = str(SCRIPTS_DIR / "script-to-test-versioning.py")
+    mock_frame = MagicMock()
+    mock_frame.f_globals = {"__name__": "__main__"}
+    with patch("inspect.stack") as mock_stack:
+        mock_stack.return_value = [
+            MagicMock(),
+            MagicMock(),
+            (
+                mock_frame,
+                script_path,
+                MagicMock(),
+                MagicMock(),
+                MagicMock(),
+                MagicMock(),
+            ),
+        ]
+        path, kind, ref, ref_type, key_from_module = (
+            detect_and_process_source_code_file(path=None)
+        )
+    assert key_from_module is None
 
 
 def test_finish_before_track():

@@ -49,22 +49,29 @@ def detect_and_process_source_code_file(
     *,
     path: UPathStr | None,
     transform_kind: TransformKind | None = None,
-) -> tuple[Path, TransformKind, str, str]:
+) -> tuple[Path, TransformKind, str, str, str | None]:
     """Track source code file and determine transform metadata.
 
     For `.py` files, classified as "script".
     For `.Rmd` and `.qmd` files, classified as "notebook" because they
     typically come with an .html run report.
 
+    Package vs script criterion: source code is part of a **package** if the
+    caller's module name contains at least one ``.`` (module nesting goes beyond
+    the filename). Otherwise it is a **script** (module nesting stops at the
+    filename, e.g. ``__main__``, ``__mp_main__``, or a single top-level name).
+
     Args:
         path: Path to the source code file. If None, infers from call stack.
 
     Returns:
-        Tuple of (path, transform_kind, reference, reference_type).
+        Tuple of (path, transform_kind, reference, reference_type, key_from_module).
         - path: Path object to the source file
         - transform_kind: "script" or "notebook"
         - reference: Git reference URL if sync_git_repo is set, else None
         - reference_type: "url" if reference exists, else None
+        - key_from_module: If caller is part of a package (``.`` in __name__),
+          ``module/path.py``; else None (key will be computed from dev_dir or path.name).
 
     Raises:
         NotImplementedError: If path cannot be determined from call stack.
@@ -72,6 +79,7 @@ def detect_and_process_source_code_file(
     # for `.py` files, classified as "script"
     # for `.Rmd` and `.qmd` files, which we classify
     # as "notebook" because they typically come with an .html run report
+    key_from_module: str | None = None
     if path is None:
         import inspect
 
@@ -82,6 +90,10 @@ def detect_and_process_source_code_file(
                 "Cannot determine valid file path, pass manually via path (interactive sessions not yet supported)"
             )
         path = Path(path_str)
+        # Package vs script: nesting beyond filename -> package
+        caller_module = frame[0].f_globals.get("__name__", "__main__")
+        if "." in caller_module:
+            key_from_module = f"{caller_module.replace('.', '/')}.py"
     else:
         path = Path(path)
     # for Rmd and qmd, we could also extract the title
@@ -97,7 +109,7 @@ def detect_and_process_source_code_file(
     if settings.sync_git_repo is not None and path.suffix != ".ipynb":
         reference = get_transform_reference_from_git_repo(path)
         reference_type = "url"
-    return path, transform_kind, reference, reference_type
+    return path, transform_kind, reference, reference_type, key_from_module
 
 
 def get_uid_ext(version: str) -> str:
@@ -554,7 +566,10 @@ class Context:
                         transform_kind,
                         transform_ref,
                         transform_ref_type,
+                        key_from_module,
                     ) = detect_and_process_source_code_file(path=path)
+                    if key is None and key_from_module is not None:
+                        key = key_from_module
             if description is None:
                 description = self._description
             self._create_or_load_transform(
