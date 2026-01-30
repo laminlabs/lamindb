@@ -4,7 +4,7 @@ execute_via: python
 
 # Transfer data
 
-This guide shows how to transfer data from a source database into the currently connected database.
+This guide shows how to transfer data from a source database to your default database.
 
 ```python
 # pip install lamindb
@@ -17,52 +17,50 @@ import lamindb as ln
 ln.track()
 ```
 
-Query all artifacts in the `laminlabs/lamindata` instance and filter them to their latest versions.
+Query artifacts in the `laminlabs/lamindata` instance:
 
 ```python
-# query all latest artifact versions
-artifacts = ln.Artifact.connect("laminlabs/lamindata").filter(is_latest=True)
-
-# convert the QuerySet to a DataFrame and show the latest 5 versions
-artifacts.to_dataframe().head()
+db = ln.DB("laminlabs/lamindata")
+artifacts = db.Artifact.filter(is_latest=True)  # query latest versions of artifacts
+artifacts.to_dataframe()
 ```
 
-You can now further subset or search the {class}`~lamindb.models.QuerySet`. Here we query by whether the description contains "tabula sapiens".
+You can now further subset or search the {class}`~lamindb.models.QuerySet`. Here we already know what we're looking for:
 
 ```python
-artifact = artifacts.filter(description__contains="Tabula Sapiens").first()
+artifact = artifacts.get(key="example_datasets/mini_immuno/dataset1.h5ad")
 artifact.describe()
 ```
 
-By saving the artifact record that's currently attached to the source database instance, you transfer it to the default database instance.
+By saving the artifact that's currently attached to the source database, you transfer it to your default database.
 
 ```python
 artifact.save()
 ```
 
-```{dropdown} How do I know if a record is saved in the default database instance or not?
+```{dropdown} How do I know if an object is saved in the default database or not?
 
-Every record has an attribute `._state.db` which can take the following values:
+Every `SQLRecord` object has an attribute `._state.db` which can take the following values:
 
-- `None`: the record has not yet been saved to any database
-- `"default"`: the record is saved on the default database instance
-- `"account/name"`: the record is saved on a non-default database instance referenced by `account/name` (e.g., `laminlabs/lamindata`)
+- `None`: the object has not yet been saved to any database
+- `"default"`: the object is saved on the default database instance
+- `"account/name"`: the object is saved on a non-default database instance referenced by `account/name` (e.g., `laminlabs/lamindata`)
 
 ```
 
-The artifact record has been transferred to the current database without feature & label annotations, but with updated data lineage.
+The artifact has been transferred to the current database without feature & label annotations, but with updated data lineage:
 
 ```python
 artifact.describe()
 ```
 
-You see that the data itself remained in the original storage location, which has been added to the current instance's storage location as a read-only location (indicated by the fact that the `instance_uid` doesn't match the current instance).
+The data itself remained in the original storage location, which has been added to your default database's storage location as a read-only location. This is indicated by the fact that the `instance_uid` does **not** match the `uid` of your default database.
 
 ```python
 ln.Storage.to_dataframe()
 ```
 
-See the state of the database.
+See the state of the database:
 
 ```python
 ln.view()
@@ -95,14 +93,14 @@ artifact.run.initiated_by_run.transform
 Upon re-transferring a record, it will identify that the record already exists in the target database and simply map the record.
 
 ```python
-artifact = artifacts.filter(description__contains="Tabula Sapiens").first()
+artifact = artifacts.get(key="example_datasets/mini_immuno/dataset1.h5ad")
 artifact.save()
 ```
 
 If you also want to transfer annotations of the artifact, you can pass `transfer="annotations"` to `save()`. Just note that this might populate your target database with metadata that doesn't match the conventions you want to enforce.
 
 ```python
-artifact = artifacts.filter(description__contains="Tabula Sapiens").first()
+artifact = artifacts.get(key="example_datasets/mini_immuno/dataset1.h5ad")
 artifact.save(transfer="annotations")
 ```
 
@@ -117,5 +115,5 @@ artifact.describe()
 assert artifact.transform.description == "Transfer from `laminlabs/lamindata`"
 assert artifact.transform.key == "__lamindb_transfer__/4XIuR0tvaiXM"
 assert artifact.transform.uid == "4XIuR0tvaiXM0000"
-assert artifact.run.initiated_by_run.transform.description == "Transfer data"
+assert artifact.run.initiated_by_run.transform.description.startswith("Transfer data")
 ```
