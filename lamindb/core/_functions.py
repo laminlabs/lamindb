@@ -2,19 +2,13 @@ import functools
 import inspect
 from contextvars import ContextVar
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Callable, Literal, ParamSpec, TypeVar
-
-from lamin_utils import logger
 
 from lamindb.base import deprecated
 
-from ..models import Run, Transform
-from ._context import (
-    Context,
-    detect_and_process_source_code_file,
-    get_cli_args,
-    serialize_params_to_json,
-)
+from ..models import Run
+from ._context import Context
 from ._context import context as global_context
 
 P = ParamSpec("P")
@@ -52,15 +46,6 @@ def _create_tracked_decorator(
 
         @functools.wraps(func)
         def wrapper_tracked(*args: P.args, **kwargs: P.kwargs) -> R:
-            # Get function metadata
-            path, transform_type, reference, reference_type = (
-                detect_and_process_source_code_file(
-                    path=inspect.getsourcefile(func),
-                    transform_type="function",
-                )
-            )
-
-            initiated_by_run = get_current_tracked_run()
             if global_context.run is None:
                 if not is_flow:
                     raise RuntimeError(
@@ -71,73 +56,49 @@ def _create_tracked_decorator(
                     raise RuntimeError(
                         "Please clear the global run context before using @ln.flow(): no `ln.track()` or `@ln.flow(global_run='clear')`"
                     )
-
-            # get the fully qualified module name, including submodules
-            module_path = func.__module__.replace(".", "/")
-            key = (
-                module_path if module_path not in {"__main__", "__mp_main__"} else None
-            )
-            if path.exists():
-                local_context = Context(uid=uid, path=path)
-                local_context._create_or_load_transform(
-                    description=None,
-                    transform_type=transform_type,
-                    transform_ref=reference,
-                    transform_ref_type=reference_type,
-                    key=key,
-                )
-                transform = local_context.transform
-                transform._update_source_code_from_path(path)
-                transform.save()
-            else:
-                if module_path in {"__main__", "__mp_main__"}:
-                    qualified_name = f"{initiated_by_run.transform.key}"
-                else:
-                    qualified_name = f"{module_path}.py"
-                transform = Transform(  # type: ignore
-                    uid=uid,
-                    key=qualified_name,
-                    type="function",
-                    source_code=inspect.getsource(func),
-                ).save()
-
-            run = Run(
-                transform=transform,
-                initiated_by_run=initiated_by_run,
-                entrypoint=func.__qualname__,
-            )  # type: ignore
-            run.started_at = datetime.now(timezone.utc)
-            run._status_code = -1  # started
-
-            if is_flow:
-                cli_args = get_cli_args()
-                if cli_args:
-                    logger.important(f"function invoked with: {cli_args}")
-                    run.cli_args = cli_args
-
-            # Bind arguments to get a mapping of parameter names to values
             bound_args = sig.bind(*args, **kwargs)
             bound_args.apply_defaults()
             params = dict(bound_args.arguments)
 
-            # Add parameters to the run
-            run.params = serialize_params_to_json(params)
-            run.save()
-
-            # Set the run in context and execute function
-            token = current_tracked_run.set(run)
-            # If it's a flow, set the global run context as we do in `ln.track()`
-            # Because we error above if a global run context already exists,
-            # there is no danger of overwriting the global run context.
+            initiated_by_run = get_current_tracked_run()
+            path_raw = inspect.getsourcefile(func)
+            path = None
+            # do not pass path when function is defined in an ipython cell
+            if path_raw is not None and Path(path_raw).exists():
+                path = Path(path_raw)
+            module_path = func.__module__.replace(".", "/")
+            key = (
+                f"{module_path}.py"
+                if module_path not in {"__main__", "__mp_main__"}
+                else None
+            )
+            if (
+                key is None
+                and path is None
+                and module_path in {"__main__", "__mp_main__"}
+            ):
+                key = f"{initiated_by_run.transform.key}"
+            context = Context(uid=uid, path=path)
+            context._track(
+                path=path,
+                key=key,
+                source_code=inspect.getsource(func) if path is None else None,
+                kind="function",
+                entrypoint=func.__qualname__,
+                params=params,
+                new_run=True,
+                initiated_by_run=initiated_by_run,
+                stream_tracking=is_flow,
+            )
+            token = current_tracked_run.set(context.run)
             if global_run in {"memorize", "clear"}:
-                global_context._run = run
+                global_context._run = context.run
             try:
                 result = func(*args, **kwargs)
-                run.finished_at = datetime.now(timezone.utc)
-                run._status_code = 0  # completed
-                run.save()
+                context._finish()
                 return result
             except Exception as e:
+                run = context.run
                 run.finished_at = datetime.now(timezone.utc)
                 run._status_code = 1  # errored
                 run.save()
