@@ -836,52 +836,44 @@ class Context:
         # if the user did not pass a uid and there is no matching aux_transform
         # need to search for the transform based on the key
         if self.uid is None and aux_transform is None:
-            if source_code is not None:
-                # No path: use provided key only, no path-based matching
-                uid = f"{base62_12()}0000"
-                target_transform = None
-                self.uid, transform = uid, target_transform
-            else:
 
-                class SlashCount(Func):
-                    template = "LENGTH(%(expressions)s) - LENGTH(REPLACE(%(expressions)s, '/', ''))"
-                    output_field = IntegerField()
+            class SlashCount(Func):
+                template = "LENGTH(%(expressions)s) - LENGTH(REPLACE(%(expressions)s, '/', ''))"
+                output_field = IntegerField()
 
-                # we need to traverse from greater depth to shorter depth so that we match better matches first
-                transforms = (
-                    Transform.filter(key__endswith=key, is_latest=True)
-                    .annotate(slash_count=SlashCount("key"))
-                    .order_by("-slash_count")
-                )
-                uid = f"{base62_12()}0000"
-                target_transform = None
-                if len(transforms) != 0:
-                    message = ""
-                    found_key = False
-                    for aux_transform in transforms:
-                        # check whether the transform key is in the path
-                        # that's not going to be the case for keys that have "/" in them and don't match the folder
-                        if aux_transform.key in self._path.as_posix():
-                            key = aux_transform.key
-                            uid, target_transform, message = (
-                                self._process_aux_transform(
-                                    aux_transform, transform_hash
-                                )
-                            )
-                            found_key = True
-                            break
-                    if not found_key:
-                        plural_s = "s" if len(transforms) > 1 else ""
-                        transforms_str = "\n".join(
-                            [
-                                f"    {transform.uid} → {transform.key}"
-                                for transform in transforms
-                            ]
+            # we need to traverse from greater depth to shorter depth so that we match better matches first
+            transforms = (
+                Transform.filter(key__endswith=key, is_latest=True)
+                .annotate(slash_count=SlashCount("key"))
+                .order_by("-slash_count")
+            )
+            uid = f"{base62_12()}0000"
+            target_transform = None
+            if len(transforms) != 0:
+                message = ""
+                found_key = False
+                for aux_transform in transforms:
+                    # check whether the transform key is in the path
+                    # that's not going to be the case for keys that have "/" in them and don't match the folder
+                    if aux_transform.key in self._path.as_posix():
+                        key = aux_transform.key
+                        uid, target_transform, message = self._process_aux_transform(
+                            aux_transform, transform_hash
                         )
-                        message = f"ignoring transform{plural_s} with same filename in different folder:\n{transforms_str}"
-                    if message != "":
-                        logger.important(message)
-                self.uid, transform = uid, target_transform
+                        found_key = True
+                        break
+                if not found_key:
+                    plural_s = "s" if len(transforms) > 1 else ""
+                    transforms_str = "\n".join(
+                        [
+                            f"    {transform.uid} → {transform.key}"
+                            for transform in transforms
+                        ]
+                    )
+                    message = f"ignoring transform{plural_s} with same filename in different folder:\n{transforms_str}"
+                if message != "":
+                    logger.important(message)
+            self.uid, transform = uid, target_transform
         # the user did pass the uid
         elif self.uid is not None and len(self.uid) == 16:
             transform = Transform.filter(uid=self.uid).one_or_none()
@@ -949,18 +941,16 @@ class Context:
         # make a new transform record
         if transform is None:
             assert key is not None  # noqa: S101
-            transform_kwargs: dict = {
-                "uid": self.uid,
-                "version_tag": self.version,
-                "description": description,
-                "key": key,
-                "reference": transform_ref,
-                "reference_type": transform_ref_type,
-                "kind": transform_kind,
-            }
-            if source_code is not None:
-                transform_kwargs["source_code"] = source_code
-            transform = Transform(**transform_kwargs).save()  # type: ignore
+            transform = Transform(  # type: ignore
+                uid=self.uid,
+                version_tag=self.version,
+                description=description,
+                key=key,
+                reference=transform_ref,
+                reference_type=transform_ref_type,
+                kind=transform_kind,
+                source_code=source_code,
+            ).save()
             self._logging_message_track += (
                 f"created Transform('{transform.uid}', key='{transform.key}')"
             )
