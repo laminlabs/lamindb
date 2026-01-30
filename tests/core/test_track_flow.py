@@ -73,3 +73,4 @@ def test_flow():
     Path("file_with_same_hash.txt").unlink()
     for run in runs:
         run.delete(permanent=True)
+    ln.context._run = None

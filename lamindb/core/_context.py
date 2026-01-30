@@ -439,6 +439,9 @@ class Context:
         key: str | None = None,
         source_code: str | None = None,
         kind: TransformKind | None = None,
+        entrypoint: str | None = None,
+        initiated_by_run: Run | None = None,
+        stream_tracking: bool | None = None,
     ) -> None:
         """Track a run of a notebook or script.
 
@@ -462,6 +465,10 @@ class Context:
             source_code: Source code string for the transform. When provided, `path`
                 is not used; `key` is required and `kind` defaults to `"function"`.
             kind: Transform kind (e.g. `"function"`).
+            entrypoint: Optional entrypoint name (e.g. function qualname) for the run.
+            initiated_by_run: Optional parent run that triggered this run (for steps/flows).
+            stream_tracking: If set, override whether to capture stdout/stderr to run logs.
+                Used by the flow/step decorator: flows get logs (True), steps do not (False).
 
         Examples:
 
@@ -554,6 +561,8 @@ class Context:
                         "key is required when source_code is passed to track()"
                     )
                 transform_kind = kind if kind is not None else "function"
+                if path is not None:
+                    self._path = Path(path)
             else:
                 if is_run_from_ipython:
                     self._path, description = self._track_notebook(
@@ -628,6 +637,10 @@ class Context:
 
         if run is None:  # create new run
             run = Run(transform=self._transform)
+            if entrypoint is not None:
+                run.entrypoint = entrypoint
+            if initiated_by_run is not None:
+                run.initiated_by_run = initiated_by_run
             run.started_at = datetime.now(timezone.utc)
             run._status_code = -1  # started
             self._logging_message_track += f", started new Run('{run.uid}') at {format_field_value(run.started_at)}"
@@ -658,7 +671,12 @@ class Context:
             self.transform.save()
         log_to_file = None
         if log_to_file is None:
-            log_to_file = self.transform.kind != "notebook"
+            if stream_tracking is not None:
+                log_to_file = stream_tracking
+            else:
+                # Script runs get stream tracking; function runs only when stream_tracking
+                # is passed (flow=True from decorator); steps do not (avoids parallel conflicts).
+                log_to_file = self.transform.kind == "script"
         if log_to_file:
             self._stream_tracker.start(run)
         logger.important(self._logging_message_track)
@@ -1057,7 +1075,12 @@ class Context:
                 )
             self.run.finished_at = datetime.now(timezone.utc)
             self.run.save()
-            # nothing else to do
+            # reset context so the next _track() starts clean (e.g. from decorator)
+            self._uid = None
+            self._run = None
+            self._transform = None
+            self._version = None
+            self._description = None
             return None
         self.run._status_code = 0
         if self.transform.kind == "notebook":
@@ -1075,6 +1098,7 @@ class Context:
                 return None
         else:
             self.run.finished_at = datetime.now(timezone.utc)
+            self.run.save()  # persist finished_at (save_run_logs only saves when log file exists)
             if ln_setup.settings.instance.is_on_hub:
                 instance_slug = ln_setup.settings.instance.slug
                 ui_url = ln_setup.settings.instance.ui_url
