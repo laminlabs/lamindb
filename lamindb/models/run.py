@@ -11,6 +11,7 @@ from django.db.models import (
     PROTECT,
 )
 from lamindb_setup import _check_instance_setup
+from lamindb_setup import settings as setup_settings
 
 from lamindb.base.fields import (
     BooleanField,
@@ -492,8 +493,6 @@ class Run(SQLRecord, TracksUpdates):
 
 def _permanent_delete_runs(runs: Run | QuerySet) -> None:
     """Execute bulk DELETE on runs and spawn artifact cleanup. Used by QuerySet and single-run paths."""
-    from lamindb_setup import settings as setup_settings
-
     if isinstance(runs, Run):
         db = runs._state.db or "default"
         artifact_ids = []
@@ -507,9 +506,9 @@ def _permanent_delete_runs(runs: Run | QuerySet) -> None:
         rows = runs.values_list("report_id", "environment_id")
         artifact_ids = list({aid for r in rows for aid in r if aid is not None})
         super(BasicQuerySet, runs).delete()
-    instance = db if db not in (None, "default") else setup_settings.instance.slug
     if artifact_ids:
         ids_str = ",".join(map(str, artifact_ids))
+        instance = db if db not in (None, "default") else setup_settings.instance.slug
         # spawn background subprocess to delete orphaned report/env artifacts
         subprocess.Popen(
             [
