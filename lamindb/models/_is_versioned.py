@@ -283,7 +283,7 @@ def _adjust_is_latest_when_deleting_is_versioned(
         .exclude(branch_id=-1)
         .values("pk", "uid", "created_at")
     )
-    # 3) Per stem_uid, pick candidate with max created_at
+    # per stem_uid, pick candidate with max created_at
     by_stem: dict[str, dict[str, Any]] = {}
     for c in candidates:
         stem = c["uid"][:len_stem]
