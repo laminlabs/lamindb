@@ -256,23 +256,29 @@ def test_version_backward_compatibility():
 
 
 def test_adjust_is_latest_when_deleting_is_versioned():
-    """Direct unit test for _adjust_is_latest_when_deleting_is_versioned."""
-    # Build one version family: v1 (older), v2 (latest)
-    v1 = ln.Transform(key="Adjust latest unit test").save()
-    v2 = ln.Transform(revises=v1, key="Adjust latest unit test").save()
-    assert v2.is_latest
-    assert not v1.is_latest
+    """Direct unit test for _adjust_is_latest_when_deleting_is_versioned (covers multiple promoted)."""
+    # Build two version families, each with v1 (older) and v2 (latest)
+    v1a = ln.Transform(key="Adjust latest family A").save()
+    v2a = ln.Transform(revises=v1a, key="Adjust latest family A").save()
+    v1b = ln.Transform(key="Adjust latest family B").save()
+    v2b = ln.Transform(revises=v1b, key="Adjust latest family B").save()
+    assert v2a.is_latest and v2b.is_latest
+    assert not v1a.is_latest and not v1b.is_latest
 
-    promoted = _adjust_is_latest_when_deleting_is_versioned(v2)
-    assert len(promoted) == 1
-    assert promoted[0] == v1.pk
+    # Delete both latest → two promoted (covers "new latest ... versions: [...]" branch)
+    promoted = _adjust_is_latest_when_deleting_is_versioned([v2a, v2b])
+    assert len(promoted) == 2
+    assert set(promoted) == {v1a.pk, v1b.pk}
 
-    v1.refresh_from_db()
-    assert v1.is_latest
+    v1a.refresh_from_db()
+    v1b.refresh_from_db()
+    assert v1a.is_latest and v1b.is_latest
 
     # Edge case: empty list returns []
     assert _adjust_is_latest_when_deleting_is_versioned([]) == []
 
-    # Clean up (v2 first so v1 stays sole latest, then v1)
-    v2.delete(permanent=True)
-    v1.delete(permanent=True)
+    # Clean up
+    v2a.delete(permanent=True)
+    v2b.delete(permanent=True)
+    v1a.delete(permanent=True)
+    v1b.delete(permanent=True)
