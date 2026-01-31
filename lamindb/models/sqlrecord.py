@@ -1643,12 +1643,7 @@ class SQLRecord(BaseSQLRecord, metaclass=Registry):
             if name_with_module == "Run":
                 from .run import _bulk_delete_runs
 
-                artifact_ids = [
-                    aid
-                    for aid in (self.report_id, self.environment_id)
-                    if aid is not None
-                ]
-                _bulk_delete_runs(self, artifact_ids)
+                _bulk_delete_runs(self)
                 return None
             if name_with_module == "Transform":
                 from .transform import Transform

@@ -513,7 +513,7 @@ def _spawn_artifact_cleanup(artifact_ids: list[int], instance: str) -> None:
     )
 
 
-def _bulk_delete_runs(runs: Run | QuerySet, artifact_ids: list[int]) -> None:
+def _bulk_delete_runs(runs: Run | QuerySet) -> None:
     """Execute bulk DELETE on runs and spawn artifact cleanup. Used by QuerySet and single-run paths."""
     from django.db.models import QuerySet as DjangoQuerySet
     from lamindb_setup import settings as setup_settings
@@ -521,9 +521,16 @@ def _bulk_delete_runs(runs: Run | QuerySet, artifact_ids: list[int]) -> None:
     if isinstance(runs, Run):
         db = runs._state.db or "default"
         qs = Run.objects.using(db).filter(pk=runs.pk)
+        artifact_ids = [
+            aid for aid in (runs.report_id, runs.environment_id) if aid is not None
+        ]
     else:
         db = runs.db or "default"
         qs = runs
+        rows = list(runs.values_list("report_id", "environment_id"))
+        if not rows:
+            return
+        artifact_ids = list({aid for r in rows for aid in r if aid is not None})
     instance = db if db not in (None, "default") else setup_settings.instance.slug
     DjangoQuerySet.delete(
         qs
