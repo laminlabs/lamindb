@@ -513,18 +513,18 @@ def _spawn_artifact_cleanup(artifact_ids: list[int], instance: str) -> None:
     )
 
 
-def _bulk_delete_runs(
-    run_ids: list[int],
-    db: str,
-    instance: str,
-    artifact_ids: list[int],
-) -> None:
+def _bulk_delete_runs(runs: Run | QuerySet, artifact_ids: list[int]) -> None:
     """Execute bulk DELETE on runs and spawn artifact cleanup. Used by QuerySet and single-run paths."""
     from django.db.models import QuerySet as DjangoQuerySet
+    from lamindb_setup import settings as setup_settings
 
-    if not run_ids:
-        return
-    qs = Run.objects.using(db).filter(pk__in=run_ids)
+    if isinstance(runs, Run):
+        db = runs._state.db or "default"
+        qs = Run.objects.using(db).filter(pk=runs.pk)
+    else:
+        db = runs.db or "default"
+        qs = runs
+    instance = db if db not in (None, "default") else setup_settings.instance.slug
     DjangoQuerySet.delete(
         qs
     )  # Bypass our override to avoid recursion; raw Django CASCADE

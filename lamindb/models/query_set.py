@@ -1198,24 +1198,13 @@ class BasicQuerySet(models.QuerySet):
 
         if self.model is Run:
             if permanent is True:
-                run_ids = list(self.values_list("pk", flat=True))
-                if not run_ids:
+                rows = list(self.values_list("report_id", "environment_id"))
+                if not rows:
                     return
-                run = self.first()
-                instance = (
-                    run._state.db
-                    if (run and run._state.db not in (None, "default"))
-                    else setup_settings.instance.slug
-                )
-                rows = (
-                    Run.objects.using(self.db)
-                    .filter(pk__in=run_ids)
-                    .values_list("report_id", "environment_id")
-                )
                 artifact_ids = list({aid for r in rows for aid in r if aid is not None})
                 from .run import _bulk_delete_runs
 
-                _bulk_delete_runs(run_ids, self.db, instance, artifact_ids)
+                _bulk_delete_runs(self, artifact_ids)
                 return
             if permanent is not True:
                 self.update(branch_id=-1)
