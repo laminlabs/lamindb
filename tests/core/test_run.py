@@ -7,7 +7,7 @@ import pytest
 
 
 def test_run():
-    transform = ln.Transform(key="My transform")
+    transform = ln.Transform(key="my_transform")
     with pytest.raises(ValueError) as error:
         ln.Run(transform)
     assert (
@@ -35,7 +35,7 @@ def test_run():
     assert ln.Run.filter(uid=run2.uid).count() == 0
     assert ln.Artifact.filter(uid=report_artifact.uid).count() == 1
     assert ln.Artifact.filter(uid=environment.uid).count() == 1
-    time.sleep(3)  # wait for background cleanup subprocess to delete artifacts
+    time.sleep(5)  # wait for background cleanup subprocess to delete artifacts
     assert ln.Artifact.filter(uid=report_artifact.uid).count() == 0
     assert ln.Artifact.filter(uid=environment.uid).count() == 0
 
