@@ -32,10 +32,9 @@ def test_run():
 
     # Run is deleted; report/env artifacts are cleaned up in background subprocess
     assert ln.Run.filter(uid=run2.uid).count() == 0
-    # Clean up orphan report/env artifacts (subprocess may not have run yet)
-    for art in [report_artifact, environment]:
-        if ln.Artifact.filter(uid=art.uid).first() is not None:
-            art.delete(permanent=True, storage=False)
+
+    assert ln.Artifact.objects.filter(uid=report_artifact.uid).count() == 0
+    assert ln.Artifact.objects.filter(uid=environment.uid).count() == 0
 
     transform.delete(permanent=True)
 
