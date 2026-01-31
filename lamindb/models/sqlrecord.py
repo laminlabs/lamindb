@@ -1641,14 +1641,14 @@ class SQLRecord(BaseSQLRecord, metaclass=Registry):
 
         if confirm_delete:
             if name_with_module == "Run":
-                from .run import _bulk_delete_runs
+                from .run import _permanent_delete_runs
 
-                _bulk_delete_runs(self)
+                _permanent_delete_runs(self)
                 return None
             if name_with_module == "Transform":
-                from .transform import _bulk_delete_transforms
+                from .transform import _permanent_delete_transforms
 
-                _bulk_delete_transforms(self)
+                _permanent_delete_transforms(self)
                 return None
             if name_with_module == "Artifact":
                 from .artifact import delete_permanently

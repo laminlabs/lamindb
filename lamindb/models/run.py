@@ -490,7 +490,7 @@ class Run(SQLRecord, TracksUpdates):
         return type(cls).filter(cls, *queries, **expressions)
 
 
-def _bulk_delete_runs(runs: Run | QuerySet) -> None:
+def _permanent_delete_runs(runs: Run | QuerySet) -> None:
     """Execute bulk DELETE on runs and spawn artifact cleanup. Used by QuerySet and single-run paths."""
     from lamindb_setup import settings as setup_settings
 

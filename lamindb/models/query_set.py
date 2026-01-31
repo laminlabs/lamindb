@@ -1198,18 +1198,18 @@ class BasicQuerySet(models.QuerySet):
 
         if self.model is Run:
             if permanent is True:
-                from .run import _bulk_delete_runs
+                from .run import _permanent_delete_runs
 
-                _bulk_delete_runs(self)
+                _permanent_delete_runs(self)
                 return
             if permanent is not True:
                 self.update(branch_id=-1)
                 return
         if self.model is Transform:
             if permanent is True:
-                from .transform import _bulk_delete_transforms
+                from .transform import _permanent_delete_transforms
 
-                _bulk_delete_transforms(self)
+                _permanent_delete_transforms(self)
                 return
             if permanent is not True:
                 self.update(branch_id=-1)

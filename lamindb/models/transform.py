@@ -528,7 +528,7 @@ class Transform(SQLRecord, IsVersioned):
         return None
 
 
-def _bulk_delete_transforms(transforms: Transform | QuerySet) -> None:
+def _permanent_delete_transforms(transforms: Transform | QuerySet) -> None:
     """Execute bulk DELETE on transforms (runs, then transforms). Used by QuerySet and single-transform paths."""
     from django.db.models import QuerySet as DjangoQuerySet
 
