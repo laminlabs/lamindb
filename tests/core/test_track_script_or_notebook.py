@@ -12,11 +12,34 @@ from lamindb.core._context import (
     LogStreamTracker,
     context,
     detect_and_process_source_code_file,
+    serialize_params_to_json,
 )
 from lamindb.errors import TrackNotCalled, ValidationError
+from lamindb_setup.core.upath import UPath
 
 SCRIPTS_DIR = Path(__file__).parent.resolve() / "scripts"
 NOTEBOOKS_DIR = Path(__file__).parent.resolve() / "notebooks"
+
+
+def test_serialize_params_to_json():
+    a_path = Path("/some/local/folder")
+    a_upath = UPath("s3://bucket/key")
+    params = {
+        "path_key": a_path,
+        "none_key": None,
+        "upath_key": a_upath,
+        "str_key": "plain",
+    }
+    result = serialize_params_to_json(params)
+    # None is omitted
+    assert "none_key" not in result
+    # Path is serialized to posix string
+    assert result["path_key"] == "/some/local/folder"
+    # UPath is serialized to posix string
+    assert result["upath_key"] == "s3://bucket/key"
+    # Other values unchanged
+    assert result["str_key"] == "plain"
+    assert set(result.keys()) == {"path_key", "upath_key", "str_key"}
 
 
 def test_track_basic_invocation():

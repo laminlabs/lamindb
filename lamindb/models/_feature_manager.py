@@ -5,6 +5,7 @@ from collections import defaultdict
 from collections.abc import Iterable
 from datetime import date, datetime
 from itertools import compress
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -15,6 +16,7 @@ from django.db.models import Aggregate, Subquery
 from django.db.models.expressions import RawSQL
 from django.db.utils import IntegrityError
 from lamin_utils import logger
+from lamindb_setup.core.upath import UPath
 from lamindb_setup.errors import ModuleWasntConfigured
 from rich.table import Column, Table
 from rich.text import Text
@@ -713,7 +715,7 @@ def describe_features(
     return dataset_features_tree, external_features_tree
 
 
-def infer_feature_type_convert_json(
+def infer_convert_dtype_key_value(
     key: str, value: Any, mute: bool = False, dtype_str: str | None = None
 ) -> tuple[str, Any, str]:
     from lamindb.base.dtypes import is_valid_datetime_str
@@ -741,7 +743,10 @@ def infer_feature_type_convert_json(
         else:
             return "cat ? str", value, message
     elif isinstance(value, SQLRecord):
+        # SQLRecord is not converted to JSON
         return (f"cat[{value.__class__.__get_name_with_module__()}]", value, message)
+    elif isinstance(value, (Path, UPath)):
+        return "path", value.as_posix().rstrip("/"), message
     elif isinstance(value, Iterable) and not isinstance(value, (str, bytes)):
         if isinstance(value, (pd.Series, np.ndarray, pd.Categorical)):
             dtype = serialize_pandas_dtype(value.dtype)
@@ -778,7 +783,7 @@ def infer_feature_type_convert_json(
                         message,
                     )
     if not mute:
-        logger.warning(f"cannot infer feature type of: {value}, returning '?")
+        logger.warning(f"cannot infer feature type of: {value}, returning '?'")
     return "?", value, message
 
 
@@ -1168,7 +1173,7 @@ class FeatureManager:
                 key for key in keys if key not in feature_records.to_list("name")
             ]
             not_validated_keys_dtype_message = [
-                (key, infer_feature_type_convert_json(key, dictionary[key]))
+                (key, infer_convert_dtype_key_value(key, dictionary[key]))
                 for key in not_validated_keys
             ]
             run = get_current_tracked_run()
@@ -1252,7 +1257,7 @@ class FeatureManager:
                 feature.dtype_as_str.startswith("cat")
                 or feature.dtype_as_str.startswith("list[cat")
             ):
-                _, converted_value, _ = infer_feature_type_convert_json(
+                _, converted_value, _ = infer_convert_dtype_key_value(
                     key=feature.name, value=value, dtype_str=feature.dtype_as_str
                 )
                 filter_kwargs = {"feature": feature, "value": converted_value}

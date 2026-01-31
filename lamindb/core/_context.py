@@ -24,7 +24,7 @@ from ..errors import (
     UpdateContext,
 )
 from ..models import Run, SQLRecord, Transform, format_field_value
-from ..models._feature_manager import infer_feature_type_convert_json
+from ..models._feature_manager import infer_convert_dtype_key_value
 from ..models._is_versioned import bump_version as bump_version_function
 from ..models._is_versioned import (
     increment_base62,
@@ -328,7 +328,13 @@ class LogStreamTracker:
 def serialize_params_to_json(params: dict) -> dict:
     serialized_params = {}
     for key, value in params.items():
-        dtype, converted_value, _ = infer_feature_type_convert_json(key, value)
+        # None is a missing value, skip it consitent with elsewhere in the code
+        if value is None:
+            continue
+        dtype, converted_value, _ = infer_convert_dtype_key_value(key, value, mute=True)
+        # converted_value is not JSON if dtype is a SQLRecord or a list of SQLRecords
+        # because we just the above function for features where we'd like to keep SQLRecords as they are
+        # so, need to handle this here
         if (
             dtype == "?" or dtype.startswith("cat") or dtype.startswith("list[cat")
         ) and dtype != "cat ? str":
