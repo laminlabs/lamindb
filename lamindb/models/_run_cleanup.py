@@ -23,11 +23,9 @@ def main() -> None:
         artifact = ln.Artifact.objects.filter(id=aid).first()
         if artifact is None:
             continue
-        if artifact.kind != "__lamindb_run__":
-            logger.important(
-                f"skipping artifact {artifact.uid} because not of __lamindb_run__ kind"
-            )
-            continue
+        assert artifact.kind == "__lamindb_run__", (
+            f"artifact {artifact.uid} is not of __lamindb_run__ kind, aborting cleanup of artifacts {args.ids}"
+        )
         try:
             artifact.delete(permanent=True)
         except Exception:

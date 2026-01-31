@@ -287,8 +287,6 @@ def _adjust_is_latest_when_deleting_is_versioned(
     by_stem: dict[str, dict[str, Any]] = {}
     for c in candidates:
         stem = c["uid"][:len_stem]
-        if stem not in stem_uids:
-            continue
         if stem not in by_stem or c["created_at"] > by_stem[stem]["created_at"]:
             by_stem[stem] = c
     if not by_stem:
