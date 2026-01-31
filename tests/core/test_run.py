@@ -68,12 +68,13 @@ def test_bulk_run_permanent_delete(tmp_path):
     run_ids = [r.id for r in runs]
     artifact_ids = [r.report_id for r in runs]
 
-    with patch("lamindb.models.run._spawn_artifact_cleanup") as mock_spawn:
+    with patch("lamindb.models.run.subprocess.Popen") as mock_popen:
         ln.Run.filter(id__in=run_ids).delete(permanent=True)
-        mock_spawn.assert_called_once()
-        call_args = mock_spawn.call_args[0]
-        assert set(call_args[0]) == set(artifact_ids)
-        assert call_args[1] == ln_setup.settings.instance.slug
+        mock_popen.assert_called_once()
+        args = mock_popen.call_args[0][0]
+        assert args[args.index("--instance") + 1] == ln_setup.settings.instance.slug
+        ids_str = args[args.index("--ids") + 1]
+        assert {int(x) for x in ids_str.split(",")} == set(artifact_ids)
 
     for rid in run_ids:
         assert ln.Run.filter(id=rid).count() == 0
@@ -100,6 +101,6 @@ def test_bulk_run_soft_delete():
 
 def test_empty_run_queryset_delete_no_subprocess():
     """Empty Run queryset delete does not spawn cleanup subprocess."""
-    with patch("lamindb.models.run._spawn_artifact_cleanup") as mock_spawn:
+    with patch("lamindb.models.run.subprocess.Popen") as mock_popen:
         ln.Run.filter(id=-999).delete(permanent=True)
-        mock_spawn.assert_not_called()
+        mock_popen.assert_not_called()

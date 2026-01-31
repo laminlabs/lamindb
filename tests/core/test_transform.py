@@ -243,11 +243,12 @@ def test_bulk_transform_permanent_delete(tmp_path):
     run_ids = [r.id for r in runs]
     artifact_ids = [r.report_id for r in runs]
 
-    with patch("lamindb.models.run._spawn_artifact_cleanup") as mock_spawn:
+    with patch("lamindb.models.run.subprocess.Popen") as mock_popen:
         ln.Transform.filter(id=transform_id).delete(permanent=True)
-        mock_spawn.assert_called_once()
-        call_args = mock_spawn.call_args[0]
-        assert set(call_args[0]) == set(artifact_ids)
+        mock_popen.assert_called_once()
+        args = mock_popen.call_args[0][0]
+        ids_str = args[args.index("--ids") + 1]
+        assert {int(x) for x in ids_str.split(",")} == set(artifact_ids)
 
     assert ln.Transform.filter(id=transform_id).count() == 0
     for rid in run_ids:
@@ -272,11 +273,12 @@ def test_single_transform_permanent_delete_delegates_to_queryset(tmp_path):
     run_id = run.id
     artifact_id = report.id
 
-    with patch("lamindb.models.run._spawn_artifact_cleanup") as mock_spawn:
+    with patch("lamindb.models.run.subprocess.Popen") as mock_popen:
         transform.delete(permanent=True)
-        mock_spawn.assert_called_once()
-        call_args = mock_spawn.call_args[0]
-        assert artifact_id in call_args[0]
+        mock_popen.assert_called_once()
+        args = mock_popen.call_args[0][0]
+        ids_str = args[args.index("--ids") + 1]
+        assert artifact_id in {int(x) for x in ids_str.split(",")}
 
     assert ln.Transform.filter(id=transform_id).count() == 0
     assert ln.Run.filter(id=run_id).count() == 0
