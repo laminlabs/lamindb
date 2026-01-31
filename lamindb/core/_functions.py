@@ -80,6 +80,7 @@ def _create_tracked_decorator(
                 key = f"{initiated_by_run.transform.key}"
             context = Context(uid=uid, path=path)
             context._track(
+                uid,
                 path=path,
                 key=key,
                 source_code=inspect.getsource(func) if path is None else None,
