@@ -8,7 +8,7 @@ from typing import Callable, Literal, ParamSpec, TypeVar
 from lamindb.base import deprecated
 
 from ..models import Run
-from ._context import Context
+from ._context import Context, get_key_from_module
 from ._context import context as global_context
 
 P = ParamSpec("P")
@@ -66,16 +66,12 @@ def _create_tracked_decorator(
             # do not pass path when function is defined in an ipython cell
             if path_raw is not None and Path(path_raw).exists():
                 path = Path(path_raw)
-            module_path = func.__module__.replace(".", "/")
-            key = (
-                f"{module_path}.py"
-                if module_path not in {"__main__", "__mp_main__"}
-                else None
-            )
+            caller_module = func.__module__
+            key = get_key_from_module(caller_module)
             if (
                 key is None
                 and path is None
-                and module_path in {"__main__", "__mp_main__"}
+                and caller_module in {"__main__", "__mp_main__"}
             ):
                 key = f"{initiated_by_run.transform.key}"
             context = Context(uid=uid, path=path)

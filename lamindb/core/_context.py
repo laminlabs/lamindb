@@ -45,6 +45,14 @@ is_run_from_ipython = getattr(builtins, "__IPYTHON__", False)
 msg_path_failed = "failed to infer notebook path.\nfix: pass `path` to `ln.track()`"
 
 
+def get_key_from_module(caller_module: str) -> str:
+    if "." in caller_module:
+        key_from_module = f"pypackages/{caller_module.replace('.', '/')}.py"
+    else:
+        key_from_module = None
+    return key_from_module
+
+
 def detect_and_process_source_code_file(
     *,
     path: UPathStr | None,
@@ -57,9 +65,9 @@ def detect_and_process_source_code_file(
     typically come with an .html run report.
 
     Package vs script criterion: source code is part of a **package** if the
-    caller's module name contains at least one ``.`` (module nesting goes beyond
+    caller's module name contains at least one `.` (module nesting goes beyond
     the filename). Otherwise it is a **script** (module nesting stops at the
-    filename, e.g. ``__main__``, ``__mp_main__``, or a single top-level name).
+    filename, e.g. `__main__`, `__mp_main__`, or a single top-level name).
 
     Args:
         path: Path to the source code file. If None, infers from call stack.
@@ -70,8 +78,8 @@ def detect_and_process_source_code_file(
         - transform_kind: "script" or "notebook"
         - reference: Git reference URL if sync_git_repo is set, else None
         - reference_type: "url" if reference exists, else None
-        - key_from_module: If caller is part of a package (``.`` in __name__),
-          ``module/path.py``; else None (key will be computed from dev_dir or path.name).
+        - key_from_module: If caller is part of a package (`.` in __name__),
+          `pypackages/module/path/to/file.py`; else None (key will be computed from dev_dir or path.name).
 
     Raises:
         NotImplementedError: If path cannot be determined from call stack.
@@ -92,8 +100,7 @@ def detect_and_process_source_code_file(
         path = Path(path_str)
         # package vs script: nesting beyond filename makes the file part of a python package
         caller_module = frame[0].f_globals.get("__name__", "__main__")
-        if "." in caller_module:
-            key_from_module = f"pypackages/{caller_module.replace('.', '/')}.py"
+        key_from_module = get_key_from_module(caller_module)
     else:
         path = Path(path)
     # for Rmd and qmd, we could also extract the title
