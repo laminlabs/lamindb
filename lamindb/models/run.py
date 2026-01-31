@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import os
+import subprocess
+import sys
 from typing import TYPE_CHECKING, overload
 
 from django.db import models
@@ -489,10 +492,6 @@ class Run(SQLRecord, TracksUpdates):
 
 def _spawn_artifact_cleanup(artifact_ids: list[int], instance: str) -> None:
     """Spawn background subprocess to delete orphaned report/env artifacts."""
-    import os
-    import subprocess
-    import sys
-
     if not artifact_ids:
         return
     ids_str = ",".join(map(str, artifact_ids))
@@ -531,8 +530,7 @@ def _bulk_delete_runs(runs: Run | QuerySet) -> None:
         artifact_ids = list({aid for r in rows for aid in r if aid is not None})
         super(BasicQuerySet, runs).delete()
     instance = db if db not in (None, "default") else setup_settings.instance.slug
-    if artifact_ids:
-        _spawn_artifact_cleanup(artifact_ids, instance)
+    _spawn_artifact_cleanup(artifact_ids, instance)
 
 
 class RunJsonValue(BaseSQLRecord, IsLink):
