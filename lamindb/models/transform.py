@@ -19,7 +19,7 @@ from lamindb.base.users import current_user_id
 
 from ..models._is_versioned import process_revises
 from ._is_versioned import IsVersioned
-from .run import Run, User, delete_run_artifacts
+from .run import Run, User
 from .sqlrecord import (
     BaseSQLRecord,
     IsLink,
@@ -40,22 +40,6 @@ if TYPE_CHECKING:
     from .query_manager import RelatedManager
     from .record import Record
     from .ulabel import ULabel
-
-
-def delete_transform_relations(transform: Transform):
-    from .project import TransformProject
-
-    # query all runs and delete their associated report and env artifacts
-    runs = Run.filter(transform=transform)
-    for run in runs:
-        delete_run_artifacts(run)
-    # CASCADE doesn't do the job below because run_id might be protected through run__transform=self
-    # hence, proactively delete the label links
-    qs = TransformProject.filter(transform=transform)
-    if qs.exists():
-        qs.delete()
-    # at this point, all artifacts have been taken care of
-    # and one can now leverage CASCADE delete
 
 
 # does not inherit from TracksRun because the Transform

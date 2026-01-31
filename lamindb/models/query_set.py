@@ -1196,8 +1196,49 @@ class BasicQuerySet(models.QuerySet):
         """
         from lamindb.models import Artifact, Collection, Run, Storage, Transform
 
-        # all these models have non-trivial delete behavior, hence we need to handle in a loop
-        if self.model in {Artifact, Collection, Transform, Run}:
+        if self.model is Run:
+            if permanent is True:
+                run_ids = list(self.values_list("pk", flat=True))
+                if not run_ids:
+                    return
+                run = self.first()
+                instance = (
+                    run._state.db
+                    if (run and run._state.db not in (None, "default"))
+                    else setup_settings.instance.slug
+                )
+                rows = (
+                    Run.objects.using(self.db)
+                    .filter(pk__in=run_ids)
+                    .values_list("report_id", "environment_id")
+                )
+                artifact_ids = list({aid for r in rows for aid in r if aid is not None})
+                from .run import _bulk_delete_runs
+
+                _bulk_delete_runs(run_ids, self.db, instance, artifact_ids)
+                return
+            if permanent is not True:
+                self.update(branch_id=-1)
+                return
+        if self.model is Transform:
+            if permanent is True:
+                transform_ids = list(self.values_list("pk", flat=True))
+                if not transform_ids:
+                    return
+                from .project import TransformProject
+
+                TransformProject.objects.using(self.db).filter(
+                    transform_id__in=transform_ids
+                ).delete()
+                runs = Run.objects.using(self.db).filter(transform_id__in=transform_ids)
+                runs.delete(permanent=True)
+                super().delete(*args, **kwargs)
+                return
+            if permanent is not True:
+                self.update(branch_id=-1)
+                return
+        # Artifact, Collection: non-trivial delete behavior, handle in a loop
+        if self.model in {Artifact, Collection}:
             for record in self:
                 record.delete(*args, permanent=permanent, **kwargs)
         elif self.model is Storage:  # storage does not have soft delete

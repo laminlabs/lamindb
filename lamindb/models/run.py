@@ -487,25 +487,49 @@ class Run(SQLRecord, TracksUpdates):
         return type(cls).filter(cls, *queries, **expressions)
 
 
-def delete_run_artifacts(run: Run) -> None:
-    environment = None
-    if run.environment is not None:
-        environment = run.environment
-        run.environment = None
-    report = None
-    if run.report is not None:
-        report = run.report
-        run.report = None
-    if environment is not None or report is not None:
-        run.save()
-    if environment is not None:
-        # only delete if there are no other runs attached to this environment
-        if environment._environment_of.count() == 0:
-            environment.delete(permanent=True)
-    if report is not None:
-        # only delete if there are no other runs attached to this report
-        if report._report_of.count() == 0:
-            report.delete(permanent=True)
+def _spawn_artifact_cleanup(artifact_ids: list[int], instance: str) -> None:
+    """Spawn background subprocess to delete orphaned report/env artifacts."""
+    import os
+    import subprocess
+    import sys
+
+    if not artifact_ids:
+        return
+    ids_str = ",".join(map(str, artifact_ids))
+    subprocess.Popen(
+        [
+            sys.executable,
+            "-m",
+            "lamindb.models._run_cleanup",
+            "--instance",
+            instance,
+            "--ids",
+            ids_str,
+        ],
+        start_new_session=True,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        env=os.environ,
+    )
+
+
+def _bulk_delete_runs(
+    run_ids: list[int],
+    db: str,
+    instance: str,
+    artifact_ids: list[int],
+) -> None:
+    """Execute bulk DELETE on runs and spawn artifact cleanup. Used by QuerySet and single-run paths."""
+    from django.db.models import QuerySet as DjangoQuerySet
+
+    if not run_ids:
+        return
+    qs = Run.objects.using(db).filter(pk__in=run_ids)
+    DjangoQuerySet.delete(
+        qs
+    )  # Bypass our override to avoid recursion; raw Django CASCADE
+    if artifact_ids:
+        _spawn_artifact_cleanup(artifact_ids, instance)
 
 
 class RunJsonValue(BaseSQLRecord, IsLink):

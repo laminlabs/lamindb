@@ -1,4 +1,7 @@
+from unittest.mock import patch
+
 import lamindb as ln
+import lamindb_setup as ln_setup
 import pytest
 
 
@@ -27,9 +30,12 @@ def test_run():
 
     run2.delete(permanent=True)
 
-    # test deletion of run including attached artifacts
-    assert ln.Artifact.objects.filter(uid=report_artifact.uid).exists() is False
-    assert ln.Artifact.objects.filter(uid=environment.uid).exists() is False
+    # Run is deleted; report/env artifacts are cleaned up in background subprocess
+    assert ln.Run.filter(uid=run2.uid).count() == 0
+    # Clean up orphan report/env artifacts (subprocess may not have run yet)
+    for art in [report_artifact, environment]:
+        if ln.Artifact.filter(uid=art.uid).first() is not None:
+            art.delete(permanent=True, storage=False)
 
     transform.delete(permanent=True)
 
@@ -43,3 +49,57 @@ def test_edge_cases():
     with pytest.raises(TypeError) as error:
         ln.Run()
     assert error.exconly() == "TypeError: Pass transform parameter"
+
+
+def test_bulk_run_permanent_delete(tmp_path):
+    """Bulk Run permanent delete uses single SQL DELETE and spawns artifact cleanup."""
+    transform = ln.Transform(key="Bulk run delete transform").save()
+    runs = [ln.Run(transform).save() for _ in range(3)]
+    report_files = [tmp_path / f"report_{i}.txt" for i in range(3)]
+    for f in report_files:
+        f.write_text("report content")
+    report_artifacts = [
+        ln.Artifact(str(f), description=f"report {i}").save()
+        for i, f in enumerate(report_files)
+    ]
+    for run, art in zip(runs, report_artifacts):
+        run.report = art
+        run.save()
+    run_ids = [r.id for r in runs]
+    artifact_ids = [r.report_id for r in runs]
+
+    with patch("lamindb.models.run._spawn_artifact_cleanup") as mock_spawn:
+        ln.Run.filter(id__in=run_ids).delete(permanent=True)
+        mock_spawn.assert_called_once()
+        call_args = mock_spawn.call_args[0]
+        assert set(call_args[0]) == set(artifact_ids)
+        assert call_args[1] == ln_setup.settings.instance.slug
+
+    for rid in run_ids:
+        assert ln.Run.filter(id=rid).count() == 0
+    # With mock, cleanup subprocess did not run; clean up orphan report artifacts
+    for aid in artifact_ids:
+        art = ln.Artifact.filter(id=aid).first()
+        if art is not None:
+            art.delete(permanent=True, storage=False)
+
+    transform.delete(permanent=True)
+
+
+def test_bulk_run_soft_delete():
+    """Bulk Run soft delete sets branch_id=-1."""
+    transform = ln.Transform(key="Bulk run soft delete transform").save()
+    runs = [ln.Run(transform).save() for _ in range(2)]
+    run_ids = [r.id for r in runs]
+    ln.Run.filter(id__in=run_ids).delete(permanent=False)
+    for run in ln.Run.filter(id__in=run_ids):
+        assert run.branch_id == -1
+    ln.Run.filter(id__in=run_ids).delete(permanent=True)
+    transform.delete(permanent=True)
+
+
+def test_empty_run_queryset_delete_no_subprocess():
+    """Empty Run queryset delete does not spawn cleanup subprocess."""
+    with patch("lamindb.models.run._spawn_artifact_cleanup") as mock_spawn:
+        ln.Run.filter(id=-999).delete(permanent=True)
+        mock_spawn.assert_not_called()

@@ -1641,22 +1641,37 @@ class SQLRecord(BaseSQLRecord, metaclass=Registry):
 
         if confirm_delete:
             if name_with_module == "Run":
-                from .run import delete_run_artifacts
+                from .run import _bulk_delete_runs
 
-                delete_run_artifacts(self)
-            elif name_with_module == "Transform":
-                from .transform import delete_transform_relations
+                run_ids = [self.pk]
+                artifact_ids = [
+                    aid
+                    for aid in (self.report_id, self.environment_id)
+                    if aid is not None
+                ]
+                db = self._state.db or "default"
+                instance = (
+                    self._state.db
+                    if self._state.db not in (None, "default")
+                    else setup_settings.instance.slug
+                )
+                _bulk_delete_runs(run_ids, db, instance, artifact_ids)
+                return None
+            if name_with_module == "Transform":
+                from .transform import Transform
 
-                delete_transform_relations(self)
-            elif name_with_module == "Artifact":
+                Transform.objects.using(self._state.db or "default").filter(
+                    pk=self.pk
+                ).delete(permanent=True)
+                return None
+            if name_with_module == "Artifact":
                 from .artifact import delete_permanently
 
                 delete_permanently(
                     self, storage=kwargs["storage"], using_key=kwargs["using_key"]
                 )
                 return None
-            if name_with_module != "Artifact":
-                return super().delete()
+            return super().delete()
         return None
 
 
