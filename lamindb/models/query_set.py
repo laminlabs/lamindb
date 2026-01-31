@@ -47,7 +47,11 @@ from ..errors import DoesNotExist, MultipleResultsFound
 from ._is_versioned import IsVersioned
 from .can_curate import CanCurate, _inspect, _standardize, _validate
 from .query_manager import _lookup, _search
-from .sqlrecord import Registry, SQLRecord
+from .sqlrecord import (
+    Registry,
+    SQLRecord,
+    _adjust_is_latest_when_deleting_is_versioned,
+)
 
 if TYPE_CHECKING:
     from bionty.models import (
@@ -1212,7 +1216,12 @@ class BasicQuerySet(models.QuerySet):
                 _permanent_delete_transforms(self)
                 return
             if permanent is not True:
-                self.update(branch_id=-1)
+                transform_ids = list(self.values_list("pk", flat=True))
+                if transform_ids:
+                    _adjust_is_latest_when_deleting_is_versioned(
+                        Transform, self.db or "default", transform_ids
+                    )
+                self.update(branch_id=-1, is_latest=False)
                 return
         # Artifact, Collection: non-trivial delete behavior, handle in a loop
         if self.model in {Artifact, Collection}:

@@ -24,6 +24,7 @@ from .sqlrecord import (
     BaseSQLRecord,
     IsLink,
     SQLRecord,
+    _adjust_is_latest_when_deleting_is_versioned,
     init_self_from_db,
     update_attributes,
 )
@@ -543,27 +544,9 @@ def _permanent_delete_transforms(transforms: Transform | QuerySet) -> None:
     transform_ids = list(qs.values_list("pk", flat=True))
     if not transform_ids:
         return
-    # Promote is_latest for version families whose latest we are deleting
-    latest_deleted = list(
-        Transform.objects.using(db)
-        .filter(pk__in=transform_ids, is_latest=True)
-        .values_list("pk", "uid")
-    )
-    for _pk, uid in latest_deleted:
-        stem_uid = uid[: Transform._len_stem_uid]
-        new_latest = (
-            Transform.objects.using(db)
-            .filter(uid__startswith=stem_uid)
-            .exclude(branch_id=-1)
-            .exclude(pk__in=transform_ids)
-            .order_by("-created_at")
-            .first()
-        )
-        if new_latest is not None:
-            new_latest.is_latest = True
-            new_latest.save(update_fields=["is_latest"])
     TransformProject.objects.using(db).filter(transform_id__in=transform_ids).delete()
     Run.objects.using(db).filter(transform_id__in=transform_ids).delete(permanent=True)
+    _adjust_is_latest_when_deleting_is_versioned(Transform, db, transform_ids)
     DjangoQuerySet.delete(qs)
 
 
