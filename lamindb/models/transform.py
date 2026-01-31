@@ -38,6 +38,7 @@ if TYPE_CHECKING:
     from .block import TransformBlock
     from .project import Project, Reference
     from .query_manager import RelatedManager
+    from .query_set import QuerySet
     from .record import Record
     from .ulabel import ULabel
 
@@ -525,6 +526,45 @@ class Transform(SQLRecord, IsVersioned):
             self.source_code = source_code_path.read_text()
             self.hash = transform_hash
         return None
+
+
+def _bulk_delete_transforms(transforms: Transform | QuerySet) -> None:
+    """Execute bulk DELETE on transforms (runs, then transforms). Used by QuerySet and single-transform paths."""
+    from django.db.models import QuerySet as DjangoQuerySet
+
+    from .project import TransformProject
+
+    if isinstance(transforms, Transform):
+        db = transforms._state.db or "default"
+        qs = Transform.objects.using(db).filter(pk=transforms.pk)
+    else:
+        db = transforms.db or "default"
+        qs = transforms
+    transform_ids = list(qs.values_list("pk", flat=True))
+    if not transform_ids:
+        return
+    # Promote is_latest for version families whose latest we are deleting
+    latest_deleted = list(
+        Transform.objects.using(db)
+        .filter(pk__in=transform_ids, is_latest=True)
+        .values_list("pk", "uid")
+    )
+    for _pk, uid in latest_deleted:
+        stem_uid = uid[: Transform._len_stem_uid]
+        new_latest = (
+            Transform.objects.using(db)
+            .filter(uid__startswith=stem_uid)
+            .exclude(branch_id=-1)
+            .exclude(pk__in=transform_ids)
+            .order_by("-created_at")
+            .first()
+        )
+        if new_latest is not None:
+            new_latest.is_latest = True
+            new_latest.save(update_fields=["is_latest"])
+    TransformProject.objects.using(db).filter(transform_id__in=transform_ids).delete()
+    Run.objects.using(db).filter(transform_id__in=transform_ids).delete(permanent=True)
+    DjangoQuerySet.delete(qs)
 
 
 class TransformTransform(BaseSQLRecord, IsLink):

@@ -1646,11 +1646,9 @@ class SQLRecord(BaseSQLRecord, metaclass=Registry):
                 _bulk_delete_runs(self)
                 return None
             if name_with_module == "Transform":
-                from .transform import Transform
+                from .transform import _bulk_delete_transforms
 
-                Transform.objects.using(self._state.db or "default").filter(
-                    pk=self.pk
-                ).delete(permanent=True)
+                _bulk_delete_transforms(self)
                 return None
             if name_with_module == "Artifact":
                 from .artifact import delete_permanently

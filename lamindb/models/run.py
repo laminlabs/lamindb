@@ -530,7 +530,8 @@ def _bulk_delete_runs(runs: Run | QuerySet) -> None:
         artifact_ids = list({aid for r in rows for aid in r if aid is not None})
         super(BasicQuerySet, runs).delete()
     instance = db if db not in (None, "default") else setup_settings.instance.slug
-    _spawn_artifact_cleanup(artifact_ids, instance)
+    if artifact_ids:
+        _spawn_artifact_cleanup(artifact_ids, instance)
 
 
 class RunJsonValue(BaseSQLRecord, IsLink):
