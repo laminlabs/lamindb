@@ -20,6 +20,7 @@ from lamindb.base.utils import strict_classmethod
 
 from ..base.uids import base62_16
 from .can_curate import CanCurate
+from .query_set import BasicQuerySet, QuerySet
 from .sqlrecord import BaseSQLRecord, IsLink, SQLRecord
 
 if TYPE_CHECKING:
@@ -32,7 +33,6 @@ if TYPE_CHECKING:
     from .feature import JsonValue
     from .project import Project
     from .query_manager import RelatedManager
-    from .query_set import QuerySet
     from .record import Record
     from .transform import Transform
     from .ulabel import ULabel
@@ -515,26 +515,22 @@ def _spawn_artifact_cleanup(artifact_ids: list[int], instance: str) -> None:
 
 def _bulk_delete_runs(runs: Run | QuerySet) -> None:
     """Execute bulk DELETE on runs and spawn artifact cleanup. Used by QuerySet and single-run paths."""
-    from django.db.models import QuerySet as DjangoQuerySet
     from lamindb_setup import settings as setup_settings
 
     if isinstance(runs, Run):
         db = runs._state.db or "default"
-        qs = Run.objects.using(db).filter(pk=runs.pk)
-        artifact_ids = [
-            aid for aid in (runs.report_id, runs.environment_id) if aid is not None
-        ]
+        artifact_ids = []
+        if runs.environment_id:
+            artifact_ids.append(runs.environment_id)
+        if runs.report_id:
+            artifact_ids.append(runs.report_id)
+        super(BaseSQLRecord, runs).delete()
     else:
         db = runs.db or "default"
-        qs = runs
-        rows = list(runs.values_list("report_id", "environment_id"))
-        if not rows:
-            return
+        rows = runs.values_list("report_id", "environment_id")
         artifact_ids = list({aid for r in rows for aid in r if aid is not None})
+        super(BasicQuerySet, runs).delete()
     instance = db if db not in (None, "default") else setup_settings.instance.slug
-    DjangoQuerySet.delete(
-        qs
-    )  # Bypass our override to avoid recursion; raw Django CASCADE
     if artifact_ids:
         _spawn_artifact_cleanup(artifact_ids, instance)
 
