@@ -24,9 +24,13 @@ def test_run():
     assert run2.reference_type == "test2"
     assert run.uid != run2.uid
 
-    report_artifact = ln.Artifact("README.md", description="report of run2").save()
+    report_artifact = ln.Artifact(
+        "README.md", kind="__lamindb_run__", description="report of run2"
+    ).save()
     run2.report = report_artifact
-    environment = ln.Artifact("CONTRIBUTING.md", description="env of run2").save()
+    environment = ln.Artifact(
+        "CONTRIBUTING.md", kind="__lamindb_run__", description="requirements.txt"
+    ).save()
     run2.environment = environment
 
     run2.delete(permanent=True)
@@ -35,7 +39,7 @@ def test_run():
     assert ln.Run.filter(uid=run2.uid).count() == 0
     assert ln.Artifact.filter(uid=report_artifact.uid).count() == 1
     assert ln.Artifact.filter(uid=environment.uid).count() == 1
-    time.sleep(5)  # wait for background cleanup subprocess to delete artifacts
+    time.sleep(2)  # wait for background cleanup subprocess to delete artifacts
     assert ln.Artifact.filter(uid=report_artifact.uid).count() == 0
     assert ln.Artifact.filter(uid=environment.uid).count() == 0
 
