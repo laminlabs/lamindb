@@ -683,7 +683,7 @@ class Registry(ModelBase):
         *,
         include: str | list[str] | None = None,
         features: str | list[str] | None = None,
-        limit: int | None = 100,
+        limit: int | None = 20,
         order_by: str | None = "-id",
     ) -> pd.DataFrame:
         """Evaluate and convert to `pd.DataFrame`.
@@ -730,7 +730,7 @@ class Registry(ModelBase):
         *,
         include: str | list[str] | None = None,
         features: str | list[str] | None = None,
-        limit: int | None = 100,
+        limit: int | None = 20,
         order_by: str | None = "-id",
     ) -> pd.DataFrame:
         return cls.to_dataframe(
