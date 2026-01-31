@@ -1227,6 +1227,26 @@ class BasicQuerySet(models.QuerySet):
                     return
                 from .project import TransformProject
 
+                # Promote is_latest for version families whose latest we are deleting
+                latest_deleted = list(
+                    self.model.objects.using(self.db)
+                    .filter(pk__in=transform_ids, is_latest=True)
+                    .values_list("pk", "uid")
+                )
+                for _pk, uid in latest_deleted:
+                    stem_uid = uid[: self.model._len_stem_uid]
+                    new_latest = (
+                        self.model.objects.using(self.db)
+                        .filter(uid__startswith=stem_uid)
+                        .exclude(branch_id=-1)
+                        .exclude(pk__in=transform_ids)
+                        .order_by("-created_at")
+                        .first()
+                    )
+                    if new_latest is not None:
+                        new_latest.is_latest = True
+                        new_latest.save(update_fields=["is_latest"])
+
                 TransformProject.objects.using(self.db).filter(
                     transform_id__in=transform_ids
                 ).delete()
