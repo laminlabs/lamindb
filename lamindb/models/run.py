@@ -490,28 +490,6 @@ class Run(SQLRecord, TracksUpdates):
         return type(cls).filter(cls, *queries, **expressions)
 
 
-def _spawn_artifact_cleanup(artifact_ids: list[int], instance: str) -> None:
-    """Spawn background subprocess to delete orphaned report/env artifacts."""
-    if not artifact_ids:
-        return
-    ids_str = ",".join(map(str, artifact_ids))
-    subprocess.Popen(
-        [
-            sys.executable,
-            "-m",
-            "lamindb.models._run_cleanup",
-            "--instance",
-            instance,
-            "--ids",
-            ids_str,
-        ],
-        start_new_session=True,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        env=os.environ,
-    )
-
-
 def _bulk_delete_runs(runs: Run | QuerySet) -> None:
     """Execute bulk DELETE on runs and spawn artifact cleanup. Used by QuerySet and single-run paths."""
     from lamindb_setup import settings as setup_settings
@@ -531,7 +509,23 @@ def _bulk_delete_runs(runs: Run | QuerySet) -> None:
         super(BasicQuerySet, runs).delete()
     instance = db if db not in (None, "default") else setup_settings.instance.slug
     if artifact_ids:
-        _spawn_artifact_cleanup(artifact_ids, instance)
+        ids_str = ",".join(map(str, artifact_ids))
+        # spawn background subprocess to delete orphaned report/env artifacts
+        subprocess.Popen(
+            [
+                sys.executable,
+                "-m",
+                "lamindb.models._run_cleanup",
+                "--instance",
+                instance,
+                "--ids",
+                ids_str,
+            ],
+            start_new_session=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            env=os.environ,
+        )
 
 
 class RunJsonValue(BaseSQLRecord, IsLink):
