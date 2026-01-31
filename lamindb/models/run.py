@@ -411,6 +411,7 @@ class Run(SQLRecord, TracksUpdates):
         reference: str | None = kwargs.pop("reference", None)
         reference_type: str | None = kwargs.pop("reference_type", None)
         initiated_by_run: Run | None = kwargs.pop("initiated_by_run", None)
+        report: Artifact | None = kwargs.pop("report", None)
         if transform is None:
             raise TypeError("Pass transform parameter")
         if transform._state.adding:
@@ -427,6 +428,7 @@ class Run(SQLRecord, TracksUpdates):
             reference=reference,
             reference_type=reference_type,
             initiated_by_run=initiated_by_run,
+            report=report,
         )
 
     @property

@@ -58,23 +58,20 @@ def test_run():
 def test_bulk_permanent_run_delete(tmp_path):
     transform = ln.Transform(key="Bulk run delete transform").save()
     n_runs = 2
-    runs = [ln.Run(transform).save() for _ in range(n_runs)]
     report_files = [tmp_path / f"report_{i}.txt" for i in range(n_runs)]
-    for f in report_files:
-        f.write_text("report content")
+    for i, path in enumerate(report_files):
+        path.write_text(f"content {i}")
     report_artifacts = [
-        ln.Artifact(str(f), kind="__lamindb_run__", description=f"report {i}").save()
-        for i, f in enumerate(report_files)
+        ln.Artifact(path, kind="__lamindb_run__", description=f"report {i}").save()
+        for i, path in enumerate(report_files)
     ]
-    for run, art in zip(runs, report_artifacts):
-        run.report = art
-        run.save()
+    runs = [ln.Run(transform, report=af).save() for af in report_artifacts]
     run_ids = [r.id for r in runs]
     ln.Run.filter(id__in=run_ids).delete(permanent=True)
     assert ln.Run.filter(id__in=run_ids).count() == 0
-    assert ln.Artifact.filter(uid=art.uid).count() == 1
+    assert ln.Artifact.filter(uid=report_artifacts[0].uid).count() == 1
     transform.delete(permanent=True)
 
     # wait for background cleanup subprocess to delete artifacts
     time.sleep(4)
-    assert ln.Artifact.filter(uid=art.uid).count() == 0
+    assert ln.Artifact.filter(uid=report_artifacts[0].uid).count() == 0
