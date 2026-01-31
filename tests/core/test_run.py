@@ -32,20 +32,22 @@ def test_run():
         "CONTRIBUTING.md", kind="__lamindb_run__", description="requirements.txt"
     ).save()
     run2.environment = environment
+    run2.save()
 
+    # report/env artifacts will be cleaned up in background subprocess
     run2.delete(permanent=True)
-
-    # Run is deleted; report/env artifacts are cleaned up in background subprocess
     assert ln.Run.filter(uid=run2.uid).count() == 0
+    # report/env are still present in the database
     assert ln.Artifact.filter(uid=report_artifact.uid).count() == 1
     assert ln.Artifact.filter(uid=environment.uid).count() == 1
-    time.sleep(3)  # wait for background cleanup subprocess to delete artifacts
-    assert ln.Artifact.filter(uid=report_artifact.uid).count() == 0
-    assert ln.Artifact.filter(uid=environment.uid).count() == 0
 
     transform.delete(permanent=True)
-
     assert ln.Run.filter(uid=run.uid).count() == 0
+
+    # wait for background cleanup subprocess to delete artifacts
+    time.sleep(4)
+    assert ln.Artifact.filter(uid=report_artifact.uid).count() == 0
+    assert ln.Artifact.filter(uid=environment.uid).count() == 0
 
 
 def test_edge_cases():
