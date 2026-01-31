@@ -224,7 +224,7 @@ def test_detect_and_process_source_code_file_returns_key_from_module_for_package
         path, kind, ref, ref_type, key_from_module = (
             detect_and_process_source_code_file(path=None)
         )
-    assert key_from_module == "mypackage/mymodule.py"
+    assert key_from_module == "pypackages/mypackage/mymodule.py"
     assert path == Path(script_path)
 
 
