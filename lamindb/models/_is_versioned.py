@@ -254,11 +254,11 @@ def _adjust_is_latest_when_deleting_is_versioned(
     registry: type[IsVersioned],
     db: str,
     id_list: list[int],
-) -> list[IsVersioned]:
+) -> list[int]:
     """After deleting (soft or permanent) versioned records, promote new latest per version family.
 
-    Runs in 3 queries regardless of how many version families are affected.
-    Returns the list of records that were promoted to is_latest (for logging).
+    Runs in 2 queries regardless of how many version families are affected.
+    Returns the list of pks that were promoted to is_latest (for testing).
     """
     if not id_list:
         return []
@@ -295,10 +295,14 @@ def _adjust_is_latest_when_deleting_is_versioned(
         return []
     pks = [by_stem[s]["pk"] for s in by_stem]
     registry.objects.using(db).filter(pk__in=pks).update(is_latest=True)
-    promoted = list(registry.objects.using(db).filter(pk__in=pks))
-    if promoted:
-        if len(promoted) == 1:
-            logger.important_hint(f"new latest version is: {promoted[0]}")
+    if pks:
+        promoted_uids = [by_stem[s]["uid"] for s in by_stem]
+        if len(promoted_uids) == 1:
+            logger.important_hint(
+                f"new latest {registry.__name__} version is: {promoted_uids[0]}"
+            )
         else:
-            logger.important_hint(f"new latest versions: {promoted}")
-    return promoted
+            logger.important_hint(
+                f"new latest {registry.__name__} versions: {promoted_uids}"
+            )
+    return pks

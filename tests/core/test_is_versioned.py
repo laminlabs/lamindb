@@ -266,7 +266,7 @@ def test_adjust_is_latest_when_deleting_is_versioned():
     db = getattr(v1._state, "db", None) or "default"
     promoted = _adjust_is_latest_when_deleting_is_versioned(ln.Transform, db, [v2.pk])
     assert len(promoted) == 1
-    assert promoted[0].pk == v1.pk
+    assert promoted[0] == v1.pk
 
     v1.refresh_from_db()
     assert v1.is_latest
