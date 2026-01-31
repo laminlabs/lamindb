@@ -39,7 +39,7 @@ def test_run():
     assert ln.Run.filter(uid=run2.uid).count() == 0
     assert ln.Artifact.filter(uid=report_artifact.uid).count() == 1
     assert ln.Artifact.filter(uid=environment.uid).count() == 1
-    time.sleep(2)  # wait for background cleanup subprocess to delete artifacts
+    time.sleep(3)  # wait for background cleanup subprocess to delete artifacts
     assert ln.Artifact.filter(uid=report_artifact.uid).count() == 0
     assert ln.Artifact.filter(uid=environment.uid).count() == 0
 
