@@ -470,7 +470,7 @@ def _adjust_is_latest_when_deleting_is_versioned(
     if not id_list:
         return []
     len_stem = registry._len_stem_uid
-    # 1) Which version families lost their latest?
+    # 1) Which version families are about to lose their latest?
     uids = (
         registry.objects.using(db)
         .filter(pk__in=id_list, is_latest=True)
@@ -479,7 +479,7 @@ def _adjust_is_latest_when_deleting_is_versioned(
     stem_uids = list({uid[:len_stem] for uid in uids})
     if not stem_uids:
         return []
-    # 2) All candidates: same family as any stem_uid, not deleted, not in trash
+    # 2) All candidates: same family as any stem_uid, not in trash and not about to be deleted
     q = Q()
     for s in stem_uids:
         q |= Q(uid__startswith=s)
