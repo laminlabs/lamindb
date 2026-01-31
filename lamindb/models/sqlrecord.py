@@ -483,8 +483,6 @@ def delete_record(record: BaseSQLRecord, is_soft: bool = True):
                 record.is_latest = False
             with transaction.atomic():
                 result = delete()
-            if len(promoted) == 1:
-                logger.important_hint(f"new latest version is: {promoted[0]}")
             return result
     # deal with all other cases of the nested if condition now
     return delete()

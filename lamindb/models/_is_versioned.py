@@ -295,4 +295,10 @@ def _adjust_is_latest_when_deleting_is_versioned(
         return []
     pks = [by_stem[s]["pk"] for s in by_stem]
     registry.objects.using(db).filter(pk__in=pks).update(is_latest=True)
-    return list(registry.objects.using(db).filter(pk__in=pks))
+    promoted = list(registry.objects.using(db).filter(pk__in=pks))
+    if promoted:
+        if len(promoted) == 1:
+            logger.important_hint(f"new latest version is: {promoted[0]}")
+        else:
+            logger.important_hint(f"new latest versions: {promoted}")
+    return promoted
