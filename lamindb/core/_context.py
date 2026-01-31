@@ -90,10 +90,10 @@ def detect_and_process_source_code_file(
                 "Cannot determine valid file path, pass manually via path (interactive sessions not yet supported)"
             )
         path = Path(path_str)
-        # Package vs script: nesting beyond filename -> package
+        # package vs script: nesting beyond filename makes the file part of a python package
         caller_module = frame[0].f_globals.get("__name__", "__main__")
         if "." in caller_module:
-            key_from_module = f"{caller_module.replace('.', '/')}.py"
+            key_from_module = f"pypackages/{caller_module.replace('.', '/')}.py"
     else:
         path = Path(path)
     # for Rmd and qmd, we could also extract the title
