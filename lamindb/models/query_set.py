@@ -44,14 +44,10 @@ from lamindb_setup.core import deprecated
 from lamindb_setup.core._docs import doc_args
 
 from ..errors import DoesNotExist, MultipleResultsFound
-from ._is_versioned import IsVersioned
+from ._is_versioned import IsVersioned, _adjust_is_latest_when_deleting_is_versioned
 from .can_curate import CanCurate, _inspect, _standardize, _validate
 from .query_manager import _lookup, _search
-from .sqlrecord import (
-    Registry,
-    SQLRecord,
-    _adjust_is_latest_when_deleting_is_versioned,
-)
+from .sqlrecord import Registry, SQLRecord
 
 if TYPE_CHECKING:
     from bionty.models import (

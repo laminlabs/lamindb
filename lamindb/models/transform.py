@@ -18,13 +18,12 @@ from lamindb.base.fields import (
 from lamindb.base.users import current_user_id
 
 from ..models._is_versioned import process_revises
-from ._is_versioned import IsVersioned
+from ._is_versioned import IsVersioned, _adjust_is_latest_when_deleting_is_versioned
 from .run import Run, User
 from .sqlrecord import (
     BaseSQLRecord,
     IsLink,
     SQLRecord,
-    _adjust_is_latest_when_deleting_is_versioned,
     init_self_from_db,
     update_attributes,
 )

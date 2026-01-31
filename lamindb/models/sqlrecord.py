@@ -24,7 +24,7 @@ import dj_database_url
 import lamindb_setup as ln_setup
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import IntegrityError, ProgrammingError, connections, models, transaction
-from django.db.models import CASCADE, PROTECT, Field, Manager, Q, QuerySet
+from django.db.models import CASCADE, PROTECT, Field, Manager, QuerySet
 from django.db.models import ForeignKey as django_ForeignKey
 from django.db.models.base import ModelBase
 from django.db.models.fields.related import (
@@ -67,7 +67,7 @@ from ..errors import (
     NoWriteAccess,
     ValidationError,
 )
-from ._is_versioned import IsVersioned
+from ._is_versioned import IsVersioned, _adjust_is_latest_when_deleting_is_versioned
 from .query_manager import QueryManager, _lookup, _search
 
 if TYPE_CHECKING:
@@ -455,54 +455,6 @@ def suggest_records_with_similar_names(
     logger.warning(f"{msg}")
 
     return None
-
-
-def _adjust_is_latest_when_deleting_is_versioned(
-    registry: type[IsVersioned],
-    db: str,
-    id_list: list[int],
-) -> list[IsVersioned]:
-    """After deleting (soft or permanent) versioned records, promote new latest per version family.
-
-    Runs in 3 queries regardless of how many version families are affected.
-    Returns the list of records that were promoted to is_latest (for logging).
-    """
-    if not id_list:
-        return []
-    len_stem = registry._len_stem_uid
-    # 1) Which version families are about to lose their latest?
-    uids = (
-        registry.objects.using(db)
-        .filter(pk__in=id_list, is_latest=True)
-        .values_list("uid", flat=True)
-    )
-    stem_uids = list({uid[:len_stem] for uid in uids})
-    if not stem_uids:
-        return []
-    # 2) All candidates: same family as any stem_uid, not in trash and not about to be deleted
-    q = Q()
-    for s in stem_uids:
-        q |= Q(uid__startswith=s)
-    candidates = list(
-        registry.objects.using(db)
-        .filter(q)
-        .exclude(pk__in=id_list)
-        .exclude(branch_id=-1)
-        .values("pk", "uid", "created_at")
-    )
-    # 3) Per stem_uid, pick candidate with max created_at
-    by_stem: dict[str, dict[str, Any]] = {}
-    for c in candidates:
-        stem = c["uid"][:len_stem]
-        if stem not in stem_uids:
-            continue
-        if stem not in by_stem or c["created_at"] > by_stem[stem]["created_at"]:
-            by_stem[stem] = c
-    if not by_stem:
-        return []
-    pks = [by_stem[s]["pk"] for s in by_stem]
-    registry.objects.using(db).filter(pk__in=pks).update(is_latest=True)
-    return list(registry.objects.using(db).filter(pk__in=pks))
 
 
 def delete_record(record: BaseSQLRecord, is_soft: bool = True):

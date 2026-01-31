@@ -1,8 +1,11 @@
 import lamindb as ln
 import pandas as pd
 import pytest
-from lamindb.models._is_versioned import bump_version, set_version
-from lamindb.models.sqlrecord import _adjust_is_latest_when_deleting_is_versioned
+from lamindb.models._is_versioned import (
+    _adjust_is_latest_when_deleting_is_versioned,
+    bump_version,
+    set_version,
+)
 
 
 @pytest.fixture(scope="module")
