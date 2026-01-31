@@ -475,9 +475,7 @@ def delete_record(record: BaseSQLRecord, is_soft: bool = True):
         and record.is_latest
         and not getattr(record, "_overwrite_versions", False)
     ):
-        promoted = _adjust_is_latest_when_deleting_is_versioned(
-            record.__class__, record._state.db or "default", [record.pk]
-        )
+        promoted = _adjust_is_latest_when_deleting_is_versioned(record)
         if promoted:
             if is_soft:
                 record.is_latest = False

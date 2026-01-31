@@ -540,12 +540,13 @@ def _permanent_delete_transforms(transforms: Transform | QuerySet) -> None:
     else:
         db = transforms.db or "default"
         qs = transforms
-    transform_ids = list(qs.values_list("pk", flat=True))
-    if not transform_ids:
+    objects = list(qs)
+    if not objects:
         return
+    _adjust_is_latest_when_deleting_is_versioned(objects)
+    transform_ids = [o.pk for o in objects]
     TransformProject.objects.using(db).filter(transform_id__in=transform_ids).delete()
     Run.objects.using(db).filter(transform_id__in=transform_ids).delete(permanent=True)
-    _adjust_is_latest_when_deleting_is_versioned(Transform, db, transform_ids)
     DjangoQuerySet.delete(qs)
 
 

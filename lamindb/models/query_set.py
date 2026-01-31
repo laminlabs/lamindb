@@ -1212,11 +1212,7 @@ class BasicQuerySet(models.QuerySet):
                 _permanent_delete_transforms(self)
                 return
             if permanent is not True:
-                transform_ids = list(self.values_list("pk", flat=True))
-                if transform_ids:
-                    _adjust_is_latest_when_deleting_is_versioned(
-                        Transform, self.db or "default", transform_ids
-                    )
+                _adjust_is_latest_when_deleting_is_versioned(self)
                 self.update(branch_id=-1, is_latest=False)
                 return
         # Artifact, Collection: non-trivial delete behavior, handle in a loop

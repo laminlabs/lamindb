@@ -263,16 +263,15 @@ def test_adjust_is_latest_when_deleting_is_versioned():
     assert v2.is_latest
     assert not v1.is_latest
 
-    db = getattr(v1._state, "db", None) or "default"
-    promoted = _adjust_is_latest_when_deleting_is_versioned(ln.Transform, db, [v2.pk])
+    promoted = _adjust_is_latest_when_deleting_is_versioned(v2)
     assert len(promoted) == 1
     assert promoted[0] == v1.pk
 
     v1.refresh_from_db()
     assert v1.is_latest
 
-    # Edge case: empty id_list returns []
-    assert _adjust_is_latest_when_deleting_is_versioned(ln.Transform, db, []) == []
+    # Edge case: empty list returns []
+    assert _adjust_is_latest_when_deleting_is_versioned([]) == []
 
     # Clean up (v2 first so v1 stays sole latest, then v1)
     v2.delete(permanent=True)
