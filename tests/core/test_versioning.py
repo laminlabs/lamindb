@@ -2,6 +2,7 @@ import lamindb as ln
 import pandas as pd
 import pytest
 from lamindb.models._is_versioned import bump_version, set_version
+from lamindb.models.sqlrecord import _adjust_is_latest_when_deleting_is_versioned
 
 
 @pytest.fixture(scope="module")
@@ -249,3 +250,27 @@ def test_version_backward_compatibility():
     transform2.delete(permanent=True)
     artifact1.delete(permanent=True)
     artifact2.delete(permanent=True)
+
+
+def test_adjust_is_latest_when_deleting_is_versioned():
+    """Direct unit test for _adjust_is_latest_when_deleting_is_versioned."""
+    # Build one version family: v1 (older), v2 (latest)
+    v1 = ln.Transform(key="Adjust latest unit test").save()
+    v2 = ln.Transform(revises=v1, key="Adjust latest unit test").save()
+    assert v2.is_latest
+    assert not v1.is_latest
+
+    db = getattr(v1._state, "db", None) or "default"
+    promoted = _adjust_is_latest_when_deleting_is_versioned(ln.Transform, db, [v2.pk])
+    assert len(promoted) == 1
+    assert promoted[0].pk == v1.pk
+
+    v1.refresh_from_db()
+    assert v1.is_latest
+
+    # Edge case: empty id_list returns []
+    assert _adjust_is_latest_when_deleting_is_versioned(ln.Transform, db, []) == []
+
+    # Clean up (v2 first so v1 stays sole latest, then v1)
+    v2.delete(permanent=True)
+    v1.delete(permanent=True)

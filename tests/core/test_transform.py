@@ -297,3 +297,40 @@ def test_bulk_transform_soft_delete():
     t = ln.Transform.filter(id=transform_id).one()
     assert t.branch_id == -1
     ln.Transform.filter(id=transform_id).delete(permanent=True)
+
+
+def test_bulk_transform_permanent_delete_promotes_previous_version():
+    """Bulk permanent delete of latest in a version family promotes the previous version."""
+    v1 = ln.Transform(key="Bulk permanent delete version family").save()
+    v2 = ln.Transform(revises=v1, key="Bulk permanent delete version family").save()
+    assert v2.is_latest
+    stem_uid = v1.stem_uid
+
+    ln.Transform.filter(id=v2.id).delete(permanent=True)
+
+    assert ln.Transform.filter(id=v2.id).count() == 0
+    v1_after = ln.Transform.filter(uid__startswith=stem_uid).one()
+    assert v1_after.pk == v1.pk
+    assert v1_after.is_latest
+    v1.delete(permanent=True)
+
+
+def test_bulk_transform_soft_delete_promotes_previous_version():
+    """Bulk soft delete of latest in a version family promotes the previous version."""
+    v1 = ln.Transform(key="Bulk soft delete version family").save()
+    v2 = ln.Transform(revises=v1, key="Bulk soft delete version family").save()
+    assert v2.is_latest
+    v2_id = v2.id
+    stem_uid = v1.stem_uid
+
+    ln.Transform.filter(id=v2_id).delete(permanent=False)
+
+    v2_after = ln.Transform.filter(id=v2_id).one()
+    assert v2_after.branch_id == -1
+    assert not v2_after.is_latest
+    v1.refresh_from_db()
+    assert v1.is_latest
+    assert ln.Transform.filter(uid__startswith=stem_uid).get(is_latest=True) == v1
+    # Clean up
+    v2_after.delete(permanent=True)
+    v1.delete(permanent=True)
