@@ -10,6 +10,7 @@ from django.db.models import (
     CASCADE,
     PROTECT,
 )
+from lamin_utils import logger
 from lamindb_setup import _check_instance_setup
 from lamindb_setup import settings as setup_settings
 
@@ -512,20 +513,24 @@ def _permanent_delete_runs(runs: Run | QuerySet) -> None:
         ids_str = ",".join(map(str, artifact_ids))
         instance = db if db not in (None, "default") else setup_settings.instance.slug
         # spawn background subprocess to delete orphaned report/env artifacts
-        subprocess.Popen(
-            [
-                sys.executable,
-                "-m",
-                "lamindb.models._run_cleanup",
-                "--instance",
-                instance,
-                "--ids",
-                ids_str,
-            ],
+        cmd: list[str] = [
+            sys.executable,
+            "-m",
+            "lamindb.models._run_cleanup",
+            "--instance",
+            instance,
+            "--ids",
+            ids_str,
+        ]
+        proc = subprocess.Popen(
+            cmd,
             start_new_session=True,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             env=os.environ,
+        )
+        logger.debug(
+            f"Spawned run cleanup subprocess (pid={proc.pid}): {' '.join(cmd)}"
         )
 
 
