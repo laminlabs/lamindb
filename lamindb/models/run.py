@@ -530,7 +530,7 @@ def _permanent_delete_runs(runs: Run | QuerySet) -> None:
             env=os.environ,
         )
         logger.debug(
-            f"Spawned run cleanup subprocess (pid={proc.pid}): {' '.join(cmd)}"
+            f"spawned run cleanup subprocess (pid={proc.pid}): {' '.join(cmd)}"
         )
 
 
