@@ -44,7 +44,6 @@ Dictionary, Dataframe, AnnData, MuData, SpatialData
 .. autofunction:: anndata_pbmc68k_reduced
 .. autofunction:: anndata_file_pbmc68k_test
 .. autofunction:: anndata_pbmc3k_processed
-.. autofunction:: anndata_with_obs
 .. autofunction:: anndata_suo22_Visium10X
 .. autofunction:: mudata_papalexi21_subset
 .. autofunction:: schmidt22_crispra_gws_IFNG

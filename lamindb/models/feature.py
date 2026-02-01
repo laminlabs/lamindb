@@ -54,7 +54,7 @@ if TYPE_CHECKING:
 
     from .artifact import Artifact
     from .block import FeatureBlock
-    from .projects import Project
+    from .project import Project
     from .query_manager import RelatedManager
     from .record import Record
     from .run import Run
