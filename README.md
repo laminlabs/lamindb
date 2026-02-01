@@ -91,11 +91,11 @@ adata = artifact.load()        # load object into memory
 accessor = artifact.open()     # return a streaming accessor
 ```
 
-You can query 14 built-in registries (`Artifact`, `Storage`, `Feature`, `Record`, etc.) and additional registries via plug-ins (e.g. in `bionty`, 13 registries for biological entities via `Disease`, `CellType`, `Tissue`, etc. mapping >20 public ontologies), for example:
+You can query by biological entities like `Disease` through plug-in `bionty`:
 
 ```python
-diseases = db.bionty.Disease.lookup()  # a lookup object to auto-complete diseases
-df = db.Artifact.filter(diseases=diseases.alzheimer_disease).to_dataframe()  # filter by fields
+alzheimers = db.bionty.Disease.get(name="Alzheimer's disease")
+df = db.Artifact.filter(diseases=alzheimers).to_dataframe()
 ```
 
 ### Configure your database
