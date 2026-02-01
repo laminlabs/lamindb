@@ -228,9 +228,9 @@ ln.Artifact.filter(ulabels=my_label, projects=project).to_dataframe()
 You can also query by the metadata that lamindb automatically collects:
 
 ```python
-ln.Artifact.filter(run=run).to_dataframe()              # query artifacts created by a run
-ln.Artifact.filter(transform=transform).to_dataframe()  # query artifacts created by a transform
-ln.Artifact.filter(size__gt=1e6).to_dataframe()         # query artifacts bigger than 1MB
+ln.Artifact.filter(run=run).to_dataframe()              # by creating run
+ln.Artifact.filter(transform=transform).to_dataframe()  # by creating transform
+ln.Artifact.filter(size__gt=1e6).to_dataframe()         # size greater than 1MB
 ```
 
 If you want to include more information into the resulting dataframe, pass `include`.
