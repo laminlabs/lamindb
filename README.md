@@ -160,8 +160,6 @@ artifact.view_lineage()  # fine-grained lineage
 <details>
 <summary>Access run & transform.</summary>
 
-Here is how to access the generating `run` and `transform` objects:
-
 ```python
 run = artifact.run              # get the run object
 transform = artifact.transform  # get the transform object
