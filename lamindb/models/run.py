@@ -3,7 +3,6 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
-from pathlib import Path
 from typing import TYPE_CHECKING, overload
 
 from django.db import models
@@ -508,8 +507,11 @@ def _permanent_delete_runs(runs: Run | QuerySet) -> None:
         super(BaseSQLRecord, runs).delete()
     else:
         db = runs.db or "default"
-        rows = list(runs.values_list("report_id", "environment_id"))
-        first_run_uid = runs[0].uid
+        rows = list(runs.values_list("uid", "report_id", "environment_id"))
+        if rows:
+            first_run_uid = rows[0][0]
+        else:
+            return
         artifact_ids = list({aid for r in rows for aid in r[1:3] if aid is not None})
         super(BasicQuerySet, runs).delete()
     if artifact_ids:
@@ -534,9 +536,7 @@ def _permanent_delete_runs(runs: Run | QuerySet) -> None:
             stderr=subprocess.DEVNULL,
             env=os.environ,
         )
-        log_path = (
-            Path(setup_settings.cache_dir) / f"run_cleanup_logs_{first_run_uid}.txt"
-        )
+        log_path = setup_settings.cache_dir / f"run_cleanup_logs_{first_run_uid}.txt"
         logger.debug(
             f"spawned run cleanup subprocess (pid={proc.pid}): {log_path}\n{' '.join(cmd)}"
         )

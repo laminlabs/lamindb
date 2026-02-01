@@ -5,7 +5,6 @@ Runnable as: python -m lamindb.models._run_cleanup --instance owner/name --ids 1
 
 import argparse
 import logging
-from pathlib import Path
 
 from lamin_utils import logger
 
@@ -26,10 +25,7 @@ def main() -> None:
     ln.connect(args.instance)
 
     file_handler = None
-    log_path = (
-        Path(ln.setup.settings.cache_dir) / f"run_cleanup_logs_{args.run_uid}.txt"
-    )
-    log_path.parent.mkdir(parents=True, exist_ok=True)
+    log_path = ln.setup.settings.cache_dir / f"run_cleanup_logs_{args.run_uid}.txt"
     file_handler = logging.FileHandler(log_path, mode="a")
     logger.addHandler(file_handler)
 
