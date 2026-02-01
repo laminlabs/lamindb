@@ -67,7 +67,7 @@ from ..errors import (
     NoWriteAccess,
     ValidationError,
 )
-from ._is_versioned import IsVersioned
+from ._is_versioned import IsVersioned, _adjust_is_latest_when_deleting_is_versioned
 from .query_manager import QueryManager, _lookup, _search
 
 if TYPE_CHECKING:
@@ -467,7 +467,7 @@ def delete_record(record: BaseSQLRecord, is_soft: bool = True):
             return super(BaseSQLRecord, record).delete()
 
     # deal with versioned records
-    # if _ovewrite_version = True, there is only a single version and
+    # if _overwrite_versions = True, there is only a single version and
     # no need to set the new latest version because all versions are deleted
     # when deleting the latest version
     if (
@@ -475,21 +475,12 @@ def delete_record(record: BaseSQLRecord, is_soft: bool = True):
         and record.is_latest
         and not getattr(record, "_overwrite_versions", False)
     ):
-        new_latest = (
-            record.__class__.objects.using(record._state.db)
-            .filter(is_latest=False, uid__startswith=record.stem_uid)
-            .exclude(branch_id=-1)  # exclude candidates in the trash
-            .order_by("-created_at")
-            .first()
-        )
-        if new_latest is not None:
-            new_latest.is_latest = True
+        promoted = _adjust_is_latest_when_deleting_is_versioned(record)
+        if promoted:
             if is_soft:
                 record.is_latest = False
             with transaction.atomic():
-                new_latest.save()
                 result = delete()
-            logger.important_hint(f"new latest version is: {new_latest}")
             return result
     # deal with all other cases of the nested if condition now
     return delete()
@@ -1641,22 +1632,23 @@ class SQLRecord(BaseSQLRecord, metaclass=Registry):
 
         if confirm_delete:
             if name_with_module == "Run":
-                from .run import delete_run_artifacts
+                from .run import _permanent_delete_runs
 
-                delete_run_artifacts(self)
-            elif name_with_module == "Transform":
-                from .transform import delete_transform_relations
+                _permanent_delete_runs(self)
+                return None
+            if name_with_module == "Transform":
+                from .transform import _permanent_delete_transforms
 
-                delete_transform_relations(self)
-            elif name_with_module == "Artifact":
+                _permanent_delete_transforms(self)
+                return None
+            if name_with_module == "Artifact":
                 from .artifact import delete_permanently
 
                 delete_permanently(
                     self, storage=kwargs["storage"], using_key=kwargs["using_key"]
                 )
                 return None
-            if name_with_module != "Artifact":
-                return super().delete()
+            return super().delete()
         return None
 
 

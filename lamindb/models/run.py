@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import os
+import subprocess
+import sys
 from typing import TYPE_CHECKING, overload
 
 from django.db import models
@@ -7,7 +10,9 @@ from django.db.models import (
     CASCADE,
     PROTECT,
 )
+from lamin_utils import logger
 from lamindb_setup import _check_instance_setup
+from lamindb_setup import settings as setup_settings
 
 from lamindb.base.fields import (
     BooleanField,
@@ -20,6 +25,7 @@ from lamindb.base.utils import strict_classmethod
 
 from ..base.uids import base62_16
 from .can_curate import CanCurate
+from .query_set import BasicQuerySet, QuerySet
 from .sqlrecord import BaseSQLRecord, IsLink, SQLRecord
 
 if TYPE_CHECKING:
@@ -32,7 +38,6 @@ if TYPE_CHECKING:
     from .feature import JsonValue
     from .project import Project
     from .query_manager import RelatedManager
-    from .query_set import QuerySet
     from .record import Record
     from .transform import Transform
     from .ulabel import ULabel
@@ -407,6 +412,7 @@ class Run(SQLRecord, TracksUpdates):
         reference: str | None = kwargs.pop("reference", None)
         reference_type: str | None = kwargs.pop("reference_type", None)
         initiated_by_run: Run | None = kwargs.pop("initiated_by_run", None)
+        report: Artifact | None = kwargs.pop("report", None)
         if transform is None:
             raise TypeError("Pass transform parameter")
         if transform._state.adding:
@@ -423,6 +429,7 @@ class Run(SQLRecord, TracksUpdates):
             reference=reference,
             reference_type=reference_type,
             initiated_by_run=initiated_by_run,
+            report=report,
         )
 
     @property
@@ -487,25 +494,52 @@ class Run(SQLRecord, TracksUpdates):
         return type(cls).filter(cls, *queries, **expressions)
 
 
-def delete_run_artifacts(run: Run) -> None:
-    environment = None
-    if run.environment is not None:
-        environment = run.environment
-        run.environment = None
-    report = None
-    if run.report is not None:
-        report = run.report
-        run.report = None
-    if environment is not None or report is not None:
-        run.save()
-    if environment is not None:
-        # only delete if there are no other runs attached to this environment
-        if environment._environment_of.count() == 0:
-            environment.delete(permanent=True)
-    if report is not None:
-        # only delete if there are no other runs attached to this report
-        if report._report_of.count() == 0:
-            report.delete(permanent=True)
+def _permanent_delete_runs(runs: Run | QuerySet) -> None:
+    """Execute bulk DELETE on runs and spawn artifact cleanup. Used by QuerySet and single-run paths."""
+    if isinstance(runs, Run):
+        db = runs._state.db or "default"
+        first_run_uid = runs.uid
+        artifact_ids = []
+        if runs.environment_id:
+            artifact_ids.append(runs.environment_id)
+        if runs.report_id:
+            artifact_ids.append(runs.report_id)
+        super(BaseSQLRecord, runs).delete()
+    else:
+        db = runs.db or "default"
+        rows = list(runs.values_list("uid", "report_id", "environment_id"))
+        if rows:
+            first_run_uid = rows[0][0]
+        else:
+            return
+        artifact_ids = list({aid for r in rows for aid in r[1:3] if aid is not None})
+        super(BasicQuerySet, runs).delete()
+    if artifact_ids:
+        ids_str = ",".join(map(str, artifact_ids))
+        instance = db if db not in (None, "default") else setup_settings.instance.slug
+        # spawn background subprocess to delete orphaned report/env artifacts
+        cmd: list[str] = [
+            sys.executable,
+            "-m",
+            "lamindb.models._run_cleanup",
+            "--instance",
+            instance,
+            "--ids",
+            ids_str,
+            "--run-uid",
+            first_run_uid,
+        ]
+        proc = subprocess.Popen(
+            cmd,
+            start_new_session=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            env=os.environ,
+        )
+        log_path = setup_settings.cache_dir / f"run_cleanup_logs_{first_run_uid}.txt"
+        logger.important(
+            f"spawned run cleanup subprocess (pid={proc.pid}): {log_path}\n  {' '.join(cmd)}"
+        )
 
 
 class RunJsonValue(BaseSQLRecord, IsLink):

@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from pathlib import PurePosixPath
-from typing import TYPE_CHECKING, Literal, overload
+from typing import TYPE_CHECKING, Any, Iterable, Literal, overload
 
 from django.db import models
+from django.db.models import Q
 from lamin_utils import logger
 from lamin_utils._base62 import increment_base62
 
@@ -247,3 +248,59 @@ def process_revises(
         if key is None:
             key = revises.key
     return uid, version_tag, key, description, revises
+
+
+def _adjust_is_latest_when_deleting_is_versioned(
+    objects: IsVersioned | Iterable[IsVersioned],
+) -> list[int]:
+    """After deleting (soft or permanent) versioned records, promote new latest per version family.
+
+    Accepts a single IsVersioned instance, a QuerySet, or a list of IsVersioned.
+    Runs in 1 query (candidates + update) when objects are passed; no extra query for uids.
+    Returns the list of pks that were promoted to is_latest (for testing).
+    """
+    if isinstance(objects, IsVersioned):
+        objects = [objects]
+    else:
+        objects = list(objects)
+    if not objects:
+        return []
+    id_list = [o.pk for o in objects]
+    stem_uids = list({o.uid[: o._len_stem_uid] for o in objects if o.is_latest})
+    if not stem_uids:
+        return []
+    registry = type(objects[0])
+    db = getattr(objects[0]._state, "db", None) or "default"
+    len_stem = registry._len_stem_uid
+    # All candidates: same family as any stem_uid, not in trash and not about to be deleted
+    q = Q()
+    for s in stem_uids:
+        q |= Q(uid__startswith=s)
+    candidates = list(
+        registry.objects.using(db)
+        .filter(q)
+        .exclude(pk__in=id_list)
+        .exclude(branch_id=-1)
+        .values("pk", "uid", "created_at")
+    )
+    # per stem_uid, pick candidate with max created_at
+    by_stem: dict[str, dict[str, Any]] = {}
+    for c in candidates:
+        stem = c["uid"][:len_stem]
+        if stem not in by_stem or c["created_at"] > by_stem[stem]["created_at"]:
+            by_stem[stem] = c
+    if not by_stem:
+        return []
+    pks = [by_stem[s]["pk"] for s in by_stem]
+    registry.objects.using(db).filter(pk__in=pks).update(is_latest=True)
+    if pks:
+        promoted_uids = [by_stem[s]["uid"] for s in by_stem]
+        if len(promoted_uids) == 1:
+            logger.important_hint(
+                f"new latest {registry.__name__} version is: {promoted_uids[0]}"
+            )
+        else:
+            logger.important_hint(
+                f"new latest {registry.__name__} versions: {promoted_uids}"
+            )
+    return pks
