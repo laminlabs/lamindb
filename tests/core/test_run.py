@@ -69,8 +69,6 @@ def test_bulk_permanent_run_delete(tmp_path):
     run_ids = [r.id for r in runs]
     ln.settings.verbosity = "debug"
     ln.Run.filter(id__in=run_ids).order_by("created_at").delete(permanent=True)
-    clean_up_logs = ln.setup.settings.cache_dir / f"run_cleanup_logs_{runs[0].uid}.txt"
-    assert clean_up_logs.exists()
     assert ln.Run.filter(id__in=run_ids).count() == 0
     assert ln.Artifact.filter(uid=report_artifacts[0].uid).count() == 1
     transform.delete(permanent=True)
@@ -78,4 +76,5 @@ def test_bulk_permanent_run_delete(tmp_path):
     # wait for background cleanup subprocess to delete artifacts
     time.sleep(3)
     assert ln.Artifact.filter(uid=report_artifacts[0].uid).count() == 0
+    clean_up_logs = ln.setup.settings.cache_dir / f"run_cleanup_logs_{runs[0].uid}.txt"
     assert f"deleted artifact {report_artifacts[0].uid}" in clean_up_logs.read_text()
