@@ -183,7 +183,7 @@ You can achieve the same traceability for functions & workflows:
 import lamindb as ln
 
 @ln.flow()
-def create_fasta(fasta_file: str: "sample.fasta"):
+def create_fasta(fasta_file: str = "sample.fasta"):
     open(fasta_file, "w").write(">seq1\nACGT\n")    # create dataset
     ln.Artifact(fasta_file, key=fasta_file).save()  # save dataset
 
