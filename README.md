@@ -94,7 +94,7 @@ accessor = artifact.open()     # return a streaming accessor
 You can query by biological entities like `Disease` through plug-in `bionty`:
 
 ```python
-alzheimers = db.bionty.Disease.get(name="Alzheimer's disease")
+alzheimers = db.bionty.Disease.get(name="Alzheimer disease")
 df = db.Artifact.filter(diseases=alzheimers).to_dataframe()
 ```
 
