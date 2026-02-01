@@ -60,7 +60,7 @@ def test_flow():
         process_chunk(1, param_artifact, records_params)
         ln.context._run = None
     assert str(error.exconly()).startswith(
-        "RuntimeError: Please clear the global run context before using @ln.flow(): no `ln.track()` or `@ln.flow(global_run='clear')`"
+        "RuntimeError: Please use @ln.step() or clear the global run context before using @ln.flow(): no `ln.track()` or `@ln.flow(global_run='clear')`"
     )
 
     # Clean up test artifacts
