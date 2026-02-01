@@ -54,7 +54,7 @@ def _create_tracked_decorator(
             else:
                 if is_flow:
                     raise RuntimeError(
-                        "Please clear the global run context before using @ln.flow(): no `ln.track()` or `@ln.flow(global_run='clear')`"
+                        "Please use @ln.step() or clear the global run context before using @ln.flow(): no `ln.track()` or `@ln.flow(global_run='clear')`"
                     )
             bound_args = sig.bind(*args, **kwargs)
             bound_args.apply_defaults()

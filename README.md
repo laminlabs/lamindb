@@ -37,14 +37,13 @@ If you want a GUI: [LaminHub](https://lamin.ai) is a data collaboration hub buil
 <details>
 <summary>Who uses it?</summary>
 
-Scientists & engineers in pharma, biotech, and academia, including:
+Scientists and engineers at leading research institutions and biotech companies worldwide:
 
-- Pfizer – A global BigPharma company with headquarters in the US
-- Ensocell Therapeutics – A BioTech with offices in Cambridge, UK, and California
-- DZNE – The National Research Center for Neuro-Degenerative Diseases in Germany
-- Helmholtz Munich – The National Research Center for Environmental Health in Germany
-- scverse – An international non-profit for open-source omics data tools
-- The Global Immunological Swarm Learning Network – Research hospitals at U Bonn, Harvard, MIT, Stanford, ETH Zürich, Charite, Mount Sinai, and others
+- **Industry** → Pfizer · Altos Labs · Ensocell Therapeutics · ...
+- **Academia & Research** → scverse · DZNE (National Research Center for Neuro-Degenerative Diseases) · Helmholtz Munich (National Research Center for Environmental Health) · ...
+- **Research Hospitals** → Partners in The Global Immunological Swarm Learning Network including U Bonn, Harvard, MIT, Stanford, ETH Zürich, Charité, Mount Sinai, ...
+
+From personal research projects to pharma-scale deployments managing petabytes of data across 10¹² observations, 10⁴ transforms, 10⁹ runs, 10⁶ genes across 10² species, 10⁵ biosamples, 10⁹ proteins, ...
 
 </details>
 
@@ -91,11 +90,11 @@ adata = artifact.load()        # load object into memory
 accessor = artifact.open()     # return a streaming accessor
 ```
 
-You can query 14 built-in registries (`Artifact`, `Storage`, `Feature`, `Record`, etc.) and additional registries via plug-ins (e.g. in `bionty`, 13 registries for biological entities via `Disease`, `CellType`, `Tissue`, etc. mapping >20 public ontologies), for example:
+You can query by biological entities like `Disease` through plug-in `bionty`:
 
 ```python
-diseases = db.bionty.Disease.lookup()  # a lookup object to auto-complete diseases
-df = db.Artifact.filter(diseases=diseases.alzheimer_disease).to_dataframe()  # filter by fields
+alzheimers = db.bionty.Disease.get(name="Alzheimer disease")
+df = db.Artifact.filter(diseases=alzheimers).to_dataframe()
 ```
 
 ### Configure your database
@@ -132,7 +131,7 @@ lamin load --key examples/myfile.txt
 
 Read more: [docs.lamin.ai/cli](https://docs.lamin.ai/cli).
 
-### Lineage
+### Lineage: scripts & notebooks
 
 To create a dataset while tracking source code, inputs, outputs, logs, and environment:
 
@@ -150,33 +149,62 @@ Running this snippet as a script (`python create-fasta.py`) produces the followi
 
 ```python
 artifact = ln.Artifact.get(key="sample.fasta")  # get artifact by key
-artifact.describe()      # general context of the artifact
+artifact.describe()      # context of the artifact
 artifact.view_lineage()  # fine-grained lineage
 ```
 
 <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/BOTCBgHDAvwglN3U0004.png" width="550"> <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/EkQATsQL5wqC95Wj0006.png" width="140">
 
-Here is how to access the generating `run` and `transform` objects programmatically:
+<details>
+<summary>Access run & transform.</summary>
 
 ```python
 run = artifact.run              # get the run object
 transform = artifact.transform  # get the transform object
-```
-
-<details>
-<summary>Examples for run & transform.</summary>
-
-```python
-run.describe()
+run.describe()                  # context of the run
 ```
 
 <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/rJrHr3XaITVS4wVJ0000.png" width="550" />
 
 ```python
-transform.describe()
+transform.describe()  # context of the transform
 ```
 
 <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/JYwmHBbgf2MRCfgL0000.png" width="550" />
+
+</details>
+
+### Lineage: functions & workflows
+
+You can achieve the same traceability for functions & workflows:
+
+```python
+import lamindb as ln
+
+@ln.flow()
+def create_fasta(fasta_file: str = "sample.fasta"):
+    open(fasta_file, "w").write(">seq1\nACGT\n")    # create dataset
+    ln.Artifact(fasta_file, key=fasta_file).save()  # save dataset
+
+if __name__ == "__main__":
+    create_fasta()
+```
+
+Beyond what you get for scripts & notebooks, this automatically tracks function & CLI params and integrates well with established Python workflow managers: [docs.lamin.ai/track](https://docs.lamin.ai/track). To integrate advanced bioinformatics pipeline managers like Nextflow, see [docs.lamin.ai/pipelines](https://docs.lamin.ai/pipelines).
+
+<details>
+<summary>A richer example.</summary>
+
+Here is a an automatically generated re-construction of the project of [Schmidt _el al._ (Science, 2022)](https://pubmed.ncbi.nlm.nih.gov/35113687/):
+
+<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/KQmzmmLOeBN0C8Yk0004.png" width="850">
+
+A phenotypic CRISPRa screening result is integrated with scRNA-seq data. Here is the result of the screen input:
+
+<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/JvLaK9Icj11eswQn0000.png" width="850">
+
+You can explore it [here](https://lamin.ai/laminlabs/lamindata/artifact/W1AiST5wLrbNEyVq) on LaminHub or [here](https://github.com/laminlabs/schmidt22) on GitHub.
+
 </details>
 
 ### Labeling & queries by fields
@@ -199,9 +227,9 @@ ln.Artifact.filter(ulabels=my_label, projects=project).to_dataframe()
 You can also query by the metadata that lamindb automatically collects:
 
 ```python
-ln.Artifact.filter(run=run).to_dataframe()              # query artifacts created by a run
-ln.Artifact.filter(transform=transform).to_dataframe()  # query artifacts created by a transform
-ln.Artifact.filter(size__gt=1e6).to_dataframe()         # query artifacts bigger than 1MB
+ln.Artifact.filter(run=run).to_dataframe()              # by creating run
+ln.Artifact.filter(transform=transform).to_dataframe()  # by creating transform
+ln.Artifact.filter(size__gt=1e6).to_dataframe()         # size greater than 1MB
 ```
 
 If you want to include more information into the resulting dataframe, pass `include`.
@@ -343,7 +371,7 @@ artifact = ln.Artifact.from_anndata(
 artifact.describe()
 ```
 
-To validate a `spatialdata` or any other array-like dataset, you need to construct a `Schema`. You can do this by composing the schema of a complicated object from simple `pandera`-style schemas: [docs.lamin.ai/curate](https://docs.lamin.ai/curate).
+To validate a `spatialdata` or any other array-like dataset, you need to construct a `Schema`. You can do this by composing simple `pandera`-style schemas: [docs.lamin.ai/curate](https://docs.lamin.ai/curate).
 
 ### Ontologies
 
@@ -357,17 +385,3 @@ bt.CellType.to_dataframe()   # your extendable cell type ontology in a simple re
 ```
 
 Read more: [docs.lamin.ai/manage-ontologies](https://docs.lamin.ai/manage-ontologies).
-
-### Workflow management
-
-LaminDB integrates well with computational workflow/pipeline managers, e.g. with Nextflow or redun: [docs.lamin.ai/pipelines](https://docs.lamin.ai/pipelines)
-
-In some cases, LaminDB can offer a simpler alternative. In [github.com/laminlabs/schmidt22](https://github.com/laminlabs/schmidt22) we manage several workflows, scripts, and notebooks to re-construct the project of [Schmidt _el al._ (2022)](https://pubmed.ncbi.nlm.nih.gov/35113687/). A phenotypic CRISPRa screening result is integrated with scRNA-seq data. Here is one of the input artifacts:
-
-<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/JvLaK9Icj11eswQn0000.png" width="850">
-
-And here is the lineage of the final result:
-
-<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/KQmzmmLOeBN0C8Yk0004.png" width="850">
-
-You can explore it [here](https://lamin.ai/laminlabs/lamindata/artifact/W1AiST5wLrbNEyVq0001).

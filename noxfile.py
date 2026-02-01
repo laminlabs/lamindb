@@ -220,6 +220,8 @@ def prepare(session):
     Is not needed for unit tests!
     """
     content = open("README.md").read()
+    # cannot execute the flow after ln.track() was called
+    content = content.replace("    create_fasta()", "    pass")
     open("README_stripped.md", "w").write(
         "\n".join(
             line
@@ -227,6 +229,7 @@ def prepare(session):
             if not line.strip().startswith("accessor = artifact.open()")
         )
     )
+
     os.system("jupytext README_stripped.md --to notebook --output ./docs/README.ipynb")
     convert_executable_md_files()
     os.system("cp ./tests/core/test_artifact_parquet.py ./docs/scripts/")
