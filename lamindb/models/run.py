@@ -537,7 +537,7 @@ def _permanent_delete_runs(runs: Run | QuerySet) -> None:
             env=os.environ,
         )
         log_path = setup_settings.cache_dir / f"run_cleanup_logs_{first_run_uid}.txt"
-        logger.debug(
+        logger.important(
             f"spawned run cleanup subprocess (pid={proc.pid}): {log_path}\n{' '.join(cmd)}"
         )
 
