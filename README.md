@@ -160,7 +160,7 @@ artifact.view_lineage()  # fine-grained lineage
 <details>
 <summary>Access run & transform.</summary>
 
-Here is how to access the generating `run` and `transform` objects programmatically:
+Here is how to access the generating `run` and `transform` objects:
 
 ```python
 run = artifact.run              # get the run object
@@ -175,6 +175,7 @@ transform.describe()  # context of the transform
 ```
 
 <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/JYwmHBbgf2MRCfgL0000.png" width="550" />
+
 </details>
 
 ### Lineage: functions & workflows
