@@ -1,25 +1,12 @@
-"""Models: auxiliary models & database library.
+"""Auxiliary models & database library.
 
-QuerySet & SQLRecordList
-------------------------
-
-.. autoclass:: QuerySet
-.. autoclass:: SQLRecordList
-
-Managers
---------
-
-.. autoclass:: FeatureManager
-.. autoclass:: LabelManager
-.. autoclass:: QueryManager
-.. autoclass:: RelatedManager
-
-Base classes for registries
----------------------------
+Registry basics
+---------------
 
 .. autoclass:: BaseSQLRecord
 .. autoclass:: SQLRecord
 .. autoclass:: Registry
+.. autoclass:: QuerySet
 
 Mixins for registries
 ---------------------
@@ -31,18 +18,60 @@ Mixins for registries
 .. autoclass:: TracksRun
 .. autoclass:: TracksUpdates
 
-JSON values
------------
+Managers
+--------
+
+.. autoclass:: FeatureManager
+.. autoclass:: LabelManager
+.. autoclass:: QueryManager
+.. autoclass:: RelatedManager
+
+Artifact & run annotations
+--------------------------
+
+Artifact & run annotations can be conditioned on features.
+Besides linking categorical data, you can also link simple data types
+by virtue of the `JsonValue` model.
 
 .. autoclass:: JsonValue
 
-Artifact annotations
---------------------
+Below follow the underlying link models for annotations.
 
 .. autoclass:: ArtifactArtifact
+.. autoclass:: ArtifactReference
+.. autoclass:: ArtifactProject
+.. autoclass:: ArtifactTransform
+.. autoclass:: ArtifactRun
+.. autoclass:: ArtifactCollection
+.. autoclass:: ArtifactSchema
+.. autoclass:: ArtifactUser
+.. autoclass:: ArtifactULabel
+.. autoclass:: ArtifactRecord
+.. autoclass:: ArtifactReference
+.. autoclass:: ArtifactProject
+.. autoclass:: ArtifactTransform
+.. autoclass:: ArtifactRun
+.. autoclass:: ArtifactCollection
+.. autoclass:: ArtifactSchema
+.. autoclass:: ArtifactUser
+.. autoclass:: ArtifactULabel
+.. autoclass:: RunProject
+.. autoclass:: RunReference
+.. autoclass:: RunTransform
+.. autoclass:: RunRun
+.. autoclass:: RunCollection
+.. autoclass:: RunSchema
+.. autoclass:: RunUser
+.. autoclass:: RunULabel
+.. autoclass:: RunRecord
+.. autoclass:: RunReference
 
 Record values
 -------------
+
+Record values work almost exactly like artifact and run annotations,
+with the exception of JSON values are being stored in `RecordJson` on a per-record basis
+and not in `JsonValue`.
 
 .. autoclass:: RecordRecord
 .. autoclass:: RecordJson
