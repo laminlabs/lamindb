@@ -900,11 +900,10 @@ class Registry(ModelBase):
 
 
 class BaseSQLRecord(models.Model, metaclass=Registry):
-    """Basic metadata record.
+    """Base SQL metadata record.
 
-    It has the same methods as SQLRecord, but doesn't have the additional fields.
-
-    It's mainly used for IsLinks and similar.
+    It provides methods to `SQLRecord` and all its subclasses,
+    but doesn't come with the additional `branch` and `space` fields.
     """
 
     objects = QueryManager()
@@ -1523,6 +1522,8 @@ class Branch(BaseSQLRecord):
 @doc_args(RECORD_REGISTRY_EXAMPLE)
 class SQLRecord(BaseSQLRecord, metaclass=Registry):
     """An object that maps to a row in a SQL table in the database.
+
+    For the inherited `SQLRecord` class method definitions, see :class:`~lamindb.models.BaseSQLRecord`.
 
     Every `SQLRecord` is a data model that comes with a registry in form of a SQL table in your database.
 
