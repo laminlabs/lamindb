@@ -155,7 +155,6 @@ artifact.view_lineage()  # fine-grained lineage
 ```
 
 <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/BOTCBgHDAvwglN3U0004.png" width="550"> <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/EkQATsQL5wqC95Wj0006.png" width="140">
-```
 
 <details>
 <summary>Access run & transform.</summary>
