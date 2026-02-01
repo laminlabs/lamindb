@@ -38,9 +38,9 @@ def main() -> None:
             )
             try:
                 artifact.delete(permanent=True)
-                logger.important(f"deleted artifact id={artifact.id}")
+                logger.important(f"deleted artifact {artifact.id}")
             except Exception as e:
-                logger.error(f"did not delete artifact id={artifact.id}: {e}")
+                logger.error(f"did not delete artifact {artifact.id}: {e}")
                 pass
 
 
