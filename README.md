@@ -26,9 +26,9 @@ Highlights:
 - **LIMS & ELN** → manage experimental metadata, ontologies & markdown notes
 - **unified access** → single API for storage locations (local, S3, GCP, …), SQL databases (Postgres, SQLite) & ontologies
 - **reproducible** → auto-track source code & compute environments with data, code & report versioning
-- **zero lock-in** → runs in your infrastructure on open standards (Postgres, SQLite, `parquet`, `zarr`, etc.)
+- **zero lock-in** → runs anywhere on open standards (Postgres, SQLite, `parquet`, `zarr`, etc.)
 - **scalable** → you hit storage & database directly through your `pydata` or R stack, no REST API involved
-- **simple** → just `pip install` a Python package
+- **simple** → just `pip install` from PyPI or `install.packages('laminr')` from CRAN
 - **integrations** → [vitessce](https://docs.lamin.ai/vitessce), [nextflow](https://docs.lamin.ai/nextflow), [redun](https://docs.lamin.ai/redun), and [more](https://docs.lamin.ai/integrations)
 - **extensible** → create custom plug-ins based on the Django ORM
 
@@ -43,7 +43,7 @@ Scientists and engineers at leading research institutions and biotech companies 
 - **Academia & Research** → scverse · DZNE (National Research Center for Neuro-Degenerative Diseases) · Helmholtz Munich (National Research Center for Environmental Health) · ...
 - **Research Hospitals** → Partners in The Global Immunological Swarm Learning Network including U Bonn, Harvard, MIT, Stanford, ETH Zürich, Charité, Mount Sinai, ...
 
-From personal research projects to pharma-scale deployments managing petabytes of data across 10¹² observations, 10⁴ transforms, 10⁹ runs, 10⁶ genes across 10² species, 10⁵ biosamples, 10⁹ proteins, ...
+From personal research projects to pharma-scale deployments managing petabytes of data across 10¹² observations, 10⁴ transforms, 10⁹ runs, 10⁶ genes, 10² species, 10⁵ biosamples, 10⁹ proteins, ...
 
 </details>
 
