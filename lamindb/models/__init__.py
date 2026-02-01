@@ -1,13 +1,21 @@
-"""Models library.
+"""Models: auxiliary models & database library.
 
-Feature and label managers
---------------------------
+QuerySet & SQLRecordList
+------------------------
+
+.. autoclass:: QuerySet
+.. autoclass:: SQLRecordList
+
+Managers
+--------
 
 .. autoclass:: FeatureManager
 .. autoclass:: LabelManager
+.. autoclass:: QueryManager
+.. autoclass:: RelatedManager
 
-Registry base classes
----------------------
+Base classes for registries
+---------------------------
 
 .. autoclass:: BaseSQLRecord
 .. autoclass:: SQLRecord
@@ -23,29 +31,18 @@ Mixins for registries
 .. autoclass:: TracksRun
 .. autoclass:: TracksUpdates
 
-Query sets & managers
----------------------
-
-.. autoclass:: BasicQuerySet
-.. autoclass:: QuerySet
-.. autoclass:: ArtifactSet
-.. autoclass:: QueryManager
-.. autoclass:: RelatedManager
-.. autoclass:: lamindb.models.query_set.BiontyDB
-.. autoclass:: lamindb.models.query_set.PertdbDB
-
-JSON values for annotating artifacts and runs
----------------------------------------------
+JSON values
+-----------
 
 .. autoclass:: JsonValue
 
-Link models for Artifact
-------------------------
+Artifact annotations
+--------------------
 
 .. autoclass:: ArtifactArtifact
 
-Link models for Record
-----------------------
+Record values
+-------------
 
 .. autoclass:: RecordRecord
 .. autoclass:: RecordJson
@@ -55,8 +52,8 @@ Link models for Record
 .. autoclass:: RecordReference
 .. autoclass:: RecordProject
 
-Block models
-------------
+Blocks
+------
 
 .. autoclass:: Block
 .. autoclass:: ArtifactBlock
@@ -70,14 +67,15 @@ Block models
 .. autoclass:: SpaceBlock
 .. autoclass:: RecordUser
 
-Utility classes
----------------
+Utils
+-----
 
 .. autoclass:: LazyArtifact
-.. autoclass:: SQLRecordList
 .. autoclass:: InspectResult
 .. autoclass:: ValidateFields
 .. autoclass:: SchemaOptionals
+.. autoclass:: lamindb.models.query_set.BiontyDB
+.. autoclass:: lamindb.models.query_set.PertdbDB
 
 """
 
