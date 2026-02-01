@@ -37,14 +37,14 @@ If you want a GUI: [LaminHub](https://lamin.ai) is a data collaboration hub buil
 <details>
 <summary>Who uses it?</summary>
 
-Scientists & engineers in pharma, biotech, and academia, including:
+Scientists and engineers at leading research institutions and biotech companies worldwide:
 
-- Pfizer – A global BigPharma company with headquarters in the US
-- Ensocell Therapeutics – A BioTech with offices in Cambridge, UK, and California
-- DZNE – The National Research Center for Neuro-Degenerative Diseases in Germany
-- Helmholtz Munich – The National Research Center for Environmental Health in Germany
-- scverse – An international non-profit for open-source omics data tools
-- The Global Immunological Swarm Learning Network – Research hospitals at U Bonn, Harvard, MIT, Stanford, ETH Zürich, Charite, Mount Sinai, and others
+- **Industry** → Pfizer · Altos Labs · Ensocell Therapeutics · ...
+- **Academia & Resarch** → DZNE (National Research Center for Neuro-Degenerative Diseases) · Helmholtz Munich (National Research Center for Environmental Health) · ...
+- **Research Hospitals** → Partners in The Global Immunological Swarm Learning Network including U Bonn, Harvard, MIT, Stanford, ETH Zürich, Charité, Mount Sinai · ...
+- **Open Science** → scverse (international non-profit advancing open-source omics tools) · ...
+
+From personal research projects to pharma-scale deployments managing petabytes of data and trillions of observations.
 
 </details>
 
