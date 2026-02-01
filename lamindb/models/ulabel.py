@@ -174,7 +174,7 @@ class ULabel(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
     )
     """Records linking this ulabel as a value ← :attr:`~lamindb.Record.linked_ulabels`."""
     ablocks: ULabelBlock
-    """Blocks that annotate this ulabel ← :attr:`~lamindb.ULabelBlock.ulabel`."""
+    """Attached blocks ← :attr:`~lamindb.ULabelBlock.ulabel`."""
 
     @overload
     def __init__(

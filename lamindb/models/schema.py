@@ -406,7 +406,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     records: Record
     """Records that were annotated with this schema."""
     ablocks: SchemaBlock
-    """Blocks that annotate this schema."""
+    """Attached blocks ← :attr:`~lamindb.SchemaBlock.schema`."""
 
     @overload
     def __init__(

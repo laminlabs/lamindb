@@ -1103,7 +1103,7 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     projects: RelatedManager[Project]
     """Annotating projects."""
     ablocks: FeatureBlock
-    """Blocks that annotate this feature."""
+    """Attached blocks ← :attr:`~lamindb.FeatureBlock.feature`."""
 
     @overload
     def __init__(

@@ -1395,7 +1395,7 @@ class Space(BaseSQLRecord):
     )
     """Creator of space."""
     ablocks: SpaceBlock
-    """Blocks that annotate this space."""
+    """Attached blocks ← :attr:`~lamindb.SpaceBlock.space`."""
 
     @overload
     def __init__(
@@ -1497,7 +1497,7 @@ class Branch(BaseSQLRecord):
     )
     """Creator of branch."""
     ablocks: BranchBlock
-    """Blocks that annotate this branch."""
+    """Attached blocks ← :attr:`~lamindb.BranchBlock.branch`."""
 
     @overload
     def __init__(

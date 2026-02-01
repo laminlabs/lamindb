@@ -1470,7 +1470,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     )
     """The records linking this artifact as a feature value ← :attr:`~lamindb.Record.linked_artifacts`."""
     ablocks: ArtifactBlock
-    """The blocks that annotate this artifact ← :attr:`~lamindb.ArtifactBlock.artifact`."""
+    """Attached blocks ← :attr:`~lamindb.ArtifactBlock.artifact`."""
 
     @overload
     def __init__(
