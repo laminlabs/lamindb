@@ -163,15 +163,14 @@ def get_notebook_key_colab() -> str:
     return key
 
 
-def get_cli_args() -> str | None:
-    """Returns the CLI arguments used to invoke a script.
+def get_cli_call() -> tuple[str, str] | None:
+    """Returns (tool_name, args) when invoked as a script with CLI arguments.
 
-    Returns None if not run as a script (e.g., in Jupyter, interactive shell).
+    Returns None if not run as a script (e.g., in Jupyter, interactive shell)
+    or when no arguments were passed.
     """
-    # check if run as a script (not interactive/notebook/imported)
-    # and whether arguments have been passed
     if len(sys.argv) > 1 and sys.argv[0] and not is_run_from_ipython:
-        return " ".join(sys.argv[1:])
+        return Path(sys.argv[0]).name, " ".join(sys.argv[1:])
     return None
 
 
@@ -562,7 +561,7 @@ class Context:
         else:
             uid_was_none = True
         self._path = None
-        cli_args = get_cli_args()
+        cli_call = get_cli_call()
         if transform is None:
             description = None
             transform_ref = None
@@ -593,8 +592,8 @@ class Context:
                         key = key_from_module
             if description is None:
                 description = self._description
-            if description is None and cli_args is not None:
-                description = f"CLI: {Path(sys.argv[0]).name}"
+            if description is None and cli_call is not None:
+                description = f"CLI: {cli_call[0]}"
             self._create_or_load_transform(
                 description=description,
                 transform_ref=transform_ref,
@@ -666,7 +665,8 @@ class Context:
             self._logging_message_track += "\n→ params: " + ", ".join(
                 f"{key}={value!r}" for key, value in run.params.items()
             )
-        if cli_args:
+        if cli_call is not None:
+            _, cli_args = cli_call
             logger.important(f"script invoked with: {cli_args}")
             run.cli_args = cli_args
         run.save()  # need to save now
