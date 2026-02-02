@@ -1,13 +1,10 @@
-"""The two "mini immuno" datasets.
+"""Two "mini immuno" datasets.
 
-.. autosummary::
-   :toctree: .
-
-   get_dataset1
-   get_dataset2
-   define_features_labels
-   define_mini_immuno_schema_flexible
-   save_mini_immuno_datasets
+.. autofunction:: get_dataset1
+.. autofunction:: get_dataset2
+.. autofunction:: define_features_labels
+.. autofunction:: define_mini_immuno_schema_flexible
+.. autofunction:: save_mini_immuno_datasets
 
 """
 
