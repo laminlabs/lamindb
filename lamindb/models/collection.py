@@ -237,6 +237,7 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         *args,
         **kwargs,
     ):
+        self._revises = None
         if len(args) == len(self._meta.concrete_fields):
             super().__init__(*args, **kwargs)
             return None
