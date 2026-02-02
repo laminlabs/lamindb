@@ -562,6 +562,7 @@ class Context:
         else:
             uid_was_none = True
         self._path = None
+        cli_args = get_cli_args()
         if transform is None:
             description = None
             transform_ref = None
@@ -592,6 +593,8 @@ class Context:
                         key = key_from_module
             if description is None:
                 description = self._description
+            if description is None and cli_args is not None:
+                description = f"CLI: {Path(sys.argv[0]).name}"
             self._create_or_load_transform(
                 description=description,
                 transform_ref=transform_ref,
@@ -663,7 +666,6 @@ class Context:
             self._logging_message_track += "\n→ params: " + ", ".join(
                 f"{key}={value!r}" for key, value in run.params.items()
             )
-        cli_args = get_cli_args()
         if cli_args:
             logger.important(f"script invoked with: {cli_args}")
             run.cli_args = cli_args
