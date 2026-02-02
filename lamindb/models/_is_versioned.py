@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import PurePosixPath
-from typing import TYPE_CHECKING, Any, Iterable, Literal, overload
+from typing import TYPE_CHECKING, Any, Iterable, Literal
 
 from django.db import models
 from django.db.models import Q
@@ -34,23 +34,6 @@ class IsVersioned(models.Model):
     """
     is_latest: bool = BooleanField(default=True, db_index=True)
     """Boolean flag that indicates whether a record is the latest in its version family."""
-
-    @overload
-    def __init__(self): ...
-
-    @overload
-    def __init__(
-        self,
-        *db_args,
-    ): ...
-
-    def __init__(
-        self,
-        *args,
-        **kwargs,
-    ):
-        self._revises = kwargs.pop("revises") if "revises" in kwargs else None
-        super().__init__(*args, **kwargs)
 
     @property
     def stem_uid(self) -> str:
