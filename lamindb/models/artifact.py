@@ -1735,7 +1735,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         kwargs["branch"] = branch
         kwargs["space"] = space
         kwargs["otype"] = otype
-        kwargs["revises"] = revises
+        self._revises = revises
         # this check needs to come down here because key might be populated from an
         # existing file path during get_artifact_kwargs_from_data()
         if (

@@ -313,6 +313,7 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             populate_subsequent_run(self, run)
         else:
             _skip_validation = revises is not None and key == revises.key
+            self._revises = revises
             super().__init__(  # type: ignore
                 uid=provisional_uid,
                 key=key,
@@ -327,7 +328,6 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 branch_id=branch_id,
                 space=space,
                 space_id=space_id,
-                revises=revises,
                 _skip_validation=_skip_validation,
             )
         self._artifacts = artifacts
