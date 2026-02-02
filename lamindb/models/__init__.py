@@ -1,17 +1,12 @@
-"""Models library.
+"""Auxiliary models & database library.
 
-Feature and label managers
---------------------------
-
-.. autoclass:: FeatureManager
-.. autoclass:: LabelManager
-
-Registry base classes
----------------------
+Registry basics
+---------------
 
 .. autoclass:: BaseSQLRecord
 .. autoclass:: SQLRecord
 .. autoclass:: Registry
+.. autoclass:: QuerySet
 
 Mixins for registries
 ---------------------
@@ -23,62 +18,122 @@ Mixins for registries
 .. autoclass:: TracksRun
 .. autoclass:: TracksUpdates
 
-Query sets & managers
----------------------
+Managers
+--------
 
-.. autoclass:: BasicQuerySet
-.. autoclass:: QuerySet
-.. autoclass:: ArtifactSet
+.. autoclass:: FeatureManager
+.. autoclass:: LabelManager
 .. autoclass:: QueryManager
 .. autoclass:: RelatedManager
-.. autoclass:: lamindb.models.query_set.BiontyDB
-.. autoclass:: lamindb.models.query_set.PertdbDB
 
-JSON values for annotating artifacts and runs
----------------------------------------------
+Annotations of objects
+----------------------
+
+Artifact, run, collection, annotations can be conditioned on features.
+Besides linking categorical data, you can also link simple data types
+by virtue of the `JsonValue` model.
 
 .. autoclass:: JsonValue
 
-Link models for Artifact
-------------------------
+Annotating artifacts.
 
 .. autoclass:: ArtifactArtifact
+.. autoclass:: ArtifactJsonValue
+.. autoclass:: ArtifactProject
+.. autoclass:: ArtifactRecord
+.. autoclass:: ArtifactReference
+.. autoclass:: ArtifactRun
+.. autoclass:: ArtifactSchema
+.. autoclass:: ArtifactULabel
+.. autoclass:: ArtifactUser
 
-Link models for Record
-----------------------
+Annotating collections.
 
-.. autoclass:: RecordRecord
-.. autoclass:: RecordJson
-.. autoclass:: RecordULabel
-.. autoclass:: RecordRun
+.. autoclass:: CollectionArtifact
+.. autoclass:: CollectionProject
+.. autoclass:: CollectionReference
+.. autoclass:: CollectionULabel
+.. autoclass:: CollectionRecord
+
+Annotating runs.
+
+.. autoclass:: RunJsonValue
+.. autoclass:: RunProject
+.. autoclass:: RunULabel
+.. autoclass:: RunRecord
+
+Annotating transforms.
+
+.. autoclass:: TransformProject
+.. autoclass:: TransformReference
+.. autoclass:: TransformULabel
+
+Building relationships among transforms.
+
+.. autoclass:: TransformTransform
+
+Annotating features, blocks, and ulabels with projects.
+
+.. autoclass:: FeatureProject
+.. autoclass:: BlockProject
+.. autoclass:: ULabelProject
+.. autoclass:: SchemaProject
+.. autoclass:: ProjectRecord
+
+Building schemas.
+
+.. autoclass:: SchemaComponent
+.. autoclass:: SchemaFeature
+
+Annotating references with records.
+
+.. autoclass:: ReferenceRecord
+
+Record values
+-------------
+
+Record values work almost exactly like artifact and run annotations,
+with the exception that JSON values are stored in `RecordJson` on a per-record basis
+and not in `JsonValue`.
+
 .. autoclass:: RecordArtifact
-.. autoclass:: RecordReference
+.. autoclass:: RecordCollection
+.. autoclass:: RecordJson
 .. autoclass:: RecordProject
+.. autoclass:: RecordRecord
+.. autoclass:: RecordReference
+.. autoclass:: RecordRun
+.. autoclass:: RecordTransform
+.. autoclass:: RecordULabel
+.. autoclass:: RecordUser
+.. autoclass:: TransformRecord
 
-Block models
-------------
+Blocks
+------
 
+.. autoclass:: BaseBlock
 .. autoclass:: Block
 .. autoclass:: ArtifactBlock
-.. autoclass:: TransformBlock
-.. autoclass:: RecordBlock
+.. autoclass:: BranchBlock
 .. autoclass:: CollectionBlock
+.. autoclass:: FeatureBlock
+.. autoclass:: ProjectBlock
+.. autoclass:: RecordBlock
 .. autoclass:: RunBlock
 .. autoclass:: SchemaBlock
-.. autoclass:: ProjectBlock
-.. autoclass:: BranchBlock
 .. autoclass:: SpaceBlock
-.. autoclass:: RunBlock
-.. autoclass:: RecordUser
+.. autoclass:: TransformBlock
+.. autoclass:: ULabelBlock
 
-Utility classes
----------------
+Utils
+-----
 
 .. autoclass:: LazyArtifact
-.. autoclass:: SQLRecordList
 .. autoclass:: InspectResult
 .. autoclass:: ValidateFields
 .. autoclass:: SchemaOptionals
+.. autoclass:: lamindb.models.query_set.BiontyDB
+.. autoclass:: lamindb.models.query_set.PertdbDB
 
 """
 
@@ -100,7 +155,7 @@ from .sqlrecord import (
     HasType,
 )
 from .storage import Storage
-from .transform import Transform
+from .transform import Transform, TransformTransform
 from .run import Run, TracksRun, TracksUpdates, current_run, User
 from .feature import Feature, JsonValue
 from .schema import Schema
@@ -112,28 +167,30 @@ from ._feature_manager import FeatureManager
 from ._label_manager import LabelManager
 from .collection import Collection, CollectionArtifact
 from .project import Project, Reference
-from .query_manager import RelatedManager
+from .query_manager import RelatedManager, QueryManager
 from .query_set import BasicQuerySet, QuerySet, DB, SQLRecordList
 from .artifact_set import ArtifactSet
 from .has_parents import HasParents
 from datetime import datetime as _datetime
 
 # link models
-from .artifact import ArtifactJsonValue, ArtifactArtifact
+from .artifact import ArtifactJsonValue, ArtifactArtifact, ArtifactUser, ArtifactRun
 from .project import (
     ArtifactProject,
-    TransformProject,
-    CollectionProject,
-    ULabelProject,
-    FeatureProject,
-    SchemaProject,
     ArtifactReference,
+    BlockProject,
+    CollectionProject,
     CollectionReference,
-    RunProject,
+    FeatureProject,
+    ProjectRecord,
     RecordProject,
     RecordReference,
     ReferenceRecord,
-    ProjectRecord,
+    RunProject,
+    SchemaProject,
+    TransformProject,
+    TransformReference,
+    ULabelProject,
 )
 from .run import RunJsonValue
 from .schema import (
@@ -146,26 +203,33 @@ from .ulabel import ArtifactULabel, TransformULabel, RunULabel, CollectionULabel
 
 from .record import (
     Record,
+    ArtifactRecord,
+    CollectionRecord,
+    RecordArtifact,
+    RecordCollection,
     RecordJson,
     RecordRecord,
-    RecordULabel,
     RecordRun,
-    RunRecord,
+    RecordTransform,
+    RecordULabel,
     RecordUser,
-    RecordArtifact,
-    ArtifactRecord,
+    RunRecord,
+    TransformRecord,
 )
 from .block import (
+    BaseBlock,
     Block,
     ArtifactBlock,
-    TransformBlock,
-    RecordBlock,
+    BranchBlock,
     CollectionBlock,
+    FeatureBlock,
+    ProjectBlock,
+    RecordBlock,
     RunBlock,
     SchemaBlock,
-    ProjectBlock,
-    BranchBlock,
     SpaceBlock,
+    TransformBlock,
+    ULabelBlock,
 )
 
 FeatureValue = JsonValue  # backward compatibility

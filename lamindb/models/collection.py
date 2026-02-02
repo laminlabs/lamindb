@@ -210,7 +210,7 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     records: RelatedManager[Record]
     """Linked records ← :attr:`~lamindb.Record.collections`."""
     ablocks: CollectionBlock
-    """Blocks that annotate this collection ← :attr:`~lamindb.CollectionBlock.collection`."""
+    """Attached blocks ← :attr:`~lamindb.CollectionBlock.collection`."""
 
     @overload
     def __init__(

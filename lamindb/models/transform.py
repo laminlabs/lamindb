@@ -214,7 +214,7 @@ class Transform(SQLRecord, IsVersioned):
     )
     """Creator of record ← :attr:`~lamindb.User.created_transforms`."""
     ablocks: TransformBlock
-    """Blocks that annotate this transform ← :attr:`~lamindb.TransformBlock.transform`."""
+    """Attached blocks ← :attr:`~lamindb.TransformBlock.transform`."""
 
     @overload
     def __init__(

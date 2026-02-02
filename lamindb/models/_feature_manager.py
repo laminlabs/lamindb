@@ -981,8 +981,10 @@ def filter_with_features(
 class FeatureManager:
     """Feature manager."""
 
-    def __init__(self, host: Artifact | Run | Record):
-        self._host = host
+    def __init__(self, sqlrecord: Artifact | Run | Record):
+        # host is the sqlrecord that the label manager is attached to
+        # we might rename _host to _sqlrecord in the future
+        self._host = sqlrecord
         self._slots: dict[str, Schema] | None = None
         self._accessor_by_registry_ = None
 

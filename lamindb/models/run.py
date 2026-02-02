@@ -86,22 +86,6 @@ class TracksRun(models.Model):
     )
     """Run that created record."""
 
-    @overload
-    def __init__(self): ...
-
-    @overload
-    def __init__(
-        self,
-        *db_args,
-    ): ...
-
-    def __init__(
-        self,
-        *args,
-        **kwargs,
-    ):
-        super().__init__(*args, **kwargs)
-
 
 class TracksUpdates(models.Model):
     """Base class tracking previous runs and `updated_at` timestamp."""
@@ -113,22 +97,6 @@ class TracksUpdates(models.Model):
         editable=False, db_default=models.functions.Now(), db_index=True
     )
     """Time of last update to record."""
-
-    @overload
-    def __init__(self): ...
-
-    @overload
-    def __init__(
-        self,
-        *db_args,
-    ): ...
-
-    def __init__(
-        self,
-        *args,
-        **kwargs,
-    ):
-        super().__init__(*args, **kwargs)
 
 
 class User(BaseSQLRecord, CanCurate):
@@ -356,7 +324,7 @@ class Run(SQLRecord, TracksUpdates):
     projects: RelatedManager[Project]
     """The projects annotating this run ← :attr:`~lamindb.Project.runs`."""
     ablocks: RunBlock
-    """The blocks annotating this run ← :attr:`~lamindb.RunBlock.run`."""
+    """Attached blocks ← :attr:`~lamindb.RunBlock.run`."""
     records: RelatedManager[Record]
     """The records annotating this run, via :attr:`~lamindb.Record.runs`."""
     linked_in_records: RelatedManager[Record] = models.ManyToManyField(

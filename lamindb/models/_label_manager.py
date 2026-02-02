@@ -179,8 +179,10 @@ class LabelManager:
     with features.
     """
 
-    def __init__(self, host: Artifact | Collection) -> None:
-        self._host = host
+    def __init__(self, sqlrecord: Artifact | Collection) -> None:
+        # host is the sqlrecord that the label manager is attached to
+        # we might rename _host to _sqlrecord in the future
+        self._host = sqlrecord
 
     def __repr__(self) -> str:
         return self.describe(return_str=True)

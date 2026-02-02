@@ -1,19 +1,3 @@
-"""Models library.
-
-...
-
-Query sets & managers
----------------------
-.. autoclass:: BasicQuerySet
-.. autoclass:: QuerySet
-.. autoclass:: ArtifactSet
-.. autoclass:: QueryManager
-.. autoclass:: lamindb.models.query_set.BiontyDB
-.. autoclass:: lamindb.models.query_set.PertdbDB
-
-...
-"""
-
 from __future__ import annotations
 
 import ast

@@ -54,7 +54,7 @@ if TYPE_CHECKING:
 
     from .artifact import Artifact
     from .block import FeatureBlock
-    from .projects import Project
+    from .project import Project
     from .query_manager import RelatedManager
     from .record import Record
     from .run import Run
@@ -1103,7 +1103,7 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     projects: RelatedManager[Project]
     """Annotating projects."""
     ablocks: FeatureBlock
-    """Blocks that annotate this feature."""
+    """Attached blocks ← :attr:`~lamindb.FeatureBlock.feature`."""
 
     @overload
     def __init__(

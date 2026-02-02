@@ -1,4 +1,4 @@
-"""Types.
+"""Base types.
 
 Central object types
 --------------------
