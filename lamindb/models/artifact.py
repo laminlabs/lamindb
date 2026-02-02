@@ -1701,12 +1701,11 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             set_private_attributes()
             populate_subsequent_run(self, run)
             return None
-        else:
-            kwargs = kwargs_or_artifact
-            kwargs["schema"] = schema
 
+        kwargs = kwargs_or_artifact
+        kwargs["schema"] = schema
         if revises is None:
-            revises = kwargs_or_artifact.pop("revises")
+            revises = kwargs.pop("revises")
 
         set_private_attributes()
 
