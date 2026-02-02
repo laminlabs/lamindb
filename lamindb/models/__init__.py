@@ -45,6 +45,7 @@ Below follow the underlying link models for annotations.
 .. autoclass:: ArtifactSchema
 .. autoclass:: ArtifactULabel
 .. autoclass:: ArtifactUser
+.. autoclass:: BlockProject
 .. autoclass:: CollectionArtifact
 .. autoclass:: CollectionProject
 .. autoclass:: CollectionReference
@@ -58,6 +59,7 @@ Below follow the underlying link models for annotations.
 .. autoclass:: SchemaProject
 .. autoclass:: TransformProject
 .. autoclass:: TransformReference
+.. autoclass:: TransformTransform
 .. autoclass:: TransformULabel
 .. autoclass:: ULabelProject
 
@@ -69,17 +71,21 @@ with the exception that JSON values are stored in `RecordJson` on a per-record b
 and not in `JsonValue`.
 
 .. autoclass:: ArtifactRecord
+.. autoclass:: CollectionRecord
 .. autoclass:: ProjectRecord
 .. autoclass:: RecordArtifact
+.. autoclass:: RecordCollection
 .. autoclass:: RecordJson
 .. autoclass:: RecordProject
 .. autoclass:: RecordRecord
 .. autoclass:: RecordReference
 .. autoclass:: RecordRun
+.. autoclass:: RecordTransform
 .. autoclass:: RecordULabel
 .. autoclass:: RecordUser
 .. autoclass:: ReferenceRecord
 .. autoclass:: RunRecord
+.. autoclass:: TransformRecord
 
 Blocks
 ------
@@ -88,12 +94,14 @@ Blocks
 .. autoclass:: ArtifactBlock
 .. autoclass:: BranchBlock
 .. autoclass:: CollectionBlock
+.. autoclass:: FeatureBlock
 .. autoclass:: ProjectBlock
 .. autoclass:: RecordBlock
 .. autoclass:: RunBlock
 .. autoclass:: SchemaBlock
 .. autoclass:: SpaceBlock
 .. autoclass:: TransformBlock
+.. autoclass:: ULabelBlock
 
 Utils
 -----
@@ -125,7 +133,7 @@ from .sqlrecord import (
     HasType,
 )
 from .storage import Storage
-from .transform import Transform
+from .transform import Transform, TransformTransform
 from .run import Run, TracksRun, TracksUpdates, current_run, User
 from .feature import Feature, JsonValue
 from .schema import Schema
@@ -147,18 +155,20 @@ from datetime import datetime as _datetime
 from .artifact import ArtifactJsonValue, ArtifactArtifact
 from .project import (
     ArtifactProject,
-    TransformProject,
-    CollectionProject,
-    ULabelProject,
-    FeatureProject,
-    SchemaProject,
     ArtifactReference,
+    BlockProject,
+    CollectionProject,
     CollectionReference,
-    RunProject,
+    FeatureProject,
+    ProjectRecord,
     RecordProject,
     RecordReference,
     ReferenceRecord,
-    ProjectRecord,
+    RunProject,
+    SchemaProject,
+    TransformProject,
+    TransformReference,
+    ULabelProject,
 )
 from .run import RunJsonValue
 from .schema import (
@@ -171,26 +181,32 @@ from .ulabel import ArtifactULabel, TransformULabel, RunULabel, CollectionULabel
 
 from .record import (
     Record,
+    ArtifactRecord,
+    CollectionRecord,
+    RecordArtifact,
+    RecordCollection,
     RecordJson,
     RecordRecord,
-    RecordULabel,
     RecordRun,
-    RunRecord,
+    RecordTransform,
+    RecordULabel,
     RecordUser,
-    RecordArtifact,
-    ArtifactRecord,
+    RunRecord,
+    TransformRecord,
 )
 from .block import (
     Block,
     ArtifactBlock,
-    TransformBlock,
-    RecordBlock,
+    BranchBlock,
     CollectionBlock,
+    FeatureBlock,
+    ProjectBlock,
+    RecordBlock,
     RunBlock,
     SchemaBlock,
-    ProjectBlock,
-    BranchBlock,
     SpaceBlock,
+    TransformBlock,
+    ULabelBlock,
 )
 
 FeatureValue = JsonValue  # backward compatibility
