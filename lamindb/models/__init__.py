@@ -26,42 +26,68 @@ Managers
 .. autoclass:: QueryManager
 .. autoclass:: RelatedManager
 
-Artifact & run annotations
---------------------------
+Annotations of objects
+----------------------
 
-Artifact & run annotations can be conditioned on features.
+Artifact, run, collection, annotations can be conditioned on features.
 Besides linking categorical data, you can also link simple data types
 by virtue of the `JsonValue` model.
 
 .. autoclass:: JsonValue
 
-Below follow the underlying link models for annotations.
+Annotating artifacts.
 
 .. autoclass:: ArtifactArtifact
 .. autoclass:: ArtifactJsonValue
 .. autoclass:: ArtifactProject
+.. autoclass:: ArtifactRecord
 .. autoclass:: ArtifactReference
 .. autoclass:: ArtifactRun
 .. autoclass:: ArtifactSchema
 .. autoclass:: ArtifactULabel
 .. autoclass:: ArtifactUser
-.. autoclass:: BlockProject
+
+Annotating collections.
+
 .. autoclass:: CollectionArtifact
 .. autoclass:: CollectionProject
 .. autoclass:: CollectionReference
 .. autoclass:: CollectionULabel
-.. autoclass:: FeatureProject
+.. autoclass:: CollectionRecord
+
+Annotating runs.
+
 .. autoclass:: RunJsonValue
 .. autoclass:: RunProject
 .. autoclass:: RunULabel
-.. autoclass:: SchemaComponent
-.. autoclass:: SchemaFeature
-.. autoclass:: SchemaProject
+.. autoclass:: RunRecord
+
+Annotating transforms.
+
 .. autoclass:: TransformProject
 .. autoclass:: TransformReference
-.. autoclass:: TransformTransform
 .. autoclass:: TransformULabel
+
+Building relationships among transforms.
+
+.. autoclass:: TransformTransform
+
+Annotating features, blocks, and ulabels with projects.
+
+.. autoclass:: FeatureProject
+.. autoclass:: BlockProject
 .. autoclass:: ULabelProject
+.. autoclass:: SchemaProject
+.. autoclass:: ProjectRecord
+
+Building schemas.
+
+.. autoclass:: SchemaComponent
+.. autoclass:: SchemaFeature
+
+Annotating references with records.
+
+.. autoclass:: ReferenceRecord
 
 Record values
 -------------
@@ -70,9 +96,6 @@ Record values work almost exactly like artifact and run annotations,
 with the exception that JSON values are stored in `RecordJson` on a per-record basis
 and not in `JsonValue`.
 
-.. autoclass:: ArtifactRecord
-.. autoclass:: CollectionRecord
-.. autoclass:: ProjectRecord
 .. autoclass:: RecordArtifact
 .. autoclass:: RecordCollection
 .. autoclass:: RecordJson
@@ -83,8 +106,6 @@ and not in `JsonValue`.
 .. autoclass:: RecordTransform
 .. autoclass:: RecordULabel
 .. autoclass:: RecordUser
-.. autoclass:: ReferenceRecord
-.. autoclass:: RunRecord
 .. autoclass:: TransformRecord
 
 Blocks
