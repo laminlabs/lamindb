@@ -174,7 +174,7 @@ from .has_parents import HasParents
 from datetime import datetime as _datetime
 
 # link models
-from .artifact import ArtifactJsonValue, ArtifactArtifact
+from .artifact import ArtifactJsonValue, ArtifactArtifact, ArtifactUser, ArtifactRun
 from .project import (
     ArtifactProject,
     ArtifactReference,
