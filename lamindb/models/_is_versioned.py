@@ -25,6 +25,7 @@ class IsVersioned(models.Model):
         abstract = True
 
     _len_stem_uid: int
+    _revises: IsVersioned | None = None
 
     version_tag: str | None = CharField(max_length=30, null=True, db_index=True)
     """Version tag (default `None`).
