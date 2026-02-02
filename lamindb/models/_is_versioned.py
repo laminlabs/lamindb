@@ -25,7 +25,6 @@ class IsVersioned(models.Model):
         abstract = True
 
     _len_stem_uid: int
-    _revises: IsVersioned | None = None
 
     version_tag: str | None = CharField(max_length=30, null=True, db_index=True)
     """Version tag (default `None`).
@@ -35,6 +34,14 @@ class IsVersioned(models.Model):
     """
     is_latest: bool = BooleanField(default=True, db_index=True)
     """Boolean flag that indicates whether a record is the latest in its version family."""
+
+    def __init__(
+        self,
+        *args,
+        **kwargs,
+    ):
+        self._revises = kwargs.pop("revises", None)
+        super().__init__(*args, **kwargs)
 
     @property
     def stem_uid(self) -> str:

@@ -1502,7 +1502,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         *args,
         **kwargs,
     ):
-        self._revises = None
         # check whether we are called with db args
         if len(args) == len(self._meta.concrete_fields):
             super().__init__(*args, **kwargs)
@@ -1701,12 +1700,12 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             set_private_attributes()
             populate_subsequent_run(self, run)
             return None
+        else:
+            kwargs = kwargs_or_artifact
+            kwargs["schema"] = schema
 
-        kwargs = kwargs_or_artifact
-        kwargs["schema"] = schema
-        revises_from_kwargs = kwargs.pop("revises")
         if revises is None:
-            revises = revises_from_kwargs
+            revises = kwargs_or_artifact.pop("revises")
 
         set_private_attributes()
 
@@ -1736,7 +1735,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         kwargs["branch"] = branch
         kwargs["space"] = space
         kwargs["otype"] = otype
-        self._revises = revises
+        kwargs["revises"] = revises
         # this check needs to come down here because key might be populated from an
         # existing file path during get_artifact_kwargs_from_data()
         if (

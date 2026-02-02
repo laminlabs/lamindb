@@ -241,7 +241,6 @@ class Transform(SQLRecord, IsVersioned):
         *args,
         **kwargs,
     ):
-        self._revises = None
         if len(args) == len(self._meta.concrete_fields):
             super().__init__(*args, **kwargs)
             return None
@@ -338,7 +337,6 @@ class Transform(SQLRecord, IsVersioned):
                         f"key {self.key} on existing transform differs from passed key {key}, keeping original key; update manually if needed or pass skip_hash_lookup if you want to duplicate the transform"
                     )
                 return None
-        self._revises = revises
         super().__init__(  # type: ignore
             uid=uid,
             description=description,
@@ -350,6 +348,7 @@ class Transform(SQLRecord, IsVersioned):
             source_code=source_code,
             hash=hash,
             _has_consciously_provided_uid=has_consciously_provided_uid,
+            revises=revises,
             branch=branch,
             branch_id=branch_id,
             space=space,
