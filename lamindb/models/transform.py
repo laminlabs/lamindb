@@ -251,6 +251,7 @@ class Transform(SQLRecord, IsVersioned):
         key: str | None = kwargs.pop("key", None)
         description: str | None = kwargs.pop("description", None)
         revises: Transform | None = kwargs.pop("revises", None)
+        self._revises = revises
         version_tag: str | None = kwargs.pop("version_tag", kwargs.pop("version", None))
         kind: TransformKind | None = kwargs.pop("kind", None)
         type: TransformKind | None = kwargs.pop("type", None)
