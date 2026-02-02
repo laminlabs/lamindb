@@ -1704,8 +1704,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
         kwargs = kwargs_or_artifact
         kwargs["schema"] = schema
+        revises_from_kwargs = kwargs.pop("revises")
         if revises is None:
-            revises = kwargs.pop("revises")
+            revises = revises_from_kwargs
 
         set_private_attributes()
 
