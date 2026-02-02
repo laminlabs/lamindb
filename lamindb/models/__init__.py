@@ -111,6 +111,7 @@ and not in `JsonValue`.
 Blocks
 ------
 
+.. autoclass:: BaseBlock
 .. autoclass:: Block
 .. autoclass:: ArtifactBlock
 .. autoclass:: BranchBlock
@@ -216,6 +217,7 @@ from .record import (
     TransformRecord,
 )
 from .block import (
+    BaseBlock,
     Block,
     ArtifactBlock,
     BranchBlock,
