@@ -1,9 +1,20 @@
 """Two "mini immuno" datasets.
 
+Datasets
+--------
+
 .. autofunction:: get_dataset1
 .. autofunction:: get_dataset2
+
+Schemas
+-------
+
 .. autofunction:: define_features_labels
 .. autofunction:: define_mini_immuno_schema_flexible
+
+Utilities
+---------
+
 .. autofunction:: save_mini_immuno_datasets
 
 """
