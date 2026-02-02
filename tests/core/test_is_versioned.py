@@ -1,7 +1,11 @@
 import lamindb as ln
 import pandas as pd
 import pytest
-from lamindb.models._is_versioned import bump_version, set_version
+from lamindb.models._is_versioned import (
+    _adjust_is_latest_when_deleting_is_versioned,
+    bump_version,
+    set_version,
+)
 
 
 @pytest.fixture(scope="module")
@@ -249,3 +253,32 @@ def test_version_backward_compatibility():
     transform2.delete(permanent=True)
     artifact1.delete(permanent=True)
     artifact2.delete(permanent=True)
+
+
+def test_adjust_is_latest_when_deleting_is_versioned():
+    """Direct unit test for _adjust_is_latest_when_deleting_is_versioned (covers multiple promoted)."""
+    # Build two version families, each with v1 (older) and v2 (latest)
+    v1a = ln.Transform(key="Adjust latest family A").save()
+    v2a = ln.Transform(revises=v1a, key="Adjust latest family A").save()
+    v1b = ln.Transform(key="Adjust latest family B").save()
+    v2b = ln.Transform(revises=v1b, key="Adjust latest family B").save()
+    assert v2a.is_latest and v2b.is_latest
+    assert not v1a.is_latest and not v1b.is_latest
+
+    # Delete both latest → two promoted (covers "new latest ... versions: [...]" branch)
+    promoted = _adjust_is_latest_when_deleting_is_versioned([v2a, v2b])
+    assert len(promoted) == 2
+    assert set(promoted) == {v1a.pk, v1b.pk}
+
+    v1a.refresh_from_db()
+    v1b.refresh_from_db()
+    assert v1a.is_latest and v1b.is_latest
+
+    # Edge case: empty list returns []
+    assert _adjust_is_latest_when_deleting_is_versioned([]) == []
+
+    # Clean up
+    v2a.delete(permanent=True)
+    v2b.delete(permanent=True)
+    v1a.delete(permanent=True)
+    v1b.delete(permanent=True)

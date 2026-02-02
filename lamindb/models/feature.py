@@ -54,7 +54,7 @@ if TYPE_CHECKING:
 
     from .artifact import Artifact
     from .block import FeatureBlock
-    from .projects import Project
+    from .project import Project
     from .query_manager import RelatedManager
     from .record import Record
     from .run import Run
@@ -1103,7 +1103,7 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     projects: RelatedManager[Project]
     """Annotating projects."""
     ablocks: FeatureBlock
-    """Blocks that annotate this feature."""
+    """Attached blocks ← :attr:`~lamindb.FeatureBlock.feature`."""
 
     @overload
     def __init__(
@@ -1283,7 +1283,7 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             type: Feature type of all created features
             mute: Whether to mute dtype inference and feature creation warnings
         """
-        from lamindb.models._feature_manager import infer_feature_type_convert_json
+        from lamindb.models._feature_manager import infer_convert_dtype_key_value
 
         field = Feature.name if field is None else field
         registry = field.field.model  # type: ignore
@@ -1292,7 +1292,7 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
 
         dtypes = {}
         for key, value in dictionary.items():
-            dtype, _, message = infer_feature_type_convert_json(key, value, mute=mute)
+            dtype, _, message = infer_convert_dtype_key_value(key, value, mute=mute)
             if dtype == "cat ? str":
                 dtype = "str"
             elif dtype == "list[cat ? str]":

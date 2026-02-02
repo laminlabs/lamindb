@@ -3,7 +3,7 @@ import shutil
 from pathlib import Path
 
 import nox
-from laminci import upload_docs_artifact
+from laminci import convert_executable_md_files, upload_docs_artifact
 from laminci.nox import (
     build_docs,
     login_testuser1,
@@ -143,7 +143,7 @@ def install_ci(session, group):
         run(session, "uv pip install --system xarray-dataclasses")
         run(
             session,
-            "uv pip install --system mudata spatialdata",
+            "uv pip install --system mudata spatialdata lightning",
         )
         run(
             session,
@@ -211,6 +211,41 @@ def configure_coverage(session) -> None:
         tomlkit.dump(config, f)
 
     print(base_config_path.read_text())
+
+
+@nox.session
+def prepare(session):
+    """Create executable files to run during a test session.
+
+    Is not needed for unit tests!
+    """
+    content = open("README.md").read()
+    # cannot execute the flow after ln.track() was called
+    content = content.replace("    create_fasta()", "    pass")
+    open("README_stripped.md", "w").write(
+        "\n".join(
+            line
+            for line in content.split("\n")
+            if not line.strip().startswith("accessor = artifact.open()")
+        )
+    )
+
+    os.system("jupytext README_stripped.md --to notebook --output ./docs/README.ipynb")
+    convert_executable_md_files()
+    os.system("cp ./tests/core/test_artifact_parquet.py ./docs/scripts/")
+    os.system("cp ./lamindb/examples/schemas/define_valid_features.py ./docs/scripts/")
+    os.system(
+        "cp ./lamindb/examples/schemas/define_schema_anndata_ensembl_gene_ids_and_valid_features_in_obs.py ./docs/scripts/"
+    )
+    os.system(
+        "cp ./lamindb/examples/datasets/define_mini_immuno_features_labels.py ./docs/scripts/"
+    )
+    os.system(
+        "cp ./lamindb/examples/datasets/define_mini_immuno_schema_flexible.py ./docs/scripts/"
+    )
+    os.system(
+        "cp ./lamindb/examples/datasets/save_mini_immuno_datasets.py ./docs/scripts/"
+    )
 
 
 @nox.session
@@ -391,33 +426,6 @@ def clidocs(session):
 
 
 @nox.session
-def cp_scripts(session):
-    content = open("README.md").read()
-    open("README_stripped.md", "w").write(
-        "\n".join(
-            line
-            for line in content.split("\n")
-            if not line.strip().startswith("accessor = artifact.open()")
-        )
-    )
-    os.system("jupytext README_stripped.md --to notebook --output ./docs/README.ipynb")
-    os.system("cp ./tests/core/test_artifact_parquet.py ./docs/scripts/")
-    os.system("cp ./lamindb/examples/schemas/define_valid_features.py ./docs/scripts/")
-    os.system(
-        "cp ./lamindb/examples/schemas/define_schema_anndata_ensembl_gene_ids_and_valid_features_in_obs.py ./docs/scripts/"
-    )
-    os.system(
-        "cp ./lamindb/examples/datasets/define_mini_immuno_features_labels.py ./docs/scripts/"
-    )
-    os.system(
-        "cp ./lamindb/examples/datasets/define_mini_immuno_schema_flexible.py ./docs/scripts/"
-    )
-    os.system(
-        "cp ./lamindb/examples/datasets/save_mini_immuno_datasets.py ./docs/scripts/"
-    )
-
-
-@nox.session
 def docs(session):
     # move artifacts into right place
     run(session, "lamin settings set private-django-api true")
@@ -435,4 +443,4 @@ def docs(session):
         "lamin init --storage ./docsbuild --modules bionty,pertdb",
     )
     build_docs(session, strip_prefix=True, strict=False)
-    upload_docs_artifact(aws=True)
+    upload_docs_artifact()

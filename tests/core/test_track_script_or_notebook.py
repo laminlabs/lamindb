@@ -2,16 +2,44 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 import lamindb as ln
 import lamindb_setup as ln_setup
 import pytest
 from lamindb._finish import clean_r_notebook_html, get_shortcut
-from lamindb.core._context import LogStreamTracker, context
+from lamindb.core._context import (
+    LogStreamTracker,
+    context,
+    detect_and_process_source_code_file,
+    serialize_params_to_json,
+)
 from lamindb.errors import TrackNotCalled, ValidationError
+from lamindb_setup.core.upath import UPath
 
 SCRIPTS_DIR = Path(__file__).parent.resolve() / "scripts"
 NOTEBOOKS_DIR = Path(__file__).parent.resolve() / "notebooks"
+
+
+def test_serialize_params_to_json():
+    a_path = Path("/some/local/folder")
+    a_upath = UPath("s3://bucket/key")
+    params = {
+        "path_key": a_path,
+        "none_key": None,
+        "upath_key": a_upath,
+        "str_key": "plain",
+    }
+    result = serialize_params_to_json(params)
+    # None is omitted
+    assert "none_key" not in result
+    # Path is serialized to posix string
+    assert result["path_key"] == "/some/local/folder"
+    # UPath is serialized to posix string
+    assert result["upath_key"] == "s3://bucket/key"
+    # Other values unchanged
+    assert result["str_key"] == "plain"
+    assert set(result.keys()) == {"path_key", "upath_key", "str_key"}
 
 
 def test_track_basic_invocation():
@@ -83,15 +111,17 @@ Run: {ln.context.run.uid[:7]} ({ln.context.run.transform.key})
     assert record.run == ln.context.run
 
     # test that we can call ln.finish() also for pipeline-like transforms
-    assert ln.context.run.finished_at is None
+    run = ln.context.run
+    assert run.finished_at is None
     ln.finish()
-    assert ln.context.run.finished_at is not None
+    assert (
+        run.finished_at is not None
+    )  # context is cleared after finish(); use captured run
 
     # clean up
-    ln.context.run.delete(permanent=True)
+    run.delete(permanent=True)
     ln.models.RunJsonValue.filter(run__transform=test_transform).delete(permanent=True)
     ln.models.RunRecord.filter(run__transform=test_transform).delete(permanent=True)
-    ln.context._run = None
     feature1.delete(permanent=True)
     feature2.delete(permanent=True)
     feature3.delete(permanent=True)
@@ -173,6 +203,55 @@ def test_track_notebook_untitled():
     )
 
 
+def test_detect_and_process_source_code_file_returns_key_from_module_for_package():
+    """When path is inferred from stack and caller __name__ has '.', key_from_module is module path."""
+    script_path = str(SCRIPTS_DIR / "script-to-test-versioning.py")
+    mock_frame = MagicMock()
+    mock_frame.f_globals = {"__name__": "mypackage.mymodule"}
+    with patch("inspect.stack") as mock_stack:
+        mock_stack.return_value = [
+            MagicMock(),
+            MagicMock(),
+            (
+                mock_frame,
+                script_path,
+                MagicMock(),
+                MagicMock(),
+                MagicMock(),
+                MagicMock(),
+            ),
+        ]
+        path, kind, ref, ref_type, key_from_module = (
+            detect_and_process_source_code_file(path=None)
+        )
+    assert key_from_module == "pypackages/mypackage/mymodule.py"
+    assert path == Path(script_path)
+
+
+def test_detect_and_process_source_code_file_returns_none_key_for_script():
+    """When path is inferred from stack and caller __name__ has no '.', key_from_module is None."""
+    script_path = str(SCRIPTS_DIR / "script-to-test-versioning.py")
+    mock_frame = MagicMock()
+    mock_frame.f_globals = {"__name__": "__main__"}
+    with patch("inspect.stack") as mock_stack:
+        mock_stack.return_value = [
+            MagicMock(),
+            MagicMock(),
+            (
+                mock_frame,
+                script_path,
+                MagicMock(),
+                MagicMock(),
+                MagicMock(),
+                MagicMock(),
+            ),
+        ]
+        path, kind, ref, ref_type, key_from_module = (
+            detect_and_process_source_code_file(path=None)
+        )
+    assert key_from_module is None
+
+
 def test_finish_before_track():
     ln.context._run = None
     with pytest.raises(TrackNotCalled) as error:
@@ -180,7 +259,7 @@ def test_finish_before_track():
     assert "Please run `ln.track()` before `ln.finish()" in error.exconly()
 
 
-def test_invalid_transform_type():
+def test_invalid_transform_kind():
     transform = ln.Transform(key="test transform")
     ln.track(transform=transform)
     ln.context._path = None
@@ -203,7 +282,7 @@ def test_create_or_load_transform():
     context._path.touch(exist_ok=True)
     context._create_or_load_transform(
         description=title,
-        transform_type="notebook",
+        transform_kind="notebook",
     )
     assert context._transform.uid == uid
     assert context._transform.version_tag == version
@@ -374,6 +453,25 @@ def test_clean_r_notebook_html():
     assert compare == cleaned_path.read_text()  # check that things have been stripped
     comparison_path.write_text(compare)
     orig_notebook_path.write_text(content.replace(get_shortcut(), "SHORTCUT"))
+
+
+def test_notebook_to_script_notebooknode_metadata(tmp_path):
+    """Test that notebook_to_script handles NotebookNode metadata.
+
+    https://github.com/laminlabs/lamindb/issues/3480
+    """
+    import nbformat
+    from lamindb._finish import notebook_to_script
+
+    nb = nbformat.v4.new_notebook()
+    nb.metadata["kernelspec"] = nbformat.NotebookNode({"display_name": "python3"})
+    notebook_path = tmp_path / "test.ipynb"
+    nbformat.write(nb, notebook_path)
+
+    # This would raise RepresenterError without metadata.clear()
+    result = notebook_to_script("Test", notebook_path)
+    assert result is not None
+    assert "NotebookNode" not in result
 
 
 class MockRun:

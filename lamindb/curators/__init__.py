@@ -1,15 +1,16 @@
 """Curators.
 
-.. autosummary::
-   :toctree: .
+High-level curators
+-------------------
 
-   DataFrameCurator
-   AnnDataCurator
-   MuDataCurator
-   SpatialDataCurator
-   TiledbsomaExperimentCurator
+.. autoclass:: DataFrameCurator
+.. autoclass:: AnnDataCurator
+.. autoclass:: MuDataCurator
+.. autoclass:: SpatialDataCurator
+.. autoclass:: TiledbsomaExperimentCurator
 
-Modules.
+Low-level module
+----------------
 
 .. autosummary::
    :toctree: .

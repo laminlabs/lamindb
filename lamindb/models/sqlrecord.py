@@ -67,7 +67,7 @@ from ..errors import (
     NoWriteAccess,
     ValidationError,
 )
-from ._is_versioned import IsVersioned
+from ._is_versioned import IsVersioned, _adjust_is_latest_when_deleting_is_versioned
 from .query_manager import QueryManager, _lookup, _search
 
 if TYPE_CHECKING:
@@ -258,28 +258,17 @@ class ValidateFields:
     pass
 
 
-def is_approx_pascal_case(s):
+def is_approx_pascal_case(s: str) -> bool:
     """Check if the last component of a dotted string is in PascalCase.
 
     Args:
-        s (str): The string to check
-
-    Returns:
-        bool: True if the last component is in PascalCase
-
-    Raises:
-        ValueError: If the last component doesn't start with a capital letter
+        s: The string to check
     """
     if "[" in s:  # this is because we allow types of form 'script[test_script.py]'
         return True
     last_component = s.split(".")[-1]
 
-    if not last_component[0].isupper():
-        raise ValueError(
-            f"'{last_component}' should start with a capital letter given you're defining a type"
-        )
-
-    return True
+    return last_component[:1].isupper() and "_" not in last_component
 
 
 def init_self_from_db(self: SQLRecord, existing_record: SQLRecord):
@@ -478,7 +467,7 @@ def delete_record(record: BaseSQLRecord, is_soft: bool = True):
             return super(BaseSQLRecord, record).delete()
 
     # deal with versioned records
-    # if _ovewrite_version = True, there is only a single version and
+    # if _overwrite_versions = True, there is only a single version and
     # no need to set the new latest version because all versions are deleted
     # when deleting the latest version
     if (
@@ -486,21 +475,12 @@ def delete_record(record: BaseSQLRecord, is_soft: bool = True):
         and record.is_latest
         and not getattr(record, "_overwrite_versions", False)
     ):
-        new_latest = (
-            record.__class__.objects.using(record._state.db)
-            .filter(is_latest=False, uid__startswith=record.stem_uid)
-            .exclude(branch_id=-1)  # exclude candidates in the trash
-            .order_by("-created_at")
-            .first()
-        )
-        if new_latest is not None:
-            new_latest.is_latest = True
+        promoted = _adjust_is_latest_when_deleting_is_versioned(record)
+        if promoted:
             if is_soft:
                 record.is_latest = False
             with transaction.atomic():
-                new_latest.save()
                 result = delete()
-            logger.important_hint(f"new latest version is: {new_latest}")
             return result
     # deal with all other cases of the nested if condition now
     return delete()
@@ -920,11 +900,10 @@ class Registry(ModelBase):
 
 
 class BaseSQLRecord(models.Model, metaclass=Registry):
-    """Basic metadata record.
+    """Base SQL metadata record.
 
-    It has the same methods as SQLRecord, but doesn't have the additional fields.
-
-    It's mainly used for IsLinks and similar.
+    It provides methods to `SQLRecord` and all its subclasses,
+    but doesn't come with the additional `branch` and `space` fields.
     """
 
     objects = QueryManager()
@@ -1415,7 +1394,7 @@ class Space(BaseSQLRecord):
     )
     """Creator of space."""
     ablocks: SpaceBlock
-    """Blocks that annotate this space."""
+    """Attached blocks ← :attr:`~lamindb.SpaceBlock.space`."""
 
     @overload
     def __init__(
@@ -1517,7 +1496,7 @@ class Branch(BaseSQLRecord):
     )
     """Creator of branch."""
     ablocks: BranchBlock
-    """Blocks that annotate this branch."""
+    """Attached blocks ← :attr:`~lamindb.BranchBlock.branch`."""
 
     @overload
     def __init__(
@@ -1544,19 +1523,19 @@ class Branch(BaseSQLRecord):
 class SQLRecord(BaseSQLRecord, metaclass=Registry):
     """An object that maps to a row in a SQL table in the database.
 
-    Every `SQLRecord` is a data model that comes with a registry in form of a SQL
-    table in your database.
+    For the inherited `SQLRecord` class method definitions, see :class:`~lamindb.models.BaseSQLRecord`.
 
-    Sub-classing `SQLRecord` creates a new registry while instantiating a `SQLRecord`
-    creates a new object.
+    Every `SQLRecord` is a data model that comes with a registry in form of a SQL table in your database.
+
+    Sub-classing `SQLRecord` creates a new registry while instantiating a `SQLRecord` creates a new object.
 
     {}
 
     `SQLRecord`'s metaclass is :class:`~lamindb.models.Registry`.
 
-    `SQLRecord` inherits from Django's `Model` class. Why does LaminDB call it `SQLRecord`
-    and not `Model`? The term `SQLRecord` can't lead to confusion with statistical,
-    machine learning or biological models.
+    `SQLRecord` inherits from Django's `Model` class.
+    Why does LaminDB call it `SQLRecord` and not `Model`?
+    The term `SQLRecord` can't lead to confusion with statistical, machine learning or biological models.
     """
 
     # we need the db_default when not interacting via django directly on a required field
@@ -1654,22 +1633,23 @@ class SQLRecord(BaseSQLRecord, metaclass=Registry):
 
         if confirm_delete:
             if name_with_module == "Run":
-                from .run import delete_run_artifacts
+                from .run import _permanent_delete_runs
 
-                delete_run_artifacts(self)
-            elif name_with_module == "Transform":
-                from .transform import delete_transform_relations
+                _permanent_delete_runs(self)
+                return None
+            if name_with_module == "Transform":
+                from .transform import _permanent_delete_transforms
 
-                delete_transform_relations(self)
-            elif name_with_module == "Artifact":
+                _permanent_delete_transforms(self)
+                return None
+            if name_with_module == "Artifact":
                 from .artifact import delete_permanently
 
                 delete_permanently(
                     self, storage=kwargs["storage"], using_key=kwargs["using_key"]
                 )
                 return None
-            if name_with_module != "Artifact":
-                return super().delete()
+            return super().delete()
         return None
 
 

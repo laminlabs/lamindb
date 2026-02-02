@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING, TextIO
 import lamindb_setup as ln_setup
 from django.db.models import Func, IntegerField, Q
 from lamin_utils._logger import logger
-from lamindb_setup.core.hashing import hash_file
+from lamindb_setup.core.hashing import hash_file, hash_string
 
 from ..base.uids import base62_12
 from ..errors import (
@@ -24,7 +24,7 @@ from ..errors import (
     UpdateContext,
 )
 from ..models import Run, SQLRecord, Transform, format_field_value
-from ..models._feature_manager import infer_feature_type_convert_json
+from ..models._feature_manager import infer_convert_dtype_key_value
 from ..models._is_versioned import bump_version as bump_version_function
 from ..models._is_versioned import (
     increment_base62,
@@ -45,26 +45,41 @@ is_run_from_ipython = getattr(builtins, "__IPYTHON__", False)
 msg_path_failed = "failed to infer notebook path.\nfix: pass `path` to `ln.track()`"
 
 
+def get_key_from_module(caller_module: str) -> str:
+    if "." in caller_module:
+        key_from_module = f"pypackages/{caller_module.replace('.', '/')}.py"
+    else:
+        key_from_module = None
+    return key_from_module
+
+
 def detect_and_process_source_code_file(
     *,
     path: UPathStr | None,
-    transform_type: TransformKind | None = None,
-) -> tuple[Path, TransformKind, str, str]:
+    transform_kind: TransformKind | None = None,
+) -> tuple[Path, TransformKind, str, str, str | None]:
     """Track source code file and determine transform metadata.
 
     For `.py` files, classified as "script".
     For `.Rmd` and `.qmd` files, classified as "notebook" because they
     typically come with an .html run report.
 
+    Package vs script criterion: source code is part of a **package** if the
+    caller's module name contains at least one `.` (module nesting goes beyond
+    the filename). Otherwise it is a **script** (module nesting stops at the
+    filename, e.g. `__main__`, `__mp_main__`, or a single top-level name).
+
     Args:
         path: Path to the source code file. If None, infers from call stack.
 
     Returns:
-        Tuple of (path, transform_type, reference, reference_type).
+        Tuple of (path, transform_kind, reference, reference_type, key_from_module).
         - path: Path object to the source file
-        - transform_type: "script" or "notebook"
+        - transform_kind: "script" or "notebook"
         - reference: Git reference URL if sync_git_repo is set, else None
         - reference_type: "url" if reference exists, else None
+        - key_from_module: If caller is part of a package (`.` in __name__),
+          `pypackages/module/path/to/file.py`; else None (key will be computed from dev_dir or path.name).
 
     Raises:
         NotImplementedError: If path cannot be determined from call stack.
@@ -72,6 +87,7 @@ def detect_and_process_source_code_file(
     # for `.py` files, classified as "script"
     # for `.Rmd` and `.qmd` files, which we classify
     # as "notebook" because they typically come with an .html run report
+    key_from_module: str | None = None
     if path is None:
         import inspect
 
@@ -82,6 +98,9 @@ def detect_and_process_source_code_file(
                 "Cannot determine valid file path, pass manually via path (interactive sessions not yet supported)"
             )
         path = Path(path_str)
+        # package vs script: nesting beyond filename makes the file part of a python package
+        caller_module = frame[0].f_globals.get("__name__", "__main__")
+        key_from_module = get_key_from_module(caller_module)
     else:
         path = Path(path)
     # for Rmd and qmd, we could also extract the title
@@ -90,14 +109,14 @@ def detect_and_process_source_code_file(
     # also see the script_to_notebook() in the CLI _load.py where the title is extracted
     # from the source code YAML and updated with the transform description
     # note that ipynb notebooks are handled in a separate function (_track_notebook())
-    if transform_type is None:
-        transform_type = "notebook" if path.suffix in {".Rmd", ".qmd"} else "script"
+    if transform_kind is None:
+        transform_kind = "notebook" if path.suffix in {".Rmd", ".qmd"} else "script"
     reference = None
     reference_type = None
     if settings.sync_git_repo is not None and path.suffix != ".ipynb":
         reference = get_transform_reference_from_git_repo(path)
         reference_type = "url"
-    return path, transform_type, reference, reference_type
+    return path, transform_kind, reference, reference_type, key_from_module
 
 
 def get_uid_ext(version: str) -> str:
@@ -144,15 +163,14 @@ def get_notebook_key_colab() -> str:
     return key
 
 
-def get_cli_args() -> str | None:
-    """Returns the CLI arguments used to invoke a script.
+def get_cli_call() -> tuple[str, str] | None:
+    """Returns (tool_name, args) when invoked as a script with CLI arguments.
 
-    Returns None if not run as a script (e.g., in Jupyter, interactive shell).
+    Returns None if not run as a script (e.g., in Jupyter, interactive shell)
+    or when no arguments were passed.
     """
-    # check if run as a script (not interactive/notebook/imported)
-    # and whether arguments have been passed
     if len(sys.argv) > 1 and sys.argv[0] and not is_run_from_ipython:
-        return " ".join(sys.argv[1:])
+        return Path(sys.argv[0]).name, " ".join(sys.argv[1:])
     return None
 
 
@@ -316,7 +334,13 @@ class LogStreamTracker:
 def serialize_params_to_json(params: dict) -> dict:
     serialized_params = {}
     for key, value in params.items():
-        dtype, converted_value, _ = infer_feature_type_convert_json(key, value)
+        # None is a missing value, skip it consitent with elsewhere in the code
+        if value is None:
+            continue
+        dtype, converted_value, _ = infer_convert_dtype_key_value(key, value, mute=True)
+        # converted_value is not JSON if dtype is a SQLRecord or a list of SQLRecords
+        # because we just the above function for features where we'd like to keep SQLRecords as they are
+        # so, need to handle this here
         if (
             dtype == "?" or dtype.startswith("cat") or dtype.startswith("list[cat")
         ) and dtype != "cat ? str":
@@ -422,17 +446,23 @@ class Context:
         features: dict | None = None,
         params: dict | None = None,
         new_run: bool | None = None,
-        path: str | None = None,
         pypackages: bool | None = None,
+        key: str | None = None,
+        path: str | Path | None = None,
+        source_code: str | None = None,
+        kind: TransformKind | None = None,
+        entrypoint: str | None = None,
+        initiated_by_run: Run | None = None,
+        stream_tracking: bool | None = None,
     ) -> None:
         """Track a run of a notebook or script.
 
         Populates the global run :class:`~lamindb.context` with :class:`~lamindb.Transform` & :class:`~lamindb.Run` objects and tracks the compute environment.
 
         Args:
-            transform: A transform (stem) `uid` (or record). If `None`, auto-creates a `transform` with its `uid`.
-            project: A project (or its `name` or `uid`) for labeling entities.
-            space: A restricted space (or its `name` or `uid`) in which to store entities.
+            transform: A transform (stem) `uid` or object. If `None`, auto-creates a `transform` with its `uid`.
+            project: A project or its `name` or `uid` for labeling entities created during the run.
+            space: A restricted space or its `name` or `uid` in which to store entities created during the run.
                 Default: the `"all"` space. Note that bionty entities ignore this setting and always get written to the `"all"` space.
                 If you want to manually move entities to a different space, set the `.space` field (:doc:`docs:permissions`).
             branch: A branch (or its `name` or `uid`) on which to store records.
@@ -440,9 +470,15 @@ class Context:
             params: A dictionary of params & values to track for the run.
             new_run: If `False`, loads the latest run of transform
                 (default notebook), if `True`, creates new run (default non-notebook).
-            path: Filepath of notebook or script. Only needed if it can't be
-                automatically detected.
             pypackages: If `True` or `None`, infers Python packages used in a notebook.
+            key: Transform key.
+            path: Filepath of a notebook or script.
+            source_code: Source code.
+            kind: Transform kind.
+            entrypoint: Optional entrypoint name (e.g. function qualname) for the run.
+            initiated_by_run: Optional parent run that triggered this run.
+            stream_tracking: If set, override whether to capture stdout/stderr to run logs.
+                Used by the flow/step decorator: flows get logs (`True`), steps do not (`False`).
 
         Examples:
 
@@ -525,29 +561,46 @@ class Context:
         else:
             uid_was_none = True
         self._path = None
+        cli_call = get_cli_call()
         if transform is None:
             description = None
-            if is_run_from_ipython:
-                self._path, description = self._track_notebook(
-                    path_str=path, pypackages=pypackages
+            transform_ref = None
+            transform_ref_type = None
+            if source_code is not None:
+                transform_kind = kind if kind is not None else "function"
+                assert key is not None, (
+                    "`key` cannot be `None` when `source_code` is passed to `track()`."
                 )
-                transform_type = "notebook"
-                transform_ref = None
-                transform_ref_type = None
+                assert path is None, (
+                    "`path` cannot be passed when `source_code` is passed to `track()`."
+                )
             else:
-                (
-                    self._path,
-                    transform_type,
-                    transform_ref,
-                    transform_ref_type,
-                ) = detect_and_process_source_code_file(path=path)
+                if is_run_from_ipython:
+                    self._path, description = self._track_notebook(
+                        path_str=path, pypackages=pypackages
+                    )
+                    transform_kind = "notebook"
+                else:
+                    (
+                        self._path,
+                        transform_kind,
+                        transform_ref,
+                        transform_ref_type,
+                        key_from_module,
+                    ) = detect_and_process_source_code_file(path=path)
+                    if key is None and key_from_module is not None:
+                        key = key_from_module
             if description is None:
                 description = self._description
+            if description is None and cli_call is not None:
+                description = f"CLI: {cli_call[0]}"
             self._create_or_load_transform(
                 description=description,
                 transform_ref=transform_ref,
                 transform_ref_type=transform_ref_type,
-                transform_type=transform_type,  # type: ignore
+                transform_kind=transform_kind,
+                key=key,
+                source_code=source_code,
             )
         else:
             if transform.kind in {"notebook", "script"}:
@@ -597,6 +650,10 @@ class Context:
 
         if run is None:  # create new run
             run = Run(transform=self._transform)
+            if entrypoint is not None:
+                run.entrypoint = entrypoint
+            if initiated_by_run is not None:
+                run.initiated_by_run = initiated_by_run
             run.started_at = datetime.now(timezone.utc)
             run._status_code = -1  # started
             self._logging_message_track += f", started new Run('{run.uid}') at {format_field_value(run.started_at)}"
@@ -608,8 +665,8 @@ class Context:
             self._logging_message_track += "\n→ params: " + ", ".join(
                 f"{key}={value!r}" for key, value in run.params.items()
             )
-        cli_args = get_cli_args()
-        if cli_args:
+        if cli_call is not None:
+            _, cli_args = cli_call
             logger.important(f"script invoked with: {cli_args}")
             run.cli_args = cli_args
         run.save()  # need to save now
@@ -627,19 +684,22 @@ class Context:
             self.transform.save()
         log_to_file = None
         if log_to_file is None:
-            log_to_file = self.transform.kind != "notebook"
+            if stream_tracking is not None:
+                log_to_file = stream_tracking
+            else:
+                # Script runs get stream tracking; function runs only when stream_tracking
+                # is passed (flow=True from decorator); steps do not (avoids parallel conflicts).
+                log_to_file = self.transform.kind == "script"
         if log_to_file:
             self._stream_tracker.start(run)
         logger.important(self._logging_message_track)
         if self._logging_message_imports:
             logger.important(self._logging_message_imports)
-        if uid_was_none:
+        if uid_was_none and self._path is not None:
             notebook_or_script = (
                 "notebook" if self._transform.kind == "notebook" else "script"
             )
-            r_or_python = "."
-            if self._path is not None:
-                r_or_python = "." if self._path.suffix in {".py", ".ipynb"} else "$"
+            r_or_python = "." if self._path.suffix in {".py", ".ipynb"} else "$"
             project_str = (
                 f', project="{project if isinstance(project, str) else project.name}"'
                 if project is not None
@@ -657,7 +717,7 @@ class Context:
             logger.important_hint(
                 f'recommendation: to identify the {notebook_or_script} across renames, pass the uid: ln{r_or_python}track("{self.transform.uid[:-4]}"{kwargs_str})'
             )
-        if self.transform.kind == "script":
+        if self.transform.kind == "script" and self._path is not None:
             save_context_core(
                 run=run,
                 transform=self.transform,
@@ -668,7 +728,7 @@ class Context:
     def _track_notebook(
         self,
         *,
-        path_str: str | None,
+        path_str: str | Path | None,
         pypackages: bool | None = None,
     ) -> tuple[Path, str | None]:
         if path_str is None:
@@ -762,35 +822,41 @@ class Context:
         description: str | None = None,
         transform_ref: str | None = None,
         transform_ref_type: str | None = None,
-        transform_type: TransformKind = None,
+        transform_kind: TransformKind = None,
         key: str | None = None,
+        source_code: str | None = None,
     ):
-        from .._finish import notebook_to_script
-
-        if not self._path.suffix == ".ipynb":
-            _, transform_hash, _ = hash_file(self._path)
+        if source_code is not None:
+            transform_hash = hash_string(source_code)
         else:
-            # need to convert to stripped py:percent format for hashing
-            source_code_path = ln_setup.settings.cache_dir / self._path.name.replace(
-                ".ipynb", ".py"
-            )
-            if (
-                self._path.exists()
-            ):  # notebook kernel might be running on a different machine
-                notebook_to_script(description, self._path, source_code_path)
-                _, transform_hash, _ = hash_file(source_code_path)
+            from .._finish import notebook_to_script
+
+            if not self._path.suffix == ".ipynb":
+                _, transform_hash, _ = hash_file(self._path)
             else:
-                logger.debug(
-                    "skipping notebook hash comparison, notebook kernel running on a different machine"
+                # need to convert to stripped py:percent format for hashing
+                source_code_path = (
+                    ln_setup.settings.cache_dir
+                    / self._path.name.replace(".ipynb", ".py")
                 )
-                transform_hash = None
+                if (
+                    self._path.exists()
+                ):  # notebook kernel might be running on a different machine
+                    notebook_to_script(description, self._path, source_code_path)
+                    _, transform_hash, _ = hash_file(source_code_path)
+                else:
+                    logger.debug(
+                        "skipping notebook hash comparison, notebook kernel running on a different machine"
+                    )
+                    transform_hash = None
+
         # see whether we find a transform with the exact same hash
         if transform_hash is not None:
             aux_transform = Transform.filter(hash=transform_hash).first()
         else:
             aux_transform = None
 
-        # determine the transform key
+        # determine the transform key (only when path-based; key is required when source_code)
         if key is None:
             if ln_setup.settings.dev_dir is not None:
                 try:
@@ -825,16 +891,19 @@ class Context:
             if len(transforms) != 0:
                 message = ""
                 found_key = False
-                for aux_transform in transforms:
-                    # check whether the transform key is in the path
-                    # that's not going to be the case for keys that have "/" in them and don't match the folder
-                    if aux_transform.key in self._path.as_posix():
-                        key = aux_transform.key
-                        uid, target_transform, message = self._process_aux_transform(
-                            aux_transform, transform_hash
-                        )
-                        found_key = True
-                        break
+                if self._path is not None:
+                    for aux_transform in transforms:
+                        # check whether the transform key is in the path
+                        # that's not going to be the case for keys that have "/" in them and don't match the folder
+                        if aux_transform.key in self._path.as_posix():
+                            key = aux_transform.key
+                            uid, target_transform, message = (
+                                self._process_aux_transform(
+                                    aux_transform, transform_hash
+                                )
+                            )
+                            found_key = True
+                            break
                 if not found_key:
                     plural_s = "s" if len(transforms) > 1 else ""
                     transforms_str = "\n".join(
@@ -867,7 +936,7 @@ class Context:
                 # the user might have a made a copy of the notebook or script
                 # and actually wants to create a new transform
                 if aux_transform is not None and not aux_transform.key.endswith(key):
-                    prompt = f"Found transform with same hash but different key: {aux_transform.key}. Did you rename your {transform_type} to {key} (1) or intentionally made a copy (2)?"
+                    prompt = f"Found transform with same hash but different key: {aux_transform.key}. Did you rename your {transform_kind} to {key} (1) or intentionally made a copy (2)?"
                     response = (
                         "1" if os.getenv("LAMIN_TESTING") == "true" else input(prompt)
                     )
@@ -921,7 +990,8 @@ class Context:
                 key=key,
                 reference=transform_ref,
                 reference_type=transform_ref_type,
-                kind=transform_type,
+                kind=transform_kind,
+                source_code=source_code,
             ).save()
             self._logging_message_track += (
                 f"created Transform('{transform.uid}', key='{transform.key}')"
@@ -1021,7 +1091,12 @@ class Context:
                 )
             self.run.finished_at = datetime.now(timezone.utc)
             self.run.save()
-            # nothing else to do
+            # reset context so the next _track() starts clean (e.g. from decorator)
+            self._uid = None
+            self._run = None
+            self._transform = None
+            self._version = None
+            self._description = None
             return None
         self.run._status_code = 0
         if self.transform.kind == "notebook":
@@ -1039,6 +1114,7 @@ class Context:
                 return None
         else:
             self.run.finished_at = datetime.now(timezone.utc)
+            self.run.save()  # persist finished_at (save_run_logs only saves when log file exists)
             if ln_setup.settings.instance.is_on_hub:
                 instance_slug = ln_setup.settings.instance.slug
                 ui_url = ln_setup.settings.instance.ui_url

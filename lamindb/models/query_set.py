@@ -1,19 +1,3 @@
-"""Models library.
-
-...
-
-Query sets & managers
----------------------
-.. autoclass:: BasicQuerySet
-.. autoclass:: QuerySet
-.. autoclass:: ArtifactSet
-.. autoclass:: QueryManager
-.. autoclass:: lamindb.models.query_set.BiontyDB
-.. autoclass:: lamindb.models.query_set.PertdbDB
-
-...
-"""
-
 from __future__ import annotations
 
 import ast
@@ -44,7 +28,7 @@ from lamindb_setup.core import deprecated
 from lamindb_setup.core._docs import doc_args
 
 from ..errors import DoesNotExist, MultipleResultsFound
-from ._is_versioned import IsVersioned
+from ._is_versioned import IsVersioned, _adjust_is_latest_when_deleting_is_versioned
 from .can_curate import CanCurate, _inspect, _standardize, _validate
 from .query_manager import _lookup, _search
 from .sqlrecord import Registry, SQLRecord
@@ -1196,8 +1180,27 @@ class BasicQuerySet(models.QuerySet):
         """
         from lamindb.models import Artifact, Collection, Run, Storage, Transform
 
-        # all these models have non-trivial delete behavior, hence we need to handle in a loop
-        if self.model in {Artifact, Collection, Transform, Run}:
+        if self.model is Run:
+            if permanent is True:
+                from .run import _permanent_delete_runs
+
+                _permanent_delete_runs(self)
+                return
+            if permanent is not True:
+                self.update(branch_id=-1)
+                return
+        if self.model is Transform:
+            if permanent is True:
+                from .transform import _permanent_delete_transforms
+
+                _permanent_delete_transforms(self)
+                return
+            if permanent is not True:
+                _adjust_is_latest_when_deleting_is_versioned(self)
+                self.update(branch_id=-1, is_latest=False)
+                return
+        # Artifact, Collection: non-trivial delete behavior, handle in a loop
+        if self.model in {Artifact, Collection}:
             for record in self:
                 record.delete(*args, permanent=permanent, **kwargs)
         elif self.model is Storage:  # storage does not have soft delete

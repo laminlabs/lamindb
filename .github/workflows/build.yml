@@ -11,7 +11,7 @@ jobs:
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -65,12 +65,12 @@ jobs:
       matrix: ${{fromJson(needs.pre-filter.outputs.matrix)}}
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           submodules: recursive
           fetch-depth: 0
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         if: ${{ matrix.group == 'permissions' }}
         with:
           repository: laminlabs/laminhub
@@ -129,8 +129,8 @@ jobs:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
-      - run: nox -s cp_scripts
-        if: ${{ matrix.group == 'tutorial' }}
+      - run: nox -s prepare
+        if: ${{ !startsWith(matrix.group, 'unit-') }}
       - run: nox -s "test(group='${{ matrix.group }}')"
 
       - name: upload coverage
@@ -153,7 +153,7 @@ jobs:
     env:
       LAMIN_API_KEY: ${{ secrets.LAMIN_API_KEY_TESTUSER1 }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           submodules: recursive
           fetch-depth: 0
@@ -174,13 +174,13 @@ jobs:
     needs: test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           submodules: recursive
           fetch-depth: 0
 
       - name: checkout lndocs
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: laminlabs/lndocs
           ssh-key: ${{ secrets.READ_LNDOCS }}
@@ -200,7 +200,7 @@ jobs:
       - run: nox -s "install_ci(group='docs')"
       - uses: actions/download-artifact@v4
       - run: nox -s clidocs
-      - run: nox -s cp_scripts
+      - run: nox -s prepare
       - run: nox -s docs
       - run: rm -r ./_build/html/.doctrees # do not want to deploy with cloudflare
       - uses: cloudflare/wrangler-action@v3
@@ -231,7 +231,7 @@ jobs:
     needs: test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
         with:
           python-version: "3.13"

@@ -281,7 +281,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
     linked_users: RelatedManager[User]
     """Users linked in this record as values ← :attr:`~lamindb.User.linked_in_records`."""
     ablocks: RecordBlock
-    """Blocks that annotate this record ← :attr:`~lamindb.RecordBlock.record`."""
+    """Attached blocks ← :attr:`~lamindb.RecordBlock.record`."""
     values_json: RecordJson
     """JSON values `(record_id, feature_id, value)`."""
     values_record: RecordRecord

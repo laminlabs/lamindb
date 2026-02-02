@@ -1,10 +1,4 @@
-[![codecov](https://codecov.io/gh/laminlabs/lamindb/branch/main/graph/badge.svg?token=VKMRJ7OWR3)](https://codecov.io/gh/laminlabs/lamindb)
-[![Docs](https://img.shields.io/badge/docs-humans-yellow)](https://docs.lamin.ai)
-[![DocsLLMs](https://img.shields.io/badge/docs-LLMs-yellow)](https://docs.lamin.ai/summary.md)
-[![pypi](https://img.shields.io/pypi/v/lamindb?color=blue&label=pypi%20package)](https://pypi.org/project/lamindb)
-[![PyPI Downloads](https://img.shields.io/pepy/dt/lamindb?logo=pypi)](https://pepy.tech/project/lamindb)
-
-# LaminDB
+# LaminDB [![docs](https://img.shields.io/badge/docs-yellow)](https://docs.lamin.ai) [![llms.txt](https://img.shields.io/badge/llms.txt-orange)](https://docs.lamin.ai/llms.txt) [![codecov](https://codecov.io/gh/laminlabs/lamindb/branch/main/graph/badge.svg?token=VKMRJ7OWR3)](https://codecov.io/gh/laminlabs/lamindb) [![pypi](https://img.shields.io/pypi/v/lamindb?color=blue&label=PyPI)](https://pypi.org/project/lamindb) [![cran](https://www.r-pkg.org/badges/version/laminr?color=green)](https://cran.r-project.org/package=laminr) [![stars](https://img.shields.io/github/stars/laminlabs/lamindb?style=flat&logo=GitHub&label=&color=gray)](https://github.com/laminlabs/lamindb) [![downloads](https://static.pepy.tech/personalized-badge/lamindb?period=total&units=INTERNATIONAL_SYSTEM&left_color=GRAY&right_color=GRAY&left_text=%E2%AC%87%EF%B8%8F)](https://pepy.tech/project/lamindb)
 
 LaminDB is an open-source data framework for biology to query, trace, and validate datasets and models at scale.
 With one API, you get: lakehouse, lineage, feature store, ontologies, bio-registries & formats.
@@ -12,11 +6,11 @@ With one API, you get: lakehouse, lineage, feature store, ontologies, bio-regist
 <details>
 <summary>Why?</summary>
 
-Reproducing results and understanding how a dataset or model was created is now more important than ever, but was a struggle even before the age of agents.
-Training models across thousands of datasets — from LIMS and ELNs to orthogonal assays and cross-team silos — is now a big learning opportunity, but has historically been impossible.
-While code has git and tables have data warehouses, biological data has lacked a dedicated, API-first management framework to ensure quality and queryability.
+Reproducing and understanding how datasets, models, and workflows were created is crucial to high-quality R&D — especially as agents increasingly contribute to it.
+At the same time, training models across thousands of datasets — from LIMS and ELNs to orthogonal assays and cross-team silos — is now a major learning opportunity, but requires queryable & validated data.
+Robustly scaled learning operations need something biology has lacked: an API-first data management framework comparable to git for code or warehouses for tables.
 
-LaminDB fills the gap with a lineage-native data lakehouse that understands bio-registries and formats (`AnnData`, `.zarr`, …) to enable scaled learning operations.
+LaminDB fills the gap with a lineage-native data lakehouse that understands bio-registries and formats (`AnnData`, `.zarr`, …).
 It provides queries across many datasets with enough freedom to maintain high-paced R&D while automating rich context on top of versioning, change management, and other industry standards.
 
 </details>
@@ -32,9 +26,9 @@ Highlights:
 - **LIMS & ELN** → manage experimental metadata, ontologies & markdown notes
 - **unified access** → single API for storage locations (local, S3, GCP, …), SQL databases (Postgres, SQLite) & ontologies
 - **reproducible** → auto-track source code & compute environments with data, code & report versioning
-- **zero lock-in** → runs in your infrastructure on open standards (Postgres, SQLite, `parquet`, `zarr`, etc.)
+- **zero lock-in** → runs anywhere on open standards (Postgres, SQLite, `parquet`, `zarr`, etc.)
 - **scalable** → you hit storage & database directly through your `pydata` or R stack, no REST API involved
-- **simple** → just `pip install` a Python package
+- **simple** → just `pip install` from PyPI or `install.packages('laminr')` from CRAN
 - **integrations** → [vitessce](https://docs.lamin.ai/vitessce), [nextflow](https://docs.lamin.ai/nextflow), [redun](https://docs.lamin.ai/redun), and [more](https://docs.lamin.ai/integrations)
 - **extensible** → create custom plug-ins based on the Django ORM
 
@@ -43,20 +37,19 @@ If you want a GUI: [LaminHub](https://lamin.ai) is a data collaboration hub buil
 <details>
 <summary>Who uses it?</summary>
 
-Scientists & engineers in pharma, biotech, and academia, including:
+Scientists and engineers at leading research institutions and biotech companies worldwide:
 
-- Pfizer – A global BigPharma company with headquarters in the US
-- Ensocell Therapeutics – A BioTech with offices in Cambridge, UK, and California
-- DZNE – The National Research Center for Neuro-Degenerative Diseases in Germany
-- Helmholtz Munich – The National Research Center for Environmental Health in Germany
-- scverse – An international non-profit for open-source omics data tools
-- The Global Immunological Swarm Learning Network – Research hospitals at U Bonn, Harvard, MIT, Stanford, ETH Zürich, Charite, Mount Sinai, and others
+- **Industry** → Pfizer · Altos Labs · Ensocell Therapeutics · ...
+- **Academia & Research** → scverse · DZNE (National Research Center for Neuro-Degenerative Diseases) · Helmholtz Munich (National Research Center for Environmental Health) · ...
+- **Research Hospitals** → Partners in The Global Immunological Swarm Learning Network including U Bonn, Harvard, MIT, Stanford, ETH Zürich, Charité, Mount Sinai, ...
+
+From personal research projects to pharma-scale deployments managing petabytes of data across 10¹² observations, 10⁴ transforms, 10⁹ runs, 10⁶ genes, 10² species, 10⁵ biosamples, 10⁹ proteins, ...
 
 </details>
 
 ## Docs
 
-Copy [summary.md](https://docs.lamin.ai/summary.md) into an LLM chat and let AI explain or read the [docs](https://docs.lamin.ai).
+Copy [llms.txt](https://docs.lamin.ai/llms.txt) into an LLM chat and let AI explain or read the [docs](https://docs.lamin.ai).
 
 ## Quickstart
 
@@ -97,11 +90,11 @@ adata = artifact.load()        # load object into memory
 accessor = artifact.open()     # return a streaming accessor
 ```
 
-You can query 14 built-in registries (`Artifact`, `Storage`, `Feature`, `Record`, etc.) and additional registries via plug-ins (e.g. in `bionty`, 13 registries for biological entities via `Disease`, `CellType`, `Tissue`, etc. mapping >20 public ontologies), for example:
+You can query by biological entities like `Disease` through plug-in `bionty`:
 
 ```python
-diseases = db.bionty.Disease.lookup()  # a lookup object to auto-complete diseases
-df = db.Artifact.filter(diseases=diseases.alzheimer_disease).to_dataframe()  # filter by fields
+alzheimers = db.bionty.Disease.get(name="Alzheimer disease")
+df = db.Artifact.filter(diseases=alzheimers).to_dataframe()
 ```
 
 ### Configure your database
@@ -138,7 +131,7 @@ lamin load --key examples/myfile.txt
 
 Read more: [docs.lamin.ai/cli](https://docs.lamin.ai/cli).
 
-### Lineage
+### Lineage: scripts & notebooks
 
 To create a dataset while tracking source code, inputs, outputs, logs, and environment:
 
@@ -156,33 +149,62 @@ Running this snippet as a script (`python create-fasta.py`) produces the followi
 
 ```python
 artifact = ln.Artifact.get(key="sample.fasta")  # get artifact by key
-artifact.describe()      # general context of the artifact
+artifact.describe()      # context of the artifact
 artifact.view_lineage()  # fine-grained lineage
 ```
 
 <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/BOTCBgHDAvwglN3U0004.png" width="550"> <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/EkQATsQL5wqC95Wj0006.png" width="140">
 
-Here is how to access the generating `run` and `transform` objects programmatically:
+<details>
+<summary>Access run & transform.</summary>
 
 ```python
 run = artifact.run              # get the run object
 transform = artifact.transform  # get the transform object
-```
-
-<details>
-<summary>Examples for run & transform.</summary>
-
-```python
-run.describe()
+run.describe()                  # context of the run
 ```
 
 <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/rJrHr3XaITVS4wVJ0000.png" width="550" />
 
 ```python
-transform.describe()
+transform.describe()  # context of the transform
 ```
 
 <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/JYwmHBbgf2MRCfgL0000.png" width="550" />
+
+</details>
+
+### Lineage: functions & workflows
+
+You can achieve the same traceability for functions & workflows:
+
+```python
+import lamindb as ln
+
+@ln.flow()
+def create_fasta(fasta_file: str = "sample.fasta"):
+    open(fasta_file, "w").write(">seq1\nACGT\n")    # create dataset
+    ln.Artifact(fasta_file, key=fasta_file).save()  # save dataset
+
+if __name__ == "__main__":
+    create_fasta()
+```
+
+Beyond what you get for scripts & notebooks, this automatically tracks function & CLI params and integrates well with established Python workflow managers: [docs.lamin.ai/track](https://docs.lamin.ai/track). To integrate advanced bioinformatics pipeline managers like Nextflow, see [docs.lamin.ai/pipelines](https://docs.lamin.ai/pipelines).
+
+<details>
+<summary>A richer example.</summary>
+
+Here is a an automatically generated re-construction of the project of [Schmidt _el al._ (Science, 2022)](https://pubmed.ncbi.nlm.nih.gov/35113687/):
+
+<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/KQmzmmLOeBN0C8Yk0004.png" width="850">
+
+A phenotypic CRISPRa screening result is integrated with scRNA-seq data. Here is the result of the screen input:
+
+<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/JvLaK9Icj11eswQn0000.png" width="850">
+
+You can explore it [here](https://lamin.ai/laminlabs/lamindata/artifact/W1AiST5wLrbNEyVq) on LaminHub or [here](https://github.com/laminlabs/schmidt22) on GitHub.
+
 </details>
 
 ### Labeling & queries by fields
@@ -205,9 +227,9 @@ ln.Artifact.filter(ulabels=my_label, projects=project).to_dataframe()
 You can also query by the metadata that lamindb automatically collects:
 
 ```python
-ln.Artifact.filter(run=run).to_dataframe()              # query artifacts created by a run
-ln.Artifact.filter(transform=transform).to_dataframe()  # query artifacts created by a transform
-ln.Artifact.filter(size__gt=1e6).to_dataframe()         # query artifacts bigger than 1MB
+ln.Artifact.filter(run=run).to_dataframe()              # by creating run
+ln.Artifact.filter(transform=transform).to_dataframe()  # by creating transform
+ln.Artifact.filter(size__gt=1e6).to_dataframe()         # size greater than 1MB
 ```
 
 If you want to include more information into the resulting dataframe, pass `include`.
@@ -349,7 +371,7 @@ artifact = ln.Artifact.from_anndata(
 artifact.describe()
 ```
 
-To validate a `spatialdata` or any other array-like dataset, you need to construct a `Schema`. You can do this by composing the schema of a complicated object from simple `pandera`-style schemas: [docs.lamin.ai/curate](https://docs.lamin.ai/curate).
+To validate a `spatialdata` or any other array-like dataset, you need to construct a `Schema`. You can do this by composing simple `pandera`-style schemas: [docs.lamin.ai/curate](https://docs.lamin.ai/curate).
 
 ### Ontologies
 
@@ -363,17 +385,3 @@ bt.CellType.to_dataframe()   # your extendable cell type ontology in a simple re
 ```
 
 Read more: [docs.lamin.ai/manage-ontologies](https://docs.lamin.ai/manage-ontologies).
-
-### Workflow management
-
-LaminDB integrates well with computational workflow/pipeline managers, e.g. with Nextflow or redun: [docs.lamin.ai/pipelines](https://docs.lamin.ai/pipelines)
-
-In some cases, LaminDB can offer a simpler alternative. In [github.com/laminlabs/schmidt22](https://github.com/laminlabs/schmidt22) we manage several workflows, scripts, and notebooks to re-construct the project of [Schmidt _el al._ (2022)](https://pubmed.ncbi.nlm.nih.gov/35113687/). A phenotypic CRISPRa screening result is integrated with scRNA-seq data. Here is one of the input artifacts:
-
-<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/JvLaK9Icj11eswQn0000.png" width="850">
-
-And here is the lineage of the final result:
-
-<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/KQmzmmLOeBN0C8Yk0004.png" width="850">
-
-You can explore it [here](https://lamin.ai/laminlabs/lamindata/artifact/W1AiST5wLrbNEyVq0001).
