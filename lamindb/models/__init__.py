@@ -38,63 +38,62 @@ by virtue of the `JsonValue` model.
 Below follow the underlying link models for annotations.
 
 .. autoclass:: ArtifactArtifact
-.. autoclass:: ArtifactReference
+.. autoclass:: ArtifactJsonValue
 .. autoclass:: ArtifactProject
-.. autoclass:: ArtifactTransform
-.. autoclass:: ArtifactRun
-.. autoclass:: ArtifactCollection
-.. autoclass:: ArtifactSchema
-.. autoclass:: ArtifactUser
-.. autoclass:: ArtifactULabel
-.. autoclass:: ArtifactRecord
 .. autoclass:: ArtifactReference
-.. autoclass:: ArtifactProject
-.. autoclass:: ArtifactTransform
 .. autoclass:: ArtifactRun
-.. autoclass:: ArtifactCollection
 .. autoclass:: ArtifactSchema
-.. autoclass:: ArtifactUser
 .. autoclass:: ArtifactULabel
+.. autoclass:: ArtifactUser
+.. autoclass:: CollectionArtifact
+.. autoclass:: CollectionProject
+.. autoclass:: CollectionReference
+.. autoclass:: CollectionULabel
+.. autoclass:: FeatureProject
+.. autoclass:: RunJsonValue
 .. autoclass:: RunProject
-.. autoclass:: RunReference
-.. autoclass:: RunTransform
-.. autoclass:: RunRun
-.. autoclass:: RunCollection
-.. autoclass:: RunSchema
-.. autoclass:: RunUser
 .. autoclass:: RunULabel
-.. autoclass:: RunRecord
-.. autoclass:: RunReference
+.. autoclass:: SchemaComponent
+.. autoclass:: SchemaFeature
+.. autoclass:: SchemaProject
+.. autoclass:: TransformProject
+.. autoclass:: TransformReference
+.. autoclass:: TransformULabel
+.. autoclass:: ULabelProject
 
 Record values
 -------------
 
 Record values work almost exactly like artifact and run annotations,
-with the exception of JSON values are being stored in `RecordJson` on a per-record basis
+with the exception that JSON values are stored in `RecordJson` on a per-record basis
 and not in `JsonValue`.
 
-.. autoclass:: RecordRecord
-.. autoclass:: RecordJson
-.. autoclass:: RecordULabel
-.. autoclass:: RecordRun
+.. autoclass:: ArtifactRecord
+.. autoclass:: ProjectRecord
 .. autoclass:: RecordArtifact
-.. autoclass:: RecordReference
+.. autoclass:: RecordJson
 .. autoclass:: RecordProject
+.. autoclass:: RecordRecord
+.. autoclass:: RecordReference
+.. autoclass:: RecordRun
+.. autoclass:: RecordULabel
+.. autoclass:: RecordUser
+.. autoclass:: ReferenceRecord
+.. autoclass:: RunRecord
 
 Blocks
 ------
 
 .. autoclass:: Block
 .. autoclass:: ArtifactBlock
-.. autoclass:: TransformBlock
-.. autoclass:: RecordBlock
+.. autoclass:: BranchBlock
 .. autoclass:: CollectionBlock
+.. autoclass:: ProjectBlock
+.. autoclass:: RecordBlock
 .. autoclass:: RunBlock
 .. autoclass:: SchemaBlock
-.. autoclass:: ProjectBlock
-.. autoclass:: BranchBlock
 .. autoclass:: SpaceBlock
-.. autoclass:: RecordUser
+.. autoclass:: TransformBlock
 
 Utils
 -----
