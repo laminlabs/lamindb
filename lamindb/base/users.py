@@ -1,17 +1,17 @@
 user_id_cache = {}
 
 
-def _has_write_access() -> bool:
+def _user_has_write_access() -> bool:
     from django.db import connection
 
     with connection.cursor() as cursor:
         cursor.execute("""
-            EXISTS (
+            SELECT EXISTS (
                 SELECT 1 FROM check_access() chk
                 WHERE chk.role in ('write', 'admin')
             )
         """)
-        return cursor.fetchone()
+        return cursor.fetchone()[0]
 
 
 def current_user_id() -> int:
@@ -41,7 +41,10 @@ def current_user_id() -> int:
                             "Unable to register a new user in the instance database "
                             "because you have a read-only connection."
                         ) from e
-                    if isettings._db_permissions == "jwt" and not _has_write_access():
+                    if (
+                        isettings._db_permissions == "jwt"
+                        and not _user_has_write_access()
+                    ):
                         raise NoWriteAccess(
                             "Unable to register a new user in the instance database "
                             "because you don't have write access to any space or registry."
