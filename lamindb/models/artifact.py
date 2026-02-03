@@ -38,7 +38,7 @@ from lamindb.errors import FieldValidationError, NoWriteAccess, UnknownStorageLo
 from lamindb.models.query_set import QuerySet, SQLRecordList
 
 from ..base.users import current_user_id
-from ..core._settings import is_read_only_connection, settings
+from ..core._settings import settings
 from ..core.loaders import load_to_memory
 from ..core.storage import (
     LocalPathClasses,
@@ -708,7 +708,7 @@ def get_run(run: Run | None) -> Run | None:
         if run is None:
             run = context.run
         if run is None and not settings.creation.artifact_silence_missing_run_warning:
-            if not is_read_only_connection():
+            if not setup_settings.instance.is_read_only_connection:
                 logger.warning(WARNING_RUN_TRANSFORM)
     # suppress run by passing False
     elif not run:
@@ -3208,7 +3208,7 @@ def track_run_input(
     is_run_input = settings.track_run_inputs if is_run_input is None else is_run_input
     if is_run_input:
         if run is None:
-            if not is_read_only_connection():
+            if not setup_settings.instance.is_read_only_connection:
                 logger.warning(WARNING_NO_INPUT)
         elif input_records:
             logger.debug(
