@@ -130,7 +130,7 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
       - run: nox -s prepare
-        if: ${{ !startsWith(matrix.group, 'unit-') }}
+        if: ${{ !startsWith(matrix.group, 'unit-') && !startsWith(matrix.group, 'permissions') }}
       - run: nox -s "test(group='${{ matrix.group }}')"
 
       - name: upload coverage
