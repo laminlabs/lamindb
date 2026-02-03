@@ -1658,35 +1658,27 @@ class CatVector:
         else:
             results = [{"field": self._field}]
 
-        remaining = values
-        all_syn_mapper: dict[str, str] = {}
+        non_validated = values
+        syn_mapper: dict[str, str] = {}
 
         for result in results:
-            if not remaining:
+            if not non_validated:
                 break
-
             field = result["field"]
             registry = field.field.model
-            filter_kwargs: dict[str, str | SQLRecord] = {}
-
-            # inspect values from the default instance, excluding public
             registry_or_queryset = registry
             if self._subtype_query_set is not None and registry == self._registry:
                 registry_or_queryset = self._subtype_query_set
-
             # first inspect against the registry
-            inspect_result = registry_or_queryset.filter(**filter_kwargs).inspect(
-                remaining,
+            inspect_result = registry_or_queryset.filter().inspect(
+                non_validated,
                 field=field,
                 mute=True,
                 from_source=False,
             )
             # here non_validated includes synonyms and new values
-            remaining = inspect_result.non_validated
-            all_syn_mapper.update(inspect_result.synonyms_mapper)
-
-        non_validated = remaining
-        syn_mapper = all_syn_mapper
+            non_validated = inspect_result.non_validated
+            syn_mapper.update(inspect_result.synonyms_mapper)
 
         # logging messages
         if self._cat_manager is not None:
