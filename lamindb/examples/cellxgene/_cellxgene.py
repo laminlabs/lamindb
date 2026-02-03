@@ -2,19 +2,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Collection, Literal, NamedTuple
 
-import pandas as pd
-from lamindb_setup.core.upath import UPath
-from packaging import version
-
-from lamindb.models._from_values import _format_values
-
 if TYPE_CHECKING:
     from lamindb.base.types import FieldAttr
-    from lamindb.models import Schema, SQLRecord
+    from lamindb.models import Registry, Schema
 
-CELLxGENESchemaVersions = Literal[
-    "4.0.0", "5.0.0", "5.1.0", "5.2.0", "5.3.0", "6.0.0", "7.0.0"
-]
 CELLxGENEOrganisms = Literal[
     "human",
     "mouse",
@@ -105,66 +96,15 @@ def save_cellxgene_defaults() -> None:
         ).save()
 
 
-def _create_cellxgene_sources(
-    categoricals: dict[str, FieldAttr], schema_version: str, organism: str
-) -> dict[str, SQLRecord]:
-    """Create a source dictionary of CELLxGENE categoricals to Source."""
-    import bionty as bt
-
-    def _fetch_bionty_source(entity: str, organism: str) -> SQLRecord | None:  # type: ignore
-        """Fetch the Bionty source of the pinned ontology."""
-        entity_sources = sources_df.loc[(sources_df.entity == entity)].copy()
-        if not entity_sources.empty:
-            if len(entity_sources) == 1:
-                row = entity_sources.iloc[0]  # for sources with organism "all"
-            else:
-                row = entity_sources[entity_sources.organism == organism].iloc[0]
-            source = bt.Source.filter(
-                organism=row.organism,
-                entity=f"bionty.{entity}",
-                name=row.source,
-                version=row.version,
-            ).one_or_none()
-            if source is None:
-                source = getattr(bt, entity).add_source(
-                    source=row.source,
-                    version=row.version,
-                    organism=row.organism,
-                )
-            return source
-
-    sources_df = pd.read_csv(UPath(__file__).parent / "cellxgene_schema_versions.csv")
-    sources_df = sources_df[sources_df.schema_version == schema_version]
-    if sources_df.empty:
-        raise ValueError(
-            f"Invalid schema_version: {schema_version}\n"
-            f"Valid versions are: {_format_values(sources_df.schema_version.unique())}"
-        )
-
-    key_to_source: dict[str, bt.Source] = {}
-    for key, field in categoricals.items():
-        if hasattr(field, "field"):
-            if field.field.model.__get_module_name__() == "bionty":
-                entity = field.field.model.__name__
-                key_to_source[key] = _fetch_bionty_source(entity, organism)
-        else:
-            key_to_source[key] = field
-    key_to_source["var_index"] = _fetch_bionty_source("Gene", organism)
-
-    return key_to_source
-
-
 def create_cellxgene_schema(
-    schema_version: CELLxGENESchemaVersions,
-    *,
     field_types: FieldType | Collection[FieldType] = "ontology_id",
+    *,
     organism: CELLxGENEOrganisms = "human",
     spatial_library_id: str | None = None,
 ) -> Schema:
     """Generates a :class:`~lamindb.Schema` for a specific CELLxGENE schema version.
 
     Args:
-        schema_version: The CELLxGENE Schema version.
         field_types: One or several of 'ontology_id', 'name'.
         organism: The organism of the Schema.
         library_id: Identifier for the spatial library.
@@ -175,7 +115,7 @@ def create_cellxgene_schema(
     from lamindb.models import Feature, Schema, ULabel
 
     class CategorySpec(NamedTuple):
-        field: str | FieldAttr
+        field: str | FieldAttr | list[Registry]
         default: str | None
 
     categoricals_to_spec: dict[str, CategorySpec] = {
@@ -197,7 +137,7 @@ def create_cellxgene_schema(
         "sex_ontology_term_id": CategorySpec(bt.Phenotype.ontology_id, None),
         "suspension_type": CategorySpec(ULabel.name, "cell"),
         "tissue": CategorySpec(bt.Tissue.name, None),
-        "tissue_ontology_term_id": CategorySpec(bt.Tissue.ontology_id, None),
+        "tissue_ontology_term_id": CategorySpec([bt.Tissue, bt.CellType], None),
         "tissue_type": CategorySpec(ULabel.name, "tissue"),
         "organism": CategorySpec(bt.Organism.scientific_name, None),
         "organism_ontology_term_id": CategorySpec(bt.Organism.ontology_id, None),
@@ -226,28 +166,16 @@ def create_cellxgene_schema(
             f"Invalid field_types: {field_types}. Must contain 'ontology_id', 'name', or both."
         )
 
-    is_version_6_or_later = version.parse(schema_version) >= version.parse("6.0.0")
-
     organism_fields = {"organism", "organism_ontology_term_id"}
-    if is_version_6_or_later:
-        obs_categoricals = {
-            k: v for k, v in categoricals.items() if k not in organism_fields
-        }
-    else:
-        obs_categoricals = categoricals
-
-    sources = _create_cellxgene_sources(
-        categoricals=categoricals,
-        schema_version=schema_version,
-        organism=organism,
-    )
+    obs_categoricals = {
+        k: v for k, v in categoricals.items() if k not in organism_fields
+    }
 
     var_schema = Schema(
-        name=f"var of CELLxGENE version {schema_version}",
+        name="var of CELLxGENE",
         index=Feature(
             name="var_index",
             dtype=bt.Gene.ensembl_gene_id,
-            cat_filters={"source": sources["var_index"]},
         ).save(),
         itype=Feature,
         features=[Feature(name="feature_is_filtered", dtype=bool).save()],
@@ -259,17 +187,16 @@ def create_cellxgene_schema(
         Feature(
             name=field,
             dtype=obs_categoricals[field],
-            cat_filters={"source": source},
             default_value=categoricals_to_spec[field].default,
         ).save()
-        for field, source in sources.items()
-        if field != "var_index" and field in obs_categoricals
+        for field in obs_categoricals
+        if field != "var_index"
     ]
     for name in ["is_primary_data", "suspension_type", "tissue_type"]:
         obs_features.append(Feature(name=name, dtype=ULabel.name).save())
 
     obs_schema = Schema(
-        name=f"obs of CELLxGENE version {schema_version} for {organism} of {field_types}",
+        name=f"obs of CELLxGENE for {organism} of {field_types}",
         features=obs_features,
         otype="DataFrame",
         minimal_set=True,
@@ -278,59 +205,53 @@ def create_cellxgene_schema(
 
     slots = {"var": var_schema, "obs": obs_schema}
 
-    if is_version_6_or_later:
-        uns_categoricals = {
-            k: v for k, v in categoricals.items() if k in organism_fields
-        }
+    uns_categoricals = {k: v for k, v in categoricals.items() if k in organism_fields}
 
-        uns_features = [
-            Feature(
-                name=field,
-                dtype=uns_categoricals[field],
-                cat_filters={"source": sources[field]},
-                default_value=categoricals_to_spec[field].default,
-            ).save()
-            for field in uns_categoricals
-        ]
+    uns_features = [
+        Feature(
+            name=field,
+            dtype=uns_categoricals[field],
+            default_value=categoricals_to_spec[field].default,
+        ).save()
+        for field in uns_categoricals
+    ]
 
-        uns_schema = Schema(
-            name=f"uns of CELLxGENE version {schema_version}",
-            features=uns_features,
-            otype="DataFrame",
-            minimal_set=True,
-            coerce=True,
+    uns_schema = Schema(
+        name="uns of CELLxGENE version",
+        features=uns_features,
+        otype="DataFrame",
+        minimal_set=True,
+        coerce=True,
+    ).save()
+
+    slots["uns"] = uns_schema
+
+    # Add spatial validation if library_id is provided
+    if spatial_library_id:
+        scalefactors_schema = Schema(
+            name=f"scalefactors of spatial {spatial_library_id}",
+            features=[
+                Feature(name="spot_diameter_fullres", dtype=float).save(),
+                Feature(name="tissue_hires_scalef", dtype=float).save(),
+            ],
         ).save()
 
-        slots["uns"] = uns_schema
+        spatial_schema = Schema(
+            name="CELLxGENE spatial metadata",
+            features=[
+                Feature(
+                    name="is_single",
+                    dtype=bool,
+                    description="True if dataset represents single spatial unit (tissue section for Visium, array for Slide-seqV2)",
+                ).save()
+            ],
+        ).save()
 
-        # Add spatial validation if library_id is provided
-        if spatial_library_id:
-            scalefactors_schema = Schema(
-                name=f"scalefactors of spatial {spatial_library_id}",
-                features=[
-                    Feature(name="spot_diameter_fullres", dtype=float).save(),
-                    Feature(name="tissue_hires_scalef", dtype=float).save(),
-                ],
-            ).save()
-
-            spatial_schema = Schema(
-                name="CELLxGENE spatial metadata",
-                features=[
-                    Feature(
-                        name="is_single",
-                        dtype=bool,
-                        description="True if dataset represents single spatial unit (tissue section for Visium, array for Slide-seqV2)",
-                    ).save()
-                ],
-            ).save()
-
-            slots["uns:spatial"] = spatial_schema
-            slots[f"uns:spatial:{spatial_library_id}:scalefactors"] = (
-                scalefactors_schema
-            )
+        slots["uns:spatial"] = spatial_schema
+        slots[f"uns:spatial:{spatial_library_id}:scalefactors"] = scalefactors_schema
 
     full_cxg_schema = Schema(
-        name=f"AnnData of CELLxGENE version {schema_version} for {organism} of {', '.join(field_types) if isinstance(field_types, list) else field_types}",
+        name=f"CELLxGENE AnnData for {organism} of {', '.join(field_types) if isinstance(field_types, list) else field_types}",
         otype="AnnData",
         minimal_set=True,
         coerce=True,

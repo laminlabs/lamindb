@@ -1467,8 +1467,6 @@ class CatVector:
         from lamindb.models.has_parents import keep_topmost_matches
         from lamindb.models.save import save as ln_save
 
-        model_field = self._registry.__get_name_with_module__()
-
         values = [
             value
             for value in self.values
@@ -1486,81 +1484,117 @@ class CatVector:
         if not values:
             return [], []
 
-        # if a value is a list, we need to flatten it
         str_values = _flatten_unique(values)
 
-        # if values are SQLRecord, we don't need to validate them
         if all(isinstance(v, SQLRecord) for v in str_values):
             assert all(v._state.adding is False for v in str_values), (
                 "All records must be saved."
             )
-            self.records = str_values  # type: ignore
-            validated_values = str_values  # type: ignore
-            return validated_values, []
+            self.records = str_values
+            return str_values, []
 
-        # inspect the default instance and save validated records from public
-        if issubclass(self._registry, HasType):
-            if self._type_record is None:
-                self._subtype_query_set = self._registry.filter()
-            else:
-                query_sub_types = getattr(
-                    self._type_record, f"query_{self._registry.__name__.lower()}s"
-                )
-                self._subtype_query_set = query_sub_types()
-            values_array = np.array(str_values)
-            validated_mask = self._subtype_query_set.validate(  # type: ignore
-                values_array, field=self._field, mute=True
-            )
-            validated_values, non_validated_values = (
-                list(set(values_array[validated_mask])),
-                list(set(values_array[~validated_mask])),
-            )
-            records = self._subtype_query_set.filter(  # type: ignore
-                **{f"{self._field_name}__in": validated_values}, **self._filter_kwargs
-            ).to_list()
-            records = keep_topmost_matches(records)
+        # Get all field specs for union types
+        if self.feature:
+            results = parse_dtype(self.feature._dtype_str)
         else:
-            existing_and_public_records = _from_values(
-                str_values,
-                field=self._field,
-                mute=True,
-                **self._filter_kwargs,  # type: ignore
-            )
-            existing_and_public_values = [
-                getattr(r, self._field_name) for r in existing_and_public_records
+            results = [
+                {
+                    "field": self._field,
+                    "filter_str": getattr(self, "_filter_str", ""),
+                    "record_uid": self._record_uid,
+                }
             ]
-            # public records that are not already in the database
-            public_records = [r for r in existing_and_public_records if r._state.adding]
-            # here we check to only save the public records if they are from the specified source
-            # we check the uid because r.source and source can be from different instances
-            if self._source:
-                public_records = [
-                    r for r in public_records if r.source.uid == self._source.uid
-                ]
-            if len(public_records) > 0:
-                logger.info(f"saving validated records of '{self._key}'")
-                ln_save(public_records)
-                values_saved_public = [
-                    getattr(r, self._field_name) for r in public_records
-                ]
-                # log the saved public labels
-                # the term "transferred" stresses that this is always in the context of transferring
-                # labels from a public ontology or a different instance to the present instance
-                if len(values_saved_public) > 0:
-                    s = "s" if len(values_saved_public) > 1 else ""
-                    logger.success(
-                        f'added {len(values_saved_public)} record{s} {colors.green("from_public")} with {model_field} for "{self._key}": {_format_values(values_saved_public)}'
-                    )
-                    # non-validated records from the default instance
-            non_validated_values = [
-                i for i in str_values if i not in existing_and_public_values
-            ]
-            validated_values = existing_and_public_values
-            records = existing_and_public_records
 
-        self.records = records
-        # validated values, non-validated values
-        return validated_values, non_validated_values
+        all_validated = set()
+        all_records = []
+
+        for result in results:
+            field = result["field"]
+            registry = field.field.model
+            field_name = field.field.name
+            record_uid = result.get("record_uid")
+
+            remaining_values = [v for v in str_values if v not in all_validated]
+            if not remaining_values:
+                break
+
+            filter_kwargs = {}
+            filter_str = result.get("filter_str", "")
+            if filter_str and filter_str != "unsaved":
+                filter_kwargs.update(
+                    resolve_relation_filters(parse_filter_string(filter_str), registry)
+                )
+            if registry.__base__.__name__ == "BioRecord":
+                if self._source is not None:
+                    filter_kwargs["source"] = self._source
+                organism_record = get_organism_record_from_field(
+                    field=field,
+                    organism=filter_kwargs.get("organism"),
+                    values=remaining_values,
+                )
+                if organism_record is not None:
+                    filter_kwargs["organism"] = organism_record
+            filter_kwargs = get_current_filter_kwargs(registry, filter_kwargs)
+
+            type_record = None
+            if record_uid:
+                type_record = get_record_type_from_uid(registry, record_uid)
+
+            if issubclass(registry, HasType):
+                if type_record is None:
+                    subtype_query_set = registry.filter()
+                else:
+                    query_sub_types = getattr(
+                        type_record, f"query_{registry.__name__.lower()}s"
+                    )
+                    subtype_query_set = query_sub_types()
+
+                values_array = np.array(remaining_values)
+                validated_mask = subtype_query_set.validate(
+                    values_array, field=field, mute=True
+                )
+                validated_values = list(set(values_array[validated_mask]))
+                records = subtype_query_set.filter(
+                    **{f"{field_name}__in": validated_values}, **filter_kwargs
+                ).to_list()
+                records = keep_topmost_matches(records)
+            else:
+                existing_and_public_records = _from_values(
+                    remaining_values,
+                    field=field,
+                    mute=True,
+                    **filter_kwargs,  # type: ignore
+                )
+                validated_values = [
+                    getattr(r, field_name) for r in existing_and_public_records
+                ]
+                public_records = [
+                    r for r in existing_and_public_records if r._state.adding
+                ]
+                if self._source:
+                    public_records = [
+                        r for r in public_records if r.source.uid == self._source.uid
+                    ]
+                if len(public_records) > 0:
+                    logger.info(f"saving validated records of '{self._key}'")
+                    ln_save(public_records)
+                    model_field = f"{registry.__name__}.{field_name}"
+                    values_saved_public = [
+                        getattr(r, field_name) for r in public_records
+                    ]
+                    if len(values_saved_public) > 0:
+                        s = "s" if len(values_saved_public) > 1 else ""
+                        logger.success(
+                            f'added {len(values_saved_public)} record{s} {colors.green("from_public")} with {model_field} for "{self._key}": {_format_values(values_saved_public)}'
+                        )
+                records = existing_and_public_records
+
+            all_validated.update(validated_values)
+            all_records.extend(records)
+
+        self.records = all_records
+        non_validated = [v for v in str_values if v not in all_validated]
+        return list(all_validated), non_validated
 
     def _add_new(
         self,
@@ -1601,30 +1635,88 @@ class CatVector:
                 f'added {len(values)} record{s} with {model_field} for "{self._key}": {_format_values(values)}'
             )
 
-    def _validate(
-        self,
-        values: list[str],
-    ) -> tuple[list[str], dict]:
+    def _validate(self, values: list[str]) -> tuple[list[str], dict]:
         """Validate ontology terms using LaminDB registries."""
-        model_field = f"{self._registry.__name__}.{self._field_name}"
+        if not values:
+            return [], {}
 
-        # inspect values from the default instance, excluding public
-        registry_or_queryset = self._registry
-        if self._subtype_query_set is not None:
-            registry_or_queryset = self._subtype_query_set
+        if self.feature:
+            results = parse_dtype(self.feature._dtype_str)
+        else:
+            results = [
+                {
+                    "field": self._field,
+                    "filter_str": getattr(self, "_filter_str", ""),
+                    "record_uid": self._record_uid,
+                }
+            ]
 
-        # first inspect against the registry
-        inspect_result = registry_or_queryset.filter(**self._filter_kwargs).inspect(
-            values,
-            field=self._field,
-            mute=True,
-            from_source=False,
-        )
-        # here non_validated includes synonyms and new values
-        non_validated = inspect_result.non_validated
-        syn_mapper = inspect_result.synonyms_mapper
+        all_non_validated = dict.fromkeys(values)
+        all_syn_mapper = {}
+        model_fields = []
+        subtype_info = None  # Track for error message
 
-        # logging messages
+        for result in results:
+            field = result["field"]
+            registry = field.field.model
+            field_name = field.field.name
+            record_uid = result.get("record_uid")
+
+            model_fields.append(f"{registry.__name__}.{field_name}")
+
+            remaining = list(all_non_validated)
+            if not remaining:
+                break
+
+            filter_kwargs = {}
+            filter_str = result.get("filter_str", "")
+            if filter_str and filter_str != "unsaved":
+                filter_kwargs.update(
+                    resolve_relation_filters(parse_filter_string(filter_str), registry)
+                )
+            if registry.__base__.__name__ == "BioRecord":
+                if self._source is not None:
+                    filter_kwargs["source"] = self._source
+                organism_record = get_organism_record_from_field(
+                    field=field,
+                    organism=filter_kwargs.get("organism"),
+                    values=remaining,
+                )
+                if organism_record is not None:
+                    filter_kwargs["organism"] = organism_record
+            filter_kwargs = get_current_filter_kwargs(registry, filter_kwargs)
+
+            type_record = None
+            subtype_query_set = None
+            if record_uid:
+                type_record = get_record_type_from_uid(registry, record_uid)
+
+            if issubclass(registry, HasType):
+                if type_record is None:
+                    subtype_query_set = registry.filter()
+                else:
+                    query_sub_types = getattr(
+                        type_record, f"query_{registry.__name__.lower()}s"
+                    )
+                    subtype_query_set = query_sub_types()
+                    # Store for error message
+                    if subtype_info is None:
+                        subtype_info = (type_record, subtype_query_set)
+
+            registry_or_queryset = subtype_query_set if subtype_query_set else registry
+
+            inspect_result = registry_or_queryset.filter(**filter_kwargs).inspect(
+                remaining, field=field, mute=True, from_source=False
+            )
+
+            validated_here = set(remaining) - set(inspect_result.non_validated)
+            for v in validated_here:
+                all_non_validated.pop(v, None)
+            all_syn_mapper.update(inspect_result.synonyms_mapper)
+
+        non_validated = list(all_non_validated)
+        model_field_str = " | ".join(model_fields)
+
         if self._cat_manager is not None:
             slot = self._cat_manager._slot
         else:
@@ -1634,44 +1726,39 @@ class CatVector:
         non_validated_hint_print = (
             f"curator{slot_prefix}.cat.add_new_from('{self._key}')"
         )
+
         n_non_validated = len(non_validated)
         if n_non_validated == 0:
             logger.success(
-                f'"{self._key}" is validated against {colors.italic(model_field)}'
+                f'"{self._key}" is validated against {colors.italic(model_field_str)}'
             )
             return [], {}
         else:
             s = "" if n_non_validated == 1 else "s"
             print_values = _format_values(non_validated)
             warning_message = f"{colors.red(f'{n_non_validated} term{s}')} not validated in feature '{self._key}'{in_slot}: {colors.red(print_values)}\n"
-            # log synonyms if any
-            if syn_mapper:
-                s = "" if len(syn_mapper) == 1 else "s"
+            if all_syn_mapper:
+                s = "" if len(all_syn_mapper) == 1 else "s"
                 syn_mapper_print = _format_values(
-                    [f'"{k}" → "{v}"' for k, v in syn_mapper.items()], sep=""
+                    [f'"{k}" → "{v}"' for k, v in all_syn_mapper.items()], sep=""
                 )
                 hint_msg = f'.standardize("{self._key}")'
-                warning_message += f"    {colors.yellow(f'{len(syn_mapper)} synonym{s}')} found: {colors.yellow(syn_mapper_print)}\n    → curate synonyms via: {colors.cyan(hint_msg)}"
-            if n_non_validated > len(syn_mapper):
-                if syn_mapper:
+                warning_message += f"    {colors.yellow(f'{len(all_syn_mapper)} synonym{s}')} found: {colors.yellow(syn_mapper_print)}\n    → curate synonyms via: {colors.cyan(hint_msg)}"
+            if n_non_validated > len(all_syn_mapper):
+                if all_syn_mapper:
                     warning_message += "\n    for remaining terms:\n"
-                check_organism = ""
-                if (
-                    self._registry.__base__.__name__ == "BioRecord"
-                    and self._registry.require_organism(field=self._field)
-                ):
-                    organism = self._filter_kwargs.get("organism", None)
-                    check_organism = f"fix organism '{organism}', "
-                warning_message += f"    → {check_organism}fix typos, remove non-existent values, or save terms via: {colors.cyan(non_validated_hint_print)}"
-                if self._subtype_query_set is not None and self._type_record:
-                    warning_message += f"\n    → a valid label for subtype '{self._type_record.name}' has to be one of {self._subtype_query_set.to_list('name')}"
-            logger.info(f'mapping "{self._key}" on {colors.italic(model_field)}')
+                warning_message += f"    → fix typos, remove non-existent values, or save terms via: {colors.cyan(non_validated_hint_print)}"
+                # Add subtype hint if applicable
+                if subtype_info is not None:
+                    type_record, subtype_query_set = subtype_info
+                    warning_message += f"\n    → a valid label for subtype '{type_record.name}' has to be one of {subtype_query_set.to_list('name')}"
+            logger.info(f'mapping "{self._key}" on {colors.italic(model_field_str)}')
             logger.warning(warning_message)
             if self._cat_manager is not None:
                 self._cat_manager._validate_category_error_messages = strip_ansi_codes(
                     warning_message
                 )
-            return non_validated, syn_mapper
+            return non_validated, all_syn_mapper
 
     def validate(self) -> None:
         """Validate the vector."""
@@ -1751,6 +1838,7 @@ class DataFrameCatManager:
         self._cat_vectors: dict[str, CatVector] = {}
         self._slot = slot
         self._maximal_set = maximal_set
+
         columns = self._dataset.keys()
         if maximal_set:
             columns = [
@@ -1774,6 +1862,7 @@ class DataFrameCatManager:
             if schema.id is None
             else f"schemas__id={schema.id}",
         )
+
         for feature in self._categoricals:
             result = parse_dtype(feature._dtype_str)[0]
             key = feature.name
@@ -1794,6 +1883,7 @@ class DataFrameCatManager:
                     filter_str=result["filter_str"],
                     record_uid=result.get("record_uid"),
                 )
+
         if index is not None and index._dtype_str.startswith("cat"):
             result = parse_dtype(index._dtype_str)[0]
             key = "index"
