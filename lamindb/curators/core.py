@@ -1502,7 +1502,7 @@ class CatVector:
         if self.feature:
             results = parse_dtype(self.feature._dtype_str)
             if not results:
-                results = [None]
+                results = [{"field": self._field}]
         else:
             results = [None]
 
@@ -1655,10 +1655,8 @@ class CatVector:
         # get all field specs for union types
         if self.feature:
             results = parse_dtype(self.feature._dtype_str)
-            if not results:
-                results = [None]
         else:
-            results = [None]
+            results = [{"field": self._field}]
 
         remaining = values
         all_syn_mapper: dict[str, str] = {}
@@ -1667,14 +1665,9 @@ class CatVector:
             if not remaining:
                 break
 
-            if result is not None:
-                field = result["field"]
-                registry = field.field.model
-                filter_kwargs = {}
-            else:
-                field = self._field
-                registry = self._registry
-                filter_kwargs = self._filter_kwargs
+            field = result["field"]
+            registry = field.field.model
+            filter_kwargs: dict[str, str | SQLRecord] = {}
 
             # inspect values from the default instance, excluding public
             registry_or_queryset = registry
