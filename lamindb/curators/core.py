@@ -1502,7 +1502,7 @@ class CatVector:
         if self.feature:
             results = parse_dtype(self.feature._dtype_str)
             if not results:
-                results = [None]  # fallback to original behavior
+                results = [None]
         else:
             results = [None]
 
