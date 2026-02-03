@@ -1498,69 +1498,113 @@ class CatVector:
             validated_values = str_values  # type: ignore
             return validated_values, []
 
-        # inspect the default instance and save validated records from public
-        if issubclass(self._registry, HasType):
-            if self._type_record is None:
-                self._subtype_query_set = self._registry.filter()
-            else:
-                query_sub_types = getattr(
-                    self._type_record, f"query_{self._registry.__name__.lower()}s"
-                )
-                self._subtype_query_set = query_sub_types()
-            values_array = np.array(str_values)
-            validated_mask = self._subtype_query_set.validate(  # type: ignore
-                values_array, field=self._field, mute=True
-            )
-            validated_values, non_validated_values = (
-                list(set(values_array[validated_mask])),
-                list(set(values_array[~validated_mask])),
-            )
-            records = self._subtype_query_set.filter(  # type: ignore
-                **{f"{self._field_name}__in": validated_values}, **self._filter_kwargs
-            ).to_list()
-            records = keep_topmost_matches(records)
+        # get all field specs for union types
+        if self.feature:
+            results = parse_dtype(self.feature._dtype_str)
+            if not results:
+                results = [None]  # fallback to original behavior
         else:
-            existing_and_public_records = _from_values(
-                str_values,
-                field=self._field,
-                mute=True,
-                **self._filter_kwargs,  # type: ignore
-            )
-            existing_and_public_values = [
-                getattr(r, self._field_name) for r in existing_and_public_records
-            ]
-            # public records that are not already in the database
-            public_records = [r for r in existing_and_public_records if r._state.adding]
-            # here we check to only save the public records if they are from the specified source
-            # we check the uid because r.source and source can be from different instances
-            if self._source:
-                public_records = [
-                    r for r in public_records if r.source.uid == self._source.uid
-                ]
-            if len(public_records) > 0:
-                logger.info(f"saving validated records of '{self._key}'")
-                ln_save(public_records)
-                values_saved_public = [
-                    getattr(r, self._field_name) for r in public_records
-                ]
-                # log the saved public labels
-                # the term "transferred" stresses that this is always in the context of transferring
-                # labels from a public ontology or a different instance to the present instance
-                if len(values_saved_public) > 0:
-                    s = "s" if len(values_saved_public) > 1 else ""
-                    logger.success(
-                        f'added {len(values_saved_public)} record{s} {colors.green("from_public")} with {model_field} for "{self._key}": {_format_values(values_saved_public)}'
-                    )
-                    # non-validated records from the default instance
-            non_validated_values = [
-                i for i in str_values if i not in existing_and_public_values
-            ]
-            validated_values = existing_and_public_values
-            records = existing_and_public_records
+            results = [None]
 
-        self.records = records
+        all_validated = []
+        all_records = []
+        remaining_values = str_values
+
+        for result in results:
+            if not remaining_values:
+                break
+
+            if result is not None:
+                field = result["field"]
+                registry = field.field.model
+                field_name = field.field.name
+                filter_kwargs: dict[str, str | SQLRecord] = {}
+                if registry.__base__.__name__ == "BioRecord":
+                    if self._source is not None:
+                        filter_kwargs["source"] = self._source
+                    organism_record = get_organism_record_from_field(
+                        field=field,
+                        organism=None,
+                        values=remaining_values,
+                    )
+                    if organism_record is not None:
+                        filter_kwargs["organism"] = organism_record
+                filter_kwargs = get_current_filter_kwargs(registry, filter_kwargs)
+            else:
+                field = self._field
+                registry = self._registry
+                field_name = self._field_name
+                filter_kwargs = self._filter_kwargs
+
+            # inspect the default instance and save validated records from public
+            if issubclass(registry, HasType):
+                if self._type_record is None:
+                    self._subtype_query_set = registry.filter()
+                else:
+                    query_sub_types = getattr(
+                        self._type_record, f"query_{registry.__name__.lower()}s"
+                    )
+                    self._subtype_query_set = query_sub_types()
+                values_array = np.array(remaining_values)
+                validated_mask = self._subtype_query_set.validate(
+                    values_array, field=field, mute=True
+                )
+                validated_values, non_validated_values = (
+                    list(values_array[validated_mask]),
+                    list(values_array[~validated_mask]),
+                )
+                records = self._subtype_query_set.filter(
+                    **{f"{field_name}__in": validated_values}, **filter_kwargs
+                ).to_list()
+                records = keep_topmost_matches(records)
+            else:
+                existing_and_public_records = _from_values(
+                    remaining_values,
+                    field=field,
+                    mute=True,
+                    **filter_kwargs,  # type: ignore
+                )
+                existing_and_public_values = [
+                    getattr(r, field_name) for r in existing_and_public_records
+                ]
+                # public records that are not already in the database
+                public_records = [
+                    r for r in existing_and_public_records if r._state.adding
+                ]
+                # here we check to only save the public records if they are from the specified source
+                # we check the uid because r.source and source can be from different instances
+                if self._source:
+                    public_records = [
+                        r for r in public_records if r.source.uid == self._source.uid
+                    ]
+                if len(public_records) > 0:
+                    logger.info(f"saving validated records of '{self._key}'")
+                    ln_save(public_records)
+                    values_saved_public = [
+                        getattr(r, field_name) for r in public_records
+                    ]
+                    # log the saved public labels
+                    # the term "transferred" stresses that this is always in the context of transferring
+                    # labels from a public ontology or a different instance to the present instance
+                    if len(values_saved_public) > 0:
+                        s = "s" if len(values_saved_public) > 1 else ""
+                        logger.success(
+                            f'added {len(values_saved_public)} record{s} {colors.green("from_public")} with {model_field} for "{self._key}": {_format_values(values_saved_public)}'
+                        )
+                        # non-validated records from the default instance
+                non_validated_values = [
+                    i for i in remaining_values if i not in existing_and_public_values
+                ]
+                validated_values = existing_and_public_values
+                records = existing_and_public_records
+
+            all_validated.extend(validated_values)
+            all_records.extend(records)
+            remaining_values = non_validated_values
+
+        self.records = all_records
         # validated values, non-validated values
-        return validated_values, non_validated_values
+        return all_validated, remaining_values
 
     def _add_new(
         self,
@@ -1608,21 +1652,48 @@ class CatVector:
         """Validate ontology terms using LaminDB registries."""
         model_field = f"{self._registry.__name__}.{self._field_name}"
 
-        # inspect values from the default instance, excluding public
-        registry_or_queryset = self._registry
-        if self._subtype_query_set is not None:
-            registry_or_queryset = self._subtype_query_set
+        # get all field specs for union types
+        if self.feature:
+            results = parse_dtype(self.feature._dtype_str)
+            if not results:
+                results = [None]
+        else:
+            results = [None]
 
-        # first inspect against the registry
-        inspect_result = registry_or_queryset.filter(**self._filter_kwargs).inspect(
-            values,
-            field=self._field,
-            mute=True,
-            from_source=False,
-        )
-        # here non_validated includes synonyms and new values
-        non_validated = inspect_result.non_validated
-        syn_mapper = inspect_result.synonyms_mapper
+        remaining = values
+        all_syn_mapper: dict[str, str] = {}
+
+        for result in results:
+            if not remaining:
+                break
+
+            if result is not None:
+                field = result["field"]
+                registry = field.field.model
+                filter_kwargs = {}
+            else:
+                field = self._field
+                registry = self._registry
+                filter_kwargs = self._filter_kwargs
+
+            # inspect values from the default instance, excluding public
+            registry_or_queryset = registry
+            if self._subtype_query_set is not None and registry == self._registry:
+                registry_or_queryset = self._subtype_query_set
+
+            # first inspect against the registry
+            inspect_result = registry_or_queryset.filter(**filter_kwargs).inspect(
+                remaining,
+                field=field,
+                mute=True,
+                from_source=False,
+            )
+            # here non_validated includes synonyms and new values
+            remaining = inspect_result.non_validated
+            all_syn_mapper.update(inspect_result.synonyms_mapper)
+
+        non_validated = remaining
+        syn_mapper = all_syn_mapper
 
         # logging messages
         if self._cat_manager is not None:
