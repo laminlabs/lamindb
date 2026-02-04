@@ -9,7 +9,7 @@ With one API, you get: lakehouse, lineage, feature store, ontologies, bio-regist
 (1) Reproducing, tracing, and understanding how datasets, models, and workflows are created is critical to high-quality R&D.
 Without context, agents & humans make mistakes and **cannot close feedback loops** across data generation, processing, and analysis.
 Without queriable and updatable memory, much of the vastly available compute and intelligence can only be applied to narrow problems.
-So far there hasn't been a tool to collect the necessary data lineage, leave alone querying it.
+So far there hasn't been a tool to collect the necessary data lineage, let alone querying it.
 
 (2) Training & fine-tuning models with thousands of datasets — across LIMS, ELNs, orthogonal assays — is now a major learning opportunity.
 But without queryable & validated data and with data locked in organizational & infrastructure siloes, it's either impossible or leads to poor outcomes.
