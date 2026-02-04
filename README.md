@@ -20,7 +20,7 @@ And while messy data has been mostly a problem for enterprises with complex oper
 
 LaminDB fills the gap with a lineage-native lakehouse that understands bio-registries and formats (`AnnData`, `.zarr`, …) based on the established open data stack:
 SQLite/Postgres for metadata and parquet files + other formats in cross-platform storage systems for big datasets.
-The unified query, tracking, and validation API including versioning & change management is built on Django, the industry's most popular open-source tool for building data catalogues, and fsspec, the most popular tool for accessing storage systems.
+By unifying tracking, validation & queries into a single API, LaminDB provides the infrastructure to turn messy biological R&D into a reproducible, AI-ready data engine.
 
 </details>
 
@@ -38,6 +38,7 @@ How?
 - **zero lock-in** → runs anywhere on open standards (Postgres, SQLite, `parquet`, `zarr`, etc.)
 - **scalable** → you hit storage & database directly through your `pydata` or R stack, no REST API involved
 - **simple** → just `pip install` from PyPI or `install.packages('laminr')` from CRAN
+- **distributed** → dedicated zero-copy and lineage-aware data sharing across infrastructure (databases & storage locations)
 - **integrations** → [vitessce](https://docs.lamin.ai/vitessce), [nextflow](https://docs.lamin.ai/nextflow), [redun](https://docs.lamin.ai/redun), and [more](https://docs.lamin.ai/integrations)
 - **extensible** → create custom plug-ins based on the Django ORM, the basis for LaminDB's registries
 
