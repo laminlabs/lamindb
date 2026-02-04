@@ -1501,8 +1501,6 @@ class CatVector:
         # get all field specs for union types
         if self.feature:
             results = parse_dtype(self.feature._dtype_str)
-            if not results:
-                results = [{"field": self._field}]
         else:
             results = [None]
 
@@ -1511,7 +1509,7 @@ class CatVector:
         remaining_values = str_values
 
         for result in results:
-            if not remaining_values:
+            if not remaining_values:  # pragma: no cover
                 break
 
             if result is not None:
@@ -1520,8 +1518,6 @@ class CatVector:
                 field_name = field.field.name
                 filter_kwargs: dict[str, str | SQLRecord] = {}
                 if registry.__base__.__name__ == "BioRecord":
-                    if self._source is not None:
-                        filter_kwargs["source"] = self._source
                     organism_record = get_organism_record_from_field(
                         field=field,
                         organism=None,
@@ -1571,12 +1567,6 @@ class CatVector:
                 public_records = [
                     r for r in existing_and_public_records if r._state.adding
                 ]
-                # here we check to only save the public records if they are from the specified source
-                # we check the uid because r.source and source can be from different instances
-                if self._source:
-                    public_records = [
-                        r for r in public_records if r.source.uid == self._source.uid
-                    ]
                 if len(public_records) > 0:
                     logger.info(f"saving validated records of '{self._key}'")
                     ln_save(public_records)
