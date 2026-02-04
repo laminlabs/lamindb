@@ -522,7 +522,8 @@ def test_schema_mixed_features(ccaplog):
     """Test that union dtype features validate against multiple registries."""
 
     mixed_feature = ln.Feature(
-        name="mixed_feature", dtype=[bt.Tissue.ontology_id, bt.CellType.ontology_id]
+        name="mixed_feature",
+        dtype="cat[bionty.Tissue.ontology_id|bionty.CellType.ontology_id]",
     ).save()
 
     df_mixed = pd.DataFrame({"mixed_feature": ["UBERON:0000178", "CL:0000540"]})
