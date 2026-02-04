@@ -6,21 +6,23 @@ With one API, you get: lakehouse, lineage, feature store, ontologies, bio-regist
 <details>
 <summary>Why?</summary>
 
-(1) Reproducing and understanding how datasets, models, and workflows are created is critical to high-quality R&D.
+(1) Reproducing, tracing, and understanding how datasets, models, and workflows are created is critical to high-quality R&D.
 Without context, agents & humans make mistakes and **cannot close feedback loops** across data generation, processing, and analysis.
 Without queriable and updatable memory, much of the vastly available compute and intelligence can only be applied to narrow problems.
+So far there hasn't been a tool to collect the necessary data lineage, leave alone querying it.
 
 (2) Training & fine-tuning models with thousands of datasets — across LIMS, ELNs, orthogonal assays — is now a major learning opportunity.
 But without queryable & validated data and with data locked in organizational & infrastructure siloes, it's either impossible or leads to poor outcomes.
 
 (3) Imagine agentic software development without having a tool like git and a concept like pull requests. Evidently, quality would not be ascertainable.
 
-The problems of heterogeneous, complex & "messy" data and non-traceable transformations that plagued wide parts of R&D in biology have now been amplified by AI.
-What used to be small-scale projects can now reach what used to be enterprise scale.
+The problems of heterogeneous, complex & messy data, and non-traceable transformations that plagued wide parts of R&D in biology have been amplified by AI.
+What used to be small-scale projects can now reach enterprise scale.
 And while code has git and tables have warehouses and dbt, there hasn't been an open-source framework for managing biological data.
 
-LaminDB fills the gap with a lineage-native lakehouse that understands bio-registries and formats (`AnnData`, `.zarr`, …).
-It provides queries across many datasets with enough freedom to maintain high-paced R&D while automating rich context on top of versioning, change management, and other industry standards.
+LaminDB fills the gap with a lineage-native lakehouse that understands bio-registries and formats (`AnnData`, `.zarr`, …) based on the established open data stack:
+SQLite/Postgres for metadata and parquet files + other formats in cross-platform storage systems for big datasets.
+The unified query, tracking, and validation API including versioning & change management is built on Django, the industry's most popular open-source tool for building data catalogues, and fsspec, the most popular tool for accessing storage systems.
 
 </details>
 
