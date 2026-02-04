@@ -4,7 +4,8 @@ execute_via: python
 
 # Curate datasets
 
-Data curation with LaminDB ensures your datasets are **validated** and **queryable**. This guide shows you how to transform data into clean, annotated datasets.
+Data curation with LaminDB ensures your datasets are **validated** and **queryable**.
+This guide shows you how to transform data into clean, annotated datasets.
 
 Curating a dataset with LaminDB means three things:
 
@@ -12,7 +13,8 @@ Curating a dataset with LaminDB means three things:
 - **Standardize** the dataset (e.g., by fixing typos, mapping synonyms) or update registries if validation fails.
 - **Annotate** the dataset by linking it against metadata entities so that it becomes queryable.
 
-In this guide we'll curate common data structures. Here is a [guide](/faq/curate-any) for the underlying low-level API.
+In this guide we'll curate common data structures.
+Here is a [guide](/faq/curate-any) for the underlying low-level API.
 
 Note: If you know either `pydantic` or `pandera`, here is an [FAQ](/faq/pydantic-pandera) that compares LaminDB with both of these tools.
 
@@ -348,6 +350,20 @@ Since not all metadata is always stored within the dataset itself, it is also po
 
 ```python
 !python scripts/curate_dataframe_external_features.py
+```
+
+## Union dtypes
+
+Some metadata columns might validate against several registries.
+
+```{eval-rst}
+.. literalinclude:: scripts/curate_dataframe_union_features.py
+   :language: python
+   :caption: curate_dataframe_union_features.py
+```
+
+```python
+!python scripts/curate_dataframe_union_features.py
 ```
 
 ## AnnData

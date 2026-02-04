@@ -247,7 +247,7 @@ def test_dataframe_curator(mini_immuno_schema: ln.Schema):
     artifact = curator.save_artifact(key="examples/dataset1.parquet")
 
     assert artifact.schema == mini_immuno_schema
-    assert artifact.features.slots["columns"].n == 5
+    assert artifact.features.slots["columns"].n_members == 5
     assert (
         artifact.features.describe(return_str=True)
         == """\
@@ -488,7 +488,7 @@ def test_schema_mixed_ensembl_symbols(ccaplog):
     """Quite some datasets have mixed ensembl gene IDs and symbols.
 
     The expected behavior is that an error is raised when such a dataset is encountered because
-    currently lamindb does not support validating values against a union of Fields.
+    currently LaminDB does not support validating values against a union of Fields.
 
     The current behavior is that these cases automatically pass.
     """
@@ -516,6 +516,33 @@ def test_schema_mixed_ensembl_symbols(ccaplog):
     assert "2 terms not validated in feature 'index': 'BRCA2', 'TP53'" in ccaplog.text
 
     schema.delete(permanent=True)
+
+
+def test_schema_mixed_features(ccaplog):
+    """Test that union dtype features validate against multiple registries."""
+
+    mixed_feature = ln.Feature(
+        name="mixed_feature",
+        dtype="cat[bionty.Tissue.ontology_id|bionty.CellType.ontology_id]",
+    ).save()
+
+    df_mixed = pd.DataFrame({"mixed_feature": ["UBERON:0000178", "CL:0000540"]})
+    mixed_schema = ln.Schema(features=[mixed_feature], coerce=True).save()
+
+    mixed_curator = ln.curators.DataFrameCurator(df_mixed, mixed_schema)
+    mixed_curator.validate()
+    assert mixed_curator._is_validated
+
+    assert bt.CellType.filter(ontology_id="CL:0000540").exists()
+    assert bt.Tissue.filter(ontology_id="UBERON:0000178").exists()
+
+    df_invalid = pd.DataFrame({"mixed_feature": ["INVALID:0000000"]})
+    invalid_curator = ln.curators.DataFrameCurator(df_invalid, mixed_schema)
+    with pytest.raises(ln.errors.ValidationError):
+        invalid_curator.validate()
+
+    mixed_schema.delete(permanent=True)
+    mixed_feature.delete(permanent=True)
 
 
 def test_anndata_curator_different_components(mini_immuno_schema: ln.Schema):
@@ -574,7 +601,7 @@ def test_anndata_curator_different_components(mini_immuno_schema: ln.Schema):
         artifact.save()
         assert not hasattr(artifact, "_curator")  # test that curator is deleted
         assert artifact.schema == anndata_schema
-        assert artifact.features.slots["var.T"].n == 3  # 3 genes get linked
+        assert artifact.features.slots["var.T"].n_members == 3  # 3 genes get linked
         if add_comp == "obs":
             assert artifact.features.slots["obs"] == obs_schema
             assert set(artifact.features.get_values()["cell_type_by_expert"]) == {
@@ -623,7 +650,9 @@ def test_anndata_curator_varT_curation():
                 artifact = ln.Artifact.from_anndata(
                     adata, key="examples/dataset1.h5ad", schema=anndata_schema
                 ).save()
-                assert artifact.features.slots[slot].n == 3  # 3 genes get linked
+                assert (
+                    artifact.features.slots[slot].n_members == 3
+                )  # 3 genes get linked
                 assert (
                     artifact.features.slots[slot].itype == "bionty.Gene.ensembl_gene_id"
                 )
@@ -673,7 +702,7 @@ def test_anndata_curator_varT_curation_legacy(ccaplog):
                 "auto-transposed `var` for backward compat, please indicate transposition in the schema definition by calling out `.T`: slots={'var.T': itype=bt.Gene.ensembl_gene_id}"
                 in ccaplog.text
             )
-            assert artifact.features.slots[slot].n == 3  # 3 genes get linked
+            assert artifact.features.slots[slot].n_members == 3  # 3 genes get linked
             assert set(
                 artifact.features.slots[slot].members.to_dataframe()["ensembl_gene_id"]
             ) == {
