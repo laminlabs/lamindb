@@ -11,16 +11,16 @@ Without **context**, agents & humans make mistakes and **cannot close feedback l
 Without **queriable and updatable memory**, much of the vastly available compute and intelligence can only be applied to narrow problems.
 So far there hasn't been a tool to collect the necessary data lineage, let alone querying it.
 
-(2) Training & fine-tuning models with thousands of datasets — across LIMS, ELNs, orthogonal assays — is now a major opportunity.
-But without **queryable & validated data** and with data locked in organizational & infrastructure siloes, it's either impossible or leads to poor outcomes: **garbage in, garbage out**.
+(2) Training & fine-tuning models with thousands of datasets — across LIMS, ELNs, orthogonal assays — is now the primary path to **scaling R&D**.
+But without **queryable & validated data** and with data locked in organizational & infrastructure siloes, it leads to **garbage in, garbage out** or is quite simply impossible.
 
 (3) Imagine building **software without git or pull requests**: an agent's quality would be impossible to verify.
 While code has git and tables have warehouses, biological data has lacked an open-source framework for managing its unique complexity.
-And while messy data has mostly been a problem for enterprises with complex operations, today it's a general blocker as any project aims to scale through AI.
+And while this has mostly been a problem for enterprises with particularly complex & scaled operations, today it's a blocker for any small lab project that aims to scale through AI.
 
-LaminDB fills the gap with a lineage-native lakehouse that understands bio-registries and formats (`AnnData`, `.zarr`, …) based on the established open data stack:
+**LaminDB fills the gap.** It is a lineage-native lakehouse that understands bio-registries and formats (`AnnData`, `.zarr`, …) based on the established open data stack:
 SQLite/Postgres for metadata and parquet files + other formats in cross-platform storage systems for big datasets.
-By unifying tracking, validation & queries into a single API, LaminDB provides the infrastructure to turn messy biological R&D into a scalable, AI-ready data engine.
+By unifying tracking, validation & queries into a single API, LaminDB provides a framework to turn messy, agentic biological R&D into scalable process.
 
 </details>
 
