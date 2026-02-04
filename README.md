@@ -16,6 +16,7 @@ But without queryable & validated data and with data locked in organizational & 
 (3) Imagine agentic software development without having a tool like git and a concept like pull requests. Evidently, quality would not be ascertainable.
 
 The problems of heterogeneous, complex & "messy" data and non-traceable transformations that plagued wide parts of R&D in biology have now been amplified by AI.
+What used to be small-scale projects can now reach what used to be enterprise scale.
 And while code has git and tables have warehouses and dbt, there hasn't been an open-source framework for managing biological data.
 
 LaminDB fills the gap with a lineage-native lakehouse that understands bio-registries and formats (`AnnData`, `.zarr`, …).
