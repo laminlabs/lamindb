@@ -28,7 +28,7 @@ The unified query, tracking, and validation API including versioning & change ma
 
 <img width="800px" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/BunYmHkyFLITlM5M000C.svg">
 
-Highlights:
+How?
 
 - **lineage** → track inputs & outputs of notebooks, scripts, functions & pipelines with a single line of code
 - **lakehouse** → manage, monitor & validate schemas; query across many datasets
@@ -43,10 +43,10 @@ Highlights:
 - **integrations** → [vitessce](https://docs.lamin.ai/vitessce), [nextflow](https://docs.lamin.ai/nextflow), [redun](https://docs.lamin.ai/redun), and [more](https://docs.lamin.ai/integrations)
 - **extensible** → create custom plug-ins based on the Django ORM
 
-If you want a GUI: [LaminHub](https://lamin.ai) is a data collaboration hub built on LaminDB similar to how GitHub is built on git.
+GUI? [LaminHub](https://lamin.ai) is a data collaboration hub built on LaminDB similar to how GitHub is built on git.
 
 <details>
-<summary>Who uses it?</summary>
+<summary>Who?</summary>
 
 Scientists and engineers at leading research institutions and biotech companies worldwide:
 
