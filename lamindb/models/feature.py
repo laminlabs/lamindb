@@ -985,7 +985,7 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
 
             ln.Feature(
                 name="cell_types",
-                dtype=[bt.Tissue.ontology_id, bt.CellType.ontology_id]
+                dtype="cat[bionty.Tissue.ontology_id|bionty.CellType.ontology_id]"
             ).save()
 
         A path feature::
