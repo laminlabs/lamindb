@@ -24,14 +24,6 @@ if TYPE_CHECKING:
     from upath import UPath
 
 
-def is_read_only_connection() -> bool:
-    instance = setup_settings.instance
-    if instance.dialect == "postgresql":
-        db_url = instance.db
-        return "read" in db_url or "public" in db_url
-    return False
-
-
 VERBOSITY_TO_INT = {
     "error": 0,  # 40
     "warning": 1,  # 30

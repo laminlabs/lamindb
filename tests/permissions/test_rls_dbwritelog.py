@@ -127,6 +127,8 @@ def test_authentication():
     assert len(result) == 1
     assert result[0] == (1, "read", "space")
 
+    assert ln.base.users._user_has_write_access()
+
 
 def test_select_without_db_token():
     # with db token can be read in the default space

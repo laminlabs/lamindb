@@ -29,7 +29,7 @@ from ..models._is_versioned import bump_version as bump_version_function
 from ..models._is_versioned import (
     increment_base62,
 )
-from ._settings import is_read_only_connection, settings
+from ._settings import settings
 from ._sync_git import get_transform_reference_from_git_repo
 from ._track_environment import track_python_environment
 
@@ -504,7 +504,7 @@ class Context:
         )
 
         # similar logic here: https://github.com/laminlabs/lamindb/pull/2527
-        if is_read_only_connection():
+        if ln_setup.settings.instance.is_read_only_connection:
             logger.warning("skipping track(), connected in read-only mode")
             return None
         if project is None:

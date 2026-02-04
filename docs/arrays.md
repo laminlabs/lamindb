@@ -2,7 +2,7 @@
 execute_via: python
 ---
 
-# Query tables & arrays in storage
+# Stream datasets from storage
 
 This guide walks through streaming datasets from disk or cloud storage.
 

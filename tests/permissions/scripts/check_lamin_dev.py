@@ -93,6 +93,11 @@ try:
     assert result.returncode == 0
 
 finally:
+    try:
+        storage_loc.run = None
+        storage_loc.save()
+    except:  # noqa
+        pass
     cleanup(
         (
             ulabel,
