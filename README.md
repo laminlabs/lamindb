@@ -6,19 +6,17 @@ With one API, you get: lakehouse, lineage, feature store, ontologies, bio-regist
 <details>
 <summary>Why?</summary>
 
-(1) Reproducing, tracing, and understanding how datasets, models, and workflows are created is critical to high-quality R&D.
-Without context, agents & humans make mistakes and **cannot close feedback loops** across data generation, processing, and analysis.
-Without queriable and updatable memory, much of the vastly available compute and intelligence can only be applied to narrow problems.
+(1) **Reproducing, tracing & understanding** how datasets, models & results are created is critical to high-quality R&D.
+Without **context**, agents & humans make mistakes and **cannot close feedback loops** across data generation & analysis.
+Without **queriable and updatable memory**, much of the vastly available compute and intelligence can only be applied to narrow problems.
 So far there hasn't been a tool to collect the necessary data lineage, let alone querying it.
 
-(2) Training & fine-tuning models with thousands of datasets — across LIMS, ELNs, orthogonal assays — is now a major learning opportunity.
-But without queryable & validated data and with data locked in organizational & infrastructure siloes, it's either impossible or leads to poor outcomes.
+(2) Training & fine-tuning models with thousands of datasets — across LIMS, ELNs, orthogonal assays — is now a major opportunity.
+But without **queryable & validated data** and with data locked in organizational & infrastructure siloes, it's either impossible or leads to poor outcomes: **garbage in, garbage out**.
 
-(3) Imagine agentic software development without having a tool like git and a concept like pull requests. Evidently, quality would not be ascertainable.
-
-The problems of heterogeneous, complex & messy data, and non-traceable transformations that plagued wide parts of R&D in biology have been amplified by AI.
-What used to be small-scale projects can now reach enterprise scale.
-And while code has git and tables have warehouses and dbt, there hasn't been an open-source framework for managing biological data.
+(3) Imagine building software without `git` or pull requests: quality would be impossible to verify.
+While code has git and tables have warehouses, biological data has lacked an open-source framework for managing its unique complexity.
+And while messy data has been mostly a problem for enterprises with complex operations, today it's a blocker as any project aims to scale through AI.
 
 LaminDB fills the gap with a lineage-native lakehouse that understands bio-registries and formats (`AnnData`, `.zarr`, …) based on the established open data stack:
 SQLite/Postgres for metadata and parquet files + other formats in cross-platform storage systems for big datasets.
@@ -41,7 +39,7 @@ How?
 - **scalable** → you hit storage & database directly through your `pydata` or R stack, no REST API involved
 - **simple** → just `pip install` from PyPI or `install.packages('laminr')` from CRAN
 - **integrations** → [vitessce](https://docs.lamin.ai/vitessce), [nextflow](https://docs.lamin.ai/nextflow), [redun](https://docs.lamin.ai/redun), and [more](https://docs.lamin.ai/integrations)
-- **extensible** → create custom plug-ins based on the Django ORM
+- **extensible** → create custom plug-ins based on the Django ORM, the basis for LaminDB's registries
 
 GUI? [LaminHub](https://lamin.ai) is a data collaboration hub built on LaminDB similar to how GitHub is built on git.
 
