@@ -352,7 +352,7 @@ Since not all metadata is always stored within the dataset itself, it is also po
 !python scripts/curate_dataframe_external_features.py
 ```
 
-## Union of dtypes
+## Union dtypes
 
 Some metadata columns might validate against several registries.
 
