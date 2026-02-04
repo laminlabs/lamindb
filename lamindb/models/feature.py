@@ -981,6 +981,13 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
                 dtype=list[bt.CellType],  # or list[str] for a list of strings
             ).save()
 
+        A feature accepting multiple category types - a union type::
+
+            ln.Feature(
+                name="cell_types",
+                dtype=[bt.Tissue.ontology_id, bt.CellType.ontology_id]
+            ).save()
+
         A path feature::
 
             ln.Feature(

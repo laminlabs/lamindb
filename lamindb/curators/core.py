@@ -1509,8 +1509,8 @@ class CatVector:
         remaining_values = str_values
 
         for result in results:
-            if not remaining_values:  # pragma: no cover
-                break
+            if not remaining_values:
+                break  # pragma: no cover
 
             if result is not None:
                 field = result["field"]
