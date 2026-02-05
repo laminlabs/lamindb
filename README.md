@@ -6,21 +6,19 @@ With one API, you get: lakehouse, lineage, feature store, ontologies, bio-regist
 <details>
 <summary>Why?</summary>
 
-(1) **Reproducing, tracing & understanding** how datasets, models & results are created is critical to high-quality R&D.
+(1) **Reproducing, tracing & understanding** how datasets, models & results are created is critical to quality R&D.
 Without **context**, agents & humans make mistakes and **cannot close feedback loops** across data generation & analysis.
-Without **queriable and updatable memory**, much of the vastly available compute and intelligence can only be applied to narrow problems.
-So far there hasn't been a tool to collect the necessary data lineage, let alone querying it.
+Without **memory**, much of the vastly available compute and intelligence can only be applied to narrow problems.
 
-(2) Training & fine-tuning models with thousands of datasets — across LIMS, ELNs, orthogonal assays — is now the primary path to **scaling R&D**.
-But without **queryable & validated data** and with data locked in organizational & infrastructure siloes, it leads to **garbage in, garbage out** or is quite simply impossible.
+(2) Training & fine-tuning models with thousands of datasets — across LIMS, ELNs, orthogonal assays — is now a primary path to **scaling R&D**.
+But without **queryable & validated data** or with data locked in organizational & infrastructure siloes, it leads to **garbage in, garbage out** or is quite simply impossible.
 
-(3) Imagine building **software without git or pull requests**: an agent's quality would be impossible to verify.
+Imagine building **software without git or pull requests**: an agent's quality would be impossible to verify.
 While code has git and tables have warehouses, biological data has lacked an open-source framework for managing its unique complexity.
-And while this has mostly been a problem for enterprises with particularly complex & scaled operations, today it's a blocker for any small lab project that aims to scale through AI.
 
 **LaminDB fills the gap.** It is a lineage-native lakehouse that understands bio-registries and formats (`AnnData`, `.zarr`, …) based on the established open data stack:
-SQLite/Postgres for metadata and parquet files + other formats in cross-platform storage systems for big datasets.
-By unifying tracking, validation & queries into a single API, LaminDB provides a framework to turn messy, agentic biological R&D into scalable process.
+Postgres/SQLite for metadata and cross-platform storage systems for big datasets.
+By offering queries, tracing & validation in a single API, LaminDB provides a simple framework to turn messy, agentic biological R&D into a scalable process.
 
 </details>
 
