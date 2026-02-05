@@ -6,20 +6,20 @@ You get context & memory through a lineage-native lakehouse that understands bio
 <details>
 <summary>Why?</summary>
 
-(1) **Reproducing, tracing & understanding** how datasets, models & results are created is critical to quality R&D.
-Without **context**, humans & agents make mistakes and **cannot close feedback loops** across data generation & analysis.
-Without **memory**, compute & intelligence are wasted on fragmented, non-compounding tasks.
+(1) Reproducing, tracing & understanding how datasets, models & results are created is critical to quality R&D.
+Without context, humans & agents make mistakes and cannot close feedback loops across data generation & analysis.
+Without memory, compute & intelligence are wasted on fragmented, non-compounding tasks.
 
-(2) Training & fine-tuning models with thousands of datasets — across LIMS, ELNs, orthogonal assays — is now a primary path to **scaling R&D**.
-But without **queryable & validated data** or with data locked in organizational & infrastructure siloes, it leads to **garbage in, garbage out** or is quite simply impossible.
+(2) Training & fine-tuning models with thousands of datasets — across LIMS, ELNs, orthogonal assays — is now a primary path to scaling R&D.
+But without queryable & validated data or with data locked in organizational & infrastructure siloes, it leads to garbage in, garbage out or is quite simply impossible.
 
-Imagine building software without git or pull requests: an agent's quality would be impossible to **verify**.
+Imagine building software without git or pull requests: an agent's quality would be impossible to verify.
 While code has git and tables have dbt/warehouses, biological data has lacked a framework for managing its unique complexity.
 
 LaminDB fills the gap.
 It is a lineage-native lakehouse that understands bio-registries and formats (`AnnData`, `.zarr`, …) based on the established open data stack:
 Postgres/SQLite for metadata and cross-platform storage for datasets.
-By offering **queries, tracing & validation in a single API**, LaminDB provides the **context & memory** to turn messy, agentic biological R&D into a scalable process.
+By offering queries, tracing & validation in a single API, LaminDB provides the context & memory to turn messy, agentic biological R&D into a scalable process.
 
 </details>
 
