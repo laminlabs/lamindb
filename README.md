@@ -45,7 +45,7 @@ GUI, permissions, audit logs? [LaminHub](https://lamin.ai) is a collaboration hu
 <details>
 <summary>Who?</summary>
 
-Scientists and engineers at leading research institutions and biotech companies worldwide, including:
+Scientists and engineers at leading research institutions and biotech companies, including:
 
 - **Industry** → Pfizer, Altos Labs, Ensocell Therapeutics, ...
 - **Academia & Research** → scverse, DZNE (National Research Center for Neuro-Degenerative Diseases), Helmholtz Munich (National Research Center for Environmental Health), ...
