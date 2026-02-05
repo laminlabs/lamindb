@@ -27,8 +27,7 @@ By offering **queries, tracing & validation in a single API**, LaminDB provides 
 How?
 
 - **lineage** → track inputs & outputs of notebooks, scripts, functions & pipelines with a single line of code
-- **lakehouse** → manage, monitor & validate schemas for standard and bio-formats; query across many datasets
-- **feature store** → manage features & labels; leverage batch loading
+- **lakehouse** → manage, monitor & validate schemas for standard and bio formats; query across many datasets
 - **FAIR datasets** → validate & annotate `DataFrame`, `AnnData`, `SpatialData`, `parquet`, `zarr`, …
 - **LIMS & ELN** → programmatic experimental design with bio-registries, ontologies & markdown notes
 - **unified access** → storage locations (local, S3, GCP, …), SQL databases (Postgres, SQLite) & ontologies
