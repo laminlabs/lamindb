@@ -37,7 +37,7 @@ How?
 - **zero lock-in** → runs anywhere on open standards (Postgres, SQLite, `parquet`, `zarr`, etc.)
 - **scalable** → you hit storage & database directly through your `pydata` or R stack, no REST API involved
 - **simple** → just `pip install` from PyPI or `install.packages('laminr')` from CRAN
-- **distributed** → dedicated zero-copy and lineage-aware data sharing across infrastructure (databases & storage locations)
+- **distributed** → zero-copy & lineage-aware data sharing across infrastructure (databases & storage locations)
 - **integrations** → [git](https://docs.lamin.ai/track#sync-code-with-git), [nextflow](https://docs.lamin.ai/nextflow), [vitessce](https://docs.lamin.ai/vitessce), [redun](https://docs.lamin.ai/redun), and [more](https://docs.lamin.ai/integrations)
 - **extensible** → create custom plug-ins based on the Django ORM, the basis for LaminDB's registries
 
