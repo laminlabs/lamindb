@@ -14,7 +14,7 @@ Without **memory**, compute & intelligence are wasted on fragmented, non-compoun
 But without **queryable & validated data** or with data locked in organizational & infrastructure siloes, it leads to **garbage in, garbage out** or is quite simply impossible.
 
 Imagine building software without git or pull requests: an agent's quality would be impossible to **verify**.
-While code has git and tables have warehouses, biological data has lacked a framework for managing its unique complexity.
+While code has git and tables have dbt/warehouses, biological data has lacked a framework for managing its unique complexity.
 
 LaminDB fills the gap. It is a lineage-native lakehouse that understands bio-registries and formats (`AnnData`, `.zarr`, …) based on the established open data stack:
 Postgres/SQLite for metadata and cross-platform storage for datasets.
