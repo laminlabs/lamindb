@@ -54,7 +54,7 @@ Scientists and engineers at leading research institutions and biotech companies 
 
 From personal research projects to pharma-scale deployments currently managing petabytes of data across:
 
-entities | scales
+entities | OOMs
 --- | ---
 observations & datasets | 10¹² & 10⁹
 runs & transforms| 10⁹ & 10⁵
