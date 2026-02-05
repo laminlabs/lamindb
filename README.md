@@ -13,7 +13,7 @@ Without **memory**, vast compute and intelligence are wasted on fragmented, non-
 (2) Training & fine-tuning models with thousands of datasets — across LIMS, ELNs, orthogonal assays — is now a primary path to **scaling R&D**.
 But without **queryable & validated data** or with data locked in organizational & infrastructure siloes, it leads to **garbage in, garbage out** or is quite simply impossible.
 
-Imagine building **software without git or pull requests**: an agent's quality would be impossible to verify.
+Imagine building software without git or pull requests: an agent's quality would be impossible to **verify**.
 While code has git and tables have warehouses, biological data has lacked an open-source framework for managing its unique complexity.
 
 LaminDB fills the gap. It is a lineage-native lakehouse that understands bio-registries and formats (`AnnData`, `.zarr`, …) based on the established open data stack:
@@ -33,6 +33,7 @@ How?
 - **LIMS & ELN** → manage bio-registries, ontologies & markdown notes
 - **unified access** → single API for storage locations (local, S3, GCP, …), SQL databases (Postgres, SQLite) & ontologies
 - **reproducible** → auto-track source code & compute environments with data/code/report versioning
+- **change management** → branching & merging similar to git
 - **zero lock-in** → runs anywhere on open standards (Postgres, SQLite, `parquet`, `zarr`, etc.)
 - **scalable** → you hit storage & database directly through your `pydata` or R stack, no REST API involved
 - **simple** → just `pip install` from PyPI or `install.packages('laminr')` from CRAN
@@ -40,7 +41,7 @@ How?
 - **integrations** → [git](https://docs.lamin.ai/track#sync-code-with-git), [nextflow](https://docs.lamin.ai/nextflow), [vitessce](https://docs.lamin.ai/vitessce), [redun](https://docs.lamin.ai/redun), and [more](https://docs.lamin.ai/integrations)
 - **extensible** → create custom plug-ins based on the Django ORM, the basis for LaminDB's registries
 
-GUI?
+GUI, permission management, audit logs, ...?
 
 - [LaminHub](https://lamin.ai) is a data collaboration hub built on LaminDB similar to how GitHub is built on git.
 - It's easy to vibe code on top of the open-source stack. ☺️
