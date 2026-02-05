@@ -30,7 +30,7 @@ How?
 - **lakehouse** → manage, monitor & validate schemas for standard and bio-formats; query across many datasets
 - **feature store** → manage features & labels; leverage batch loading
 - **FAIR datasets** → validate & annotate `DataFrame`, `AnnData`, `SpatialData`, `parquet`, `zarr`, …
-- **LIMS & ELN** → manage bio-registries, ontologies & markdown notes
+- **LIMS & ELN** → programmatic experimental design with bio-registries, ontologies & markdown notes
 - **unified access** → storage locations (local, S3, GCP, …), SQL databases (Postgres, SQLite) & ontologies
 - **reproducible** → auto-track source code & compute environments with data & code versioning
 - **change management** → branching & merging similar to git
