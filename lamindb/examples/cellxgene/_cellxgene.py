@@ -137,7 +137,9 @@ def create_cellxgene_schema(
         "sex_ontology_term_id": CategorySpec(bt.Phenotype.ontology_id, None),
         "suspension_type": CategorySpec(ULabel.name, "cell"),
         "tissue": CategorySpec(bt.Tissue.name, None),
-        "tissue_ontology_term_id": CategorySpec([bt.Tissue, bt.CellType], None),
+        "tissue_ontology_term_id": CategorySpec(
+            [bt.Tissue.ontology_id, bt.CellType.ontology_id], None
+        ),
         "tissue_type": CategorySpec(ULabel.name, "tissue"),
         "organism": CategorySpec(bt.Organism.scientific_name, None),
         "organism_ontology_term_id": CategorySpec(bt.Organism.ontology_id, None),

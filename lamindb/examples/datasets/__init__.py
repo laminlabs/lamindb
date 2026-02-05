@@ -64,6 +64,7 @@ from ._core import (
     anndata_pbmc3k_processed,
     anndata_pbmc68k_reduced,
     anndata_suo22_Visium10X,
+    apostolov_2024_cycling_cellxgene,
     df_iris,
     df_iris_in_meter,
     df_iris_in_meter_study1,
@@ -85,10 +86,7 @@ from ._core import (
     spatialdata_blobs,
 )
 from ._fake import fake_bio_notebook_titles
-from ._small import (
-    anndata_with_obs,
-    small_dataset3_cellxgene,
-)
+from ._small import anndata_with_obs, small_dataset3_cellxgene
 
 small_dataset1 = mini_immuno.get_dataset1  # backward compat
 small_dataset2 = mini_immuno.get_dataset2  # backward compat

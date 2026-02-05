@@ -590,6 +590,18 @@ def schmidt22_perturbseq(basedir=".") -> Path:  # pragma: no cover
     return Path(filepath).rename(Path(basedir) / filepath)
 
 
+def apostolov_2024_cycling_cellxgene() -> ad.AnnData:  # pragma: no cover
+    """Single-cell atlas of 24 hormone therapy naive localised prostate cancers - cycling subset.
+
+    Associated manuscript: https://www.biorxiv.org/content/10.1101/2024.10.23.619925v1
+    """
+    filepath, _ = urlretrieve(
+        "https://datasets.cellxgene.cziscience.com/77ab5a70-e848-49e8-9a64-ee81e6f9e772.h5ad",
+        "apostolov_2024_cycling.h5ad",
+    )
+    return ad.read_h5ad(filepath)
+
+
 def spatialdata_blobs() -> SpatialData:
     """Example SpatialData dataset for tutorials."""
     from spatialdata.datasets import blobs
