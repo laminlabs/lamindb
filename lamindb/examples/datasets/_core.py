@@ -593,6 +593,8 @@ def schmidt22_perturbseq(basedir=".") -> Path:  # pragma: no cover
 def apostolov_2024_cycling_cellxgene() -> ad.AnnData:  # pragma: no cover
     """Single-cell atlas of 24 hormone therapy naive localised prostate cancers - cycling subset.
 
+    The dataset is a CELLxGENE schema 7.0.0 validated dataset.
+
     Associated manuscript: https://www.biorxiv.org/content/10.1101/2024.10.23.619925v1
     """
     filepath, _ = urlretrieve(

@@ -99,7 +99,6 @@ def save_cellxgene_defaults() -> None:
 def create_cellxgene_schema(
     field_types: FieldType | Collection[FieldType] = "ontology_id",
     *,
-    organism: CELLxGENEOrganisms = "human",
     spatial_library_id: str | None = None,
 ) -> Schema:
     """Generates a :class:`~lamindb.Schema` for a specific CELLxGENE schema version.
@@ -198,7 +197,7 @@ def create_cellxgene_schema(
         obs_features.append(Feature(name=name, dtype=ULabel.name).save())
 
     obs_schema = Schema(
-        name=f"obs of CELLxGENE for {organism} of {field_types}",
+        name=f"obs of CELLxGENE of {field_types}",
         features=obs_features,
         otype="DataFrame",
         minimal_set=True,
@@ -253,7 +252,7 @@ def create_cellxgene_schema(
         slots[f"uns:spatial:{spatial_library_id}:scalefactors"] = scalefactors_schema
 
     full_cxg_schema = Schema(
-        name=f"CELLxGENE AnnData for {organism} of {', '.join(field_types) if isinstance(field_types, list) else field_types}",
+        name=f"CELLxGENE AnnData of {', '.join(field_types) if isinstance(field_types, list) else field_types}",
         otype="AnnData",
         minimal_set=True,
         coerce=True,
