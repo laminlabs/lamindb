@@ -17,7 +17,7 @@ Imagine building software without git or pull requests: an agent's quality would
 While code has git and tables have warehouses, biological data has lacked an open-source framework for managing its unique complexity.
 
 LaminDB fills the gap. It is a lineage-native lakehouse that understands bio-registries and formats (`AnnData`, `.zarr`, …) based on the established open data stack:
-Postgres/SQLite for metadata and cross-platform storage systems for big datasets.
+Postgres/SQLite for metadata and cross-platform storage for datasets.
 By offering **queries, tracing & validation in a single API**, LaminDB provides the **context & memory** to turn messy, agentic biological R&D into a scalable process.
 
 </details>
