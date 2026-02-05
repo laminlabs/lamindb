@@ -1,49 +1,66 @@
 # LaminDB [![docs](https://img.shields.io/badge/docs-yellow)](https://docs.lamin.ai) [![llms.txt](https://img.shields.io/badge/llms.txt-orange)](https://docs.lamin.ai/llms.txt) [![codecov](https://codecov.io/gh/laminlabs/lamindb/branch/main/graph/badge.svg?token=VKMRJ7OWR3)](https://codecov.io/gh/laminlabs/lamindb) [![pypi](https://img.shields.io/pypi/v/lamindb?color=blue&label=PyPI)](https://pypi.org/project/lamindb) [![cran](https://www.r-pkg.org/badges/version/laminr?color=green)](https://cran.r-project.org/package=laminr) [![stars](https://img.shields.io/github/stars/laminlabs/lamindb?style=flat&logo=GitHub&label=&color=gray)](https://github.com/laminlabs/lamindb) [![downloads](https://static.pepy.tech/personalized-badge/lamindb?period=total&units=INTERNATIONAL_SYSTEM&left_color=GRAY&right_color=GRAY&left_text=%E2%AC%87%EF%B8%8F)](https://pepy.tech/project/lamindb)
 
 LaminDB is an open-source data framework for biology to query, trace, and validate datasets and models at scale.
-With one API, you get: lakehouse, lineage, feature store, ontologies, bio-registries & formats.
+You get context & memory through a lineage-native lakehouse that understands bio-formats, registries & ontologies.
 
 <details>
 <summary>Why?</summary>
 
-Reproducing and understanding how datasets, models, and workflows were created is crucial to high-quality R&D — especially as agents increasingly contribute to it.
-At the same time, training models across thousands of datasets — from LIMS and ELNs to orthogonal assays and cross-team silos — is now a major learning opportunity, but requires queryable & validated data.
-Robustly scaled learning operations need something biology has lacked: an API-first data management framework comparable to git for code or warehouses for tables.
+(1) **Reproducing, tracing & understanding** how datasets, models & results are created is critical to quality R&D.
+Without **context**, humans & agents make mistakes and **cannot close feedback loops** across data generation & analysis.
+Without **memory**, compute & intelligence are wasted on fragmented, non-compounding tasks.
 
-LaminDB fills the gap with a lineage-native data lakehouse that understands bio-registries and formats (`AnnData`, `.zarr`, …).
-It provides queries across many datasets with enough freedom to maintain high-paced R&D while automating rich context on top of versioning, change management, and other industry standards.
+(2) Training & fine-tuning models with thousands of datasets — across LIMS, ELNs, orthogonal assays — is now a primary path to **scaling R&D**.
+But without **queryable & validated data** or with data locked in organizational & infrastructure siloes, it leads to **garbage in, garbage out** or is quite simply impossible.
+
+Imagine building software without git or pull requests: an agent's quality would be impossible to **verify**.
+While code has git and tables have dbt/warehouses, biological data has lacked a framework for managing its unique complexity.
+
+LaminDB fills the gap.
+It is a lineage-native lakehouse that understands bio-registries and formats (`AnnData`, `.zarr`, …) based on the established open data stack:
+Postgres/SQLite for metadata and cross-platform storage for datasets.
+By offering **queries, tracing & validation in a single API**, LaminDB provides the **context & memory** to turn messy, agentic biological R&D into a scalable process.
 
 </details>
 
 <img width="800px" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/BunYmHkyFLITlM5M000C.svg">
 
-Highlights:
+How?
 
 - **lineage** → track inputs & outputs of notebooks, scripts, functions & pipelines with a single line of code
-- **lakehouse** → manage, monitor & validate schemas; query across many datasets
-- **feature store** → manage features & labels; leverage batch loading
+- **lakehouse** → manage, monitor & validate schemas for standard and bio formats; query across many datasets
 - **FAIR datasets** → validate & annotate `DataFrame`, `AnnData`, `SpatialData`, `parquet`, `zarr`, …
-- **LIMS & ELN** → manage experimental metadata, ontologies & markdown notes
-- **unified access** → single API for storage locations (local, S3, GCP, …), SQL databases (Postgres, SQLite) & ontologies
-- **reproducible** → auto-track source code & compute environments with data, code & report versioning
+- **LIMS & ELN** → programmatic experimental design with bio-registries, ontologies & markdown notes
+- **unified access** → storage locations (local, S3, GCP, …), SQL databases (Postgres, SQLite) & ontologies
+- **reproducible** → auto-track source code & compute environments with data & code versioning
+- **change management** → branching & merging similar to git
 - **zero lock-in** → runs anywhere on open standards (Postgres, SQLite, `parquet`, `zarr`, etc.)
 - **scalable** → you hit storage & database directly through your `pydata` or R stack, no REST API involved
 - **simple** → just `pip install` from PyPI or `install.packages('laminr')` from CRAN
-- **integrations** → [vitessce](https://docs.lamin.ai/vitessce), [nextflow](https://docs.lamin.ai/nextflow), [redun](https://docs.lamin.ai/redun), and [more](https://docs.lamin.ai/integrations)
-- **extensible** → create custom plug-ins based on the Django ORM
+- **distributed** → zero-copy & lineage-aware data sharing across infrastructure (databases & storage locations)
+- **integrations** → [git](https://docs.lamin.ai/track#sync-code-with-git), [nextflow](https://docs.lamin.ai/nextflow), [vitessce](https://docs.lamin.ai/vitessce), [redun](https://docs.lamin.ai/redun), and [more](https://docs.lamin.ai/integrations)
+- **extensible** → create custom plug-ins based on the Django ORM, the basis for LaminDB's registries
 
-If you want a GUI: [LaminHub](https://lamin.ai) is a data collaboration hub built on LaminDB similar to how GitHub is built on git.
+GUI, permissions, audit logs? [LaminHub](https://lamin.ai) is a collaboration hub built on LaminDB similar to how GitHub is built on git.
 
 <details>
-<summary>Who uses it?</summary>
+<summary>Who?</summary>
 
-Scientists and engineers at leading research institutions and biotech companies worldwide:
+Scientists and engineers at leading research institutions and biotech companies, including:
 
-- **Industry** → Pfizer · Altos Labs · Ensocell Therapeutics · ...
-- **Academia & Research** → scverse · DZNE (National Research Center for Neuro-Degenerative Diseases) · Helmholtz Munich (National Research Center for Environmental Health) · ...
-- **Research Hospitals** → Partners in The Global Immunological Swarm Learning Network including U Bonn, Harvard, MIT, Stanford, ETH Zürich, Charité, Mount Sinai, ...
+- **Industry** → Pfizer, Altos Labs, Ensocell Therapeutics, ...
+- **Academia & Research** → scverse, DZNE (National Research Center for Neuro-Degenerative Diseases), Helmholtz Munich (National Research Center for Environmental Health), ...
+- **Research Hospitals** → Global Immunological Swarm Learning Network: Harvard, MIT, Stanford, ETH Zürich, Charité, U Bonn, Mount Sinai, ...
 
-From personal research projects to pharma-scale deployments managing petabytes of data across 10¹² observations, 10⁴ transforms, 10⁹ runs, 10⁶ genes, 10² species, 10⁵ biosamples, 10⁹ proteins, ...
+From personal research projects to pharma-scale deployments managing petabytes of data across:
+
+entities | OOMs
+--- | ---
+observations & datasets | 10¹² & 10⁶
+runs & transforms| 10⁹ & 10⁵
+proteins & genes | 10⁹ & 10⁶
+biosamples & species | 10⁵ & 10²
+... | ...
 
 </details>
 
