@@ -51,11 +51,11 @@ Scientists and engineers at leading research institutions and biotech companies 
 - **Academia & Research** → scverse, DZNE (National Research Center for Neuro-Degenerative Diseases), Helmholtz Munich (National Research Center for Environmental Health), ...
 - **Research Hospitals** → Global Immunological Swarm Learning Network: Harvard, MIT, Stanford, ETH Zürich, Charité, U Bonn, Mount Sinai, ...
 
-From personal research projects to pharma-scale deployments currently managing petabytes of data across:
+From personal research projects to pharma-scale deployments managing petabytes of data across:
 
 entities | OOMs
 --- | ---
-observations & datasets | 10¹² & 10⁹
+observations & datasets | 10¹² & 10⁶
 runs & transforms| 10⁹ & 10⁵
 proteins & genes | 10⁹ & 10⁶
 biosamples & species | 10⁵ & 10²
