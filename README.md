@@ -7,7 +7,7 @@ You get context & memory through a lineage-native lakehouse that understands bio
 <summary>Why?</summary>
 
 (1) **Reproducing, tracing & understanding** how datasets, models & results are created is critical to quality R&D.
-Without **context**, agents & humans make mistakes and **cannot close feedback loops** across data generation & analysis.
+Without **context**, humans & agents make mistakes and **cannot close feedback loops** across data generation & analysis.
 Without **memory**, vast compute and intelligence are wasted on fragmented, non-compounding tasks.
 
 (2) Training & fine-tuning models with thousands of datasets — across LIMS, ELNs, orthogonal assays — is now a primary path to **scaling R&D**.
