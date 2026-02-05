@@ -31,7 +31,7 @@ How?
 - **feature store** → manage features & labels; leverage batch loading
 - **FAIR datasets** → validate & annotate `DataFrame`, `AnnData`, `SpatialData`, `parquet`, `zarr`, …
 - **LIMS & ELN** → manage bio-registries, ontologies & markdown notes
-- **unified access** → single API for storage locations (local, S3, GCP, …), SQL databases (Postgres, SQLite) & ontologies
+- **unified access** → storage locations (local, S3, GCP, …), SQL databases (Postgres, SQLite) & ontologies
 - **reproducible** → auto-track source code & compute environments with data & code versioning
 - **change management** → branching & merging similar to git
 - **zero lock-in** → runs anywhere on open standards (Postgres, SQLite, `parquet`, `zarr`, etc.)
