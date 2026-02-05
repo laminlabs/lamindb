@@ -46,13 +46,21 @@ GUI, permission management, audit logs? [LaminHub](https://lamin.ai) is a data c
 <details>
 <summary>Who?</summary>
 
-Scientists and engineers at leading research institutions and biotech companies worldwide:
+Scientists and engineers at leading research institutions and biotech companies worldwide, including:
 
 - **Industry** → Pfizer, Altos Labs, Ensocell Therapeutics, ...
 - **Academia & Research** → scverse, DZNE (National Research Center for Neuro-Degenerative Diseases), Helmholtz Munich (National Research Center for Environmental Health), ...
-- **Research Hospitals** → partners in Immunological Swarm Learning Network including Harvard, MIT, Stanford, ETH Zürich, Charité, U Bonn, Mount Sinai, ...
+- **Research Hospitals** → Global Immunological Swarm Learning Network: Harvard, MIT, Stanford, ETH Zürich, Charité, U Bonn, Mount Sinai, ...
 
-From personal research projects to pharma-scale deployments managing petabytes of data across 10¹² observations, 10⁴ transforms, 10⁹ runs, 10⁶ genes, 10² species, 10⁵ biosamples, 10⁹ proteins, ...
+From personal research projects to pharma-scale deployments currently managing petabytes of data across:
+
+entities | scales
+--- | ---
+observations & datasets | 10¹² & 10⁹
+runs & transforms| 10⁹ & 10⁵
+proteins & genes | 10⁹ & 10⁶
+biosamples & species | 10⁵ & 10²
+... | ...
 
 </details>
 
