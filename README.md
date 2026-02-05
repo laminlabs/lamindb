@@ -32,7 +32,7 @@ How?
 - **FAIR datasets** → validate & annotate `DataFrame`, `AnnData`, `SpatialData`, `parquet`, `zarr`, …
 - **LIMS & ELN** → manage bio-registries, ontologies & markdown notes
 - **unified access** → single API for storage locations (local, S3, GCP, …), SQL databases (Postgres, SQLite) & ontologies
-- **reproducible** → auto-track source code & compute environments with data/code/report versioning
+- **reproducible** → auto-track source code & compute environments with data & code versioning
 - **change management** → branching & merging similar to git
 - **zero lock-in** → runs anywhere on open standards (Postgres, SQLite, `parquet`, `zarr`, etc.)
 - **scalable** → you hit storage & database directly through your `pydata` or R stack, no REST API involved
