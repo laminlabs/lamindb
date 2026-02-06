@@ -857,6 +857,7 @@ class ExperimentalDictCurator(DataFrameCurator):
         if isinstance(dataset, Artifact):
             assert dataset.otype == "dict", "Artifact must be of otype 'dict'."  # noqa: S101
             d = dataset.load(is_run_input=False)
+            assert isinstance(d, dict), "dict Artifact must load to dict."
         else:
             d = dataset
         df = convert_dict_to_dataframe_for_validation(d, schema)

@@ -9,8 +9,6 @@ from typing import TYPE_CHECKING, Any, Iterator, Literal, TypeVar, Union, overlo
 
 import fsspec
 import lamindb_setup as ln_setup
-import pandas as pd
-from anndata import AnnData
 from django.db import ProgrammingError, models
 from django.db.models import CASCADE, PROTECT, Q
 from django.db.models.functions import Length
@@ -39,7 +37,6 @@ from lamindb.models.query_set import QuerySet, SQLRecordList
 
 from ..base.users import current_user_id
 from ..core._settings import settings
-from ..core.loaders import load_to_memory
 from ..core.storage import (
     LocalPathClasses,
     UPath,
@@ -47,14 +44,6 @@ from ..core.storage import (
     infer_suffix,
     write_to_disk,
 )
-from ..core.storage._anndata_accessor import _anndata_n_observations
-from ..core.storage._backed_access import (
-    _track_writes_factory,
-    backed_access,
-)
-from ..core.storage._polars_lazy_df import POLARS_SUFFIXES
-from ..core.storage._pyarrow_dataset import PYARROW_SUFFIXES
-from ..core.storage._tiledbsoma import _soma_n_observations
 from ..core.storage.paths import (
     AUTO_KEY_PREFIX,
     auto_storage_key_from_artifact,
@@ -107,6 +96,9 @@ except ImportError:
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
+    import pandas as pd
+    from anndata import AnnData
+    from lamindb_setup.types import UPathStr
     from mudata import MuData  # noqa: TC004
     from polars import LazyFrame as PolarsLazyFrame
     from pyarrow.dataset import Dataset as PyArrowDataset
@@ -234,6 +226,9 @@ def process_data(
 
     if not overwritten, data gets stored in default storage
     """
+    import pandas as pd
+    from anndata import AnnData
+
     if key is not None:
         key_suffix = extract_suffix_from_path(PurePosixPath(key), arg_name="key")
         # use suffix as the (adata) format if the format is not provided
@@ -657,6 +652,8 @@ def check_otype_artifact(
     otype: str | None = None,
     cloud_warning: bool = True,
 ) -> str:
+    import pandas as pd
+
     if otype is None:
         if isinstance(data, UPathStr):
             is_path = True
@@ -2004,6 +2001,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             .. literalinclude:: scripts/test_artifact_parquet.py
                :language: python
         """
+        import pandas as pd
+
         from lamindb import examples
 
         if "format" not in kwargs and key is not None and key.endswith(".csv"):
@@ -2132,6 +2131,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         """
         from lamindb import examples
 
+        from ..core.storage._anndata_accessor import _anndata_n_observations
+
         if not data_is_scversedatastructure(adata, "AnnData"):
             raise ValueError(
                 "data has to be an AnnData object or a path to AnnData-like"
@@ -2161,6 +2162,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             # returns ._local_filepath for local files
             # and the proper path through create_path for cloud paths
             obj_for_obs = artifact.path
+        from ..core.storage._anndata_accessor import _anndata_n_observations
+
         artifact.n_observations = _anndata_n_observations(obj_for_obs)
         if schema is not None:
             from ..curators import AnnDataCurator
@@ -2349,6 +2352,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             kind="dataset",
             **kwargs,
         )
+        from ..core.storage._tiledbsoma import _soma_n_observations
+
         artifact.n_observations = _soma_n_observations(artifact.path)
         return artifact
 
@@ -2650,6 +2655,10 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             For more examples and background, see guide: :doc:`/arrays`.
 
         """
+        from ..core.storage._backed_access import _track_writes_factory, backed_access
+        from ..core.storage._polars_lazy_df import POLARS_SUFFIXES
+        from ..core.storage._pyarrow_dataset import PYARROW_SUFFIXES
+
         if self._overwrite_versions and not self.is_latest:
             raise ValueError(INCONSISTENT_STATE_MSG)
         # all hdf5 suffixes including gzipped
@@ -2760,7 +2769,14 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
     def load(
         self, *, is_run_input: bool | None = None, mute: bool = False, **kwargs
-    ) -> Any:
+    ) -> (
+        pd.DataFrame
+        | ScverseDataStructures
+        | dict[str, Any]
+        | list[Any]
+        | UPathStr
+        | None
+    ):
         """Cache artifact in local cache and then load it into memory.
 
         See: :mod:`~lamindb.core.loaders`.
@@ -2780,6 +2796,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
                 adata = artifact.load()
         """
+        from ..core.loaders import load_to_memory
+
         if self._overwrite_versions and not self.is_latest:
             raise ValueError(INCONSISTENT_STATE_MSG)
 

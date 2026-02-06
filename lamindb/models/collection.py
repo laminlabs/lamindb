@@ -2,8 +2,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Literal, overload
 
-import anndata as ad
-import pandas as pd
 from django.db import models
 from django.db.models import CASCADE, PROTECT, Q
 from lamin_utils import logger
@@ -19,7 +17,6 @@ from lamindb.base.utils import strict_classmethod
 
 from ..base.uids import base62_20
 from ..core._mapped_collection import MappedCollection
-from ..core.storage._backed_access import _open_dataframe
 from ..errors import FieldValidationError
 from ..models._is_versioned import process_revises
 from ._is_versioned import IsVersioned
@@ -44,6 +41,8 @@ from .sqlrecord import (
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator
 
+    import anndata as ad
+    import pandas as pd
     from polars import LazyFrame as PolarsLazyFrame
     from pyarrow.dataset import Dataset as PyArrowDataset
 
@@ -60,6 +59,9 @@ if TYPE_CHECKING:
 def _load_concat_artifacts(
     artifacts: list[Artifact], join: Literal["inner", "outer"] = "outer", **kwargs
 ) -> pd.DataFrame | ad.AnnData:
+    import anndata as ad
+    import pandas as pd
+
     suffixes = {artifact.suffix for artifact in artifacts}
     if len(suffixes) != 1:
         raise ValueError(
@@ -420,6 +422,8 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         else:
             artifacts = self.ordered_artifacts.all()
         paths = [artifact.path for artifact in artifacts]
+
+        from ..core.storage._backed_access import _open_dataframe
 
         dataframe = _open_dataframe(paths, engine=engine, **kwargs)
         # track only if successful

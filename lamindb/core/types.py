@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
 
-from anndata import AnnData
 from lamindb_setup.types import UPathStr
 
 from lamindb.base.types import (
@@ -16,4 +15,11 @@ from lamindb.base.types import (
 MuData = TypeVar("MuData")
 SpatialData = TypeVar("SpatialData")
 
-ScverseDataStructures = AnnData | MuData | SpatialData
+if TYPE_CHECKING:
+    from anndata import AnnData
+
+    ScverseDataStructures = AnnData | MuData | SpatialData
+else:
+    ScverseDataStructures = (
+        Any  # AnnData | MuData | SpatialData; lazy to avoid importing anndata
+    )

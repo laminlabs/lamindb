@@ -19,8 +19,6 @@ import re
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-import pandas as pd
-from anndata import read_h5ad
 from lamin_utils import logger
 from lamindb_setup import settings as setup_settings
 from lamindb_setup.core.upath import (
@@ -30,6 +28,7 @@ from lamindb_setup.core.upath import (
 )
 
 if TYPE_CHECKING:
+    import pandas as pd
     from anndata import AnnData
     from lamindb_setup.types import UPathStr
     from mudata import MuData
@@ -57,14 +56,18 @@ def load_fcs(*args, **kwargs) -> AnnData:
     return readfcs.read(*args, **kwargs)
 
 
-def load_tsv(path: UPathStr, **kwargs) -> pd.DataFrame:
+def load_tsv(path: UPathStr, **kwargs):
     """Load `.tsv` file to `DataFrame`."""
+    import pandas as pd
+
     path_sanitized = Path(path)
     return pd.read_csv(path_sanitized, sep="\t", **kwargs)
 
 
 def load_h5ad(filepath, **kwargs) -> AnnData:
     """Load an `.h5ad` file to `AnnData`."""
+    from anndata import read_h5ad
+
     fs, filepath = infer_filesystem(filepath)
     compression = kwargs.pop("compression", "infer")
     with fs.open(filepath, mode="rb", compression=compression) as file:
@@ -152,35 +155,71 @@ def load_rds(path: UPathStr) -> UPathStr:
     return path
 
 
-FILE_LOADERS = {
-    ".csv": pd.read_csv,
-    ".csv.gz": pd.read_csv,
-    ".csv.tar.gz": pd.read_csv,
-    ".tsv": load_tsv,
-    ".tsv.gz": load_tsv,
-    ".tsv.tar.gz": load_tsv,
-    ".h5ad": load_h5ad,
-    ".h5ad.gz": load_h5ad,
-    ".h5ad.tar.gz": load_h5ad,
-    ".parquet": pd.read_parquet,
-    ".fcs": load_fcs,
-    ".zarr": load_zarr,
-    ".anndata.zarr": load_zarr,
-    ".html": load_html,
-    ".json": load_json,
-    ".vitessce.json": load_json,
-    ".yaml": load_yaml,
-    ".h5mu": load_h5mu,
-    ".gif": load_image,
-    ".jpg": load_image,
-    ".png": load_image,
-    ".svg": load_svg,
-    ".rds": load_rds,
-    ".txt": load_txt,
-    ".fasta": load_txt,
-}
+_file_loaders_cache: dict[str, Any] | None = None
 
-SUPPORTED_SUFFIXES = [sfx for sfx in FILE_LOADERS.keys() if sfx != ".rds"]
+
+def _get_file_loaders() -> dict[str, Any]:
+    """Lazy-build FILE_LOADERS to avoid importing pandas/anndata at module load."""
+    global _file_loaders_cache
+    if _file_loaders_cache is None:
+        import pandas as pd
+
+        _file_loaders_cache = {
+            ".csv": pd.read_csv,
+            ".csv.gz": pd.read_csv,
+            ".csv.tar.gz": pd.read_csv,
+            ".tsv": load_tsv,
+            ".tsv.gz": load_tsv,
+            ".tsv.tar.gz": load_tsv,
+            ".h5ad": load_h5ad,
+            ".h5ad.gz": load_h5ad,
+            ".h5ad.tar.gz": load_h5ad,
+            ".parquet": pd.read_parquet,
+            ".fcs": load_fcs,
+            ".zarr": load_zarr,
+            ".anndata.zarr": load_zarr,
+            ".html": load_html,
+            ".json": load_json,
+            ".vitessce.json": load_json,
+            ".yaml": load_yaml,
+            ".h5mu": load_h5mu,
+            ".gif": load_image,
+            ".jpg": load_image,
+            ".png": load_image,
+            ".svg": load_svg,
+            ".rds": load_rds,
+            ".txt": load_txt,
+            ".fasta": load_txt,
+        }
+    return _file_loaders_cache
+
+
+SUPPORTED_SUFFIXES = [
+    ".csv",
+    ".csv.gz",
+    ".csv.tar.gz",
+    ".tsv",
+    ".tsv.gz",
+    ".tsv.tar.gz",
+    ".h5ad",
+    ".h5ad.gz",
+    ".h5ad.tar.gz",
+    ".parquet",
+    ".fcs",
+    ".zarr",
+    ".anndata.zarr",
+    ".html",
+    ".json",
+    ".vitessce.json",
+    ".yaml",
+    ".h5mu",
+    ".gif",
+    ".jpg",
+    ".png",
+    ".svg",
+    ".txt",
+    ".fasta",
+]
 """Suffixes with defined artifact loaders."""
 
 
@@ -196,7 +235,7 @@ def load_to_memory(
     """
     filepath = create_path(filepath)
     suffix = extract_suffix_from_path(filepath)
-    loader = FILE_LOADERS.get(suffix, None)
+    loader = _get_file_loaders().get(suffix, None)
     if loader is None:
         raise NotImplementedError(
             f"There is no loader for {suffix} files. Use .cache() to get the path."
