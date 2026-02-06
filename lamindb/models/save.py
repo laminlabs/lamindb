@@ -266,6 +266,13 @@ def bulk_update(
             registry.objects.bulk_update(batch, field_names)
 
 
+def _path_size(path: UPath) -> int:
+    if path.protocol in {"http", "https"}:
+        return path.stat().st_size
+    else:
+        return sum(o["size"] for o in path.fs.find(path.as_posix(), detail=True))
+
+
 # This is also used within Artifact.save()
 def check_and_attempt_upload(
     artifact: Artifact,
@@ -290,7 +297,24 @@ def check_and_attempt_upload(
             logger.warning(f"could not upload artifact: {artifact}")
             # clear dangling storages if we were actually uploading or saving
             if getattr(artifact, "_to_store", False):
-                artifact._clear_storagekey = auto_storage_key_from_artifact(artifact)  # type: ignore
+                storage_key = auto_storage_key_from_artifact(artifact)
+                original_size = artifact._original_values.get("size")
+                if original_size is not None:
+                    storage_path, _ = attempt_accessing_path(artifact, storage_key)
+                    # this is on replace, if it didn't change the original storage,
+                    # we don't need to clear the storage
+                    if storage_path.exists() and original_size == _path_size(
+                        storage_path
+                    ):
+                        logger.warning(f"failed to replace the artifact: {exception}")
+                        artifact.size = original_size
+                        for k in ("hash", "_hash_type", "run_id", "n_files"):
+                            setattr(artifact, k, artifact._original_values[k])
+                        original_suffix = artifact._original_values["suffix"]
+                        artifact.suffix = original_suffix
+                        artifact._old_suffix = original_suffix
+                        return None
+                artifact._clear_storagekey = storage_key
             return exception
         # copies (if on-disk) or moves the temporary file (if in-memory) to the cache
         if os.getenv("LAMINDB_MULTI_INSTANCE") is None:
