@@ -5,53 +5,27 @@ from functools import reduce
 from typing import TYPE_CHECKING, Literal
 
 import numpy as np
+import pandas as pd
 from lamin_utils import logger
 from lamindb_setup.core.upath import UPath
 
+from .storage._anndata_accessor import (
+    ArrayType,
+    ArrayTypes,
+    GroupType,
+    GroupTypes,
+    StorageType,
+    _safer_read_index,
+    get_spec,
+    registry,
+)
+
 if TYPE_CHECKING:
-    import pandas as pd
     from lamindb_setup.types import UPathStr
-
-    from .storage._anndata_accessor import ArrayType, GroupType, StorageType
-
-_lazy_mapped_collection_cache: dict[str, object] | None = None
-
-
-def _get_lazy_mapped_collection_deps():
-    """Lazy-import pandas and anndata accessor to avoid loading them at module import."""
-    global _lazy_mapped_collection_cache
-    if _lazy_mapped_collection_cache is None:
-        import pandas as pd
-
-        from .storage._anndata_accessor import (
-            ArrayType,
-            ArrayTypes,
-            GroupType,
-            GroupTypes,
-            StorageType,
-            _safer_read_index,
-            get_spec,
-            registry,
-        )
-
-        _lazy_mapped_collection_cache = {
-            "pd": pd,
-            "registry": registry,
-            "get_spec": get_spec,
-            "ArrayTypes": ArrayTypes,
-            "GroupTypes": GroupTypes,
-            "StorageType": StorageType,
-            "_safer_read_index": _safer_read_index,
-            "ArrayType": ArrayType,
-            "GroupType": GroupType,
-        }
-    return _lazy_mapped_collection_cache
 
 
 class _Connect:
     def __init__(self, storage):
-        deps = _get_lazy_mapped_collection_deps()
-        registry = deps["registry"]
         if isinstance(storage, UPath):
             # force no external compression even for files with .gz extension. REMOVE LATER
             self.conn, self.store = registry.open("h5py", storage, compression=None)
@@ -141,17 +115,6 @@ class MappedCollection:
         parallel: bool = False,
         dtype: str | None = None,
     ):
-        deps = _get_lazy_mapped_collection_deps()
-        self._pd = deps["pd"]
-        self._registry = deps["registry"]
-        self._get_spec = deps["get_spec"]
-        self._ArrayTypes = deps["ArrayTypes"]
-        self._GroupTypes = deps["GroupTypes"]
-        self._StorageType = deps["StorageType"]
-        self._safer_read_index = deps["_safer_read_index"]
-        self._ArrayType = deps["ArrayType"]
-        self._GroupType = deps["GroupType"]
-
         if join not in {None, "inner", "outer"}:  # pragma: nocover
             raise ValueError(
                 f"join must be one of None, 'inner, or 'outer' but was {type(join)}"
@@ -228,8 +191,8 @@ class MappedCollection:
                             obs_filter_values = [obs_filter_values]
                         obs_labels = self._get_labels(store, obs_filter_key)
                         obs_filter_mask = np.isin(obs_labels, obs_filter_values)
-                        if self._pd.isna(obs_filter_values).any():
-                            obs_filter_mask |= self._pd.isna(obs_labels)
+                        if pd.isna(obs_filter_values).any():
+                            obs_filter_mask |= pd.isna(obs_labels)
                         if indices_storage_mask is None:
                             indices_storage_mask = obs_filter_mask
                         else:
@@ -237,7 +200,7 @@ class MappedCollection:
                     indices_storage = np.where(indices_storage_mask)[0]
                     n_obs_storage = len(indices_storage)
                 else:
-                    if isinstance(X, self._ArrayTypes):  # type: ignore
+                    if isinstance(X, ArrayTypes):  # type: ignore
                         n_obs_storage = X.shape[0]
                     else:
                         n_obs_storage = X.attrs["shape"][0]
@@ -278,7 +241,6 @@ class MappedCollection:
         self._closed = False
 
     def _make_connections(self, path_list: list, parallel: bool):
-        registry = self._registry
         for path in path_list:
             path = UPath(path)
             if path.exists() and path.is_file():  # type: ignore
@@ -324,9 +286,9 @@ class MappedCollection:
         self.n_vars_list = []
         for storage in self.storages:
             with _Connect(storage) as store:
-                vars = self._safer_read_index(store["var"])
-            self.var_list.append(vars)
-            self.n_vars_list.append(len(vars))
+                vars = _safer_read_index(store["var"])
+                self.var_list.append(vars)
+                self.n_vars_list.append(len(vars))
 
     def _make_join_vars(self):
         if self.var_list is None:
@@ -338,7 +300,7 @@ class MappedCollection:
             return
 
         if self.join_vars == "inner":
-            self.var_joint = reduce(self._pd.Index.intersection, self.var_list)
+            self.var_joint = reduce(pd.Index.intersection, self.var_list)
             if len(self.var_joint) == 0:
                 raise ValueError(
                     "The provided AnnData objects don't have shared variables.\n"
@@ -348,7 +310,7 @@ class MappedCollection:
                 vrs.get_indexer(self.var_joint) for vrs in self.var_list
             ]
         elif self.join_vars == "outer":
-            self.var_joint = reduce(self._pd.Index.union, self.var_list)
+            self.var_joint = reduce(pd.Index.union, self.var_list)
             self.var_indices = [
                 self.var_joint.get_indexer(vrs) for vrs in self.var_list
             ]
@@ -371,15 +333,15 @@ class MappedCollection:
         """
         if self.var_list is None:
             self._read_vars()
-        vars = self._pd.Index(vars)
+        vars = pd.Index(vars)
         return [i for i, vrs in enumerate(self.var_list) if not vrs.equals(vars)]
 
     def _check_csc_raise_error(
-        self, elem: ArrayType | GroupType, key: str, path: UPathStr
+        self, elem: GroupType | ArrayType, key: str, path: UPathStr
     ):
-        if isinstance(elem, self._ArrayTypes):  # type: ignore
+        if isinstance(elem, ArrayTypes):  # type: ignore
             return
-        if self._get_spec(elem).encoding_type == "csc_matrix":
+        if get_spec(elem).encoding_type == "csc_matrix":
             if not self.parallel:
                 self.close()
             raise ValueError(
@@ -448,7 +410,7 @@ class MappedCollection:
         n_vars_out: int | None = None,
     ):
         """Get the index for the data."""
-        if isinstance(lazy_data, self._ArrayTypes):  # type: ignore
+        if isinstance(lazy_data, ArrayTypes):  # type: ignore
             lazy_data_idx = lazy_data[idx]  # type: ignore
             if join_vars is None:
                 result = lazy_data_idx
@@ -490,11 +452,11 @@ class MappedCollection:
         """Get the index for the label by key."""
         obs = storage["obs"]  # type: ignore
         # how backwards compatible do we want to be here actually?
-        if isinstance(obs, self._ArrayTypes):  # type: ignore
+        if isinstance(obs, ArrayTypes):  # type: ignore
             label = obs[idx][obs.dtype.names.index(label_key)]
         else:
             labels = obs[label_key]
-            if isinstance(labels, self._ArrayTypes):  # type: ignore
+            if isinstance(labels, ArrayTypes):  # type: ignore
                 label = labels[idx]
             else:
                 label = labels["codes"][idx]
@@ -586,7 +548,7 @@ class MappedCollection:
     def _get_categories(self, storage: StorageType, label_key: str):
         """Get categories."""
         obs = storage["obs"]  # type: ignore
-        if isinstance(obs, self._ArrayTypes):  # type: ignore
+        if isinstance(obs, ArrayTypes):  # type: ignore
             cat_key_uns = f"{label_key}_categories"
             if cat_key_uns in storage["uns"]:  # type: ignore
                 return storage["uns"][cat_key_uns]  # type: ignore
@@ -600,7 +562,7 @@ class MappedCollection:
                 else:
                     return None
             labels = obs[label_key]
-            if isinstance(labels, self._GroupTypes):  # type: ignore
+            if isinstance(labels, GroupTypes):  # type: ignore
                 if "categories" in labels:
                     return labels["categories"]
                 else:
@@ -615,11 +577,11 @@ class MappedCollection:
     def _get_codes(self, storage: StorageType, label_key: str):
         """Get codes."""
         obs = storage["obs"]  # type: ignore
-        if isinstance(obs, self._ArrayTypes):  # type: ignore
+        if isinstance(obs, ArrayTypes):  # type: ignore
             label = obs[label_key]
         else:
             label = obs[label_key]
-            if isinstance(label, self._ArrayTypes):  # type: ignore
+            if isinstance(label, ArrayTypes):  # type: ignore
                 return label[...]
             else:
                 return label["codes"][...]

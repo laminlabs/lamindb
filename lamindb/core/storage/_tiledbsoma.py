@@ -3,13 +3,15 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Literal
 from urllib.parse import urlparse
 
+import pandas as pd
+import pyarrow as pa
+from anndata import AnnData, read_h5ad
 from lamin_utils import logger
 from lamindb_setup import settings as setup_settings
 from lamindb_setup.core.upath import LocalPathClasses, create_path, get_storage_region
 from packaging import version
 
 if TYPE_CHECKING:
-    from anndata import AnnData
     from lamindb_setup.types import UPathStr
     from tiledbsoma import Collection as SOMACollection
     from tiledbsoma import Experiment as SOMAExperiment
@@ -21,8 +23,6 @@ if TYPE_CHECKING:
 
 
 def _load_h5ad_zarr(objpath: UPath):
-    from anndata import read_h5ad
-
     from lamindb.core.loaders import load_h5ad, load_zarr
 
     if objpath.is_dir():
@@ -134,10 +134,6 @@ def save_tiledbsoma_experiment(
         append_obsm_varm: Whether to append `obsm` and `varm` in append mode .
         **kwargs: Keyword arguments passed to `tiledbsoma.io.from_anndata`.
     """
-    import pandas as pd
-    import pyarrow as pa
-    from anndata import AnnData
-
     try:
         import tiledbsoma as soma
         import tiledbsoma.io as soma_io

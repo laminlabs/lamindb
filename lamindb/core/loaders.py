@@ -35,12 +35,15 @@ if TYPE_CHECKING:
 
     from lamindb.core.types import ScverseDataStructures
 
-try:
-    from ..core.storage._zarr import load_zarr
-except ImportError:
 
-    def load_zarr(storepath):  # type: ignore
-        raise ImportError("Please install zarr: pip install 'lamindb[zarr]'")
+def load_zarr(storepath, **kwargs):
+    """Lazy-import to avoid loading storage at package import."""
+    try:
+        from ..core.storage._zarr import load_zarr as _load_zarr
+
+        return _load_zarr(storepath, **kwargs)
+    except ImportError:
+        raise ImportError("Please install zarr: pip install 'lamindb[zarr]'") from None
 
 
 is_run_from_ipython = getattr(builtins, "__IPYTHON__", False)

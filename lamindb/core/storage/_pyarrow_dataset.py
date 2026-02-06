@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+import pyarrow.dataset
 from lamindb_setup.core.upath import LocalPathClasses
 
 if TYPE_CHECKING:
@@ -36,7 +37,5 @@ def _open_pyarrow_dataset(paths: UPath | list[UPath], **kwargs) -> PyArrowDatase
         paths_str, filesystem = paths.as_posix(), None
     else:
         paths_str, filesystem = paths.path, paths.fs
-
-    import pyarrow.dataset
 
     return pyarrow.dataset.dataset(paths_str, filesystem=filesystem, **kwargs)

@@ -3,24 +3,22 @@ from __future__ import annotations
 from pathlib import PurePosixPath
 from typing import TYPE_CHECKING, Any, TypeAlias
 
+from anndata import AnnData
+from pandas import DataFrame
+
 from lamindb.core._compat import (
     with_package_obj,
 )
+from lamindb.core.types import ScverseDataStructures
 
 if TYPE_CHECKING:
     from lamindb_setup.types import UPathStr
-    from pandas import DataFrame
 
-    from lamindb.core.types import ScverseDataStructures
-
-SupportedDataTypes: TypeAlias = "DataFrame | ScverseDataStructures"
+SupportedDataTypes: TypeAlias = DataFrame | ScverseDataStructures
 
 
 def infer_suffix(dmem: SupportedDataTypes, format: str | dict[str, Any] | None = None):
     """Infer LaminDB storage file suffix from a data object."""
-    from anndata import AnnData
-    from pandas import DataFrame
-
     if isinstance(dmem, AnnData):
         assert not isinstance(format, dict)  # noqa: S101
         if format is not None:
@@ -77,9 +75,6 @@ def infer_suffix(dmem: SupportedDataTypes, format: str | dict[str, Any] | None =
 
 def write_to_disk(dmem: SupportedDataTypes, filepath: UPathStr, **kwargs) -> None:
     """Writes the passed in memory data to disk to a specified path."""
-    from anndata import AnnData
-    from pandas import DataFrame
-
     if isinstance(dmem, AnnData):
         suffix = PurePosixPath(filepath).suffix
         if suffix == ".h5ad":

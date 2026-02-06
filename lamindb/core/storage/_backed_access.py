@@ -5,7 +5,13 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Literal
 
 import h5py
+from anndata._io.specs.registry import get_spec
 
+from ._anndata_accessor import AnnDataAccessor, StorageType, registry
+from ._polars_lazy_df import POLARS_SUFFIXES, _open_polars_lazy_df
+from ._pyarrow_dataset import PYARROW_SUFFIXES, _open_pyarrow_dataset
+from ._spatialdata_accessor import SpatialDataAccessor
+from ._tiledbsoma import _open_tiledbsoma
 from .paths import filepath_from_artifact
 
 if TYPE_CHECKING:
@@ -20,9 +26,6 @@ if TYPE_CHECKING:
     from upath import UPath
 
     from lamindb.models.artifact import Artifact
-
-    from ._anndata_accessor import AnnDataAccessor, StorageType
-    from ._spatialdata_accessor import SpatialDataAccessor
 
 
 # this dynamically creates a subclass of a context manager class
@@ -87,15 +90,7 @@ def backed_access(
     | PyArrowDataset
     | Iterator[PolarsLazyFrame]
 ):
-    from anndata._io.specs.registry import get_spec
-
     from lamindb.models import Artifact
-
-    from ._anndata_accessor import AnnDataAccessor, registry
-    from ._polars_lazy_df import POLARS_SUFFIXES
-    from ._pyarrow_dataset import PYARROW_SUFFIXES
-    from ._spatialdata_accessor import SpatialDataAccessor
-    from ._tiledbsoma import _open_tiledbsoma
 
     if isinstance(artifact_or_filepath, Artifact):
         artifact = artifact_or_filepath
@@ -176,9 +171,6 @@ def _open_dataframe(
     engine: Literal["pyarrow", "polars"] = "pyarrow",
     **kwargs,
 ) -> PyArrowDataset | Iterator[PolarsLazyFrame]:
-    from ._polars_lazy_df import POLARS_SUFFIXES, _open_polars_lazy_df
-    from ._pyarrow_dataset import PYARROW_SUFFIXES, _open_pyarrow_dataset
-
     if engine not in {"pyarrow", "polars"}:
         raise ValueError(
             f"Unknown engine: {engine}. It should be 'pyarrow' or 'polars'."

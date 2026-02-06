@@ -16,7 +16,6 @@ from lamindb.base.fields import (
 from lamindb.base.utils import strict_classmethod
 
 from ..base.uids import base62_20
-from ..core._mapped_collection import MappedCollection
 from ..errors import FieldValidationError
 from ..models._is_versioned import process_revises
 from ._is_versioned import IsVersioned
@@ -46,6 +45,7 @@ if TYPE_CHECKING:
     from polars import LazyFrame as PolarsLazyFrame
     from pyarrow.dataset import Dataset as PyArrowDataset
 
+    from ..core._mapped_collection import MappedCollection
     from ..core.storage import UPath
     from .block import CollectionBlock
     from .project import Project, Reference
@@ -499,6 +499,8 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             >>> # or directly from a query set of artifacts
             >>> mapped = ln.Artifact.filter(..., otype="AnnData").order_by("-created_at").mapped()
         """
+        from ..core._mapped_collection import MappedCollection
+
         path_list = []
         if self._state.adding:
             artifacts = self._artifacts

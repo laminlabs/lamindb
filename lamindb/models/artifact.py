@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import shutil
+import types
 import warnings
 from collections import defaultdict
 from pathlib import Path, PurePath, PurePosixPath
@@ -37,21 +38,6 @@ from lamindb.models.query_set import QuerySet, SQLRecordList
 
 from ..base.users import current_user_id
 from ..core._settings import settings
-from ..core.storage import (
-    LocalPathClasses,
-    UPath,
-    delete_storage,
-    infer_suffix,
-    write_to_disk,
-)
-from ..core.storage.paths import (
-    AUTO_KEY_PREFIX,
-    auto_storage_key_from_artifact,
-    auto_storage_key_from_artifact_uid,
-    check_path_is_child_of_root,
-    filepath_cache_key_from_artifact,
-    filepath_from_artifact,
-)
 from ..errors import InvalidArgument, NoStorageLocationForSpace, ValidationError
 from ..models._is_versioned import (
     create_uid,
@@ -81,16 +67,64 @@ from .sqlrecord import (
 from .storage import Storage
 from .ulabel import ULabel
 
+
+def _storage():
+    """Lazy-import storage to avoid loading pandas/anndata at package import."""
+    from ..core.storage import (
+        LocalPathClasses,
+        UPath,
+        delete_storage,
+        infer_suffix,
+        write_to_disk,
+    )
+    from ..core.storage.paths import (
+        AUTO_KEY_PREFIX,
+        auto_storage_key_from_artifact,
+        auto_storage_key_from_artifact_uid,
+        check_path_is_child_of_root,
+        filepath_cache_key_from_artifact,
+        filepath_from_artifact,
+    )
+
+    return types.SimpleNamespace(
+        LocalPathClasses=LocalPathClasses,
+        UPath=UPath,
+        delete_storage=delete_storage,
+        infer_suffix=infer_suffix,
+        write_to_disk=write_to_disk,
+        AUTO_KEY_PREFIX=AUTO_KEY_PREFIX,
+        auto_storage_key_from_artifact=auto_storage_key_from_artifact,
+        auto_storage_key_from_artifact_uid=auto_storage_key_from_artifact_uid,
+        check_path_is_child_of_root=check_path_is_child_of_root,
+        filepath_cache_key_from_artifact=filepath_cache_key_from_artifact,
+        filepath_from_artifact=filepath_from_artifact,
+    )
+
+
+# Cache the storage utils on first use
+_storage_cache: object | None = None
+
+
+def _s():
+    global _storage_cache
+    if _storage_cache is None:
+        _storage_cache = _storage()
+    return _storage_cache
+
+
 WARNING_RUN_TRANSFORM = "no run & transform got linked, call `ln.track()` & re-run"
 
 WARNING_NO_INPUT = "run input wasn't tracked, call `ln.track()` and re-run"
 
-try:
-    from ..core.storage._zarr import identify_zarr_type
-except ImportError:
 
-    def identify_zarr_type(storepath):  # type: ignore
-        raise ImportError("Please install zarr: pip install 'lamindb[zarr]'")
+def _identify_zarr_type(storepath):
+    """Lazy-import to avoid loading storage at package import."""
+    try:
+        from ..core.storage._zarr import identify_zarr_type
+
+        return identify_zarr_type(storepath)
+    except ImportError:
+        raise ImportError("Please install zarr: pip install 'lamindb[zarr]'") from None
 
 
 if TYPE_CHECKING:
@@ -98,6 +132,7 @@ if TYPE_CHECKING:
 
     import pandas as pd
     from anndata import AnnData
+    from lamindb_setup.core.upath import UPath
     from lamindb_setup.types import UPathStr
     from mudata import MuData  # noqa: TC004
     from polars import LazyFrame as PolarsLazyFrame
@@ -147,7 +182,7 @@ def process_pathlike(
                 raise FileNotFoundError(filepath)
         except PermissionError:
             pass
-    if check_path_is_child_of_root(filepath, storage.root):
+    if _s().check_path_is_child_of_root(filepath, storage.root):
         use_existing_storage_key = True
         return storage, use_existing_storage_key
     else:
@@ -165,7 +200,7 @@ def process_pathlike(
         else:
             # if the path is in the cloud, we have a good candidate
             # for the storage root: the bucket
-            if not isinstance(filepath, LocalPathClasses):
+            if not isinstance(filepath, _s().LocalPathClasses):
                 # for a cloud path, new_root is always the bucket name
                 if filepath.protocol == "hf":
                     hf_path = filepath.fs.resolve_path(filepath.as_posix())
@@ -237,7 +272,7 @@ def process_data(
     else:
         key_suffix = None
 
-    if isinstance(data, (str, Path, UPath)):
+    if isinstance(data, (str, Path, _s().UPath)):
         access_token = (
             storage._access_token if hasattr(storage, "_access_token") else None
         )
@@ -263,7 +298,7 @@ def process_data(
     ):
         storage = storage
         memory_rep = data
-        suffix = infer_suffix(data, format)
+        suffix = _s().infer_suffix(data, format)
     else:
         raise NotImplementedError(
             f"Do not know how to create an Artifact from {data}, pass a path instead."
@@ -272,7 +307,7 @@ def process_data(
     # Check for suffix consistency
     if key_suffix is not None and key_suffix != suffix and not is_replace:
         # consciously omitting a trailing period
-        if isinstance(data, (str, Path, UPath)):  # UPathStr, spelled out
+        if isinstance(data, (str, Path, _s().UPath)):  # UPathStr, spelled out
             message = f"The passed path's suffix '{suffix}' must match the passed key's suffix '{key_suffix}'."
         else:
             message = f"The passed key's suffix '{key_suffix}' must match the passed path's suffix '{suffix}'."
@@ -284,7 +319,7 @@ def process_data(
         logger.important("writing the in-memory object into cache")
         if to_disk_kwargs is None:
             to_disk_kwargs = {}
-        write_to_disk(data, path, **to_disk_kwargs)
+        _s().write_to_disk(data, path, **to_disk_kwargs)
         use_existing_storage_key = False
 
     return memory_rep, path, suffix, storage, use_existing_storage_key
@@ -304,7 +339,7 @@ def get_stat_or_artifact(
     if settings.creation.artifact_skip_size_hash:
         return None, None, None, n_files, None
     stat = path.stat()  # one network request
-    if not isinstance(path, LocalPathClasses):
+    if not isinstance(path, _s().LocalPathClasses):
         size, hash, hash_type = None, None, None
         if stat is not None:
             # convert UPathStatResult to fsspec info dict
@@ -384,7 +419,7 @@ def check_path_in_existing_storage(
 ) -> Storage | None:
     for storage in Storage.objects.using(using_key).order_by(Length("root").desc()):
         # if path is part of storage, return it
-        if check_path_is_child_of_root(path, root=storage.root):
+        if _s().check_path_is_child_of_root(path, root=storage.root):
             return storage
     # we don't see parents registered in the db, so checking the hub
     # just check for 2 writable cloud protocols, maybe change in the future
@@ -398,7 +433,9 @@ def check_path_in_existing_storage(
 def get_relative_path_to_directory(
     path: PurePath | Path | UPath, directory: PurePath | Path | UPath
 ) -> PurePath | Path:
-    if isinstance(directory, UPath) and not isinstance(directory, LocalPathClasses):
+    if isinstance(directory, _s().UPath) and not isinstance(
+        directory, _s().LocalPathClasses
+    ):
         # UPath.relative_to() is not behaving as it should (2023-04-07)
         # need to lstrip otherwise inconsistent behavior across trailing slashes
         # see test_artifact.py: test_get_relative_path_to_directory
@@ -447,7 +484,7 @@ def get_artifact_kwargs_from_data(
     real_key = None
     if use_existing_storage_key:
         inferred_key = get_relative_path_to_directory(
-            path=path, directory=UPath(storage.root)
+            path=path, directory=_s().UPath(storage.root)
         ).as_posix()
         if key is None:
             key = inferred_key
@@ -464,7 +501,7 @@ def get_artifact_kwargs_from_data(
         is_replace=is_replace,
         skip_hash_lookup=skip_hash_lookup,
     )
-    if not isinstance(path, LocalPathClasses):
+    if not isinstance(path, _s().LocalPathClasses):
         local_filepath = None
         cloud_filepath = path
     else:
@@ -566,14 +603,14 @@ def log_storage_hint(
         if fsspec.utils.get_protocol(storage.root) == "file":  # type: ignore
             # if it's a local path, check whether it's in the current working directory
             root_path = Path(storage.root)  # type: ignore
-            if check_path_is_child_of_root(root_path, Path.cwd()):
+            if _s().check_path_is_child_of_root(root_path, Path.cwd()):
                 # only display the relative path, not the fully resolved path
                 display_root = root_path.relative_to(Path.cwd())  # type: ignore
         hint += f"path in storage '{display_root}'"  # type: ignore
     else:
         hint += "path content will be copied to default storage upon `save()`"
     if key is None:
-        storage_key = auto_storage_key_from_artifact_uid(uid, suffix, is_dir)
+        storage_key = _s().auto_storage_key_from_artifact_uid(uid, suffix, is_dir)
         hint += f" with key `None` ('{storage_key}')"
     else:
         hint += f" with key '{key}'"
@@ -609,8 +646,8 @@ def data_is_scversedatastructure(
         return True
 
     data_type = structure_type.lower()
-    if isinstance(data, (str, Path, UPath)):
-        data_path = UPath(data)
+    if isinstance(data, (str, Path, _s().UPath)):
+        data_path = _s().UPath(data)
 
         if file_suffix in data_path.suffixes:
             return True
@@ -623,7 +660,7 @@ def data_is_scversedatastructure(
             # check only for local, expensive for cloud
             if fsspec.utils.get_protocol(data_path.as_posix()) == "file":
                 return (
-                    identify_zarr_type(
+                    _identify_zarr_type(
                         data_path if structure_type == "AnnData" else data,
                         check=True if structure_type == "AnnData" else False,
                     )
@@ -643,7 +680,7 @@ def data_is_soma_experiment(data: SOMAExperiment | UPathStr) -> bool:
     if hasattr(data, "__class__") and data.__class__.__name__ == "Experiment":
         return True
     if isinstance(data, (str, Path)):
-        return UPath(data).suffix == ".tiledbsoma"
+        return _s().UPath(data).suffix == ".tiledbsoma"
     return False
 
 
@@ -657,7 +694,7 @@ def check_otype_artifact(
     if otype is None:
         if isinstance(data, UPathStr):
             is_path = True
-            suffix = UPath(data).suffix
+            suffix = _s().UPath(data).suffix
         else:
             is_path = False
             suffix = None
@@ -926,7 +963,7 @@ def add_labels(
 def delete_permanently(artifact: Artifact, storage: bool, using_key: str):
     # need to grab file path before deletion
     try:
-        path, _ = filepath_from_artifact(artifact, using_key)
+        path, _ = _s().filepath_from_artifact(artifact, using_key)
     except OSError:
         # we can still delete the record
         logger.warning("Could not get path")
@@ -971,7 +1008,7 @@ def delete_permanently(artifact: Artifact, storage: bool, using_key: str):
     # we don't yet have logic to bring back the deleted metadata record
     # in case storage deletion fails - this is important for ACID down the road
     if delete_in_storage:
-        delete_msg = delete_storage(path, raise_file_not_found_error=False)
+        delete_msg = _s().delete_storage(path, raise_file_not_found_error=False)
         if delete_msg != "did-not-delete":
             logger.success(f"deleted {colors.yellow(f'{path}')}")
 
@@ -1010,7 +1047,7 @@ class LazyArtifact:
             )
 
         uid, _ = create_uid(n_full_id=20)
-        storage_key = auto_storage_key_from_artifact_uid(
+        storage_key = _s().auto_storage_key_from_artifact_uid(
             uid, suffix, overwrite_versions=overwrite_versions
         )
         storepath = setup_settings.storage.root / storage_key
@@ -1537,13 +1574,13 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         _is_internal_call = kwargs.pop("_is_internal_call", False)
         skip_check_exists = kwargs.pop("skip_check_exists", False)
 
-        if key is not None and AUTO_KEY_PREFIX in key:
+        if key is not None and _s().AUTO_KEY_PREFIX in key:
             raise ValueError(
-                f"Do not pass key that contains a managed storage path in `{AUTO_KEY_PREFIX}`"
+                f"Do not pass key that contains a managed storage path in `{_s().AUTO_KEY_PREFIX}`"
             )
         # below is for internal calls that require defining the storage location
         # ahead of constructing the Artifact
-        if isinstance(path, (str, Path)) and AUTO_KEY_PREFIX in str(path):
+        if isinstance(path, (str, Path)) and _s().AUTO_KEY_PREFIX in str(path):
             if _is_internal_call:
                 if _key_is_virtual is False:
                     raise ValueError(
@@ -1554,7 +1591,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 key = None
             else:
                 raise ValueError(
-                    f"Do not pass path inside the `{AUTO_KEY_PREFIX}` directory."
+                    f"Do not pass path inside the `{_s().AUTO_KEY_PREFIX}` directory."
                 )
         else:
             is_automanaged_path = False
@@ -1708,9 +1745,11 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
         if is_automanaged_path and _is_internal_call:
             kwargs["_key_is_virtual"] = True
-            assert AUTO_KEY_PREFIX in kwargs["key"]  # noqa: S101
+            assert _s().AUTO_KEY_PREFIX in kwargs["key"]  # noqa: S101
             uid = (
-                kwargs["key"].replace(AUTO_KEY_PREFIX, "").replace(kwargs["suffix"], "")
+                kwargs["key"]
+                .replace(_s().AUTO_KEY_PREFIX, "")
+                .replace(kwargs["suffix"], "")
             )
             kwargs["key"] = user_provided_key
             if revises is not None:
@@ -1814,15 +1853,15 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             artifact.path
             #> PosixPath('/home/runner/work/lamindb/lamindb/docs/guide/mydata/myfile.csv')
         """
-        filepath, _ = filepath_from_artifact(self, using_key=settings._using_key)
+        filepath, _ = _s().filepath_from_artifact(self, using_key=settings._using_key)
         return filepath
 
     @property
     def _cache_path(self) -> UPath:
-        filepath, cache_key = filepath_cache_key_from_artifact(
+        filepath, cache_key = _s().filepath_cache_key_from_artifact(
             self, using_key=settings._using_key
         )
-        if isinstance(filepath, LocalPathClasses):
+        if isinstance(filepath, _s().LocalPathClasses):
             return filepath
         return setup_settings.paths.cloud_to_local_no_update(
             filepath, cache_key=cache_key
@@ -2401,7 +2440,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             else:
                 # maintain the hierachy within an existing storage location
                 folder_key_path = get_relative_path_to_directory(
-                    folderpath, UPath(storage.root)
+                    folderpath, _s().UPath(storage.root)
                 )
         else:
             folder_key_path = Path(key)
@@ -2558,7 +2597,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 )
             else:
                 # purely virtual key case
-                self._clear_storagekey = auto_storage_key_from_artifact(self)
+                self._clear_storagekey = _s().auto_storage_key_from_artifact(self)
                 # might replace None with None, not a big deal
                 self.key = new_key
                 # update the old key with the new one so that checks in record pass
@@ -2689,7 +2728,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 " (no mixing allowed)."
             )
         using_key = settings._using_key
-        filepath, cache_key = filepath_cache_key_from_artifact(
+        filepath, cache_key = _s().filepath_cache_key_from_artifact(
             self, using_key=using_key
         )
 
@@ -2713,7 +2752,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             open_cache = False
         else:
             open_cache = not isinstance(
-                filepath, LocalPathClasses
+                filepath, _s().LocalPathClasses
             ) and not filepath.synchronize_to(localpath, just_check=True)
         if open_cache:
             try:
@@ -2724,7 +2763,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 # also ignore ValueError here because
                 # such errors most probably just imply an incorrect argument
                 if isinstance(e, (ImportError, ValueError)) or isinstance(
-                    filepath, LocalPathClasses
+                    filepath, _s().LocalPathClasses
                 ):
                     raise e
                 logger.warning(
@@ -2745,7 +2784,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
                 def finalize():
                     nonlocal self, filepath, localpath
-                    if not isinstance(filepath, LocalPathClasses):
+                    if not isinstance(filepath, _s().LocalPathClasses):
                         _, hash, _, _ = get_stat_dir_cloud(filepath)
                     else:
                         # this can be very slow
@@ -2809,7 +2848,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             if access_memory.__class__.__name__ == "SpatialData":
                 access_memory.path = self._cache_path
         else:
-            filepath, cache_key = filepath_cache_key_from_artifact(
+            filepath, cache_key = _s().filepath_cache_key_from_artifact(
                 self, using_key=settings._using_key
             )
             cache_path = _synchronize_cleanup_on_error(
@@ -2823,7 +2862,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 # import error is also most probbaly not a problem with the cache
                 # or if the original path is local
                 if isinstance(e, (NotImplementedError, ImportError)) or isinstance(
-                    filepath, LocalPathClasses
+                    filepath, _s().LocalPathClasses
                 ):
                     raise e
                 logger.warning(
@@ -2867,7 +2906,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         if self._overwrite_versions and not self.is_latest:
             raise ValueError(INCONSISTENT_STATE_MSG)
 
-        filepath, cache_key = filepath_cache_key_from_artifact(
+        filepath, cache_key = _s().filepath_cache_key_from_artifact(
             self, using_key=settings._using_key
         )
         if mute:
@@ -3068,7 +3107,7 @@ def _synchronize_cleanup_on_error(
             filepath, cache_key=cache_key, print_progress=print_progress, **kwargs
         )
     except Exception as e:
-        if not isinstance(filepath, LocalPathClasses):
+        if not isinstance(filepath, _s().LocalPathClasses):
             cache_path = setup_settings.paths.cloud_to_local_no_update(
                 filepath, cache_key=cache_key
             )
