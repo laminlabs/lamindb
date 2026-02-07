@@ -10,7 +10,6 @@ import pandas as pd
 import pytest
 import zarr
 from lamindb.core.loaders import load_h5ad
-from lamindb.core.storage import AnnDataAccessor, BackedAccessor
 from lamindb.core.storage._anndata_accessor import _anndata_n_observations, _to_index
 from lamindb.core.storage._backed_access import _flat_suffixes, backed_access
 from lamindb.core.storage._polars_lazy_df import _polars_storage_options
@@ -242,7 +241,7 @@ def test_backed_zarr_not_adata():
 
     access = backed_access(zarr_pth)
 
-    assert isinstance(access, BackedAccessor)
+    assert type(access).__name__ == "BackedAccessor"
     assert access.storage["test"][...] == "test"
 
     shutil.rmtree(zarr_pth)
@@ -253,7 +252,7 @@ def test_anndata_open_mode():
     artifact = ln.Artifact(fp, key="test_adata.h5ad").save()
 
     with artifact.open(mode="r") as access:
-        assert isinstance(access, AnnDataAccessor)
+        assert type(access).__name__ == "AnnDataAccessor"
     # can't open in write mode if not tiledbsoma
     with pytest.raises(ValueError):
         artifact.open(mode="w")
@@ -496,7 +495,7 @@ def test_compressed(gz_suffix):
     assert artifact.n_observations == 30
 
     with artifact.open() as store:
-        assert isinstance(store, AnnDataAccessor)
+        assert type(store).__name__ == "AnnDataAccessor"
 
     assert isinstance(artifact.load(), ad.AnnData)
 
