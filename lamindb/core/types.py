@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, TypeVar
+from typing import TYPE_CHECKING, Any
 
-from anndata import AnnData
 from lamindb_setup.types import UPathStr
 
 from lamindb.base.types import (
@@ -13,7 +12,12 @@ from lamindb.base.types import (
     TransformKind,
 )
 
-MuData = TypeVar("MuData")
-SpatialData = TypeVar("SpatialData")
+if TYPE_CHECKING:
+    from anndata import AnnData
+    from mudata import MuData
+    from spatialdata import SpatialData
 
-ScverseDataStructures = AnnData | MuData | SpatialData
+    ScverseDataStructures = AnnData | MuData | SpatialData
+else:
+    # AnnData | MuData | SpatialData; Any required for union with DataFrame in objects.py
+    ScverseDataStructures = Any

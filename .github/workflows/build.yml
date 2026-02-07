@@ -168,7 +168,7 @@ jobs:
       - run: uv pip install --system git+https://github.com/laminlabs/laminprofiler
       - run: lamin login
       - run: lamin connect laminlabs/lamindata
-      - run: laminprofiler check tests/profiling/import_lamindb.py --threshold 3.4
+      - run: laminprofiler check tests/profiling/import_lamindb.py --threshold 1.4
 
   docs:
     needs: test

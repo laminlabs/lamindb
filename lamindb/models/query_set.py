@@ -10,7 +10,6 @@ from importlib import import_module
 from typing import TYPE_CHECKING, Any, Generic, NamedTuple, TypeVar, final
 
 import lamindb_setup as ln_setup
-import pandas as pd
 from django.core.exceptions import FieldError
 from django.db import models
 from django.db.models import (
@@ -34,6 +33,7 @@ from .query_manager import _lookup, _search
 from .sqlrecord import Registry, SQLRecord
 
 if TYPE_CHECKING:
+    import pandas as pd
     from bionty.models import (
         CellLine,
         CellMarker,
@@ -78,9 +78,6 @@ if TYPE_CHECKING:
     )
 
 T = TypeVar("T")
-
-
-pd.set_option("display.max_columns", 200)
 
 
 def get_keys_from_df(data: list, registry: SQLRecord) -> list[str]:
@@ -375,6 +372,8 @@ class SQLRecordList(UserList, Generic[T]):
             super().__init__(records)  # Let UserList handle the conversion
 
     def to_dataframe(self) -> pd.DataFrame:
+        import pandas as pd
+
         keys = get_keys_from_df(self.data, self.data[0].__class__)
         values = [record.__dict__ for record in self.data]
         return pd.DataFrame(values, columns=keys)
@@ -742,6 +741,8 @@ def reshape_annotate_result(
             ('one' or 'many'), e.g., {'ulabels__name': 'many', 'created_by__name': 'one'}
         feature_qs: QuerySet of features
     """
+    import pandas as pd
+
     from lamindb.models import Artifact
 
     cols_from_include = cols_from_include or {}
@@ -924,6 +925,8 @@ def process_links_features(
     pk_name: str = "id",
 ) -> pd.DataFrame:
     """Process links_XXX feature columns."""
+    import pandas as pd
+
     from lamindb.models.feature import parse_dtype
 
     # this loops over different entities that might be linked under a feature
@@ -1039,6 +1042,8 @@ class BasicQuerySet(models.QuerySet):
         order_by: str | None = "-id",
     ) -> pd.DataFrame:
         """{}"""  # noqa: D415
+        import pandas as pd
+
         if (
             self.model.__name__ == "Artifact"
             and "kind" not in str(self.query.where)

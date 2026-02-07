@@ -19,16 +19,19 @@ Basic types
 from __future__ import annotations
 
 import datetime
-from typing import Literal, Union
+from typing import TYPE_CHECKING, Literal, Union
 
 import numpy as np
-import pandas as pd
 from django.db.models.query_utils import DeferredAttribute as FieldAttr
 from lamindb_setup.types import UPathStr  # noqa: F401
 
+if TYPE_CHECKING:
+    import pandas as pd
+
 # need to use Union because __future__.annotations doesn't do the job here <3.10
 # typing.TypeAlias, >3.10 on but already deprecated
-ListLike = Union[list[str], pd.Series, np.array]
+# pd.Series as string to avoid importing pandas at runtime
+ListLike = Union[list[str], "pd.Series", np.ndarray]
 StrField = Union[str, FieldAttr]  # typing.TypeAlias
 
 TransformKind = Literal["pipeline", "notebook", "script", "function"]

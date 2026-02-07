@@ -27,6 +27,7 @@ from lamindb.core.loaders import load_fcs, load_to_memory, load_tsv
 from lamindb.core.storage.paths import (
     AUTO_KEY_PREFIX,
     auto_storage_key_from_artifact_uid,
+    check_path_is_child_of_root,
     delete_storage,
 )
 from lamindb.errors import (
@@ -34,7 +35,6 @@ from lamindb.errors import (
     InvalidArgument,
 )
 from lamindb.models.artifact import (
-    check_path_is_child_of_root,
     data_is_scversedatastructure,
     data_is_soma_experiment,
     get_relative_path_to_directory,

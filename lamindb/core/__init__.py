@@ -40,5 +40,17 @@ from .. import errors as exceptions
 from ..examples import datasets  # backward compat
 from . import loaders, subsettings, types
 from ._context import Context
-from ._mapped_collection import MappedCollection
 from ._settings import Settings
+
+
+def __getattr__(name: str):
+    """Lazy-import heavy modules to avoid loading pandas/anndata at package import."""
+    if name == "MappedCollection":
+        from ._mapped_collection import MappedCollection
+
+        return MappedCollection
+    if name == "storage":
+        import importlib
+
+        return importlib.import_module("lamindb.core.storage")
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

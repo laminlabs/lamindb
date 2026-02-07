@@ -5,7 +5,6 @@ import warnings
 from typing import TYPE_CHECKING, Any, cast, get_args, overload
 
 import numpy as np
-import pandas as pd
 import pgtrigger
 from django.conf import settings as django_settings
 from django.db import connection, models
@@ -20,8 +19,6 @@ from lamindb_setup.errors import (
     MODULE_WASNT_CONFIGURED_MESSAGE_TEMPLATE,
     ModuleWasntConfigured,
 )
-from pandas.api.types import CategoricalDtype, is_string_dtype
-from pandas.core.dtypes.base import ExtensionDtype
 
 from lamindb.base.fields import (
     BooleanField,
@@ -51,6 +48,9 @@ from .sqlrecord import BaseSQLRecord, HasType, Registry, SQLRecord, _get_record_
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
+
+    import pandas as pd
+    from pandas.core.dtypes.base import ExtensionDtype
 
     from .artifact import Artifact
     from .block import FeatureBlock
@@ -594,49 +594,58 @@ def serialize_dtype(
                 dtype_str=dtype, is_itype=True
             )  # throws an error if invalid
         dtype_str = dtype
-    elif isinstance(dtype, (ExtensionDtype, np.dtype)):
-        dtype_str = serialize_pandas_dtype(dtype)
     else:
-        error_message = "dtype has to be a registry, a ulabel subtype, a registry field, or a list of registries or fields, not {}"
-        if isinstance(dtype, (Registry, DeferredAttribute, ULabel, Record)):
-            dtype = [dtype]
-        elif not isinstance(dtype, list):
-            raise ValueError(error_message.format(dtype))
-        dtype_str = ""
-        for one_dtype in dtype:
-            if not isinstance(one_dtype, (Registry, DeferredAttribute, ULabel, Record)):
-                raise ValueError(error_message.format(one_dtype))
-            if isinstance(one_dtype, Registry):
-                dtype_str += one_dtype.__get_name_with_module__() + "|"
-            elif isinstance(one_dtype, (ULabel, Record)):
-                if one_dtype._state.adding:
-                    raise InvalidArgument(
-                        f"Cannot serialize unsaved objects. Save {one_dtype} via `.save()`."
-                    )
-                if not one_dtype.is_type:
-                    raise InvalidArgument(
-                        f"Cannot serialize non-type {one_dtype.__class__.__name__} '{one_dtype.name}'. Only types (is_type=True) are allowed in dtypes."
-                    )
-                # Use UID-based format: Record[uid] instead of Record[Parent[Child]]
-                nested_string = f"[{one_dtype.uid}]"
-                if isinstance(one_dtype, ULabel):
-                    dtype_str += f"ULabel{nested_string}"
+        from pandas.core.dtypes.base import ExtensionDtype
+
+        if isinstance(dtype, (ExtensionDtype, np.dtype)):
+            dtype_str = serialize_pandas_dtype(dtype)
+        else:
+            error_message = "dtype has to be a registry, a ulabel subtype, a registry field, or a list of registries or fields, not {}"
+            if isinstance(dtype, (Registry, DeferredAttribute, ULabel, Record)):
+                dtype = [dtype]
+            elif not isinstance(dtype, list):
+                raise ValueError(error_message.format(dtype))
+            dtype_str = ""
+            for one_dtype in dtype:
+                if not isinstance(
+                    one_dtype, (Registry, DeferredAttribute, ULabel, Record)
+                ):
+                    raise ValueError(error_message.format(one_dtype))
+                if isinstance(one_dtype, Registry):
+                    dtype_str += one_dtype.__get_name_with_module__() + "|"
+                elif isinstance(one_dtype, (ULabel, Record)):
+                    if one_dtype._state.adding:
+                        raise InvalidArgument(
+                            f"Cannot serialize unsaved objects. Save {one_dtype} via `.save()`."
+                        )
+                    if not one_dtype.is_type:
+                        raise InvalidArgument(
+                            f"Cannot serialize non-type {one_dtype.__class__.__name__} '{one_dtype.name}'. Only types (is_type=True) are allowed in dtypes."
+                        )
+                    # Use UID-based format: Record[uid] instead of Record[Parent[Child]]
+                    nested_string = f"[{one_dtype.uid}]"
+                    if isinstance(one_dtype, ULabel):
+                        dtype_str += f"ULabel{nested_string}"
+                    else:
+                        dtype_str += f"Record{nested_string}"
                 else:
-                    dtype_str += f"Record{nested_string}"
-            else:
-                name = one_dtype.field.name
-                field_ext = f".{name}" if name != "name" else ""
-                dtype_str += (
-                    one_dtype.field.model.__get_name_with_module__() + field_ext + "|"
-                )
-        dtype_str = dtype_str.rstrip("|")
-        if not is_itype:
-            dtype_str = f"cat[{dtype_str}]"
+                    name = one_dtype.field.name
+                    field_ext = f".{name}" if name != "name" else ""
+                    dtype_str += (
+                        one_dtype.field.model.__get_name_with_module__()
+                        + field_ext
+                        + "|"
+                    )
+            dtype_str = dtype_str.rstrip("|")
+            if not is_itype:
+                dtype_str = f"cat[{dtype_str}]"
     return dtype_str
 
 
 def serialize_pandas_dtype(pandas_dtype: ExtensionDtype) -> str:
     """Convert pandas ExtensionDtype to simplified string representation."""
+    from pandas.api.types import CategoricalDtype, is_string_dtype
+
     if is_string_dtype(pandas_dtype):
         if not isinstance(pandas_dtype, CategoricalDtype):
             dtype = "str"
@@ -657,8 +666,10 @@ def serialize_pandas_dtype(pandas_dtype: ExtensionDtype) -> str:
     return dtype
 
 
-def convert_to_pandas_dtype(lamin_dtype: str) -> str | CategoricalDtype:
+def convert_to_pandas_dtype(lamin_dtype: str) -> str | pd.CategoricalDtype:
     """Convert LaminDB simplified string representation back to pandas dtype."""
+    from pandas.api.types import CategoricalDtype
+
     dtype_map = {
         "str": "string",  # nullable string dtype
         "int": "Int64",  # Nullable integer to handle missing values
@@ -1506,6 +1517,8 @@ class JsonValue(SQLRecord, TracksRun):
 def suggest_categorical_for_str_iterable(
     iterable: Iterable[str], key: str = None
 ) -> str:
+    import pandas as pd
+
     c = pd.Categorical(iterable)
     message = ""
     if len(c.categories) < len(c):
@@ -1519,6 +1532,8 @@ def suggest_categorical_for_str_iterable(
 
 def categoricals_from_df(df: pd.DataFrame) -> dict:
     """Returns categorical columns."""
+    from pandas.api.types import CategoricalDtype, is_string_dtype
+
     string_cols = [col for col in df.columns if is_string_dtype(df[col])]
     categoricals = {
         col: df[col]

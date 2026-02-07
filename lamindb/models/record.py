@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, overload
 
-import pandas as pd
 import pgtrigger
 from django.conf import settings as django_settings
 from django.db import models
@@ -38,6 +37,8 @@ from .ulabel import ULabel
 
 if TYPE_CHECKING:
     from datetime import datetime
+
+    import pandas as pd
 
     from ._feature_manager import FeatureManager
     from .block import RecordBlock
@@ -418,6 +419,8 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
             recurse: `bool = False` Whether to include records of sub-types recursively.
             **kwargs: Keyword arguments passed to Registry.to_dataframe().
         """
+        import pandas as pd
+
         if isinstance(cls_or_self, type):
             return type(cls_or_self).to_dataframe(cls_or_self, **kwargs)  # type: ignore
         if not cls_or_self.is_type:
