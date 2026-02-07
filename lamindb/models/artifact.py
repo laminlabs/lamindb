@@ -117,12 +117,12 @@ WARNING_RUN_TRANSFORM = "no run & transform got linked, call `ln.track()` & re-r
 WARNING_NO_INPUT = "run input wasn't tracked, call `ln.track()` and re-run"
 
 
-def _identify_zarr_type(storepath):
+def _identify_zarr_type(storepath, *, check: bool = True):
     """Lazy-import to avoid loading storage at package import."""
     try:
         from ..core.storage._zarr import identify_zarr_type
 
-        return identify_zarr_type(storepath)
+        return identify_zarr_type(storepath, check=check)
     except ImportError:
         raise ImportError("Please install zarr: pip install 'lamindb[zarr]'") from None
 
