@@ -10,13 +10,9 @@ import pandas as pd
 import pytest
 import zarr
 from lamindb.core.loaders import load_h5ad
+from lamindb.core.storage import AnnDataAccessor, BackedAccessor
 from lamindb.core.storage._anndata_accessor import _anndata_n_observations, _to_index
-from lamindb.core.storage._backed_access import (
-    AnnDataAccessor,
-    BackedAccessor,
-    _flat_suffixes,
-    backed_access,
-)
+from lamindb.core.storage._backed_access import _flat_suffixes, backed_access
 from lamindb.core.storage._polars_lazy_df import _polars_storage_options
 from lamindb.core.storage._pyarrow_dataset import _open_pyarrow_dataset
 from lamindb.core.storage._zarr import load_zarr
