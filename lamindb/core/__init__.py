@@ -47,18 +47,19 @@ from ._settings import Settings
 def __getattr__(name: str):
     # need to lazy import a few auxliary modules to maintain backward compatibility
     # none of them should have been eagerly imported in the first place
-    if name == "loaders":
-        import importlib
+    import importlib
 
+    if name == "loaders":
         loaders = importlib.import_module(".loaders", package=__name__)
+        globals()[name] = loaders
         return loaders
     if name == "storage":
-        import importlib
-
         storage = importlib.import_module(".storage", package=__name__)
+        globals()[name] = storage
         return storage
     if name == "MappedCollection":
         from ._mapped_collection import MappedCollection
 
+        globals()[name] = MappedCollection
         return MappedCollection
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
