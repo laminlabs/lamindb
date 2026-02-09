@@ -256,6 +256,7 @@ def test_anndata_open_mode():
     artifact = ln.Artifact(fp, key="test_adata.h5ad").save()
 
     with artifact.open(mode="r") as access:
+        # TODO: add back proper type checking once reset_django() is gone
         assert type(access).__name__ == "AnnDataAccessor"
         assert type(access).__module__ == "lamindb.core.storage._anndata_accessor"
     # can't open in write mode if not tiledbsoma
