@@ -18,6 +18,8 @@ from lamindb_setup import settings as setup_settings
 from lamindb_setup.core._hub_core import select_storage_or_parent
 from lamindb_setup.core.hashing import HASH_LENGTH, hash_dir, hash_file
 from lamindb_setup.core.upath import (
+    LocalPathClasses,
+    UPath,
     create_path,
     extract_suffix_from_path,
     get_stat_dir_cloud,
@@ -71,8 +73,6 @@ from .ulabel import ULabel
 def _storage():
     """Lazy-import storage to avoid loading pandas/anndata at package import."""
     from ..core.storage import (
-        LocalPathClasses,
-        UPath,
         delete_storage,
         infer_suffix,
         write_to_disk,
@@ -87,8 +87,6 @@ def _storage():
     )
 
     return types.SimpleNamespace(
-        LocalPathClasses=LocalPathClasses,
-        UPath=UPath,
         delete_storage=delete_storage,
         infer_suffix=infer_suffix,
         write_to_disk=write_to_disk,
@@ -132,7 +130,6 @@ if TYPE_CHECKING:
 
     import pandas as pd
     from anndata import AnnData
-    from lamindb_setup.core.upath import UPath
     from lamindb_setup.types import UPathStr
     from mudata import MuData  # noqa: TC004
     from polars import LazyFrame as PolarsLazyFrame
@@ -200,7 +197,7 @@ def process_pathlike(
         else:
             # if the path is in the cloud, we have a good candidate
             # for the storage root: the bucket
-            if not isinstance(filepath, _s().LocalPathClasses):
+            if not isinstance(filepath, LocalPathClasses):
                 # for a cloud path, new_root is always the bucket name
                 if filepath.protocol == "hf":
                     hf_path = filepath.fs.resolve_path(filepath.as_posix())
@@ -272,7 +269,7 @@ def process_data(
     else:
         key_suffix = None
 
-    if isinstance(data, (str, Path, _s().UPath)):
+    if isinstance(data, (str, Path, UPath)):
         access_token = (
             storage._access_token if hasattr(storage, "_access_token") else None
         )
@@ -307,7 +304,7 @@ def process_data(
     # Check for suffix consistency
     if key_suffix is not None and key_suffix != suffix and not is_replace:
         # consciously omitting a trailing period
-        if isinstance(data, (str, Path, _s().UPath)):  # UPathStr, spelled out
+        if isinstance(data, (str, Path, UPath)):  # UPathStr, spelled out
             message = f"The passed path's suffix '{suffix}' must match the passed key's suffix '{key_suffix}'."
         else:
             message = f"The passed key's suffix '{key_suffix}' must match the passed path's suffix '{suffix}'."
@@ -339,7 +336,7 @@ def get_stat_or_artifact(
     if settings.creation.artifact_skip_size_hash:
         return None, None, None, n_files, None
     stat = path.stat()  # one network request
-    if not isinstance(path, _s().LocalPathClasses):
+    if not isinstance(path, LocalPathClasses):
         size, hash, hash_type = None, None, None
         if stat is not None:
             # convert UPathStatResult to fsspec info dict
@@ -433,9 +430,7 @@ def check_path_in_existing_storage(
 def get_relative_path_to_directory(
     path: PurePath | Path | UPath, directory: PurePath | Path | UPath
 ) -> PurePath | Path:
-    if isinstance(directory, _s().UPath) and not isinstance(
-        directory, _s().LocalPathClasses
-    ):
+    if isinstance(directory, UPath) and not isinstance(directory, LocalPathClasses):
         # UPath.relative_to() is not behaving as it should (2023-04-07)
         # need to lstrip otherwise inconsistent behavior across trailing slashes
         # see test_artifact.py: test_get_relative_path_to_directory
@@ -484,7 +479,7 @@ def get_artifact_kwargs_from_data(
     real_key = None
     if use_existing_storage_key:
         inferred_key = get_relative_path_to_directory(
-            path=path, directory=_s().UPath(storage.root)
+            path=path, directory=UPath(storage.root)
         ).as_posix()
         if key is None:
             key = inferred_key
@@ -501,7 +496,7 @@ def get_artifact_kwargs_from_data(
         is_replace=is_replace,
         skip_hash_lookup=skip_hash_lookup,
     )
-    if not isinstance(path, _s().LocalPathClasses):
+    if not isinstance(path, LocalPathClasses):
         local_filepath = None
         cloud_filepath = path
     else:
@@ -646,8 +641,8 @@ def data_is_scversedatastructure(
         return True
 
     data_type = structure_type.lower()
-    if isinstance(data, (str, Path, _s().UPath)):
-        data_path = _s().UPath(data)
+    if isinstance(data, (str, Path, UPath)):
+        data_path = UPath(data)
 
         if file_suffix in data_path.suffixes:
             return True
@@ -680,7 +675,7 @@ def data_is_soma_experiment(data: SOMAExperiment | UPathStr) -> bool:
     if hasattr(data, "__class__") and data.__class__.__name__ == "Experiment":
         return True
     if isinstance(data, (str, Path)):
-        return _s().UPath(data).suffix == ".tiledbsoma"
+        return UPath(data).suffix == ".tiledbsoma"
     return False
 
 
@@ -694,7 +689,7 @@ def check_otype_artifact(
     if otype is None:
         if isinstance(data, UPathStr):
             is_path = True
-            suffix = _s().UPath(data).suffix
+            suffix = UPath(data).suffix
         else:
             is_path = False
             suffix = None
@@ -1861,7 +1856,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         filepath, cache_key = _s().filepath_cache_key_from_artifact(
             self, using_key=settings._using_key
         )
-        if isinstance(filepath, _s().LocalPathClasses):
+        if isinstance(filepath, LocalPathClasses):
             return filepath
         return setup_settings.paths.cloud_to_local_no_update(
             filepath, cache_key=cache_key
@@ -2440,7 +2435,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             else:
                 # maintain the hierachy within an existing storage location
                 folder_key_path = get_relative_path_to_directory(
-                    folderpath, _s().UPath(storage.root)
+                    folderpath, UPath(storage.root)
                 )
         else:
             folder_key_path = Path(key)
@@ -2752,7 +2747,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             open_cache = False
         else:
             open_cache = not isinstance(
-                filepath, _s().LocalPathClasses
+                filepath, LocalPathClasses
             ) and not filepath.synchronize_to(localpath, just_check=True)
         if open_cache:
             try:
@@ -2763,7 +2758,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 # also ignore ValueError here because
                 # such errors most probably just imply an incorrect argument
                 if isinstance(e, (ImportError, ValueError)) or isinstance(
-                    filepath, _s().LocalPathClasses
+                    filepath, LocalPathClasses
                 ):
                     raise e
                 logger.warning(
@@ -2784,7 +2779,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
                 def finalize():
                     nonlocal self, filepath, localpath
-                    if not isinstance(filepath, _s().LocalPathClasses):
+                    if not isinstance(filepath, LocalPathClasses):
                         _, hash, _, _ = get_stat_dir_cloud(filepath)
                     else:
                         # this can be very slow
@@ -2862,7 +2857,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 # import error is also most probbaly not a problem with the cache
                 # or if the original path is local
                 if isinstance(e, (NotImplementedError, ImportError)) or isinstance(
-                    filepath, _s().LocalPathClasses
+                    filepath, LocalPathClasses
                 ):
                     raise e
                 logger.warning(
@@ -3107,7 +3102,7 @@ def _synchronize_cleanup_on_error(
             filepath, cache_key=cache_key, print_progress=print_progress, **kwargs
         )
     except Exception as e:
-        if not isinstance(filepath, _s().LocalPathClasses):
+        if not isinstance(filepath, LocalPathClasses):
             cache_path = setup_settings.paths.cloud_to_local_no_update(
                 filepath, cache_key=cache_key
             )
