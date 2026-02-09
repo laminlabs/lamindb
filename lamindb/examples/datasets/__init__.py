@@ -64,7 +64,6 @@ from ._core import (
     anndata_pbmc3k_processed,
     anndata_pbmc68k_reduced,
     anndata_suo22_Visium10X,
-    apostolov_2024_cycling_cellxgene,
     df_iris,
     df_iris_in_meter,
     df_iris_in_meter_study1,
@@ -84,6 +83,7 @@ from ._core import (
     schmidt22_crispra_gws_IFNG,
     schmidt22_perturbseq,
     spatialdata_blobs,
+    visium_mouse_cellxgene,
 )
 from ._fake import fake_bio_notebook_titles
 from ._small import anndata_with_obs, small_dataset3_cellxgene

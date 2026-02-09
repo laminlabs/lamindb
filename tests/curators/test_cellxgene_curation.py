@@ -30,10 +30,12 @@ def test_cellxgene_curation(cellxgene_defaults) -> None:
     ln.examples.cellxgene.save_cellxgene_defaults()
 
     cxg_schema = ln.examples.cellxgene.create_cellxgene_schema(
-        field_types="ontology_id", organism="human"
+        field_types="ontology_id",
+        organism="mouse",
+        spatial_library_id="Thymus_Visium_Exp3A_V2S1_3wk_B6-WT",
     )
 
-    adata = ln.examples.datasets.apostolov_2024_cycling_cellxgene()
+    adata = ln.examples.datasets.visium_mouse_cellxgene()
 
     curator = ln.curators.AnnDataCurator(adata, cxg_schema)
     curator.validate()
