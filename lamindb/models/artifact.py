@@ -699,7 +699,7 @@ def check_otype_artifact(
             logger.warning("data is a DataFrame, please use .from_dataframe()")
             otype = "DataFrame"
             return otype
-        data_is_path = isinstance(data, (str, Path))
+        data_is_path = isinstance(data, (str, Path, UPath))
         if data_is_scversedatastructure(data, "AnnData", cloud_warning):
             if not data_is_path:
                 logger.warning("data is an AnnData, please use .from_anndata()")
