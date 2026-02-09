@@ -151,9 +151,10 @@ def create_cellxgene_schema(
         "donor_id": CategorySpec(str, "unknown", False),
     }
 
-    def _get_cat_filters(
+    def _get_source_cat_filters(
         field: str | FieldAttr | type[Registry], *, needs_organism: bool | None = None
     ) -> dict | None:
+        """Some ontology are organism specific and their Features therefore need a `cat_filter`."""
         if isinstance(field, str) or not needs_organism:
             return None
         registry = field.field.model if hasattr(field, "field") else field
@@ -195,7 +196,9 @@ def create_cellxgene_schema(
         index=Feature(
             name="var_index",
             dtype=bt.Gene.ensembl_gene_id,
-            cat_filters=_get_cat_filters(bt.Gene.ensembl_gene_id, needs_organism=True),
+            cat_filters=_get_source_cat_filters(
+                bt.Gene.ensembl_gene_id, needs_organism=True
+            ),
         ).save(),
         itype=Feature,
         features=[Feature(name="feature_is_filtered", dtype=bool).save()],
@@ -213,12 +216,15 @@ def create_cellxgene_schema(
         cat_filters: dict | list[dict] | None
         if isinstance(dtype, list):
             cat_filters = (
-                [_get_cat_filters(d, needs_organism=needs_organism) for d in dtype]
+                [
+                    _get_source_cat_filters(d, needs_organism=needs_organism)
+                    for d in dtype
+                ]
                 if needs_organism
                 else None
             )
         elif not isinstance(dtype, str):
-            cat_filters = _get_cat_filters(dtype, needs_organism=needs_organism)
+            cat_filters = _get_source_cat_filters(dtype, needs_organism=needs_organism)
         else:
             cat_filters = None
 
