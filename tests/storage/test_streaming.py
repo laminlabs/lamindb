@@ -1,6 +1,5 @@
 import gzip
 import shutil
-import sys
 from pathlib import Path
 
 import anndata as ad
@@ -22,33 +21,6 @@ from lamindb.core.storage._polars_lazy_df import _polars_storage_options
 from lamindb.core.storage._pyarrow_dataset import _open_pyarrow_dataset
 from lamindb.core.storage._zarr import load_zarr
 from lamindb.core.storage.objects import infer_suffix, write_to_disk
-
-
-def _isinstance_diagnostic(obj, expected_cls, expected_name: str) -> str:
-    """Build diagnostic string for isinstance failures."""
-    obj_cls = type(obj)
-    mod_name = obj_cls.__module__
-    obj_mod = sys.modules.get(mod_name)
-    cls_from_sys_mod = getattr(obj_mod, obj_cls.__name__, None) if obj_mod else None
-    expected_mod = sys.modules.get(expected_cls.__module__)
-    expected_mod_file = (
-        getattr(expected_mod, "__file__", None) if expected_mod else None
-    )
-    obj_mod_file = getattr(obj_mod, "__file__", None) if obj_mod else None
-    return (
-        f"Expected {expected_name}, got {obj_cls.__name__} "
-        f"(module: {obj_cls.__module__}, expected from: {expected_cls.__module__}, "
-        f"mro: {[c.__name__ for c in obj_cls.__mro__]}). "
-        f"Class identity: id(obj_cls)={id(obj_cls)}, id(expected_cls)={id(expected_cls)}, "
-        f"same_object={obj_cls is expected_cls}. "
-        f"Object's class module: {mod_name!r} in sys.modules={mod_name in sys.modules}, "
-        f"id(mod)={id(obj_mod) if obj_mod else None}, __file__={obj_mod_file!r}. "
-        f"Expected class module: {expected_cls.__module__!r} in sys.modules={expected_cls.__module__ in sys.modules}, "
-        f"id(mod)={id(expected_mod) if expected_mod else None}, __file__={expected_mod_file!r}. "
-        f"cls_from_sys_mod id={id(cls_from_sys_mod) if cls_from_sys_mod else None}, "
-        f"obj_cls is cls_from_sys_mod={obj_cls is cls_from_sys_mod if cls_from_sys_mod else 'N/A'}, "
-        f"expected_cls is cls_from_sys_mod={expected_cls is cls_from_sys_mod if cls_from_sys_mod else 'N/A'}."
-    )
 
 
 @pytest.fixture
@@ -274,11 +246,7 @@ def test_backed_zarr_not_adata():
 
     access = backed_access(zarr_pth)
 
-    if not isinstance(access, BackedAccessor):
-        print(_isinstance_diagnostic(access, BackedAccessor, "BackedAccessor"))
-    assert isinstance(access, BackedAccessor), _isinstance_diagnostic(
-        access, BackedAccessor, "BackedAccessor"
-    )
+    assert isinstance(access, BackedAccessor)
     assert access.storage["test"][...] == "test"
 
     shutil.rmtree(zarr_pth)
@@ -289,11 +257,7 @@ def test_anndata_open_mode():
     artifact = ln.Artifact(fp, key="test_adata.h5ad").save()
 
     with artifact.open(mode="r") as access:
-        if not isinstance(access, AnnDataAccessor):
-            print(_isinstance_diagnostic(access, AnnDataAccessor, "AnnDataAccessor"))
-        assert isinstance(access, AnnDataAccessor), _isinstance_diagnostic(
-            access, AnnDataAccessor, "AnnDataAccessor"
-        )
+        assert isinstance(access, AnnDataAccessor)
     # can't open in write mode if not tiledbsoma
     with pytest.raises(ValueError):
         artifact.open(mode="w")
@@ -536,11 +500,7 @@ def test_compressed(gz_suffix):
     assert artifact.n_observations == 30
 
     with artifact.open() as store:
-        if not isinstance(store, AnnDataAccessor):
-            print(_isinstance_diagnostic(store, AnnDataAccessor, "AnnDataAccessor"))
-        assert isinstance(store, AnnDataAccessor), _isinstance_diagnostic(
-            store, AnnDataAccessor, "AnnDataAccessor"
-        )
+        assert isinstance(store, AnnDataAccessor)
 
     assert isinstance(artifact.load(), ad.AnnData)
 
