@@ -147,7 +147,7 @@ if TYPE_CHECKING:
         BackedAccessor,
         SpatialDataAccessor,
     )
-    from lamindb.core.types import ScverseDataStructures
+    from lamindb.core.storage.types import ScverseDataStructures
     from lamindb.models.query_manager import RelatedManager
 
     from ..base.types import (

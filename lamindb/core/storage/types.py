@@ -1,16 +1,8 @@
+"""Storage-related type definitions."""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
-
-from lamindb_setup.types import UPathStr
-
-from lamindb.base.types import (
-    Dtype,
-    FieldAttr,
-    ListLike,
-    StrField,
-    TransformKind,
-)
 
 if TYPE_CHECKING:
     from anndata import AnnData

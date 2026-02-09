@@ -59,7 +59,7 @@ if TYPE_CHECKING:
     from spatialdata import SpatialData
     from tiledbsoma._experiment import Experiment as SOMAExperiment
 
-    from lamindb.core.types import ScverseDataStructures
+    from lamindb.core.storage.types import ScverseDataStructures
 
 
 def strip_ansi_codes(text):
