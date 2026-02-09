@@ -11,7 +11,12 @@ import pytest
 import zarr
 from lamindb.core.loaders import load_h5ad
 from lamindb.core.storage._anndata_accessor import _anndata_n_observations, _to_index
-from lamindb.core.storage._backed_access import _flat_suffixes, backed_access
+from lamindb.core.storage._backed_access import (
+    AnnDataAccessor,
+    BackedAccessor,
+    _flat_suffixes,
+    backed_access,
+)
 from lamindb.core.storage._polars_lazy_df import _polars_storage_options
 from lamindb.core.storage._pyarrow_dataset import _open_pyarrow_dataset
 from lamindb.core.storage._zarr import load_zarr
@@ -241,7 +246,11 @@ def test_backed_zarr_not_adata():
 
     access = backed_access(zarr_pth)
 
-    assert type(access).__name__ == "BackedAccessor"
+    assert isinstance(access, BackedAccessor), (
+        f"Expected BackedAccessor, got {type(access).__name__}"
+        f" (module: {type(access).__module__}, expected from: {BackedAccessor.__module__},"
+        f" mro: {[c.__name__ for c in type(access).__mro__]})"
+    )
     assert access.storage["test"][...] == "test"
 
     shutil.rmtree(zarr_pth)
@@ -252,7 +261,11 @@ def test_anndata_open_mode():
     artifact = ln.Artifact(fp, key="test_adata.h5ad").save()
 
     with artifact.open(mode="r") as access:
-        assert type(access).__name__ == "AnnDataAccessor"
+        assert isinstance(access, AnnDataAccessor), (
+            f"Expected AnnDataAccessor, got {type(access).__name__}"
+            f" (module: {type(access).__module__}, expected from: {AnnDataAccessor.__module__},"
+            f" mro: {[c.__name__ for c in type(access).__mro__]})"
+        )
     # can't open in write mode if not tiledbsoma
     with pytest.raises(ValueError):
         artifact.open(mode="w")
@@ -495,7 +508,11 @@ def test_compressed(gz_suffix):
     assert artifact.n_observations == 30
 
     with artifact.open() as store:
-        assert type(store).__name__ == "AnnDataAccessor"
+        assert isinstance(store, AnnDataAccessor), (
+            f"Expected AnnDataAccessor, got {type(store).__name__}"
+            f" (module: {type(store).__module__}, expected from: {AnnDataAccessor.__module__},"
+            f" mro: {[c.__name__ for c in type(store).__mro__]})"
+        )
 
     assert isinstance(artifact.load(), ad.AnnData)
 

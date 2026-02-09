@@ -45,8 +45,7 @@ from ._settings import Settings
 
 
 def __getattr__(name: str):
-    # need to lazy import a few auxliary modules to maintain
-    # backward compat
+    # need to lazy import a few auxliary modules to maintain backward compatibility
     # none of them should have been eagerly imported in the first place
     if name == "loaders":
         import importlib
