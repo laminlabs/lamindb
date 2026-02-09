@@ -12,12 +12,7 @@ import pytest
 import zarr
 from lamindb.core.loaders import load_h5ad
 from lamindb.core.storage._anndata_accessor import _anndata_n_observations, _to_index
-from lamindb.core.storage._backed_access import (
-    AnnDataAccessor,
-    BackedAccessor,
-    _flat_suffixes,
-    backed_access,
-)
+from lamindb.core.storage._backed_access import _flat_suffixes, backed_access
 from lamindb.core.storage._polars_lazy_df import _polars_storage_options
 from lamindb.core.storage._pyarrow_dataset import _open_pyarrow_dataset
 from lamindb.core.storage._zarr import load_zarr
@@ -268,6 +263,8 @@ def test_backed_bad_format(bad_adata_path):
 
 
 def test_backed_zarr_not_adata():
+    from lamindb.core.storage._backed_access import BackedAccessor
+
     zarr_pth = Path("./not_adata.zarr")
     store = zarr.open(zarr_pth, mode="w")
     store["test"] = np.array(["test"])
@@ -285,6 +282,8 @@ def test_backed_zarr_not_adata():
 
 
 def test_anndata_open_mode():
+    from lamindb.core.storage._backed_access import AnnDataAccessor
+
     fp = ln.examples.datasets.anndata_file_pbmc68k_test()
     artifact = ln.Artifact(fp, key="test_adata.h5ad").save()
 
@@ -528,6 +527,8 @@ def _compress(input_filepath, output_filepath):
 
 @pytest.mark.parametrize("gz_suffix", [".gz", ".tar.gz"])
 def test_compressed(gz_suffix):
+    from lamindb.core.storage._backed_access import AnnDataAccessor
+
     adata_f = ln.examples.datasets.anndata_file_pbmc68k_test()
     adata_gz = adata_f.with_suffix(adata_f.suffix + gz_suffix)
     _compress(adata_f, adata_gz)
