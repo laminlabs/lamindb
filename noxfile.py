@@ -108,10 +108,7 @@ def install_ci(session, group):
         run(session, "uv pip install --system huggingface_hub polars anndata==0.12.2")
     elif group == "guide":
         extras += "zarr_v2"
-        run(
-            session,
-            "uv pip install --system scanpy mudata spatialdata tiledbsoma",
-        )
+        run(session, "uv pip install --system scanpy mudata spatialdata tiledbsoma")
     elif group == "biology":
         extras += "fcs"
         run(session, "uv pip install --system ipywidgets")

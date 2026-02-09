@@ -97,18 +97,10 @@ def save_cellxgene_defaults() -> None:
 
 
 def create_cellxgene_schema(
-    field_types: FieldType | Collection[FieldType] = "ontology_id",
     *,
+    field_types: FieldType | Collection[FieldType] = "ontology_id",
     spatial_library_id: str | None = None,
-    organism: Literal[
-        "human",
-        "mouse",
-        "rhesus monkeys",
-        "domestic pig",
-        "chimpanzee",
-        "white-tufted-ear marmoset",
-        "zebrafish",
-    ],
+    organism: CELLxGENEOrganisms = "human",
 ) -> Schema:
     """Generates a :class:`~lamindb.Schema` for a specific CELLxGENE schema version.
 
@@ -297,7 +289,8 @@ def create_cellxgene_schema(
         slots["uns:spatial"] = spatial_schema
         slots[f"uns:spatial:{spatial_library_id}:scalefactors"] = scalefactors_schema
 
-    # Spatial library ID must be in the name of we have lookup side effects where other existing Spatial Library IDs make it into the schema
+    # Spatial library ID must be in the name
+    # Otherwise, we have lookup side effects where other existing Spatial Library IDs make it into the Schema
     schema_name = f"CELLxGENE AnnData of {', '.join(field_types) if isinstance(field_types, list) else field_types}"
     if spatial_library_id:
         schema_name += f" ({spatial_library_id})"
