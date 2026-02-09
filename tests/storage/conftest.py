@@ -4,6 +4,10 @@ from subprocess import DEVNULL, run
 from time import perf_counter
 
 import lamindb as ln
+
+# Force storage module to load first to ensure consistent class identity
+# (avoids isinstance failure when storage is lazy-loaded via different paths)
+import lamindb.core.storage  # noqa: F401
 import lamindb_setup as ln_setup
 import pytest
 from lamin_utils import logger
