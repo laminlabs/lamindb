@@ -30,7 +30,7 @@ def test_cellxgene_curation(cellxgene_defaults) -> None:
     ln.examples.cellxgene.save_cellxgene_defaults()
 
     cxg_schema = ln.examples.cellxgene.create_cellxgene_schema(
-        field_types="ontology_id"
+        field_types="ontology_id", organism="human"
     )
 
     adata = ln.examples.datasets.apostolov_2024_cycling_cellxgene()

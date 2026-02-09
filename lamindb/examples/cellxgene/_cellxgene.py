@@ -100,6 +100,15 @@ def create_cellxgene_schema(
     field_types: FieldType | Collection[FieldType] = "ontology_id",
     *,
     spatial_library_id: str | None = None,
+    organism: Literal[
+        "human",
+        "mouse",
+        "rhesus monkeys",
+        "domestic pig",
+        "chimpanzee",
+        "white-tufted-ear marmoset",
+        "zebrafish",
+    ],
 ) -> Schema:
     """Generates a :class:`~lamindb.Schema` for a specific CELLxGENE schema version.
 
@@ -116,34 +125,50 @@ def create_cellxgene_schema(
     class CategorySpec(NamedTuple):
         field: str | FieldAttr | list[Registry]
         default: str | None
+        needs_organism: bool = False
 
     categoricals_to_spec: dict[str, CategorySpec] = {
-        "assay": CategorySpec(bt.ExperimentalFactor.name, None),
-        "assay_ontology_term_id": CategorySpec(bt.ExperimentalFactor.ontology_id, None),
-        "cell_type": CategorySpec(bt.CellType.name, "unknown"),
-        "cell_type_ontology_term_id": CategorySpec(bt.CellType.ontology_id, None),
-        "development_stage": CategorySpec(bt.DevelopmentalStage.name, "unknown"),
+        "assay": CategorySpec(bt.ExperimentalFactor.name, None, False),
+        "assay_ontology_term_id": CategorySpec(
+            bt.ExperimentalFactor.ontology_id, None, False
+        ),
+        "cell_type": CategorySpec(bt.CellType.name, "unknown", False),
+        "cell_type_ontology_term_id": CategorySpec(
+            bt.CellType.ontology_id, None, False
+        ),
+        "development_stage": CategorySpec(bt.DevelopmentalStage.name, "unknown", True),
         "development_stage_ontology_term_id": CategorySpec(
-            bt.DevelopmentalStage.ontology_id, None
+            bt.DevelopmentalStage.ontology_id, None, True
         ),
-        "disease": CategorySpec(bt.Disease.name, "normal"),
-        "disease_ontology_term_id": CategorySpec(bt.Disease.ontology_id, None),
-        "self_reported_ethnicity": CategorySpec(bt.Ethnicity.name, "unknown"),
+        "disease": CategorySpec(bt.Disease.name, "normal", False),
+        "disease_ontology_term_id": CategorySpec(bt.Disease.ontology_id, None, False),
+        "self_reported_ethnicity": CategorySpec(bt.Ethnicity.name, "unknown", False),
         "self_reported_ethnicity_ontology_term_id": CategorySpec(
-            bt.Ethnicity.ontology_id, None
+            bt.Ethnicity.ontology_id, None, False
         ),
-        "sex": CategorySpec(bt.Phenotype.name, "unknown"),
-        "sex_ontology_term_id": CategorySpec(bt.Phenotype.ontology_id, None),
-        "suspension_type": CategorySpec(ULabel.name, "cell"),
-        "tissue": CategorySpec(bt.Tissue.name, None),
+        "sex": CategorySpec(bt.Phenotype.name, "unknown", False),
+        "sex_ontology_term_id": CategorySpec(bt.Phenotype.ontology_id, None, False),
+        "suspension_type": CategorySpec(ULabel.name, "cell", False),
+        "tissue": CategorySpec(bt.Tissue.name, None, False),
         "tissue_ontology_term_id": CategorySpec(
-            [bt.Tissue.ontology_id, bt.CellType.ontology_id], None
+            [bt.Tissue.ontology_id, bt.CellType.ontology_id], None, False
         ),
-        "tissue_type": CategorySpec(ULabel.name, "tissue"),
-        "organism": CategorySpec(bt.Organism.scientific_name, None),
-        "organism_ontology_term_id": CategorySpec(bt.Organism.ontology_id, None),
-        "donor_id": CategorySpec(str, "unknown"),
+        "tissue_type": CategorySpec(ULabel.name, "tissue", False),
+        "organism": CategorySpec(bt.Organism.scientific_name, None, False),
+        "organism_ontology_term_id": CategorySpec(bt.Organism.ontology_id, None, False),
+        "donor_id": CategorySpec(str, "unknown", False),
     }
+
+    def _get_cat_filters(field: str | FieldAttr | type[Registry]) -> dict | None:
+        if isinstance(field, str):
+            return None
+        registry = field.field.model if hasattr(field, "field") else field
+        entity = f"bionty.{registry.__name__}"
+        return {
+            "source": bt.Source.filter(
+                entity=entity, organism=organism, currently_used=True
+            ).one()
+        }
 
     field_types_set = (
         {field_types} if isinstance(field_types, str) else set(field_types)
@@ -184,15 +209,31 @@ def create_cellxgene_schema(
         coerce=True,
     ).save()
 
-    obs_features = [
-        Feature(
-            name=field,
-            dtype=obs_categoricals[field],
-            default_value=categoricals_to_spec[field].default,
-        ).save()
-        for field in obs_categoricals
-        if field != "var_index"
-    ]
+    obs_features = []
+    for field in obs_categoricals:
+        if field == "var_index":
+            continue
+        dtype = obs_categoricals[field]
+        needs_organism = categoricals_to_spec[field].needs_organism
+
+        if isinstance(dtype, list):
+            cat_filters = (
+                [_get_cat_filters(d) for d in dtype] if needs_organism else None
+            )
+        elif not isinstance(dtype, str) and needs_organism:
+            cat_filters = _get_cat_filters(dtype)  # type: ignore
+        else:
+            cat_filters = None
+
+        obs_features.append(
+            Feature(  # type: ignore
+                name=field,
+                dtype=dtype,
+                default_value=categoricals_to_spec[field].default,
+                cat_filters=cat_filters,
+            ).save()
+        )
+
     for name in ["is_primary_data", "suspension_type", "tissue_type"]:
         obs_features.append(Feature(name=name, dtype=ULabel.name).save())
 
