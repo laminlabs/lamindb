@@ -25,32 +25,6 @@ if TYPE_CHECKING:
 
     from .artifact import Artifact
 
-_storage_paths_cache = None
-
-
-def _storage_paths():
-    """Lazy-import storage.paths to avoid loading storage at package import."""
-    global _storage_paths_cache
-    if _storage_paths_cache is None:
-        import types
-
-        from ..core.storage.paths import (
-            _cache_key_from_artifact_storage,
-            attempt_accessing_path,
-            auto_storage_key_from_artifact,
-            delete_storage_using_key,
-            store_file_or_folder,
-        )
-
-        _storage_paths_cache = types.SimpleNamespace(
-            _cache_key_from_artifact_storage=_cache_key_from_artifact_storage,
-            attempt_accessing_path=attempt_accessing_path,
-            auto_storage_key_from_artifact=auto_storage_key_from_artifact,
-            delete_storage_using_key=delete_storage_using_key,
-            store_file_or_folder=store_file_or_folder,
-        )
-    return _storage_paths_cache
-
 
 def save(
     records: Iterable[SQLRecord],
@@ -309,8 +283,11 @@ def check_and_attempt_upload(
             logger.warning(f"could not upload artifact: {artifact}")
             # clear dangling storages if we were actually uploading or saving
             if getattr(artifact, "_to_store", False):
-                artifact._clear_storagekey = (
-                    _storage_paths().auto_storage_key_from_artifact(artifact)
+                # avoid root-level import of core.storage module
+                from ..core.storage import paths
+
+                artifact._clear_storagekey = paths.auto_storage_key_from_artifact(
+                    artifact
                 )  # type: ignore
             return exception
         # copies (if on-disk) or moves the temporary file (if in-memory) to the cache
@@ -401,7 +378,10 @@ def check_and_attempt_clearing(
     if hasattr(artifact, "_clear_storagekey"):
         try:
             if artifact._clear_storagekey is not None:  # type: ignore
-                delete_msg = _storage_paths().delete_storage_using_key(
+                # avoid root-level import of core.storage module
+                from ..core.storage import paths
+
+                delete_msg = paths.delete_storage_using_key(
                     artifact,
                     artifact._clear_storagekey,  # type: ignore
                     raise_file_not_found_error=raise_file_not_found_error,
@@ -510,14 +490,16 @@ def upload_artifact(
     """Store and add file and its linked entries."""
     # kwargs are propagated to .upload_from in the end
     # can't currently use  filepath_from_artifact here because it resolves to ._local_filepath
-    sp = _storage_paths()
-    storage_key = sp.auto_storage_key_from_artifact(artifact)
-    storage_path, storage_settings = sp.attempt_accessing_path(
+    # avoid root-level import of core.storage module
+    from ..core.storage import paths
+
+    storage_key = paths.auto_storage_key_from_artifact(artifact)
+    storage_path, storage_settings = paths.attempt_accessing_path(
         artifact, storage_key, using_key=using_key, access_token=access_token
     )
     if getattr(artifact, "_to_store", False):
         logger.save(f"storing artifact '{artifact.uid}' at '{storage_path}'")
-        sp.store_file_or_folder(
+        paths.store_file_or_folder(
             artifact._local_filepath,
             storage_path,
             print_progress=print_progress,
@@ -527,7 +509,7 @@ def upload_artifact(
     if isinstance(storage_path, LocalPathClasses):
         cache_path = None
     else:
-        cache_key = sp._cache_key_from_artifact_storage(artifact, storage_settings)
+        cache_key = paths._cache_key_from_artifact_storage(artifact, storage_settings)
         cache_path = storage_settings.cloud_to_local_no_update(
             storage_path, cache_key=cache_key
         )
