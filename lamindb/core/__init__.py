@@ -44,13 +44,10 @@ from ._settings import Settings
 
 
 def __getattr__(name: str):
-    """Lazy-import heavy modules to avoid loading pandas/anndata at package import."""
+    # need to lazy import MappedCollection - it should likely moved out of the
+    # root namespace over time
     if name == "MappedCollection":
         from ._mapped_collection import MappedCollection
 
         return MappedCollection
-    if name == "storage":
-        import importlib
-
-        return importlib.import_module("lamindb.core.storage")
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
