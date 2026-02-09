@@ -34,7 +34,7 @@ if TYPE_CHECKING:
     from lamindb_setup.types import UPathStr
     from mudata import MuData
 
-    from lamindb.core.types import ScverseDataStructures
+    from lamindb.core.storage.types import ScverseDataStructures
 
 try:
     from ..core.storage._zarr import load_zarr

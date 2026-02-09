@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Collection, Literal, NamedTuple
 
-import pandas as pd
 from lamindb_setup.core.upath import UPath
 from packaging import version
 
@@ -108,6 +107,7 @@ def _create_cellxgene_sources(
 ) -> dict[str, SQLRecord]:
     """Create a source dictionary of CELLxGENE categoricals to Source."""
     import bionty as bt
+    import pandas as pd
 
     def _fetch_bionty_source(entity: str, organism: str) -> SQLRecord | None:  # type: ignore
         """Fetch the Bionty source of the pinned ontology."""

@@ -59,7 +59,7 @@ if TYPE_CHECKING:
     from spatialdata import SpatialData
     from tiledbsoma._experiment import Experiment as SOMAExperiment
 
-    from lamindb.core.types import ScverseDataStructures
+    from lamindb.core.storage.types import ScverseDataStructures
 
 
 def strip_ansi_codes(text):
@@ -859,7 +859,7 @@ class ExperimentalDictCurator(DataFrameCurator):
             d = dataset.load(is_run_input=False)
         else:
             d = dataset
-        df = convert_dict_to_dataframe_for_validation(d, schema)
+        df = convert_dict_to_dataframe_for_validation(d, schema)  # type: ignore
         super().__init__(
             df, schema, slot=slot, require_saved_schema=require_saved_schema
         )

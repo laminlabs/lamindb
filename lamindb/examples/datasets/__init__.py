@@ -56,39 +56,67 @@ Other
 .. autofunction:: fake_bio_notebook_titles
 """
 
-from . import mini_immuno
-from ._core import (
-    anndata_file_pbmc68k_test,
-    anndata_human_immune_cells,
-    anndata_mouse_sc_lymph_node,
-    anndata_pbmc3k_processed,
-    anndata_pbmc68k_reduced,
-    anndata_suo22_Visium10X,
-    df_iris,
-    df_iris_in_meter,
-    df_iris_in_meter_study1,
-    df_iris_in_meter_study2,
-    dict_cellxgene_uns,
-    dir_iris_images,
-    dir_scrnaseq_cellranger,
-    file_bam,
-    file_fastq,
-    file_fcs,
-    file_fcs_alpert19,
-    file_jpg_paradisi05,
-    file_mini_csv,
-    file_tiff_suo22,
-    file_tsv_rnaseq_nfcore_salmon_merged_gene_counts,
-    mudata_papalexi21_subset,
-    schmidt22_crispra_gws_IFNG,
-    schmidt22_perturbseq,
-    spatialdata_blobs,
-)
-from ._fake import fake_bio_notebook_titles
-from ._small import (
-    anndata_with_obs,
-    small_dataset3_cellxgene,
-)
+import importlib.util
+import sys
 
-small_dataset1 = mini_immuno.get_dataset1  # backward compat
-small_dataset2 = mini_immuno.get_dataset2  # backward compat
+
+def __getattr__(name: str):
+    """Lazy-import datasets to avoid loading pandas/anndata at package import."""
+    if name == "mini_immuno":
+        # Use importlib to avoid __getattr__ recursion when importing submodule
+        spec = importlib.util.find_spec(
+            "lamindb.examples.datasets.mini_immuno",
+            package="lamindb.examples.datasets",
+        )
+        if spec is None or spec.loader is None:
+            raise ImportError("Could not find module mini_immuno")
+        module = importlib.util.module_from_spec(spec)
+        sys.modules["lamindb.examples.datasets.mini_immuno"] = module
+        spec.loader.exec_module(module)
+        return module
+    if name in ("small_dataset1", "small_dataset2"):
+        mini_immuno = importlib.import_module(
+            ".mini_immuno", package="lamindb.examples.datasets"
+        )
+        return (
+            mini_immuno.get_dataset1
+            if name == "small_dataset1"
+            else mini_immuno.get_dataset2
+        )
+    _core_names = (
+        "anndata_file_pbmc68k_test",
+        "anndata_human_immune_cells",
+        "anndata_mouse_sc_lymph_node",
+        "anndata_pbmc3k_processed",
+        "anndata_pbmc68k_reduced",
+        "anndata_suo22_Visium10X",
+        "df_iris",
+        "df_iris_in_meter",
+        "df_iris_in_meter_study1",
+        "df_iris_in_meter_study2",
+        "dict_cellxgene_uns",
+        "dir_iris_images",
+        "dir_scrnaseq_cellranger",
+        "file_bam",
+        "file_fastq",
+        "file_fcs",
+        "file_fcs_alpert19",
+        "file_jpg_paradisi05",
+        "file_mini_csv",
+        "file_tiff_suo22",
+        "file_tsv_rnaseq_nfcore_salmon_merged_gene_counts",
+        "mudata_papalexi21_subset",
+        "schmidt22_crispra_gws_IFNG",
+        "schmidt22_perturbseq",
+        "spatialdata_blobs",
+    )
+    if name in _core_names:
+        _core = importlib.import_module("._core", package="lamindb.examples.datasets")
+        return getattr(_core, name)
+    if name in ("anndata_with_obs", "small_dataset3_cellxgene"):
+        _small = importlib.import_module("._small", package="lamindb.examples.datasets")
+        return getattr(_small, name)
+    if name == "fake_bio_notebook_titles":
+        _fake = importlib.import_module("._fake", package="lamindb.examples.datasets")
+        return _fake.fake_bio_notebook_titles
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

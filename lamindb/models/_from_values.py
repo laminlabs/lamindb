@@ -2,10 +2,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-import pandas as pd
 from lamin_utils import colors, logger
 
 if TYPE_CHECKING:
+    from pandas import DataFrame, Index
+
     from lamindb.base.types import FieldAttr, ListLike
 
     from .query_set import SQLRecordList
@@ -96,14 +97,16 @@ def _from_values(
 
 
 def get_existing_records(
-    iterable_idx: pd.Index,
+    iterable_idx: Index,
     field: FieldAttr,
     organism: SQLRecord | None = None,
     standardize: bool = True,
     mute: bool = False,
     **filter_kwargs,
-) -> tuple[list, pd.Index, str]:
+) -> tuple[list, Index, str]:
     """Get existing records from the database."""
+    import pandas as pd
+
     from .can_curate import _validate
 
     # NOTE: existing records matching is agnostic to the source
@@ -187,14 +190,14 @@ def get_existing_records(
 
 
 def create_records_from_source(
-    iterable_idx: pd.Index,
+    iterable_idx: Index,
     field: FieldAttr,
     organism: SQLRecord | None = None,
     source: SQLRecord | None = None,
     standardize: bool = True,
     msg: str = "",
     mute: bool = False,
-) -> tuple[list, pd.Index]:
+) -> tuple[list, Index]:
     """Create records from source."""
     registry = field.field.model  # type: ignore
     records: list = []
@@ -301,8 +304,10 @@ def create_records_from_source(
     return records, unmapped_values
 
 
-def index_iterable(iterable: ListLike) -> pd.Index:
+def index_iterable(iterable: ListLike) -> Index:
     """Get unique values from an iterable."""
+    import pandas as pd
+
     idx = pd.Index(iterable).unique()
     # No entries are made for NAs, '', None
     # returns an ordered unique not null list
@@ -329,7 +334,7 @@ def _format_values(
 
 
 def _bulk_create_dicts_from_df(
-    keys: set | list, column_name: str, df: pd.DataFrame
+    keys: set | list, column_name: str, df: DataFrame
 ) -> tuple[dict, str]:
     """Get fields from a DataFrame for many rows."""
     multi_msg = ""

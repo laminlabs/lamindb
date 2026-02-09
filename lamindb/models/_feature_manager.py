@@ -9,7 +9,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
-import pandas as pd
 from django.contrib.postgres.aggregates import ArrayAgg
 from django.db import connections
 from django.db.models import Aggregate, Subquery
@@ -364,6 +363,8 @@ def get_non_categoricals(
     self,
 ) -> dict[tuple[str, str], set[Any]]:
     """Get non-categorical features and their values."""
+    import pandas as pd
+
     from .artifact import Artifact
     from .record import Record
     from .run import Run
@@ -718,6 +719,8 @@ def describe_features(
 def infer_convert_dtype_key_value(
     key: str, value: Any, mute: bool = False, dtype_str: str | None = None
 ) -> tuple[str, Any, str]:
+    import pandas as pd
+
     from lamindb.base.dtypes import is_valid_datetime_str
 
     message = ""
@@ -1038,6 +1041,8 @@ class FeatureManager:
             #> Tissue(id=1, name='brain', ...)
         """
         from collections import defaultdict
+
+        import pandas as pd
 
         from .query_set import SQLRecordList
 
