@@ -70,7 +70,7 @@ from .storage import Storage
 from .ulabel import ULabel
 
 
-def _storage():
+def _lazy_load_storage_module():
     """Lazy-import storage to avoid loading pandas/anndata at package import."""
     from ..core.storage import (
         delete_storage,
@@ -103,10 +103,12 @@ def _storage():
 _storage_cache: object | None = None
 
 
+# refactor this module to group logic that needs storage access in a class
+# in the future; then we don't need _s() anymore
 def _s():
     global _storage_cache
     if _storage_cache is None:
-        _storage_cache = _storage()
+        _storage_cache = _lazy_load_storage_module()
     return _storage_cache
 
 
