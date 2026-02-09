@@ -297,8 +297,13 @@ def create_cellxgene_schema(
         slots["uns:spatial"] = spatial_schema
         slots[f"uns:spatial:{spatial_library_id}:scalefactors"] = scalefactors_schema
 
+    # Spatial library ID must be in the name of we have lookup side effects where other existing Spatial Library IDs make it into the schema
+    schema_name = f"CELLxGENE AnnData of {', '.join(field_types) if isinstance(field_types, list) else field_types}"
+    if spatial_library_id:
+        schema_name += f" ({spatial_library_id})"
+
     full_cxg_schema = Schema(
-        name=f"CELLxGENE AnnData of {', '.join(field_types) if isinstance(field_types, list) else field_types}",
+        name=schema_name,
         otype="AnnData",
         minimal_set=True,
         coerce=True,
