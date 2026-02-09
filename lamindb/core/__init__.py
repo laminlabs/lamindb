@@ -52,6 +52,11 @@ def __getattr__(name: str):
 
         loaders = importlib.import_module(".loaders", package=__name__)
         return loaders
+    if name == "storage":
+        import importlib
+
+        storage = importlib.import_module(".storage", package=__name__)
+        return storage
     if name == "MappedCollection":
         from ._mapped_collection import MappedCollection
 
