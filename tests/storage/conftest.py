@@ -3,7 +3,6 @@ from pathlib import Path
 from subprocess import DEVNULL, run
 from time import perf_counter
 
-import lamindb as ln
 import lamindb_setup as ln_setup
 import pytest
 from lamin_utils import logger
@@ -11,13 +10,15 @@ from laminci.db import setup_local_test_postgres
 
 
 def create_test_instance(pgurl: str):
-    ln.setup.init(
+    ln_setup.init(
         storage="./default_storage_unit_storage",
         modules="bionty",
         name="lamindb-unit-tests-storage",
         db=pgurl,
     )
-    ln.setup.register()  # temporarily
+    ln_setup.register()  # temporarily
+    import lamindb as ln
+
     ln.settings.creation.artifact_silence_missing_run_warning = True
     ln.settings.track_run_inputs = False
     ln.Storage("s3://lamindb-ci/test-data").save()
@@ -46,6 +47,8 @@ def pytest_sessionstart():
         quit()
     total_time_elapsed = perf_counter() - t_execute_start
     print(f"time to setup the instance: {total_time_elapsed:.1f}s")
+    import lamindb as ln
+
     assert ln.Storage.filter(root="s3://lamindb-ci/test-data").one_or_none() is not None
 
 
@@ -60,10 +63,10 @@ def delete_test_instance():
         "s3://lamindb-ci/lamindb-unit-tests-cloud/.lamindb",
         "s3://lamindb-ci/test-settings-switch-storage/.lamindb",
     ):
-        upath = ln.UPath(path)
+        upath = ln_setup.core.upath.UPath(path)
         if upath.exists():
             upath.rmdir()
-    ln.setup.delete("lamindb-unit-tests-storage", force=True)
+    ln_setup.delete("lamindb-unit-tests-storage", force=True)
 
 
 def pytest_sessionfinish(session: pytest.Session):
