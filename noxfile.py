@@ -294,7 +294,12 @@ def test(session, group):
         )
     elif group == "unit-storage":
         login_testuser2(session)  # shouldn't be necessary but is for now
-        run(session, f"pytest {coverage_args} ./tests/storage {duration_args}")
+        # Use coverage run -m pytest to avoid module reload (pytest-cov causes
+        # isinstance to fail when storage is lazy-loaded via different paths)
+        run(
+            session,
+            f"coverage run --append --source=lamindb -m pytest ./tests/storage {duration_args}",
+        )
     elif group == "no-instance":
         run(session, "lamin disconnect")
         run(session, f"pytest {coverage_args} ./tests/no_instance {duration_args}")
