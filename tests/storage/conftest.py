@@ -3,6 +3,7 @@ from pathlib import Path
 from subprocess import DEVNULL, run
 from time import perf_counter
 
+import lamindb as ln
 import lamindb_setup as ln_setup
 import pytest
 from lamin_utils import logger
@@ -17,7 +18,6 @@ def create_test_instance(pgurl: str):
         db=pgurl,
     )
     ln_setup.register()  # temporarily
-    import lamindb as ln
 
     ln.settings.creation.artifact_silence_missing_run_warning = True
     ln.settings.track_run_inputs = False
@@ -47,8 +47,6 @@ def pytest_sessionstart():
         quit()
     total_time_elapsed = perf_counter() - t_execute_start
     print(f"time to setup the instance: {total_time_elapsed:.1f}s")
-    import lamindb as ln
-
     assert ln.Storage.filter(root="s3://lamindb-ci/test-data").one_or_none() is not None
 
 
