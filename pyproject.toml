@@ -57,6 +57,7 @@ fcs = [
 ]
 dev = [
     # basic test
+    "setuptools>=81,<82",  # 82 removes pkg_resources; xarray-schema (spatialdata dep) still needs it
     "tomlkit",
     "line_profiler",
     "pre-commit",
