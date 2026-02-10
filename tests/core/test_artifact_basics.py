@@ -1297,6 +1297,18 @@ def test_passing_foreign_keys_ids(tsv_file):
     assert artifact._subsequent_run_id == second_run.id
     assert second_run in artifact.recreating_runs.all()
 
+    # Run-side: output_artifacts vs recreated_artifacts
+    assert list(first_run.output_artifacts.all()) == [artifact]
+    assert list(first_run.recreated_artifacts.all()) == []
+    assert list(second_run.output_artifacts.all()) == []
+    assert list(second_run.recreated_artifacts.all()) == [artifact]
+
+    # query_output_artifacts
+    assert list(first_run.query_output_artifacts(include_recreated=False)) == [artifact]
+    assert list(first_run.query_output_artifacts(include_recreated=True)) == [artifact]
+    assert list(second_run.query_output_artifacts(include_recreated=False)) == []
+    assert list(second_run.query_output_artifacts(include_recreated=True)) == [artifact]
+
     artifact.delete(permanent=True)
     second_run.delete(permanent=True)
     first_run.delete(permanent=True)
