@@ -99,7 +99,9 @@ def test_record_example_compound_treatment(
         ],
     }
 
+    assert sample_sheet1.input_of_runs.count() == 0
     df = sample_sheet1.to_dataframe()
+    assert sample_sheet1.input_of_runs.count() == 1
     assert df.index.name == "__lamindb_record_id__"
     dictionary = df[
         [
@@ -146,6 +148,7 @@ def test_record_example_compound_treatment(
     ]
     assert artifact.run.input_records.count() == 1
     assert artifact.transform.kind == "function"
+    assert artifact.transform.key == "__lamindb_record_export__"
     # looks something like this:
     # id,uid,name,treatment,cell_line,preparation_date,__lamindb_record_uid__,__lamindb_record_name__
     # 1,S1,Sample 1,treatment1,HEK293T,2025-06-01 05:00:00,iCwgKgZELoLtIoGy,sample1

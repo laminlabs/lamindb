@@ -405,21 +405,31 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         """
         return _query_relatives([self], "records")  # type: ignore
 
-    def _get_export_run(self) -> Run:
+    def _set_export_run(self, is_run_input: bool | Run | None = None) -> None:
         from lamindb.core._context import context
         from lamindb.models import Run, Transform
 
-        if context.run is None:
-            transform, _ = Transform.objects.get_or_create(
-                key="__lamindb_record_export__", kind="function"
-            )
-            run = Run(transform, initiated_by_run=context.run).save()
+        if isinstance(is_run_input, Run):
+            run = is_run_input
+        elif is_run_input in {True, None}:
+            if context.run is None:
+                transform, _ = Transform.objects.get_or_create(
+                    key="__lamindb_record_export__", kind="function"
+                )
+                run = Run(transform).save()
+            else:
+                run = context.run
         else:
-            run = context.run
-        return run
+            run = None
+        self._export_run = run
 
     @class_and_instance_method
-    def to_dataframe(cls_or_self, recurse: bool = False, **kwargs) -> pd.DataFrame:
+    def to_dataframe(
+        cls_or_self,
+        recurse: bool = False,
+        is_run_input: bool | Run | None = None,
+        **kwargs,
+    ) -> pd.DataFrame:
         """Export to a pandas DataFrame.
 
         This is roughly equivalent to::
@@ -431,7 +441,8 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         It will also track the record as an input to the current run.
 
         Args:
-            recurse: `bool = False` Whether to include records of sub-types recursively.
+            recurse: Whether to include records of sub-types recursively.
+            is_run_input: Whether to track the record as a run input.
             **kwargs: Keyword arguments passed to :meth:`~lamindb.models.QuerySet.to_dataframe`.
         """
         import pandas as pd
@@ -478,11 +489,16 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
             desired_order = df.columns[2:].tolist()
             desired_order.sort()
         df = reorder_subset_columns_in_df(df, desired_order, position=0)  # type: ignore
-        self._get_export_run().input_records.add(self)
+        self._set_export_run(is_run_input=is_run_input)
+        self._export_run.input_records.add(self)
         return df.sort_index()  # order by id
 
     def to_artifact(
-        self, key: str | None = None, suffix: str | None = None
+        self,
+        key: str | None = None,
+        suffix: str | None = None,
+        is_run_input: bool | Run | None = None,
+        **kwargs,
     ) -> Artifact:
         """Calls `to_dataframe()` to create an artifact.
 
@@ -493,6 +509,8 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         Args:
             key: `str | None = None` The artifact key.
             suffix: `str | None = None` The suffix to append to the default key if no key is passed.
+            is_run_input: Whether to track the record as a run input.
+            **kwargs: Keyword arguments passed to :meth:`~lamindb.models.Record.to_dataframe`.
         """
         assert self.is_type, "Only types can be exported as artifacts."
         assert key is None or suffix is None, "Only one of key or suffix can be passed."
@@ -501,12 +519,12 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
             key = f"sheet_exports/{self.name}{suffix}"
         description = f": {self.description}" if self.description is not None else ""
         return Artifact.from_dataframe(
-            self.to_dataframe(),
+            self.to_dataframe(is_run_input=is_run_input, **kwargs),
             key=key,
             description=f"Export of sheet {self.uid}{description}",
             schema=self.schema,
             csv_kwargs={"index": False},
-            run=self._get_export_run(),
+            run=self._export_run,
         ).save()
 
 
