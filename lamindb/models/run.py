@@ -278,23 +278,23 @@ class Run(SQLRecord, TracksUpdates):
     output_artifacts: RelatedManager[Artifact]
     """The artifacts created in this run ← :attr:`~lamindb.Artifact.run`.
 
-    This does *not* include recreated artifacts, which are tracked via attr:`~lamindb.Run.recreated_artifacts`.
+    This does **not** include recreated artifacts, which are tracked via :attr:`~lamindb.Run.recreated_artifacts`.
 
-    If you want to query all originally created and all recreated artifacts, use :meth:`~lamindb.Run.query_output_artifacts`.
+    If you want to query created + recreated artifacts, use :meth:`~lamindb.Run.query_output_artifacts` instead.
     """
     recreated_artifacts: RelatedManager[Artifact]
-    """The output artifacts that were recreated by this run but originally created in another run ← :attr:`~lamindb.Artifact.recreating_runs`.
+    """The output artifacts that were recreated by this run ← :attr:`~lamindb.Artifact.recreating_runs`.
 
-    Artifacts are considered recreated if they are reloaded due to a hash lookup match for an existing artifact.
+    Artifacts are _recreated_ if they trigger a hash lookup match for an existing artifact.
     """
     input_collections: RelatedManager[Collection]
     """The collections serving as input for this run ← :attr:`~lamindb.Collection.input_of_runs`."""
     output_collections: RelatedManager[Collection]
     """The collections created in this run ← :attr:`~lamindb.Collection.run`."""
     recreated_collections: RelatedManager[Collection]
-    """The output collections that were recreated by this run but originally created in another run ← :attr:`~lamindb.Collection.recreating_runs`.
+    """The output collections that were recreated by this run ← :attr:`~lamindb.Collection.recreating_runs`.
 
-    Artifacts are considered recreated if they are reloaded due to a hash lookup match for an existing artifact.
+    Collections are _recreated_ if they trigger a hash lookup match for an existing collection.
     """
     params: dict = models.JSONField(null=True)
     """Parameters (plain JSON values)."""
@@ -456,8 +456,10 @@ class Run(SQLRecord, TracksUpdates):
             A queryset of :class:`~lamindb.Artifact` objects.
 
         See Also:
-            output_artifacts: QuerySet of originally created artifacts.
-            recreated_artifacts: QuerySet of recreated artifacts.
+            :attr:`~lamindb.Run.output_artifacts`
+                `QuerySet` of originally created artifacts.
+            :attr:`~lamindb.Run.recreated_artifacts`
+                `QuerySet` of recreated artifacts.
         """
         if not include_recreated:
             return self.output_artifacts.all()
