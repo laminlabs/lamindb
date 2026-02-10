@@ -25,7 +25,6 @@ from lamindb.base.users import current_user_id
 from lamindb.base.utils import strict_classmethod
 
 from ..base.uids import base62_16
-from .artifact import Artifact
 from .can_curate import CanCurate
 from .query_set import BasicQuerySet, QuerySet
 from .sqlrecord import BaseSQLRecord, IsLink, SQLRecord
@@ -34,6 +33,7 @@ if TYPE_CHECKING:
     from datetime import datetime
 
     from ._feature_manager import FeatureManager
+    from .artifact import Artifact
     from .block import RunBlock
     from .collection import Collection
     from .feature import JsonValue
@@ -462,7 +462,7 @@ class Run(SQLRecord, TracksUpdates):
         if not include_recreated:
             return self.output_artifacts.all()
         else:
-            return Artifact.objects.filter(
+            return self.output_artifacts.model.filter(
                 Q(run=self) | Q(recreating_runs=self)
             ).distinct()
 
