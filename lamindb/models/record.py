@@ -405,19 +405,34 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         """
         return _query_relatives([self], "records")  # type: ignore
 
+    def _get_export_run(self) -> Run:
+        from lamindb.core._context import context
+        from lamindb.models import Run, Transform
+
+        if context.run is None:
+            transform, _ = Transform.objects.get_or_create(
+                key="__lamindb_record_export__", kind="function"
+            )
+            run = Run(transform, initiated_by_run=context.run).save()
+        else:
+            run = context.run
+        return run
+
     @class_and_instance_method
     def to_dataframe(cls_or_self, recurse: bool = False, **kwargs) -> pd.DataFrame:
         """Export to a pandas DataFrame.
 
-        This is almost equivalent to::
+        This is roughly equivalent to::
 
             ln.Record.filter(type=sample_type).to_dataframe(include="features")
 
         `to_dataframe()` ensures that the columns are ordered according to the schema of the type and encodes fields like `uid` and `name`.
 
+        It will also track the record as an input to the current run.
+
         Args:
             recurse: `bool = False` Whether to include records of sub-types recursively.
-            **kwargs: Keyword arguments passed to Registry.to_dataframe().
+            **kwargs: Keyword arguments passed to :meth:`~lamindb.models.QuerySet.to_dataframe`.
         """
         import pandas as pd
 
@@ -437,7 +452,9 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
             else self.records.filter(branch_id__in=branch_ids)
         )
         logger.important(f"exporting {qs.count()} records of '{self.name}'")
-        df = qs.to_dataframe(features="queryset", order_by="id", limit=None)
+        if "order_by" not in kwargs:
+            kwargs["order_by"] = "id"
+        df = qs.to_dataframe(features="queryset", limit=None, **kwargs)
         encoded_id = encode_lamindb_fields_as_columns(self.__class__, "id")
         encoded_uid = encode_lamindb_fields_as_columns(self.__class__, "uid")
         encoded_name = encode_lamindb_fields_as_columns(self.__class__, "name")
@@ -461,7 +478,8 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
             desired_order = df.columns[2:].tolist()
             desired_order.sort()
         df = reorder_subset_columns_in_df(df, desired_order, position=0)  # type: ignore
-        return df.sort_index()  # order by id for now
+        self._get_export_run().input_records.add(self)
+        return df.sort_index()  # order by id
 
     def to_artifact(
         self, key: str | None = None, suffix: str | None = None
@@ -476,26 +494,19 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
             key: `str | None = None` The artifact key.
             suffix: `str | None = None` The suffix to append to the default key if no key is passed.
         """
-        from lamindb.core._context import context
-
         assert self.is_type, "Only types can be exported as artifacts."
         assert key is None or suffix is None, "Only one of key or suffix can be passed."
         if key is None:
             suffix = ".csv" if suffix is None else suffix
             key = f"sheet_exports/{self.name}{suffix}"
         description = f": {self.description}" if self.description is not None else ""
-        transform, _ = Transform.objects.get_or_create(
-            key="__lamindb_record_export__", kind="function"
-        )
-        run = Run(transform, initiated_by_run=context.run).save()
-        run.input_records.add(self)
         return Artifact.from_dataframe(
             self.to_dataframe(),
             key=key,
             description=f"Export of sheet {self.uid}{description}",
             schema=self.schema,
             csv_kwargs={"index": False},
-            run=run,
+            run=self._get_export_run(),
         ).save()
 
 
