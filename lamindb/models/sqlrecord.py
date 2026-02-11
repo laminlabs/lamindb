@@ -519,12 +519,12 @@ def _synchronize_clone(storage_root: str) -> str | None:
     local_sqlite_path_gz = Path(str(local_sqlite_path) + ".gz")
 
     try:
-        cloud_db_path_gz.synchronize_to(
+        if cloud_db_path_gz.synchronize_to(
             local_sqlite_path_gz, error_no_origin=True, print_progress=True
-        )
-        with gzip.open(local_sqlite_path_gz, "rb") as f_in:
-            with open(local_sqlite_path, "wb") as f_out:
-                shutil.copyfileobj(f_in, f_out)
+        ):
+            with gzip.open(local_sqlite_path_gz, "rb") as f_in:
+                with open(local_sqlite_path, "wb") as f_out:
+                    shutil.copyfileobj(f_in, f_out)
         return f"sqlite:///{local_sqlite_path}"
     except (FileNotFoundError, PermissionError):
         logger.debug("Clone not found. Falling back to normal access...")
