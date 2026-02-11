@@ -4,7 +4,7 @@ execute_via: python
 
 # Manage notebooks, scripts & workflows
 
-Here is a 15 sec video illustrating the traceability you get by tracking data lineage.
+This guide walks from tracking data lineage in a notebook to tracking parameters in workflows.
 
 ```{raw} html
 <video width="500" controls>
@@ -481,17 +481,17 @@ See the state of the database after we ran these different examples:
 ln.view()
 ```
 
-## Manage notebook templates
+## Using transform versions as templates
 
 <!-- #region -->
 
-A notebook acts like a template upon using `lamin load` to load it. Consider you run:
+A transform acts like a template upon using `lamin load` to load it. Consider you run:
 
 ```bash
 lamin load https://lamin.ai/account/instance/transform/Akd7gx7Y9oVO0000
 ```
 
-Upon running the returned notebook, you'll automatically create a new version and be able to browse it via the version dropdown on the UI.
+Upon running the returned notebook or script, you'll automatically create a new version and be able to browse it via the version dropdown on the UI.
 
 Additionally, you can:
 
