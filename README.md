@@ -8,7 +8,7 @@ You get context & memory through a lineage-native lakehouse for bio-formats, reg
 
 (1) Reproducing, tracing & understanding how datasets, models & results are created is critical to quality R&D.
 Without context, humans & agents make mistakes and cannot close feedback loops across data generation & analysis.
-Without memory, compute & intelligence are wasted on fragmented, non-compounding tasks.
+Without memory, compute & intelligence are wasted on fragmented, non-compounding tasks — LLM context windows are small.
 
 (2) Training & fine-tuning models with thousands of datasets — across LIMS, ELNs, orthogonal assays — is now a primary path to scaling R&D.
 But without queryable & validated data or with data locked in organizational & infrastructure siloes, it leads to garbage in, garbage out or is quite simply impossible.
