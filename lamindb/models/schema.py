@@ -389,22 +389,22 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     components: RelatedManager[Schema] = ManyToManyField(
         "self", through="SchemaComponent", symmetrical=False, related_name="composites"
     )
-    """Components of this schema."""
+    """Components of this schema ← :attr:`~lamindb.Schema.composites`."""
     composites: RelatedManager[Schema]
-    """The composite schemas that contains this schema as a component.
+    """The composite schemas that contains this schema as a component ← :attr:`~lamindb.Schema.components`.
 
     For example, an `AnnData` composes multiple schemas: `var[DataFrameT]`, `obs[DataFrame]`, `obsm[Array]`, `uns[dict]`, etc.
     """
     features: RelatedManager[Feature]
-    """The features contained in the schema."""
+    """The features contained in the schema ← :attr:`~lamindb.Feature.schemas`."""
     artifacts: RelatedManager[Artifact]
-    """The artifacts that measure a feature set that matches this schema."""
+    """The artifacts with an inferred schema that matches this schema ← :attr:`~lamindb.Artifact.schemas`."""
     validated_artifacts: Artifact
-    """The artifacts that were validated against this schema with a :class:`~lamindb.curators.core.Curator`."""
+    """The artifacts that were validated against this schema ← :attr:`~lamindb.Artifact.schema`."""
     projects: RelatedManager[Project]
-    """Linked projects."""
+    """Linked projects ← :attr:`~lamindb.Project.schemas`."""
     records: RelatedManager[Record]
-    """Records that were annotated with this schema."""
+    """Records that were annotated with this schema ← :attr:`~lamindb.Record.schema`."""
     ablocks: RelatedManager[SchemaBlock]
     """Attached blocks ← :attr:`~lamindb.SchemaBlock.schema`."""
 

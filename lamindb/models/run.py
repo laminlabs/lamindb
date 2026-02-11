@@ -138,20 +138,20 @@ class User(BaseSQLRecord, CanCurate):
         related_name="users",
     )
     """Artifacts annotated with this user."""
-    created_artifacts: Artifact
+    created_artifacts: RelatedManager[Artifact]
     """Artifacts created by user."""
-    created_transforms: Transform
+    created_transforms: RelatedManager[Transform]
     """Transforms created by user."""
-    created_runs: Run
+    created_runs: RelatedManager[Run]
     """Runs created by user."""
     created_at: datetime = DateTimeField(
         editable=False, db_default=models.functions.Now(), db_index=True
     )
-    """Time of creation of record."""
+    """Time of creation of object."""
     updated_at: datetime = DateTimeField(
         editable=False, db_default=models.functions.Now(), db_index=True
     )
-    """Time of last update to record."""
+    """Time of last update to object."""
 
     @overload
     def __init__(
