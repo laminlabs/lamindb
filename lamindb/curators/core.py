@@ -1327,6 +1327,7 @@ class CatVector:
         filter_str: str = "",
         record_uid: str | None = None,
         maximal_set: bool = True,  # whether unvalidated categoricals cause validation failure.
+        schema: Schema = None,
     ) -> None:
         self._values_getter = values_getter
         self._values_setter = values_setter
@@ -1346,6 +1347,7 @@ class CatVector:
         self._registry = self._field.field.model
         self._field_name = self._field.field.name
         self._filter_kwargs = {}
+        self._schema = schema
         if filter_str and filter_str != "unsaved":
             self._filter_kwargs.update(
                 resolve_relation_filters(
@@ -1535,7 +1537,19 @@ class CatVector:
             # inspect the default instance and save validated records from public
             if issubclass(registry, HasType):
                 if self._type_record is None:
-                    self._subtype_query_set = registry.filter()
+                    # When we have a Schema with typed members,
+                    # scope the query to only the types present in the schema's members
+                    # to avoid ambiguous matches across different feature types.
+                    qs = registry.filter()
+                    if self._schema and self._schema.n_members:
+                        type_ids = {
+                            m.type_id
+                            for m in self._schema.members
+                            if m.type_id is not None
+                        }
+                        if type_ids:
+                            qs = registry.filter(type_id__in=type_ids)
+                    self._subtype_query_set = qs
                 else:
                     query_sub_types = getattr(
                         self._type_record, f"query_{registry.__name__.lower()}s"
@@ -1819,6 +1833,7 @@ class DataFrameCatManager:
             else "unsaved"
             if schema.id is None
             else f"schemas__id={schema.id}",
+            schema=schema,
         )
         for feature in self._categoricals:
             result = parse_dtype(feature._dtype_str)[0]
