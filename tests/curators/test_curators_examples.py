@@ -344,8 +344,8 @@ def test_same_name_different_type():
         name="TypeB", is_type=True, description="Type B features"
     ).save()
 
-    ln.Feature(name="assay name", type=type_a, dtype=str).save()
-    ln.Feature(name="assay name", type=type_b, dtype=str).save()
+    assay_a = ln.Feature(name="assay name", type=type_a, dtype=str).save()
+    assay_b = ln.Feature(name="assay name", type=type_b, dtype=str).save()
 
     schema = ln.Schema(
         name="schema_a",
@@ -366,8 +366,8 @@ def test_same_name_different_type():
 
     artifact.delete(permanent=True)
     ln.Schema.filter().delete(permanent=True)
-    ln.Feature.filter(type__isnull=False).delete(permanent=True)
-    ln.Feature.filter().delete(permanent=True)
+    for feat in [assay_a, assay_b, type_a, type_b]:
+        feat.delete(permanent=True)
 
 
 def test_dataframe_curator_validate_all_annotate_cat2(mini_immuno_schema):
