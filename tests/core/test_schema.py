@@ -412,7 +412,9 @@ def test_schema_components(mini_immuno_schema_flexible: ln.Schema):
     # try adding another schema under slot "var"
     # we want to trigger the unique constraint on slot
     with pytest.raises(IntegrityError) as error:
-        anndata_schema.components.add(var_schema2, through_defaults={"slot": "var"})
+        anndata_schema.components.add(  # type: ignore
+            var_schema2, through_defaults={"slot": "var"}
+        )
     assert "unique" in str(error.value).lower()
 
     anndata_schema.delete(permanent=True)
@@ -654,3 +656,25 @@ def test_composite_component():
     component2.delete(permanent=True)
 
     assert ln.models.SchemaComponent.filter().count() == 0
+
+
+def test_schema_describe_bracket_names():
+    """Feature names with brackets like 'characteristics[organism]' must appear verbatim in describe output.
+
+    Regression test for Rich interpreting '[...]' as markup tags and swallowing bracket content.
+    """
+    features = [
+        ln.Feature(name="source name", dtype="str").save(),
+        ln.Feature(name="characteristics[organism]", dtype="str").save(),
+        ln.Feature(name="characteristics[disease]", dtype="str").save(),
+        ln.Feature(name="comment[instrument]", dtype="str").save(),
+    ]
+    schema = ln.Schema(features, name="test_brackets").save()
+    result = schema.describe(return_str=True)
+    assert "characteristics[organism]" in result
+    assert "characteristics[disease]" in result
+    assert "comment[instrument]" in result
+
+    schema.delete(permanent=True)
+    for feature in features:
+        feature.delete(permanent=True)
