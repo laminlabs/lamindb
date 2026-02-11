@@ -4,6 +4,8 @@ execute_via: python
 
 # Manage notebooks, scripts & workflows
 
+Here is a 15 sec video illustrating the traceability you get by tracking data lineage.
+
 ```{raw} html
 <video width="500" controls>
   <source src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/Xdiikc2c1tPtHcvF0000.mp4" type="video/mp4">
@@ -11,7 +13,7 @@ execute_via: python
 </video>
 ```
 
-If you don't have a `lamindb` instance, here's how to create one:
+**Note:** To run examples, if you don't have a `lamindb` instance, create one:
 
 ```python
 !lamin init --storage ./test-track
