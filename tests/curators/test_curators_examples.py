@@ -5,7 +5,6 @@ from pathlib import Path
 docs_path = Path.cwd() / "docs" / "scripts"
 sys.path.append(str(docs_path))
 
-import tempfile
 
 import bionty as bt
 import lamindb as ln
@@ -355,11 +354,8 @@ def test_same_name_different_type():
     ).save()
 
     df = pd.DataFrame({"assay name": ["exp1", "exp2"]})
-    tmp = Path(tempfile.mkdtemp()) / "test.tsv"
-    df.to_csv(tmp, sep="\t", index=False)
 
-    artifact = ln.Artifact(path=tmp, key="repro/test.tsv").save()
-    artifact.otype = "DataFrame"
+    artifact = ln.Artifact.from_dataframe(df, description="testdata").save()
 
     curator = ln.curators.DataFrameCurator(artifact, schema)
     curator.save_artifact()
