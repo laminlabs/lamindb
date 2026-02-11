@@ -211,7 +211,7 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     """Linked references ← :attr:`~lamindb.Reference.collections`."""
     records: RelatedManager[Record]
     """Linked records ← :attr:`~lamindb.Record.collections`."""
-    ablocks: CollectionBlock
+    ablocks: RelatedManager[CollectionBlock]
     """Attached blocks ← :attr:`~lamindb.CollectionBlock.collection`."""
 
     @overload

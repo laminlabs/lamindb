@@ -4,8 +4,14 @@ execute_via: python
 
 # Curate datasets
 
-Data curation with LaminDB ensures your datasets are **validated** and **queryable**.
-This guide shows you how to transform data into clean, annotated datasets.
+Data curation with LaminDB ensures your datasets are **validated** and **queryable** through **annotation**.
+
+```{raw} html
+<video width="500" controls>
+  <source src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/lJBlG7wEbNgkl2Cy0000.mp4" type="video/mp4">
+  Your browser does not support the video tag.
+</video>
+```
 
 Curating a dataset with LaminDB means three things:
 

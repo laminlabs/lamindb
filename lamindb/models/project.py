@@ -83,7 +83,7 @@ class Reference(
 
     Allows to group reference by type, e.g., internal studies vs. all papers etc.
     """
-    references: Reference
+    references: RelatedManager[Reference]
     """References of this type (can only be non-empty if `is_type` is `True`)."""
     abbr: str | None = CharField(
         max_length=32,
@@ -202,7 +202,7 @@ class Project(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, ValidateF
         "self", PROTECT, null=True, related_name="projects"
     )
     """Type of project (e.g., 'Program', 'Project', 'GithubIssue', 'Task') ← :attr:`~lamindb.Project.projects`."""
-    projects: Project
+    projects: RelatedManager[Project]
     """Projects of this type (can only be non-empty if `is_type` is `True`)."""
     abbr: str | None = CharField(max_length=32, db_index=True, null=True)
     """An abbreviation."""
@@ -276,7 +276,7 @@ class Project(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, ValidateF
     """Annotated blocks ← :attr:`~lamindb.Block.projects`."""
     _status_code: int = models.SmallIntegerField(default=0, db_index=True)
     """Status code."""
-    ablocks: ProjectBlock
+    ablocks: RelatedManager[ProjectBlock]
     """Attached blocks ← :attr:`~lamindb.ProjectBlock.project`."""
 
     @overload

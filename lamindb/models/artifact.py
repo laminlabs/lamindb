@@ -1500,7 +1500,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         "Record", through="RecordArtifact", related_name="linked_artifacts"
     )
     """The records linking this artifact as a feature value ← :attr:`~lamindb.Record.linked_artifacts`."""
-    ablocks: ArtifactBlock
+    ablocks: RelatedManager[ArtifactBlock]
     """Attached blocks ← :attr:`~lamindb.ArtifactBlock.artifact`."""
 
     @overload

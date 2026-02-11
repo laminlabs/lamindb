@@ -172,7 +172,7 @@ class Transform(SQLRecord, IsVersioned):
         "Artifact", CASCADE, null=True, related_name="_environment_of_transforms"
     )
     """An environment for executing the transform."""
-    runs: Run
+    runs: RelatedManager[Run]
     """Runs of this transform ← :attr:`~lamindb.Run.transform`."""
     ulabels: RelatedManager[ULabel] = models.ManyToManyField(
         "ULabel", through="TransformULabel", related_name="transforms"
@@ -213,7 +213,7 @@ class Transform(SQLRecord, IsVersioned):
         User, PROTECT, default=current_user_id, related_name="created_transforms"
     )
     """Creator of record ← :attr:`~lamindb.User.created_transforms`."""
-    ablocks: TransformBlock
+    ablocks: RelatedManager[TransformBlock]
     """Attached blocks ← :attr:`~lamindb.TransformBlock.transform`."""
 
     @overload

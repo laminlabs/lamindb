@@ -1,14 +1,14 @@
 # LaminDB [![docs](https://img.shields.io/badge/docs-yellow)](https://docs.lamin.ai) [![llms.txt](https://img.shields.io/badge/llms.txt-orange)](https://docs.lamin.ai/llms.txt) [![codecov](https://codecov.io/gh/laminlabs/lamindb/branch/main/graph/badge.svg?token=VKMRJ7OWR3)](https://codecov.io/gh/laminlabs/lamindb) [![pypi](https://img.shields.io/pypi/v/lamindb?color=blue&label=PyPI)](https://pypi.org/project/lamindb) [![cran](https://www.r-pkg.org/badges/version/laminr?color=green)](https://cran.r-project.org/package=laminr) [![stars](https://img.shields.io/github/stars/laminlabs/lamindb?style=flat&logo=GitHub&label=&color=gray)](https://github.com/laminlabs/lamindb) [![downloads](https://static.pepy.tech/personalized-badge/lamindb?period=total&units=INTERNATIONAL_SYSTEM&left_color=GRAY&right_color=GRAY&left_text=%E2%AC%87%EF%B8%8F)](https://pepy.tech/project/lamindb)
 
 LaminDB is an open-source data framework for biology to query, trace, and validate datasets and models at scale.
-You get context & memory through a lineage-native lakehouse that understands bio-formats, registries & ontologies.
+You get context & memory through a lineage-native lakehouse for bio-formats, registries & ontologies.
 
 <details>
 <summary>Why?</summary>
 
 (1) Reproducing, tracing & understanding how datasets, models & results are created is critical to quality R&D.
 Without context, humans & agents make mistakes and cannot close feedback loops across data generation & analysis.
-Without memory, compute & intelligence are wasted on fragmented, non-compounding tasks.
+Without memory, compute & intelligence are wasted on fragmented, non-compounding tasks — LLM context windows are small.
 
 (2) Training & fine-tuning models with thousands of datasets — across LIMS, ELNs, orthogonal assays — is now a primary path to scaling R&D.
 But without queryable & validated data or with data locked in organizational & infrastructure siloes, it leads to garbage in, garbage out or is quite simply impossible.
@@ -33,7 +33,7 @@ How?
 - **LIMS & ELN** → programmatic experimental design with bio-registries, ontologies & markdown notes
 - **unified access** → storage locations (local, S3, GCP, …), SQL databases (Postgres, SQLite) & ontologies
 - **reproducible** → auto-track source code & compute environments with data & code versioning
-- **change management** → branching & merging similar to git
+- **change management** → branching & merging similar to git, plan management for agents
 - **zero lock-in** → runs anywhere on open standards (Postgres, SQLite, `parquet`, `zarr`, etc.)
 - **scalable** → you hit storage & database directly through your `pydata` or R stack, no REST API involved
 - **simple** → just `pip install` from PyPI or `install.packages('laminr')` from CRAN
@@ -191,6 +191,13 @@ transform.describe()  # context of the transform
 
 </details>
 
+<details>
+<summary>15 sec video.</summary>
+
+[15 sec video](https://lamin-site-assets.s3.amazonaws.com/.lamindb/Xdiikc2c1tPtHcvF0000.mp4)
+
+</details>
+
 ### Lineage: functions & workflows
 
 You can achieve the same traceability for functions & workflows:
@@ -314,7 +321,10 @@ You can query & search the `Record` registry in the same way as `Artifact` or `R
 ln.Record.search("p53").to_dataframe()
 ```
 
-You can also create relationships of entities and edit them like Excel sheets in a GUI via LaminHub.
+<details>
+<summary>You can create relationships of entities and edit them like Excel sheets on LaminHub.</summary>
+<img width="800px" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/XSzhWUb0EoHOejiw0001.png">
+</details>
 
 ### Data versioning
 
@@ -365,6 +375,13 @@ artifact = ln.Artifact.from_dataframe(
 artifact.describe()
 ```
 
+<details>
+<summary>30 sec video.</summary>
+
+[30 sec video](https://lamin-site-assets.s3.amazonaws.com/.lamindb/lJBlG7wEbNgkl2Cy0000.mp4)
+
+</details>
+
 You can filter for datasets by schema and then launch distributed queries and batch loading.
 
 ### Lakehouse beyond tables
@@ -402,3 +419,10 @@ bt.CellType.to_dataframe()   # your extendable cell type ontology in a simple re
 ```
 
 Read more: [docs.lamin.ai/manage-ontologies](https://docs.lamin.ai/manage-ontologies).
+
+<details>
+<summary>30 sec video.</summary>
+
+[30 sec video](https://lamin-site-assets.s3.amazonaws.com/.lamindb/nUSeIxsaPcBKVuvK0000.mp4)
+
+</details>

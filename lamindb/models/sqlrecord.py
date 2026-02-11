@@ -77,6 +77,7 @@ if TYPE_CHECKING:
 
     from .artifact import Artifact
     from .block import BranchBlock, SpaceBlock
+    from .query_manager import RelatedManager
     from .query_set import SQLRecordList
     from .run import Run, User
     from .transform import Transform
@@ -1392,7 +1393,7 @@ class Space(BaseSQLRecord):
         "User", CASCADE, default=None, related_name="+", null=True
     )
     """Creator of space."""
-    ablocks: SpaceBlock
+    ablocks: RelatedManager[SpaceBlock]
     """Attached blocks ← :attr:`~lamindb.SpaceBlock.space`."""
 
     @overload
@@ -1494,7 +1495,7 @@ class Branch(BaseSQLRecord):
         "User", CASCADE, default=None, related_name="+", null=True
     )
     """Creator of branch."""
-    ablocks: BranchBlock
+    ablocks: RelatedManager[BranchBlock]
     """Attached blocks ← :attr:`~lamindb.BranchBlock.branch`."""
 
     @overload

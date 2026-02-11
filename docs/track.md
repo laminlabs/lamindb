@@ -4,7 +4,16 @@ execute_via: python
 
 # Manage notebooks, scripts & workflows
 
-If you don't have a `lamindb` instance, here's how to create one:
+This guide walks from tracking data lineage in a notebook to tracking parameters in workflows.
+
+```{raw} html
+<video width="500" controls>
+  <source src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/Xdiikc2c1tPtHcvF0000.mp4" type="video/mp4">
+  Your browser does not support the video tag.
+</video>
+```
+
+**Note:** To run examples, if you don't have a `lamindb` instance, create one:
 
 ```python
 !lamin init --storage ./test-track
@@ -42,15 +51,6 @@ lamin load --key my_analyses/my_notebook.ipynb
 ```
 
 <!-- #endregion -->
-
-If your instance is connected to LaminHub, you can search or filter the `transform` page and explore data lineage:
-
-```{raw} html
-<video width="500" controls>
-  <source src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/Xdiikc2c1tPtHcvF0000.mp4" type="video/mp4">
-  Your browser does not support the video tag.
-</video>
-```
 
 <!-- #region -->
 
@@ -481,17 +481,17 @@ See the state of the database after we ran these different examples:
 ln.view()
 ```
 
-## Manage notebook templates
+## Using transform versions as templates
 
 <!-- #region -->
 
-A notebook acts like a template upon using `lamin load` to load it. Consider you run:
+A transform acts like a template upon using `lamin load` to load it. Consider you run:
 
 ```bash
 lamin load https://lamin.ai/account/instance/transform/Akd7gx7Y9oVO0000
 ```
 
-Upon running the returned notebook, you'll automatically create a new version and be able to browse it via the version dropdown on the UI.
+Upon running the returned notebook or script, you'll automatically create a new version and be able to browse it via the version dropdown on the UI.
 
 Additionally, you can:
 

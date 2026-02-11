@@ -53,7 +53,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
     Useful for managing samples, donors, cells, compounds, sequences, and other custom entities with their features.
 
     Records can also be used for labeling artifacts, runs, transforms, and collections.
-    In some cases you may prefer a simple label without features: then consider :class:`~lamindb.ULabel`.
+    In some cases a simple label without features is enough: :class:`~lamindb.ULabel`.
 
     Args:
         name: `str | None = None` A name.
@@ -112,6 +112,11 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
             ln.Record.filter(gc_content=0.55)     # exact match
             ln.Record.filter(gc_content__gt=0.5)  # greater than
             ln.Record.filter(type=sheet)          # just the record on the sheet
+
+        You can create relationships of entities and edit them like Excel sheets on LaminHub:
+
+        .. image:: https://lamin-site-assets.s3.amazonaws.com/.lamindb/XSzhWUb0EoHOejiw0001.png
+            :width: 800px
 
         Model **custom ontologies** through their parents/children attributes::
 
@@ -185,17 +190,14 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
     )
     """A universal random id, valid across DB instances."""
     name: str = CharField(max_length=150, db_index=True, null=True)
-    """Name or title of record (optional).
-
-    Names for a given `type` and `space` are constrained to be unique.
-    """
+    """Name or title of record (optional)."""
     type: Record | None = ForeignKey("self", PROTECT, null=True, related_name="records")
     """Type of record, e.g., `Sample`, `Donor`, `Cell`, `Compound`, `Sequence` ← :attr:`~lamindb.Record.records`.
 
     Allows to group records by type, e.g., all samples, all donors, all cells, all compounds, all sequences.
     """
-    records: Record
-    """If a type (`is_type=True`), records of this `type`."""
+    records: RelatedManager[Record]
+    """If a `type` (`is_type=True`), records of this `type`."""
     description: str | None = TextField(null=True)
     """A description."""
     reference: str | None = CharField(max_length=255, db_index=True, null=True)
@@ -281,27 +283,27 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
     """Collections linked in this record as values ← :attr:`~lamindb.Collection.linked_in_records`."""
     linked_users: RelatedManager[User]
     """Users linked in this record as values ← :attr:`~lamindb.User.linked_in_records`."""
-    ablocks: RecordBlock
+    ablocks: RelatedManager[RecordBlock]
     """Attached blocks ← :attr:`~lamindb.RecordBlock.record`."""
-    values_json: RecordJson
+    values_json: RelatedManager[RecordJson]
     """JSON values `(record_id, feature_id, value)`."""
-    values_record: RecordRecord
+    values_record: RelatedManager[RecordRecord]
     """Record values with their features `(record_id, feature_id, value_id)`."""
-    values_ulabel: RecordULabel
+    values_ulabel: RelatedManager[RecordULabel]
     """ULabel values with their features `(record_id, feature_id, value_id)`."""
-    values_user: RecordUser
+    values_user: RelatedManager[RecordUser]
     """User values with their features `(record_id, feature_id, value_id)`."""
-    values_transform: RecordTransform
+    values_transform: RelatedManager[RecordTransform]
     """Transform values with their features `(record_id, feature_id, value_id)`."""
-    values_run: RecordRun
+    values_run: RelatedManager[RecordRun]
     """Run values with their features `(record_id, feature_id, value_id)`."""
-    values_artifact: RecordArtifact
+    values_artifact: RelatedManager[RecordArtifact]
     """Artifact values with their features `(record_id, feature_id, value_id)`."""
-    values_collection: RecordCollection
+    values_collection: RelatedManager[RecordCollection]
     """Collection values with their features `(record_id, feature_id, value_id)`."""
-    values_reference: RecordReference
+    values_reference: RelatedManager[RecordReference]
     """Reference values with their features `(record_id, feature_id, value_id)`."""
-    values_project: RecordProject
+    values_project: RelatedManager[RecordProject]
     """Project values with their features `(record_id, feature_id, value_id)`."""
 
     @overload
