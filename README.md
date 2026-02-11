@@ -193,10 +193,9 @@ transform.describe()  # context of the transform
 
 <details>
 <summary>15 sec video.</summary>
-<video width="500" controls>
-  <source src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/Xdiikc2c1tPtHcvF0000.mp4" type="video/mp4">
-  Your browser does not support the video tag.
-</video>
+
+[![Watch 15 sec video](https://lamin-site-assets.s3.amazonaws.com/.lamindb/Xdiikc2c1tPtHcvF0000_thumb.png)](https://lamin-site-assets.s3.amazonaws.com/.lamindb/Xdiikc2c1tPtHcvF0000.mp4)
+
 </details>
 
 ### Lineage: functions & workflows
@@ -378,10 +377,9 @@ artifact.describe()
 
 <details>
 <summary>30 sec video.</summary>
-<video width="500" controls>
-  <source src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/lJBlG7wEbNgkl2Cy0000.mp4" type="video/mp4">
-  Your browser does not support the video tag.
-</video>
+
+[![Watch 30 sec video](https://lamin-site-assets.s3.amazonaws.com/.lamindb/lJBlG7wEbNgkl2Cy0000_thumb.png)](https://lamin-site-assets.s3.amazonaws.com/.lamindb/lJBlG7wEbNgkl2Cy0000.mp4)
+
 </details>
 
 You can filter for datasets by schema and then launch distributed queries and batch loading.
@@ -424,8 +422,7 @@ Read more: [docs.lamin.ai/manage-ontologies](https://docs.lamin.ai/manage-ontolo
 
 <details>
 <summary>30 sec video.</summary>
-<video width="500" controls>
-  <source src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/nUSeIxsaPcBKVuvK0000.mp4" type="video/mp4">
-  Your browser does not support the video tag.
-</video>
+
+[![Watch 30 sec video](https://lamin-site-assets.s3.amazonaws.com/.lamindb/nUSeIxsaPcBKVuvK0000_thumb.png)](https://lamin-site-assets.s3.amazonaws.com/.lamindb/nUSeIxsaPcBKVuvK0000.mp4)
+
 </details>

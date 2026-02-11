@@ -113,6 +113,11 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
             ln.Record.filter(gc_content__gt=0.5)  # greater than
             ln.Record.filter(type=sheet)          # just the record on the sheet
 
+        You can create relationships of entities and edit them like Excel sheets on LaminHub:
+
+        .. image:: https://lamin-site-assets.s3.amazonaws.com/.lamindb/XSzhWUb0EoHOejiw0001.png
+            :width: 800px
+
         Model **custom ontologies** through their parents/children attributes::
 
             cell_type = ln.Record(name="CellType", is_type=True).save()

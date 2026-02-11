@@ -4,6 +4,13 @@ execute_via: python
 
 # Manage notebooks, scripts & workflows
 
+```{raw} html
+<video width="500" controls>
+  <source src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/Xdiikc2c1tPtHcvF0000.mp4" type="video/mp4">
+  Your browser does not support the video tag.
+</video>
+```
+
 If you don't have a `lamindb` instance, here's how to create one:
 
 ```python
@@ -42,15 +49,6 @@ lamin load --key my_analyses/my_notebook.ipynb
 ```
 
 <!-- #endregion -->
-
-If your instance is connected to LaminHub, you can search or filter the `transform` page and explore data lineage:
-
-```{raw} html
-<video width="500" controls>
-  <source src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/Xdiikc2c1tPtHcvF0000.mp4" type="video/mp4">
-  Your browser does not support the video tag.
-</video>
-```
 
 <!-- #region -->
 

@@ -6,6 +6,12 @@ execute_via: python
 
 This guide shows how to manage ontologies for basic biological entities based on plugin {mod}`bionty`.
 
+```{raw} html
+<video width="500" controls>
+  <source src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/nUSeIxsaPcBKVuvK0000.mp4" type="video/mp4">
+  Your browser does not support the video tag.
+```
+
 If instead you're interested in
 
 - accessing public ontologies, see {doc}`docs:public-ontologies`
