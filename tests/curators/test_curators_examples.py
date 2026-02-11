@@ -5,6 +5,7 @@ from pathlib import Path
 docs_path = Path.cwd() / "docs" / "scripts"
 sys.path.append(str(docs_path))
 
+
 import bionty as bt
 import lamindb as ln
 import pandas as pd
@@ -331,6 +332,39 @@ def test_dataframe_curator_validate_all_annotate_cat(mini_immuno_schema):
 
     artifact.delete(permanent=True)
     schema.delete(permanent=True)
+
+
+def test_same_name_different_type():
+    """The same feature names are allowed as long as they have different feature types."""
+    type_a = ln.Feature(
+        name="TypeA", is_type=True, description="Type A features"
+    ).save()
+    type_b = ln.Feature(
+        name="TypeB", is_type=True, description="Type B features"
+    ).save()
+
+    assay_a = ln.Feature(name="assay name", type=type_a, dtype=str).save()
+    assay_b = ln.Feature(name="assay name", type=type_b, dtype=str).save()
+
+    schema = ln.Schema(
+        name="schema_a",
+        features=[ln.Feature.get(name="assay name", type=type_a)],
+        flexible=True,
+        otype="DataFrame",
+    ).save()
+
+    df = pd.DataFrame({"assay name": ["exp1", "exp2"]})
+
+    artifact = ln.Artifact.from_dataframe(df, description="testdata").save()
+
+    curator = ln.curators.DataFrameCurator(artifact, schema)
+    curator.save_artifact()
+
+    artifact.delete(permanent=True)
+    ln.Schema.filter(features__name="assay name").delete(permanent=True)
+    schema.delete(permanent=True)
+    for feat in [assay_a, assay_b, type_a, type_b]:
+        feat.delete(permanent=True)
 
 
 def test_dataframe_curator_validate_all_annotate_cat2(mini_immuno_schema):
