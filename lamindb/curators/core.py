@@ -19,6 +19,7 @@ import lamindb_setup as ln_setup
 import numpy as np
 import pandas as pd
 import pandera.pandas as pandera
+from django.db.models import Q
 from lamin_utils import colors, logger
 from lamindb_setup.core._docs import doc_args
 from lamindb_setup.core.upath import LocalPathClasses
@@ -1538,7 +1539,7 @@ class CatVector:
             if issubclass(registry, HasType):
                 if self._type_record is None:
                     # When we have a Schema with typed members,
-                    # scope the query to only the types present in the schema's members
+                    # scope the query to the types present in the schema's members (plus untyped features)
                     # to avoid ambiguous matches across different feature types.
                     qs = registry.filter()
                     if self._schema and self._schema.n_members:
@@ -1548,7 +1549,9 @@ class CatVector:
                             if m.type_id is not None
                         }
                         if type_ids:
-                            qs = registry.filter(type_id__in=type_ids)
+                            qs = registry.filter(
+                                Q(type_id__in=type_ids) | Q(type_id__isnull=True)
+                            )
                     self._subtype_query_set = qs
                 else:
                     query_sub_types = getattr(
