@@ -514,19 +514,18 @@ def _synchronize_clone(storage_root: str) -> str | None:
     cloud_db_path = UPath(storage_root) / ".lamindb" / "lamin.db"
     local_sqlite_path = ln_setup.settings.cache_dir / cloud_db_path.path.lstrip("/")
 
-    if local_sqlite_path.exists():
-        return f"sqlite:///{local_sqlite_path}"
-
     local_sqlite_path.parent.mkdir(parents=True, exist_ok=True)
     cloud_db_path_gz = UPath(str(cloud_db_path) + ".gz", anon=True)
     local_sqlite_path_gz = Path(str(local_sqlite_path) + ".gz")
 
     try:
-        cloud_db_path_gz.synchronize_to(
+        if cloud_db_path_gz.synchronize_to(
             local_sqlite_path_gz, error_no_origin=True, print_progress=True
-        )
-        with gzip.open(local_sqlite_path_gz, "rb") as f_in:
-            with open(local_sqlite_path, "wb") as f_out:
+        ):
+            with (
+                gzip.open(local_sqlite_path_gz, "rb") as f_in,
+                open(local_sqlite_path, "wb") as f_out,
+            ):
                 shutil.copyfileobj(f_in, f_out)
         return f"sqlite:///{local_sqlite_path}"
     except (FileNotFoundError, PermissionError):
