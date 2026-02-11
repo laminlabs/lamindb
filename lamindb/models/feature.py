@@ -1115,12 +1115,11 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         "Schema", through="SchemaFeature", related_name="features"
     )
     """Schemas linked to this feature."""
-    # backward fields
-    values: JsonValue
+    values: RelatedManager[JsonValue]
     """Values for this feature."""
     projects: RelatedManager[Project]
     """Annotating projects."""
-    ablocks: FeatureBlock
+    ablocks: RelatedManager[FeatureBlock]
     """Attached blocks ← :attr:`~lamindb.FeatureBlock.feature`."""
 
     @overload

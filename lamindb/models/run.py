@@ -324,7 +324,7 @@ class Run(SQLRecord, TracksUpdates):
         "Run", CASCADE, null=True, related_name="initiated_runs", default=None
     )
     """The run that initiated this run ← :attr:`~lamindb.Run.initiated_runs`."""
-    initiated_runs: Run
+    initiated_runs: RelatedManager[Run]
     """The runs that were initiated by this run."""
     projects: RelatedManager[Project]
     """The projects annotating this run ← :attr:`~lamindb.Project.runs`."""

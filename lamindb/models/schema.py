@@ -347,7 +347,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
 
     Here are a few more examples for type names: `'ExpressionPanel'`, `'ProteinPanel'`, `'Multimodal'`, `'Metadata'`, `'Embedding'`.
     """
-    schemas: Schema
+    schemas: RelatedManager[Schema]
     """Schemas of this type (can only be non-empty if `is_type` is `True`)."""
     itype: str | None = CharField(
         max_length=120, db_index=True, null=True, editable=False
@@ -403,9 +403,9 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     """The artifacts that were validated against this schema with a :class:`~lamindb.curators.core.Curator`."""
     projects: RelatedManager[Project]
     """Linked projects."""
-    records: Record
+    records: RelatedManager[Record]
     """Records that were annotated with this schema."""
-    ablocks: SchemaBlock
+    ablocks: RelatedManager[SchemaBlock]
     """Attached blocks ← :attr:`~lamindb.SchemaBlock.schema`."""
 
     @overload

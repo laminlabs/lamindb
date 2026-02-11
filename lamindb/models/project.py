@@ -276,7 +276,7 @@ class Project(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, ValidateF
     """Annotated blocks ← :attr:`~lamindb.Block.projects`."""
     _status_code: int = models.SmallIntegerField(default=0, db_index=True)
     """Status code."""
-    ablocks: ProjectBlock
+    ablocks: RelatedManager[ProjectBlock]
     """Attached blocks ← :attr:`~lamindb.ProjectBlock.project`."""
 
     @overload
