@@ -414,7 +414,7 @@ def test_schema_components(mini_immuno_schema_flexible: ln.Schema):
     with pytest.raises(IntegrityError) as error:
         anndata_schema.components.add(  # type: ignore
             var_schema2, through_defaults={"slot": "var"}
-        )  # typing: ignore
+        )
     assert "unique" in str(error.value).lower()
 
     anndata_schema.delete(permanent=True)
