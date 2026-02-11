@@ -191,6 +191,14 @@ transform.describe()  # context of the transform
 
 </details>
 
+<details>
+<summary>15 sec video.</summary>
+<video width="500" controls>
+  <source src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/Xdiikc2c1tPtHcvF0000.mp4" type="video/mp4">
+  Your browser does not support the video tag.
+</video>
+</details>
+
 ### Lineage: functions & workflows
 
 You can achieve the same traceability for functions & workflows:
@@ -314,7 +322,10 @@ You can query & search the `Record` registry in the same way as `Artifact` or `R
 ln.Record.search("p53").to_dataframe()
 ```
 
-You can also create relationships of entities and edit them like Excel sheets in a GUI via LaminHub.
+<details>
+<summary>You can create relationships of entities and edit them like Excel sheets on LaminHub.</summary>
+<img width="800px" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/XSzhWUb0EoHOejiw0001.png">
+</details>
 
 ### Data versioning
 
@@ -365,6 +376,14 @@ artifact = ln.Artifact.from_dataframe(
 artifact.describe()
 ```
 
+<details>
+<summary>30 sec video.</summary>
+<video width="500" controls>
+  <source src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/lJBlG7wEbNgkl2Cy0000.mp4" type="video/mp4">
+  Your browser does not support the video tag.
+</video>
+</details>
+
 You can filter for datasets by schema and then launch distributed queries and batch loading.
 
 ### Lakehouse beyond tables
@@ -402,3 +421,11 @@ bt.CellType.to_dataframe()   # your extendable cell type ontology in a simple re
 ```
 
 Read more: [docs.lamin.ai/manage-ontologies](https://docs.lamin.ai/manage-ontologies).
+
+<details>
+<summary>30 sec video.</summary>
+<video width="500" controls>
+  <source src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/nUSeIxsaPcBKVuvK0000.mp4" type="video/mp4">
+  Your browser does not support the video tag.
+</video>
+</details>
