@@ -365,6 +365,7 @@ def test_same_name_different_type():
     curator.save_artifact()
 
     artifact.delete(permanent=True)
+    ln.Schema.filter(features__name="assay name").delete(permanent=True)
     schema.delete(permanent=True)
     for feat in [assay_a, assay_b, type_a, type_b]:
         feat.delete(permanent=True)
