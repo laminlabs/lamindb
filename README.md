@@ -194,7 +194,7 @@ transform.describe()  # context of the transform
 <details>
 <summary>15 sec video.</summary>
 
-[![Watch 15 sec video](https://lamin-site-assets.s3.amazonaws.com/.lamindb/Xdiikc2c1tPtHcvF0000_thumb.png)](https://lamin-site-assets.s3.amazonaws.com/.lamindb/Xdiikc2c1tPtHcvF0000.mp4)
+[15 sec video](https://lamin-site-assets.s3.amazonaws.com/.lamindb/Xdiikc2c1tPtHcvF0000.mp4)
 
 </details>
 
@@ -378,7 +378,7 @@ artifact.describe()
 <details>
 <summary>30 sec video.</summary>
 
-[![Watch 30 sec video](https://lamin-site-assets.s3.amazonaws.com/.lamindb/lJBlG7wEbNgkl2Cy0000_thumb.png)](https://lamin-site-assets.s3.amazonaws.com/.lamindb/lJBlG7wEbNgkl2Cy0000.mp4)
+[30 sec video](https://lamin-site-assets.s3.amazonaws.com/.lamindb/lJBlG7wEbNgkl2Cy0000.mp4)
 
 </details>
 
@@ -423,6 +423,6 @@ Read more: [docs.lamin.ai/manage-ontologies](https://docs.lamin.ai/manage-ontolo
 <details>
 <summary>30 sec video.</summary>
 
-[![Watch 30 sec video](https://lamin-site-assets.s3.amazonaws.com/.lamindb/nUSeIxsaPcBKVuvK0000_thumb.png)](https://lamin-site-assets.s3.amazonaws.com/.lamindb/nUSeIxsaPcBKVuvK0000.mp4)
+[30 sec video](https://lamin-site-assets.s3.amazonaws.com/.lamindb/nUSeIxsaPcBKVuvK0000.mp4)
 
 </details>
