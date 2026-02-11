@@ -497,7 +497,7 @@ def describe_schema(record: Schema, slot: str | None = None) -> Tree:
             optionals = record.optionals.get()
             for member in record.members:
                 feature_table.add_row(
-                    member.name,
+                    Text(member.name),
                     Text(strip_cat(member._dtype_str)),
                     "✓" if optionals.filter(uid=member.uid).exists() else "✗",
                     "✓" if member.nullable else "✗",
