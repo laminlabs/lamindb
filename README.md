@@ -66,7 +66,7 @@ biosamples & species | 10⁵ & 10²
 
 ## Docs
 
-Copy [llms.txt](https://docs.lamin.ai/llms.txt) into an LLM chat and let AI explain or read the [docs](https://docs.lamin.ai).
+Point an agent to [llms.txt](https://docs.lamin.ai/llms.txt) and let them do the work or read the [docs](https://docs.lamin.ai).
 
 ## Quickstart
 
