@@ -326,7 +326,7 @@ curator.cat.add_new_from("cell_type")
 
 <!-- #region -->
 
-<cell_type>markdown</cell_type>**Issue**: "Expected categorical data, got object"
+**Issue**: "Expected categorical data, got object"
 
 ```
 TypeError: Expected categorical data for cell_type, got object
@@ -341,6 +341,41 @@ df['cell_type'] = df['cell_type'].astype('category')
 # Solution 2: Use coercion in feature definition
 ln.Feature(name="cell_type", dtype=bt.CellType, coerce=True).save()
 ```
+
+<!-- #endregion -->
+
+### Organism-specific ontology issues
+
+<!-- #region -->
+
+**Issue**: "Terms not validated" for organism-specific ontologies like developmental stages
+
+```
+2 terms not validated in feature 'developmental_stage_ontology_id': 'MmusDv:0000142', 'MmusDv:0000022'
+```
+
+**Solution**: Specify organism-specific source in feature definition using `cat_filters`:
+
+```python
+# When defining the schema, specify the organism-specific source
+mouse_source = bt.Source.filter(
+    entity="bionty.DevelopmentalStage",
+    organism="mouse"
+).one()
+
+schema = ln.Schema(
+    features=[
+        ln.Feature(
+            name="developmental_stage_ontology_id",
+            dtype=bt.DevelopmentalStage.ontology_id,
+            cat_filters={"source": mouse_source}  # Specify organism-specific source
+        )
+    ],
+    ...
+)
+```
+
+This pattern applies to any ontology where the same registry serves multiple organisms (e.g., `DevelopmentalStage`, `Phenotype`, ...).
 
 <!-- #endregion -->
 
