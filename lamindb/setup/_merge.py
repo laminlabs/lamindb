@@ -27,24 +27,22 @@ def merge(branch: str | Branch) -> None:
         DoesNotExist: If the branch does not exist.
     """
     from lamindb import Branch, Q
-    from lamindb.errors import DoesNotExist
+    from lamindb.errors import ObjectDoesNotExist
 
     from ..models import SQLRecord
 
     if isinstance(branch, Branch):
         source = branch
         if source._state.adding:
-            raise DoesNotExist("Branch must be saved.")
+            raise ObjectDoesNotExist("Branch must be saved.")
     else:
         source = Branch.filter(Q(name=branch) | Q(uid=branch)).one_or_none()
         if source is None:
-            raise DoesNotExist(
-                f"Branch '{branch}' not found. Check name or uid on the hub."
-            )
+            raise ObjectDoesNotExist(f"Branch '{branch}' not found.")
 
     current = ln_setup.settings.branch
     if current.id == source.id:
-        logger.info("Already on branch, nothing to merge.")
+        logger.important("already on branch, nothing to merge")
         return
 
     models = [
@@ -86,4 +84,4 @@ def merge(branch: str | Branch) -> None:
                         [current.id, source.id],
                     )
 
-    logger.success(f"Merged branch '{source.name}' into '{current.name}'.")
+    logger.important(f"merged branch '{source.name}' into '{current.name}'.")
