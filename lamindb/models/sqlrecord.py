@@ -1439,9 +1439,10 @@ class Branch(BaseSQLRecord):
 
     You can create branches similar to `git` via `lamin create --branch my_branch`.
 
-    To add objects to that new branch rather than the `main` branch, run `lamin switch --branch my_branch`.
+    To add objects to that new branch rather than the `main` branch, run `lamin switch my_branch`.
 
-    To merge a set of artifacts on the `"my_branch"` branch to the main branch, run::
+    To merge a branch into the current one, run ``lamin merge my_branch`` or
+    ``ln.setup.merge("my_branch")``. To merge manually for a single registry::
 
         ln.Artifact.filter(branch__name="my_branch").update(branch_id=1)
 
