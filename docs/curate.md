@@ -326,7 +326,7 @@ curator.cat.add_new_from("cell_type")
 
 <!-- #region -->
 
-<cell_type>markdown</cell_type>**Issue**: "Expected categorical data, got object"
+**Issue**: "Expected categorical data, got object"
 
 ```
 TypeError: Expected categorical data for cell_type, got object
