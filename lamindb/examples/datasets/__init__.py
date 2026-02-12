@@ -58,6 +58,41 @@ Other
 
 import importlib.util
 import sys
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from . import mini_immuno
+    from ._core import (
+        anndata_file_pbmc68k_test,
+        anndata_human_immune_cells,
+        anndata_mouse_sc_lymph_node,
+        anndata_pbmc3k_processed,
+        anndata_pbmc68k_reduced,
+        anndata_suo22_Visium10X,
+        df_iris,
+        df_iris_in_meter,
+        df_iris_in_meter_study1,
+        df_iris_in_meter_study2,
+        dict_cellxgene_uns,
+        dir_iris_images,
+        dir_scrnaseq_cellranger,
+        file_bam,
+        file_fastq,
+        file_fcs,
+        file_fcs_alpert19,
+        file_jpg_paradisi05,
+        file_mini_csv,
+        file_tiff_suo22,
+        file_tsv_rnaseq_nfcore_salmon_merged_gene_counts,
+        mudata_papalexi21_subset,
+        schmidt22_crispra_gws_IFNG,
+        schmidt22_perturbseq,
+        spatialdata_blobs,
+    )
+    from ._fake import fake_bio_notebook_titles
+    from ._small import anndata_with_obs, small_dataset3_cellxgene
+    from .mini_immuno import get_dataset1 as small_dataset1
+    from .mini_immuno import get_dataset2 as small_dataset2
 
 
 def __getattr__(name: str):
@@ -120,3 +155,38 @@ def __getattr__(name: str):
         _fake = importlib.import_module("._fake", package="lamindb.examples.datasets")
         return _fake.fake_bio_notebook_titles
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+__all__ = [
+    "mini_immuno",
+    "small_dataset1",
+    "small_dataset2",
+    "small_dataset3_cellxgene",
+    "anndata_with_obs",
+    "anndata_file_pbmc68k_test",
+    "anndata_human_immune_cells",
+    "anndata_mouse_sc_lymph_node",
+    "anndata_pbmc3k_processed",
+    "anndata_pbmc68k_reduced",
+    "anndata_suo22_Visium10X",
+    "df_iris",
+    "df_iris_in_meter",
+    "df_iris_in_meter_study1",
+    "df_iris_in_meter_study2",
+    "dict_cellxgene_uns",
+    "dir_iris_images",
+    "dir_scrnaseq_cellranger",
+    "fake_bio_notebook_titles",
+    "file_bam",
+    "file_fastq",
+    "file_fcs",
+    "file_fcs_alpert19",
+    "file_jpg_paradisi05",
+    "file_mini_csv",
+    "file_tiff_suo22",
+    "file_tsv_rnaseq_nfcore_salmon_merged_gene_counts",
+    "mudata_papalexi21_subset",
+    "schmidt22_crispra_gws_IFNG",
+    "schmidt22_perturbseq",
+    "spatialdata_blobs",
+]
