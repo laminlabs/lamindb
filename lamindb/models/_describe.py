@@ -430,7 +430,7 @@ def describe_transform(
 
 
 def describe_schema(record: Schema, slot: str | None = None) -> Tree:
-    from ._feature_manager import strip_cat
+    from ._feature_manager import format_dtype_for_display, strip_cat
 
     if record.type:
         prefix = f" {record.type.name} · "
@@ -498,7 +498,7 @@ def describe_schema(record: Schema, slot: str | None = None) -> Tree:
             for member in record.members:
                 feature_table.add_row(
                     Text(member.name),
-                    Text(strip_cat(member._dtype_str)),
+                    Text(strip_cat(format_dtype_for_display(member._dtype_str))),
                     "✓" if optionals.filter(uid=member.uid).exists() else "✗",
                     "✓" if member.nullable else "✗",
                     "✓" if record.coerce or member.coerce else "✗",
