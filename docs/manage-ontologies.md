@@ -4,7 +4,14 @@ execute_via: python
 
 # Manage biological ontologies
 
-This guide shows how to manage ontologies for basic biological entities based on plugin {mod}`bionty`.
+This guide shows how to manage ontologies for basic biological entities.
+
+```{raw} html
+<video width="500" controls>
+  <source src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/nUSeIxsaPcBKVuvK0000.mp4" type="video/mp4">
+  Your browser does not support the video tag.
+</video>
+```
 
 If instead you're interested in
 

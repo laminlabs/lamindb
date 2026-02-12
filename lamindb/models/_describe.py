@@ -377,16 +377,19 @@ def describe_run(
     if record.report_id:
         report = record.report.load(is_run_input=False)
         if report:
+            report_str = report if isinstance(report, str) else str(report)
             display_text(
-                strip_ansi_from_string(report.strip()),
+                strip_ansi_from_string(report_str.strip()),
                 "report",
                 tree,
                 max_lines=4,
                 uid=record.report.uid[:7],
             )
     if record.environment_id:
+        env_result = record.environment.load(is_run_input=False)
+        env_str = env_result if isinstance(env_result, str) else str(env_result)
         display_text(
-            record.environment.load(is_run_input=False).strip(),
+            env_str.strip(),
             "environment",
             tree,
             max_lines=4,
@@ -494,7 +497,7 @@ def describe_schema(record: Schema, slot: str | None = None) -> Tree:
             optionals = record.optionals.get()
             for member in record.members:
                 feature_table.add_row(
-                    member.name,
+                    Text(member.name),
                     Text(strip_cat(member._dtype_str)),
                     "✓" if optionals.filter(uid=member.uid).exists() else "✗",
                     "✓" if member.nullable else "✗",

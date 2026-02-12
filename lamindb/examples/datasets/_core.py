@@ -590,7 +590,7 @@ def schmidt22_perturbseq(basedir=".") -> Path:
     return Path(filepath).rename(Path(basedir) / filepath)
 
 
-def visium_mouse_cellxgene() -> ad.AnnData:
+def anndata_visium_mouse_cellxgene() -> ad.AnnData:
     """Visium samples of thymus from wild type B6 mice 3-6 weeks old.
 
     The dataset is a CELLxGENE schema 7.0.0 validated dataset.

@@ -26,7 +26,7 @@ if TYPE_CHECKING:
     from fsspec import FSMap
     from lamindb_setup.types import UPathStr
 
-    from lamindb.core.types import ScverseDataStructures
+    from lamindb.core.storage.types import ScverseDataStructures
 
 
 def get_zarr_store(

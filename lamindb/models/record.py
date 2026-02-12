@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, overload
 
-import pandas as pd
 import pgtrigger
 from django.conf import settings as django_settings
 from django.db import models
@@ -39,6 +38,8 @@ from .ulabel import ULabel
 if TYPE_CHECKING:
     from datetime import datetime
 
+    import pandas as pd
+
     from ._feature_manager import FeatureManager
     from .block import RecordBlock
     from .project import Project, RecordProject, RecordReference, Reference
@@ -52,7 +53,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
     Useful for managing samples, donors, cells, compounds, sequences, and other custom entities with their features.
 
     Records can also be used for labeling artifacts, runs, transforms, and collections.
-    In some cases you may prefer a simple label without features: then consider :class:`~lamindb.ULabel`.
+    In some cases a simple label without features is enough: :class:`~lamindb.ULabel`.
 
     Args:
         name: `str | None = None` A name.
@@ -111,6 +112,11 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
             ln.Record.filter(gc_content=0.55)     # exact match
             ln.Record.filter(gc_content__gt=0.5)  # greater than
             ln.Record.filter(type=sheet)          # just the record on the sheet
+
+        You can create relationships of entities and edit them like Excel sheets on LaminHub:
+
+        .. image:: https://lamin-site-assets.s3.amazonaws.com/.lamindb/XSzhWUb0EoHOejiw0001.png
+            :width: 800px
 
         Model **custom ontologies** through their parents/children attributes::
 
@@ -184,17 +190,14 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
     )
     """A universal random id, valid across DB instances."""
     name: str = CharField(max_length=150, db_index=True, null=True)
-    """Name or title of record (optional).
-
-    Names for a given `type` and `space` are constrained to be unique.
-    """
+    """Name or title of record (optional)."""
     type: Record | None = ForeignKey("self", PROTECT, null=True, related_name="records")
     """Type of record, e.g., `Sample`, `Donor`, `Cell`, `Compound`, `Sequence` ← :attr:`~lamindb.Record.records`.
 
     Allows to group records by type, e.g., all samples, all donors, all cells, all compounds, all sequences.
     """
-    records: Record
-    """If a type (`is_type=True`), records of this `type`."""
+    records: RelatedManager[Record]
+    """If a `type` (`is_type=True`), records of this `type`."""
     description: str | None = TextField(null=True)
     """A description."""
     reference: str | None = CharField(max_length=255, db_index=True, null=True)
@@ -280,27 +283,27 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
     """Collections linked in this record as values ← :attr:`~lamindb.Collection.linked_in_records`."""
     linked_users: RelatedManager[User]
     """Users linked in this record as values ← :attr:`~lamindb.User.linked_in_records`."""
-    ablocks: RecordBlock
+    ablocks: RelatedManager[RecordBlock]
     """Attached blocks ← :attr:`~lamindb.RecordBlock.record`."""
-    values_json: RecordJson
+    values_json: RelatedManager[RecordJson]
     """JSON values `(record_id, feature_id, value)`."""
-    values_record: RecordRecord
+    values_record: RelatedManager[RecordRecord]
     """Record values with their features `(record_id, feature_id, value_id)`."""
-    values_ulabel: RecordULabel
+    values_ulabel: RelatedManager[RecordULabel]
     """ULabel values with their features `(record_id, feature_id, value_id)`."""
-    values_user: RecordUser
+    values_user: RelatedManager[RecordUser]
     """User values with their features `(record_id, feature_id, value_id)`."""
-    values_transform: RecordTransform
+    values_transform: RelatedManager[RecordTransform]
     """Transform values with their features `(record_id, feature_id, value_id)`."""
-    values_run: RecordRun
+    values_run: RelatedManager[RecordRun]
     """Run values with their features `(record_id, feature_id, value_id)`."""
-    values_artifact: RecordArtifact
+    values_artifact: RelatedManager[RecordArtifact]
     """Artifact values with their features `(record_id, feature_id, value_id)`."""
-    values_collection: RecordCollection
+    values_collection: RelatedManager[RecordCollection]
     """Collection values with their features `(record_id, feature_id, value_id)`."""
-    values_reference: RecordReference
+    values_reference: RelatedManager[RecordReference]
     """Reference values with their features `(record_id, feature_id, value_id)`."""
-    values_project: RecordProject
+    values_project: RelatedManager[RecordProject]
     """Project values with their features `(record_id, feature_id, value_id)`."""
 
     @overload
@@ -404,20 +407,48 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         """
         return _query_relatives([self], "records")  # type: ignore
 
+    def _set_export_run(self, is_run_input: bool | Run | None = None) -> None:
+        from lamindb.core._context import context
+        from lamindb.models import Run, Transform
+
+        if isinstance(is_run_input, Run):
+            run = is_run_input
+        elif is_run_input in {True, None}:
+            if context.run is None:
+                transform, _ = Transform.objects.get_or_create(
+                    key="__lamindb_record_export__", kind="function"
+                )
+                run = Run(transform).save()
+            else:
+                run = context.run
+        else:
+            run = None
+        self._export_run = run
+
     @class_and_instance_method
-    def to_dataframe(cls_or_self, recurse: bool = False, **kwargs) -> pd.DataFrame:
+    def to_dataframe(
+        cls_or_self,
+        recurse: bool = False,
+        is_run_input: bool | Run | None = None,
+        **kwargs,
+    ) -> pd.DataFrame:
         """Export to a pandas DataFrame.
 
-        This is almost equivalent to::
+        This is roughly equivalent to::
 
             ln.Record.filter(type=sample_type).to_dataframe(include="features")
 
         `to_dataframe()` ensures that the columns are ordered according to the schema of the type and encodes fields like `uid` and `name`.
 
+        It will also track the record as an input to the current run.
+
         Args:
-            recurse: `bool = False` Whether to include records of sub-types recursively.
-            **kwargs: Keyword arguments passed to Registry.to_dataframe().
+            recurse: Whether to include records of sub-types recursively.
+            is_run_input: Whether to track the record as a run input.
+            **kwargs: Keyword arguments passed to :meth:`~lamindb.models.QuerySet.to_dataframe`.
         """
+        import pandas as pd
+
         if isinstance(cls_or_self, type):
             return type(cls_or_self).to_dataframe(cls_or_self, **kwargs)  # type: ignore
         if not cls_or_self.is_type:
@@ -434,7 +465,9 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
             else self.records.filter(branch_id__in=branch_ids)
         )
         logger.important(f"exporting {qs.count()} records of '{self.name}'")
-        df = qs.to_dataframe(features="queryset", order_by="id", limit=None)
+        if "order_by" not in kwargs:
+            kwargs["order_by"] = "id"
+        df = qs.to_dataframe(features="queryset", limit=None, **kwargs)
         encoded_id = encode_lamindb_fields_as_columns(self.__class__, "id")
         encoded_uid = encode_lamindb_fields_as_columns(self.__class__, "uid")
         encoded_name = encode_lamindb_fields_as_columns(self.__class__, "name")
@@ -458,10 +491,16 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
             desired_order = df.columns[2:].tolist()
             desired_order.sort()
         df = reorder_subset_columns_in_df(df, desired_order, position=0)  # type: ignore
-        return df.sort_index()  # order by id for now
+        self._set_export_run(is_run_input=is_run_input)
+        self._export_run.input_records.add(self)
+        return df.sort_index()  # order by id
 
     def to_artifact(
-        self, key: str | None = None, suffix: str | None = None
+        self,
+        key: str | None = None,
+        suffix: str | None = None,
+        is_run_input: bool | Run | None = None,
+        **kwargs,
     ) -> Artifact:
         """Calls `to_dataframe()` to create an artifact.
 
@@ -472,27 +511,22 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         Args:
             key: `str | None = None` The artifact key.
             suffix: `str | None = None` The suffix to append to the default key if no key is passed.
+            is_run_input: Whether to track the record as a run input.
+            **kwargs: Keyword arguments passed to :meth:`~lamindb.models.Record.to_dataframe`.
         """
-        from lamindb.core._context import context
-
         assert self.is_type, "Only types can be exported as artifacts."
         assert key is None or suffix is None, "Only one of key or suffix can be passed."
         if key is None:
             suffix = ".csv" if suffix is None else suffix
             key = f"sheet_exports/{self.name}{suffix}"
         description = f": {self.description}" if self.description is not None else ""
-        transform, _ = Transform.objects.get_or_create(
-            key="__lamindb_record_export__", kind="function"
-        )
-        run = Run(transform, initiated_by_run=context.run).save()
-        run.input_records.add(self)
         return Artifact.from_dataframe(
-            self.to_dataframe(),
+            self.to_dataframe(is_run_input=is_run_input, **kwargs),
             key=key,
             description=f"Export of sheet {self.uid}{description}",
             schema=self.schema,
             csv_kwargs={"index": False},
-            run=run,
+            run=self._export_run,
         ).save()
 
 

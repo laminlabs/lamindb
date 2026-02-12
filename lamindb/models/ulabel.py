@@ -133,7 +133,7 @@ class ULabel(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
 
     Allows to group ulabels by type, e.g., all donors, all split ulabels, etc.
     """
-    ulabels: ULabel
+    ulabels: RelatedManager[ULabel]
     """ULabels of this type (can only be non-empty if `is_type` is `True`)."""
     description: str | None = TextField(null=True)
     """A description."""
@@ -173,7 +173,7 @@ class ULabel(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         related_name="linked_ulabels",
     )
     """Records linking this ulabel as a value ← :attr:`~lamindb.Record.linked_ulabels`."""
-    ablocks: ULabelBlock
+    ablocks: RelatedManager[ULabelBlock]
     """Attached blocks ← :attr:`~lamindb.ULabelBlock.ulabel`."""
 
     @overload

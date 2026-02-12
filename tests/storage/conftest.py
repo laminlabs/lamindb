@@ -11,13 +11,14 @@ from laminci.db import setup_local_test_postgres
 
 
 def create_test_instance(pgurl: str):
-    ln.setup.init(
+    ln_setup.init(
         storage="./default_storage_unit_storage",
         modules="bionty",
         name="lamindb-unit-tests-storage",
         db=pgurl,
     )
-    ln.setup.register()  # temporarily
+    ln_setup.register()  # temporarily
+
     ln.settings.creation.artifact_silence_missing_run_warning = True
     ln.settings.track_run_inputs = False
     ln.Storage("s3://lamindb-ci/test-data").save()
@@ -60,10 +61,10 @@ def delete_test_instance():
         "s3://lamindb-ci/lamindb-unit-tests-cloud/.lamindb",
         "s3://lamindb-ci/test-settings-switch-storage/.lamindb",
     ):
-        upath = ln.UPath(path)
+        upath = ln_setup.core.upath.UPath(path)
         if upath.exists():
             upath.rmdir()
-    ln.setup.delete("lamindb-unit-tests-storage", force=True)
+    ln_setup.delete("lamindb-unit-tests-storage", force=True)
 
 
 def pytest_sessionfinish(session: pytest.Session):
