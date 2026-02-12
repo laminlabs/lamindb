@@ -6,9 +6,9 @@ from lamindb_setup import (
     init,
     settings,
 )
-from lamindb_setup._merge import merge  # noqa: F401
 
 from . import core, errors, types
+from ._merge import merge  # noqa: F401
 from ._switch import switch  # noqa: F401
 
 del connect  # we have this at the root level, hence, we don't want it here
