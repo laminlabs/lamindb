@@ -28,3 +28,4 @@ def switch(target: str | Branch, *, space: bool = False, create: bool = False):
                 Branch(name=target).save()
                 logger.important(f"created branch: {target}")
         settings.branch = target
+    logger.important(f"switched to {target}")
