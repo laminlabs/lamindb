@@ -35,7 +35,7 @@ def test_cellxgene_curation(cellxgene_defaults) -> None:
         spatial_library_id="Thymus_Visium_Exp3A_V2S1_3wk_B6-WT",
     )
 
-    adata = ln.examples.datasets.visium_mouse_cellxgene()
+    adata = ln.examples.datasets.anndata_visium_mouse_cellxgene()
 
     curator = ln.curators.AnnDataCurator(adata, cxg_schema)
     curator.validate()
