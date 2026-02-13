@@ -202,6 +202,8 @@ transform.describe()  # context of the transform
 
 You can achieve the same traceability for functions & workflows:
 
+<!-- #skip_laminr -->
+
 ```python
 import lamindb as ln
 
@@ -213,6 +215,8 @@ def create_fasta(fasta_file: str = "sample.fasta"):
 if __name__ == "__main__":
     create_fasta()
 ```
+
+<!-- #end_skip_laminr -->
 
 Beyond what you get for scripts & notebooks, this automatically tracks function & CLI params and integrates well with established Python workflow managers: [docs.lamin.ai/track](https://docs.lamin.ai/track). To integrate advanced bioinformatics pipeline managers like Nextflow, see [docs.lamin.ai/pipelines](https://docs.lamin.ai/pipelines).
 
