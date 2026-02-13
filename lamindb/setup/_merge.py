@@ -84,4 +84,4 @@ def merge(branch: str | Branch) -> None:
                         [current.id, source.id],
                     )
 
-    logger.important(f"merged branch '{source.name}' into '{current.name}'.")
+    logger.important(f"merged branch '{source.name}' into '{current.name}'")
