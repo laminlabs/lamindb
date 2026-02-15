@@ -92,6 +92,7 @@ def get_artifact_or_run_with_related(
 
     model = record.__class__
     is_record = record.__class__.__name__ == "Record"
+    is_artifact = record.__class__.__name__ == "Artifact"
     entity_field_name = record.__class__.__name__.lower()
     if entity_field_name in {"run", "record"} and include_schema:
         include_schema = False  # runs do not have feature sets
@@ -178,7 +179,10 @@ def get_artifact_or_run_with_related(
             continue
         if not is_record and not link_model.__name__ == "ArtifactArtifact":
             if link_model.__name__ == "RunArtifact":
-                label_field = "artifact"
+                if is_artifact:
+                    continue
+                else:
+                    label_field = "artifact"
             else:
                 label_field = link.removeprefix("links_").replace("_", "")
         else:
