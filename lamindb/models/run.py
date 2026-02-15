@@ -588,14 +588,12 @@ class RunJsonValue(BaseSQLRecord, IsLink):
         unique_together = ("run", "jsonvalue")
 
 
+# for storing artifact-like values in runs
+# compare RunRecord as opposed to RecordRun
 class RunArtifact(BaseSQLRecord, IsLink):
-    """Link model for run–artifact association with optional feature (mirrors ArtifactRun)."""
-
     id: int = models.BigAutoField(primary_key=True)
-    run: Run = ForeignKey(Run, CASCADE, related_name="links_runartifact")
-    artifact: Artifact = ForeignKey(
-        "Artifact", PROTECT, related_name="links_runartifact"
-    )
+    run: Run = ForeignKey(Run, CASCADE, related_name="values_artifact")
+    artifact: Artifact = ForeignKey("Artifact", PROTECT, related_name="links_in_run")
     feature: Feature | None = ForeignKey(
         "Feature", PROTECT, null=True, related_name="links_runartifact", default=None
     )
