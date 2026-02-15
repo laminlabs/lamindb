@@ -5066,6 +5066,7 @@ class Migration(migrations.Migration):
                         related_name="users",
                         through="lamindb.ArtifactUser",
                         to="lamindb.artifact",
+                        through_fields=("user", "artifact"),
                     ),
                 ),
                 (
