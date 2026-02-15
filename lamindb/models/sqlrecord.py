@@ -1605,7 +1605,7 @@ class SQLRecord(BaseSQLRecord, metaclass=Registry):
         db_default=1,
         related_name="+",
     )
-    """The branch."""
+    """The current branch of the object - changes e.g. on merge events."""
     created_on: Branch = ForeignKey(
         Branch,
         PROTECT,
@@ -1613,7 +1613,7 @@ class SQLRecord(BaseSQLRecord, metaclass=Registry):
         db_default=1,
         related_name="+",
     )
-    """The branch on which this record was created (set on creation and on merge; never changed otherwise)."""
+    """The branch on which this object was created - never changes."""
     space: Space = ForeignKey(Space, PROTECT, default=1, db_default=1, related_name="+")
     """The space."""
     is_locked: bool = BooleanField(default=False, db_default=False)

@@ -352,7 +352,7 @@ class Run(SQLRecord, TracksUpdates):
         through="RunArtifact",
         related_name="linked_by_runs",
     )
-    """Artifacts linked to this run (e.g. materials, plans) ← :attr:`~lamindb.RunArtifact.artifact`."""
+    """The artifacts linked by this run through the run's features ← :attr:`~lamindb.RunArtifact.artifact`."""
     _is_consecutive: bool | None = BooleanField(null=True)
     """Indicates whether code was consecutively executed. Is relevant for notebooks."""
     _status_code: int = models.SmallIntegerField(
