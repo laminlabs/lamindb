@@ -3,15 +3,20 @@
 from django.db import migrations
 
 
+def raise_downgrade_error(apps, schema_editor):
+    raise RuntimeError("Downgrade to lamindb v2 to migrate through migration 0153.")
+
+
 class Migration(migrations.Migration):
     dependencies = [
         ("lamindb", "0152_run_entrypoint"),
     ]
 
     operations = [
-        migrations.RenameField(
-            model_name="feature",
-            old_name="dtype",
-            new_name="_dtype_str",
-        ),
+        migrations.RunPython(raise_downgrade_error, migrations.RunPython.noop),
+        # migrations.RenameField(
+        #     model_name="feature",
+        #     old_name="dtype",
+        #     new_name="_dtype_str",
+        # ),
     ]
