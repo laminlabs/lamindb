@@ -145,6 +145,8 @@ class User(BaseSQLRecord, CanCurate):
     """Transforms created by user."""
     created_runs: RelatedManager[Run]
     """Runs created by user."""
+    projects: RelatedManager[Project]
+    """Projects this user is linked to (e.g. as member) ← :attr:`~lamindb.ProjectUser.project`."""
     created_at: datetime = DateTimeField(
         editable=False, db_default=models.functions.Now(), db_index=True
     )

@@ -280,7 +280,9 @@ class Project(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, ValidateF
         through="ProjectUser",
         related_name="projects",
     )
-    """Users linked to this project (e.g. members) ← :attr:`~lamindb.ProjectUser.user`."""
+    """Users participating in this project ← :attr:`~lamindb.ProjectUser.user`."""
+    branches: RelatedManager[Branch]
+    """Annotated branches ← :attr:`~lamindb.BranchProject.project`."""
     _status_code: int = models.SmallIntegerField(default=0, db_index=True)
     """Status code."""
     ablocks: RelatedManager[ProjectBlock]
@@ -357,8 +359,6 @@ class RunProject(BaseSQLRecord, IsLink):
 
 
 class BranchProject(BaseSQLRecord, IsLink):
-    """Link model for branch–project association."""
-
     id: int = models.BigAutoField(primary_key=True)
     branch: Branch = ForeignKey("Branch", CASCADE, related_name="links_project")
     project: Project = ForeignKey(Project, PROTECT, related_name="links_branch")
@@ -369,13 +369,11 @@ class BranchProject(BaseSQLRecord, IsLink):
 
 
 class ProjectUser(BaseSQLRecord, IsLink):
-    """Link model for project–user association with role."""
-
     id: int = models.BigAutoField(primary_key=True)
     project: Project = ForeignKey(Project, CASCADE, related_name="links_user")
     user: User = ForeignKey("User", PROTECT, related_name="links_project")
     role: str = CharField(max_length=32, db_index=True)
-    """Role (e.g. \"member\", \"viewer\")."""
+    """Role (e.g. "responsible", "viewer")."""
 
     class Meta:
         app_label = "lamindb"
