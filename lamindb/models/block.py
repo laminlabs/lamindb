@@ -1,9 +1,11 @@
-from datetime import datetime
-from typing import Any
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any
 
 from django.db import models
 from django.db.models import (
     CASCADE,
+    PROTECT,
     CharField,
     DateTimeField,
     ForeignKey,
@@ -21,6 +23,11 @@ from .run import Run, User
 from .schema import Schema
 from .sqlrecord import BaseSQLRecord, Branch, IsVersioned, Space, SQLRecord
 from .transform import Transform
+
+if TYPE_CHECKING:
+    from datetime import datetime
+
+    from .query_manager import RelatedManager
 
 
 class BaseBlock(IsVersioned):
@@ -64,16 +71,27 @@ class BaseBlock(IsVersioned):
 
 
 class Block(BaseBlock, SQLRecord):
-    """A root block for every registry that can appear at the top of the registry root block in the GUI."""
+    """A markdown block for anything: issues, standalone markdown pages, comments, etc."""
 
     class Meta:
         app_label = "lamindb"
 
     # same key as in transform/artifact/collection
-    key: str = CharField(max_length=1024, db_index=True)
+    key: str | None = CharField(max_length=1024, db_index=True, null=True)
     """The key for which we want to create a block."""
-    projects: Project
+    anchor: Block | None = ForeignKey(
+        "Block", PROTECT, related_name="children", null=True
+    )
+    """The anchor of this block.
+
+    For a comment, could be the issue on which the comment is attached.
+
+    For a sub-post, could be the parent post.
+    """
+    projects: RelatedManager[Project]
     """Projects that annotate this block."""
+    anchors: RelatedManager[Block]
+    """This block anchors these blocks."""
 
 
 class RecordBlock(BaseBlock, BaseSQLRecord):
