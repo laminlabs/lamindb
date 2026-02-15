@@ -1290,12 +1290,16 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                 for field in self._meta.fields
                 if isinstance(field, ForeignKey)
             ]
+        # TODO: harmonize with L426 in query_set.py
         if "created_at" in field_names:
             field_names.remove("created_at")
             field_names.append("created_at")
         if "is_locked" in field_names:
             field_names.remove("is_locked")
             field_names.append("is_locked")
+        if "created_on" in field_names:
+            field_names.remove("created_on")
+            field_names.append("created_on")
         if field_names[0] != "uid" and "uid" in field_names:
             field_names.remove("uid")
             field_names.insert(0, "uid")
