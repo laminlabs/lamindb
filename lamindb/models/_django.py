@@ -177,7 +177,10 @@ def get_artifact_or_run_with_related(
         ):
             continue
         if not is_record and not link_model.__name__ == "ArtifactArtifact":
-            label_field = link.removeprefix("links_").replace("_", "")
+            if link_model.__name__ == "RunArtifact":
+                label_field = "artifact"
+            else:
+                label_field = link.removeprefix("links_").replace("_", "")
         else:
             label_field = "value"
         related_model = link_model._meta.get_field(label_field).related_model
