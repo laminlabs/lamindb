@@ -399,9 +399,7 @@ class Migration(migrations.Migration):
         ("lamindb", "0181_v2_2_part_4"),
     ]
 
-    dependencies = [
-        ("lamindb", "0176_rename_rootblock_block"),
-    ]
+    dependencies = []  # type: ignore
 
     operations = [
         migrations.CreateModel(
