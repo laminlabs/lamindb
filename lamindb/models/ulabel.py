@@ -168,6 +168,8 @@ class ULabel(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
     """The collections annotated by this ulabel ← :attr:`~lamindb.Collection.ulabels`."""
     projects: RelatedManager[Project]
     """The projects annotating this ulabel ← :attr:`~lamindb.Project.ulabels`."""
+    branches: RelatedManager[Branch]
+    """The branches annotated by this ulabel ← :attr:`~lamindb.Branch.ulabels`."""
     linked_in_records: RelatedManager[Record] = models.ManyToManyField(
         "Record",
         through="RecordULabel",

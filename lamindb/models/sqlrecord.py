@@ -1552,35 +1552,26 @@ class Branch(BaseSQLRecord):
 
 
 class BranchPlan(BaseSQLRecord, IsLink):
-    r"""Link model for branch–plan (artifact with kind \"plan\") association."""
-
     class Meta:
         app_label = "lamindb"
         unique_together = ("branch", "artifact")
 
     id: int = models.BigAutoField(primary_key=True)
     branch: Branch = ForeignKey(Branch, CASCADE, related_name="links_branchplan")
-    """The branch."""
     artifact: Artifact = ForeignKey(
         "Artifact", PROTECT, related_name="links_branchplan"
     )
-    """The plan artifact."""
 
 
 class BranchUser(BaseSQLRecord, IsLink):
-    """Link model for branch–user association (e.g. reviewers)."""
-
     class Meta:
         app_label = "lamindb"
         unique_together = ("branch", "user", "role")
 
     id: int = models.BigAutoField(primary_key=True)
     branch: Branch = ForeignKey(Branch, CASCADE, related_name="links_user")
-    """The branch."""
     user: User = ForeignKey("User", PROTECT, related_name="links_branch")
-    """The user."""
     role: str = CharField(max_length=32, db_index=True)
-    """Role (e.g. \"reviewer\")."""
 
 
 @doc_args(RECORD_REGISTRY_EXAMPLE)

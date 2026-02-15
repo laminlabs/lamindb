@@ -179,7 +179,7 @@ class Transform(SQLRecord, IsVersioned):
         related_name="_plan_for_transforms",
         default=None,
     )
-    """Optional plan artifact (e.g. default agent plan for this transform)."""
+    """An optional plan for executing this transform."""
     runs: RelatedManager[Run]
     """Runs of this transform ← :attr:`~lamindb.Run.transform`."""
     ulabels: RelatedManager[ULabel] = models.ManyToManyField(
