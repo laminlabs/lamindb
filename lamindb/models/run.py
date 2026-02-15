@@ -20,6 +20,7 @@ from lamindb.base.fields import (
     CharField,
     DateTimeField,
     ForeignKey,
+    TextField,
 )
 from lamindb.base.users import current_user_id
 from lamindb.base.utils import strict_classmethod
@@ -36,7 +37,7 @@ if TYPE_CHECKING:
     from .artifact import Artifact
     from .block import RunBlock
     from .collection import Collection
-    from .feature import JsonValue
+    from .feature import Feature, JsonValue
     from .project import Project
     from .query_manager import RelatedManager
     from .record import Record
@@ -242,6 +243,8 @@ class Run(SQLRecord, TracksUpdates):
     """Universal id, valid across DB instances."""
     name: str | None = CharField(max_length=150, null=True, db_index=True)
     """An optional name for this run."""
+    description: str | None = TextField(null=True)
+    """An optional description for this run."""
     transform: Transform = ForeignKey("Transform", CASCADE, related_name="runs")
     """The transform that is being run ← :attr:`~lamindb.Transform.runs`."""
     entrypoint: str | None = CharField(max_length=255, null=True, db_index=True)
@@ -268,6 +271,10 @@ class Run(SQLRecord, TracksUpdates):
 
     For instance, `Dockerfile`, `docker image`, `requirements.txt`, `environment.yml`, etc.
     """
+    plan: Artifact | None = ForeignKey(
+        "Artifact", PROTECT, null=True, related_name="_plan_for_runs", default=None
+    )
+    """The plan artifact that orchestrated this run (e.g. agent plan)."""
     input_records: RelatedManager[Record]
     """The collections serving as input for this run ← :attr:`~lamindb.Record.input_of_runs`."""
     output_records: RelatedManager[Record]
@@ -340,6 +347,12 @@ class Run(SQLRecord, TracksUpdates):
         "Artifact", through="ArtifactRun", related_name="runs"
     )
     """The artifacts annotated by this run ← :attr:`~lamindb.Artifact.runs`."""
+    linked_artifacts: RelatedManager[Artifact] = models.ManyToManyField(
+        "Artifact",
+        through="RunArtifact",
+        related_name="linked_by_runs",
+    )
+    """Artifacts linked to this run (e.g. materials, plans) ← :attr:`~lamindb.RunArtifact.artifact`."""
     _is_consecutive: bool | None = BooleanField(null=True)
     """Indicates whether code was consecutively executed. Is relevant for notebooks."""
     _status_code: int = models.SmallIntegerField(
@@ -352,6 +365,7 @@ class Run(SQLRecord, TracksUpdates):
         self,
         transform: Transform,
         name: str | None = None,
+        description: str | None = None,
         entrypoint: str | None = None,
         params: dict | None = None,
         reference: str | None = None,
@@ -380,6 +394,7 @@ class Run(SQLRecord, TracksUpdates):
         if "transform" in kwargs or len(args) == 1:
             transform = kwargs.pop("transform") if len(args) == 0 else args[0]
         name: str | None = kwargs.pop("name", None)
+        description: str | None = kwargs.pop("description", None)
         entrypoint: str | None = kwargs.pop("entrypoint", None)
         params: dict | None = kwargs.pop("params", None)
         reference: str | None = kwargs.pop("reference", None)
@@ -392,11 +407,12 @@ class Run(SQLRecord, TracksUpdates):
             raise ValueError("Please save transform record before creating a run")
         if not len(kwargs) == 0:
             raise ValueError(
-                f"Only transform, name, params, reference, reference_type, initiated_by_run can be passed, but you passed: {kwargs}"
+                f"Only transform, name, description, params, reference, reference_type, initiated_by_run can be passed, but you passed: {kwargs}"
             )
         super().__init__(  # type: ignore
             transform=transform,
             name=name,
+            description=description,
             entrypoint=entrypoint,
             params=params,
             reference=reference,
@@ -562,3 +578,20 @@ class RunJsonValue(BaseSQLRecord, IsLink):
     class Meta:
         app_label = "lamindb"
         unique_together = ("run", "jsonvalue")
+
+
+class RunArtifact(BaseSQLRecord, IsLink):
+    """Link model for run–artifact association with optional feature (mirrors ArtifactRun)."""
+
+    id: int = models.BigAutoField(primary_key=True)
+    run: Run = ForeignKey(Run, CASCADE, related_name="links_runartifact")
+    artifact: Artifact = ForeignKey(
+        "Artifact", PROTECT, related_name="links_runartifact"
+    )
+    feature: Feature | None = ForeignKey(
+        "Feature", PROTECT, null=True, related_name="links_runartifact", default=None
+    )
+
+    class Meta:
+        app_label = "lamindb"
+        unique_together = ("run", "artifact", "feature")

@@ -172,6 +172,14 @@ class Transform(SQLRecord, IsVersioned):
         "Artifact", CASCADE, null=True, related_name="_environment_of_transforms"
     )
     """An environment for executing the transform."""
+    plan: Artifact | None = models.ForeignKey(
+        "Artifact",
+        CASCADE,
+        null=True,
+        related_name="_plan_for_transforms",
+        default=None,
+    )
+    """Optional plan artifact (e.g. default agent plan for this transform)."""
     runs: RelatedManager[Run]
     """Runs of this transform ← :attr:`~lamindb.Run.transform`."""
     ulabels: RelatedManager[ULabel] = models.ManyToManyField(

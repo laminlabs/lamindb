@@ -77,10 +77,12 @@ if TYPE_CHECKING:
 
     from .artifact import Artifact
     from .block import BranchBlock, SpaceBlock
+    from .project import Project
     from .query_manager import RelatedManager
     from .query_set import SQLRecordList
     from .run import Run, User
     from .transform import Transform
+    from .ulabel import ULabel
 
 
 T = TypeVar("T", bound="SQLRecord")
@@ -1498,6 +1500,30 @@ class Branch(BaseSQLRecord):
     """Creator of branch."""
     ablocks: RelatedManager[BranchBlock]
     """Attached blocks ← :attr:`~lamindb.BranchBlock.branch`."""
+    plans: RelatedManager[Artifact] = models.ManyToManyField(
+        "Artifact",
+        through="BranchPlan",
+        related_name="_plan_for_branches",
+    )
+    """Plan artifacts linked to this branch ← :attr:`~lamindb.BranchPlan.artifact`."""
+    users: RelatedManager[User] = models.ManyToManyField(
+        "User",
+        through="BranchUser",
+        related_name="branches",
+    )
+    """Users linked to this branch (e.g. reviewers) ← :attr:`~lamindb.BranchUser.user`."""
+    ulabels: RelatedManager[ULabel] = models.ManyToManyField(
+        "ULabel",
+        through="BranchULabel",
+        related_name="branches",
+    )
+    """ULabels annotating this branch ← :attr:`~lamindb.BranchULabel.ulabel`."""
+    projects: RelatedManager[Project] = models.ManyToManyField(
+        "Project",
+        through="BranchProject",
+        related_name="branches",
+    )
+    """Projects annotating this branch ← :attr:`~lamindb.BranchProject.project`."""
 
     @overload
     def __init__(
@@ -1518,6 +1544,38 @@ class Branch(BaseSQLRecord):
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
+
+
+class BranchPlan(BaseSQLRecord, IsLink):
+    r"""Link model for branch–plan (artifact with kind \"plan\") association."""
+
+    class Meta:
+        app_label = "lamindb"
+        unique_together = ("branch", "artifact")
+
+    id: int = models.BigAutoField(primary_key=True)
+    branch: Branch = ForeignKey(Branch, CASCADE, related_name="links_branchplan")
+    """The branch."""
+    artifact: Artifact = ForeignKey(
+        "Artifact", PROTECT, related_name="links_branchplan"
+    )
+    """The plan artifact."""
+
+
+class BranchUser(BaseSQLRecord, IsLink):
+    """Link model for branch–user association (e.g. reviewers)."""
+
+    class Meta:
+        app_label = "lamindb"
+        unique_together = ("branch", "user", "role")
+
+    id: int = models.BigAutoField(primary_key=True)
+    branch: Branch = ForeignKey(Branch, CASCADE, related_name="links_user")
+    """The branch."""
+    user: User = ForeignKey("User", PROTECT, related_name="links_branch")
+    """The user."""
+    role: str = CharField(max_length=32, db_index=True)
+    """Role (e.g. \"reviewer\")."""
 
 
 @doc_args(RECORD_REGISTRY_EXAMPLE)
@@ -1545,10 +1603,17 @@ class SQLRecord(BaseSQLRecord, metaclass=Registry):
         PROTECT,
         default=1,
         db_default=1,
-        db_column="branch_id",
         related_name="+",
     )
     """The branch."""
+    created_on: Branch = ForeignKey(
+        Branch,
+        PROTECT,
+        default=1,
+        db_default=1,
+        related_name="+",
+    )
+    """The branch on which this record was created (set on creation and on merge; never changed otherwise)."""
     space: Space = ForeignKey(Space, PROTECT, default=1, db_default=1, related_name="+")
     """The space."""
     is_locked: bool = BooleanField(default=False, db_default=False)

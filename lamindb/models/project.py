@@ -37,6 +37,7 @@ if TYPE_CHECKING:
     from .block import Block, ProjectBlock
     from .query_manager import RelatedManager
     from .query_set import QuerySet
+    from .sqlrecord import Branch
 
 
 class Reference(
@@ -274,6 +275,12 @@ class Project(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, ValidateF
         "Block", through="BlockProject", related_name="projects"
     )
     """Annotated blocks ← :attr:`~lamindb.Block.projects`."""
+    users: RelatedManager[User] = models.ManyToManyField(
+        "User",
+        through="ProjectUser",
+        related_name="projects",
+    )
+    """Users linked to this project (e.g. members) ← :attr:`~lamindb.ProjectUser.user`."""
     _status_code: int = models.SmallIntegerField(default=0, db_index=True)
     """Status code."""
     ablocks: RelatedManager[ProjectBlock]
@@ -347,6 +354,32 @@ class RunProject(BaseSQLRecord, IsLink):
     class Meta:
         app_label = "lamindb"
         unique_together = ("run", "project")
+
+
+class BranchProject(BaseSQLRecord, IsLink):
+    """Link model for branch–project association."""
+
+    id: int = models.BigAutoField(primary_key=True)
+    branch: Branch = ForeignKey("Branch", CASCADE, related_name="links_project")
+    project: Project = ForeignKey(Project, PROTECT, related_name="links_branch")
+
+    class Meta:
+        app_label = "lamindb"
+        unique_together = ("branch", "project")
+
+
+class ProjectUser(BaseSQLRecord, IsLink):
+    """Link model for project–user association with role."""
+
+    id: int = models.BigAutoField(primary_key=True)
+    project: Project = ForeignKey(Project, CASCADE, related_name="links_user")
+    user: User = ForeignKey("User", PROTECT, related_name="links_project")
+    role: str = CharField(max_length=32, db_index=True)
+    """Role (e.g. \"member\", \"viewer\")."""
+
+    class Meta:
+        app_label = "lamindb"
+        unique_together = ("project", "user", "role")
 
 
 class TransformProject(BaseSQLRecord, IsLink, TracksRun):

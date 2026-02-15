@@ -59,12 +59,13 @@ def merge(branch: str | Branch) -> None:
     with connection.cursor() as cursor:
         if vendor == "postgresql":
             # Single round-trip: one multi-statement execute
+            # Set created_on_id to source branch for merged rows so creation branch is traceable
             statements = [
-                f"UPDATE {tbl} SET branch_id = %s WHERE branch_id = %s"
+                f"UPDATE {tbl} SET branch_id = %s, created_on_id = COALESCE(created_on_id, %s) WHERE branch_id = %s"
                 for tbl in quoted_tables
             ]
             sql = "BEGIN; " + "; ".join(statements) + "; COMMIT;"
-            params = [current.id, source.id] * len(quoted_tables)
+            params = [current.id, source.id, source.id] * len(quoted_tables)
             try:
                 cursor.execute(sql, params)
             except DatabaseError as e:
@@ -79,9 +80,10 @@ def merge(branch: str | Branch) -> None:
             with transaction.atomic():
                 for tbl in quoted_tables:
                     # Django uses %s; SQLite backend converts to ?
+                    # Set created_on_id to source branch for merged rows
                     cursor.execute(
-                        f"UPDATE {tbl} SET branch_id = %s WHERE branch_id = %s",
-                        [current.id, source.id],
+                        f"UPDATE {tbl} SET branch_id = %s, created_on_id = COALESCE(created_on_id, %s) WHERE branch_id = %s",
+                        [current.id, source.id, source.id],
                     )
 
     logger.important(f"merged branch '{source.name}' into '{current.name}'")

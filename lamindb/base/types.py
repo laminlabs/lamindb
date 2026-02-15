@@ -36,7 +36,9 @@ StrField = Union[str, FieldAttr]  # typing.TypeAlias
 
 TransformKind = Literal["pipeline", "notebook", "script", "function"]
 TransformType = TransformKind  # backward compat
-ArtifactKind = Literal["dataset", "model", "__lamindb_run__", "__lamindb_config__"]
+ArtifactKind = Literal[
+    "dataset", "model", "plan", "__lamindb_run__", "__lamindb_config__"
+]
 DtypeObject = int | float | str | bool | datetime.date | datetime.datetime | dict
 
 DtypeStr = Literal[
