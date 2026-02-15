@@ -84,6 +84,7 @@ def test_artifact_describe():
         .json_values: JsonValue
         .artifacts: Artifact
         .linked_in_records: Record
+        .linked_by_branches: Branch
         .users: User
         .runs: Run
         .linked_by_runs: Run

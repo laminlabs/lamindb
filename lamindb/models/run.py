@@ -376,6 +376,7 @@ class Run(SQLRecord, TracksUpdates):
         reference: str | None = None,
         reference_type: str | None = None,
         initiated_by_run: Run | None = None,
+        plan: Artifact | None = None,
     ): ...
 
     @overload
@@ -406,13 +407,14 @@ class Run(SQLRecord, TracksUpdates):
         reference_type: str | None = kwargs.pop("reference_type", None)
         initiated_by_run: Run | None = kwargs.pop("initiated_by_run", None)
         report: Artifact | None = kwargs.pop("report", None)
+        plan: Artifact | None = kwargs.pop("plan", None)
         if transform is None:
             raise TypeError("Pass transform parameter")
         if transform._state.adding:
             raise ValueError("Please save transform record before creating a run")
         if not len(kwargs) == 0:
             raise ValueError(
-                f"Only transform, name, description, params, reference, reference_type, initiated_by_run can be passed, but you passed: {kwargs}"
+                f"Only transform, name, description, params, reference, reference_type, initiated_by_run, plan can be passed, but you passed: {kwargs}"
             )
         super().__init__(  # type: ignore
             transform=transform,
@@ -424,6 +426,7 @@ class Run(SQLRecord, TracksUpdates):
             reference_type=reference_type,
             initiated_by_run=initiated_by_run,
             report=report,
+            plan=plan,
         )
 
     @property

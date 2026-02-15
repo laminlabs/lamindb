@@ -1505,18 +1505,18 @@ class Branch(BaseSQLRecord):
     """Creator of branch."""
     ablocks: RelatedManager[BranchBlock]
     """Attached blocks ← :attr:`~lamindb.BranchBlock.branch`."""
-    plans: RelatedManager[Artifact] = models.ManyToManyField(
+    artifacts: RelatedManager[Artifact] = models.ManyToManyField(
         "Artifact",
-        through="BranchPlan",
-        related_name="_plan_for_branches",
+        through="BranchArtifact",
+        related_name="linked_by_branches",
     )
-    """Plan artifacts linked to this branch ← :attr:`~lamindb.BranchPlan.artifact`."""
+    """Artifacts linked to this branch (e.g. plans) ← :attr:`~lamindb.Artifact.linked_by_branches`."""
     users: RelatedManager[User] = models.ManyToManyField(
         "User",
         through="BranchUser",
         related_name="branches",
     )
-    """Users linked to this branch (e.g. reviewers) ← :attr:`~lamindb.BranchUser.user`."""
+    """Users linked to this branch (e.g. reviewers) ← :attr:`~lamindb.User.branches`."""
     ulabels: RelatedManager[ULabel] = models.ManyToManyField(
         "ULabel",
         through="BranchULabel",
@@ -1551,16 +1551,14 @@ class Branch(BaseSQLRecord):
         super().__init__(*args, **kwargs)
 
 
-class BranchPlan(BaseSQLRecord, IsLink):
+class BranchArtifact(BaseSQLRecord, IsLink):
     class Meta:
         app_label = "lamindb"
         unique_together = ("branch", "artifact")
 
     id: int = models.BigAutoField(primary_key=True)
-    branch: Branch = ForeignKey(Branch, CASCADE, related_name="links_branchplan")
-    artifact: Artifact = ForeignKey(
-        "Artifact", PROTECT, related_name="links_branchplan"
-    )
+    branch: Branch = ForeignKey(Branch, CASCADE, related_name="links_artifact")
+    artifact: Artifact = ForeignKey("Artifact", PROTECT, related_name="links_branch")
 
 
 class BranchUser(BaseSQLRecord, IsLink):
