@@ -970,6 +970,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                                 kwargs["branch"] = current_branch
                         else:
                             kwargs["branch"] = current_branch
+                        kwargs["created_on"] = kwargs["branch"]
             if skip_validation:
                 super().__init__(**kwargs)
             else:
