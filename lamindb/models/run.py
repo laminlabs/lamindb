@@ -276,7 +276,10 @@ class Run(SQLRecord, TracksUpdates):
     plan: Artifact | None = ForeignKey(
         "Artifact", PROTECT, null=True, related_name="_plan_for_runs", default=None
     )
-    """The plan artifact that orchestrated this run (e.g. agent plan)."""
+    """The (agent) plan for this run.
+
+    Also see: :attr:`~lamindb.Run.initiated_by_run`.
+    """
     input_records: RelatedManager[Record]
     """The collections serving as input for this run ← :attr:`~lamindb.Record.input_of_runs`."""
     output_records: RelatedManager[Record]
