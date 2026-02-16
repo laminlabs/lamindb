@@ -27,19 +27,25 @@ def test_serialize_params_to_json():
     params = {
         "path_key": a_path,
         "none_key": None,
+        "empty_list_key": [],
+        "list_str_key": ["string"],
         "upath_key": a_upath,
         "str_key": "plain",
     }
     result = serialize_params_to_json(params)
     # None is omitted
     assert "none_key" not in result
+    # Empty list is omitted (same as None)
+    assert "empty_list_key" not in result
     # Path is serialized to posix string
     assert result["path_key"] == "/some/local/folder"
     # UPath is serialized to posix string
     assert result["upath_key"] == "s3://bucket/key"
+    # List of strings is JSON-serialized as-is (list[cat ? str])
+    assert result["list_str_key"] == ["string"]
     # Other values unchanged
     assert result["str_key"] == "plain"
-    assert set(result.keys()) == {"path_key", "upath_key", "str_key"}
+    assert set(result.keys()) == {"path_key", "upath_key", "str_key", "list_str_key"}
 
 
 def test_track_basic_invocation():
