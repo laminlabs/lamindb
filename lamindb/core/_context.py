@@ -343,7 +343,7 @@ def serialize_params_to_json(params: dict) -> dict:
         # so, need to handle this here
         if (
             dtype == "?" or dtype.startswith("cat") or dtype.startswith("list[cat")
-        ) and dtype != "cat ? str":
+        ) and dtype not in {"cat ? str", "list[cat ? str]"}:
             if isinstance(value, SQLRecord):
                 serialized_params[key] = (
                     f"{value.__class__.__get_name_with_module__()}[{value.uid}]"
