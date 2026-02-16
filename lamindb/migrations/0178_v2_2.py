@@ -9,7 +9,7 @@ import lamindb.models.sqlrecord
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("lamindb", "0177_alter_artifactblock_artifact_and_more"),
+        ("lamindb", "0177_squashed"),
     ]
 
     operations = [
