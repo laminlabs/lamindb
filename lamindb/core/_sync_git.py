@@ -40,7 +40,7 @@ def get_git_repo_from_remote(url: str | None = None, depth: int | None = 10) -> 
 
 def check_local_git_repo() -> bool:
     result = subprocess.run(
-        ["git", "config", "--get remote.origin.url"],
+        ["git", "config", "--get", "remote.origin.url"],
         capture_output=True,
     )
     result_str = result.stdout.decode().strip()
@@ -53,7 +53,9 @@ def check_local_git_repo() -> bool:
             # running-in-correct-git-repo
             return True
         else:
-            # running-outside-of-correct-git-repo
+            logger.warning(
+                f"running in git repo: {remote_url}, expected: {settings.sync_git_repo}"
+            )
             return False
 
 
