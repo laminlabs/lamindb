@@ -13,6 +13,7 @@ def test_merge_branch_into_main():
 
     ulabel = ln.ULabel(name="test_merge_record").save()
     assert ulabel.branch == branch
+    assert ulabel.created_on == branch  # created_on set to creation branch
 
     ln.setup.switch("main")
     assert ln.setup.settings.branch.name == "main"
@@ -22,6 +23,9 @@ def test_merge_branch_into_main():
     assert ln.ULabel.filter(name="test_merge_record").count() == 1
     ulabel = ln.ULabel.get(name="test_merge_record")
     assert ulabel.branch.name == "main"
+    # created_on still points to the branch on which the record was created
+    assert ulabel.created_on == branch
+    assert ulabel.created_on.name == "test_merge_branch"
 
     # Clean up
     ulabel.delete(permanent=True)

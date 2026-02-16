@@ -33,6 +33,7 @@ if TYPE_CHECKING:
     from .query_manager import RelatedManager
     from .query_set import QuerySet
     from .record import Record
+    from .sqlrecord import Branch
 
 
 class ULabel(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates):
@@ -167,6 +168,8 @@ class ULabel(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
     """The collections annotated by this ulabel ← :attr:`~lamindb.Collection.ulabels`."""
     projects: RelatedManager[Project]
     """The projects annotating this ulabel ← :attr:`~lamindb.Project.ulabels`."""
+    branches: RelatedManager[Branch]
+    """The branches annotated by this ulabel ← :attr:`~lamindb.Branch.ulabels`."""
     linked_in_records: RelatedManager[Record] = models.ManyToManyField(
         "Record",
         through="RecordULabel",
@@ -285,6 +288,18 @@ class RunULabel(BaseSQLRecord, IsLink):
     class Meta:
         app_label = "lamindb"
         unique_together = ("run", "ulabel")
+
+
+class BranchULabel(BaseSQLRecord, IsLink):
+    """Link model for branch–ulabel association."""
+
+    id: int = models.BigAutoField(primary_key=True)
+    branch: Branch = ForeignKey("Branch", CASCADE, related_name="links_ulabel")
+    ulabel: ULabel = ForeignKey(ULabel, PROTECT, related_name="links_branch")
+
+    class Meta:
+        app_label = "lamindb"
+        unique_together = ("branch", "ulabel")
 
 
 class CollectionULabel(BaseSQLRecord, IsLink, TracksRun):

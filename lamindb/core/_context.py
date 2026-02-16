@@ -37,7 +37,7 @@ if TYPE_CHECKING:
     from lamindb_setup.types import UPathStr
 
     from lamindb.base.types import TransformKind
-    from lamindb.models import Branch, Project, Space
+    from lamindb.models import Artifact, Branch, Project, Space
 
 
 is_run_from_ipython = getattr(builtins, "__IPYTHON__", False)
@@ -443,6 +443,7 @@ class Context:
         project: str | Project | None = None,
         space: str | Space | None = None,
         branch: str | Branch | None = None,
+        plan: str | Artifact | None = None,
         features: dict | None = None,
         params: dict | None = None,
         new_run: bool | None = None,
@@ -466,6 +467,7 @@ class Context:
                 Default: the `"all"` space. Note that bionty entities ignore this setting and always get written to the `"all"` space.
                 If you want to manually move entities to a different space, set the `.space` field (:doc:`docs:permissions`).
             branch: A branch (or its `name` or `uid`) on which to store records.
+            plan: A plan, typically an agent plan. Pass an artifact (or its `key` or `uid`).
             features: A dictionary of features & values to track for the run.
             params: A dictionary of params & values to track for the run.
             new_run: If `False`, loads the latest run of transform
@@ -497,7 +499,7 @@ class Context:
 
             To browse more examples, see: :doc:`/track`.
         """
-        from lamindb.models import Branch, Project, Space
+        from lamindb.models import Artifact, Branch, Project, Space
 
         from .._finish import (
             save_context_core,
@@ -552,6 +554,19 @@ class Context:
                         f"Space '{branch}', please check on the hub UI whether you have the correct `uid` or `name`."
                     )
             self._branch = branch_record
+        plan_record: Artifact | None = None
+        if plan is not None:
+            if isinstance(plan, Artifact):
+                assert plan._state.adding is False, (  # noqa: S101
+                    "Plan artifact must be saved before passing it to track()"
+                )
+                plan_record = plan
+            else:
+                plan_record = Artifact.filter(Q(key=plan) | Q(uid=plan)).one_or_none()
+                if plan_record is None:
+                    raise InvalidArgument(
+                        f"Plan artifact '{plan}' not found, either create it or use a valid key/uid."
+                    )
         self._logging_message_track = ""
         self._logging_message_imports = ""
         if transform is not None and isinstance(transform, str):
@@ -646,10 +661,13 @@ class Context:
             if run is not None:  # loaded latest run
                 run.started_at = datetime.now(timezone.utc)  # update run time
                 run._status_code = -2  # re-started
+                if plan_record is not None:
+                    run.plan = plan_record
+                    run.save()
                 self._logging_message_track += f", re-started Run('{run.uid}') at {format_field_value(run.started_at)}"
 
         if run is None:  # create new run
-            run = Run(transform=self._transform)
+            run = Run(transform=self._transform, plan=plan_record)
             if entrypoint is not None:
                 run.entrypoint = entrypoint
             if initiated_by_run is not None:
@@ -710,10 +728,15 @@ class Context:
                 if space is not None
                 else ""
             )
+            plan_str = (
+                f', plan="{plan if isinstance(plan, str) else plan.key}"'
+                if plan is not None
+                else ""
+            )
             params_str = (
                 ", params={...}" if params is not None else ""
             )  # do not put the values because typically parameterized by user
-            kwargs_str = f"{project_str}{space_str}{params_str}"
+            kwargs_str = f"{project_str}{space_str}{plan_str}{params_str}"
             logger.important_hint(
                 f'recommendation: to identify the {notebook_or_script} across renames, pass the uid: ln{r_or_python}track("{self.transform.uid[:-4]}"{kwargs_str})'
             )

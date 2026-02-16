@@ -77,10 +77,12 @@ if TYPE_CHECKING:
 
     from .artifact import Artifact
     from .block import BranchBlock, SpaceBlock
+    from .project import Project
     from .query_manager import RelatedManager
     from .query_set import SQLRecordList
     from .run import Run, User
     from .transform import Transform
+    from .ulabel import ULabel
 
 
 T = TypeVar("T", bound="SQLRecord")
@@ -968,6 +970,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                                 kwargs["branch"] = current_branch
                         else:
                             kwargs["branch"] = current_branch
+                        kwargs["created_on"] = kwargs["branch"]
             if skip_validation:
                 super().__init__(**kwargs)
             else:
@@ -1287,12 +1290,16 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                 for field in self._meta.fields
                 if isinstance(field, ForeignKey)
             ]
+        # TODO: harmonize with L426 in query_set.py
         if "created_at" in field_names:
             field_names.remove("created_at")
             field_names.append("created_at")
         if "is_locked" in field_names:
             field_names.remove("is_locked")
             field_names.append("is_locked")
+        if "created_on" in field_names:
+            field_names.remove("created_on")
+            field_names.append("created_on")
         if field_names[0] != "uid" and "uid" in field_names:
             field_names.remove("uid")
             field_names.insert(0, "uid")
@@ -1498,6 +1505,30 @@ class Branch(BaseSQLRecord):
     """Creator of branch."""
     ablocks: RelatedManager[BranchBlock]
     """Attached blocks ← :attr:`~lamindb.BranchBlock.branch`."""
+    artifacts: RelatedManager[Artifact] = models.ManyToManyField(
+        "Artifact",
+        through="BranchArtifact",
+        related_name="linked_by_branches",
+    )
+    """Artifacts linked to this branch (e.g. plans) ← :attr:`~lamindb.Artifact.linked_by_branches`."""
+    users: RelatedManager[User] = models.ManyToManyField(
+        "User",
+        through="BranchUser",
+        related_name="branches",
+    )
+    """Users linked to this branch (e.g. reviewers) ← :attr:`~lamindb.User.branches`."""
+    ulabels: RelatedManager[ULabel] = models.ManyToManyField(
+        "ULabel",
+        through="BranchULabel",
+        related_name="branches",
+    )
+    """ULabels annotating this branch ← :attr:`~lamindb.BranchULabel.ulabel`."""
+    projects: RelatedManager[Project] = models.ManyToManyField(
+        "Project",
+        through="BranchProject",
+        related_name="branches",
+    )
+    """Projects annotating this branch ← :attr:`~lamindb.BranchProject.project`."""
 
     @overload
     def __init__(
@@ -1518,6 +1549,27 @@ class Branch(BaseSQLRecord):
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
+
+
+class BranchArtifact(BaseSQLRecord, IsLink):
+    class Meta:
+        app_label = "lamindb"
+        unique_together = ("branch", "artifact")
+
+    id: int = models.BigAutoField(primary_key=True)
+    branch: Branch = ForeignKey(Branch, CASCADE, related_name="links_artifact")
+    artifact: Artifact = ForeignKey("Artifact", PROTECT, related_name="links_branch")
+
+
+class BranchUser(BaseSQLRecord, IsLink):
+    class Meta:
+        app_label = "lamindb"
+        unique_together = ("branch", "user", "role")
+
+    id: int = models.BigAutoField(primary_key=True)
+    branch: Branch = ForeignKey(Branch, CASCADE, related_name="links_user")
+    user: User = ForeignKey("User", PROTECT, related_name="links_branch")
+    role: str = CharField(max_length=32, db_index=True)
 
 
 @doc_args(RECORD_REGISTRY_EXAMPLE)
@@ -1545,10 +1597,17 @@ class SQLRecord(BaseSQLRecord, metaclass=Registry):
         PROTECT,
         default=1,
         db_default=1,
-        db_column="branch_id",
         related_name="+",
     )
-    """The branch."""
+    """The current branch of the object - changes e.g. on merge events."""
+    created_on: Branch = ForeignKey(
+        Branch,
+        PROTECT,
+        default=1,
+        db_default=1,
+        related_name="+",
+    )
+    """The branch on which this object was created - never changes."""
     space: Space = ForeignKey(Space, PROTECT, default=1, db_default=1, related_name="+")
     """The space."""
     is_locked: bool = BooleanField(default=False, db_default=False)
