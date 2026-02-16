@@ -334,8 +334,8 @@ class LogStreamTracker:
 def serialize_params_to_json(params: dict) -> dict:
     serialized_params = {}
     for key, value in params.items():
-        # None is a missing value, skip it consitent with elsewhere in the code
-        if value is None:
+        # None and empty list are missing/empty values, skip them consistent with elsewhere in the code
+        if value is None or (isinstance(value, list) and len(value) == 0):
             continue
         dtype, converted_value, _ = infer_convert_dtype_key_value(key, value, mute=True)
         # converted_value is not JSON if dtype is a SQLRecord or a list of SQLRecords
@@ -343,7 +343,7 @@ def serialize_params_to_json(params: dict) -> dict:
         # so, need to handle this here
         if (
             dtype == "?" or dtype.startswith("cat") or dtype.startswith("list[cat")
-        ) and dtype != "cat ? str":
+        ) and dtype not in {"cat ? str", "list[cat ? str]"}:
             if isinstance(value, SQLRecord):
                 serialized_params[key] = (
                     f"{value.__class__.__get_name_with_module__()}[{value.uid}]"
@@ -358,7 +358,9 @@ def serialize_params_to_json(params: dict) -> dict:
         else:
             serialized_params[key] = converted_value
         if key not in serialized_params:
-            logger.warning(f"skipping param {key} because dtype not JSON serializable")
+            logger.warning(
+                f"skipping param {key} with value {value} and dtype {dtype} not JSON serializable"
+            )
     return serialized_params
 
 
