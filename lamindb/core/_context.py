@@ -467,7 +467,7 @@ class Context:
                 Default: the `"all"` space. Note that bionty entities ignore this setting and always get written to the `"all"` space.
                 If you want to manually move entities to a different space, set the `.space` field (:doc:`docs:permissions`).
             branch: A branch (or its `name` or `uid`) on which to store records.
-            plan: A plan artifact or its `key` or `uid` that orchestrated this run (e.g. agent plan).
+            plan: A plan, typically an agent plan. Pass an artifact (or its `key` or `uid`).
             features: A dictionary of features & values to track for the run.
             params: A dictionary of params & values to track for the run.
             new_run: If `False`, loads the latest run of transform
