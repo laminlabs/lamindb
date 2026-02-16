@@ -17,11 +17,11 @@ classifiers = [
 dependencies = [
     # LaminDB core modules
     "lamin_utils==0.16.3",  # 30kB pure python, no dependencies
-    "lamin_cli==1.12.1",     # 30kB pure python, no dependencies
-    "lamindb_setup[aws]==1.19.2",  # dependencies like Django & fsspec
+    "lamin_cli==1.13.0",     # 30kB pure python, no dependencies
+    "lamindb_setup[aws]==1.20.0",  # dependencies like Django & fsspec
     # LaminDB optional modules, included to avoid users forgetting about extras
-    "bionty==2.1.0", # 30kB pure python, no dependencies
-    "pertdb==2.0.2",  # 30kB pure python, no dependencies
+    "bionty==2.2.0", # 30kB pure python, no dependencies
+    "pertdb==2.1.0",  # 30kB pure python, no dependencies
     "wetlab>=2.0.0,<2.1.0",  # backward compat with pertdb
     # Jupyter -- small packages with few & small dependencies
     "jupytext",
