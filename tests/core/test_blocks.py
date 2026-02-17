@@ -148,6 +148,25 @@ def test_record_block_readme_always_new_version():
     record.delete(permanent=True)
 
 
+def test_record_block_comment_always_new_block():
+    """Comment always creates a new block (no versioning; revises not allowed)."""
+    record = ln.Record(name="test-record-blocks-comment").save()
+    # Comments never version: each creation is a new comment (new uid).
+    comment1 = ln.models.RecordBlock(
+        record=record, content="same text", kind="comment"
+    ).save()
+    comment2 = ln.models.RecordBlock(record=record, content="same text", kind="comment")
+    assert comment1.stem_uid != comment2.stem_uid  # always new comment, no dedup
+    # revises is not allowed for kind='comment'
+    with pytest.raises(ValueError) as error:
+        ln.models.RecordBlock(
+            record=record, content="a comment", kind="comment", revises=comment1
+        )
+    assert "revises is not allowed for kind='comment'" in error.exconly()
+    comment1.delete()
+    record.delete(permanent=True)
+
+
 def test_record_block_recovery_based_on_record_and_kind():
     record = ln.Record(name="test-record-blocks-key").save()
     block1 = ln.models.RecordBlock(record=record, kind="readme").save()
