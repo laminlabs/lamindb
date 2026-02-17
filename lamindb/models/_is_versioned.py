@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import PurePosixPath
 from typing import TYPE_CHECKING, Any, Iterable, Literal
 
+from django.core.exceptions import FieldDoesNotExist
 from django.db import models
 from django.db.models import Q
 from lamin_utils import logger
@@ -235,7 +236,7 @@ def process_revises(
     )
     if revises is not None:
         if description is None:
-            description = revises.description
+            description = getattr(revises, "description", None)
         if key is None:
             key = revises.key
     return uid, version_tag, key, description, revises
@@ -267,13 +268,14 @@ def _adjust_is_latest_when_deleting_is_versioned(
     q = Q()
     for s in stem_uids:
         q |= Q(uid__startswith=s)
-    candidates = list(
-        registry.objects.using(db)
-        .filter(q)
-        .exclude(pk__in=id_list)
-        .exclude(branch_id=-1)
-        .values("pk", "uid", "created_at")
-    )
+    qs = registry.objects.using(db).filter(q).exclude(pk__in=id_list)
+    # Attached blocks (BaseSQLRecord) have no branch_id; only exclude trash for SQLRecord
+    try:
+        registry._meta.get_field("branch_id")
+        qs = qs.exclude(branch_id=-1)
+    except FieldDoesNotExist:
+        pass
+    candidates = list(qs.values("pk", "uid", "created_at"))
     # per stem_uid, pick candidate with max created_at
     by_stem: dict[str, dict[str, Any]] = {}
     for c in candidates:
