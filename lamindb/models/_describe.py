@@ -593,6 +593,8 @@ def describe_sqlite(record):
 
 def append_readme_blocks_to_tree(record, tree: Tree) -> None:
     """Append readme block content to the describe tree if record has ablocks."""
+    if record._state.adding:
+        return
     if not hasattr(record, "ablocks"):
         return
     readme_blocks = record.ablocks.filter(kind="readme", is_latest=True)
