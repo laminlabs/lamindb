@@ -55,61 +55,16 @@ def _init_versioned_attached_block(
     version_tag: str | None,
     revises: IsVersioned | None,
     uid: str | None,
-    skip_hash_lookup: bool,
-    using_key: str | None,
+    using: str | None,
     **extra_kwargs: Any,
 ) -> None:
     cls = type(self)
-    if kind == "comment" and revises is not None:
-        raise ValueError(
-            "revises is not allowed for kind='comment'; comments are not versioned"
-        )
-    if kind == "readme" and fk_value is not None:
-        if revises is None:
-            candidate_for_revises = (
-                cls.objects.using(using_key)
-                .filter(
-                    **{fk_field_name: fk_value},
-                    kind=kind,
-                    is_latest=True,
-                )
-                .order_by("-created_at")
-                .first()
-            )
-            if candidate_for_revises is not None:
-                revises = candidate_for_revises
-                content_blank = getattr(revises, "content", None) in (None, "")
-                if content_blank:
-                    logger.important(
-                        "no content was yet saved, returning existing "
-                        f"block with same {fk_field_name} and kind"
-                    )
-                    uid = revises.uid
-        if revises is not None and uid is not None and uid == revises.uid:
-            init_self_from_db(self, revises)
-            update_attributes(self, {})
-            return None
-        new_uid, revises = create_uid(
-            revises=revises,
-            version_tag=version_tag,
-            n_full_id=cls._len_full_uid,
-        )
-        if uid is None:
-            uid = new_uid
-        block_hash = hash_string(content) if content else None
-        super(cls, self).__init__(
-            uid=uid,
-            content=content or "",
-            hash=block_hash,
-            kind=kind,
-            version_tag=version_tag,
-            revises=revises,
-            **{fk_field_name: fk_value},
-            **extra_kwargs,
-        )
-        return None
     if kind == "comment":
-        new_uid, revises = create_uid(
+        if revises is not None:
+            raise ValueError(
+                "revises is not allowed for kind='comment'; comments are not versioned"
+            )
+        new_uid, _ = create_uid(
             revises=None,
             version_tag=version_tag,
             n_full_id=cls._len_full_uid,
@@ -126,20 +81,37 @@ def _init_versioned_attached_block(
             **extra_kwargs,
         )
         return None
-    if revises is not None or uid is not None:
-        new_uid, revises = create_uid(
-            revises=revises,
-            version_tag=version_tag,
-            n_full_id=cls._len_full_uid,
+    # kind == "readme" (versioned)
+    if revises is None and fk_value is not None:
+        candidate_for_revises = (
+            cls.objects.using(using)
+            .filter(
+                **{fk_field_name: fk_value},
+                kind=kind,
+                is_latest=True,
+            )
+            .order_by("-created_at")
+            .first()
         )
-        if uid is None:
-            uid = new_uid
-    else:
-        new_uid, revises = create_uid(
-            revises=None,
-            version_tag=version_tag,
-            n_full_id=cls._len_full_uid,
-        )
+        if candidate_for_revises is not None:
+            revises = candidate_for_revises
+            content_blank = getattr(revises, "content", None) in (None, "")
+            if content_blank:
+                logger.important(
+                    "no content was yet saved, returning existing "
+                    f"block with same {fk_field_name} and kind"
+                )
+                uid = revises.uid
+    if revises is not None and uid is not None and uid == revises.uid:
+        init_self_from_db(self, revises)
+        update_attributes(self, {})
+        return None
+    new_uid, revises = create_uid(
+        revises=revises,
+        version_tag=version_tag,
+        n_full_id=cls._len_full_uid,
+    )
+    if uid is None:
         uid = new_uid
     block_hash = hash_string(content) if content else None
     super(cls, self).__init__(
@@ -224,7 +196,6 @@ class Block(BaseBlock, SQLRecord):
         version: str | None = None,
         revises: Block | None = None,
         anchor: Block | None = None,
-        skip_hash_lookup: bool = False,
     ): ...
 
     @overload
@@ -249,8 +220,7 @@ class Block(BaseBlock, SQLRecord):
         version_tag = kwargs.pop("version_tag", kwargs.pop("version", None))
         kind = kwargs.pop("kind", None)
         anchor = kwargs.pop("anchor", None)
-        skip_hash_lookup = kwargs.pop("skip_hash_lookup", False)
-        using_key = kwargs.pop("using_key", None)
+        using = kwargs.pop("using", None)
         uid = kwargs.pop("uid", None) if "uid" in kwargs else None
         branch = kwargs.pop("branch", None)
         branch_id = kwargs.pop("branch_id", 1)
@@ -258,8 +228,8 @@ class Block(BaseBlock, SQLRecord):
         space_id = kwargs.pop("space_id", 1)
         if kwargs:
             raise ValueError(
-                "Only key, content, kind, version, revises, anchor, "
-                f"skip_hash_lookup can be passed, but you passed: {kwargs}"
+                "Only key, content, kind, version, revises, anchor "
+                f"can be passed, but you passed: {kwargs}"
             )
         if kind is None:
             raise ValueError("kind is required for Block; use 'readme' or 'comment'")
@@ -268,7 +238,7 @@ class Block(BaseBlock, SQLRecord):
         if revises is None:
             if uid is not None:
                 revises = (
-                    Block.objects.using(using_key)
+                    Block.objects.using(using)
                     .filter(
                         uid__startswith=uid[:-4],
                         is_latest=True,
@@ -278,7 +248,7 @@ class Block(BaseBlock, SQLRecord):
                 )
             elif key is not None:
                 candidate_for_revises = (
-                    Block.objects.using(using_key)
+                    Block.objects.using(using)
                     .filter(
                         ~Q(branch_id=-1),
                         key=key,
@@ -313,7 +283,7 @@ class Block(BaseBlock, SQLRecord):
         if uid is None:
             uid = new_uid
         block_hash = None
-        if content is not None and not skip_hash_lookup:
+        if content is not None:
             block_hash = hash_string(content)
             block_candidate = Block.objects.filter(
                 ~Q(branch_id=-1),
@@ -326,9 +296,7 @@ class Block(BaseBlock, SQLRecord):
                 if key is not None and block_candidate.key != key:
                     logger.warning(
                         f"key {self.key} on existing block differs from "
-                        f"passed key {key}, keeping original key; update "
-                        "manually if needed or pass skip_hash_lookup if you "
-                        "want to duplicate the block"
+                        f"passed key {key}, keeping original key"
                     )
                 return None
         super().__init__(
@@ -369,12 +337,11 @@ class RecordBlock(BaseBlock, BaseSQLRecord):
         kind = kwargs.pop("kind", None)
         version_tag = kwargs.pop("version_tag", kwargs.pop("version", None))
         revises = kwargs.pop("revises", None)
-        skip_hash_lookup = kwargs.pop("skip_hash_lookup", False)
-        using_key = kwargs.pop("using_key", None)
+        using = kwargs.pop("using", None)
         uid = kwargs.pop("uid", None) if "uid" in kwargs else None
         if kwargs:
             raise ValueError(
-                "Only record, content, kind, version, revises, skip_hash_lookup "
+                "Only record, content, kind, version, revises "
                 f"can be passed, but you passed: {kwargs}"
             )
         if record is None:
@@ -394,8 +361,7 @@ class RecordBlock(BaseBlock, BaseSQLRecord):
             version_tag,
             revises,
             uid,
-            skip_hash_lookup,
-            using_key,
+            using,
         )
 
 
@@ -421,12 +387,11 @@ class ArtifactBlock(BaseBlock, BaseSQLRecord):
         kind = kwargs.pop("kind", None)
         version_tag = kwargs.pop("version_tag", kwargs.pop("version", None))
         revises = kwargs.pop("revises", None)
-        skip_hash_lookup = kwargs.pop("skip_hash_lookup", False)
-        using_key = kwargs.pop("using_key", None)
+        using = kwargs.pop("using", None)
         uid = kwargs.pop("uid", None) if "uid" in kwargs else None
         if kwargs:
             raise ValueError(
-                "Only artifact, content, kind, version, revises, skip_hash_lookup "
+                "Only artifact, content, kind, version, revises "
                 f"can be passed, but you passed: {kwargs}"
             )
         if artifact is None:
@@ -446,8 +411,7 @@ class ArtifactBlock(BaseBlock, BaseSQLRecord):
             version_tag,
             revises,
             uid,
-            skip_hash_lookup,
-            using_key,
+            using,
         )
 
 
@@ -477,14 +441,13 @@ class TransformBlock(BaseBlock, BaseSQLRecord):
         kind = kwargs.pop("kind", None)
         version_tag = kwargs.pop("version_tag", kwargs.pop("version", None))
         revises = kwargs.pop("revises", None)
-        skip_hash_lookup = kwargs.pop("skip_hash_lookup", False)
-        using_key = kwargs.pop("using_key", None)
+        using = kwargs.pop("using", None)
         uid = kwargs.pop("uid", None) if "uid" in kwargs else None
         line_number = kwargs.pop("line_number", None)
         if kwargs:
             raise ValueError(
-                "Only transform, content, kind, version, revises, skip_hash_lookup, "
-                f"line_number can be passed, but you passed: {kwargs}"
+                "Only transform, content, kind, version, revises, line_number "
+                f"can be passed, but you passed: {kwargs}"
             )
         if transform is None:
             raise ValueError("transform is required for TransformBlock")
@@ -503,8 +466,7 @@ class TransformBlock(BaseBlock, BaseSQLRecord):
             version_tag,
             revises,
             uid,
-            skip_hash_lookup,
-            using_key,
+            using,
             line_number=line_number,
         )
 
@@ -531,12 +493,11 @@ class RunBlock(BaseBlock, BaseSQLRecord):
         kind = kwargs.pop("kind", None)
         version_tag = kwargs.pop("version_tag", kwargs.pop("version", None))
         revises = kwargs.pop("revises", None)
-        skip_hash_lookup = kwargs.pop("skip_hash_lookup", False)
-        using_key = kwargs.pop("using_key", None)
+        using = kwargs.pop("using", None)
         uid = kwargs.pop("uid", None) if "uid" in kwargs else None
         if kwargs:
             raise ValueError(
-                "Only run, content, kind, version, revises, skip_hash_lookup "
+                "Only run, content, kind, version, revises "
                 f"can be passed, but you passed: {kwargs}"
             )
         if run is None:
@@ -554,8 +515,7 @@ class RunBlock(BaseBlock, BaseSQLRecord):
             version_tag,
             revises,
             uid,
-            skip_hash_lookup,
-            using_key,
+            using,
         )
 
 
@@ -583,12 +543,11 @@ class CollectionBlock(BaseBlock, BaseSQLRecord):
         kind = kwargs.pop("kind", None)
         version_tag = kwargs.pop("version_tag", kwargs.pop("version", None))
         revises = kwargs.pop("revises", None)
-        skip_hash_lookup = kwargs.pop("skip_hash_lookup", False)
-        using_key = kwargs.pop("using_key", None)
+        using = kwargs.pop("using", None)
         uid = kwargs.pop("uid", None) if "uid" in kwargs else None
         if kwargs:
             raise ValueError(
-                "Only collection, content, kind, version, revises, skip_hash_lookup "
+                "Only collection, content, kind, version, revises "
                 f"can be passed, but you passed: {kwargs}"
             )
         if collection is None:
@@ -608,8 +567,7 @@ class CollectionBlock(BaseBlock, BaseSQLRecord):
             version_tag,
             revises,
             uid,
-            skip_hash_lookup,
-            using_key,
+            using,
         )
 
 
@@ -635,12 +593,11 @@ class SchemaBlock(BaseBlock, BaseSQLRecord):
         kind = kwargs.pop("kind", None)
         version_tag = kwargs.pop("version_tag", kwargs.pop("version", None))
         revises = kwargs.pop("revises", None)
-        skip_hash_lookup = kwargs.pop("skip_hash_lookup", False)
-        using_key = kwargs.pop("using_key", None)
+        using = kwargs.pop("using", None)
         uid = kwargs.pop("uid", None) if "uid" in kwargs else None
         if kwargs:
             raise ValueError(
-                "Only schema, content, kind, version, revises, skip_hash_lookup "
+                "Only schema, content, kind, version, revises "
                 f"can be passed, but you passed: {kwargs}"
             )
         if schema is None:
@@ -660,8 +617,7 @@ class SchemaBlock(BaseBlock, BaseSQLRecord):
             version_tag,
             revises,
             uid,
-            skip_hash_lookup,
-            using_key,
+            using,
         )
 
 
@@ -687,12 +643,11 @@ class FeatureBlock(BaseBlock, BaseSQLRecord):
         kind = kwargs.pop("kind", None)
         version_tag = kwargs.pop("version_tag", kwargs.pop("version", None))
         revises = kwargs.pop("revises", None)
-        skip_hash_lookup = kwargs.pop("skip_hash_lookup", False)
-        using_key = kwargs.pop("using_key", None)
+        using = kwargs.pop("using", None)
         uid = kwargs.pop("uid", None) if "uid" in kwargs else None
         if kwargs:
             raise ValueError(
-                "Only feature, content, kind, version, revises, skip_hash_lookup "
+                "Only feature, content, kind, version, revises "
                 f"can be passed, but you passed: {kwargs}"
             )
         if feature is None:
@@ -712,8 +667,7 @@ class FeatureBlock(BaseBlock, BaseSQLRecord):
             version_tag,
             revises,
             uid,
-            skip_hash_lookup,
-            using_key,
+            using,
         )
 
 
@@ -739,12 +693,11 @@ class ProjectBlock(BaseBlock, BaseSQLRecord):
         kind = kwargs.pop("kind", None)
         version_tag = kwargs.pop("version_tag", kwargs.pop("version", None))
         revises = kwargs.pop("revises", None)
-        skip_hash_lookup = kwargs.pop("skip_hash_lookup", False)
-        using_key = kwargs.pop("using_key", None)
+        using = kwargs.pop("using", None)
         uid = kwargs.pop("uid", None) if "uid" in kwargs else None
         if kwargs:
             raise ValueError(
-                "Only project, content, kind, version, revises, skip_hash_lookup "
+                "Only project, content, kind, version, revises "
                 f"can be passed, but you passed: {kwargs}"
             )
         if project is None:
@@ -764,8 +717,7 @@ class ProjectBlock(BaseBlock, BaseSQLRecord):
             version_tag,
             revises,
             uid,
-            skip_hash_lookup,
-            using_key,
+            using,
         )
 
 
@@ -791,12 +743,11 @@ class SpaceBlock(BaseBlock, BaseSQLRecord):
         kind = kwargs.pop("kind", None)
         version_tag = kwargs.pop("version_tag", kwargs.pop("version", None))
         revises = kwargs.pop("revises", None)
-        skip_hash_lookup = kwargs.pop("skip_hash_lookup", False)
-        using_key = kwargs.pop("using_key", None)
+        using = kwargs.pop("using", None)
         uid = kwargs.pop("uid", None) if "uid" in kwargs else None
         if kwargs:
             raise ValueError(
-                "Only space, content, kind, version, revises, skip_hash_lookup "
+                "Only space, content, kind, version, revises "
                 f"can be passed, but you passed: {kwargs}"
             )
         if space is None:
@@ -816,8 +767,7 @@ class SpaceBlock(BaseBlock, BaseSQLRecord):
             version_tag,
             revises,
             uid,
-            skip_hash_lookup,
-            using_key,
+            using,
         )
 
 
@@ -843,12 +793,11 @@ class BranchBlock(BaseBlock, BaseSQLRecord):
         kind = kwargs.pop("kind", None)
         version_tag = kwargs.pop("version_tag", kwargs.pop("version", None))
         revises = kwargs.pop("revises", None)
-        skip_hash_lookup = kwargs.pop("skip_hash_lookup", False)
-        using_key = kwargs.pop("using_key", None)
+        using = kwargs.pop("using", None)
         uid = kwargs.pop("uid", None) if "uid" in kwargs else None
         if kwargs:
             raise ValueError(
-                "Only branch, content, kind, version, revises, skip_hash_lookup "
+                "Only branch, content, kind, version, revises "
                 f"can be passed, but you passed: {kwargs}"
             )
         if branch is None:
@@ -868,8 +817,7 @@ class BranchBlock(BaseBlock, BaseSQLRecord):
             version_tag,
             revises,
             uid,
-            skip_hash_lookup,
-            using_key,
+            using,
         )
 
 
@@ -895,12 +843,11 @@ class ULabelBlock(BaseBlock, BaseSQLRecord):
         kind = kwargs.pop("kind", None)
         version_tag = kwargs.pop("version_tag", kwargs.pop("version", None))
         revises = kwargs.pop("revises", None)
-        skip_hash_lookup = kwargs.pop("skip_hash_lookup", False)
-        using_key = kwargs.pop("using_key", None)
+        using = kwargs.pop("using", None)
         uid = kwargs.pop("uid", None) if "uid" in kwargs else None
         if kwargs:
             raise ValueError(
-                "Only ulabel, content, kind, version, revises, skip_hash_lookup "
+                "Only ulabel, content, kind, version, revises "
                 f"can be passed, but you passed: {kwargs}"
             )
         if ulabel is None:
@@ -920,6 +867,5 @@ class ULabelBlock(BaseBlock, BaseSQLRecord):
             version_tag,
             revises,
             uid,
-            skip_hash_lookup,
-            using_key,
+            using,
         )
