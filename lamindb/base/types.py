@@ -41,7 +41,10 @@ ArtifactKind = Literal[
     "dataset", "model", "plan", "__lamindb_run__", "__lamindb_config__"
 ]
 BlockKind = Literal["readme", "comment"]
-"""Block kind: readme-type markdown page or comment."""
+"""Block kind, a `README.md`-type page or comment.
+
+Any block expects Markdown as the formatting language.
+"""
 
 DtypeObject = int | float | str | bool | datetime.date | datetime.datetime | dict
 

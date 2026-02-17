@@ -182,9 +182,14 @@ class BaseBlock(IsVersioned):
     hash: str = CharField(max_length=22, db_index=True, null=True)
     """Content hash of the block."""
     kind: str = CharField(
-        max_length=22, db_index=True, default="readme", db_default="readme"
+        max_length=22, db_index=True, default="mdpage", db_default="mdpage"
     )
-    """The kind of block: "readme" (readme-type markdown page) or "comment"."""
+    """The kind of block.
+
+    See the type annotations of the actual classes.
+
+    The 'mdpage' default is a placeholder and might be changed or removed in the future.
+    """
     created_at: datetime = DateTimeField(
         editable=False, db_default=models.functions.Now(), db_index=True
     )
