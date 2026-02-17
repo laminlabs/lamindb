@@ -5,6 +5,7 @@ Central object types
 
 .. autoclass:: ArtifactKind
 .. autoclass:: TransformKind
+.. autoclass:: BlockKind
 .. autoclass:: DtypeStr
 
 Basic types
@@ -39,6 +40,9 @@ TransformType = TransformKind  # backward compat
 ArtifactKind = Literal[
     "dataset", "model", "plan", "__lamindb_run__", "__lamindb_config__"
 ]
+BlockKind = Literal["readme", "comment"]
+"""Block kind: readme-type markdown page or comment."""
+
 DtypeObject = int | float | str | bool | datetime.date | datetime.datetime | dict
 
 DtypeStr = Literal[

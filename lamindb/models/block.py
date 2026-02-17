@@ -39,9 +39,11 @@ from .transform import Transform
 if TYPE_CHECKING:
     from datetime import datetime
 
+    from ..base.types import BlockKind
     from .query_manager import RelatedManager
 
-_VERSIONED_ATTACHED_KINDS = ("readme", "mdpage")
+_VERSIONED_ATTACHED_KINDS = ("readme",)  # only readme is versioned; comment is not
+_VALID_BLOCK_KINDS: tuple[str, ...] = ("readme", "comment")
 
 
 def _init_versioned_attached_block(
@@ -58,7 +60,11 @@ def _init_versioned_attached_block(
     **extra_kwargs: Any,
 ) -> None:
     cls = type(self)
-    if kind in _VERSIONED_ATTACHED_KINDS and fk_value is not None:
+    if kind == "comment" and revises is not None:
+        raise ValueError(
+            "revises is not allowed for kind='comment'; comments are not versioned"
+        )
+    if kind == "readme" and fk_value is not None:
         if revises is None:
             candidate_for_revises = (
                 cls.objects.using(using_key)
@@ -90,23 +96,7 @@ def _init_versioned_attached_block(
         )
         if uid is None:
             uid = new_uid
-        block_hash = None
-        if content is not None and not skip_hash_lookup:
-            block_hash = hash_string(content)
-            block_candidate = (
-                cls.objects.using(using_key)
-                .filter(
-                    **{fk_field_name: fk_value},
-                    kind=kind,
-                    hash=block_hash,
-                    is_latest=True,
-                )
-                .first()
-            )
-            if block_candidate is not None:
-                init_self_from_db(self, block_candidate)
-                update_attributes(self, {})
-                return None
+        block_hash = hash_string(content) if content else None
         super(cls, self).__init__(
             uid=uid,
             content=content or "",
@@ -114,6 +104,24 @@ def _init_versioned_attached_block(
             kind=kind,
             version_tag=version_tag,
             revises=revises,
+            **{fk_field_name: fk_value},
+            **extra_kwargs,
+        )
+        return None
+    if kind == "comment":
+        new_uid, revises = create_uid(
+            revises=None,
+            version_tag=version_tag,
+            n_full_id=cls._len_full_uid,
+        )
+        block_hash = hash_string(content) if content else None
+        super(cls, self).__init__(
+            uid=new_uid,
+            content=content or "",
+            hash=block_hash,
+            kind=kind,
+            version_tag=version_tag,
+            revises=None,
             **{fk_field_name: fk_value},
             **extra_kwargs,
         )
@@ -168,12 +176,9 @@ class BaseBlock(IsVersioned):
     hash: str = CharField(max_length=22, db_index=True, null=True)
     """Content hash of the block."""
     kind: str = CharField(
-        max_length=22, db_index=True, default="mdpage", db_default="mdpage"
+        max_length=22, db_index=True, default="readme", db_default="readme"
     )
-    """The kind of block.
-
-    Only current option is: "readme" (readme-type markdown page), "comment" (comment), "mdpage" (generic markdown page).
-    """
+    """The kind of block: "readme" (readme-type markdown page) or "comment"."""
     created_at: datetime = DateTimeField(
         editable=False, db_default=models.functions.Now(), db_index=True
     )
@@ -215,7 +220,7 @@ class Block(BaseBlock, SQLRecord):
         self,
         key: str | None = None,
         content: str | None = None,
-        kind: str | None = None,
+        kind: BlockKind = ...,
         version: str | None = None,
         revises: Block | None = None,
         anchor: Block | None = None,
@@ -256,7 +261,10 @@ class Block(BaseBlock, SQLRecord):
                 "Only key, content, kind, version, revises, anchor, "
                 f"skip_hash_lookup can be passed, but you passed: {kwargs}"
             )
-        kind = kind if kind is not None else "mdpage"
+        if kind is None:
+            raise ValueError("kind is required for Block; use 'readme' or 'comment'")
+        if kind not in _VALID_BLOCK_KINDS:
+            raise ValueError(f"kind must be 'readme' or 'comment', got {kind!r}")
         if revises is None:
             if uid is not None:
                 revises = (
@@ -371,7 +379,12 @@ class RecordBlock(BaseBlock, BaseSQLRecord):
             )
         if record is None:
             raise ValueError("record is required for RecordBlock")
-        kind = kind if kind is not None else "mdpage"
+        if kind is None:
+            raise ValueError(
+                "kind is required for RecordBlock; use 'readme' or 'comment'"
+            )
+        if kind not in _VALID_BLOCK_KINDS:
+            raise ValueError(f"kind must be 'readme' or 'comment', got {kind!r}")
         _init_versioned_attached_block(
             self,
             "record",
@@ -418,7 +431,12 @@ class ArtifactBlock(BaseBlock, BaseSQLRecord):
             )
         if artifact is None:
             raise ValueError("artifact is required for ArtifactBlock")
-        kind = kind if kind is not None else "mdpage"
+        if kind is None:
+            raise ValueError(
+                "kind is required for ArtifactBlock; use 'readme' or 'comment'"
+            )
+        if kind not in _VALID_BLOCK_KINDS:
+            raise ValueError(f"kind must be 'readme' or 'comment', got {kind!r}")
         _init_versioned_attached_block(
             self,
             "artifact",
@@ -470,7 +488,12 @@ class TransformBlock(BaseBlock, BaseSQLRecord):
             )
         if transform is None:
             raise ValueError("transform is required for TransformBlock")
-        kind = kind if kind is not None else "mdpage"
+        if kind is None:
+            raise ValueError(
+                "kind is required for TransformBlock; use 'readme' or 'comment'"
+            )
+        if kind not in _VALID_BLOCK_KINDS:
+            raise ValueError(f"kind must be 'readme' or 'comment', got {kind!r}")
         _init_versioned_attached_block(
             self,
             "transform",
@@ -518,7 +541,10 @@ class RunBlock(BaseBlock, BaseSQLRecord):
             )
         if run is None:
             raise ValueError("run is required for RunBlock")
-        kind = kind if kind is not None else "mdpage"
+        if kind is None:
+            raise ValueError("kind is required for RunBlock; use 'readme' or 'comment'")
+        if kind not in _VALID_BLOCK_KINDS:
+            raise ValueError(f"kind must be 'readme' or 'comment', got {kind!r}")
         _init_versioned_attached_block(
             self,
             "run",
@@ -567,7 +593,12 @@ class CollectionBlock(BaseBlock, BaseSQLRecord):
             )
         if collection is None:
             raise ValueError("collection is required for CollectionBlock")
-        kind = kind if kind is not None else "mdpage"
+        if kind is None:
+            raise ValueError(
+                "kind is required for CollectionBlock; use 'readme' or 'comment'"
+            )
+        if kind not in _VALID_BLOCK_KINDS:
+            raise ValueError(f"kind must be 'readme' or 'comment', got {kind!r}")
         _init_versioned_attached_block(
             self,
             "collection",
@@ -614,7 +645,12 @@ class SchemaBlock(BaseBlock, BaseSQLRecord):
             )
         if schema is None:
             raise ValueError("schema is required for SchemaBlock")
-        kind = kind if kind is not None else "mdpage"
+        if kind is None:
+            raise ValueError(
+                "kind is required for SchemaBlock; use 'readme' or 'comment'"
+            )
+        if kind not in _VALID_BLOCK_KINDS:
+            raise ValueError(f"kind must be 'readme' or 'comment', got {kind!r}")
         _init_versioned_attached_block(
             self,
             "schema",
@@ -661,7 +697,12 @@ class FeatureBlock(BaseBlock, BaseSQLRecord):
             )
         if feature is None:
             raise ValueError("feature is required for FeatureBlock")
-        kind = kind if kind is not None else "mdpage"
+        if kind is None:
+            raise ValueError(
+                "kind is required for FeatureBlock; use 'readme' or 'comment'"
+            )
+        if kind not in _VALID_BLOCK_KINDS:
+            raise ValueError(f"kind must be 'readme' or 'comment', got {kind!r}")
         _init_versioned_attached_block(
             self,
             "feature",
@@ -708,7 +749,12 @@ class ProjectBlock(BaseBlock, BaseSQLRecord):
             )
         if project is None:
             raise ValueError("project is required for ProjectBlock")
-        kind = kind if kind is not None else "mdpage"
+        if kind is None:
+            raise ValueError(
+                "kind is required for ProjectBlock; use 'readme' or 'comment'"
+            )
+        if kind not in _VALID_BLOCK_KINDS:
+            raise ValueError(f"kind must be 'readme' or 'comment', got {kind!r}")
         _init_versioned_attached_block(
             self,
             "project",
@@ -755,7 +801,12 @@ class SpaceBlock(BaseBlock, BaseSQLRecord):
             )
         if space is None:
             raise ValueError("space is required for SpaceBlock")
-        kind = kind if kind is not None else "mdpage"
+        if kind is None:
+            raise ValueError(
+                "kind is required for SpaceBlock; use 'readme' or 'comment'"
+            )
+        if kind not in _VALID_BLOCK_KINDS:
+            raise ValueError(f"kind must be 'readme' or 'comment', got {kind!r}")
         _init_versioned_attached_block(
             self,
             "space",
@@ -802,7 +853,12 @@ class BranchBlock(BaseBlock, BaseSQLRecord):
             )
         if branch is None:
             raise ValueError("branch is required for BranchBlock")
-        kind = kind if kind is not None else "mdpage"
+        if kind is None:
+            raise ValueError(
+                "kind is required for BranchBlock; use 'readme' or 'comment'"
+            )
+        if kind not in _VALID_BLOCK_KINDS:
+            raise ValueError(f"kind must be 'readme' or 'comment', got {kind!r}")
         _init_versioned_attached_block(
             self,
             "branch",
@@ -849,7 +905,12 @@ class ULabelBlock(BaseBlock, BaseSQLRecord):
             )
         if ulabel is None:
             raise ValueError("ulabel is required for ULabelBlock")
-        kind = kind if kind is not None else "mdpage"
+        if kind is None:
+            raise ValueError(
+                "kind is required for ULabelBlock; use 'readme' or 'comment'"
+            )
+        if kind not in _VALID_BLOCK_KINDS:
+            raise ValueError(f"kind must be 'readme' or 'comment', got {kind!r}")
         _init_versioned_attached_block(
             self,
             "ulabel",

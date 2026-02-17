@@ -3,21 +3,21 @@ import pytest
 
 
 def test_block_recovery_based_on_hash():
-    block1 = ln.models.Block(key="my-block", content="1").save()
-    block2 = ln.models.Block(key="my-block", content="1")
+    block1 = ln.models.Block(key="my-block", content="1", kind="readme").save()
+    block2 = ln.models.Block(key="my-block", content="1", kind="readme")
     assert block1 == block2
     block1.delete()
-    block2 = ln.models.Block(key="my-block", content="1")
+    block2 = ln.models.Block(key="my-block", content="1", kind="readme")
     assert block1 != block2
     block1.delete(permanent=True)
 
 
 def test_block_recovery_based_on_key():
-    block1 = ln.models.Block(key="my-block").save()
-    block2 = ln.models.Block(key="my-block")
+    block1 = ln.models.Block(key="my-block", kind="readme").save()
+    block2 = ln.models.Block(key="my-block", kind="readme")
     assert block1 == block2
     block1.delete()
-    block2 = ln.models.Block(key="my-block")
+    block2 = ln.models.Block(key="my-block", kind="readme")
     assert block1 != block2
     block1.delete(permanent=True)
 
@@ -25,11 +25,11 @@ def test_block_recovery_based_on_key():
 def test_revise_blocks():
     # attempt to create a block with an invalid version
     with pytest.raises(ValueError) as error:
-        ln.models.Block(key="My block", version=0)
+        ln.models.Block(key="My block", version=0, kind="readme")
     assert "version" in error.exconly() or "version_tag" in error.exconly()
 
     # create a versioned block
-    block = ln.models.Block(key="My block", version="1")
+    block = ln.models.Block(key="My block", version="1", kind="readme")
     assert block.version_tag == "1"
     assert block.version == "1"
     assert len(block.uid) == ln.models.Block._len_full_uid == 20
@@ -38,15 +38,17 @@ def test_revise_blocks():
     block.save()
 
     # try to reload the same block with the same uid
-    block_reload = ln.models.Block(uid=block.uid, key="My block updated name")
+    block_reload = ln.models.Block(
+        uid=block.uid, key="My block updated name", kind="readme"
+    )
     assert block_reload.id == block.id
     assert block_reload.key == "My block"  # unchanged, prints logging
 
     # create new block from old block
-    block_r2 = ln.models.Block(content="v2", revises=block)
+    block_r2 = ln.models.Block(content="v2", revises=block, kind="readme")
     assert block_r2.uid != block.uid
     assert block_r2.uid.endswith("0001")
-    block_r2 = ln.models.Block(content="v2", revises=block)
+    block_r2 = ln.models.Block(content="v2", revises=block, kind="readme")
     assert block_r2.uid != block.uid
     assert block_r2.uid.endswith("0001")
     assert block_r2.stem_uid == block.stem_uid
@@ -58,7 +60,9 @@ def test_revise_blocks():
     assert not block.is_latest
 
     # create new block from newly versioned block
-    block_r3 = ln.models.Block(content="v3", revises=block_r2, version="2")
+    block_r3 = ln.models.Block(
+        content="v3", revises=block_r2, version="2", kind="readme"
+    )
     assert block_r3.stem_uid == block.stem_uid
     assert block_r3.version_tag == "2"
     assert block_r3.version == "2"
@@ -68,12 +72,12 @@ def test_revise_blocks():
     block_r2.key = key
     block_r2.save()
     assert block_r2.is_latest
-    block_r3 = ln.models.Block(content="v3", key=key, version="2")
+    block_r3 = ln.models.Block(content="v3", key=key, version="2", kind="readme")
     assert block_r3.uid[:-4] == block_r2.uid[:-4]
     assert block_r3.uid != block_r2.uid  # new version after block_r2
     block_r2.content = "something else"
     block_r2.save()
-    block_r3 = ln.models.Block(content="v3", key=key, version="2")
+    block_r3 = ln.models.Block(content="v3", key=key, version="2", kind="readme")
     assert block_r3.uid[:-4] == block_r2.uid[:-4]
     assert block_r3.uid != block_r2.uid  # yet another new version
     assert block_r3.stem_uid == block_r2.stem_uid
@@ -89,26 +93,36 @@ def test_revise_blocks():
 
     # wrong block type
     with pytest.raises(TypeError) as error:
-        ln.models.Block(revises=ln.Record(name="x"))
+        ln.models.Block(revises=ln.Record(name="x"), kind="readme")
     assert error.exconly().startswith("TypeError: `revises` has to be of type `Block`")
 
     # wrong kwargs
     with pytest.raises(ValueError) as error:
-        ln.models.Block(x=1)
+        ln.models.Block(x=1, kind="readme")
     assert "can be passed" in error.exconly() and "x" in error.exconly()
+
+    # kind required
+    with pytest.raises(ValueError) as error:
+        ln.models.Block(key="x", content="y")
+    assert "kind is required" in error.exconly()
+
+    # invalid kind
+    with pytest.raises(ValueError) as error:
+        ln.models.Block(key="x", content="y", kind="mdpage")
+    assert "readme" in error.exconly() and "comment" in error.exconly()
 
     # cleanup
     block_r2.delete()
     block.delete()
 
     # unversioned block
-    block = ln.models.Block(key="My block")
+    block = ln.models.Block(key="My block", kind="readme")
     assert block.version_tag is None
     assert block.version == block.uid[-4:]
     block.save()
 
     # create new block from old block
-    new_block = ln.models.Block(content="new", revises=block)
+    new_block = ln.models.Block(content="new", revises=block, kind="readme")
     assert block.version_tag is None
     assert block.version == block.uid[-4:]
     assert new_block.stem_uid == block.stem_uid
@@ -119,24 +133,26 @@ def test_revise_blocks():
     block.delete(permanent=True)
 
 
-def test_record_block_recovery_based_on_hash():
+def test_record_block_readme_always_new_version():
+    """Readme always creates a new version (no content-hash dedup)."""
     record = ln.Record(name="test-record-blocks").save()
-    block1 = ln.models.RecordBlock(record=record, content="1", kind="mdpage").save()
-    block2 = ln.models.RecordBlock(record=record, content="1", kind="mdpage")
-    assert block1 == block2
+    block1 = ln.models.RecordBlock(record=record, content="1", kind="readme").save()
+    block2 = ln.models.RecordBlock(record=record, content="1", kind="readme")
+    assert block1.stem_uid == block2.stem_uid
+    assert block1.uid != block2.uid  # new version each time
     block1.delete()  # BaseSQLRecord has no soft delete; this is permanent
-    block2 = ln.models.RecordBlock(record=record, content="1", kind="mdpage")
+    block2 = ln.models.RecordBlock(record=record, content="1", kind="readme")
     assert block1 != block2  # block2 is a new block (block1 was removed)
     record.delete(permanent=True)
 
 
 def test_record_block_recovery_based_on_record_and_kind():
     record = ln.Record(name="test-record-blocks-key").save()
-    block1 = ln.models.RecordBlock(record=record, kind="mdpage").save()
-    block2 = ln.models.RecordBlock(record=record, kind="mdpage")
+    block1 = ln.models.RecordBlock(record=record, kind="readme").save()
+    block2 = ln.models.RecordBlock(record=record, kind="readme")
     assert block1 == block2
     block1.delete()  # BaseSQLRecord has no soft delete; this is permanent
-    block2 = ln.models.RecordBlock(record=record, kind="mdpage")
+    block2 = ln.models.RecordBlock(record=record, kind="readme")
     assert block1 != block2  # block2 is a new block (block1 was removed)
     record.delete(permanent=True)
 
@@ -178,9 +194,18 @@ def test_revise_record_blocks():
     assert block_r3.version_tag == "2"
     assert block_r3.version == "2"
 
-    # same (record, kind) + same content hash returns existing
+    # readme always creates a new version (no hash-based dedup)
+    block_r3.save()  # so next readme for this record gets revises=block_r3
     block_same = ln.models.RecordBlock(record=record, content="v3", kind="readme")
-    assert block_same.id == block_r3.id
+    assert block_same.stem_uid == block_r3.stem_uid
+    assert block_same.uid != block_r3.uid  # new version (0003)
+
+    # comment does not accept revises
+    with pytest.raises(ValueError) as error:
+        ln.models.RecordBlock(
+            record=record, content="a comment", kind="comment", revises=block
+        )
+    assert "revises is not allowed for kind='comment'" in error.exconly()
 
     # wrong kwargs
     with pytest.raises(ValueError) as error:
@@ -189,7 +214,7 @@ def test_revise_record_blocks():
 
     # record required
     with pytest.raises(ValueError) as error:
-        ln.models.RecordBlock(content="x", kind="mdpage")
+        ln.models.RecordBlock(content="x", kind="readme")
     assert "record is required" in error.exconly()
 
     block_r2.delete()
