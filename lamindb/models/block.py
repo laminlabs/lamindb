@@ -24,7 +24,7 @@ from .collection import Collection
 from .feature import Feature
 from .project import Project
 from .record import Record
-from .run import Run, User
+from .run import Run, User, current_user_id
 from .schema import Schema
 from .sqlrecord import (
     BaseSQLRecord,
@@ -182,7 +182,7 @@ class BaseBlock(IsVersioned):
     hash: str = CharField(max_length=22, db_index=True, null=True)
     """Content hash of the block."""
     kind: str = CharField(
-        max_length=22, db_index=True, default="mdpage", db_default="mdpage"
+        max_length=22, db_index=True, default="readme", db_default="readme"
     )
     """The kind of block.
 
@@ -195,9 +195,10 @@ class BaseBlock(IsVersioned):
     )
     """Time of creation of record."""
     created_by: User = ForeignKey(
-        "User", CASCADE, default=None, related_name="+", null=True
+        "lamindb.User", PROTECT, default=current_user_id, related_name="+"
     )
     """Creator of block."""
+
     _aux: dict[str, Any] | None = JSONField(default=None, db_default=None, null=True)
     """Auxiliary field for dictionary-like metadata."""
 
