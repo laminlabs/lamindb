@@ -591,6 +591,23 @@ def describe_sqlite(record):
     return tree
 
 
+def append_readme_blocks_to_tree(record, tree: Tree) -> None:
+    """Append readme block content to the describe tree if record has ablocks."""
+    if record._state.adding:
+        return
+    if not hasattr(record, "ablocks"):
+        return
+    readme_blocks = record.ablocks.filter(kind="readme", is_latest=True)
+    for block in readme_blocks:
+        display_text(
+            block.content,
+            "README",
+            tree,
+            max_lines=30,
+            uid="",
+        )
+
+
 def describe_postgres_sqlite(record, return_str: bool = False) -> str | None:
     from ._describe import format_rich_tree
 
@@ -601,4 +618,5 @@ def describe_postgres_sqlite(record, return_str: bool = False) -> str | None:
         tree = describe_postgres(record)
     else:
         tree = describe_sqlite(record)
+    append_readme_blocks_to_tree(record, tree)
     return format_rich_tree(tree, return_str=return_str)
