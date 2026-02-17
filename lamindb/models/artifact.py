@@ -1489,8 +1489,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     """The runs annotating this artifact ← :attr:`~lamindb.Run.artifacts`."""
     linked_by_runs: RelatedManager[Run]
     """The runs linking this artifact ← :attr:`~lamindb.Run.linked_by_artifacts`."""
-    linked_by_branches: RelatedManager[Branch]
-    """The branches linking this artifact ← :attr:`~lamindb.Branch.artifacts`."""
     artifacts: RelatedManager[Artifact] = models.ManyToManyField(
         "Artifact",
         through="ArtifactArtifact",

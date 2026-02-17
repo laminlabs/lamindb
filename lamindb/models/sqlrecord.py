@@ -1508,12 +1508,6 @@ class Branch(BaseSQLRecord):
     """Status code."""
     ablocks: RelatedManager[BranchBlock]
     """Attached blocks ← :attr:`~lamindb.BranchBlock.branch`."""
-    artifacts: RelatedManager[Artifact] = models.ManyToManyField(
-        "Artifact",
-        through="BranchArtifact",
-        related_name="linked_by_branches",
-    )
-    """Artifacts linked to this branch (e.g. plans) ← :attr:`~lamindb.Artifact.linked_by_branches`."""
     users: RelatedManager[User] = models.ManyToManyField(
         "User",
         through="BranchUser",
@@ -1552,16 +1546,6 @@ class Branch(BaseSQLRecord):
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
-
-
-class BranchArtifact(BaseSQLRecord, IsLink):
-    class Meta:
-        app_label = "lamindb"
-        unique_together = ("branch", "artifact")
-
-    id: int = models.BigAutoField(primary_key=True)
-    branch: Branch = ForeignKey(Branch, CASCADE, related_name="links_artifact")
-    artifact: Artifact = ForeignKey("Artifact", PROTECT, related_name="links_branch")
 
 
 class BranchUser(BaseSQLRecord, IsLink):
