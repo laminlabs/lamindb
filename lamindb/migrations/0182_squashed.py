@@ -190,6 +190,7 @@ class Migration(migrations.Migration):
         ("lamindb", "0179_v2_2_part_2"),
         ("lamindb", "0180_v2_2_part_3"),
         ("lamindb", "0181_v2_2_part_4"),
+        ("lamindb", "0182_v2_2_part_5"),
     ]
 
     dependencies = []  # type: ignore

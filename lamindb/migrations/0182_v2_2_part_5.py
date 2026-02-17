@@ -9,7 +9,7 @@ import lamindb.base.users
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("lamindb", "0181_squashed"),
+        ("lamindb", "0181_v2_2_part_4"),
     ]
 
     operations = [
