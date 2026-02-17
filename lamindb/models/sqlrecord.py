@@ -49,6 +49,7 @@ from lamindb_setup.core.django import DBToken, db_token_manager
 from lamindb_setup.core.upath import extract_suffix_from_path
 from upath import UPath
 
+from lamindb.base.users import current_user_id
 from lamindb.base.utils import class_and_instance_method, deprecated
 
 from ..base.fields import (
@@ -1500,9 +1501,11 @@ class Branch(BaseSQLRecord):
     )
     """Time of creation of record."""
     created_by: User = ForeignKey(
-        "User", CASCADE, default=None, related_name="+", null=True
+        "User", PROTECT, default=current_user_id, related_name="+"
     )
     """Creator of branch."""
+    _status_code: int = models.SmallIntegerField(default=0, db_default=0, db_index=True)
+    """Status code."""
     ablocks: RelatedManager[BranchBlock]
     """Attached blocks ← :attr:`~lamindb.BranchBlock.branch`."""
     artifacts: RelatedManager[Artifact] = models.ManyToManyField(
