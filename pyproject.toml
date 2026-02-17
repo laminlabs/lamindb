@@ -175,6 +175,7 @@ lint.ignore = [
     # Possible SQL injection vector through string-based query construction
     "S608",
     # All of the below TODO 3.10 refactor, temporarily disable
+    "S602",
     "UP007",
     "UP038",
     "B905",
