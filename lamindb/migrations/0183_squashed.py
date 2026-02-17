@@ -191,6 +191,7 @@ class Migration(migrations.Migration):
         ("lamindb", "0180_v2_2_part_3"),
         ("lamindb", "0181_v2_2_part_4"),
         ("lamindb", "0182_v2_2_part_5"),
+        ("lamindb", "0183_v2_2_part_6"),
     ]
 
     dependencies = []  # type: ignore
@@ -677,43 +678,6 @@ class Migration(migrations.Migration):
                 on_delete=django.db.models.deletion.PROTECT,
                 related_name="+",
                 to="lamindb.branch",
-            ),
-        ),
-        migrations.CreateModel(
-            name="BranchArtifact",
-            fields=[
-                ("id", models.BigAutoField(primary_key=True, serialize=False)),
-                (
-                    "artifact",
-                    lamindb.base.fields.ForeignKey(
-                        blank=True,
-                        on_delete=django.db.models.deletion.PROTECT,
-                        related_name="links_branch",
-                        to="lamindb.artifact",
-                    ),
-                ),
-                (
-                    "branch",
-                    lamindb.base.fields.ForeignKey(
-                        blank=True,
-                        on_delete=django.db.models.deletion.CASCADE,
-                        related_name="links_artifact",
-                        to="lamindb.branch",
-                    ),
-                ),
-            ],
-            options={
-                "unique_together": {("branch", "artifact")},
-            },
-            bases=(models.Model, lamindb.models.sqlrecord.IsLink),
-        ),
-        migrations.AddField(
-            model_name="branch",
-            name="artifacts",
-            field=models.ManyToManyField(
-                related_name="linked_by_branches",
-                through="lamindb.BranchArtifact",
-                to="lamindb.artifact",
             ),
         ),
         migrations.CreateModel(
