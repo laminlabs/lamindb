@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, overload
+from typing import TYPE_CHECKING, Any, Literal, overload
 
 from django.db import models
 from django.db.models import (
@@ -39,7 +39,6 @@ from .transform import Transform
 if TYPE_CHECKING:
     from datetime import datetime
 
-    from ..base.types import BlockKind
     from .query_manager import RelatedManager
 
 _VERSIONED_ATTACHED_KINDS = ("readme",)  # only readme is versioned; comment is not
@@ -49,16 +48,50 @@ _VALID_BLOCK_KINDS: tuple[str, ...] = ("readme", "comment")
 def _init_versioned_attached_block(
     self: BaseBlock,
     fk_field_name: str,
-    fk_value: Any,
-    content: str | None,
-    kind: str,
-    version_tag: str | None,
-    revises: IsVersioned | None,
-    uid: str | None,
-    using: str | None,
-    **extra_kwargs: Any,
+    *args: Any,
+    allowed_extra: tuple[str, ...] = (),
+    **kwargs: Any,
 ) -> None:
     cls = type(self)
+    if len(args) == len(self._meta.concrete_fields):
+        super(cls, self).__init__(*args, **kwargs)
+        return None
+    if args:
+        raise ValueError(
+            f"Please only use keyword arguments to construct a {cls.__name__}"
+        )
+    fk_value = kwargs.pop(fk_field_name, None)
+    content = kwargs.pop("content", None)
+    kind = kwargs.pop("kind", None)
+    version_tag = kwargs.pop("version_tag", kwargs.pop("version", None))
+    revises = kwargs.pop("revises", None)
+    using = kwargs.pop("using", None)
+    uid = kwargs.pop("uid", None) if "uid" in kwargs else None
+    extra_kwargs = {k: kwargs.pop(k) for k in allowed_extra if k in kwargs}
+    allowed = {
+        fk_field_name,
+        "content",
+        "kind",
+        "version",
+        "version_tag",
+        "revises",
+        "using",
+        "uid",
+        *allowed_extra,
+    }
+    if kwargs:
+        raise ValueError(
+            f"Only {', '.join(sorted(allowed))} can be passed, but you passed: {kwargs}"
+        )
+    if fk_value is None:
+        raise ValueError(f"{fk_field_name} is required for {cls.__name__}")
+    if kind is None:
+        raise ValueError(
+            f"kind is required for {cls.__name__}; use 'readme' or 'comment'"
+        )
+    if kind not in _VALID_BLOCK_KINDS:
+        raise ValueError(f"kind must be 'readme' or 'comment', got {kind!r}")
+
     if kind == "comment":
         if revises is not None:
             raise ValueError(
@@ -164,11 +197,13 @@ class BaseBlock(IsVersioned):
 
 
 class Block(BaseBlock, SQLRecord):
-    """A markdown block for anything: issues, standalone markdown pages, comments, etc."""
+    """An experimental markdown block for anything: issues, standalone markdown pages, comments, etc.
+
+    The `Block` model is experimental and may change in the future.
+    """
 
     class Meta:
         app_label = "lamindb"
-        unique_together = ("key", "hash")
 
     # same key as in transform/artifact/collection
     key: str | None = CharField(max_length=1024, db_index=True, null=True)
@@ -192,7 +227,7 @@ class Block(BaseBlock, SQLRecord):
         self,
         key: str | None = None,
         content: str | None = None,
-        kind: BlockKind = ...,
+        kind: Literal["readme"] = ...,
         version: str | None = None,
         revises: Block | None = None,
         anchor: Block | None = None,
@@ -231,10 +266,9 @@ class Block(BaseBlock, SQLRecord):
                 "Only key, content, kind, version, revises, anchor "
                 f"can be passed, but you passed: {kwargs}"
             )
-        if kind is None:
-            raise ValueError("kind is required for Block; use 'readme' or 'comment'")
-        if kind not in _VALID_BLOCK_KINDS:
-            raise ValueError(f"kind must be 'readme' or 'comment', got {kind!r}")
+        if kind != "readme":
+            raise ValueError("Only kind = 'readme' is supported for block.")
+        assert key.startswith("__lamindb_..."), "key must start with '__lamindb_...'"
         if revises is None:
             if uid is not None:
                 revises = (
@@ -325,44 +359,7 @@ class RecordBlock(BaseBlock, BaseSQLRecord):
     """The record to which the block is attached."""
 
     def __init__(self, *args, **kwargs):
-        if len(args) == len(self._meta.concrete_fields):
-            super().__init__(*args, **kwargs)
-            return None
-        if args:
-            raise ValueError(
-                "Please only use keyword arguments to construct a RecordBlock"
-            )
-        record = kwargs.pop("record", None)
-        content = kwargs.pop("content", None)
-        kind = kwargs.pop("kind", None)
-        version_tag = kwargs.pop("version_tag", kwargs.pop("version", None))
-        revises = kwargs.pop("revises", None)
-        using = kwargs.pop("using", None)
-        uid = kwargs.pop("uid", None) if "uid" in kwargs else None
-        if kwargs:
-            raise ValueError(
-                "Only record, content, kind, version, revises "
-                f"can be passed, but you passed: {kwargs}"
-            )
-        if record is None:
-            raise ValueError("record is required for RecordBlock")
-        if kind is None:
-            raise ValueError(
-                "kind is required for RecordBlock; use 'readme' or 'comment'"
-            )
-        if kind not in _VALID_BLOCK_KINDS:
-            raise ValueError(f"kind must be 'readme' or 'comment', got {kind!r}")
-        _init_versioned_attached_block(
-            self,
-            "record",
-            record,
-            content,
-            kind,
-            version_tag,
-            revises,
-            uid,
-            using,
-        )
+        _init_versioned_attached_block(self, "record", *args, **kwargs)
 
 
 class ArtifactBlock(BaseBlock, BaseSQLRecord):
@@ -375,44 +372,7 @@ class ArtifactBlock(BaseBlock, BaseSQLRecord):
     """The artifact to which the block is attached."""
 
     def __init__(self, *args, **kwargs):
-        if len(args) == len(self._meta.concrete_fields):
-            super().__init__(*args, **kwargs)
-            return None
-        if args:
-            raise ValueError(
-                "Please only use keyword arguments to construct an ArtifactBlock"
-            )
-        artifact = kwargs.pop("artifact", None)
-        content = kwargs.pop("content", None)
-        kind = kwargs.pop("kind", None)
-        version_tag = kwargs.pop("version_tag", kwargs.pop("version", None))
-        revises = kwargs.pop("revises", None)
-        using = kwargs.pop("using", None)
-        uid = kwargs.pop("uid", None) if "uid" in kwargs else None
-        if kwargs:
-            raise ValueError(
-                "Only artifact, content, kind, version, revises "
-                f"can be passed, but you passed: {kwargs}"
-            )
-        if artifact is None:
-            raise ValueError("artifact is required for ArtifactBlock")
-        if kind is None:
-            raise ValueError(
-                "kind is required for ArtifactBlock; use 'readme' or 'comment'"
-            )
-        if kind not in _VALID_BLOCK_KINDS:
-            raise ValueError(f"kind must be 'readme' or 'comment', got {kind!r}")
-        _init_versioned_attached_block(
-            self,
-            "artifact",
-            artifact,
-            content,
-            kind,
-            version_tag,
-            revises,
-            uid,
-            using,
-        )
+        _init_versioned_attached_block(self, "artifact", *args, **kwargs)
 
 
 class TransformBlock(BaseBlock, BaseSQLRecord):
@@ -429,45 +389,8 @@ class TransformBlock(BaseBlock, BaseSQLRecord):
     """The line number in the source code to which the block belongs."""
 
     def __init__(self, *args, **kwargs):
-        if len(args) == len(self._meta.concrete_fields):
-            super().__init__(*args, **kwargs)
-            return None
-        if args:
-            raise ValueError(
-                "Please only use keyword arguments to construct a TransformBlock"
-            )
-        transform = kwargs.pop("transform", None)
-        content = kwargs.pop("content", None)
-        kind = kwargs.pop("kind", None)
-        version_tag = kwargs.pop("version_tag", kwargs.pop("version", None))
-        revises = kwargs.pop("revises", None)
-        using = kwargs.pop("using", None)
-        uid = kwargs.pop("uid", None) if "uid" in kwargs else None
-        line_number = kwargs.pop("line_number", None)
-        if kwargs:
-            raise ValueError(
-                "Only transform, content, kind, version, revises, line_number "
-                f"can be passed, but you passed: {kwargs}"
-            )
-        if transform is None:
-            raise ValueError("transform is required for TransformBlock")
-        if kind is None:
-            raise ValueError(
-                "kind is required for TransformBlock; use 'readme' or 'comment'"
-            )
-        if kind not in _VALID_BLOCK_KINDS:
-            raise ValueError(f"kind must be 'readme' or 'comment', got {kind!r}")
         _init_versioned_attached_block(
-            self,
-            "transform",
-            transform,
-            content,
-            kind,
-            version_tag,
-            revises,
-            uid,
-            using,
-            line_number=line_number,
+            self, "transform", *args, allowed_extra=("line_number",), **kwargs
         )
 
 
@@ -481,42 +404,7 @@ class RunBlock(BaseBlock, BaseSQLRecord):
     """The run to which the block is attached."""
 
     def __init__(self, *args, **kwargs):
-        if len(args) == len(self._meta.concrete_fields):
-            super().__init__(*args, **kwargs)
-            return None
-        if args:
-            raise ValueError(
-                "Please only use keyword arguments to construct a RunBlock"
-            )
-        run = kwargs.pop("run", None)
-        content = kwargs.pop("content", None)
-        kind = kwargs.pop("kind", None)
-        version_tag = kwargs.pop("version_tag", kwargs.pop("version", None))
-        revises = kwargs.pop("revises", None)
-        using = kwargs.pop("using", None)
-        uid = kwargs.pop("uid", None) if "uid" in kwargs else None
-        if kwargs:
-            raise ValueError(
-                "Only run, content, kind, version, revises "
-                f"can be passed, but you passed: {kwargs}"
-            )
-        if run is None:
-            raise ValueError("run is required for RunBlock")
-        if kind is None:
-            raise ValueError("kind is required for RunBlock; use 'readme' or 'comment'")
-        if kind not in _VALID_BLOCK_KINDS:
-            raise ValueError(f"kind must be 'readme' or 'comment', got {kind!r}")
-        _init_versioned_attached_block(
-            self,
-            "run",
-            run,
-            content,
-            kind,
-            version_tag,
-            revises,
-            uid,
-            using,
-        )
+        _init_versioned_attached_block(self, "run", *args, **kwargs)
 
 
 class CollectionBlock(BaseBlock, BaseSQLRecord):
@@ -531,44 +419,7 @@ class CollectionBlock(BaseBlock, BaseSQLRecord):
     """The collection to which the block is attached."""
 
     def __init__(self, *args, **kwargs):
-        if len(args) == len(self._meta.concrete_fields):
-            super().__init__(*args, **kwargs)
-            return None
-        if args:
-            raise ValueError(
-                "Please only use keyword arguments to construct a CollectionBlock"
-            )
-        collection = kwargs.pop("collection", None)
-        content = kwargs.pop("content", None)
-        kind = kwargs.pop("kind", None)
-        version_tag = kwargs.pop("version_tag", kwargs.pop("version", None))
-        revises = kwargs.pop("revises", None)
-        using = kwargs.pop("using", None)
-        uid = kwargs.pop("uid", None) if "uid" in kwargs else None
-        if kwargs:
-            raise ValueError(
-                "Only collection, content, kind, version, revises "
-                f"can be passed, but you passed: {kwargs}"
-            )
-        if collection is None:
-            raise ValueError("collection is required for CollectionBlock")
-        if kind is None:
-            raise ValueError(
-                "kind is required for CollectionBlock; use 'readme' or 'comment'"
-            )
-        if kind not in _VALID_BLOCK_KINDS:
-            raise ValueError(f"kind must be 'readme' or 'comment', got {kind!r}")
-        _init_versioned_attached_block(
-            self,
-            "collection",
-            collection,
-            content,
-            kind,
-            version_tag,
-            revises,
-            uid,
-            using,
-        )
+        _init_versioned_attached_block(self, "collection", *args, **kwargs)
 
 
 class SchemaBlock(BaseBlock, BaseSQLRecord):
@@ -581,44 +432,7 @@ class SchemaBlock(BaseBlock, BaseSQLRecord):
     """The schema to which the block is attached."""
 
     def __init__(self, *args, **kwargs):
-        if len(args) == len(self._meta.concrete_fields):
-            super().__init__(*args, **kwargs)
-            return None
-        if args:
-            raise ValueError(
-                "Please only use keyword arguments to construct a SchemaBlock"
-            )
-        schema = kwargs.pop("schema", None)
-        content = kwargs.pop("content", None)
-        kind = kwargs.pop("kind", None)
-        version_tag = kwargs.pop("version_tag", kwargs.pop("version", None))
-        revises = kwargs.pop("revises", None)
-        using = kwargs.pop("using", None)
-        uid = kwargs.pop("uid", None) if "uid" in kwargs else None
-        if kwargs:
-            raise ValueError(
-                "Only schema, content, kind, version, revises "
-                f"can be passed, but you passed: {kwargs}"
-            )
-        if schema is None:
-            raise ValueError("schema is required for SchemaBlock")
-        if kind is None:
-            raise ValueError(
-                "kind is required for SchemaBlock; use 'readme' or 'comment'"
-            )
-        if kind not in _VALID_BLOCK_KINDS:
-            raise ValueError(f"kind must be 'readme' or 'comment', got {kind!r}")
-        _init_versioned_attached_block(
-            self,
-            "schema",
-            schema,
-            content,
-            kind,
-            version_tag,
-            revises,
-            uid,
-            using,
-        )
+        _init_versioned_attached_block(self, "schema", *args, **kwargs)
 
 
 class FeatureBlock(BaseBlock, BaseSQLRecord):
@@ -631,44 +445,7 @@ class FeatureBlock(BaseBlock, BaseSQLRecord):
     """The feature to which the block is attached."""
 
     def __init__(self, *args, **kwargs):
-        if len(args) == len(self._meta.concrete_fields):
-            super().__init__(*args, **kwargs)
-            return None
-        if args:
-            raise ValueError(
-                "Please only use keyword arguments to construct a FeatureBlock"
-            )
-        feature = kwargs.pop("feature", None)
-        content = kwargs.pop("content", None)
-        kind = kwargs.pop("kind", None)
-        version_tag = kwargs.pop("version_tag", kwargs.pop("version", None))
-        revises = kwargs.pop("revises", None)
-        using = kwargs.pop("using", None)
-        uid = kwargs.pop("uid", None) if "uid" in kwargs else None
-        if kwargs:
-            raise ValueError(
-                "Only feature, content, kind, version, revises "
-                f"can be passed, but you passed: {kwargs}"
-            )
-        if feature is None:
-            raise ValueError("feature is required for FeatureBlock")
-        if kind is None:
-            raise ValueError(
-                "kind is required for FeatureBlock; use 'readme' or 'comment'"
-            )
-        if kind not in _VALID_BLOCK_KINDS:
-            raise ValueError(f"kind must be 'readme' or 'comment', got {kind!r}")
-        _init_versioned_attached_block(
-            self,
-            "feature",
-            feature,
-            content,
-            kind,
-            version_tag,
-            revises,
-            uid,
-            using,
-        )
+        _init_versioned_attached_block(self, "feature", *args, **kwargs)
 
 
 class ProjectBlock(BaseBlock, BaseSQLRecord):
@@ -681,44 +458,7 @@ class ProjectBlock(BaseBlock, BaseSQLRecord):
     """The project to which the block is attached."""
 
     def __init__(self, *args, **kwargs):
-        if len(args) == len(self._meta.concrete_fields):
-            super().__init__(*args, **kwargs)
-            return None
-        if args:
-            raise ValueError(
-                "Please only use keyword arguments to construct a ProjectBlock"
-            )
-        project = kwargs.pop("project", None)
-        content = kwargs.pop("content", None)
-        kind = kwargs.pop("kind", None)
-        version_tag = kwargs.pop("version_tag", kwargs.pop("version", None))
-        revises = kwargs.pop("revises", None)
-        using = kwargs.pop("using", None)
-        uid = kwargs.pop("uid", None) if "uid" in kwargs else None
-        if kwargs:
-            raise ValueError(
-                "Only project, content, kind, version, revises "
-                f"can be passed, but you passed: {kwargs}"
-            )
-        if project is None:
-            raise ValueError("project is required for ProjectBlock")
-        if kind is None:
-            raise ValueError(
-                "kind is required for ProjectBlock; use 'readme' or 'comment'"
-            )
-        if kind not in _VALID_BLOCK_KINDS:
-            raise ValueError(f"kind must be 'readme' or 'comment', got {kind!r}")
-        _init_versioned_attached_block(
-            self,
-            "project",
-            project,
-            content,
-            kind,
-            version_tag,
-            revises,
-            uid,
-            using,
-        )
+        _init_versioned_attached_block(self, "project", *args, **kwargs)
 
 
 class SpaceBlock(BaseBlock, BaseSQLRecord):
@@ -731,44 +471,7 @@ class SpaceBlock(BaseBlock, BaseSQLRecord):
     """The space to which the block is attached."""
 
     def __init__(self, *args, **kwargs):
-        if len(args) == len(self._meta.concrete_fields):
-            super().__init__(*args, **kwargs)
-            return None
-        if args:
-            raise ValueError(
-                "Please only use keyword arguments to construct a SpaceBlock"
-            )
-        space = kwargs.pop("space", None)
-        content = kwargs.pop("content", None)
-        kind = kwargs.pop("kind", None)
-        version_tag = kwargs.pop("version_tag", kwargs.pop("version", None))
-        revises = kwargs.pop("revises", None)
-        using = kwargs.pop("using", None)
-        uid = kwargs.pop("uid", None) if "uid" in kwargs else None
-        if kwargs:
-            raise ValueError(
-                "Only space, content, kind, version, revises "
-                f"can be passed, but you passed: {kwargs}"
-            )
-        if space is None:
-            raise ValueError("space is required for SpaceBlock")
-        if kind is None:
-            raise ValueError(
-                "kind is required for SpaceBlock; use 'readme' or 'comment'"
-            )
-        if kind not in _VALID_BLOCK_KINDS:
-            raise ValueError(f"kind must be 'readme' or 'comment', got {kind!r}")
-        _init_versioned_attached_block(
-            self,
-            "space",
-            space,
-            content,
-            kind,
-            version_tag,
-            revises,
-            uid,
-            using,
-        )
+        _init_versioned_attached_block(self, "space", *args, **kwargs)
 
 
 class BranchBlock(BaseBlock, BaseSQLRecord):
@@ -781,44 +484,7 @@ class BranchBlock(BaseBlock, BaseSQLRecord):
     """The branch to which the block is attached."""
 
     def __init__(self, *args, **kwargs):
-        if len(args) == len(self._meta.concrete_fields):
-            super().__init__(*args, **kwargs)
-            return None
-        if args:
-            raise ValueError(
-                "Please only use keyword arguments to construct a BranchBlock"
-            )
-        branch = kwargs.pop("branch", None)
-        content = kwargs.pop("content", None)
-        kind = kwargs.pop("kind", None)
-        version_tag = kwargs.pop("version_tag", kwargs.pop("version", None))
-        revises = kwargs.pop("revises", None)
-        using = kwargs.pop("using", None)
-        uid = kwargs.pop("uid", None) if "uid" in kwargs else None
-        if kwargs:
-            raise ValueError(
-                "Only branch, content, kind, version, revises "
-                f"can be passed, but you passed: {kwargs}"
-            )
-        if branch is None:
-            raise ValueError("branch is required for BranchBlock")
-        if kind is None:
-            raise ValueError(
-                "kind is required for BranchBlock; use 'readme' or 'comment'"
-            )
-        if kind not in _VALID_BLOCK_KINDS:
-            raise ValueError(f"kind must be 'readme' or 'comment', got {kind!r}")
-        _init_versioned_attached_block(
-            self,
-            "branch",
-            branch,
-            content,
-            kind,
-            version_tag,
-            revises,
-            uid,
-            using,
-        )
+        _init_versioned_attached_block(self, "branch", *args, **kwargs)
 
 
 class ULabelBlock(BaseBlock, BaseSQLRecord):
@@ -831,41 +497,4 @@ class ULabelBlock(BaseBlock, BaseSQLRecord):
     """The ulabel to which the block is attached."""
 
     def __init__(self, *args, **kwargs):
-        if len(args) == len(self._meta.concrete_fields):
-            super().__init__(*args, **kwargs)
-            return None
-        if args:
-            raise ValueError(
-                "Please only use keyword arguments to construct a ULabelBlock"
-            )
-        ulabel = kwargs.pop("ulabel", None)
-        content = kwargs.pop("content", None)
-        kind = kwargs.pop("kind", None)
-        version_tag = kwargs.pop("version_tag", kwargs.pop("version", None))
-        revises = kwargs.pop("revises", None)
-        using = kwargs.pop("using", None)
-        uid = kwargs.pop("uid", None) if "uid" in kwargs else None
-        if kwargs:
-            raise ValueError(
-                "Only ulabel, content, kind, version, revises "
-                f"can be passed, but you passed: {kwargs}"
-            )
-        if ulabel is None:
-            raise ValueError("ulabel is required for ULabelBlock")
-        if kind is None:
-            raise ValueError(
-                "kind is required for ULabelBlock; use 'readme' or 'comment'"
-            )
-        if kind not in _VALID_BLOCK_KINDS:
-            raise ValueError(f"kind must be 'readme' or 'comment', got {kind!r}")
-        _init_versioned_attached_block(
-            self,
-            "ulabel",
-            ulabel,
-            content,
-            kind,
-            version_tag,
-            revises,
-            uid,
-            using,
-        )
+        _init_versioned_attached_block(self, "ulabel", *args, **kwargs)
