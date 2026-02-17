@@ -361,7 +361,9 @@ class Run(SQLRecord, TracksUpdates):
     _is_consecutive: bool | None = BooleanField(null=True)
     """Indicates whether code was consecutively executed. Is relevant for notebooks."""
     _status_code: int = models.SmallIntegerField(
-        default=-3, db_default=-3, db_index=True, null=True
+        default=-3,
+        db_default=-3,
+        db_index=True,
     )
     """Status code of the run. See the status property for mapping to string."""
 

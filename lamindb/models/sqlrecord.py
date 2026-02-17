@@ -1504,7 +1504,7 @@ class Branch(BaseSQLRecord):
         "User", PROTECT, default=current_user_id, related_name="+"
     )
     """Creator of branch."""
-    _status_code: int = models.SmallIntegerField(default=0, db_index=True)
+    _status_code: int = models.SmallIntegerField(default=0, db_default=0, db_index=True)
     """Status code."""
     ablocks: RelatedManager[BranchBlock]
     """Attached blocks ← :attr:`~lamindb.BranchBlock.branch`."""

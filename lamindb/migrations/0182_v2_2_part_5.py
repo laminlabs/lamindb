@@ -233,4 +233,79 @@ class Migration(migrations.Migration):
                 db_default="readme", db_index=True, default="readme", max_length=22
             ),
         ),
+        migrations.AddField(
+            model_name="artifactblock",
+            name="_status_code",
+            field=models.SmallIntegerField(db_default=0, db_index=True, default=0),
+        ),
+        migrations.AddField(
+            model_name="block",
+            name="_status_code",
+            field=models.SmallIntegerField(db_default=0, db_index=True, default=0),
+        ),
+        migrations.AddField(
+            model_name="branchblock",
+            name="_status_code",
+            field=models.SmallIntegerField(db_default=0, db_index=True, default=0),
+        ),
+        migrations.AddField(
+            model_name="collectionblock",
+            name="_status_code",
+            field=models.SmallIntegerField(db_default=0, db_index=True, default=0),
+        ),
+        migrations.AddField(
+            model_name="featureblock",
+            name="_status_code",
+            field=models.SmallIntegerField(db_default=0, db_index=True, default=0),
+        ),
+        migrations.AddField(
+            model_name="projectblock",
+            name="_status_code",
+            field=models.SmallIntegerField(db_default=0, db_index=True, default=0),
+        ),
+        migrations.AddField(
+            model_name="recordblock",
+            name="_status_code",
+            field=models.SmallIntegerField(db_default=0, db_index=True, default=0),
+        ),
+        migrations.AddField(
+            model_name="runblock",
+            name="_status_code",
+            field=models.SmallIntegerField(db_default=0, db_index=True, default=0),
+        ),
+        migrations.AddField(
+            model_name="schemablock",
+            name="_status_code",
+            field=models.SmallIntegerField(db_default=0, db_index=True, default=0),
+        ),
+        migrations.AddField(
+            model_name="spaceblock",
+            name="_status_code",
+            field=models.SmallIntegerField(db_default=0, db_index=True, default=0),
+        ),
+        migrations.AddField(
+            model_name="transformblock",
+            name="_status_code",
+            field=models.SmallIntegerField(db_default=0, db_index=True, default=0),
+        ),
+        migrations.AddField(
+            model_name="ulabelblock",
+            name="_status_code",
+            field=models.SmallIntegerField(db_default=0, db_index=True, default=0),
+        ),
+        migrations.AlterField(
+            model_name="branch",
+            name="_status_code",
+            field=models.SmallIntegerField(db_default=0, db_index=True, default=0),
+        ),
+        migrations.AlterField(
+            model_name="project",
+            name="_status_code",
+            field=models.SmallIntegerField(db_default=0, db_index=True, default=0),
+        ),
+        migrations.AlterField(
+            model_name="run",
+            name="_status_code",
+            field=models.SmallIntegerField(db_default=-3, db_index=True, default=-3),
+        ),
     ]

@@ -198,7 +198,8 @@ class BaseBlock(IsVersioned):
         "lamindb.User", PROTECT, default=current_user_id, related_name="+"
     )
     """Creator of block."""
-
+    _status_code: int = models.SmallIntegerField(default=0, db_default=0, db_index=True)
+    """Status code."""
     _aux: dict[str, Any] | None = JSONField(default=None, db_default=None, null=True)
     """Auxiliary field for dictionary-like metadata."""
 
