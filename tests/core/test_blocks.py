@@ -3,21 +3,21 @@ import pytest
 
 
 def test_block_recovery_based_on_hash():
-    block1 = ln.models.Block(key="my-block", content="1", kind="readme").save()
-    block2 = ln.models.Block(key="my-block", content="1", kind="readme")
+    block1 = ln.models.Block(key="__lamindb_block__", content="1", kind="readme").save()
+    block2 = ln.models.Block(key="__lamindb_block__", content="1", kind="readme")
     assert block1 == block2
     block1.delete()
-    block2 = ln.models.Block(key="my-block", content="1", kind="readme")
+    block2 = ln.models.Block(key="__lamindb_block__", content="1", kind="readme")
     assert block1 != block2
     block1.delete(permanent=True)
 
 
 def test_block_recovery_based_on_key():
-    block1 = ln.models.Block(key="my-block", kind="readme").save()
-    block2 = ln.models.Block(key="my-block", kind="readme")
+    block1 = ln.models.Block(key="__lamindb_block__", kind="readme").save()
+    block2 = ln.models.Block(key="__lamindb_block__", kind="readme")
     assert block1 == block2
     block1.delete()
-    block2 = ln.models.Block(key="my-block", kind="readme")
+    block2 = ln.models.Block(key="__lamindb_block__", kind="readme")
     assert block1 != block2
     block1.delete(permanent=True)
 
@@ -25,11 +25,11 @@ def test_block_recovery_based_on_key():
 def test_revise_blocks():
     # attempt to create a block with an invalid version
     with pytest.raises(ValueError) as error:
-        ln.models.Block(key="My block", version=0, kind="readme")
+        ln.models.Block(key="__lamindb_block__", version=0, kind="readme")
     assert "version" in error.exconly() or "version_tag" in error.exconly()
 
     # create a versioned block
-    block = ln.models.Block(key="My block", version="1", kind="readme")
+    block = ln.models.Block(key="__lamindb_block__", version="1", kind="readme")
     assert block.version_tag == "1"
     assert block.version == "1"
     assert len(block.uid) == ln.models.Block._len_full_uid == 20
@@ -39,10 +39,10 @@ def test_revise_blocks():
 
     # try to reload the same block with the same uid
     block_reload = ln.models.Block(
-        uid=block.uid, key="My block updated name", kind="readme"
+        uid=block.uid, key="__lamindb_artifact__", kind="readme"
     )
     assert block_reload.id == block.id
-    assert block_reload.key == "My block"  # unchanged, prints logging
+    assert block_reload.key == "__lamindb_block__"  # unchanged, prints logging
 
     # create new block from old block
     block_r2 = ln.models.Block(content="v2", revises=block, kind="readme")
@@ -68,7 +68,7 @@ def test_revise_blocks():
     assert block_r3.version == "2"
 
     # revise by matching on key
-    key = "my-readme.md"
+    key = "__lamindb_artifact__"
     block_r2.key = key
     block_r2.save()
     assert block_r2.is_latest
@@ -93,30 +93,32 @@ def test_revise_blocks():
 
     # wrong block type
     with pytest.raises(TypeError) as error:
-        ln.models.Block(revises=ln.Record(name="x"), kind="readme")
+        ln.models.Block(
+            key="__lamindb_block__", revises=ln.Record(name="x"), kind="readme"
+        )
     assert error.exconly().startswith("TypeError: `revises` has to be of type `Block`")
 
     # wrong kwargs
     with pytest.raises(ValueError) as error:
-        ln.models.Block(x=1, kind="readme")
+        ln.models.Block(key="__lamindb_block__", x=1, kind="readme")
     assert "can be passed" in error.exconly() and "x" in error.exconly()
 
-    # kind required
+    # kind required (Block only supports kind="readme")
     with pytest.raises(ValueError) as error:
-        ln.models.Block(key="x", content="y")
-    assert "kind is required" in error.exconly()
+        ln.models.Block(key="__lamindb_block__", content="y")
+    assert "kind" in error.exconly() and "readme" in error.exconly()
 
-    # invalid kind
+    # invalid kind (Block only supports readme)
     with pytest.raises(ValueError) as error:
-        ln.models.Block(key="x", content="y", kind="mdpage")
-    assert "readme" in error.exconly() and "comment" in error.exconly()
+        ln.models.Block(key="__lamindb_block__", content="y", kind="comment")
+    assert "readme" in error.exconly() or "Only kind" in error.exconly()
 
     # cleanup
     block_r2.delete()
     block.delete()
 
     # unversioned block
-    block = ln.models.Block(key="My block", kind="readme")
+    block = ln.models.Block(key="__lamindb_block__", kind="readme")
     assert block.version_tag is None
     assert block.version == block.uid[-4:]
     block.save()

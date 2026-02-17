@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Literal, overload
+from typing import TYPE_CHECKING, Any, Literal, get_args, overload
 
 from django.db import models
 from django.db.models import (
@@ -16,6 +16,7 @@ from django.db.models import (
 from lamin_utils import logger
 from lamindb_setup.core.hashing import hash_string
 
+from ..base.types import RegistryId
 from ..base.uids import base62_16
 from ._is_versioned import create_uid, process_revises
 from .artifact import Artifact
@@ -268,7 +269,13 @@ class Block(BaseBlock, SQLRecord):
             )
         if kind != "readme":
             raise ValueError("Only kind = 'readme' is supported for block.")
-        assert key.startswith("__lamindb_..."), "key must start with '__lamindb_...'"
+        _registry_ids = get_args(RegistryId)
+        if key is not None and key not in _registry_ids:
+            raise ValueError(
+                f"key must be one of RegistryId: {', '.join(_registry_ids)}"
+            )
+        if revises is not None and not isinstance(revises, Block):
+            raise TypeError("`revises` has to be of type `Block`")
         if revises is None:
             if uid is not None:
                 revises = (
