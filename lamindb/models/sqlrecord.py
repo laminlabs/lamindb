@@ -60,7 +60,7 @@ from ..base.fields import (
     JSONField,
     TextField,
 )
-from ..base.types import FieldAttr, StrField
+from ..base.types import BranchStatus, FieldAttr, StrField
 from ..base.uids import base62_12
 from ..errors import (
     FieldValidationError,
@@ -1505,7 +1505,7 @@ class Branch(BaseSQLRecord):
     )
     """Creator of branch."""
     _status_code: int = models.SmallIntegerField(default=0, db_default=0, db_index=True)
-    """Status code."""
+    """Status code. 0: builtin (main/archive/trash) or open; 1: merged."""
     ablocks: RelatedManager[BranchBlock]
     """Attached blocks ← :attr:`~lamindb.BranchBlock.branch`."""
     users: RelatedManager[User] = models.ManyToManyField(
@@ -1526,6 +1526,18 @@ class Branch(BaseSQLRecord):
         related_name="branches",
     )
     """Projects annotating this branch ← :attr:`~lamindb.BranchProject.project`."""
+
+    @property
+    def status(self) -> BranchStatus:
+        """Branch status.
+
+        Returns one of: `builtin` (main/archive/trash), `open`, or `merged`.
+        """
+        if self._status_code == 1:
+            return "merged"
+        if self.name in ("main", "archive", "trash"):
+            return "builtin"
+        return "open"
 
     @overload
     def __init__(

@@ -7,6 +7,7 @@ import pytest
 def test_merge_branch_into_main():
     """Merge a branch into main: create branch, add ULabel, switch to main, merge."""
     branch = ln.Branch(name="test_merge_branch").save()
+    assert branch.status == "open"
     ln.setup.switch(branch.name)
     assert ln.setup.settings.branch == branch
     assert ln.setup.settings.branch.name == "test_merge_branch"
@@ -17,6 +18,7 @@ def test_merge_branch_into_main():
 
     ln.setup.switch("main")
     assert ln.setup.settings.branch.name == "main"
+    assert ln.setup.settings.branch.status == "builtin"
     assert ln.ULabel.filter(name="test_merge_record").count() == 0
 
     ln.setup.merge("test_merge_branch")
@@ -26,11 +28,28 @@ def test_merge_branch_into_main():
     # created_on still points to the branch on which the record was created
     assert ulabel.created_on == branch
     assert ulabel.created_on.name == "test_merge_branch"
+    # merged branch has status "merged"
+    branch.refresh_from_db()
+    assert branch.status == "merged"
 
     # Clean up
     ulabel.delete(permanent=True)
     branch.delete(permanent=True)
     ln.setup.switch("main")
+
+
+def test_branch_status_values():
+    """Builtin branches have status 'builtin', new branches 'open'."""
+    main_branch = ln.Branch.get(name="main")
+    assert main_branch.status == "builtin"
+    archive_branch = ln.Branch.get(name="archive")
+    assert archive_branch.status == "builtin"
+    trash_branch = ln.Branch.get(name="trash")
+    assert trash_branch.status == "builtin"
+    # User-created branch is "open" until merged
+    branch = ln.Branch(name="test_status_branch").save()
+    assert branch.status == "open"
+    branch.delete(permanent=True)
 
 
 def test_merge_nonexistent_branch_raises():

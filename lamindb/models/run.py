@@ -433,7 +433,7 @@ class Run(SQLRecord, TracksUpdates):
 
     @property
     def status(self) -> str:
-        """Get status of run.
+        """Run status.
 
         Returns the status as a string, one of: `scheduled`, `re-started`, `started`, `completed`, `errored`, or `aborted`.
 
