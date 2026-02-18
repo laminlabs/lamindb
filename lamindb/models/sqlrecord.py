@@ -1257,18 +1257,26 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
         return self
 
     @class_and_instance_method
-    def describe(cls_or_self, return_str: bool = False) -> None | str:
+    def describe(
+        cls_or_self,
+        return_str: bool = False,
+        include: None | Literal["comments"] = None,
+    ) -> None | str:
         """Describe record including relations.
 
         Args:
             return_str: Return a string instead of printing.
+            include: Include additional content. Use ``"comments"`` to display
+                readme and comment blocks.
         """
         from ._describe import describe_postgres_sqlite
 
         if isinstance(cls_or_self, type):
             return type(cls_or_self).describe(cls_or_self, return_str=return_str)  # type: ignore
         else:
-            return describe_postgres_sqlite(cls_or_self, return_str=return_str)
+            return describe_postgres_sqlite(
+                cls_or_self, return_str=return_str, include=include
+            )
 
     def __repr__(
         self: SQLRecord,

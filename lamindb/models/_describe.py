@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import re
 from types import SimpleNamespace
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 from django.db import connections
+from django.db.models import Q
 from lamin_utils import colors, logger
 from rich.table import Column, Table
 from rich.text import Text
@@ -591,24 +592,45 @@ def describe_sqlite(record):
     return tree
 
 
-def append_readme_blocks_to_tree(record, tree: Tree) -> None:
-    """Append readme block content to the describe tree if record has ablocks."""
+def append_readme_blocks_to_tree(
+    record, tree: Tree, include: None | Literal["comments"] = None
+) -> None:
+    """Append readme (and optionally comment) block content to the describe tree."""
     if record._state.adding:
         return
     if not hasattr(record, "ablocks"):
         return
-    readme_blocks = record.ablocks.filter(kind="readme", is_latest=True)
-    for block in readme_blocks:
+    if include == "comments":
+        blocks_qs = record.ablocks.filter(
+            Q(kind="readme", is_latest=True) | Q(kind="comment")
+        ).select_related("created_by")
+    else:
+        blocks_qs = record.ablocks.filter(kind="readme", is_latest=True)
+    blocks = list(blocks_qs.order_by("created_at"))
+    # README first, then comments; each group sorted chronologically
+    readme_blocks = [b for b in blocks if b.kind == "readme"]
+    comment_blocks = [b for b in blocks if b.kind == "comment"]
+    for block in readme_blocks + comment_blocks:
+        if block.kind == "readme":
+            title = "README"
+        else:
+            handle = block.created_by.handle if block.created_by else "?"
+            created_at_str = format_field_value(block.created_at)
+            title = f"comment by {handle} at {created_at_str}"
         display_text(
             block.content,
-            "README",
+            title,
             tree,
             max_lines=30,
             uid="",
         )
 
 
-def describe_postgres_sqlite(record, return_str: bool = False) -> str | None:
+def describe_postgres_sqlite(
+    record,
+    return_str: bool = False,
+    include: None | Literal["comments"] = None,
+) -> str | None:
     from ._describe import format_rich_tree
 
     if (
@@ -618,5 +640,5 @@ def describe_postgres_sqlite(record, return_str: bool = False) -> str | None:
         tree = describe_postgres(record)
     else:
         tree = describe_sqlite(record)
-    append_readme_blocks_to_tree(record, tree)
+    append_readme_blocks_to_tree(record, tree, include=include)
     return format_rich_tree(tree, return_str=return_str)
