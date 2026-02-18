@@ -31,6 +31,9 @@ def test_merge_branch_into_main():
     # merged branch has status "merged"
     branch.refresh_from_db()
     assert branch.status == "merged"
+    # this is a merge call to check that branch.describe() works because it
+    # has a custom describe method
+    branch.describe(return_str=True)
 
     # Clean up
     ulabel.delete(permanent=True)
