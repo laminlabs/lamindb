@@ -1454,7 +1454,7 @@ class Branch(BaseSQLRecord):
         To move an object into the archive, run: `obj.branch_id = 0; obj.save()`.
 
     Args:
-        name: Name of the branch. Is constrained to be unique across all branches when lower-cased.
+        name: A unique name. When lower-cased, is constrained to be unique across all branches.
         description: A description.
 
     Examples:
@@ -1472,13 +1472,21 @@ class Branch(BaseSQLRecord):
 
             lamin info
 
+        To annotate the current branch with a `README.md`, run::
+
+            lamin annotate branch --readme README.md
+
+        To comment on the current branch, run::
+
+            lamin annotate branch --comment "I think we should revisit this, tomorrow, WDYT?"
+
         To describe the current branch, run::
 
             lamin describe branch
 
-        To trace on which branch an object was created, run::
+        To trace on which branch a `SQLRecord` object was created, run::
 
-            obj.created_on.describe()
+            sqlrecord.created_on.describe()
 
         Just like Pull Requests on GitHub, branches are never deleted
         so that the provenance of a change stays traceable.
