@@ -1505,6 +1505,27 @@ class Branch(BaseSQLRecord):
 
         Just like Pull Requests on GitHub, branches are never deleted
         so that the provenance of a change stays traceable.
+
+    .. dropdown:: Managing `is_latest` during branching
+
+        `is_latest` is branch-aware during development and reconciled on merge.
+
+        - Creating a new version on a contribution branch keeps the previous
+          version on `main` as `is_latest=True`.
+        - After `lamin merge`, only one object per version family remains
+          with `is_latest=True` in the target branch.
+        - If both source and target branches have `is_latest=True`, the merged
+          branch keeps the newest object by `created_at`.
+
+        Example flow::
+
+            # before merge
+            # main: v1.is_latest=True
+            # contribution branch: v2(revises=v1).is_latest=True
+            lamin switch main
+            lamin merge my_branch
+            # after merge on main: v2.is_latest=True, v1.is_latest=False
+
     """
 
     class Meta:
