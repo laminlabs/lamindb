@@ -1453,6 +1453,10 @@ class Branch(BaseSQLRecord):
         The `archive` acts like an archive that hides objects from queries and searches without scheduling them for deletion.
         To move an object into the archive, run: `obj.branch_id = 0; obj.save()`.
 
+    Args:
+        name: Name of the branch. Is constrained to be unique across all branches when lower-cased.
+        description: A description.
+
     Examples:
 
         To create a branch and switch to it, run::

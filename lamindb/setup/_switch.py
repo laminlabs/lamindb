@@ -22,10 +22,15 @@ def switch(target: str | Branch, *, space: bool = False, create: bool = False):
     else:
         if create:
             from lamindb import Branch, Q
+            from lamindb.errors import BranchAlreadyExists
 
+            # Consistent with git switch -c: error if branch already exists.
             existing = Branch.filter(Q(name=target) | Q(uid=target)).one_or_none()
-            if existing is None:
-                Branch(name=target).save()
-                logger.important(f"created branch: {target}")
+            if existing is not None:
+                raise BranchAlreadyExists(
+                    f"Branch '{target}' already exists. Omit -c/--create to switch to it."
+                )
+            Branch(name=target).save()
+            logger.important(f"created branch: {target}")
         settings.branch = target
     logger.important(f"switched to {target}")
