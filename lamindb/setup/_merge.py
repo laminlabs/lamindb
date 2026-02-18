@@ -30,6 +30,7 @@ def merge(branch: str | Branch) -> None:
     from lamindb.errors import ObjectDoesNotExist
 
     from ..models import SQLRecord
+    from ..models._is_versioned import IsVersioned, reconcile_is_latest_within_branch
 
     if isinstance(branch, Branch):
         source = branch
@@ -83,6 +84,10 @@ def merge(branch: str | Branch) -> None:
                         f"UPDATE {tbl} SET branch_id = %s WHERE branch_id = %s",
                         [current.id, source.id],
                     )
+
+    versioned_models = [m for m in models if issubclass(m, IsVersioned)]
+    for model in versioned_models:
+        reconcile_is_latest_within_branch(model, branch_id=current.id)
 
     source._status_code = 1  # merged
     source.save(update_fields=["_status_code"])

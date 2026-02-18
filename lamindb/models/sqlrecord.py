@@ -1113,12 +1113,15 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
             try:
                 # save versioned record in presence of self._revises
                 if isinstance(self, IsVersioned) and self._revises is not None:
-                    assert self._revises.is_latest  # noqa: S101
                     revises = self._revises
-                    revises.is_latest = False
                     with transaction.atomic():
-                        revises._revises = None  # ensure we don't start a recursion
-                        revises.save()
+                        # On cross-branch versioning we keep the source branch latest
+                        # marker intact and only demote within the same branch.
+                        if revises.branch_id == self.branch_id:
+                            assert revises.is_latest  # noqa: S101
+                            revises.is_latest = False
+                            revises._revises = None  # ensure we don't start a recursion
+                            revises.save()
                         super().save(*args, **kwargs)  # type: ignore
                     self._revises = None
                 # save unversioned record
@@ -1488,9 +1491,9 @@ class Branch(BaseSQLRecord):
 
             lamin annotate branch --comment "I think we should revisit this, tomorrow, WDYT?"
 
-        To describe the current branch, run::
+        To describe the current branch (optionally include comments), run::
 
-            lamin describe branch
+            lamin describe branch --include comments
 
         To trace on which branch a `SQLRecord` object was created, run::
 

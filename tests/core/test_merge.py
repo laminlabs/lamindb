@@ -60,3 +60,38 @@ def test_merge_nonexistent_branch_raises():
     with pytest.raises(ln.errors.ObjectDoesNotExist) as exc_info:
         ln.setup.merge("nonexistent_branch_xyz")
     assert "not found" in str(exc_info.value).lower()
+
+
+def test_merge_reconciles_is_latest_for_versioned_records():
+    main_branch = ln.Branch.get(name="main")
+    ln.setup.switch(main_branch.name)
+
+    transform_v1 = ln.Transform(
+        key="test-merge-is-latest",
+        source_code="main-v1",
+        kind="pipeline",
+    ).save()
+    branch = ln.Branch(name="test_merge_latest_branch").save()
+    ln.setup.switch(branch.name)
+    transform_v2 = ln.Transform(
+        key="test-merge-is-latest",
+        revises=transform_v1,
+        source_code="feature-v2",
+        kind="pipeline",
+    ).save()
+    transform_v1.refresh_from_db()
+    assert transform_v1.is_latest
+    assert transform_v2.is_latest
+
+    ln.setup.switch(main_branch.name)
+    ln.setup.merge(branch.name)
+
+    family = ln.Transform.objects.filter(
+        uid__startswith=transform_v1.uid[:-4], branch_id=1
+    )
+    assert family.filter(is_latest=True).count() == 1
+    assert family.get(is_latest=True).uid == transform_v2.uid
+
+    for record in family:
+        record.delete(permanent=True)
+    branch.delete(permanent=True)
