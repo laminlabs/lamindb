@@ -11,7 +11,7 @@ from rich.table import Column, Table
 from rich.text import Text
 from rich.tree import Tree
 
-from lamindb.models import BaseSQLRecord, Run
+from lamindb.models import BaseSQLRecord, Branch, Run
 
 from ._is_versioned import IsVersioned
 from .sqlrecord import SQLRecord, format_field_value
@@ -430,6 +430,21 @@ def describe_transform(
     return tree
 
 
+def describe_branch(record: Branch) -> Tree:
+    tree = describe_header(record)
+    two_column_items = []  # type: ignore
+    two_column_items.append(Text.assemble(("status: ", "dim"), record.status))
+    two_column_items.append(Text.assemble(("space: ", "dim"), record.space.name))
+    two_column_items.append(
+        Text.assemble(("created_at: ", "dim"), format_field_value(record.created_at))
+    )
+    two_column_items.append(
+        Text.assemble(("created_by: ", "dim"), record.created_by.handle)
+    )
+    add_two_column_items_to_tree(tree, two_column_items)
+    return tree
+
+
 def describe_schema(record: Schema, slot: str | None = None) -> Tree:
     from ._feature_manager import format_dtype_for_display, strip_cat
 
@@ -540,6 +555,8 @@ def describe_postgres(record):
         tree = describe_collection(record, related_data=related_data)
     elif model_name == "Transform":
         tree = describe_transform(record)
+    elif model_name == "Branch":
+        tree = describe_branch(record)
     else:
         tree = describe_header(record)
     return tree
@@ -587,6 +604,8 @@ def describe_sqlite(record):
         tree = describe_collection(record)
     elif model_name == "Transform":
         tree = describe_transform(record)
+    elif model_name == "Branch":
+        tree = describe_branch(record)
     else:
         tree = describe_header(record)
     return tree

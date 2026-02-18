@@ -151,6 +151,10 @@ def test_record_block_readme_always_new_version():
 def test_record_block_comment_always_new_block():
     """Comment always creates a new block (no versioning; revises not allowed)."""
     record = ln.Record(name="test-record-blocks-comment").save()
+    # Add readme and comments to test full describe
+    ln.models.RecordBlock(
+        record=record, content="# Overview\n\nTest readme.", kind="readme"
+    ).save()
     # Comments never version: each creation is a new comment (new uid).
     comment1 = ln.models.RecordBlock(
         record=record, content="same text", kind="comment"
@@ -163,6 +167,13 @@ def test_record_block_comment_always_new_block():
             record=record, content="a comment", kind="comment", revises=comment1
         )
     assert "revises is not allowed for kind='comment'" in error.exconly()
+
+    # Test full describe call with include="comments"
+    result = record.describe(return_str=True, include="comments")
+    assert "README" in result
+    assert "comment by" in result
+    assert "same text" in result
+
     comment1.delete()
     record.delete(permanent=True)
 
