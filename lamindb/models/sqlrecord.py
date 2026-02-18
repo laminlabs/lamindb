@@ -60,7 +60,7 @@ from ..base.fields import (
     JSONField,
     TextField,
 )
-from ..base.types import FieldAttr, StrField
+from ..base.types import BranchStatus, FieldAttr, StrField
 from ..base.uids import base62_12
 from ..errors import (
     FieldValidationError,
@@ -1443,18 +1443,53 @@ class Space(BaseSQLRecord):
 class Branch(BaseSQLRecord):
     """Branches for change management with archive and trash states.
 
-    There are 3 pre-defined branches: `main`, `trash`, and `archive`.
+    .. dropdown:: The 3 built-in branches: `main`, `trash` & `archive`
 
-    You can create branches similar to `git` via `lamin create --branch my_branch`.
+        The `main` branch acts as the default branch.
 
-    To add objects to that new branch rather than the `main` branch, run `lamin switch my_branch`.
+        The `trash` branch acts like a trash bin on a file system.
+        It you delete a `SQLRecord` object via `.delete()`, it gets moved onto the `trash` branch and scheduled for deletion.
 
-    To merge a branch into the current one, run ``lamin merge my_branch`` or
-    ``ln.setup.merge("my_branch")``. To merge manually for a single registry::
+        The `archive` acts like an archive that hides objects from queries and searches without scheduling them for deletion.
+        To move an object into the archive, run: `obj.branch_id = 0; obj.save()`.
 
-        ln.Artifact.filter(branch__name="my_branch").update(branch_id=1)
+    Args:
+        name: A unique name. When lower-cased, is constrained to be unique across all branches.
+        description: A description.
 
-    If you delete an object via `sqlrecord.delete()`, it gets moved to the `trash` branch and scheduled for deletion.
+    Examples:
+
+        To create a branch and switch to it, run::
+
+            lamin switch -c my_branch
+
+        To merge a branch into `main`, run::
+
+            lamin switch main  # switch to the main branch
+            lamin merge my_branch  # merge 'my_branch' into main
+
+        To see the current branch along with other information, run::
+
+            lamin info
+
+        To annotate the current branch with a `README.md`, run::
+
+            lamin annotate branch --readme README.md
+
+        To comment on the current branch, run::
+
+            lamin annotate branch --comment "I think we should revisit this, tomorrow, WDYT?"
+
+        To describe the current branch, run::
+
+            lamin describe branch
+
+        To trace on which branch a `SQLRecord` object was created, run::
+
+            sqlrecord.created_on.describe()
+
+        Just like Pull Requests on GitHub, branches are never deleted
+        so that the provenance of a change stays traceable.
     """
 
     class Meta:
@@ -1505,7 +1540,7 @@ class Branch(BaseSQLRecord):
     )
     """Creator of branch."""
     _status_code: int = models.SmallIntegerField(default=0, db_default=0, db_index=True)
-    """Status code."""
+    """Status code. 0: builtin (main/archive/trash) or open; 1: merged."""
     ablocks: RelatedManager[BranchBlock]
     """Attached blocks ← :attr:`~lamindb.BranchBlock.branch`."""
     users: RelatedManager[User] = models.ManyToManyField(
@@ -1526,6 +1561,25 @@ class Branch(BaseSQLRecord):
         related_name="branches",
     )
     """Projects annotating this branch ← :attr:`~lamindb.BranchProject.project`."""
+
+    @property
+    def status(self) -> BranchStatus:
+        """Branch status.
+
+        Returns the status as a string, one of: `open`, `merged`, or `builtin`.
+
+        Example:
+
+            See the status of a branch::
+
+                branch.status
+                #> 'open'
+        """
+        if self._status_code == 1:
+            return "merged"
+        if self.name in ("main", "archive", "trash"):
+            return "builtin"
+        return "open"
 
     @overload
     def __init__(

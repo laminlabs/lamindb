@@ -18,6 +18,7 @@ LaminDB.
 .. autoexception:: NoWriteAccess
 .. autoexception:: BlobHashNotFound
 .. autoexception:: FileNotInDevDir
+.. autoexception:: BranchAlreadyExists
 
 """
 
@@ -141,5 +142,15 @@ class NoWriteAccess(Exception):
 
 class FileNotInDevDir(Exception):
     """File path is not within the configured dev directory."""
+
+    pass
+
+
+class BranchAlreadyExists(Exception):
+    """Branch already exists.
+
+    Raised when creating a branch with `ln.setup.switch(..., create=True)` and
+    a branch with the given name or uid already exists. Consistent with `git switch -c`.
+    """
 
     pass

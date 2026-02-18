@@ -6,6 +6,8 @@ Central object types
 .. autoclass:: ArtifactKind
 .. autoclass:: TransformKind
 .. autoclass:: BlockKind
+.. autoclass:: BranchStatus
+.. autoclass:: RunStatus
 .. autoclass:: DtypeStr
 
 Basic types
@@ -44,6 +46,27 @@ BlockKind = Literal["readme", "comment"]
 """Block kind, a `README.md`-type page or comment.
 
 Any block expects Markdown as the formatting language.
+"""
+
+BranchStatus = Literal["builtin", "open", "merged"]
+"""Branch status.
+
+- `builtin`: One of the predefined branches (`main`, `archive`, `trash`).
+- `open`: User-created branch that has not been merged.
+- `merged`: Branch that has been merged into another.
+"""
+
+RunStatus = Literal[
+    "scheduled", "restarted", "started", "completed", "errored", "aborted"
+]
+"""Run status.
+
+- `scheduled`: Run is scheduled (not yet started).
+- `restarted`: Run was restarted.
+- `started`: Run has started.
+- `completed`: Run completed successfully.
+- `errored`: Run ended with an error.
+- `aborted`: Run was aborted.
 """
 
 DtypeObject = int | float | str | bool | datetime.date | datetime.datetime | dict

@@ -84,4 +84,6 @@ def merge(branch: str | Branch) -> None:
                         [current.id, source.id],
                     )
 
+    source._status_code = 1  # merged
+    source.save(update_fields=["_status_code"])
     logger.important(f"merged branch '{source.name}' into '{current.name}'")

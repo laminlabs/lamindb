@@ -33,6 +33,8 @@ from .sqlrecord import BaseSQLRecord, IsLink, SQLRecord
 if TYPE_CHECKING:
     from datetime import datetime
 
+    from lamindb.base.types import RunStatus
+
     from ._feature_manager import FeatureManager
     from .artifact import Artifact
     from .block import RunBlock
@@ -432,12 +434,12 @@ class Run(SQLRecord, TracksUpdates):
         )
 
     @property
-    def status(self) -> str:
-        """Get status of run.
+    def status(self) -> RunStatus:
+        """Run status.
 
-        Returns the status as a string, one of: `scheduled`, `re-started`, `started`, `completed`, `errored`, or `aborted`.
+        Returns the status as a string, one of: `scheduled`, `restarted`, `started`, `completed`, `errored`, `aborted`.
 
-        Examples:
+        Example:
 
             See the status of a run::
 
@@ -445,17 +447,15 @@ class Run(SQLRecord, TracksUpdates):
                 #> 'completed'
 
         """
-        if self._status_code is None:
-            return "unknown"
-        status_dict = {
+        status_dict: dict[int, RunStatus] = {
             -3: "scheduled",
-            -2: "re-started",
+            -2: "restarted",
             -1: "started",
             0: "completed",
             1: "errored",
             2: "aborted",
         }
-        return status_dict.get(self._status_code, "unknown")
+        return status_dict[self._status_code]
 
     @property
     def features(self) -> FeatureManager:
