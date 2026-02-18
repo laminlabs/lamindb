@@ -1566,7 +1566,14 @@ class Branch(BaseSQLRecord):
     def status(self) -> BranchStatus:
         """Branch status.
 
-        Returns the status as a string: `open`, `merged`, or `builtin` (main/archive/trash).
+        Returns the status as a string, one of: `open`, `merged`, or `builtin`.
+
+        Example:
+
+            See the status of a branch::
+
+                branch.status
+                #> 'open'
         """
         if self._status_code == 1:
             return "merged"

@@ -439,7 +439,7 @@ class Run(SQLRecord, TracksUpdates):
 
         Returns the status as a string, one of: `scheduled`, `restarted`, `started`, `completed`, `errored`, `aborted`.
 
-        Examples:
+        Example:
 
             See the status of a run::
 
