@@ -1448,7 +1448,7 @@ class Branch(BaseSQLRecord):
         The `main` branch acts as the default branch.
 
         The `trash` branch acts like a trash bin on a file system.
-        It you delete a `SQLRecord` object via `obj.delete()`, it gets moved onto the `trash` branch and scheduled for deletion.
+        It you delete a `SQLRecord` object via `.delete()`, it gets moved onto the `trash` branch and scheduled for deletion.
 
         The `archive` acts like an archive that hides objects from queries and searches without scheduling them for deletion.
         To move an object into the archive, run: `obj.branch_id = 0; obj.save()`.
