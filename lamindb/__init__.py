@@ -87,11 +87,11 @@ Project management
 .. autosummary::
    :toctree: .
 
+   Branch
+   Space
+   Project
    User
    Collection
-   Project
-   Space
-   Branch
    Reference
 
 Basic utilities

@@ -1443,18 +1443,41 @@ class Space(BaseSQLRecord):
 class Branch(BaseSQLRecord):
     """Branches for change management with archive and trash states.
 
-    There are 3 pre-defined branches: `main`, `trash`, and `archive`.
+    .. dropdown:: The 3 built-in branches: `main`, `trash` & `archive`
 
-    You can create branches similar to `git` via `lamin create --branch my_branch`.
+        The `main` branch acts as the default branch.
 
-    To add objects to that new branch rather than the `main` branch, run `lamin switch my_branch`.
+        The `trash` branch acts like a trash bin on a file system.
+        It you delete a `SQLRecord` object via `obj.delete()`, it gets moved onto the `trash` branch and scheduled for deletion.
 
-    To merge a branch into the current one, run ``lamin merge my_branch`` or
-    ``ln.setup.merge("my_branch")``. To merge manually for a single registry::
+        The `archive` acts like an archive that hides objects from queries and searches without scheduling them for deletion.
+        To move an object into the archive, run: `obj.branch_id = 0; obj.save()`.
 
-        ln.Artifact.filter(branch__name="my_branch").update(branch_id=1)
+    Examples:
 
-    If you delete an object via `sqlrecord.delete()`, it gets moved to the `trash` branch and scheduled for deletion.
+        To create a branch and switch to it, run::
+
+            lamin switch -c my_branch
+
+        To merge a branch into `main`, run::
+
+            lamin switch main  # switch to the main branch
+            lamin merge my_branch  # merge 'my_branch' into main
+
+        To see the current branch along with other information, run::
+
+            lamin info
+
+        To describe the current branch, run::
+
+            lamin describe branch
+
+        To trace on which branch an object was created, run::
+
+            obj.created_on.describe()
+
+        Just like Pull Requests on GitHub, branches are never deleted
+        so that the provenance of a change stays traceable.
     """
 
     class Meta:
