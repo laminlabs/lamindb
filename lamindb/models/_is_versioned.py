@@ -188,21 +188,16 @@ def create_uid(
     This is why it returns revises.
     """
     if revises is not None:
-        if not revises.is_latest:
-            try:
-                revises = revises.__class__.objects.get(
-                    is_latest=True, uid__startswith=revises.stem_uid
-                )
-                logger.warning(
-                    f"didn't pass the latest version in `revises`, retrieved it: {revises}"
-                )
-            except revises.__class__.DoesNotExist:
-                revises = (
-                    revises.__class__.objects.filter(uid__startswith=revises.stem_uid)
-                    .order_by("id")
-                    .last()
-                )
-                logger.warning("didn't find a version marked with `is_latest=True`")
+        latest_in_family = (
+            revises.__class__.objects.filter(uid__startswith=revises.stem_uid)
+            .order_by("uid")
+            .last()
+        )
+        if latest_in_family is not None and latest_in_family.uid != revises.uid:
+            revises = latest_in_family
+            logger.warning(
+                f"didn't pass the latest version in `revises`, retrieved it: {revises}"
+            )
         suid = revises.stem_uid
         vuid = increment_base62(revises.uid[-4:])  # type: ignore
     else:
@@ -294,3 +289,41 @@ def _adjust_is_latest_when_deleting_is_versioned(
                 f"new latest {registry.__name__} versions: {promoted_uids}"
             )
     return pks
+
+
+def reconcile_is_latest_within_branch(
+    registry: type[IsVersioned],
+    *,
+    branch_id: int,
+    db: str = "default",
+) -> int:
+    """Keep a single is_latest=True per version family in a branch.
+
+    Winner selection is based on newest created_at, tie-broken by highest pk.
+    Returns the number of records demoted from is_latest=True to False.
+    """
+    len_stem = registry._len_stem_uid
+    latest_records = list(
+        registry.objects.using(db)
+        .filter(branch_id=branch_id, is_latest=True)
+        .values("pk", "uid", "created_at")
+        .order_by("uid", "created_at", "pk")
+    )
+    if not latest_records:
+        return 0
+    winners_by_stem: dict[str, dict[str, Any]] = {}
+    losers: list[int] = []
+    for record in latest_records:
+        stem = record["uid"][:len_stem]
+        winner = winners_by_stem.get(stem)
+        if winner is None:
+            winners_by_stem[stem] = record
+            continue
+        if (record["created_at"], record["pk"]) > (winner["created_at"], winner["pk"]):
+            losers.append(winner["pk"])
+            winners_by_stem[stem] = record
+        else:
+            losers.append(record["pk"])
+    if not losers:
+        return 0
+    return registry.objects.using(db).filter(pk__in=losers).update(is_latest=False)

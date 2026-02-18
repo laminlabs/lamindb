@@ -183,6 +183,48 @@ def test_transform_versioning_based_on_revises():
     transform_v3.delete(permanent=True)
 
 
+def test_transform_versioning_across_branches_preserves_main_latest():
+    main_branch = ln.Branch.get(name="main")
+    ln.setup.switch(main_branch.name)
+    branch = ln.Branch(name="test_versioning_branch_latest").save()
+    transform_v1 = ln.Transform(
+        key="test-branch-aware-is-latest",
+        source_code="main-v1",
+        kind="pipeline",
+    ).save()
+    try:
+        ln.setup.switch(branch.name)
+        transform_v2 = ln.Transform(
+            key="test-branch-aware-is-latest",
+            revises=transform_v1,
+            source_code="feature-v2",
+            kind="pipeline",
+        ).save()
+        transform_v1.refresh_from_db()
+        assert transform_v1.is_latest
+        assert transform_v2.is_latest
+
+        # Passing an older revises still increments from the family max uid.
+        transform_v3 = ln.Transform(
+            key="test-branch-aware-is-latest",
+            revises=transform_v1,
+            source_code="feature-v3",
+            kind="pipeline",
+        ).save()
+        transform_v2.refresh_from_db()
+        transform_v1.refresh_from_db()
+        assert transform_v3.uid.endswith("0002")
+        assert not transform_v2.is_latest
+        assert transform_v3.is_latest
+        assert transform_v1.is_latest
+    finally:
+        ln.setup.switch(main_branch.name)
+        for uid in (transform_v1.uid[:-4],):
+            for record in ln.Transform.objects.filter(uid__startswith=uid):
+                record.delete(permanent=True)
+        branch.delete(permanent=True)
+
+
 def test_path_rename():
     # this is related to renames inside _add_to_version_family
     with open("test_new_path.txt", "w") as f:

@@ -1113,12 +1113,19 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
             try:
                 # save versioned record in presence of self._revises
                 if isinstance(self, IsVersioned) and self._revises is not None:
-                    assert self._revises.is_latest  # noqa: S101
                     revises = self._revises
-                    revises.is_latest = False
                     with transaction.atomic():
-                        revises._revises = None  # ensure we don't start a recursion
-                        revises.save()
+                        # For branch-aware models (SQLRecord), keep source-branch latest
+                        # intact and only demote within the same branch. For other
+                        # versioned models (e.g. blocks), keep previous behavior.
+                        should_demote = True
+                        if hasattr(revises, "branch_id") and hasattr(self, "branch_id"):
+                            should_demote = revises.branch_id == self.branch_id
+                        if should_demote:
+                            assert revises.is_latest  # noqa: S101
+                            revises.is_latest = False
+                            revises._revises = None  # ensure we don't start a recursion
+                            revises.save()
                         super().save(*args, **kwargs)  # type: ignore
                     self._revises = None
                 # save unversioned record
@@ -1467,14 +1474,14 @@ class Branch(BaseSQLRecord):
 
     Examples:
 
-        To create a branch and switch to it, run::
+        To create a contribution branch and switch to it, run::
 
             lamin switch -c my_branch
 
-        To merge a branch into `main`, run::
+        To merge a contribution branch into `main`, run::
 
             lamin switch main  # switch to the main branch
-            lamin merge my_branch  # merge 'my_branch' into main
+            lamin merge my_branch  # merge contribution branch into main
 
         To see the current branch along with other information, run::
 
@@ -1488,9 +1495,9 @@ class Branch(BaseSQLRecord):
 
             lamin annotate branch --comment "I think we should revisit this, tomorrow, WDYT?"
 
-        To describe the current branch, run::
+        To describe the current branch (optionally include comments), run::
 
-            lamin describe branch
+            lamin describe branch --include comments
 
         To trace on which branch a `SQLRecord` object was created, run::
 
@@ -1498,6 +1505,27 @@ class Branch(BaseSQLRecord):
 
         Just like Pull Requests on GitHub, branches are never deleted
         so that the provenance of a change stays traceable.
+
+    .. dropdown:: Managing `is_latest` during branching
+
+        `is_latest` is branch-aware during development and reconciled on merge.
+
+        - Creating a new version on a contribution branch keeps the previous
+          version on `main` as `is_latest=True`.
+        - After `lamin merge`, only one object per version family remains
+          with `is_latest=True` in the target branch.
+        - If both source and target branches have `is_latest=True`, the merged
+          branch keeps the newest object by `created_at`.
+
+        Example flow::
+
+            # before merge
+            # main: v1.is_latest=True
+            # contribution branch: v2(revises=v1).is_latest=True
+            lamin switch main
+            lamin merge my_branch
+            # after merge on main: v2.is_latest=True, v1.is_latest=False
+
     """
 
     class Meta:
