@@ -16,12 +16,13 @@ if TYPE_CHECKING:
 def merge(branch: str | Branch) -> None:
     """Merge a branch into the current branch.
 
-    All SQLRecord rows that have branch_id equal to the source branch's id
-    are updated to the current branch's id. One network request on PostgreSQL;
-    multiple on SQLite (one transaction).
+    All `SQLRecord` objects that have `branch_id` equal to the source branch's id
+    are updated to the current branch's id.
+
+    Find more info in the :class:`~lamindb.Branch` document.
 
     Args:
-        branch: Branch name, uid, or Branch instance to merge from.
+        branch: The source branch to merge from. Accepts a `name`, a `uid`, or the `Branch` object.
 
     Raises:
         DoesNotExist: If the branch does not exist.

@@ -1115,9 +1115,13 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                 if isinstance(self, IsVersioned) and self._revises is not None:
                     revises = self._revises
                     with transaction.atomic():
-                        # On cross-branch versioning we keep the source branch latest
-                        # marker intact and only demote within the same branch.
-                        if revises.branch_id == self.branch_id:
+                        # For branch-aware models (SQLRecord), keep source-branch latest
+                        # intact and only demote within the same branch. For other
+                        # versioned models (e.g. blocks), keep previous behavior.
+                        should_demote = True
+                        if hasattr(revises, "branch_id") and hasattr(self, "branch_id"):
+                            should_demote = revises.branch_id == self.branch_id
+                        if should_demote:
                             assert revises.is_latest  # noqa: S101
                             revises.is_latest = False
                             revises._revises = None  # ensure we don't start a recursion
@@ -1470,14 +1474,14 @@ class Branch(BaseSQLRecord):
 
     Examples:
 
-        To create a branch and switch to it, run::
+        To create a contribution branch and switch to it, run::
 
             lamin switch -c my_branch
 
-        To merge a branch into `main`, run::
+        To merge a contribution branch into `main`, run::
 
             lamin switch main  # switch to the main branch
-            lamin merge my_branch  # merge 'my_branch' into main
+            lamin merge my_branch  # merge contribution branch into main
 
         To see the current branch along with other information, run::
 
