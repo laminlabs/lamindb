@@ -1506,6 +1506,17 @@ class Branch(BaseSQLRecord):
         Just like Pull Requests on GitHub, branches are never deleted
         so that the provenance of a change stays traceable.
 
+        You can open a Merge Request in draft state::
+
+            branch = ln.Branch.get(name="my_branch")
+            branch.status = "draft"
+            branch.save()
+
+        To request review for a Merge Request, run::
+
+            branch.status = "review"
+            branch.save()
+
     .. dropdown:: Managing `is_latest` during branching
 
         `is_latest` is branch-aware during development and reconciled on merge.
@@ -1602,8 +1613,13 @@ class Branch(BaseSQLRecord):
     def status(self) -> BranchStatus:
         """Branch status.
 
-        Returns the status as a string, one of: `standalone`, `draft`,
-        `review`, `merged`, or `closed`.
+        Get and set the status of the branch:
+
+        - `standalone`: a standalone branch without Merge Request
+        - `draft`: Merge Request exists but is not ready for review
+        - `review`: Merge Request is ready for review
+        - `merged`: the branch was merged into another branch
+        - `closed`: Merge Request was closed without merging
 
         Example:
 
@@ -1611,6 +1627,16 @@ class Branch(BaseSQLRecord):
 
                 branch.status
                 #> 'standalone'
+
+            Open a Merge Request in draft state::
+
+                branch.status = "draft"
+                branch.save()
+
+            Request review for the Merge Request::
+
+                branch.status = "review"
+                branch.save()
         """
         if self._status_code == -2:
             return "closed"

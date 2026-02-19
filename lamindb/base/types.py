@@ -51,11 +51,11 @@ Any block expects Markdown as the formatting language.
 BranchStatus = Literal["standalone", "draft", "review", "merged", "closed"]
 """Branch status.
 
-- `standalone`: Branch has no merge request intent.
-- `draft`: Merge request exists but is not ready for review.
-- `review`: Merge request is ready for review.
-- `merged`: Merge request has been merged into another branch.
-- `closed`: Merge request was closed without merging.
+- `standalone`: Branch has no Merge Request intent.
+- `draft`: Merge Request exists but is not ready for review.
+- `review`: Merge Request is ready for review.
+- `merged`: Merge Request has been merged into another branch.
+- `closed`: Merge Request was closed without merging.
 """
 
 RunStatus = Literal[
