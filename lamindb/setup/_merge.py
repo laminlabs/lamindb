@@ -90,6 +90,6 @@ def merge(branch: str | Branch) -> None:
     for model in versioned_models:
         reconcile_is_latest_within_branch(model, branch_id=current.id)
 
-    source._status_code = 1  # merged
+    source._status_code = -1  # merged
     source.save(update_fields=["_status_code"])
     logger.important(f"merged branch '{source.name}' into '{current.name}'")

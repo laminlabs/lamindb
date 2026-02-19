@@ -7,7 +7,7 @@ import pytest
 def test_merge_branch_into_main():
     """Merge a branch into main: create branch, add ULabel, switch to main, merge."""
     branch = ln.Branch(name="test_merge_branch").save()
-    assert branch.status == "open"
+    assert branch.status == "standalone"
     ln.setup.switch(branch.name)
     assert ln.setup.settings.branch == branch
     assert ln.setup.settings.branch.name == "test_merge_branch"
@@ -18,7 +18,7 @@ def test_merge_branch_into_main():
 
     ln.setup.switch("main")
     assert ln.setup.settings.branch.name == "main"
-    assert ln.setup.settings.branch.status == "builtin"
+    assert ln.setup.settings.branch.status == "standalone"
     assert ln.ULabel.filter(name="test_merge_record").count() == 0
 
     ln.setup.merge("test_merge_branch")
@@ -42,16 +42,50 @@ def test_merge_branch_into_main():
 
 
 def test_branch_status_values():
-    """Builtin branches have status 'builtin', new branches 'open'."""
+    """Branch status maps codes onto standalone/draft/review/merged/closed."""
     main_branch = ln.Branch.get(name="main")
-    assert main_branch.status == "builtin"
+    assert main_branch.status == "standalone"
     archive_branch = ln.Branch.get(name="archive")
-    assert archive_branch.status == "builtin"
+    assert archive_branch.status == "standalone"
     trash_branch = ln.Branch.get(name="trash")
-    assert trash_branch.status == "builtin"
-    # User-created branch is "open" until merged
+    assert trash_branch.status == "standalone"
+    # User-created branch is standalone by default.
     branch = ln.Branch(name="test_status_branch").save()
-    assert branch.status == "open"
+    assert branch.status == "standalone"
+    branch.status = "draft"
+    branch.save()
+    branch.refresh_from_db()
+    assert branch.status == "draft"
+    branch.status = "review"
+    branch.save()
+    branch.refresh_from_db()
+    assert branch.status == "review"
+    branch.status = "closed"
+    branch.save()
+    branch.refresh_from_db()
+    assert branch.status == "closed"
+    branch.delete(permanent=True)
+
+
+def test_draft_review_and_close_merge_request_status():
+    branch = ln.Branch(name="test_mr_draft_review_close").save()
+    assert branch.status == "standalone"
+
+    branch.status = "draft"
+    branch.save()
+    branch.refresh_from_db()
+    assert branch.status == "draft"
+
+    branch.status = "review"
+    branch.save()
+    branch.refresh_from_db()
+    assert branch.status == "review"
+
+    branch.status = "closed"
+    branch.save()
+    branch.refresh_from_db()
+    assert branch.status == "closed"
+
     branch.delete(permanent=True)
 
 

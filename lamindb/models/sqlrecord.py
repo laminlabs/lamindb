@@ -1478,6 +1478,28 @@ class Branch(BaseSQLRecord):
 
             lamin switch -c my_branch
 
+        Open a Merge Request for a branch:
+
+        .. tab-set::
+
+            .. tab-item:: CLI
+
+                .. code-block:: bash
+
+                    lamin update branch --status draft  # for current branch
+                    lamin update branch --name my_branch --status review  # for any branch
+
+            .. tab-item:: Python
+
+                .. code-block:: python
+
+                    branch = ln.Branch.get(name="my_branch")
+                    branch.status = "draft"
+                    branch.save()
+
+                    branch.status = "review"
+                    branch.save()
+
         To merge a contribution branch into `main`, run::
 
             lamin switch main  # switch to the main branch
@@ -1576,7 +1598,7 @@ class Branch(BaseSQLRecord):
     )
     """Creator of branch."""
     _status_code: int = models.SmallIntegerField(default=0, db_default=0, db_index=True)
-    """Status code. 0: builtin (main/archive/trash) or open; 1: merged."""
+    """Status code. -2: closed; -1: merged; 0: standalone; 1: draft; 2: review."""
     ablocks: RelatedManager[BranchBlock]
     """Attached blocks ← :attr:`~lamindb.BranchBlock.branch`."""
     users: RelatedManager[User] = models.ManyToManyField(
@@ -1602,20 +1624,56 @@ class Branch(BaseSQLRecord):
     def status(self) -> BranchStatus:
         """Branch status.
 
-        Returns the status as a string, one of: `open`, `merged`, or `builtin`.
+        Get and set the status of the branch:
+
+        - `standalone`: a standalone branch without Merge Request
+        - `draft`: Merge Request exists but is not ready for review
+        - `review`: Merge Request is ready for review
+        - `merged`: the branch was merged into another branch
+        - `closed`: Merge Request was closed without merging
 
         Example:
 
             See the status of a branch::
 
                 branch.status
-                #> 'open'
+                #> 'standalone'
+
+            Open a Merge Request in draft state::
+
+                branch.status = "draft"
+                branch.save()
+
+            Request review for the Merge Request::
+
+                branch.status = "review"
+                branch.save()
         """
-        if self._status_code == 1:
+        if self._status_code == -2:
+            return "closed"
+        if self._status_code == -1:
             return "merged"
-        if self.name in ("main", "archive", "trash"):
-            return "builtin"
-        return "open"
+        if self._status_code == 1:
+            return "draft"
+        if self._status_code == 2:
+            return "review"
+        return "standalone"
+
+    @status.setter
+    def status(self, value: BranchStatus) -> None:
+        status_to_code = {
+            "closed": -2,
+            "merged": -1,
+            "standalone": 0,
+            "draft": 1,
+            "review": 2,
+        }
+        if value not in status_to_code:
+            raise ValueError(
+                "Invalid branch status. Expected one of: "
+                "'standalone', 'draft', 'review', 'merged', 'closed'."
+            )
+        self._status_code = status_to_code[value]
 
     @overload
     def __init__(
