@@ -42,7 +42,7 @@ def test_merge_branch_into_main():
 
 
 def test_branch_status_values():
-    """Branch status maps codes onto standalone/open/closed/merged."""
+    """Branch status maps codes onto standalone/draft/review/merged/closed."""
     main_branch = ln.Branch.get(name="main")
     assert main_branch.status == "standalone"
     archive_branch = ln.Branch.get(name="archive")
@@ -52,10 +52,14 @@ def test_branch_status_values():
     # User-created branch is standalone by default.
     branch = ln.Branch(name="test_status_branch").save()
     assert branch.status == "standalone"
-    branch.status = "open"
+    branch.status = "draft"
     branch.save()
     branch.refresh_from_db()
-    assert branch.status == "open"
+    assert branch.status == "draft"
+    branch.status = "review"
+    branch.save()
+    branch.refresh_from_db()
+    assert branch.status == "review"
     branch.status = "closed"
     branch.save()
     branch.refresh_from_db()
@@ -63,14 +67,19 @@ def test_branch_status_values():
     branch.delete(permanent=True)
 
 
-def test_open_and_close_merge_request_status():
-    branch = ln.Branch(name="test_mr_open_close").save()
+def test_draft_review_and_close_merge_request_status():
+    branch = ln.Branch(name="test_mr_draft_review_close").save()
     assert branch.status == "standalone"
 
-    branch.status = "open"
+    branch.status = "draft"
     branch.save()
     branch.refresh_from_db()
-    assert branch.status == "open"
+    assert branch.status == "draft"
+
+    branch.status = "review"
+    branch.save()
+    branch.refresh_from_db()
+    assert branch.status == "review"
 
     branch.status = "closed"
     branch.save()

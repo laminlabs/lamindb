@@ -1576,7 +1576,7 @@ class Branch(BaseSQLRecord):
     )
     """Creator of branch."""
     _status_code: int = models.SmallIntegerField(default=0, db_default=0, db_index=True)
-    """Status code. 0: standalone; 1: merged; 2: open; 3: closed."""
+    """Status code. -2: closed; -1: merged; 0: standalone; 1: draft; 2: review."""
     ablocks: RelatedManager[BranchBlock]
     """Attached blocks ← :attr:`~lamindb.BranchBlock.branch`."""
     users: RelatedManager[User] = models.ManyToManyField(
@@ -1602,8 +1602,8 @@ class Branch(BaseSQLRecord):
     def status(self) -> BranchStatus:
         """Branch status.
 
-        Returns the status as a string, one of: `standalone`, `merged`, `open`,
-        or `closed`.
+        Returns the status as a string, one of: `standalone`, `draft`,
+        `review`, `merged`, or `closed`.
 
         Example:
 
@@ -1612,26 +1612,29 @@ class Branch(BaseSQLRecord):
                 branch.status
                 #> 'standalone'
         """
-        if self._status_code == 1:
-            return "merged"
-        if self._status_code == 2:
-            return "open"
-        if self._status_code == 3:
+        if self._status_code == -2:
             return "closed"
+        if self._status_code == -1:
+            return "merged"
+        if self._status_code == 1:
+            return "draft"
+        if self._status_code == 2:
+            return "review"
         return "standalone"
 
     @status.setter
     def status(self, value: BranchStatus) -> None:
         status_to_code = {
+            "closed": -2,
+            "merged": -1,
             "standalone": 0,
-            "merged": 1,
-            "open": 2,
-            "closed": 3,
+            "draft": 1,
+            "review": 2,
         }
         if value not in status_to_code:
             raise ValueError(
                 "Invalid branch status. Expected one of: "
-                "'standalone', 'merged', 'open', 'closed'."
+                "'standalone', 'draft', 'review', 'merged', 'closed'."
             )
         self._status_code = status_to_code[value]
 
