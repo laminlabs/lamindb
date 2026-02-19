@@ -1576,7 +1576,7 @@ class Branch(BaseSQLRecord):
     )
     """Creator of branch."""
     _status_code: int = models.SmallIntegerField(default=0, db_default=0, db_index=True)
-    """Status code. 0: builtin (main/archive/trash) or open; 1: merged."""
+    """Status code. 0: standalone; 1: merged; 2: open; 3: closed."""
     ablocks: RelatedManager[BranchBlock]
     """Attached blocks ← :attr:`~lamindb.BranchBlock.branch`."""
     users: RelatedManager[User] = models.ManyToManyField(
@@ -1602,20 +1602,38 @@ class Branch(BaseSQLRecord):
     def status(self) -> BranchStatus:
         """Branch status.
 
-        Returns the status as a string, one of: `open`, `merged`, or `builtin`.
+        Returns the status as a string, one of: `standalone`, `merged`, `open`,
+        or `closed`.
 
         Example:
 
             See the status of a branch::
 
                 branch.status
-                #> 'open'
+                #> 'standalone'
         """
         if self._status_code == 1:
             return "merged"
-        if self.name in ("main", "archive", "trash"):
-            return "builtin"
-        return "open"
+        if self._status_code == 2:
+            return "open"
+        if self._status_code == 3:
+            return "closed"
+        return "standalone"
+
+    @status.setter
+    def status(self, value: BranchStatus) -> None:
+        status_to_code = {
+            "standalone": 0,
+            "merged": 1,
+            "open": 2,
+            "closed": 3,
+        }
+        if value not in status_to_code:
+            raise ValueError(
+                "Invalid branch status. Expected one of: "
+                "'standalone', 'merged', 'open', 'closed'."
+            )
+        self._status_code = status_to_code[value]
 
     @overload
     def __init__(

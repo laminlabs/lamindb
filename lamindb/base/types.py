@@ -48,12 +48,13 @@ BlockKind = Literal["readme", "comment"]
 Any block expects Markdown as the formatting language.
 """
 
-BranchStatus = Literal["builtin", "open", "merged"]
+BranchStatus = Literal["standalone", "merged", "open", "closed"]
 """Branch status.
 
-- `builtin`: One of the predefined branches (`main`, `archive`, `trash`).
-- `open`: User-created branch that has not been merged.
-- `merged`: Branch that has been merged into another.
+- `standalone`: Branch has no merge request intent.
+- `merged`: Branch has been merged into another branch.
+- `open`: Merge request for this branch is open.
+- `closed`: Merge request for this branch was closed without merging.
 """
 
 RunStatus = Literal[
