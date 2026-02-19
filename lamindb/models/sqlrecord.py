@@ -1486,8 +1486,8 @@ class Branch(BaseSQLRecord):
 
                 .. code-block:: bash
 
-                    lamin update branch --name my_branch --status draft
-                    lamin update branch --name my_branch --status review
+                    lamin update branch --status draft  # for current branch
+                    lamin update branch --name my_branch --status review  # for any branch
 
             .. tab-item:: Python
 
