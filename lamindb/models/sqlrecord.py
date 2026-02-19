@@ -1478,6 +1478,28 @@ class Branch(BaseSQLRecord):
 
             lamin switch -c my_branch
 
+        Open a Merge Request for a branch:
+
+        .. tab-set::
+
+            .. tab-item:: CLI
+
+                .. code-block:: bash
+
+                    lamin update branch --name my_branch --status draft
+                    lamin update branch --name my_branch --status review
+
+            .. tab-item:: Python
+
+                .. code-block:: python
+
+                    branch = ln.Branch.get(name="my_branch")
+                    branch.status = "draft"
+                    branch.save()
+
+                    branch.status = "review"
+                    branch.save()
+
         To merge a contribution branch into `main`, run::
 
             lamin switch main  # switch to the main branch
@@ -1505,17 +1527,6 @@ class Branch(BaseSQLRecord):
 
         Just like Pull Requests on GitHub, branches are never deleted
         so that the provenance of a change stays traceable.
-
-        You can open a Merge Request in draft state::
-
-            branch = ln.Branch.get(name="my_branch")
-            branch.status = "draft"
-            branch.save()
-
-        To request review for a Merge Request, run::
-
-            branch.status = "review"
-            branch.save()
 
     .. dropdown:: Managing `is_latest` during branching
 
