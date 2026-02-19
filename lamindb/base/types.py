@@ -51,11 +51,11 @@ Any block expects Markdown as the formatting language.
 BranchStatus = Literal["standalone", "draft", "review", "merged", "closed"]
 """Branch status.
 
-- `standalone`: Branch has no Merge Request intent.
-- `draft`: Merge Request exists but is not ready for review.
-- `review`: Merge Request is ready for review.
-- `merged`: Merge Request has been merged into another branch.
-- `closed`: Merge Request was closed without merging.
+- `standalone`: a standalone branch without Merge Request
+- `draft`: Merge Request exists but is not ready for review
+- `review`: Merge Request is ready for review
+- `merged`: the branch was merged into another branch
+- `closed`: Merge Request was closed without merging
 """
 
 RunStatus = Literal[
@@ -63,12 +63,12 @@ RunStatus = Literal[
 ]
 """Run status.
 
-- `scheduled`: Run is scheduled (not yet started).
-- `restarted`: Run was restarted.
-- `started`: Run has started.
-- `completed`: Run completed successfully.
-- `errored`: Run ended with an error.
-- `aborted`: Run was aborted.
+- `scheduled`: run is scheduled
+- `restarted`: run was restarted
+- `started`: run has started
+- `completed`: run completed successfully
+- `errored`: run ended with an error
+- `aborted`: run was aborted
 """
 
 DtypeObject = int | float | str | bool | datetime.date | datetime.datetime | dict

@@ -437,7 +437,14 @@ class Run(SQLRecord, TracksUpdates):
     def status(self) -> RunStatus:
         """Run status.
 
-        Returns the status as a string, one of: `scheduled`, `restarted`, `started`, `completed`, `errored`, `aborted`.
+        Get the status of the run:
+
+        - `scheduled`: run is scheduled
+        - `restarted`: run was restarted
+        - `started`: run has started
+        - `completed`: run completed successfully
+        - `errored`: run ended with an error
+        - `aborted`: run was aborted
 
         Example:
 
