@@ -34,7 +34,7 @@ dependencies = [
     "typing_extensions!=4.6.0",
     "python-dateutil",
     "pandas>=2.0.0,<3.0.0",  # for .infer_objects(copy=False) in lamin-utils; not yet compatible with Pandas 3.0.0
-    "anndata>=0.8.0,<=0.12.7",  # backed sparse is incompatible with scipy 1.15.0 for anndata 1.11.1
+    "anndata>=0.10.0,<=0.12.10",  # backed sparse is incompatible with scipy 1.15.0 for anndata 1.11.1
     "scipy<1.17.0", # 1.17.0 is incompatible with anndata<0.12.7
     "fsspec",
     "graphviz",
