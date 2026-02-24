@@ -713,8 +713,8 @@ class Context:
             if stream_tracking is not None:
                 log_to_file = stream_tracking
             else:
-                # Script runs get stream tracking; function runs only when stream_tracking
-                # is passed (flow=True from decorator); steps do not (avoids parallel conflicts).
+                # Script runs get stream tracking; decorator-based runs only when
+                # stream_tracking is passed (flow=True from decorator).
                 log_to_file = self.transform.kind == "script"
         if log_to_file:
             self._stream_tracker.start(run)
@@ -722,9 +722,9 @@ class Context:
         if self._logging_message_imports:
             logger.important(self._logging_message_imports)
         if uid_was_none and self._path is not None:
-            if self._transform.kind == "function":
-                # Decorators pass stream_tracking=True for flows and False for steps.
-                # Show this recommendation for flows only, never for steps.
+            # Flow/step decorators set run.entrypoint. Show this recommendation only
+            # for flows (`stream_tracking=True`) and suppress it for steps.
+            if entrypoint is not None:
                 if stream_tracking:
                     logger.important_hint(
                         f'recommendation: to identify the flow across renames, pass the uid: @ln.flow(uid="{self.transform.uid[:-4]}")'

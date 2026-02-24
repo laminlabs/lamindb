@@ -80,7 +80,7 @@ def _create_tracked_decorator(
                 path=path,
                 key=key,
                 source_code=inspect.getsource(func) if path is None else None,
-                kind="function",
+                kind="script",
                 entrypoint=func.__qualname__,
                 params=params,
                 new_run=True,
@@ -122,6 +122,7 @@ def flow(
     You will be able to see inputs, outputs, and parameters of the function in the data lineage graph.
 
     The decorator creates a :class:`~lamindb.Transform` object that maps onto the file in which the function is defined.
+    The transform is created with kind `"script"`.
     The function maps onto an entrypoint of the `transform`.
     A function execution creates a :class:`~lamindb.Run` object that stores the function name in `run.entrypoint`.
 
@@ -160,6 +161,7 @@ def step(uid: str | None = None) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """Use `@step()` to track a function as a step.
 
     Behaves like :func:`~lamindb.flow()`, but acts as a step in a workflow and does not create a global run context.
+    The transform is created with kind `"script"`.
     It errors if no initiating run (either global or local run context) exists.
 
     See :func:`~lamindb.flow()` for examples.
