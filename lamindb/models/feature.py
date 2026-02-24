@@ -1006,12 +1006,28 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
                 dtype="path",   # will be validated as `str`
             ).save()
 
-    Note:
+        Restrict valid categories via `cat_filters`::
 
-        *Features* vs. *labels*:
+            source = bt.Source.get(name="My ontology")
+            ln.Feature(
+                name="disease",
+                dtype=bt.Disease,
+                cat_filters={"source": source},
+            ).save()
 
-        1. A feature qualifies *what* is measured, i.e., a numerical or categorical random variable
-        2. A label *is* a measured value of a categorical feature, i.e., a category
+        Restrict artifacts to those matching a specific schema::
+
+            schema = ln.Schema.get(name="my-schema")
+            ln.Feature(
+                name="valid_artifact",
+                dtype=ln.Artifact,
+                cat_filters={"schema": schema},
+            ).save()
+
+    .. dropdown:: What is the difference between features and labels?
+
+        1. A feature qualifies what is measured, i.e., a numerical or categorical random variable
+        2. A label *is* a measured value of a categorical variable, i.e., a category
 
         Example: When annotating a dataset that measures expression of 30k genes,
         the gene identifiers serve as feature identifiers, and the features are expression measurements for these genes.
