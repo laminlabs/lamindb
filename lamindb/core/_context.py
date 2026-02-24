@@ -385,6 +385,7 @@ class Context:
         self._stream_tracker: LogStreamTracker = LogStreamTracker()
         self._is_finish_retry: bool = False
         self._notebook_runner: str | None = None
+        self._is_step_decorator_run: bool = False
 
     @property
     def transform(self) -> Transform | None:
@@ -571,6 +572,9 @@ class Context:
                     )
         self._logging_message_track = ""
         self._logging_message_imports = ""
+        self._is_step_decorator_run = (
+            entrypoint is not None and stream_tracking is False
+        )
         if transform is not None and isinstance(transform, str):
             self.uid = transform
             transform = None
@@ -756,7 +760,11 @@ class Context:
                 logger.important_hint(
                     f'recommendation: to identify the {notebook_or_script} across renames, pass the uid: ln{r_or_python}track("{self.transform.uid[:-4]}"{kwargs_str})'
                 )
-        if self.transform.kind == "script" and self._path is not None:
+        if (
+            self.transform.kind == "script"
+            and self._path is not None
+            and not self._is_step_decorator_run
+        ):
             save_context_core(
                 run=run,
                 transform=self.transform,
@@ -1136,6 +1144,7 @@ class Context:
             self._transform = None
             self._version = None
             self._description = None
+            self._is_step_decorator_run = False
             return None
         self.run._status_code = 0
         if self.transform.kind == "notebook":
@@ -1154,7 +1163,7 @@ class Context:
         else:
             self.run.finished_at = datetime.now(timezone.utc)
             self.run.save()  # persist finished_at (save_run_logs only saves when log file exists)
-            if ln_setup.settings.instance.is_on_hub:
+            if ln_setup.settings.instance.is_on_hub and not self._is_step_decorator_run:
                 instance_slug = ln_setup.settings.instance.slug
                 ui_url = ln_setup.settings.instance.ui_url
                 logger.important(
@@ -1169,6 +1178,7 @@ class Context:
         self._transform = None
         self._version = None
         self._description = None
+        self._is_step_decorator_run = False
 
 
 context: Context = Context()
