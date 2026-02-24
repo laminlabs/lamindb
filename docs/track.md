@@ -169,6 +169,8 @@ dbs/
 
 ### Track agent plans
 
+<!-- #region -->
+
 Saving an agent plan automatically tags with `artifact.kind = "plan"` and infers a `key` starting with `.plans/`:
 
 ```bash
@@ -185,6 +187,8 @@ ln.track(plan=".plans/my-agent-plan.md")
 This links the `plan` artifact to a run in the same way as `transform`, an initiating run (`initiated_by_run`), and `report` / `environment` artifacts are linked to the run.
 
 While `transform` acts as the deterministic source code for the run and `initiated_by_run` enables higher-level runs in workflow orchestration, the agent `plan` complements these by linking a plan that steers a non-deterministic agent.
+
+<!-- #endregion -->
 
 (manage-workflows)=
 
