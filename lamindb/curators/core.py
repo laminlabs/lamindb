@@ -1520,6 +1520,12 @@ class CatVector:
                 registry = field.field.model
                 field_name = field.field.name
                 filter_kwargs: dict[str, str | SQLRecord] = {}
+                filter_str = result.get("filter_str", "")
+                if filter_str:
+                    parsed_filters = parse_filter_string(filter_str)
+                    filter_kwargs.update(
+                        resolve_relation_filters(parsed_filters, registry)
+                    )
                 if registry.__base__.__name__ == "BioRecord":
                     organism_record = get_organism_record_from_field(
                         field=field,
@@ -1558,16 +1564,21 @@ class CatVector:
                         self._type_record, f"query_{registry.__name__.lower()}s"
                     )
                     self._subtype_query_set = query_sub_types()
+                subtype_query_set = (
+                    self._subtype_query_set.filter(**filter_kwargs)
+                    if filter_kwargs
+                    else self._subtype_query_set
+                )
                 values_array = np.array(remaining_values)
-                validated_mask = self._subtype_query_set.validate(
+                validated_mask = subtype_query_set.validate(
                     values_array, field=field, mute=True
                 )
                 validated_values, non_validated_values = (
                     list(values_array[validated_mask]),
                     list(values_array[~validated_mask]),
                 )
-                records = self._subtype_query_set.filter(
-                    **{f"{field_name}__in": validated_values}, **filter_kwargs
+                records = subtype_query_set.filter(
+                    **{f"{field_name}__in": validated_values}
                 ).to_list()
                 records = keep_topmost_matches(records)
             else:
@@ -1673,11 +1684,16 @@ class CatVector:
                 break
             field = result["field"]
             registry = field.field.model
+            filter_kwargs = self._filter_kwargs.copy()
+            filter_str = result.get("filter_str", "")
+            if filter_str:
+                parsed_filters = parse_filter_string(filter_str)
+                filter_kwargs.update(resolve_relation_filters(parsed_filters, registry))
             registry_or_queryset = registry
             if self._subtype_query_set is not None and registry == self._registry:
                 registry_or_queryset = self._subtype_query_set
             # first inspect against the registry
-            inspect_result = registry_or_queryset.filter().inspect(
+            inspect_result = registry_or_queryset.filter(**filter_kwargs).inspect(
                 non_validated,
                 field=field,
                 mute=True,
