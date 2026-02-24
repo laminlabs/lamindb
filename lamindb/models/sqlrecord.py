@@ -1478,28 +1478,6 @@ class Branch(BaseSQLRecord):
 
             lamin switch -c my_branch
 
-        Open a Merge Request for a branch:
-
-        .. tab-set::
-
-            .. tab-item:: CLI
-
-                .. code-block:: bash
-
-                    lamin update branch --status draft  # for current branch
-                    lamin update branch --name my_branch --status review  # for any branch
-
-            .. tab-item:: Python
-
-                .. code-block:: python
-
-                    branch = ln.Branch.get(name="my_branch")
-                    branch.status = "draft"
-                    branch.save()
-
-                    branch.status = "review"
-                    branch.save()
-
         To merge a contribution branch into `main`, run::
 
             lamin switch main  # switch to the main branch
@@ -1524,6 +1502,28 @@ class Branch(BaseSQLRecord):
         To trace on which branch a `SQLRecord` object was created, run::
 
             sqlrecord.created_on.describe()
+
+        To open a Merge Request for a branch, run:
+
+        .. tab-set::
+
+            .. tab-item:: CLI
+
+                .. code-block:: bash
+
+                    lamin update branch --status draft  # for current branch
+                    lamin update branch --name my_branch --status review  # for any branch
+
+            .. tab-item:: Python
+
+                .. code-block:: python
+
+                    branch = ln.Branch.get(name="my_branch")
+                    branch.status = "draft"
+                    branch.save()
+
+                    branch.status = "review"
+                    branch.save()
 
         Just like Pull Requests on GitHub, branches are never deleted
         so that the provenance of a change stays traceable.
