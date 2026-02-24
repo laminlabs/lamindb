@@ -999,7 +999,7 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
                 dtype="path",   # will be validated as `str`
             ).save()
 
-        Restrict valid categories via `cat_filters`::
+        Restrict categories via filters::
 
             # restrict diseases to those matching a specific ontology version
             source = bt.Source.get(name="My ontology")  # a registry for ontology versions
@@ -1015,6 +1015,13 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
                 name="valid_artifact",
                 dtype=ln.Artifact,
                 cat_filters={"schema": schema},
+            ).save()
+
+        A feature accepting multiple categorical types - a union type::
+
+            ln.Feature(
+                name="cell_types",
+                dtype="cat[bionty.Tissue.ontology_id|bionty.CellType.ontology_id]"
             ).save()
 
     .. dropdown:: What is the difference between features and labels?
