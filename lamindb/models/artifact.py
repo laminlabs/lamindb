@@ -315,7 +315,7 @@ def process_data(
     # in case we have an in-memory representation, we need to write it to disk
     if memory_rep is not None:
         path = settings.cache_dir / f"{provisional_uid}{suffix}"
-        logger.important("writing the in-memory object into cache")
+        logger.info("writing the in-memory object into cache")
         if to_disk_kwargs is None:
             to_disk_kwargs = {}
         _s().write_to_disk(data, path, **to_disk_kwargs)

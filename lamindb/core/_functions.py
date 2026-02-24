@@ -66,6 +66,10 @@ def _create_tracked_decorator(
             # do not pass path when function is defined in an ipython cell
             if path_raw is not None and Path(path_raw).exists():
                 path = Path(path_raw)
+            source_code = inspect.getsource(func) if path is None else None
+            transform_kind: Literal["function", "script"] = (
+                "function" if path is None else "script"
+            )
             caller_module = func.__module__
             key = get_key_from_module(caller_module)
             if (
@@ -79,8 +83,8 @@ def _create_tracked_decorator(
                 uid,
                 path=path,
                 key=key,
-                source_code=inspect.getsource(func) if path is None else None,
-                kind="function",
+                source_code=source_code,
+                kind=transform_kind,
                 entrypoint=func.__qualname__,
                 params=params,
                 new_run=True,
@@ -121,11 +125,13 @@ def flow(
 
     You will be able to see inputs, outputs, and parameters of the function in the data lineage graph.
 
-    The decorator creates a :class:`~lamindb.Transform` object that maps onto the file in which the function is defined.
+    The decorator creates a :class:`~lamindb.Transform` with kind `"script"` that maps onto the file in
+    which the function is defined.
     The function maps onto an entrypoint of the `transform`.
     A function execution creates a :class:`~lamindb.Run` object that stores the function name in `run.entrypoint`.
+    If the function is defined in a notebook cell or another ephemeral context, the transform is created with kind `"function"`.
 
-    By default, like `ln.track()`, creates a global run context that can be accessed with `ln.context.run`.
+    By default `@ln.flow()`, like `ln.track()`, creates a global run context that can be accessed with `ln.context.run`.
 
     Args:
         uid: Persist the uid to identify a transform across renames.
@@ -159,7 +165,8 @@ def flow(
 def step(uid: str | None = None) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """Use `@step()` to track a function as a step.
 
-    Behaves like :func:`~lamindb.flow()`, but acts as a step in a workflow and does not create a global run context.
+    Behaves like :func:`~lamindb.flow()`, but acts as a step in a workflow and does
+    not create a global run context.
     It errors if no initiating run (either global or local run context) exists.
 
     See :func:`~lamindb.flow()` for examples.

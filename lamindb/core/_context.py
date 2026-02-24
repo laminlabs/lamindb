@@ -385,6 +385,7 @@ class Context:
         self._stream_tracker: LogStreamTracker = LogStreamTracker()
         self._is_finish_retry: bool = False
         self._notebook_runner: str | None = None
+        self._is_step_decorator_run: bool = False
 
     @property
     def transform(self) -> Transform | None:
@@ -571,6 +572,9 @@ class Context:
                     )
         self._logging_message_track = ""
         self._logging_message_imports = ""
+        self._is_step_decorator_run = (
+            entrypoint is not None and stream_tracking is False
+        )
         if transform is not None and isinstance(transform, str):
             self.uid = transform
             transform = None
@@ -666,7 +670,10 @@ class Context:
                 if plan_record is not None:
                     run.plan = plan_record
                     run.save()
-                self._logging_message_track += f", re-started Run('{run.uid}') at {format_field_value(run.started_at)}"
+                entrypoint_str = (
+                    f", entrypoint='{entrypoint}'" if entrypoint is not None else ""
+                )
+                self._logging_message_track += f", re-started Run('{run.uid}'{entrypoint_str}) at {format_field_value(run.started_at)}"
 
         if run is None:  # create new run
             run = Run(transform=self._transform, plan=plan_record)
@@ -676,7 +683,10 @@ class Context:
                 run.initiated_by_run = initiated_by_run
             run.started_at = datetime.now(timezone.utc)
             run._status_code = -1  # started
-            self._logging_message_track += f", started new Run('{run.uid}') at {format_field_value(run.started_at)}"
+            entrypoint_str = (
+                f", entrypoint='{entrypoint}'" if entrypoint is not None else ""
+            )
+            self._logging_message_track += f", started new Run('{run.uid}'{entrypoint_str}) at {format_field_value(run.started_at)}"
         # can only determine at ln.finish() if run was consecutive in
         # interactive session, otherwise, is consecutive
         run.is_consecutive = True if is_run_from_ipython else None
@@ -707,8 +717,8 @@ class Context:
             if stream_tracking is not None:
                 log_to_file = stream_tracking
             else:
-                # Script runs get stream tracking; function runs only when stream_tracking
-                # is passed (flow=True from decorator); steps do not (avoids parallel conflicts).
+                # Script runs get stream tracking; decorator-based runs only when
+                # stream_tracking is passed (flow=True from decorator).
                 log_to_file = self.transform.kind == "script"
         if log_to_file:
             self._stream_tracker.start(run)
@@ -716,33 +726,45 @@ class Context:
         if self._logging_message_imports:
             logger.important(self._logging_message_imports)
         if uid_was_none and self._path is not None:
-            notebook_or_script = (
-                "notebook" if self._transform.kind == "notebook" else "script"
-            )
-            r_or_python = "." if self._path.suffix in {".py", ".ipynb"} else "$"
-            project_str = (
-                f', project="{project if isinstance(project, str) else project.name}"'
-                if project is not None
-                else ""
-            )
-            space_str = (
-                f', space="{space if isinstance(space, str) else space.name}"'
-                if space is not None
-                else ""
-            )
-            plan_str = (
-                f', plan="{plan if isinstance(plan, str) else plan.key}"'
-                if plan is not None
-                else ""
-            )
-            params_str = (
-                ", params={...}" if params is not None else ""
-            )  # do not put the values because typically parameterized by user
-            kwargs_str = f"{project_str}{space_str}{plan_str}{params_str}"
-            logger.important_hint(
-                f'recommendation: to identify the {notebook_or_script} across renames, pass the uid: ln{r_or_python}track("{self.transform.uid[:-4]}"{kwargs_str})'
-            )
-        if self.transform.kind == "script" and self._path is not None:
+            # Flow/step decorators set run.entrypoint. Show this recommendation only
+            # for flows (`stream_tracking=True`) and suppress it for steps.
+            if entrypoint is not None:
+                if stream_tracking:
+                    logger.important_hint(
+                        f'recommendation: to identify the script across renames, pass the uid: @ln.flow(uid="{self.transform.uid[:-4]}")'
+                    )
+            else:
+                notebook_or_script = (
+                    "notebook" if self._transform.kind == "notebook" else "script"
+                )
+                r_or_python = "." if self._path.suffix in {".py", ".ipynb"} else "$"
+                project_str = (
+                    f', project="{project if isinstance(project, str) else project.name}"'
+                    if project is not None
+                    else ""
+                )
+                space_str = (
+                    f', space="{space if isinstance(space, str) else space.name}"'
+                    if space is not None
+                    else ""
+                )
+                plan_str = (
+                    f', plan="{plan if isinstance(plan, str) else plan.key}"'
+                    if plan is not None
+                    else ""
+                )
+                params_str = (
+                    ", params={...}" if params is not None else ""
+                )  # do not put the values because typically parameterized by user
+                kwargs_str = f"{project_str}{space_str}{plan_str}{params_str}"
+                logger.important_hint(
+                    f'recommendation: to identify the {notebook_or_script} across renames, pass the uid: ln{r_or_python}track("{self.transform.uid[:-4]}"{kwargs_str})'
+                )
+        if (
+            self.transform.kind == "script"
+            and self._path is not None
+            and not self._is_step_decorator_run
+        ):
             save_context_core(
                 run=run,
                 transform=self.transform,
@@ -1122,6 +1144,7 @@ class Context:
             self._transform = None
             self._version = None
             self._description = None
+            self._is_step_decorator_run = False
             return None
         self.run._status_code = 0
         if self.transform.kind == "notebook":
@@ -1140,7 +1163,7 @@ class Context:
         else:
             self.run.finished_at = datetime.now(timezone.utc)
             self.run.save()  # persist finished_at (save_run_logs only saves when log file exists)
-            if ln_setup.settings.instance.is_on_hub:
+            if ln_setup.settings.instance.is_on_hub and not self._is_step_decorator_run:
                 instance_slug = ln_setup.settings.instance.slug
                 ui_url = ln_setup.settings.instance.ui_url
                 logger.important(
@@ -1155,6 +1178,7 @@ class Context:
         self._transform = None
         self._version = None
         self._description = None
+        self._is_step_decorator_run = False
 
 
 context: Context = Context()
