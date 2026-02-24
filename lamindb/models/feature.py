@@ -992,13 +992,6 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
                 dtype=list[bt.CellType],  # or list[str] for a list of strings
             ).save()
 
-        A feature accepting multiple category types - a union type::
-
-            ln.Feature(
-                name="cell_types",
-                dtype="cat[bionty.Tissue.ontology_id|bionty.CellType.ontology_id]"
-            ).save()
-
         A path feature::
 
             ln.Feature(
@@ -1008,15 +1001,15 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
 
         Restrict valid categories via `cat_filters`::
 
-            source = bt.Source.get(name="My ontology")
+            # restrict diseases to those matching a specific ontology version
+            source = bt.Source.get(name="My ontology")  # a registry for ontology versions
             ln.Feature(
                 name="disease",
                 dtype=bt.Disease,
                 cat_filters={"source": source},
             ).save()
 
-        Restrict artifacts to those matching a specific schema::
-
+            # restrict artifacts to those matching a specific schema
             schema = ln.Schema.get(name="my-schema")
             ln.Feature(
                 name="valid_artifact",
