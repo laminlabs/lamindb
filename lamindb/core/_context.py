@@ -722,32 +722,40 @@ class Context:
         if self._logging_message_imports:
             logger.important(self._logging_message_imports)
         if uid_was_none and self._path is not None:
-            notebook_or_script = (
-                "notebook" if self._transform.kind == "notebook" else "script"
-            )
-            r_or_python = "." if self._path.suffix in {".py", ".ipynb"} else "$"
-            project_str = (
-                f', project="{project if isinstance(project, str) else project.name}"'
-                if project is not None
-                else ""
-            )
-            space_str = (
-                f', space="{space if isinstance(space, str) else space.name}"'
-                if space is not None
-                else ""
-            )
-            plan_str = (
-                f', plan="{plan if isinstance(plan, str) else plan.key}"'
-                if plan is not None
-                else ""
-            )
-            params_str = (
-                ", params={...}" if params is not None else ""
-            )  # do not put the values because typically parameterized by user
-            kwargs_str = f"{project_str}{space_str}{plan_str}{params_str}"
-            logger.important_hint(
-                f'recommendation: to identify the {notebook_or_script} across renames, pass the uid: ln{r_or_python}track("{self.transform.uid[:-4]}"{kwargs_str})'
-            )
+            if self._transform.kind == "function":
+                # Decorators pass stream_tracking=True for flows and False for steps.
+                # Show this recommendation for flows only, never for steps.
+                if stream_tracking:
+                    logger.important_hint(
+                        f'recommendation: to identify the flow across renames, pass the uid: @ln.flow(uid="{self.transform.uid[:-4]}")'
+                    )
+            else:
+                notebook_or_script = (
+                    "notebook" if self._transform.kind == "notebook" else "script"
+                )
+                r_or_python = "." if self._path.suffix in {".py", ".ipynb"} else "$"
+                project_str = (
+                    f', project="{project if isinstance(project, str) else project.name}"'
+                    if project is not None
+                    else ""
+                )
+                space_str = (
+                    f', space="{space if isinstance(space, str) else space.name}"'
+                    if space is not None
+                    else ""
+                )
+                plan_str = (
+                    f', plan="{plan if isinstance(plan, str) else plan.key}"'
+                    if plan is not None
+                    else ""
+                )
+                params_str = (
+                    ", params={...}" if params is not None else ""
+                )  # do not put the values because typically parameterized by user
+                kwargs_str = f"{project_str}{space_str}{plan_str}{params_str}"
+                logger.important_hint(
+                    f'recommendation: to identify the {notebook_or_script} across renames, pass the uid: ln{r_or_python}track("{self.transform.uid[:-4]}"{kwargs_str})'
+                )
         if self.transform.kind == "script" and self._path is not None:
             save_context_core(
                 run=run,
