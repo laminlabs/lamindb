@@ -312,8 +312,7 @@ def test_polars_options():
     storepath = ln.UPath(
         "s3://bucket/key?endpoint_url=http://localhost:9000/s3", anon=True
     )
-    options = _polars_options(storepath)
-    storage_options = options["storage_options"]
+    storage_options = _polars_options(storepath)["storage_options"]
     assert storage_options["aws_endpoint_url"] == "http://localhost:9000/s3"
     assert not storage_options["aws_virtual_hosted_style_request"]
     assert storage_options["aws_allow_http"]
