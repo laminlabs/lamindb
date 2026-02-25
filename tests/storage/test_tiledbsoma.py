@@ -219,9 +219,10 @@ def test_tiledbsoma_in_managed_storage():
     assert ctx_factory._refreshable_credentials is not None
 
     ctx = ctx_factory.get_context()
-    assert "vfs.s3.aws_access_key_id" in ctx.tiledb_config
-    assert "vfs.s3.aws_secret_access_key" in ctx.tiledb_config
-    assert "vfs.s3.aws_session_token" in ctx.tiledb_config
+    tiledb_config = ctx.tiledb_config
+    assert "vfs.s3.aws_access_key_id" in tiledb_config
+    assert "vfs.s3.aws_secret_access_key" in tiledb_config
+    assert "vfs.s3.aws_session_token" in tiledb_config
 
     with tiledbsoma.Experiment.open(path.as_posix(), mode="r", context=ctx) as store:
         assert _soma_store_n_observations(store) == 3
