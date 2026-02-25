@@ -8,7 +8,12 @@ import pyarrow as pa
 from anndata import AnnData, read_h5ad
 from lamin_utils import logger
 from lamindb_setup import settings as setup_settings
-from lamindb_setup.core.upath import LocalPathClasses, create_path, get_storage_region
+from lamindb_setup.core.upath import (
+    LocalPathClasses,
+    _ensure_sync_with_fs,
+    create_path,
+    get_storage_region,
+)
 from packaging import version
 
 if TYPE_CHECKING:
@@ -16,6 +21,7 @@ if TYPE_CHECKING:
     from tiledbsoma import Collection as SOMACollection
     from tiledbsoma import Experiment as SOMAExperiment
     from tiledbsoma import Measurement as SOMAMeasurement
+    from tiledbsoma import SOMATileDBContext
     from upath import UPath
 
     from lamindb.models.artifact import Artifact
@@ -37,36 +43,82 @@ def _load_h5ad_zarr(objpath: UPath):
     return adata
 
 
-def _tiledb_config_s3(storepath: UPath) -> dict:
-    storage_options = storepath.storage_options
-    tiledb_config = {}
+class SOMAS3ContextFactory:
+    """Prepares and caches soma.SOMATileDBContext for a given storepath."""
 
-    endpoint_url = storage_options.get("endpoint_url", None)
-    if endpoint_url is not None:
-        tiledb_config["vfs.s3.region"] = ""
-        tiledb_config["vfs.s3.use_virtual_addressing"] = "false"
-        parsed = urlparse(endpoint_url)
-        tiledb_config["vfs.s3.scheme"] = parsed.scheme
-        tiledb_config["vfs.s3.endpoint_override"] = (
-            parsed._replace(scheme="").geturl().lstrip("/")
+    def __init__(self, storepath: UPath):
+        from tiledbsoma import SOMATileDBContext
+
+        self._refreshable_credentials = None
+
+        fs = storepath.fs
+        fs.connect()
+        self._fs = fs
+
+        tiledb_config = {}
+
+        endpoint_url = fs.endpoint_url
+        if endpoint_url is not None:
+            tiledb_config["vfs.s3.region"] = ""
+            tiledb_config["vfs.s3.use_virtual_addressing"] = "false"
+            parsed = urlparse(endpoint_url)
+            tiledb_config["vfs.s3.scheme"] = parsed.scheme
+            tiledb_config["vfs.s3.endpoint_override"] = (
+                parsed._replace(scheme="").geturl().lstrip("/")
+            )
+        else:
+            tiledb_config["vfs.s3.region"] = get_storage_region(storepath)
+
+        if fs.anon:
+            tiledb_config["vfs.s3.no_sign_request"] = "true"
+            tiledb_config["vfs.s3.aws_access_key_id"] = ""
+            tiledb_config["vfs.s3.aws_secret_access_key"] = ""
+            tiledb_config["vfs.s3.aws_session_token"] = ""
+        else:
+            aws_key = fs.key
+            aws_secret = fs.secret
+            aws_token = fs.token
+            if aws_key is not None and aws_secret is not None:
+                tiledb_config["vfs.s3.aws_access_key_id"] = aws_key
+                tiledb_config["vfs.s3.aws_secret_access_key"] = aws_secret
+                if aws_token is not None:
+                    tiledb_config["vfs.s3.aws_session_token"] = aws_token
+            else:
+                from aiobotocore.credentials import AioRefreshableCredentials
+
+                if isinstance(
+                    refreshable_credentials := fs.session._credentials,
+                    AioRefreshableCredentials,
+                ):
+                    self._refreshable_credentials = refreshable_credentials
+                    tiledb_config.update(self._extract_refreshable_credentials())
+
+        self._context = SOMATileDBContext(tiledb_config=tiledb_config)
+
+    def _extract_refreshable_credentials(self) -> dict:
+        tiledb_config: dict[str, str] = {}
+
+        refreshable_credentials = self._refreshable_credentials
+        if refreshable_credentials is None:
+            return tiledb_config
+        # refresh and retrieve the credentials
+        _ensure_sync_with_fs(refreshable_credentials._refresh, self._fs)()
+        tiledb_config["vfs.s3.aws_access_key_id"] = refreshable_credentials._access_key
+        tiledb_config["vfs.s3.aws_secret_access_key"] = (
+            refreshable_credentials._secret_key
         )
-    else:
-        tiledb_config["vfs.s3.region"] = get_storage_region(storepath)
+        if (aws_token := refreshable_credentials._token) is not None:
+            tiledb_config["vfs.s3.aws_session_token"] = aws_token
 
-    if storage_options.get("anon", False):
-        tiledb_config["vfs.s3.no_sign_request"] = "true"
-        tiledb_config["vfs.s3.aws_access_key_id"] = ""
-        tiledb_config["vfs.s3.aws_secret_access_key"] = ""
-        tiledb_config["vfs.s3.aws_session_token"] = ""
-    else:
-        if "key" in storage_options:
-            tiledb_config["vfs.s3.aws_access_key_id"] = storage_options["key"]
-        if "secret" in storage_options:
-            tiledb_config["vfs.s3.aws_secret_access_key"] = storage_options["secret"]
-        if "token" in storage_options:
-            tiledb_config["vfs.s3.aws_session_token"] = storage_options["token"]
+        return tiledb_config
 
-    return tiledb_config
+    def get_context(self) -> SOMATileDBContext:
+        # update the credentials if needed and return the updated context
+        refreshed_credentials = self._extract_refreshable_credentials()
+        if refreshed_credentials:
+            self._context = self._context.replace(tiledb_config=refreshed_credentials)
+
+        return self._context
 
 
 def _open_tiledbsoma(
@@ -79,7 +131,7 @@ def _open_tiledbsoma(
 
     storepath_str = storepath.as_posix()
     if storepath.protocol == "s3":
-        ctx = soma.SOMATileDBContext(tiledb_config=_tiledb_config_s3(storepath))
+        ctx = SOMAS3ContextFactory(storepath).get_context()
         # this is a strange bug
         # for some reason iterdir futher gives incorrect results
         # if cache is not invalidated
@@ -158,15 +210,16 @@ def save_tiledbsoma_experiment(
         storepath = setup_settings.storage.root / storage_key
 
     if storepath.protocol == "s3":  # type: ignore
-        ctx = soma.SOMATileDBContext(tiledb_config=_tiledb_config_s3(storepath))
+        ctx_factory = SOMAS3ContextFactory(storepath)
     else:
-        ctx = None
+        ctx_factory = None
 
     storepath_str = storepath.as_posix()
 
     add_run_uid = True
     run_uid_dtype = "category"
     if appending:
+        ctx = None if ctx_factory is None else ctx_factory.get_context()
         with soma.Experiment.open(storepath_str, mode="r", context=ctx) as store:
             obs_schema = store["obs"].schema
             add_run_uid = "lamin_run_uid" in obs_schema.names
@@ -197,6 +250,7 @@ def save_tiledbsoma_experiment(
 
     registration_mapping = kwargs.get("registration_mapping", None)
     if registration_mapping is None and (appending or len(adata_objects) > 1):
+        ctx = None if ctx_factory is None else ctx_factory.get_context()
         registration_mapping = soma_io.register_anndatas(
             experiment_uri=storepath_str if appending else None,
             adatas=adata_objects,
@@ -226,10 +280,12 @@ def save_tiledbsoma_experiment(
     for adata_obj in adata_objects:
         # do not recheck if True
         if not experiment_exists and (resize_experiment or prepare_experiment):
+            ctx = None if ctx_factory is None else ctx_factory.get_context()
             experiment_exists = soma.Experiment.exists(storepath_str, context=ctx)
         if experiment_exists:
             # both can only happen if registration_mapping is not None
             if resize_experiment:
+                ctx = None if ctx_factory is None else ctx_factory.get_context()
                 soma_io.resize_experiment(
                     storepath_str,
                     nobs=n_observations,
@@ -238,6 +294,7 @@ def save_tiledbsoma_experiment(
                 )
                 resize_experiment = False
             elif prepare_experiment:
+                ctx = None if ctx_factory is None else ctx_factory.get_context()
                 registration_mapping.prepare_experiment(storepath_str, context=ctx)
                 prepare_experiment = False
         registration_mapping_write = (
@@ -245,6 +302,7 @@ def save_tiledbsoma_experiment(
             if hasattr(registration_mapping, "subset_for_anndata")
             else registration_mapping
         )
+        ctx = None if ctx_factory is None else ctx_factory.get_context()
         soma_io.from_anndata(
             storepath_str,
             adata_obj,
