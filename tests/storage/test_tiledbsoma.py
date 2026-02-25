@@ -224,5 +224,18 @@ def test_tiledbsoma_in_managed_storage():
     assert "vfs.s3.aws_secret_access_key" in tiledb_config
     assert "vfs.s3.aws_session_token" in tiledb_config
 
-    with tiledbsoma.Experiment.open(path.as_posix(), mode="r", context=ctx) as store:
+    path_str = path.as_posix()
+    # check with managed credentials
+    with tiledbsoma.Experiment.open(path_str, mode="r", context=ctx) as store:
+        assert _soma_store_n_observations(store) == 3
+    # check with anon, s3://lamindata is public
+    with _open_tiledbsoma(ln.UPath(path_str, anon=True), mode="r") as store:
+        assert _soma_store_n_observations(store) == 3
+    # pass credentials manually
+    key = tiledb_config["vfs.s3.aws_access_key_id"]
+    secret = tiledb_config["vfs.s3.aws_secret_access_key"]
+    token = tiledb_config["vfs.s3.aws_session_token"]
+    with _open_tiledbsoma(
+        ln.UPath(path_str, key=key, secret=secret, token=token), mode="r"
+    ) as store:
         assert _soma_store_n_observations(store) == 3
