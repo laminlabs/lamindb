@@ -10,7 +10,6 @@ from lamindb.core.loaders import load_h5ad
 from lamindb.core.storage._tiledbsoma import (
     SOMAS3ContextFactory,
     _open_tiledbsoma,
-    _soma_n_observations,
     _soma_store_n_observations,
 )
 from lamindb.integrations import save_tiledbsoma_experiment
@@ -215,4 +214,14 @@ def test_tiledbsoma_in_managed_storage():
     )
     path = artifact.path
     assert "session" in path.storage_options
-    assert _soma_n_observations(path) == 3
+
+    ctx_factory = SOMAS3ContextFactory(path)
+    assert ctx_factory._refreshable_credentials is not None
+
+    ctx = ctx_factory.get_context()
+    assert "vfs.s3.aws_access_key_id" in ctx.tiledb_config
+    assert "vfs.s3.aws_secret_access_key" in ctx.tiledb_config
+    assert "vfs.s3.aws_session_token" in ctx.tiledb_config
+
+    with tiledbsoma.Experiment.open(path.as_posix(), mode="r", context=ctx) as store:
+        assert _soma_store_n_observations(store) == 3
