@@ -10,6 +10,7 @@ from lamindb.core.loaders import load_h5ad
 from lamindb.core.storage._tiledbsoma import (
     SOMAS3ContextFactory,
     _open_tiledbsoma,
+    _soma_n_observations,
     _soma_store_n_observations,
 )
 from lamindb.integrations import save_tiledbsoma_experiment
@@ -206,3 +207,12 @@ def test_tiledb_config():
     assert tiledb_config["vfs.s3.scheme"] == "http"
     assert tiledb_config["vfs.s3.use_virtual_addressing"] == "false"
     assert tiledb_config["vfs.s3.region"] == ""
+
+
+def test_tiledbsoma_in_managed_storage():
+    artifact = ln.Artifact.connect("laminlabs/lamindata").get(
+        key="example_datasets/small_dataset1.tiledbsoma"
+    )
+    path = artifact.path
+    assert "session" in path.storage_options
+    assert _soma_n_observations(path) == 3
