@@ -15,7 +15,7 @@ from lamindb.core.storage._backed_access import (
     _flat_suffixes,
     backed_access,
 )
-from lamindb.core.storage._polars_lazy_df import _polars_options
+from lamindb.core.storage._polars_lazy_df import _open_polars_lazy_df, _polars_options
 from lamindb.core.storage._pyarrow_dataset import _open_pyarrow_dataset
 from lamindb.core.storage._zarr import load_zarr
 from lamindb.core.storage.objects import infer_suffix, write_to_disk
@@ -327,6 +327,19 @@ def test_open_dataframe_artifact():
         "iw9RRhFApeJVHC1L0001"
     )
     with artifact_remote.open(engine="polars") as ldf:
+        assert ldf.collect().shape == (3, 5)
+
+    artifact_path = artifact_remote.path
+    aws_key = artifact_path.fs.session._credentials._access_key
+    aws_secret = artifact_path.fs.session._credentials._secret_key
+    aws_token = artifact_path.fs.session._credentials._token
+    test_path = ln.UPath(
+        artifact_path.as_posix(),
+        key=aws_key,
+        secret=aws_secret,
+        token=aws_token,
+    )
+    with _open_polars_lazy_df(test_path) as ldf:
         assert ldf.collect().shape == (3, 5)
 
     df = pd.DataFrame({"feat1": [0, 0, 1, 1], "feat2": [6, 7, 8, 9]})
