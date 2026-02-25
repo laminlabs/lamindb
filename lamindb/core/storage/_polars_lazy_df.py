@@ -56,14 +56,11 @@ def _polars_options(storepath: UPath) -> dict:
                 def credential_provider_fn():
                     # refresh and access the credentials
                     refresh_sync()
-                    aws_key = refreshable_credentials._access_key
-                    aws_secret = refreshable_credentials._secret_key
-                    aws_token = refreshable_credentials._token
                     expiry_time = refreshable_credentials._expiry_time
                     return {
-                        "aws_access_key_id": aws_key,
-                        "aws_secret_access_key": aws_secret,
-                        "aws_session_token": aws_token,
+                        "aws_access_key_id": refreshable_credentials._access_key,
+                        "aws_secret_access_key": refreshable_credentials._secret_key,
+                        "aws_session_token": refreshable_credentials._token,
                     }, int(expiry_time.timestamp()) if expiry_time is not None else None
 
                 polars_options["credential_provider"] = credential_provider_fn

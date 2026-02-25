@@ -8,7 +8,12 @@ import pyarrow as pa
 from anndata import AnnData, read_h5ad
 from lamin_utils import logger
 from lamindb_setup import settings as setup_settings
-from lamindb_setup.core.upath import LocalPathClasses, create_path, get_storage_region
+from lamindb_setup.core.upath import (
+    LocalPathClasses,
+    _ensure_sync_with_fs,
+    create_path,
+    get_storage_region,
+)
 from packaging import version
 
 if TYPE_CHECKING:
@@ -38,10 +43,11 @@ def _load_h5ad_zarr(objpath: UPath):
 
 
 def _tiledb_config_s3(storepath: UPath) -> dict:
-    storage_options = storepath.storage_options
+    fs = storepath.fs
+    fs.connect()
     tiledb_config = {}
 
-    endpoint_url = storage_options.get("endpoint_url", None)
+    endpoint_url = fs.endpoint_url
     if endpoint_url is not None:
         tiledb_config["vfs.s3.region"] = ""
         tiledb_config["vfs.s3.use_virtual_addressing"] = "false"
@@ -53,18 +59,37 @@ def _tiledb_config_s3(storepath: UPath) -> dict:
     else:
         tiledb_config["vfs.s3.region"] = get_storage_region(storepath)
 
-    if storage_options.get("anon", False):
+    if fs.anon:
         tiledb_config["vfs.s3.no_sign_request"] = "true"
         tiledb_config["vfs.s3.aws_access_key_id"] = ""
         tiledb_config["vfs.s3.aws_secret_access_key"] = ""
         tiledb_config["vfs.s3.aws_session_token"] = ""
     else:
-        if "key" in storage_options:
-            tiledb_config["vfs.s3.aws_access_key_id"] = storage_options["key"]
-        if "secret" in storage_options:
-            tiledb_config["vfs.s3.aws_secret_access_key"] = storage_options["secret"]
-        if "token" in storage_options:
-            tiledb_config["vfs.s3.aws_session_token"] = storage_options["token"]
+        aws_key = fs.key
+        aws_secret = fs.secret
+        aws_token = fs.token
+        if aws_key is not None and aws_secret is not None:
+            tiledb_config["vfs.s3.aws_access_key_id"] = aws_key
+            tiledb_config["vfs.s3.aws_secret_access_key"] = aws_secret
+            if aws_token is not None:
+                tiledb_config["vfs.s3.aws_session_token"] = aws_token
+        else:
+            from aiobotocore.credentials import AioRefreshableCredentials
+
+            if isinstance(
+                refreshable_credentials := fs.session._credentials,
+                AioRefreshableCredentials,
+            ):
+                # refresh and retrieve the credentials
+                _ensure_sync_with_fs(refreshable_credentials._refresh, fs)()
+                tiledb_config["vfs.s3.aws_access_key_id"] = (
+                    refreshable_credentials._access_key
+                )
+                tiledb_config["vfs.s3.aws_secret_access_key"] = (
+                    refreshable_credentials._secret_key
+                )
+                if (aws_token := refreshable_credentials._token) is not None:
+                    tiledb_config["vfs.s3.aws_session_token"] = aws_token
 
     return tiledb_config
 
