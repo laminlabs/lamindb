@@ -328,7 +328,7 @@ def test_open_dataframe_artifact():
     )
     with artifact_remote.open(engine="polars") as ldf:
         assert ldf.collect().shape == (3, 5)
-
+    # test passing credentials directly
     artifact_path = artifact_remote.path
     aws_key = artifact_path.fs.session._credentials._access_key
     aws_secret = artifact_path.fs.session._credentials._secret_key
