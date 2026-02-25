@@ -8,9 +8,9 @@ import tiledbsoma
 import tiledbsoma.io
 from lamindb.core.loaders import load_h5ad
 from lamindb.core.storage._tiledbsoma import (
+    SOMAS3ContextFactory,
     _open_tiledbsoma,
     _soma_store_n_observations,
-    _tiledb_config_s3,
 )
 from lamindb.integrations import save_tiledbsoma_experiment
 
@@ -201,7 +201,7 @@ def test_from_tiledbsoma():
 
 def test_tiledb_config():
     storepath = ln.UPath("s3://bucket/key?endpoint_url=http://localhost:9000/s3")
-    tiledb_config = _tiledb_config_s3(storepath)
+    tiledb_config = SOMAS3ContextFactory(storepath).get_context().tiledb_config
     assert tiledb_config["vfs.s3.endpoint_override"] == "localhost:9000/s3"
     assert tiledb_config["vfs.s3.scheme"] == "http"
     assert tiledb_config["vfs.s3.use_virtual_addressing"] == "false"
