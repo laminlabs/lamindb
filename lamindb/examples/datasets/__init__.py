@@ -45,10 +45,12 @@ Dictionary, Dataframe, AnnData, MuData, SpatialData
 .. autofunction:: anndata_file_pbmc68k_test
 .. autofunction:: anndata_pbmc3k_processed
 .. autofunction:: anndata_suo22_Visium10X
+.. autofunction:: anndata_visium_mouse_cellxgene
 .. autofunction:: mudata_papalexi21_subset
 .. autofunction:: schmidt22_crispra_gws_IFNG
 .. autofunction:: schmidt22_perturbseq
 .. autofunction:: spatialdata_blobs
+
 
 Other
 -----
@@ -69,6 +71,7 @@ if TYPE_CHECKING:
         anndata_pbmc3k_processed,
         anndata_pbmc68k_reduced,
         anndata_suo22_Visium10X,
+        anndata_visium_mouse_cellxgene,
         df_iris,
         df_iris_in_meter,
         df_iris_in_meter_study1,
@@ -144,6 +147,7 @@ def __getattr__(name: str):
         "schmidt22_crispra_gws_IFNG",
         "schmidt22_perturbseq",
         "spatialdata_blobs",
+        "anndata_visium_mouse_cellxgene",
     )
     if name in _core_names:
         _core = importlib.import_module("._core", package="lamindb.examples.datasets")
@@ -169,6 +173,7 @@ __all__ = [
     "anndata_pbmc3k_processed",
     "anndata_pbmc68k_reduced",
     "anndata_suo22_Visium10X",
+    "anndata_visium_mouse_cellxgene",
     "df_iris",
     "df_iris_in_meter",
     "df_iris_in_meter_study1",

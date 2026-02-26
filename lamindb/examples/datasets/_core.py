@@ -590,6 +590,18 @@ def schmidt22_perturbseq(basedir=".") -> Path:
     return Path(filepath).rename(Path(basedir) / filepath)
 
 
+def anndata_visium_mouse_cellxgene() -> ad.AnnData:
+    """Visium samples of thymus from wild type B6 mice 3-6 weeks old.
+
+    The dataset is a CELLxGENE schema 7.0.0 validated dataset.
+    """
+    filepath, _ = urlretrieve(
+        "https://datasets.cellxgene.cziscience.com/74f5c380-081f-41e4-9f05-346831fb67e8.h5ad",
+        "zhang_2024_pcw56_visium.h5ad",
+    )
+    return ad.read_h5ad(filepath)
+
+
 def spatialdata_blobs() -> SpatialData:
     """Example SpatialData dataset for tutorials."""
     from spatialdata.datasets import blobs

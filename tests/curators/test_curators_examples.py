@@ -5,7 +5,7 @@ from pathlib import Path
 docs_path = Path.cwd() / "docs" / "scripts"
 sys.path.append(str(docs_path))
 
-
+import anndata as ad
 import bionty as bt
 import lamindb as ln
 import pandas as pd
@@ -693,13 +693,15 @@ def test_anndata_curator_varT_curation():
                 if n_max_records == 2:
                     assert not artifact.features.slots[slot].members.exists()
                 else:
-                    assert artifact.features.slots[slot].members.to_dataframe()[
-                        "ensembl_gene_id"
-                    ].tolist() == [
+                    assert set(
+                        artifact.features.slots[slot]
+                        .members.to_dataframe()["ensembl_gene_id"]
+                        .tolist()
+                    ) == {
                         "ENSG00000153563",
                         "ENSG00000010610",
                         "ENSG00000170458",
-                    ]
+                    }
 
                 artifact.delete(permanent=True)
 
@@ -1050,3 +1052,43 @@ def test_tiledbsoma_curator(clean_soma_files):
     soma_schema.delete(permanent=True)
     var_schema.delete(permanent=True)
     obs_schema.delete(permanent=True)
+
+
+def test_specific_source():
+    """Test validation of ontology terms using cat_filters to specify organism-specific source."""
+    obs_schema = ln.Schema(
+        features=[
+            ln.Feature(
+                name="developmental_stage_ontology_id",
+                dtype=bt.DevelopmentalStage.ontology_id,
+                cat_filters={
+                    "source": bt.Source.filter(
+                        entity="bionty.DevelopmentalStage", organism="mouse"
+                    ).one()
+                },
+            ).save()
+        ],
+        coerce=True,
+        minimal_set=False,
+    ).save()
+
+    schema = ln.Schema(
+        slots={"obs": obs_schema}, otype="AnnData", minimal_set=True, coerce=True
+    ).save()
+
+    adata = ad.AnnData(
+        obs=pd.DataFrame(
+            {
+                "developmental_stage_ontology_id": [
+                    "MmusDv:0000142",
+                    "MmusDv:0000022",
+                ]
+            }
+        ),
+        var=pd.DataFrame(index=["ENSMUSG00000022391", "ENSMUSG00000018569"]),
+    )
+
+    curator = ln.curators.AnnDataCurator(adata, schema)
+    curator.validate()
+
+    schema.delete(permanent=True)

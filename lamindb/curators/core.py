@@ -1534,6 +1534,9 @@ class CatVector:
                     )
                     if organism_record is not None:
                         filter_kwargs["organism"] = organism_record
+                # Merge in self._filter_kwargs (contains cat_filters from Feature)
+                if self._filter_kwargs:
+                    filter_kwargs.update(self._filter_kwargs)
                 filter_kwargs = get_current_filter_kwargs(registry, filter_kwargs)
             else:
                 field = self._field
@@ -1574,8 +1577,8 @@ class CatVector:
                     values_array, field=field, mute=True
                 )
                 validated_values, non_validated_values = (
-                    list(values_array[validated_mask]),
-                    list(values_array[~validated_mask]),
+                    list(set(values_array[validated_mask])),
+                    list(set(values_array[~validated_mask])),
                 )
                 records = subtype_query_set.filter(
                     **{f"{field_name}__in": validated_values}
