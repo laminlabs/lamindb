@@ -1048,7 +1048,8 @@ class FeatureManager:
 
         host_name = self._host.__class__.__name__
         host_id = self._host.id
-        feature_records = list(Feature.filter(name=feature))
+        host_db = self._host._state.db
+        feature_records = list(Feature.objects.using(host_db).filter(name=feature))
         if not feature_records:
             raise ValidationError(f"Feature with name {feature} not found")
 
@@ -1076,7 +1077,8 @@ class FeatureManager:
                     f"links_{host_name.lower()}__{host_name.lower()}_id": host_id,
                 }
                 dtype_values = (
-                    registry.objects.filter(**filters)
+                    registry.objects.using(host_db)
+                    .filter(**filters)
                     .distinct()
                     .values_list("feature___dtype_str", "value")
                 )
@@ -1100,7 +1102,9 @@ class FeatureManager:
                     f"{links_value_name}__{host_name.lower()}_id": host_id,
                 }
 
-                feature_values_qs = registry.objects.filter(**filters).distinct()
+                feature_values_qs = (
+                    registry.objects.using(host_db).filter(**filters).distinct()
+                )
 
             if len(feature_values_qs) == 1:
                 value_records[registry_name] = feature_values_qs[0]
