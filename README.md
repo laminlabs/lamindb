@@ -224,18 +224,21 @@ Pass a project/artifact to `ln.track()`, for example:
 ln.track(project="My project", plan="./plans/curate-dataset-x.md")
 ```
 
-Note that you have to create a project or save the agent plan in case it they don't yet exist::
+Note that you have to create a project or save the agent plan in case it they don't yet exist:
 
 ```
-# create a project in Python
-ln.Project(name="My project").save()
-
 # create a project with the CLI
 lamin create project "My project"
 
 # save an agent plan with the CLI
 lamin save /path/to/.cursor/plans/curate-dataset-x.plan.md
 lamin save /path/to/.claude/plans/curate-dataset-x.md
+```
+
+Or in Python:
+
+```python
+ln.Project(name="My project").save()  # create a project in Python
 ```
 
 </details>

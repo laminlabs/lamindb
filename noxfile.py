@@ -227,7 +227,7 @@ def prepare(session):
             line
             for line in content.split("\n")
             if not line.strip().startswith(
-                ("accessor = artifact.open()", "ln.track(project=")
+                ("accessor = artifact.open()", "ln.track(project=", "ln.Project(name=")
             )
         )
     )
