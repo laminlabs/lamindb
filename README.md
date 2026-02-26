@@ -215,6 +215,35 @@ transform.describe()  # context of the transform
 
 </details>
 
+<details>
+<summary>Track a project or an agent plan.</summary>
+
+Pass a project/artifact to `ln.track()`, for example:
+
+```python
+ln.track(project="My project", plan="./plans/curate-dataset-x.md")
+```
+
+Note that you have to create a project or save the agent plan in case it they don't yet exist:
+
+```
+# create a project with the CLI
+lamin create project "My project"
+
+# save an agent plan with the CLI
+lamin save /path/to/.cursor/plans/curate-dataset-x.plan.md
+lamin save /path/to/.claude/plans/curate-dataset-x.md
+```
+
+Or in Python:
+
+```python
+ln.Project(name="My project").save()  # create a project in Python
+```
+
+</details>
+
+
 ### Lineage: functions & workflows
 
 You can achieve the same traceability for functions & workflows:
