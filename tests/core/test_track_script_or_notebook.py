@@ -27,19 +27,25 @@ def test_serialize_params_to_json():
     params = {
         "path_key": a_path,
         "none_key": None,
+        "empty_list_key": [],
+        "list_str_key": ["string"],
         "upath_key": a_upath,
         "str_key": "plain",
     }
     result = serialize_params_to_json(params)
     # None is omitted
     assert "none_key" not in result
+    # Empty list is omitted (same as None)
+    assert "empty_list_key" not in result
     # Path is serialized to posix string
     assert result["path_key"] == "/some/local/folder"
     # UPath is serialized to posix string
     assert result["upath_key"] == "s3://bucket/key"
+    # List of strings is JSON-serialized as-is (list[cat ? str])
+    assert result["list_str_key"] == ["string"]
     # Other values unchanged
     assert result["str_key"] == "plain"
-    assert set(result.keys()) == {"path_key", "upath_key", "str_key"}
+    assert set(result.keys()) == {"path_key", "upath_key", "str_key", "list_str_key"}
 
 
 def test_track_basic_invocation():
@@ -128,6 +134,34 @@ Run: {ln.context.run.uid[:7]} ({ln.context.run.transform.key})
     feature4.delete(permanent=True)
     param4.delete(permanent=True)
     test_transform.delete(permanent=True)
+
+
+@pytest.mark.parametrize("pass_plan_as_key", [False, True], ids=["artifact", "key"])
+def test_track_with_plan_links_run(tmp_path, pass_plan_as_key):
+    unique = time.time_ns()
+    plan_path = tmp_path / f"my-agent-plan-{unique}.md"
+    plan_path.write_text("# Agent plan\n\n- Step 1\n")
+    plan_artifact = ln.Artifact(
+        plan_path,
+        key=f".plans/my-agent-plan-{unique}.md",
+        kind="plan",
+    ).save()
+    transform = ln.Transform(key=f"test-track-with-plan-{unique}").save()
+    try:
+        plan = plan_artifact.key if pass_plan_as_key else plan_artifact
+        ln.track(transform=transform, plan=plan)
+        run = ln.context.run
+        assert run.plan is not None
+        assert run.plan.uid == plan_artifact.uid
+        run_from_db = ln.Run.get(uid=run.uid)
+        assert run_from_db.plan is not None
+        assert run_from_db.plan.uid == plan_artifact.uid
+        ln.finish()
+    finally:
+        ln.context._run = None
+        ln.Run.filter(transform=transform).delete(permanent=True)
+        plan_artifact.delete(permanent=True)
+        transform.delete(permanent=True)
 
 
 @pytest.fixture

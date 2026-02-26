@@ -424,6 +424,7 @@ def get_basic_field_names(
             )
         )
     ]
+    # TODO: harmonize with L1023 in sqlrecord.py
     for field_name in [
         "version_tag",
         "is_latest",
@@ -431,6 +432,7 @@ def get_basic_field_names(
         "is_type",
         "created_at",
         "updated_at",
+        "created_on",
     ]:
         if field_name in field_names:
             field_names.append(field_names.pop(field_names.index(field_name)))

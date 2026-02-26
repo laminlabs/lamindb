@@ -8,9 +8,9 @@ import tiledbsoma
 import tiledbsoma.io
 from lamindb.core.loaders import load_h5ad
 from lamindb.core.storage._tiledbsoma import (
+    SOMAS3ContextFactory,
     _open_tiledbsoma,
     _soma_store_n_observations,
-    _tiledb_config_s3,
 )
 from lamindb.integrations import save_tiledbsoma_experiment
 
@@ -201,8 +201,41 @@ def test_from_tiledbsoma():
 
 def test_tiledb_config():
     storepath = ln.UPath("s3://bucket/key?endpoint_url=http://localhost:9000/s3")
-    tiledb_config = _tiledb_config_s3(storepath)
+    tiledb_config = SOMAS3ContextFactory(storepath).get_context().tiledb_config
     assert tiledb_config["vfs.s3.endpoint_override"] == "localhost:9000/s3"
     assert tiledb_config["vfs.s3.scheme"] == "http"
     assert tiledb_config["vfs.s3.use_virtual_addressing"] == "false"
     assert tiledb_config["vfs.s3.region"] == ""
+
+
+def test_tiledbsoma_in_managed_storage():
+    artifact = ln.Artifact.connect("laminlabs/lamindata").get(
+        key="example_datasets/small_dataset1.tiledbsoma"
+    )
+    path = artifact.path
+    assert "session" in path.storage_options
+
+    ctx_factory = SOMAS3ContextFactory(path)
+    assert ctx_factory._refreshable_credentials is not None
+
+    ctx = ctx_factory.get_context()
+    tiledb_config = ctx.tiledb_config
+    assert "vfs.s3.aws_access_key_id" in tiledb_config
+    assert "vfs.s3.aws_secret_access_key" in tiledb_config
+    assert "vfs.s3.aws_session_token" in tiledb_config
+
+    path_str = path.as_posix()
+    # check with managed credentials
+    with tiledbsoma.Experiment.open(path_str, mode="r", context=ctx) as store:
+        assert _soma_store_n_observations(store) == 3
+    # check with anon, s3://lamindata is public
+    with _open_tiledbsoma(ln.UPath(path_str, anon=True), mode="r") as store:
+        assert _soma_store_n_observations(store) == 3
+    # pass credentials manually
+    key = tiledb_config["vfs.s3.aws_access_key_id"]
+    secret = tiledb_config["vfs.s3.aws_secret_access_key"]
+    token = tiledb_config["vfs.s3.aws_session_token"]
+    with _open_tiledbsoma(
+        ln.UPath(path_str, key=key, secret=secret, token=token), mode="r"
+    ) as store:
+        assert _soma_store_n_observations(store) == 3

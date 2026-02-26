@@ -49,6 +49,7 @@ from lamindb_setup.core.django import DBToken, db_token_manager
 from lamindb_setup.core.upath import extract_suffix_from_path
 from upath import UPath
 
+from lamindb.base.users import current_user_id
 from lamindb.base.utils import class_and_instance_method, deprecated
 
 from ..base.fields import (
@@ -59,7 +60,7 @@ from ..base.fields import (
     JSONField,
     TextField,
 )
-from ..base.types import FieldAttr, StrField
+from ..base.types import BranchStatus, FieldAttr, StrField
 from ..base.uids import base62_12
 from ..errors import (
     FieldValidationError,
@@ -77,10 +78,12 @@ if TYPE_CHECKING:
 
     from .artifact import Artifact
     from .block import BranchBlock, SpaceBlock
+    from .project import Project
     from .query_manager import RelatedManager
     from .query_set import SQLRecordList
     from .run import Run, User
     from .transform import Transform
+    from .ulabel import ULabel
 
 
 T = TypeVar("T", bound="SQLRecord")
@@ -968,6 +971,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                                 kwargs["branch"] = current_branch
                         else:
                             kwargs["branch"] = current_branch
+                        kwargs["created_on"] = kwargs["branch"]
             if skip_validation:
                 super().__init__(**kwargs)
             else:
@@ -1109,12 +1113,19 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
             try:
                 # save versioned record in presence of self._revises
                 if isinstance(self, IsVersioned) and self._revises is not None:
-                    assert self._revises.is_latest  # noqa: S101
                     revises = self._revises
-                    revises.is_latest = False
                     with transaction.atomic():
-                        revises._revises = None  # ensure we don't start a recursion
-                        revises.save()
+                        # For branch-aware models (SQLRecord), keep source-branch latest
+                        # intact and only demote within the same branch. For other
+                        # versioned models (e.g. blocks), keep previous behavior.
+                        should_demote = True
+                        if hasattr(revises, "branch_id") and hasattr(self, "branch_id"):
+                            should_demote = revises.branch_id == self.branch_id
+                        if should_demote:
+                            assert revises.is_latest  # noqa: S101
+                            revises.is_latest = False
+                            revises._revises = None  # ensure we don't start a recursion
+                            revises.save()
                         super().save(*args, **kwargs)  # type: ignore
                     self._revises = None
                 # save unversioned record
@@ -1253,18 +1264,26 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
         return self
 
     @class_and_instance_method
-    def describe(cls_or_self, return_str: bool = False) -> None | str:
+    def describe(
+        cls_or_self,
+        return_str: bool = False,
+        include: None | Literal["comments"] = None,
+    ) -> None | str:
         """Describe record including relations.
 
         Args:
             return_str: Return a string instead of printing.
+            include: Include additional content. Use ``"comments"`` to display
+                readme and comment blocks.
         """
         from ._describe import describe_postgres_sqlite
 
         if isinstance(cls_or_self, type):
             return type(cls_or_self).describe(cls_or_self, return_str=return_str)  # type: ignore
         else:
-            return describe_postgres_sqlite(cls_or_self, return_str=return_str)
+            return describe_postgres_sqlite(
+                cls_or_self, return_str=return_str, include=include
+            )
 
     def __repr__(
         self: SQLRecord,
@@ -1287,12 +1306,16 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                 for field in self._meta.fields
                 if isinstance(field, ForeignKey)
             ]
+        # TODO: harmonize with L426 in query_set.py
         if "created_at" in field_names:
             field_names.remove("created_at")
             field_names.append("created_at")
         if "is_locked" in field_names:
             field_names.remove("is_locked")
             field_names.append("is_locked")
+        if "created_on" in field_names:
+            field_names.remove("created_on")
+            field_names.append("created_on")
         if field_names[0] != "uid" and "uid" in field_names:
             field_names.remove("uid")
             field_names.insert(0, "uid")
@@ -1435,17 +1458,96 @@ class Space(BaseSQLRecord):
 class Branch(BaseSQLRecord):
     """Branches for change management with archive and trash states.
 
-    There are 3 pre-defined branches: `main`, `trash`, and `archive`.
+    .. dropdown:: The 3 built-in branches: `main`, `trash` & `archive`
 
-    You can create branches similar to `git` via `lamin create --branch my_branch`.
+        The `main` branch acts as the default branch.
 
-    To add objects to that new branch rather than the `main` branch, run `lamin switch --branch my_branch`.
+        The `trash` branch acts like a trash bin on a file system.
+        It you delete a `SQLRecord` object via `.delete()`, it gets moved onto the `trash` branch and scheduled for deletion.
 
-    To merge a set of artifacts on the `"my_branch"` branch to the main branch, run::
+        The `archive` acts like an archive that hides objects from queries and searches without scheduling them for deletion.
+        To move an object into the archive, run: `obj.branch_id = 0; obj.save()`.
 
-        ln.Artifact.filter(branch__name="my_branch").update(branch_id=1)
+    Args:
+        name: A unique name. When lower-cased, is constrained to be unique across all branches.
+        description: A description.
 
-    If you delete an object via `sqlrecord.delete()`, it gets moved to the `trash` branch and scheduled for deletion.
+    Examples:
+
+        To create a contribution branch and switch to it, run::
+
+            lamin switch -c my_branch
+
+        To merge a contribution branch into `main`, run::
+
+            lamin switch main  # switch to the main branch
+            lamin merge my_branch  # merge contribution branch into main
+
+        To see the current branch along with other information, run::
+
+            lamin info
+
+        To annotate the current branch with a `README.md`, run::
+
+            lamin annotate branch --readme README.md
+
+        To comment on the current branch, run::
+
+            lamin annotate branch --comment "I think we should revisit this, tomorrow, WDYT?"
+
+        To describe the current branch (optionally include comments), run::
+
+            lamin describe branch --include comments
+
+        To trace on which branch a `SQLRecord` object was created, run::
+
+            sqlrecord.created_on.describe()
+
+        To open a Merge Request for a branch, run:
+
+        .. tab-set::
+
+            .. tab-item:: CLI
+
+                .. code-block:: bash
+
+                    lamin update branch --status draft  # for current branch
+                    lamin update branch --name my_branch --status review  # for any branch
+
+            .. tab-item:: Python
+
+                .. code-block:: python
+
+                    branch = ln.Branch.get(name="my_branch")
+                    branch.status = "draft"
+                    branch.save()
+
+                    branch.status = "review"
+                    branch.save()
+
+        Just like Pull Requests on GitHub, branches are never deleted
+        so that the provenance of a change stays traceable.
+
+    .. dropdown:: Managing `is_latest` during branching
+
+        `is_latest` is branch-aware during development and reconciled on merge.
+
+        - Creating a new version on a contribution branch keeps the previous
+          version on `main` as `is_latest=True`.
+        - After `lamin merge`, only one object per version family remains
+          with `is_latest=True` in the target branch.
+        - If both source and target branches have `is_latest=True`, the merged
+          branch keeps the newest object by `created_at`.
+
+        Example flow::
+
+            # before merge
+            # main: v1.is_latest=True
+            # contribution branch: v2(revises=v1).is_latest=True
+            lamin switch main
+            lamin merge my_branch
+            # after merge on main: v2.is_latest=True, v1.is_latest=False
+
     """
 
     class Meta:
@@ -1492,11 +1594,86 @@ class Branch(BaseSQLRecord):
     )
     """Time of creation of record."""
     created_by: User = ForeignKey(
-        "User", CASCADE, default=None, related_name="+", null=True
+        "User", PROTECT, default=current_user_id, related_name="+"
     )
     """Creator of branch."""
+    _status_code: int = models.SmallIntegerField(default=0, db_default=0, db_index=True)
+    """Status code. -2: closed; -1: merged; 0: standalone; 1: draft; 2: review."""
     ablocks: RelatedManager[BranchBlock]
     """Attached blocks ← :attr:`~lamindb.BranchBlock.branch`."""
+    users: RelatedManager[User] = models.ManyToManyField(
+        "User",
+        through="BranchUser",
+        related_name="branches",
+    )
+    """Users linked to this branch (e.g. reviewers) ← :attr:`~lamindb.User.branches`."""
+    ulabels: RelatedManager[ULabel] = models.ManyToManyField(
+        "ULabel",
+        through="BranchULabel",
+        related_name="branches",
+    )
+    """ULabels annotating this branch ← :attr:`~lamindb.BranchULabel.ulabel`."""
+    projects: RelatedManager[Project] = models.ManyToManyField(
+        "Project",
+        through="BranchProject",
+        related_name="branches",
+    )
+    """Projects annotating this branch ← :attr:`~lamindb.BranchProject.project`."""
+
+    @property
+    def status(self) -> BranchStatus:
+        """Branch status.
+
+        Get and set the status of the branch:
+
+        - `standalone`: a standalone branch without Merge Request
+        - `draft`: Merge Request exists but is not ready for review
+        - `review`: Merge Request is ready for review
+        - `merged`: the branch was merged into another branch
+        - `closed`: Merge Request was closed without merging
+
+        Example:
+
+            See the status of a branch::
+
+                branch.status
+                #> 'standalone'
+
+            Open a Merge Request in draft state::
+
+                branch.status = "draft"
+                branch.save()
+
+            Request review for the Merge Request::
+
+                branch.status = "review"
+                branch.save()
+        """
+        if self._status_code == -2:
+            return "closed"
+        if self._status_code == -1:
+            return "merged"
+        if self._status_code == 1:
+            return "draft"
+        if self._status_code == 2:
+            return "review"
+        return "standalone"
+
+    @status.setter
+    def status(self, value: BranchStatus) -> None:
+        status_to_code = {
+            "closed": -2,
+            "merged": -1,
+            "standalone": 0,
+            "draft": 1,
+            "review": 2,
+        }
+        if value not in status_to_code:
+            raise ValueError(
+                "Invalid branch status. Expected one of: "
+                "'standalone', 'draft', 'review', 'merged', 'closed'."
+            )
+        self._status_code = status_to_code[value]
 
     @overload
     def __init__(
@@ -1517,6 +1694,17 @@ class Branch(BaseSQLRecord):
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
+
+
+class BranchUser(BaseSQLRecord, IsLink):
+    class Meta:
+        app_label = "lamindb"
+        unique_together = ("branch", "user", "role")
+
+    id: int = models.BigAutoField(primary_key=True)
+    branch: Branch = ForeignKey(Branch, CASCADE, related_name="links_user")
+    user: User = ForeignKey("User", PROTECT, related_name="links_branch")
+    role: str = CharField(max_length=32, db_index=True)
 
 
 @doc_args(RECORD_REGISTRY_EXAMPLE)
@@ -1544,10 +1732,17 @@ class SQLRecord(BaseSQLRecord, metaclass=Registry):
         PROTECT,
         default=1,
         db_default=1,
-        db_column="branch_id",
         related_name="+",
     )
-    """The branch."""
+    """The current branch of the object - changes e.g. on merge events."""
+    created_on: Branch = ForeignKey(
+        Branch,
+        PROTECT,
+        default=1,
+        db_default=1,
+        related_name="+",
+    )
+    """The branch on which this object was created - never changes."""
     space: Space = ForeignKey(Space, PROTECT, default=1, db_default=1, related_name="+")
     """The space."""
     is_locked: bool = BooleanField(default=False, db_default=False)

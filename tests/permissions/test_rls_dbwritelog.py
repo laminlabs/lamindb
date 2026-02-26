@@ -266,15 +266,15 @@ def test_fine_grained_permissions_account_and_dbwrite():
     # test SpaceBlock
     space = ln.Space.get(name="select access")
     with pytest.raises(ln.errors.NoWriteAccess):
-        ln.models.SpaceBlock(space=space, content="test").save()
+        ln.models.SpaceBlock(space=space, content="test", kind="readme").save()
     # test ArtifactBlock, artifact is read-only
     artifact = ln.Artifact.get(description="test tracking error")
     with pytest.raises(ProgrammingError):
-        ln.models.ArtifactBlock(artifact=artifact, content="test").save()
+        ln.models.ArtifactBlock(artifact=artifact, content="test", kind="readme").save()
     # test BranchBlock, the account is read-only
     branch = ln.Branch.get(1)  # main branch in all space
     with pytest.raises(ProgrammingError):
-        ln.models.BranchBlock(branch=branch, content="test").save()
+        ln.models.BranchBlock(branch=branch, content="test", kind="readme").save()
 
 
 def test_fine_grained_permissions_team():

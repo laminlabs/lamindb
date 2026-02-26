@@ -37,6 +37,7 @@ def test_feature_describe():
         .updated_at: DateTimeField
       Relational fields
         .branch: Branch
+        .created_on: Branch
         .space: Space
         .created_by: User
         .run: Run
@@ -71,6 +72,7 @@ def test_artifact_describe():
         .updated_at: DateTimeField
       Relational fields
         .branch: Branch
+        .created_on: Branch
         .space: Space
         .storage: Storage
         .run: Run
@@ -84,6 +86,7 @@ def test_artifact_describe():
         .linked_in_records: Record
         .users: User
         .runs: Run
+        .linked_by_runs: Run
         .ulabels: ULabel
         .linked_by_artifacts: Artifact
         .collections: Collection

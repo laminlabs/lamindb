@@ -1,7 +1,7 @@
 # LaminDB [![docs](https://img.shields.io/badge/docs-yellow)](https://docs.lamin.ai) [![llms.txt](https://img.shields.io/badge/llms.txt-orange)](https://docs.lamin.ai/llms.txt) [![codecov](https://codecov.io/gh/laminlabs/lamindb/branch/main/graph/badge.svg?token=VKMRJ7OWR3)](https://codecov.io/gh/laminlabs/lamindb) [![pypi](https://img.shields.io/pypi/v/lamindb?color=blue&label=PyPI)](https://pypi.org/project/lamindb) [![cran](https://www.r-pkg.org/badges/version/laminr?color=green)](https://cran.r-project.org/package=laminr) [![stars](https://img.shields.io/github/stars/laminlabs/lamindb?style=flat&logo=GitHub&label=&color=gray)](https://github.com/laminlabs/lamindb) [![downloads](https://static.pepy.tech/personalized-badge/lamindb?period=total&units=INTERNATIONAL_SYSTEM&left_color=GRAY&right_color=GRAY&left_text=%E2%AC%87%EF%B8%8F)](https://pepy.tech/project/lamindb)
 
 LaminDB is an open-source data framework for biology to query, trace, and validate datasets and models at scale.
-You get context & memory through a lineage-native lakehouse for bio-formats, registries & ontologies.
+You get context & memory through a lineage-native lakehouse that supports bio-formats, registries & ontologies.
 
 <details>
 <summary>Why?</summary>
@@ -148,6 +148,23 @@ lamin load --key examples/myfile.txt
 
 Read more: [docs.lamin.ai/cli](https://docs.lamin.ai/cli).
 
+### Change management
+
+To create a contribution branch and switch to it, run:
+
+```shell
+lamin switch -c my_branch
+```
+
+To merge a contribution branch into `main`, run:
+
+```shell
+lamin switch main  # switch to the main branch
+lamin merge my_branch  # merge contribution branch into main
+```
+
+Read more: [docs.lamin.ai/lamindb.branch](https://docs.lamin.ai/lamindb.branch).
+
 ### Lineage: scripts & notebooks
 
 To create a dataset while tracking source code, inputs, outputs, logs, and environment:
@@ -202,6 +219,8 @@ transform.describe()  # context of the transform
 
 You can achieve the same traceability for functions & workflows:
 
+<!-- #skip_laminr -->
+
 ```python
 import lamindb as ln
 
@@ -213,6 +232,8 @@ def create_fasta(fasta_file: str = "sample.fasta"):
 if __name__ == "__main__":
     create_fasta()
 ```
+
+<!-- #end_skip_laminr -->
 
 Beyond what you get for scripts & notebooks, this automatically tracks function & CLI params and integrates well with established Python workflow managers: [docs.lamin.ai/track](https://docs.lamin.ai/track). To integrate advanced bioinformatics pipeline managers like Nextflow, see [docs.lamin.ai/pipelines](https://docs.lamin.ai/pipelines).
 

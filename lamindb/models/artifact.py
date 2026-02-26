@@ -315,7 +315,7 @@ def process_data(
     # in case we have an in-memory representation, we need to write it to disk
     if memory_rep is not None:
         path = settings.cache_dir / f"{provisional_uid}{suffix}"
-        logger.important("writing the in-memory object into cache")
+        logger.info("writing the in-memory object into cache")
         if to_disk_kwargs is None:
             to_disk_kwargs = {}
         _s().write_to_disk(data, path, **to_disk_kwargs)
@@ -1487,6 +1487,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     """The records annotating this artifact ← :attr:`~lamindb.Record.artifacts`."""
     runs: RelatedManager[Run]
     """The runs annotating this artifact ← :attr:`~lamindb.Run.artifacts`."""
+    linked_by_runs: RelatedManager[Run]
+    """The runs linking this artifact ← :attr:`~lamindb.Run.linked_by_artifacts`."""
     artifacts: RelatedManager[Artifact] = models.ManyToManyField(
         "Artifact",
         through="ArtifactArtifact",

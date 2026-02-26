@@ -459,6 +459,54 @@ def test_features_add_with_schema():
     ln.Feature.filter().delete(permanent=True)
 
 
+def test_artifact_feature_cat_filters_schema_end_to_end():
+    schema_feature = ln.Feature(name="schema_filter_column_e2e", dtype=str).save()
+    required_schema = ln.Schema(
+        name="required_schema_for_artifact_filter",
+        features=[schema_feature],
+    ).save()
+    artifact_feature = ln.Feature(
+        name="input_artifact",
+        dtype=ln.Artifact,
+        cat_filters={"schema": required_schema},
+    ).save()
+    container_artifact = ln.Artifact(
+        ".gitignore",
+        key="container_for_artifact_schema_filter",
+        skip_hash_lookup=True,
+    ).save()
+    artifact_without_schema = ln.Artifact(
+        ".gitignore",
+        key="artifact_without_required_schema",
+        skip_hash_lookup=True,
+    ).save()
+    artifact_with_schema = ln.Artifact(
+        ".gitignore",
+        key="artifact_with_required_schema",
+        schema=required_schema,
+        skip_hash_lookup=True,
+    ).save()
+
+    try:
+        with pytest.raises(ln.errors.ValidationError) as error:
+            container_artifact.features.add_values(
+                {"input_artifact": artifact_without_schema.key}
+            )
+        assert "1 term not validated in feature 'input_artifact'" in error.exconly()
+
+        container_artifact.features.add_values(
+            {"input_artifact": artifact_with_schema.key}
+        )
+        assert container_artifact.features["input_artifact"] == artifact_with_schema
+    finally:
+        container_artifact.delete(permanent=True)
+        artifact_without_schema.delete(permanent=True)
+        artifact_with_schema.delete(permanent=True)
+        artifact_feature.delete(permanent=True)
+        required_schema.delete(permanent=True)
+        schema_feature.delete(permanent=True)
+
+
 def test_features_add_remove_error_behavior():
     """Add/remove/validation behavior."""
     adata = ln.examples.datasets.anndata_with_obs()

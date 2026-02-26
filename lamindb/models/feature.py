@@ -992,13 +992,6 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
                 dtype=list[bt.CellType],  # or list[str] for a list of strings
             ).save()
 
-        A feature accepting multiple category types - a union type::
-
-            ln.Feature(
-                name="cell_types",
-                dtype="cat[bionty.Tissue.ontology_id|bionty.CellType.ontology_id]"
-            ).save()
-
         A path feature::
 
             ln.Feature(
@@ -1006,12 +999,35 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
                 dtype="path",   # will be validated as `str`
             ).save()
 
-    Note:
+        Restrict categories via filters::
 
-        *Features* vs. *labels*:
+            # restrict diseases to those matching a specific ontology version
+            source = bt.Source.get(name="My ontology")  # a registry for ontology versions
+            ln.Feature(
+                name="disease",
+                dtype=bt.Disease,
+                cat_filters={"source": source},
+            ).save()
 
-        1. A feature qualifies *what* is measured, i.e., a numerical or categorical random variable
-        2. A label *is* a measured value of a categorical feature, i.e., a category
+            # restrict artifacts to those matching a specific schema
+            schema = ln.Schema.get(name="my-schema")
+            ln.Feature(
+                name="valid_artifact",
+                dtype=ln.Artifact,
+                cat_filters={"schema": schema},
+            ).save()
+
+        A feature accepting multiple categorical types - a union type::
+
+            ln.Feature(
+                name="cell_types",
+                dtype="cat[bionty.Tissue.ontology_id|bionty.CellType.ontology_id]"
+            ).save()
+
+    .. dropdown:: What is the difference between features and labels?
+
+        1. A feature qualifies what is measured, i.e., a numerical or categorical random variable
+        2. A label *is* a measured value of a categorical variable, i.e., a category
 
         Example: When annotating a dataset that measures expression of 30k genes,
         the gene identifiers serve as feature identifiers, and the features are expression measurements for these genes.
