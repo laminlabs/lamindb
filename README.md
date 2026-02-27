@@ -23,7 +23,7 @@ By offering queries, tracing & validation in a single API, LaminDB provides the 
 
 </details>
 
-<img width="800px" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/BunYmHkyFLITlM5M000C.svg">
+<img width="800px" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/BunYmHkyFLITlM5M000D.svg">
 
 How?
 
