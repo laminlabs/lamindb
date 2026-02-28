@@ -4,6 +4,7 @@ from contextlib import contextmanager
 from pathlib import Path
 
 import nox
+import tomllib
 from laminci import convert_executable_md_files, upload_docs_artifact
 from laminci.nox import (
     build_docs,
@@ -44,9 +45,35 @@ def install_local_lamindb_full(session, extras: str):
     full_pyproject = Path("pyproject.full.toml")
     if full_pyproject.exists():
         with use_pyproject(str(full_pyproject)):
-            run(session, f"uv pip install {'--system' if CI else ''} -e .[dev{extras}]")
+            # Install editable full package without dependency resolution first,
+            # then install dependencies explicitly except lamindb-core (already local).
+            run(
+                session,
+                f"uv pip install {'--system' if CI else ''} --no-cache-dir --no-deps -e .",
+            )
+        extra_names = ["dev"] + [e for e in extras.replace(",", " ").split() if e]
+        deps = _full_deps_without_core(extra_names)
+        if deps:
+            run(
+                session,
+                f"uv pip install {'--system' if CI else ''} --no-cache-dir {' '.join(deps)}",
+            )
     else:
         run(session, f"uv pip install {'--system' if CI else ''} -e .[dev{extras}]")
+
+
+def _full_deps_without_core(extra_names: list[str]) -> list[str]:
+    data = tomllib.loads(Path("pyproject.full.toml").read_text())
+    project = data.get("project", {})
+    deps = []
+    for dep in project.get("dependencies", []):
+        if not dep.startswith("lamindb-core=="):
+            deps.append(dep)
+    optional = project.get("optional-dependencies", {})
+    for extra in extra_names:
+        deps.extend(optional.get(extra, []))
+    # de-duplicate while preserving order
+    return list(dict.fromkeys(deps))
 
 
 GROUPS = {}
