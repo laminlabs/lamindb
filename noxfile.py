@@ -33,11 +33,15 @@ def install_local_lamindb_core(session):
 def install_local_lamindb_full(session, extras: str):
     full_pyproject = Path("pyproject.full.toml")
     if full_pyproject.exists():
+        run(
+            session,
+            f"uv pip install {'--system' if CI else ''} --no-cache-dir flit",
+        )
         # Build full/meta wheel explicitly from alternate pyproject and install
         # it without deps so downstream requirements on `lamindb` are satisfied.
         run(
             session,
-            "flit -f pyproject.full.toml build --format wheel",
+            "python -m flit -f pyproject.full.toml build --format wheel",
         )
         full_wheels = sorted(
             Path("dist").glob("lamindb-*.whl"), key=lambda p: p.stat().st_mtime
