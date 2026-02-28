@@ -1,5 +1,6 @@
 import os
 import shutil
+from contextlib import contextmanager
 from pathlib import Path
 
 import nox
@@ -30,12 +31,28 @@ def install_local_lamindb_core(session):
     )
 
 
+@contextmanager
+def use_pyproject(pyproject_path: str):
+    pyproject = Path("pyproject.toml")
+    original = pyproject.read_text()
+    try:
+        pyproject.write_text(Path(pyproject_path).read_text())
+        yield
+    finally:
+        pyproject.write_text(original)
+
+
 def install_local_lamindb_full(session, extras: str):
     full_pyproject = Path("pyproject.full.toml")
     if full_pyproject.exists():
-        # Do not install the full/meta package itself: editable installs still
-        # resolve metadata and can fail when lamindb-core isn't in a registry.
-        # We only need the full dependency bundle on top of local core.
+        # Install local full/meta package with no deps to satisfy downstream
+        # requirements like bionty/pertdb -> lamindb without pulling from index.
+        with use_pyproject(str(full_pyproject)):
+            run(
+                session,
+                f"uv pip install {'--system' if CI else ''} --no-cache-dir --no-deps .",
+            )
+        # Then install full dependency bundle except lamindb-core (already local).
         extra_names = ["dev"] + [e for e in extras.replace(",", " ").split() if e]
         deps = _full_deps_without_core(extra_names)
         if deps:
