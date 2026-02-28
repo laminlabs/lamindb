@@ -76,6 +76,13 @@ Install the Python package:
 pip install lamindb
 ```
 
+For a leaner install that only ships the `lamindb/` namespace package and core
+runtime dependencies, use:
+
+```shell
+pip install lamindb-core
+```
+
 ### Query databases
 
 You can browse public databases at [lamin.ai/explore](https://lamin.ai/explore). To query [laminlabs/cellxgene](https://lamin.ai/laminlabs/cellxgene), run:

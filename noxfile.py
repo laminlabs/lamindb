@@ -1,5 +1,6 @@
 import os
 import shutil
+from contextlib import contextmanager
 from pathlib import Path
 
 import nox
@@ -20,6 +21,32 @@ nox.options.default_venv_backend = "none"
 
 IS_PR = os.getenv("GITHUB_EVENT_NAME") != "push"
 CI = os.environ.get("CI")
+
+
+@contextmanager
+def use_pyproject(pyproject_path: str):
+    pyproject = Path("pyproject.toml")
+    original = pyproject.read_text()
+    try:
+        pyproject.write_text(Path(pyproject_path).read_text())
+        yield
+    finally:
+        pyproject.write_text(original)
+
+
+def install_local_lamindb_core(session):
+    run(
+        session, f"uv pip install {'--system' if CI else ''} --no-cache-dir --no-deps ."
+    )
+
+
+def install_local_lamindb_full(session, extras: str):
+    full_pyproject = Path("pyproject.full.toml")
+    if full_pyproject.exists():
+        with use_pyproject(str(full_pyproject)):
+            run(session, f"uv pip install {'--system' if CI else ''} -e .[dev{extras}]")
+    else:
+        run(session, f"uv pip install {'--system' if CI else ''} -e .[dev{extras}]")
 
 
 GROUPS = {}
@@ -50,15 +77,11 @@ def install(session):
         "./sub/lamindb-setup",
         "./sub/bionty",
     ]
-    top_deps = [
-        ".[dev]",
-    ]
     cmds = [
         f"uv pip install {'--system' if CI else ''} --no-cache-dir {' '.join(base_deps)}",
-    ] + [
-        f"uv pip install {'--system' if CI else ''} --no-cache-dir -e {dep}"
-        for dep in top_deps
     ]
+    install_local_lamindb_core(session)
+    install_local_lamindb_full(session, "")
     [run(session, line) for line in cmds]
 
 
@@ -155,7 +178,8 @@ def install_ci(session, group):
         pass
 
     extras = "," + extras if extras != "" else extras
-    run(session, f"uv pip install --system -e .[dev{extras}]")
+    install_local_lamindb_core(session)
+    install_local_lamindb_full(session, extras)
 
     # on the release branch, do not use submodules but run with pypi install
     # only exception is the docs group which should always use the submodule
