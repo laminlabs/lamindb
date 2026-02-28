@@ -15,16 +15,9 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
 ]
 dependencies = [
-    "lamin_utils==0.16.4",
-    "lamin_cli==1.14.1",
-    "lamindb_setup[aws]==1.22.0",
-    "pyyaml",
-    "typing_extensions!=4.6.0",
-    "python-dateutil",
-    "scipy<1.17.0",
-    "fsspec",
-    "graphviz",
-    "psycopg2-binary",
+    "lamin_utils==0.16.4",  # no dependencies
+    "lamin_cli==1.14.1",  # no dependencies
+    "lamindb_setup[aws]==1.22.0",  # dependencies
 ]
 
 [project.urls]

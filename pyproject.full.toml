@@ -26,6 +26,11 @@ dependencies = [
     "pandera>=0.24.0",
     "pandas>=2.0.0,<3.0.0",
     "anndata>=0.10.0,<=0.12.10",
+    "graphviz",
+    "scipy<1.17.0",
+    "pyyaml",
+    "typing_extensions!=4.6.0",
+    "python-dateutil",
 ]
 
 [project.urls]
