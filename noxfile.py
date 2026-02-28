@@ -1,6 +1,5 @@
 import os
 import shutil
-from contextlib import contextmanager
 from pathlib import Path
 
 import nox
@@ -24,33 +23,19 @@ IS_PR = os.getenv("GITHUB_EVENT_NAME") != "push"
 CI = os.environ.get("CI")
 
 
-@contextmanager
-def use_pyproject(pyproject_path: str):
-    pyproject = Path("pyproject.toml")
-    original = pyproject.read_text()
-    try:
-        pyproject.write_text(Path(pyproject_path).read_text())
-        yield
-    finally:
-        pyproject.write_text(original)
-
-
 def install_local_lamindb_core(session):
     run(
-        session, f"uv pip install {'--system' if CI else ''} --no-cache-dir --no-deps ."
+        session,
+        f"uv pip install {'--system' if CI else ''} --no-cache-dir --no-deps -e .",
     )
 
 
 def install_local_lamindb_full(session, extras: str):
     full_pyproject = Path("pyproject.full.toml")
     if full_pyproject.exists():
-        with use_pyproject(str(full_pyproject)):
-            # Install editable full package without dependency resolution first,
-            # then install dependencies explicitly except lamindb-core (already local).
-            run(
-                session,
-                f"uv pip install {'--system' if CI else ''} --no-cache-dir --no-deps -e .",
-            )
+        # Do not install the full/meta package itself: editable installs still
+        # resolve metadata and can fail when lamindb-core isn't in a registry.
+        # We only need the full dependency bundle on top of local core.
         extra_names = ["dev"] + [e for e in extras.replace(",", " ").split() if e]
         deps = _full_deps_without_core(extra_names)
         if deps:
