@@ -3,7 +3,7 @@ requires = ["flit_core >=3.2,<4"]
 build-backend = "flit_core.buildapi"
 
 [project]
-name = "lamindb"
+name = "lamindb-core"
 requires-python = ">=3.10,<3.14"
 authors = [{name = "Lamin Labs", email = "open-source@lamin.ai"}]
 readme = "README.md"
@@ -15,29 +15,9 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
 ]
 dependencies = [
-    # LaminDB core modules
-    "lamin_utils==0.16.4",  # 30kB pure python, no dependencies
-    "lamin_cli==1.14.1",     # 30kB pure python, no dependencies
-    "lamindb_setup[aws]==1.22.0",  # dependencies like Django & fsspec
-    # LaminDB optional modules, included to avoid users forgetting about extras
-    "bionty==2.2.1", # 30kB pure python, no dependencies
-    "pertdb==2.1.1",  # 30kB pure python, no dependencies
-    "wetlab>=2.0.0,<2.1.0",  # backward compat with pertdb
-    # Jupyter -- small packages with few & small dependencies
-    "jupytext",
-    "nbconvert>=7.2.1",  # bound to avoid lxml[html_clean] dependency
-    "nbproject==0.11.1",  # lamin module, adds orjson
-    # Others
-    "pyyaml",
-    "pyarrow",
-    "pandera>=0.24.0",
-    "typing_extensions!=4.6.0",
-    "python-dateutil",
-    "pandas>=2.0.0,<3.0.0",  # for .infer_objects(copy=False) in lamin-utils; not yet compatible with Pandas 3.0.0
-    "anndata>=0.10.0,<=0.12.10",  # backed sparse is incompatible with scipy 1.15.0 for anndata 1.11.1
-    "scipy<1.17.0", # 1.17.0 is incompatible with anndata<0.12.7
-    "fsspec",
-    "graphviz",
+    "lamin_utils==0.16.4",  # no dependencies
+    "lamin_cli==1.14.1",  # no dependencies
+    "lamindb_setup[aws]==1.22.0",  # dependencies
     "psycopg2-binary",
 ]
 
@@ -73,6 +53,9 @@ dev = [
     # bionty
     "pronto",
 ]
+
+[tool.flit.module]
+name = "lamindb"
 
 [tool.ruff]
 src = ["src"]

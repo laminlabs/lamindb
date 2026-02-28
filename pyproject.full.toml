@@ -1,0 +1,81 @@
+[build-system]
+requires = ["flit_core >=3.2,<4"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "lamindb"
+requires-python = ">=3.10,<3.14"
+authors = [{name = "Lamin Labs", email = "open-source@lamin.ai"}]
+readme = "README.md"
+dynamic = ["version", "description"]
+classifiers = [
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+dependencies = [
+    # Core package + convenience dependency bundle.
+    "lamindb-core==2.3a1",
+    # LaminDB optional modules, included to avoid users forgetting about extras
+    # (small pure-python distributions, but can pull heavier transitive deps)
+    "bionty==2.2.1",
+    "pertdb==2.1.1",
+    "wetlab>=2.0.0,<2.1.0",
+    # Jupyter stack
+    "jupytext",
+    "nbconvert>=7.2.1",  # bound to avoid lxml[html_clean] dependency
+    "nbproject==0.11.1",  # lamin module, adds orjson
+    # Data & validation dependencies (heavier)
+    "pyarrow",
+    "pandera>=0.24.0",
+    "pandas>=2.0.0,<3.0.0",  # for .infer_objects(copy=False) in lamin-utils; not yet compatible with Pandas 3.0.0
+    "anndata>=0.10.0,<=0.12.10",  # backed sparse is incompatible with scipy 1.15.0 for anndata 1.11.1
+    # Runtime utilities
+    "graphviz",
+    "scipy<1.17.0",  # 1.17.0 is incompatible with anndata<0.12.7
+    "pyyaml",
+    "typing_extensions!=4.6.0",
+    "python-dateutil",
+]
+
+[project.urls]
+Home = "https://github.com/laminlabs/lamindb"
+
+[project.optional-dependencies]
+gcp = [
+    "lamindb_setup[gcp]",
+]
+zarr_v2 = [
+    "numcodecs<0.16.0", # 0.16.0 breaks zarr<3.0.*
+    "zarr>=2.16.0,<3.0.0a0", # not yet compatible with 3.0.*
+]
+fcs = [
+    "readfcs>=2.0.1",
+]
+dev = [
+    # basic test
+    "tomlkit",
+    "line_profiler",
+    "pre-commit",
+    "nox",
+    "laminci>=0.3",
+    "pytest>=6.0",
+    "coverage",
+    "pytest-cov<7.0.0",  # v7 drops support for subprocess measurement
+    "mudata",
+    # others
+    "nbproject_test>=0.6.0",
+    # biology
+    "faker-biology",
+    # bionty
+    "pronto",
+]
+
+[tool.flit.module]
+name = "lamindb_full"
+
+[tool.flit.sdist]
+exclude = [
+    "sub/"
+]

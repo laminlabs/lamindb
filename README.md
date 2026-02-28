@@ -70,11 +70,22 @@ Point an agent to [llms.txt](https://docs.lamin.ai/llms.txt) and let them do the
 
 ## Quickstart
 
-Install the Python package:
+To install the Python package with recommended dependencies, use:
 
 ```shell
 pip install lamindb
 ```
+
+<details>
+<summary>Install with minimal dependencies.</summary>
+
+To install the `lamindb` namespace with minimal dependencies, use:
+
+```shell
+pip install lamindb-core==2.3a1
+```
+
+</details>
 
 ### Query databases
 

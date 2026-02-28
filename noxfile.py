@@ -3,6 +3,7 @@ import shutil
 from pathlib import Path
 
 import nox
+import tomllib
 from laminci import convert_executable_md_files, upload_docs_artifact
 from laminci.nox import (
     build_docs,
@@ -20,6 +21,62 @@ nox.options.default_venv_backend = "none"
 
 IS_PR = os.getenv("GITHUB_EVENT_NAME") != "push"
 CI = os.environ.get("CI")
+
+
+def install_local_lamindb_core(session):
+    run(
+        session,
+        f"uv pip install {'--system' if CI else ''} --no-cache-dir --no-deps -e .",
+    )
+
+
+def install_local_lamindb_full(session, extras: str):
+    full_pyproject = Path("pyproject.full.toml")
+    if full_pyproject.exists():
+        run(
+            session,
+            f"uv pip install {'--system' if CI else ''} --no-cache-dir flit",
+        )
+        # Build full/meta wheel explicitly from alternate pyproject and install
+        # it without deps so downstream requirements on `lamindb` are satisfied.
+        run(
+            session,
+            "python -m flit -f pyproject.full.toml build --format wheel",
+        )
+        full_wheels = sorted(
+            Path("dist").glob("lamindb-*.whl"), key=lambda p: p.stat().st_mtime
+        )
+        if not full_wheels:
+            raise RuntimeError("No lamindb full wheel found in dist/")
+        full_wheel = full_wheels[-1]
+        run(
+            session,
+            f"uv pip install {'--system' if CI else ''} --no-cache-dir --no-deps {full_wheel.as_posix()}",
+        )
+        # Then install full dependency bundle except lamindb-core (already local).
+        extra_names = ["dev"] + [e for e in extras.replace(",", " ").split() if e]
+        deps = _full_deps_without_core(extra_names)
+        if deps:
+            run(
+                session,
+                f"uv pip install {'--system' if CI else ''} --no-cache-dir {' '.join(deps)}",
+            )
+    else:
+        run(session, f"uv pip install {'--system' if CI else ''} -e .[dev{extras}]")
+
+
+def _full_deps_without_core(extra_names: list[str]) -> list[str]:
+    data = tomllib.loads(Path("pyproject.full.toml").read_text())
+    project = data.get("project", {})
+    deps = []
+    for dep in project.get("dependencies", []):
+        if not dep.startswith("lamindb-core=="):
+            deps.append(dep)
+    optional = project.get("optional-dependencies", {})
+    for extra in extra_names:
+        deps.extend(optional.get(extra, []))
+    # de-duplicate while preserving order
+    return list(dict.fromkeys(deps))
 
 
 GROUPS = {}
@@ -50,15 +107,11 @@ def install(session):
         "./sub/lamindb-setup",
         "./sub/bionty",
     ]
-    top_deps = [
-        ".[dev]",
-    ]
     cmds = [
         f"uv pip install {'--system' if CI else ''} --no-cache-dir {' '.join(base_deps)}",
-    ] + [
-        f"uv pip install {'--system' if CI else ''} --no-cache-dir -e {dep}"
-        for dep in top_deps
     ]
+    install_local_lamindb_core(session)
+    install_local_lamindb_full(session, "")
     [run(session, line) for line in cmds]
 
 
@@ -155,7 +208,8 @@ def install_ci(session, group):
         pass
 
     extras = "," + extras if extras != "" else extras
-    run(session, f"uv pip install --system -e .[dev{extras}]")
+    install_local_lamindb_core(session)
+    install_local_lamindb_full(session, extras)
 
     # on the release branch, do not use submodules but run with pypi install
     # only exception is the docs group which should always use the submodule
