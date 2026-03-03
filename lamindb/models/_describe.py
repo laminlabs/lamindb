@@ -2,15 +2,16 @@ from __future__ import annotations
 
 import re
 from types import SimpleNamespace
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 from django.db import connections
+from django.db.models import Q
 from lamin_utils import colors, logger
 from rich.table import Column, Table
 from rich.text import Text
 from rich.tree import Tree
 
-from lamindb.models import BaseSQLRecord, Run
+from lamindb.models import BaseSQLRecord, Branch, Run
 
 from ._is_versioned import IsVersioned
 from .sqlrecord import SQLRecord, format_field_value
@@ -377,16 +378,19 @@ def describe_run(
     if record.report_id:
         report = record.report.load(is_run_input=False)
         if report:
+            report_str = report if isinstance(report, str) else str(report)
             display_text(
-                strip_ansi_from_string(report.strip()),
+                strip_ansi_from_string(report_str.strip()),
                 "report",
                 tree,
                 max_lines=4,
                 uid=record.report.uid[:7],
             )
     if record.environment_id:
+        env_result = record.environment.load(is_run_input=False)
+        env_str = env_result if isinstance(env_result, str) else str(env_result)
         display_text(
-            record.environment.load(is_run_input=False).strip(),
+            env_str.strip(),
             "environment",
             tree,
             max_lines=4,
@@ -426,8 +430,23 @@ def describe_transform(
     return tree
 
 
+def describe_branch(record: Branch) -> Tree:
+    tree = describe_header(record)
+    two_column_items = []  # type: ignore
+    two_column_items.append(Text.assemble(("status: ", "dim"), record.status))
+    two_column_items.append(Text.assemble(("space: ", "dim"), record.space.name))
+    two_column_items.append(
+        Text.assemble(("created_at: ", "dim"), format_field_value(record.created_at))
+    )
+    two_column_items.append(
+        Text.assemble(("created_by: ", "dim"), record.created_by.handle)
+    )
+    add_two_column_items_to_tree(tree, two_column_items)
+    return tree
+
+
 def describe_schema(record: Schema, slot: str | None = None) -> Tree:
-    from ._feature_manager import strip_cat
+    from ._feature_manager import format_dtype_for_display, strip_cat
 
     if record.type:
         prefix = f" {record.type.name} · "
@@ -494,8 +513,8 @@ def describe_schema(record: Schema, slot: str | None = None) -> Tree:
             optionals = record.optionals.get()
             for member in record.members:
                 feature_table.add_row(
-                    member.name,
-                    Text(strip_cat(member._dtype_str)),
+                    Text(member.name),
+                    Text(strip_cat(format_dtype_for_display(member._dtype_str))),
                     "✓" if optionals.filter(uid=member.uid).exists() else "✗",
                     "✓" if member.nullable else "✗",
                     "✓" if record.coerce or member.coerce else "✗",
@@ -536,6 +555,8 @@ def describe_postgres(record):
         tree = describe_collection(record, related_data=related_data)
     elif model_name == "Transform":
         tree = describe_transform(record)
+    elif model_name == "Branch":
+        tree = describe_branch(record)
     else:
         tree = describe_header(record)
     return tree
@@ -583,12 +604,52 @@ def describe_sqlite(record):
         tree = describe_collection(record)
     elif model_name == "Transform":
         tree = describe_transform(record)
+    elif model_name == "Branch":
+        tree = describe_branch(record)
     else:
         tree = describe_header(record)
     return tree
 
 
-def describe_postgres_sqlite(record, return_str: bool = False) -> str | None:
+def append_readme_blocks_to_tree(
+    record, tree: Tree, include: None | Literal["comments"] = None
+) -> None:
+    """Append readme (and optionally comment) block content to the describe tree."""
+    if record._state.adding:
+        return
+    if not hasattr(record, "ablocks"):
+        return
+    if include == "comments":
+        blocks_qs = record.ablocks.filter(
+            Q(kind="readme", is_latest=True) | Q(kind="comment")
+        ).select_related("created_by")
+    else:
+        blocks_qs = record.ablocks.filter(kind="readme", is_latest=True)
+    blocks = list(blocks_qs.order_by("created_at"))
+    # README first, then comments; each group sorted chronologically
+    readme_blocks = [b for b in blocks if b.kind == "readme"]
+    comment_blocks = [b for b in blocks if b.kind == "comment"]
+    for block in readme_blocks + comment_blocks:
+        if block.kind == "readme":
+            title = "README"
+        else:
+            handle = block.created_by.handle if block.created_by else "?"
+            created_at_str = format_field_value(block.created_at)
+            title = f"comment by {handle} at {created_at_str}"
+        display_text(
+            block.content,
+            title,
+            tree,
+            max_lines=30,
+            uid="",
+        )
+
+
+def describe_postgres_sqlite(
+    record,
+    return_str: bool = False,
+    include: None | Literal["comments"] = None,
+) -> str | None:
     from ._describe import format_rich_tree
 
     if (
@@ -598,4 +659,5 @@ def describe_postgres_sqlite(record, return_str: bool = False) -> str | None:
         tree = describe_postgres(record)
     else:
         tree = describe_sqlite(record)
+    append_readme_blocks_to_tree(record, tree, include=include)
     return format_rich_tree(tree, return_str=return_str)

@@ -30,14 +30,14 @@ def test_zarr_upload_cache(get_small_adata):
     get_small_adata.write_zarr(zarr_path)
 
     artifact = ln.Artifact(zarr_path, key="test_adata.zarr")
-    assert artifact._is_saved_to_storage_location is None
+    assert not artifact._storage_ongoing
     assert artifact.otype == "AnnData"
     assert artifact.n_files >= 1
     artifact.save()
 
     assert ln.Artifact.get(path=artifact.path) == artifact
 
-    assert artifact._is_saved_to_storage_location
+    assert not artifact._storage_ongoing
 
     assert isinstance(artifact.path, CloudPath)
     assert artifact.path.exists()
@@ -59,14 +59,14 @@ def test_zarr_upload_cache(get_small_adata):
 
     # test zarr from memory
     artifact = ln.Artifact(get_small_adata, key="test_adata.anndata.zarr")
-    assert artifact._is_saved_to_storage_location is None
+    assert not artifact._storage_ongoing
     assert artifact._local_filepath.is_dir()
     assert artifact.otype == "AnnData"
     assert artifact.suffix == ".anndata.zarr"
     assert artifact.n_files >= 1
 
     ln.save([artifact])  # use bulk save here for testing
-    assert artifact._is_saved_to_storage_location
+    assert not artifact._storage_ongoing
     assert isinstance(artifact.path, CloudPath)
     assert artifact.path.exists()
     cache_path = artifact._cache_path

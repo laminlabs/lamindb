@@ -15,7 +15,7 @@ from lamindb.base.fields import (
 )
 from lamindb.errors import FieldValidationError
 
-from ..base.ids import base62_8
+from ..base.uids import base62_8
 from .can_curate import CanCurate
 from .feature import Feature
 from .has_parents import HasParents, _query_relatives
@@ -27,10 +27,13 @@ if TYPE_CHECKING:
     from datetime import datetime
 
     from .artifact import Artifact
+    from .block import ULabelBlock
     from .collection import Collection
     from .project import Project
+    from .query_manager import RelatedManager
     from .query_set import QuerySet
     from .record import Record
+    from .sqlrecord import Branch
 
 
 class ULabel(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates):
@@ -114,25 +117,7 @@ class ULabel(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
                     """,
                 ),
             ]
-        constraints = [
-            # unique name for types when type is NULL
-            models.UniqueConstraint(
-                fields=["name"],
-                name="unique_ulabel_type_name_at_root",
-                condition=models.Q(
-                    ~models.Q(branch_id=-1), type__isnull=True, is_type=True
-                ),
-            ),
-            # unique name for types when type is not NULL
-            models.UniqueConstraint(
-                fields=["name", "type"],
-                name="unique_ulabel_type_name_under_type",
-                condition=models.Q(
-                    ~models.Q(branch_id=-1), type__isnull=False, is_type=True
-                ),
-            ),
-            # also see raw SQL constraints for `is_type` and `type` FK validity in migrations
-        ]
+        # also see raw SQL constraints for `is_type` and `type` FK validity in migrations
 
     _name_field: str = "name"
 
@@ -145,11 +130,11 @@ class ULabel(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
     name: str = CharField(max_length=150, db_index=True)
     """Name or title of ulabel."""
     type: ULabel | None = ForeignKey("self", PROTECT, null=True, related_name="ulabels")
-    """Type of ulabel, e.g., `"donor"`, `"split"`, etc.
+    """Type of ulabel, e.g., `"donor"`, `"split"`, etc. ← :attr:`~lamindb.ULabel.ulabels`
 
     Allows to group ulabels by type, e.g., all donors, all split ulabels, etc.
     """
-    ulabels: ULabel
+    ulabels: RelatedManager[ULabel]
     """ULabels of this type (can only be non-empty if `is_type` is `True`)."""
     description: str | None = TextField(null=True)
     """A description."""
@@ -157,38 +142,42 @@ class ULabel(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
     """A simple reference like URL or external ID."""
     reference_type: str | None = CharField(max_length=25, db_index=True, null=True)
     """Type of simple reference."""
-    parents: ULabel = models.ManyToManyField(
+    parents: RelatedManager[ULabel] = models.ManyToManyField(
         "self", symmetrical=False, related_name="children"
     )
-    """Parent entities of this ulabel.
+    """Parent entities of this ulabel ← :attr:`~lamindb.ULabel.children`.
 
     For advanced use cases, you can build an ontology under a given `type`.
 
     Say, if you modeled `CellType` as a `ULabel`, you would introduce a type `CellType` and model the hiearchy of cell types under it.
     """
-    children: ULabel
+    children: RelatedManager[ULabel]
     """Child entities of this ulabel.
 
     Reverse accessor for parents.
     """
-    transforms: Transform
-    """The transforms annotated by this ulabel."""
-    runs: Run
-    """The runs annotated by this ulabel."""
-    artifacts: Artifact = models.ManyToManyField(
+    transforms: RelatedManager[Transform]
+    """The transforms annotated by this ulabel ← :attr:`~lamindb.Transform.ulabels`."""
+    runs: RelatedManager[Run]
+    """The runs annotated by this ulabel ← :attr:`~lamindb.Run.ulabels`."""
+    artifacts: RelatedManager[Artifact] = models.ManyToManyField(
         "Artifact", through="ArtifactULabel", related_name="ulabels"
     )
-    """The artifacts annotated by this ulabel."""
-    collections: Collection
-    """The collections annotated by this ulabel."""
-    projects: Project
-    """The projects annotated by this ulabel."""
-    linked_in_records: Record = models.ManyToManyField(
+    """The artifacts annotated by this ulabel ← :attr:`~lamindb.Artifact.ulabels`."""
+    collections: RelatedManager[Collection]
+    """The collections annotated by this ulabel ← :attr:`~lamindb.Collection.ulabels`."""
+    projects: RelatedManager[Project]
+    """The projects annotating this ulabel ← :attr:`~lamindb.Project.ulabels`."""
+    branches: RelatedManager[Branch]
+    """The branches annotated by this ulabel ← :attr:`~lamindb.Branch.ulabels`."""
+    linked_in_records: RelatedManager[Record] = models.ManyToManyField(
         "Record",
         through="RecordULabel",
         related_name="linked_ulabels",
     )
-    """Records linking this ulabel as a value."""
+    """Records linking this ulabel as a value ← :attr:`~lamindb.Record.linked_ulabels`."""
+    ablocks: RelatedManager[ULabelBlock]
+    """Attached blocks ← :attr:`~lamindb.ULabelBlock.ulabel`."""
 
     @overload
     def __init__(
@@ -299,6 +288,18 @@ class RunULabel(BaseSQLRecord, IsLink):
     class Meta:
         app_label = "lamindb"
         unique_together = ("run", "ulabel")
+
+
+class BranchULabel(BaseSQLRecord, IsLink):
+    """Link model for branch–ulabel association."""
+
+    id: int = models.BigAutoField(primary_key=True)
+    branch: Branch = ForeignKey("Branch", CASCADE, related_name="links_ulabel")
+    ulabel: ULabel = ForeignKey(ULabel, PROTECT, related_name="links_branch")
+
+    class Meta:
+        app_label = "lamindb"
+        unique_together = ("branch", "ulabel")
 
 
 class CollectionULabel(BaseSQLRecord, IsLink, TracksRun):

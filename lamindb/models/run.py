@@ -1,37 +1,47 @@
 from __future__ import annotations
 
+import os
+import subprocess
+import sys
 from typing import TYPE_CHECKING, overload
 
 from django.db import models
 from django.db.models import (
     CASCADE,
     PROTECT,
+    Q,
 )
+from lamin_utils import logger
 from lamindb_setup import _check_instance_setup
+from lamindb_setup import settings as setup_settings
 
 from lamindb.base.fields import (
     BooleanField,
     CharField,
     DateTimeField,
     ForeignKey,
+    TextField,
 )
 from lamindb.base.users import current_user_id
 from lamindb.base.utils import strict_classmethod
 
-from ..base.ids import base62_16
+from ..base.uids import base62_16
 from .can_curate import CanCurate
+from .query_set import BasicQuerySet, QuerySet
 from .sqlrecord import BaseSQLRecord, IsLink, SQLRecord
 
 if TYPE_CHECKING:
     from datetime import datetime
 
+    from lamindb.base.types import RunStatus
+
     from ._feature_manager import FeatureManager
     from .artifact import Artifact
     from .block import RunBlock
     from .collection import Collection
-    from .feature import JsonValue
+    from .feature import Feature, JsonValue
     from .project import Project
-    from .query_set import QuerySet
+    from .query_manager import RelatedManager
     from .record import Record
     from .transform import Transform
     from .ulabel import ULabel
@@ -80,22 +90,6 @@ class TracksRun(models.Model):
     )
     """Run that created record."""
 
-    @overload
-    def __init__(self): ...
-
-    @overload
-    def __init__(
-        self,
-        *db_args,
-    ): ...
-
-    def __init__(
-        self,
-        *args,
-        **kwargs,
-    ):
-        super().__init__(*args, **kwargs)
-
 
 class TracksUpdates(models.Model):
     """Base class tracking previous runs and `updated_at` timestamp."""
@@ -107,22 +101,6 @@ class TracksUpdates(models.Model):
         editable=False, db_default=models.functions.Now(), db_index=True
     )
     """Time of last update to record."""
-
-    @overload
-    def __init__(self): ...
-
-    @overload
-    def __init__(
-        self,
-        *db_args,
-    ): ...
-
-    def __init__(
-        self,
-        *args,
-        **kwargs,
-    ):
-        super().__init__(*args, **kwargs)
 
 
 class User(BaseSQLRecord, CanCurate):
@@ -152,31 +130,33 @@ class User(BaseSQLRecord, CanCurate):
     """User handle, valid across DB instances (required)."""
     name: str | None = CharField(max_length=150, db_index=True, null=True)
     """Full name (optional)."""  # has to match hub specification, where it's also optional
-    linked_in_records: Record = models.ManyToManyField(
+    linked_in_records: RelatedManager[Record] = models.ManyToManyField(
         "Record", through="RecordUser", related_name="linked_users"
     )
     """This user is linked in these records as a value."""
-    artifacts: Artifact = models.ManyToManyField(
+    artifacts: RelatedManager[Artifact] = models.ManyToManyField(
         "Artifact",
         through="ArtifactUser",
         through_fields=("user", "artifact"),
         related_name="users",
     )
     """Artifacts annotated with this user."""
-    created_artifacts: Artifact
+    created_artifacts: RelatedManager[Artifact]
     """Artifacts created by user."""
-    created_transforms: Transform
+    created_transforms: RelatedManager[Transform]
     """Transforms created by user."""
-    created_runs: Run
+    created_runs: RelatedManager[Run]
     """Runs created by user."""
+    projects: RelatedManager[Project]
+    """Projects this user is linked to (e.g. as member) ← :attr:`~lamindb.ProjectUser.project`."""
     created_at: datetime = DateTimeField(
         editable=False, db_default=models.functions.Now(), db_index=True
     )
-    """Time of creation of record."""
+    """Time of creation of object."""
     updated_at: datetime = DateTimeField(
         editable=False, db_default=models.functions.Now(), db_index=True
     )
-    """Time of last update to record."""
+    """Time of last update to object."""
 
     @overload
     def __init__(
@@ -200,7 +180,7 @@ class User(BaseSQLRecord, CanCurate):
         super().__init__(*args, **kwargs)
 
 
-class Run(SQLRecord):
+class Run(SQLRecord, TracksUpdates):
     """Runs of transforms such as the executions of a script.
 
     Args:
@@ -267,8 +247,10 @@ class Run(SQLRecord):
     """Universal id, valid across DB instances."""
     name: str | None = CharField(max_length=150, null=True, db_index=True)
     """An optional name for this run."""
+    description: str | None = TextField(null=True)
+    """An optional description for this run."""
     transform: Transform = ForeignKey("Transform", CASCADE, related_name="runs")
-    """The transform that is being run."""
+    """The transform that is being run ← :attr:`~lamindb.Transform.runs`."""
     entrypoint: str | None = CharField(max_length=255, null=True, db_index=True)
     """The entrypoint of the transform.
 
@@ -293,36 +275,47 @@ class Run(SQLRecord):
 
     For instance, `Dockerfile`, `docker image`, `requirements.txt`, `environment.yml`, etc.
     """
-    input_artifacts: Artifact
-    """The artifacts serving as input for this run, via :attr:`~lamindb.Artifact.input_of_runs`.
-    """
-    output_artifacts: Artifact
-    """The artifacts generated by this run, via :attr:`~lamindb.Artifact.run`.
-    """
-    recreated_artifacts: Artifact
-    """The output artifacts that were recreated by this run but originally created in another run, via :attr:`~lamindb.Artifact.recreating_runs`.
+    plan: Artifact | None = ForeignKey(
+        "Artifact", PROTECT, null=True, related_name="_plan_for_runs", default=None
+    )
+    """The (agent) plan for this run.
 
-    Artifacts are considered recreated if they are reloaded due to a hash lookup match for an existing artifact.
+    Also see: :attr:`~lamindb.Run.initiated_by_run`.
     """
-    input_records: Record
-    """The collections serving as input for this run, via :attr:`~lamindb.Record.input_of_runs`."""
-    output_records: Record
-    """The collections generated by this run, via :attr:`~lamindb.Record.run`."""
-    input_collections: Collection
-    """The collections serving as input for this run, via :attr:`~lamindb.Collection.input_of_runs`."""
-    output_collections: Collection
-    """The collections generated by this run, via :attr:`~lamindb.Collection.run`."""
-    recreated_collections: Collection
-    """The output collections that were recreated by this run but originally created in another run, via :attr:`~lamindb.Collection.recreating_runs`.
+    input_records: RelatedManager[Record]
+    """The collections serving as input for this run ← :attr:`~lamindb.Record.input_of_runs`."""
+    output_records: RelatedManager[Record]
+    """The collections created in this run ← :attr:`~lamindb.Record.run`."""
+    input_artifacts: RelatedManager[Artifact]
+    """The artifacts serving as input for this run ← :attr:`~lamindb.Artifact.input_of_runs`.
+    """
+    output_artifacts: RelatedManager[Artifact]
+    """The artifacts created in this run ← :attr:`~lamindb.Artifact.run`.
 
-    Artifacts are considered recreated if they are reloaded due to a hash lookup match for an existing artifact.
+    This does **not** include recreated artifacts, which are tracked via :attr:`~lamindb.Run.recreated_artifacts`.
+
+    If you want to query created + recreated artifacts, use :meth:`~lamindb.Run.query_output_artifacts` instead.
+    """
+    recreated_artifacts: RelatedManager[Artifact]
+    """The output artifacts that were recreated by this run ← :attr:`~lamindb.Artifact.recreating_runs`.
+
+    Artifacts are *recreated* if they trigger a hash lookup match for an existing artifact.
+    """
+    input_collections: RelatedManager[Collection]
+    """The collections serving as input for this run ← :attr:`~lamindb.Collection.input_of_runs`."""
+    output_collections: RelatedManager[Collection]
+    """The collections created in this run ← :attr:`~lamindb.Collection.run`."""
+    recreated_collections: RelatedManager[Collection]
+    """The output collections that were recreated by this run ← :attr:`~lamindb.Collection.recreating_runs`.
+
+    Collections are *recreated* if they trigger a hash lookup match for an existing collection.
     """
     params: dict = models.JSONField(null=True)
     """Parameters (plain JSON values)."""
-    json_values: JsonValue = models.ManyToManyField(
+    json_values: RelatedManager[JsonValue] = models.ManyToManyField(
         "JsonValue", through="RunJsonValue", related_name="runs"
     )
-    """Feature-indexed JSON values."""
+    """Feature-indexed JSON values ← :attr:`~lamindb.JsonValue.runs`."""
     reference: str | None = CharField(max_length=255, db_index=True, null=True)
     """A reference like a URL or an external ID such as from a workflow manager."""
     reference_type: str | None = CharField(max_length=25, db_index=True, null=True)
@@ -336,35 +329,43 @@ class Run(SQLRecord):
     created_by: User = ForeignKey(
         "User", CASCADE, default=current_user_id, related_name="created_runs"
     )
-    """The creator of this run."""
-    ulabels: ULabel = models.ManyToManyField(
+    """The creator of this run ← :attr:`~lamindb.User.created_runs`."""
+    ulabels: RelatedManager[ULabel] = models.ManyToManyField(
         "ULabel", through="RunULabel", related_name="runs"
     )
-    """The ulabels annotating this run."""
+    """The ulabels annotating this run ← :attr:`~lamindb.ULabel.runs`."""
     initiated_by_run: Run | None = ForeignKey(
         "Run", CASCADE, null=True, related_name="initiated_runs", default=None
     )
-    """The run that initiated this run, via :attr:`~lamindb.Run.initiated_runs`."""
-    initiated_runs: Run
+    """The run that initiated this run ← :attr:`~lamindb.Run.initiated_runs`."""
+    initiated_runs: RelatedManager[Run]
     """The runs that were initiated by this run."""
-    projects: Project
-    """The projects annotating this run."""
-    blocks: RunBlock
-    """The blocks annotating this run."""
-    records: Record
-    """The records annotating this run, via :attr:`~lamindb.Record.runs`."""
-    linked_in_records: Record = models.ManyToManyField(
+    projects: RelatedManager[Project]
+    """The projects annotating this run ← :attr:`~lamindb.Project.runs`."""
+    ablocks: RelatedManager[RunBlock]
+    """Attached blocks ← :attr:`~lamindb.RunBlock.run`."""
+    records: RelatedManager[Record]
+    """The records annotating this run ← :attr:`~lamindb.Record.runs`."""
+    linked_in_records: RelatedManager[Record] = models.ManyToManyField(
         "Record", through="RecordRun", related_name="linked_runs"
     )
-    """This run is linked in these records as a value, via :attr:`~lamindb.Record.linked_runs`."""
-    artifacts: Artifact = models.ManyToManyField(
+    """This run is linked in these records as a value ← :attr:`~lamindb.Record.linked_runs`."""
+    artifacts: RelatedManager[Artifact] = models.ManyToManyField(
         "Artifact", through="ArtifactRun", related_name="runs"
     )
-    """The artifacts annotated by this run, via :attr:`~lamindb.Artifact.runs`."""
+    """The artifacts annotated by this run ← :attr:`~lamindb.Artifact.runs`."""
+    linked_artifacts: RelatedManager[Artifact] = models.ManyToManyField(
+        "Artifact",
+        through="RunArtifact",
+        related_name="linked_by_runs",
+    )
+    """The artifacts linked by this run through the run's features ← :attr:`~lamindb.RunArtifact.artifact`."""
     _is_consecutive: bool | None = BooleanField(null=True)
     """Indicates whether code was consecutively executed. Is relevant for notebooks."""
     _status_code: int = models.SmallIntegerField(
-        default=-3, db_default=-3, db_index=True, null=True
+        default=-3,
+        db_default=-3,
+        db_index=True,
     )
     """Status code of the run. See the status property for mapping to string."""
 
@@ -373,11 +374,13 @@ class Run(SQLRecord):
         self,
         transform: Transform,
         name: str | None = None,
+        description: str | None = None,
         entrypoint: str | None = None,
         params: dict | None = None,
         reference: str | None = None,
         reference_type: str | None = None,
         initiated_by_run: Run | None = None,
+        plan: Artifact | None = None,
     ): ...
 
     @overload
@@ -401,36 +404,49 @@ class Run(SQLRecord):
         if "transform" in kwargs or len(args) == 1:
             transform = kwargs.pop("transform") if len(args) == 0 else args[0]
         name: str | None = kwargs.pop("name", None)
+        description: str | None = kwargs.pop("description", None)
         entrypoint: str | None = kwargs.pop("entrypoint", None)
         params: dict | None = kwargs.pop("params", None)
         reference: str | None = kwargs.pop("reference", None)
         reference_type: str | None = kwargs.pop("reference_type", None)
         initiated_by_run: Run | None = kwargs.pop("initiated_by_run", None)
+        report: Artifact | None = kwargs.pop("report", None)
+        plan: Artifact | None = kwargs.pop("plan", None)
         if transform is None:
             raise TypeError("Pass transform parameter")
         if transform._state.adding:
             raise ValueError("Please save transform record before creating a run")
         if not len(kwargs) == 0:
             raise ValueError(
-                f"Only transform, name, params, reference, reference_type, initiated_by_run can be passed, but you passed: {kwargs}"
+                f"Only transform, name, description, params, reference, reference_type, initiated_by_run, plan can be passed, but you passed: {kwargs}"
             )
         super().__init__(  # type: ignore
             transform=transform,
             name=name,
+            description=description,
             entrypoint=entrypoint,
             params=params,
             reference=reference,
             reference_type=reference_type,
             initiated_by_run=initiated_by_run,
+            report=report,
+            plan=plan,
         )
 
     @property
-    def status(self) -> str:
-        """Get status of run.
+    def status(self) -> RunStatus:
+        """Run status.
 
-        Returns the status as a string, one of: `scheduled`, `re-started`, `started`, `completed`, `errored`, or `aborted`.
+        Get the status of the run:
 
-        Examples:
+        - `scheduled`: run is scheduled
+        - `restarted`: run was restarted
+        - `started`: run has started
+        - `completed`: run completed successfully
+        - `errored`: run ended with an error
+        - `aborted`: run was aborted
+
+        Example:
 
             See the status of a run::
 
@@ -438,17 +454,15 @@ class Run(SQLRecord):
                 #> 'completed'
 
         """
-        if self._status_code is None:
-            return "unknown"
-        status_dict = {
+        status_dict: dict[int, RunStatus] = {
             -3: "scheduled",
-            -2: "re-started",
+            -2: "restarted",
             -1: "started",
             0: "completed",
             1: "errored",
             2: "aborted",
         }
-        return status_dict.get(self._status_code, "unknown")
+        return status_dict[self._status_code]
 
     @property
     def features(self) -> FeatureManager:
@@ -456,6 +470,36 @@ class Run(SQLRecord):
         from ._feature_manager import FeatureManager
 
         return FeatureManager(self)
+
+    def query_output_artifacts(
+        self, include_recreated: bool = True
+    ) -> QuerySet[Artifact]:
+        """Query output artifacts including recreated ones.
+
+        This runs the following query under the hood::
+
+            ln.Artifact.filter(ln.Q(run=self) | ln.Q(recreating_runs=self)).distinct()
+
+        Args:
+            include_recreated: If `True`, return both originally created
+                and recreated artifacts. If `False`, return only originally
+                created artifacts.
+
+        Returns:
+            A queryset of :class:`~lamindb.Artifact` objects.
+
+        See Also:
+            :attr:`~lamindb.Run.output_artifacts`
+                `QuerySet` of originally created artifacts.
+            :attr:`~lamindb.Run.recreated_artifacts`
+                `QuerySet` of recreated artifacts.
+        """
+        if not include_recreated:
+            return self.output_artifacts.all()
+        else:
+            return self.output_artifacts.model.filter(
+                Q(run=self) | Q(recreating_runs=self)
+            ).distinct()
 
     @strict_classmethod
     def filter(
@@ -486,25 +530,52 @@ class Run(SQLRecord):
         return type(cls).filter(cls, *queries, **expressions)
 
 
-def delete_run_artifacts(run: Run) -> None:
-    environment = None
-    if run.environment is not None:
-        environment = run.environment
-        run.environment = None
-    report = None
-    if run.report is not None:
-        report = run.report
-        run.report = None
-    if environment is not None or report is not None:
-        run.save()
-    if environment is not None:
-        # only delete if there are no other runs attached to this environment
-        if environment._environment_of.count() == 0:
-            environment.delete(permanent=True)
-    if report is not None:
-        # only delete if there are no other runs attached to this report
-        if report._report_of.count() == 0:
-            report.delete(permanent=True)
+def _permanent_delete_runs(runs: Run | QuerySet) -> None:
+    """Execute bulk DELETE on runs and spawn artifact cleanup. Used by QuerySet and single-run paths."""
+    if isinstance(runs, Run):
+        db = runs._state.db or "default"
+        first_run_uid = runs.uid
+        artifact_ids = []
+        if runs.environment_id:
+            artifact_ids.append(runs.environment_id)
+        if runs.report_id:
+            artifact_ids.append(runs.report_id)
+        super(BaseSQLRecord, runs).delete()
+    else:
+        db = runs.db or "default"
+        rows = list(runs.values_list("uid", "report_id", "environment_id"))
+        if rows:
+            first_run_uid = rows[0][0]
+        else:
+            return
+        artifact_ids = list({aid for r in rows for aid in r[1:3] if aid is not None})
+        super(BasicQuerySet, runs).delete()
+    if artifact_ids:
+        ids_str = ",".join(map(str, artifact_ids))
+        instance = db if db not in (None, "default") else setup_settings.instance.slug
+        # spawn background subprocess to delete orphaned report/env artifacts
+        cmd: list[str] = [
+            sys.executable,
+            "-m",
+            "lamindb.models._run_cleanup",
+            "--instance",
+            instance,
+            "--ids",
+            ids_str,
+            "--run-uid",
+            first_run_uid,
+        ]
+        proc = subprocess.Popen(
+            cmd,
+            start_new_session=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            env=os.environ,
+        )
+        log_path = setup_settings.cache_dir / f"run_cleanup_logs_{first_run_uid}.txt"
+        logger.important(
+            f"spawned run cleanup subprocess (pid={proc.pid}): {log_path}\n  {' '.join(cmd)}"
+        )
 
 
 class RunJsonValue(BaseSQLRecord, IsLink):
@@ -524,3 +595,18 @@ class RunJsonValue(BaseSQLRecord, IsLink):
     class Meta:
         app_label = "lamindb"
         unique_together = ("run", "jsonvalue")
+
+
+# for storing artifact-like values in runs
+# compare RunRecord as opposed to RecordRun
+class RunArtifact(BaseSQLRecord, IsLink):
+    id: int = models.BigAutoField(primary_key=True)
+    run: Run = ForeignKey(Run, CASCADE, related_name="values_artifact")
+    artifact: Artifact = ForeignKey("Artifact", PROTECT, related_name="links_in_run")
+    feature: Feature | None = ForeignKey(
+        "Feature", PROTECT, null=True, related_name="links_runartifact", default=None
+    )
+
+    class Meta:
+        app_label = "lamindb"
+        unique_together = ("run", "artifact", "feature")

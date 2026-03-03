@@ -2,10 +2,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-import pandas as pd
 from lamin_utils import colors, logger
 
 if TYPE_CHECKING:
+    from pandas import DataFrame, Index
+
     from lamindb.base.types import FieldAttr, ListLike
 
     from .query_set import SQLRecordList
@@ -96,14 +97,16 @@ def _from_values(
 
 
 def get_existing_records(
-    iterable_idx: pd.Index,
+    iterable_idx: Index,
     field: FieldAttr,
     organism: SQLRecord | None = None,
     standardize: bool = True,
     mute: bool = False,
     **filter_kwargs,
-) -> tuple[list, pd.Index, str]:
+) -> tuple[list, Index, str]:
     """Get existing records from the database."""
+    import pandas as pd
+
     from .can_curate import _validate
 
     # NOTE: existing records matching is agnostic to the source
@@ -187,14 +190,14 @@ def get_existing_records(
 
 
 def create_records_from_source(
-    iterable_idx: pd.Index,
+    iterable_idx: Index,
     field: FieldAttr,
     organism: SQLRecord | None = None,
     source: SQLRecord | None = None,
     standardize: bool = True,
     msg: str = "",
     mute: bool = False,
-) -> tuple[list, pd.Index]:
+) -> tuple[list, Index]:
     """Create records from source."""
     registry = field.field.model  # type: ignore
     records: list = []
@@ -207,7 +210,11 @@ def create_records_from_source(
         raise OrganismNotSet(
             f"`organism` is required to create new {registry.__name__} records from source!"
         )
-    source_record = get_source_record(registry, organism, source)
+    try:
+        source_record = get_source_record(registry, organism, source)
+    except ValueError:
+        # no source found
+        return records, iterable_idx
 
     # create the corresponding PublicOntology object from registry
     try:
@@ -297,8 +304,10 @@ def create_records_from_source(
     return records, unmapped_values
 
 
-def index_iterable(iterable: ListLike) -> pd.Index:
+def index_iterable(iterable: ListLike) -> Index:
     """Get unique values from an iterable."""
+    import pandas as pd
+
     idx = pd.Index(iterable).unique()
     # No entries are made for NAs, '', None
     # returns an ordered unique not null list
@@ -325,7 +334,7 @@ def _format_values(
 
 
 def _bulk_create_dicts_from_df(
-    keys: set | list, column_name: str, df: pd.DataFrame
+    keys: set | list, column_name: str, df: DataFrame
 ) -> tuple[dict, str]:
     """Get fields from a DataFrame for many rows."""
     multi_msg = ""
@@ -383,9 +392,29 @@ def get_organism_record_from_field(  # type: ignore
         and len(values) > 0
         and organism is None
     ):
+        # Check if values contain bionty.Gene objects with organism field
+        from collections.abc import Iterable
+
+        # first check if we have Gene objects
+        for v in values:
+            # early return to not loop through all values to find a string
+            if isinstance(v, str):
+                break
+            if isinstance(v, registry) and v.organism is not None:
+                return v.organism
+            # Handle iterables containing Gene objects (but not strings, which are also iterable)
+            elif isinstance(v, Iterable) and not isinstance(v, str):
+                for item in v:
+                    if isinstance(item, registry) and item.organism is not None:
+                        return item.organism
+
+        # If no bionty.Gene with organism found, fall back to string-based inference
         # pass the first ensembl id that starts with ENS to infer organism
-        first_ensembl = next((i for i in values if i.startswith("ENS")), "")
-        return infer_organism_from_ensembl_id(first_ensembl, using_key)
+        first_ensembl = next(
+            (v for v in values if isinstance(v, str) and v.startswith("ENS")), ""
+        )
+        if first_ensembl:
+            return infer_organism_from_ensembl_id(first_ensembl, using_key)
 
     return create_or_get_organism_record(
         organism=organism, registry=registry, field=field

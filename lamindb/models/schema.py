@@ -10,7 +10,6 @@ from lamin_utils import logger
 from lamindb_setup.core import deprecated
 from lamindb_setup.core.hashing import HASH_LENGTH, hash_string
 
-from lamindb.base import ids
 from lamindb.base.fields import (
     BooleanField,
     CharField,
@@ -19,6 +18,7 @@ from lamindb.base.fields import (
     TextField,
 )
 from lamindb.base.types import FieldAttr, ListLike
+from lamindb.base.uids import base62_16
 from lamindb.base.utils import class_and_instance_method
 from lamindb.errors import FieldValidationError, InvalidArgument
 from lamindb.models.feature import parse_cat_dtype
@@ -36,6 +36,7 @@ from .feature import (
     serialize_pandas_dtype,
 )
 from .has_parents import _query_relatives
+from .query_set import QuerySet, SQLRecordList
 from .run import TracksRun, TracksUpdates
 from .sqlrecord import (
     BaseSQLRecord,
@@ -53,8 +54,9 @@ if TYPE_CHECKING:
     from django.db.models.query_utils import DeferredAttribute
 
     from .artifact import Artifact
+    from .block import SchemaBlock
     from .project import Project
-    from .query_set import QuerySet, SQLRecordList
+    from .query_manager import RelatedManager
     from .record import Record
 
 
@@ -178,7 +180,7 @@ KNOWN_SCHEMAS = {  # by hash
 }
 
 
-class Schema(SQLRecord, HasType, CanCurate, TracksRun):
+class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     """Schemas of datasets such as column sets of dataframes.
 
     .. note::
@@ -287,25 +289,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun):
     class Meta(SQLRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
         abstract = False
         app_label = "lamindb"
-        constraints = [
-            # unique name for types when type is NULL
-            models.UniqueConstraint(
-                fields=["name"],
-                name="unique_schema_type_name_at_root",
-                condition=models.Q(
-                    ~models.Q(branch_id=-1), type__isnull=True, is_type=True
-                ),
-            ),
-            # unique name for types when type is not NULL
-            models.UniqueConstraint(
-                fields=["name", "type"],
-                name="unique_schema_type_name_under_type",
-                condition=models.Q(
-                    ~models.Q(branch_id=-1), type__isnull=False, is_type=True
-                ),
-            ),
-            # also see raw SQL constraints for `is_type` and `type` FK validity in migrations
-        ]
+        # also see raw SQL constraints for `is_type` and `type` FK validity in migrations
 
     _name_field: str = "name"
     _aux_fields: dict[str, tuple[str, type]] = {
@@ -363,7 +347,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun):
 
     Here are a few more examples for type names: `'ExpressionPanel'`, `'ProteinPanel'`, `'Multimodal'`, `'Metadata'`, `'Embedding'`.
     """
-    schemas: Schema
+    schemas: RelatedManager[Schema]
     """Schemas of this type (can only be non-empty if `is_type` is `True`)."""
     itype: str | None = CharField(
         max_length=120, db_index=True, null=True, editable=False
@@ -402,25 +386,27 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun):
 
     If `True`, no additional features are allowed to be present in the dataset.
     """
-    components: Schema = ManyToManyField(
+    components: RelatedManager[Schema] = ManyToManyField(
         "self", through="SchemaComponent", symmetrical=False, related_name="composites"
     )
-    """Components of this schema."""
-    composites: Schema
-    """The composite schemas that contains this schema as a component.
+    """Components of this schema ← :attr:`~lamindb.Schema.composites`."""
+    composites: RelatedManager[Schema]
+    """The composite schemas that contains this schema as a component ← :attr:`~lamindb.Schema.components`.
 
     For example, an `AnnData` composes multiple schemas: `var[DataFrameT]`, `obs[DataFrame]`, `obsm[Array]`, `uns[dict]`, etc.
     """
-    features: Feature
-    """The features contained in the schema."""
-    artifacts: Artifact
-    """The artifacts that measure a feature set that matches this schema."""
+    features: RelatedManager[Feature]
+    """The features contained in the schema ← :attr:`~lamindb.Feature.schemas`."""
+    artifacts: RelatedManager[Artifact]
+    """The artifacts with an inferred schema that matches this schema ← :attr:`~lamindb.Artifact.schemas`."""
     validated_artifacts: Artifact
-    """The artifacts that were validated against this schema with a :class:`~lamindb.curators.core.Curator`."""
-    projects: Project
-    """Linked projects."""
-    records: Record
-    """Records that were annotated with this schema."""
+    """The artifacts that were validated against this schema ← :attr:`~lamindb.Artifact.schema`."""
+    projects: RelatedManager[Project]
+    """Linked projects ← :attr:`~lamindb.Project.schemas`."""
+    records: RelatedManager[Record]
+    """Records that were annotated with this schema ← :attr:`~lamindb.Record.schema`."""
+    ablocks: RelatedManager[SchemaBlock]
+    """Attached blocks ← :attr:`~lamindb.SchemaBlock.schema`."""
 
     @overload
     def __init__(
@@ -573,7 +559,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun):
         if validated_kwargs["hash"] in KNOWN_SCHEMAS:
             validated_kwargs["uid"] = KNOWN_SCHEMAS[validated_kwargs["hash"]]
         else:
-            validated_kwargs["uid"] = ids.base62_16()
+            validated_kwargs["uid"] = base62_16()
 
         super().__init__(**validated_kwargs)
 
@@ -986,13 +972,16 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun):
     def members(self) -> QuerySet:
         """A queryset for the individual records in the feature set underlying the schema.
 
-        Unlike `schema.features`, `schema.genes`, `schema.proteins`, etc., this queryset is ordered and
-        doesn't require knowledge of the entity.
+        Unlike the many-to-many fields `schema.features`, `schema.genes`, `schema.proteins`, `.members`
+
+            1. returns an ordered `QuerySet` if the schema is saved or a `SQLRecordList` if the schema is unsaved
+            2. doesn't require knowledge of the registry storing the feature identifiers (`ln.Feature`, `bt.Gene`, `bt.Protein`, etc.)
+            3. works for a dynamically created (unsaved) schema
         """
         if self._state.adding:
             # this should return a queryset and not a list...
             # need to fix this
-            return self._features[1]
+            return SQLRecordList(self._features[1])  # type: ignore
         if len(self.features.all()) > 0:
             return self.features.order_by("links_schema__id")
         if self.itype == "Composite" or self.is_type:

@@ -131,6 +131,21 @@ def test_cat_filters_invalid_field_name():
     source.delete(permanent=True)
 
 
+def test_cat_filters_artifact_schema_filter():
+    schema_feature = ln.Feature(name="schema_filter_column", dtype=str).save()
+    schema = ln.Schema(name="schema_filter_schema", features=[schema_feature]).save()
+    try:
+        feature = ln.Feature(
+            name="artifact_input",
+            dtype=ln.Artifact,
+            cat_filters={"schema": schema},
+        )
+        assert feature._dtype_str == f"cat[Artifact[schema__uid='{schema.uid}']]"
+    finally:
+        schema.delete(permanent=True)
+        schema_feature.delete(permanent=True)
+
+
 def test_feature_from_df():
     df = pd.DataFrame(
         {
@@ -215,3 +230,33 @@ def test_feature_from_dict_type(dict_data):
         assert feature.type.name == "Testdata_feature_type"
     ln.Feature.filter(type__isnull=False).delete(permanent=True)
     feature_type.delete(permanent=True)
+
+
+def test_feature_query_by_dtype():
+    """Test querying Feature by dtype (deprecated) and _dtype_str."""
+    str_feat = ln.Feature(name="test_str_feat", dtype=str).save()
+    int_feat = ln.Feature(name="test_int_feat", dtype=int).save()
+    try:
+        # Test querying by _dtype_str (current way)
+        str_features = ln.Feature.filter(_dtype_str="str", name="test_str_feat")
+        assert str_features.count() == 1
+        assert str_features.first() == str_feat
+
+        str_features = ln.Feature.filter(dtype_as_str="str", name="test_str_feat")
+        assert str_features.count() == 1
+        assert str_features.first() == str_feat
+
+        # Test querying by dtype (deprecated) - should work but issue warning
+        with pytest.warns(
+            DeprecationWarning,
+            match="Querying Feature by `dtype` is deprecated.*Notice the new dtype encoding format",
+        ):
+            str_features_deprecated = ln.Feature.filter(
+                dtype="str", name="test_str_feat"
+            )
+            assert str_features_deprecated.count() == 1
+            assert str_features_deprecated.first() == str_feat
+    finally:
+        # Clean up
+        str_feat.delete(permanent=True)
+        int_feat.delete(permanent=True)

@@ -9,7 +9,8 @@ from pandas import DataFrame
 from lamindb.core._compat import (
     with_package_obj,
 )
-from lamindb.core.types import ScverseDataStructures
+
+from .types import ScverseDataStructures
 
 if TYPE_CHECKING:
     from lamindb_setup.types import UPathStr

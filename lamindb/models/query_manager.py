@@ -244,6 +244,7 @@ class QueryManager(Manager):
     See Also:
 
         :class:`lamindb.models.QuerySet`
+
         `django Manager <https://docs.djangoproject.com/en/4.2/topics/db/managers/>`__
 
     Examples:
@@ -294,3 +295,53 @@ class QueryManager(Manager):
         # QueryManager returns BasicQuerySet because it is problematic to redefine .filter and .get
         # for a query set used by the default manager
         return BasicQuerySet(model=self.model, using=self._db, hints=self._hints)
+
+
+# below is just for typing / docs
+# Django achieves the same thing with a dynamically generated class
+class RelatedManager(QueryManager):
+    """Manager for many-to-many and reverse foreign key relationships.
+
+    Provides relationship manipulation methods.
+
+    See Also:
+        :class:`lamindb.models.QueryManager`
+
+    Examples:
+
+        Populate the `.parents` ManyToMany relationship (a `RelatedManager`)::
+
+            ln.Record.from_values(["Label1", "Label2", "Label3"], field="name")).save()
+            labels = ln.Record.filter(name__icontains="label")
+            label1 = ln.Record.get(name="Label1")
+            label1.parents.set(labels)
+
+        Convert all linked parents to a `DataFrame`::
+
+            label1.parents.to_dataframe()
+
+        Remove a parent label::
+
+            label1.parents.remove(label2)
+
+        Clear all parent labels::
+
+            label1.parents.clear()
+
+    """
+
+    def add(self, *objs, bulk: bool = True) -> None:
+        """Add objects to the relationship."""
+        ...
+
+    def set(self, objs, *, bulk: bool = True, clear: bool = False) -> None:
+        """Set the relationship to the specified objects."""
+        ...
+
+    def remove(self, *objs, bulk: bool = True) -> None:
+        """Remove objects from the relationship."""
+        ...
+
+    def clear(self) -> None:
+        """Remove all objects from the relationship."""
+        ...

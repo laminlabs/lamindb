@@ -27,6 +27,7 @@ from lamindb.core.loaders import load_fcs, load_to_memory, load_tsv
 from lamindb.core.storage.paths import (
     AUTO_KEY_PREFIX,
     auto_storage_key_from_artifact_uid,
+    check_path_is_child_of_root,
     delete_storage,
 )
 from lamindb.errors import (
@@ -34,7 +35,6 @@ from lamindb.errors import (
     InvalidArgument,
 )
 from lamindb.models.artifact import (
-    check_path_is_child_of_root,
     data_is_scversedatastructure,
     data_is_soma_experiment,
     get_relative_path_to_directory,
@@ -451,6 +451,23 @@ def test_create_from_dataframe(example_dataframe: pd.DataFrame):
     )
 
     artifact.delete(permanent=True)
+
+    # test from_dataframe with a path
+    path = Path("test_df_from_path.parquet")
+    try:
+        example_dataframe.to_parquet(path)
+        for path_input in [path, str(path)]:
+            artifact = ln.Artifact.from_dataframe(
+                path_input, description="test from path"
+            )
+            assert artifact.description == "test from path"
+            assert artifact.otype == "DataFrame"
+            assert artifact.kind == "dataset"
+            assert artifact.n_observations == 2
+            artifact.save()
+            artifact.delete(permanent=True)
+    finally:
+        path.unlink(missing_ok=True)
 
 
 def test_dataframe_validate_suffix(example_dataframe: pd.DataFrame):
@@ -1231,3 +1248,68 @@ def test_save_url_with_virtual_key():
     assert cache_path_str.endswith(key)
 
     artifact.delete(permanent=True, storage=False)
+
+
+def test_artifact_space_change(tsv_file):
+    artifact = ln.Artifact(tsv_file, key="test_space_change.tsv").save()
+    space = ln.Space(name="test space change", uid="00000234").save()
+    # test after saving
+    artifact.space = space
+    with pytest.raises(ValueError) as err:
+        artifact.save()
+    assert (
+        "Space cannot be changed because the artifact is in the storage location of another space."
+        in err.exconly()
+    )
+    # test after getting from the db
+    artifact = ln.Artifact.get(key="test_space_change.tsv")
+    artifact.space = space
+    with pytest.raises(ValueError) as err:
+        artifact.save()
+    assert (
+        "Space cannot be changed because the artifact is in the storage location of another space."
+        in err.exconly()
+    )
+
+    artifact.delete(permanent=True)
+    space.delete(permanent=True)
+
+
+def test_passing_foreign_keys_ids(tsv_file):
+    transform = ln.Transform(key="test passings foreign keys ids").save()
+    first_run = ln.Run(transform).save()
+    second_run = ln.Run(transform).save()
+
+    # check that passing a wrong type errors
+    with pytest.raises(AssertionError):
+        ln.Artifact(tsv_file, space=transform)
+
+    with pytest.raises(ValueError) as err:
+        ln.Artifact(tsv_file, run=first_run, run_id=first_run.id)
+    assert "Do not pass both Run and its id at the same time." in err.exconly()
+
+    artifact = ln.Artifact(tsv_file, run=first_run, key="test_fk.tsv").save()
+    artifact_id = artifact.id
+    assert artifact.run == first_run
+
+    artifact = ln.Artifact(tsv_file, run_id=second_run.id)  # same hash
+    assert artifact.id == artifact_id
+    assert artifact._subsequent_run_id == second_run.id
+    assert second_run in artifact.recreating_runs.all()
+
+    # Run-side: output_artifacts vs recreated_artifacts
+    assert list(first_run.output_artifacts.all()) == [artifact]
+    assert list(first_run.recreated_artifacts.all()) == []
+    assert list(second_run.output_artifacts.all()) == []
+    assert list(second_run.recreated_artifacts.all()) == [artifact]
+
+    # query_output_artifacts
+    assert list(first_run.query_output_artifacts(include_recreated=False)) == [artifact]
+    assert list(first_run.query_output_artifacts(include_recreated=True)) == [artifact]
+    assert list(second_run.query_output_artifacts(include_recreated=False)) == []
+    assert list(second_run.query_output_artifacts(include_recreated=True)) == [artifact]
+
+    artifact.delete(permanent=True)
+    second_run.delete(permanent=True)
+    first_run.delete(permanent=True)
+    transform.delete(permanent=True)

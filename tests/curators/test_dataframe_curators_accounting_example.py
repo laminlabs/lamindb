@@ -44,6 +44,12 @@ def transactions_schema():
 
     yield schema
 
+    ln.Schema.filter(
+        features__name__in=[
+            "transaction_amount_eur_cent",
+            "transaction_amount_usd_cent",
+        ]
+    ).delete(permanent=True)
     schema.delete(permanent=True)
     amount_eur.delete(permanent=True)
     amount_usd.delete(permanent=True)
@@ -87,7 +93,9 @@ def test_schema_creation(transactions_schema):
     ]
 
 
-def test_data_curation(transactions_schema, transactions_dataframe):
+def test_data_curation(
+    transactions_schema: ln.Schema, transactions_dataframe: ln.Schema
+):
     """Test if data curation works properly"""
     curator = ln.curators.DataFrameCurator(transactions_dataframe, transactions_schema)
     assert curator.validate() is None
@@ -96,7 +104,7 @@ def test_data_curation(transactions_schema, transactions_dataframe):
     artifact.delete(permanent=True)
 
 
-def test_missing_required_feature(transactions_schema):
+def test_missing_required_feature(transactions_schema: ln.Schema):
     """Test if validation fails for invalid data"""
     data_missing_required_feature = {
         "date": [datetime.date(2024, 1, 1)],
@@ -114,7 +122,7 @@ def test_missing_required_feature(transactions_schema):
         assert message in str(err)
 
 
-def test_invalid_label(transactions_schema):
+def test_invalid_label(transactions_schema: ln.Schema):
     """Test if validation fails for invalid currency"""
     # Create dataframe with invalid currency
     invalid_data = {

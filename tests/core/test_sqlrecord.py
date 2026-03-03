@@ -37,6 +37,7 @@ def test_feature_describe():
         .updated_at: DateTimeField
       Relational fields
         .branch: Branch
+        .created_on: Branch
         .space: Space
         .created_by: User
         .run: Run
@@ -45,7 +46,7 @@ def test_feature_describe():
         .features: Feature
         .values: JsonValue
         .projects: Project
-        .blocks: FeatureBlock
+        .ablocks: FeatureBlock
     """).strip()
     assert description == ln.Feature.describe(return_str=True)
 
@@ -71,6 +72,7 @@ def test_artifact_describe():
         .updated_at: DateTimeField
       Relational fields
         .branch: Branch
+        .created_on: Branch
         .space: Space
         .storage: Storage
         .run: Run
@@ -84,13 +86,14 @@ def test_artifact_describe():
         .linked_in_records: Record
         .users: User
         .runs: Run
+        .linked_by_runs: Run
         .ulabels: ULabel
         .linked_by_artifacts: Artifact
         .collections: Collection
         .records: Record
         .references: Reference
         .projects: Project
-        .blocks: Block
+        .ablocks: ArtifactBlock
       Bionty fields
         .organisms: bionty.Organism
         .genes: bionty.Gene
@@ -279,12 +282,19 @@ def test_pass_version():
 def test_delete():
     record = ln.Record(name="test-delete")
     # record not yet saved, delete has no effect
-    record.delete()
+    result = record.delete()
+    assert result is None
     assert record.branch_id == 1
     record.save()
-    record.delete()
+    result = record.delete()
+    assert result is None
     assert record.branch_id == -1
-    record.delete(permanent=True)
+    result = record.delete(permanent=True)
+    assert isinstance(result, tuple)
+    assert len(result) == 2
+    deleted_count, deleted_dict = result
+    assert deleted_count == 1
+    assert isinstance(deleted_dict, dict)
     assert ln.Record.filter(name="test-delete").exists() is False
 
 
@@ -330,7 +340,7 @@ def test_using():
 def test_get_record_kwargs():
     assert _get_record_kwargs(ln.Feature) == [
         ("name", "str"),
-        ("dtype", "Dtype | Registry | list[Registry] | FieldAttr"),
+        ("dtype", "DtypeStr | ULabel | Record | Registry | list[Registry] | FieldAttr"),
         ("type", "Feature | None"),
         ("is_type", "bool"),
         ("unit", "str | None"),
@@ -370,6 +380,24 @@ def test_soft_delete_error():
         ln.Branch.filter().first().delete(permanent=False)
 
 
+def test_delete_return_value_permanent():
+    """Test that permanent delete returns Django's natural return value."""
+    # Test with ULabel (simple SQLRecord)
+    ulabel = ln.ULabel(name="test-delete-return").save()
+    result = ulabel.delete(permanent=True)
+    assert isinstance(result, tuple)
+    assert len(result) == 2
+    deleted_count, deleted_dict = result
+    assert deleted_count == 1
+    assert isinstance(deleted_dict, dict)
+    assert len(deleted_dict) > 0
+    # Check that the registry name is in the dict
+    # Django returns app_label.ClassName format
+    registry_name = f"{ulabel._meta.app_label}.{ulabel.__class__.__name__}"
+    assert registry_name in deleted_dict
+    assert deleted_dict[registry_name] == 1
+
+
 def test_unsaved_relationship_modification_attempts():
     af = ln.Artifact.from_dataframe(
         pd.DataFrame({"col1": [1, 2, 3], "col2": [4, 5, 6]}), description="testme"
@@ -386,6 +414,14 @@ def test_unsaved_relationship_modification_attempts():
 
     new_label.delete(permanent=True)
     af.delete(permanent=True)
+
+
+def test_failed_connect():
+    with pytest.raises(ln.setup.errors.InstanceNotFoundError) as error:
+        ln.Artifact.connect("laminlabs/lamindata-not-existing")
+    assert error.exconly().startswith(
+        "lamindb_setup.errors.InstanceNotFoundError: 'laminlabs/lamindata-not-existing' not found: 'instance-not-found'"
+    )
 
 
 def test_unsaved_model_different_instance():

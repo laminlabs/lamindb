@@ -165,6 +165,7 @@ def notebook_to_script(  # type: ignore
     import jupytext
 
     notebook = jupytext.read(notebook_path)
+    notebook.metadata.clear()
     py_content = jupytext.writes(notebook, fmt="py:percent")
     # remove global metadata header
     py_content = re.sub(r"^# ---\n.*?# ---\n\n", "", py_content, flags=re.DOTALL)

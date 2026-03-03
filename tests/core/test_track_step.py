@@ -25,11 +25,13 @@ def process_chunk(
 
 
 def test_step_parallel():
+    # Ensure no global run from a previous test (e.g. test_flow)
+    ln.context._run = None
     with pytest.raises(RuntimeError) as err:
         process_chunk(4)
     assert (
         err.exconly()
-        == "RuntimeError: Please track the global run context before using @ln.step(): ln.track()"
+        == "RuntimeError: Please track the global run context before using @ln.step(): ln.track() or @ln.flow()"
     )
 
     # Ensure tracking is on

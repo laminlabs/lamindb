@@ -2,8 +2,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Literal, overload
 
-import anndata as ad
-import pandas as pd
 from django.db import models
 from django.db.models import CASCADE, PROTECT, Q
 from lamin_utils import logger
@@ -17,9 +15,7 @@ from lamindb.base.fields import (
 )
 from lamindb.base.utils import strict_classmethod
 
-from ..base.ids import base62_20
-from ..core._mapped_collection import MappedCollection
-from ..core.storage._backed_access import _open_dataframe
+from ..base.uids import base62_20
 from ..errors import FieldValidationError
 from ..models._is_versioned import process_revises
 from ._is_versioned import IsVersioned
@@ -44,12 +40,16 @@ from .sqlrecord import (
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator
 
+    import anndata as ad
+    import pandas as pd
     from polars import LazyFrame as PolarsLazyFrame
     from pyarrow.dataset import Dataset as PyArrowDataset
 
+    from ..core._mapped_collection import MappedCollection
     from ..core.storage import UPath
     from .block import CollectionBlock
     from .project import Project, Reference
+    from .query_manager import RelatedManager
     from .query_set import QuerySet
     from .record import Record
     from .transform import Transform
@@ -59,6 +59,9 @@ if TYPE_CHECKING:
 def _load_concat_artifacts(
     artifacts: list[Artifact], join: Literal["inner", "outer"] = "outer", **kwargs
 ) -> pd.DataFrame | ad.AnnData:
+    import anndata as ad
+    import pandas as pd
+
     suffixes = {artifact.suffix for artifact in artifacts}
     if len(suffixes) != 1:
         raise ValueError(
@@ -160,25 +163,27 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     # also for reference_type here, we allow an extra long max_length
     reference_type: str | None = CharField(max_length=25, db_index=True, null=True)
     """Type of reference, e.g., cellxgene Census collection_id."""
-    ulabels: ULabel = models.ManyToManyField(
+    ulabels: RelatedManager[ULabel] = models.ManyToManyField(
         "ULabel", through="CollectionULabel", related_name="collections"
     )
-    """ULabels annotating the collection (see :class:`~lamindb.Feature`)."""
+    """ULabels annotating the collection (see :class:`~lamindb.Feature`) ← :attr:`~lamindb.ULabel.collections`."""
     run: Run | None = ForeignKey(
         Run, PROTECT, related_name="output_collections", null=True, default=None
     )
-    """:class:`~lamindb.Run` that created the `collection`."""
-    input_of_runs: Run = models.ManyToManyField(Run, related_name="input_collections")
-    """Runs that use this collection as an input."""
-    recreating_runs: Run = models.ManyToManyField(
+    """:class:`~lamindb.Run` that created the `collection` ← :attr:`~lamindb.Run.output_collections`."""
+    input_of_runs: RelatedManager[Run] = models.ManyToManyField(
+        Run, related_name="input_collections"
+    )
+    """Runs that use this collection as an input ← :attr:`~lamindb.Run.input_collections`."""
+    recreating_runs: RelatedManager[Run] = models.ManyToManyField(
         "Run",
         related_name="recreated_collections",
     )
-    """Runs that re-created the record after initial creation."""
-    artifacts: Artifact = models.ManyToManyField(
+    """Runs that re-created the record after initial creation ← :attr:`~lamindb.Run.recreated_collections`."""
+    artifacts: RelatedManager[Artifact] = models.ManyToManyField(
         "Artifact", related_name="collections", through="CollectionArtifact"
     )
-    """Artifacts in collection."""
+    """Artifacts in collection ← :attr:`~lamindb.Artifact.collections`."""
     meta_artifact: Artifact | None = OneToOneField(
         "Artifact",
         PROTECT,
@@ -192,20 +197,22 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     collection from the artifact via a private field:
     `artifact._meta_of_collection`.
     """
-    linked_in_records: Record = models.ManyToManyField(
+    linked_in_records: RelatedManager[Record] = models.ManyToManyField(
         "Record", through="RecordCollection", related_name="linked_collections"
     )
-    """This collection is linked in these records as a value."""
-    _actions: Artifact = models.ManyToManyField(Artifact, related_name="+")
+    """This collection is linked in these records as a value ← :attr:`~lamindb.Record.linked_collections`."""
+    _actions: RelatedManager[Artifact] = models.ManyToManyField(
+        Artifact, related_name="+"
+    )
     """Actions to attach for the UI."""
-    projects: Project
-    """Linked projects."""
-    references: Reference
-    """Linked references."""
-    records: Record
-    """Linked records."""
-    blocks: CollectionBlock
-    """Blocks that annotate this collection."""
+    projects: RelatedManager[Project]
+    """Linked projects ← :attr:`~lamindb.Project.collections`."""
+    references: RelatedManager[Reference]
+    """Linked references ← :attr:`~lamindb.Reference.collections`."""
+    records: RelatedManager[Record]
+    """Linked records ← :attr:`~lamindb.Record.collections`."""
+    ablocks: RelatedManager[CollectionBlock]
+    """Attached blocks ← :attr:`~lamindb.CollectionBlock.collection`."""
 
     @overload
     def __init__(
@@ -416,6 +423,8 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             artifacts = self.ordered_artifacts.all()
         paths = [artifact.path for artifact in artifacts]
 
+        from ..core.storage._backed_access import _open_dataframe
+
         dataframe = _open_dataframe(paths, engine=engine, **kwargs)
         # track only if successful
         track_run_input(self, is_run_input)
@@ -490,6 +499,8 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             >>> # or directly from a query set of artifacts
             >>> mapped = ln.Artifact.filter(..., otype="AnnData").order_by("-created_at").mapped()
         """
+        from ..core._mapped_collection import MappedCollection
+
         path_list = []
         if self._state.adding:
             artifacts = self._artifacts

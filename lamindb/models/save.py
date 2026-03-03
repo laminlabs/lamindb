@@ -14,13 +14,6 @@ from lamin_utils import logger
 from lamindb_setup.core.upath import LocalPathClasses, UPath
 
 from ..core._settings import settings
-from ..core.storage.paths import (
-    _cache_key_from_artifact_storage,
-    attempt_accessing_path,
-    auto_storage_key_from_artifact,
-    delete_storage_using_key,
-    store_file_or_folder,
-)
 from .sqlrecord import (
     UNIQUE_FIELD_NAMES,
     SQLRecord,
@@ -112,7 +105,7 @@ def save(
                 if getattr(record, "_local_filepath", None) is not None and getattr(
                     record, "_to_store", False
                 ):
-                    record._save_completed = False
+                    record._storage_ongoing = True
                 record._save_skip_storage()
         using_key = settings._using_key
         store_artifacts(artifacts, using_key=using_key)
@@ -166,36 +159,58 @@ def bulk_create(
                     "UNIQUE constraint failed" in error_msg
                     or "duplicate key value violates unique constraint" in error_msg
                 ):
-                    unique_field = parse_violated_field_from_error_message(error_msg)
-                    unique_field_values = [getattr(r, unique_field) for r in batch]
-                    # here we query against non-default branches
-                    pre_existing_values_not_main_branch = (
-                        registry.objects.filter(
-                            **{f"{unique_field}__in": unique_field_values}
-                        )
-                        .exclude(branch_id=1)
-                        .values_list(unique_field, flat=True)
-                    )
-                    # the rest of the records can be saved normally
+                    unique_fields = parse_violated_field_from_error_message(error_msg)
+
+                    # Build tuples of unique field values for each record
+                    unique_field_values = [
+                        tuple(getattr(r, field) for field in unique_fields)
+                        for r in batch
+                    ]
+
+                    # Build Q objects for multi-field lookup
+                    from django.db.models import Q
+
+                    q_objects = Q()
+                    for values in unique_field_values:
+                        field_kwargs = {
+                            unique_fields[i]: values[i]
+                            for i in range(len(unique_fields))
+                        }
+                        q_objects |= Q(**field_kwargs)
+
+                    # Query against non-default branches
+                    pre_existing_records_not_main_branch = registry.objects.filter(
+                        q_objects
+                    ).exclude(branch_id=1)
+
+                    # Get the unique field value tuples that already exist
+                    pre_existing_value_tuples = {
+                        tuple(getattr(rec, field) for field in unique_fields)
+                        for rec in pre_existing_records_not_main_branch
+                    }
+
+                    # Records that can be saved normally (not in non-default branches)
                     records_main_branch = [
                         r
                         for r in batch
-                        if getattr(r, unique_field)
-                        not in pre_existing_values_not_main_branch
+                        if tuple(getattr(r, field) for field in unique_fields)
+                        not in pre_existing_value_tuples
                     ]
                     save(records_main_branch)
-                    # now move the pre-existing records to the main branch
-                    if pre_existing_values_not_main_branch.exists():
+
+                    # Now move the pre-existing records to the main branch
+                    if pre_existing_value_tuples:
+                        unique_fields_str = ", ".join(unique_fields)
                         logger.warning(
-                            f"some {model_name} records with the same {unique_field}s already exist in non-default branches - moving them to the default branch"
+                            f"some {model_name} records with the same ({unique_fields_str}) already exist in non-default branches - moving them to the default branch"
                         )
-                        pre_existing_records_not_main_branch = [
+                        pre_existing_records_to_move = [
                             r
                             for r in batch
-                            if getattr(r, unique_field)
-                            in pre_existing_values_not_main_branch
+                            if tuple(getattr(r, field) for field in unique_fields)
+                            in pre_existing_value_tuples
                         ]
-                        for record in pre_existing_records_not_main_branch:
+                        for record in pre_existing_records_to_move:
                             record.save()
                 else:
                     raise e
@@ -268,7 +283,12 @@ def check_and_attempt_upload(
             logger.warning(f"could not upload artifact: {artifact}")
             # clear dangling storages if we were actually uploading or saving
             if getattr(artifact, "_to_store", False):
-                artifact._clear_storagekey = auto_storage_key_from_artifact(artifact)  # type: ignore
+                # avoid root-level import of core.storage module
+                from ..core.storage import paths
+
+                artifact._clear_storagekey = paths.auto_storage_key_from_artifact(
+                    artifact
+                )  # type: ignore
             return exception
         # copies (if on-disk) or moves the temporary file (if in-memory) to the cache
         if os.getenv("LAMINDB_MULTI_INSTANCE") is None:
@@ -358,7 +378,10 @@ def check_and_attempt_clearing(
     if hasattr(artifact, "_clear_storagekey"):
         try:
             if artifact._clear_storagekey is not None:  # type: ignore
-                delete_msg = delete_storage_using_key(
+                # avoid root-level import of core.storage module
+                from ..core.storage import paths
+
+                delete_msg = paths.delete_storage_using_key(
                     artifact,
                     artifact._clear_storagekey,  # type: ignore
                     raise_file_not_found_error=raise_file_not_found_error,
@@ -398,16 +421,15 @@ def store_artifacts(
 
         stored_artifacts += [artifact]
         # update to show successful saving
-        # only update if _save_completed was set to False before
+        # only update if _storage_ongoing was set to True before
         # this should be a single transaction for the updates of all the artifacts
-        # but then it would just abort all artifacts, even successfully saved before
+        # but then it would just abort all artifacts, even those successfully stored before
         # TODO: there should also be some kind of exception handling here
-        # but this requires proper refactoring
-        if artifact._save_completed is False:
-            artifact._save_completed = True
-            super(
-                Artifact, artifact
-            ).save()  # each .save is a separate transaction here
+        # but this requires refactoring
+        if artifact._storage_ongoing:
+            artifact._storage_ongoing = False
+            # each .save() is a separate transaction below
+            super(Artifact, artifact).save()
         # if check_and_attempt_upload was successful
         # then this can have only ._clear_storagekey from .replace
         exception = check_and_attempt_clearing(
@@ -468,13 +490,16 @@ def upload_artifact(
     """Store and add file and its linked entries."""
     # kwargs are propagated to .upload_from in the end
     # can't currently use  filepath_from_artifact here because it resolves to ._local_filepath
-    storage_key = auto_storage_key_from_artifact(artifact)
-    storage_path, storage_settings = attempt_accessing_path(
+    # avoid root-level import of core.storage module
+    from ..core.storage import paths
+
+    storage_key = paths.auto_storage_key_from_artifact(artifact)
+    storage_path, storage_settings = paths.attempt_accessing_path(
         artifact, storage_key, using_key=using_key, access_token=access_token
     )
     if getattr(artifact, "_to_store", False):
         logger.save(f"storing artifact '{artifact.uid}' at '{storage_path}'")
-        store_file_or_folder(
+        paths.store_file_or_folder(
             artifact._local_filepath,
             storage_path,
             print_progress=print_progress,
@@ -484,7 +509,7 @@ def upload_artifact(
     if isinstance(storage_path, LocalPathClasses):
         cache_path = None
     else:
-        cache_key = _cache_key_from_artifact_storage(artifact, storage_settings)
+        cache_key = paths._cache_key_from_artifact_storage(artifact, storage_settings)
         cache_path = storage_settings.cloud_to_local_no_update(
             storage_path, cache_key=cache_key
         )

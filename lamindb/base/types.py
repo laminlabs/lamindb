@@ -1,10 +1,13 @@
-"""Types.
+"""Base types.
 
 Central object types
 --------------------
 
 .. autoclass:: ArtifactKind
 .. autoclass:: TransformKind
+.. autoclass:: BlockKind
+.. autoclass:: BranchStatus
+.. autoclass:: RunStatus
 .. autoclass:: DtypeStr
 
 Basic types
@@ -18,21 +21,57 @@ Basic types
 
 from __future__ import annotations
 
-from typing import Literal, Union
+import datetime
+from typing import TYPE_CHECKING, Literal, Union
 
 import numpy as np
-import pandas as pd
 from django.db.models.query_utils import DeferredAttribute as FieldAttr
 from lamindb_setup.types import UPathStr  # noqa: F401
 
+if TYPE_CHECKING:
+    import pandas as pd
+
 # need to use Union because __future__.annotations doesn't do the job here <3.10
 # typing.TypeAlias, >3.10 on but already deprecated
-ListLike = Union[list[str], pd.Series, np.array]
+# pd.Series as string to avoid importing pandas at runtime
+ListLike = Union[list[str], "pd.Series", np.ndarray]
 StrField = Union[str, FieldAttr]  # typing.TypeAlias
 
 TransformKind = Literal["pipeline", "notebook", "script", "function"]
 TransformType = TransformKind  # backward compat
-ArtifactKind = Literal["dataset", "model", "__lamindb_run__", "__lamindb_config__"]
+ArtifactKind = Literal[
+    "dataset", "model", "plan", "__lamindb_run__", "__lamindb_config__"
+]
+BlockKind = Literal["readme", "comment"]
+"""Block kind, a `README.md`-type page or comment.
+
+Any block expects Markdown as the formatting language.
+"""
+
+BranchStatus = Literal["standalone", "draft", "review", "merged", "closed"]
+"""Branch status.
+
+- `standalone`: a standalone branch without Merge Request
+- `draft`: Merge Request exists but is not ready for review
+- `review`: Merge Request is ready for review
+- `merged`: the branch was merged into another branch
+- `closed`: Merge Request was closed without merging
+"""
+
+RunStatus = Literal[
+    "scheduled", "restarted", "started", "completed", "errored", "aborted"
+]
+"""Run status.
+
+- `scheduled`: run is scheduled
+- `restarted`: run was restarted
+- `started`: run has started
+- `completed`: run completed successfully
+- `errored`: run ended with an error
+- `aborted`: run was aborted
+"""
+
+DtypeObject = int | float | str | bool | datetime.date | datetime.datetime | dict
 
 DtypeStr = Literal[
     "num",  # numericals
@@ -82,3 +121,18 @@ A `DtypeStr` object in `lamindb` is a `Literal` up to further specification of `
 
 """
 Dtype = DtypeStr  # backward compat
+
+RegistryId = Literal[
+    "__lamindb_artifact__",
+    "__lamindb_block__",
+    "__lamindb_collection__",
+    "__lamindb_feature__",
+    "__lamindb_jsonvalue__",
+    "__lamindb_project__",
+    "__lamindb_record__",
+    "__lamindb_run__",
+    "__lamindb_schema__",
+    "__lamindb_storage__",
+    "__lamindb_transform__",
+    "__lamindb_ulabel__",
+]

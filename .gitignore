@@ -5,6 +5,8 @@ README_stripped.md
 docs/scripts/test_artifact_parquet.py
 README.ipynb
 docs/sample.fasta
+docs/faq/sample.fasta
+docs/faq/test-acid/
 docs/scripts/define_mini_immuno_features_labels.py
 docs/scripts/define_mini_immuno_schema_flexible.py
 docs/scripts/define_schema_anndata_ensembl_gene_ids_and_valid_features_in_obs.py
@@ -61,11 +63,6 @@ docs/biology/test-flow/
 docs/biology/test-scrna/
 docs/biology/test-registries/
 docs/biology/test-multimodal/
-test-inherit1
-test-inherit2
-test-search0
-test-search1
-test-search5
 default_storage
 default_storage_unit_core
 default_storage_unit_storage
@@ -237,3 +234,10 @@ _build
 
 # CELLxGENE
 !lamindb/examples/cellxgene/cellxgene_schema_versions.csv
+
+# ml
+lightning_logs
+mlruns
+download_mnist
+checkpoints
+test_lightning

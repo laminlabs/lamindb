@@ -36,6 +36,8 @@ from django.db.models.functions import Lower
 from lamin_utils import colors, logger
 from lamindb_setup import settings as setup_settings
 from lamindb_setup._connect_instance import (
+    INSTANCE_NOT_FOUND_MESSAGE,
+    InstanceNotFoundError,
     get_owner_name_from_identifier,
     load_instance_settings,
     update_db_using_local,
@@ -47,6 +49,7 @@ from lamindb_setup.core.django import DBToken, db_token_manager
 from lamindb_setup.core.upath import extract_suffix_from_path
 from upath import UPath
 
+from lamindb.base.users import current_user_id
 from lamindb.base.utils import class_and_instance_method, deprecated
 
 from ..base.fields import (
@@ -57,15 +60,15 @@ from ..base.fields import (
     JSONField,
     TextField,
 )
-from ..base.ids import base62_12
-from ..base.types import FieldAttr, StrField
+from ..base.types import BranchStatus, FieldAttr, StrField
+from ..base.uids import base62_12
 from ..errors import (
     FieldValidationError,
     InvalidArgument,
     NoWriteAccess,
     ValidationError,
 )
-from ._is_versioned import IsVersioned
+from ._is_versioned import IsVersioned, _adjust_is_latest_when_deleting_is_versioned
 from .query_manager import QueryManager, _lookup, _search
 
 if TYPE_CHECKING:
@@ -75,9 +78,12 @@ if TYPE_CHECKING:
 
     from .artifact import Artifact
     from .block import BranchBlock, SpaceBlock
+    from .project import Project
+    from .query_manager import RelatedManager
     from .query_set import SQLRecordList
     from .run import Run, User
     from .transform import Transform
+    from .ulabel import ULabel
 
 
 T = TypeVar("T", bound="SQLRecord")
@@ -194,7 +200,7 @@ def unique_constraint_error_in_error_message(error_msg: str) -> bool:
     )
 
 
-def parse_violated_field_from_error_message(error_msg: str) -> str | None:
+def parse_violated_field_from_error_message(error_msg: str) -> list[str] | None:
     # Even if the model has multiple fields with unique=True,
     # Django will only raise an IntegrityError for one field at a time
     # - whichever constraint is violated first during the database insert/update operation.
@@ -205,11 +211,47 @@ def parse_violated_field_from_error_message(error_msg: str) -> str | None:
                 .split(", ")[0]
                 .split(".")[-1]
             )
+            return [constraint_field]
         else:  # postgres
-            constraint_field = (
-                error_msg.split('"')[1].removesuffix("_key").split("_")[-1]
-            )
-        return constraint_field
+            # Extract constraint name from double quotes
+            constraint_name = error_msg.split('"')[1]
+
+            # Check if it's a multi-column constraint (contains multiple field names)
+            # Format: tablename_field1_field2_..._hash_uniq
+            if "_uniq" in constraint_name:
+                # Remove '_uniq' suffix first
+                constraint_name = constraint_name.removesuffix("_uniq")
+
+                # Remove hash (8 hex characters at the end)
+                parts = constraint_name.split("_")
+                if len(parts[-1]) == 8 and all(
+                    c in "0123456789abcdef" for c in parts[-1]
+                ):
+                    constraint_name = "_".join(parts[:-1])
+
+                # Remove table name prefix (e.g., "bionty_ethnicity_")
+                # Table name is typically the first 2 parts for app_model format
+                parts = constraint_name.split("_")
+                if len(parts) > 2:
+                    # Assume first 2 parts are table name (e.g., "bionty_ethnicity")
+                    field_string = "_".join(parts[2:])
+                else:
+                    field_string = constraint_name
+
+                # Now parse the fields from DETAIL line
+                # DETAIL: Key (name, ontology_id)=(South Asian, HANCESTRO:0006) already exists.
+                if "Key (" in error_msg:
+                    fields_part = error_msg.split("Key (")[1].split(")=")[0]
+                    fields = [f.strip() for f in fields_part.split(",")]
+                    return fields
+
+                # Fallback if DETAIL line not available
+                return [field_string]
+            else:
+                # Single field constraint (ends with _key)
+                constraint_field = constraint_name.removesuffix("_key").split("_")[-1]
+                return [constraint_field]
+
     return None
 
 
@@ -220,28 +262,17 @@ class ValidateFields:
     pass
 
 
-def is_approx_pascal_case(s):
+def is_approx_pascal_case(s: str) -> bool:
     """Check if the last component of a dotted string is in PascalCase.
 
     Args:
-        s (str): The string to check
-
-    Returns:
-        bool: True if the last component is in PascalCase
-
-    Raises:
-        ValueError: If the last component doesn't start with a capital letter
+        s: The string to check
     """
     if "[" in s:  # this is because we allow types of form 'script[test_script.py]'
         return True
     last_component = s.split(".")[-1]
 
-    if not last_component[0].isupper():
-        raise ValueError(
-            f"'{last_component}' should start with a capital letter given you're defining a type"
-        )
-
-    return True
+    return last_component[:1].isupper() and "_" not in last_component
 
 
 def init_self_from_db(self: SQLRecord, existing_record: SQLRecord):
@@ -435,11 +466,12 @@ def delete_record(record: BaseSQLRecord, is_soft: bool = True):
         if is_soft:
             record.branch_id = -1
             record.save()
+            return None
         else:
-            super(BaseSQLRecord, record).delete()
+            return super(BaseSQLRecord, record).delete()
 
     # deal with versioned records
-    # if _ovewrite_version = True, there is only a single version and
+    # if _overwrite_versions = True, there is only a single version and
     # no need to set the new latest version because all versions are deleted
     # when deleting the latest version
     if (
@@ -447,24 +479,15 @@ def delete_record(record: BaseSQLRecord, is_soft: bool = True):
         and record.is_latest
         and not getattr(record, "_overwrite_versions", False)
     ):
-        new_latest = (
-            record.__class__.objects.using(record._state.db)
-            .filter(is_latest=False, uid__startswith=record.stem_uid)
-            .exclude(branch_id=-1)  # exclude candidates in the trash
-            .order_by("-created_at")
-            .first()
-        )
-        if new_latest is not None:
-            new_latest.is_latest = True
+        promoted = _adjust_is_latest_when_deleting_is_versioned(record)
+        if promoted:
             if is_soft:
                 record.is_latest = False
             with transaction.atomic():
-                new_latest.save()
-                delete()
-            logger.important_hint(f"new latest version is: {new_latest}")
-            return None
+                result = delete()
+            return result
     # deal with all other cases of the nested if condition now
-    delete()
+    return delete()
 
 
 RECORD_REGISTRY_EXAMPLE = """Example::
@@ -495,19 +518,18 @@ def _synchronize_clone(storage_root: str) -> str | None:
     cloud_db_path = UPath(storage_root) / ".lamindb" / "lamin.db"
     local_sqlite_path = ln_setup.settings.cache_dir / cloud_db_path.path.lstrip("/")
 
-    if local_sqlite_path.exists():
-        return f"sqlite:///{local_sqlite_path}"
-
     local_sqlite_path.parent.mkdir(parents=True, exist_ok=True)
     cloud_db_path_gz = UPath(str(cloud_db_path) + ".gz", anon=True)
     local_sqlite_path_gz = Path(str(local_sqlite_path) + ".gz")
 
     try:
-        cloud_db_path_gz.synchronize_to(
+        if cloud_db_path_gz.synchronize_to(
             local_sqlite_path_gz, error_no_origin=True, print_progress=True
-        )
-        with gzip.open(local_sqlite_path_gz, "rb") as f_in:
-            with open(local_sqlite_path, "wb") as f_out:
+        ):
+            with (
+                gzip.open(local_sqlite_path_gz, "rb") as f_in,
+                open(local_sqlite_path, "wb") as f_out,
+            ):
                 shutil.copyfileobj(f_in, f_out)
         return f"sqlite:///{local_sqlite_path}"
     except (FileNotFoundError, PermissionError):
@@ -633,7 +655,7 @@ class Registry(ModelBase):
             expressions: Fields and values passed as Django query expressions.
 
         Raises:
-            :exc:`lamindb.errors.DoesNotExist`: In case no matching record is found.
+            :exc:`lamindb.errors.ObjectDoesNotExist`: In case no matching record is found.
 
         See Also:
             - Guide: :doc:`registries`
@@ -771,9 +793,10 @@ class Registry(ModelBase):
         if not settings_file.exists():
             result = connect_instance_hub(owner=owner, name=name)
             if isinstance(result, str):
-                raise RuntimeError(
-                    f"Failed to load instance {instance}, please check your permissions!"
+                message = INSTANCE_NOT_FOUND_MESSAGE.format(
+                    owner=owner, name=name, hub_result=result
                 )
+                raise InstanceNotFoundError(message)
             iresult, storage = result
             # this can happen if querying via an old instance name
             if [iresult.get("owner"), iresult["name"]] == current_instance_owner_name:
@@ -874,16 +897,16 @@ class Registry(ModelBase):
                         available_fields.add(field_name + "_id")
             if cls.__name__ == "Artifact":
                 available_fields.add("transform")
+                available_fields.add("feature_sets")  # backward compat with lamindb v1
             cls._available_fields = available_fields
         return cls._available_fields
 
 
 class BaseSQLRecord(models.Model, metaclass=Registry):
-    """Basic metadata record.
+    """Base SQL metadata record.
 
-    It has the same methods as SQLRecord, but doesn't have the additional fields.
-
-    It's mainly used for IsLinks and similar.
+    It provides methods to `SQLRecord` and all its subclasses,
+    but doesn't come with the additional `branch` and `space` fields.
     """
 
     objects = QueryManager()
@@ -891,6 +914,11 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
     class Meta:
         abstract = True
         base_manager_name = "objects"
+
+    # fields to track for changes
+    # if not None, will be tracked in self._original_values as {field_name: value}
+    # use _id fields for foreign keys
+    _TRACK_FIELDS: tuple[str, ...] | None = None
 
     def __init__(self, *args, **kwargs):
         skip_validation = kwargs.pop("_skip_validation", False)
@@ -943,6 +971,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                                 kwargs["branch"] = current_branch
                         else:
                             kwargs["branch"] = current_branch
+                        kwargs["created_on"] = kwargs["branch"]
             if skip_validation:
                 super().__init__(**kwargs)
             else:
@@ -994,6 +1023,8 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                             )
                             init_self_from_db(self, existing_record)
                             update_attributes(self, kwargs)
+                            # track original values after replacing with the existing record
+                            self._populate_tracked_fields()
                             return None
                 super().__init__(**kwargs)
                 if isinstance(self, ValidateFields):
@@ -1012,7 +1043,34 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
             )
         else:
             super().__init__(*args)
+        # track original values of fields that are tracked for changes
+        self._populate_tracked_fields()
+        # TODO: refactor to use _TRACK_FIELDS
         track_current_key_and_name_values(self)
+
+    # used in __init__
+    # populates the _original_values dictionary with the original values of the tracked fields
+    def _populate_tracked_fields(self):
+        if (track_fields := self._TRACK_FIELDS) is not None:
+            self._original_values = {f: self.__dict__[f] for f in track_fields}
+        else:
+            self._original_values = None
+
+    def _field_changed(self, field_name: str) -> bool:
+        """Check if the field has changed since the record was saved."""
+        # use _id fields for foreign keys in field_name
+        if self._state.adding:
+            return False
+        # check if the field is tracked for changes
+        track_fields = self._TRACK_FIELDS
+        assert track_fields is not None, (
+            "_TRACK_FIELDS must be set for the record to track changes"
+        )
+        assert field_name in track_fields, (
+            f"Field {field_name} is not tracked for changes"
+        )
+        # check if the field has changed since the record was created
+        return self._original_values[field_name] != self.__dict__[field_name]
 
     def save(self: T, *args, **kwargs) -> T:
         """Save.
@@ -1049,17 +1107,25 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
         if pre_existing_record is not None:
             init_self_from_db(self, pre_existing_record)
         else:
+            # TODO: refactor to use _TRACK_FIELDS
             check_key_change(self)
             check_name_change(self)
             try:
                 # save versioned record in presence of self._revises
                 if isinstance(self, IsVersioned) and self._revises is not None:
-                    assert self._revises.is_latest  # noqa: S101
                     revises = self._revises
-                    revises.is_latest = False
                     with transaction.atomic():
-                        revises._revises = None  # ensure we don't start a recursion
-                        revises.save()
+                        # For branch-aware models (SQLRecord), keep source-branch latest
+                        # intact and only demote within the same branch. For other
+                        # versioned models (e.g. blocks), keep previous behavior.
+                        should_demote = True
+                        if hasattr(revises, "branch_id") and hasattr(self, "branch_id"):
+                            should_demote = revises.branch_id == self.branch_id
+                        if should_demote:
+                            assert revises.is_latest  # noqa: S101
+                            revises.is_latest = False
+                            revises._revises = None  # ensure we don't start a recursion
+                            revises.save()
                         super().save(*args, **kwargs)  # type: ignore
                     self._revises = None
                 # save unversioned record
@@ -1104,15 +1170,15 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                     )
                     and hasattr(self, "branch_id")
                 ):
-                    unique_field = parse_violated_field_from_error_message(error_msg)
+                    unique_fields = parse_violated_field_from_error_message(error_msg)
                     # here we query against the all branches with .objects
                     pre_existing_record = self.__class__.objects.get(
-                        **{unique_field: getattr(self, unique_field)}
+                        **{field: getattr(self, field) for field in unique_fields}
                     )
                     # if the existing record is in the default branch, we just return it
                     if pre_existing_record.branch_id == 1:
                         logger.warning(
-                            f"returning {self.__class__.__name__} record with same {unique_field}: '{getattr(self, unique_field)}'"
+                            f"returning {self.__class__.__name__} record with same {unique_fields}: '{ {field: getattr(self, field) for field in unique_fields} }'"
                         )
                     # if the existing record is in a different branch we update its fields
                     else:
@@ -1198,18 +1264,26 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
         return self
 
     @class_and_instance_method
-    def describe(cls_or_self, return_str: bool = False) -> None | str:
+    def describe(
+        cls_or_self,
+        return_str: bool = False,
+        include: None | Literal["comments"] = None,
+    ) -> None | str:
         """Describe record including relations.
 
         Args:
             return_str: Return a string instead of printing.
+            include: Include additional content. Use ``"comments"`` to display
+                readme and comment blocks.
         """
         from ._describe import describe_postgres_sqlite
 
         if isinstance(cls_or_self, type):
             return type(cls_or_self).describe(cls_or_self, return_str=return_str)  # type: ignore
         else:
-            return describe_postgres_sqlite(cls_or_self, return_str=return_str)
+            return describe_postgres_sqlite(
+                cls_or_self, return_str=return_str, include=include
+            )
 
     def __repr__(
         self: SQLRecord,
@@ -1232,12 +1306,16 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                 for field in self._meta.fields
                 if isinstance(field, ForeignKey)
             ]
+        # TODO: harmonize with L426 in query_set.py
         if "created_at" in field_names:
             field_names.remove("created_at")
             field_names.append("created_at")
         if "is_locked" in field_names:
             field_names.remove("is_locked")
             field_names.append("is_locked")
+        if "created_on" in field_names:
+            field_names.remove("created_on")
+            field_names.append("created_on")
         if field_names[0] != "uid" and "uid" in field_names:
             field_names.remove("uid")
             field_names.insert(0, "uid")
@@ -1264,11 +1342,15 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
     def __str__(self) -> str:
         return self.__repr__()
 
-    def delete(self, permanent: bool | None = None) -> None:
+    def delete(self, permanent: bool | None = None):
         """Delete.
 
         Args:
             permanent: For consistency, `False` raises an error, as soft delete is impossible.
+
+        Returns:
+            When `permanent=True`, returns Django's delete return value: a tuple of
+            (deleted_count, {registry_name: count}). Otherwise returns None.
         """
         if permanent is False:
             raise ValueError(
@@ -1276,7 +1358,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                 "use 'permanent=True' or 'permanent=None' for permanent deletion."
             )
 
-        delete_record(self, is_soft=False)
+        return delete_record(self, is_soft=False)
 
 
 class Space(BaseSQLRecord):
@@ -1299,7 +1381,7 @@ class Space(BaseSQLRecord):
             record.space = space
             record.save()  # saved in space "Our space"
 
-        For more examples and background, see :doc:`docs:access`, in particular, section :ref:`docs:use-a-restricted-space`.
+        For more examples and background, see :doc:`docs:permissions`, in particular, section :ref:`docs:use-a-restricted-space`.
 
     Notes:
 
@@ -1334,8 +1416,8 @@ class Space(BaseSQLRecord):
         "User", CASCADE, default=None, related_name="+", null=True
     )
     """Creator of space."""
-    blocks: SpaceBlock
-    """Blocks that annotate this space."""
+    ablocks: RelatedManager[SpaceBlock]
+    """Attached blocks ← :attr:`~lamindb.SpaceBlock.space`."""
 
     @overload
     def __init__(
@@ -1376,7 +1458,96 @@ class Space(BaseSQLRecord):
 class Branch(BaseSQLRecord):
     """Branches for change management with archive and trash states.
 
-    Every `SQLRecord` has a `branch` field, which dictates where a record appears in queries & searches.
+    .. dropdown:: The 3 built-in branches: `main`, `trash` & `archive`
+
+        The `main` branch acts as the default branch.
+
+        The `trash` branch acts like a trash bin on a file system.
+        It you delete a `SQLRecord` object via `.delete()`, it gets moved onto the `trash` branch and scheduled for deletion.
+
+        The `archive` acts like an archive that hides objects from queries and searches without scheduling them for deletion.
+        To move an object into the archive, run: `obj.branch_id = 0; obj.save()`.
+
+    Args:
+        name: A unique name. When lower-cased, is constrained to be unique across all branches.
+        description: A description.
+
+    Examples:
+
+        To create a contribution branch and switch to it, run::
+
+            lamin switch -c my_branch
+
+        To merge a contribution branch into `main`, run::
+
+            lamin switch main  # switch to the main branch
+            lamin merge my_branch  # merge contribution branch into main
+
+        To see the current branch along with other information, run::
+
+            lamin info
+
+        To annotate the current branch with a `README.md`, run::
+
+            lamin annotate branch --readme README.md
+
+        To comment on the current branch, run::
+
+            lamin annotate branch --comment "I think we should revisit this, tomorrow, WDYT?"
+
+        To describe the current branch (optionally include comments), run::
+
+            lamin describe branch --include comments
+
+        To trace on which branch a `SQLRecord` object was created, run::
+
+            sqlrecord.created_on.describe()
+
+        To open a Merge Request for a branch, run:
+
+        .. tab-set::
+
+            .. tab-item:: CLI
+
+                .. code-block:: bash
+
+                    lamin update branch --status draft  # for current branch
+                    lamin update branch --name my_branch --status review  # for any branch
+
+            .. tab-item:: Python
+
+                .. code-block:: python
+
+                    branch = ln.Branch.get(name="my_branch")
+                    branch.status = "draft"
+                    branch.save()
+
+                    branch.status = "review"
+                    branch.save()
+
+        Just like Pull Requests on GitHub, branches are never deleted
+        so that the provenance of a change stays traceable.
+
+    .. dropdown:: Managing `is_latest` during branching
+
+        `is_latest` is branch-aware during development and reconciled on merge.
+
+        - Creating a new version on a contribution branch keeps the previous
+          version on `main` as `is_latest=True`.
+        - After `lamin merge`, only one object per version family remains
+          with `is_latest=True` in the target branch.
+        - If both source and target branches have `is_latest=True`, the merged
+          branch keeps the newest object by `created_at`.
+
+        Example flow::
+
+            # before merge
+            # main: v1.is_latest=True
+            # contribution branch: v2(revises=v1).is_latest=True
+            lamin switch main
+            lamin merge my_branch
+            # after merge on main: v2.is_latest=True, v1.is_latest=False
+
     """
 
     class Meta:
@@ -1423,11 +1594,86 @@ class Branch(BaseSQLRecord):
     )
     """Time of creation of record."""
     created_by: User = ForeignKey(
-        "User", CASCADE, default=None, related_name="+", null=True
+        "User", PROTECT, default=current_user_id, related_name="+"
     )
     """Creator of branch."""
-    blocks: BranchBlock
-    """Blocks that annotate this branch."""
+    _status_code: int = models.SmallIntegerField(default=0, db_default=0, db_index=True)
+    """Status code. -2: closed; -1: merged; 0: standalone; 1: draft; 2: review."""
+    ablocks: RelatedManager[BranchBlock]
+    """Attached blocks ← :attr:`~lamindb.BranchBlock.branch`."""
+    users: RelatedManager[User] = models.ManyToManyField(
+        "User",
+        through="BranchUser",
+        related_name="branches",
+    )
+    """Users linked to this branch (e.g. reviewers) ← :attr:`~lamindb.User.branches`."""
+    ulabels: RelatedManager[ULabel] = models.ManyToManyField(
+        "ULabel",
+        through="BranchULabel",
+        related_name="branches",
+    )
+    """ULabels annotating this branch ← :attr:`~lamindb.BranchULabel.ulabel`."""
+    projects: RelatedManager[Project] = models.ManyToManyField(
+        "Project",
+        through="BranchProject",
+        related_name="branches",
+    )
+    """Projects annotating this branch ← :attr:`~lamindb.BranchProject.project`."""
+
+    @property
+    def status(self) -> BranchStatus:
+        """Branch status.
+
+        Get and set the status of the branch:
+
+        - `standalone`: a standalone branch without Merge Request
+        - `draft`: Merge Request exists but is not ready for review
+        - `review`: Merge Request is ready for review
+        - `merged`: the branch was merged into another branch
+        - `closed`: Merge Request was closed without merging
+
+        Example:
+
+            See the status of a branch::
+
+                branch.status
+                #> 'standalone'
+
+            Open a Merge Request in draft state::
+
+                branch.status = "draft"
+                branch.save()
+
+            Request review for the Merge Request::
+
+                branch.status = "review"
+                branch.save()
+        """
+        if self._status_code == -2:
+            return "closed"
+        if self._status_code == -1:
+            return "merged"
+        if self._status_code == 1:
+            return "draft"
+        if self._status_code == 2:
+            return "review"
+        return "standalone"
+
+    @status.setter
+    def status(self, value: BranchStatus) -> None:
+        status_to_code = {
+            "closed": -2,
+            "merged": -1,
+            "standalone": 0,
+            "draft": 1,
+            "review": 2,
+        }
+        if value not in status_to_code:
+            raise ValueError(
+                "Invalid branch status. Expected one of: "
+                "'standalone', 'draft', 'review', 'merged', 'closed'."
+            )
+        self._status_code = status_to_code[value]
 
     @overload
     def __init__(
@@ -1450,23 +1696,34 @@ class Branch(BaseSQLRecord):
         super().__init__(*args, **kwargs)
 
 
+class BranchUser(BaseSQLRecord, IsLink):
+    class Meta:
+        app_label = "lamindb"
+        unique_together = ("branch", "user", "role")
+
+    id: int = models.BigAutoField(primary_key=True)
+    branch: Branch = ForeignKey(Branch, CASCADE, related_name="links_user")
+    user: User = ForeignKey("User", PROTECT, related_name="links_branch")
+    role: str = CharField(max_length=32, db_index=True)
+
+
 @doc_args(RECORD_REGISTRY_EXAMPLE)
 class SQLRecord(BaseSQLRecord, metaclass=Registry):
-    """Metadata record.
+    """An object that maps to a row in a SQL table in the database.
 
-    Every `SQLRecord` is a data model that comes with a registry in form of a SQL
-    table in your database.
+    For the inherited `SQLRecord` class method definitions, see :class:`~lamindb.models.BaseSQLRecord`.
 
-    Sub-classing `SQLRecord` creates a new registry while instantiating a `SQLRecord`
-    creates a new record.
+    Every `SQLRecord` is a data model that comes with a registry in form of a SQL table in your database.
+
+    Sub-classing `SQLRecord` creates a new registry while instantiating a `SQLRecord` creates a new object.
 
     {}
 
     `SQLRecord`'s metaclass is :class:`~lamindb.models.Registry`.
 
-    `SQLRecord` inherits from Django's `Model` class. Why does LaminDB call it `SQLRecord`
-    and not `Model`? The term `SQLRecord` can't lead to confusion with statistical,
-    machine learning or biological models.
+    `SQLRecord` inherits from Django's `Model` class.
+    Why does LaminDB call it `SQLRecord` and not `Model`?
+    The term `SQLRecord` can't lead to confusion with statistical, machine learning or biological models.
     """
 
     # we need the db_default when not interacting via django directly on a required field
@@ -1475,17 +1732,21 @@ class SQLRecord(BaseSQLRecord, metaclass=Registry):
         PROTECT,
         default=1,
         db_default=1,
-        db_column="branch_id",
         related_name="+",
     )
-    """Life cycle state of record.
-
-    `branch.name` can be "main" (default branch), "trash" (trash), `branch.name = "archive"` (archived), or any other user-created branch typically planned for merging onto main after review.
-    """
+    """The current branch of the object - changes e.g. on merge events."""
+    created_on: Branch = ForeignKey(
+        Branch,
+        PROTECT,
+        default=1,
+        db_default=1,
+        related_name="+",
+    )
+    """The branch on which this object was created - never changes."""
     space: Space = ForeignKey(Space, PROTECT, default=1, db_default=1, related_name="+")
-    """The space in which the record lives."""
+    """The space."""
     is_locked: bool = BooleanField(default=False, db_default=False)
-    """Whether the record is locked for edits."""
+    """Whether the object is locked for edits."""
     _aux: dict[str, Any] | None = JSONField(default=None, db_default=None, null=True)
     """Auxiliary field for dictionary-like metadata."""
 
@@ -1495,29 +1756,33 @@ class SQLRecord(BaseSQLRecord, metaclass=Registry):
     def restore(self) -> None:
         """Restore from trash onto the main branch.
 
-        Does **not** restore descendant records if the record is `HasType` with `is_type = True`.
+        Does **not** restore descendant objects if the object is `HasType` with `is_type = True`.
         """
         self.branch_id = 1
         self.save()
 
-    def delete(self, permanent: bool | None = None, **kwargs) -> None:
-        """Delete record.
+    def delete(self, permanent: bool | None = None, **kwargs):
+        """Delete object.
 
-        If record is `HasType` with `is_type = True`, deletes all descendant records, too.
+        If object is `HasType` with `is_type = True`, deletes all descendant objects, too.
 
         Args:
-            permanent: Whether to permanently delete the record (skips trash).
-                If `None`, performs soft delete if the record is not already in the trash.
+            permanent: Whether to permanently delete the object (skips trash).
+                If `None`, performs soft delete if the object is not already in the trash.
+
+        Returns:
+            When `permanent=True`, returns Django's delete return value: a tuple of
+            (deleted_count, {registry_name: count}). Otherwise returns None.
 
         Examples:
 
-            For any `SQLRecord` object `record`, call:
+            For any `SQLRecord` object `sqlrecord`, call::
 
-            >>> record.delete()
+                sqlrecord.delete()
         """
         if self._state.adding:
             logger.warning("record is not yet saved, delete has no effect")
-            return
+            return None
         name_with_module = self.__class__.__get_name_with_module__()
 
         if name_with_module == "Artifact":
@@ -1547,7 +1812,7 @@ class SQLRecord(BaseSQLRecord, metaclass=Registry):
                     child.delete()
             delete_record(self, is_soft=True)
             logger.important(f"moved record to trash: {self}")
-            return
+            return None
 
         # permanent delete
         if permanent is None:
@@ -1563,21 +1828,24 @@ class SQLRecord(BaseSQLRecord, metaclass=Registry):
 
         if confirm_delete:
             if name_with_module == "Run":
-                from .run import delete_run_artifacts
+                from .run import _permanent_delete_runs
 
-                delete_run_artifacts(self)
-            elif name_with_module == "Transform":
-                from .transform import delete_transform_relations
+                _permanent_delete_runs(self)
+                return None
+            if name_with_module == "Transform":
+                from .transform import _permanent_delete_transforms
 
-                delete_transform_relations(self)
-            elif name_with_module == "Artifact":
+                _permanent_delete_transforms(self)
+                return None
+            if name_with_module == "Artifact":
                 from .artifact import delete_permanently
 
                 delete_permanently(
                     self, storage=kwargs["storage"], using_key=kwargs["using_key"]
                 )
-            if name_with_module != "Artifact":
-                super().delete()
+                return None
+            return super().delete()
+        return None
 
 
 def _format_django_validation_error(record: SQLRecord, e: DjangoValidationError):
@@ -2126,15 +2394,21 @@ class SQLRecordInfo:
                 core_module_fields.append(field)
 
         def _get_related_field_type(field) -> str:
-            field_type = (
-                field.related_model.__get_name_with_module__()
-                .replace(
-                    "Artifact", ""
-                )  # some fields have an unnecessary 'Artifact' in their name
-                .replace(
-                    "Collection", ""
-                )  # some fields have an unnecessary 'Collection' in their name
-            )
+            model_name = field.related_model.__get_name_with_module__()
+            # Extract the class name (after the last dot if there's a module prefix)
+            class_name = model_name.split(".")[-1]
+            # Skip replacement for compound names like ArtifactBlock, FeatureBlock, etc.
+            if class_name.endswith("Block"):
+                # Return just the class name for Block types
+                field_type = class_name
+            else:
+                field_type = (
+                    model_name.replace(
+                        "Artifact", ""
+                    ).replace(  # some fields have an unnecessary 'Artifact' in their name
+                        "Collection", ""
+                    )  # some fields have an unnecessary 'Collection' in their name
+                )
             return (
                 self._get_type_for_field(field.name)
                 if not field_type.strip()

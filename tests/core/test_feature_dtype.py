@@ -89,7 +89,7 @@ def test_serialize_record_objects():
     with pytest.raises(ln.errors.IntegrityError) as error:
         parse_dtype("cat[Record[Sample]]", check_exists=True, old_format=True)
     assert (
-        "Error retrieving Record type with filter {'name': 'Sample', 'type__isnull': True} for field `.name`: Record matching query does not exist."
+        "No Record type found matching subtypes ['Sample'] for field `.name`"
         in error.exconly()
     )
     sample = ln.Record(name="sample").save()
@@ -632,6 +632,18 @@ def test_feature_constructor_with_old_format_nested_string(ccaplog):
     # Clean up
     experiment_type.delete(permanent=True)
     lab_type.delete(permanent=True)
+
+
+def test_bare_cat_dtype_backward_compatibility():
+    """Test that bare 'cat' dtype is accepted for backward compatibility."""
+    # Test parse_dtype accepts "cat" and returns empty list
+    result = parse_dtype("cat")
+    assert result == []
+
+    # Test Feature constructor with bare "cat" dtype issues deprecation warning
+    with pytest.warns(DeprecationWarning, match="dtype `cat` is deprecated"):
+        feature = ln.Feature(name="test_bare_cat", dtype="cat")
+    assert feature._dtype_str == "cat"
 
 
 def test_migrate_dtype_to_uid_format():

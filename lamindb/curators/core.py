@@ -19,6 +19,7 @@ import lamindb_setup as ln_setup
 import numpy as np
 import pandas as pd
 import pandera.pandas as pandera
+from django.db.models import Q
 from lamin_utils import colors, logger
 from lamindb_setup.core._docs import doc_args
 from lamindb_setup.core.upath import LocalPathClasses
@@ -43,6 +44,7 @@ from lamindb.models.feature import (
     parse_filter_string,
     resolve_relation_filters,
 )
+from lamindb.models.query_set import BasicQuerySet, SQLRecordList
 from lamindb.models.sqlrecord import HasType
 
 from ..errors import InvalidArgument, ValidationError
@@ -58,8 +60,7 @@ if TYPE_CHECKING:
     from spatialdata import SpatialData
     from tiledbsoma._experiment import Experiment as SOMAExperiment
 
-    from lamindb.core.types import ScverseDataStructures
-    from lamindb.models.query_set import SQLRecordList
+    from lamindb.core.storage.types import ScverseDataStructures
 
 
 def strip_ansi_codes(text):
@@ -185,11 +186,16 @@ class Curator:
     """
 
     def __init__(
-        self, dataset: Any, schema: Schema, *, features: dict[str, Any] | None = None
+        self,
+        dataset: Any,
+        schema: Schema,
+        *,
+        features: dict[str, Any] | None = None,
+        require_saved_schema: bool = True,
     ) -> None:
         if not isinstance(schema, Schema):
             raise InvalidArgument("schema argument must be a Schema record.")
-        if schema.pk is None:
+        if require_saved_schema and schema.pk is None:
             raise ValueError(
                 "Schema must be saved before curation. Please save it using '.save()'."
             )
@@ -324,8 +330,14 @@ class SlotsCurator(Curator):
         schema: Schema,
         *,
         features: dict[str, Any] | None = None,
+        require_saved_schema: bool = True,
     ) -> None:
-        super().__init__(dataset=dataset, schema=schema, features=features)
+        super().__init__(
+            dataset=dataset,
+            schema=schema,
+            features=features,
+            require_saved_schema=require_saved_schema,
+        )
         self._slots: dict[str, ComponentCurator] = {}
 
         # used for multimodal data structures (not AnnData)
@@ -431,10 +443,17 @@ def convert_dict_to_dataframe_for_validation(d: dict, schema: Schema) -> pd.Data
     df = pd.DataFrame([d])
     for feature in schema.members:
         # we cannot cast a `list[cat[...]]]` to categorical because lists are not hashable
-        dtype_str = feature._dtype_str
-        if dtype_str.startswith("cat"):
+        if feature.dtype_as_str.startswith("cat"):
             if feature.name in df.columns:
-                df[feature.name] = pd.Categorical(df[feature.name])
+                value = df.loc[0, feature.name]
+                if isinstance(value, (list, SQLRecordList, set, BasicQuerySet)):
+                    df.attrs[feature.name] = "list_of_categories"
+                else:
+                    if isinstance(value, SQLRecord) and value._state.adding:
+                        raise ValidationError(
+                            f"{value.__class__.__name__} {getattr(value, getattr(value, 'name_field', 'name'), value.uid)} is not saved."
+                        )
+                    df[feature.name] = pd.Categorical(df[feature.name])
     return df
 
 
@@ -458,8 +477,11 @@ class ComponentCurator(Curator):
         dataset: pd.DataFrame | Artifact,
         schema: Schema,
         slot: str | None = None,
+        require_saved_schema: bool = True,
     ) -> None:
-        super().__init__(dataset=dataset, schema=schema)
+        super().__init__(
+            dataset=dataset, schema=schema, require_saved_schema=require_saved_schema
+        )
 
         categoricals = []
         features = []
@@ -502,13 +524,16 @@ class ComponentCurator(Curator):
                     required = False
                 # series.dtype is "object" if the column has lists types, e.g. [["a", "b"], ["a"], ["b"]]
                 dtype_str = feature._dtype_str
-                if dtype_str.startswith("list[cat"):
+                if (
+                    dtype_str.startswith("list[cat")
+                    or self._dataset.attrs.get(feature.name) == "list_of_categories"
+                ):
                     pandera_columns[feature.name] = pandera.Column(
                         dtype=None,
                         checks=pandera.Check(
                             check_dtype("list", feature.nullable),
                             element_wise=False,
-                            error=f"Column '{feature.name}' failed dtype check for '{dtype_str}'",
+                            error=f"Column '{feature.name}' failed dtype check for '{dtype_str}' against (list, nullable={feature.nullable})",
                         ),
                         nullable=feature.nullable,
                         coerce=feature.coerce,
@@ -690,7 +715,7 @@ class ComponentCurator(Curator):
                 has_dtype_error = "WRONG_DATATYPE" in str(err)
                 error_msg = str(err)
                 if has_dtype_error:
-                    error_msg += "   ▶ Hint: Consider setting 'coerce=True' to attempt coercing/converting values during validation to the pre-defined dtype."
+                    error_msg += "   ▶ Hint: Consider setting `feature.coerce = True` to attempt coercing values during validation to the required dtype."
                 raise ValidationError(error_msg) from err
         else:
             self._cat_manager_validate()
@@ -704,6 +729,7 @@ class DataFrameCurator(SlotsCurator):
         dataset: The DataFrame-like object to validate & annotate.
         schema: A :class:`~lamindb.Schema` object that defines the validation constraints.
         slot: Indicate the slot in a composite curator for a composite data structure.
+        require_saved_schema: Whether the schema must be saved before curation.
 
     Examples:
 
@@ -737,14 +763,21 @@ class DataFrameCurator(SlotsCurator):
         *,
         slot: str | None = None,
         features: dict[str, Any] | None = None,
+        require_saved_schema: bool = True,
     ) -> None:
         # loads or opens dataset, dataset may be an artifact
-        super().__init__(dataset=dataset, schema=schema, features=features)
+        super().__init__(
+            dataset=dataset,
+            schema=schema,
+            features=features,
+            require_saved_schema=require_saved_schema,
+        )
         # uses open dataset at self._dataset
         self._atomic_curator = ComponentCurator(
             dataset=self._dataset,
             schema=schema,
             slot=slot,
+            require_saved_schema=require_saved_schema,
         )
         # Handle (nested) attrs
         if slot is None and schema.slots:
@@ -762,7 +795,10 @@ class DataFrameCurator(SlotsCurator):
                             )
                         df = convert_dict_to_dataframe_for_validation(data, slot_schema)
                         self._slots[slot_name] = ComponentCurator(
-                            df, slot_schema, slot=slot_name
+                            df,
+                            slot_schema,
+                            slot=slot_name,
+                            require_saved_schema=require_saved_schema,
                         )
                 elif slot_name != "__external__":
                     raise ValueError(
@@ -815,6 +851,7 @@ class ExperimentalDictCurator(DataFrameCurator):
         dataset: dict | Artifact,
         schema: Schema,
         slot: str | None = None,
+        require_saved_schema: bool = False,
     ) -> None:
         if not isinstance(dataset, dict) and not isinstance(dataset, Artifact):
             raise InvalidArgument("The dataset must be a dict or dict-like artifact.")
@@ -823,8 +860,10 @@ class ExperimentalDictCurator(DataFrameCurator):
             d = dataset.load(is_run_input=False)
         else:
             d = dataset
-        df = convert_dict_to_dataframe_for_validation(d, schema)
-        super().__init__(df, schema, slot=slot)
+        df = convert_dict_to_dataframe_for_validation(d, schema)  # type: ignore
+        super().__init__(
+            df, schema, slot=slot, require_saved_schema=require_saved_schema
+        )
 
 
 def _resolve_schema_slot_path(
@@ -1289,6 +1328,7 @@ class CatVector:
         filter_str: str = "",
         record_uid: str | None = None,
         maximal_set: bool = True,  # whether unvalidated categoricals cause validation failure.
+        schema: Schema = None,
     ) -> None:
         self._values_getter = values_getter
         self._values_setter = values_setter
@@ -1308,7 +1348,8 @@ class CatVector:
         self._registry = self._field.field.model
         self._field_name = self._field.field.name
         self._filter_kwargs = {}
-        if filter_str:
+        self._schema = schema
+        if filter_str and filter_str != "unsaved":
             self._filter_kwargs.update(
                 resolve_relation_filters(
                     parse_filter_string(filter_str), self._registry
@@ -1432,11 +1473,18 @@ class CatVector:
         model_field = self._registry.__get_name_with_module__()
 
         values = [
-            i
-            for i in self.values
-            if (isinstance(i, str) and i)
-            or (isinstance(i, list) and i)
-            or (isinstance(i, np.ndarray) and i.size > 0)
+            value
+            for value in self.values
+            if (isinstance(value, str) and value)
+            or (
+                isinstance(value, (int, float))
+                and not isinstance(value, bool)
+                and value == value
+            )
+            or (isinstance(value, list) and value)
+            or (
+                isinstance(value, np.ndarray) and value.size > 0 and value.dtype != bool
+            )
         ]
         if not values:
             return [], []
@@ -1453,69 +1501,131 @@ class CatVector:
             validated_values = str_values  # type: ignore
             return validated_values, []
 
-        # inspect the default instance and save validated records from public
-        if issubclass(self._registry, HasType):
-            if self._type_record is None:
-                self._subtype_query_set = self._registry.filter()
-            else:
-                query_sub_types = getattr(
-                    self._type_record, f"query_{self._registry.__name__.lower()}s"
-                )
-                self._subtype_query_set = query_sub_types()
-            values_array = np.array(str_values)
-            validated_mask = self._subtype_query_set.validate(  # type: ignore
-                values_array, field=self._field, mute=True
-            )
-            validated_values, non_validated_values = (
-                list(set(values_array[validated_mask])),
-                list(set(values_array[~validated_mask])),
-            )
-            records = self._subtype_query_set.filter(  # type: ignore
-                **{f"{self._field_name}__in": validated_values}, **self._filter_kwargs
-            ).to_list()
-            records = keep_topmost_matches(records)
+        # get all field specs for union types
+        if self.feature:
+            results = parse_dtype(self.feature._dtype_str)
         else:
-            existing_and_public_records = _from_values(
-                str_values,
-                field=self._field,
-                mute=True,
-                **self._filter_kwargs,  # type: ignore
-            )
-            existing_and_public_values = [
-                getattr(r, self._field_name) for r in existing_and_public_records
-            ]
-            # public records that are not already in the database
-            public_records = [r for r in existing_and_public_records if r._state.adding]
-            # here we check to only save the public records if they are from the specified source
-            # we check the uid because r.source and source can be from different instances
-            if self._source:
-                public_records = [
-                    r for r in public_records if r.source.uid == self._source.uid
-                ]
-            if len(public_records) > 0:
-                logger.info(f"saving validated records of '{self._key}'")
-                ln_save(public_records)
-                values_saved_public = [
-                    getattr(r, self._field_name) for r in public_records
-                ]
-                # log the saved public labels
-                # the term "transferred" stresses that this is always in the context of transferring
-                # labels from a public ontology or a different instance to the present instance
-                if len(values_saved_public) > 0:
-                    s = "s" if len(values_saved_public) > 1 else ""
-                    logger.success(
-                        f'added {len(values_saved_public)} record{s} {colors.green("from_public")} with {model_field} for "{self._key}": {_format_values(values_saved_public)}'
-                    )
-                    # non-validated records from the default instance
-            non_validated_values = [
-                i for i in str_values if i not in existing_and_public_values
-            ]
-            validated_values = existing_and_public_values
-            records = existing_and_public_records
+            results = [None]
 
-        self.records = records
+        all_validated = []
+        all_records = []
+        remaining_values = str_values
+
+        for result in results:
+            if not remaining_values:
+                break  # pragma: no cover
+
+            if result is not None:
+                field = result["field"]
+                registry = field.field.model
+                field_name = field.field.name
+                filter_kwargs: dict[str, str | SQLRecord] = {}
+                filter_str = result.get("filter_str", "")
+                if filter_str:
+                    parsed_filters = parse_filter_string(filter_str)
+                    filter_kwargs.update(
+                        resolve_relation_filters(parsed_filters, registry)
+                    )
+                if registry.__base__.__name__ == "BioRecord":
+                    organism_record = get_organism_record_from_field(
+                        field=field,
+                        organism=None,
+                        values=remaining_values,
+                    )
+                    if organism_record is not None:
+                        filter_kwargs["organism"] = organism_record
+                # Merge in self._filter_kwargs (contains cat_filters from Feature)
+                if self._filter_kwargs:
+                    filter_kwargs.update(self._filter_kwargs)
+                filter_kwargs = get_current_filter_kwargs(registry, filter_kwargs)
+            else:
+                field = self._field
+                registry = self._registry
+                field_name = self._field_name
+                filter_kwargs = self._filter_kwargs
+
+            # inspect the default instance and save validated records from public
+            if issubclass(registry, HasType):
+                if self._type_record is None:
+                    # When we have a Schema with typed members,
+                    # scope the query to the types present in the schema's members (plus untyped features)
+                    # to avoid ambiguous matches across different feature types.
+                    qs = registry.filter()
+                    if self._schema and self._schema.n_members:
+                        type_ids = {
+                            m.type_id
+                            for m in self._schema.members
+                            if m.type_id is not None
+                        }
+                        if type_ids:
+                            qs = registry.filter(
+                                Q(type_id__in=type_ids) | Q(type_id__isnull=True)
+                            )
+                    self._subtype_query_set = qs
+                else:
+                    query_sub_types = getattr(
+                        self._type_record, f"query_{registry.__name__.lower()}s"
+                    )
+                    self._subtype_query_set = query_sub_types()
+                subtype_query_set = (
+                    self._subtype_query_set.filter(**filter_kwargs)
+                    if filter_kwargs
+                    else self._subtype_query_set
+                )
+                values_array = np.array(remaining_values)
+                validated_mask = subtype_query_set.validate(
+                    values_array, field=field, mute=True
+                )
+                validated_values, non_validated_values = (
+                    list(set(values_array[validated_mask])),
+                    list(set(values_array[~validated_mask])),
+                )
+                records = subtype_query_set.filter(
+                    **{f"{field_name}__in": validated_values}
+                ).to_list()
+                records = keep_topmost_matches(records)
+            else:
+                existing_and_public_records = _from_values(
+                    remaining_values,
+                    field=field,
+                    mute=True,
+                    **filter_kwargs,  # type: ignore
+                )
+                existing_and_public_values = [
+                    getattr(r, field_name) for r in existing_and_public_records
+                ]
+                # public records that are not already in the database
+                public_records = [
+                    r for r in existing_and_public_records if r._state.adding
+                ]
+                if len(public_records) > 0:
+                    logger.info(f"saving validated records of '{self._key}'")
+                    ln_save(public_records)
+                    values_saved_public = [
+                        getattr(r, field_name) for r in public_records
+                    ]
+                    # log the saved public labels
+                    # the term "transferred" stresses that this is always in the context of transferring
+                    # labels from a public ontology or a different instance to the present instance
+                    if len(values_saved_public) > 0:
+                        s = "s" if len(values_saved_public) > 1 else ""
+                        logger.success(
+                            f'added {len(values_saved_public)} record{s} {colors.green("from_public")} with {model_field} for "{self._key}": {_format_values(values_saved_public)}'
+                        )
+                        # non-validated records from the default instance
+                non_validated_values = [
+                    i for i in remaining_values if i not in existing_and_public_values
+                ]
+                validated_values = existing_and_public_values
+                records = existing_and_public_records
+
+            all_validated.extend(validated_values)
+            all_records.extend(records)
+            remaining_values = non_validated_values
+
+        self.records = all_records
         # validated values, non-validated values
-        return validated_values, non_validated_values
+        return all_validated, remaining_values
 
     def _add_new(
         self,
@@ -1563,21 +1673,38 @@ class CatVector:
         """Validate ontology terms using LaminDB registries."""
         model_field = f"{self._registry.__name__}.{self._field_name}"
 
-        # inspect values from the default instance, excluding public
-        registry_or_queryset = self._registry
-        if self._subtype_query_set is not None:
-            registry_or_queryset = self._subtype_query_set
+        # get all field specs for union types
+        if self.feature:
+            results = parse_dtype(self.feature._dtype_str)
+        else:
+            results = [{"field": self._field}]
 
-        # first inspect against the registry
-        inspect_result = registry_or_queryset.filter(**self._filter_kwargs).inspect(
-            values,
-            field=self._field,
-            mute=True,
-            from_source=False,
-        )
-        # here non_validated includes synonyms and new values
-        non_validated = inspect_result.non_validated
-        syn_mapper = inspect_result.synonyms_mapper
+        non_validated = values
+        syn_mapper: dict[str, str] = {}
+
+        for result in results:
+            if not non_validated:
+                break
+            field = result["field"]
+            registry = field.field.model
+            filter_kwargs = self._filter_kwargs.copy()
+            filter_str = result.get("filter_str", "")
+            if filter_str:
+                parsed_filters = parse_filter_string(filter_str)
+                filter_kwargs.update(resolve_relation_filters(parsed_filters, registry))
+            registry_or_queryset = registry
+            if self._subtype_query_set is not None and registry == self._registry:
+                registry_or_queryset = self._subtype_query_set
+            # first inspect against the registry
+            inspect_result = registry_or_queryset.filter(**filter_kwargs).inspect(
+                non_validated,
+                field=field,
+                mute=True,
+                from_source=False,
+            )
+            # here non_validated includes synonyms and new values
+            non_validated = inspect_result.non_validated
+            syn_mapper.update(inspect_result.synonyms_mapper)
 
         # logging messages
         if self._cat_manager is not None:
@@ -1723,7 +1850,12 @@ class DataFrameCatManager:
             source=self._sources.get("columns"),
             cat_manager=self,
             maximal_set=self._maximal_set,
-            filter_str="" if schema.flexible else f"schemas__id={schema.id}",
+            filter_str=""
+            if schema.flexible
+            else "unsaved"
+            if schema.id is None
+            else f"schemas__id={schema.id}",
+            schema=schema,
         )
         for feature in self._categoricals:
             result = parse_dtype(feature._dtype_str)[0]

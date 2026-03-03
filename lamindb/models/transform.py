@@ -18,8 +18,8 @@ from lamindb.base.fields import (
 from lamindb.base.users import current_user_id
 
 from ..models._is_versioned import process_revises
-from ._is_versioned import IsVersioned
-from .run import Run, User, delete_run_artifacts
+from ._is_versioned import IsVersioned, _adjust_is_latest_when_deleting_is_versioned
+from .run import Run, User
 from .sqlrecord import (
     BaseSQLRecord,
     IsLink,
@@ -34,26 +34,13 @@ if TYPE_CHECKING:
 
     from lamindb.base.types import TransformKind
 
+    from .artifact import Artifact
     from .block import TransformBlock
     from .project import Project, Reference
+    from .query_manager import RelatedManager
+    from .query_set import QuerySet
     from .record import Record
     from .ulabel import ULabel
-
-
-def delete_transform_relations(transform: Transform):
-    from .project import TransformProject
-
-    # query all runs and delete their associated report and env artifacts
-    runs = Run.filter(transform=transform)
-    for run in runs:
-        delete_run_artifacts(run)
-    # CASCADE doesn't do the job below because run_id might be protected through run__transform=self
-    # hence, proactively delete the label links
-    qs = TransformProject.filter(transform=transform)
-    if qs.exists():
-        qs.delete()
-    # at this point, all artifacts have been taken care of
-    # and one can now leverage CASCADE delete
 
 
 # does not inherit from TracksRun because the Transform
@@ -181,39 +168,47 @@ class Transform(SQLRecord, IsVersioned):
     """Reference for the transform, e.g., a URL."""
     reference_type: str | None = CharField(max_length=25, db_index=True, null=True)
     """Reference type of the transform, e.g., 'url'."""
-    environment: Transform | None = models.ForeignKey(
-        "Transform", CASCADE, null=True, related_name="_environment_of_transforms"
+    environment: Artifact | None = models.ForeignKey(
+        "Artifact", CASCADE, null=True, related_name="_environment_of_transforms"
     )
     """An environment for executing the transform."""
-    runs: Run
-    """Runs of this transform, via :attr:`~lamindb.Run.transform`."""
-    ulabels: ULabel = models.ManyToManyField(
+    plan: Artifact | None = models.ForeignKey(
+        "Artifact",
+        CASCADE,
+        null=True,
+        related_name="_plan_for_transforms",
+        default=None,
+    )
+    """An optional plan for executing this transform."""
+    runs: RelatedManager[Run]
+    """Runs of this transform ← :attr:`~lamindb.Run.transform`."""
+    ulabels: RelatedManager[ULabel] = models.ManyToManyField(
         "ULabel", through="TransformULabel", related_name="transforms"
     )
-    """ULabel annotations of this transform, via :attr:`~lamindb.ULabel.transforms`."""
-    linked_in_records: Record = models.ManyToManyField(
+    """ULabel annotations of this transform ← :attr:`~lamindb.ULabel.transforms`."""
+    linked_in_records: RelatedManager[Record] = models.ManyToManyField(
         "Record", through="RecordTransform", related_name="linked_transforms"
     )
-    """This transform is linked in these records as a value, via :attr:`~lamindb.Record.linked_transforms`."""
-    records: Record
-    """Records that annotate this transform, via :attr:`~lamindb.Record.transforms`."""
-    predecessors: Transform = models.ManyToManyField(
+    """This transform is linked in these records as a value ← :attr:`~lamindb.Record.linked_transforms`."""
+    records: RelatedManager[Record]
+    """Records that annotate this transform ← :attr:`~lamindb.Record.transforms`."""
+    predecessors: RelatedManager[Transform] = models.ManyToManyField(
         "self",
         through="TransformTransform",
         symmetrical=False,
         related_name="successors",
     )
-    """Preceding transforms, see :attr:`~lamindb.Transform.successors`."""
-    successors: Transform
-    """Subsequent transforms, see :attr:`~lamindb.Transform.predecessors`.
+    """Preceding transforms ← :attr:`~lamindb.Transform.successors`."""
+    successors: RelatedManager[Transform]
+    """Subsequent transforms ← :attr:`~lamindb.Transform.predecessors`.
 
     Allows defining succeeding transforms. Is *not* necessary for data lineage, which is tracked automatically
     whenever an artifact or collection serves as an input for a run.
     """
-    projects: Project
-    """Linked projects, via :attr:`~lamindb.Project.transforms`."""
-    references: Reference
-    """Linked references, via :attr:`~lamindb.Reference.transforms`."""
+    projects: RelatedManager[Project]
+    """Linked projects ← :attr:`~lamindb.Project.transforms`."""
+    references: RelatedManager[Reference]
+    """Linked references ← :attr:`~lamindb.Reference.transforms`."""
     created_at: datetime = DateTimeField(
         editable=False, db_default=models.functions.Now(), db_index=True
     )
@@ -225,9 +220,9 @@ class Transform(SQLRecord, IsVersioned):
     created_by: User = ForeignKey(
         User, PROTECT, default=current_user_id, related_name="created_transforms"
     )
-    """Creator of record."""
-    blocks: TransformBlock
-    """Blocks that annotate this artifact, via :attr:`~lamindb.TransformBlock.transform`."""
+    """Creator of record ← :attr:`~lamindb.User.created_transforms`."""
+    ablocks: RelatedManager[TransformBlock]
+    """Attached blocks ← :attr:`~lamindb.TransformBlock.transform`."""
 
     @overload
     def __init__(
@@ -539,6 +534,28 @@ class Transform(SQLRecord, IsVersioned):
             self.source_code = source_code_path.read_text()
             self.hash = transform_hash
         return None
+
+
+def _permanent_delete_transforms(transforms: Transform | QuerySet) -> None:
+    """Execute bulk DELETE on transforms (runs, then transforms). Used by QuerySet and single-transform paths."""
+    from django.db.models import QuerySet as DjangoQuerySet
+
+    from .project import TransformProject
+
+    if isinstance(transforms, Transform):
+        db = transforms._state.db or "default"
+        qs = Transform.objects.using(db).filter(pk=transforms.pk)
+    else:
+        db = transforms.db or "default"
+        qs = transforms
+    objects = list(qs)
+    if not objects:
+        return
+    _adjust_is_latest_when_deleting_is_versioned(objects)
+    transform_ids = [o.pk for o in objects]
+    TransformProject.objects.using(db).filter(transform_id__in=transform_ids).delete()
+    Run.objects.using(db).filter(transform_id__in=transform_ids).delete(permanent=True)
+    DjangoQuerySet.delete(qs)
 
 
 class TransformTransform(BaseSQLRecord, IsLink):

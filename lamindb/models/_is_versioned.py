@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 from pathlib import PurePosixPath
-from typing import TYPE_CHECKING, Literal, overload
+from typing import TYPE_CHECKING, Any, Iterable, Literal
 
 from django.db import models
+from django.db.models import Q
 from lamin_utils import logger
 from lamin_utils._base62 import increment_base62
 
-from lamindb.base import ids
+from lamindb.base import uids
 from lamindb.base.fields import (
     BooleanField,
     CharField,
@@ -34,21 +35,12 @@ class IsVersioned(models.Model):
     is_latest: bool = BooleanField(default=True, db_index=True)
     """Boolean flag that indicates whether a record is the latest in its version family."""
 
-    @overload
-    def __init__(self): ...
-
-    @overload
-    def __init__(
-        self,
-        *db_args,
-    ): ...
-
     def __init__(
         self,
         *args,
         **kwargs,
     ):
-        self._revises = kwargs.pop("revises") if "revises" in kwargs else None
+        self._revises = kwargs.pop("revises", None)
         super().__init__(*args, **kwargs)
 
     @property
@@ -196,25 +188,20 @@ def create_uid(
     This is why it returns revises.
     """
     if revises is not None:
-        if not revises.is_latest:
-            try:
-                revises = revises.__class__.objects.get(
-                    is_latest=True, uid__startswith=revises.stem_uid
-                )
-                logger.warning(
-                    f"didn't pass the latest version in `revises`, retrieved it: {revises}"
-                )
-            except revises.__class__.DoesNotExist:
-                revises = (
-                    revises.__class__.objects.filter(uid__startswith=revises.stem_uid)
-                    .order_by("id")
-                    .last()
-                )
-                logger.warning("didn't find a version marked with `is_latest=True`")
+        latest_in_family = (
+            revises.__class__.objects.filter(uid__startswith=revises.stem_uid)
+            .order_by("uid")
+            .last()
+        )
+        if latest_in_family is not None and latest_in_family.uid != revises.uid:
+            revises = latest_in_family
+            logger.warning(
+                f"didn't pass the latest version in `revises`, retrieved it: {revises}"
+            )
         suid = revises.stem_uid
         vuid = increment_base62(revises.uid[-4:])  # type: ignore
     else:
-        suid = ids.base62(n_full_id - 4)
+        suid = uids.base62(n_full_id - 4)
         vuid = "0000"
     if version_tag is not None:
         if not isinstance(version_tag, str):
@@ -243,7 +230,100 @@ def process_revises(
     )
     if revises is not None:
         if description is None:
-            description = revises.description
+            description = getattr(revises, "description", None)
         if key is None:
             key = revises.key
     return uid, version_tag, key, description, revises
+
+
+def _adjust_is_latest_when_deleting_is_versioned(
+    objects: IsVersioned | Iterable[IsVersioned],
+) -> list[int]:
+    """After deleting (soft or permanent) versioned records, promote new latest per version family.
+
+    Accepts a single IsVersioned instance, a QuerySet, or a list of IsVersioned.
+    Runs in 1 query (candidates + update) when objects are passed; no extra query for uids.
+    Returns the list of pks that were promoted to is_latest (for testing).
+    """
+    if isinstance(objects, IsVersioned):
+        objects = [objects]
+    else:
+        objects = list(objects)
+    if not objects:
+        return []
+    id_list = [o.pk for o in objects]
+    stem_uids = list({o.uid[: o._len_stem_uid] for o in objects if o.is_latest})
+    if not stem_uids:
+        return []
+    registry = type(objects[0])
+    db = getattr(objects[0]._state, "db", None) or "default"
+    len_stem = registry._len_stem_uid
+    # All candidates: same family as any stem_uid, not in trash and not about to be deleted
+    q = Q()
+    for s in stem_uids:
+        q |= Q(uid__startswith=s)
+    qs = registry.objects.using(db).filter(q).exclude(pk__in=id_list)
+    from .sqlrecord import SQLRecord
+
+    if issubclass(registry, SQLRecord):
+        qs = qs.exclude(branch_id=-1)
+    candidates = list(qs.values("pk", "uid", "created_at"))
+    # per stem_uid, pick candidate with max created_at
+    by_stem: dict[str, dict[str, Any]] = {}
+    for c in candidates:
+        stem = c["uid"][:len_stem]
+        if stem not in by_stem or c["created_at"] > by_stem[stem]["created_at"]:
+            by_stem[stem] = c
+    if not by_stem:
+        return []
+    pks = [by_stem[s]["pk"] for s in by_stem]
+    registry.objects.using(db).filter(pk__in=pks).update(is_latest=True)
+    if pks:
+        promoted_uids = [by_stem[s]["uid"] for s in by_stem]
+        if len(promoted_uids) == 1:
+            logger.important_hint(
+                f"new latest {registry.__name__} version is: {promoted_uids[0]}"
+            )
+        else:
+            logger.important_hint(
+                f"new latest {registry.__name__} versions: {promoted_uids}"
+            )
+    return pks
+
+
+def reconcile_is_latest_within_branch(
+    registry: type[IsVersioned],
+    *,
+    branch_id: int,
+    db: str = "default",
+) -> int:
+    """Keep a single is_latest=True per version family in a branch.
+
+    Winner selection is based on newest created_at, tie-broken by highest pk.
+    Returns the number of records demoted from is_latest=True to False.
+    """
+    len_stem = registry._len_stem_uid
+    latest_records = list(
+        registry.objects.using(db)
+        .filter(branch_id=branch_id, is_latest=True)
+        .values("pk", "uid", "created_at")
+        .order_by("uid", "created_at", "pk")
+    )
+    if not latest_records:
+        return 0
+    winners_by_stem: dict[str, dict[str, Any]] = {}
+    losers: list[int] = []
+    for record in latest_records:
+        stem = record["uid"][:len_stem]
+        winner = winners_by_stem.get(stem)
+        if winner is None:
+            winners_by_stem[stem] = record
+            continue
+        if (record["created_at"], record["pk"]) > (winner["created_at"], winner["pk"]):
+            losers.append(winner["pk"])
+            winners_by_stem[stem] = record
+        else:
+            losers.append(record["pk"])
+    if not losers:
+        return 0
+    return registry.objects.using(db).filter(pk__in=losers).update(is_latest=False)
