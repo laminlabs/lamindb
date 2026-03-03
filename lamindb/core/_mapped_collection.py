@@ -184,6 +184,11 @@ class MappedCollection:
                 X = store["X"]
                 store_path = self.path_list[i]
                 self._check_csc_raise_error(X, "X", store_path)
+                if isinstance(X, ArrayTypes):  # type: ignore
+                    n_obs_storage = X.shape[0]
+                else:
+                    n_obs_storage = X.attrs["shape"][0]
+                indices_storage = np.arange(n_obs_storage)
                 if self.filtered:
                     indices_storage_mask = None
                     for obs_filter_key, obs_filter_values in obs_filter.items():
@@ -191,8 +196,11 @@ class MappedCollection:
                             obs_filter_values = list(obs_filter_values)
                         elif not isinstance(obs_filter_values, list):
                             obs_filter_values = [obs_filter_values]
-                        obs_labels = self._get_labels(store, obs_filter_key)
-                        obs_filter_mask = np.isin(obs_labels, obs_filter_values)
+                        if obs_filter_key in store["obs"]:
+                            obs_labels = self._get_labels(store, obs_filter_key)
+                            obs_filter_mask = np.isin(obs_labels, obs_filter_values)
+                        else:
+                            obs_filter_mask = np.full(n_obs_storage, False)
                         if pd.isna(obs_filter_values).any():
                             obs_filter_mask |= pd.isna(obs_labels)
                         if indices_storage_mask is None:
@@ -201,12 +209,7 @@ class MappedCollection:
                             indices_storage_mask &= obs_filter_mask
                     indices_storage = np.where(indices_storage_mask)[0]
                     n_obs_storage = len(indices_storage)
-                else:
-                    if isinstance(X, ArrayTypes):  # type: ignore
-                        n_obs_storage = X.shape[0]
-                    else:
-                        n_obs_storage = X.attrs["shape"][0]
-                    indices_storage = np.arange(n_obs_storage)
+
                 self.n_obs_list.append(n_obs_storage)
                 self.indices_list.append(indices_storage)
                 for layer_key in self.layers_keys:
@@ -564,6 +567,8 @@ class MappedCollection:
         labels_merge = []
         for i, storage in enumerate(self.storages):
             with _Connect(storage) as store:
+                if label_key not in self._cache_obs_keys[i]:
+                    continue
                 labels = self._get_labels(store, label_key, storage_idx=i)
                 if self.filtered:
                     labels = labels[self.indices_list[i]]
@@ -575,6 +580,8 @@ class MappedCollection:
         cats_merge = set()
         for i, storage in enumerate(self.storages):
             with _Connect(storage) as store:
+                if label_key not in self._cache_obs_keys[i]:
+                    continue
                 if label_key in self._cache_cats:
                     cats = self._cache_cats[label_key][i]
                 else:
@@ -604,6 +611,8 @@ class MappedCollection:
                     return cats[label_key]
                 else:
                     return None
+            if label_key not in obs:
+                return None
             labels = obs[label_key]
             if isinstance(labels, GroupTypes):  # type: ignore
                 if "categories" in labels:
