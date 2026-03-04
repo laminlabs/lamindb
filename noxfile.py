@@ -26,7 +26,7 @@ CI = os.environ.get("CI")
 def install_local_lamindb_core(session):
     run(
         session,
-        f"uv pip install {'--system' if CI else ''} --no-cache-dir --no-deps -e .",
+        f"uv pip install {'--system' if CI else ''} --no-cache-dir --prerelease=allow -e .",
     )
 
 
