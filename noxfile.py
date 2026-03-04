@@ -59,7 +59,7 @@ def install_local_lamindb_full(session, extras: str):
         if deps:
             run(
                 session,
-                f"uv pip install {'--system' if CI else ''} --no-cache-dir {' '.join(deps)}",
+                f"uv pip install {'--system' if CI else ''} --no-cache-dir --prerelease=allow {' '.join(deps)}",
             )
     else:
         run(session, f"uv pip install {'--system' if CI else ''} -e .[dev{extras}]")

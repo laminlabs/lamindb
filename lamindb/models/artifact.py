@@ -739,7 +739,8 @@ def get_run(run: Run | None) -> Run | None:
         if run is None:
             run = context.run
         if run is None and not settings.creation.artifact_silence_missing_run_warning:
-            if not setup_settings.instance.is_read_only_connection:
+            isettings = setup_settings.instance
+            if not (isettings._is_clone or isettings.is_read_only_connection):
                 logger.warning(WARNING_RUN_TRANSFORM)
     # suppress run by passing False
     elif not run:
@@ -3264,7 +3265,8 @@ def track_run_input(
     is_run_input = settings.track_run_inputs if is_run_input is None else is_run_input
     if is_run_input:
         if run is None:
-            if not setup_settings.instance.is_read_only_connection:
+            isettings = setup_settings.instance
+            if not (isettings._is_clone or isettings.is_read_only_connection):
                 logger.warning(WARNING_NO_INPUT)
         elif input_records:
             logger.debug(
