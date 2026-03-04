@@ -31,7 +31,6 @@ full = [
     # From pyproject.full.toml – LaminDB optional modules & convenience stack
     "bionty==2.2.1",
     "pertdb==2.1.1",
-    "wetlab>=2.0.0,<2.1.0",
     # Jupyter stack
     "jupytext",
     "nbconvert>=7.2.1",
