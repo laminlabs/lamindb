@@ -29,8 +29,8 @@ Home = "https://github.com/laminlabs/lamindb"
 # If you change duplicated deps here, update pyproject.full.toml too, and vice versa.
 full = [
     # From pyproject.full.toml – LaminDB optional modules & convenience stack
-    "bionty==2.2.1",
-    "pertdb==2.1.1",
+    "bionty==2.3a1",
+    "pertdb==2.2a1",
     # Jupyter stack
     "jupytext",
     "nbconvert>=7.2.1",
