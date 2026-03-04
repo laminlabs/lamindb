@@ -17,7 +17,7 @@ classifiers = [
 dependencies = [
     "lamin_utils==0.16.4",  # no dependencies
     "lamin_cli==1.14.1",  # no dependencies
-    "lamindb_setup[aws]==1.22.0",  # dependencies
+    "lamindb_setup[aws]==1.23a1",  # dependencies
     "psycopg2-binary",
 ]
 
