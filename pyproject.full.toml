@@ -16,7 +16,7 @@ classifiers = [
 ]
 dependencies = [
     # Core package + convenience dependency bundle.
-    "lamindb-core==2.3a1",
+    "lamindb-core==2.3a2",
     # Below: keep in sync with pyproject.toml [project.optional-dependencies].full.
     # If you change duplicated deps here, update pyproject.toml too, and vice versa.
     # LaminDB optional modules, included to avoid users forgetting about extras
