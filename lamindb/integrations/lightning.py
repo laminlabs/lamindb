@@ -242,6 +242,8 @@ class Checkpoint(ModelCheckpoint):
             if ln.context.run and self._run_features:
                 ln.context.run.features.add_values(self._run_features)
 
+            # Auto-features are opt-in and scoped to the lightning feature type.
+            # If `save_lightning_features()` was never called, skip auto-tracking.
             lightning_feature_type = ln.Feature.filter(
                 name="lamindb.lightning", is_type=True
             ).one_or_none()
