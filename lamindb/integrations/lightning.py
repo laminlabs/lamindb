@@ -242,9 +242,18 @@ class Checkpoint(ModelCheckpoint):
             if ln.context.run and self._run_features:
                 ln.context.run.features.add_values(self._run_features)
 
-            for name in _SUPPORTED_AUTO_FEATURES:
-                if ln.Feature.filter(name=name).one_or_none() is not None:
-                    self._available_auto_features.add(name)
+            lightning_feature_type = ln.Feature.filter(
+                name="lamindb.lightning", is_type=True
+            ).one_or_none()
+            if lightning_feature_type is not None:
+                for name in _SUPPORTED_AUTO_FEATURES:
+                    if (
+                        ln.Feature.filter(
+                            name=name, type=lightning_feature_type
+                        ).one_or_none()
+                        is not None
+                    ):
+                        self._available_auto_features.add(name)
 
     def _get_artifact_key(self, filepath: str) -> str:
         """Return the artifact key for this checkpoint."""

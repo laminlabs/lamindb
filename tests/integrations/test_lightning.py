@@ -203,6 +203,32 @@ def test_checkpoint_auto_features(
         assert "model_rank" in values
 
 
+def test_checkpoint_auto_features_with_duplicate_score_name(
+    simple_model: pl.LightningModule,
+    dataloader: DataLoader,
+    dirpath: str,
+    lightning_features: None,
+):
+    """Auto-tracking should work if a generic 'score' feature also exists."""
+    ln.Feature(name="score", dtype=float).save()
+
+    callback = ll.Checkpoint(
+        dirpath=dirpath,
+        monitor="train_loss",
+        save_top_k=2,
+    )
+    trainer = pl.Trainer(
+        max_epochs=1,
+        callbacks=[callback],
+        logger=False,
+    )
+    trainer.fit(simple_model, dataloader)
+
+    resolved = callback.dirpath.rstrip("/") + "/"
+    artifacts = ln.Artifact.filter(key__startswith=resolved)
+    assert len(artifacts) >= 1
+
+
 def test_checkpoint_best_model_tracking(
     simple_model: pl.LightningModule,
     dataloader: DataLoader,
