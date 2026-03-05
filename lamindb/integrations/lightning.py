@@ -43,24 +43,23 @@ _SUPPORTED_AUTO_FEATURES: Final = _RUN_AUTO_FEATURES | _ARTIFACT_AUTO_FEATURES
 
 
 def save_lightning_features() -> None:
-    """Register LaminDB features used by the Lightning integration Checkpoint.
+    """Save features to auto-track lightning parameters & metrics.
 
-    Creates the following features if they do not already exist:
+    Creates the following features under the `lamindb.lightning` feature type if they do not already exist:
 
-    - lamindb.lightning (feature type): Parent feature type for the below lightning features.
-    - is_best_model (bool): Whether this checkpoint is the best model.
-    - score (float): The monitored metric score.
-    - model_rank (int): Rank among all checkpoints (0 = best).
-    - logger_name (str): Name from the first Lightning logger.
-    - logger_version (str): Version from the first Lightning logger.
-    - max_epochs (int): Maximum number of epochs.
-    - max_steps (int): Maximum number of training steps.
-    - precision (str): Training precision (e.g., "32", "16-mixed", "bf16").
-    - accumulate_grad_batches (int): Number of batches to accumulate gradients over.
-    - gradient_clip_val (float): Gradient clipping value.
-    - monitor (str): Metric name being monitored.
-    - save_weights_only (bool): Whether only model weights are saved.
-    - mode (str): Optimization mode ("min" or "max").
+    - `is_best_model` (bool): Whether this checkpoint is the best model.
+    - `score` (float): The monitored metric score.
+    - `model_rank` (int): Rank among all checkpoints (0 = best).
+    - `logger_name` (str): Name from the first Lightning logger.
+    - `logger_version` (str): Version from the first Lightning logger.
+    - `max_epochs` (int): Maximum number of epochs.
+    - `max_steps` (int): Maximum number of training steps.
+    - `precision` (str): Training precision (e.g., "32", "16-mixed", "bf16").
+    - `accumulate_grad_batches` (int): Number of batches to accumulate gradients over.
+    - `gradient_clip_val` (float): Gradient clipping value.
+    - `monitor` (str): Metric name being monitored.
+    - `save_weights_only` (bool): Whether only model weights are saved.
+    - `mode` (str): Optimization mode ("min" or "max").
 
     Example::
 
@@ -102,14 +101,13 @@ def save_lightning_features() -> None:
 
 
 class Checkpoint(ModelCheckpoint):
-    """ModelCheckpoint that annotates torch lightning checkpoints.
+    """A `ModelCheckpoint` that annotates `pytorch` `lightning` checkpoints.
 
-    Extends Lightning's ModelCheckpoint with artifact creation & feature annotation.
-    Checkpoints are stored at semantic paths like `{dirpath}/epoch=0-val_loss=0.5.ckpt`.
-    Each checkpoint is a separate artifact.
-    Query with `ln.Artifact.filter(key__startswith=callback.dirpath)`.
+    Extends `lightning`'s `ModelCheckpoint` with artifact creation & feature annotation.
+    Checkpoints are stored with semantic paths like `{dirpath}/epoch=0-val_loss=0.5.ckpt`.
+    Each checkpoint is a separate artifact that can be queried via `Artifact.filter(key__startswith=callback.dirpath)`.
 
-    If available in the instance, the following features are automatically tracked:
+    If available in the database through `save_lightning_features()`, the following `lamindb.lightning` features are automatically tracked:
     `is_best_model`, `score`, `model_rank`, `logger_name`, `logger_version`,`max_epochs`, `max_steps`,
     `precision`, `accumulate_grad_batches`, `gradient_clip_val`, `monitor`, `save_weights_only`, `mode`.
 
