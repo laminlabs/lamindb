@@ -61,11 +61,16 @@ def save_lightning_features() -> None:
     - `save_weights_only` (bool): Whether only model weights are saved.
     - `mode` (str): Optimization mode ("min" or "max").
 
-    Example::
+    Args:
+        None.
 
-        from lamindb.integrations import lightning as ll
+    Example:
 
-        ll.save_lightning_features()
+        Save the features to the database::
+
+            from lamindb.integrations import lightning as ll
+
+            ll.save_lightning_features()
     """
     # normal matching fails because of non-matching dtype (__lamindb_lightning__ vs None)
     if (
