@@ -1,12 +1,5 @@
 """Integrations.
 
-Functions
----------
-
-.. autofunction:: save_vitessce_config
-.. autofunction:: save_tiledbsoma_experiment
-.. autofunction:: curate_from_croissant
-
 Modules
 -------
 
@@ -14,6 +7,14 @@ Modules
    :toctree: .
 
    lightning
+
+Functions
+---------
+
+.. autofunction:: save_vitessce_config
+.. autofunction:: save_tiledbsoma_experiment
+.. autofunction:: curate_from_croissant
+
 """
 
 from ._croissant import curate_from_croissant
