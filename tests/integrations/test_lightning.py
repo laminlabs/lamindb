@@ -6,7 +6,10 @@ import lamindb as ln
 import lightning as pl
 import pytest
 import torch
+from django.db import connection
+from django.test.utils import CaptureQueriesContext
 from lamindb.integrations import lightning as ll
+from lamindb.models._feature_manager import FeatureManager
 from torch import nn
 from torch.utils.data import DataLoader, TensorDataset
 
@@ -227,6 +230,76 @@ def test_checkpoint_auto_features_with_duplicate_score_name(
     resolved = callback.dirpath.rstrip("/") + "/"
     artifacts = ln.Artifact.filter(key__startswith=resolved)
     assert len(artifacts) >= 1
+
+
+def test_checkpoint_query_budget_scales_sublinearly_with_hparams(
+    dataloader: DataLoader, dirpath: str, lightning_features: None
+):
+    """DB queries should not scale linearly with hparam count."""
+
+    class ModelWithManyHparams(pl.LightningModule):
+        def __init__(self, n_hparams: int):
+            super().__init__()
+            self.layer = nn.Linear(10, 1)
+            self.save_hyperparameters({f"hp_{i}": i for i in range(n_hparams)})
+
+        def forward(self, x):
+            return self.layer(x)
+
+        def training_step(self, batch, batch_idx):
+            x, y = batch
+            loss = nn.functional.mse_loss(self(x), y)
+            self.log("train_loss", loss)
+            return loss
+
+        def configure_optimizers(self):
+            return torch.optim.Adam(self.parameters())
+
+    def count_fit_queries(n_hparams: int) -> int:
+        model = ModelWithManyHparams(n_hparams)
+        callback = ll.Checkpoint(
+            dirpath=f"{dirpath.rstrip('/')}/{n_hparams}/", monitor="train_loss"
+        )
+        trainer = pl.Trainer(max_epochs=1, callbacks=[callback], logger=False)
+        with CaptureQueriesContext(connection) as ctx:
+            trainer.fit(model, dataloader)
+        return len(ctx.captured_queries)
+
+    low_hparams_queries = count_fit_queries(2)
+    high_hparams_queries = count_fit_queries(40)
+    assert high_hparams_queries <= low_hparams_queries + 10
+
+
+def test_model_rank_update_query_budget(
+    dirpath: str,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    lightning_features: None,
+):
+    """Ranking should use batched feature reads."""
+    callback = ll.Checkpoint(dirpath=dirpath, monitor="train_loss", mode="min")
+    resolved = callback.dirpath.rstrip("/")
+    created_artifacts = []
+
+    for i in range(8):
+        model_file = tmp_path / f"model_{i}.ckpt"
+        model_file.write_bytes(f"checkpoint-{i}".encode())
+        artifact = ln.Artifact(
+            model_file, key=f"{resolved}/model_{i}.ckpt", kind="model"
+        )
+        artifact.save()
+        artifact.features.add_values({"score": float(i), "model_rank": i})
+        created_artifacts.append(artifact)
+
+    monkeypatch.setattr(FeatureManager, "remove_values", lambda *args, **kwargs: None)
+    monkeypatch.setattr(FeatureManager, "add_values", lambda *args, **kwargs: None)
+
+    with CaptureQueriesContext(connection) as ctx:
+        callback._update_model_ranks()
+    assert len(ctx.captured_queries) <= 6
+
+    for artifact in created_artifacts:
+        artifact.delete(permanent=True, storage=True)
 
 
 def test_checkpoint_best_model_tracking(
