@@ -214,6 +214,7 @@ class Checkpoint(ModelCheckpoint):
         self._run_features = self.features.get("run", {})
         self._artifact_features = self.features.get("artifact", {})
         self._available_auto_features: set[str] = set()
+        self._hparam_features_available: set[str] = set()
         self._run_features_added = False
         self._hparams_yaml_saved = False
         self.overwrite_versions = overwrite_versions
@@ -227,10 +228,13 @@ class Checkpoint(ModelCheckpoint):
         if trainer.is_global_zero:
             # Validate user-specified features exist
             all_feature_names = set(self._run_features) | set(self._artifact_features)
+            existing_feature_names = set(
+                ln.Feature.filter(name__in=all_feature_names).values_list(
+                    "name", flat=True
+                )
+            )
             missing = [
-                name
-                for name in all_feature_names
-                if ln.Feature.filter(name=name).one_or_none() is None
+                name for name in all_feature_names if name not in existing_feature_names
             ]
             if missing:
                 s = "s" if len(missing) > 1 else ""
@@ -247,15 +251,26 @@ class Checkpoint(ModelCheckpoint):
             lightning_feature_type = ln.Feature.filter(
                 name="lamindb.lightning", is_type=True
             ).one_or_none()
+            self._available_auto_features.clear()
             if lightning_feature_type is not None:
-                for name in _SUPPORTED_AUTO_FEATURES:
-                    if (
-                        ln.Feature.filter(
-                            name=name, type=lightning_feature_type
-                        ).one_or_none()
-                        is not None
-                    ):
-                        self._available_auto_features.add(name)
+                self._available_auto_features = set(
+                    ln.Feature.filter(
+                        name__in=_SUPPORTED_AUTO_FEATURES,
+                        type=lightning_feature_type,
+                    ).values_list("name", flat=True)
+                )
+            hparam_names: set[str] = set()
+            if hasattr(pl_module, "hparams") and pl_module.hparams:
+                hparam_names.update(pl_module.hparams.keys())
+            if (
+                trainer.datamodule is not None
+                and hasattr(trainer.datamodule, "hparams")
+                and trainer.datamodule.hparams
+            ):
+                hparam_names.update(trainer.datamodule.hparams.keys())
+            self._hparam_features_available = set(
+                ln.Feature.filter(name__in=hparam_names).values_list("name", flat=True)
+            )
 
     def _get_artifact_key(self, filepath: str) -> str:
         """Return the artifact key for this checkpoint."""
@@ -344,7 +359,7 @@ class Checkpoint(ModelCheckpoint):
                     and trainer.lightning_module.hparams
                 ):
                     for name, value in trainer.lightning_module.hparams.items():
-                        if ln.Feature.filter(name=name).one_or_none() is not None:
+                        if name in self._hparam_features_available:
                             run_features[name] = value
                 # DataModule hyperparameters
                 if (
@@ -353,7 +368,7 @@ class Checkpoint(ModelCheckpoint):
                     and trainer.datamodule.hparams
                 ):
                     for name, value in trainer.datamodule.hparams.items():
-                        if ln.Feature.filter(name=name).one_or_none() is not None:
+                        if name in self._hparam_features_available:
                             run_features[name] = value
                 if run_features:
                     ln.context.run.features.add_values(run_features)
@@ -416,27 +431,60 @@ class Checkpoint(ModelCheckpoint):
 
     def _clear_best_model_flags(self) -> None:
         """Set is_best_model=False on previous best checkpoints."""
-        for artifact in ln.Artifact.filter(**self._get_key_filter()):
-            vals = artifact.features.get_values()
-            if vals.get("is_best_model"):
-                artifact.features.remove_values("is_best_model", value=True)
-                artifact.features.add_values({"is_best_model": False})
+        feature_rows = self._get_artifact_feature_rows({"is_best_model"})
+        best_artifact_ids = [
+            artifact_id
+            for artifact_id, values in feature_rows.items()
+            if values.get("is_best_model") is True
+        ]
+        if not best_artifact_ids:
+            return
+        artifacts_by_id = {
+            artifact.id: artifact
+            for artifact in ln.Artifact.filter(id__in=best_artifact_ids)
+        }
+        for artifact_id in best_artifact_ids:
+            if artifact_id not in artifacts_by_id:
+                continue
+            artifact = artifacts_by_id[artifact_id]
+            artifact.features.remove_values("is_best_model", value=True)
+            artifact.features.add_values({"is_best_model": False})
 
     def _update_model_ranks(self) -> None:
         """Update model_rank feature for all checkpoints under this key."""
-        artifacts = ln.Artifact.filter(**self._get_key_filter())
-
+        feature_rows = self._get_artifact_feature_rows({"score", "model_rank"})
         scored = []
-        for af in artifacts:
-            vals = af.features.get_values()
-            if "score" in vals:
-                scored.append((vals["score"], vals.get("model_rank"), af))
+        for artifact_id, values in feature_rows.items():
+            if "score" in values:
+                scored.append((values["score"], values.get("model_rank"), artifact_id))
         scored.sort(key=lambda x: x[0], reverse=(self.mode == "max"))
 
-        for rank, (_, old_rank, af) in enumerate(scored):
+        artifact_ids = [artifact_id for _, _, artifact_id in scored]
+        artifacts_by_id = {
+            artifact.id: artifact
+            for artifact in ln.Artifact.filter(id__in=artifact_ids)
+        }
+        for rank, (_, old_rank, artifact_id) in enumerate(scored):
+            if artifact_id not in artifacts_by_id:
+                continue
+            af = artifacts_by_id[artifact_id]
             if old_rank is not None:
                 af.features.remove_values("model_rank", value=old_rank)
             af.features.add_values({"model_rank": rank})
+
+    def _get_artifact_feature_rows(
+        self, feature_names: set[str]
+    ) -> dict[int, dict[str, Any]]:
+        rows = ln.models.ArtifactJsonValue.filter(
+            artifact__key__startswith=self._get_key_filter()["key__startswith"],
+            jsonvalue__feature__name__in=feature_names,
+        ).values_list("artifact_id", "jsonvalue__feature__name", "jsonvalue__value")
+        result: dict[int, dict[str, Any]] = {}
+        for artifact_id, feature_name, value in rows:
+            if artifact_id not in result:
+                result[artifact_id] = {}
+            result[artifact_id][feature_name] = value
+        return result
 
 
 class SaveConfigCallback(_SaveConfigCallback):
