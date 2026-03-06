@@ -167,6 +167,10 @@ class MappedCollection:
         self.path_list = path_list
         self._make_connections(path_list, parallel)
 
+        self._cache_has_raw: list[bool] = []
+        self._cache_obsm_keys: list[set[str]] = []
+        self._cache_obs_keys: list[set[str]] = []
+        self._cache_layers_keys: list[set[str]] = []
         self._cache_keys()
 
         self._cache_cats: dict = {}
@@ -274,26 +278,15 @@ class MappedCollection:
                     self._cache_cats[label].append(cats)
 
     def _cache_keys(self):
-        self._cache_obsm_keys = []
-        self._cache_obs_keys = []
-        self._cache_layers_keys = []
-        self._cache_has_raw = []
         for storage in self.storages:
             with _Connect(storage) as store:
-                obsm_keys_in_store = (
-                    set(store["obsm"].keys()) if "obsm" in store.keys() else set()
-                )
-                self._cache_obsm_keys.append(obsm_keys_in_store)
-                obs_keys_in_store = (
-                    set(store["obs"].keys()) if "obs" in store.keys() else set()
-                )
-                self._cache_obs_keys.append(obs_keys_in_store)
-                layers_keys_in_store = (
-                    set(store["layers"].keys()) if "layers" in store.keys() else set()
-                )
-                self._cache_layers_keys.append(layers_keys_in_store)
-                has_raw = "raw" in store.keys()
-                self._cache_has_raw.append(has_raw)
+                store_keys = registry.keys(store)
+                self._cache_has_raw.append("raw" in store_keys)
+                for group in ("obsm", "obs", "layers"):
+                    cache = getattr(self, f"_cache_{group}_keys")
+                    cache.append(
+                        set(store_keys[group]) if group in store_keys else set()
+                    )
 
     def _make_encoders(self, encode_labels: list):
         for label in encode_labels:
