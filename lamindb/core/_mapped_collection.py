@@ -83,7 +83,7 @@ class MappedCollection:
     Args:
         path_list: A list of paths to `AnnData` objects stored in `.h5ad` or `.zarr` formats.
         layers_keys: Keys from the ``.layers`` slot. ``layers_keys=None`` or ``"X"`` in the list
-            retrieves ``.X``. If it is prefixed with ``"raw."``, it retrieves the key from ``.raw`` slot.
+            retrieves ``.X``. ``"raw.X"`` retrieves ``.X`` from ``.raw`` slot.
         obsm_keys: Keys from the ``.obsm`` slots.
         obs_keys: Keys from the ``.obs`` slots.
         obs_filter: Select only observations with these values for the given obs columns.
@@ -167,6 +167,8 @@ class MappedCollection:
         self.path_list = path_list
         self._make_connections(path_list, parallel)
 
+        self._cache_keys()
+
         self._cache_cats: dict = {}
         if self.obs_keys is not None:
             if cache_categories:
@@ -174,8 +176,6 @@ class MappedCollection:
             self.encoders: dict = {}
             if self.encode_labels:
                 self._make_encoders(self.encode_labels)  # type: ignore
-
-        self._cache_keys()
 
         self.n_obs_list = []
         self.indices_list = []
@@ -188,7 +188,6 @@ class MappedCollection:
                     n_obs_storage = X.shape[0]
                 else:
                     n_obs_storage = X.attrs["shape"][0]
-                indices_storage = np.arange(n_obs_storage)
                 if self.filtered:
                     indices_storage_mask = None
                     for obs_filter_key, obs_filter_values in obs_filter.items():
@@ -209,7 +208,8 @@ class MappedCollection:
                             indices_storage_mask &= obs_filter_mask
                     indices_storage = np.where(indices_storage_mask)[0]
                     n_obs_storage = len(indices_storage)
-
+                else:
+                    indices_storage = np.arange(n_obs_storage)
                 self.n_obs_list.append(n_obs_storage)
                 self.indices_list.append(indices_storage)
                 for layer_key in self.layers_keys:
@@ -432,19 +432,14 @@ class MappedCollection:
         return out
 
     def _get_lazy_data(self, store: StorageType, layers_key: str, storage_idx: int):
-        if layers_key.startswith("raw."):
-            if self._cache_has_raw[storage_idx]:
-                store = store["raw"]  # type: ignore
-                layers_key = layers_key.replace("raw.", "", 1)
-            else:
-                return None
         if layers_key == "X":
             lazy_data = store["X"]  # type: ignore
+        elif layers_key == "raw.X" and self._cache_has_raw[storage_idx]:
+            lazy_data = store["raw"]["X"]  # type: ignore
+        elif layers_key in self._cache_layers_keys[storage_idx]:
+            lazy_data = store["layers"][layers_key]  # type: ignore
         else:
-            if layers_key in self._cache_layers_keys[storage_idx]:
-                lazy_data = store["layers"][layers_key]  # type: ignore
-            else:
-                return None
+            lazy_data = None
         return lazy_data
 
     def _get_data_idx(
