@@ -295,6 +295,17 @@ def test_mapped(adata, adata2):
     assert ls_ds.shape == (4, 3)
     assert ls_ds.original_shapes[0] == (2, 3) and ls_ds.original_shapes[1] == (2, 3)
     ls_ds.close()
+    # keys not present in a store are ignored (omitted from output)
+    with collection.mapped(
+        obs_keys=["feat1", "feat_missing"],
+        obsm_keys=["X_pca", "X_missing"],
+    ) as ls_ds:
+        assert len(ls_ds) == 4
+        ls_ds_idx = ls_ds[0]
+        assert "feat1" in ls_ds_idx
+        assert "feat_missing" not in ls_ds_idx
+        assert "obsm_X_pca" in ls_ds_idx
+        assert "obsm_X_missing" not in ls_ds_idx
     # test with QuerySet
     query_set = ln.Artifact.filter(key__in=["part_one.h5ad", "part_two.zarr"])
     with query_set.mapped() as ls_ds:
