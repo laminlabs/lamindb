@@ -399,9 +399,8 @@ class MappedCollection:
             var_idxs_join = self.var_indices[storage_idx]
         else:
             var_idxs_join = None
-
+        out = {"_store_idx": storage_idx}
         with _Connect(self.storages[storage_idx]) as store:
-            out = {}
             for layers_key in self.layers_keys:
                 lazy_data = self._get_lazy_data(store, layers_key, storage_idx)
                 if lazy_data is None:
@@ -411,23 +410,24 @@ class MappedCollection:
                 )
             if self.obsm_keys is not None:
                 for obsm_key in self.obsm_keys:
-                    if obsm_key in self._cache_obsm_keys[storage_idx]:
-                        lazy_data = store["obsm"][obsm_key]
-                        out[f"obsm_{obsm_key}"] = self._get_data_idx(lazy_data, obs_idx)
-            out["_store_idx"] = storage_idx
+                    if obsm_key not in self._cache_obsm_keys[storage_idx]:
+                        continue
+                    lazy_data = store["obsm"][obsm_key]
+                    out[f"obsm_{obsm_key}"] = self._get_data_idx(lazy_data, obs_idx)
             if self.obs_keys is not None:
                 for label in self.obs_keys:
-                    if label in self._cache_obs_keys[storage_idx]:
-                        if label in self._cache_cats:
-                            cats = self._cache_cats[label][storage_idx]
-                            if cats is None:
-                                cats = []
-                        else:
-                            cats = None
-                        label_idx = self._get_obs_idx(store, obs_idx, label, cats)
-                        if label in self.encoders and label_idx is not np.nan:
-                            label_idx = self.encoders[label][label_idx]
-                        out[label] = label_idx
+                    if label not in self._cache_obs_keys[storage_idx]:
+                        continue
+                    if label in self._cache_cats:
+                        cats = self._cache_cats[label][storage_idx]
+                        if cats is None:
+                            cats = []
+                    else:
+                        cats = None
+                    label_idx = self._get_obs_idx(store, obs_idx, label, cats)
+                    if label in self.encoders and label_idx is not np.nan:
+                        label_idx = self.encoders[label][label_idx]
+                    out[label] = label_idx
         return out
 
     def _get_lazy_data(self, store: StorageType, layers_key: str, storage_idx: int):
