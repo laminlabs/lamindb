@@ -264,6 +264,17 @@ class MappedCollection:
             self.conns.append(conn)
             self.storages.append(storage)
 
+    def _cache_keys(self):
+        for storage in self.storages:
+            with _Connect(storage) as store:
+                store_keys = registry.keys(store)
+                self._cache_has_raw.append("raw" in store_keys)
+                for group in ("obsm", "obs", "layers"):
+                    cache = getattr(self, f"_cache_{group}_keys")
+                    cache.append(
+                        set(store_keys[group]) if group in store_keys else set()
+                    )
+
     def _cache_categories(self, obs_keys: list):
         self._cache_cats = {}
         for label in obs_keys:
@@ -276,17 +287,6 @@ class MappedCollection:
                             _decode(cats) if isinstance(cats[0], bytes) else cats[...]
                         )
                     self._cache_cats[label].append(cats)
-
-    def _cache_keys(self):
-        for storage in self.storages:
-            with _Connect(storage) as store:
-                store_keys = registry.keys(store)
-                self._cache_has_raw.append("raw" in store_keys)
-                for group in ("obsm", "obs", "layers"):
-                    cache = getattr(self, f"_cache_{group}_keys")
-                    cache.append(
-                        set(store_keys[group]) if group in store_keys else set()
-                    )
 
     def _make_encoders(self, encode_labels: list):
         for label in encode_labels:
