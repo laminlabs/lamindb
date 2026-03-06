@@ -21,6 +21,7 @@ def adata():
         obs={"feat1": ["A", "B"]},
         var=pd.DataFrame(index=["MYC", "TCF7", "GATA1"]),
         obsm={"X_pca": np.array([[1, 2], [3, 4]])},
+        raw={"X": np.array([[8, 9, 10, 11], [12, 13, 14, 15]])},
     )
 
 
@@ -299,13 +300,17 @@ def test_mapped(adata, adata2):
     with collection.mapped(
         obs_keys=["feat1", "feat_missing"],
         obsm_keys=["X_pca", "X_missing"],
+        layers_keys=["X", "raw.X"],
     ) as ls_ds:
         assert len(ls_ds) == 4
         ls_ds_idx = ls_ds[0]
+        assert ls_ds_idx["X"].shape == (3,)
+        assert ls_ds_idx["raw.X"].shape == (4,)
         assert "feat1" in ls_ds_idx
         assert "feat_missing" not in ls_ds_idx
         assert "obsm_X_pca" in ls_ds_idx
         assert "obsm_X_missing" not in ls_ds_idx
+        assert "raw.X" not in ls_ds[2]
     # test with QuerySet
     query_set = ln.Artifact.filter(key__in=["part_one.h5ad", "part_two.zarr"])
     with query_set.mapped() as ls_ds:
