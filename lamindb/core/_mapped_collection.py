@@ -84,8 +84,11 @@ class MappedCollection:
         path_list: A list of paths to `AnnData` objects stored in `.h5ad` or `.zarr` formats.
         layers_keys: Keys from the ``.layers`` slot. ``layers_keys=None`` or ``"X"`` in the list
             retrieves ``.X``. ``"raw.X"`` retrieves ``.X`` from ``.raw`` slot.
-        obsm_keys: Keys from the ``.obsm`` slots.
-        obs_keys: Keys from the ``.obs`` slots.
+            Keys not present in an object are omitted from the output for that object.
+        obsm_keys: Keys from the ``.obsm`` slots. Keys not present in an object are
+            omitted from the output for that object.
+        obs_keys: Keys from the ``.obs`` slots. Keys not present in an object are
+            omitted from the output for that object.
         obs_filter: Select only observations with these values for the given obs columns.
             Should be a dictionary with obs column names as keys
             and filtering values (a string or a list of strings) as values.
