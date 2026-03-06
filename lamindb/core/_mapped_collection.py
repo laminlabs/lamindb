@@ -93,7 +93,7 @@ class MappedCollection:
             Should be a dictionary with obs column names as keys
             and filtering values (a string or a list of strings) as values.
         join: `"inner"` or `"outer"` virtual joins. If ``None`` is passed,
-            does not join.
+            does not join. The join is applied to ``layers_keys`` except for ``"raw.X"``.
         encode_labels: Encode labels into integers.
             Can be a list with elements from ``obs_keys``.
         unknown_label: Encode this label to -1.
@@ -405,8 +405,10 @@ class MappedCollection:
                 lazy_data = self._get_lazy_data(store, layers_key, storage_idx)
                 if lazy_data is None:
                     continue
+                # do not apply join to raw.X, return as is
+                join_vars = None if layers_key == "raw.X" else self.join_vars
                 out[layers_key] = self._get_data_idx(
-                    lazy_data, obs_idx, self.join_vars, var_idxs_join, self.n_vars
+                    lazy_data, obs_idx, join_vars, var_idxs_join, self.n_vars
                 )
             if self.obsm_keys is not None:
                 for obsm_key in self.obsm_keys:
