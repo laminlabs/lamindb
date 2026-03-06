@@ -222,9 +222,12 @@ class MappedCollection:
                 for layer_key in self.layers_keys:
                     if layer_key == "X":
                         continue
+                    lazy_data = self._get_lazy_data(store, layer_key, i)
+                    if lazy_data is None:
+                        continue
                     self._check_csc_raise_error(
-                        store["layers"][layer_key],
-                        f"layers/{layer_key}",
+                        lazy_data,
+                        "raw.X" if layer_key == "raw.X" else f"layers/{layer_key}",
                         store_path,
                     )
                 if self.obsm_keys is not None:
