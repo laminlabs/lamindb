@@ -279,7 +279,10 @@ class MappedCollection:
         self._cache_cats = {}
         for label in obs_keys:
             self._cache_cats[label] = []
-            for storage in self.storages:
+            for i, storage in enumerate(self.storages):
+                if label not in self._cache_obs_keys[i]:
+                    self._cache_cats[label].append(None)
+                    continue
                 with _Connect(storage) as store:
                     cats = self._get_categories(store, label)
                     if cats is not None:
