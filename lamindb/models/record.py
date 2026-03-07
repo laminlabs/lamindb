@@ -689,7 +689,7 @@ class TransformRecord(BaseSQLRecord, IsLink, TracksRun):
     transform: Transform = ForeignKey(Transform, CASCADE, related_name="links_record")
     record: Record = ForeignKey(Record, PROTECT, related_name="links_transform")
     feature: Feature = ForeignKey(
-        Feature, PROTECT, related_name="links_transformrecord"
+        Feature, PROTECT, null=True, related_name="links_transformrecord"
     )
     created_at: datetime = DateTimeField(
         editable=False, db_default=models.functions.Now()
