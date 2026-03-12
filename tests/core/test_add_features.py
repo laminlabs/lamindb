@@ -1,5 +1,5 @@
 import lamindb as ln
-import pytest
+
 
 def test_case1_remove_values_then_add_values():
     """
@@ -9,15 +9,19 @@ def test_case1_remove_values_then_add_values():
     :return:
     """
 
-    feature_a = ln.Feature(name = 'a', dtype = int).save()
-    feature_b = ln.Feature(name = 'b', dtype = int).save()
-    artifact = ln.Artifact('/Users/ishitajain/PycharmProjects/lamindb_add_vals/lamindb/tests/fixtures/df', key = 'test_scalar_cardinality_case1').save()
-    artifact.features.add_values({'a':1, 'b':2})
-    assert artifact.features.get_values() == {'a':1, 'b':2}
+    feature_a = ln.Feature(name="a", dtype=int).save()
+    feature_b = ln.Feature(name="b", dtype=int).save()
+    artifact = ln.Artifact(
+        "/Users/ishitajain/PycharmProjects/lamindb_add_vals/lamindb/tests/fixtures/df",
+        key="test_scalar_cardinality_case1",
+    ).save()
+    artifact.features.add_values({"a": 1, "b": 2})
+    assert artifact.features.get_values() == {"a": 1, "b": 2}
     artifact.features.remove_values([feature_a, feature_b])
-    artifact.features.add_values({'a': 4, 'b': 5})
-    artifact.features.add_values({'a': 5, 'b': 6})
-    assert artifact.features.get_values() == {'a': 4, 'b': 5}
+    artifact.features.add_values({"a": 4, "b": 5})
+    artifact.features.add_values({"a": 5, "b": 6})
+    assert artifact.features.get_values() == {"a": 4, "b": 5}
+
 
 def test_case2_remove_values():
     """
@@ -25,13 +29,16 @@ def test_case2_remove_values():
     :return:
     """
 
-    ln.Feature(name='case_1', dtype=int).save()
-    ln.Feature(name='case_2', dtype=int).save()
-    artifact_3 = ln.Artifact('/Users/ishitajain/PycharmProjects/lamindb_add_vals/lamindb/tests/fixtures/df_3.tsv', key="test_scalar_cardinality_case4.tsv").save()
-    artifact_3.features.add_values({'case_1':1, 'case_2':2})
-    assert artifact_3.features.get_values() == {'case_1':1, 'case_2':2}
+    ln.Feature(name="case_1", dtype=int).save()
+    ln.Feature(name="case_2", dtype=int).save()
+    artifact_3 = ln.Artifact(
+        "/Users/ishitajain/PycharmProjects/lamindb_add_vals/lamindb/tests/fixtures/df_3.tsv",
+        key="test_scalar_cardinality_case4.tsv",
+    ).save()
+    artifact_3.features.add_values({"case_1": 1, "case_2": 2})
+    assert artifact_3.features.get_values() == {"case_1": 1, "case_2": 2}
     artifact_3.features.remove_values()
-    artifact_3.features.add_values({'case_1': 3, 'case_2': 4})
+    artifact_3.features.add_values({"case_1": 3, "case_2": 4})
     assert artifact_3.features.get_values() == {"case_1": 3, "case_2": 4}
 
 
@@ -43,10 +50,12 @@ def test_case3_set_values():
     """
     ln.Feature(name="case3_a", dtype=int).save()
     ln.Feature(name="case3_b", dtype=int).save()
-    artifact_1 = ln.Artifact("/Users/ishitajain/PycharmProjects/lamindb_add_vals/lamindb/tests/fixtures/df_1", key="test_scalar_cardinality_case2").save()
+    artifact_1 = ln.Artifact(
+        "/Users/ishitajain/PycharmProjects/lamindb_add_vals/lamindb/tests/fixtures/df_1",
+        key="test_scalar_cardinality_case2",
+    ).save()
 
     artifact_1.features.add_values({"case3_a": 1, "case3_b": 2})
     artifact_1.features.set_values({"case3_a": 3, "case3_b": 4})
 
-    assert artifact_1.features.get_values() == {"case3_a":3 , "case3_b":4}
-
+    assert artifact_1.features.get_values() == {"case3_a": 3, "case3_b": 4}
