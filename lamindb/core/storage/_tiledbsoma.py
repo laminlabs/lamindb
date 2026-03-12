@@ -44,7 +44,15 @@ def _load_h5ad_zarr(objpath: UPath):
 
 
 class SOMAS3ContextFactory:
-    """Prepares and caches soma.SOMATileDBContext for a given storepath."""
+    """Prepares and caches soma.SOMATileDBContext for a given storepath.
+
+    For S3 storage with federated credentials, credentials are
+    read and refreshed only when the store is opened—i.e. when
+    :meth:`get_context` is called as part of opening the TileDB-SOMA store.
+    They are not updated while a store handle is held open. If credentials
+    expire during a long-lived session, close the store and open it again to
+    refresh.
+    """
 
     def __init__(self, storepath: UPath):
         from tiledbsoma import SOMATileDBContext
@@ -124,6 +132,11 @@ class SOMAS3ContextFactory:
 def _open_tiledbsoma(
     storepath: UPath, mode: Literal["r", "w"] = "r"
 ) -> SOMACollection | SOMAExperiment | SOMAMeasurement:
+    """Open a TileDB-SOMA store for the given path.
+
+    For S3 paths with federated credentials, credentials are refreshed at
+    open time only (see :class:`SOMAS3ContextFactory`).
+    """
     try:
         import tiledbsoma as soma
     except ImportError as e:
@@ -185,6 +198,11 @@ def save_tiledbsoma_experiment(
         var_id_name: Which `AnnData` `var` column to use for append mode.
         append_obsm_varm: Whether to append `obsm` and `varm` in append mode .
         **kwargs: Keyword arguments passed to `tiledbsoma.io.from_anndata`.
+
+    Note:
+        For S3 storage with federated credentials, credentials are
+        updated only when the store is opened for each write step, not while a
+        store handle is held open. Retry if credentials expire during a long write operation.
     """
     try:
         import tiledbsoma as soma

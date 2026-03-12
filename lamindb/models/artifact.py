@@ -2669,6 +2669,12 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             and objects of type :class:`~lamindb.core.storage.AnnDataAccessor`, :class:`~lamindb.core.storage.SpatialDataAccessor`, :class:`~lamindb.core.storage.BackedAccessor`,
             :class:`tiledbsoma:tiledbsoma.Collection`, :class:`tiledbsoma.Experiment`, :class:`tiledbsoma.Measurement`.
 
+        Note:
+            For TileDB-SOMA stores on S3 with federated credentials,
+            credentials are updated only when the storage is opened, not while the
+            store handle is held open. If credentials expire during a long-lived
+            session, close the store and open it again to refresh.
+
         Examples:
 
             Open a `DataFrame`-like artifact via :class:`pyarrow:pyarrow.dataset.Dataset`::
