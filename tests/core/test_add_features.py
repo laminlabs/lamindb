@@ -1,4 +1,6 @@
 import lamindb as ln
+import pytest
+from lamindb.errors import ValidationError
 
 
 def test_case1_remove_values_then_add_values():
@@ -9,18 +11,18 @@ def test_case1_remove_values_then_add_values():
     :return:
     """
 
-    feature_a = ln.Feature(name="a", dtype=int).save()
-    feature_b = ln.Feature(name="b", dtype=int).save()
+    ln.Feature(name="a", dtype=int).save()
+    ln.Feature(name="b", dtype=int).save()
     artifact = ln.Artifact(
         "/Users/ishitajain/PycharmProjects/lamindb_add_vals/lamindb/tests/fixtures/df",
         key="test_scalar_cardinality_case1",
     ).save()
     artifact.features.add_values({"a": 1, "b": 2})
     assert artifact.features.get_values() == {"a": 1, "b": 2}
-    artifact.features.remove_values([feature_a, feature_b])
-    artifact.features.add_values({"a": 4, "b": 5})
-    artifact.features.add_values({"a": 5, "b": 6})
-    assert artifact.features.get_values() == {"a": 4, "b": 5}
+    with pytest.raises(ValidationError):
+        artifact.features.add_values({"a": 4, "b": 5})
+    # Values unchanged after failed add
+    assert artifact.features.get_values() == {"a": 1, "b": 2}
 
 
 def test_case2_remove_values():
