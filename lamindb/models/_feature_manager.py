@@ -1243,6 +1243,13 @@ class FeatureManager:
         if host_is_artifact:
             if self._get_external_schema():
                 raise ValueError("Cannot add values if artifact has external schema.")
+            current_values = self.get_values()
+            for key in keys:
+                existing = current_values.get(key)
+                if existing:
+                    new_val = dictionary[key]
+                    if new_val is not None and type(existing) is type(new_val):
+                        raise ValidationError()
         if schema is not None:
             feature_records = schema.members.filter(name__in=keys)
         else:
