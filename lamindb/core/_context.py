@@ -1132,6 +1132,11 @@ class Context:
 
         When called in a notebook, will prompt to save the notebook in your editor.
 
+        When saving the run report for a notebook, the output of the cell where
+        `finish()` is called is stripped (e.g. the "please save the notebook in
+        your editor" message) so it does not appear in the saved report. Prefer
+        calling `finish()` in its own cell so only that cell's output is cleared.
+
         Args:
             ignore_non_consecutive: Whether to ignore if a notebook was non-consecutively executed.
 
