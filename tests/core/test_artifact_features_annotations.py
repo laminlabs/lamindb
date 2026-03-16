@@ -310,6 +310,12 @@ def test_artifact_features_add_remove_query():
     test_values["feature_str"] = "a string value"
     assert test_artifact.features.get_values() == test_values
 
+    # Record: cannot add another value of same type (issue 793)
+    record_entity1.features.add_values({"feature_float": 3.14})
+    with pytest.raises(ln.errors.ValidationError):
+        record_entity1.features.add_values({"feature_float": 2.5})
+    assert record_entity1.features.get_values() == {"feature_float": 3.14}
+
     # test set_values()
 
     test_values = {}
@@ -531,8 +537,9 @@ Here is how to create a feature:
     artifact.features.add_values({"experiment": "Experiment 1"})
     assert artifact.links_record.get().record.name == "Experiment 1"
     assert artifact.links_record.get().feature.name == "experiment"
-    # repeat
-    artifact.features.add_values({"experiment": "Experiment 1"})
+    with pytest.raises(ln.errors.ValidationError) as error:
+        artifact.features.add_values({"experiment": "Experiment 1"})
+
     assert artifact.links_record.get().record.name == "Experiment 1"
 
     # numerical feature

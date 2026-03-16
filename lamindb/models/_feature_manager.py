@@ -1243,17 +1243,21 @@ class FeatureManager:
         if host_is_artifact:
             if self._get_external_schema():
                 raise ValueError("Cannot add values if artifact has external schema.")
+
+        if schema is not None:
+            feature_records = schema.members.filter(name__in=keys)
+        else:
             current_values = self.get_values()
+            feature_records = self._get_feature_records(dictionary, feature_field)
             for key in keys:
                 existing = current_values.get(key)
                 if existing:
                     new_val = dictionary[key]
                     if new_val is not None and type(existing) is type(new_val):
-                        raise ValidationError()
-        if schema is not None:
-            feature_records = schema.members.filter(name__in=keys)
-        else:
-            feature_records = self._get_feature_records(dictionary, feature_field)
+                        raise ValidationError(
+                            f"Feature {key!r} already has a value of type {type(existing).__name__}. "
+                            "Remove it first (features.remove_values) or use features.set_values() to replace."
+                        )
             schema = Schema(feature_records)
         ExperimentalDictCurator(values, schema, require_saved_schema=False).validate()
         return self._add_values(feature_records, dictionary)
