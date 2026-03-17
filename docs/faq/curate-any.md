@@ -109,8 +109,6 @@ artifact.features.add_values(
 artifact.describe()
 ```
 
-Dictionary keys in `add_values()` and `set_values()` can be either feature names (`str`) or `Feature` objects.
-
 ```python
 # clean up test instance
 !rm -r data.zarr
