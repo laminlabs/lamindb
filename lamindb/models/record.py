@@ -52,7 +52,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
 
     Useful for managing samples, donors, cells, compounds, sequences, and other custom entities with their features.
 
-    If instead you want a simple label use :class:`~lamindb.ULabel`.
+    If you just want a simple label, use :class:`~lamindb.ULabel`.
 
     Args:
         name: `str | None = None` A name.
@@ -65,9 +65,9 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         reference_type: `str | None = None` For instance, `"url"`.
 
     See Also:
-        :meth:`~lamindb.Feature`
+        :class:`~lamindb.Feature`
             Dimensions of measurement (e.g. column of a sheet, attribute of a record).
-        :meth:`~lamindb.ULabel`
+        :class:`~lamindb.ULabel`
             Like `Record`, just without the ability to store features.
 
     Examples:
@@ -92,19 +92,20 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
             experiment_type = ln.Record(name="Experiment", is_type=True).save()
             experiment1 = ln.Record(name="Experiment 1", type=experiment_type).save()
 
+            # create a feature to link experiments
+            experiment = ln.Feature(name="experiment", dtype=experiment_type).save()
+
             # create a record type to track samples that's constrained with a schema
             schema = ln.Schema([gc_content, experiment], name="sample_schema").save()
-            sheet = ln.Record(name="Sample", is_type=True, schema=schema).save()  # add schema to type
-            sample_type = ln.Record(name="Sample", is_type=True).save()
+            sample_sheet = ln.Record(name="Sample Sheet", is_type=True, schema=schema).save()
 
-            # group the sample1 record under the sample type
-            sample1.type = sample_type
+            # group the sample1 record under the sample sheet
+            sample1.type = sample_sheet
             sample1.save()
 
             # annotate the sample with the experiment
-            experiment = ln.Feature(name="experiment", dtype=experiment_type).save()
             sample1.features.add_values({
-                "experiment": "Experiment 1",  # automatically resolves by name, also acccepts the experiment1 object
+                "experiment": "Experiment 1",  # automatically resolves by name, also accepts the experiment1 object
             })
 
         Export all records under a type to a dataframe::
@@ -116,21 +117,21 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
 
         If you try to add incomplete features to a sheet, you'll get a validation error::
 
-            sample2 = ln.Record(name="Sample 2", type=sheet).save()
+            sample2 = ln.Record(name="Sample 2", type=sample_sheet).save()
             sample2.features.add_values({"gc_content": 0.6})  # raises ValidationError because experiment is missing
 
         Query records by features::
 
             ln.Record.filter(gc_content=0.55)     # exact match
             ln.Record.filter(gc_content__gt=0.5)  # greater than
-            ln.Record.filter(type=sheet)          # just the record on the sheet
+            ln.Record.filter(type=sample_sheet)   # just the record on the sheet
 
         You can create relationships of entities and edit them like Excel sheets on LaminHub:
 
         .. image:: https://lamin-site-assets.s3.amazonaws.com/.lamindb/XSzhWUb0EoHOejiw0001.png
             :width: 800px
 
-        Just like for `ULabel`, you can also model **ontologies** through the `parents`/`children` attributes.
+        Just like for :class:`~lamindb.ULabel`, you can also model **ontologies** through the `parents`/`children` attributes.
 
     .. dropdown:: What is the difference between `Record` and `SQLRecord`?
 

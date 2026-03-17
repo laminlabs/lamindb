@@ -39,8 +39,6 @@ if TYPE_CHECKING:
 class ULabel(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates):
     """Universal labels.
 
-    In some cases you may just want to create a simple label, then `ULabel` is for you.
-
     It behaves like `Record`, just without the ability to link features.
 
     Args:
@@ -50,9 +48,7 @@ class ULabel(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         reference_type: `str | None = None` For instance, `"url"`.
 
     See Also:
-        :meth:`~lamindb.Feature`
-            Dimensions of measurement (e.g. column of a sheet, attribute of a record).
-        :meth:`~lamindb.Record`
+        :class:`~lamindb.Record`
             Like `ULabel`, but with the ability to link features.
 
     Examples:
