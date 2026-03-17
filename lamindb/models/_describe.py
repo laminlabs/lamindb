@@ -138,9 +138,12 @@ def describe_header(record: BaseSQLRecord) -> Tree:
             if hasattr(record, "name")
             else ""
         )
+        display_value = getattr(record, display_field, None) if display_field else None
+        if display_value in (None, ""):
+            display_value = record.uid[:7] if hasattr(record, "uid") else ""
         title = Text.assemble(
             (
-                getattr(record, display_field) if display_field else record.uid[:7],
+                str(display_value),
                 "cyan3",
             )
         )
