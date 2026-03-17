@@ -20,6 +20,9 @@ nox.options.default_venv_backend = "none"
 
 IS_PR = os.getenv("GITHUB_EVENT_NAME") != "push"
 CI = os.environ.get("CI")
+# SpatialData.write() regression with ome-zarr>=0.14:
+# https://github.com/scverse/spatialdata/issues/1090
+SPATIALDATA_OME_ZARR_CONSTRAINT = "ome-zarr<0.14.0"
 
 
 GROUPS = {}
@@ -94,7 +97,10 @@ def install_ci(session, group):
         # spatialdata dependency, specifying it here explicitly
         # otherwise there are problems with uv resolver
         run(session, "uv pip install --system xarray-dataclasses")
-        run(session, "uv pip install --system spatialdata")
+        run(
+            session,
+            f"uv pip install --system spatialdata {SPATIALDATA_OME_ZARR_CONSTRAINT}",
+        )
     elif group == "unit-storage":
         extras += "gcp"
         run(session, "uv pip install --system huggingface_hub")
@@ -108,7 +114,10 @@ def install_ci(session, group):
         run(session, "uv pip install --system huggingface_hub polars anndata==0.12.2")
     elif group == "guide":
         extras += "zarr_v2"
-        run(session, "uv pip install --system scanpy mudata spatialdata tiledbsoma")
+        run(
+            session,
+            f"uv pip install --system scanpy mudata spatialdata {SPATIALDATA_OME_ZARR_CONSTRAINT} tiledbsoma",
+        )
     elif group == "biology":
         extras += "fcs"
         run(session, "uv pip install --system ipywidgets")
@@ -131,7 +140,7 @@ def install_ci(session, group):
         run(session, "uv pip install --system xarray-dataclasses")
         run(
             session,
-            "uv pip install --system spatialdata",
+            f"uv pip install --system spatialdata {SPATIALDATA_OME_ZARR_CONSTRAINT}",
         )
         run(session, "uv pip install --system tiledbsoma")
     elif group == "integrations":
@@ -143,7 +152,7 @@ def install_ci(session, group):
         run(session, "uv pip install --system xarray-dataclasses")
         run(
             session,
-            "uv pip install --system mudata spatialdata lightning",
+            f"uv pip install --system mudata spatialdata {SPATIALDATA_OME_ZARR_CONSTRAINT} lightning",
         )
         run(
             session,
