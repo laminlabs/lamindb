@@ -87,7 +87,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
             # describe the record
             sample1.describe()
 
-        Group several records under a **record type**, optionally constrained with a :class:`~lamindb.Schema`, which lets the `type` act as a **sheet**::
+        Group several records under a **record type**, optionally constrained with a :class:`~lamindb.Schema`::
 
             # create a flexible record type to track experiments
             experiment_type = ln.Record(name="Experiment", is_type=True).save()
@@ -96,7 +96,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
             # create a feature to link experiments
             experiment = ln.Feature(name="experiment", dtype=experiment_type).save()
 
-            # create a record type to track samples that's constrained with a schema
+            # create a record type to track samples -- constrain it with a schema
             schema = ln.Schema([experiment, gc_content.with_config(optional=True)], name="sample_schema").save()
             sample_sheet = ln.Record(name="Sample Sheet", is_type=True, schema=schema).save()
 
