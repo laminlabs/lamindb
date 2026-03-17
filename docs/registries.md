@@ -7,7 +7,7 @@ execute_via: python
 This guide walks through different ways of querying & searching LaminDB registries.
 
 ```python
-# pip install lamindb
+# initialize a test database to run examples
 !lamin init --storage ./test-registries --modules bionty
 ```
 
