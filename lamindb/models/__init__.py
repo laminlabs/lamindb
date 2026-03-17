@@ -6,7 +6,7 @@ Registry basics
 .. autoclass:: BaseSQLRecord
 .. autoclass:: SQLRecord
 .. autoclass:: Registry
-.. autoclass:: BaseQuerySet
+.. autoclass:: BasicQuerySet
 .. autoclass:: QuerySet
 
 Mixins for registries

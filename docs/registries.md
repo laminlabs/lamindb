@@ -104,9 +104,9 @@ qs = qs.filter(records__name="Experiment 1")
 
 To access the results encoded in a queryset, call:
 
-- {meth}`~lamindb.models.BaseQuerySet.to_dataframe`: A pandas `DataFrame` with each record in a row.
-- {meth}`~lamindb.models.BaseQuerySet.one`: Exactly one record. Will raise an error if there is none. Is equivalent to the `.get()` method shown above.
-- {meth}`~lamindb.models.BaseQuerySet.one_or_none`: Either one record or `None` if there is no query result.
+- {meth}`~lamindb.models.BasicQuerySet.to_dataframe`: A pandas `DataFrame` with each record in a row.
+- {meth}`~lamindb.models.BasicQuerySet.one`: Exactly one record. Will raise an error if there is none. Is equivalent to the `.get()` method shown above.
+- {meth}`~lamindb.models.BasicQuerySet.one_or_none`: Either one record or `None` if there is no query result.
 
 Alternatively,
 
