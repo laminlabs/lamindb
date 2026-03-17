@@ -51,11 +51,17 @@ Any block expects Markdown as the formatting language.
 BranchStatus = Literal["standalone", "draft", "review", "merged", "closed"]
 """Branch status.
 
-- `standalone`: a standalone branch without Merge Request
-- `draft`: Merge Request exists but is not ready for review
-- `review`: Merge Request is ready for review
-- `merged`: the branch was merged into another branch
-- `closed`: Merge Request was closed without merging
+=============  =====  ==================================================
+status         code   description
+=============  =====  ==================================================
+`closed`       -2     Merge Request was closed without merging
+`merged`       -1     the branch was merged into another branch
+`standalone`   0      a standalone branch without Merge Request
+`draft`        1      Merge Request exists but is not ready for review
+`review`       2      Merge Request is ready for review
+=============  =====  ==================================================
+
+The database stores the branch status as an integer code in field `_status_code`.
 """
 
 RunStatus = Literal[
