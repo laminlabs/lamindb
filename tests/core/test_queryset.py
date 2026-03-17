@@ -125,6 +125,29 @@ def test_filter_unknown_field():
     assert "You can query either by available fields" in str(e)
 
 
+def test_filter_status_field():
+    transform = ln.Transform(key="test_filter_status_field").save()
+    run = ln.Run(transform).save()
+    run._status_code = 0
+    run.save(update_fields=["_status_code"])
+    assert ln.Run.filter(status="completed").count() >= 1
+
+    branch = ln.Branch(name="test_filter_status_branch").save()
+    branch.status = "review"
+    branch.save()
+    assert ln.Branch.filter(status="review").count() >= 1
+
+    project = ln.Project(name="test_filter_status_project").save()
+    project._status_code = 2
+    project.save(update_fields=["_status_code"])
+    assert ln.Project.filter(status=2).count() >= 1
+
+    run.delete(permanent=True)
+    transform.delete(permanent=True)
+    project.delete(permanent=True)
+    branch.delete()
+
+
 def test_get_id_type_error():
     with pytest.raises(
         ValueError, match=re.escape("Field 'id' expected a number but got 'abc'.")
