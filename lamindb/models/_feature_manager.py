@@ -1238,16 +1238,6 @@ class FeatureManager:
             and self._host.type is not None
             and self._host.type.schema is not None  # type: ignore
         ):
-            assert schema is None, "Cannot pass schema if record.type has schema."
-            schema = self._host.type.schema  # type: ignore
-        if host_is_artifact:
-            if self._get_external_schema():
-                raise ValueError("Cannot add values if artifact has external schema.")
-        if schema is not None:
-            feature_records = schema.members.filter(name__in=keys)
-        else:
-            feature_records = self._get_feature_records(dictionary, feature_field)
-            schema = Schema(feature_records)
             current_values = self.get_values()
             for key in keys:
                 existing = current_values.get(key)
@@ -1258,6 +1248,17 @@ class FeatureManager:
                             f"Cannot add value for feature {key!r}: "
                             "artifact already has a value of the same type."
                         )
+            assert schema is None, "Cannot pass schema if record.type has schema."
+            schema = self._host.type.schema  # type: ignore
+        if host_is_artifact:
+            if self._get_external_schema():
+                raise ValueError("Cannot add values if artifact has external schema.")
+        if schema is not None:
+            feature_records = schema.members.filter(name__in=keys)
+        else:
+            feature_records = self._get_feature_records(dictionary, feature_field)
+            schema = Schema(feature_records)
+
         ExperimentalDictCurator(values, schema, require_saved_schema=False).validate()
         return self._add_values(feature_records, dictionary)
 
