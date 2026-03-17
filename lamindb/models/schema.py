@@ -1000,6 +1000,10 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             for field in through_model._meta.fields
             if isinstance(field, models.ForeignKey) and field.name != "schema"
         )
+        # Avoid the previous simple `order_by("links_schema__id")` on the related
+        # manager: a member can be linked to many schemas, and reverse-join ordering
+        # can become ambiguous across DB backends (SQLite vs Postgres). Instead, we
+        # order through rows constrained to this schema and preserve that exact order.
         member_ids = list(
             through_model.objects.using(using)
             .filter(schema_id=self.id)
