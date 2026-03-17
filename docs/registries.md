@@ -70,19 +70,13 @@ experiment_1 = records.experiment_1
 experiment_1
 ```
 
-This works for any `SQLRecord` registry, e.g., also for plugin `bionty`.
+This works for any {class}`~lamindb.models.BaseSQLRecord` class, e.g., also for plugin `bionty`.
 
 ```python
 import bionty as bt
 
 cell_types = bt.CellType.lookup()
 ```
-
-:::{dropdown} Show me a screenshot
-
-<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/lgRNHNtMxjU0y8nIagt7.png" width="400px">
-
-:::
 
 ## Get one object
 
@@ -95,19 +89,24 @@ ln.Record.get(name="Experiment 1")  # by field
 
 ## Query objects by fields
 
-Filter for all artifacts with a given suffix:
+Use {meth}`~lamindb.models.BaseSQLRecord.filter` to query all artifacts by the `suffix` field:
 
 ```python
-qs = ln.Artifact.filter(suffix=".fastq.qz")
+qs = ln.Artifact.filter(suffix=".h5ad")
+qs
 ```
 
-{meth}`~lamindb.models.BaseSQLRecord.filter` returns a {class}`~lamindb.models.QuerySet`.
+This returns a {class}`~lamindb.models.QuerySet`, which lazily references the set of {class}`~lamindb.models.BaseSQLRecord` objects that matches the filter statement. You can iteratively filter a queryset:
 
-To access the results encoded in a filter statement, execute its return value with one of:
+```python
+qs = qs.filter(records__name="Experiment 1")
+```
 
-- {meth}`~lamindb.models.QuerySet.to_dataframe`: A pandas `DataFrame` with each record in a row.
-- {meth}`~lamindb.models.QuerySet.one`: Exactly one record. Will raise an error if there is none. Is equivalent to the `.get()` method shown above.
-- {meth}`~lamindb.models.QuerySet.one_or_none`: Either one record or `None` if there is no query result.
+To access the results encoded in a queryset, call:
+
+- {meth}`~lamindb.models.BaseQuerySet.to_dataframe`: A pandas `DataFrame` with each record in a row.
+- {meth}`~lamindb.models.BaseQuerySet.one`: Exactly one record. Will raise an error if there is none. Is equivalent to the `.get()` method shown above.
+- {meth}`~lamindb.models.BaseQuerySet.one_or_none`: Either one record or `None` if there is no query result.
 
 Alternatively,
 
@@ -120,7 +119,7 @@ For example:
 qs.to_dataframe()
 ```
 
-Note that the `SQLRecord` registries in LaminDB are Django Models and any [Django query](https://docs.djangoproject.com/en/stable/topics/db/queries/) works.
+Note that the `SQLRecord` classes in LaminDB are Django Models and any [Django query](https://docs.djangoproject.com/en/stable/topics/db/queries/) works.
 
 ## Query objects by features
 
