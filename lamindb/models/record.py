@@ -127,7 +127,15 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
             ln.Record.filter(gc_content__gt=0.5)  # greater than
             ln.Record.filter(type=sample_sheet)   # just the record on the sheet
 
-        You can create relationships of entities and edit them like Excel sheets on LaminHub:
+        If your feature names are ambiguous, you can use a `Feature` object to disambiguate::
+
+            # to add feature values
+            sample1.features.add_values({gc_content: 0.5})  # gc_content is the feature object
+
+            # to query by feature values
+            ln.Record.filter(gc_content == 0.5)  # instead of gc_content=0.5
+
+        You can edit records like spreadsheets on the hub:
 
         .. image:: https://lamin-site-assets.s3.amazonaws.com/.lamindb/XSzhWUb0EoHOejiw0001.png
             :width: 800px
