@@ -1098,8 +1098,10 @@ class BasicQuerySet(models.QuerySet):
         # Only apply order_by if not already ordered and order_by is specified
         if not is_ordered and order_by is not None:
             subset = subset.order_by(order_by)
+        is_truncated = False
         if limit is not None:
-            subset = subset[:limit]
+            # Fetch one extra row as a sentinel to detect truncation without count().
+            subset = subset[: limit + 1]
         if include is None:
             include_input = []
         elif isinstance(include, str):
@@ -1152,6 +1154,9 @@ class BasicQuerySet(models.QuerySet):
         # another refactoring effort
         # we have the correct ordering in `features.get_values()`, though
         df = pd.DataFrame(queryset.values(*field_names, *list(annotate_kwargs.keys())))
+        if limit is not None and len(df) > limit:
+            is_truncated = True
+            df = df.iloc[:limit].copy()
         if len(df) == 0:
             df = pd.DataFrame({}, columns=field_names)
             return df
@@ -1189,6 +1194,10 @@ class BasicQuerySet(models.QuerySet):
                         df_reshaped[feature.name] = df_reshaped[feature.name].astype(
                             float
                         )
+        if is_truncated:
+            logger.warning(
+                f"truncated query result to limit={limit} {self.model.__name__} objects"
+            )
         return df_reshaped
 
     @deprecated(new_name="to_dataframe")

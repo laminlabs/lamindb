@@ -688,6 +688,9 @@ class Registry(ModelBase):
     ) -> pd.DataFrame:
         """Evaluate and convert to `pd.DataFrame`.
 
+        By default, this returns up to 100 rows for a fast overview.
+        Pass `limit=None` to fetch all matching records.
+
         By default, maps simple fields and foreign keys onto `DataFrame` columns.
 
         Guide: :doc:`docs:registries`
@@ -701,7 +704,8 @@ class Registry(ModelBase):
             features: Configure the features to include. Can be a feature name or a list of such names.
                 If `"queryset"`, infers the features used within the current queryset.
                 Only available for `Artifact`, `Record`, and `Run`.
-            limit: Maximum number of rows to display. If `None`, includes all results.
+            limit: Maximum number of rows to display. Defaults to 100. If `None`,
+                includes all results.
             order_by: Field name to order the records by. Prefix with '-' for descending order.
                 Defaults to '-id' to get the most recent records. This argument is ignored
                 if the queryset is already ordered or if the specified field does not exist.
