@@ -1463,6 +1463,12 @@ class QuerySet(BasicQuerySet):
                 )
             from ._feature_manager import filter_with_feature_predicates
 
+            # Run predicate translation on a BasicQuerySet clone.
+            # - `copy=True` avoids mutating `qs.__class__` in place while we temporarily
+            #   switch query set type for this translation phase.
+            # - We intentionally do not use `_skip_filter_with_features` here: that flag
+            #   guards the QuerySet.filter() feature dispatcher path, while this code
+            #   bypasses that dispatcher and executes predicate translation directly.
             qs = filter_with_feature_predicates(
                 qs._to_class(BasicQuerySet, copy=True), feature_predicates
             )._to_class(type(qs), copy=False)

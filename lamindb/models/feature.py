@@ -1270,16 +1270,16 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
                 )
 
     def __eq__(self, other: object) -> bool:
-        # Preserve model identity semantics when comparing two model instances.
-        if isinstance(other, models.Model):
+        # Preserve model identity semantics only for Feature-to-Feature comparisons.
+        if isinstance(other, Feature):
             return super().__eq__(other)
         # Runtime returns a predicate object for query composition.
         # Cast keeps mypy-compatible override with object.__eq__ -> bool.
         return cast(bool, FeaturePredicate(self, "", other))
 
     def __ne__(self, other: object) -> bool:
-        # Preserve model identity semantics when comparing two model instances.
-        if isinstance(other, models.Model):
+        # Preserve model identity semantics only for Feature-to-Feature comparisons.
+        if isinstance(other, Feature):
             return not super().__eq__(other)
         # Runtime returns a predicate object for query composition.
         # Cast keeps mypy-compatible override with object.__ne__ -> bool.

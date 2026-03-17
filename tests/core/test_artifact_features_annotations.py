@@ -443,6 +443,7 @@ def test_feature_predicate_queries_safe_hybrid():
     lab_b_type = ln.Feature(name="PredLabB", is_type=True).save()
     feature_b = ln.Feature(name="pred_name", dtype=str, type=lab_b_type).save()
     score_feature = ln.Feature(name="pred_score", dtype=int).save()
+    cell_type_feature = ln.Feature(name="pred_cell_type", dtype=bt.CellLine).save()
 
     # safe hybrid behavior for model identity + hashability
     assert feature_a == feature_a
@@ -466,10 +467,14 @@ def test_feature_predicate_queries_safe_hybrid():
     artifact_b.features.add_values({"pred_name": "hello"}, schema=schema_b)
     artifact_a.features.add_values({"pred_score": 5})
     artifact_b.features.add_values({"pred_score": 1})
+    hek293 = bt.CellLine.from_source(name="HEK293").save()
+    artifact_a.features.add_values({"pred_cell_type": hek293})
 
     # same feature name can be disambiguated by passing the Feature object
     assert ln.Artifact.filter(feature_a == "hello").one() == artifact_a
     assert ln.Artifact.filter(feature_b == "hello").one() == artifact_b
+    # Feature compared to another model should still generate a predicate
+    assert ln.Artifact.filter(cell_type_feature == hek293).one() == artifact_a
 
     # comparator operators on non-categorical feature values
     assert ln.Artifact.filter(score_feature > 2).one() == artifact_a
@@ -491,8 +496,10 @@ def test_feature_predicate_queries_safe_hybrid():
     feature_a.delete(permanent=True)
     feature_b.delete(permanent=True)
     score_feature.delete(permanent=True)
+    cell_type_feature.delete(permanent=True)
     lab_a_type.delete(permanent=True)
     lab_b_type.delete(permanent=True)
+    hek293.delete(permanent=True)
 
 
 def test_features_add_with_schema():

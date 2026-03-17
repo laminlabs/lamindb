@@ -790,12 +790,6 @@ def infer_convert_dtype_key_value(
     return "?", value, message
 
 
-def _resolve_feature_to_query_db(feature: Feature, query_db: str | None) -> Feature:
-    if query_db is None or feature._state.db == query_db:
-        return feature
-    return Feature.connect(query_db).get(uid=feature.uid)
-
-
 def _filter_one_feature_clause(
     queryset: BasicQuerySet,
     feature: Feature,
@@ -921,7 +915,9 @@ def filter_with_feature_predicates(
     qs = queryset
     pk_name = qs.model._meta.pk.name
     for predicate in predicates:
-        feature = _resolve_feature_to_query_db(predicate.feature, qs.db)
+        feature = predicate.feature
+        if qs.db is not None and feature._state.db != qs.db:
+            feature = Feature.connect(qs.db).get(uid=feature.uid)
         if predicate.comparator == "__ne":
             subset = _filter_one_feature_clause(
                 qs, feature=feature, comparator="", value=predicate.value
