@@ -1010,10 +1010,9 @@ def filter_with_features(
                 f"Or fix invalid {message}"
             )
     else:
-        if non_feature_queries:
-            qs = queryset.filter(*non_feature_queries, **filter_kwargs)
-        else:
-            qs = queryset
+        # Always route through `.filter()` here (even when empty) so the
+        # standard QuerySet path can inject default branch constraints.
+        qs = queryset.filter(*non_feature_queries, **filter_kwargs)
     if feature_predicates:
         qs = filter_with_feature_predicates(
             qs._to_class(BasicQuerySet, copy=True),
