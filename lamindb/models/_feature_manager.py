@@ -1212,16 +1212,16 @@ class FeatureManager:
             except Exception:
                 save(links, ignore_conflicts=True)
 
-    def _get_feature_records(self, dictionary, feature_field):
+    def _get_feature_objects(self, dictionary, feature_field):
         from ..core._functions import get_current_tracked_run
 
         registry = feature_field.field.model
         keys = list(dictionary.keys())
-        feature_records = registry.from_values(keys, field=feature_field, mute=True)
-        feature_records = keep_topmost_matches(feature_records)
-        if len(feature_records) != len(keys):
+        feature_objects = registry.from_values(keys, field=feature_field, mute=True)
+        feature_objects = keep_topmost_matches(feature_objects)
+        if len(feature_objects) != len(keys):
             not_validated_keys = [
-                key for key in keys if key not in feature_records.to_list("name")
+                key for key in keys if key not in feature_objects.to_list("name")
             ]
             not_validated_keys_dtype_message = [
                 (key, infer_convert_dtype_key_value(key, dictionary[key]))
@@ -1246,11 +1246,95 @@ class FeatureManager:
                 f"Here is how to create a feature:\n\n{hint}"
             )
             raise ValidationError(msg)
-        return feature_records
+        return feature_objects
+
+    def _resolve_feature_value_dictionary(
+        self,
+        values: dict[str | Feature, Any],
+    ) -> tuple[dict[str, Any], dict[str, Any], list[Feature], dict[str, Any]]:
+        """Normalize a feature-value dictionary to support `str` and `Feature` keys.
+
+        Returns:
+            normalized_values: Values keyed by feature name (used by schema validators).
+            string_key_values: Subset of values that came from string keys only.
+            explicit_features: Resolved Feature objects passed explicitly as keys.
+            values_by_feature_uid: Values keyed by feature uid (used for exact lookup).
+        """
+        host_db = self._host._state.db
+        normalized_values: dict[str, Any] = {}
+        string_key_values: dict[str, Any] = {}
+        explicit_features: list[Feature] = []
+        values_by_feature_uid: dict[str, Any] = {}
+        seen_explicit_uids: set[str] = set()
+
+        for key, value in values.items():
+            if isinstance(key, Feature):
+                if key._state.adding:
+                    raise ValidationError(
+                        f"Please save feature '{key.name}' before annotation."
+                    )
+                feature = key
+                # Mirror feature predicate resolution: resolve Feature objects on active DB.
+                if host_db is not None and feature._state.db != host_db:
+                    feature = Feature.connect(host_db).get(uid=feature.uid)
+                if feature.uid in values_by_feature_uid and (
+                    values_by_feature_uid[feature.uid] != value
+                ):
+                    raise ValidationError(
+                        f"Conflicting values for feature '{feature.name}'."
+                    )
+                values_by_feature_uid[feature.uid] = value
+                if feature.uid not in seen_explicit_uids:
+                    explicit_features.append(feature)
+                    seen_explicit_uids.add(feature.uid)
+                if (
+                    feature.name in normalized_values
+                    and normalized_values[feature.name] != value
+                ):
+                    raise ValidationError(
+                        f"Conflicting values for feature name '{feature.name}'."
+                    )
+                normalized_values[feature.name] = value
+            elif isinstance(key, str):
+                if key in normalized_values and normalized_values[key] != value:
+                    raise ValidationError(
+                        f"Conflicting values for feature name '{key}'."
+                    )
+                normalized_values[key] = value
+                string_key_values[key] = value
+            else:
+                raise TypeError(
+                    "Feature-value dictionary keys must be `str` or `Feature`, "
+                    f"got {type(key)}"
+                )
+
+        return (
+            normalized_values,
+            string_key_values,
+            explicit_features,
+            values_by_feature_uid,
+        )
+
+    @staticmethod
+    def _merge_feature_objects(
+        explicit_features: list[Feature],
+        looked_up_features,
+    ) -> list[Feature]:
+        merged: list[Feature] = []
+        seen_uids: set[str] = set()
+        for feature in explicit_features:
+            if feature.uid not in seen_uids:
+                merged.append(feature)
+                seen_uids.add(feature.uid)
+        for feature in looked_up_features:
+            if feature.uid not in seen_uids:
+                merged.append(feature)
+                seen_uids.add(feature.uid)
+        return merged
 
     def add_values(
         self,
-        values: dict[str, str | int | float | bool],
+        values: dict[str | Feature, Any],
         feature_field: FieldAttr = Feature.name,
         schema: Schema = None,
     ) -> None:
@@ -1258,6 +1342,7 @@ class FeatureManager:
 
         Args:
             values: A dictionary of keys (features) & values (labels, strings, numbers, booleans, datetimes, etc.).
+                Keys can be feature names (`str`) or `Feature` objects.
                 If a value is `None`, it will be skipped.
             feature_field: The field of a registry to map the keys of the `values` dictionary.
             schema: Schema to validate against.
@@ -1267,12 +1352,15 @@ class FeatureManager:
         host_is_record = self._host.__class__.__name__ == "Record"
         host_is_artifact = self._host.__class__.__name__ == "Artifact"
         # rename to distinguish from the values inside the dict
-        dictionary = values
+        (
+            dictionary,
+            string_key_values,
+            explicit_features,
+            values_by_feature_uid,
+        ) = self._resolve_feature_value_dictionary(values)
         keys = dictionary.keys()
         if isinstance(keys, DICT_KEYS_TYPE):
             keys = list(keys)  # type: ignore
-        # deal with other cases later
-        assert all(isinstance(key, str) for key in keys)  # noqa: S101
         if (
             host_is_record
             and self._host.type is not None
@@ -1284,14 +1372,48 @@ class FeatureManager:
             if self._get_external_schema():
                 raise ValueError("Cannot add values if artifact has external schema.")
         if schema is not None:
-            feature_records = schema.members.filter(name__in=keys)
+            member_ids = set(schema.members.values_list("id", flat=True))
+            features_not_in_schema = [
+                feature.name
+                for feature in explicit_features
+                if feature.id not in member_ids
+            ]
+            if features_not_in_schema:
+                raise ValidationError(
+                    "These feature keys are not in the provided schema: "
+                    f"{features_not_in_schema}"
+                )
+            looked_up_features = schema.members.filter(name__in=keys)
+            feature_objects = self._merge_feature_objects(
+                explicit_features, looked_up_features
+            )
         else:
-            feature_records = self._get_feature_records(dictionary, feature_field)
-            schema = Schema(feature_records)
-        ExperimentalDictCurator(values, schema, require_saved_schema=False).validate()
-        return self._add_values(feature_records, dictionary)
+            if string_key_values:
+                looked_up_features = self._get_feature_objects(
+                    string_key_values, feature_field
+                )
+            else:
+                looked_up_features = Feature.objects.none()
+            feature_objects = self._merge_feature_objects(
+                explicit_features, looked_up_features
+            )
+            schema = Schema(feature_objects)
+        ExperimentalDictCurator(
+            dictionary, schema, require_saved_schema=False
+        ).validate()
+        return self._add_values(
+            feature_objects,
+            dictionary,
+            values_by_feature_uid=values_by_feature_uid,
+        )
 
-    def _add_values(self, feature_records, dictionary):
+    def _add_values(
+        self,
+        feature_objects,
+        dictionary,
+        *,
+        values_by_feature_uid: dict[str, Any] | None = None,
+    ):
         from ..base.dtypes import is_iterable_of_sqlrecord
         from .can_curate import CanCurate
         from .record import RecordJson
@@ -1300,8 +1422,14 @@ class FeatureManager:
         features_labels = defaultdict(list)
         feature_json_values = []
         not_validated_values: dict[str, tuple[str, list[str]]] = {}
-        for feature in feature_records:
-            value = dictionary[feature.name]
+        for feature in feature_objects:
+            if (
+                values_by_feature_uid is not None
+                and feature.uid in values_by_feature_uid
+            ):
+                value = values_by_feature_uid[feature.uid]
+            else:
+                value = dictionary[feature.name]
             if value is None:
                 continue
             if not (
@@ -1411,7 +1539,7 @@ class FeatureManager:
 
     def set_values(
         self,
-        values: dict[str, str | int | float | bool],
+        values: dict[str | Feature, Any],
         feature_field: FieldAttr = Feature.name,
         schema: Schema = None,
     ) -> None:
@@ -1421,6 +1549,7 @@ class FeatureManager:
 
         Args:
             values: A dictionary of keys (features) & values (labels, strings, numbers, booleans, datetimes, etc.).
+                Keys can be feature names (`str`) or `Feature` objects.
                 If a value is `None`, it will be skipped.
             feature_field: The field of a registry to map the keys of the `values` dictionary.
             schema: Schema to validate against.
@@ -1430,12 +1559,15 @@ class FeatureManager:
         host_is_record = self._host.__class__.__name__ == "Record"
         host_is_artifact = self._host.__class__.__name__ == "Artifact"
         # rename to distinguish from the values inside the dict
-        dictionary = values
+        (
+            dictionary,
+            string_key_values,
+            explicit_features,
+            values_by_feature_uid,
+        ) = self._resolve_feature_value_dictionary(values)
         keys = dictionary.keys()
         if isinstance(keys, DICT_KEYS_TYPE):
             keys = list(keys)  # type: ignore
-        # deal with other cases later
-        assert all(isinstance(key, str) for key in keys)  # noqa: S101
         if (
             host_is_record
             and self._host.type is not None
@@ -1446,14 +1578,37 @@ class FeatureManager:
         if host_is_artifact:
             schema = self._get_external_schema()
         if schema is not None:
-            ExperimentalDictCurator(values, schema).validate()
-            feature_records = schema.members.filter(name__in=keys)
+            ExperimentalDictCurator(dictionary, schema).validate()
+            member_ids = set(schema.members.values_list("id", flat=True))
+            features_not_in_schema = [
+                feature.name
+                for feature in explicit_features
+                if feature.id not in member_ids
+            ]
+            if features_not_in_schema:
+                raise ValidationError(
+                    "These feature keys are not in the provided schema: "
+                    f"{features_not_in_schema}"
+                )
+            looked_up_features = schema.members.filter(name__in=keys)
+            feature_objects = self._merge_feature_objects(
+                explicit_features, looked_up_features
+            )
         else:
-            feature_records = self._get_feature_records(dictionary, feature_field)
+            if string_key_values:
+                looked_up_features = self._get_feature_objects(
+                    string_key_values, feature_field
+                )
+            else:
+                looked_up_features = Feature.objects.none()
+            feature_objects = self._merge_feature_objects(
+                explicit_features, looked_up_features
+            )
         self._remove_values()
         self._add_values(
-            feature_records,
+            feature_objects,
             dictionary=dictionary,
+            values_by_feature_uid=values_by_feature_uid,
         )
 
     def _get_external_schema(self) -> Schema | None:
@@ -1466,7 +1621,9 @@ class FeatureManager:
 
     def remove_values(
         self,
-        feature: str | Feature | list[str | Feature] = None,
+        feature: (
+            str | Feature | list[str | Feature] | dict[str | Feature, Any | None] | None
+        ) = None,
         *,
         value: Any | None = None,
     ) -> None:
@@ -1475,6 +1632,8 @@ class FeatureManager:
         Args:
             feature: Indicate one or several features for which to remove values.
                 If `None`, values for all external features will be removed.
+                Also supports a dictionary mapping feature keys to values to remove,
+                e.g. `{feature: value}`.
             value: An optional value to restrict removal to a single value.
         """
         host_name = self._host.__class__.__name__.lower()
@@ -1493,7 +1652,9 @@ class FeatureManager:
 
     def _remove_values(
         self,
-        feature: str | Feature | list[str | Feature] = None,
+        feature: (
+            str | Feature | list[str | Feature] | dict[str | Feature, Any | None] | None
+        ) = None,
         *,
         value: Any | None = None,
     ) -> None:
@@ -1503,6 +1664,14 @@ class FeatureManager:
         host_is_record = host_name == "record"
         host_is_artifact = host_name == "artifact"
 
+        if isinstance(feature, dict):
+            if value is not None:
+                raise ValueError(
+                    "Pass either `value=` or per-feature values via a dictionary, not both."
+                )
+            for one_feature, one_value in feature.items():
+                self._remove_values(one_feature, value=one_value)
+            return
         if feature is None:
             features = get_features_data(
                 self._host, to_dict=True, external_only=True
@@ -1516,6 +1685,17 @@ class FeatureManager:
                 feature_record = Feature.get(name=feature)
             else:
                 feature_record = feature
+                if feature_record._state.adding:
+                    raise ValidationError(
+                        f"Please save feature '{feature_record.name}' before annotation."
+                    )
+                if (
+                    self._host._state.db is not None
+                    and feature_record._state.db != self._host._state.db
+                ):
+                    feature_record = Feature.connect(self._host._state.db).get(
+                        uid=feature_record.uid
+                    )
             if host_is_artifact:
                 for schema in self.slots.values():
                     if feature_record in schema.members:

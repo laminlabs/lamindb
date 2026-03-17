@@ -894,3 +894,33 @@ def test_add_list_of_cat_features():
     feat2.delete(permanent=True)
     type_1.records.all().delete(permanent=True)
     type_1.delete(permanent=True)
+
+
+def test_artifact_features_accept_feature_object_keys():
+    feature_score = ln.Feature(name="artifact_feature_object_score", dtype=int).save()
+    feature_tag = ln.Feature(name="artifact_feature_object_tag", dtype=str).save()
+    artifact = ln.Artifact(".gitignore", key="artifact_feature_object_test").save()
+
+    artifact.features.add_values({feature_score: 7, "artifact_feature_object_tag": "a"})
+    assert artifact.features.get_values() == {
+        "artifact_feature_object_score": 7,
+        "artifact_feature_object_tag": "a",
+    }
+
+    # set_values should also accept Feature objects as dictionary keys.
+    artifact.features.set_values({feature_score: 8})
+    assert artifact.features.get_values() == {"artifact_feature_object_score": 8}
+
+    artifact.features.add_values({feature_tag: "keep"})
+    assert artifact.features.get_values() == {
+        "artifact_feature_object_score": 8,
+        "artifact_feature_object_tag": "keep",
+    }
+
+    # remove_values supports dictionary inputs with Feature keys.
+    artifact.features.remove_values({feature_score: 8, feature_tag: None})
+    assert artifact.features.get_values() == {}
+
+    artifact.delete(permanent=True)
+    feature_score.delete(permanent=True)
+    feature_tag.delete(permanent=True)

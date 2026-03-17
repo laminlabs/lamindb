@@ -776,3 +776,33 @@ def test_record_feature_predicate_query():
     record_b.delete(permanent=True)
     record_type.delete(permanent=True)
     age.delete(permanent=True)
+
+
+def test_record_features_accept_feature_object_keys():
+    feature_score = ln.Feature(name="record_feature_object_score", dtype=int).save()
+    feature_tag = ln.Feature(name="record_feature_object_tag", dtype=str).save()
+    record = ln.Record(name="record_feature_object_test").save()
+
+    record.features.add_values({feature_score: 7, "record_feature_object_tag": "a"})
+    assert record.features.get_values() == {
+        "record_feature_object_score": 7,
+        "record_feature_object_tag": "a",
+    }
+
+    # set_values should also accept Feature objects as dictionary keys.
+    record.features.set_values({feature_tag: "b"})
+    assert record.features.get_values() == {"record_feature_object_tag": "b"}
+
+    record.features.add_values({feature_score: 9})
+    assert record.features.get_values() == {
+        "record_feature_object_score": 9,
+        "record_feature_object_tag": "b",
+    }
+
+    # remove_values supports dictionary inputs with Feature keys.
+    record.features.remove_values({feature_score: 9, feature_tag: None})
+    assert record.features.get_values() == {}
+
+    record.delete(permanent=True)
+    feature_score.delete(permanent=True)
+    feature_tag.delete(permanent=True)

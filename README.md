@@ -337,7 +337,7 @@ ln.Feature(name="experiment_note", dtype=str).save()
 ln.Feature(name="experiment_date", dtype=date, coerce=True).save()  # accept date strings
 ```
 
-During annotation, feature names and data types are validated against these definitions:
+During annotation, feature names and data types are validated against these definitions.
 
 ```python
 artifact.features.add_values({
