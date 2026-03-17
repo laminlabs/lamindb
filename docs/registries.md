@@ -131,15 +131,14 @@ The `Artifact`, `Record`, and `Run` registries can be queried by features.
 ln.Artifact.filter(perturbation="DMSO").to_dataframe(include="features")
 ```
 
-You can also query by passing a `Feature` object expression, which disambiguates duplicate
-feature names.
+You can also query by passing a `Feature` object, which is useful to disambiguate feature names.
 
 ```python
-perturbation_feature = ln.Feature.get(name="perturbation", type__name="MyFeatureType")
-ln.Artifact.filter(perturbation_feature == "DMSO").to_dataframe(include="features")
+perturbation = ln.Feature.get(name="perturbation")  # can optionally pass a feature type to disambiguate
+ln.Artifact.filter(perturbation == "DMSO")  # note this is now an expression using the == syntax
 ```
 
-You can also query for nested dictionary-like features.
+Just like for fields holding dictionary values, you can query for dictionary keys in features whose `dtype` is `dict`:
 
 ```python
 ln.Artifact.filter(study_metadata__detail1="123").to_dataframe(include="features")
