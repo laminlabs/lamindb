@@ -890,8 +890,13 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             else:
                 features = existing_features
             index_feature = self.index
+            index_feature_id = None if index_feature is None else index_feature.id
             _, validated_kwargs, _, _, _ = self._validate_kwargs_calculate_hash(
-                features=[f for f in features if f != index_feature],  # type: ignore
+                features=[  # type: ignore
+                    f
+                    for f in features
+                    if index_feature_id is None or f.id != index_feature_id
+                ],
                 index=index_feature,
                 slots=self.slots,
                 name=self.name,
