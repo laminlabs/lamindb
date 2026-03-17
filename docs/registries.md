@@ -7,7 +7,7 @@ execute_via: python
 This guide walks through different ways of querying & searching LaminDB registries.
 
 ```python
-# pip install lamindb
+# initialize a test database to run examples
 !lamin init --storage ./test-registries --modules bionty
 ```
 
@@ -16,7 +16,6 @@ Let's start by creating a few exemplary datasets and saving them into a LaminDB 
 ```python
 import lamindb as ln
 
-ln.track()
 ln.Artifact(ln.examples.datasets.file_fastq(), key="raw/my_fastq.fastq.gz").save()
 ln.Artifact(ln.examples.datasets.file_jpg_paradisi05(), key="my_image.jpg").save()
 ln.Artifact.from_dataframe(ln.examples.datasets.df_iris(), key="iris.parquet").save()
@@ -56,9 +55,9 @@ You can also get an overview of the entire database.
 ln.view()
 ```
 
-## Auto-complete records
+## Auto-complete objects
 
-For registries with less than 100k records, auto-completing a `Lookup` object is the most convenient way of finding a record.
+For registries with less than 100k objects, auto-completing a `Lookup` object is the most convenient way of finding a record.
 
 ```python
 records = ln.Record.lookup()
@@ -71,7 +70,7 @@ experiment_1 = records.experiment_1
 experiment_1
 ```
 
-This works for any `SQLRecord` registry, e.g., also for plugin `bionty`.
+This works for any {class}`~lamindb.models.BaseSQLRecord` class, e.g., also for plugin `bionty`.
 
 ```python
 import bionty as bt
@@ -79,41 +78,40 @@ import bionty as bt
 cell_types = bt.CellType.lookup()
 ```
 
-:::{dropdown} Show me a screenshot
+## Get one object
 
-<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/lgRNHNtMxjU0y8nIagt7.png" width="400px">
-
-:::
-
-## Get one record
-
-{meth}`~lamindb.models.SQLRecord.get` errors if none or more than one matching records are found.
+{meth}`~lamindb.models.BaseSQLRecord.get` errors if none or more than one matching objects are found.
 
 ```python
 ln.Record.get(experiment_1.uid)  # by uid
 ln.Record.get(name="Experiment 1")  # by field
 ```
 
-## Query records by fields
+## Query objects by fields
 
-Filter for all artifacts annotated by a record and get the result as a dataframe:
+Use {meth}`~lamindb.models.BaseSQLRecord.filter` to query all artifacts by the `suffix` field:
 
 ```python
-qs = ln.Artifact.filter(suffix=".fastq.qz")
+qs = ln.Artifact.filter(suffix=".h5ad")
+qs
 ```
 
-{meth}`~lamindb.models.SQLRecord.filter` returns a {class}`~lamindb.models.QuerySet`.
+This returns a {class}`~lamindb.models.QuerySet`, which lazily references the set of {class}`~lamindb.models.BaseSQLRecord` objects that matches the filter statement. You can iteratively filter a queryset:
 
-To access the results encoded in a filter statement, execute its return value with one of:
+```python
+qs = qs.filter(records__name="Experiment 1")
+```
 
-- {meth}`~lamindb.models.QuerySet.to_dataframe`: A pandas `DataFrame` with each record in a row.
-- {meth}`~lamindb.models.QuerySet.one`: Exactly one record. Will raise an error if there is none. Is equivalent to the `.get()` method shown above.
-- {meth}`~lamindb.models.QuerySet.one_or_none`: Either one record or `None` if there is no query result.
+To access the results encoded in a queryset, call:
+
+- {meth}`~lamindb.models.BasicQuerySet.to_dataframe`: A pandas `DataFrame` with each record in a row.
+- {meth}`~lamindb.models.BasicQuerySet.one`: Exactly one record. Will raise an error if there is none. Is equivalent to the `.get()` method shown above.
+- {meth}`~lamindb.models.BasicQuerySet.one_or_none`: Either one record or `None` if there is no query result.
 
 Alternatively,
 
 - use the `QuerySet` as an iterator
-- get individual records via `qs[0]`, `qs[1]`
+- get individual objects via `qs[0]`, `qs[1]`
 
 For example:
 
@@ -121,9 +119,9 @@ For example:
 qs.to_dataframe()
 ```
 
-Note that the `SQLRecord` registries in LaminDB are Django Models and any [Django query](https://docs.djangoproject.com/en/stable/topics/db/queries/) works.
+Note that the `SQLRecord` classes in LaminDB are Django Models and any [Django query](https://docs.djangoproject.com/en/stable/topics/db/queries/) works.
 
-## Query records by features
+## Query objects by features
 
 The `Artifact`, `Record`, and `Run` registries can be queried by features.
 
@@ -131,7 +129,14 @@ The `Artifact`, `Record`, and `Run` registries can be queried by features.
 ln.Artifact.filter(perturbation="DMSO").to_dataframe(include="features")
 ```
 
-You can also query for nested dictionary-like features.
+You can also query by passing a `Feature` object, which is useful to disambiguate feature names.
+
+```python
+perturbation = ln.Feature.get(name="perturbation")  # can optionally pass a feature type to disambiguate
+ln.Artifact.filter(perturbation == "DMSO")  # note this is now an expression using the == syntax
+```
+
+Just like for fields holding dictionary values, you can query for dictionary keys in features whose `dtype` is `dict`:
 
 ```python
 ln.Artifact.filter(study_metadata__detail1="123").to_dataframe(include="features")
@@ -155,7 +160,7 @@ ln.Artifact.filter(perturbation__isnull=False).to_dataframe(include="features")
 
 Here is an example for querying by parameters: {ref}`track-run-parameters`.
 
-## Search for records
+## Search for objects
 
 You can search every registry via {meth}`~lamindb.models.SQLRecord.search`. For example, the `Artifact` registry.
 

@@ -49,7 +49,7 @@ from ._label_manager import _get_labels
 from ._relations import (
     dict_related_model_to_related_name,
 )
-from .feature import Feature, JsonValue, parse_dtype
+from .feature import Feature, FeaturePredicate, JsonValue, parse_dtype
 from .sqlrecord import SQLRecord
 from .ulabel import ULabel
 
@@ -790,13 +790,155 @@ def infer_convert_dtype_key_value(
     return "?", value, message
 
 
+def _filter_one_feature_clause(
+    queryset: BasicQuerySet,
+    feature: Feature,
+    comparator: str,
+    value: Any,
+) -> BasicQuerySet:
+    from lamindb.models import Artifact
+    from lamindb.models.record import Record, RecordJson
+    from lamindb.models.run import Run
+
+    dtype_str = feature._dtype_str
+    # non-categorical features
+    if not dtype_str.startswith("cat") and not dtype_str.startswith("list[cat"):
+        if comparator == "__isnull":
+            if queryset.model is Artifact:
+                from .artifact import ArtifactJsonValue
+
+                value_subquery = ArtifactJsonValue.objects.filter(
+                    jsonvalue__feature=feature
+                ).values("artifact_id")
+                return queryset.exclude(id__in=Subquery(value_subquery))
+
+        if comparator in {"__startswith", "__contains"}:
+            logger.important(
+                f"currently not supporting `{comparator}`, using `__icontains` instead"
+            )
+            comparator = "__icontains"
+        use_numeric_sqlite = (
+            connections[feature._state.db].vendor == "sqlite"
+            and comparator in {"__gt", "__lt", "__gte", "__lte"}
+            and dtype_str in ("int", "float", "num")
+        )
+        if use_numeric_sqlite:
+            # Numeric comparison via json_extract + CAST (avoids lexicographic comparison)
+            num_val_raw = RawSQL("CAST(json_extract(value, '$') AS REAL)", ())
+            if queryset.model is Record:
+                value_qs = (
+                    RecordJson.objects.using(queryset.db)
+                    .filter(feature=feature)
+                    .annotate(num_val=num_val_raw)
+                    .filter(**{f"num_val{comparator}": value})
+                )
+                return queryset.filter(values_json__id__in=value_qs)
+            else:
+                json_values = (
+                    JsonValue.objects.using(queryset.db)
+                    .filter(feature=feature)
+                    .annotate(num_val=num_val_raw)
+                    .filter(**{f"num_val{comparator}": value})
+                )
+                accessor = (
+                    "json_values"
+                    if queryset.model in {Artifact, Run}
+                    else "values_json"
+                )
+                return queryset.filter(**{f"{accessor}__id__in": json_values})
+        else:
+            if connections[feature._state.db].vendor == "sqlite" and comparator in {
+                "__gt",
+                "__lt",
+                "__gte",
+                "__lte",
+            }:
+                # SQLite: lexicographic comparison for non-numeric dtypes (date, datetime, str)
+                value = str(value)
+            filter_expr = {"feature": feature, f"value{comparator}": value}
+            if queryset.model is Record:
+                value_qs = RecordJson.objects.using(queryset.db).filter(**filter_expr)
+                return queryset.filter(values_json__id__in=value_qs)
+            else:
+                json_values = JsonValue.objects.using(queryset.db).filter(**filter_expr)
+                accessor = (
+                    "json_values"
+                    if queryset.model in {Artifact, Run}
+                    else "values_json"
+                )
+                return queryset.filter(**{f"{accessor}__id__in": json_values})
+    # categorical features
+    elif isinstance(value, (str, SQLRecord, bool)):
+        result = parse_dtype(dtype_str)[0]
+        label_registry = result["registry"]
+        _, value_field_name, filter_accessor_name = get_categorical_link_info(
+            queryset.model, label_registry, instance=queryset.db
+        )
+        if comparator == "__isnull":
+            kwargs = {f"{filter_accessor_name}__feature": feature}
+            if value:  # True
+                return queryset.exclude(**kwargs)
+            else:
+                return queryset.filter(**kwargs)
+        # because SQL is sensitive to whether querying with __in or not
+        # and might return multiple equivalent records for the latter
+        # we distinguish cases in which we have multiple label matches vs. one
+        label = None
+        labels = None
+        if isinstance(value, str):
+            field_name = result["field"].field.name
+            # users might query like so:
+            # ln.Artifact.filter(experiment__contains="Experi")
+            expression = {f"{field_name}{comparator}": value}
+            labels = result["registry"].connect(queryset.db).filter(**expression)
+            if len(labels) == 0:
+                raise DoesNotExist(
+                    f"Did not find a {label_registry.__name__} matching `{field_name}{comparator}={value}`"
+                )
+            elif len(labels) == 1:
+                label = labels[0]
+        elif isinstance(value, SQLRecord):
+            label = value
+        new_expression = {f"{filter_accessor_name}__feature": feature}
+        if label is not None:
+            new_expression[f"{filter_accessor_name}__{value_field_name}"] = label
+        else:
+            new_expression[f"{filter_accessor_name}__{value_field_name}__in"] = labels
+        return queryset.filter(**new_expression)
+    raise NotImplementedError
+
+
+def filter_with_feature_predicates(
+    queryset: BasicQuerySet,
+    predicates: list[FeaturePredicate],
+) -> BasicQuerySet:
+    qs = queryset
+    pk_name = qs.model._meta.pk.name
+    for predicate in predicates:
+        feature = predicate.feature
+        if qs.db is not None and feature._state.db != qs.db:
+            feature = Feature.connect(qs.db).get(uid=feature.uid)
+        if predicate.comparator == "__ne":
+            subset = _filter_one_feature_clause(
+                qs, feature=feature, comparator="", value=predicate.value
+            )
+            qs = qs.exclude(**{f"{pk_name}__in": Subquery(subset.values(pk_name))})
+        else:
+            qs = _filter_one_feature_clause(
+                qs,
+                feature=feature,
+                comparator=predicate.comparator,
+                value=predicate.value,
+            )
+    return qs
+
+
 def filter_base(
     queryset: BasicQuerySet,
     _skip_validation: bool = True,
     **expression,
 ) -> BasicQuerySet:
-    from lamindb.models import Artifact, BasicQuerySet, QuerySet
-    from lamindb.models.record import Record, RecordJson
+    from lamindb.models import BasicQuerySet, QuerySet
 
     assert isinstance(queryset, BasicQuerySet) and not isinstance(queryset, QuerySet)  # noqa: S101
     keys_normalized = [key.split("__")[0] for key in expression]
@@ -808,8 +950,8 @@ def filter_base(
             raise ValidationError(
                 f"Some keys in the filter expression are not registered as features: {np.array(keys_normalized)[~validated]}"
             )
-    new_expression = {}
     features = Feature.connect(queryset.db).filter(name__in=keys_normalized).distinct()
+    qs = queryset
     for key, value in expression.items():
         split_key = key.split("__")
         normalized_key = split_key[0]
@@ -817,131 +959,21 @@ def filter_base(
         if len(split_key) == 2:
             comparator = f"__{split_key[1]}"
         feature = features.get(name=normalized_key)
-        # non-categorical features
-        dtype_str = feature._dtype_str
-        if not dtype_str.startswith("cat") and not dtype_str.startswith("list[cat"):
-            if comparator == "__isnull":
-                if queryset.model is Artifact:
-                    from .artifact import ArtifactJsonValue
-
-                    if value:  # True
-                        return queryset.exclude(
-                            id__in=Subquery(
-                                ArtifactJsonValue.objects.filter(
-                                    jsonvalue__feature=feature
-                                ).values("artifact_id")
-                            )
-                        )
-                    else:
-                        return queryset.exclude(
-                            id__in=Subquery(
-                                ArtifactJsonValue.objects.filter(
-                                    jsonvalue__feature=feature
-                                ).values("artifact_id")
-                            )
-                        )
-            if comparator in {"__startswith", "__contains"}:
-                logger.important(
-                    f"currently not supporting `{comparator}`, using `__icontains` instead"
-                )
-                comparator = "__icontains"
-            use_numeric_sqlite = (
-                connections[feature._state.db].vendor == "sqlite"
-                and comparator in {"__gt", "__lt", "__gte", "__lte"}
-                and dtype_str in ("int", "float", "num")
-            )
-            if use_numeric_sqlite:
-                # Numeric comparison via json_extract + CAST (avoids lexicographic comparison)
-                num_val_raw = RawSQL("CAST(json_extract(value, '$') AS REAL)", ())
-                if queryset.model is Record:
-                    value_qs = (
-                        RecordJson.objects.using(queryset.db)
-                        .filter(feature=feature)
-                        .annotate(num_val=num_val_raw)
-                        .filter(**{f"num_val{comparator}": value})
-                    )
-                    new_expression["values_json__id__in"] = value_qs
-                else:
-                    json_values = (
-                        JsonValue.objects.using(queryset.db)
-                        .filter(feature=feature)
-                        .annotate(num_val=num_val_raw)
-                        .filter(**{f"num_val{comparator}": value})
-                    )
-                    new_expression["json_values__id__in"] = json_values
-            else:
-                if connections[feature._state.db].vendor == "sqlite" and comparator in {
-                    "__gt",
-                    "__lt",
-                    "__gte",
-                    "__lte",
-                }:
-                    # SQLite: lexicographic comparison for non-numeric dtypes (date, datetime, str)
-                    value = str(value)
-                filter_expr = {"feature": feature, f"value{comparator}": value}
-                if queryset.model is Record:
-                    value_qs = RecordJson.objects.using(queryset.db).filter(
-                        **filter_expr
-                    )
-                    new_expression["values_json__id__in"] = value_qs
-                else:
-                    json_values = JsonValue.objects.using(queryset.db).filter(
-                        **filter_expr
-                    )
-                    new_expression["json_values__id__in"] = json_values
-        # categorical features
-        elif isinstance(value, (str, SQLRecord, bool)):
-            dtype_str = feature._dtype_str
-            result = parse_dtype(dtype_str)[0]
-            label_registry = result["registry"]
-            _, value_field_name, filter_accessor_name = get_categorical_link_info(
-                queryset.model, label_registry, instance=queryset.db
-            )
-            if comparator == "__isnull":
-                kwargs = {f"{filter_accessor_name}__feature": feature}
-                if value:  # True
-                    return queryset.exclude(**kwargs)
-                else:
-                    return queryset.filter(**kwargs)
-            # because SQL is sensitive to whether querying with __in or not
-            # and might return multiple equivalent records for the latter
-            # we distinguish cases in which we have multiple label matches vs. one
-            label = None
-            labels = None
-            if isinstance(value, str):
-                field_name = result["field"].field.name
-                # we need the comparator here because users might query like so
-                # ln.Artifact.filter(experiment__contains="Experi")
-                expression = {f"{field_name}{comparator}": value}
-                labels = result["registry"].connect(queryset.db).filter(**expression)
-                if len(labels) == 0:
-                    raise DoesNotExist(
-                        f"Did not find a {label_registry.__name__} matching `{field_name}{comparator}={value}`"
-                    )
-                elif len(labels) == 1:
-                    label = labels[0]
-            elif isinstance(value, SQLRecord):
-                label = value
-            new_expression[f"{filter_accessor_name}__feature"] = feature
-            if label is not None:
-                new_expression[f"{filter_accessor_name}__{value_field_name}"] = label
-            else:
-                new_expression[f"{filter_accessor_name}__{value_field_name}__in"] = (
-                    labels
-                )
-            # if passing a list of records, we want to
-            # find artifacts that are annotated by all of them at the same
-            # time; hence, we don't want the __in construct that we use to match strings
-            # https://laminlabs.slack.com/archives/C04FPE8V01W/p1688328084810609
-    if not new_expression:
+        qs = _filter_one_feature_clause(
+            qs, feature=feature, comparator=comparator, value=value
+        )
+    if qs is queryset:
         raise NotImplementedError
-    return queryset.filter(**new_expression)
+    return qs
 
 
 def filter_with_features(
     queryset: BasicQuerySet, *queries, **expressions
 ) -> BasicQuerySet:
     from lamindb.models import BasicQuerySet, QuerySet
+
+    feature_predicates = [q for q in queries if isinstance(q, FeaturePredicate)]
+    non_feature_queries = [q for q in queries if not isinstance(q, FeaturePredicate)]
 
     if isinstance(queryset, QuerySet):
         # need to avoid infinite recursion because
@@ -950,11 +982,12 @@ def filter_with_features(
     else:
         filter_kwargs = {}
     registry = queryset.model
+    qs = queryset
     if expressions:
         keys_normalized = [key.split("__")[0] for key in expressions]
         field_or_feature = keys_normalized[0]
         if field_or_feature in registry.__get_available_fields__():
-            qs = queryset.filter(*queries, **expressions, **filter_kwargs)
+            qs = queryset.filter(*non_feature_queries, **expressions, **filter_kwargs)
         elif all(
             features_validated := Feature.objects.using(queryset.db).validate(
                 keys_normalized, field="name", mute=True
@@ -966,7 +999,7 @@ def filter_with_features(
                 _skip_validation=True,
                 **expressions,
             )._to_class(type(queryset), copy=False)
-            qs = qs.filter(*queries, **filter_kwargs)
+            qs = qs.filter(*non_feature_queries, **filter_kwargs)
         else:
             features = ", ".join(sorted(np.array(keys_normalized)[~features_validated]))
             message = f"feature names: {features}"
@@ -977,7 +1010,14 @@ def filter_with_features(
                 f"Or fix invalid {message}"
             )
     else:
-        qs = queryset.filter(*queries, **filter_kwargs)
+        # Always route through `.filter()` here (even when empty) so the
+        # standard QuerySet path can inject default branch constraints.
+        qs = queryset.filter(*non_feature_queries, **filter_kwargs)
+    if feature_predicates:
+        qs = filter_with_feature_predicates(
+            qs._to_class(BasicQuerySet, copy=True),
+            feature_predicates,
+        )._to_class(type(qs), copy=False)
     return qs
 
 
