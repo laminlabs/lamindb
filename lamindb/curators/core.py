@@ -2066,8 +2066,13 @@ def annotate_artifact(
         features = cat_vectors["columns"].records
         if features is not None:
             index_feature = artifact.schema.index
+            index_feature_id = None if index_feature is None else index_feature.id
             feature_set = Schema(
-                features=[f for f in features if f != index_feature],
+                features=[
+                    f
+                    for f in features
+                    if index_feature_id is None or f.id != index_feature_id
+                ],
                 itype=artifact.schema.itype,
                 index=index_feature,
                 minimal_set=artifact.schema.minimal_set,
@@ -2109,8 +2114,13 @@ def annotate_artifact(
                 continue
             validating_schema = slot_curator._schema
             index_feature = validating_schema.index
+            index_feature_id = None if index_feature is None else index_feature.id
             feature_set = Schema(
-                features=[f for f in features if f != index_feature],
+                features=[
+                    f
+                    for f in features
+                    if index_feature_id is None or f.id != index_feature_id
+                ],
                 itype=validating_schema.itype,
                 index=index_feature,
                 minimal_set=validating_schema.minimal_set,
