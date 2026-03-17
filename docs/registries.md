@@ -87,7 +87,7 @@ cell_types = bt.CellType.lookup()
 
 ## Get one object
 
-{meth}`~lamindb.models.SQLRecord.get` errors if none or more than one matching objects are found.
+{meth}`~lamindb.models.BaseSQLRecord.get` errors if none or more than one matching objects are found.
 
 ```python
 ln.Record.get(experiment_1.uid)  # by uid
@@ -102,7 +102,7 @@ Filter for all artifacts with a given suffix:
 qs = ln.Artifact.filter(suffix=".fastq.qz")
 ```
 
-{meth}`~lamindb.models.SQLRecord.filter` returns a {class}`~lamindb.models.QuerySet`.
+{meth}`~lamindb.models.BaseSQLRecord.filter` returns a {class}`~lamindb.models.QuerySet`.
 
 To access the results encoded in a filter statement, execute its return value with one of:
 
