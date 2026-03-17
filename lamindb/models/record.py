@@ -52,8 +52,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
 
     Useful for managing samples, donors, cells, compounds, sequences, and other custom entities with their features.
 
-    Records can also be used for labeling artifacts, runs, transforms, and collections.
-    In some cases a simple label without features is enough: :class:`~lamindb.ULabel`.
+    If instead you want a simple label use :class:`~lamindb.ULabel`.
 
     Args:
         name: `str | None = None` A name.
@@ -73,32 +72,45 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
 
     Examples:
 
-        Create a **record** and annotate an :class:`~lamindb.Artifact`::
+        Create a **record** and annotate it with features::
 
+            # create a record to track a sample
             sample1 = ln.Record(name="Sample 1").save()
-            artifact.records.add(sample1)
+
+            # create a feature if you don't yet have one
+            gc_content = ln.Feature(name="gc_content", dtype=float).save()
+
+            # annotate the record with a feature value
+            sample1.features.add_values({"gc_content": 0.5})
+
+            # describe the record
+            sample1.describe()
 
         Group several records under a **record type**::
 
+            # create a record type to track experiments
             experiment_type = ln.Record(name="Experiment", is_type=True).save()
             experiment1 = ln.Record(name="Experiment 1", type=experiment_type).save()
-            experiment2 = ln.Record(name="Experiment 2", type=experiment_type).save()
 
-        Export all records of that type to dataframe::
+            # create a record type to track samples
+            sample_type = ln.Record(name="Sample", is_type=True).save()
 
-            experiment_type.records.to_dataframe()
+            # group the sample1 record under the sample type
+            sample1.type = sample_type
+            sample1.save()
+
+            # annotate the sample with the experiment
+            experiment = ln.Feature(name="experiment", dtype=experiment_type).save()
+            sample1.features.add_values({
+                "experiment": "Experiment 1",
+            })
+
+        Export all records under a type to a dataframe::
+
+            experiment_type.to_dataframe()
             #>              name   ...
             #>      Experiment 1   ...
             #>      Experiment 2   ...
-
-        Add **features** to a record::
-
-            gc_content = ln.Feature(name="gc_content", dtype=float).save()
-            experiment = ln.Feature(name="experiment", dtype=experiment_type).save()
-            sample1.features.add_values({
-                "gc_content": 0.5,
-                "experiment": "Experiment 1",
-            })
 
         **Constrain features** by using a :class:`~lamindb.Schema`, creating a **sheet**::
 

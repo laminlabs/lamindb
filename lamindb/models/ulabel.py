@@ -57,22 +57,20 @@ class ULabel(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
 
     Examples:
 
-        Create a label::
+        Create a label and annotate an :class:`~lamindb.Artifact`::
 
             train_split = ln.ULabel(name="train").save()
+            artifact.ulabels.add(train_split)
+
+        Query artifacts by label::
+
+            ln.Artifact.filter(ulabels=train_split).to_dataframe()
 
         Organize ulabels in a hierarchy::
 
             split_type = ln.ULabel(name="Split", is_type=True).save()
             train_split = ln.ULabel(name="train", type="split_type").save()
 
-        Label an artifact::
-
-            artifact.ulabels.add(train_split)
-
-        Query artifacts by label::
-
-            ln.Artifact.filter(ulabels=train_split).to_dataframe()
     """
 
     class Meta(SQLRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
