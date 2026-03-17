@@ -994,18 +994,20 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             related_name = "features"
         related_manager = self.__getattribute__(related_name)
         through_model = related_manager.through
+        using = self._state.db
         related_fk_name = next(
             field.name
             for field in through_model._meta.fields
             if isinstance(field, models.ForeignKey) and field.name != "schema"
         )
         member_ids = list(
-            through_model.objects.filter(schema_id=self.id)
+            through_model.objects.using(using)
+            .filter(schema_id=self.id)
             .order_by("id")
             .values_list(f"{related_fk_name}_id", flat=True)
         )
         if not member_ids:
-            return related_manager.model.objects.none()
+            return related_manager.model.objects.using(using).none()
         preserved_order = models.Case(
             *[
                 models.When(id=member_id, then=models.Value(idx))
@@ -1015,8 +1017,10 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         )
         # Order by ids from the through table constrained to this schema to avoid
         # ambiguous reverse-join ordering when a member is linked to many schemas.
-        return related_manager.model.objects.filter(id__in=member_ids).order_by(
-            preserved_order
+        return (
+            related_manager.model.objects.using(using)
+            .filter(id__in=member_ids)
+            .order_by(preserved_order)
         )
 
     @property
