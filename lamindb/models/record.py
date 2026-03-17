@@ -47,6 +47,7 @@ if TYPE_CHECKING:
     from .schema import Schema
 
 
+# keep docstring in sync with test_record_docstring_examples in test_record_basics.py
 class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates):
     """Flexible metadata records.
 
@@ -111,9 +112,9 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         Export all records under a type to a dataframe::
 
             experiment_type.to_dataframe()
-            #>              name   ...
-            #>      Experiment 1   ...
-            #>      Experiment 2   ...
+            #> __lamindb_record_name__   ...
+            #>            Experiment 1   ...
+            #>            Experiment 2   ...
 
         If you try to add incomplete features to a sheet, you'll get a validation error::
 

@@ -10,6 +10,68 @@ from django.db import IntegrityError
 from lamindb.errors import FieldValidationError
 
 
+def test_record_docstring_examples():
+    # create a record to track a sample
+    sample1 = ln.Record(name="Sample 1").save()
+
+    # create a feature if you don't yet have one
+    gc_content = ln.Feature(name="gc_content", dtype=float).save()
+
+    # add a feature value to the record
+    sample1.features.add_values({"gc_content": 0.5})
+
+    # describe the record
+    sample1.describe()
+
+    # create a flexible record type to track experiments
+    experiment_type = ln.Record(name="Experiment", is_type=True).save()
+    experiment1 = ln.Record(name="Experiment 1", type=experiment_type).save()
+
+    # create a feature to link experiments
+    experiment = ln.Feature(name="experiment", dtype=experiment_type).save()
+
+    # create a record type to track samples that's constrained with a schema
+    schema = ln.Schema(
+        [experiment, gc_content.with_config(optional=True)], name="sample_schema"
+    ).save()
+    sample_sheet = ln.Record(name="Sample Sheet", is_type=True, schema=schema).save()
+
+    # group the sample1 record under the sample sheet
+    sample1.type = sample_sheet
+    sample1.save()
+
+    # add the sample1 record to the experiment
+    sample1.features.add_values(
+        {
+            "experiment": "Experiment 1",  # automatically resolves by name, also accepts the experiment1 object
+        }
+    )
+
+    # Export all records under a type to a dataframe
+    df = experiment_type.to_dataframe()
+    assert "Experiment 1" in df["__lamindb_record_name__"].values
+
+    # If you try to add incomplete features to a sheet, you'll get a validation error
+    sample2 = ln.Record(name="Sample 2", type=sample_sheet).save()
+    with pytest.raises(ln.errors.ValidationError):
+        sample2.features.add_values({"gc_content": 0.6})
+
+    # Query records by features
+    assert ln.Record.filter(gc_content=0.5).one() == sample1
+    assert ln.Record.filter(gc_content__gt=0.4).one() == sample1
+    assert ln.Record.filter(type=sample_sheet).count() >= 1
+
+    # Clean up
+    sample1.delete(permanent=True)
+    sample2.delete(permanent=True)
+    experiment1.delete(permanent=True)
+    sample_sheet.delete(permanent=True)
+    schema.delete(permanent=True)
+    experiment_type.delete(permanent=True)
+    gc_content.delete(permanent=True)
+    experiment.delete(permanent=True)
+
+
 def test_record_initialization():
     with pytest.raises(
         FieldValidationError,
