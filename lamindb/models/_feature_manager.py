@@ -1342,7 +1342,7 @@ class FeatureManager:
 
         Args:
             values: A dictionary of keys (features) & values (labels, strings, numbers, booleans, datetimes, etc.).
-                Keys can be feature names (`str`) or `Feature` records.
+                Keys can be feature names (`str`) or `Feature` objects.
                 If a value is `None`, it will be skipped.
             feature_field: The field of a registry to map the keys of the `values` dictionary.
             schema: Schema to validate against.
@@ -1549,7 +1549,7 @@ class FeatureManager:
 
         Args:
             values: A dictionary of keys (features) & values (labels, strings, numbers, booleans, datetimes, etc.).
-                Keys can be feature names (`str`) or `Feature` records.
+                Keys can be feature names (`str`) or `Feature` objects.
                 If a value is `None`, it will be skipped.
             feature_field: The field of a registry to map the keys of the `values` dictionary.
             schema: Schema to validate against.

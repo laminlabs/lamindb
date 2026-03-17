@@ -1102,7 +1102,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         key: `str | None = None` A key within the storage location, e.g., `"myfolder/myfile.fcs"`. Artifacts with the same key form a version family.
         description: `str | None = None` A description.
         kind: `Literal["dataset", "model"] | str | None = None` Distinguish models from datasets from other files & folders.
-        features: `dict | None = None` External features to annotate the artifact with via :class:`~lamindb.models.FeatureManager.set_values`.
+        features: `dict | None = None` External features to annotate the artifact with via :class:`~lamindb.models.FeatureManager.set_values` (keys can be feature names or `Feature` objects).
         schema: `Schema | None = None` A schema to validate features.
         revises: `Artifact | None = None` Previous version of the artifact. An alternative to passing `key` when creating a new version.
         overwrite_versions: `bool | None = None` Whether to overwrite versions. Defaults to `True` for folders and `False` for files.
@@ -2010,7 +2010,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             revises: An old version of the artifact.
             run: The run that creates the artifact.
             schema: A schema that defines how to validate & annotate.
-            features: Additional external features to annotate the artifact via :class:`~lamindb.models.FeatureManager.set_values`.
+            features: Additional external features to annotate the artifact via :class:`~lamindb.models.FeatureManager.set_values` (keys can be feature names or `Feature` objects).
             parquet_kwargs: Additional keyword arguments passed to the
                 `pandas.DataFrame.to_parquet` method, which are passed
                 on to `pyarrow.parquet.ParquetWriter`.
