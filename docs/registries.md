@@ -56,9 +56,9 @@ You can also get an overview of the entire database.
 ln.view()
 ```
 
-## Auto-complete records
+## Auto-complete objects
 
-For registries with less than 100k records, auto-completing a `Lookup` object is the most convenient way of finding a record.
+For registries with less than 100k objects, auto-completing a `Lookup` object is the most convenient way of finding a record.
 
 ```python
 records = ln.Record.lookup()
@@ -85,18 +85,18 @@ cell_types = bt.CellType.lookup()
 
 :::
 
-## Get one record
+## Get one object
 
-{meth}`~lamindb.models.SQLRecord.get` errors if none or more than one matching records are found.
+{meth}`~lamindb.models.SQLRecord.get` errors if none or more than one matching objects are found.
 
 ```python
 ln.Record.get(experiment_1.uid)  # by uid
 ln.Record.get(name="Experiment 1")  # by field
 ```
 
-## Query records by fields
+## Query objects by fields
 
-Filter for all artifacts annotated by a record and get the result as a dataframe:
+Filter for all artifacts with a given suffix:
 
 ```python
 qs = ln.Artifact.filter(suffix=".fastq.qz")
@@ -113,7 +113,7 @@ To access the results encoded in a filter statement, execute its return value wi
 Alternatively,
 
 - use the `QuerySet` as an iterator
-- get individual records via `qs[0]`, `qs[1]`
+- get individual objects via `qs[0]`, `qs[1]`
 
 For example:
 
@@ -123,7 +123,7 @@ qs.to_dataframe()
 
 Note that the `SQLRecord` registries in LaminDB are Django Models and any [Django query](https://docs.djangoproject.com/en/stable/topics/db/queries/) works.
 
-## Query records by features
+## Query objects by features
 
 The `Artifact`, `Record`, and `Run` registries can be queried by features.
 
@@ -162,7 +162,7 @@ ln.Artifact.filter(perturbation__isnull=False).to_dataframe(include="features")
 
 Here is an example for querying by parameters: {ref}`track-run-parameters`.
 
-## Search for records
+## Search for objects
 
 You can search every registry via {meth}`~lamindb.models.SQLRecord.search`. For example, the `Artifact` registry.
 
