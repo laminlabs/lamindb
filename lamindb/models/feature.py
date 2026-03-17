@@ -1006,7 +1006,7 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         Disambiguate duplicate feature names by querying with a `Feature` object::
 
             feature = ln.Feature.get(name="my_ambig_name", type__name="my_feature_type")
-            ln.Artifact.filter(feature == "hello")  # uses this exact feature record
+            ln.Artifact.filter(feature == "hello")  # instead of my_ambig_name="hello"
 
         A list dtype::
 
