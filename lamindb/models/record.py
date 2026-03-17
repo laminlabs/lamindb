@@ -86,13 +86,15 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
             # describe the record
             sample1.describe()
 
-        Group several records under a **record type**::
+        Group several records under a **record type**, optionally constrained with a :class:`~lamindb.Schema`, which lets the `type` act as a **sheet**::
 
             # create a record type to track experiments
             experiment_type = ln.Record(name="Experiment", is_type=True).save()
             experiment1 = ln.Record(name="Experiment 1", type=experiment_type).save()
 
-            # create a record type to track samples
+            # create a record type to track samples that's constrained with a schema
+            schema = ln.Schema([gc_content, experiment], name="sample_schema").save()
+            sheet = ln.Record(name="Sample", is_type=True, schema=schema).save()  # add schema to type
             sample_type = ln.Record(name="Sample", is_type=True).save()
 
             # group the sample1 record under the sample type
@@ -102,7 +104,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
             # annotate the sample with the experiment
             experiment = ln.Feature(name="experiment", dtype=experiment_type).save()
             sample1.features.add_values({
-                "experiment": "Experiment 1",
+                "experiment": "Experiment 1",  # automatically resolves by name, also acccepts the experiment1 object
             })
 
         Export all records under a type to a dataframe::
@@ -112,10 +114,8 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
             #>      Experiment 1   ...
             #>      Experiment 2   ...
 
-        **Constrain features** by using a :class:`~lamindb.Schema`, creating a **sheet**::
+        If you try to add incomplete features to a sheet, you'll get a validation error::
 
-            schema = ln.Schema([gc_content, experiment], name="sample_schema").save()
-            sheet = ln.Record(name="Sample", is_type=True, schema=schema).save()  # add schema to type
             sample2 = ln.Record(name="Sample 2", type=sheet).save()
             sample2.features.add_values({"gc_content": 0.6})  # raises ValidationError because experiment is missing
 
@@ -130,15 +130,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         .. image:: https://lamin-site-assets.s3.amazonaws.com/.lamindb/XSzhWUb0EoHOejiw0001.png
             :width: 800px
 
-        Model **custom ontologies** through their parents/children attributes::
-
-            cell_type = ln.Record(name="CellType", is_type=True).save()
-            t_cell = ln.Record(name="T Cell", type=cell_type).save()
-            cd4_t_cell = ln.Record(name="CD4+ T Cell", type=cell_type).save()
-            t_cell.children.add(cd4_t_cell)
-
-        If you work with basic biological entities like cell lines, cell types, tissues,
-        consider building on the public biological ontologies in :mod:`bionty`.
+        Just like for `ULabel`, you can also model **ontologies** through the `parents`/`children` attributes.
 
     .. dropdown:: What is the difference between `Record` and `SQLRecord`?
 
