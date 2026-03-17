@@ -16,7 +16,6 @@ Let's start by creating a few exemplary datasets and saving them into a LaminDB 
 ```python
 import lamindb as ln
 
-ln.track()
 ln.Artifact(ln.examples.datasets.file_fastq(), key="raw/my_fastq.fastq.gz").save()
 ln.Artifact(ln.examples.datasets.file_jpg_paradisi05(), key="my_image.jpg").save()
 ln.Artifact.from_dataframe(ln.examples.datasets.df_iris(), key="iris.parquet").save()
