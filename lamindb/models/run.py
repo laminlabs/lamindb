@@ -460,6 +460,10 @@ class Run(SQLRecord, TracksUpdates):
                 run.status
                 #> 'completed'
 
+            Query by status::
+
+                ln.Run.filter(status="completed").to_dataframe()
+
         """
         return RUN_CODE_TO_STATUS[self._status_code]
 

@@ -1658,6 +1658,10 @@ class Branch(BaseSQLRecord):
 
                 branch.status = "review"
                 branch.save()
+
+            Query by status::
+
+                ln.Branch.filter(status="merged").to_dataframe()
         """
         return BRANCH_CODE_TO_STATUS.get(self._status_code, "standalone")
 
