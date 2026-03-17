@@ -1248,6 +1248,16 @@ class FeatureManager:
         else:
             feature_records = self._get_feature_records(dictionary, feature_field)
             schema = Schema(feature_records)
+            current_values = self.get_values()
+            for key in keys:
+                existing = current_values.get(key)
+                if existing is not None:
+                    new_val = dictionary.get(key)
+                    if new_val is not None and type(existing) is type(new_val):
+                        raise ValidationError(
+                            f"Cannot add value for feature {key!r}: "
+                            "artifact already has a value of the same type."
+                        )
         ExperimentalDictCurator(values, schema, require_saved_schema=False).validate()
         return self._add_values(feature_records, dictionary)
 

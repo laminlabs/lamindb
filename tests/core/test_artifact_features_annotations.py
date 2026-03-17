@@ -534,6 +534,10 @@ Here is how to create a feature:
     # repeat
     artifact.features.add_values({"experiment": "Experiment 1"})
     assert artifact.links_record.get().record.name == "Experiment 1"
+    with pytest.raises(ln.errors.ValidationError) as error:
+        artifact.features.add_values({"experiment": "Experiment 1"})
+    assert "artifact already has a value of the same type" in error.exconly()
+    assert artifact.links_record.get().record.name == "Experiment 1"
 
     # numerical feature
     temperature = ln.Feature(name="temperature", dtype=ln.Record).save()
