@@ -17,7 +17,7 @@ from ._is_versioned import IsVersioned
 from .sqlrecord import SQLRecord, format_field_value
 
 if TYPE_CHECKING:
-    from lamindb.models import Artifact, Collection, Schema, Transform
+    from lamindb.models import Artifact, Collection, Record, Schema, Transform
 
     from .run import TracksRun
 
@@ -408,6 +408,53 @@ def describe_run(
     return tree
 
 
+def describe_record(
+    record: Record,
+    related_data: dict | None = None,
+) -> Tree:
+    from ._feature_manager import describe_features
+
+    tree = describe_header(record)
+    if related_data is not None:
+        fk_data = related_data.get("fk", {})
+    else:
+        fk_data = {}
+    _, features_tree = describe_features(
+        record,
+        related_data=related_data,
+    )
+    two_column_items = []  # type: ignore
+    append_uid_run(record, two_column_items, fk_data)
+    type_name = (
+        fk_data["type"]["name"]
+        if fk_data and "type" in fk_data and fk_data["type"]
+        else record.type.name
+        if record.type_id is not None
+        else ""
+    )
+    if type_name is None:
+        type_name = ""
+    two_column_items.append(Text.assemble(("type: ", "dim"), type_name))
+    two_column_items.append(Text.assemble(("is_type: ", "dim"), f"{record.is_type}"))
+    schema_name = (
+        fk_data["schema"]["name"]
+        if fk_data and "schema" in fk_data and fk_data["schema"]
+        else record.schema.name
+        if record.schema_id is not None
+        else ""
+    )
+    if schema_name is None:
+        schema_name = ""
+    two_column_items.append(Text.assemble(("schema: ", "dim"), schema_name))
+    reference = record.reference if record.reference is not None else ""
+    two_column_items.append(Text.assemble(("reference: ", "dim"), reference))
+    append_branch_space_created_at_created_by(record, two_column_items, fk_data)
+    add_two_column_items_to_tree(tree, two_column_items)
+    if features_tree:
+        tree.add(features_tree)
+    return tree
+
+
 def describe_transform(
     record: Transform,
     related_data: dict | None = None,
@@ -552,6 +599,14 @@ def describe_postgres(record):
             tree = describe_artifact(record, related_data=related_data)
         else:
             tree = describe_run(record, related_data=related_data)
+    elif model_name == "Record":
+        result = get_artifact_or_run_with_related(
+            record,
+            include_feature_link=True,
+            include_fk=True,
+        )
+        related_data = result.get("related_data", {})
+        tree = describe_record(record, related_data=related_data)
     elif model_name == "Collection":
         result = get_collection_with_related(record, include_fk=True)
         related_data = result.get("related_data", {})
@@ -598,11 +653,13 @@ def describe_sqlite(record):
             .prefetch_related(*many_to_many_fields)
             .get(id=record.id)
         )
-    if model_name in {"Artifact", "Run"}:
+    if model_name in {"Artifact", "Run", "Record"}:
         if model_name == "Artifact":
             tree = describe_artifact(record)
-        else:
+        elif model_name == "Run":
             tree = describe_run(record)
+        else:
+            tree = describe_record(record)
     elif model_name == "Collection":
         tree = describe_collection(record)
     elif model_name == "Transform":

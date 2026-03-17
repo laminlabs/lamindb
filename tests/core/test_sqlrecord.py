@@ -118,6 +118,20 @@ def test_repr_describe():
     assert user.describe(return_str=True).startswith("User")
 
 
+def test_record_describe_includes_features():
+    record = ln.Record(name="describe record").save()
+    feature = ln.Feature(name="describe_metric", dtype=float).save()
+    record.features.add_values({"describe_metric": 1.23})
+
+    output = record.describe(return_str=True)
+    assert "Features" in output
+    assert "describe_metric" in output
+    assert "1.23" in output
+
+    record.delete(permanent=True)
+    feature.delete(permanent=True)
+
+
 def test_validate_literal_fields():
     # validate literal
     with pytest.raises(FieldValidationError):
