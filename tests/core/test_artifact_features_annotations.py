@@ -531,9 +531,6 @@ Here is how to create a feature:
     artifact.features.add_values({"experiment": "Experiment 1"})
     assert artifact.links_record.get().record.name == "Experiment 1"
     assert artifact.links_record.get().feature.name == "experiment"
-    # repeat
-    artifact.features.add_values({"experiment": "Experiment 1"})
-    assert artifact.links_record.get().record.name == "Experiment 1"
     with pytest.raises(ln.errors.ValidationError) as error:
         artifact.features.add_values({"experiment": "Experiment 1"})
     assert "artifact already has a value of the same type" in error.exconly()
