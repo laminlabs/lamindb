@@ -1281,6 +1281,14 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
             ln.Artifact.filter(scientist="Barbara McClintock")
 
+        If your feature names are ambiguous, you can use a `Feature` object to disambiguate::
+
+            # to add feature values
+            artifact.features.add_values({temperature: 0.5})  # temperature is the feature object
+
+            # to query by feature values
+            ln.Artifact.filter(temperature == 0.5)  # instead of temperature=0.5
+
         Note: Features may or may not be part of the dataset, i.e., the artifact content in storage.
         For instance, the :class:`~lamindb.curators.DataFrameCurator` flow validates the columns of a
         `DataFrame`-like artifact and annotates it with features corresponding to these columns.

@@ -387,7 +387,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
 
     @property
     def features(self) -> FeatureManager:
-        """Manage annotations with features."""
+        """Manage the linked feature values."""
         from ._feature_manager import FeatureManager
 
         return FeatureManager(self)
