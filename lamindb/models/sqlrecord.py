@@ -60,7 +60,13 @@ from ..base.fields import (
     JSONField,
     TextField,
 )
-from ..base.types import BranchStatus, FieldAttr, StrField
+from ..base.types import (
+    BRANCH_CODE_TO_STATUS,
+    BRANCH_STATUS_TO_CODE,
+    BranchStatus,
+    FieldAttr,
+    StrField,
+)
 from ..base.uids import base62_12
 from ..errors import (
     FieldValidationError,
@@ -1626,11 +1632,15 @@ class Branch(BaseSQLRecord):
 
         Get and set the status of the branch:
 
-        - `standalone`: a standalone branch without Merge Request
-        - `draft`: Merge Request exists but is not ready for review
-        - `review`: Merge Request is ready for review
-        - `merged`: the branch was merged into another branch
-        - `closed`: Merge Request was closed without merging
+        =============  =====  ==================================================
+        status         code   description
+        =============  =====  ==================================================
+        `standalone`   0      a standalone branch without Merge Request
+        `draft`        1      Merge Request exists but is not ready for review
+        `review`       2      Merge Request is ready for review
+        `merged`       -1     the branch was merged into another branch
+        `closed`       -2     Merge Request was closed without merging
+        =============  =====  ==================================================
 
         Example:
 
@@ -1649,31 +1659,16 @@ class Branch(BaseSQLRecord):
                 branch.status = "review"
                 branch.save()
         """
-        if self._status_code == -2:
-            return "closed"
-        if self._status_code == -1:
-            return "merged"
-        if self._status_code == 1:
-            return "draft"
-        if self._status_code == 2:
-            return "review"
-        return "standalone"
+        return BRANCH_CODE_TO_STATUS.get(self._status_code, "standalone")
 
     @status.setter
     def status(self, value: BranchStatus) -> None:
-        status_to_code = {
-            "closed": -2,
-            "merged": -1,
-            "standalone": 0,
-            "draft": 1,
-            "review": 2,
-        }
-        if value not in status_to_code:
+        if value not in BRANCH_STATUS_TO_CODE:
             raise ValueError(
                 "Invalid branch status. Expected one of: "
                 "'standalone', 'draft', 'review', 'merged', 'closed'."
             )
-        self._status_code = status_to_code[value]
+        self._status_code = BRANCH_STATUS_TO_CODE[value]
 
     @overload
     def __init__(

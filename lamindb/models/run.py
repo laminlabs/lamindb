@@ -25,6 +25,7 @@ from lamindb.base.fields import (
 from lamindb.base.users import current_user_id
 from lamindb.base.utils import strict_classmethod
 
+from ..base.types import RUN_CODE_TO_STATUS
 from ..base.uids import base62_16
 from .can_curate import CanCurate
 from .query_set import BasicQuerySet, QuerySet
@@ -439,12 +440,18 @@ class Run(SQLRecord, TracksUpdates):
 
         Get the status of the run:
 
-        - `scheduled`: run is scheduled
-        - `restarted`: run was restarted
-        - `started`: run has started
-        - `completed`: run completed successfully
-        - `errored`: run ended with an error
-        - `aborted`: run was aborted
+        ===========  =====  ===========================
+        status       code   description
+        ===========  =====  ===========================
+        `scheduled`  -3     run is scheduled
+        `restarted`  -2     run was restarted
+        `started`    -1     run has started
+        `completed`  0      run completed successfully
+        `errored`    1      run ended with an error
+        `aborted`    2      run was aborted
+        ===========  =====  ===========================
+
+        The database stores the run status as an integer code in field `_status_code`.
 
         Example:
 
@@ -454,15 +461,7 @@ class Run(SQLRecord, TracksUpdates):
                 #> 'completed'
 
         """
-        status_dict: dict[int, RunStatus] = {
-            -3: "scheduled",
-            -2: "restarted",
-            -1: "started",
-            0: "completed",
-            1: "errored",
-            2: "aborted",
-        }
-        return status_dict[self._status_code]
+        return RUN_CODE_TO_STATUS[self._status_code]
 
     @property
     def features(self) -> FeatureManager:

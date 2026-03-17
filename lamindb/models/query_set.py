@@ -26,6 +26,7 @@ from lamindb_setup import settings as setup_settings
 from lamindb_setup.core import deprecated
 from lamindb_setup.core._docs import doc_args
 
+from ..base.types import BRANCH_STATUS_TO_CODE, RUN_STATUS_TO_CODE
 from ..errors import DoesNotExist, MultipleResultsFound
 from ._is_versioned import IsVersioned, _adjust_is_latest_when_deleting_is_versioned
 from .can_curate import CanCurate, _inspect, _standardize, _validate
@@ -153,7 +154,10 @@ def one_helper(
 def get_backward_compat_filter_kwargs(queryset, expressions):
     from lamindb.models import (
         Artifact,
+        Branch,
         Feature,
+        Project,
+        Run,
     )
 
     if issubclass(queryset.model, IsVersioned):
@@ -177,6 +181,12 @@ def get_backward_compat_filter_kwargs(queryset, expressions):
                 "dtype_as_str": "_dtype_str",
             }
         )
+    if queryset.model in {Run, Branch, Project}:
+        name_mappings.update(
+            {
+                "status": "_status_code",
+            }
+        )
 
     # If no mappings to apply, return expressions as-is
     if not name_mappings:
@@ -186,6 +196,30 @@ def get_backward_compat_filter_kwargs(queryset, expressions):
         was_list = True
         expressions = {field: True for field in expressions}
     mapped = {}
+    status_mapping = None
+    if queryset.model is Run:
+        status_mapping = RUN_STATUS_TO_CODE
+    elif queryset.model is Branch:
+        status_mapping = BRANCH_STATUS_TO_CODE
+
+    def _map_status_value(value):
+        if status_mapping is None:
+            return value
+        if isinstance(value, str):
+            if value not in status_mapping:
+                expected = ", ".join(f"'{status}'" for status in status_mapping)
+                raise ValueError(
+                    f"Invalid {queryset.model.__name__} status '{value}'. "
+                    f"Expected one of: {expected}."
+                )
+            return status_mapping[value]
+        if isinstance(value, IterableType) and not isinstance(value, str):
+            return [
+                status_mapping[v] if isinstance(v, str) and v in status_mapping else v
+                for v in value
+            ]
+        return value
+
     for field, value in expressions.items():
         parts = field.split("__")
         if parts[0] in name_mappings:
@@ -206,7 +240,9 @@ def get_backward_compat_filter_kwargs(queryset, expressions):
             new_field = name_mappings[parts[0]] + (
                 "__" + "__".join(parts[1:]) if len(parts) > 1 else ""
             )
-            mapped[new_field] = value
+            mapped[new_field] = (
+                _map_status_value(value) if parts[0] == "status" else value
+            )
         else:
             mapped[field] = value
     return list(mapped.keys()) if was_list else mapped
@@ -1377,11 +1413,19 @@ class QuerySet(BasicQuerySet):
         from lamindb.models import Artifact, Record, Run
 
         registry = self.model
-        if not expressions.pop("_skip_filter_with_features", False) and registry in {
-            Artifact,
-            Run,
-            Record,
-        }:
+        is_status_filter_on_run = registry is Run and any(
+            key.split("__")[0] == "status" for key in expressions
+        )
+        if (
+            not expressions.pop("_skip_filter_with_features", False)
+            and registry
+            in {
+                Artifact,
+                Run,
+                Record,
+            }
+            and not is_status_filter_on_run
+        ):
             from ._feature_manager import filter_with_features
 
             qs = filter_with_features(self, *queries, **expressions)

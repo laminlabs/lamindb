@@ -63,13 +63,42 @@ RunStatus = Literal[
 ]
 """Run status.
 
-- `scheduled`: run is scheduled
-- `restarted`: run was restarted
-- `started`: run has started
-- `completed`: run completed successfully
-- `errored`: run ended with an error
-- `aborted`: run was aborted
+===========  =====  ===========================
+status       code   description
+===========  =====  ===========================
+`scheduled`  -3     run is scheduled
+`restarted`  -2     run was restarted
+`started`    -1     run has started
+`completed`  0      run completed successfully
+`errored`    1      run ended with an error
+`aborted`    2      run was aborted
+===========  =====  ===========================
+
+The database stores the run status as an integer code in field `_status_code`.
 """
+
+RUN_STATUS_TO_CODE: dict[RunStatus, int] = {
+    "scheduled": -3,
+    "restarted": -2,
+    "started": -1,
+    "completed": 0,
+    "errored": 1,
+    "aborted": 2,
+}
+RUN_CODE_TO_STATUS: dict[int, RunStatus] = {
+    code: status for status, code in RUN_STATUS_TO_CODE.items()
+}
+
+BRANCH_STATUS_TO_CODE: dict[BranchStatus, int] = {
+    "closed": -2,
+    "merged": -1,
+    "standalone": 0,
+    "draft": 1,
+    "review": 2,
+}
+BRANCH_CODE_TO_STATUS: dict[int, BranchStatus] = {
+    code: status for status, code in BRANCH_STATUS_TO_CODE.items()
+}
 
 DtypeObject = int | float | str | bool | datetime.date | datetime.datetime | dict
 
