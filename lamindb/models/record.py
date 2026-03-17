@@ -80,7 +80,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
             # create a feature if you don't yet have one
             gc_content = ln.Feature(name="gc_content", dtype=float).save()
 
-            # annotate the record with a feature value
+            # add a feature value to the record
             sample1.features.add_values({"gc_content": 0.5})
 
             # describe the record
@@ -88,7 +88,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
 
         Group several records under a **record type**, optionally constrained with a :class:`~lamindb.Schema`, which lets the `type` act as a **sheet**::
 
-            # create a record type to track experiments
+            # create a flexible record type to track experiments
             experiment_type = ln.Record(name="Experiment", is_type=True).save()
             experiment1 = ln.Record(name="Experiment 1", type=experiment_type).save()
 
@@ -96,14 +96,14 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
             experiment = ln.Feature(name="experiment", dtype=experiment_type).save()
 
             # create a record type to track samples that's constrained with a schema
-            schema = ln.Schema([gc_content, experiment], name="sample_schema").save()
+            schema = ln.Schema([experiment, gc_content.with_config(optional=True)], name="sample_schema").save()
             sample_sheet = ln.Record(name="Sample Sheet", is_type=True, schema=schema).save()
 
             # group the sample1 record under the sample sheet
             sample1.type = sample_sheet
             sample1.save()
 
-            # annotate the sample with the experiment
+            # add the sample1 record to the experiment
             sample1.features.add_values({
                 "experiment": "Experiment 1",  # automatically resolves by name, also accepts the experiment1 object
             })
