@@ -17,7 +17,7 @@ classifiers = [
 dependencies = [
     "lamin_utils==0.16.4",  # no dependencies
     "lamin_cli==1.15a1",  # no dependencies
-    "lamindb_setup[aws]==1.23a2",  # dependencies
+    "lamindb_setup[aws]==1.23a2",  # dependencies like Django & fsspec
     "psycopg2-binary",
 ]
 
@@ -28,21 +28,21 @@ Home = "https://github.com/laminlabs/lamindb"
 # full: keep in sync with pyproject.full.toml dependencies (excluding lamindb-core).
 # If you change duplicated deps here, update pyproject.full.toml too, and vice versa.
 full = [
-    # From pyproject.full.toml – LaminDB optional modules & convenience stack
-    "bionty==2.3a1",
-    "pertdb==2.2a1",
-    # Jupyter stack
+    # LaminDB optional modules, included to avoid users forgetting about extras
+    "bionty==2.3a1",  # 30kB pure python, no dependencies
+    "pertdb==2.2a1",  # 30kB pure python, no dependencies
+    # Jupyter -- small packages with few & small dependencies
     "jupytext",
-    "nbconvert>=7.2.1",
-    "nbproject==0.11.1",
-    # Data & validation
+    "nbconvert>=7.2.1",  # bound to avoid lxml[html_clean] dependency
+    "nbproject==0.11.1",  # adds orjson
+    # Data & validation dependencies (heavier)
     "pyarrow",
     "pandera>=0.24.0",
-    "pandas>=2.0.0,<3.0.0",
-    "anndata>=0.10.0,<=0.12.10",
+    "pandas>=2.0.0,<3.0.0",  # for .infer_objects(copy=False) in lamin-utils; not yet compatible with Pandas 3.0.0
+    "anndata>=0.10.0,<=0.12.10",  # backed sparse is incompatible with scipy 1.15.0 for anndata 1.11.1
     # Runtime utilities
     "graphviz",
-    "scipy<1.17.0",
+    "scipy<1.17.0",  # 1.17.0 is incompatible with anndata<0.12.7
     "pyyaml",
     "typing_extensions!=4.6.0",
     "python-dateutil",
