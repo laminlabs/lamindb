@@ -756,3 +756,23 @@ def test_only_list_type_features_and_field_qualifiers():
     a549.delete(permanent=True)
     uberon2369.delete(permanent=True)
     uberon5172.delete(permanent=True)
+
+
+def test_record_feature_predicate_query():
+    age = ln.Feature(name="pred_record_age", dtype=int).save()
+    record_type = ln.Record(name="PredRecordType", is_type=True).save()
+    record_a = ln.Record(name="pred_record_a", type=record_type).save()
+    record_b = ln.Record(name="pred_record_b", type=record_type).save()
+    record_a.features.add_values({"pred_record_age": 42})
+    record_b.features.add_values({"pred_record_age": 10})
+
+    assert ln.Record.filter(age > 40).one() == record_a
+    assert ln.Record.filter(age <= 10).one() == record_b
+    neq_results = ln.Record.filter(age != 42)
+    assert record_b in neq_results
+    assert record_a not in neq_results
+
+    record_a.delete(permanent=True)
+    record_b.delete(permanent=True)
+    record_type.delete(permanent=True)
+    age.delete(permanent=True)

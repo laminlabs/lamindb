@@ -1412,18 +1412,22 @@ class QuerySet(BasicQuerySet):
         """Query a set of records."""
         from lamindb.models import Artifact, Record, Run
 
+        from .feature import FeaturePredicate
+
+        feature_predicates = [q for q in queries if isinstance(q, FeaturePredicate)]
+        queries = tuple(q for q in queries if not isinstance(q, FeaturePredicate))
         registry = self.model
         is_status_filter_on_run = registry is Run and any(
             key.split("__")[0] == "status" for key in expressions
         )
+        can_filter_with_features = registry in {
+            Artifact,
+            Run,
+            Record,
+        }
         if (
             not expressions.pop("_skip_filter_with_features", False)
-            and registry
-            in {
-                Artifact,
-                Run,
-                Record,
-            }
+            and can_filter_with_features
             and not is_status_filter_on_run
         ):
             from ._feature_manager import filter_with_features
@@ -1447,10 +1451,21 @@ class QuerySet(BasicQuerySet):
             # need to run a query if queries or expressions are not empty
             if queries or expressions:
                 try:
-                    return super().filter(*queries, **expressions)
+                    qs = super().filter(*queries, **expressions)
                 except FieldError as e:
                     self._handle_unknown_field(e)
-            qs = self
+            else:
+                qs = self
+        if feature_predicates:
+            if not can_filter_with_features:
+                raise FieldError(
+                    f"Feature predicates are only supported for Artifact, Run, and Record, not {registry.__name__}."
+                )
+            from ._feature_manager import filter_with_feature_predicates
+
+            qs = filter_with_feature_predicates(
+                qs._to_class(BasicQuerySet, copy=True), feature_predicates
+            )._to_class(type(qs), copy=False)
         return qs
 
 
