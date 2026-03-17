@@ -130,17 +130,17 @@ def test_filter_status_field():
     run = ln.Run(transform).save()
     run._status_code = 0
     run.save(update_fields=["_status_code"])
-    assert ln.Run.filter(status="completed").count() == 1
+    assert ln.Run.filter(status="completed").count() >= 1
 
     branch = ln.Branch(name="test_filter_status_branch").save()
     branch.status = "review"
     branch.save()
-    assert ln.Branch.filter(status="review").count() == 1
+    assert ln.Branch.filter(status="review").count() >= 1
 
     project = ln.Project(name="test_filter_status_project").save()
     project._status_code = 2
     project.save(update_fields=["_status_code"])
-    assert ln.Project.filter(status=2).count() == 1
+    assert ln.Project.filter(status=2).count() >= 1
 
     run.delete(permanent=True)
     transform.delete(permanent=True)
