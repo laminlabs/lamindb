@@ -47,13 +47,13 @@ if TYPE_CHECKING:
     from .schema import Schema
 
 
+# keep docstring in sync with test_record_docstring_examples in test_record_basics.py
 class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates):
     """Flexible metadata records.
 
     Useful for managing samples, donors, cells, compounds, sequences, and other custom entities with their features.
 
-    Records can also be used for labeling artifacts, runs, transforms, and collections.
-    In some cases a simple label without features is enough: :class:`~lamindb.ULabel`.
+    If you just want a simple label, use :class:`~lamindb.ULabel`.
 
     Args:
         name: `str | None = None` A name.
@@ -66,67 +66,73 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         reference_type: `str | None = None` For instance, `"url"`.
 
     See Also:
-        :meth:`~lamindb.Feature`
+        :class:`~lamindb.Feature`
             Dimensions of measurement (e.g. column of a sheet, attribute of a record).
-        :meth:`~lamindb.ULabel`
+        :class:`~lamindb.ULabel`
             Like `Record`, just without the ability to store features.
 
     Examples:
 
-        Create a **record** and annotate an :class:`~lamindb.Artifact`::
+        Create a **record** and annotate it with features::
 
+            # create a record to track a sample
             sample1 = ln.Record(name="Sample 1").save()
-            artifact.records.add(sample1)
 
-        Group several records under a **record type**::
+            # create a feature if you don't yet have one
+            gc_content = ln.Feature(name="gc_content", dtype=float).save()
 
+            # add a feature value to the record
+            sample1.features.add_values({"gc_content": 0.5})
+
+            # describe the record
+            sample1.describe()
+
+        Group several records under a **record type**, optionally constrained with a :class:`~lamindb.Schema`::
+
+            # create a flexible record type to track experiments
             experiment_type = ln.Record(name="Experiment", is_type=True).save()
             experiment1 = ln.Record(name="Experiment 1", type=experiment_type).save()
-            experiment2 = ln.Record(name="Experiment 2", type=experiment_type).save()
 
-        Export all records of that type to dataframe::
-
-            experiment_type.records.to_dataframe()
-            #>              name   ...
-            #>      Experiment 1   ...
-            #>      Experiment 2   ...
-
-        Add **features** to a record::
-
-            gc_content = ln.Feature(name="gc_content", dtype=float).save()
+            # create a feature to link experiments
             experiment = ln.Feature(name="experiment", dtype=experiment_type).save()
+
+            # create a record type to track samples -- constrain it with a schema
+            schema = ln.Schema([experiment, gc_content.with_config(optional=True)], name="sample_schema").save()
+            sample_sheet = ln.Record(name="Sample Sheet", is_type=True, schema=schema).save()
+
+            # group the sample1 record under the sample sheet
+            sample1.type = sample_sheet
+            sample1.save()
+
+            # add the sample1 record to the experiment
             sample1.features.add_values({
-                "gc_content": 0.5,
-                "experiment": "Experiment 1",
+                "experiment": "Experiment 1",  # automatically resolves by name, also accepts the experiment1 object
             })
 
-        **Constrain features** by using a :class:`~lamindb.Schema`, creating a **sheet**::
+        Export all records under a type to a dataframe::
 
-            schema = ln.Schema([gc_content, experiment], name="sample_schema").save()
-            sheet = ln.Record(name="Sample", is_type=True, schema=schema).save()  # add schema to type
-            sample2 = ln.Record(name="Sample 2", type=sheet).save()
+            experiment_type.to_dataframe()
+            #> __lamindb_record_name__   ...
+            #>            Experiment 1   ...
+            #>            Experiment 2   ...
+
+        If you try to add incomplete features to a sheet, you'll get a validation error::
+
+            sample2 = ln.Record(name="Sample 2", type=sample_sheet).save()
             sample2.features.add_values({"gc_content": 0.6})  # raises ValidationError because experiment is missing
 
         Query records by features::
 
             ln.Record.filter(gc_content=0.55)     # exact match
             ln.Record.filter(gc_content__gt=0.5)  # greater than
-            ln.Record.filter(type=sheet)          # just the record on the sheet
+            ln.Record.filter(type=sample_sheet)   # just the record on the sheet
 
         You can create relationships of entities and edit them like Excel sheets on LaminHub:
 
         .. image:: https://lamin-site-assets.s3.amazonaws.com/.lamindb/XSzhWUb0EoHOejiw0001.png
             :width: 800px
 
-        Model **custom ontologies** through their parents/children attributes::
-
-            cell_type = ln.Record(name="CellType", is_type=True).save()
-            t_cell = ln.Record(name="T Cell", type=cell_type).save()
-            cd4_t_cell = ln.Record(name="CD4+ T Cell", type=cell_type).save()
-            t_cell.children.add(cd4_t_cell)
-
-        If you work with basic biological entities like cell lines, cell types, tissues,
-        consider building on the public biological ontologies in :mod:`bionty`.
+        Just like for :class:`~lamindb.ULabel`, you can also model **ontologies** through the `parents`/`children` attributes.
 
     .. dropdown:: What is the difference between `Record` and `SQLRecord`?
 
