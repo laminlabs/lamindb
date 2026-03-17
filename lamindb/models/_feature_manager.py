@@ -1334,7 +1334,7 @@ class FeatureManager:
 
     def add_values(
         self,
-        values: dict[str | Feature, str | int | float | bool],
+        values: dict[str | Feature, Any],
         feature_field: FieldAttr = Feature.name,
         schema: Schema = None,
     ) -> None:
@@ -1539,7 +1539,7 @@ class FeatureManager:
 
     def set_values(
         self,
-        values: dict[str | Feature, str | int | float | bool],
+        values: dict[str | Feature, Any],
         feature_field: FieldAttr = Feature.name,
         schema: Schema = None,
     ) -> None:
