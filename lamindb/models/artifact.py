@@ -203,8 +203,11 @@ def process_pathlike(
                 # for a cloud path, new_root is always the bucket name
                 if filepath.protocol == "hf":
                     hf_path = filepath.fs.resolve_path(filepath.as_posix())
-                    hf_path.path_in_repo = ""
-                    new_root = "hf://" + hf_path.unresolve().rstrip("/")
+                    if hasattr(hf_path, "root"):
+                        new_root = "hf://" + hf_path.root
+                    else:
+                        hf_path.path_in_repo = ""
+                        new_root = "hf://" + hf_path.unresolve().rstrip("/")
                 else:
                     if filepath.protocol == "s3":
                         # check that endpoint_url didn't propagate here
