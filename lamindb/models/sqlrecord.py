@@ -24,7 +24,7 @@ import dj_database_url
 import lamindb_setup as ln_setup
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import IntegrityError, ProgrammingError, connections, models, transaction
-from django.db.models import CASCADE, PROTECT, Field, Manager, QuerySet
+from django.db.models import CASCADE, DEFERRED, PROTECT, Field, Manager, QuerySet
 from django.db.models import ForeignKey as django_ForeignKey
 from django.db.models.base import ModelBase
 from django.db.models.fields.related import (
@@ -1062,7 +1062,19 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
     # populates the _original_values dictionary with the original values of the tracked fields
     def _populate_tracked_fields(self):
         if (track_fields := self._TRACK_FIELDS) is not None:
-            self._original_values = {f: self.__dict__[f] for f in track_fields}
+            concrete_attnames = {f.attname for f in self._meta.concrete_fields}
+            self._original_values = {}
+            for field_name in track_fields:
+                if field_name not in concrete_attnames:
+                    raise FieldValidationError(
+                        f"_TRACK_FIELDS contains invalid field for {self.__class__.__name__}: {field_name}"
+                    )
+                # deferred model loading (e.g. .only("id") or certain fetching methods during deletion)
+                # can omit tracked fields from __dict__;
+                # use .get(..., DEFERRED) to avoid KeyError and to show that the field is not loaded yet.
+                self._original_values[field_name] = self.__dict__.get(
+                    field_name, DEFERRED
+                )
         else:
             self._original_values = None
 
@@ -1080,7 +1092,13 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
             f"Field {field_name} is not tracked for changes"
         )
         # check if the field has changed since the record was created
-        return self._original_values[field_name] != self.__dict__[field_name]
+        original_value = self._original_values.get(field_name, DEFERRED)
+        if original_value is DEFERRED:
+            return False
+        current_value = self.__dict__.get(field_name, DEFERRED)
+        if current_value is DEFERRED:
+            return False
+        return original_value != current_value
 
     def save(self: T, *args, **kwargs) -> T:
         """Save.

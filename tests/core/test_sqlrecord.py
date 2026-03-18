@@ -454,3 +454,32 @@ def test_unsaved_model_different_instance():
     )
 
     new_label.delete(permanent=True)
+
+
+def test_track_fields_with_deferred_columns(example_dataframe: pd.DataFrame):
+    artifact = ln.Artifact.from_dataframe(
+        example_dataframe, key="deferred-track-fields.parquet"
+    ).save()
+
+    # loading a tracked field as deferred should not crash in __init__
+    deferred_artifact = ln.Artifact.filter(id=artifact.id).only("id").one()
+    assert deferred_artifact.id == artifact.id
+    assert not deferred_artifact._field_changed("space_id")
+
+    artifact.delete(permanent=True)
+
+
+def test_track_fields_must_exist_on_model(monkeypatch, example_dataframe: pd.DataFrame):
+    artifact = ln.Artifact.from_dataframe(
+        example_dataframe, key="invalid-track-field.parquet"
+    ).save()
+
+    monkeypatch.setattr(ln.Artifact, "_TRACK_FIELDS", ("space_id", "not_a_real_field"))
+
+    with pytest.raises(
+        FieldValidationError,
+        match="_TRACK_FIELDS contains invalid field for Artifact: not_a_real_field",
+    ):
+        ln.Artifact.get(artifact.id)
+
+    artifact.delete(permanent=True)
