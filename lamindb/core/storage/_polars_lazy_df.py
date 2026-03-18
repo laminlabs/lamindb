@@ -1,16 +1,16 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 from lamindb_setup.core.upath import _ensure_sync_with_fs, get_storage_region
+from upath import UPath
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
     from polars import LazyFrame as PolarsLazyFrame
-    from upath import UPath
+
 
 POLARS_SUFFIXES = (".parquet", ".csv", ".ndjson", ".ipc")
 
@@ -87,11 +87,11 @@ def _open_polars_lazy_df(
     }
 
     path_list = []
-    if isinstance(paths, Path):
+    if isinstance(paths, UPath):
         paths = [paths]
     for path in paths:
         # assume http is always a file
-        if getattr(path, "protocol", None) not in {"http", "https"} and path.is_dir():
+        if path.protocol not in {"http", "https"} and path.is_dir():
             path_list += [p for p in path.rglob("*") if p.suffix != ""]
         else:
             path_list.append(path)

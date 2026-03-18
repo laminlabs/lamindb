@@ -26,10 +26,7 @@ def _open_pyarrow_dataset(paths: UPath | list[UPath], **kwargs) -> PyArrowDatase
             path_to_str = lambda p: p.path
             filesystem = path0.fs
         for path in paths:
-            if (
-                getattr(path, "protocol", None) not in {"http", "https"}
-                and path.is_dir()
-            ):
+            if path.protocol not in {"http", "https"} and path.is_dir():
                 paths_str += [path_to_str(p) for p in path.rglob("*") if p.suffix != ""]
             else:
                 paths_str.append(path_to_str(path))
