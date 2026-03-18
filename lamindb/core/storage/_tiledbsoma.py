@@ -17,7 +17,7 @@ from lamindb_setup.core.upath import (
 from packaging import version
 
 if TYPE_CHECKING:
-    from lamindb_setup.types import UPathStr
+    from lamindb_setup.types import AnyPathStr
     from tiledbsoma import Collection as SOMACollection
     from tiledbsoma import Experiment as SOMAExperiment
     from tiledbsoma import Measurement as SOMAMeasurement
@@ -165,7 +165,7 @@ def _open_tiledbsoma(
 
 def save_tiledbsoma_experiment(
     # Artifact args
-    adatas: list[AnnData | UPathStr],
+    adatas: list[AnnData | AnyPathStr],
     key: str | None = None,
     description: str | None = None,
     run: Run | None = None,

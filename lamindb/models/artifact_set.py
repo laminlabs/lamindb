@@ -14,7 +14,7 @@ from .collection import Collection, _load_concat_artifacts
 
 if TYPE_CHECKING:
     from anndata import AnnData
-    from lamindb_setup.types import UPathStr
+    from lamindb_setup.types import AnyPathStr
     from pandas import DataFrame
     from polars import LazyFrame as PolarsLazyFrame
     from pyarrow.dataset import Dataset as PyArrowDataset
@@ -130,7 +130,7 @@ class ArtifactSet(Iterable):
         return ds
 
 
-def artifacts_from_path(artifacts: ArtifactSet, path: UPathStr) -> ArtifactSet:
+def artifacts_from_path(artifacts: ArtifactSet, path: AnyPathStr) -> ArtifactSet:
     """Returns artifacts in the query set that are registered for the provided path."""
     from lamindb.models import BasicQuerySet, QuerySet
 

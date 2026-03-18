@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any
 import lamindb_setup as ln_setup
 from lamin_utils import logger
 from lamindb_setup.core.upath import UPath
+from lamindb_setup.types import AnyPathStr
 
 if TYPE_CHECKING:
     import lamindb as ln
@@ -34,7 +35,7 @@ def curate_from_croissant(
     from ..models.artifact import check_path_in_existing_storage
 
     # Load CroissantML data
-    if isinstance(croissant_data, (str, Path)):
+    if isinstance(croissant_data, AnyPathStr):
         if not Path(croissant_data).exists():
             raise FileNotFoundError(f"File not found: {croissant_data}")
         with open(croissant_data, encoding="utf-8") as f:

@@ -15,7 +15,7 @@ from lamindb.core._settings import settings
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from lamindb_setup.types import UPathStr
+    from lamindb_setup.types import AnyPathStr
 
     from lamindb.models.artifact import Artifact
 
@@ -47,7 +47,7 @@ def auto_storage_key_from_artifact_uid(
     return storage_key
 
 
-def check_path_is_child_of_root(path: UPathStr, root: UPathStr) -> bool:
+def check_path_is_child_of_root(path: AnyPathStr, root: AnyPathStr) -> bool:
     if fsspec.utils.get_protocol(str(path)) != fsspec.utils.get_protocol(str(root)):
         return False
     path_upath = UPath(path)
@@ -144,7 +144,7 @@ def filepath_cache_key_from_artifact(
 
 
 def store_file_or_folder(
-    local_path: UPathStr, storage_path: UPath, print_progress: bool = True, **kwargs
+    local_path: AnyPathStr, storage_path: UPath, print_progress: bool = True, **kwargs
 ) -> None:
     """Store file or folder (localpath) at storagepath."""
     local_path = UPath(local_path)

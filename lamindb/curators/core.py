@@ -1820,7 +1820,7 @@ class DataFrameCatManager:
         self._non_validated = None
         self._index = index
         self._artifact: Artifact = None  # pass the dataset as an artifact
-        self._dataset: Any = df  # pass the dataset as a UPathStr or data object
+        self._dataset: Any = df  # pass the dataset as a AnyPathStr or data object
         if isinstance(self._dataset, Artifact):
             self._artifact = self._dataset
             self._dataset = self._dataset.load(is_run_input=False)

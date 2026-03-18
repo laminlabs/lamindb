@@ -34,7 +34,7 @@ from ._sync_git import get_transform_reference_from_git_repo
 from ._track_environment import track_python_environment
 
 if TYPE_CHECKING:
-    from lamindb_setup.types import UPathStr
+    from lamindb_setup.types import AnyPathStr
 
     from lamindb.base.types import TransformKind
     from lamindb.models import Artifact, Branch, Project, Space
@@ -55,7 +55,7 @@ def get_key_from_module(caller_module: str) -> str:
 
 def detect_and_process_source_code_file(
     *,
-    path: UPathStr | None,
+    path: AnyPathStr | None,
     transform_kind: TransformKind | None = None,
 ) -> tuple[Path, TransformKind, str, str, str | None]:
     """Track source code file and determine transform metadata.

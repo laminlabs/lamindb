@@ -13,7 +13,7 @@ from lamindb.core._compat import (
 from .types import ScverseDataStructures
 
 if TYPE_CHECKING:
-    from lamindb_setup.types import UPathStr
+    from lamindb_setup.types import AnyPathStr
 
 SupportedDataTypes: TypeAlias = DataFrame | ScverseDataStructures
 
@@ -74,7 +74,7 @@ def infer_suffix(dmem: SupportedDataTypes, format: str | dict[str, Any] | None =
         raise NotImplementedError
 
 
-def write_to_disk(dmem: SupportedDataTypes, filepath: UPathStr, **kwargs) -> None:
+def write_to_disk(dmem: SupportedDataTypes, filepath: AnyPathStr, **kwargs) -> None:
     """Writes the passed in memory data to disk to a specified path."""
     if isinstance(dmem, AnnData):
         suffix = PurePosixPath(filepath).suffix

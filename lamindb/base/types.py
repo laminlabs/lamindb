@@ -13,7 +13,7 @@ Central object types
 Basic types
 -----------
 
-.. autoclass:: UPathStr
+.. autoclass:: AnyPathStr
 .. autoclass:: StrField
 .. autoclass:: ListLike
 .. autoclass:: FieldAttr
@@ -26,7 +26,7 @@ from typing import TYPE_CHECKING, Literal, Union
 
 import numpy as np
 from django.db.models.query_utils import DeferredAttribute as FieldAttr
-from lamindb_setup.types import UPathStr  # noqa: F401
+from lamindb_setup.types import AnyPathStr  # noqa: F401
 
 if TYPE_CHECKING:
     import pandas as pd

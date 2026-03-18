@@ -31,7 +31,7 @@ from lamindb_setup.core.upath import (
 
 if TYPE_CHECKING:
     from anndata import AnnData
-    from lamindb_setup.types import UPathStr
+    from lamindb_setup.types import AnyPathStr
     from mudata import MuData
 
     from lamindb.core.storage.types import ScverseDataStructures
@@ -57,7 +57,7 @@ def load_fcs(*args, **kwargs) -> AnnData:
     return readfcs.read(*args, **kwargs)
 
 
-def load_tsv(path: UPathStr, **kwargs) -> pd.DataFrame:
+def load_tsv(path: AnyPathStr, **kwargs) -> pd.DataFrame:
     """Load `.tsv` file to `DataFrame`."""
     path_sanitized = Path(path)
     return pd.read_csv(path_sanitized, sep="\t", **kwargs)
@@ -72,7 +72,7 @@ def load_h5ad(filepath, **kwargs) -> AnnData:
         return adata
 
 
-def load_h5mu(filepath: UPathStr, **kwargs) -> MuData:
+def load_h5mu(filepath: AnyPathStr, **kwargs) -> MuData:
     """Load an `.h5mu` file to `MuData`."""
     import mudata as md
 
@@ -80,7 +80,7 @@ def load_h5mu(filepath: UPathStr, **kwargs) -> MuData:
     return md.read_h5mu(path_sanitized, **kwargs)
 
 
-def load_html(path: UPathStr) -> None | UPathStr:
+def load_html(path: AnyPathStr) -> None | AnyPathStr:
     """Display `.html` in ipython, otherwise return path."""
     if is_run_from_ipython:
         with open(path, encoding="utf-8") as f:
@@ -101,7 +101,7 @@ def load_html(path: UPathStr) -> None | UPathStr:
         return path
 
 
-def load_json(path: UPathStr) -> dict[str, Any] | list[Any]:
+def load_json(path: AnyPathStr) -> dict[str, Any] | list[Any]:
     """Load `.json` to `dict`."""
     import json
 
@@ -110,7 +110,7 @@ def load_json(path: UPathStr) -> dict[str, Any] | list[Any]:
     return data
 
 
-def load_yaml(path: UPathStr) -> dict[str, Any] | list[Any]:
+def load_yaml(path: AnyPathStr) -> dict[str, Any] | list[Any]:
     """Load `.yaml` to `dict`."""
     import yaml  # type: ignore
 
@@ -119,7 +119,7 @@ def load_yaml(path: UPathStr) -> dict[str, Any] | list[Any]:
     return data
 
 
-def load_image(path: UPathStr) -> None | UPathStr:
+def load_image(path: AnyPathStr) -> None | AnyPathStr:
     """Display `.jpg`, `.gif` or `.png` in ipython, otherwise return path."""
     if is_run_from_ipython:
         from IPython.display import Image, display
@@ -130,7 +130,7 @@ def load_image(path: UPathStr) -> None | UPathStr:
         return path
 
 
-def load_svg(path: UPathStr) -> None | UPathStr:
+def load_svg(path: AnyPathStr) -> None | AnyPathStr:
     """Display `.svg` in ipython, otherwise return path."""
     if is_run_from_ipython:
         from IPython.display import SVG, display
@@ -146,7 +146,7 @@ def load_txt(path: Path) -> str:
     return path.read_text(encoding="utf-8")
 
 
-def load_rds(path: UPathStr) -> UPathStr:
+def load_rds(path: AnyPathStr) -> AnyPathStr:
     """Just warn when trying to load `.rds`."""
     logger.warning("Please use `laminr` to load `.rds` files")
     return path
@@ -185,9 +185,14 @@ SUPPORTED_SUFFIXES = [sfx for sfx in FILE_LOADERS.keys() if sfx != ".rds"]
 
 
 def load_to_memory(
-    filepath: UPathStr, **kwargs
+    filepath: AnyPathStr, **kwargs
 ) -> (
-    pd.DataFrame | ScverseDataStructures | dict[str, Any] | list[Any] | UPathStr | None
+    pd.DataFrame
+    | ScverseDataStructures
+    | dict[str, Any]
+    | list[Any]
+    | AnyPathStr
+    | None
 ):
     """Load a file into memory.
 
