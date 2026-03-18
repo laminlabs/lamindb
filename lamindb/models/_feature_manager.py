@@ -1233,11 +1233,7 @@ class FeatureManager:
             keys = list(keys)  # type: ignore
         # deal with other cases later
         assert all(isinstance(key, str) for key in keys)  # noqa: S101
-        if (
-            host_is_record
-            and self._host.type is not None
-            and self._host.type.schema is not None  # type: ignore
-        ):
+        if host_is_record:
             current_values = self.get_values()
             for key in keys:
                 existing = current_values.get(key)
@@ -1248,6 +1244,11 @@ class FeatureManager:
                             f"Cannot add value for feature {key!r}: "
                             "artifact already has a value of the same type."
                         )
+        if (
+            host_is_record
+            and self._host.type is not None
+            and self._host.type.schema is not None  # type: ignore
+        ):
             assert schema is None, "Cannot pass schema if record.type has schema."
             schema = self._host.type.schema  # type: ignore
         if host_is_artifact:
