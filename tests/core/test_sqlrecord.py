@@ -447,7 +447,7 @@ def test_track_fields_with_deferred_columns(example_dataframe: pd.DataFrame):
         example_dataframe, key="deferred-track-fields.parquet"
     ).save()
 
-    # Loading a tracked field as deferred should not crash in __init__.
+    # loading a tracked field as deferred should not crash in __init__
     deferred_artifact = ln.Artifact.filter(id=artifact.id).only("id").one()
     assert deferred_artifact.id == artifact.id
     assert not deferred_artifact._field_changed("space_id")
