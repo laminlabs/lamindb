@@ -1071,7 +1071,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                     )
                 # deferred model loading (e.g. .only("id") or certain fetching methods during deletion)
                 # can omit tracked fields from __dict__;
-                # use `.get(..., DEFERRED)` to avoid KeyError and to show that the field is not loaded yet.
+                # use .get(..., DEFERRED) to avoid KeyError and to show that the field is not loaded yet.
                 self._original_values[field_name] = self.__dict__.get(
                     field_name, DEFERRED
                 )
