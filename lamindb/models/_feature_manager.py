@@ -1242,7 +1242,7 @@ class FeatureManager:
                     if new_val is not None and type(existing) is type(new_val):
                         raise ValidationError(
                             f"Cannot add value for feature {key!r}: "
-                            "artifact already has a value of the same type."
+                            "record already has a value of the same type."
                         )
         if (
             host_is_record
