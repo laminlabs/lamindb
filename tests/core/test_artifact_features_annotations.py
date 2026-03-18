@@ -531,10 +531,19 @@ Here is how to create a feature:
     artifact.features.add_values({"experiment": "Experiment 1"})
     assert artifact.links_record.get().record.name == "Experiment 1"
     assert artifact.links_record.get().feature.name == "experiment"
-    with pytest.raises(ln.errors.ValidationError) as error:
-        artifact.features.add_values({"experiment": "Experiment 1"})
-    assert "artifact already has a value of the same type" in error.exconly()
+    # repeat add on artifact is allowed (no error)
+    artifact.features.add_values({"experiment": "Experiment 1"})
     assert artifact.links_record.get().record.name == "Experiment 1"
+
+    # For records, adding the same feature value again raises ValidationError
+    record_type = ln.Record(name="ExperimentType", is_type=True).save()
+    record_entity = ln.Record(name="Experiment 1", type=record_type).save()
+    record_artifact = ln.Artifact.from_anndata(adata, description="record-test").save()
+    record = ln.Record(artifact=record_artifact, type=record_type).save()
+    record.features.add_values({"experiment": "Experiment 1"})
+    with pytest.raises(ln.errors.ValidationError) as error:
+        record.features.add_values({"experiment": "Experiment 1"})
+    assert "record already has a value of the same type" in error.exconly()
 
     # numerical feature
     temperature = ln.Feature(name="temperature", dtype=ln.Record).save()
