@@ -452,7 +452,7 @@ def test_track_fields_with_deferred_columns(example_dataframe: pd.DataFrame):
     assert deferred_artifact.id == artifact.id
     assert not deferred_artifact._field_changed("space_id")
 
-    artifact.delete(permanent=True, storage=True)
+    artifact.delete(permanent=True)
 
 
 def test_track_fields_must_exist_on_model(monkeypatch, example_dataframe: pd.DataFrame):
@@ -468,4 +468,4 @@ def test_track_fields_must_exist_on_model(monkeypatch, example_dataframe: pd.Dat
     ):
         ln.Artifact.get(artifact.id)
 
-    artifact.delete(permanent=True, storage=True)
+    artifact.delete(permanent=True)
