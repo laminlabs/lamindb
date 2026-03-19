@@ -2091,6 +2091,7 @@ def get_transfer_run(record) -> Run:
     if transform is None:
         search_names = settings.creation.search_names
         settings.creation.search_names = False
+        # TODO: consider renaming to "Sync from"
         transform = Transform(  # type: ignore
             uid=uid, description=f"Transfer from `{slug}`", key=key, kind="function"
         ).save()
