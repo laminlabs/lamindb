@@ -2,13 +2,13 @@
 execute_via: python
 ---
 
-# Transfer data
+# Sync data
 
-This guide shows how to transfer data from a source database to your default database.
+This guide shows how to sync data from a source database to your default database.
 
 ```python
 # pip install lamindb
-!lamin init --storage ./test-transfer --modules bionty
+!lamin init --storage ./test-sync --modules bionty
 ```
 
 ```python
@@ -32,7 +32,7 @@ artifact = artifacts.get(key="example_datasets/mini_immuno/dataset1.h5ad")
 artifact.describe()
 ```
 
-By saving the artifact that's currently attached to the source database, you transfer it to your default database.
+By saving the artifact that's currently attached to the source database, you sync it to your default database.
 
 ```python
 artifact.save()
@@ -48,7 +48,7 @@ Every `SQLRecord` object has an attribute `._state.db` which can take the follow
 
 ```
 
-The artifact has been transferred to the current database without feature & label annotations, but with updated data lineage:
+The artifact has been synced to the current database without feature & label annotations, but with updated data lineage:
 
 ```python
 artifact.describe()
@@ -72,7 +72,7 @@ View lineage:
 artifact.view_lineage()
 ```
 
-The transferred dataset is linked to a special type of transform that stores the slug and uid of the source instance:
+The synced dataset is linked to a special type of transform that stores the slug and uid of the source instance:
 
 ```python
 artifact.transform.description
@@ -84,20 +84,20 @@ The transform key has the form `f"__lamindb_transfer__/{source_instance.uid}"`:
 artifact.transform.key
 ```
 
-The current notebook run is linked as the initiated_by_run of the "transfer run":
+The current notebook run is linked as the initiated_by_run of the "sync run":
 
 ```python
 artifact.run.initiated_by_run.transform
 ```
 
-Upon re-transferring a record, it will identify that the record already exists in the target database and simply map the record.
+Upon re-syncing a record, it will identify that the record already exists in the target database and simply map the record.
 
 ```python
 artifact = artifacts.get(key="example_datasets/mini_immuno/dataset1.h5ad")
 artifact.save()
 ```
 
-If you also want to transfer annotations of the artifact, you can pass `transfer="annotations"` to `save()`. Just note that this might populate your target database with metadata that doesn't match the conventions you want to enforce.
+If you also want to sync annotations of the artifact, you can pass `transfer="annotations"` to `save()`. Just note that this might populate your target database with metadata that doesn't match the conventions you want to enforce.
 
 ```python
 artifact = artifacts.get(key="example_datasets/mini_immuno/dataset1.h5ad")
@@ -115,5 +115,5 @@ artifact.describe()
 assert artifact.transform.description == "Transfer from `laminlabs/lamindata`"
 assert artifact.transform.key == "__lamindb_transfer__/4XIuR0tvaiXM"
 assert artifact.transform.uid == "4XIuR0tvaiXM0000"
-assert artifact.run.initiated_by_run.transform.description.startswith("Transfer data")
+assert artifact.run.initiated_by_run.transform.description.startswith("Sync data")
 ```
