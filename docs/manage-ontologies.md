@@ -16,7 +16,7 @@ This guide shows how to manage ontologies for basic biological entities.
 If instead you're interested in
 
 - accessing public ontologies, see {doc}`docs:public-ontologies`
-- flexible bio registries for the wetlab (a LIMS), see {class}`~lamindb.Record` and {doc}`docs:sheets`
+- flexible bio registries for the wetlab (a LIMS), see {class}`~lamindb.Record` and {doc}`docs:records`
 
 ```python
 # pip install lamindb

@@ -235,7 +235,7 @@ Pass a project/artifact to `ln.track()`, for example:
 ln.track(project="My project", plan="./plans/curate-dataset-x.md")
 ```
 
-Note that you have to create a project or save the agent plan in case it they don't yet exist:
+Note that you have to create a project or save the agent plan in case they don't yet exist:
 
 ```
 # create a project with the CLI
