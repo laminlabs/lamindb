@@ -2975,6 +2975,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         """
         super().delete(permanent=permanent, storage=storage, using_key=using_key)
 
+    # TODO: consider renaming the transfer argument to sync
     def save(
         self,
         upload: bool | None = None,

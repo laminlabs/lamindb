@@ -4,10 +4,9 @@ execute_via: python
 
 # Sync data
 
-This guide shows how to sync data from a source database to your default database.
+This guide shows how to sync objects from a source database to your default database.
 
 ```python
-# pip install lamindb
 !lamin init --storage ./test-sync --modules bionty
 ```
 
@@ -90,7 +89,7 @@ The current notebook run is linked as the initiated_by_run of the "sync run":
 artifact.run.initiated_by_run.transform
 ```
 
-Upon re-syncing a record, it will identify that the record already exists in the target database and simply map the record.
+Upon re-syncing a object, it will identify that the object already exists in the target database and simply map the object.
 
 ```python
 artifact = artifacts.get(key="example_datasets/mini_immuno/dataset1.h5ad")
