@@ -25,7 +25,7 @@ Syncing works for any object type (`Artifact`, `Record`, `Transform`, `ULabel`, 
 ```python
 db = ln.DB("laminlabs/lamindata")
 artifact = db.Artifact.get(key="example_datasets/mini_immuno/dataset1.h5ad")  # query the artifact
-artifacts.save()  # sync the artifact to the current database
+artifact.save()  # sync the artifact to the current database
 ```
 
 By default, the artifact is synced **without** feature & label annotations:
@@ -47,7 +47,7 @@ The sync now includes all feature & label annotations:
 artifact.describe()
 ```
 
-The sync is zero-copy, which means that data in storage remained in the original storage location, which has been added to the target database's storage location as a read-only location:
+The sync is zero-copy, which means that the data itself remains in the original storage location. This location is added to the target database's storage locations as read-only:
 
 ```python
 ln.Storage.to_dataframe()
@@ -65,7 +65,7 @@ The run that initiated the sync is linked via `initiated_by_run`:
 artifact.run.initiated_by_run.transform
 ```
 
-As expected, upon re-syncing an object, it will identify that the object already exists in the target database and map the object:
+As expected, upon re-syncing an object, `lamindb` identifies that the object already exists in the target database and simply maps it:
 
 ```python
 artifact = db.Artifact.get(key="example_datasets/mini_immuno/dataset1.h5ad")
