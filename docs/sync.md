@@ -24,14 +24,18 @@ Syncing works for any object type (`Artifact`, `Record`, `Transform`, `ULabel`, 
 
 ```python
 db = ln.DB("laminlabs/lamindata")
-artifact = db.Artifact.get(key="example_datasets/mini_immuno/dataset1.h5ad")  # query the artifact
-artifact.save()  # sync the artifact to the current database
+# query the artifact on the source database
+artifact = db.Artifact.get(key="example_datasets/mini_immuno/dataset1.h5ad")
+# sync the artifact to the current database
+artifact.save()
 ```
 
 If you also want to sync feature & label annotations, pass `transfer="annotations"`:
 
 ```python
+# query again so that `artifact` holds the object on the source database
 artifact = db.Artifact.get(key="example_datasets/mini_immuno/dataset1.h5ad")
+# sync the artifact to the current database, including transfer of annotations where necessary
 artifact.save(transfer="annotations")
 ```
 
