@@ -190,13 +190,20 @@ def test_describe_to_dataframe_example_dataset():
         "alpha-beta T cell",
     }
 
+    # set_values should only replace external features, not dataset-derived features
+    values_before = artifact.features.get_values()
+    adata = artifact.load()
+    just_internal = {
+        col: values_before[col] for col in adata.obs.columns if col in values_before
+    }
+    artifact.features.set_values({"temperature": 99.0})
+    values_after_set = artifact.features.get_values()
+    assert {col: values_after_set[col] for col in just_internal} == just_internal
+    assert values_after_set["temperature"] == 99.0
+    assert set(values_after_set.keys()) == set(just_internal) | {"temperature"}
+
     # test that only external feature are removed upon artifact.features.remove_values()
     alljson_values = artifact.features.get_values()
-    adata = artifact.load()
-    just_internal = {}
-    for col in adata.obs.columns:
-        if col in alljson_values:
-            just_internal[col] = alljson_values[col]
     artifact.features.remove_values()
     assert just_internal != alljson_values
     assert just_internal == artifact.features.get_values()
