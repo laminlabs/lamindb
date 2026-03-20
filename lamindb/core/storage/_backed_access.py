@@ -4,15 +4,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Literal
 
-import h5py
-from anndata._io.specs.registry import get_spec
-
-from ._anndata_accessor import AnnDataAccessor, StorageType, registry
-from ._polars_lazy_df import POLARS_SUFFIXES, _open_polars_lazy_df
-from ._pyarrow_dataset import PYARROW_SUFFIXES, _open_pyarrow_dataset
-from ._spatialdata_accessor import SpatialDataAccessor
-from ._tiledbsoma import _open_tiledbsoma
-from .paths import filepath_from_artifact
+PYARROW_SUFFIXES = (".parquet", ".csv", ".json", ".orc", ".arrow", ".feather", ".ipc")
+POLARS_SUFFIXES = (".parquet", ".csv", ".ndjson", ".ipc")
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -26,6 +19,9 @@ if TYPE_CHECKING:
     from upath import UPath
 
     from lamindb.models.artifact import Artifact
+
+    from ._anndata_accessor import AnnDataAccessor, StorageType
+    from ._spatialdata_accessor import SpatialDataAccessor
 
 
 # this dynamically creates a subclass of a context manager class
@@ -92,6 +88,8 @@ def backed_access(
 ):
     from lamindb.models import Artifact
 
+    from .paths import filepath_from_artifact
+
     if isinstance(artifact_or_filepath, Artifact):
         artifact = artifact_or_filepath
         objectpath, _ = filepath_from_artifact(artifact, using_key=using_key)
@@ -105,14 +103,22 @@ def backed_access(
     if name == "soma" or suffix == ".tiledbsoma":
         if mode not in {"r", "w"}:
             raise ValueError("`mode` should be either 'r' or 'w' for tiledbsoma.")
+        from ._tiledbsoma import _open_tiledbsoma
+
         return _open_tiledbsoma(objectpath, mode=mode, **kwargs)  # type: ignore
     elif non_gz_suffix in {".h5", ".hdf5", ".h5ad"}:
+        from ._anndata_accessor import registry
+
         conn, storage = registry.open("h5py", objectpath, mode=mode, **kwargs)
     elif suffix == ".zarr":
+        from ._anndata_accessor import registry
+
         if mode not in {"r", "r+"}:
             raise ValueError("`mode` should be either 'r' or 'r+' for zarr.")
         conn, storage = registry.open("zarr", objectpath, mode=mode, **kwargs)
         if "spatialdata_attrs" in storage.attrs:
+            from ._spatialdata_accessor import SpatialDataAccessor
+
             return SpatialDataAccessor(storage, name, artifact)
     elif len(df_suffixes := _flat_suffixes(objectpath)) == 1 and (
         df_suffix := df_suffixes.pop()
@@ -124,6 +130,11 @@ def backed_access(
             f"be compatible with pyarrow.dataset.dataset or polars.scan_* functions, "
             f"instead of being {suffix} object."
         )
+
+    import h5py
+    from anndata._io.specs.registry import get_spec
+
+    from ._anndata_accessor import AnnDataAccessor
 
     is_anndata = (
         non_gz_suffix == ".h5ad" or get_spec(storage).encoding_type == "anndata"
@@ -171,6 +182,9 @@ def _open_dataframe(
     engine: Literal["pyarrow", "polars"] = "pyarrow",
     **kwargs,
 ) -> PyArrowDataset | Iterator[PolarsLazyFrame]:
+    from ._polars_lazy_df import POLARS_SUFFIXES, _open_polars_lazy_df
+    from ._pyarrow_dataset import PYARROW_SUFFIXES, _open_pyarrow_dataset
+
     if engine not in {"pyarrow", "polars"}:
         raise ValueError(
             f"Unknown engine: {engine}. It should be 'pyarrow' or 'polars'."
