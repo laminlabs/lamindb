@@ -17,7 +17,7 @@ from __future__ import annotations
 import builtins
 import re
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Callable, cast
 
 from lamin_utils import logger
 from lamindb_setup import settings as setup_settings
@@ -92,12 +92,12 @@ def load_h5mu(filepath: UPathStr, **kwargs) -> MuData:
     return md.read_h5mu(path_sanitized, **kwargs)
 
 
-def load_zarr(storepath):  # type: ignore
+def load_zarr(storepath, **kwargs):  # type: ignore
     try:
         from ..core.storage._zarr import load_zarr as _load_zarr
     except ImportError:
         raise ImportError("Please install zarr: pip install 'lamindb[zarr]'") from None
-    return _load_zarr(storepath)
+    return _load_zarr(storepath, **kwargs)
 
 
 def load_html(path: UPathStr) -> None | UPathStr:
@@ -222,4 +222,4 @@ def load_to_memory(
 
     filepath = setup_settings.paths.cloud_to_local(filepath, print_progress=True)
 
-    return loader(filepath, **kwargs)
+    return cast(Callable[..., Any], loader)(filepath, **kwargs)

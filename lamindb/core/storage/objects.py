@@ -18,7 +18,9 @@ else:
     SupportedDataTypes: TypeAlias = Any
 
 
-def infer_suffix(dmem: SupportedDataTypes, format: str | dict[str, Any] | None = None):
+def infer_suffix(
+    dmem: SupportedDataTypes, format: str | dict[str, Any] | None = None
+) -> str:
     """Infer LaminDB storage file suffix from a data object."""
     has_anndata, anndata_suffix = with_package_obj(
         dmem,
@@ -83,18 +85,14 @@ def _infer_dataframe_suffix(format: str | dict[str, Any] | None) -> str:
 
 
 def _infer_spatialdata_suffix(format: str | dict[str, Any] | None) -> str:
-    return (
-        format
-        if format is not None and format in {"spatialdata.zarr", "zarr"}
-        else ".zarr"
-        if format is None
-        else (_ for _ in ()).throw(
-            ValueError(
-                "Error when specifying SpatialData storage format, it should be"
-                f" 'zarr', 'spatialdata.zarr', not '{format}'. Check 'format'"
-                " or the suffix of 'key'."
-            )
-        )
+    if format is None:
+        return ".zarr"
+    if isinstance(format, str) and format in {"spatialdata.zarr", "zarr"}:
+        return format
+    raise ValueError(
+        "Error when specifying SpatialData storage format, it should be"
+        f" 'zarr', 'spatialdata.zarr', not '{format}'. Check 'format'"
+        " or the suffix of 'key'."
     )
 
 

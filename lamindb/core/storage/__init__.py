@@ -11,7 +11,7 @@ Array accessors.
 .. autoclass:: BackedAccessor
 """
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from lamindb_setup.core.upath import LocalPathClasses, UPath, infer_filesystem
 
@@ -52,10 +52,11 @@ _LAZY_EXPORTS = frozenset(
 )
 
 
-def __getattr__(name: str):
+def __getattr__(name: str) -> Any:
     if name not in _LAZY_EXPORTS:
         raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
+    attr: Any
     if name == "AnnDataAccessor":
         from ._anndata_accessor import AnnDataAccessor as attr
     elif name == "BackedAccessor":
