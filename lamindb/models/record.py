@@ -81,8 +81,8 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
             # create a feature if you don't yet have one
             gc_content = ln.Feature(name="gc_content", dtype=float).save()
 
-            # add a feature value to the record
-            sample1.features.add_values({"gc_content": 0.5})
+            # set a feature value for the record
+            sample1.features.set_values({"gc_content": 0.5})
 
             # describe the record
             sample1.describe()
@@ -104,8 +104,9 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
             sample1.type = sample_sheet
             sample1.save()
 
-            # add the sample1 record to the experiment
-            sample1.features.add_values({
+            # reset the feature values for the record including the experiment
+            sample1.features.set_values({
+                "gc_content": 0.5,
                 "experiment": "Experiment 1",  # automatically resolves by name, also accepts the experiment1 object
             })
 
@@ -116,10 +117,10 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
             #>            Experiment 1   ...
             #>            Experiment 2   ...
 
-        If you try to add incomplete features to a sheet, you'll get a validation error::
+        If you try to set incomplete features in a record in a sheet, you'll get a validation error::
 
             sample2 = ln.Record(name="Sample 2", type=sample_sheet).save()
-            sample2.features.add_values({"gc_content": 0.6})  # raises ValidationError because experiment is missing
+            sample2.features.set_values({"gc_content": 0.6})  # raises ValidationError because experiment is missing
 
         Query records by features::
 
@@ -129,8 +130,8 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
 
         If your feature names are ambiguous, you can use a `Feature` object to disambiguate::
 
-            # to add feature values
-            sample1.features.add_values({gc_content: 0.5})  # gc_content is the feature object
+            # to set feature values
+            sample1.features.set_values({gc_content: 0.5})  # gc_content is the feature object
 
             # to query by feature values
             ln.Record.filter(gc_content == 0.5)  # instead of gc_content=0.5
@@ -387,7 +388,10 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
 
     @property
     def features(self) -> FeatureManager:
-        """Manage the linked feature values."""
+        """Manage the linked feature values.
+
+        For examples, see :class:`~lamindb.Record` or :class:`~lamindb.models.FeatureManager`.
+        """
         from ._feature_manager import FeatureManager
 
         return FeatureManager(self)

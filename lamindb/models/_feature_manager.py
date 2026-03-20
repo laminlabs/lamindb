@@ -1340,12 +1340,51 @@ class FeatureManager:
     ) -> None:
         """Add values for features.
 
+        Like `set_values()`, but slightly more performant because it does not remove previously-existing feature annotations at the danger
+        of violating multiplicity of categorical dtypes (see warning below).
+
         Args:
             values: A dictionary of keys (features) & values (labels, strings, numbers, booleans, datetimes, etc.).
                 Keys can be feature names (`str`) or `Feature` objects.
                 If a value is `None`, it will be skipped.
-            feature_field: The field of a registry to map the keys of the `values` dictionary.
+            feature_field: The field of a registry to map the keys of the `values` dictionary in case strings are passed.
             schema: Schema to validate against.
+
+        .. warning::
+
+            If you run::
+
+                obj.features.add_values({"my_categorical": "my_category1"})
+                obj.features.add_values({"my_categorical": "my_category2"})
+
+            you will annotate the object with two different values for the same feature even if its dtype is not a `list`.
+            That is, `add_values()` does **not** validate the `dtype` of a categorical feature across multiple calls.
+
+            To avoid this, please use `set_values()`.
+
+        .. dropdown:: Why is multiplicity of categorical dtypes not validated?
+
+            For simple data types like `int`, `date`, `dict`, etc., `add_values()` ensures that there is only
+            one value for a given `Record` and feature.
+
+            But for categorical/relational features or for simple dtypes in the context of annotating an `Artifact`, the underlying link table allows linking multiple
+            values to the same object and feature, so that both `list` dtypes and `set`-like aggregations on an object
+            can be represented with relational integrity.
+
+            Examples::
+
+                # the following needs to be allowed even if `cell_type` has dtype `CellType`, and not `list[CellType]`
+                # this is because the artifact might be a `DataFrame` with a column `cell_type` that has dtype `CellType`
+                # and the annotations on the artifact-level represent the aggregation of all values in that column
+                artifact.features.add_values({"cell_type": "B cell"})
+                artifact.features.add_values({"cell_type": "T cell"})
+                artifact.features.add_values({"cell_type": "NK cell"})
+
+                # now an example for Record
+                # while a record will never represent an aggregation, we still want to express
+                # lists of values with relational integrity, for instance, this
+                record.features.add_values({"cell_types": ["B cell", "T cell", "NK cell"]})
+
         """
         from lamindb.curators.core import ExperimentalDictCurator
 
@@ -1545,14 +1584,47 @@ class FeatureManager:
     ) -> None:
         """Set values for features.
 
-        Like `add_values`, but first removes all existing external feature annotations.
+        Note that, in the context of annotating an `Artifact`, this does **not** affect the annotations derived from the artifact's dataset features. It only sets
+        the artifact's external feature annotations.
 
         Args:
             values: A dictionary of keys (features) & values (labels, strings, numbers, booleans, datetimes, etc.).
                 Keys can be feature names (`str`) or `Feature` objects.
                 If a value is `None`, it will be skipped.
-            feature_field: The field of a registry to map the keys of the `values` dictionary.
+            feature_field: The field of a registry to map the keys of the `values` dictionary in case strings are passed.
             schema: Schema to validate against.
+
+        Examples:
+
+            Here is how to annotate an artifact ad hoc::
+
+                artifact.features.set_values({
+                    "species": "human",
+                    "scientist": ['Barbara McClintock', 'Edgar Anderson'],
+                    "temperature": 27.6,
+                    "experiment": "Experiment 1"
+                })
+
+            Query artifacts by features::
+
+                ln.Artifact.filter(scientist="Barbara McClintock")
+
+            If your feature names are ambiguous, you can use a `Feature` object to disambiguate::
+
+                temperature = ln.Feature.get(name="temperature", type__name="my_feature_type")
+
+                # to set feature values
+                artifact.features.set_values({temperature: 0.5})  # temperature is the feature object
+
+                # to query by feature values
+                ln.Artifact.filter(temperature == 0.5)  # instead of temperature=0.5
+
+            You can pass a schema to validate the dictionary::
+
+                schema = ln.Schema([ln.Feature(name="species", dtype=str).save()]).save()
+                artifact.features.set_values({"species": "bird"}, schema=schema)
+
+            Also see :class:`lamindb.Artifact.features`, :class:`lamindb.Record.features`, and :class:`lamindb.Run.features`.
         """
         from lamindb.curators.core import ExperimentalDictCurator
 

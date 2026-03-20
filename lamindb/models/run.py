@@ -227,7 +227,7 @@ class Run(SQLRecord, TracksUpdates):
         In contrast to `.params`, features are indexed in the `Feature` registry and can reference relational categorical values.
         If you want to link feature values, use::
 
-            run.features.add_values({
+            run.features.set_values({
                 "experiment": "My experiment 1",
             })
 
@@ -469,7 +469,10 @@ class Run(SQLRecord, TracksUpdates):
 
     @property
     def features(self) -> FeatureManager:
-        """Manage annotations with features."""
+        """Manage annotations with features.
+
+        For examples, see :class:`~lamindb.Run` or :class:`~lamindb.models.FeatureManager`.
+        """
         from ._feature_manager import FeatureManager
 
         return FeatureManager(self)
