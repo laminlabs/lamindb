@@ -170,7 +170,7 @@ jobs:
       - run: laminprofiler check tests/profiling/import_lamindb_and_connect.py --threshold 3.5
       - run: lamin connect laminlabs/lamindata
       - run: laminprofiler check tests/profiling/import_lamindb.py --threshold 1.5
-      - run: laminprofiler check tests/profiling/import_lamindb_core_storage.py --threshold 3.5
+      - run: laminprofiler check tests/profiling/import_lamindb_core_storage.py --threshold 1.5
 
   docs:
     needs: test
