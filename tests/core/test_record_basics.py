@@ -17,8 +17,8 @@ def test_record_docstring_examples():
     # create a feature if you don't yet have one
     gc_content = ln.Feature(name="gc_content", dtype=float).save()
 
-    # add a feature value to the record
-    sample1.features.add_values({"gc_content": 0.5})
+    # set a feature value for the record
+    sample1.features.set_values({"gc_content": 0.5})
 
     # describe the record
     sample1.describe()
@@ -40,9 +40,10 @@ def test_record_docstring_examples():
     sample1.type = sample_sheet
     sample1.save()
 
-    # add the sample1 record to the experiment
-    sample1.features.add_values(
+    # reset the feature values for the record including the experiment
+    sample1.features.set_values(
         {
+            "gc_content": 0.5,
             "experiment": "Experiment 1",  # automatically resolves by name, also accepts the experiment1 object
         }
     )
@@ -51,10 +52,10 @@ def test_record_docstring_examples():
     df = experiment_type.to_dataframe()
     assert "Experiment 1" in df["__lamindb_record_name__"].values
 
-    # If you try to add incomplete features to a sheet, you'll get a validation error
+    # If you try to set incomplete features in a record in a sheet, you'll get a validation error
     sample2 = ln.Record(name="Sample 2", type=sample_sheet).save()
     with pytest.raises(ln.errors.ValidationError):
-        sample2.features.add_values({"gc_content": 0.6})
+        sample2.features.set_values({"gc_content": 0.6})
 
     # Query records by features
     assert ln.Record.filter(gc_content=0.5).one() == sample1
