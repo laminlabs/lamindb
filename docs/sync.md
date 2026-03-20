@@ -59,7 +59,7 @@ The run that initiated the sync is linked via `initiated_by_run`:
 artifact.run.initiated_by_run.transform
 ```
 
-As expected, upon re-syncing an object, `lamindb` identifies that the object already exists in the target database and simply maps it:
+Upon calling `.save()` again, `lamindb` identifies that the object already exists in the target database and simply maps it:
 
 ```python
 artifact = db.Artifact.get(key="example_datasets/mini_immuno/dataset1.h5ad")
