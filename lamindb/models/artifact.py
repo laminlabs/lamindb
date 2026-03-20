@@ -2975,6 +2975,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         """
         super().delete(permanent=permanent, storage=storage, using_key=using_key)
 
+    # TODO: consider renaming the transfer argument to sync
     def save(
         self,
         upload: bool | None = None,
@@ -2985,12 +2986,12 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
         Args:
             upload: Trigger upload to cloud storage in instances with hybrid storage mode.
-            transfer: In case artifact was queried on a different instance, dictates behavior of transfer.
-                If "record", only the artifact record is transferred to the current instance.
-                If "annotations", also the annotations linked in the source instance are transferred.
+            transfer: In case artifact was queried on a different instance, dictates behavior of sync.
+                If "record", only the artifact record is synced to the current instance.
+                If "annotations", also the annotations linked in the source instance are synced.
 
         See Also:
-            :doc:`transfer`
+            :doc:`sync`
 
         Example:
 

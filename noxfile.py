@@ -27,7 +27,7 @@ SPATIALDATA_OME_ZARR_CONSTRAINT = "ome-zarr<0.14.0"
 
 GROUPS = {}
 GROUPS["tutorial"] = [
-    "transfer.ipynb",
+    "sync.ipynb",
     "README.ipynb",
     "arrays.ipynb",
     "registries.ipynb",

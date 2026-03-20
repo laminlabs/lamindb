@@ -15,7 +15,7 @@ query-search
 track
 curate
 manage-ontologies
-transfer
+sync
 ```
 
 ```{toctree}
