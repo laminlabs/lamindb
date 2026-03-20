@@ -1,4 +1,4 @@
-def test_connect_dynamic_import():
+def test_connect_dynamic_import(ccaplog):
     import lamindb as ln
 
     # this only currently works if not instance was configured in the environment
@@ -7,5 +7,6 @@ def test_connect_dynamic_import():
     assert ln.setup.settings.instance.slug == "none/none"
 
     ln.connect("laminlabs/lamin-site-assets")
+    assert "connected in read-only mode" in ccaplog.text
     assert ln.Artifact.filter(key__startswith="blog").count() > 0
     ln.setup.disconnect()
