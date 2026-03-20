@@ -408,6 +408,18 @@ artifact = ln.Artifact.get(key="sample.fasta")  # get artifact by key
 artifact.versions.to_dataframe()                # see all versions of that artifact
 ```
 
+### Sync data across databases
+
+To share data in a lineage-aware way, sync objects from a source database to your default database:
+
+```python
+db = ln.DB("laminlabs/lamindata")
+artifact = db.Artifact.get(key="example_datasets/mini_immuno/dataset1.h5ad")
+artifact.save()
+```
+
+This is zero-copy for the artifact's data in storage. Read more: [docs.lamin.ai/sync](https://docs.lamin.ai/sync).
+
 ### Lakehouse ♾️ feature store
 
 Here is how you ingest a `DataFrame`:
