@@ -1344,6 +1344,12 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
         if "created_on" in field_names:
             field_names.remove("created_on")
             field_names.append("created_on")
+        if "version_tag" in field_names:
+            field_names.remove("version_tag")
+            field_names.append("version_tag")
+        if "is_latest" in field_names:
+            field_names.remove("is_latest")
+            field_names.append("is_latest")
         if field_names[0] != "uid" and "uid" in field_names:
             field_names.remove("uid")
             field_names.insert(0, "uid")

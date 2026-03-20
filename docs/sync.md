@@ -28,29 +28,23 @@ artifact = db.Artifact.get(key="example_datasets/mini_immuno/dataset1.h5ad")  # 
 artifact.save()  # sync the artifact to the current database
 ```
 
-By default, the artifact is synced **without** feature & label annotations:
-
-```python
-artifact.describe()
-```
-
-If you also want to sync feature & label annotations of the artifact, pass `transfer="annotations"`:
+If you also want to sync feature & label annotations, pass `transfer="annotations"`:
 
 ```python
 artifact = db.Artifact.get(key="example_datasets/mini_immuno/dataset1.h5ad")
 artifact.save(transfer="annotations")
 ```
 
-The sync now includes all feature & label annotations:
+The artifact now has all feature & label annotations:
 
 ```python
 artifact.describe()
 ```
 
-The sync is zero-copy, which means that the data itself remains in the original storage location. This location is added to the target database's storage locations as read-only:
+The sync is zero-copy, which means that the data itself remained in the original storage location:
 
 ```python
-ln.Storage.to_dataframe()
+artifact.path
 ```
 
 Data lineage indicates the source database of the sync:
