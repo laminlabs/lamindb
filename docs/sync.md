@@ -76,7 +76,7 @@ Every `SQLRecord` object has an attribute `._state.db` which can take the follow
 
 ```
 
-```python
+```python tags=["hide-cell"]
 # test the last 3 cells here
 assert artifact.transform.description == "Transfer from `laminlabs/lamindata`"
 assert artifact.transform.key == "__lamindb_transfer__/4XIuR0tvaiXM"
