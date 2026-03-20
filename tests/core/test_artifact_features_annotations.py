@@ -924,3 +924,21 @@ def test_artifact_features_accept_feature_object_keys():
     artifact.delete(permanent=True)
     feature_score.delete(permanent=True)
     feature_tag.delete(permanent=True)
+
+
+def test_artifact_set_values_preserves_dataset_features():
+    ln.examples.datasets.mini_immuno.save_mini_immuno_datasets()
+    artifact = ln.Artifact.get(key="examples/dataset1.h5ad")
+
+    values_before = artifact.features.get_values()
+    dataset_feature_keys = set(artifact.load().obs.columns) & set(values_before.keys())
+    assert len(dataset_feature_keys) > 0
+    dataset_values_before = {key: values_before[key] for key in dataset_feature_keys}
+
+    artifact.features.set_values({"temperature": 99.0})
+    values_after = artifact.features.get_values()
+    dataset_values_after = {key: values_after[key] for key in dataset_feature_keys}
+
+    assert dataset_values_after == dataset_values_before
+    assert values_after["temperature"] == 99.0
+    assert set(values_after.keys()) == dataset_feature_keys | {"temperature"}
