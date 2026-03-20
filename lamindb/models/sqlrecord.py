@@ -1344,6 +1344,12 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
         if "created_on" in field_names:
             field_names.remove("created_on")
             field_names.append("created_on")
+        if "version_tag" in field_names:
+            field_names.remove("version_tag")
+            field_names.append("version_tag")
+        if "is_latest" in field_names:
+            field_names.remove("is_latest")
+            field_names.append("is_latest")
         if field_names[0] != "uid" and "uid" in field_names:
             field_names.remove("uid")
             field_names.insert(0, "uid")
@@ -2084,12 +2090,14 @@ def get_transfer_run(record) -> Run:
     if not cache_using_filepath.exists():
         raise SystemExit("Need to call .connect() before")
     instance_uid = cache_using_filepath.read_text().split("\n")[0]
+    # TODO: consider renaming to __lamindb_sync__
     key = f"__lamindb_transfer__/{instance_uid}"
     uid = instance_uid + "0000"
     transform = Transform.filter(uid=uid).one_or_none()
     if transform is None:
         search_names = settings.creation.search_names
         settings.creation.search_names = False
+        # TODO: consider renaming to "Sync from"
         transform = Transform(  # type: ignore
             uid=uid, description=f"Transfer from `{slug}`", key=key, kind="function"
         ).save()

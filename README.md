@@ -143,7 +143,7 @@ lamin init --storage ./quickstart-data --modules bionty
 
 On the terminal and in a Python session, LaminDB will now auto-connect.
 
-### CLI
+### The CLI
 
 To save a file or folder from the command line, run:
 
@@ -408,6 +408,18 @@ artifact = ln.Artifact.get(key="sample.fasta")  # get artifact by key
 artifact.versions.to_dataframe()                # see all versions of that artifact
 ```
 
+### Data sharing
+
+To share data in a lineage-aware way, sync objects from a source database to your default database:
+
+```python
+db = ln.DB("laminlabs/lamindata")
+artifact = db.Artifact.get(key="example_datasets/mini_immuno/dataset1.h5ad")
+artifact.save()
+```
+
+This is zero-copy for the artifact's data in storage. Read more: [docs.lamin.ai/sync](https://docs.lamin.ai/sync).
+
 ### Lakehouse ♾️ feature store
 
 Here is how you ingest a `DataFrame`:
@@ -476,7 +488,7 @@ Plugin `bionty` gives you >20 public ontologies as `SQLRecord` registries. This 
 import bionty as bt
 
 bt.CellType.import_source()  # import the default ontology
-bt.CellType.to_dataframe()   # your extendable cell type ontology in a simple registry
+bt.CellType.to_dataframe()   # your extensible cell type ontology in a simple registry
 ```
 
 Read more: [docs.lamin.ai/manage-ontologies](https://docs.lamin.ai/manage-ontologies).
