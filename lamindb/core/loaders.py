@@ -17,10 +17,8 @@ from __future__ import annotations
 import builtins
 import re
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Callable, cast
 
-import pandas as pd
-from anndata import read_h5ad
 from lamin_utils import logger
 from lamindb_setup import settings as setup_settings
 from lamindb_setup.core.upath import (
@@ -33,15 +31,9 @@ if TYPE_CHECKING:
     from anndata import AnnData
     from lamindb_setup.types import UPathStr
     from mudata import MuData
+    from pandas import DataFrame
 
     from lamindb.core.storage.types import ScverseDataStructures
-
-try:
-    from ..core.storage._zarr import load_zarr
-except ImportError:
-
-    def load_zarr(storepath):  # type: ignore
-        raise ImportError("Please install zarr: pip install 'lamindb[zarr]'")
 
 
 is_run_from_ipython = getattr(builtins, "__IPYTHON__", False)
@@ -57,14 +49,34 @@ def load_fcs(*args, **kwargs) -> AnnData:
     return readfcs.read(*args, **kwargs)
 
 
-def load_tsv(path: UPathStr, **kwargs) -> pd.DataFrame:
+def load_csv(path: UPathStr, **kwargs) -> DataFrame:
+    """Load `.csv` file to `DataFrame`."""
+    import pandas as pd
+
+    path_sanitized = Path(path)
+    return pd.read_csv(path_sanitized, **kwargs)
+
+
+def load_parquet(path: UPathStr, **kwargs) -> DataFrame:
+    """Load `.parquet` file to `DataFrame`."""
+    import pandas as pd
+
+    path_sanitized = Path(path)
+    return pd.read_parquet(path_sanitized, **kwargs)
+
+
+def load_tsv(path: UPathStr, **kwargs) -> DataFrame:
     """Load `.tsv` file to `DataFrame`."""
+    import pandas as pd
+
     path_sanitized = Path(path)
     return pd.read_csv(path_sanitized, sep="\t", **kwargs)
 
 
 def load_h5ad(filepath, **kwargs) -> AnnData:
     """Load an `.h5ad` file to `AnnData`."""
+    from anndata import read_h5ad
+
     fs, filepath = infer_filesystem(filepath)
     compression = kwargs.pop("compression", "infer")
     with fs.open(filepath, mode="rb", compression=compression) as file:
@@ -78,6 +90,14 @@ def load_h5mu(filepath: UPathStr, **kwargs) -> MuData:
 
     path_sanitized = Path(filepath)
     return md.read_h5mu(path_sanitized, **kwargs)
+
+
+def load_zarr(storepath, **kwargs):  # type: ignore
+    try:
+        from ..core.storage._zarr import load_zarr as _load_zarr
+    except ImportError:
+        raise ImportError("Please install zarr: pip install 'lamindb[zarr]'") from None
+    return _load_zarr(storepath, **kwargs)
 
 
 def load_html(path: UPathStr) -> None | UPathStr:
@@ -153,16 +173,16 @@ def load_rds(path: UPathStr) -> UPathStr:
 
 
 FILE_LOADERS = {
-    ".csv": pd.read_csv,
-    ".csv.gz": pd.read_csv,
-    ".csv.tar.gz": pd.read_csv,
+    ".csv": load_csv,
+    ".csv.gz": load_csv,
+    ".csv.tar.gz": load_csv,
     ".tsv": load_tsv,
     ".tsv.gz": load_tsv,
     ".tsv.tar.gz": load_tsv,
     ".h5ad": load_h5ad,
     ".h5ad.gz": load_h5ad,
     ".h5ad.tar.gz": load_h5ad,
-    ".parquet": pd.read_parquet,
+    ".parquet": load_parquet,
     ".fcs": load_fcs,
     ".zarr": load_zarr,
     ".anndata.zarr": load_zarr,
@@ -186,9 +206,7 @@ SUPPORTED_SUFFIXES = [sfx for sfx in FILE_LOADERS.keys() if sfx != ".rds"]
 
 def load_to_memory(
     filepath: UPathStr, **kwargs
-) -> (
-    pd.DataFrame | ScverseDataStructures | dict[str, Any] | list[Any] | UPathStr | None
-):
+) -> DataFrame | ScverseDataStructures | dict[str, Any] | list[Any] | UPathStr | None:
     """Load a file into memory.
 
     Returns the filepath if no in-memory form is found.
@@ -204,4 +222,4 @@ def load_to_memory(
 
     filepath = setup_settings.paths.cloud_to_local(filepath, print_progress=True)
 
-    return loader(filepath, **kwargs)
+    return cast(Callable[..., Any], loader)(filepath, **kwargs)
