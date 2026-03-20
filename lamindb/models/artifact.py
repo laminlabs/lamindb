@@ -1282,11 +1282,11 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
             ln.Artifact.filter(scientist="Barbara McClintock")
 
-        Get all feature values as a dictionary::
+        Get all feature annotations as a dictionary::
 
             d = artifact.features.get_values()
 
-        Get a single feature value::
+        Get a value for a single feature::
 
             organism = artifact.features["species"]  # returns an Organism object, not "human"
             temperature = artifact.features["temperature"]  # returns a temperature value, a float
