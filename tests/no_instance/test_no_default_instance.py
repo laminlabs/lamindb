@@ -4,6 +4,13 @@ import pytest
 from lamindb_setup.errors import CurrentInstanceNotConfigured
 
 
+def test_no_read_only_warning(ccaplog):
+    ln.Artifact.connect("laminlabs/lamindata")
+    ln.DB("laminlabs/lamindata")
+
+    assert "connected in read-only mode" not in ccaplog.text
+
+
 def test_instance_not_connected():
     assert ln.setup.settings.instance.slug == "none/none"
 
