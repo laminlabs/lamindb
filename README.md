@@ -143,7 +143,7 @@ lamin init --storage ./quickstart-data --modules bionty
 
 On the terminal and in a Python session, LaminDB will now auto-connect.
 
-### CLI
+### The CLI
 
 To save a file or folder from the command line, run:
 
@@ -408,7 +408,7 @@ artifact = ln.Artifact.get(key="sample.fasta")  # get artifact by key
 artifact.versions.to_dataframe()                # see all versions of that artifact
 ```
 
-### Sync data across databases
+### Data sharing
 
 To share data in a lineage-aware way, sync objects from a source database to your default database:
 
