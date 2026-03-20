@@ -1613,8 +1613,8 @@ class FeatureManager:
 
                 temperature = ln.Feature.get(name="temperature", type__name="my_feature_type")
 
-                # to add feature values
-                artifact.features.add_values({temperature: 0.5})  # temperature is the feature object
+                # to set feature values
+                artifact.features.set_values({temperature: 0.5})  # temperature is the feature object
 
                 # to query by feature values
                 ln.Artifact.filter(temperature == 0.5)  # instead of temperature=0.5

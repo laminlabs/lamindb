@@ -993,7 +993,7 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
 
         Annotate an artifact with features (works identically for records and runs)::
 
-            artifact.features.add_values({
+            artifact.features.set_values({
                 "temperature_in_celsius": 37.5,
                 "sample_note": "Control sample",
             })
@@ -1519,7 +1519,7 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     #     However, when accessing an artifact annotation with a feature that's defined on the observation-level, say `"cell_type"`, you expect a set of values. So,
     #     `artifact.features.get_values(["cell_type_from_expert"])` should return a set: `{"T cell", "B cell"}`.
 
-    #     The value of `observational_unit` is currently auto-managed: if using `artifact.features.add_values()`,
+    #     The value of `observational_unit` is currently auto-managed: if using `artifact.features.set_values()`,
     #     it will be set to `Artifact`. In a curator, the value depends on whether it's an artifact- or observation-level slot
     #     (e.g. `.uns` is artifact-level in `AnnData` whereas `.obs` is observation-level).
 

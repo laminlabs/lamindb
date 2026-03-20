@@ -340,7 +340,7 @@ ln.Feature(name="experiment_date", dtype=date, coerce=True).save()  # accept dat
 During annotation, feature names and data types are validated against these definitions.
 
 ```python
-artifact.features.add_values({
+artifact.features.set_values({
     "gc_content": 0.55,
     "experiment_note": "Looks great",
     "experiment_date": "2025-10-24",
@@ -373,7 +373,7 @@ Define features and annotate an artifact with a sample:
 
 ```python
 ln.Feature(name="design_sample", dtype=sample).save()
-artifact.features.add_values({"design_sample": "P53mutant1"})
+artifact.features.set_values({"design_sample": "P53mutant1"})
 ```
 
 You can query & search the `Record` registry in the same way as `Artifact` or `Run`.

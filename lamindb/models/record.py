@@ -105,7 +105,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
             sample1.save()
 
             # reset the feature values for the record including the experiment
-            sample1.features.add_values({
+            sample1.features.set_values({
                 "gc_content": 0.5,
                 "experiment": "Experiment 1",  # automatically resolves by name, also accepts the experiment1 object
             })
