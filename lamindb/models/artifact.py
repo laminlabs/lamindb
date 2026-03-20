@@ -1269,7 +1269,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     def features(self) -> FeatureManager:
         """Feature manager.
 
-        Here is how to annotate an artifact ad hoc::
+        Annotate an artifact with features::
 
             artifact.features.set_values({
                 "species": "human",
@@ -1282,26 +1282,25 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
             ln.Artifact.filter(scientist="Barbara McClintock")
 
-        To get all feature values::
+        Get all feature values as a dictionary::
 
-            dictionary_of_values = artifact.features.get_values()
+            d = artifact.features.get_values()
 
-        To get a single feature value::
+        Get a single feature value::
 
             organism = artifact.features["species"]  # returns an Organism object, not "human"
             temperature = artifact.features["temperature"]  # returns a temperature value, a float
 
-        Note that `get_values()` uses identifiers for categorical values, like the string "human" for an `Organism` object.
-        The `[]` access would return the `Organism` object.
-
-        Also see :meth:`~lamindb.models.FeatureManager.set_values`.
+        Note that `get_values()` returns identifiers for categorical values (for example, the string
+        "human" for an `Organism`), while the `[]` accessor returns the corresponding Python object.
+        See also :meth:`~lamindb.models.FeatureManager.set_values`.
 
         .. dropdown:: Dataset features vs. external features
 
             Features may or may not be stored in the dataset, i.e., the artifact content in storage.
             If you pass a schema to :class:`~lamindb.Artifact.from_dataframe` you validate the columns of the
             `DataFrame` and annotate with values parsed from these columns.
-            `artifact.features.add_values()`, by contrast, does **not** validate the content of the artifact.
+            `artifact.features.set_values()`, by contrast, does **not** validate the content of the artifact.
 
         """
         from ._feature_manager import FeatureManager
