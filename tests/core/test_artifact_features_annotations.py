@@ -927,7 +927,11 @@ def test_artifact_features_accept_feature_object_keys():
 
 
 def test_artifact_set_values_preserves_dataset_features():
-    ln.examples.datasets.mini_immuno.save_mini_immuno_datasets()
+    import importlib
+
+    import lamindb.examples.datasets.save_mini_immuno_datasets as mini_immuno_script
+
+    importlib.reload(mini_immuno_script)
     artifact = ln.Artifact.get(key="examples/dataset1.h5ad")
 
     values_before = artifact.features.get_values()
