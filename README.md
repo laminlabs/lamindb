@@ -488,7 +488,7 @@ Plugin `bionty` gives you >20 public ontologies as `SQLRecord` registries. This 
 import bionty as bt
 
 bt.CellType.import_source()  # import the default ontology
-bt.CellType.to_dataframe()   # your extendable cell type ontology in a simple registry
+bt.CellType.to_dataframe()   # your extensible cell type ontology in a simple registry
 ```
 
 Read more: [docs.lamin.ai/manage-ontologies](https://docs.lamin.ai/manage-ontologies).
