@@ -1259,7 +1259,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             ),
         ]
 
-    _TRACK_FIELDS = ("space_id",)
+    _TRACK_FIELDS = ("space_id", "is_latest")
 
     _len_full_uid: int = 20
     _len_stem_uid: int = 16
@@ -2991,6 +2991,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
                 artifact = ln.Artifact("./myfile.csv", key="myfile.parquet").save()
         """
+        if not self._state.adding and not self._field_changed("is_latest"):
+            logger.warning("you are saving to a non-latest version of the artifact")
         # when space is passed in init, storage is ignored, so space - storage consistency is enforced there
         # note that storage is not editable after creation
         if (
