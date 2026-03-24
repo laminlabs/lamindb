@@ -811,8 +811,10 @@ def test_revise_recreate_artifact(example_dataframe: pd.DataFrame, ccaplog):
     assert artifact_from_trash.branch_id == -1
 
     new_artifact.save()
+    assert new_artifact.is_latest
 
     old_artifact = ln.Artifact.get(artifact.id)  # to update is_latest from the db
+    assert not old_artifact.is_latest
     old_artifact.description = "change old version description"
     old_artifact.save()
 
