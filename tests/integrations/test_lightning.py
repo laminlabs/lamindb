@@ -232,6 +232,46 @@ def test_checkpoint_auto_features_with_duplicate_score_name(
     assert len(artifacts) >= 1
 
 
+def test_checkpoint_best_model_with_duplicate_feature_names(
+    simple_model: pl.LightningModule,
+    dataloader: DataLoader,
+    dirpath: str,
+    lightning_features: None,
+):
+    """Clearing best-model flags should work when duplicate feature names exist.
+
+    Regression test: when a Feature named 'is_best_model' exists both under the
+    lamindb.lightning type and without a type (or under a different type),
+    remove_values used to call Feature.get(name=...) which raised
+    MultipleObjectsReturned. The fix uses type-scoped Feature lookups.
+    """
+    # Create a duplicate 'is_best_model' feature without the lightning type
+    ln.Feature(name="is_best_model", dtype=bool).save()
+
+    callback = ll.Checkpoint(
+        dirpath=dirpath,
+        monitor="train_loss",
+        save_top_k=2,
+        mode="min",
+    )
+    trainer = pl.Trainer(
+        max_epochs=3,
+        callbacks=[callback],
+        logger=False,
+    )
+    # This would raise MultipleObjectsReturned before the fix
+    trainer.fit(simple_model, dataloader)
+
+    resolved = callback.dirpath.rstrip("/") + "/"
+    artifacts = ln.Artifact.filter(key__startswith=resolved)
+    assert len(artifacts) >= 1
+
+    best_count = sum(
+        1 for af in artifacts if af.features.get_values().get("is_best_model") is True
+    )
+    assert best_count == 1
+
+
 def test_checkpoint_query_budget_scales_sublinearly_with_hparams(
     dataloader: DataLoader, dirpath: str, lightning_features: None
 ):
