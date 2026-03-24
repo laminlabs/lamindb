@@ -803,10 +803,10 @@ def test_revise_recreate_artifact(example_dataframe: pd.DataFrame, ccaplog):
     )  # version falls back to uid suffix
     assert new_artifact.description == artifact.description
 
-    assert "you are saving to a non-latest version of the artifact" not in ccaplog.text
-
     new_artifact.save()
     assert new_artifact.is_latest
+
+    assert "you are saving to a non-latest version of the artifact" not in ccaplog.text
 
     old_artifact = ln.Artifact.get(artifact.id)  # to update is_latest from the db
     assert not old_artifact.is_latest
