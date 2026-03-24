@@ -59,11 +59,12 @@ def test_create_small_file_from_remote_path(
     ln.settings.creation.artifact_skip_size_hash = False
 
 
-def test_versioning_arifact_from_existing_path():
+def test_versioning_arifact_from_existing_path(ccaplog):
     artifact1 = ln.Artifact("s3://lamindb-ci/test-data/test.parquet").save()
     artifact2 = ln.Artifact(
         "s3://lamindb-ci/test-data/test.csv", revises=artifact1
     ).save()
+    assert "you are saving to a non-latest version of the artifact" not in ccaplog.text
     assert artifact1.stem_uid == artifact2.stem_uid
     assert artifact1.uid != artifact2.uid
     artifact1.delete(permanent=True, storage=False)
