@@ -805,18 +805,21 @@ def test_revise_recreate_artifact(example_dataframe: pd.DataFrame, ccaplog):
 
     assert "you are saving to a non-latest version of the artifact" not in ccaplog.text
 
+    artifact.delete()
+
+    artifact_from_trash = ln.Artifact.get(artifact.uid[:-4])  # query with stem uid
+    assert artifact_from_trash.branch_id == -1
+
+    new_artifact.save()
+
     old_artifact = ln.Artifact.get(artifact.id)  # to update is_latest from the db
     old_artifact.description = "change old version description"
     old_artifact.save()
 
     assert "you are saving to a non-latest version of the artifact" in ccaplog.text
 
-    artifact.delete()
-
-    artifact_from_trash = ln.Artifact.get(artifact.uid[:-4])  # query with stem uid
-    assert artifact_from_trash.branch_id == -1
-
-    artifact.delete(permanent=True)  # permanent deletion
+    old_artifact.delete(permanent=True)
+    new_artifact.delete(permanent=True)
 
 
 def test_delete_and_restore_artifact(example_dataframe: pd.DataFrame):
