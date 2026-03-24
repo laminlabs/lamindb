@@ -815,6 +815,7 @@ def test_revise_recreate_artifact(example_dataframe: pd.DataFrame, ccaplog):
 
     assert "you are saving to a non-latest version of the artifact" in ccaplog.text
 
+    old_artifact.delete()
     new_artifact.delete()
 
     artifact_from_trash = ln.Artifact.get(new_artifact.uid[:-4])  # query with stem uid
