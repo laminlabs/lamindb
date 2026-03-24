@@ -218,6 +218,7 @@ class Checkpoint(ModelCheckpoint):
         self._artifact_features = self.features.get("artifact", {})
         self._available_auto_features: set[str] = set()
         self._hparam_features_available: set[str] = set()
+        self._lightning_feature_type: ln.Feature | None = None
         self._run_features_added = False
         self._hparams_yaml_saved = False
         self.overwrite_versions = overwrite_versions
@@ -251,15 +252,15 @@ class Checkpoint(ModelCheckpoint):
 
             # Auto-features are opt-in and scoped to the lightning feature type.
             # If `save_lightning_features()` was never called, skip auto-tracking.
-            lightning_feature_type = ln.Feature.filter(
+            self._lightning_feature_type = ln.Feature.filter(
                 name="lamindb.lightning", is_type=True
             ).one_or_none()
             self._available_auto_features.clear()
-            if lightning_feature_type is not None:
+            if self._lightning_feature_type is not None:
                 self._available_auto_features = set(
                     ln.Feature.filter(
                         name__in=_SUPPORTED_AUTO_FEATURES,
-                        type=lightning_feature_type,
+                        type=self._lightning_feature_type,
                     ).values_list("name", flat=True)
                 )
             hparam_names: set[str] = set()
@@ -432,8 +433,19 @@ class Checkpoint(ModelCheckpoint):
             if "model_rank" in self._available_auto_features:
                 self._update_model_ranks()
 
+    def _get_lightning_feature(self, name: str) -> ln.Feature | None:
+        """Get a Feature by name scoped to the lightning feature type."""
+        if self._lightning_feature_type is None:
+            return None
+        return ln.Feature.filter(
+            name=name, type=self._lightning_feature_type
+        ).one_or_none()
+
     def _clear_best_model_flags(self) -> None:
         """Set is_best_model=False on previous best checkpoints."""
+        is_best_feature = self._get_lightning_feature("is_best_model")
+        if is_best_feature is None:
+            return
         feature_rows = self._get_artifact_feature_rows({"is_best_model"})
         best_artifact_ids = [
             artifact_id
@@ -450,11 +462,14 @@ class Checkpoint(ModelCheckpoint):
             if artifact_id not in artifacts_by_id:
                 continue
             artifact = artifacts_by_id[artifact_id]
-            artifact.features.remove_values("is_best_model", value=True)
-            artifact.features.add_values({"is_best_model": False})
+            artifact.features.remove_values(is_best_feature, value=True)
+            artifact.features.add_values({is_best_feature: False})
 
     def _update_model_ranks(self) -> None:
         """Update model_rank feature for all checkpoints under this key."""
+        model_rank_feature = self._get_lightning_feature("model_rank")
+        if model_rank_feature is None:
+            return
         feature_rows = self._get_artifact_feature_rows({"score", "model_rank"})
         scored = []
         for artifact_id, values in feature_rows.items():
@@ -472,8 +487,8 @@ class Checkpoint(ModelCheckpoint):
                 continue
             af = artifacts_by_id[artifact_id]
             if old_rank is not None:
-                af.features.remove_values("model_rank", value=old_rank)
-            af.features.add_values({"model_rank": rank})
+                af.features.remove_values(model_rank_feature, value=old_rank)
+            af.features.add_values({model_rank_feature: rank})
 
     def _get_artifact_feature_rows(
         self, feature_names: set[str]
