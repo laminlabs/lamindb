@@ -2993,8 +2993,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         """
         if (
             not self._state.adding
-            and not self._field_changed("is_latest")
+            and not self._field_changed("is_latest")  # skip on is_latest change
             and not self.is_latest
+            and self.branch_id != -1  # skip on soft deletion
         ):
             logger.warning("you are saving to a non-latest version of the artifact")
         # when space is passed in init, storage is ignored, so space - storage consistency is enforced there
