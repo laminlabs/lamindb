@@ -781,7 +781,7 @@ def test_checkpoint_auto_features_without_dirpath(
         (False, "cli_logs", "logger"),
         (False, None, "filename"),
         (True, "cli_logs", "logger"),
-        (True, None, "filename"),
+        (True, None, "dirpath"),
     ],
     ids=[
         "without-dirpath-with-logger",
@@ -799,7 +799,7 @@ def test_save_config_artifact_key_matrix(
     logger_name: str | None,
     key_source: str,
 ):
-    """Config artifacts should follow Lightning log-dir behavior, not checkpoint dirpath."""
+    """Config artifacts should follow Lightning log-dir behavior with one dirpath exception."""
     from lightning.pytorch.loggers import CSVLogger
 
     class ParserStub:
@@ -849,13 +849,17 @@ def test_save_config_artifact_key_matrix(
     if key_source == "logger":
         assert logger_name is not None
         config_key = f"{tmp_path.name}/{logger_name}/version_0/config.yaml"
+    elif key_source == "dirpath":
+        config_key = f"{dirpath.rstrip('/')}/config.yaml"
     else:
         config_key = "config.yaml"
     config_artifact = ln.Artifact.filter(key=config_key).one_or_none()
     assert config_artifact is not None
     assert config_artifact.description == "Lightning CLI config"
-    if use_dirpath:
+    if use_dirpath and logger_name is not None:
         assert not config_artifact.key.startswith(dirpath.rstrip("/") + "/")
+    elif key_source == "dirpath":
+        assert config_artifact.key == f"{dirpath.rstrip('/')}/config.yaml"
 
     checkpoint_artifacts = ln.Artifact.filter(
         key__startswith=checkpoint.checkpoint_key_prefix + "/"

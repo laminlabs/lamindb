@@ -338,6 +338,8 @@ class Checkpoint(ModelCheckpoint):
             prefix = self._checkpoint_key_prefix
         elif len(trainer.loggers) > 0:
             prefix = self._compute_logger_key_prefix(trainer)
+        elif self._original_dirpath is not None:
+            prefix = str(self._original_dirpath).rstrip("/")
         else:
             prefix = ""
         if prefix:
@@ -574,14 +576,18 @@ class SaveConfigCallback(_SaveConfigCallback):
     Use with LightningCLI to save the resolved configuration file alongside checkpoints.
 
     The local config file follows Lightning's ``trainer.log_dir`` behavior.
-    This also means that setting ``dirpath`` on :class:`Checkpoint` only affects
-    where checkpoint files are saved; it does not affect the config file location
-    or the config artifact key.
+    Setting ``dirpath`` on :class:`Checkpoint` affects where checkpoint files are
+    saved, but normally does not affect the config file location.
 
-    Config artifact key rules:
+    Lamin stores config artifacts with the following key rules:
 
     - logger present -> ``{save_dir_basename}/{name}/{version}/config.yaml``
-    - no logger -> ``config.yaml``
+    - no logger, ``Checkpoint.dirpath`` set -> ``{dirpath}/config.yaml``
+    - no logger, no ``dirpath`` -> ``config.yaml``
+
+    The no-logger + explicit-``dirpath`` case is a Lamin-specific exception to avoid
+    storing ``config.yaml`` at the storage root when checkpoints already have an
+    explicit namespace. The local config file still remains under ``trainer.log_dir``.
 
     Example::
 
@@ -631,7 +637,7 @@ class SaveConfigCallback(_SaveConfigCallback):
             self.already_saved = trainer.strategy.broadcast(self.already_saved)
 
     def _save_config(self, trainer: pl.Trainer, config_path: Path) -> None:
-        """Save config using Lightning's log-dir semantics rather than checkpoint dirpath."""
+        """Save config using Lightning log-dir semantics with a Lamin key exception."""
         checkpoint_cb = self._get_checkpoint_callback(trainer)
         if checkpoint_cb is None:
             return
