@@ -177,7 +177,7 @@ class Checkpoint(ModelCheckpoint):
 
     def __init__(
         self,
-        dirpath: _PATH,
+        dirpath: _PATH | None = None,
         *,
         features: dict[Literal["run", "artifact"], dict[str, Any]] | None = None,
         monitor: str | None = None,
@@ -194,6 +194,7 @@ class Checkpoint(ModelCheckpoint):
         enable_version_counter: bool = True,
         overwrite_versions: bool = False,
     ) -> None:
+        self._original_dirpath = dirpath
         super().__init__(
             dirpath=dirpath,
             monitor=monitor,
@@ -276,10 +277,28 @@ class Checkpoint(ModelCheckpoint):
                 ln.Feature.filter(name__in=hparam_names).values_list("name", flat=True)
             )
 
-    def _get_artifact_key(self, filepath: str) -> str:
+    def _get_artifact_key(self, trainer: pl.Trainer, filepath: Path | str, is_checkpoint: bool = True) -> str:
         """Return the artifact key for this checkpoint."""
-        prefix = self.dirpath.rstrip("/")
-        return f"{prefix}/{Path(filepath).name}"
+        if is_checkpoint and self._original_dirpath is not None:
+            prefix = self._original_dirpath.rstrip("/")
+        elif len(trainer.loggers) > 0:
+            if trainer.loggers[0].save_dir is not None:
+                save_dir = trainer.loggers[0].save_dir
+            else:
+                save_dir = trainer.default_root_dir
+            name = trainer.loggers[0].name
+            version = trainer.loggers[0].version
+            version = version if isinstance(version, str) else f"version_{version}"
+            prefix = f"{Path(save_dir).name}/{str(name).rstrip("/")}/{version.rstrip("/")}"
+            if is_checkpoint:
+                prefix = f"{prefix}/checkpoints"
+        elif is_checkpoint:
+            prefix = "checkpoints"
+        else:
+            prefix = ""
+        if prefix:
+            return f"{prefix}/{Path(filepath).name}"
+        return Path(filepath).name
 
     def _get_key_filter(self) -> dict[str, str]:
         """Return filter kwargs for querying artifacts from this callback."""
@@ -377,18 +396,18 @@ class Checkpoint(ModelCheckpoint):
                 if run_features:
                     ln.context.run.features.add_values(run_features)
                 self._run_features_added = True
-
+            key = self._get_artifact_key(trainer=trainer, filepath=filepath, is_checkpoint=True)
             if (
-                ln.Artifact.filter(key=self._get_artifact_key(filepath)).one_or_none()
+                ln.Artifact.filter(key=key).one_or_none()
             ) and not self.overwrite_versions:
                 raise ValueError(
-                    f"Artifact with key '{self._get_artifact_key(filepath)}' already exists. "
+                    f"Artifact with key '{key}' already exists. "
                     "Choose a new dirpath or pass overwrite_versions=True."
                 )
 
             artifact = ln.Artifact(
                 filepath,
-                key=self._get_artifact_key(filepath),
+                key=key,
                 kind="model",
                 description="Lightning model checkpoint",
             )
@@ -565,7 +584,7 @@ class SaveConfigCallback(_SaveConfigCallback):
 
         lightning_cli_config_af = ln.Artifact(
             config_path,
-            key=f"{checkpoint_cb.dirpath.rstrip('/')}/{self.config_filename}",
+            key=checkpoint_cb._get_artifact_key(trainer=trainer, filepath=config_path, is_checkpoint=False),
             description="Lightning CLI config",
         )
         lightning_cli_config_af.save()
