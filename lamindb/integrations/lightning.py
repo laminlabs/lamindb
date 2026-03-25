@@ -109,8 +109,20 @@ class Checkpoint(ModelCheckpoint):
     """A `ModelCheckpoint` that annotates `pytorch` `lightning` checkpoints.
 
     Extends `lightning`'s `ModelCheckpoint` with artifact creation & feature annotation.
-    Checkpoints are stored with semantic paths like `{dirpath}/epoch=0-val_loss=0.5.ckpt`.
-    Each checkpoint is a separate artifact that can be queried via `Artifact.filter(key__startswith=callback.dirpath)`.
+    Each checkpoint is a separate artifact whose key is derived from either the
+    explicit ``dirpath`` or the trainer's logger configuration.
+
+    When ``dirpath`` is omitted (recommended), Lightning decides where to store
+    checkpoints locally (typically ``lightning_logs/version_N/checkpoints/``)
+    and the artifact key is derived from the logger's ``save_dir``, ``name``,
+    and ``version``.  When ``dirpath`` is provided, it is used directly as the
+    key prefix.
+
+    Key derivation rules:
+
+    - ``dirpath`` provided → ``{dirpath}/{filename}``
+    - ``dirpath`` omitted, logger present → ``{save_dir_basename}/{name}/{version}/checkpoints/{filename}``
+    - ``dirpath`` omitted, no logger → ``checkpoints/{filename}``
 
     If available in the database through `save_lightning_features()`, the following `lamindb.lightning` features are automatically tracked:
     `is_best_model`, `score`, `model_rank`, `logger_name`, `logger_version`,`max_epochs`, `max_steps`,
@@ -120,7 +132,9 @@ class Checkpoint(ModelCheckpoint):
     (from `trainer.datamodule.hparams`) are captured if corresponding features exist.
 
     Args:
-        dirpath: Directory for checkpoints (reflected in cloud paths).
+        dirpath: Directory for checkpoints.  When provided, also used as the
+            artifact key prefix.  When omitted (recommended), Lightning picks
+            the local directory and the key prefix is derived from the logger.
         features: Features to annotate runs and artifacts.
             Use "run" key for run-level features (static metadata).
             Use "artifact" key for artifact-level features (values can be static or None for auto-population from trainer metrics/attributes).
@@ -140,13 +154,25 @@ class Checkpoint(ModelCheckpoint):
 
     Examples:
 
-        Using the API::
+        Let Lightning decide where to store checkpoints (recommended)::
 
             import lightning as pl
+            from lightning.pytorch.loggers import CSVLogger
             from lamindb.integrations import lightning as ll
 
-            # Optional one-time setup to enable automated lightning specific feature tracking
             ll.save_lightning_features()
+
+            callback = ll.Checkpoint(monitor="val_loss", save_top_k=3)
+            logger = CSVLogger(save_dir="logs")
+
+            trainer = pl.Trainer(callbacks=[callback], logger=logger)
+            trainer.fit(model, dataloader)
+
+            # Query checkpoints — key prefix is derived from the logger
+            # e.g. "logs/lightning_logs/version_0/checkpoints/"
+            ln.Artifact.filter(key__startswith=callback.checkpoint_key_prefix)
+
+        Explicit ``dirpath`` for full control over the artifact key prefix::
 
             callback = ll.Checkpoint(
                 dirpath="deployments/my_model/",
@@ -158,7 +184,7 @@ class Checkpoint(ModelCheckpoint):
             trainer.fit(model, dataloader)
 
             # Query checkpoints
-            ln.Artifact.filter(key__startswith=callback.dirpath)
+            ln.Artifact.filter(key__startswith=callback.checkpoint_key_prefix)
 
         Using the CLI::
 
@@ -167,7 +193,6 @@ class Checkpoint(ModelCheckpoint):
               callbacks:
                 - class_path: lamindb.integrations.lightning.Checkpoint
                   init_args:
-                    dirpath: deployments/my_model/
                     monitor: val_loss
                     save_top_k: 3
 
@@ -223,12 +248,14 @@ class Checkpoint(ModelCheckpoint):
         self._run_features_added = False
         self._hparams_yaml_saved = False
         self.overwrite_versions = overwrite_versions
+        self._checkpoint_key_prefix: str = ""
 
     def setup(
         self, trainer: pl.Trainer, pl_module: pl.LightningModule, stage: str
     ) -> None:
         """Validate user features and detect available auto-features."""
         super().setup(trainer, pl_module, stage)
+        self._checkpoint_key_prefix = self._compute_checkpoint_key_prefix(trainer)
 
         if trainer.is_global_zero:
             # Validate user-specified features exist
@@ -277,23 +304,40 @@ class Checkpoint(ModelCheckpoint):
                 ln.Feature.filter(name__in=hparam_names).values_list("name", flat=True)
             )
 
+    @staticmethod
+    def _compute_logger_key_prefix(trainer: pl.Trainer) -> str:
+        """Derive a key prefix from the trainer's first logger."""
+        if trainer.loggers[0].save_dir is not None:
+            save_dir = trainer.loggers[0].save_dir
+        else:
+            save_dir = trainer.default_root_dir
+        name = trainer.loggers[0].name
+        version = trainer.loggers[0].version
+        version = version if isinstance(version, str) else f"version_{version}"
+        return f"{Path(save_dir).name}/{str(name).rstrip('/')}/{version.rstrip('/')}"
+
+    def _compute_checkpoint_key_prefix(self, trainer: pl.Trainer) -> str:
+        """Compute the artifact key prefix for checkpoints."""
+        if self._original_dirpath is not None:
+            return str(self._original_dirpath).rstrip("/")
+        if len(trainer.loggers) > 0:
+            return f"{self._compute_logger_key_prefix(trainer)}/checkpoints"
+        return "checkpoints"
+
+    @property
+    def checkpoint_key_prefix(self) -> str:
+        """The artifact key prefix used for checkpoint artifacts.
+
+        Available after ``setup()`` has been called (i.e. after ``trainer.fit()`` starts).
+        """
+        return self._checkpoint_key_prefix
+
     def _get_artifact_key(self, trainer: pl.Trainer, filepath: Path | str, is_checkpoint: bool = True) -> str:
         """Return the artifact key for this checkpoint."""
-        if is_checkpoint and self._original_dirpath is not None:
-            prefix = self._original_dirpath.rstrip("/")
+        if is_checkpoint:
+            prefix = self._checkpoint_key_prefix
         elif len(trainer.loggers) > 0:
-            if trainer.loggers[0].save_dir is not None:
-                save_dir = trainer.loggers[0].save_dir
-            else:
-                save_dir = trainer.default_root_dir
-            name = trainer.loggers[0].name
-            version = trainer.loggers[0].version
-            version = version if isinstance(version, str) else f"version_{version}"
-            prefix = f"{Path(save_dir).name}/{str(name).rstrip("/")}/{version.rstrip("/")}"
-            if is_checkpoint:
-                prefix = f"{prefix}/checkpoints"
-        elif is_checkpoint:
-            prefix = "checkpoints"
+            prefix = self._compute_logger_key_prefix(trainer)
         else:
             prefix = ""
         if prefix:
@@ -302,7 +346,7 @@ class Checkpoint(ModelCheckpoint):
 
     def _get_key_filter(self) -> dict[str, str]:
         """Return filter kwargs for querying artifacts from this callback."""
-        return {"key__startswith": self.dirpath.rstrip("/") + "/"}
+        return {"key__startswith": self._checkpoint_key_prefix + "/"}
 
     def _save_hparams_yaml(self, trainer: pl.Trainer) -> None:
         """Save hparams.yaml if it exists in the log directory."""
@@ -317,7 +361,7 @@ class Checkpoint(ModelCheckpoint):
         if not hparams_path.exists():
             return
 
-        artifact_key = f"{self.dirpath.rstrip('/')}/hparams.yaml"
+        artifact_key = f"{self._checkpoint_key_prefix}/hparams.yaml"
         if ln.Artifact.filter(key=artifact_key).one_or_none() is not None:
             if not self.overwrite_versions:
                 return
@@ -529,6 +573,16 @@ class SaveConfigCallback(_SaveConfigCallback):
 
     Use with LightningCLI to save the resolved configuration file alongside checkpoints.
 
+    The local config file follows Lightning's ``trainer.log_dir`` behavior.
+    This also means that setting ``dirpath`` on :class:`Checkpoint` only affects
+    where checkpoint files are saved; it does not affect the config file location
+    or the config artifact key.
+
+    Config artifact key rules:
+
+    - logger present -> ``{save_dir_basename}/{name}/{version}/config.yaml``
+    - no logger -> ``config.yaml``
+
     Example::
 
         from lightning.pytorch.cli import LightningCLI
@@ -577,7 +631,7 @@ class SaveConfigCallback(_SaveConfigCallback):
             self.already_saved = trainer.strategy.broadcast(self.already_saved)
 
     def _save_config(self, trainer: pl.Trainer, config_path: Path) -> None:
-        """Save config under same key prefix as checkpoints."""
+        """Save config using Lightning's log-dir semantics rather than checkpoint dirpath."""
         checkpoint_cb = self._get_checkpoint_callback(trainer)
         if checkpoint_cb is None:
             return
