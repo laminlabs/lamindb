@@ -7,9 +7,10 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 import warnings
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Final, Literal
+from typing import TYPE_CHECKING, Any, Final, Literal, Protocol
 
 import lightning.pytorch as pl
 from lightning.fabric.utilities.cloud_io import get_filesystem
@@ -40,6 +41,56 @@ _RUN_AUTO_FEATURES: Final = frozenset(
 )
 _ARTIFACT_AUTO_FEATURES: Final = frozenset({"is_best_model", "score", "model_rank"})
 _SUPPORTED_AUTO_FEATURES: Final = _RUN_AUTO_FEATURES | _ARTIFACT_AUTO_FEATURES
+ArtifactKind = Literal["checkpoint", "config", "hparams"]
+
+
+@dataclass(frozen=True)
+class ArtifactEvent:
+    """Common metadata emitted when a Lamin-backed Lightning artifact changes."""
+
+    kind: ArtifactKind
+    key: str
+    local_path: Path
+    trainer: pl.Trainer
+
+
+@dataclass(frozen=True)
+class ArtifactSavedEvent(ArtifactEvent):
+    """Metadata emitted after a Lamin-backed Lightning artifact has been saved."""
+
+    artifact: ln.Artifact
+
+    @property
+    def storage_uri(self) -> str:
+        """Resolved artifact location suitable for downstream registries.
+
+        For cloud-backed artifacts this resolves to the cloud URI, for example an
+        ``s3://`` path. This is the value a downstream ClearML integration would
+        normally pass as ``register_uri``.
+        """
+        return str(self.artifact.path)
+
+
+@dataclass(frozen=True)
+class ArtifactRemovedEvent(ArtifactEvent):
+    """Metadata emitted after a local checkpoint file has been removed."""
+
+    artifact: ln.Artifact | None = None
+
+    @property
+    def storage_uri(self) -> str | None:
+        """Resolved storage URI if the corresponding Lamin artifact is known."""
+        if self.artifact is None:
+            return None
+        return str(self.artifact.path)
+
+
+class ArtifactObserver(Protocol):
+    """Observer notified about Lamin artifact save and removal events."""
+
+    def on_artifact_saved(self, event: ArtifactSavedEvent) -> None: ...
+
+    def on_artifact_removed(self, event: ArtifactRemovedEvent) -> None: ...
 
 
 def save_lightning_features() -> None:
@@ -151,6 +202,10 @@ class Checkpoint(ModelCheckpoint):
         save_on_train_epoch_end: Run checkpointing at end of training epoch.
         enable_version_counter: Append version to filename to avoid collisions.
         overwrite_versions: Whether to overwrite existing checkpoints.
+        artifact_observers: Optional observer objects notified when checkpoint,
+            config, or hparams artifacts are saved or when checkpoint files are
+            removed locally. Observers follow :class:`ArtifactObserver` and
+            receive :class:`ArtifactSavedEvent` and :class:`ArtifactRemovedEvent`.
 
     Examples:
 
@@ -218,6 +273,7 @@ class Checkpoint(ModelCheckpoint):
         save_on_train_epoch_end: bool | None = None,
         enable_version_counter: bool = True,
         overwrite_versions: bool = False,
+        artifact_observers: list[ArtifactObserver] | None = None,
     ) -> None:
         self._original_dirpath = dirpath
         super().__init__(
@@ -249,6 +305,15 @@ class Checkpoint(ModelCheckpoint):
         self._hparams_yaml_saved = False
         self.overwrite_versions = overwrite_versions
         self._checkpoint_key_prefix: str = ""
+        self._artifact_observers: list[ArtifactObserver] = list(
+            artifact_observers or []
+        )
+        self._latest_artifacts: dict[ArtifactKind, ln.Artifact | None] = {
+            "checkpoint": None,
+            "config": None,
+            "hparams": None,
+        }
+        self._last_artifact_event: ArtifactEvent | None = None
 
     def setup(
         self, trainer: pl.Trainer, pl_module: pl.LightningModule, stage: str
@@ -332,9 +397,54 @@ class Checkpoint(ModelCheckpoint):
         """
         return self._checkpoint_key_prefix
 
-    def _get_artifact_key(self, trainer: pl.Trainer, filepath: Path | str, is_checkpoint: bool = True) -> str:
-        """Return the artifact key for this checkpoint."""
-        if is_checkpoint:
+    @property
+    def last_checkpoint_artifact(self) -> ln.Artifact | None:
+        """The most recently saved checkpoint artifact."""
+        return self._latest_artifacts["checkpoint"]
+
+    @property
+    def last_config_artifact(self) -> ln.Artifact | None:
+        """The most recently saved Lightning CLI config artifact."""
+        return self._latest_artifacts["config"]
+
+    @property
+    def last_hparams_artifact(self) -> ln.Artifact | None:
+        """The most recently saved ``hparams.yaml`` artifact."""
+        return self._latest_artifacts["hparams"]
+
+    @property
+    def last_artifact_event(self) -> ArtifactEvent | None:
+        """The last artifact lifecycle event emitted by this callback."""
+        return self._last_artifact_event
+
+    def get_last_artifact(self, kind: ArtifactKind) -> ln.Artifact | None:
+        """Return the most recently saved artifact for a given artifact kind."""
+        return self._latest_artifacts[kind]
+
+    def add_artifact_observer(self, observer: ArtifactObserver) -> None:
+        """Register an observer notified about Lamin artifact lifecycle events."""
+        self._artifact_observers.append(observer)
+
+    def remove_artifact_observer(self, observer: ArtifactObserver) -> None:
+        """Unregister a previously added artifact observer."""
+        self._artifact_observers.remove(observer)
+
+    def resolve_artifact_storage_uri(self, artifact: ln.Artifact) -> str:
+        """Resolve the physical artifact location for downstream registries.
+
+        This is the stable abstraction external packages should use instead of
+        reconstructing storage locations from Lamin internals.
+        """
+        return str(artifact.path)
+
+    def resolve_artifact_key(
+        self,
+        trainer: pl.Trainer,
+        filepath: Path | str,
+        kind: ArtifactKind,
+    ) -> str:
+        """Return the Lamin artifact key for a checkpoint-related file."""
+        if kind in {"checkpoint", "hparams"}:
             prefix = self._checkpoint_key_prefix
         elif len(trainer.loggers) > 0:
             prefix = self._compute_logger_key_prefix(trainer)
@@ -346,9 +456,179 @@ class Checkpoint(ModelCheckpoint):
             return f"{prefix}/{Path(filepath).name}"
         return Path(filepath).name
 
+    def _get_artifact_key(
+        self, trainer: pl.Trainer, filepath: Path | str, is_checkpoint: bool = True
+    ) -> str:
+        """Backward-compatible wrapper around :meth:`resolve_artifact_key`."""
+        kind: ArtifactKind = "checkpoint" if is_checkpoint else "config"
+        return self.resolve_artifact_key(trainer=trainer, filepath=filepath, kind=kind)
+
+    def _artifact_key_for_kind(
+        self, trainer: pl.Trainer, filepath: Path | str, kind: ArtifactKind
+    ) -> str:
+        """Return the artifact key while preserving legacy checkpoint overrides."""
+        if kind == "checkpoint":
+            return self._get_artifact_key(
+                trainer=trainer, filepath=filepath, is_checkpoint=True
+            )
+        if kind == "config":
+            return self._get_artifact_key(
+                trainer=trainer, filepath=filepath, is_checkpoint=False
+            )
+        return self.resolve_artifact_key(trainer=trainer, filepath=filepath, kind=kind)
+
     def _get_key_filter(self) -> dict[str, str]:
         """Return filter kwargs for querying artifacts from this callback."""
         return {"key__startswith": self._checkpoint_key_prefix + "/"}
+
+    def _create_lamin_artifact(
+        self,
+        local_path: Path | str,
+        *,
+        key: str,
+        description: str,
+        kind: str | None = None,
+        link_run_as_input: bool = False,
+    ) -> ln.Artifact:
+        artifact_kwargs: dict[str, Any] = {"key": key, "description": description}
+        if kind is not None:
+            artifact_kwargs["kind"] = kind
+        artifact = ln.Artifact(local_path, **artifact_kwargs)
+        artifact.save()
+        if link_run_as_input and ln.context.run:
+            ln.context.run.input_artifacts.add(artifact)
+        return artifact
+
+    def _notify_artifact_saved(
+        self,
+        trainer: pl.Trainer,
+        *,
+        kind: ArtifactKind,
+        artifact: ln.Artifact,
+        local_path: Path | str,
+    ) -> ArtifactSavedEvent:
+        event = ArtifactSavedEvent(
+            kind=kind,
+            key=artifact.key,
+            local_path=Path(local_path),
+            trainer=trainer,
+            artifact=artifact,
+        )
+        self._latest_artifacts[kind] = artifact
+        self._last_artifact_event = event
+        self.on_artifact_saved(event)
+        self._notify_artifact_observers("on_artifact_saved", event)
+        return event
+
+    def _notify_artifact_removed(
+        self,
+        trainer: pl.Trainer,
+        *,
+        kind: ArtifactKind,
+        key: str,
+        local_path: Path | str,
+        artifact: ln.Artifact | None,
+    ) -> ArtifactRemovedEvent:
+        event = ArtifactRemovedEvent(
+            kind=kind,
+            key=key,
+            local_path=Path(local_path),
+            trainer=trainer,
+            artifact=artifact,
+        )
+        self._last_artifact_event = event
+        self.on_artifact_removed(event)
+        self._notify_artifact_observers("on_artifact_removed", event)
+        return event
+
+    def _notify_artifact_observers(
+        self,
+        method_name: str,
+        event: ArtifactSavedEvent | ArtifactRemovedEvent,
+    ) -> None:
+        for observer in tuple(self._artifact_observers):
+            method = getattr(observer, method_name, None)
+            if callable(method):
+                method(event)
+
+    def on_artifact_saved(self, event: ArtifactSavedEvent) -> None:
+        """Hook for subclasses after a Lamin artifact has been saved."""
+        del event
+
+    def on_artifact_removed(self, event: ArtifactRemovedEvent) -> None:
+        """Hook for subclasses after a checkpoint file has been removed locally."""
+        del event
+
+    def save_checkpoint_artifact(
+        self,
+        trainer: pl.Trainer,
+        filepath: Path | str,
+        *,
+        feature_values: dict[str, Any] | None = None,
+    ) -> ln.Artifact:
+        """Save a checkpoint artifact to Lamin and emit the corresponding event."""
+        key = self._artifact_key_for_kind(
+            trainer=trainer, filepath=filepath, kind="checkpoint"
+        )
+        if (
+            ln.Artifact.filter(key=key).one_or_none()
+        ) and not self.overwrite_versions:
+            raise ValueError(
+                f"Artifact with key '{key}' already exists. "
+                "Choose a new dirpath or pass overwrite_versions=True."
+            )
+
+        artifact = self._create_lamin_artifact(
+            filepath,
+            key=key,
+            kind="model",
+            description="Lightning model checkpoint",
+        )
+        if feature_values:
+            artifact.features.add_values(feature_values)
+        self._notify_artifact_saved(
+            trainer, kind="checkpoint", artifact=artifact, local_path=filepath
+        )
+        return artifact
+
+    def save_config_artifact(
+        self, trainer: pl.Trainer, config_path: Path | str
+    ) -> ln.Artifact:
+        """Save a Lightning CLI config artifact through the checkpoint pipeline."""
+        artifact = self._create_lamin_artifact(
+            config_path,
+            key=self._artifact_key_for_kind(
+                trainer=trainer, filepath=config_path, kind="config"
+            ),
+            description="Lightning CLI config",
+            link_run_as_input=True,
+        )
+        self._notify_artifact_saved(
+            trainer, kind="config", artifact=artifact, local_path=config_path
+        )
+        return artifact
+
+    def save_hparams_artifact(
+        self, trainer: pl.Trainer, hparams_path: Path | str
+    ) -> ln.Artifact | None:
+        """Save ``hparams.yaml`` through the shared checkpoint artifact pipeline."""
+        artifact_key = self._artifact_key_for_kind(
+            trainer=trainer, filepath=hparams_path, kind="hparams"
+        )
+        if ln.Artifact.filter(key=artifact_key).one_or_none() is not None:
+            if not self.overwrite_versions:
+                return None
+
+        artifact = self._create_lamin_artifact(
+            hparams_path,
+            key=artifact_key,
+            description="Lightning run hyperparameters",
+            link_run_as_input=True,
+        )
+        self._notify_artifact_saved(
+            trainer, kind="hparams", artifact=artifact, local_path=hparams_path
+        )
+        return artifact
 
     def _save_hparams_yaml(self, trainer: pl.Trainer) -> None:
         """Save hparams.yaml if it exists in the log directory."""
@@ -363,22 +643,92 @@ class Checkpoint(ModelCheckpoint):
         if not hparams_path.exists():
             return
 
-        artifact_key = f"{self._checkpoint_key_prefix}/hparams.yaml"
-        if ln.Artifact.filter(key=artifact_key).one_or_none() is not None:
-            if not self.overwrite_versions:
-                return
+        if self.save_hparams_artifact(trainer, hparams_path) is not None:
+            self._hparams_yaml_saved = True
 
-        hparams_artifact = ln.Artifact(
-            hparams_path,
-            key=artifact_key,
-            description="Lightning run hyperparameters",
-        )
-        hparams_artifact.save()
+    def _save_run_features(self, trainer: pl.Trainer) -> None:
+        """Save run-level features once per run after the first checkpoint."""
+        if not (ln.context.run and not self._run_features_added):
+            return
 
-        if ln.context.run:
-            ln.context.run.input_artifacts.add(hparams_artifact)
+        run_features = {}
+        if "logger_name" in self._available_auto_features and trainer.loggers:
+            run_features["logger_name"] = trainer.loggers[0].name
+        if "logger_version" in self._available_auto_features and trainer.loggers:
+            version = trainer.loggers[0].version
+            run_features["logger_version"] = (
+                version if isinstance(version, str) else f"version_{version}"
+            )
+        trainer_config_values = {
+            "max_epochs": (trainer.max_epochs, None, True),
+            "max_steps": (trainer.max_steps, None, True),
+            "precision": (trainer.precision, str, False),
+            "accumulate_grad_batches": (
+                trainer.accumulate_grad_batches,
+                None,
+                False,
+            ),
+            "gradient_clip_val": (trainer.gradient_clip_val, float, True),
+            "monitor": (self.monitor, None, True),
+            "save_weights_only": (self.save_weights_only, None, False),
+            "mode": (self.mode, None, False),
+        }
 
-        self._hparams_yaml_saved = True
+        for key, (value, transform, skip_none) in trainer_config_values.items():
+            if key in self._available_auto_features and not (
+                skip_none and value is None
+            ):
+                run_features[key] = transform(value) if transform else value
+
+        if (
+            hasattr(trainer.lightning_module, "hparams")
+            and trainer.lightning_module.hparams
+        ):
+            for name, value in trainer.lightning_module.hparams.items():
+                if name in self._hparam_features_available:
+                    run_features[name] = value
+        if (
+            trainer.datamodule is not None
+            and hasattr(trainer.datamodule, "hparams")
+            and trainer.datamodule.hparams
+        ):
+            for name, value in trainer.datamodule.hparams.items():
+                if name in self._hparam_features_available:
+                    run_features[name] = value
+        if run_features:
+            ln.context.run.features.add_values(run_features)
+        self._run_features_added = True
+
+    def _collect_checkpoint_feature_values(
+        self, trainer: pl.Trainer, filepath: Path | str
+    ) -> dict[str, Any]:
+        """Collect checkpoint-level feature values before saving the artifact."""
+        feature_values: dict[str, Any] = {}
+        is_best = self.best_model_path == str(filepath)
+        if "is_best_model" in self._available_auto_features:
+            if is_best:
+                self._clear_best_model_flags()
+            feature_values["is_best_model"] = is_best
+
+        import torch
+
+        if "score" in self._available_auto_features and self.current_score is not None:
+            score = self.current_score
+            if torch.is_tensor(score):
+                score = score.item()
+            feature_values["score"] = float(score)
+
+        for name, value in self._artifact_features.items():
+            if value is not None:
+                feature_values[name] = value
+            elif hasattr(trainer, name):
+                feature_values[name] = getattr(trainer, name)
+            elif name in trainer.callback_metrics:
+                metric = trainer.callback_metrics[name]
+                feature_values[name] = (
+                    metric.item() if hasattr(metric, "item") else float(metric)
+                )
+        return feature_values
 
     def _save_checkpoint(self, trainer: pl.Trainer, filepath: str) -> None:
         """Save checkpoint to the instance."""
@@ -387,116 +737,34 @@ class Checkpoint(ModelCheckpoint):
         if trainer.is_global_zero:
             self._save_hparams_yaml(trainer)
 
-            # Run-level features (once per run)
-            if ln.context.run and not self._run_features_added:
-                run_features = {}
-                if "logger_name" in self._available_auto_features and trainer.loggers:
-                    run_features["logger_name"] = trainer.loggers[0].name
-                if (
-                    "logger_version" in self._available_auto_features
-                    and trainer.loggers
-                ):
-                    version = trainer.loggers[0].version
-                    run_features["logger_version"] = (
-                        version if isinstance(version, str) else f"version_{version}"
-                    )
-                # Trainer config
-                # (value, transform, skip_if_none) - skip_if_none=True for optional Lightning config
-                trainer_config_values = {
-                    "max_epochs": (trainer.max_epochs, None, True),
-                    "max_steps": (trainer.max_steps, None, True),
-                    "precision": (trainer.precision, str, False),
-                    "accumulate_grad_batches": (
-                        trainer.accumulate_grad_batches,
-                        None,
-                        False,
-                    ),
-                    "gradient_clip_val": (trainer.gradient_clip_val, float, True),
-                    "monitor": (self.monitor, None, True),
-                    "save_weights_only": (self.save_weights_only, None, False),
-                    "mode": (self.mode, None, False),
-                }
-
-                for key, (value, transform, skip_none) in trainer_config_values.items():
-                    if key in self._available_auto_features and not (
-                        skip_none and value is None
-                    ):
-                        run_features[key] = transform(value) if transform else value
-                # Model hyperparameters
-                if (
-                    hasattr(trainer.lightning_module, "hparams")
-                    and trainer.lightning_module.hparams
-                ):
-                    for name, value in trainer.lightning_module.hparams.items():
-                        if name in self._hparam_features_available:
-                            run_features[name] = value
-                # DataModule hyperparameters
-                if (
-                    trainer.datamodule is not None
-                    and hasattr(trainer.datamodule, "hparams")
-                    and trainer.datamodule.hparams
-                ):
-                    for name, value in trainer.datamodule.hparams.items():
-                        if name in self._hparam_features_available:
-                            run_features[name] = value
-                if run_features:
-                    ln.context.run.features.add_values(run_features)
-                self._run_features_added = True
-            key = self._get_artifact_key(trainer=trainer, filepath=filepath, is_checkpoint=True)
-            if (
-                ln.Artifact.filter(key=key).one_or_none()
-            ) and not self.overwrite_versions:
-                raise ValueError(
-                    f"Artifact with key '{key}' already exists. "
-                    "Choose a new dirpath or pass overwrite_versions=True."
-                )
-
-            artifact = ln.Artifact(
-                filepath,
-                key=key,
-                kind="model",
-                description="Lightning model checkpoint",
+            self._save_run_features(trainer)
+            feature_values = self._collect_checkpoint_feature_values(
+                trainer, filepath
             )
-            artifact.save()
-
-            # Artifact-level features
-            feature_values: dict[str, Any] = {}
-
-            is_best = self.best_model_path == filepath
-            if "is_best_model" in self._available_auto_features:
-                if is_best:
-                    self._clear_best_model_flags()
-                feature_values["is_best_model"] = is_best
-
-            # lazy import for faster import of the class
-            import torch
-
-            if (
-                "score" in self._available_auto_features
-                and self.current_score is not None
-            ):
-                score = self.current_score
-                if torch.is_tensor(score):
-                    score = score.item()
-                feature_values["score"] = float(score)
-
-            # User-specified artifact features
-            for name, value in self._artifact_features.items():
-                if value is not None:
-                    feature_values[name] = value
-                elif hasattr(trainer, name):
-                    feature_values[name] = getattr(trainer, name)
-                elif name in trainer.callback_metrics:
-                    metric = trainer.callback_metrics[name]
-                    feature_values[name] = (
-                        metric.item() if hasattr(metric, "item") else float(metric)
-                    )
-
-            if feature_values:
-                artifact.features.add_values(feature_values)
+            self.save_checkpoint_artifact(
+                trainer, filepath, feature_values=feature_values
+            )
 
             if "model_rank" in self._available_auto_features:
                 self._update_model_ranks()
+
+    def _remove_checkpoint(self, trainer: pl.Trainer, filepath: str) -> None:
+        """Remove the local checkpoint file and emit a removal event."""
+        artifact: ln.Artifact | None = None
+        key = self._artifact_key_for_kind(
+            trainer=trainer, filepath=filepath, kind="checkpoint"
+        )
+        if trainer.is_global_zero:
+            artifact = ln.Artifact.filter(key=key).one_or_none()
+        super()._remove_checkpoint(trainer, filepath)
+        if trainer.is_global_zero:
+            self._notify_artifact_removed(
+                trainer,
+                kind="checkpoint",
+                key=key,
+                local_path=filepath,
+                artifact=artifact,
+            )
 
     def _get_lightning_feature(self, name: str) -> ln.Feature | None:
         """Get a Feature by name scoped to the lightning feature type."""
@@ -642,16 +910,7 @@ class SaveConfigCallback(_SaveConfigCallback):
         if checkpoint_cb is None:
             return
 
-        lightning_cli_config_af = ln.Artifact(
-            config_path,
-            key=checkpoint_cb._get_artifact_key(trainer=trainer, filepath=config_path, is_checkpoint=False),
-            description="Lightning CLI config",
-        )
-        lightning_cli_config_af.save()
-
-        # Link as input to current run
-        if ln.context.run:
-            ln.context.run.input_artifacts.add(lightning_cli_config_af)
+        checkpoint_cb.save_config_artifact(trainer, config_path)
 
     def _get_checkpoint_callback(self, trainer: pl.Trainer) -> Checkpoint | None:
         """Find LaminCheckpoint callback if present."""
@@ -728,4 +987,12 @@ class Callback(pl.Callback):
             artifact.features.add_values(feature_values)
 
 
-__all__ = ["Checkpoint", "SaveConfigCallback", "save_lightning_features"]
+__all__ = [
+    "ArtifactObserver",
+    "ArtifactEvent",
+    "ArtifactRemovedEvent",
+    "ArtifactSavedEvent",
+    "Checkpoint",
+    "SaveConfigCallback",
+    "save_lightning_features",
+]

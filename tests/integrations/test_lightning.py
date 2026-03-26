@@ -873,3 +873,196 @@ def test_save_config_artifact_key_matrix(
     for artifact in checkpoint_artifacts:
         artifact.delete(permanent=True, storage=True)
     shutil.rmtree(tmp_path / "cli_logs", ignore_errors=True)
+
+
+def test_checkpoint_subclass_receives_artifact_events(
+    dataloader: DataLoader,
+    dirpath: str,
+    tmp_path: Path,
+):
+    """Subclass hooks should receive checkpoint, config, and hparams artifacts."""
+    from lightning.pytorch.loggers import CSVLogger
+
+    class ModelWithHparams(pl.LightningModule):
+        def __init__(self, hidden_size: int = 32):
+            super().__init__()
+            self.save_hyperparameters()
+            self.layer = nn.Linear(10, hidden_size)
+            self.out = nn.Linear(hidden_size, 1)
+
+        def forward(self, x):
+            return self.out(torch.relu(self.layer(x)))
+
+        def training_step(self, batch, batch_idx):
+            x, y = batch
+            loss = nn.functional.mse_loss(self(x), y)
+            self.log("train_loss", loss)
+            return loss
+
+        def configure_optimizers(self):
+            return torch.optim.Adam(self.parameters())
+
+    class ParserStub:
+        def save(
+            self,
+            config,
+            path,
+            skip_none: bool,
+            overwrite: bool,
+            multifile: bool,
+        ) -> None:
+            del skip_none, overwrite, multifile
+            Path(path).write_text(json.dumps(config, indent=2))
+
+    class RecordingCheckpoint(ll.Checkpoint):
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
+            self.saved_events: list[ll.ArtifactSavedEvent] = []
+
+        def on_artifact_saved(self, event: ll.ArtifactSavedEvent) -> None:
+            self.saved_events.append(event)
+
+    logger = CSVLogger(save_dir=tmp_path, name="recording_logs")
+    checkpoint = RecordingCheckpoint(dirpath=dirpath, monitor="train_loss")
+    save_config = ll.SaveConfigCallback(
+        parser=cast(Any, ParserStub()),
+        config={"trainer": {"max_epochs": 1}},
+        config_filename="config.yaml",
+    )
+    trainer = pl.Trainer(
+        max_epochs=1,
+        callbacks=[checkpoint, save_config],
+        logger=logger,
+        default_root_dir=tmp_path,
+    )
+    trainer.fit(ModelWithHparams(), dataloader)
+
+    assert {event.kind for event in checkpoint.saved_events} >= {
+        "checkpoint",
+        "config",
+        "hparams",
+    }
+    assert checkpoint.last_checkpoint_artifact is not None
+    assert checkpoint.last_config_artifact is not None
+    assert checkpoint.last_hparams_artifact is not None
+    assert checkpoint.last_checkpoint_artifact.key.startswith(
+        checkpoint.checkpoint_key_prefix + "/"
+    )
+    assert checkpoint.last_config_artifact.key.endswith("/config.yaml")
+    assert checkpoint.last_hparams_artifact.key == (
+        f"{checkpoint.checkpoint_key_prefix}/hparams.yaml"
+    )
+    checkpoint_event = next(
+        event for event in checkpoint.saved_events if event.kind == "checkpoint"
+    )
+    assert checkpoint_event.storage_uri == checkpoint.resolve_artifact_storage_uri(
+        checkpoint_event.artifact
+    )
+    assert checkpoint_event.storage_uri.endswith(".ckpt")
+
+    artifacts_by_key = {
+        event.artifact.key: event.artifact
+        for event in checkpoint.saved_events
+    }
+    for artifact in artifacts_by_key.values():
+        ln.models.ArtifactJsonValue.filter(artifact=artifact).delete()
+        ln.models.JsonValue.filter(links_artifact__artifact=artifact).delete(
+            permanent=True
+        )
+        artifact.delete(permanent=True, storage=True)
+    shutil.rmtree(tmp_path / "recording_logs", ignore_errors=True)
+
+
+def test_checkpoint_artifact_observers_receive_shared_events(
+    dataloader: DataLoader,
+    dirpath: str,
+    tmp_path: Path,
+):
+    """Observers should see the same checkpoint/config/hparams events as subclasses."""
+    from lightning.pytorch.loggers import CSVLogger
+
+    class ModelWithHparams(pl.LightningModule):
+        def __init__(self, hidden_size: int = 32):
+            super().__init__()
+            self.save_hyperparameters()
+            self.layer = nn.Linear(10, hidden_size)
+            self.out = nn.Linear(hidden_size, 1)
+
+        def forward(self, x):
+            return self.out(torch.relu(self.layer(x)))
+
+        def training_step(self, batch, batch_idx):
+            x, y = batch
+            loss = nn.functional.mse_loss(self(x), y)
+            self.log("train_loss", loss)
+            return loss
+
+        def configure_optimizers(self):
+            return torch.optim.Adam(self.parameters())
+
+    class ParserStub:
+        def save(
+            self,
+            config,
+            path,
+            skip_none: bool,
+            overwrite: bool,
+            multifile: bool,
+        ) -> None:
+            del skip_none, overwrite, multifile
+            Path(path).write_text(json.dumps(config, indent=2))
+
+    class RecordingObserver:
+        def __init__(self):
+            self.saved_events: list[ll.ArtifactSavedEvent] = []
+
+        def on_artifact_saved(self, event: ll.ArtifactSavedEvent) -> None:
+            self.saved_events.append(event)
+
+    observer = RecordingObserver()
+    logger = CSVLogger(save_dir=tmp_path, name="observer_logs")
+    checkpoint = ll.Checkpoint(
+        dirpath=dirpath,
+        monitor="train_loss",
+        artifact_observers=[observer],
+    )
+    save_config = ll.SaveConfigCallback(
+        parser=cast(Any, ParserStub()),
+        config={"trainer": {"max_epochs": 1}},
+        config_filename="config.yaml",
+    )
+    trainer = pl.Trainer(
+        max_epochs=1,
+        callbacks=[checkpoint, save_config],
+        logger=logger,
+        default_root_dir=tmp_path,
+    )
+    trainer.fit(ModelWithHparams(), dataloader)
+
+    assert {event.kind for event in observer.saved_events} >= {
+        "checkpoint",
+        "config",
+        "hparams",
+    }
+    checkpoint_event = next(
+        event for event in observer.saved_events if event.kind == "checkpoint"
+    )
+    assert checkpoint_event.key == checkpoint_event.artifact.key
+    assert checkpoint_event.local_path.name.endswith(".ckpt")
+    assert checkpoint_event.storage_uri == checkpoint.resolve_artifact_storage_uri(
+        checkpoint_event.artifact
+    )
+    assert checkpoint.last_artifact_event is not None
+    assert checkpoint.get_last_artifact("config") == checkpoint.last_config_artifact
+
+    artifacts_by_key = {
+        event.artifact.key: event.artifact
+        for event in observer.saved_events
+    }
+    for artifact in artifacts_by_key.values():
+        ln.models.ArtifactJsonValue.filter(artifact=artifact).delete()
+        ln.models.JsonValue.filter(links_artifact__artifact=artifact).delete(
+            permanent=True
+        )
+        artifact.delete(permanent=True, storage=True)
+    shutil.rmtree(tmp_path / "observer_logs", ignore_errors=True)
