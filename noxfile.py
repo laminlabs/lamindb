@@ -179,8 +179,7 @@ def install_ci(session, group):
     if group == "permissions":
         # have to install after lamindb installation
         # because lamindb downgrades django required by laminhub_rest
-        cmds = "uv pip install --system sentry_sdk line_profiler setuptools wheel==0.45.1 flit"
-        cmds += "\nuv pip install --system --no-build-isolation ./laminhub/backend"
+        cmds = "uv pip install --system ./laminhub/backend"
         cmds += "\nuv pip install --system ./laminhub/backend/utils"
         cmds += "\nuv pip install --system ./laminhub/backend/services/central"
         cmds += "\nuv pip install --system ./laminhub/backend/services/instancedb"
