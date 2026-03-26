@@ -875,6 +875,61 @@ def test_save_config_artifact_key_matrix(
     shutil.rmtree(tmp_path / "cli_logs", ignore_errors=True)
 
 
+def test_save_config_artifact_tracked_as_run_input(
+    simple_model: pl.LightningModule,
+    dataloader: DataLoader,
+    dirpath: str,
+    tmp_path: Path,
+):
+    """Config artifacts should be tracked as run inputs while checkpoints stay outputs."""
+
+    class ParserStub:
+        def save(
+            self,
+            config,
+            path,
+            skip_none: bool,
+            overwrite: bool,
+            multifile: bool,
+        ) -> None:
+            del skip_none, overwrite, multifile
+            Path(path).write_text(json.dumps(config, indent=2))
+
+    ln.track()
+
+    checkpoint = ll.Checkpoint(dirpath=dirpath, monitor="train_loss")
+    save_config = ll.SaveConfigCallback(
+        parser=cast(Any, ParserStub()),
+        config={"trainer": {"max_epochs": 1}},
+        config_filename="config.yaml",
+    )
+    trainer = pl.Trainer(
+        max_epochs=1,
+        callbacks=[checkpoint, save_config],
+        logger=False,
+        default_root_dir=tmp_path,
+    )
+    trainer.fit(simple_model, dataloader)
+
+    run = ln.context.run
+    assert run is not None
+    assert checkpoint.last_config_artifact is not None
+    assert checkpoint.last_checkpoint_artifact is not None
+
+    config_artifact = checkpoint.last_config_artifact
+    checkpoint_artifact = checkpoint.last_checkpoint_artifact
+
+    assert config_artifact.run is None
+    assert run in config_artifact.input_of_runs.all()
+
+    assert checkpoint_artifact.run == run
+    assert checkpoint_artifact.input_of_runs.count() == 0
+
+    config_artifact.delete(permanent=True, storage=True)
+    checkpoint_artifact.delete(permanent=True, storage=True)
+    ln.finish()
+
+
 def test_checkpoint_subclass_receives_artifact_events(
     dataloader: DataLoader,
     dirpath: str,
@@ -961,8 +1016,7 @@ def test_checkpoint_subclass_receives_artifact_events(
     assert checkpoint_event.storage_uri.endswith(".ckpt")
 
     artifacts_by_key = {
-        event.artifact.key: event.artifact
-        for event in checkpoint.saved_events
+        event.artifact.key: event.artifact for event in checkpoint.saved_events
     }
     for artifact in artifacts_by_key.values():
         ln.models.ArtifactJsonValue.filter(artifact=artifact).delete()
@@ -1019,6 +1073,9 @@ def test_checkpoint_artifact_observers_receive_shared_events(
         def on_artifact_saved(self, event: ll.ArtifactSavedEvent) -> None:
             self.saved_events.append(event)
 
+        def on_artifact_removed(self, event: ll.ArtifactRemovedEvent) -> None:
+            del event
+
     observer = RecordingObserver()
     logger = CSVLogger(save_dir=tmp_path, name="observer_logs")
     checkpoint = ll.Checkpoint(
@@ -1056,8 +1113,7 @@ def test_checkpoint_artifact_observers_receive_shared_events(
     assert checkpoint.get_last_artifact("config") == checkpoint.last_config_artifact
 
     artifacts_by_key = {
-        event.artifact.key: event.artifact
-        for event in observer.saved_events
+        event.artifact.key: event.artifact for event in observer.saved_events
     }
     for artifact in artifacts_by_key.values():
         ln.models.ArtifactJsonValue.filter(artifact=artifact).delete()

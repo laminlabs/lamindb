@@ -1,14 +1,29 @@
 """PyTorch Lightning integration for LaminDB.
 
+The public surface has two layers:
+
+- :class:`Checkpoint` is the concrete LaminDB implementation that persists
+    checkpoint, config, and ``hparams.yaml`` files as :class:`lamindb.Artifact`
+    records and annotates them with Lamin features.
+- :class:`ArtifactPublishingModelCheckpoint` is the generic extension layer adding
+    checkpoint artifact lifecycle hooks without implementing Lamin persistence
+    details yet. Mostly done for clarity.
+
+External integrations can either subclass :class:`Checkpoint` directly or attach
+an :class:`ArtifactObserver` to react to saved and removed artifacts.
+
+.. autoclass:: ArtifactPublishingModelCheckpoint
 .. autoclass:: Checkpoint
 .. autoclass:: SaveConfigCallback
+.. autoclass:: ArtifactSavedEvent
+.. autoclass:: ArtifactRemovedEvent
 .. autofunction:: save_lightning_features
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import warnings
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Final, Literal, Protocol
 
@@ -16,6 +31,7 @@ import lightning.pytorch as pl
 from lightning.fabric.utilities.cloud_io import get_filesystem
 from lightning.pytorch.callbacks.model_checkpoint import ModelCheckpoint
 from lightning.pytorch.cli import SaveConfigCallback as _SaveConfigCallback
+from lamindb.models.artifact import track_run_input
 
 import lamindb as ln
 
@@ -46,7 +62,11 @@ ArtifactKind = Literal["checkpoint", "config", "hparams"]
 
 @dataclass(frozen=True)
 class ArtifactEvent:
-    """Common metadata emitted when a Lamin-backed Lightning artifact changes."""
+    """Common metadata emitted when a checkpoint-related artifact changes.
+
+    The event records the logical artifact key, the local path Lightning wrote,
+    and the trainer that triggered the lifecycle event.
+    """
 
     kind: ArtifactKind
     key: str
@@ -56,41 +76,96 @@ class ArtifactEvent:
 
 @dataclass(frozen=True)
 class ArtifactSavedEvent(ArtifactEvent):
-    """Metadata emitted after a Lamin-backed Lightning artifact has been saved."""
+    """Metadata emitted after a checkpoint-related artifact has been persisted.
 
-    artifact: ln.Artifact
+    ``artifact`` is intentionally typed generically so downstream integrations can
+    expose their own persisted object while still using the common lifecycle API.
+    ``storage_uri`` is the stable hand-off value for registries such as ClearML.
+    """
 
-    @property
-    def storage_uri(self) -> str:
-        """Resolved artifact location suitable for downstream registries.
-
-        For cloud-backed artifacts this resolves to the cloud URI, for example an
-        ``s3://`` path. This is the value a downstream ClearML integration would
-        normally pass as ``register_uri``.
-        """
-        return str(self.artifact.path)
+    artifact: Any
+    storage_uri: str
 
 
 @dataclass(frozen=True)
 class ArtifactRemovedEvent(ArtifactEvent):
-    """Metadata emitted after a local checkpoint file has been removed."""
+    """Metadata emitted after a local checkpoint file has been removed.
 
-    artifact: ln.Artifact | None = None
+    Removal currently applies to checkpoint files. Config and hparams artifacts are
+    save-only in the current Lightning integration.
+    """
 
-    @property
-    def storage_uri(self) -> str | None:
-        """Resolved storage URI if the corresponding Lamin artifact is known."""
-        if self.artifact is None:
-            return None
-        return str(self.artifact.path)
+    artifact: Any | None = None
+    storage_uri: str | None = None
 
 
 class ArtifactObserver(Protocol):
-    """Observer notified about Lamin artifact save and removal events."""
+    """Observer notified about checkpoint artifact lifecycle events.
+
+    This is the preferred composition hook for downstream integrations that need
+    to register checkpoints elsewhere after Lamin persistence completes.
+    """
 
     def on_artifact_saved(self, event: ArtifactSavedEvent) -> None: ...
 
     def on_artifact_removed(self, event: ArtifactRemovedEvent) -> None: ...
+
+
+class ArtifactPublisher(Protocol):
+    """Persistence backend for checkpoint-related artifacts.
+
+    :class:`ArtifactPublishingModelCheckpoint` manages the artifact lifecycle,
+    while publishers encapsulate backend-specific save behavior and storage URI
+    resolution.
+    """
+
+    def create_artifact(
+        self,
+        local_path: Path | str,
+        *,
+        key: str,
+        description: str,
+        kind: str | None = None,
+        add_as_input_to_run: bool = False,
+        skip_hash_lookup: bool = False,
+    ) -> Any: ...
+
+    def storage_uri(self, artifact: Any) -> str: ...
+
+
+class LaminArtifactPublisher:
+    """Persist checkpoint-related artifacts into LaminDB.
+
+    This service is intentionally separate from :class:`Checkpoint` so that the
+    checkpoint callback can focus on Lightning behavior and feature handling while
+    persistence details remain replaceable.
+    """
+
+    def create_artifact(
+        self,
+        local_path: Path | str,
+        *,
+        key: str,
+        description: str,
+        kind: str | None = None,
+        add_as_input_to_run: bool = False,
+        skip_hash_lookup: bool = False,
+    ) -> ln.Artifact:
+        artifact_kwargs: dict[str, Any] = {"key": key, "description": description}
+        if kind is not None:
+            artifact_kwargs["kind"] = kind
+        if add_as_input_to_run:
+            artifact_kwargs["run"] = False
+        if skip_hash_lookup:
+            artifact_kwargs["skip_hash_lookup"] = True
+        artifact = ln.Artifact(local_path, **artifact_kwargs)
+        artifact.save()
+        if add_as_input_to_run:
+            track_run_input(artifact, is_run_input=True)
+        return artifact
+
+    def storage_uri(self, artifact: ln.Artifact) -> str:
+        return str(artifact.path)
 
 
 def save_lightning_features() -> None:
@@ -156,7 +231,200 @@ def save_lightning_features() -> None:
     ln.Feature(name="mode", dtype=str, type=lightning_feature_type).save()
 
 
-class Checkpoint(ModelCheckpoint):
+class ArtifactPublishingModelCheckpoint(ModelCheckpoint):
+    """ModelCheckpoint with observable artifact lifecycle hooks.
+
+    This layer captures artifact kinds, observer registration, saved/removed
+        events, latest artifact tracking, and key compatibility hooks. Concrete
+        subclasses remain responsible for how artifacts are persisted.
+
+        Subclasses are expected to implement:
+
+        - :meth:`resolve_artifact_key` to map local files to logical artifact keys
+        - :meth:`resolve_artifact_storage_uri` to expose a stable backend URI
+        - :meth:`save_checkpoint_artifact`, :meth:`save_config_artifact`, and
+            :meth:`save_hparams_artifact` to persist files
+
+        :class:`SaveConfigCallback` only depends on this base class, which means a
+        custom checkpoint callback can participate in config saving without inheriting
+        from Lamin's concrete :class:`Checkpoint`.
+    """
+
+    def __init__(
+        self,
+        *args: Any,
+        artifact_observers: list[ArtifactObserver] | None = None,
+        **kwargs: Any,
+    ) -> None:
+        super().__init__(*args, **kwargs)
+        self._artifact_observers: list[ArtifactObserver] = list(
+            artifact_observers or []
+        )
+        self._latest_artifacts: dict[ArtifactKind, Any | None] = {
+            "checkpoint": None,
+            "config": None,
+            "hparams": None,
+        }
+        self._last_artifact_event: ArtifactSavedEvent | ArtifactRemovedEvent | None = (
+            None
+        )
+
+    @property
+    def last_checkpoint_artifact(self) -> Any | None:
+        """The most recently saved checkpoint artifact handle."""
+        return self._latest_artifacts["checkpoint"]
+
+    @property
+    def last_config_artifact(self) -> Any | None:
+        """The most recently saved config artifact handle."""
+        return self._latest_artifacts["config"]
+
+    @property
+    def last_hparams_artifact(self) -> Any | None:
+        """The most recently saved hparams artifact handle."""
+        return self._latest_artifacts["hparams"]
+
+    @property
+    def last_artifact_event(self) -> ArtifactSavedEvent | ArtifactRemovedEvent | None:
+        """The last artifact lifecycle event emitted by this callback."""
+        return self._last_artifact_event
+
+    def get_last_artifact(self, kind: ArtifactKind) -> Any | None:
+        """Return the most recently saved artifact for a given artifact kind."""
+        return self._latest_artifacts[kind]
+
+    def add_artifact_observer(self, observer: ArtifactObserver) -> None:
+        """Register an observer notified about artifact lifecycle events."""
+        self._artifact_observers.append(observer)
+
+    def remove_artifact_observer(self, observer: ArtifactObserver) -> None:
+        """Unregister a previously added artifact observer."""
+        self._artifact_observers.remove(observer)
+
+    def resolve_artifact_storage_uri(self, artifact: Any) -> str:
+        """Resolve the physical location for a persisted artifact."""
+        raise NotImplementedError
+
+    def resolve_artifact_key(
+        self,
+        trainer: pl.Trainer,
+        filepath: Path | str,
+        kind: ArtifactKind,
+    ) -> str:
+        """Return the logical artifact key for a checkpoint-related file."""
+        raise NotImplementedError
+
+    def _get_artifact_key(
+        self, trainer: pl.Trainer, filepath: Path | str, is_checkpoint: bool = True
+    ) -> str:
+        """Backward-compatible wrapper around :meth:`resolve_artifact_key`."""
+        kind: ArtifactKind = "checkpoint" if is_checkpoint else "config"
+        return self.resolve_artifact_key(trainer=trainer, filepath=filepath, kind=kind)
+
+    def _artifact_key_for_kind(
+        self, trainer: pl.Trainer, filepath: Path | str, kind: ArtifactKind
+    ) -> str:
+        """Return the artifact key while preserving legacy checkpoint overrides."""
+        if kind == "checkpoint":
+            return self._get_artifact_key(
+                trainer=trainer, filepath=filepath, is_checkpoint=True
+            )
+        if kind == "config":
+            return self._get_artifact_key(
+                trainer=trainer, filepath=filepath, is_checkpoint=False
+            )
+        return self.resolve_artifact_key(trainer=trainer, filepath=filepath, kind=kind)
+
+    def _notify_artifact_saved(
+        self,
+        trainer: pl.Trainer,
+        *,
+        kind: ArtifactKind,
+        artifact: Any,
+        local_path: Path | str,
+    ) -> ArtifactSavedEvent:
+        event = ArtifactSavedEvent(
+            kind=kind,
+            key=artifact.key,
+            local_path=Path(local_path),
+            trainer=trainer,
+            artifact=artifact,
+            storage_uri=self.resolve_artifact_storage_uri(artifact),
+        )
+        self._latest_artifacts[kind] = artifact
+        self._last_artifact_event = event
+        self.on_artifact_saved(event)
+        self._notify_artifact_observers("on_artifact_saved", event)
+        return event
+
+    def _notify_artifact_removed(
+        self,
+        trainer: pl.Trainer,
+        *,
+        kind: ArtifactKind,
+        key: str,
+        local_path: Path | str,
+        artifact: Any | None,
+    ) -> ArtifactRemovedEvent:
+        storage_uri = None
+        if artifact is not None:
+            storage_uri = self.resolve_artifact_storage_uri(artifact)
+        event = ArtifactRemovedEvent(
+            kind=kind,
+            key=key,
+            local_path=Path(local_path),
+            trainer=trainer,
+            artifact=artifact,
+            storage_uri=storage_uri,
+        )
+        self._last_artifact_event = event
+        self.on_artifact_removed(event)
+        self._notify_artifact_observers("on_artifact_removed", event)
+        return event
+
+    def _notify_artifact_observers(
+        self,
+        method_name: str,
+        event: ArtifactSavedEvent | ArtifactRemovedEvent,
+    ) -> None:
+        for observer in tuple(self._artifact_observers):
+            method = getattr(observer, method_name, None)
+            if callable(method):
+                method(event)
+
+    def on_artifact_saved(self, event: ArtifactSavedEvent) -> None:
+        """Hook for subclasses after an artifact has been saved."""
+        del event
+
+    def on_artifact_removed(self, event: ArtifactRemovedEvent) -> None:
+        """Hook for subclasses after a checkpoint file has been removed."""
+        del event
+
+    def save_checkpoint_artifact(
+        self,
+        trainer: pl.Trainer,
+        filepath: Path | str,
+        *,
+        feature_values: dict[str, Any] | None = None,
+    ) -> Any:
+        """Persist a checkpoint artifact and emit the corresponding event."""
+        del trainer, filepath, feature_values
+        raise NotImplementedError
+
+    def save_config_artifact(self, trainer: pl.Trainer, config_path: Path | str) -> Any:
+        """Persist a config artifact and emit the corresponding event."""
+        del trainer, config_path
+        raise NotImplementedError
+
+    def save_hparams_artifact(
+        self, trainer: pl.Trainer, hparams_path: Path | str
+    ) -> Any | None:
+        """Persist an hparams artifact and emit the corresponding event."""
+        del trainer, hparams_path
+        raise NotImplementedError
+
+
+class Checkpoint(ArtifactPublishingModelCheckpoint):
     """A `ModelCheckpoint` that annotates `pytorch` `lightning` checkpoints.
 
     Extends `lightning`'s `ModelCheckpoint` with artifact creation & feature annotation.
@@ -181,6 +449,12 @@ class Checkpoint(ModelCheckpoint):
 
     Additionally, model hyperparameters (from `pl_module.hparams`) and datamodule hyperparameters
     (from `trainer.datamodule.hparams`) are captured if corresponding features exist.
+
+    This is the concrete LaminDB implementation built on top of
+    :class:`ArtifactPublishingModelCheckpoint`. Use it when you want LaminDB to be
+    the persistence layer. For secondary systems such as ClearML, prefer attaching
+    an :class:`ArtifactObserver` or subclassing :class:`Checkpoint` and reacting in
+    :meth:`on_artifact_saved`.
 
     Args:
         dirpath: Directory for checkpoints.  When provided, also used as the
@@ -290,6 +564,7 @@ class Checkpoint(ModelCheckpoint):
             every_n_epochs=every_n_epochs,
             save_on_train_epoch_end=save_on_train_epoch_end,
             enable_version_counter=enable_version_counter,
+            artifact_observers=artifact_observers,
         )
         self.features = features or {}
         if invalid_feature_keys := set(self.features) - {"run", "artifact"}:  # type: ignore
@@ -305,15 +580,7 @@ class Checkpoint(ModelCheckpoint):
         self._hparams_yaml_saved = False
         self.overwrite_versions = overwrite_versions
         self._checkpoint_key_prefix: str = ""
-        self._artifact_observers: list[ArtifactObserver] = list(
-            artifact_observers or []
-        )
-        self._latest_artifacts: dict[ArtifactKind, ln.Artifact | None] = {
-            "checkpoint": None,
-            "config": None,
-            "hparams": None,
-        }
-        self._last_artifact_event: ArtifactEvent | None = None
+        self._artifact_publisher: ArtifactPublisher = LaminArtifactPublisher()
 
     def setup(
         self, trainer: pl.Trainer, pl_module: pl.LightningModule, stage: str
@@ -393,41 +660,10 @@ class Checkpoint(ModelCheckpoint):
     def checkpoint_key_prefix(self) -> str:
         """The artifact key prefix used for checkpoint artifacts.
 
-        Available after ``setup()`` has been called (i.e. after ``trainer.fit()`` starts).
+        Available after ``setup()`` has been called, for example once
+        ``trainer.fit()`` has started.
         """
         return self._checkpoint_key_prefix
-
-    @property
-    def last_checkpoint_artifact(self) -> ln.Artifact | None:
-        """The most recently saved checkpoint artifact."""
-        return self._latest_artifacts["checkpoint"]
-
-    @property
-    def last_config_artifact(self) -> ln.Artifact | None:
-        """The most recently saved Lightning CLI config artifact."""
-        return self._latest_artifacts["config"]
-
-    @property
-    def last_hparams_artifact(self) -> ln.Artifact | None:
-        """The most recently saved ``hparams.yaml`` artifact."""
-        return self._latest_artifacts["hparams"]
-
-    @property
-    def last_artifact_event(self) -> ArtifactEvent | None:
-        """The last artifact lifecycle event emitted by this callback."""
-        return self._last_artifact_event
-
-    def get_last_artifact(self, kind: ArtifactKind) -> ln.Artifact | None:
-        """Return the most recently saved artifact for a given artifact kind."""
-        return self._latest_artifacts[kind]
-
-    def add_artifact_observer(self, observer: ArtifactObserver) -> None:
-        """Register an observer notified about Lamin artifact lifecycle events."""
-        self._artifact_observers.append(observer)
-
-    def remove_artifact_observer(self, observer: ArtifactObserver) -> None:
-        """Unregister a previously added artifact observer."""
-        self._artifact_observers.remove(observer)
 
     def resolve_artifact_storage_uri(self, artifact: ln.Artifact) -> str:
         """Resolve the physical artifact location for downstream registries.
@@ -435,7 +671,7 @@ class Checkpoint(ModelCheckpoint):
         This is the stable abstraction external packages should use instead of
         reconstructing storage locations from Lamin internals.
         """
-        return str(artifact.path)
+        return self._artifact_publisher.storage_uri(artifact)
 
     def resolve_artifact_key(
         self,
@@ -456,27 +692,6 @@ class Checkpoint(ModelCheckpoint):
             return f"{prefix}/{Path(filepath).name}"
         return Path(filepath).name
 
-    def _get_artifact_key(
-        self, trainer: pl.Trainer, filepath: Path | str, is_checkpoint: bool = True
-    ) -> str:
-        """Backward-compatible wrapper around :meth:`resolve_artifact_key`."""
-        kind: ArtifactKind = "checkpoint" if is_checkpoint else "config"
-        return self.resolve_artifact_key(trainer=trainer, filepath=filepath, kind=kind)
-
-    def _artifact_key_for_kind(
-        self, trainer: pl.Trainer, filepath: Path | str, kind: ArtifactKind
-    ) -> str:
-        """Return the artifact key while preserving legacy checkpoint overrides."""
-        if kind == "checkpoint":
-            return self._get_artifact_key(
-                trainer=trainer, filepath=filepath, is_checkpoint=True
-            )
-        if kind == "config":
-            return self._get_artifact_key(
-                trainer=trainer, filepath=filepath, is_checkpoint=False
-            )
-        return self.resolve_artifact_key(trainer=trainer, filepath=filepath, kind=kind)
-
     def _get_key_filter(self) -> dict[str, str]:
         """Return filter kwargs for querying artifacts from this callback."""
         return {"key__startswith": self._checkpoint_key_prefix + "/"}
@@ -488,76 +703,17 @@ class Checkpoint(ModelCheckpoint):
         key: str,
         description: str,
         kind: str | None = None,
-        link_run_as_input: bool = False,
+        add_as_input_to_run: bool = False,
+        skip_hash_lookup: bool = False,
     ) -> ln.Artifact:
-        artifact_kwargs: dict[str, Any] = {"key": key, "description": description}
-        if kind is not None:
-            artifact_kwargs["kind"] = kind
-        artifact = ln.Artifact(local_path, **artifact_kwargs)
-        artifact.save()
-        if link_run_as_input and ln.context.run:
-            ln.context.run.input_artifacts.add(artifact)
-        return artifact
-
-    def _notify_artifact_saved(
-        self,
-        trainer: pl.Trainer,
-        *,
-        kind: ArtifactKind,
-        artifact: ln.Artifact,
-        local_path: Path | str,
-    ) -> ArtifactSavedEvent:
-        event = ArtifactSavedEvent(
-            kind=kind,
-            key=artifact.key,
-            local_path=Path(local_path),
-            trainer=trainer,
-            artifact=artifact,
-        )
-        self._latest_artifacts[kind] = artifact
-        self._last_artifact_event = event
-        self.on_artifact_saved(event)
-        self._notify_artifact_observers("on_artifact_saved", event)
-        return event
-
-    def _notify_artifact_removed(
-        self,
-        trainer: pl.Trainer,
-        *,
-        kind: ArtifactKind,
-        key: str,
-        local_path: Path | str,
-        artifact: ln.Artifact | None,
-    ) -> ArtifactRemovedEvent:
-        event = ArtifactRemovedEvent(
-            kind=kind,
+        return self._artifact_publisher.create_artifact(
+            local_path,
             key=key,
-            local_path=Path(local_path),
-            trainer=trainer,
-            artifact=artifact,
+            description=description,
+            kind=kind,
+            add_as_input_to_run=add_as_input_to_run,
+            skip_hash_lookup=skip_hash_lookup,
         )
-        self._last_artifact_event = event
-        self.on_artifact_removed(event)
-        self._notify_artifact_observers("on_artifact_removed", event)
-        return event
-
-    def _notify_artifact_observers(
-        self,
-        method_name: str,
-        event: ArtifactSavedEvent | ArtifactRemovedEvent,
-    ) -> None:
-        for observer in tuple(self._artifact_observers):
-            method = getattr(observer, method_name, None)
-            if callable(method):
-                method(event)
-
-    def on_artifact_saved(self, event: ArtifactSavedEvent) -> None:
-        """Hook for subclasses after a Lamin artifact has been saved."""
-        del event
-
-    def on_artifact_removed(self, event: ArtifactRemovedEvent) -> None:
-        """Hook for subclasses after a checkpoint file has been removed locally."""
-        del event
 
     def save_checkpoint_artifact(
         self,
@@ -566,77 +722,102 @@ class Checkpoint(ModelCheckpoint):
         *,
         feature_values: dict[str, Any] | None = None,
     ) -> ln.Artifact:
-        """Save a checkpoint artifact to Lamin and emit the corresponding event."""
+        """Save a checkpoint artifact to Lamin and emit the corresponding event.
+
+        This is the main persistence hook used by :meth:`_save_checkpoint`. It is a
+        useful override point for subclasses that want to augment Lamin persistence
+        while keeping the generic lifecycle behavior from the base class.
+        """
         key = self._artifact_key_for_kind(
             trainer=trainer, filepath=filepath, kind="checkpoint"
         )
-        if (
-            ln.Artifact.filter(key=key).one_or_none()
-        ) and not self.overwrite_versions:
-            raise ValueError(
-                f"Artifact with key '{key}' already exists. "
-                "Choose a new dirpath or pass overwrite_versions=True."
-            )
-
+        existing_artifact = ln.Artifact.filter(key=key).one_or_none()
+        if existing_artifact is not None:
+            if not self.overwrite_versions:
+                raise ValueError(
+                    f"An artifact with key '{key}' already exists. Set overwrite_versions=True to replace it."
+                )
+            existing_artifact.delete(permanent=True, storage=True)
         artifact = self._create_lamin_artifact(
             filepath,
             key=key,
+            description="model checkpoint",
             kind="model",
-            description="Lightning model checkpoint",
+            skip_hash_lookup=True,
         )
         if feature_values:
             artifact.features.add_values(feature_values)
         self._notify_artifact_saved(
-            trainer, kind="checkpoint", artifact=artifact, local_path=filepath
+            trainer,
+            kind="checkpoint",
+            artifact=artifact,
+            local_path=filepath,
         )
         return artifact
 
     def save_config_artifact(
         self, trainer: pl.Trainer, config_path: Path | str
     ) -> ln.Artifact:
-        """Save a Lightning CLI config artifact through the checkpoint pipeline."""
+        """Save a Lightning CLI config artifact and emit the corresponding event.
+
+        Config artifacts are routed through the same lifecycle surface as
+        checkpoints so observers and subclasses see a unified event stream.
+        """
+        key = self._artifact_key_for_kind(
+            trainer=trainer, filepath=config_path, kind="config"
+        )
         artifact = self._create_lamin_artifact(
             config_path,
-            key=self._artifact_key_for_kind(
-                trainer=trainer, filepath=config_path, kind="config"
-            ),
+            key=key,
             description="Lightning CLI config",
-            link_run_as_input=True,
+            kind="config",
+            add_as_input_to_run=True,
+            skip_hash_lookup=True,
         )
         self._notify_artifact_saved(
-            trainer, kind="config", artifact=artifact, local_path=config_path
+            trainer,
+            kind="config",
+            artifact=artifact,
+            local_path=config_path,
         )
         return artifact
 
     def save_hparams_artifact(
         self, trainer: pl.Trainer, hparams_path: Path | str
     ) -> ln.Artifact | None:
-        """Save ``hparams.yaml`` through the shared checkpoint artifact pipeline."""
-        artifact_key = self._artifact_key_for_kind(
+        """Save Lightning's auto-generated hparams file and emit the event.
+
+        Returns ``None`` if Lightning did not generate ``hparams.yaml`` for the
+        current run.
+        """
+        if not Path(hparams_path).exists():
+            return None
+
+        key = self._artifact_key_for_kind(
             trainer=trainer, filepath=hparams_path, kind="hparams"
         )
-        if ln.Artifact.filter(key=artifact_key).one_or_none() is not None:
-            if not self.overwrite_versions:
-                return None
-
         artifact = self._create_lamin_artifact(
             hparams_path,
-            key=artifact_key,
+            key=key,
             description="Lightning run hyperparameters",
-            link_run_as_input=True,
+            kind="config",
+            skip_hash_lookup=True,
         )
         self._notify_artifact_saved(
-            trainer, kind="hparams", artifact=artifact, local_path=hparams_path
+            trainer,
+            kind="hparams",
+            artifact=artifact,
+            local_path=hparams_path,
         )
         return artifact
 
     def _save_hparams_yaml(self, trainer: pl.Trainer) -> None:
-        """Save hparams.yaml if it exists in the log directory."""
+        """Persist Lightning's auto-generated hparams file once per run."""
         if self._hparams_yaml_saved:
             return
 
         log_dir = trainer.log_dir
-        if log_dir is None:
+        if not log_dir:
             return
 
         hparams_path = Path(log_dir) / "hparams.yaml"
@@ -738,9 +919,7 @@ class Checkpoint(ModelCheckpoint):
             self._save_hparams_yaml(trainer)
 
             self._save_run_features(trainer)
-            feature_values = self._collect_checkpoint_feature_values(
-                trainer, filepath
-            )
+            feature_values = self._collect_checkpoint_feature_values(trainer, filepath)
             self.save_checkpoint_artifact(
                 trainer, filepath, feature_values=feature_values
             )
@@ -847,6 +1026,10 @@ class SaveConfigCallback(_SaveConfigCallback):
     Setting ``dirpath`` on :class:`Checkpoint` affects where checkpoint files are
     saved, but normally does not affect the config file location.
 
+    This callback looks for any :class:`ArtifactPublishingModelCheckpoint`, not just
+    Lamin's concrete :class:`Checkpoint`. That keeps the config-save path aligned
+    with custom subclasses built on the generic artifact-publishing base.
+
     Lamin stores config artifacts with the following key rules:
 
     - logger present -> ``{save_dir_basename}/{name}/{version}/config.yaml``
@@ -905,17 +1088,23 @@ class SaveConfigCallback(_SaveConfigCallback):
             self.already_saved = trainer.strategy.broadcast(self.already_saved)
 
     def _save_config(self, trainer: pl.Trainer, config_path: Path) -> None:
-        """Save config using Lightning log-dir semantics with a Lamin key exception."""
-        checkpoint_cb = self._get_checkpoint_callback(trainer)
+        """Persist the resolved config through the active artifact checkpoint.
+
+        If no artifact-publishing checkpoint callback is registered, this becomes a
+        no-op and only Lightning's local config file is written.
+        """
+        checkpoint_cb = self._get_artifact_checkpoint_callback(trainer)
         if checkpoint_cb is None:
             return
 
         checkpoint_cb.save_config_artifact(trainer, config_path)
 
-    def _get_checkpoint_callback(self, trainer: pl.Trainer) -> Checkpoint | None:
-        """Find LaminCheckpoint callback if present."""
+    def _get_artifact_checkpoint_callback(
+        self, trainer: pl.Trainer
+    ) -> ArtifactPublishingModelCheckpoint | None:
+        """Find the artifact-publishing checkpoint callback if present."""
         for cb in trainer.callbacks:
-            if isinstance(cb, Checkpoint):
+            if isinstance(cb, ArtifactPublishingModelCheckpoint):
                 return cb
         return None
 
@@ -990,9 +1179,12 @@ class Callback(pl.Callback):
 __all__ = [
     "ArtifactObserver",
     "ArtifactEvent",
+    "ArtifactPublisher",
+    "ArtifactPublishingModelCheckpoint",
     "ArtifactRemovedEvent",
     "ArtifactSavedEvent",
     "Checkpoint",
+    "LaminArtifactPublisher",
     "SaveConfigCallback",
     "save_lightning_features",
 ]
