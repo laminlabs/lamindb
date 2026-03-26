@@ -1127,7 +1127,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         Calling `.save()` copies or uploads the file to the default storage location of your lamindb instance.
         If you create an artifact **from a remote file or folder**, lamindb registers the S3 `key` and avoids copying the data::
 
-            artifact = ln.Artifact("s3://my_bucket/my_folder/my_file.csv").save()
+            artifact = ln.Artifact("s3://my_bucket/my_folder/my_file.csv").save()  # can omit key/description because file is remote
 
         If you then want to query & access the artifact later on, this is how you do it::
 
