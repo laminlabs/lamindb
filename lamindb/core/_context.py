@@ -298,12 +298,6 @@ class LogStreamTracker:
         # reset handler for lamin logger because sys.stdout has been replaced
         logger.set_handler()
 
-    def restore_original_handlers(self):
-        sys.excepthook = self.original_excepthook
-        if threading.current_thread() == threading.main_thread():
-            for signo, handler in self.original_signal_handlers.items():
-                signal.signal(signo, handler)
-
     def finish(self):
         if self.original_stdout:
             getattr(sys.stdout, "flush_buffer", sys.stdout.flush)()
@@ -344,7 +338,6 @@ class LogStreamTracker:
         except:  # noqa: E722, S110
             pass
         finally:
-            self.restore_original_handlers()
             if signo is not None and signo in self.original_signal_handlers:
                 original_handler = self.original_signal_handlers[signo]
                 if callable(original_handler):
