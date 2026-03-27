@@ -1,3 +1,4 @@
+import signal
 import subprocess
 import sys
 import time
@@ -616,3 +617,23 @@ def test_logstream_tracker_exception_handling():
 
     finally:
         sys.excepthook = original_excepthook
+
+
+def test_logstream_tracker_cleanup_sigint_chains_to_keyboard_interrupt():
+    tracker = LogStreamTracker()
+    run = MockRun("sigint")
+
+    def raising_sigint_handler(signum, frame):
+        raise KeyboardInterrupt
+
+    with (
+        patch(
+            "signal.getsignal",
+            side_effect=[signal.SIG_DFL, raising_sigint_handler],
+        ),
+        patch("signal.signal"),
+        patch("lamindb._finish.save_run_logs"),
+    ):
+        tracker.start(run)
+        with pytest.raises(KeyboardInterrupt):
+            tracker.cleanup(signo=signal.SIGINT, frame=None)
