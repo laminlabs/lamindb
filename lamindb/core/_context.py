@@ -251,10 +251,9 @@ class LogStreamTracker:
         self.original_stderr = None
         self.log_file = None
         self.is_cleaning_up = False
-        self.original_excepthook: (
-            Callable[[type[BaseException], BaseException, TracebackType | None], Any]
-            | None
-        ) = sys.excepthook
+        self.original_excepthook: Callable[
+            [type[BaseException], BaseException, TracebackType | None], Any
+        ] = sys.excepthook
 
         self.original_signal_handlers: dict[
             signal.Signals, Callable[[int, FrameType | None], Any] | int
