@@ -573,7 +573,7 @@ class Checkpoint(ArtifactPublishingModelCheckpoint):
             )
         self._run_features = self.features.get("run", {})
         self._artifact_features = self.features.get("artifact", {})
-        self._available_auto_features: set[str] = set()
+        self._auto_features: dict[str, ln.Feature] = {}
         self._hparam_features_available: set[str] = set()
         self._lightning_feature_type: ln.Feature | None = None
         self._run_features_added = False
@@ -615,14 +615,15 @@ class Checkpoint(ArtifactPublishingModelCheckpoint):
             self._lightning_feature_type = ln.Feature.filter(
                 name="lamindb.lightning", is_type=True
             ).one_or_none()
-            self._available_auto_features.clear()
+            self._auto_features.clear()
             if self._lightning_feature_type is not None:
-                self._available_auto_features = set(
+                auto_features = list(
                     ln.Feature.filter(
                         name__in=_SUPPORTED_AUTO_FEATURES,
                         type=self._lightning_feature_type,
-                    ).values_list("name", flat=True)
+                    )
                 )
+                self._auto_features = {f.name: f for f in auto_features}
             hparam_names: set[str] = set()
             if hasattr(pl_module, "hparams") and pl_module.hparams:
                 hparam_names.update(pl_module.hparams.keys())
@@ -720,7 +721,7 @@ class Checkpoint(ArtifactPublishingModelCheckpoint):
         trainer: pl.Trainer,
         filepath: Path | str,
         *,
-        feature_values: dict[str, Any] | None = None,
+        feature_values: dict[str | ln.Feature, Any] | None = None,
     ) -> ln.Artifact:
         """Save a checkpoint artifact to Lamin and emit the corresponding event.
 
@@ -832,12 +833,14 @@ class Checkpoint(ArtifactPublishingModelCheckpoint):
         if not (ln.context.run and not self._run_features_added):
             return
 
-        run_features = {}
-        if "logger_name" in self._available_auto_features and trainer.loggers:
-            run_features["logger_name"] = trainer.loggers[0].name
-        if "logger_version" in self._available_auto_features and trainer.loggers:
+        run_features: dict[str | ln.Feature, Any] = {}
+        if "logger_name" in self._auto_features and trainer.loggers:
+            run_features[self._auto_features["logger_name"]] = (
+                trainer.loggers[0].name
+            )
+        if "logger_version" in self._auto_features and trainer.loggers:
             version = trainer.loggers[0].version
-            run_features["logger_version"] = (
+            run_features[self._auto_features["logger_version"]] = (
                 version if isinstance(version, str) else f"version_{version}"
             )
         trainer_config_values = {
@@ -856,10 +859,11 @@ class Checkpoint(ArtifactPublishingModelCheckpoint):
         }
 
         for key, (value, transform, skip_none) in trainer_config_values.items():
-            if key in self._available_auto_features and not (
+            if key in self._auto_features and not (
                 skip_none and value is None
             ):
-                run_features[key] = transform(value) if transform else value
+                feature = self._auto_features[key]
+                run_features[feature] = transform(value) if transform else value
 
         if (
             hasattr(trainer.lightning_module, "hparams")
@@ -882,22 +886,22 @@ class Checkpoint(ArtifactPublishingModelCheckpoint):
 
     def _collect_checkpoint_feature_values(
         self, trainer: pl.Trainer, filepath: Path | str
-    ) -> dict[str, Any]:
+    ) -> dict[str | ln.Feature, Any]:
         """Collect checkpoint-level feature values before saving the artifact."""
-        feature_values: dict[str, Any] = {}
+        feature_values: dict[str | ln.Feature, Any] = {}
         is_best = self.best_model_path == str(filepath)
-        if "is_best_model" in self._available_auto_features:
+        if "is_best_model" in self._auto_features:
             if is_best:
                 self._clear_best_model_flags()
-            feature_values["is_best_model"] = is_best
+            feature_values[self._auto_features["is_best_model"]] = is_best
 
         import torch
 
-        if "score" in self._available_auto_features and self.current_score is not None:
+        if "score" in self._auto_features and self.current_score is not None:
             score = self.current_score
             if torch.is_tensor(score):
                 score = score.item()
-            feature_values["score"] = float(score)
+            feature_values[self._auto_features["score"]] = float(score)
 
         for name, value in self._artifact_features.items():
             if value is not None:
@@ -924,7 +928,7 @@ class Checkpoint(ArtifactPublishingModelCheckpoint):
                 trainer, filepath, feature_values=feature_values
             )
 
-            if "model_rank" in self._available_auto_features:
+            if "model_rank" in self._auto_features:
                 self._update_model_ranks()
 
     def _remove_checkpoint(self, trainer: pl.Trainer, filepath: str) -> None:
@@ -955,7 +959,7 @@ class Checkpoint(ArtifactPublishingModelCheckpoint):
 
     def _clear_best_model_flags(self) -> None:
         """Set is_best_model=False on previous best checkpoints."""
-        is_best_feature = self._get_lightning_feature("is_best_model")
+        is_best_feature = self._auto_features.get("is_best_model")
         if is_best_feature is None:
             return
         feature_rows = self._get_artifact_feature_rows({"is_best_model"})
@@ -979,7 +983,7 @@ class Checkpoint(ArtifactPublishingModelCheckpoint):
 
     def _update_model_ranks(self) -> None:
         """Update model_rank feature for all checkpoints under this key."""
-        model_rank_feature = self._get_lightning_feature("model_rank")
+        model_rank_feature = self._auto_features.get("model_rank")
         if model_rank_feature is None:
             return
         feature_rows = self._get_artifact_feature_rows({"score", "model_rank"})
@@ -1005,10 +1009,27 @@ class Checkpoint(ArtifactPublishingModelCheckpoint):
     def _get_artifact_feature_rows(
         self, feature_names: set[str]
     ) -> dict[int, dict[str, Any]]:
-        rows = ln.models.ArtifactJsonValue.filter(
-            artifact__key__startswith=self._get_key_filter()["key__startswith"],
-            jsonvalue__feature__name__in=feature_names,
-        ).values_list("artifact_id", "jsonvalue__feature__name", "jsonvalue__value")
+        # Filter by feature id when possible to avoid cross-type name collisions
+        feature_ids = [
+            self._auto_features[name].id
+            for name in feature_names
+            if name in self._auto_features
+        ]
+        key_prefix = self._get_key_filter()["key__startswith"]
+        if feature_ids:
+            rows = ln.models.ArtifactJsonValue.filter(
+                artifact__key__startswith=key_prefix,
+                jsonvalue__feature_id__in=feature_ids,
+            ).values_list(
+                "artifact_id", "jsonvalue__feature__name", "jsonvalue__value"
+            )
+        else:
+            rows = ln.models.ArtifactJsonValue.filter(
+                artifact__key__startswith=key_prefix,
+                jsonvalue__feature__name__in=feature_names,
+            ).values_list(
+                "artifact_id", "jsonvalue__feature__name", "jsonvalue__value"
+            )
         result: dict[int, dict[str, Any]] = {}
         for artifact_id, feature_name, value in rows:
             if artifact_id not in result:
