@@ -546,6 +546,8 @@ def test_logstream_tracker_multiple():
         tracker2.finish()
         tracker1.finish()
 
+        assert sys.excepthook is sys.__excepthook__
+
         # Verify log contents - each log should only contain messages after its start
         expected_contents = {
             1: [
