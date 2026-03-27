@@ -9,7 +9,7 @@ import threading
 import traceback
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import TYPE_CHECKING, TextIO
+from typing import TYPE_CHECKING, Any, Callable, TextIO
 
 import lamindb_setup as ln_setup
 from django.db.models import Func, IntegerField, Q
@@ -34,6 +34,8 @@ from ._sync_git import get_transform_reference_from_git_repo
 from ._track_environment import track_python_environment
 
 if TYPE_CHECKING:
+    from types import FrameType, TracebackType
+
     from lamindb_setup.types import UPathStr
 
     from lamindb.base.types import TransformKind
@@ -201,21 +203,27 @@ class LogStreamHandler:
         self._use_buffer = use_buffer
 
     def write(self, data: str) -> int:
+        data_length = len(data)
+
         self.log_stream.write(data)
+        if self.file.closed:
+            return data_length
 
         if not self._use_buffer:
             self.file.write(data)
             self.file.flush()
-            return len(data)
+            return data_length
 
         self._buffer += data
         # write only the last part of a line with carriage returns
         while "\n" in self._buffer:
+            if self.file.closed:
+                return data_length
             line, self._buffer = self._buffer.split("\n", 1)
             self.file.write(last_non_empty_r_block(line) + "\n")
             self.file.flush()
 
-        return len(data)
+        return data_length
 
     def flush(self):
         self.log_stream.flush()
@@ -242,12 +250,19 @@ class LogStreamTracker:
         self.original_stdout = None
         self.original_stderr = None
         self.log_file = None
-        self.original_excepthook = sys.excepthook
         self.is_cleaning_up = False
+        self.original_excepthook: (
+            Callable[[type[BaseException], BaseException, TracebackType | None], Any]
+            | None
+        ) = None
+        self.original_signal_handlers: dict[
+            signal.Signals, Callable[[int, FrameType | None], Any] | int
+        ] = {}
 
     def start(self, run: Run):
         self.original_stdout = sys.stdout
         self.original_stderr = sys.stderr
+        self.original_excepthook = sys.excepthook
         self.run = run
         self.log_file_path = (
             ln_setup.settings.cache_dir / f"run_logs_{self.run.uid}.txt"
@@ -269,12 +284,23 @@ class LogStreamTracker:
         # signal should be used only in the main thread, otherwise
         # ValueError: signal only works in main thread of the main interpreter
         if threading.current_thread() == threading.main_thread():
+            self.original_signal_handlers = {
+                signal.SIGTERM: signal.getsignal(signal.SIGTERM),
+                signal.SIGINT: signal.getsignal(signal.SIGINT),
+            }
             signal.signal(signal.SIGTERM, self.cleanup)
             signal.signal(signal.SIGINT, self.cleanup)
         # handle exceptions
         sys.excepthook = self.handle_exception
         # reset handler for lamin logger because sys.stdout has been replaced
         logger.set_handler()
+
+    def restore_original_handlers(self):
+        if self.original_excepthook is not None:
+            sys.excepthook = self.original_excepthook
+        if threading.current_thread() == threading.main_thread():
+            for signo, handler in self.original_signal_handlers.items():
+                signal.signal(signo, handler)
 
     def finish(self):
         if self.original_stdout:
@@ -283,6 +309,7 @@ class LogStreamTracker:
             sys.stdout = self.original_stdout
             sys.stderr = self.original_stderr
             self.log_file.close()
+            self.restore_original_handlers()
             # reset handler for lamin logger because sys.stdout has been replaced
             logger.set_handler()
 
@@ -310,8 +337,16 @@ class LogStreamTracker:
                 sys.stderr = self.original_stderr
                 self.log_file.close()
                 save_run_logs(self.run, save_run=True)
+                # reset handler for lamin logger because sys.stdout has been replaced
+                logger.set_handler()
         except:  # noqa: E722, S110
             pass
+        finally:
+            self.restore_original_handlers()
+            if signo is not None and signo in self.original_signal_handlers:
+                original_handler = self.original_signal_handlers[signo]
+                if callable(original_handler):
+                    original_handler(signo, frame)
 
     def handle_exception(self, exc_type, exc_value, exc_traceback):
         try:
@@ -327,7 +362,8 @@ class LogStreamTracker:
                 self.cleanup()
         except:  # noqa: E722, S110
             pass
-        self.original_excepthook(exc_type, exc_value, exc_traceback)
+        if self.original_excepthook is not None:
+            self.original_excepthook(exc_type, exc_value, exc_traceback)
 
 
 # see test_tracked.py for tests
