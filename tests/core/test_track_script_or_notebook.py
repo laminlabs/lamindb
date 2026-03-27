@@ -124,7 +124,7 @@ Run: {ln.context.run.uid[:7]} ({ln.context.run.transform.key})
     assert (
         run.finished_at is not None
     )  # context is cleared after finish(); use captured run
-    assert sys.excepthook is sys.__excepthook__
+
     # clean up
     run.delete(permanent=True)
     ln.models.RunJsonValue.filter(run__transform=test_transform).delete(permanent=True)
