@@ -31,9 +31,9 @@ import lightning.pytorch as pl
 from lightning.fabric.utilities.cloud_io import get_filesystem
 from lightning.pytorch.callbacks.model_checkpoint import ModelCheckpoint
 from lightning.pytorch.cli import SaveConfigCallback as _SaveConfigCallback
-from lamindb.models.artifact import track_run_input
 
 import lamindb as ln
+from lamindb.models.artifact import track_run_input
 
 if TYPE_CHECKING:
     from datetime import timedelta
@@ -835,7 +835,9 @@ class Checkpoint(ArtifactPublishingModelCheckpoint):
         run_features: dict[str | ln.Feature, Any] = {}
         if (feature := self._get_lightning_feature("logger_name")) and trainer.loggers:
             run_features[feature] = trainer.loggers[0].name
-        if (feature := self._get_lightning_feature("logger_version")) and trainer.loggers:
+        if (
+            feature := self._get_lightning_feature("logger_version")
+        ) and trainer.loggers:
             version = trainer.loggers[0].version
             run_features[feature] = (
                 version if isinstance(version, str) else f"version_{version}"
@@ -893,7 +895,9 @@ class Checkpoint(ArtifactPublishingModelCheckpoint):
 
         import torch
 
-        if (feature := self._get_lightning_feature("score")) and self.current_score is not None:
+        if (
+            feature := self._get_lightning_feature("score")
+        ) and self.current_score is not None:
             score = self.current_score
             if torch.is_tensor(score):
                 score = score.item()
@@ -1012,16 +1016,12 @@ class Checkpoint(ArtifactPublishingModelCheckpoint):
             rows = ln.models.ArtifactJsonValue.filter(
                 artifact__key__startswith=key_prefix,
                 jsonvalue__feature_id__in=feature_ids,
-            ).values_list(
-                "artifact_id", "jsonvalue__feature__name", "jsonvalue__value"
-            )
+            ).values_list("artifact_id", "jsonvalue__feature__name", "jsonvalue__value")
         else:
             rows = ln.models.ArtifactJsonValue.filter(
                 artifact__key__startswith=key_prefix,
                 jsonvalue__feature__name__in=feature_names,
-            ).values_list(
-                "artifact_id", "jsonvalue__feature__name", "jsonvalue__value"
-            )
+            ).values_list("artifact_id", "jsonvalue__feature__name", "jsonvalue__value")
         result: dict[int, dict[str, Any]] = {}
         for artifact_id, feature_name, value in rows:
             if artifact_id not in result:
