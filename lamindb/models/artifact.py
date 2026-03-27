@@ -1127,7 +1127,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         Calling `.save()` copies or uploads the file to the default storage location of your lamindb instance.
         If you create an artifact **from a remote file or folder**, lamindb registers the S3 `key` and avoids copying the data::
 
-            artifact = ln.Artifact("s3://my_bucket/my_folder/my_file.csv").save()
+            artifact = ln.Artifact("s3://my_bucket/my_folder/my_file.csv").save()  # can omit key/description because file is remote
 
         If you then want to query & access the artifact later on, this is how you do it::
 
@@ -1259,7 +1259,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             ),
         ]
 
-    _TRACK_FIELDS = ("space_id",)
+    _TRACK_FIELDS = ("space_id", "is_latest")
 
     _len_full_uid: int = 20
     _len_stem_uid: int = 16
@@ -2991,6 +2991,13 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
                 artifact = ln.Artifact("./myfile.csv", key="myfile.parquet").save()
         """
+        if (
+            not self._state.adding
+            and not self._field_changed("is_latest")  # skip on is_latest change
+            and not self.is_latest
+            and self.branch_id != -1  # skip on soft deletion
+        ):
+            logger.warning("you are saving to a non-latest version of the artifact")
         # when space is passed in init, storage is ignored, so space - storage consistency is enforced there
         # note that storage is not editable after creation
         if (
