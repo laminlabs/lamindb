@@ -520,6 +520,8 @@ class MockRun:
 
 
 def test_logstream_tracker_multiple():
+    original_excepthook = sys.excepthook
+
     tracker1 = LogStreamTracker()
     tracker2 = LogStreamTracker()
     tracker3 = LogStreamTracker()
@@ -546,7 +548,8 @@ def test_logstream_tracker_multiple():
         tracker2.finish()
         tracker1.finish()
 
-        assert sys.excepthook is sys.__excepthook__
+        # restore to whatever hook was active before the first tracker started
+        assert sys.excepthook is original_excepthook
 
         # Verify log contents - each log should only contain messages after its start
         expected_contents = {

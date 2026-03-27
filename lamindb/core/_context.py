@@ -303,15 +303,18 @@ class LogStreamTracker:
                 signal.signal(signo, handler)
 
     def finish(self):
-        if self.original_stdout:
-            getattr(sys.stdout, "flush_buffer", sys.stdout.flush)()
-            sys.stderr.flush()
-            sys.stdout = self.original_stdout
-            sys.stderr = self.original_stderr
-            self.log_file.close()
+        try:
+            if self.original_stdout:
+                getattr(sys.stdout, "flush_buffer", sys.stdout.flush)()
+                sys.stderr.flush()
+                sys.stdout = self.original_stdout
+                sys.stderr = self.original_stderr
+                if self.log_file is not None and not self.log_file.closed:
+                    self.log_file.close()
+                # reset handler for lamin logger because sys.stdout has been replaced
+                logger.set_handler()
+        finally:
             self.restore_original_handlers()
-            # reset handler for lamin logger because sys.stdout has been replaced
-            logger.set_handler()
 
     def cleanup(self, signo=None, frame=None):
         try:
