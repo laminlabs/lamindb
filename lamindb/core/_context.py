@@ -365,8 +365,7 @@ class LogStreamTracker:
                 self.cleanup()
         except:  # noqa: E722, S110
             pass
-        if self.original_excepthook is not None:
-            self.original_excepthook(exc_type, exc_value, exc_traceback)
+        self.original_excepthook(exc_type, exc_value, exc_traceback)
 
 
 # see test_tracked.py for tests
