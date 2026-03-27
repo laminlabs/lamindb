@@ -575,7 +575,6 @@ class Checkpoint(ArtifactPublishingModelCheckpoint):
         self._artifact_features = self.features.get("artifact", {})
         self._auto_features: dict[str, ln.Feature] = {}
         self._hparam_features_available: set[str] = set()
-        self._lightning_feature_type: ln.Feature | None = None
         self._run_features_added = False
         self._hparams_yaml_saved = False
         self.overwrite_versions = overwrite_versions
@@ -612,15 +611,15 @@ class Checkpoint(ArtifactPublishingModelCheckpoint):
 
             # Auto-features are opt-in and scoped to the lightning feature type.
             # If `save_lightning_features()` was never called, skip auto-tracking.
-            self._lightning_feature_type = ln.Feature.filter(
+            lightning_feature_type = ln.Feature.filter(
                 name="lamindb.lightning", is_type=True
             ).one_or_none()
             self._auto_features.clear()
-            if self._lightning_feature_type is not None:
+            if lightning_feature_type is not None:
                 auto_features = list(
                     ln.Feature.filter(
                         name__in=_SUPPORTED_AUTO_FEATURES,
-                        type=self._lightning_feature_type,
+                        type=lightning_feature_type,
                     )
                 )
                 self._auto_features = {f.name: f for f in auto_features}
@@ -834,13 +833,11 @@ class Checkpoint(ArtifactPublishingModelCheckpoint):
             return
 
         run_features: dict[str | ln.Feature, Any] = {}
-        if "logger_name" in self._auto_features and trainer.loggers:
-            run_features[self._auto_features["logger_name"]] = (
-                trainer.loggers[0].name
-            )
-        if "logger_version" in self._auto_features and trainer.loggers:
+        if (feature := self._get_lightning_feature("logger_name")) and trainer.loggers:
+            run_features[feature] = trainer.loggers[0].name
+        if (feature := self._get_lightning_feature("logger_version")) and trainer.loggers:
             version = trainer.loggers[0].version
-            run_features[self._auto_features["logger_version"]] = (
+            run_features[feature] = (
                 version if isinstance(version, str) else f"version_{version}"
             )
         trainer_config_values = {
@@ -859,10 +856,9 @@ class Checkpoint(ArtifactPublishingModelCheckpoint):
         }
 
         for key, (value, transform, skip_none) in trainer_config_values.items():
-            if key in self._auto_features and not (
+            if (feature := self._get_lightning_feature(key)) and not (
                 skip_none and value is None
             ):
-                feature = self._auto_features[key]
                 run_features[feature] = transform(value) if transform else value
 
         if (
@@ -890,18 +886,18 @@ class Checkpoint(ArtifactPublishingModelCheckpoint):
         """Collect checkpoint-level feature values before saving the artifact."""
         feature_values: dict[str | ln.Feature, Any] = {}
         is_best = self.best_model_path == str(filepath)
-        if "is_best_model" in self._auto_features:
+        if feature := self._get_lightning_feature("is_best_model"):
             if is_best:
                 self._clear_best_model_flags()
-            feature_values[self._auto_features["is_best_model"]] = is_best
+            feature_values[feature] = is_best
 
         import torch
 
-        if "score" in self._auto_features and self.current_score is not None:
+        if (feature := self._get_lightning_feature("score")) and self.current_score is not None:
             score = self.current_score
             if torch.is_tensor(score):
                 score = score.item()
-            feature_values[self._auto_features["score"]] = float(score)
+            feature_values[feature] = float(score)
 
         for name, value in self._artifact_features.items():
             if value is not None:
@@ -928,7 +924,7 @@ class Checkpoint(ArtifactPublishingModelCheckpoint):
                 trainer, filepath, feature_values=feature_values
             )
 
-            if "model_rank" in self._auto_features:
+            if self._get_lightning_feature("model_rank"):
                 self._update_model_ranks()
 
     def _remove_checkpoint(self, trainer: pl.Trainer, filepath: str) -> None:
@@ -950,16 +946,12 @@ class Checkpoint(ArtifactPublishingModelCheckpoint):
             )
 
     def _get_lightning_feature(self, name: str) -> ln.Feature | None:
-        """Get a Feature by name scoped to the lightning feature type."""
-        if self._lightning_feature_type is None:
-            return None
-        return ln.Feature.filter(
-            name=name, type=self._lightning_feature_type
-        ).one_or_none()
+        """Return the cached typed Feature for *name*, or None."""
+        return self._auto_features.get(name)
 
     def _clear_best_model_flags(self) -> None:
         """Set is_best_model=False on previous best checkpoints."""
-        is_best_feature = self._auto_features.get("is_best_model")
+        is_best_feature = self._get_lightning_feature("is_best_model")
         if is_best_feature is None:
             return
         feature_rows = self._get_artifact_feature_rows({"is_best_model"})
@@ -983,7 +975,7 @@ class Checkpoint(ArtifactPublishingModelCheckpoint):
 
     def _update_model_ranks(self) -> None:
         """Update model_rank feature for all checkpoints under this key."""
-        model_rank_feature = self._auto_features.get("model_rank")
+        model_rank_feature = self._get_lightning_feature("model_rank")
         if model_rank_feature is None:
             return
         feature_rows = self._get_artifact_feature_rows({"score", "model_rank"})
@@ -1011,9 +1003,9 @@ class Checkpoint(ArtifactPublishingModelCheckpoint):
     ) -> dict[int, dict[str, Any]]:
         # Filter by feature id when possible to avoid cross-type name collisions
         feature_ids = [
-            self._auto_features[name].id
+            feature.id
             for name in feature_names
-            if name in self._auto_features
+            if (feature := self._get_lightning_feature(name))
         ]
         key_prefix = self._get_key_filter()["key__startswith"]
         if feature_ids:
