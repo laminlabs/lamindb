@@ -273,7 +273,7 @@ class LogStreamTracker:
         self.log_file_path = (
             ln_setup.settings.cache_dir / f"run_logs_{self.run.uid}.txt"
         )
-        self.log_file = open(self.log_file_path, "w")
+        self.log_file = open(self.log_file_path, "w", encoding="utf-8")
         # the instance that's connected is important information
         self.log_file.write(
             f"\x1b[92m→\x1b[0m connected lamindb: {ln_setup.settings.instance.slug}\n"
@@ -347,7 +347,7 @@ class LogStreamTracker:
             if not self.is_cleaning_up:
                 error_msg = f"{''.join(traceback.format_exception(exc_type, exc_value, exc_traceback))}"
                 if self.log_file.closed:
-                    self.log_file = open(self.log_file_path, "a")
+                    self.log_file = open(self.log_file_path, "a", encoding="utf-8")
                 else:
                     getattr(sys.stdout, "flush_buffer", sys.stdout.flush)()
                     sys.stderr.flush()
