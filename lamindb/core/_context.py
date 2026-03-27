@@ -314,11 +314,11 @@ class LogStreamTracker:
 
             if self.original_stdout and not self.is_cleaning_up:
                 self.is_cleaning_up = True
-                if self.log_file.closed:
-                    self.log_file = open(self.log_file_path, "a", encoding="utf-8")
-                getattr(sys.stdout, "flush_buffer", sys.stdout.flush)()
-                sys.stderr.flush()
                 if signo is not None:
+                    if self.log_file.closed:
+                        self.log_file = open(self.log_file_path, "a", encoding="utf-8")
+                    getattr(sys.stdout, "flush_buffer", sys.stdout.flush)()
+                    sys.stderr.flush()
                     signal_msg = f"\nProcess terminated by signal {signo} ({signal.Signals(signo).name})\n"
                     if frame:
                         signal_msg += (
