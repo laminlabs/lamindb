@@ -125,8 +125,6 @@ Run: {ln.context.run.uid[:7]} ({ln.context.run.transform.key})
         run.finished_at is not None
     )  # context is cleared after finish(); use captured run
 
-    assert sys.excepthook is sys.__excepthook__
-
     # clean up
     run.delete(permanent=True)
     ln.models.RunJsonValue.filter(run__transform=test_transform).delete(permanent=True)
@@ -522,8 +520,6 @@ class MockRun:
 
 
 def test_logstream_tracker_multiple():
-    assert sys.excepthook is sys.__excepthook__
-
     tracker1 = LogStreamTracker()
     tracker2 = LogStreamTracker()
     tracker3 = LogStreamTracker()
@@ -549,8 +545,6 @@ def test_logstream_tracker_multiple():
         tracker3.finish()
         tracker2.finish()
         tracker1.finish()
-
-        assert sys.excepthook is sys.__excepthook__
 
         # Verify log contents - each log should only contain messages after its start
         expected_contents = {

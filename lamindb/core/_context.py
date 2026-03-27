@@ -254,15 +254,22 @@ class LogStreamTracker:
         self.original_excepthook: (
             Callable[[type[BaseException], BaseException, TracebackType | None], Any]
             | None
-        ) = None
+        ) = sys.excepthook
+
         self.original_signal_handlers: dict[
             signal.Signals, Callable[[int, FrameType | None], Any] | int
         ] = {}
+        if threading.current_thread() == threading.main_thread():
+            self.original_signal_handlers[signal.SIGTERM] = signal.getsignal(
+                signal.SIGTERM
+            )
+            self.original_signal_handlers[signal.SIGINT] = signal.getsignal(
+                signal.SIGINT
+            )
 
     def start(self, run: Run):
         self.original_stdout = sys.stdout
         self.original_stderr = sys.stderr
-        self.original_excepthook = sys.excepthook
         self.run = run
         self.log_file_path = (
             ln_setup.settings.cache_dir / f"run_logs_{self.run.uid}.txt"
@@ -284,10 +291,6 @@ class LogStreamTracker:
         # signal should be used only in the main thread, otherwise
         # ValueError: signal only works in main thread of the main interpreter
         if threading.current_thread() == threading.main_thread():
-            self.original_signal_handlers = {
-                signal.SIGTERM: signal.getsignal(signal.SIGTERM),
-                signal.SIGINT: signal.getsignal(signal.SIGINT),
-            }
             signal.signal(signal.SIGTERM, self.cleanup)
             signal.signal(signal.SIGINT, self.cleanup)
         # handle exceptions
@@ -303,18 +306,15 @@ class LogStreamTracker:
                 signal.signal(signo, handler)
 
     def finish(self):
-        try:
-            if self.original_stdout:
-                getattr(sys.stdout, "flush_buffer", sys.stdout.flush)()
-                sys.stderr.flush()
-                sys.stdout = self.original_stdout
-                sys.stderr = self.original_stderr
-                if self.log_file is not None and not self.log_file.closed:
-                    self.log_file.close()
-                # reset handler for lamin logger because sys.stdout has been replaced
-                logger.set_handler()
-        finally:
-            self.restore_original_handlers()
+        if self.original_stdout:
+            getattr(sys.stdout, "flush_buffer", sys.stdout.flush)()
+            sys.stderr.flush()
+            sys.stdout = self.original_stdout
+            sys.stderr = self.original_stderr
+            if self.log_file is not None and not self.log_file.closed:
+                self.log_file.close()
+            # reset handler for lamin logger because sys.stdout has been replaced
+            logger.set_handler()
 
     def cleanup(self, signo=None, frame=None):
         try:
