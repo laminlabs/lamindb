@@ -299,8 +299,7 @@ class LogStreamTracker:
         logger.set_handler()
 
     def restore_original_handlers(self):
-        if self.original_excepthook is not None:
-            sys.excepthook = self.original_excepthook
+        sys.excepthook = self.original_excepthook
         if threading.current_thread() == threading.main_thread():
             for signo, handler in self.original_signal_handlers.items():
                 signal.signal(signo, handler)
