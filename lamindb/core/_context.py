@@ -347,7 +347,7 @@ class LogStreamTracker:
 
     def handle_exception(self, exc_type, exc_value, exc_traceback):
         try:
-            if not self.is_cleaning_up:
+            if self.original_stdout and not self.is_cleaning_up:
                 if self.log_file.closed:
                     self.log_file = open(self.log_file_path, "a", encoding="utf-8")
                 getattr(sys.stdout, "flush_buffer", sys.stdout.flush)()
