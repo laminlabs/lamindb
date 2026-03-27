@@ -303,7 +303,7 @@ class LogStreamTracker:
             sys.stderr.flush()
             sys.stdout = self.original_stdout
             sys.stderr = self.original_stderr
-            if self.log_file is not None and not self.log_file.closed:
+            if not self.log_file.closed:
                 self.log_file.close()
             # reset handler for lamin logger because sys.stdout has been replaced
             logger.set_handler()
@@ -314,6 +314,8 @@ class LogStreamTracker:
 
             if self.original_stdout and not self.is_cleaning_up:
                 self.is_cleaning_up = True
+                if self.log_file.closed:
+                    self.log_file = open(self.log_file_path, "a", encoding="utf-8")
                 getattr(sys.stdout, "flush_buffer", sys.stdout.flush)()
                 sys.stderr.flush()
                 if signo is not None:
@@ -330,7 +332,8 @@ class LogStreamTracker:
                 self.run.finished_at = datetime.now(timezone.utc)
                 sys.stdout = self.original_stdout
                 sys.stderr = self.original_stderr
-                self.log_file.close()
+                if not self.log_file.closed:
+                    self.log_file.close()
                 save_run_logs(self.run, save_run=True)
                 # reset handler for lamin logger because sys.stdout has been replaced
                 logger.set_handler()
@@ -345,12 +348,11 @@ class LogStreamTracker:
     def handle_exception(self, exc_type, exc_value, exc_traceback):
         try:
             if not self.is_cleaning_up:
-                error_msg = f"{''.join(traceback.format_exception(exc_type, exc_value, exc_traceback))}"
                 if self.log_file.closed:
                     self.log_file = open(self.log_file_path, "a", encoding="utf-8")
-                else:
-                    getattr(sys.stdout, "flush_buffer", sys.stdout.flush)()
-                    sys.stderr.flush()
+                getattr(sys.stdout, "flush_buffer", sys.stdout.flush)()
+                sys.stderr.flush()
+                error_msg = f"{''.join(traceback.format_exception(exc_type, exc_value, exc_traceback))}"
                 self.log_file.write(error_msg)
                 self.log_file.flush()
                 self.cleanup()
