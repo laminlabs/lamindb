@@ -1003,14 +1003,13 @@ def test_checkpoint_subclass_receives_artifact_events(
     checkpoint_event = next(
         event for event in checkpoint.saved_events if event.kind == "checkpoint"
     )
+    assert checkpoint_event.key.startswith(checkpoint.checkpoint_key_prefix + "/")
     assert checkpoint_event.storage_uri == checkpoint.resolve_artifact_storage_uri(
         checkpoint_event.artifact
     )
     assert checkpoint_event.storage_uri.endswith(".ckpt")
 
-    artifacts_by_key = {
-        event.artifact.key: event.artifact for event in checkpoint.saved_events
-    }
+    artifacts_by_key = {event.key: event.artifact for event in checkpoint.saved_events}
     for artifact in artifacts_by_key.values():
         ln.models.ArtifactJsonValue.filter(artifact=artifact).delete()
         ln.models.JsonValue.filter(links_artifact__artifact=artifact).delete(
@@ -1097,7 +1096,7 @@ def test_checkpoint_artifact_observers_receive_shared_events(
     checkpoint_event = next(
         event for event in observer.saved_events if event.kind == "checkpoint"
     )
-    assert checkpoint_event.key == checkpoint_event.artifact.key
+    assert checkpoint_event.key.startswith(checkpoint.checkpoint_key_prefix + "/")
     assert checkpoint_event.local_path.name.endswith(".ckpt")
     assert checkpoint_event.storage_uri == checkpoint.resolve_artifact_storage_uri(
         checkpoint_event.artifact
@@ -1105,9 +1104,7 @@ def test_checkpoint_artifact_observers_receive_shared_events(
     assert checkpoint.last_artifact_event is not None
     assert checkpoint.get_last_artifact("config") == checkpoint.last_config_artifact
 
-    artifacts_by_key = {
-        event.artifact.key: event.artifact for event in observer.saved_events
-    }
+    artifacts_by_key = {event.key: event.artifact for event in observer.saved_events}
     for artifact in artifacts_by_key.values():
         ln.models.ArtifactJsonValue.filter(artifact=artifact).delete()
         ln.models.JsonValue.filter(links_artifact__artifact=artifact).delete(

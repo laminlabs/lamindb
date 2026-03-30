@@ -340,12 +340,13 @@ class ArtifactPublishingModelCheckpoint(ModelCheckpoint):
         trainer: pl.Trainer,
         *,
         kind: ArtifactKind,
+        key: str,
         artifact: Any,
         local_path: Path | str,
     ) -> ArtifactSavedEvent:
         event = ArtifactSavedEvent(
             kind=kind,
-            key=artifact.key,
+            key=key,
             local_path=Path(local_path),
             trainer=trainer,
             artifact=artifact,
@@ -753,6 +754,7 @@ class Checkpoint(ArtifactPublishingModelCheckpoint):
         self._notify_artifact_saved(
             trainer,
             kind="checkpoint",
+            key=key,
             artifact=artifact,
             local_path=filepath,
         )
@@ -780,6 +782,7 @@ class Checkpoint(ArtifactPublishingModelCheckpoint):
         self._notify_artifact_saved(
             trainer,
             kind="config",
+            key=key,
             artifact=artifact,
             local_path=config_path,
         )
@@ -809,6 +812,7 @@ class Checkpoint(ArtifactPublishingModelCheckpoint):
         self._notify_artifact_saved(
             trainer,
             kind="hparams",
+            key=key,
             artifact=artifact,
             local_path=hparams_path,
         )
