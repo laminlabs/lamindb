@@ -82,7 +82,7 @@ pip install lamindb
 To install the `lamindb` namespace with minimal dependencies, use:
 
 ```shell
-pip install lamindb-core==2.3a1
+pip install lamindb-core
 ```
 
 </details>
