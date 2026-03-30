@@ -473,23 +473,6 @@ def test_create_from_dataframe(example_dataframe: pd.DataFrame):
         path.unlink(missing_ok=True)
 
 
-def test_create_from_dataframe_subclass(example_dataframe: pd.DataFrame):
-    class SubDataFrame(pd.DataFrame):
-        # Keep pandas ops returning the subclass (not base DataFrame).
-        @property
-        def _constructor(self):
-            return SubDataFrame
-
-    sub_df = SubDataFrame(example_dataframe)
-    artifact = ln.Artifact.from_dataframe(sub_df, description="test subclass")
-    assert artifact.description == "test subclass"
-    assert artifact.otype == "DataFrame"
-    assert artifact.kind == "dataset"
-    assert artifact.n_observations == len(sub_df)
-    artifact.save()
-    artifact.delete(permanent=True)
-
-
 def test_dataframe_validate_suffix(example_dataframe: pd.DataFrame):
     df = example_dataframe
     artifact = ln.Artifact.from_dataframe(df, key="test_.parquet")

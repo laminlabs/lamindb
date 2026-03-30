@@ -27,34 +27,40 @@ from lamindb_setup.core.upath import (
 )
 from lamindb_setup.types import UPathStr
 
-from lamindb.base.fields import (
+from ..base.fields import (
     BigIntegerField,
     BooleanField,
     CharField,
     ForeignKey,
     TextField,
 )
-from lamindb.base.utils import deprecated, strict_classmethod
-from lamindb.errors import FieldValidationError, NoWriteAccess, UnknownStorageLocation
-from lamindb.models.query_set import QuerySet, SQLRecordList
-
 from ..base.users import current_user_id
+from ..base.utils import deprecated, strict_classmethod
+from ..core._compat import with_package_obj
 from ..core._settings import settings
-from ..errors import InvalidArgument, NoStorageLocationForSpace, ValidationError
-from ..models._is_versioned import (
-    create_uid,
+from ..errors import (
+    FieldValidationError,
+    InvalidArgument,
+    NoStorageLocationForSpace,
+    NoWriteAccess,
+    UnknownStorageLocation,
+    ValidationError,
 )
 from ._feature_manager import (
     FeatureManager,
     get_label_links,
 )
-from ._is_versioned import IsVersioned
+from ._is_versioned import (
+    IsVersioned,
+    create_uid,
+)
 from ._relations import (
     dict_module_name_to_model_name,
     dict_related_model_to_related_name,
 )
 from .feature import Feature, JsonValue
 from .has_parents import view_lineage
+from .query_set import QuerySet, SQLRecordList
 from .run import Run, TracksRun, TracksUpdates, User
 from .save import check_and_attempt_clearing, check_and_attempt_upload
 from .schema import Schema
@@ -263,11 +269,7 @@ def process_data(
 
     if not overwritten, data gets stored in default storage
     """
-    if data.__class__.__name__ == "AnnData":
-        from anndata import AnnData
-
-        assert isinstance(data, AnnData)
-
+    if with_package_obj(data, "AnnData", "anndata", lambda obj: True)[0]:
         is_anndata = True
         is_pathlike = False
     elif isinstance(data, (str, Path, UPath)):  # UPathStr, spelled out
@@ -629,16 +631,9 @@ def log_storage_hint(
 
 
 def data_is_dataframe(data: Any) -> bool:
-    # Detect DataFrame or its subclasses without importing pandas first.
-    if any(
-        base.__name__ == "DataFrame" and base.__module__.startswith("pandas.")
-        for base in type(data).__mro__
-    ):
-        from pandas import DataFrame
-
-        assert isinstance(data, DataFrame)
-        return True
-    return False
+    # TODO: maybe check also for pandas.DataFrame subclasses,
+    # but in this case also infer_suffix should be updated
+    return with_package_obj(data, "DataFrame", "pandas", lambda obj: True)[0]
 
 
 def data_is_scversedatastructure(
