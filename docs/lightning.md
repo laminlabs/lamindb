@@ -126,10 +126,10 @@ logger, callbacks, model, and data in a config file.
 trainer:
   max_epochs: 10
 
-logger:
-  class_path: lightning.pytorch.loggers.TensorBoardLogger
-  init_args:
-    save_dir: logs
+  logger:
+    class_path: lightning.pytorch.loggers.TensorBoardLogger
+    init_args:
+      save_dir: logs
 
   callbacks:
     - class_path: lamindb.integrations.lightning.Checkpoint
