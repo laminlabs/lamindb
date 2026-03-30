@@ -5,16 +5,19 @@ Also see `test_artifact_folders.py` for tests of folder-like artifacts.
 
 # ruff: noqa: F811
 
+import shutil
 import sys
 from pathlib import Path, PurePosixPath
 from types import ModuleType
 
 import anndata as ad
+import h5py
 import lamindb as ln
 import lamindb_setup
 import mudata as md
 import pandas as pd
 import pytest
+import zarr
 from _dataset_fixtures import (  # noqa
     get_mini_csv,
     get_small_adata,
@@ -513,6 +516,35 @@ def test_create_from_anndata(get_small_adata, adata_file, example_dataframe):
             # check that the local filepath has been cleared
             assert not hasattr(artifact, "_local_filepath")
             artifact.delete(permanent=True)
+
+
+def test_from_anndata_uses_h5ad_kwargs(get_small_adata):
+    artifact = ln.Artifact.from_anndata(
+        get_small_adata,
+        key="test_kwargs.h5ad",
+        h5ad_kwargs={"compression": "gzip"},
+    )
+
+    local_path = artifact._local_filepath
+    with h5py.File(local_path, mode="r") as store:
+        assert store["X"].compression == "gzip"
+
+    local_path.unlink(missing_ok=True)
+
+
+def test_from_anndata_uses_zarr_kwargs(get_small_adata):
+    chunks = (1, get_small_adata.n_vars)
+    artifact = ln.Artifact.from_anndata(
+        get_small_adata,
+        key="test_kwargs.zarr",
+        format="zarr",
+        zarr_kwargs={"chunks": chunks},
+    )
+
+    local_path = artifact._local_filepath
+    assert zarr.open(local_path, mode="r")["X"].chunks == chunks
+
+    shutil.rmtree(local_path)
 
 
 def test_from_anndata_validate_suffix(get_small_adata):
