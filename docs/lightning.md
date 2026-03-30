@@ -228,9 +228,10 @@ from my_model_registry import ModelRegistry
 class ModelRegistryCheckpoint(ll.Checkpoint):
     """Register each checkpoint in an external model registry."""
 
-    def __init__(*args, **kwargs):
-        super().__init__(*args, **kwargs):
-        self.model_registery = ModelRegistry()
+    def __init__(self, *args, registry_project: str, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.registry_project = registry_project
+        self.model_registry = ModelRegistry()
 
     def on_artifact_saved(self, event: ll.ArtifactSavedEvent) -> None:
         if event.kind == "checkpoint":
