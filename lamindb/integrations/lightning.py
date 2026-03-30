@@ -475,7 +475,6 @@ class Checkpoint(ArtifactPublishingModelCheckpoint):
         every_n_epochs: Checkpoint every N epochs.
         save_on_train_epoch_end: Run checkpointing at end of training epoch.
         enable_version_counter: Append version to filename to avoid collisions.
-        overwrite_versions: Whether to overwrite existing checkpoints.
         artifact_observers: Optional observer objects notified when checkpoint,
             config, or hparams artifacts are saved or when checkpoint files are
             removed locally. Observers follow :class:`ArtifactObserver` and
@@ -546,7 +545,6 @@ class Checkpoint(ArtifactPublishingModelCheckpoint):
         every_n_epochs: int | None = None,
         save_on_train_epoch_end: bool | None = None,
         enable_version_counter: bool = True,
-        overwrite_versions: bool = False,
         artifact_observers: list[ArtifactObserver] | None = None,
     ) -> None:
         self._original_dirpath = dirpath
@@ -577,7 +575,6 @@ class Checkpoint(ArtifactPublishingModelCheckpoint):
         self._hparam_features_available: set[str] = set()
         self._run_features_added = False
         self._hparams_yaml_saved = False
-        self.overwrite_versions = overwrite_versions
         self._checkpoint_key_prefix: str = ""
         self._artifact_publisher: ArtifactPublisher = LaminArtifactPublisher()
 
@@ -587,6 +584,16 @@ class Checkpoint(ArtifactPublishingModelCheckpoint):
         """Validate user features and detect available auto-features."""
         super().setup(trainer, pl_module, stage)
         self._checkpoint_key_prefix = self._compute_checkpoint_key_prefix(trainer)
+
+        if self.save_last:
+            warnings.warn(
+                "save_last is not necessary with Lamin. Checkpoint metadata"
+                " (is_best_model, model_rank, score) makes the latest checkpoint"
+                " queryable without encoding this in the filename. Consider"
+                " disabling save_last to avoid redundant checkpoint copies.",
+                UserWarning,
+                stacklevel=2,
+            )
 
         if trainer.is_global_zero:
             # Validate user-specified features exist
@@ -733,10 +740,6 @@ class Checkpoint(ArtifactPublishingModelCheckpoint):
         )
         existing_artifact = ln.Artifact.filter(key=key).one_or_none()
         if existing_artifact is not None:
-            if not self.overwrite_versions:
-                raise ValueError(
-                    f"An artifact with key '{key}' already exists. Set overwrite_versions=True to replace it."
-                )
             existing_artifact.delete(permanent=True, storage=True)
         artifact = self._create_lamin_artifact(
             filepath,
@@ -948,6 +951,8 @@ class Checkpoint(ArtifactPublishingModelCheckpoint):
                 local_path=filepath,
                 artifact=artifact,
             )
+            if artifact is not None:
+                artifact.delete(permanent=True, storage=True)
 
     def _get_lightning_feature(self, name: str) -> ln.Feature | None:
         """Return the cached typed Feature for *name*, or None."""

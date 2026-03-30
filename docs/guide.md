@@ -14,6 +14,7 @@ README
 query-search
 track
 curate
+lightning
 manage-ontologies
 sync
 ```

@@ -213,20 +213,6 @@ This enables auto-features: `is_best_model`, `score`, `model_rank`,
 `accumulate_grad_batches`, `gradient_clip_val`, `monitor`,
 `save_weights_only`, `mode`.
 
-## Overwrite behavior
-
-By default, saving a checkpoint to an already-used Lamin key raises an error.
-To let newer runs replace artifacts at the same key, pass
-`overwrite_versions=True`:
-
-```python
-checkpoint = ll.Checkpoint(
-    dirpath="models/my-model",
-    monitor="val_loss",
-    overwrite_versions=True,
-)
-```
-
 ## Extend the callback
 
 ### Subclass `Checkpoint`
