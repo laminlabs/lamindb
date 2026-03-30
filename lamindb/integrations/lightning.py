@@ -322,27 +322,6 @@ class ArtifactPublishingModelCheckpoint(ModelCheckpoint):
         """Return the logical artifact key for a checkpoint-related file."""
         raise NotImplementedError
 
-    def _get_artifact_key(
-        self, trainer: pl.Trainer, filepath: Path | str, is_checkpoint: bool = True
-    ) -> str:
-        """Backward-compatible wrapper around :meth:`resolve_artifact_key`."""
-        kind: ArtifactKind = "checkpoint" if is_checkpoint else "config"
-        return self.resolve_artifact_key(trainer=trainer, filepath=filepath, kind=kind)
-
-    def _artifact_key_for_kind(
-        self, trainer: pl.Trainer, filepath: Path | str, kind: ArtifactKind
-    ) -> str:
-        """Return the artifact key while preserving legacy checkpoint overrides."""
-        if kind == "checkpoint":
-            return self._get_artifact_key(
-                trainer=trainer, filepath=filepath, is_checkpoint=True
-            )
-        if kind == "config":
-            return self._get_artifact_key(
-                trainer=trainer, filepath=filepath, is_checkpoint=False
-            )
-        return self.resolve_artifact_key(trainer=trainer, filepath=filepath, kind=kind)
-
     def _notify_artifact_saved(
         self,
         trainer: pl.Trainer,
@@ -556,6 +535,7 @@ class Checkpoint(ArtifactPublishingModelCheckpoint):
         every_n_epochs: int | None = None,
         save_on_train_epoch_end: bool | None = None,
         enable_version_counter: bool = True,
+        run_uid_is_version: bool = True,
         artifact_observers: list[ArtifactObserver] | None = None,
     ) -> None:
         self._original_dirpath = dirpath
@@ -587,6 +567,7 @@ class Checkpoint(ArtifactPublishingModelCheckpoint):
         self._run_features_added = False
         self._hparams_yaml_saved = False
         self._checkpoint_key_prefix: str = ""
+        self._run_uid_is_version = run_uid_is_version
         self._artifact_publisher: ArtifactPublisher = LaminArtifactPublisher()
 
     def setup(
@@ -654,8 +635,7 @@ class Checkpoint(ArtifactPublishingModelCheckpoint):
                 ln.Feature.filter(name__in=hparam_names).values_list("name", flat=True)
             )
 
-    @staticmethod
-    def _compute_logger_key_prefix(trainer: pl.Trainer) -> str:
+    def _compute_logger_key_prefix(self, trainer: pl.Trainer) -> str:
         """Derive a key prefix from the trainer's first logger."""
         if trainer.loggers[0].save_dir is not None:
             save_dir = trainer.loggers[0].save_dir
@@ -746,7 +726,7 @@ class Checkpoint(ArtifactPublishingModelCheckpoint):
         useful override point for subclasses that want to augment Lamin persistence
         while keeping the generic lifecycle behavior from the base class.
         """
-        key = self._artifact_key_for_kind(
+        key = self.resolve_artifact_key(
             trainer=trainer, filepath=filepath, kind="checkpoint"
         )
         existing_artifact = ln.Artifact.filter(key=key).one_or_none()
@@ -778,7 +758,7 @@ class Checkpoint(ArtifactPublishingModelCheckpoint):
         Config artifacts are routed through the same lifecycle surface as
         checkpoints so observers and subclasses see a unified event stream.
         """
-        key = self._artifact_key_for_kind(
+        key = self.resolve_artifact_key(
             trainer=trainer, filepath=config_path, kind="config"
         )
         artifact = self._create_lamin_artifact(
@@ -809,7 +789,7 @@ class Checkpoint(ArtifactPublishingModelCheckpoint):
         if not Path(hparams_path).exists():
             return None
 
-        key = self._artifact_key_for_kind(
+        key = self.resolve_artifact_key(
             trainer=trainer, filepath=hparams_path, kind="hparams"
         )
         artifact = self._create_lamin_artifact(
@@ -956,7 +936,7 @@ class Checkpoint(ArtifactPublishingModelCheckpoint):
     def _remove_checkpoint(self, trainer: pl.Trainer, filepath: str) -> None:
         """Remove the local checkpoint file and emit a removal event."""
         artifact: ln.Artifact | None = None
-        key = self._artifact_key_for_kind(
+        key = self.resolve_artifact_key(
             trainer=trainer, filepath=filepath, kind="checkpoint"
         )
         if trainer.is_global_zero:

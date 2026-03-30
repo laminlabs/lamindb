@@ -471,7 +471,7 @@ def test_checkpoint_overwrites_existing_artifact(
     old_uid = ln.Artifact.filter(key=fixed_key).one().uid
 
     callback = ll.Checkpoint(dirpath=dirpath)
-    monkeypatch.setattr(callback, "_get_artifact_key", lambda **kwargs: fixed_key)
+    monkeypatch.setattr(callback, "resolve_artifact_key", lambda **kwargs: fixed_key)
     trainer = pl.Trainer(max_epochs=1, callbacks=[callback], logger=False)
     trainer.fit(simple_model, dataloader)
 
