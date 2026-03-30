@@ -2128,6 +2128,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         schema: Schema
         | Literal["ensembl_gene_ids_and_valid_features_in_obs"]
         | None = None,
+        h5ad_kwargs: dict[str, Any] | None = None,
+        zarr_kwargs: dict[str, Any] | None = None,
         **kwargs,
     ) -> Artifact:
         """Create from `AnnData`, optionally validate & annotate.
@@ -2141,6 +2143,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             revises: An old version of the artifact.
             run: The run that creates the artifact.
             schema: A schema that defines how to validate & annotate.
+            h5ad_kwargs: Additional keyword arguments passed to the `anndata.AnnData.write_h5ad` method.
+            zarr_kwargs: Additional keyword arguments passed to the `anndata.AnnData.write_zarr` method.
+                Pass `format="zarr"` for this to work.
 
         See Also:
             :meth:`~lamindb.Collection`
@@ -2171,8 +2176,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         """
         from lamindb import examples
 
-        from ..core.storage._anndata_accessor import _anndata_n_observations
-
         if not data_is_scversedatastructure(adata, "AnnData"):
             raise ValueError(
                 "data has to be an AnnData object or a path to AnnData-like"
@@ -2181,7 +2184,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             schema = (
                 examples.schemas.anndata_ensembl_gene_ids_and_valid_features_in_obs()
             )
-        _anndata_n_observations(adata)
+        to_disk_kwargs: dict[str, Any] = h5ad_kwargs or zarr_kwargs
         artifact = Artifact(  # type: ignore
             path=adata,
             key=key,
@@ -2190,6 +2193,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             revises=revises,
             otype="AnnData",
             kind="dataset",
+            to_disk_kwargs=to_disk_kwargs,
             **kwargs,
         )
         # this is done instead of _anndata_n_observations(adata)
