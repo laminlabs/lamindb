@@ -263,18 +263,26 @@ def process_data(
 
     if not overwritten, data gets stored in default storage
     """
-    import pandas as pd
-    from anndata import AnnData
+    if data.__class__.__name__ == "AnnData":
+        from anndata import AnnData
+
+        assert isinstance(data, AnnData)
+
+        is_anndata = True
+        is_pathlike = False
+    elif isinstance(data, (str, Path, UPath)):  # UPathStr, spelled out
+        is_anndata = False
+        is_pathlike = True
 
     if key is not None:
         key_suffix = extract_suffix_from_path(PurePosixPath(key), arg_name="key")
         # use suffix as the (adata) format if the format is not provided
-        if isinstance(data, AnnData) and format is None and len(key_suffix) > 0:
+        if is_anndata and format is None and len(key_suffix) > 0:
             format = key_suffix[1:]
     else:
         key_suffix = None
 
-    if isinstance(data, (str, Path, UPath)):
+    if is_pathlike:
         access_token = (
             storage._access_token if hasattr(storage, "_access_token") else None
         )
@@ -293,8 +301,8 @@ def process_data(
         suffix = extract_suffix_from_path(path)
         memory_rep = None
     elif (
-        isinstance(data, pd.DataFrame)
-        or isinstance(data, AnnData)
+        is_anndata
+        or data_is_dataframe(data)
         or data_is_scversedatastructure(data, "MuData")
         or data_is_scversedatastructure(data, "SpatialData")
     ):
@@ -309,7 +317,7 @@ def process_data(
     # Check for suffix consistency
     if key_suffix is not None and key_suffix != suffix and not is_replace:
         # consciously omitting a trailing period
-        if isinstance(data, (str, Path, UPath)):  # UPathStr, spelled out
+        if is_pathlike:
             message = f"The passed path's suffix '{suffix}' must match the passed key's suffix '{key_suffix}'."
         else:
             message = f"The passed key's suffix '{key_suffix}' must match the passed path's suffix '{suffix}'."
@@ -617,6 +625,15 @@ def log_storage_hint(
     logger.hint(hint)
 
 
+def data_is_dataframe(data: pd.DataFrame | Any) -> bool:
+    if data.__class__.__name__ == "DataFrame":
+        from pandas import DataFrame
+
+        assert isinstance(data, DataFrame)
+        return True
+    return False
+
+
 def data_is_scversedatastructure(
     data: ScverseDataStructures | UPathStr,
     structure_type: Literal["AnnData", "MuData", "SpatialData"] | None = None,
@@ -689,36 +706,36 @@ def check_otype_artifact(
     otype: str | None = None,
     cloud_warning: bool = True,
 ) -> str:
-    import pandas as pd
+    if otype is not None:
+        return otype
 
-    if otype is None:
-        if isinstance(data, UPathStr):
-            is_path = True
-            suffix = UPath(data).suffix
-        else:
-            is_path = False
-            suffix = None
-        if isinstance(data, pd.DataFrame) or (
-            is_path and suffix in {".parquet", ".csv", ".ipc"}
-        ):
-            logger.warning("data is a DataFrame, please use .from_dataframe()")
-            otype = "DataFrame"
-            return otype
-        data_is_path = isinstance(data, (str, Path, UPath))
-        if data_is_scversedatastructure(data, "AnnData", cloud_warning):
-            if not data_is_path:
-                logger.warning("data is an AnnData, please use .from_anndata()")
-            otype = "AnnData"
-        elif data_is_scversedatastructure(data, "MuData", cloud_warning):
-            if not data_is_path:
-                logger.warning("data is a MuData, please use .from_mudata()")
-            otype = "MuData"
-        elif data_is_scversedatastructure(data, "SpatialData", cloud_warning):
-            if not data_is_path:
-                logger.warning("data is a SpatialData, please use .from_spatialdata()")
-            otype = "SpatialData"
-        elif not data_is_path:  # UPath is a subclass of Path
-            raise TypeError("data has to be a string, Path, UPath")
+    if isinstance(data, (str, Path, UPath)):
+        is_pathlike = True
+        suffix = UPath(data).suffix
+    else:
+        is_pathlike = False
+        suffix = None
+
+    if (is_pathlike and suffix in {".parquet", ".csv", ".ipc"}) or data_is_dataframe(
+        data
+    ):
+        logger.warning("data is a DataFrame, please use .from_dataframe()")
+        otype = "DataFrame"
+        return otype
+    if data_is_scversedatastructure(data, "AnnData", cloud_warning):
+        if not is_pathlike:
+            logger.warning("data is an AnnData, please use .from_anndata()")
+        otype = "AnnData"
+    elif data_is_scversedatastructure(data, "MuData", cloud_warning):
+        if not is_pathlike:
+            logger.warning("data is a MuData, please use .from_mudata()")
+        otype = "MuData"
+    elif data_is_scversedatastructure(data, "SpatialData", cloud_warning):
+        if not is_pathlike:
+            logger.warning("data is a SpatialData, please use .from_spatialdata()")
+        otype = "SpatialData"
+    elif not is_pathlike:  # UPath is a subclass of Path
+        raise TypeError("data has to be a string, Path, UPath")
     return otype
 
 
@@ -2041,13 +2058,11 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             .. literalinclude:: scripts/test_artifact_parquet.py
                :language: python
         """
-        import pandas as pd
-
-        from lamindb import examples
-
         if "format" not in kwargs and key is not None and key.endswith(".csv"):
             kwargs["format"] = ".csv"
         if schema == "valid_features":
+            from lamindb import examples
+
             schema = examples.schemas.valid_features()
 
         to_disk_kwargs: dict[str, Any] = parquet_kwargs or csv_kwargs
@@ -2062,7 +2077,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             to_disk_kwargs=to_disk_kwargs,
             **kwargs,
         )
-        if isinstance(df, pd.DataFrame):
+        if data_is_dataframe(df):
             artifact.n_observations = len(df)
         else:
             # must be a str or path
@@ -2174,16 +2189,18 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             .. image:: https://lamin-site-assets.s3.amazonaws.com/.lamindb/gLyfToATM7WUzkWW0001.png
                :width: 800px
         """
-        from lamindb import examples
-
         if not data_is_scversedatastructure(adata, "AnnData"):
             raise ValueError(
                 "data has to be an AnnData object or a path to AnnData-like"
             )
+
         if schema == "ensembl_gene_ids_and_valid_features_in_obs":
+            from lamindb import examples
+
             schema = (
                 examples.schemas.anndata_ensembl_gene_ids_and_valid_features_in_obs()
             )
+
         to_disk_kwargs: dict[str, Any] = h5ad_kwargs or zarr_kwargs
         artifact = Artifact(  # type: ignore
             path=adata,
