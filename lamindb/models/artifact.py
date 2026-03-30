@@ -273,6 +273,9 @@ def process_data(
     elif isinstance(data, (str, Path, UPath)):  # UPathStr, spelled out
         is_anndata = False
         is_pathlike = True
+    else:
+        is_anndata = False
+        is_pathlike = False
 
     if key is not None:
         key_suffix = extract_suffix_from_path(PurePosixPath(key), arg_name="key")
@@ -625,8 +628,12 @@ def log_storage_hint(
     logger.hint(hint)
 
 
-def data_is_dataframe(data: pd.DataFrame | Any) -> bool:
-    if data.__class__.__name__ == "DataFrame":
+def data_is_dataframe(data: Any) -> bool:
+    # Detect DataFrame or its subclasses without importing pandas first.
+    if any(
+        base.__name__ == "DataFrame" and base.__module__.startswith("pandas.")
+        for base in type(data).__mro__
+    ):
         from pandas import DataFrame
 
         assert isinstance(data, DataFrame)
