@@ -102,7 +102,7 @@ def write_to_disk(dmem: SupportedDataTypes, filepath: UPathStr, **kwargs) -> Non
         dmem,
         "AnnData",
         "anndata",
-        lambda obj: _write_anndata(obj, filepath),
+        lambda obj: _write_anndata(obj, filepath, **kwargs),
     )[0]:
         return
 
@@ -128,13 +128,13 @@ def write_to_disk(dmem: SupportedDataTypes, filepath: UPathStr, **kwargs) -> Non
     raise NotImplementedError
 
 
-def _write_anndata(dmem: Any, filepath: UPathStr) -> None:
+def _write_anndata(dmem: Any, filepath: UPathStr, **kwargs) -> None:
     suffix = PurePosixPath(filepath).suffix
     if suffix == ".h5ad":
-        dmem.write_h5ad(filepath)
+        dmem.write_h5ad(filepath, **kwargs)
         return
     elif suffix == ".zarr":
-        dmem.write_zarr(filepath)
+        dmem.write_zarr(filepath, **kwargs)
         return
     else:
         raise NotImplementedError
