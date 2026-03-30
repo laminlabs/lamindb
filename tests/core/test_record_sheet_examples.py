@@ -320,3 +320,30 @@ def test_to_artifact_exports_all_records():
     assert len(df) == 101, f"Expected 101 records, got {len(df)}"
     sheet.records.all().delete(permanent=True)
     sheet.delete(permanent=True)
+
+
+def test_to_artifact_with_required_non_nullable_data_id_maximal_set_true():
+    feature_data_id = ln.Feature(name="data_id", dtype=str, nullable=False).save()
+    schema = ln.Schema(
+        [feature_data_id],
+        name="schema_with_required_data_id",
+        maximal_set=True,
+    ).save()
+    sheet = ln.Record(name="SheetWithDataId", is_type=True, schema=schema).save()
+    # Name is intentionally omitted to mirror sheet records in real-world pipelines.
+    record = ln.Record(type=sheet).save()
+    record.features.add_values({"data_id": "D1"})
+
+    artifact = sheet.to_artifact()
+    df = artifact.load()
+    assert "data_id" in df.columns
+    assert df["data_id"].to_list() == ["D1"]
+    assert "__lamindb_record_name__" in df.columns
+    assert df["__lamindb_record_name__"].isna().all()
+
+    # clean up
+    record.delete(permanent=True)
+    sheet.delete(permanent=True)
+    artifact.delete(permanent=True)
+    schema.delete(permanent=True)
+    feature_data_id.delete(permanent=True)
