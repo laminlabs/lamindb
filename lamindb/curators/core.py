@@ -609,7 +609,7 @@ class ComponentCurator(Curator):
             if schema.maximal_set:
                 # allow any columns starting with "__lamindb" even if maximal_set is True
                 pandera_columns[LAMINDB_COLUMN_PREFIX_REGEX] = pandera.Column(
-                    regex=True, required=False
+                    regex=True, required=False, nullable=True
                 )
             self._pandera_schema = pandera.DataFrameSchema(
                 pandera_columns,
