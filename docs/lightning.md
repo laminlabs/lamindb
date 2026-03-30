@@ -208,10 +208,11 @@ corresponding Lamin features once:
 ll.save_lightning_features()
 ```
 
-This enables auto-features: `is_best_model`, `score`, `model_rank`,
-`logger_name`, `logger_version`, `max_epochs`, `max_steps`, `precision`,
-`accumulate_grad_batches`, `gradient_clip_val`, `monitor`,
-`save_weights_only`, `mode`.
+This enables auto-features:
+
+- Artifact-level: `is_best_model`, `score`, `model_rank`, `save_weights_only`, `monitor`, `mode`
+- Run-level: `logger_name`, `logger_version`, `max_epochs`, `max_steps`,
+  `precision`, `accumulate_grad_batches`, `gradient_clip_val`, `monitor`, `mode`
 
 ## Extend the callback
 

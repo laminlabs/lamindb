@@ -51,11 +51,12 @@ _RUN_AUTO_FEATURES: Final = frozenset(
         "accumulate_grad_batches",
         "gradient_clip_val",
         "monitor",
-        "save_weights_only",
         "mode",
     }
 )
-_ARTIFACT_AUTO_FEATURES: Final = frozenset({"is_best_model", "score", "model_rank"})
+_ARTIFACT_AUTO_FEATURES: Final = frozenset(
+    {"is_best_model", "score", "model_rank", "save_weights_only", "monitor", "mode"}
+)
 _SUPPORTED_AUTO_FEATURES: Final = _RUN_AUTO_FEATURES | _ARTIFACT_AUTO_FEATURES
 ArtifactKind = Literal["checkpoint", "config", "hparams"]
 
@@ -173,9 +174,17 @@ def save_lightning_features() -> None:
 
     Creates the following features under the `lamindb.lightning` feature type if they do not already exist:
 
+    Artifact-level features:
+
     - `is_best_model` (bool): Whether this checkpoint is the best model.
     - `score` (float): The monitored metric score.
     - `model_rank` (int): Rank among all checkpoints (0 = best).
+    - `save_weights_only` (bool): Whether this checkpoint only stores model weights.
+    - `monitor` (str): Metric name this checkpoint uses for comparison.
+    - `mode` (str): Optimization mode (`min` or `max`) used for checkpoint ranking.
+
+    Run-level features:
+
     - `logger_name` (str): Name from the first Lightning logger.
     - `logger_version` (str): Version from the first Lightning logger.
     - `max_epochs` (int): Maximum number of epochs.
@@ -184,7 +193,6 @@ def save_lightning_features() -> None:
     - `accumulate_grad_batches` (int): Number of batches to accumulate gradients over.
     - `gradient_clip_val` (float): Gradient clipping value.
     - `monitor` (str): Metric name being monitored.
-    - `save_weights_only` (bool): Whether only model weights are saved.
     - `mode` (str): Optimization mode ("min" or "max").
 
     Args:
@@ -445,8 +453,10 @@ class Checkpoint(ArtifactPublishingModelCheckpoint):
     - ``dirpath`` omitted, no logger → ``checkpoints/{filename}``
 
     If available in the database through `save_lightning_features()`, the following `lamindb.lightning` features are automatically tracked:
-    `is_best_model`, `score`, `model_rank`, `logger_name`, `logger_version`,`max_epochs`, `max_steps`,
-    `precision`, `accumulate_grad_batches`, `gradient_clip_val`, `monitor`, `save_weights_only`, `mode`.
+
+    - Artifact-level: `is_best_model`, `score`, `model_rank`, `save_weights_only`, `monitor`, `mode`
+    - Run-level: `logger_name`, `logger_version`, `max_epochs`, `max_steps`, `precision`,
+        `accumulate_grad_batches`, `gradient_clip_val`, `monitor`, `mode`
 
     Additionally, model hyperparameters (from `pl_module.hparams`) and datamodule hyperparameters
     (from `trainer.datamodule.hparams`) are captured if corresponding features exist.
@@ -860,7 +870,6 @@ class Checkpoint(ArtifactPublishingModelCheckpoint):
             ),
             "gradient_clip_val": (trainer.gradient_clip_val, float, True),
             "monitor": (self.monitor, None, True),
-            "save_weights_only": (self.save_weights_only, None, False),
             "mode": (self.mode, None, False),
         }
 
@@ -909,6 +918,12 @@ class Checkpoint(ArtifactPublishingModelCheckpoint):
             if torch.is_tensor(score):
                 score = score.item()
             feature_values[feature] = float(score)
+        if feature := self._get_lightning_feature("save_weights_only"):
+            feature_values[feature] = self.save_weights_only
+        if (feature := self._get_lightning_feature("monitor")) and self.monitor is not None:
+            feature_values[feature] = self.monitor
+        if feature := self._get_lightning_feature("mode"):
+            feature_values[feature] = self.mode
 
         for name, value in self._artifact_features.items():
             if value is not None:

@@ -569,6 +569,7 @@ def test_checkpoint_trainer_config(
     simple_model: pl.LightningModule,
     dataloader: DataLoader,
     dirpath: str,
+    lightning_features: None,
 ):
     """Checkpoint should auto-capture trainer config if features exist."""
     ln.track()
@@ -591,14 +592,22 @@ def test_checkpoint_trainer_config(
     trainer.fit(simple_model, dataloader)
 
     run_features = ln.context.run.features.get_values()
+    artifacts = ln.Artifact.filter(key__startswith=callback.checkpoint_key_prefix + "/")
     assert run_features["max_epochs"] == 5
     assert run_features["max_steps"] == 100
     assert run_features["precision"] == "32-true"
     assert run_features["accumulate_grad_batches"] == 2
     assert run_features["gradient_clip_val"] == 0.5
     assert run_features["monitor"] == "train_loss"
-    assert run_features["save_weights_only"] is True
     assert run_features["mode"] == "min"
+    assert "save_weights_only" not in run_features
+
+    assert len(artifacts) >= 1
+    for artifact in artifacts:
+        artifact_features = artifact.features.get_values()
+        assert artifact_features["save_weights_only"] is True
+        assert artifact_features["monitor"] == "train_loss"
+        assert artifact_features["mode"] == "min"
 
     ln.finish()
 
