@@ -663,6 +663,178 @@ def test_checkpoint_hparams_yaml_with_hparams(
 
 
 @pytest.mark.parametrize(
+    ("use_dirpath", "use_logger"),
+    [
+        (True, True),
+        (False, True),
+        (True, False),
+        (False, False),
+    ],
+    ids=[
+        "dirpath-logger",
+        "no-dirpath-logger",
+        "dirpath-no-logger",
+        "no-dirpath-no-logger",
+    ],
+)
+def test_key_layout_matrix(
+    simple_model: pl.LightningModule,
+    dataloader: DataLoader,
+    tmp_path: Path,
+    use_dirpath: bool,
+    use_logger: bool,
+):
+    """Artifact keys must follow the base-prefix layout across all 4 configurations.
+
+    With ``run_uid_is_version=True`` and an active Lamin run, the expected
+    key layout is::
+
+        {base}/checkpoints/{ckpt_filename}
+        {base}/config.yaml              (when SaveConfigCallback is used)
+        {base}/checkpoints/hparams.yaml (when model has hyperparameters)
+
+    Where ``base`` is determined by:
+
+    ==============================  ==================================
+    Scenario                        Base prefix
+    ==============================  ==================================
+    dirpath set (± logger)          ``{dirpath}/{run_uid}``
+    no dirpath + logger             ``{save_dir_name}/{name}/{run_uid}``
+    no dirpath + no logger          ``{run_uid}``
+    ==============================  ==================================
+    """
+    from lightning.pytorch.loggers import CSVLogger
+
+    class ParserStub:
+        def save(self, config, path, skip_none, overwrite, multifile):
+            del skip_none, overwrite, multifile
+            Path(path).write_text(json.dumps(config, indent=2))
+
+    dirpath = f"layout_test/{tmp_path.name}/"
+
+    ln.track()
+    run_uid = ln.context.run.uid
+
+    logger: CSVLogger | bool
+    logger_name = "layout_exp"
+    if use_logger:
+        logger = CSVLogger(save_dir=tmp_path, name=logger_name)
+    else:
+        logger = False
+
+    checkpoint = ll.Checkpoint(
+        dirpath=dirpath if use_dirpath else None,
+        monitor="train_loss",
+        run_uid_is_version=True,
+    )
+    config = {"trainer": {"max_epochs": 1}}
+    save_config = ll.SaveConfigCallback(
+        parser=cast(Any, ParserStub()),
+        config=config,
+        config_filename="config.yaml",
+    )
+
+    trainer = pl.Trainer(
+        max_epochs=1,
+        callbacks=[checkpoint, save_config],
+        logger=logger,
+        default_root_dir=tmp_path,
+    )
+    trainer.fit(simple_model, dataloader)
+
+    # Determine expected base prefix
+    if use_dirpath:
+        expected_base = f"{dirpath.rstrip('/')}/{run_uid}"
+    elif use_logger:
+        expected_base = f"{tmp_path.name}/{logger_name}/{run_uid}"
+    else:
+        expected_base = run_uid
+
+    # Verify base_prefix
+    assert checkpoint.base_prefix == expected_base
+
+    # Verify checkpoint key prefix
+    expected_ckpt_prefix = f"{expected_base}/checkpoints"
+    assert checkpoint.checkpoint_key_prefix == expected_ckpt_prefix
+
+    # Verify checkpoint artifacts exist under the correct prefix
+    ckpt_artifacts = ln.Artifact.filter(key__startswith=expected_ckpt_prefix + "/")
+    assert len(ckpt_artifacts) >= 1
+    for af in ckpt_artifacts:
+        assert af.key.startswith(expected_ckpt_prefix + "/")
+
+    # Verify config artifact sits directly under the base prefix
+    expected_config_key = f"{expected_base}/config.yaml"
+    config_artifact = ln.Artifact.filter(key=expected_config_key).one_or_none()
+    assert config_artifact is not None, f"Expected config at {expected_config_key}"
+
+    # Cleanup
+    json_values = ln.models.JsonValue.filter(links_artifact__artifact=config_artifact)
+    ln.models.ArtifactJsonValue.filter(artifact=config_artifact).delete()
+    config_artifact.delete(permanent=True, storage=True)
+    json_values.delete(permanent=True)
+    for af in ckpt_artifacts:
+        af.delete(permanent=True, storage=True)
+    ln.finish()
+    if use_logger:
+        shutil.rmtree(tmp_path / logger_name, ignore_errors=True)
+
+
+def test_run_uid_not_in_key_when_disabled(
+    simple_model: pl.LightningModule,
+    dataloader: DataLoader,
+    tmp_path: Path,
+):
+    """With run_uid_is_version=False, the key should use the logger version as before."""
+    from lightning.pytorch.loggers import CSVLogger
+
+    ln.track()
+
+    logger = CSVLogger(save_dir=tmp_path, name="no_uid_test")
+    callback = ll.Checkpoint(monitor="train_loss", run_uid_is_version=False)
+    trainer = pl.Trainer(max_epochs=1, callbacks=[callback], logger=logger)
+    trainer.fit(simple_model, dataloader)
+
+    prefix = callback.checkpoint_key_prefix
+    assert "version_0" in prefix
+    assert prefix == f"{tmp_path.name}/no_uid_test/version_0/checkpoints"
+
+    artifacts = ln.Artifact.filter(key__startswith=prefix + "/")
+    assert len(artifacts) >= 1
+
+    for af in artifacts:
+        af.delete(permanent=True, storage=True)
+    ln.finish()
+    shutil.rmtree(tmp_path / "no_uid_test", ignore_errors=True)
+
+
+def test_two_runs_same_logger_produce_different_keys(
+    simple_model: pl.LightningModule,
+    dataloader: DataLoader,
+    tmp_path: Path,
+):
+    """Two tracked runs with the same logger config should not collide on keys."""
+    from lightning.pytorch.loggers import CSVLogger
+
+    prefixes = []
+    for _ in range(2):
+        ln.track()
+        logger = CSVLogger(save_dir=tmp_path, name="collision_test")
+        callback = ll.Checkpoint(monitor="train_loss", run_uid_is_version=True)
+        trainer = pl.Trainer(max_epochs=1, callbacks=[callback], logger=logger)
+        trainer.fit(simple_model, dataloader)
+        prefixes.append(callback.checkpoint_key_prefix)
+        ln.finish()
+
+    assert prefixes[0] != prefixes[1], "Two runs should produce different key prefixes"
+
+    for prefix in prefixes:
+        for af in ln.Artifact.filter(key__startswith=prefix + "/"):
+            af.delete(permanent=True, storage=True)
+    shutil.rmtree(tmp_path / "collision_test", ignore_errors=True)
+
+
+@pytest.mark.parametrize(
     ("use_dirpath", "logger_name", "key_source"),
     [
         (False, "my_experiment", "logger"),
@@ -712,7 +884,7 @@ def test_checkpoint_artifact_key_prefix_matrix(
     elif key_source == "checkpoints":
         assert prefix == "checkpoints"
     else:
-        assert prefix == dirpath.rstrip("/")
+        assert prefix == f"{dirpath.rstrip('/')}/checkpoints"
         if logger_name is not None:
             assert logger_name not in prefix
 
@@ -782,7 +954,7 @@ def test_checkpoint_auto_features_without_dirpath(
     [
         (False, "cli_logs", "logger"),
         (False, None, "filename"),
-        (True, "cli_logs", "logger"),
+        (True, "cli_logs", "dirpath"),
         (True, None, "dirpath"),
     ],
     ids=[
@@ -801,7 +973,7 @@ def test_save_config_artifact_key_matrix(
     logger_name: str | None,
     key_source: str,
 ):
-    """Config artifacts should follow Lightning log-dir behavior with one dirpath exception."""
+    """Config artifacts should be stored under the base prefix (dirpath > logger > empty)."""
     from lightning.pytorch.loggers import CSVLogger
 
     class ParserStub:
@@ -858,10 +1030,6 @@ def test_save_config_artifact_key_matrix(
     config_artifact = ln.Artifact.filter(key=config_key).one_or_none()
     assert config_artifact is not None
     assert config_artifact.description == "Lightning CLI config"
-    if use_dirpath and logger_name is not None:
-        assert not config_artifact.key.startswith(dirpath.rstrip("/") + "/")
-    elif key_source == "dirpath":
-        assert config_artifact.key == f"{dirpath.rstrip('/')}/config.yaml"
 
     checkpoint_artifacts = ln.Artifact.filter(
         key__startswith=checkpoint.checkpoint_key_prefix + "/"
