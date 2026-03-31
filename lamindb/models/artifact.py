@@ -2145,6 +2145,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         schema: Schema
         | Literal["ensembl_gene_ids_and_valid_features_in_obs"]
         | None = None,
+        format: Literal["h5ad", "zarr", "anndata.zarr"] | None = None,
         h5ad_kwargs: dict[str, Any] | None = None,
         zarr_kwargs: dict[str, Any] | None = None,
         **kwargs,
@@ -2160,9 +2161,14 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             revises: An old version of the artifact.
             run: The run that creates the artifact.
             schema: A schema that defines how to validate & annotate.
-            h5ad_kwargs: Additional keyword arguments passed to the `anndata.AnnData.write_h5ad` method.
+            format: Storage format used when writing in-memory `AnnData`.
+                In-memory `AnnData` is first written to cache in this format, then saved to instance storage when calling `.save()`.
+                If `None`, infer from `key` suffix when available, otherwise default to `"h5ad"`.
+                If provided, suffix is formed as `"." + format` (e.g., `"zarr"` -> `".zarr"`).
+            h5ad_kwargs: Additional keyword arguments passed to the `anndata.AnnData.write_h5ad` method
+                when writing in-memory `AnnData` to cache.
             zarr_kwargs: Additional keyword arguments passed to the `anndata.AnnData.write_zarr` method.
-                Pass `format="zarr"` for this to work.
+                when writing in-memory `AnnData` to cache. Use `key` with suffix `.zarr` or pass `format="zarr"` for this to work.
 
         See Also:
             :meth:`~lamindb.Collection`
@@ -2171,6 +2177,23 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 Track features.
 
         Example:
+
+            Write H5AD with custom serialization settings::
+
+                ln.Artifact.from_anndata(
+                    adata,
+                    key="examples/dataset1.h5ad",
+                    h5ad_kwargs={"compression": "gzip"},
+                ).save()
+
+            Write Zarr with custom chunking settings::
+
+                ln.Artifact.from_anndata(
+                    adata,
+                    key="examples/dataset1.zarr",
+                    format="zarr",
+                    zarr_kwargs={"chunks": [1024, 1024]},
+                ).save()
 
             No validation and annotation::
 
@@ -2212,6 +2235,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             revises=revises,
             otype="AnnData",
             kind="dataset",
+            format=format,
             to_disk_kwargs=to_disk_kwargs,
             **kwargs,
         )
