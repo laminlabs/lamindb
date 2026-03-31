@@ -203,6 +203,7 @@ def test_checkpoint_auto_features(
     for af in artifacts:
         values = af.features.get_values()
         assert "is_best_model" in values
+        assert "is_last_model" in values
         assert "score" in values
         assert "model_rank" in values
 
@@ -271,6 +272,10 @@ def test_checkpoint_best_model_with_duplicate_feature_names(
         1 for af in artifacts if af.features.get_values().get("is_best_model") is True
     )
     assert best_count == 1
+    last_count = sum(
+        1 for af in artifacts if af.features.get_values().get("is_last_model") is True
+    )
+    assert last_count == 1
 
 
 def test_checkpoint_query_budget_scales_sublinearly_with_hparams(
@@ -400,6 +405,10 @@ def test_checkpoint_model_rank(
     artifacts = ln.Artifact.filter(key__startswith=prefix)
     ranks = [af.features.get_values().get("model_rank") for af in artifacts]
     assert 0 in ranks  # best model has rank 0
+    last_count = sum(
+        1 for af in artifacts if af.features.get_values().get("is_last_model") is True
+    )
+    assert last_count == 1
 
 
 def test_checkpoint_semantic_paths(

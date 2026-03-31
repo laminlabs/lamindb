@@ -55,7 +55,15 @@ _RUN_AUTO_FEATURES: Final = frozenset(
     }
 )
 _ARTIFACT_AUTO_FEATURES: Final = frozenset(
-    {"is_best_model", "score", "model_rank", "save_weights_only", "monitor", "mode"}
+    {
+        "is_best_model",
+        "is_last_model",
+        "score",
+        "model_rank",
+        "save_weights_only",
+        "monitor",
+        "mode",
+    }
 )
 _SUPPORTED_AUTO_FEATURES: Final = _RUN_AUTO_FEATURES | _ARTIFACT_AUTO_FEATURES
 ArtifactKind = Literal["checkpoint", "config", "hparams"]
@@ -177,6 +185,7 @@ def save_lightning_features() -> None:
     Artifact-level features:
 
     - `is_best_model` (bool): Whether this checkpoint is the best model.
+    - `is_last_model` (bool): Whether this checkpoint is the most recently saved model.
     - `score` (float): The monitored metric score.
     - `model_rank` (int): Rank among all checkpoints (0 = best).
     - `save_weights_only` (bool): Whether this checkpoint only stores model weights.
@@ -221,6 +230,7 @@ def save_lightning_features() -> None:
         lightning_feature_type.save()
 
     ln.Feature(name="is_best_model", dtype=bool, type=lightning_feature_type).save()
+    ln.Feature(name="is_last_model", dtype=bool, type=lightning_feature_type).save()
     ln.Feature(name="score", dtype=float, type=lightning_feature_type).save()
     ln.Feature(name="model_rank", dtype=int, type=lightning_feature_type).save()
     ln.Feature(name="logger_name", dtype=str, type=lightning_feature_type).save()
@@ -441,12 +451,13 @@ class FeatureAnnotator:
         annotator stays decoupled from the callback class hierarchy.
 
         Does **not** mutate existing artifacts — call
-        :meth:`clear_best_model_flags` separately when the new checkpoint is
-        the best model.
+        :meth:`clear_best_model_flags` or :meth:`clear_last_model_flags`
+        separately when needed.
         """
         feature_values: dict[str | ln.Feature, Any] = {}
 
         self._set(feature_values, "is_best_model", is_best)
+        self._set(feature_values, "is_last_model", True)
 
         if current_score is not None:
             score = current_score
@@ -472,28 +483,36 @@ class FeatureAnnotator:
 
     def clear_best_model_flags(self, checkpoint_key_prefix: str) -> None:
         """Set ``is_best_model=False`` on previous best checkpoints."""
-        is_best_feature = self.get("is_best_model")
-        if is_best_feature is None:
+        self._clear_flagged_model_feature("is_best_model", checkpoint_key_prefix)
+
+    def clear_last_model_flags(self, checkpoint_key_prefix: str) -> None:
+        """Set ``is_last_model=False`` on previous latest checkpoints."""
+        self._clear_flagged_model_feature("is_last_model", checkpoint_key_prefix)
+
+    def _clear_flagged_model_feature(
+        self, feature_name: Literal["is_best_model", "is_last_model"], checkpoint_key_prefix: str
+    ) -> None:
+        """Set a boolean model flag to ``False`` on previously flagged checkpoints."""
+        feature = self.get(feature_name)
+        if feature is None:
             return
         feature_rows = self._get_artifact_feature_rows(
-            {"is_best_model"}, checkpoint_key_prefix
+            {feature_name}, checkpoint_key_prefix
         )
-        best_artifact_ids = [
+        artifact_ids = [
             artifact_id
             for artifact_id, values in feature_rows.items()
-            if values.get("is_best_model") is True
+            if values.get(feature_name) is True
         ]
-        if not best_artifact_ids:
+        if not artifact_ids:
             return
-        artifacts_by_id = {
-            a.id: a for a in ln.Artifact.filter(id__in=best_artifact_ids)
-        }
-        for artifact_id in best_artifact_ids:
+        artifacts_by_id = {a.id: a for a in ln.Artifact.filter(id__in=artifact_ids)}
+        for artifact_id in artifact_ids:
             if artifact_id not in artifacts_by_id:
                 continue
             artifact = artifacts_by_id[artifact_id]
-            artifact.features.remove_values(is_best_feature, value=True)
-            artifact.features.add_values({is_best_feature: False})
+            artifact.features.remove_values(feature, value=True)
+            artifact.features.add_values({feature: False})
 
     def update_model_ranks(
         self, checkpoint_key_prefix: str, mode: str
@@ -780,7 +799,7 @@ class Checkpoint(ArtifactPublishingModelCheckpoint):
 
     If available in the database through `save_lightning_features()`, the following `lamindb.lightning` features are automatically tracked:
 
-    - Artifact-level: `is_best_model`, `score`, `model_rank`, `save_weights_only`, `monitor`, `mode`
+    - Artifact-level: `is_best_model`, `is_last_model`, `score`, `model_rank`, `save_weights_only`, `monitor`, `mode`
     - Run-level: `logger_name`, `logger_version`, `max_epochs`, `max_steps`, `precision`,
         `accumulate_grad_batches`, `gradient_clip_val`, `monitor`, `mode`
 
@@ -923,7 +942,7 @@ class Checkpoint(ArtifactPublishingModelCheckpoint):
         if self.save_last:
             warnings.warn(
                 "save_last is not necessary with Lamin. Checkpoint metadata"
-                " (is_best_model, model_rank, score) makes the latest checkpoint"
+                " (is_best_model, is_last_model, model_rank, score) makes the latest checkpoint"
                 " queryable without encoding this in the filename. Consider"
                 " disabling save_last to avoid redundant checkpoint copies.",
                 UserWarning,
@@ -1033,6 +1052,7 @@ class Checkpoint(ArtifactPublishingModelCheckpoint):
             add_as_input_to_run=add_as_input_to_run,
             skip_hash_lookup=skip_hash_lookup,
         )
+        self._feature_annotator.clear_last_model_flags(self.checkpoint_key_prefix)
 
     def save_checkpoint_artifact(
         self,
@@ -1156,6 +1176,7 @@ class Checkpoint(ArtifactPublishingModelCheckpoint):
         self._feature_annotator.save_run_features(
             trainer, monitor=self.monitor, mode=self.mode
         )
+        self._feature_annotator.clear_last_model_flags(self.checkpoint_key_prefix)
         is_best = self.best_model_path == str(filepath)
         feature_values = self._feature_annotator.collect_checkpoint_features(
             trainer,
