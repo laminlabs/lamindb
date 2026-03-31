@@ -429,8 +429,7 @@ class FeatureAnnotator:
     def collect_checkpoint_features(
         self,
         trainer: pl.Trainer,
-        filepath: Path | str,
-        best_model_path: str,
+        is_best: bool,
         current_score: Any | None,
         save_weights_only: bool,
         monitor: str | None,
@@ -447,7 +446,6 @@ class FeatureAnnotator:
         """
         feature_values: dict[str | ln.Feature, Any] = {}
 
-        is_best = best_model_path == str(filepath)
         self._set(feature_values, "is_best_model", is_best)
 
         if current_score is not None:
@@ -1151,38 +1149,35 @@ class Checkpoint(ArtifactPublishingModelCheckpoint):
         """Save checkpoint to the instance."""
         super()._save_checkpoint(trainer, filepath)
 
-        if trainer.is_global_zero:
-            self._save_hparams_yaml(trainer)
+        if not trainer.is_global_zero:
+            return
+        self._save_hparams_yaml(trainer)
 
-            self._feature_annotator.save_run_features(
-                trainer, monitor=self.monitor, mode=self.mode
-            )
-            feature_values = self._feature_annotator.collect_checkpoint_features(
-                trainer,
-                filepath,
-                best_model_path=self.best_model_path,
-                current_score=self.current_score,
-                save_weights_only=self.save_weights_only,
-                monitor=self.monitor,
-                mode=self.mode,
-            )
+        self._feature_annotator.save_run_features(
+            trainer, monitor=self.monitor, mode=self.mode
+        )
+        is_best = self.best_model_path == str(filepath)
+        feature_values = self._feature_annotator.collect_checkpoint_features(
+            trainer,
+            is_best=is_best,
+            current_score=self.current_score,
+            save_weights_only=self.save_weights_only,
+            monitor=self.monitor,
+            mode=self.mode,
+        )
 
-            is_best = feature_values.get(
-                self._feature_annotator.get("is_best_model")
-            )
-            if is_best:
-                self._feature_annotator.clear_best_model_flags(
-                    self.checkpoint_key_prefix
-                )
-
-            self.save_checkpoint_artifact(
-                trainer, filepath, feature_values=feature_values
+        if is_best:
+            self._feature_annotator.clear_best_model_flags(
+                self.checkpoint_key_prefix
             )
 
-            if self._feature_annotator.get("model_rank"):
-                self._feature_annotator.update_model_ranks(
-                    self.checkpoint_key_prefix, mode=self.mode
-                )
+        self.save_checkpoint_artifact(
+            trainer, filepath, feature_values=feature_values
+        )
+
+        self._feature_annotator.update_model_ranks(
+            self.checkpoint_key_prefix, mode=self.mode
+        )
 
     def _remove_checkpoint(self, trainer: pl.Trainer, filepath: str) -> None:
         """Remove the local checkpoint file and emit a removal event."""
