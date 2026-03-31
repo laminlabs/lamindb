@@ -578,13 +578,13 @@ class Checkpoint(ArtifactPublishingModelCheckpoint):
             enable_version_counter=enable_version_counter,
             artifact_observers=artifact_observers,
         )
-        self.features = features or {}
-        if invalid_feature_keys := set(self.features) - {"run", "artifact"}:  # type: ignore
+        self._features = features or {}
+        if invalid_feature_keys := set(self._features) - {"run", "artifact"}:  # type: ignore
             raise ValueError(
                 f"Invalid feature keys: {invalid_feature_keys}. Use 'run' and/or 'artifact'."
             )
-        self._run_features = self.features.get("run", {})
-        self._artifact_features = self.features.get("artifact", {})
+        self._run_features = self._features.get("run", {})
+        self._artifact_features = self._features.get("artifact", {})
         self._auto_features: dict[str, ln.Feature] = {}
         self._hparam_features_available: set[str] = set()
         self._run_features_added = False
@@ -683,6 +683,7 @@ class Checkpoint(ArtifactPublishingModelCheckpoint):
 
     def _logger_prefix(self, trainer: pl.Trainer, run_uid: str | None) -> str:
         """Derive a key prefix from the trainer's first logger."""
+        assert trainer.loggers, "_logger_prefix requires at least one logger"
         logger = trainer.loggers[0]
         save_dir = logger.save_dir or trainer.default_root_dir
         name = str(logger.name).rstrip("/")
@@ -738,10 +739,6 @@ class Checkpoint(ArtifactPublishingModelCheckpoint):
         if prefix:
             return f"{prefix}/{Path(filepath).name}"
         return Path(filepath).name
-
-    def _get_key_filter(self) -> dict[str, str]:
-        """Return filter kwargs for querying artifacts from this callback."""
-        return {"key__startswith": self.checkpoint_key_prefix + "/"}
 
     def _create_lamin_artifact(
         self,
@@ -875,7 +872,7 @@ class Checkpoint(ArtifactPublishingModelCheckpoint):
 
     def _save_run_features(self, trainer: pl.Trainer) -> None:
         """Save run-level features once per run after the first checkpoint."""
-        if not (ln.context.run and not self._run_features_added):
+        if not ln.context.run or self._run_features_added:
             return
 
         run_features: dict[str | ln.Feature, Any] = {}
@@ -1064,7 +1061,7 @@ class Checkpoint(ArtifactPublishingModelCheckpoint):
             for name in feature_names
             if (feature := self._get_lightning_feature(name))
         ]
-        key_prefix = self._get_key_filter()["key__startswith"]
+        key_prefix = self.checkpoint_key_prefix + "/"
         if feature_ids:
             rows = ln.models.ArtifactJsonValue.filter(
                 artifact__key__startswith=key_prefix,
