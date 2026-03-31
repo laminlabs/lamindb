@@ -343,6 +343,13 @@ class FeatureAnnotator:
         """Return the typed auto-feature for *name*, or ``None``."""
         return self._auto_features.get(name)
 
+    def _set(
+        self, target: dict[str | ln.Feature, Any], name: str, value: Any
+    ) -> None:
+        """Add *value* to *target* if the auto-feature *name* is tracked and *value* is not ``None``."""
+        if (feature := self.get(name)) and value is not None:
+            target[feature] = value
+
     def save_run_features(
         self,
         trainer: pl.Trainer,
@@ -370,13 +377,13 @@ class FeatureAnnotator:
         """Build the dict of run-level feature values (pure, no DB writes)."""
         run_features: dict[str | ln.Feature, Any] = {}
 
-        # Logger metadata
-        if (feature := self.get("logger_name")) and trainer.loggers:
-            run_features[feature] = trainer.loggers[0].name
-        if (feature := self.get("logger_version")) and trainer.loggers:
+        if trainer.loggers:
+            self._set(run_features, "logger_name", trainer.loggers[0].name)
             version = trainer.loggers[0].version
-            run_features[feature] = (
-                version if isinstance(version, str) else f"version_{version}"
+            self._set(
+                run_features,
+                "logger_version",
+                version if isinstance(version, str) else f"version_{version}",
             )
 
         # Trainer config values
@@ -397,24 +404,13 @@ class FeatureAnnotator:
         mode: str,
     ) -> None:
         """Append trainer configuration values to *target*."""
-        optional = {
-            "max_epochs": trainer.max_epochs,
-            "max_steps": trainer.max_steps,
-            "gradient_clip_val": trainer.gradient_clip_val,
-            "monitor": monitor,
-        }
-        for key, value in optional.items():
-            if (feature := self.get(key)) and value is not None:
-                target[feature] = value
-
-        required = {
-            "precision": str(trainer.precision),
-            "accumulate_grad_batches": trainer.accumulate_grad_batches,
-            "mode": mode,
-        }
-        for key, value in required.items():
-            if feature := self.get(key):
-                target[feature] = value
+        self._set(target, "max_epochs", trainer.max_epochs)
+        self._set(target, "max_steps", trainer.max_steps)
+        self._set(target, "precision", str(trainer.precision))
+        self._set(target, "accumulate_grad_batches", trainer.accumulate_grad_batches)
+        self._set(target, "gradient_clip_val", trainer.gradient_clip_val)
+        self._set(target, "monitor", monitor)
+        self._set(target, "mode", mode)
 
     def _add_hparam_features(
         self,
@@ -452,20 +448,16 @@ class FeatureAnnotator:
         feature_values: dict[str | ln.Feature, Any] = {}
 
         is_best = best_model_path == str(filepath)
-        if feature := self.get("is_best_model"):
-            feature_values[feature] = is_best
+        self._set(feature_values, "is_best_model", is_best)
 
-        if (feature := self.get("score")) and current_score is not None:
+        if current_score is not None:
             score = current_score
             if hasattr(score, "item"):
                 score = score.item()
-            feature_values[feature] = float(score)
-        if feature := self.get("save_weights_only"):
-            feature_values[feature] = save_weights_only
-        if (feature := self.get("monitor")) and monitor is not None:
-            feature_values[feature] = monitor
-        if feature := self.get("mode"):
-            feature_values[feature] = mode
+            self._set(feature_values, "score", float(score))
+        self._set(feature_values, "save_weights_only", save_weights_only)
+        self._set(feature_values, "monitor", monitor)
+        self._set(feature_values, "mode", mode)
 
         # User-specified artifact features
         for name, value in self._artifact_features.items():
@@ -540,7 +532,16 @@ class FeatureAnnotator:
         feature_names: set[str],
         checkpoint_key_prefix: str,
     ) -> dict[int, dict[str, Any]]:
-        """Query feature values for artifacts under *checkpoint_key_prefix*."""
+        """Query feature values for checkpoint artifacts under *checkpoint_key_prefix*.
+
+        Returns a dict keyed by artifact ID, where each value is a dict mapping
+        feature name to its stored value.  Example::
+
+            {
+                42: {"score": 0.95, "is_best_model": True},
+                71: {"score": 0.87, "is_best_model": False, "model_rank": 1},
+            }
+        """
         feature_ids = [
             feature.id
             for name in feature_names
