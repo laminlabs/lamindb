@@ -411,6 +411,39 @@ def test_checkpoint_model_rank(
     assert last_count == 1
 
 
+def test_checkpoint_last_model_points_to_last_saved_artifact(
+    simple_model: pl.LightningModule,
+    dataloader: DataLoader,
+    dirpath: str,
+    lightning_features: None,
+):
+    """The artifact flagged as last model should be the last saved checkpoint artifact."""
+    checkpoint = ll.Checkpoint(
+        dirpath=dirpath,
+        monitor="train_loss",
+        save_top_k=3,
+        mode="min",
+    )
+    trainer = pl.Trainer(
+        max_epochs=3,
+        callbacks=[checkpoint],
+        logger=False,
+    )
+    trainer.fit(simple_model, dataloader)
+
+    prefix = checkpoint.checkpoint_key_prefix + "/"
+    artifacts = list(ln.Artifact.filter(key__startswith=prefix))
+    last_artifacts = [
+        artifact
+        for artifact in artifacts
+        if artifact.features.get_values().get("is_last_model") is True
+    ]
+
+    assert len(last_artifacts) == 1
+    assert checkpoint.last_checkpoint_artifact is not None
+    assert last_artifacts[0].id == checkpoint.last_checkpoint_artifact.id
+
+
 def test_checkpoint_semantic_paths(
     simple_model: pl.LightningModule,
     dataloader: DataLoader,
@@ -723,7 +756,7 @@ def test_key_layout_matrix(
             del skip_none, overwrite, multifile
             Path(path).write_text(json.dumps(config, indent=2))
 
-    dirpath = f"layout_test/{tmp_path.name}/"
+    dirpath = str(tmp_path / "layout_test")
 
     ln.track()
     run_uid = ln.context.run.uid
