@@ -341,7 +341,7 @@ def test_model_rank_update_query_budget(
     monkeypatch.setattr(FeatureManager, "add_values", lambda *args, **kwargs: None)
 
     with CaptureQueriesContext(connection) as ctx:
-        callback._update_model_ranks()
+        callback._feature_annotator.update_model_ranks(key_prefix, mode="min")
     assert len(ctx.captured_queries) <= 6
 
     for artifact in created_artifacts:

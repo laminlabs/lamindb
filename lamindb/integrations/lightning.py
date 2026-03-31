@@ -239,6 +239,336 @@ def save_lightning_features() -> None:
     ln.Feature(name="mode", dtype=str, type=lightning_feature_type).save()
 
 
+class FeatureAnnotator:
+    """Manages Lightning feature discovery, collection, and annotation.
+
+    This helper encapsulates all feature-related state and logic used by
+    :class:`Checkpoint`.  It handles:
+
+    - Validation of user-specified features at setup time
+    - Discovery of auto-features created by :func:`save_lightning_features`
+    - Collection of run-level and checkpoint-level feature values
+    - Best-model flag management and model rank updates
+
+    The annotator is decoupled from ``ModelCheckpoint`` state — checkpoint-specific
+    values (``best_model_path``, ``current_score``, ``mode``, etc.) are passed as
+    explicit arguments to collection methods.
+    """
+
+    def __init__(
+        self,
+        features: dict[Literal["run", "artifact"], dict[str, Any]] | None = None,
+    ) -> None:
+        user_features = features or {}
+        if invalid_keys := set(user_features) - {"run", "artifact"}:  # type: ignore
+            raise ValueError(
+                f"Invalid feature keys: {invalid_keys}. Use 'run' and/or 'artifact'."
+            )
+        self._run_features: dict[str, Any] = user_features.get("run", {})
+        self._artifact_features: dict[str, Any] = user_features.get("artifact", {})
+        self._auto_features: dict[str, ln.Feature] = {}
+        self._hparam_features_available: set[str] = set()
+        self._run_features_saved = False
+
+    def setup(
+        self, trainer: pl.Trainer, pl_module: pl.LightningModule
+    ) -> None:
+        """Validate user features and discover auto-features.
+
+        Must be called during ``Checkpoint.setup()`` while ``trainer.is_global_zero``
+        is ``True``.
+        """
+        self._validate_user_features()
+        self._attach_user_run_features()
+        self._discover_auto_features()
+        self._discover_hparam_features(trainer, pl_module)
+
+    def _attach_user_run_features(self) -> None:
+        """Attach user-specified run features to the active LaminDB run."""
+        if ln.context.run and self._run_features:
+            ln.context.run.features.add_values(self._run_features)
+
+    def _validate_user_features(self) -> None:
+        """Ensure all user-specified feature names exist in the database."""
+        all_feature_names = set(self._run_features) | set(self._artifact_features)
+        if not all_feature_names:
+            return
+        existing = set(
+            ln.Feature.filter(name__in=all_feature_names).values_list(
+                "name", flat=True
+            )
+        )
+        missing = [n for n in all_feature_names if n not in existing]
+        if missing:
+            s = "s" if len(missing) > 1 else ""
+            raise ValueError(
+                f"Feature{s} {', '.join(missing)} missing. "
+                f"Create {'them' if len(missing) > 1 else 'it'} first."
+            )
+
+    def _discover_auto_features(self) -> None:
+        """Load auto-features scoped to the ``lamindb.lightning`` feature type."""
+        lightning_feature_type = ln.Feature.filter(
+            name="lamindb.lightning", is_type=True
+        ).one_or_none()
+        self._auto_features.clear()
+        if lightning_feature_type is not None:
+            self._auto_features = {
+                f.name: f
+                for f in ln.Feature.filter(
+                    name__in=_SUPPORTED_AUTO_FEATURES,
+                    type=lightning_feature_type,
+                )
+            }
+
+    def _discover_hparam_features(
+        self, trainer: pl.Trainer, pl_module: pl.LightningModule
+    ) -> None:
+        """Find which hyperparameter names have matching Features in the DB."""
+        hparam_names = self._collect_hparam_names(pl_module, trainer.datamodule)
+        self._hparam_features_available = set(
+            ln.Feature.filter(name__in=hparam_names).values_list("name", flat=True)
+        ) if hparam_names else set()
+
+    @staticmethod
+    def _collect_hparam_names(*sources: Any) -> set[str]:
+        """Gather hyperparameter names from one or more sources."""
+        names: set[str] = set()
+        for source in sources:
+            if source is not None and hasattr(source, "hparams") and source.hparams:
+                names.update(source.hparams.keys())
+        return names
+
+    def get(self, name: str) -> ln.Feature | None:
+        """Return the typed auto-feature for *name*, or ``None``."""
+        return self._auto_features.get(name)
+
+    def save_run_features(
+        self,
+        trainer: pl.Trainer,
+        monitor: str | None,
+        mode: str,
+    ) -> None:
+        """Collect and attach run-level features once per run.
+
+        Idempotent — subsequent calls are no-ops.
+        """
+        if not ln.context.run or self._run_features_saved:
+            return
+
+        run_features = self._collect_run_features(trainer, monitor, mode)
+        if run_features:
+            ln.context.run.features.add_values(run_features)
+        self._run_features_saved = True
+
+    def _collect_run_features(
+        self,
+        trainer: pl.Trainer,
+        monitor: str | None,
+        mode: str,
+    ) -> dict[str | ln.Feature, Any]:
+        """Build the dict of run-level feature values (pure, no DB writes)."""
+        run_features: dict[str | ln.Feature, Any] = {}
+
+        # Logger metadata
+        if (feature := self.get("logger_name")) and trainer.loggers:
+            run_features[feature] = trainer.loggers[0].name
+        if (feature := self.get("logger_version")) and trainer.loggers:
+            version = trainer.loggers[0].version
+            run_features[feature] = (
+                version if isinstance(version, str) else f"version_{version}"
+            )
+
+        # Trainer config values
+        self._add_trainer_config_features(run_features, trainer, monitor, mode)
+
+        # Hyperparameters
+        self._add_hparam_features(
+            run_features, trainer.lightning_module, trainer.datamodule
+        )
+
+        return run_features
+
+    def _add_trainer_config_features(
+        self,
+        target: dict[str | ln.Feature, Any],
+        trainer: pl.Trainer,
+        monitor: str | None,
+        mode: str,
+    ) -> None:
+        """Append trainer configuration values to *target*."""
+        optional = {
+            "max_epochs": trainer.max_epochs,
+            "max_steps": trainer.max_steps,
+            "gradient_clip_val": trainer.gradient_clip_val,
+            "monitor": monitor,
+        }
+        for key, value in optional.items():
+            if (feature := self.get(key)) and value is not None:
+                target[feature] = value
+
+        required = {
+            "precision": str(trainer.precision),
+            "accumulate_grad_batches": trainer.accumulate_grad_batches,
+            "mode": mode,
+        }
+        for key, value in required.items():
+            if feature := self.get(key):
+                target[feature] = value
+
+    def _add_hparam_features(
+        self,
+        target: dict[str | ln.Feature, Any],
+        *sources: Any,
+    ) -> None:
+        """Append hyperparameter values from one or more sources to *target*."""
+        for source in sources:
+            if source is None:
+                continue
+            if hasattr(source, "hparams") and source.hparams:
+                for name, value in source.hparams.items():
+                    if name in self._hparam_features_available:
+                        target[name] = value
+
+    def collect_checkpoint_features(
+        self,
+        trainer: pl.Trainer,
+        filepath: Path | str,
+        best_model_path: str,
+        current_score: Any | None,
+        save_weights_only: bool,
+        monitor: str | None,
+        mode: str,
+    ) -> dict[str | ln.Feature, Any]:
+        """Collect feature values for a checkpoint artifact.
+
+        All ``ModelCheckpoint`` state is passed as explicit arguments so the
+        annotator stays decoupled from the callback class hierarchy.
+
+        Does **not** mutate existing artifacts — call
+        :meth:`clear_best_model_flags` separately when the new checkpoint is
+        the best model.
+        """
+        feature_values: dict[str | ln.Feature, Any] = {}
+
+        is_best = best_model_path == str(filepath)
+        if feature := self.get("is_best_model"):
+            feature_values[feature] = is_best
+
+        if (feature := self.get("score")) and current_score is not None:
+            score = current_score
+            if hasattr(score, "item"):
+                score = score.item()
+            feature_values[feature] = float(score)
+        if feature := self.get("save_weights_only"):
+            feature_values[feature] = save_weights_only
+        if (feature := self.get("monitor")) and monitor is not None:
+            feature_values[feature] = monitor
+        if feature := self.get("mode"):
+            feature_values[feature] = mode
+
+        # User-specified artifact features
+        for name, value in self._artifact_features.items():
+            if value is not None:
+                feature_values[name] = value
+            elif hasattr(trainer, name):
+                feature_values[name] = getattr(trainer, name)
+            elif name in trainer.callback_metrics:
+                metric = trainer.callback_metrics[name]
+                feature_values[name] = (
+                    metric.item() if hasattr(metric, "item") else float(metric)
+                )
+        return feature_values
+
+    def clear_best_model_flags(self, checkpoint_key_prefix: str) -> None:
+        """Set ``is_best_model=False`` on previous best checkpoints."""
+        is_best_feature = self.get("is_best_model")
+        if is_best_feature is None:
+            return
+        feature_rows = self._get_artifact_feature_rows(
+            {"is_best_model"}, checkpoint_key_prefix
+        )
+        best_artifact_ids = [
+            artifact_id
+            for artifact_id, values in feature_rows.items()
+            if values.get("is_best_model") is True
+        ]
+        if not best_artifact_ids:
+            return
+        artifacts_by_id = {
+            a.id: a for a in ln.Artifact.filter(id__in=best_artifact_ids)
+        }
+        for artifact_id in best_artifact_ids:
+            if artifact_id not in artifacts_by_id:
+                continue
+            artifact = artifacts_by_id[artifact_id]
+            artifact.features.remove_values(is_best_feature, value=True)
+            artifact.features.add_values({is_best_feature: False})
+
+    def update_model_ranks(
+        self, checkpoint_key_prefix: str, mode: str
+    ) -> None:
+        """Re-rank all checkpoint artifacts under *checkpoint_key_prefix*."""
+        model_rank_feature = self.get("model_rank")
+        if model_rank_feature is None:
+            return
+        feature_rows = self._get_artifact_feature_rows(
+            {"score", "model_rank"}, checkpoint_key_prefix
+        )
+        scored = []
+        for artifact_id, values in feature_rows.items():
+            if "score" in values:
+                scored.append(
+                    (values["score"], values.get("model_rank"), artifact_id)
+                )
+        scored.sort(key=lambda x: x[0], reverse=(mode == "max"))
+
+        artifact_ids = [artifact_id for _, _, artifact_id in scored]
+        artifacts_by_id = {
+            a.id: a for a in ln.Artifact.filter(id__in=artifact_ids)
+        }
+        for rank, (_, old_rank, artifact_id) in enumerate(scored):
+            if artifact_id not in artifacts_by_id:
+                continue
+            af = artifacts_by_id[artifact_id]
+            if old_rank is not None:
+                af.features.remove_values(model_rank_feature, value=old_rank)
+            af.features.add_values({model_rank_feature: rank})
+
+    def _get_artifact_feature_rows(
+        self,
+        feature_names: set[str],
+        checkpoint_key_prefix: str,
+    ) -> dict[int, dict[str, Any]]:
+        """Query feature values for artifacts under *checkpoint_key_prefix*."""
+        feature_ids = [
+            feature.id
+            for name in feature_names
+            if (feature := self.get(name))
+        ]
+        key_startswith = checkpoint_key_prefix + "/"
+        if feature_ids:
+            rows = ln.models.ArtifactJsonValue.filter(
+                artifact__key__startswith=key_startswith,
+                jsonvalue__feature_id__in=feature_ids,
+            ).values_list(
+                "artifact_id", "jsonvalue__feature__name", "jsonvalue__value"
+            )
+        else:
+            rows = ln.models.ArtifactJsonValue.filter(
+                artifact__key__startswith=key_startswith,
+                jsonvalue__feature__name__in=feature_names,
+            ).values_list(
+                "artifact_id", "jsonvalue__feature__name", "jsonvalue__value"
+            )
+        result: dict[int, dict[str, Any]] = {}
+        for artifact_id, feature_name, value in rows:
+            if artifact_id not in result:
+                result[artifact_id] = {}
+            result[artifact_id][feature_name] = value
+        return result
+
+
 class ArtifactPublishingModelCheckpoint(ModelCheckpoint):
     """ModelCheckpoint with observable artifact lifecycle hooks.
 
@@ -578,16 +908,7 @@ class Checkpoint(ArtifactPublishingModelCheckpoint):
             enable_version_counter=enable_version_counter,
             artifact_observers=artifact_observers,
         )
-        self._features = features or {}
-        if invalid_feature_keys := set(self._features) - {"run", "artifact"}:  # type: ignore
-            raise ValueError(
-                f"Invalid feature keys: {invalid_feature_keys}. Use 'run' and/or 'artifact'."
-            )
-        self._run_features = self._features.get("run", {})
-        self._artifact_features = self._features.get("artifact", {})
-        self._auto_features: dict[str, ln.Feature] = {}
-        self._hparam_features_available: set[str] = set()
-        self._run_features_added = False
+        self._feature_annotator = FeatureAnnotator(features)
         self._hparams_yaml_saved = False
         self._run_uid_is_version = run_uid_is_version
         self._trainer: pl.Trainer | None = None
@@ -611,52 +932,7 @@ class Checkpoint(ArtifactPublishingModelCheckpoint):
             )
 
         if trainer.is_global_zero:
-            # Validate user-specified features exist
-            all_feature_names = set(self._run_features) | set(self._artifact_features)
-            existing_feature_names = set(
-                ln.Feature.filter(name__in=all_feature_names).values_list(
-                    "name", flat=True
-                )
-            )
-            missing = [
-                name for name in all_feature_names if name not in existing_feature_names
-            ]
-            if missing:
-                s = "s" if len(missing) > 1 else ""
-                raise ValueError(
-                    f"Feature{s} {', '.join(missing)} missing. "
-                    f"Create {'them' if len(missing) > 1 else 'it'} first."
-                )
-
-            if ln.context.run and self._run_features:
-                ln.context.run.features.add_values(self._run_features)
-
-            # Auto-features are opt-in and scoped to the lightning feature type.
-            # If `save_lightning_features()` was never called, skip auto-tracking.
-            lightning_feature_type = ln.Feature.filter(
-                name="lamindb.lightning", is_type=True
-            ).one_or_none()
-            self._auto_features.clear()
-            if lightning_feature_type is not None:
-                auto_features = list(
-                    ln.Feature.filter(
-                        name__in=_SUPPORTED_AUTO_FEATURES,
-                        type=lightning_feature_type,
-                    )
-                )
-                self._auto_features = {f.name: f for f in auto_features}
-            hparam_names: set[str] = set()
-            if hasattr(pl_module, "hparams") and pl_module.hparams:
-                hparam_names.update(pl_module.hparams.keys())
-            if (
-                trainer.datamodule is not None
-                and hasattr(trainer.datamodule, "hparams")
-                and trainer.datamodule.hparams
-            ):
-                hparam_names.update(trainer.datamodule.hparams.keys())
-            self._hparam_features_available = set(
-                ln.Feature.filter(name__in=hparam_names).values_list("name", flat=True)
-            )
+            self._feature_annotator.setup(trainer, pl_module)
 
     def _base_prefix(self, trainer: pl.Trainer) -> str:
         """Compute the base artifact key prefix.
@@ -870,99 +1146,6 @@ class Checkpoint(ArtifactPublishingModelCheckpoint):
         if self.save_hparams_artifact(trainer, hparams_path) is not None:
             self._hparams_yaml_saved = True
 
-    def _save_run_features(self, trainer: pl.Trainer) -> None:
-        """Save run-level features once per run after the first checkpoint."""
-        if not ln.context.run or self._run_features_added:
-            return
-
-        run_features: dict[str | ln.Feature, Any] = {}
-        if (feature := self._get_lightning_feature("logger_name")) and trainer.loggers:
-            run_features[feature] = trainer.loggers[0].name
-        if (
-            feature := self._get_lightning_feature("logger_version")
-        ) and trainer.loggers:
-            version = trainer.loggers[0].version
-            run_features[feature] = (
-                version if isinstance(version, str) else f"version_{version}"
-            )
-        trainer_config_values = {
-            "max_epochs": (trainer.max_epochs, None, True),
-            "max_steps": (trainer.max_steps, None, True),
-            "precision": (trainer.precision, str, False),
-            "accumulate_grad_batches": (
-                trainer.accumulate_grad_batches,
-                None,
-                False,
-            ),
-            "gradient_clip_val": (trainer.gradient_clip_val, float, True),
-            "monitor": (self.monitor, None, True),
-            "mode": (self.mode, None, False),
-        }
-
-        for key, (value, transform, skip_none) in trainer_config_values.items():
-            if (feature := self._get_lightning_feature(key)) and not (
-                skip_none and value is None
-            ):
-                run_features[feature] = transform(value) if transform else value
-
-        if (
-            hasattr(trainer.lightning_module, "hparams")
-            and trainer.lightning_module.hparams
-        ):
-            for name, value in trainer.lightning_module.hparams.items():
-                if name in self._hparam_features_available:
-                    run_features[name] = value
-        if (
-            trainer.datamodule is not None
-            and hasattr(trainer.datamodule, "hparams")
-            and trainer.datamodule.hparams
-        ):
-            for name, value in trainer.datamodule.hparams.items():
-                if name in self._hparam_features_available:
-                    run_features[name] = value
-        if run_features:
-            ln.context.run.features.add_values(run_features)
-        self._run_features_added = True
-
-    def _collect_checkpoint_feature_values(
-        self, trainer: pl.Trainer, filepath: Path | str
-    ) -> dict[str | ln.Feature, Any]:
-        """Collect checkpoint-level feature values before saving the artifact."""
-        feature_values: dict[str | ln.Feature, Any] = {}
-        is_best = self.best_model_path == str(filepath)
-        if feature := self._get_lightning_feature("is_best_model"):
-            if is_best:
-                self._clear_best_model_flags()
-            feature_values[feature] = is_best
-
-        import torch
-
-        if (
-            feature := self._get_lightning_feature("score")
-        ) and self.current_score is not None:
-            score = self.current_score
-            if torch.is_tensor(score):
-                score = score.item()
-            feature_values[feature] = float(score)
-        if feature := self._get_lightning_feature("save_weights_only"):
-            feature_values[feature] = self.save_weights_only
-        if (feature := self._get_lightning_feature("monitor")) and self.monitor is not None:
-            feature_values[feature] = self.monitor
-        if feature := self._get_lightning_feature("mode"):
-            feature_values[feature] = self.mode
-
-        for name, value in self._artifact_features.items():
-            if value is not None:
-                feature_values[name] = value
-            elif hasattr(trainer, name):
-                feature_values[name] = getattr(trainer, name)
-            elif name in trainer.callback_metrics:
-                metric = trainer.callback_metrics[name]
-                feature_values[name] = (
-                    metric.item() if hasattr(metric, "item") else float(metric)
-                )
-        return feature_values
-
     def _save_checkpoint(self, trainer: pl.Trainer, filepath: str) -> None:
         """Save checkpoint to the instance."""
         super()._save_checkpoint(trainer, filepath)
@@ -970,14 +1153,35 @@ class Checkpoint(ArtifactPublishingModelCheckpoint):
         if trainer.is_global_zero:
             self._save_hparams_yaml(trainer)
 
-            self._save_run_features(trainer)
-            feature_values = self._collect_checkpoint_feature_values(trainer, filepath)
+            self._feature_annotator.save_run_features(
+                trainer, monitor=self.monitor, mode=self.mode
+            )
+            feature_values = self._feature_annotator.collect_checkpoint_features(
+                trainer,
+                filepath,
+                best_model_path=self.best_model_path,
+                current_score=self.current_score,
+                save_weights_only=self.save_weights_only,
+                monitor=self.monitor,
+                mode=self.mode,
+            )
+
+            is_best = feature_values.get(
+                self._feature_annotator.get("is_best_model")
+            )
+            if is_best:
+                self._feature_annotator.clear_best_model_flags(
+                    self.checkpoint_key_prefix
+                )
+
             self.save_checkpoint_artifact(
                 trainer, filepath, feature_values=feature_values
             )
 
-            if self._get_lightning_feature("model_rank"):
-                self._update_model_ranks()
+            if self._feature_annotator.get("model_rank"):
+                self._feature_annotator.update_model_ranks(
+                    self.checkpoint_key_prefix, mode=self.mode
+                )
 
     def _remove_checkpoint(self, trainer: pl.Trainer, filepath: str) -> None:
         """Remove the local checkpoint file and emit a removal event."""
@@ -999,85 +1203,7 @@ class Checkpoint(ArtifactPublishingModelCheckpoint):
             if artifact is not None:
                 artifact.delete(permanent=True, storage=True)
 
-    def _get_lightning_feature(self, name: str) -> ln.Feature | None:
-        """Return the cached typed Feature for *name*, or None."""
-        return self._auto_features.get(name)
 
-    def _clear_best_model_flags(self) -> None:
-        """Set is_best_model=False on previous best checkpoints."""
-        is_best_feature = self._get_lightning_feature("is_best_model")
-        if is_best_feature is None:
-            return
-        feature_rows = self._get_artifact_feature_rows({"is_best_model"})
-        best_artifact_ids = [
-            artifact_id
-            for artifact_id, values in feature_rows.items()
-            if values.get("is_best_model") is True
-        ]
-        if not best_artifact_ids:
-            return
-        artifacts_by_id = {
-            artifact.id: artifact
-            for artifact in ln.Artifact.filter(id__in=best_artifact_ids)
-        }
-        for artifact_id in best_artifact_ids:
-            if artifact_id not in artifacts_by_id:
-                continue
-            artifact = artifacts_by_id[artifact_id]
-            artifact.features.remove_values(is_best_feature, value=True)
-            artifact.features.add_values({is_best_feature: False})
-
-    def _update_model_ranks(self) -> None:
-        """Update model_rank feature for all checkpoints under this key."""
-        model_rank_feature = self._get_lightning_feature("model_rank")
-        if model_rank_feature is None:
-            return
-        feature_rows = self._get_artifact_feature_rows({"score", "model_rank"})
-        scored = []
-        for artifact_id, values in feature_rows.items():
-            if "score" in values:
-                scored.append((values["score"], values.get("model_rank"), artifact_id))
-        scored.sort(key=lambda x: x[0], reverse=(self.mode == "max"))
-
-        artifact_ids = [artifact_id for _, _, artifact_id in scored]
-        artifacts_by_id = {
-            artifact.id: artifact
-            for artifact in ln.Artifact.filter(id__in=artifact_ids)
-        }
-        for rank, (_, old_rank, artifact_id) in enumerate(scored):
-            if artifact_id not in artifacts_by_id:
-                continue
-            af = artifacts_by_id[artifact_id]
-            if old_rank is not None:
-                af.features.remove_values(model_rank_feature, value=old_rank)
-            af.features.add_values({model_rank_feature: rank})
-
-    def _get_artifact_feature_rows(
-        self, feature_names: set[str]
-    ) -> dict[int, dict[str, Any]]:
-        # Filter by feature id when possible to avoid cross-type name collisions
-        feature_ids = [
-            feature.id
-            for name in feature_names
-            if (feature := self._get_lightning_feature(name))
-        ]
-        key_prefix = self.checkpoint_key_prefix + "/"
-        if feature_ids:
-            rows = ln.models.ArtifactJsonValue.filter(
-                artifact__key__startswith=key_prefix,
-                jsonvalue__feature_id__in=feature_ids,
-            ).values_list("artifact_id", "jsonvalue__feature__name", "jsonvalue__value")
-        else:
-            rows = ln.models.ArtifactJsonValue.filter(
-                artifact__key__startswith=key_prefix,
-                jsonvalue__feature__name__in=feature_names,
-            ).values_list("artifact_id", "jsonvalue__feature__name", "jsonvalue__value")
-        result: dict[int, dict[str, Any]] = {}
-        for artifact_id, feature_name, value in rows:
-            if artifact_id not in result:
-                result[artifact_id] = {}
-            result[artifact_id][feature_name] = value
-        return result
 
 
 class SaveConfigCallback(_SaveConfigCallback):
