@@ -2,6 +2,7 @@ import json
 import shutil
 from pathlib import Path
 from typing import Any, Generator, cast
+from unittest.mock import MagicMock
 
 import lamindb as ln
 import lightning as pl
@@ -318,8 +319,11 @@ def test_model_rank_update_query_budget(
 ):
     """Ranking should use batched feature reads."""
     callback = ll.Checkpoint(dirpath=dirpath, monitor="train_loss", mode="min")
-    # Manually set the key prefix since setup() is not called in this test
-    callback._checkpoint_key_prefix = dirpath.rstrip("/")
+    # Provide a stub trainer so checkpoint_key_prefix can compute on-the-fly.
+    # Only _original_dirpath matters for key derivation here.
+    stub_trainer = MagicMock(spec=pl.Trainer)
+    stub_trainer.loggers = []
+    callback._trainer = stub_trainer
     key_prefix = callback.checkpoint_key_prefix
     created_artifacts = []
 

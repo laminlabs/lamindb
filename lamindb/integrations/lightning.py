@@ -589,9 +589,8 @@ class Checkpoint(ArtifactPublishingModelCheckpoint):
         self._hparam_features_available: set[str] = set()
         self._run_features_added = False
         self._hparams_yaml_saved = False
-        self._base_prefix: str = ""
-        self._checkpoint_key_prefix: str = ""
         self._run_uid_is_version = run_uid_is_version
+        self._trainer: pl.Trainer | None = None
         self._artifact_publisher: ArtifactPublisher = LaminArtifactPublisher()
 
     def setup(
@@ -599,8 +598,7 @@ class Checkpoint(ArtifactPublishingModelCheckpoint):
     ) -> None:
         """Validate user features and detect available auto-features."""
         super().setup(trainer, pl_module, stage)
-        self._base_prefix = self._compute_base_prefix(trainer)
-        self._checkpoint_key_prefix = self._compute_checkpoint_key_prefix()
+        self._trainer = trainer
 
         if self.save_last:
             warnings.warn(
@@ -660,48 +658,40 @@ class Checkpoint(ArtifactPublishingModelCheckpoint):
                 ln.Feature.filter(name__in=hparam_names).values_list("name", flat=True)
             )
 
-    def _compute_logger_key_prefix(self, trainer: pl.Trainer) -> str:
-        """Derive a key prefix from the trainer's first logger."""
-        if trainer.loggers[0].save_dir is not None:
-            save_dir = trainer.loggers[0].save_dir
-        else:
-            save_dir = trainer.default_root_dir
-        name = trainer.loggers[0].name
-        if self._run_uid_is_version and ln.context.run is not None:
-            version = ln.context.run.uid
-        else:
-            version = trainer.loggers[0].version
-            version = version if isinstance(version, str) else f"version_{version}"
-        return f"{Path(save_dir).name}/{str(name).rstrip('/')}/{version.rstrip('/')}"
-
-    def _run_uid_suffix(self) -> str:
-        """Return ``/{run_uid}`` when run-UID scoping is active, else ``""``."""
-        if self._run_uid_is_version and ln.context.run is not None:
-            return f"/{ln.context.run.uid}"
-        return ""
-
-    def _compute_base_prefix(self, trainer: pl.Trainer) -> str:
+    def _base_prefix(self, trainer: pl.Trainer) -> str:
         """Compute the base artifact key prefix.
 
-        The base prefix is the root namespace for all artifacts produced by this
-        callback (checkpoints, configs, hparams).  Checkpoints are placed under
-        ``{base}/checkpoints/`` and configs directly under ``{base}/``.
+        The base prefix is the root namespace for all artifacts produced by
+        this callback.  Checkpoints live under ``{base}/checkpoints/`` and
+        other files (config, hparams) directly under ``{base}/``.
 
-        Priority: explicit ``dirpath`` > logger > empty.
+        Priority: explicit ``dirpath`` > logger > run UID > empty.
         """
+        run_uid = self._active_run_uid()
         if self._original_dirpath is not None:
-            return str(self._original_dirpath).rstrip("/") + self._run_uid_suffix()
+            prefix = str(self._original_dirpath).rstrip("/")
+            return f"{prefix}/{run_uid}" if run_uid else prefix
         if len(trainer.loggers) > 0:
-            return self._compute_logger_key_prefix(trainer)
-        # No dirpath, no logger — run UID alone (or empty when inactive).
-        suffix = self._run_uid_suffix()
-        return suffix.lstrip("/") if suffix else ""
+            return self._logger_prefix(trainer, run_uid)
+        return run_uid or ""
 
-    def _compute_checkpoint_key_prefix(self) -> str:
-        """Compute the artifact key prefix for checkpoints."""
-        if self._base_prefix:
-            return f"{self._base_prefix}/checkpoints"
-        return "checkpoints"
+    def _active_run_uid(self) -> str | None:
+        """Return the Lamin run UID when run-UID scoping is active."""
+        if self._run_uid_is_version and ln.context.run is not None:
+            return ln.context.run.uid
+        return None
+
+    def _logger_prefix(self, trainer: pl.Trainer, run_uid: str | None) -> str:
+        """Derive a key prefix from the trainer's first logger."""
+        logger = trainer.loggers[0]
+        save_dir = logger.save_dir or trainer.default_root_dir
+        name = str(logger.name).rstrip("/")
+        if run_uid:
+            version = run_uid
+        else:
+            version = logger.version
+            version = version if isinstance(version, str) else f"version_{version}"
+        return f"{Path(save_dir).name}/{name}/{version.rstrip('/')}"
 
     @property
     def base_prefix(self) -> str:
@@ -712,7 +702,8 @@ class Checkpoint(ArtifactPublishingModelCheckpoint):
 
         Available after ``setup()`` has been called.
         """
-        return self._base_prefix
+        assert self._trainer is not None, "base_prefix is only available after setup()"
+        return self._base_prefix(self._trainer)
 
     @property
     def checkpoint_key_prefix(self) -> str:
@@ -721,7 +712,8 @@ class Checkpoint(ArtifactPublishingModelCheckpoint):
         Available after ``setup()`` has been called, for example once
         ``trainer.fit()`` has started.
         """
-        return self._checkpoint_key_prefix
+        base = self.base_prefix
+        return f"{base}/checkpoints" if base else "checkpoints"
 
     def resolve_artifact_storage_uri(self, artifact: ln.Artifact) -> str:
         """Resolve the physical artifact location for downstream registries.
@@ -738,20 +730,18 @@ class Checkpoint(ArtifactPublishingModelCheckpoint):
         kind: ArtifactKind,
     ) -> str:
         """Return the Lamin artifact key for a checkpoint-related file."""
+        base = self._base_prefix(trainer)
         if kind in {"checkpoint", "hparams"}:
-            prefix = self._checkpoint_key_prefix
+            prefix = f"{base}/checkpoints" if base else "checkpoints"
         else:
-            # Compute base prefix on-the-fly so this works even when called
-            # before setup() (e.g. from SaveConfigCallback whose setup hook
-            # fires before ModelCheckpoint's).
-            prefix = self._base_prefix or self._compute_base_prefix(trainer)
+            prefix = base
         if prefix:
             return f"{prefix}/{Path(filepath).name}"
         return Path(filepath).name
 
     def _get_key_filter(self) -> dict[str, str]:
         """Return filter kwargs for querying artifacts from this callback."""
-        return {"key__startswith": self._checkpoint_key_prefix + "/"}
+        return {"key__startswith": self.checkpoint_key_prefix + "/"}
 
     def _create_lamin_artifact(
         self,
