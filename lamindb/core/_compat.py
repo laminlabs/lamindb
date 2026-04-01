@@ -22,12 +22,12 @@ def with_package(package_name: str, operation: Callable[[Any], T]) -> T:
     """
     try:
         module = importlib.import_module(package_name)
-        return operation(module)
     except ImportError:
         raise ImportError(
             f"Package '{package_name}' is required but not installed. "
             f"Please install with: pip install {package_name}"
         ) from None
+    return operation(module)
 
 
 def with_package_obj(
@@ -49,12 +49,12 @@ def with_package_obj(
     if obj.__class__.__name__ == class_name:
         try:
             importlib.import_module(package_name)
-            result = operation(obj)
-            return True, result
         except ImportError:
             raise ImportError(
                 f"Object appears to be {class_name} but '{package_name}' package is not installed. "
                 f"Please install with: pip install {package_name}"
             ) from None
+        result = operation(obj)
+        return True, result
 
     return False, None
