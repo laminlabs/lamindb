@@ -28,7 +28,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Final, Literal, Protocol
 
 import lightning.pytorch as pl
-from lightning.fabric.utilities.cloud_io import get_filesystem
 from lightning.pytorch.callbacks.model_checkpoint import ModelCheckpoint
 from lightning.pytorch.cli import SaveConfigCallback as _SaveConfigCallback
 
@@ -1228,9 +1227,10 @@ class SaveConfigCallback(_SaveConfigCallback):
 
     Use with LightningCLI to save the resolved configuration file alongside checkpoints.
 
-    The local config file follows Lightning's ``trainer.log_dir`` behavior.
-    Setting ``dirpath`` on :class:`Checkpoint` affects where checkpoint files are
-    saved, but normally does not affect the config file location.
+    The local config file is saved under ``{save_dir}/{name}/{version}/``
+    derived from the first logger, avoiding Lightning's ``trainer.log_dir``
+    which hardcodes an ``isinstance`` check for ``TensorBoardLogger`` /
+    ``CSVLogger`` and silently changes the directory for other loggers.
 
     This callback looks for any :class:`ArtifactPublishingModelCheckpoint`, not just
     Lamin's concrete :class:`Checkpoint`. That keeps the config-save path aligned
@@ -1245,8 +1245,6 @@ class SaveConfigCallback(_SaveConfigCallback):
       (``{dirpath}/{run_uid}/config.yaml`` with run-UID scoping)
     - Logger present, no ``dirpath`` → ``{save_dir_basename}/{name}/{version}/config.yaml``
     - Neither → ``config.yaml`` (or ``{run_uid}/config.yaml`` with run-UID scoping)
-
-    The local config file still follows Lightning's ``trainer.log_dir`` behavior.
 
     Example::
 
@@ -1267,20 +1265,19 @@ class SaveConfigCallback(_SaveConfigCallback):
         if self.already_saved:  # type: ignore
             return
 
-        log_dir = trainer.log_dir
-        if self.save_to_log_dir and log_dir is not None:
-            config_path = Path(log_dir) / self.config_filename
-            fs = get_filesystem(log_dir)
+        if self.save_to_log_dir:
+            config_path = self._config_path(trainer)
+
             if not self.overwrite:
                 file_exists = (
-                    fs.isfile(config_path) if trainer.is_global_zero else False
+                    config_path.exists() if trainer.is_global_zero else False
                 )
                 file_exists = trainer.strategy.broadcast(file_exists)
                 if file_exists:
                     raise RuntimeError(f"Config file already exists: {config_path}")
 
             if trainer.is_global_zero:
-                fs.makedirs(log_dir, exist_ok=True)
+                config_path.parent.mkdir(exist_ok=True, parents=True)
                 self.parser.save(
                     self.config,
                     config_path,
@@ -1294,6 +1291,29 @@ class SaveConfigCallback(_SaveConfigCallback):
                 self.save_config(trainer, pl_module, stage)
                 self.already_saved = True
             self.already_saved = trainer.strategy.broadcast(self.already_saved)
+
+    def _config_path(self, trainer: pl.Trainer) -> Path:
+        """Derive the local config file path from the first logger.
+
+        We intentionally avoid ``trainer.log_dir`` because Lightning hardcodes
+        an ``isinstance`` check against ``TensorBoardLogger`` and ``CSVLogger``
+        there.  For those two loggers it uses ``logger.log_dir`` (which appends
+        name/version), while for every other logger it falls back to
+        ``logger.save_dir`` (no name/version).  This means the config file
+        location silently changes depending on which logger happens to be first
+        — making it unpredictable for third-party loggers.
+
+        This method always uses ``logger.save_dir`` + ``name`` + ``version``,
+        giving a consistent directory layout regardless of logger type.
+        """
+        if len(trainer.loggers) > 0:
+            first = trainer.loggers[0]
+            save_dir = first.save_dir if first.save_dir is not None else trainer.default_root_dir
+            name = first.name
+            version = first.version
+            version = version if isinstance(version, str) else f"version_{version}"
+            return Path(save_dir) / str(name) / version / self.config_filename
+        return Path(trainer.default_root_dir) / self.config_filename
 
     def _save_config(self, trainer: pl.Trainer, config_path: Path) -> None:
         """Persist the resolved config through the active artifact checkpoint.
