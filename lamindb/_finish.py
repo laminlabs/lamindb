@@ -213,7 +213,8 @@ def check_filepath_recently_saved(filepath: Path, is_finish_retry: bool) -> bool
     # to upload of an outdated notebook
     # also see implementation for R notebooks below
     offset_saved_time = 0.3 if not is_finish_retry else 20
-    for retry in range(30):
+    # large notebooks can take minutes to flush to disk; 30s was too easy to exceed
+    for retry in range(300):
         recently_saved_time = offset_saved_time + retry  # sleep time is 1 sec
         if get_seconds_since_modified(filepath) > recently_saved_time:
             if retry == 0:
@@ -283,8 +284,12 @@ def save_context_core(
                 return "retry"
             elif not save_source_code_and_report:
                 logger.warning(
-                    "the notebook on disk wasn't saved within the last 10 sec"
+                    "the notebook on disk was not updated within the wait window; "
+                    "wait for the editor to finish saving, then run ln.finish() again."
                 )
+                # do not fall through: finishing would clear context while the on-disk
+                # file may still be stale, which surfaces as TrackNotCalled on the next finish()
+                return "retry"
     if is_ipynb and filepath.exists():  # could be from CLI outside interactive session
         try:
             import jupytext  # noqa: F401
@@ -338,12 +343,12 @@ def save_context_core(
             # seems to block the event loop of the frontend
             if not is_retry:
                 logger.warning(get_save_notebook_message_retry())
-                return "retry"
             else:
                 logger.warning(
-                    "the notebook on disk hasn't been saved within the last 20 sec"
+                    "the R/HTML report on disk was not updated within the wait window; "
+                    "save or re-export it, then run ln.finish() again."
                 )
-            save_source_code_and_report = False
+            return "retry"
     ln.settings.creation.artifact_silence_missing_run_warning = True
     # save source code
     if save_source_code_and_report:
