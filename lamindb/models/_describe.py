@@ -347,10 +347,15 @@ def describe_run(
         transform = SimpleNamespace(**fk_data["transform"], description="")
     else:
         transform = record.transform
+    transform_key = transform.key if transform and transform.key is not None else ""
+    transform_version = (
+        f" ({transform.version})" if transform and transform.version is not None else ""
+    )
     two_column_items.append(
         Text.assemble(
             ("transform: ", "dim"),
-            format_title_with_version(transform),
+            (transform_key, "cyan3"),
+            (transform_version, "dim"),
         )
     )
     two_column_items.append(
