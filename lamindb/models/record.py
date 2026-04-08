@@ -618,7 +618,9 @@ class RunRecord(BaseSQLRecord, IsLink):
     id: int = models.BigAutoField(primary_key=True)
     run: Run = ForeignKey(Run, CASCADE, related_name="links_record")
     record: Record = ForeignKey(Record, PROTECT, related_name="links_run")
-    feature: Feature = ForeignKey(Feature, PROTECT, related_name="links_runrecord")
+    feature: Feature = ForeignKey(
+        Feature, PROTECT, null=True, related_name="links_runrecord"
+    )
     created_at: datetime = DateTimeField(
         editable=False, db_default=models.functions.Now(), db_index=True
     )

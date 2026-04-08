@@ -316,7 +316,23 @@ def test_fine_grained_permissions_single_records():
     with pytest.raises(ln.errors.NoWriteAccess):
         ulabel.save()
 
-    # switch access to this ulabel to write
+    # switch access for the project to read
+    with psycopg2.connect(pgurl) as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            UPDATE hubmodule_accessrecord SET role = 'read'
+            WHERE account_id = %s AND record_type = 'lamindb_project'
+            """,
+            (user_uuid,),
+        )
+    # now the project is readable
+    project = ln.Project.get(name="No_access_project")
+
+    # can't insert into lamindb_ulabelproject because the ulabel is read-only
+    with pytest.raises(ProgrammingError):
+        ulabel.projects.add(project)
+
+    # switch access for the ulabel to write
     with psycopg2.connect(pgurl) as conn, conn.cursor() as cur:
         cur.execute(
             """
@@ -328,30 +344,8 @@ def test_fine_grained_permissions_single_records():
 
     ulabel.save()
 
-    # switch access to this ulabel to write
-    with psycopg2.connect(pgurl) as conn, conn.cursor() as cur:
-        cur.execute(
-            """
-            UPDATE hubmodule_accessrecord SET role = 'read'
-            WHERE account_id = %s AND record_type = 'lamindb_project'
-            """,
-            (user_uuid,),
-        )
-
-    project = ln.Project.get(name="No_access_project")
-    # can't insert into lamindb_ulabelproject because the project is still read-only
-    with pytest.raises(ProgrammingError):
-        ulabel.projects.add(project)
-
-    with psycopg2.connect(pgurl) as conn, conn.cursor() as cur:
-        cur.execute(
-            """
-            UPDATE hubmodule_accessrecord SET role = 'write'
-            WHERE account_id = %s AND record_type = 'lamindb_project'
-            """,
-            (user_uuid,),
-        )
-
+    # can insert into lamindb_ulabelproject because the ulabel is now write-able
+    # and the project is read-only, but this doesn't matter as the principal key is ulabel
     ulabel.projects.add(project)
     assert ulabel.projects.count() == 1
 

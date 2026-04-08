@@ -505,13 +505,14 @@ def get_feature_annotate_kwargs(
         Feature,
         Record,
         RecordJson,
+        Run,
         ULabel,
     )
     from lamindb.models.feature import parse_dtype
 
-    if registry not in {Artifact, Record}:
+    if registry not in {Artifact, Record, Run}:
         raise ValueError(
-            f"features=True is only applicable for Artifact and Record, not {registry.__name__}"
+            f'include="features" is only applicable for Artifact, Record, and Run, not {registry.__name__}'
         )
 
     feature_ids = []
@@ -598,7 +599,7 @@ def get_feature_annotate_kwargs(
     }
     if registry is Artifact:
         link_models_on_models["ArtifactULabel"] = ULabel
-    else:
+    elif registry is Record:
         link_models_on_models["RecordRecord"] = Record
     link_attributes_on_models = {
         obj.related_name: link_models_on_models[
@@ -625,7 +626,7 @@ def get_feature_annotate_kwargs(
             continue
 
         # Determine field name
-        if registry is Artifact:
+        if registry in {Artifact, Run}:
             field_name = (
                 feature_type.split(".")[1] if "." in feature_type else feature_type
             ).lower()
@@ -667,7 +668,9 @@ def get_feature_annotate_kwargs(
             )
 
     # Handle JSON values (no branch filtering needed)
-    json_values_attribute = "json_values" if registry is Artifact else "values_json"
+    json_values_attribute = (
+        "json_values" if registry in {Artifact, Run} else "values_json"
+    )
     annotate_kwargs[f"{json_values_attribute}__feature__name"] = F(
         f"{json_values_attribute}__feature__name"
     )
@@ -781,7 +784,7 @@ def reshape_annotate_result(
     """
     import pandas as pd
 
-    from lamindb.models import Artifact
+    from lamindb.models import Artifact, Run
 
     cols_from_include = cols_from_include or {}
 
@@ -804,7 +807,9 @@ def reshape_annotate_result(
     pk_name_encoded = fields_map.get(pk_name)  # type: ignore
 
     # --- Process JSON-stored feature values ---
-    json_values_attribute = "json_values" if registry is Artifact else "values_json"
+    json_values_attribute = (
+        "json_values" if registry in {Artifact, Run} else "values_json"
+    )
     feature_name_col = f"{json_values_attribute}__feature__name"
     feature_value_col = f"{json_values_attribute}__value"
 
@@ -838,7 +843,7 @@ def reshape_annotate_result(
             )
 
     # --- Process categorical/linked features ---
-    links_prefix = "links_" if registry is Artifact else ("links_", "values_")
+    links_prefix = "links_" if registry in {Artifact, Run} else ("links_", "values_")
     links_features = [
         col
         for col in df.columns
