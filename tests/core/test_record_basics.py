@@ -129,6 +129,30 @@ def test_record_from_dataframe_bulk_save_paths():
     score.delete(permanent=True)
 
 
+def test_feature_manager_raise_not_validated_values():
+    from lamindb.models._feature_manager import FeatureManager
+
+    assert FeatureManager._raise_not_validated_values({}) is None
+
+    with pytest.raises(ln.errors.ValidationError) as error:
+        FeatureManager._raise_not_validated_values(
+            {
+                "Record": ("name", ["missing-record"]),
+                "bionty.Gene": ("symbol", ["missing-gene"]),
+            }
+        )
+    message = str(error.value)
+    assert "These values could not be validated" in message
+    assert (
+        "records = ln.Record.from_values(['missing-record'], field='name', create=True).save()"
+        in message
+    )
+    assert (
+        "records = bionty.Gene.from_values(['missing-gene'], field='symbol').save()"
+        in message
+    )
+
+
 def test_record_plural_type_warning(ccaplog):
     ln.Record(name="MyThings", is_type=True)
     assert (
