@@ -2069,7 +2069,9 @@ def bulk_set_features_in_records(records: Iterable[Record]) -> None:
     Intended for records created via `Record(features=...)` and persisted with
     `ln.save([...])`.
     """
-    from lamindb.curators.core import ExperimentalDictCurator
+    import pandas as pd
+
+    from lamindb.curators.core import DataFrameCurator
 
     records_with_features = [
         record
@@ -2079,50 +2081,82 @@ def bulk_set_features_in_records(records: Iterable[Record]) -> None:
     if len(records_with_features) == 0:
         return None
 
-    feature_json_values: list[SQLRecord] = []
-    links_by_model: dict[type[SQLRecord], list[SQLRecord]] = defaultdict(list)
-    not_validated_values: dict[str, tuple[str, list[str]]] = {}
+    batch_schema: Schema | None = None
+    prepared_records: list[
+        tuple[Record, FeatureManager, dict[str, Any], list[Feature], dict[str, Any]]
+    ] = []
+    prepared_rows: list[dict[str, Any]] = []
     for record in records_with_features:
-        manager = record.features
-        (
-            dictionary,
-            string_key_values,
-            explicit_features,
-            values_by_feature_uid,
-        ) = manager._resolve_feature_value_dictionary(record._features)
-        keys = dictionary.keys()
-        if isinstance(keys, DICT_KEYS_TYPE):
-            keys = list(keys)  # type: ignore
         schema = None
         if record.type is not None and record.type.schema is not None:
             schema = record.type.schema
-        if schema is not None:
-            ExperimentalDictCurator(dictionary, schema).validate()
-            member_ids = set(schema.members.values_list("id", flat=True))
-            features_not_in_schema = [
-                feature.name
-                for feature in explicit_features
-                if feature.id not in member_ids
-            ]
-            if features_not_in_schema:
-                raise ValidationError(
-                    "These feature keys are not in the provided schema: "
-                    f"{features_not_in_schema}"
-                )
-            looked_up_features = schema.members.filter(name__in=keys)
-            feature_objects = manager._merge_feature_objects(
-                explicit_features, looked_up_features
+        if schema is None:
+            raise ValidationError(
+                "Bulk setting features in records requires all records to have the same non-null type schema."
             )
-        else:
-            if string_key_values:
-                looked_up_features = manager._get_feature_objects(
-                    string_key_values, Feature.name
-                )
-            else:
-                looked_up_features = Feature.objects.none()
-            feature_objects = manager._merge_feature_objects(
-                explicit_features, looked_up_features
+        if batch_schema is None:
+            batch_schema = schema
+        elif schema.id != batch_schema.id:
+            raise ValidationError(
+                "Bulk setting features in records requires all records to have the same type schema."
             )
+        manager = record.features
+        (
+            dictionary,
+            _,
+            explicit_features,
+            values_by_feature_uid,
+        ) = manager._resolve_feature_value_dictionary(record._features)
+        prepared_rows.append(dictionary)
+        prepared_records.append(
+            (record, manager, dictionary, explicit_features, values_by_feature_uid)
+        )
+
+    assert batch_schema is not None  # noqa: S101
+    schema_features = list(batch_schema.members.all())
+    dataframe = pd.DataFrame(prepared_rows)
+    for feature in schema_features:
+        if (
+            feature.name in dataframe
+            and feature.dtype_as_str.startswith("cat")
+            and not feature.dtype_as_str.startswith("list[cat")
+        ):
+            dataframe[feature.name] = dataframe[feature.name].astype("category")
+    DataFrameCurator(dataframe, batch_schema).validate()
+
+    members_by_name: dict[str, list[Feature]] = defaultdict(list)
+    schema_member_ids: set[int] = set()
+    for feature in schema_features:
+        members_by_name[feature.name].append(feature)
+        schema_member_ids.add(feature.id)
+
+    feature_json_values: list[SQLRecord] = []
+    links_by_model: dict[type[SQLRecord], list[SQLRecord]] = defaultdict(list)
+    not_validated_values: dict[str, tuple[str, list[str]]] = {}
+    for (
+        record,
+        manager,
+        dictionary,
+        explicit_features,
+        values_by_feature_uid,
+    ) in prepared_records:
+        keys = list(dictionary.keys())
+        features_not_in_schema = [
+            feature.name
+            for feature in explicit_features
+            if feature.id not in schema_member_ids
+        ]
+        if features_not_in_schema:
+            raise ValidationError(
+                "These feature keys are not in the provided schema: "
+                f"{features_not_in_schema}"
+            )
+        looked_up_features = [
+            feature for key in keys for feature in members_by_name.get(key, [])
+        ]
+        feature_objects = manager._merge_feature_objects(
+            explicit_features, looked_up_features
+        )
         manager._collect_record_feature_writes(
             record=record,
             feature_objects=feature_objects,
