@@ -1654,7 +1654,6 @@ class FeatureManager:
                         )
                         values_array = np.array(values)
                         validated_values = values_array[validated]
-                        result["registry_str"]
                         if validated.sum() != len(values):
                             not_validated_values[result["registry_str"]] = (  # type: ignore
                                 result["field_str"],
@@ -1674,7 +1673,7 @@ class FeatureManager:
                     features_labels[result["registry_str"]] += [  # type: ignore
                         (feature, label_record) for label_record in label_records
                     ]
-        # TODO: given we had already validated prior to calling _add_values, this blog below should never be reached
+        # TODO: given we had already validated prior to calling _add_values, this block below should never be reached
         # refactor this out if possible
         self._raise_not_validated_values(not_validated_values)
         if features_labels:
@@ -2067,8 +2066,8 @@ class FeatureManager:
 def bulk_set_features_in_records(records: Iterable[Record]) -> None:
     """Bulk-set lazy feature dictionaries for records.
 
-    Intended for records created via ``Record(features=...)`` and persisted with
-    ``ln.save([...])``.
+    Intended for records created via `Record(features=...)` and persisted with
+    `ln.save([...])`.
     """
     from lamindb.curators.core import ExperimentalDictCurator
 
