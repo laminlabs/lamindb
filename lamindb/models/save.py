@@ -103,9 +103,9 @@ def save(
             if record.__class__.__name__ == "Record" and hasattr(record, "_features")
         ]
         if records_with_lazy_features:
-            from ._feature_manager import add_values_to_records
+            from ._feature_manager import bulk_set_features_in_records
 
-            add_values_to_records(records_with_lazy_features)
+            bulk_set_features_in_records(records_with_lazy_features)
 
     if artifacts:
         with transaction.atomic():
