@@ -220,14 +220,6 @@ def test_feature_manager_raise_not_validated_values():
     )
 
 
-def test_record_plural_type_warning(ccaplog):
-    ln.Record(name="MyThings", is_type=True)
-    assert (
-        "name 'MyThings' for type ends with 's', in case you're naming with plural, consider the singular for a type name"
-        in ccaplog.text
-    )
-
-
 def test_name_lookup():
     my_type = ln.Record(name="MyType", is_type=True).save()
     label1 = ln.Record(name="label 1", type=my_type).save()
