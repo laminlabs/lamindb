@@ -11,14 +11,11 @@ from lamindb.errors import FieldValidationError
 
 
 def test_record_docstring_examples():
-    # create a record to track a sample
-    sample1 = ln.Record(name="Sample 1").save()
-
     # create a feature if you don't yet have one
     gc_content = ln.Feature(name="gc_content", dtype=float).save()
 
-    # set a feature value for the record
-    sample1.features.set_values({"gc_content": 0.5})
+    # create a record to track a sample
+    sample1 = ln.Record(name="Sample 1", features={"gc_content": 0.5}).save()
 
     # describe the record
     sample1.describe()
@@ -77,7 +74,7 @@ def test_record_initialization():
     with pytest.raises(
         FieldValidationError,
         match=re.escape(
-            "Only name, type, is_type, description, schema, reference, reference_type are valid keyword arguments"
+            "Only name, type, is_type, features, description, schema, reference, reference_type are valid keyword arguments"
         ),
     ):
         ln.Record(x=1)
@@ -85,6 +82,17 @@ def test_record_initialization():
     with pytest.raises(ValueError) as error:
         ln.Record(1)
     assert error.exconly() == "ValueError: Only one non-keyword arg allowed"
+
+
+def test_record_lazy_features_on_save():
+    score_feature = ln.Feature(name="lazy_score", dtype=float).save()
+    record = ln.Record(name="lazy-record", features={"lazy_score": 0.7}).save()
+
+    assert not hasattr(record, "_features")
+    assert ln.Record.filter(lazy_score=0.7).one().id == record.id
+
+    record.delete(permanent=True)
+    score_feature.delete(permanent=True)
 
 
 def test_record_plural_type_warning(ccaplog):

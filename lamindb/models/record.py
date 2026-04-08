@@ -73,16 +73,13 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
 
     Examples:
 
-        Create a **record** and annotate it with features::
-
-            # create a record to track a sample
-            sample1 = ln.Record(name="Sample 1").save()
+        Create a **record** and initialize it with features::
 
             # create a feature if you don't yet have one
             gc_content = ln.Feature(name="gc_content", dtype=float).save()
 
-            # set a feature value for the record
-            sample1.features.set_values({"gc_content": 0.5})
+            # create a record to track a sample
+            sample1 = ln.Record(name="Sample 1", features={"gc_content": 0.5}).save()
 
             # describe the record
             sample1.describe()
@@ -327,6 +324,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         name: str | None = None,
         type: Record | None = None,
         is_type: bool = False,
+        features: dict[str | Feature, Any] | None = None,
         description: str | None = None,
         schema: Schema | None = None,
         reference: str | None = None,
@@ -352,6 +350,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         name: str = kwargs.pop("name", None)
         type: str | None = kwargs.pop("type", None)
         is_type: bool = kwargs.pop("is_type", False)
+        features: dict[str | Feature, Any] | None = kwargs.pop("features", None)
         description: str | None = kwargs.pop("description", None)
         schema: Schema | None = kwargs.pop("schema", None)
         reference: str | None = kwargs.pop("reference", None)
@@ -370,6 +369,8 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         if schema and not is_type:
             logger.important("passing schema, treating as type")
             is_type = True
+        if features is not None:
+            self._features = features
         super().__init__(
             name=name,
             type=type,
@@ -385,6 +386,14 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
             _skip_validation=_skip_validation,
             _aux=_aux,
         )
+
+    def save(self, *args, **kwargs) -> Record:
+        super().save(*args, **kwargs)
+        if hasattr(self, "_features"):
+            pending_features = self._features
+            self.features.add_values(pending_features)
+            del self._features
+        return self
 
     @property
     def features(self) -> FeatureManager:

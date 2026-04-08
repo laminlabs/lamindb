@@ -73,6 +73,43 @@ def test_save_batch_size():
     assert ln.Record.filter(name__in=label_names).distinct().count() == 3
 
 
+def test_bulk_save_lazy_record_features():
+    cell_type = ln.Record(name="lazy-cell-type", is_type=True).save()
+    ln.Record(name="lazy-b-cell", type=cell_type).save()
+    ln.Record(name="lazy-t-cell", type=cell_type).save()
+    score_feature = ln.Feature(name="lazy-bulk-score", dtype=float).save()
+    cell_feature = ln.Feature(name="lazy-bulk-cell", dtype=cell_type).save()
+
+    records = [
+        ln.Record(
+            name="lazy-sample-1",
+            features={"lazy-bulk-score": 0.1, "lazy-bulk-cell": "lazy-b-cell"},
+        ),
+        ln.Record(
+            name="lazy-sample-2",
+            features={"lazy-bulk-score": 0.2, "lazy-bulk-cell": "lazy-t-cell"},
+        ),
+    ]
+    ln.save(records)
+
+    sample_1 = ln.Record.get(name="lazy-sample-1")
+    sample_2 = ln.Record.get(name="lazy-sample-2")
+    sample_1_values = sample_1.features.get_values()
+    sample_2_values = sample_2.features.get_values()
+    assert sample_1_values["lazy-bulk-score"] == 0.1
+    assert sample_2_values["lazy-bulk-score"] == 0.2
+    assert sample_1_values["lazy-bulk-cell"] == "lazy-b-cell"
+    assert sample_2_values["lazy-bulk-cell"] == "lazy-t-cell"
+    assert not hasattr(records[0], "_features")
+    assert not hasattr(records[1], "_features")
+
+    ln.Record.filter(name__in=["lazy-sample-1", "lazy-sample-2"]).delete(permanent=True)
+    ln.Record.filter(name__in=["lazy-b-cell", "lazy-t-cell"]).delete(permanent=True)
+    ln.Record.filter(name="lazy-cell-type").delete(permanent=True)
+    score_feature.delete(permanent=True)
+    cell_feature.delete(permanent=True)
+
+
 def test_bulk_resave_trashed_records():
     import bionty as bt
 

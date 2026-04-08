@@ -97,6 +97,15 @@ def save(
             from bionty.core import add_ontology
 
             add_ontology(non_artifacts_with_parents)
+        records_with_lazy_features = [
+            record
+            for record in non_artifacts
+            if record.__class__.__name__ == "Record" and hasattr(record, "_features")
+        ]
+        if records_with_lazy_features:
+            from ._feature_manager import add_values_to_records
+
+            add_values_to_records(records_with_lazy_features)
 
     if artifacts:
         with transaction.atomic():
