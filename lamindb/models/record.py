@@ -408,16 +408,22 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         cls,
         df: pd.DataFrame,
         *,
-        type: Record,
+        type: Record | str,
         name_field: str = "__lamindb_record_name__",
     ) -> SQLRecordList[Record]:
         """Construct records from a dataframe for bulk saving.
 
+        Returns unsaved records. Follow with `records.save()` or `ln.save(records)`.
+
         Args:
             df: A dataframe where rows represent records.
-            type: Record type for all rows. If this
-                type is a sheet (`type.schema is not None`), feature values are
-                validated against that schema (for efficiency at save time).
+            type: Record type for all rows as either a `Record` object or a
+                string. If passing a string, a new type with that name is created
+                under `Imports` with an inferred schema from the dataframe.
+                If that type name already exists, raise an error and pass an
+                existing `Record` object for reuse.
+                If the resolved type is a sheet (`type.schema is not None`), feature
+                values are validated against that schema at save time.
             name_field: Column used for record names. Falls back to `name` if
                 absent. If neither exists, records are created without names.
 
@@ -428,16 +434,48 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
                 records = ln.Record.from_dataframe(df, type=sample_sheet)
                 records.save()
 
+            Create a new import type and bulk-save records::
+
+                records = ln.Record.from_dataframe(df, type="my_df")
+                ln.save(records)
+
         """
         import pandas as pd
 
         from .query_set import SQLRecordList
+        from .schema import Schema
 
         if not isinstance(df, pd.DataFrame):
             raise TypeError("`df` needs to be a pandas DataFrame.")
-        if not type.is_type:
+        resolved_type: Record
+        if isinstance(type, str):
+            imports_type = cls.filter(name="Imports", is_type=True).one_or_none()
+            if imports_type is None:
+                imports_type = cls(name="Imports", is_type=True).save()
+            existing_type = cls.filter(
+                name=type, is_type=True, type=imports_type
+            ).one_or_none()
+            if existing_type is not None:
+                raise ValueError(
+                    f"type '{type}' already exists under 'Imports', please pass it as a Record object to reuse."
+                )
+            inferred_schema = Schema.from_dataframe(df, name=type)
+            if inferred_schema is None:
+                raise ValueError(
+                    "Could not infer a schema from dataframe columns. "
+                    "Ensure dataframe columns map to existing Features, or pass an existing Record type object."
+                )
+            resolved_type = cls(
+                name=type,
+                is_type=True,
+                type=imports_type,
+                schema=inferred_schema.save(),
+            ).save()
+        else:
+            resolved_type = type
+        if not resolved_type.is_type:
             raise ValueError("`type` needs to be a record type (`is_type=True`).")
-        if type.name is None:
+        if resolved_type.name is None:
             raise ValueError("`type` needs to have a non-null `name`.")
 
         records: list[Record] = []
@@ -458,7 +496,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
                     continue
                 features[key] = value
 
-            record_kwargs: dict[str, Any] = {"type": type}
+            record_kwargs: dict[str, Any] = {"type": resolved_type}
             if features:
                 record_kwargs["features"] = features
             records.append(cls(name=name, **record_kwargs))

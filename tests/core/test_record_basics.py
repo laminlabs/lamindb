@@ -143,6 +143,59 @@ def test_record_from_dataframe_requires_named_type():
     non_type_record.delete(permanent=True)
 
 
+def test_record_from_dataframe_with_string_type_creates_import_type():
+    score = ln.Feature(name="from-df-str-score", dtype=float).save()
+    df = pd.DataFrame(
+        {
+            "__lamindb_record_name__": ["from-df-str-a", "from-df-str-b"],
+            "from-df-str-score": [11.0, 12.0],
+        }
+    )
+    records = ln.Record.from_dataframe(df, type="from-df-str-type")
+    created_type = ln.Record.get(name="from-df-str-type", is_type=True)
+    imports_type = ln.Record.get(name="Imports", is_type=True)
+
+    assert len(records) == 2
+    assert all(record.type_id == created_type.id for record in records)
+    assert created_type.type_id == imports_type.id
+    assert created_type.schema_id is not None
+
+    ln.save(records)
+    assert (
+        ln.Record.get(name="from-df-str-a").features.get_values()["from-df-str-score"]
+        == 11.0
+    )
+
+    ln.Record.filter(name__in=["from-df-str-a", "from-df-str-b"]).delete(permanent=True)
+    ln.Record.filter(name="from-df-str-type").delete(permanent=True)
+    ln.Schema.filter(id=created_type.schema_id).delete(permanent=True)
+    score.delete(permanent=True)
+
+
+def test_record_from_dataframe_with_string_type_duplicate_name_errors():
+    score = ln.Feature(name="from-df-dup-score", dtype=float).save()
+    schema = ln.Schema([score], name="from-df-dup-schema").save()
+    imports_type = ln.Record.filter(name="Imports", is_type=True).one_or_none()
+    if imports_type is None:
+        imports_type = ln.Record(name="Imports", is_type=True).save()
+    ln.Record(
+        name="from-df-dup-type", is_type=True, schema=schema, type=imports_type
+    ).save()
+    df = pd.DataFrame(
+        {
+            "__lamindb_record_name__": ["from-df-dup-a"],
+            "from-df-dup-score": [21.0],
+        }
+    )
+
+    with pytest.raises(ValueError, match="already exists"):
+        ln.Record.from_dataframe(df, type="from-df-dup-type")
+
+    ln.Record.filter(name="from-df-dup-type").delete(permanent=True)
+    schema.delete(permanent=True)
+    score.delete(permanent=True)
+
+
 def test_feature_manager_raise_not_validated_values():
     from lamindb.models._feature_manager import FeatureManager
 
