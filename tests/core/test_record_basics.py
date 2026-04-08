@@ -129,6 +129,20 @@ def test_record_from_dataframe_bulk_save_paths():
     score.delete(permanent=True)
 
 
+def test_record_from_dataframe_requires_named_type():
+    df = pd.DataFrame({"__lamindb_record_name__": ["x"], "score": [1.0]})
+    non_type_record = ln.Record(name="from-df-non-type").save()
+    unnamed_type = ln.Record(name="from-df-temp-type", is_type=True)
+    unnamed_type.name = None
+
+    with pytest.raises(ValueError, match="is_type=True"):
+        ln.Record.from_dataframe(df, type=non_type_record)
+    with pytest.raises(ValueError, match="non-null `name`"):
+        ln.Record.from_dataframe(df, type=unnamed_type)
+
+    non_type_record.delete(permanent=True)
+
+
 def test_feature_manager_raise_not_validated_values():
     from lamindb.models._feature_manager import FeatureManager
 

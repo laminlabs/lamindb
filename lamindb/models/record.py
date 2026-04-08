@@ -117,6 +117,11 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
             #>            Experiment 1   ...
             #>            Experiment 2   ...
 
+        Bulk-create records from a dataframe via :meth:`~lamindb.Record.from_dataframe`::
+
+            records = ln.Record.from_dataframe(df, type=sample_sheet)
+            ln.save(records)
+
         If you try to set incomplete features in a record in a sheet, you'll get a validation error::
 
             sample2 = ln.Record(name="Sample 2", type=sample_sheet).save()
@@ -403,19 +408,26 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         cls,
         df: pd.DataFrame,
         *,
-        type: Record | None = None,
+        type: Record,
         name_field: str = "__lamindb_record_name__",
     ) -> SQLRecordList[Record]:
         """Construct records from a dataframe for bulk saving.
 
-        Returns unsaved records. Follow with ``records.save()`` or ``ln.save(records)``.
-
         Args:
             df: A dataframe where rows represent records.
-            type: Optional record type for all rows. For lazy bulk features, this
-                should be a type with a schema.
-            name_field: Column used for record names. Falls back to ``name`` if
+            type: Record type for all rows. If this
+                type is a sheet (`type.schema is not None`), feature values are
+                validated against that schema (for efficiency at save time).
+            name_field: Column used for record names. Falls back to `name` if
                 absent. If neither exists, records are created without names.
+
+        Examples:
+
+            Create records for a type and save through `records.save()`::
+
+                records = ln.Record.from_dataframe(df, type=sample_sheet)
+                records.save()
+
         """
         import pandas as pd
 
@@ -423,6 +435,10 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
 
         if not isinstance(df, pd.DataFrame):
             raise TypeError("`df` needs to be a pandas DataFrame.")
+        if not type.is_type:
+            raise ValueError("`type` needs to be a record type (`is_type=True`).")
+        if type.name is None:
+            raise ValueError("`type` needs to have a non-null `name`.")
 
         records: list[Record] = []
         row_dicts = df.to_dict(orient="records")
@@ -442,7 +458,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
                     continue
                 features[key] = value
 
-            record_kwargs: dict[str, Any] = {"type": type} if type is not None else {}
+            record_kwargs: dict[str, Any] = {"type": type}
             if features:
                 record_kwargs["features"] = features
             records.append(cls(name=name, **record_kwargs))
