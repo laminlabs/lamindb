@@ -15,7 +15,7 @@ from lamindb.base.fields import (
     JSONField,
     TextField,
 )
-from lamindb.base.utils import class_and_instance_method
+from lamindb.base.utils import class_and_instance_method, strict_classmethod
 from lamindb.errors import FieldValidationError
 
 from ..base.uids import base62_16
@@ -44,6 +44,7 @@ if TYPE_CHECKING:
     from .block import RecordBlock
     from .project import Project, RecordProject, RecordReference, Reference
     from .query_manager import RelatedManager
+    from .query_set import SQLRecordList
     from .schema import Schema
 
 
@@ -61,6 +62,8 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         type: `Record | None = None` The type of this record.
         is_type: `bool = False` Whether this record is a type (a record that
             classifies other records).
+        features: `dict[str | Feature, Any] | None = None` Lazy feature values
+            to persist on `.save()` or `ln.save([...])`.
         schema: `Schema | None = None` A schema defining allowed features for records of this type. Only applicable when `is_type=True`.
         reference: `str | None = None` For instance, an external ID or a URL.
         reference_type: `str | None = None` For instance, `"url"`.
@@ -394,6 +397,56 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
             self.features.add_values(pending_features)
             del self._features
         return self
+
+    @strict_classmethod
+    def from_dataframe(
+        cls,
+        df: pd.DataFrame,
+        *,
+        type: Record | None = None,
+        name_field: str = "__lamindb_record_name__",
+    ) -> SQLRecordList[Record]:
+        """Construct records from a dataframe for bulk saving.
+
+        Returns unsaved records. Follow with ``records.save()`` or ``ln.save(records)``.
+
+        Args:
+            df: A dataframe where rows represent records.
+            type: Optional record type for all rows. For lazy bulk features, this
+                should be a type with a schema.
+            name_field: Column used for record names. Falls back to ``name`` if
+                absent. If neither exists, records are created without names.
+        """
+        import pandas as pd
+
+        from .query_set import SQLRecordList
+
+        if not isinstance(df, pd.DataFrame):
+            raise TypeError("`df` needs to be a pandas DataFrame.")
+
+        records: list[Record] = []
+        row_dicts = df.to_dict(orient="records")
+        for row in row_dicts:
+            if name_field in row:
+                name = row.pop(name_field)
+            elif "name" in row:
+                name = row.pop("name")
+            else:
+                name = None
+            if pd.api.types.is_scalar(name) and pd.isna(name):
+                name = None
+
+            features: dict[str, Any] = {}
+            for key, value in row.items():
+                if pd.api.types.is_scalar(value) and pd.isna(value):
+                    continue
+                features[key] = value
+
+            record_kwargs: dict[str, Any] = {"type": type} if type is not None else {}
+            if features:
+                record_kwargs["features"] = features
+            records.append(cls(name=name, **record_kwargs))
+        return SQLRecordList(records)
 
     @property
     def features(self) -> FeatureManager:

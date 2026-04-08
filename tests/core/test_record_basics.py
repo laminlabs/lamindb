@@ -95,6 +95,40 @@ def test_record_lazy_features_on_save():
     score_feature.delete(permanent=True)
 
 
+def test_record_from_dataframe_bulk_save_paths():
+    score = ln.Feature(name="from-df-score", dtype=float).save()
+    schema = ln.Schema([score], name="from-df-schema").save()
+    sheet = ln.Record(name="from-df-sheet", is_type=True, schema=schema).save()
+    df = pd.DataFrame(
+        {
+            "__lamindb_record_name__": ["from-df-a", "from-df-b"],
+            "from-df-score": [1.0, 2.0],
+        }
+    )
+
+    records = ln.Record.from_dataframe(df, type=sheet)
+    assert len(records) == 2
+    records.save()
+    assert ln.Record.get(name="from-df-a").features.get_values()["from-df-score"] == 1.0
+
+    df2 = pd.DataFrame(
+        {
+            "__lamindb_record_name__": ["from-df-c"],
+            "from-df-score": [3.0],
+        }
+    )
+    records_2 = ln.Record.from_dataframe(df2, type=sheet)
+    ln.save(records_2)
+    assert ln.Record.get(name="from-df-c").features.get_values()["from-df-score"] == 3.0
+
+    ln.Record.filter(name__in=["from-df-a", "from-df-b", "from-df-c"]).delete(
+        permanent=True
+    )
+    ln.Record.filter(name="from-df-sheet").delete(permanent=True)
+    schema.delete(permanent=True)
+    score.delete(permanent=True)
+
+
 def test_record_plural_type_warning(ccaplog):
     ln.Record(name="MyThings", is_type=True)
     assert (
