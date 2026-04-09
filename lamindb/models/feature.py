@@ -926,7 +926,7 @@ END;
 
 
 class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
-    """Dimensions of measurement such as dataframe columns or dictionary keys.
+    """Measurable properties such as dataframe columns or record fields.
 
     Features represent *what* is measured in a dataset—the variables or dimensions along which data is organized.
     They enable you to query datasets based on their structure and corresponding label annotations.
