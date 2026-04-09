@@ -49,7 +49,7 @@ if TYPE_CHECKING:
 
 # keep docstring in sync with test_record_docstring_examples in test_record_basics.py
 class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates):
-    """Flexible metadata records.
+    """Flexible records with sheets & markdown pages.
 
     Useful for managing samples, donors, cells, compounds, sequences, and other custom entities with their features.
 
