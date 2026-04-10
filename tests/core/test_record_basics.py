@@ -8,17 +8,15 @@ import pandas as pd
 import pytest
 from django.db import IntegrityError
 from lamindb.errors import FieldValidationError
+from lamindb.models.record import IMPORTS_UID, SCHEMA_IMPORTS_UID
 
 
 def test_record_docstring_examples():
-    # create a record to track a sample
-    sample1 = ln.Record(name="Sample 1").save()
-
     # create a feature if you don't yet have one
     gc_content = ln.Feature(name="gc_content", dtype=float).save()
 
-    # set a feature value for the record
-    sample1.features.set_values({"gc_content": 0.5})
+    # create a record to track a sample
+    sample1 = ln.Record(name="Sample 1", features={"gc_content": 0.5}).save()
 
     # describe the record
     sample1.describe()
@@ -77,7 +75,7 @@ def test_record_initialization():
     with pytest.raises(
         FieldValidationError,
         match=re.escape(
-            "Only name, type, is_type, description, schema, reference, reference_type are valid keyword arguments"
+            "Only name, type, is_type, features, description, schema, reference, reference_type are valid keyword arguments"
         ),
     ):
         ln.Record(x=1)
@@ -87,11 +85,163 @@ def test_record_initialization():
     assert error.exconly() == "ValueError: Only one non-keyword arg allowed"
 
 
-def test_record_plural_type_warning(ccaplog):
-    ln.Record(name="MyThings", is_type=True)
+def test_record_lazy_features_on_save():
+    score_feature = ln.Feature(name="lazy_score", dtype=float).save()
+    record = ln.Record(name="lazy-record", features={"lazy_score": 0.7}).save()
+
+    assert not hasattr(record, "_features")
+    assert ln.Record.filter(lazy_score=0.7).one().id == record.id
+
+    record.delete(permanent=True)
+    score_feature.delete(permanent=True)
+
+
+def test_record_from_dataframe_bulk_save_paths():
+    score = ln.Feature(name="from-df-score", dtype=float).save()
+    schema = ln.Schema([score], name="from-df-schema").save()
+    sheet = ln.Record(name="from-df-sheet", is_type=True, schema=schema).save()
+    df = pd.DataFrame(
+        {
+            "__lamindb_record_name__": ["from-df-a", "from-df-b"],
+            "from-df-score": [1.0, 2.0],
+        }
+    )
+
+    records = ln.Record.from_dataframe(df, type=sheet)
+    assert len(records) == 2
+    records.save()
+    assert ln.Record.get(name="from-df-a").features.get_values()["from-df-score"] == 1.0
+
+    df2 = pd.DataFrame(
+        {
+            "__lamindb_record_name__": ["from-df-c"],
+            "from-df-score": [3.0],
+        }
+    )
+    records_2 = ln.Record.from_dataframe(df2, type=sheet)
+    ln.save(records_2)
+    assert ln.Record.get(name="from-df-c").features.get_values()["from-df-score"] == 3.0
+
+    ln.Record.filter(name__in=["from-df-a", "from-df-b", "from-df-c"]).delete(
+        permanent=True
+    )
+    ln.Record.filter(name="from-df-sheet").delete(permanent=True)
+    schema.delete(permanent=True)
+    score.delete(permanent=True)
+
+
+def test_record_from_dataframe_requires_named_type():
+    df = pd.DataFrame({"__lamindb_record_name__": ["x"], "score": [1.0]})
+    non_type_record = ln.Record(name="from-df-non-type").save()
+    unnamed_type = ln.Record(name="from-df-temp-type", is_type=True)
+    unnamed_type.name = None
+
+    with pytest.raises(ValueError, match="is_type=True"):
+        ln.Record.from_dataframe(df, type=non_type_record)
+    with pytest.raises(ValueError, match="non-null `name`"):
+        ln.Record.from_dataframe(df, type=unnamed_type)
+
+    non_type_record.delete(permanent=True)
+
+
+def test_record_from_dataframe_with_string_type_creates_import_type():
+    score = ln.Feature(name="from-df-str-score", dtype=float).save()
+    df = pd.DataFrame(
+        {
+            "__lamindb_record_name__": ["from-df-str-a", "from-df-str-b"],
+            "from-df-str-score": [11.0, 12.0],
+        }
+    )
+    imports_type = ln.Record.filter(uid=IMPORTS_UID).one_or_none()
+    original_imports_name = None
+    if imports_type is not None:
+        original_imports_name = imports_type.name
+        imports_type.name = "from-df-renamed-imports-parent"
+        imports_type.save()
+
+    try:
+        records = ln.Record.from_dataframe(df, type="from-df-str-type")
+        created_type = ln.Record.get(name="from-df-str-type", is_type=True)
+        imports_type = ln.Record.get(uid=IMPORTS_UID)
+
+        assert len(records) == 2
+        assert all(record.type_id == created_type.id for record in records)
+        assert created_type.type_id == imports_type.id
+        assert created_type.schema.type is not None
+        assert created_type.schema.type.uid == SCHEMA_IMPORTS_UID
+        assert created_type.schema_id is not None
+
+        ln.save(records)
+        assert (
+            ln.Record.get(name="from-df-str-a").features.get_values()[
+                "from-df-str-score"
+            ]
+            == 11.0
+        )
+    finally:
+        created_type = ln.Record.filter(
+            name="from-df-str-type", is_type=True
+        ).one_or_none()
+        ln.Record.filter(name__in=["from-df-str-a", "from-df-str-b"]).delete(
+            permanent=True
+        )
+        ln.Record.filter(name="from-df-str-type").delete(permanent=True)
+        if created_type is not None and created_type.schema_id is not None:
+            ln.Schema.filter(id=created_type.schema_id).delete(permanent=True)
+        if original_imports_name is not None:
+            imports_type = ln.Record.get(uid=IMPORTS_UID)
+            imports_type.name = original_imports_name
+            imports_type.save()
+        score.delete(permanent=True)
+
+
+def test_record_from_dataframe_with_string_type_duplicate_name_errors():
+    score = ln.Feature(name="from-df-dup-score", dtype=float).save()
+    schema = ln.Schema([score], name="from-df-dup-schema").save()
+    imports_type = ln.Record.filter(uid=IMPORTS_UID).one_or_none()
+    if imports_type is None:
+        imports_type = ln.Record(name="Imports", is_type=True)
+        imports_type.uid = IMPORTS_UID
+        imports_type = imports_type.save()
+    ln.Record(
+        name="from-df-dup-type", is_type=True, schema=schema, type=imports_type
+    ).save()
+    df = pd.DataFrame(
+        {
+            "__lamindb_record_name__": ["from-df-dup-a"],
+            "from-df-dup-score": [21.0],
+        }
+    )
+
+    with pytest.raises(ValueError, match="already exists"):
+        ln.Record.from_dataframe(df, type="from-df-dup-type")
+
+    ln.Record.filter(name="from-df-dup-type").delete(permanent=True)
+    schema.delete(permanent=True)
+    score.delete(permanent=True)
+
+
+def test_feature_manager_raise_not_validated_values():
+    from lamindb.models._feature_manager import FeatureManager
+
+    assert FeatureManager._raise_not_validated_values({}) is None
+
+    with pytest.raises(ln.errors.ValidationError) as error:
+        FeatureManager._raise_not_validated_values(
+            {
+                "Record": ("name", ["missing-record"]),
+                "bionty.Gene": ("symbol", ["missing-gene"]),
+            }
+        )
+    message = str(error.value)
+    assert "These values could not be validated" in message
     assert (
-        "name 'MyThings' for type ends with 's', in case you're naming with plural, consider the singular for a type name"
-        in ccaplog.text
+        "records = ln.Record.from_values(['missing-record'], field='name', create=True).save()"
+        in message
+    )
+    assert (
+        "records = bionty.Gene.from_values(['missing-gene'], field='symbol').save()"
+        in message
     )
 
 

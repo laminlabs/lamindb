@@ -15,7 +15,7 @@ from lamindb.base.fields import (
     JSONField,
     TextField,
 )
-from lamindb.base.utils import class_and_instance_method
+from lamindb.base.utils import class_and_instance_method, strict_classmethod
 from lamindb.errors import FieldValidationError
 
 from ..base.uids import base62_16
@@ -44,10 +44,15 @@ if TYPE_CHECKING:
     from .block import RecordBlock
     from .project import Project, RecordProject, RecordReference, Reference
     from .query_manager import RelatedManager
+    from .query_set import SQLRecordList
     from .schema import Schema
 
 
 # keep docstring in sync with test_record_docstring_examples in test_record_basics.py
+IMPORTS_UID = "W3WdiFRZTvTJajNp"
+SCHEMA_IMPORTS_UID = "DGZkj4yhGWMJE5fu"
+
+
 class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates):
     """Flexible records with sheets & markdown pages.
 
@@ -61,6 +66,8 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         type: `Record | None = None` The type of this record.
         is_type: `bool = False` Whether this record is a type (a record that
             classifies other records).
+        features: `dict[str | Feature, Any] | None = None` Lazy feature values
+            to persist on `.save()` or `ln.save([...])`.
         schema: `Schema | None = None` A schema defining allowed features for records of this type. Only applicable when `is_type=True`.
         reference: `str | None = None` For instance, an external ID or a URL.
         reference_type: `str | None = None` For instance, `"url"`.
@@ -73,16 +80,13 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
 
     Examples:
 
-        Create a **record** and annotate it with features::
-
-            # create a record to track a sample
-            sample1 = ln.Record(name="Sample 1").save()
+        Create a **record** with a single feature::
 
             # create a feature if you don't yet have one
             gc_content = ln.Feature(name="gc_content", dtype=float).save()
 
-            # set a feature value for the record
-            sample1.features.set_values({"gc_content": 0.5})
+            # create a record to track a sample
+            sample1 = ln.Record(name="Sample 1", features={"gc_content": 0.5}).save()
 
             # describe the record
             sample1.describe()
@@ -116,6 +120,10 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
             #> __lamindb_record_name__   ...
             #>            Experiment 1   ...
             #>            Experiment 2   ...
+
+        Import records from a dataframe :meth:`~lamindb.Record.from_dataframe`::
+
+            records = ln.Record.from_dataframe(df, type="my_df").save()  # creates a type my_df with inferred schema
 
         If you try to set incomplete features in a record in a sheet, you'll get a validation error::
 
@@ -327,6 +335,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         name: str | None = None,
         type: Record | None = None,
         is_type: bool = False,
+        features: dict[str | Feature, Any] | None = None,
         description: str | None = None,
         schema: Schema | None = None,
         reference: str | None = None,
@@ -352,6 +361,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         name: str = kwargs.pop("name", None)
         type: str | None = kwargs.pop("type", None)
         is_type: bool = kwargs.pop("is_type", False)
+        features: dict[str | Feature, Any] | None = kwargs.pop("features", None)
         description: str | None = kwargs.pop("description", None)
         schema: Schema | None = kwargs.pop("schema", None)
         reference: str | None = kwargs.pop("reference", None)
@@ -370,6 +380,8 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         if schema and not is_type:
             logger.important("passing schema, treating as type")
             is_type = True
+        if features is not None:
+            self._features = features
         super().__init__(
             name=name,
             type=type,
@@ -385,6 +397,120 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
             _skip_validation=_skip_validation,
             _aux=_aux,
         )
+
+    def save(self, *args, **kwargs) -> Record:
+        super().save(*args, **kwargs)
+        if hasattr(self, "_features"):
+            pending_features = self._features
+            self.features.add_values(pending_features)
+            del self._features
+        return self
+
+    @strict_classmethod
+    def from_dataframe(
+        cls,
+        df: pd.DataFrame,
+        *,
+        type: Record | str,
+        name_field: str = "__lamindb_record_name__",
+    ) -> SQLRecordList[Record]:
+        """Construct records from a dataframe for bulk saving.
+
+        Returns unsaved records. Follow with `records.save()` or `ln.save(records)`.
+
+        Args:
+            df: A dataframe where rows represent records.
+            type: Record type for all rows as either a `Record` object or a
+                string. If passing a string, a new type with that name is created
+                under `Imports` with an inferred schema from the dataframe.
+                If that type name already exists, raise an error and pass an
+                existing `Record` object for reuse.
+                If the resolved type is a sheet (`type.schema is not None`), feature
+                values are validated against that schema at save time.
+            name_field: Column used for record names. Falls back to `name` if
+                absent. If neither exists, records are created without names.
+
+        Examples:
+
+            Create a new type and import records::
+
+                records = ln.Record.from_dataframe(df, type="my_df").save()
+
+            Import records into an existing type::
+
+                records = ln.Record.from_dataframe(df, type=sample_sheet).save()
+
+        """
+        import pandas as pd
+
+        from .query_set import SQLRecordList
+        from .schema import Schema
+
+        if not isinstance(df, pd.DataFrame):
+            raise TypeError("`df` needs to be a pandas DataFrame.")
+        resolved_type: Record
+        if isinstance(type, str):
+            imports_type = cls.filter(uid=IMPORTS_UID).one_or_none()
+            if imports_type is None:
+                imports_type = cls(name="Imports", is_type=True)
+                imports_type.uid = IMPORTS_UID
+                imports_type = imports_type.save()
+            existing_type = cls.filter(
+                name=type, is_type=True, type=imports_type
+            ).one_or_none()
+            if existing_type is not None:
+                raise ValueError(
+                    f"type '{type}' already exists under 'Imports', please pass it as a Record object to reuse."
+                )
+            imports_schema = Schema.filter(uid=SCHEMA_IMPORTS_UID).one_or_none()
+            if imports_schema is None:
+                imports_schema = Schema(name="Imports", is_type=True)
+                imports_schema.uid = SCHEMA_IMPORTS_UID
+                imports_schema = imports_schema.save()
+            inferred_schema = Schema.from_dataframe(df, name=type)
+            if inferred_schema is None:
+                raise ValueError(
+                    "Could not infer a schema from dataframe columns. "
+                    "Ensure dataframe columns map to existing Features, or pass an existing Record type object."
+                )
+            inferred_schema.type = imports_schema
+            inferred_schema = inferred_schema.save()
+            resolved_type = cls(
+                name=type,
+                is_type=True,
+                type=imports_type,
+                schema=inferred_schema,
+            ).save()
+        else:
+            resolved_type = type
+        if not resolved_type.is_type:
+            raise ValueError("`type` needs to be a record type (`is_type=True`).")
+        if resolved_type.name is None:
+            raise ValueError("`type` needs to have a non-null `name`.")
+
+        records: list[Record] = []
+        row_dicts = df.to_dict(orient="records")
+        for row in row_dicts:
+            if name_field in row:
+                name = row.pop(name_field)
+            elif "name" in row:
+                name = row.pop("name")
+            else:
+                name = None
+            if pd.api.types.is_scalar(name) and pd.isna(name):
+                name = None
+
+            features: dict[str, Any] = {}
+            for key, value in row.items():
+                if pd.api.types.is_scalar(value) and pd.isna(value):
+                    continue
+                features[key] = value
+
+            record_kwargs: dict[str, Any] = {"type": resolved_type}
+            if features:
+                record_kwargs["features"] = features
+            records.append(cls(name=name, **record_kwargs))
+        return SQLRecordList(records)
 
     @property
     def features(self) -> FeatureManager:

@@ -404,10 +404,6 @@ def validate_fields(record: SQLRecord, kwargs):
                 )
     # validate is_type
     if "is_type" in kwargs and "name" in kwargs and kwargs["is_type"]:
-        if kwargs["name"].endswith("s"):
-            logger.warning(
-                f"name '{kwargs['name']}' for type ends with 's', in case you're naming with plural, consider the singular for a type name"
-            )
         is_approx_pascal_case(kwargs["name"])
     if (
         "type" in kwargs

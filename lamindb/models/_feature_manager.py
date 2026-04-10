@@ -1332,6 +1332,121 @@ class FeatureManager:
                 seen_uids.add(feature.uid)
         return merged
 
+    @staticmethod
+    def _raise_not_validated_values(
+        not_validated_values: dict[str, tuple[str, list[str]]],
+    ) -> None:
+        if not not_validated_values:
+            return None
+        hint = ""
+        for key, (field, values_list) in not_validated_values.items():
+            key_str = "ln.Record" if key == "Record" else key
+            create_true = ", create=True" if "bionty." not in key else ""
+            hint += f"  records = {key_str}.from_values({values_list}, field='{field}'{create_true}).save()\n"
+        msg = (
+            f"These values could not be validated: {dict(not_validated_values)}\n"
+            f"Here is how to create records for them:\n\n{hint}"
+        )
+        raise ValidationError(msg)
+
+    def _collect_record_feature_writes(
+        self,
+        *,
+        record,
+        feature_objects: list[Feature],
+        dictionary: dict[str, Any],
+        values_by_feature_uid: dict[str, Any] | None,
+        feature_json_values: list,
+        links_by_model: dict,
+        not_validated_values: dict[str, tuple[str, list[str]]],
+    ) -> None:
+        from ..base.dtypes import is_iterable_of_sqlrecord
+        from .can_curate import CanCurate
+        from .record import RecordJson
+
+        for feature in feature_objects:
+            if (
+                values_by_feature_uid is not None
+                and feature.uid in values_by_feature_uid
+            ):
+                value = values_by_feature_uid[feature.uid]
+            else:
+                value = dictionary[feature.name]
+            if value is None:
+                continue
+            if not (
+                feature.dtype_as_str.startswith("cat")
+                or feature.dtype_as_str.startswith("list[cat")
+            ):
+                _, converted_value, _ = infer_convert_dtype_key_value(
+                    key=feature.name, value=value, dtype_str=feature.dtype_as_str
+                )
+                feature_json_values.append(
+                    RecordJson(record=record, feature=feature, value=converted_value)
+                )
+                continue
+
+            if isinstance(value, SQLRecord) or is_iterable_of_sqlrecord(value):
+                if isinstance(value, SQLRecord):
+                    label_records = [value]
+                else:
+                    label_records = value  # type: ignore
+            else:
+                if isinstance(value, str):
+                    values = [value]  # type: ignore
+                else:
+                    values = value  # type: ignore
+                if feature._dtype_str == "cat":
+                    feature._dtype_str = "cat[ULabel]"
+                    feature.save()
+                    result = {
+                        "registry_str": "ULabel",
+                        "registry": ULabel,
+                        "field": ULabel.name,
+                    }
+                else:
+                    result = parse_dtype(feature._dtype_str)[0]
+                if issubclass(result["registry"], CanCurate):  # type: ignore
+                    validated = result["registry"].validate(  # type: ignore
+                        values, field=result["field"], mute=True
+                    )
+                    values_array = np.array(values)
+                    validated_values = values_array[validated]
+                    if validated.sum() != len(values):
+                        not_validated_values[result["registry_str"]] = (  # type: ignore
+                            result["field_str"],
+                            values_array[~validated].tolist(),
+                        )
+                    label_records = result["registry"].from_values(  # type: ignore
+                        validated_values, field=result["field"], mute=True
+                    )
+                else:
+                    label_records = result["registry"].filter(  # type: ignore
+                        **{f"{result['field_str']}__in": values}
+                    )
+                    if len(label_records) != len(values):
+                        raise ValidationError(
+                            f"Some of these values for {result['registry_str']} do not exist: {values}"
+                        )
+            for label_record in label_records:
+                if label_record._state.adding:
+                    raise ValidationError(
+                        f"Please save {label_record} before annotation."
+                    )
+                link_model, value_field_name, _ = get_categorical_link_info(
+                    record.__class__,
+                    label_record.__class__,
+                    instance=getattr(record._state, "db", None),
+                )
+                links_by_model[link_model].append(
+                    link_model(
+                        record_id=record.id,
+                        feature_id=feature.id,
+                        **{f"{value_field_name}_id": label_record.id},
+                    )
+                )
+        return None
+
     def add_values(
         self,
         values: dict[str | Feature, Any],
@@ -1455,9 +1570,31 @@ class FeatureManager:
     ):
         from ..base.dtypes import is_iterable_of_sqlrecord
         from .can_curate import CanCurate
-        from .record import RecordJson
 
         host_is_record = self._host.__class__.__name__ == "Record"
+        if host_is_record:
+            feature_json_values: list[SQLRecord] = []
+            links_by_model: dict[type[SQLRecord], list[SQLRecord]] = defaultdict(list)
+            record_not_validated_values: dict[str, tuple[str, list[str]]] = {}
+            self._collect_record_feature_writes(
+                record=self._host,
+                feature_objects=feature_objects,
+                dictionary=dictionary,
+                values_by_feature_uid=values_by_feature_uid,
+                feature_json_values=feature_json_values,
+                links_by_model=links_by_model,
+                not_validated_values=record_not_validated_values,
+            )
+            self._raise_not_validated_values(record_not_validated_values)
+            if feature_json_values:
+                save(feature_json_values)
+            for links in links_by_model.values():
+                try:
+                    save(links, ignore_conflicts=False)
+                except Exception:
+                    save(links, ignore_conflicts=True)
+            return None
+
         features_labels = defaultdict(list)
         feature_json_values = []
         not_validated_values: dict[str, tuple[str, list[str]]] = {}
@@ -1479,11 +1616,7 @@ class FeatureManager:
                     key=feature.name, value=value, dtype_str=feature.dtype_as_str
                 )
                 filter_kwargs = {"feature": feature, "value": converted_value}
-                if host_is_record:
-                    filter_kwargs["record"] = self._host
-                    feature_value = RecordJson(**filter_kwargs)
-                else:
-                    feature_value, _ = JsonValue.get_or_create(**filter_kwargs)
+                feature_value, _ = JsonValue.get_or_create(**filter_kwargs)
                 feature_json_values.append(feature_value)
             else:
                 if isinstance(value, SQLRecord) or is_iterable_of_sqlrecord(value):
@@ -1521,7 +1654,6 @@ class FeatureManager:
                         )
                         values_array = np.array(values)
                         validated_values = values_array[validated]
-                        key = result["registry_str"]
                         if validated.sum() != len(values):
                             not_validated_values[result["registry_str"]] = (  # type: ignore
                                 result["field_str"],
@@ -1541,24 +1673,12 @@ class FeatureManager:
                     features_labels[result["registry_str"]] += [  # type: ignore
                         (feature, label_record) for label_record in label_records
                     ]
-        # TODO: given we had already validated prior to calling _add_values, this blog below should never be reached
+        # TODO: given we had already validated prior to calling _add_values, this block below should never be reached
         # refactor this out if possible
-        if not_validated_values:
-            hint = ""
-            for key, (field, values_list) in not_validated_values.items():
-                key_str = "ln.Record" if key == "Record" else key
-                create_true = ", create=True" if "bionty." not in key else ""
-                hint += f"  records = {key_str}.from_values({values_list}, field='{field}'{create_true}).save()\n"
-            msg = (
-                f"These values could not be validated: {dict(not_validated_values)}\n"
-                f"Here is how to create records for them:\n\n{hint}"
-            )
-            raise ValidationError(msg)
+        self._raise_not_validated_values(not_validated_values)
         if features_labels:
             self._add_label_feature_links(features_labels)
-        if feature_json_values and host_is_record:
-            save(feature_json_values)
-        elif feature_json_values:
+        if feature_json_values:
             to_insertjson_values = [
                 record for record in feature_json_values if record._state.adding
             ]
@@ -1941,3 +2061,119 @@ class FeatureManager:
                     artifact_id=self._host.id, slot=slot
                 ).delete()
                 self._host.features._add_schema(schema_self, slot)
+
+
+def bulk_set_features_in_records(records: Iterable[Record]) -> None:
+    """Bulk-set lazy feature dictionaries for records.
+
+    Intended for records created via `Record(features=...)` and persisted with
+    `ln.save([...])`.
+    """
+    import pandas as pd
+
+    from lamindb.curators.core import DataFrameCurator
+
+    records_with_features = [
+        record
+        for record in records
+        if hasattr(record, "_features") and record._features is not None
+    ]
+    if len(records_with_features) == 0:
+        return None
+
+    batch_schema: Schema | None = None
+    prepared_records: list[
+        tuple[Record, FeatureManager, dict[str, Any], list[Feature], dict[str, Any]]
+    ] = []
+    prepared_rows: list[dict[str, Any]] = []
+    for record in records_with_features:
+        schema = None
+        if record.type is not None and record.type.schema is not None:
+            schema = record.type.schema
+        if schema is None:
+            raise ValidationError(
+                "Bulk setting features in records requires all records to have the same non-null type schema."
+            )
+        if batch_schema is None:
+            batch_schema = schema
+        elif schema.id != batch_schema.id:
+            raise ValidationError(
+                "Bulk setting features in records requires all records to have the same type schema."
+            )
+        manager = record.features
+        (
+            dictionary,
+            _,
+            explicit_features,
+            values_by_feature_uid,
+        ) = manager._resolve_feature_value_dictionary(record._features)
+        prepared_rows.append(dictionary)
+        prepared_records.append(
+            (record, manager, dictionary, explicit_features, values_by_feature_uid)
+        )
+
+    assert batch_schema is not None  # noqa: S101
+    schema_features = list(batch_schema.members.all())
+    dataframe = pd.DataFrame(prepared_rows)
+    for feature in schema_features:
+        if (
+            feature.name in dataframe
+            and feature.dtype_as_str.startswith("cat")
+            and not feature.dtype_as_str.startswith("list[cat")
+        ):
+            dataframe[feature.name] = dataframe[feature.name].astype("category")
+    DataFrameCurator(dataframe, batch_schema).validate()
+
+    members_by_name: dict[str, list[Feature]] = defaultdict(list)
+    schema_member_ids: set[int] = set()
+    for feature in schema_features:
+        members_by_name[feature.name].append(feature)
+        schema_member_ids.add(feature.id)
+
+    feature_json_values: list[SQLRecord] = []
+    links_by_model: dict[type[SQLRecord], list[SQLRecord]] = defaultdict(list)
+    not_validated_values: dict[str, tuple[str, list[str]]] = {}
+    for (
+        record,
+        manager,
+        dictionary,
+        explicit_features,
+        values_by_feature_uid,
+    ) in prepared_records:
+        keys = list(dictionary.keys())
+        features_not_in_schema = [
+            feature.name
+            for feature in explicit_features
+            if feature.id not in schema_member_ids
+        ]
+        if features_not_in_schema:
+            raise ValidationError(
+                "These feature keys are not in the provided schema: "
+                f"{features_not_in_schema}"
+            )
+        looked_up_features = [
+            feature for key in keys for feature in members_by_name.get(key, [])
+        ]
+        feature_objects = manager._merge_feature_objects(
+            explicit_features, looked_up_features
+        )
+        manager._collect_record_feature_writes(
+            record=record,
+            feature_objects=feature_objects,
+            dictionary=dictionary,
+            values_by_feature_uid=values_by_feature_uid,
+            feature_json_values=feature_json_values,
+            links_by_model=links_by_model,
+            not_validated_values=not_validated_values,
+        )
+    FeatureManager._raise_not_validated_values(not_validated_values)
+    if feature_json_values:
+        save(feature_json_values)
+    for links in links_by_model.values():
+        try:
+            save(links, ignore_conflicts=False)
+        except Exception:
+            save(links, ignore_conflicts=True)
+    for record in records_with_features:
+        del record._features
+    return None
