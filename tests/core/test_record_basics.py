@@ -8,6 +8,7 @@ import pandas as pd
 import pytest
 from django.db import IntegrityError
 from lamindb.errors import FieldValidationError
+from lamindb.models.record import IMPORTS_UID, SCHEMA_IMPORTS_UID
 
 
 def test_record_docstring_examples():
@@ -151,33 +152,57 @@ def test_record_from_dataframe_with_string_type_creates_import_type():
             "from-df-str-score": [11.0, 12.0],
         }
     )
-    records = ln.Record.from_dataframe(df, type="from-df-str-type")
-    created_type = ln.Record.get(name="from-df-str-type", is_type=True)
-    imports_type = ln.Record.get(name="Imports", is_type=True)
+    imports_type = ln.Record.filter(uid=IMPORTS_UID).one_or_none()
+    original_imports_name = None
+    if imports_type is not None:
+        original_imports_name = imports_type.name
+        imports_type.name = "from-df-renamed-imports-parent"
+        imports_type.save()
 
-    assert len(records) == 2
-    assert all(record.type_id == created_type.id for record in records)
-    assert created_type.type_id == imports_type.id
-    assert created_type.schema_id is not None
+    try:
+        records = ln.Record.from_dataframe(df, type="from-df-str-type")
+        created_type = ln.Record.get(name="from-df-str-type", is_type=True)
+        imports_type = ln.Record.get(uid=IMPORTS_UID)
 
-    ln.save(records)
-    assert (
-        ln.Record.get(name="from-df-str-a").features.get_values()["from-df-str-score"]
-        == 11.0
-    )
+        assert len(records) == 2
+        assert all(record.type_id == created_type.id for record in records)
+        assert created_type.type_id == imports_type.id
+        assert created_type.schema.type is not None
+        assert created_type.schema.type.uid == SCHEMA_IMPORTS_UID
+        assert created_type.schema_id is not None
 
-    ln.Record.filter(name__in=["from-df-str-a", "from-df-str-b"]).delete(permanent=True)
-    ln.Record.filter(name="from-df-str-type").delete(permanent=True)
-    ln.Schema.filter(id=created_type.schema_id).delete(permanent=True)
-    score.delete(permanent=True)
+        ln.save(records)
+        assert (
+            ln.Record.get(name="from-df-str-a").features.get_values()[
+                "from-df-str-score"
+            ]
+            == 11.0
+        )
+    finally:
+        created_type = ln.Record.filter(
+            name="from-df-str-type", is_type=True
+        ).one_or_none()
+        ln.Record.filter(name__in=["from-df-str-a", "from-df-str-b"]).delete(
+            permanent=True
+        )
+        ln.Record.filter(name="from-df-str-type").delete(permanent=True)
+        if created_type is not None and created_type.schema_id is not None:
+            ln.Schema.filter(id=created_type.schema_id).delete(permanent=True)
+        if original_imports_name is not None:
+            imports_type = ln.Record.get(uid=IMPORTS_UID)
+            imports_type.name = original_imports_name
+            imports_type.save()
+        score.delete(permanent=True)
 
 
 def test_record_from_dataframe_with_string_type_duplicate_name_errors():
     score = ln.Feature(name="from-df-dup-score", dtype=float).save()
     schema = ln.Schema([score], name="from-df-dup-schema").save()
-    imports_type = ln.Record.filter(name="Imports", is_type=True).one_or_none()
+    imports_type = ln.Record.filter(uid=IMPORTS_UID).one_or_none()
     if imports_type is None:
-        imports_type = ln.Record(name="Imports", is_type=True).save()
+        imports_type = ln.Record(name="Imports", is_type=True)
+        imports_type.uid = IMPORTS_UID
+        imports_type = imports_type.save()
     ln.Record(
         name="from-df-dup-type", is_type=True, schema=schema, type=imports_type
     ).save()

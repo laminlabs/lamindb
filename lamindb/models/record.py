@@ -49,6 +49,10 @@ if TYPE_CHECKING:
 
 
 # keep docstring in sync with test_record_docstring_examples in test_record_basics.py
+IMPORTS_UID = "W3WdiFRZTvTJajNp"
+SCHEMA_IMPORTS_UID = "DGZkj4yhGWMJE5fu"
+
+
 class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates):
     """Flexible metadata records.
 
@@ -449,9 +453,11 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
             raise TypeError("`df` needs to be a pandas DataFrame.")
         resolved_type: Record
         if isinstance(type, str):
-            imports_type = cls.filter(name="Imports", is_type=True).one_or_none()
+            imports_type = cls.filter(uid=IMPORTS_UID).one_or_none()
             if imports_type is None:
-                imports_type = cls(name="Imports", is_type=True).save()
+                imports_type = cls(name="Imports", is_type=True)
+                imports_type.uid = IMPORTS_UID
+                imports_type = imports_type.save()
             existing_type = cls.filter(
                 name=type, is_type=True, type=imports_type
             ).one_or_none()
@@ -459,17 +465,24 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
                 raise ValueError(
                     f"type '{type}' already exists under 'Imports', please pass it as a Record object to reuse."
                 )
+            imports_schema = Schema.filter(uid=SCHEMA_IMPORTS_UID).one_or_none()
+            if imports_schema is None:
+                imports_schema = Schema(name="Imports", is_type=True)
+                imports_schema.uid = SCHEMA_IMPORTS_UID
+                imports_schema = imports_schema.save()
             inferred_schema = Schema.from_dataframe(df, name=type)
             if inferred_schema is None:
                 raise ValueError(
                     "Could not infer a schema from dataframe columns. "
                     "Ensure dataframe columns map to existing Features, or pass an existing Record type object."
                 )
+            inferred_schema.type = imports_schema
+            inferred_schema = inferred_schema.save()
             resolved_type = cls(
                 name=type,
                 is_type=True,
                 type=imports_type,
-                schema=inferred_schema.save(),
+                schema=inferred_schema,
             ).save()
         else:
             resolved_type = type
