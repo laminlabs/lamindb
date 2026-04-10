@@ -80,7 +80,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
 
     Examples:
 
-        Create a **record** and initialize it with features::
+        Create a **record** with a single feature::
 
             # create a feature if you don't yet have one
             gc_content = ln.Feature(name="gc_content", dtype=float).save()
@@ -121,10 +121,9 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
             #>            Experiment 1   ...
             #>            Experiment 2   ...
 
-        Bulk-create records from a dataframe via :meth:`~lamindb.Record.from_dataframe`::
+        Import records from a dataframe :meth:`~lamindb.Record.from_dataframe`::
 
-            records = ln.Record.from_dataframe(df, type=sample_sheet)
-            ln.save(records)
+            records = ln.Record.from_dataframe(df, type="my_df").save()  # creates a type my_df with inferred schema
 
         If you try to set incomplete features in a record in a sheet, you'll get a validation error::
 
@@ -433,15 +432,13 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
 
         Examples:
 
-            Create records for a type and save through `records.save()`::
+            Create a new type and import records::
 
-                records = ln.Record.from_dataframe(df, type=sample_sheet)
-                records.save()
+                records = ln.Record.from_dataframe(df, type="my_df").save()
 
-            Create a new import type and bulk-save records::
+            Import records into an existing type::
 
-                records = ln.Record.from_dataframe(df, type="my_df")
-                ln.save(records)
+                records = ln.Record.from_dataframe(df, type=sample_sheet).save()
 
         """
         import pandas as pd
