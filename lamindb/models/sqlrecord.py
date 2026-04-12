@@ -1648,6 +1648,8 @@ class Branch(BaseSQLRecord):
     """Creator of branch."""
     _status_code: int = models.SmallIntegerField(default=0, db_default=0, db_index=True)
     """Status code. -2: closed; -1: merged; 0: standalone; 1: draft; 2: review."""
+    _aux: dict[str, Any] | None = JSONField(default=None, db_default=None, null=True)
+    """Auxiliary field for dictionary-like metadata."""
     ablocks: RelatedManager[BranchBlock]
     """Attached blocks ← :attr:`~lamindb.BranchBlock.branch`."""
     users: RelatedManager[User] = models.ManyToManyField(
