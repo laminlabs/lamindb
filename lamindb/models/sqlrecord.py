@@ -1533,7 +1533,7 @@ class Branch(BaseSQLRecord):
 
             sqlrecord.created_on.describe()
 
-        To open a Merge Request for a branch, run:
+        To open a Change Request for a branch, run:
 
         .. tab-set::
 
@@ -1678,11 +1678,11 @@ class Branch(BaseSQLRecord):
         =============  =====  ==================================================
         status         code   description
         =============  =====  ==================================================
-        `closed`       -2     Merge Request was closed without merging
+        `closed`       -2     Change Request was closed without merging
         `merged`       -1     the branch was merged into another branch
-        `standalone`   0      a standalone branch without Merge Request
-        `draft`        1      Merge Request exists but is not ready for review
-        `review`       2      Merge Request is ready for review
+        `standalone`   0      a standalone branch without Change Request
+        `draft`        1      Change Request exists but is not ready for review
+        `review`       2      Change Request is ready for review
         =============  =====  ==================================================
 
         The database stores the branch status as an integer code in field `_status_code`.
@@ -1694,12 +1694,12 @@ class Branch(BaseSQLRecord):
                 branch.status
                 #> 'standalone'
 
-            Open a Merge Request in draft state::
+            Open a Change Request in draft state::
 
                 branch.status = "draft"
                 branch.save()
 
-            Request review for the Merge Request::
+            Request review for the Change Request::
 
                 branch.status = "review"
                 branch.save()
