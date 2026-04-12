@@ -2,7 +2,7 @@
 
 The public API has two layers:
 
-- :class:`Checkpoint` is the concrete LaminDB implementation that persists checkpoint, config, and `hparams.yaml` files as :class:`lamindb.Artifact` records and annotates them with Lamin features.
+- :class:`Checkpoint` is the concrete LaminDB implementation that persists checkpoint, config, and `hparams.yaml` files as :class:`~lamindb.Artifact` objects and annotates them with :class:`~lamindb.Feature` objects.
 - :class:`ArtifactPublishingModelCheckpoint` is the generic extension layer adding checkpoint artifact lifecycle hooks without implementing Lamin persistence details yet.
 
 External integrations can either subclass :class:`Checkpoint` directly or attach
@@ -10,12 +10,17 @@ an :class:`ArtifactObserver` to react to saved and removed artifacts.
 
 Here is a guide: :doc:`lightning`.
 
+## Main API
+
 .. autoclass:: Checkpoint
+.. autofunction:: save_lightning_features
+
+## Auxiliary classes
+
 .. autoclass:: ArtifactPublishingModelCheckpoint
 .. autoclass:: SaveConfigCallback
 .. autoclass:: ArtifactSavedEvent
 .. autoclass:: ArtifactRemovedEvent
-.. autofunction:: save_lightning_features
 """
 
 from __future__ import annotations
@@ -783,8 +788,7 @@ class Checkpoint(ArtifactPublishingModelCheckpoint):
     If available in the database through `save_lightning_features()`, the following `lamindb.lightning` features are automatically tracked:
 
     - Artifact-level: `is_best_model`, `is_last_model`, `score`, `model_rank`, `save_weights_only`, `monitor`, `mode`
-    - Run-level: `logger_name`, `logger_version`, `max_epochs`, `max_steps`, `precision`,
-        `accumulate_grad_batches`, `gradient_clip_val`, `monitor`, `mode`
+    - Run-level: `logger_name`, `logger_version`, `max_epochs`, `max_steps`, `precision`, `accumulate_grad_batches`, `gradient_clip_val`, `monitor`, `mode`
 
     Additionally, model hyperparameters (from `pl_module.hparams`) and datamodule hyperparameters
     (from `trainer.datamodule.hparams`) are captured if corresponding features exist.
