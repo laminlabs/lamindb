@@ -110,15 +110,15 @@ DtypeObject = int | float | str | bool | datetime.date | datetime.datetime | dic
 
 DtypeStr = Literal[
     "num",  # numericals
-    "str",  # string
     "int",  # integer / numpy.integer
     "float",  # float
+    "str",  # string
     "bool",  # boolean
-    "date",  # date
     "datetime",  # datetime
+    "date",  # date
     "dict",  # dictionary
-    "object",  # this is a pandas input dtype, we're only using it for complicated types, not for strings
     "path",  # path, validated as str, but specially treated in the UI
+    "object",  # this is a pandas input dtype, we're only using it for complicated types, not for strings; consciously currently not documented
 ]
 """String-serialized representations of common data types.
 
