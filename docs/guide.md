@@ -20,6 +20,13 @@ sync
 
 ```{toctree}
 :hidden:
+:caption: Use cases
+
+lightning
+```
+
+```{toctree}
+:hidden:
 :caption: Other topics
 
 faq
