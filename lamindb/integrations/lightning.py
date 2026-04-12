@@ -2,15 +2,13 @@
 
 The public API has two layers:
 
-- :class:`Checkpoint` is the concrete LaminDB implementation that persists
-    checkpoint, config, and `hparams.yaml` files as :class:`lamindb.Artifact`
-    records and annotates them with Lamin features.
-- :class:`ArtifactPublishingModelCheckpoint` is the generic extension layer adding
-    checkpoint artifact lifecycle hooks without implementing Lamin persistence
-    details yet. Mostly done for clarity.
+- :class:`Checkpoint` is the concrete LaminDB implementation that persists checkpoint, config, and `hparams.yaml` files as :class:`lamindb.Artifact` records and annotates them with Lamin features.
+- :class:`ArtifactPublishingModelCheckpoint` is the generic extension layer adding checkpoint artifact lifecycle hooks without implementing Lamin persistence details yet.
 
 External integrations can either subclass :class:`Checkpoint` directly or attach
 an :class:`ArtifactObserver` to react to saved and removed artifacts.
+
+Here is a guide: :doc:`lightning`.
 
 .. autoclass:: Checkpoint
 .. autoclass:: ArtifactPublishingModelCheckpoint
