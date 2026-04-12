@@ -3,7 +3,7 @@
 The public API has two layers:
 
 - :class:`Checkpoint` is the concrete LaminDB implementation that persists
-    checkpoint, config, and ``hparams.yaml`` files as :class:`lamindb.Artifact`
+    checkpoint, config, and `hparams.yaml` files as :class:`lamindb.Artifact`
     records and annotates them with Lamin features.
 - :class:`ArtifactPublishingModelCheckpoint` is the generic extension layer adding
     checkpoint artifact lifecycle hooks without implementing Lamin persistence
@@ -86,9 +86,9 @@ class ArtifactEvent:
 class ArtifactSavedEvent(ArtifactEvent):
     """Metadata emitted after a checkpoint-related artifact has been persisted.
 
-    ``artifact`` is intentionally typed generically so downstream integrations can
+    `artifact` is intentionally typed generically so downstream integrations can
     expose their own persisted object while still using the common lifecycle API.
-    ``storage_uri`` is the stable hand-off value for registries such as ClearML.
+    `storage_uri` is the stable hand-off value for registries such as ClearML.
     """
 
     artifact: Any
@@ -259,8 +259,8 @@ class FeatureAnnotator:
     - Collection of run-level and checkpoint-level feature values
     - Best-model flag management and model rank updates
 
-    The annotator is decoupled from ``ModelCheckpoint`` state — checkpoint-specific
-    values (``best_model_path``, ``current_score``, ``mode``, etc.) are passed as
+    The annotator is decoupled from `ModelCheckpoint` state — checkpoint-specific
+    values (`best_model_path`, `current_score`, `mode`, etc.) are passed as
     explicit arguments to collection methods.
     """
 
@@ -282,8 +282,8 @@ class FeatureAnnotator:
     def setup(self, trainer: pl.Trainer, pl_module: pl.LightningModule) -> None:
         """Validate user features and discover auto-features.
 
-        Must be called during ``Checkpoint.setup()`` while ``trainer.is_global_zero``
-        is ``True``.
+        Must be called during `Checkpoint.setup()` while `trainer.is_global_zero`
+        is `True`.
         """
         self._validate_user_features()
         self._attach_user_run_features()
@@ -312,7 +312,7 @@ class FeatureAnnotator:
             )
 
     def _discover_auto_features(self) -> None:
-        """Load auto-features scoped to the ``lamindb.lightning`` feature type."""
+        """Load auto-features scoped to the `lamindb.lightning` feature type."""
         lightning_feature_type = ln.Feature.filter(
             name="lamindb.lightning", is_type=True
         ).one_or_none()
@@ -347,11 +347,11 @@ class FeatureAnnotator:
         return names
 
     def get(self, name: str) -> ln.Feature | None:
-        """Return the typed auto-feature for *name*, or ``None``."""
+        """Return the typed auto-feature for *name*, or `None`."""
         return self._auto_features.get(name)
 
     def _set(self, target: dict[str | ln.Feature, Any], name: str, value: Any) -> None:
-        """Add *value* to *target* if the auto-feature *name* is tracked and *value* is not ``None``."""
+        """Add *value* to *target* if the auto-feature *name* is tracked and *value* is not `None`."""
         if (feature := self.get(name)) and value is not None:
             target[feature] = value
 
@@ -442,7 +442,7 @@ class FeatureAnnotator:
     ) -> dict[str | ln.Feature, Any]:
         """Collect feature values for a checkpoint artifact.
 
-        All ``ModelCheckpoint`` state is passed as explicit arguments so the
+        All `ModelCheckpoint` state is passed as explicit arguments so the
         annotator stays decoupled from the callback class hierarchy.
 
         Does **not** mutate existing artifacts — call
@@ -477,11 +477,11 @@ class FeatureAnnotator:
         return feature_values
 
     def clear_best_model_flags(self, checkpoint_key_prefix: str) -> None:
-        """Set ``is_best_model=False`` on previous best checkpoints."""
+        """Set `is_best_model=False` on previous best checkpoints."""
         self._clear_flagged_model_feature("is_best_model", checkpoint_key_prefix)
 
     def clear_last_model_flags(self, checkpoint_key_prefix: str) -> None:
-        """Set ``is_last_model=False`` on previous latest checkpoints."""
+        """Set `is_last_model=False` on previous latest checkpoints."""
         self._clear_flagged_model_feature("is_last_model", checkpoint_key_prefix)
 
     def _clear_flagged_model_feature(
@@ -489,7 +489,7 @@ class FeatureAnnotator:
         feature_name: Literal["is_best_model", "is_last_model"],
         checkpoint_key_prefix: str,
     ) -> None:
-        """Set a boolean model flag to ``False`` on previously flagged checkpoints."""
+        """Set a boolean model flag to `False` on previously flagged checkpoints."""
         feature = self.get(feature_name)
         if feature is None:
             return
@@ -750,31 +750,31 @@ class Checkpoint(ArtifactPublishingModelCheckpoint):
 
     Extends `lightning`'s `ModelCheckpoint` with artifact creation & feature annotation.
     Each checkpoint is a separate artifact whose key is derived from either the
-    explicit ``dirpath`` or the trainer's logger configuration.
+    explicit `dirpath` or the trainer's logger configuration.
 
-    When ``dirpath`` is omitted (recommended), Lightning decides where to store
-    checkpoints locally (typically ``lightning_logs/version_N/checkpoints/``)
-    and the artifact key is derived from the logger's ``save_dir``, ``name``,
-    and ``version``.  When ``dirpath`` is provided, it is used directly as the
+    When `dirpath` is omitted (recommended), Lightning decides where to store
+    checkpoints locally (typically `lightning_logs/version_N/checkpoints/`)
+    and the artifact key is derived from the logger's `save_dir`, `name`,
+    and `version`.  When `dirpath` is provided, it is used directly as the
     key prefix.
 
     All artifacts are scoped under a single **base prefix**.  Checkpoints
-    (and ``hparams.yaml``) live under ``{base}/checkpoints/``; other artifacts
-    (e.g. ``config.yaml``) live directly under ``{base}/``.
+    (and `hparams.yaml`) live under `{base}/checkpoints/`; other artifacts
+    (e.g. `config.yaml`) live directly under `{base}/`.
 
     Base prefix derivation (highest priority first):
 
-    1. ``dirpath`` provided → ``{dirpath}`` (logger is ignored for key purposes)
-    2. ``dirpath`` omitted, logger present → ``{save_dir_basename}/{name}/{version}``
-    3. ``dirpath`` omitted, no logger → empty
+    1. `dirpath` provided → `{dirpath}` (logger is ignored for key purposes)
+    2. `dirpath` omitted, logger present → `{save_dir_basename}/{name}/{version}`
+    3. `dirpath` omitted, no logger → empty
 
-    When ``run_uid_is_version`` is ``True`` (the default) and a Lamin run context
+    When `run_uid_is_version` is `True` (the default) and a Lamin run context
     is active, the run UID is incorporated into the base prefix:
 
     - Case 1/3: the run UID is appended as an extra path segment
-      (e.g. ``my/dir/{run_uid}``, or just ``{run_uid}``).
-    - Case 2: the logger's auto-incremented ``version`` is *replaced* by the
-      run UID (``{save_dir_basename}/{name}/{run_uid}``).
+      (e.g. `my/dir/{run_uid}`, or just `{run_uid}`).
+    - Case 2: the logger's auto-incremented `version` is *replaced* by the
+      run UID (`{save_dir_basename}/{name}/{run_uid}`).
 
     Resulting key layout (with run UID active)::
 
@@ -816,7 +816,7 @@ class Checkpoint(ArtifactPublishingModelCheckpoint):
         every_n_epochs: Checkpoint every N epochs.
         save_on_train_epoch_end: Run checkpointing at end of training epoch.
         enable_version_counter: Append version to filename to avoid collisions.
-        run_uid_is_version: When ``True`` (default) and a Lamin run context is
+        run_uid_is_version: When `True` (default) and a Lamin run context is
             active, incorporate the run UID into the base prefix. For the
             logger case the logger's auto-incremented version is replaced;
             for the dirpath and no-logger cases the run UID is appended as
@@ -846,7 +846,7 @@ class Checkpoint(ArtifactPublishingModelCheckpoint):
             # e.g. "logs/lightning_logs/version_0/checkpoints/"
             ln.Artifact.filter(key__startswith=callback.checkpoint_key_prefix)
 
-        Explicit ``dirpath`` for full control over the artifact key prefix::
+        Explicit `dirpath` for full control over the artifact key prefix::
 
             callback = ll.Checkpoint(
                 dirpath="deployments/my_model/",
@@ -943,10 +943,10 @@ class Checkpoint(ArtifactPublishingModelCheckpoint):
         """Compute the base artifact key prefix.
 
         The base prefix is the root namespace for all artifacts produced by
-        this callback.  Checkpoints live under ``{base}/checkpoints/`` and
-        other files (config, hparams) directly under ``{base}/``.
+        this callback.  Checkpoints live under `{base}/checkpoints/` and
+        other files (config, hparams) directly under `{base}/`.
 
-        Priority: explicit ``dirpath`` > logger > run UID > empty.
+        Priority: explicit `dirpath` > logger > run UID > empty.
         """
         run_uid = self._active_run_uid()
         if self._original_dirpath is not None:
@@ -979,10 +979,10 @@ class Checkpoint(ArtifactPublishingModelCheckpoint):
     def base_prefix(self) -> str:
         """The base artifact key prefix for all artifacts from this callback.
 
-        Checkpoints live under ``{base_prefix}/checkpoints/`` and configs
-        directly under ``{base_prefix}/``.
+        Checkpoints live under `{base_prefix}/checkpoints/` and configs
+        directly under `{base_prefix}/`.
 
-        Available after ``setup()`` has been called.
+        Available after `setup()` has been called.
         """
         assert self._trainer is not None, "base_prefix is only available after setup()"
         return self._base_prefix(self._trainer)
@@ -991,8 +991,8 @@ class Checkpoint(ArtifactPublishingModelCheckpoint):
     def checkpoint_key_prefix(self) -> str:
         """The artifact key prefix used for checkpoint artifacts.
 
-        Available after ``setup()`` has been called, for example once
-        ``trainer.fit()`` has started.
+        Available after `setup()` has been called, for example once
+        `trainer.fit()` has started.
         """
         base = self.base_prefix
         return f"{base}/checkpoints" if base else "checkpoints"
@@ -1111,7 +1111,7 @@ class Checkpoint(ArtifactPublishingModelCheckpoint):
     ) -> ln.Artifact | None:
         """Save Lightning's auto-generated hparams file and emit the event.
 
-        Returns ``None`` if Lightning did not generate ``hparams.yaml`` for the
+        Returns `None` if Lightning did not generate `hparams.yaml` for the
         current run.
         """
         if not Path(hparams_path).exists():
@@ -1209,10 +1209,10 @@ class SaveConfigCallback(_SaveConfigCallback):
 
     Use with LightningCLI to save the resolved configuration file alongside checkpoints.
 
-    The local config file is saved under ``{save_dir}/{name}/{version}/``
-    derived from the first logger, avoiding Lightning's ``trainer.log_dir``
-    which hardcodes an ``isinstance`` check for ``TensorBoardLogger`` /
-    ``CSVLogger`` and silently changes the directory for other loggers.
+    The local config file is saved under `{save_dir}/{name}/{version}/`
+    derived from the first logger, avoiding Lightning's `trainer.log_dir`
+    which hardcodes an `isinstance` check for `TensorBoardLogger` /
+    `CSVLogger` and silently changes the directory for other loggers.
 
     This callback looks for any :class:`ArtifactPublishingModelCheckpoint`, not just
     Lamin's concrete :class:`Checkpoint`. That keeps the config-save path aligned
@@ -1223,10 +1223,10 @@ class SaveConfigCallback(_SaveConfigCallback):
     derivation rules as for checkpoints (dirpath > logger > empty), so
     configs are always co-located with their checkpoints:
 
-    - ``Checkpoint.dirpath`` set → ``{dirpath}/config.yaml``
-      (``{dirpath}/{run_uid}/config.yaml`` with run-UID scoping)
-    - Logger present, no ``dirpath`` → ``{save_dir_basename}/{name}/{version}/config.yaml``
-    - Neither → ``config.yaml`` (or ``{run_uid}/config.yaml`` with run-UID scoping)
+    - `Checkpoint.dirpath` set → `{dirpath}/config.yaml`
+      (`{dirpath}/{run_uid}/config.yaml` with run-UID scoping)
+    - Logger present, no `dirpath` → `{save_dir_basename}/{name}/{version}/config.yaml`
+    - Neither → `config.yaml` (or `{run_uid}/config.yaml` with run-UID scoping)
 
     Example::
 
@@ -1275,15 +1275,15 @@ class SaveConfigCallback(_SaveConfigCallback):
     def _config_path(self, trainer: pl.Trainer) -> Path:
         """Derive the local config file path from the first logger.
 
-        We intentionally avoid ``trainer.log_dir`` because Lightning hardcodes
-        an ``isinstance`` check against ``TensorBoardLogger`` and ``CSVLogger``
-        there.  For those two loggers it uses ``logger.log_dir`` (which appends
+        We intentionally avoid `trainer.log_dir` because Lightning hardcodes
+        an `isinstance` check against `TensorBoardLogger` and `CSVLogger`
+        there.  For those two loggers it uses `logger.log_dir` (which appends
         name/version), while for every other logger it falls back to
-        ``logger.save_dir`` (no name/version).  This means the config file
+        `logger.save_dir` (no name/version).  This means the config file
         location silently changes depending on which logger happens to be first
         — making it unpredictable for third-party loggers.
 
-        This method always uses ``logger.save_dir`` + ``name`` + ``version``,
+        This method always uses `logger.save_dir` + `name` + `version`,
         giving a consistent directory layout regardless of logger type.
         """
         if len(trainer.loggers) > 0:
