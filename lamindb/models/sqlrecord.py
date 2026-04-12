@@ -1578,6 +1578,25 @@ class Branch(BaseSQLRecord):
             lamin merge my_branch
             # after merge on main: v2.is_latest=True, v1.is_latest=False
 
+    .. dropdown:: Logical vs. physical branching
+
+        LaminDB uses **logical branching** via the `SQLRecord`'s `.branch` field, keeping lineage searchable and infrastructure simple and platform-agnostic, but doesn't allow separating SQL `UPDATE` statements on a branch (only their corresponding `DbWrite` events).
+
+        Some Postgres hosting platforms like Supabase or Neon, by contrast, provide physical branching by cloning the entire database.
+        This allows for isolated `UPDATE` statements but creates separate, disconnected environments and much overhead.
+
+        Another noteworthy example is Project Nessie, a versioned catalog for data lakes that track file states.
+        LaminDB follows a similar "Git-for-data" philosophy but integrates the full registry (labels, transforms, and metadata) directly into the SQL layer.
+
+        A final noteworthy example is Dolt, which is a specialized database engine that provides storage-level branching.
+        It is essentially "Git for SQL tables," allowing for native branch isolation and merging at the engine level.
+        While powerful, it requires using the Dolt database itself.
+        LaminDB, by contrast, is platform-agnostic — it brings versioning and branching logic to any existing SQL database.
+
+        Why logical branching? Data science and ML workflows are primarily append-only.
+        Because a "change" usually results in a new version of an artifact, transform, or collection or new runs or other new objects rather than an in-place modification, the row-level `branch` field provides isolation for 99% of use cases.
+        This avoids the technical complexity of row duplication, preserves database integrity, and allows the `is_latest` logic to reconcile versions globally upon merge.
+
     """
 
     class Meta:
