@@ -120,12 +120,7 @@ DtypeStr = Literal[
     "object",  # this is a pandas input dtype, we're only using it for complicated types, not for strings
     "path",  # path, validated as str, but specially treated in the UI
 ]
-"""String-serialized data type.
-
-String-serialized representations of common data types.
-
-Overview
-========
+"""String-serialized representations of common data types.
 
 ============  ============  =================================================
 description   lamindb       pandas
@@ -134,25 +129,17 @@ numerical     `"num"`       `int | float`
 integer       `"int"`       `int64 | int32 | int16 | int8 | uint | ...`
 float         `"float"`     `float64 | float32 | float16 | float8 | ...`
 string        `"str"`       `object`
+boolean       `"bool"`      `boolean | bool`
 datetime      `"datetime"`  `datetime`
 date          `"date"`      `object` (pandera requires an ISO-format string, convert with `df["date"] = df["date"].dt.date`)
 dictionary    `"dict"`      `object`
 path          `"path"`      `str` (pandas does not have a dedicated path type, validated as `str`)
 ============  ============  =================================================
 
-Categoricals
-============
-
+A note on categoricals and relational data types, which aren't contained in the `DTypeStr` `Literal`:
 `lamindb` allows you to define a registry to which categoricals values are restricted.
-
-For example, `'cat[ULabel]'` or `'cat[bionty.CellType]'` indicate that permissible values are stored in the `name` field of the `ULabel` or `CellType` registry, respectively.
-
-You can also restrict to sub-types defined in registries via the `type` column, e.g., `'cat[ULabel[123456ABCDEFG]]'` indicates that values must be of the type with `uid="123456ABCDEFG"` within the `ULabel` registry.
-
-Literal
-=======
-
-A `DtypeStr` object in `lamindb` is a `Literal` up to further specification of `"cat"`.
+When serializing this to a string, then `'cat[ULabel]'` or `'cat[bionty.CellType]'` indicate that permissible values are stored in the `name` field of the `ULabel` or `CellType` registry, respectively.
+You can also restrict to sub-types defined in registries via the `type` column, when serializing to a string then, `'cat[ULabel[123456ABCDEFG]]'` indicates that values must be of the type with `uid="123456ABCDEFG"` within the `ULabel` registry.
 
 """
 Dtype = DtypeStr  # backward compat

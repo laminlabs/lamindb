@@ -5,6 +5,7 @@ import lamindb as ln
 import pandas as pd
 import pytest
 from lamindb import Record
+from lamindb.base.types import DtypeStr
 from lamindb.errors import ValidationError
 from lamindb.models.feature import (
     dtype_as_object,
@@ -37,6 +38,12 @@ def test_serialize_basic_dtypes():
     # assert serialize_dtype(bytes) == "bytes"  # not yet supported
     assert serialize_dtype(datetime.datetime) == "datetime"
     assert serialize_dtype(datetime.date) == "date"
+
+
+def test_dtypestr_includes_bool():
+    from typing import get_args
+
+    assert "bool" in get_args(DtypeStr)
 
 
 def test_serialize_basic_list_dtypes():
