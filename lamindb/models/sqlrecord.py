@@ -1678,11 +1678,11 @@ class Branch(BaseSQLRecord):
         =============  =====  ==================================================
         status         code   description
         =============  =====  ==================================================
-        `closed`       -2     Change Request was closed without merging
-        `merged`       -1     the branch was merged into another branch
-        `standalone`   0      a standalone branch without Change Request
-        `draft`        1      Change Request exists but is not ready for review
-        `review`       2      Change Request is ready for review
+        `closed`       -2     Change Request was closed without merging.
+        `merged`       -1     The branch was merged into another branch.
+        `standalone`   0      A standalone branch without Change Request.
+        `draft`        1      Change Request exists but is not ready for review.
+        `review`       2      Change Request is ready for review.
         =============  =====  ==================================================
 
         The database stores the branch status as an integer code in field `_status_code`.

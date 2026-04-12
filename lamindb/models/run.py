@@ -443,12 +443,12 @@ class Run(SQLRecord, TracksUpdates):
         ===========  =====  ===========================
         status       code   description
         ===========  =====  ===========================
-        `scheduled`  -3     run is scheduled
-        `restarted`  -2     run was restarted
-        `started`    -1     run has started
-        `completed`  0      run completed successfully
-        `errored`    1      run ended with an error
-        `aborted`    2      run was aborted
+        `scheduled`  -3     The run is scheduled.
+        `restarted`  -2     The run was restarted.
+        `started`    -1     The run has started.
+        `completed`  0      The run completed successfully.
+        `errored`    1      The run ended with an error.
+        `aborted`    2      The run was aborted.
         ===========  =====  ===========================
 
         The database stores the run status as an integer code in field `_status_code`.
