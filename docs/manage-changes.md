@@ -1,5 +1,5 @@
 # Manage changes
 
-Managing changes is based on {class}`~lamindb.Branch` and strongly inspired by branching in git and GitHub's Pull Requests.
+Managing changes in LaminDB is similar to managing code changes with branching in git and Pull Requests in GitHub.
 
-As a guide, read the "Examples" section of the {class}`~lamindb.Branch` class.
+For usage examples, read the "Examples" section of the {class}`~lamindb.Branch` class.
