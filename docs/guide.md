@@ -14,9 +14,15 @@ README
 query-search
 track
 curate
-lightning
 manage-ontologies
 sync
+```
+
+```{toctree}
+:hidden:
+:caption: Use cases
+
+lightning
 ```
 
 ```{toctree}

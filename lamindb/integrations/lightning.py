@@ -1,6 +1,6 @@
 """PyTorch Lightning integration for LaminDB.
 
-The public surface has two layers:
+The public API has two layers:
 
 - :class:`Checkpoint` is the concrete LaminDB implementation that persists
     checkpoint, config, and ``hparams.yaml`` files as :class:`lamindb.Artifact`
@@ -12,8 +12,8 @@ The public surface has two layers:
 External integrations can either subclass :class:`Checkpoint` directly or attach
 an :class:`ArtifactObserver` to react to saved and removed artifacts.
 
-.. autoclass:: ArtifactPublishingModelCheckpoint
 .. autoclass:: Checkpoint
+.. autoclass:: ArtifactPublishingModelCheckpoint
 .. autoclass:: SaveConfigCallback
 .. autoclass:: ArtifactSavedEvent
 .. autoclass:: ArtifactRemovedEvent
@@ -279,9 +279,7 @@ class FeatureAnnotator:
         self._hparam_features_available: set[str] = set()
         self._run_features_saved = False
 
-    def setup(
-        self, trainer: pl.Trainer, pl_module: pl.LightningModule
-    ) -> None:
+    def setup(self, trainer: pl.Trainer, pl_module: pl.LightningModule) -> None:
         """Validate user features and discover auto-features.
 
         Must be called during ``Checkpoint.setup()`` while ``trainer.is_global_zero``
@@ -303,9 +301,7 @@ class FeatureAnnotator:
         if not all_feature_names:
             return
         existing = set(
-            ln.Feature.filter(name__in=all_feature_names).values_list(
-                "name", flat=True
-            )
+            ln.Feature.filter(name__in=all_feature_names).values_list("name", flat=True)
         )
         missing = [n for n in all_feature_names if n not in existing]
         if missing:
@@ -335,9 +331,11 @@ class FeatureAnnotator:
     ) -> None:
         """Find which hyperparameter names have matching Features in the DB."""
         hparam_names = self._collect_hparam_names(pl_module, trainer.datamodule)
-        self._hparam_features_available = set(
-            ln.Feature.filter(name__in=hparam_names).values_list("name", flat=True)
-        ) if hparam_names else set()
+        self._hparam_features_available = (
+            set(ln.Feature.filter(name__in=hparam_names).values_list("name", flat=True))
+            if hparam_names
+            else set()
+        )
 
     @staticmethod
     def _collect_hparam_names(*sources: Any) -> set[str]:
@@ -352,9 +350,7 @@ class FeatureAnnotator:
         """Return the typed auto-feature for *name*, or ``None``."""
         return self._auto_features.get(name)
 
-    def _set(
-        self, target: dict[str | ln.Feature, Any], name: str, value: Any
-    ) -> None:
+    def _set(self, target: dict[str | ln.Feature, Any], name: str, value: Any) -> None:
         """Add *value* to *target* if the auto-feature *name* is tracked and *value* is not ``None``."""
         if (feature := self.get(name)) and value is not None:
             target[feature] = value
@@ -489,7 +485,9 @@ class FeatureAnnotator:
         self._clear_flagged_model_feature("is_last_model", checkpoint_key_prefix)
 
     def _clear_flagged_model_feature(
-        self, feature_name: Literal["is_best_model", "is_last_model"], checkpoint_key_prefix: str
+        self,
+        feature_name: Literal["is_best_model", "is_last_model"],
+        checkpoint_key_prefix: str,
     ) -> None:
         """Set a boolean model flag to ``False`` on previously flagged checkpoints."""
         feature = self.get(feature_name)
@@ -513,9 +511,7 @@ class FeatureAnnotator:
             artifact.features.remove_values(feature, value=True)
             artifact.features.add_values({feature: False})
 
-    def update_model_ranks(
-        self, checkpoint_key_prefix: str, mode: str
-    ) -> None:
+    def update_model_ranks(self, checkpoint_key_prefix: str, mode: str) -> None:
         """Re-rank all checkpoint artifacts under *checkpoint_key_prefix*."""
         model_rank_feature = self.get("model_rank")
         if model_rank_feature is None:
@@ -526,15 +522,11 @@ class FeatureAnnotator:
         scored = []
         for artifact_id, values in feature_rows.items():
             if "score" in values:
-                scored.append(
-                    (values["score"], values.get("model_rank"), artifact_id)
-                )
+                scored.append((values["score"], values.get("model_rank"), artifact_id))
         scored.sort(key=lambda x: x[0], reverse=(mode == "max"))
 
         artifact_ids = [artifact_id for _, _, artifact_id in scored]
-        artifacts_by_id = {
-            a.id: a for a in ln.Artifact.filter(id__in=artifact_ids)
-        }
+        artifacts_by_id = {a.id: a for a in ln.Artifact.filter(id__in=artifact_ids)}
         for rank, (_, old_rank, artifact_id) in enumerate(scored):
             if artifact_id not in artifacts_by_id:
                 continue
@@ -559,25 +551,19 @@ class FeatureAnnotator:
             }
         """
         feature_ids = [
-            feature.id
-            for name in feature_names
-            if (feature := self.get(name))
+            feature.id for name in feature_names if (feature := self.get(name))
         ]
         key_startswith = checkpoint_key_prefix + "/"
         if feature_ids:
             rows = ln.models.ArtifactJsonValue.filter(
                 artifact__key__startswith=key_startswith,
                 jsonvalue__feature_id__in=feature_ids,
-            ).values_list(
-                "artifact_id", "jsonvalue__feature__name", "jsonvalue__value"
-            )
+            ).values_list("artifact_id", "jsonvalue__feature__name", "jsonvalue__value")
         else:
             rows = ln.models.ArtifactJsonValue.filter(
                 artifact__key__startswith=key_startswith,
                 jsonvalue__feature__name__in=feature_names,
-            ).values_list(
-                "artifact_id", "jsonvalue__feature__name", "jsonvalue__value"
-            )
+            ).values_list("artifact_id", "jsonvalue__feature__name", "jsonvalue__value")
         result: dict[int, dict[str, Any]] = {}
         for artifact_id, feature_name, value in rows:
             if artifact_id not in result:
@@ -886,6 +872,8 @@ class Checkpoint(ArtifactPublishingModelCheckpoint):
 
             # Run with:
             # python main.py fit --config config.yaml
+
+        For more, see the guide: :doc:`lightning`.
     """
 
     def __init__(
@@ -1187,13 +1175,9 @@ class Checkpoint(ArtifactPublishingModelCheckpoint):
         )
 
         if is_best:
-            self._feature_annotator.clear_best_model_flags(
-                self.checkpoint_key_prefix
-            )
+            self._feature_annotator.clear_best_model_flags(self.checkpoint_key_prefix)
 
-        self.save_checkpoint_artifact(
-            trainer, filepath, feature_values=feature_values
-        )
+        self.save_checkpoint_artifact(trainer, filepath, feature_values=feature_values)
 
         self._feature_annotator.update_model_ranks(
             self.checkpoint_key_prefix, mode=self.mode
@@ -1218,8 +1202,6 @@ class Checkpoint(ArtifactPublishingModelCheckpoint):
             )
             if artifact is not None:
                 artifact.delete(permanent=True, storage=True)
-
-
 
 
 class SaveConfigCallback(_SaveConfigCallback):
@@ -1269,9 +1251,7 @@ class SaveConfigCallback(_SaveConfigCallback):
             config_path = self._config_path(trainer)
 
             if not self.overwrite:
-                file_exists = (
-                    config_path.exists() if trainer.is_global_zero else False
-                )
+                file_exists = config_path.exists() if trainer.is_global_zero else False
                 file_exists = trainer.strategy.broadcast(file_exists)
                 if file_exists:
                     raise RuntimeError(f"Config file already exists: {config_path}")
@@ -1308,7 +1288,11 @@ class SaveConfigCallback(_SaveConfigCallback):
         """
         if len(trainer.loggers) > 0:
             first = trainer.loggers[0]
-            save_dir = first.save_dir if first.save_dir is not None else trainer.default_root_dir
+            save_dir = (
+                first.save_dir
+                if first.save_dir is not None
+                else trainer.default_root_dir
+            )
             name = first.name
             version = first.version
             version = version if isinstance(version, str) else f"version_{version}"

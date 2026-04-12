@@ -1,4 +1,6 @@
-# Lightning checkpoint callback
+# Lightning
+
+This guide offers more context on the {class}`lamindb.integrations.lightning.Checkpoint` callback.
 
 ## How Lightning organizes a training run
 
@@ -77,11 +79,11 @@ checkpoint.checkpoint_key_prefix
 
 `Checkpoint` saves three kinds of artifacts:
 
-| Kind         | Example key                                  | When                                    |
-|--------------|----------------------------------------------|-----------------------------------------|
-| `checkpoint` | `…/checkpoints/epoch=0-step=100.ckpt`        | Every time Lightning writes a checkpoint |
-| `config`     | `…/config.yaml`                              | When using `ll.SaveConfigCallback`       |
-| `hparams`    | `…/checkpoints/hparams.yaml`                 | When Lightning generates it              |
+| Kind         | Example key                           | When                                     |
+| ------------ | ------------------------------------- | ---------------------------------------- |
+| `checkpoint` | `…/checkpoints/epoch=0-step=100.ckpt` | Every time Lightning writes a checkpoint |
+| `config`     | `…/config.yaml`                       | When using `ll.SaveConfigCallback`       |
+| `hparams`    | `…/checkpoints/hparams.yaml`          | When Lightning generates it              |
 
 Checkpoints and `hparams.yaml` live under the `checkpoints/` subdirectory,
 while the config sits directly under the base prefix.
@@ -109,11 +111,11 @@ that every tracked run produces unique artifact keys regardless of local state.
 
 The base prefix is determined by priority:
 
-| Scenario                          | Base prefix                            |
-|-----------------------------------|----------------------------------------|
-| `dirpath` set (± logger)          | `{dirpath}/{run_uid}`                  |
-| No `dirpath` + logger             | `{save_dir_basename}/{name}/{run_uid}` |
-| No `dirpath` + no logger          | `{run_uid}`                            |
+| Scenario                 | Base prefix                            |
+| ------------------------ | -------------------------------------- |
+| `dirpath` set (± logger) | `{dirpath}/{run_uid}`                  |
+| No `dirpath` + logger    | `{save_dir_basename}/{name}/{run_uid}` |
+| No `dirpath` + no logger | `{run_uid}`                            |
 
 `run_uid` above refers to the active Lamin run UID (from `ln.context.run.uid`).
 When no run is tracked or `run_uid_is_version=False`, the callback falls back
@@ -121,19 +123,19 @@ to the logger's own version (e.g. `version_0`) or omits the segment entirely.
 
 **Checkpoint & hparams keys:**
 
-| Scenario                          | Lamin key pattern                                              |
-|-----------------------------------|----------------------------------------------------------------|
-| Logger present (recommended)      | `{save_dir_basename}/{name}/{run_uid}/checkpoints/{filename}`  |
-| No logger, explicit `dirpath`     | `{dirpath}/{run_uid}/checkpoints/{filename}`                   |
-| No logger, no `dirpath`           | `{run_uid}/checkpoints/{filename}`                             |
+| Scenario                      | Lamin key pattern                                             |
+| ----------------------------- | ------------------------------------------------------------- |
+| Logger present (recommended)  | `{save_dir_basename}/{name}/{run_uid}/checkpoints/{filename}` |
+| No logger, explicit `dirpath` | `{dirpath}/{run_uid}/checkpoints/{filename}`                  |
+| No logger, no `dirpath`       | `{run_uid}/checkpoints/{filename}`                            |
 
 **Config keys:**
 
-| Scenario                          | Key pattern                                                    |
-|-----------------------------------|----------------------------------------------------------------|
-| Logger present                    | `{save_dir_basename}/{name}/{run_uid}/config.yaml`             |
-| No logger, explicit `dirpath`     | `{dirpath}/{run_uid}/config.yaml`                              |
-| No logger, no `dirpath`           | `{run_uid}/config.yaml`                                        |
+| Scenario                      | Key pattern                                        |
+| ----------------------------- | -------------------------------------------------- |
+| Logger present                | `{save_dir_basename}/{name}/{run_uid}/config.yaml` |
+| No logger, explicit `dirpath` | `{dirpath}/{run_uid}/config.yaml`                  |
+| No logger, no `dirpath`       | `{run_uid}/config.yaml`                            |
 
 For example, with `TensorBoardLogger(save_dir="logs")` and a tracked run:
 
