@@ -10,12 +10,14 @@ an :class:`ArtifactObserver` to react to saved and removed artifacts.
 
 Here is a guide: :doc:`lightning`.
 
-## Main API
+Main API
+--------
 
 .. autoclass:: Checkpoint
 .. autofunction:: save_lightning_features
 
-## Auxiliary classes
+Auxiliary classes
+-----------------
 
 .. autoclass:: ArtifactPublishingModelCheckpoint
 .. autoclass:: SaveConfigCallback
