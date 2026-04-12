@@ -136,7 +136,7 @@ dictionary    `"dict"`      `object`
 path          `"path"`      `str` (pandas does not have a dedicated path type, validated as `str`)
 ============  ============  =================================================
 
-.. note:: Categoricals and relational data types
+.. admonition:: Categoricals and relational data types
 
     These are **not** contained in the `DTypeStr` `Literal`.
 
