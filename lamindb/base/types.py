@@ -110,22 +110,17 @@ DtypeObject = int | float | str | bool | datetime.date | datetime.datetime | dic
 
 DtypeStr = Literal[
     "num",  # numericals
-    "str",  # string
     "int",  # integer / numpy.integer
     "float",  # float
+    "str",  # string
     "bool",  # boolean
-    "date",  # date
     "datetime",  # datetime
+    "date",  # date
     "dict",  # dictionary
-    "object",  # this is a pandas input dtype, we're only using it for complicated types, not for strings
     "path",  # path, validated as str, but specially treated in the UI
+    "object",  # this is a pandas input dtype, we're only using it for complicated types, not for strings; consciously currently not documented
 ]
-"""String-serialized data type.
-
-String-serialized representations of common data types.
-
-Overview
-========
+"""String-serialized representations of common data types.
 
 ============  ============  =================================================
 description   lamindb       pandas
@@ -134,25 +129,22 @@ numerical     `"num"`       `int | float`
 integer       `"int"`       `int64 | int32 | int16 | int8 | uint | ...`
 float         `"float"`     `float64 | float32 | float16 | float8 | ...`
 string        `"str"`       `object`
+boolean       `"bool"`      `boolean | bool`
 datetime      `"datetime"`  `datetime`
 date          `"date"`      `object` (pandera requires an ISO-format string, convert with `df["date"] = df["date"].dt.date`)
 dictionary    `"dict"`      `object`
 path          `"path"`      `str` (pandas does not have a dedicated path type, validated as `str`)
 ============  ============  =================================================
 
-Categoricals
-============
+.. admonition:: Categorical and relational data types
 
-`lamindb` allows you to define a registry to which categoricals values are restricted.
+    These are **not** contained in the `DTypeStr` `Literal`.
 
-For example, `'cat[ULabel]'` or `'cat[bionty.CellType]'` indicate that permissible values are stored in the `name` field of the `ULabel` or `CellType` registry, respectively.
+    For any categorical, you can restrict the permissible values to the values defined in a registry.
+    When serializing this to a string, then `'cat[ULabel]'` or `'cat[bionty.CellType]'` indicate that permissible values are stored in the `name` field of the `ULabel` or `CellType` registry, respectively.
+    You can also restrict to sub-types defined in registries via the `type` field, e.g., `'cat[ULabel[123456ABCDEFG]]'` indicates that values must be of the type with `uid="123456ABCDEFG"` within the `ULabel` registry.
 
-You can also restrict to sub-types defined in registries via the `type` column, e.g., `'cat[ULabel[123456ABCDEFG]]'` indicates that values must be of the type with `uid="123456ABCDEFG"` within the `ULabel` registry.
-
-Literal
-=======
-
-A `DtypeStr` object in `lamindb` is a `Literal` up to further specification of `"cat"`.
+    In LaminDB, categoricals define relationships with registries. See :class:`~lamindb.Feature` for more details.
 
 """
 Dtype = DtypeStr  # backward compat

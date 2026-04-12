@@ -945,7 +945,7 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         default_value: `Any | None = None` Default value for the feature.
         coerce: `bool | None = None` When `True`, attempts to coerce values to the specified dtype during validation, see :attr:`~lamindb.Feature.coerce`.
             Defaults to `False` unless `is_type` is `True`.
-        cat_filters: `dict[str, str] | None = None` Subset a registry by additional filters to define valid categories.
+        cat_filters: `dict[str, str | SQLRecord] | None = None` Subset a registry by additional filters to define valid categories.
 
     Note:
 
@@ -975,10 +975,25 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
 
             ln.Feature(name="sample", dtype=ln.ULabel).save()
 
-        The same for the `bt.CellType` registry::
+        Restrict a categorical feature to a specific `ULabel` type::
+
+            perturbation = ln.ULabel(name="Perturbation", is_type=True).save()
+            ln.Feature(name="perturbation", dtype=perturbation).save()
+
+        Restrict a categorical feature to a specific `Record` type::
+
+            experiment = ln.Record(name="Experiment", is_type=True).save()
+            ln.Feature(name="experiment", dtype=experiment).save()
+
+        Restrict a categorical feature to the `bt.CellType` registry::
 
             ln.Feature(name="cell_type_by_expert", dtype=bt.CellType).save()  # expert annotation
             ln.Feature(name="cell_type_by_model", dtype=bt.CellType).save()   # model annotation
+
+        .. admonition:: Categoricals define relationships.
+
+            In LaminDB, **categoricals** define **relationships**.
+            For example, with dtype set to a `ULabel` type, setting a feature value relates the object to a `ULabel` of that type.
 
         Scope a feature with a **feature type** to distinguish the same feature name across different contexts::
 
