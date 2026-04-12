@@ -1,6 +1,10 @@
 # Lightning
 
-This guide offers more context on the {class}`lamindb.integrations.lightning.Checkpoint` callback.
+This guide offers more context on the {class}`lamindb.integrations.lightning.Checkpoint` callback. For end-to-end examples, see the following guides:
+
+- [ClearML](clearml)
+- [Weights & Biases](wandb)
+- [MLflow](mlflow)
 
 ## Quickstart
 
