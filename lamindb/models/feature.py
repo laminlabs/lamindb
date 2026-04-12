@@ -975,10 +975,26 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
 
             ln.Feature(name="sample", dtype=ln.ULabel).save()
 
-        The same for the `bt.CellType` registry::
+        Restrict a categorical feature to a specific `ULabel` type::
+
+            perturbation = ln.ULabel(name="Perturbation", is_type=True).save()
+            ln.Feature(name="perturbation", dtype=perturbation).save()
+
+        Restrict a categorical feature to a specific `Record` type::
+
+            experiment = ln.Record(name="Experiment", is_type=True).save()
+            ln.Feature(name="experiment", dtype=experiment).save()
+
+        Restrict a categorical to the `bt.CellType` registry::
 
             ln.Feature(name="cell_type_by_expert", dtype=bt.CellType).save()  # expert annotation
             ln.Feature(name="cell_type_by_model", dtype=bt.CellType).save()   # model annotation
+
+        .. admonition:: Categoricals define relationships with registries.
+
+            In LaminDB, **categoricals** define **relationships with registries**.
+            When annotating an artifact with a feature of dtype `ULabel`, you're also relating it to the `ULabel` registry, so that you can query it.
+            When setting a feature value whose `dtype` is a `Record` you're relating to to another `Record` object.
 
         Scope a feature with a **feature type** to distinguish the same feature name across different contexts::
 
