@@ -13,6 +13,7 @@ README
 
 query-search
 track
+manage-changes
 curate
 manage-ontologies
 sync

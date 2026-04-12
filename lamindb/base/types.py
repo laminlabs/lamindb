@@ -54,11 +54,11 @@ BranchStatus = Literal["standalone", "draft", "review", "merged", "closed"]
 =============  =====  ==================================================
 status         code   description
 =============  =====  ==================================================
-`closed`       -2     Merge Request was closed without merging
-`merged`       -1     the branch was merged into another branch
-`standalone`   0      a standalone branch without Merge Request
-`draft`        1      Merge Request exists but is not ready for review
-`review`       2      Merge Request is ready for review
+`closed`       -2     Change Request was closed without merging.
+`merged`       -1     The branch was merged into another branch.
+`standalone`   0      A standalone branch without Change Request.
+`draft`        1      Change Request exists but is not ready for review.
+`review`       2      Change Request is ready for review.
 =============  =====  ==================================================
 
 The database stores the branch status as an integer code in field `_status_code`.
@@ -72,12 +72,12 @@ RunStatus = Literal[
 ===========  =====  ===========================
 status       code   description
 ===========  =====  ===========================
-`scheduled`  -3     run is scheduled
-`restarted`  -2     run was restarted
-`started`    -1     run has started
-`completed`  0      run completed successfully
-`errored`    1      run ended with an error
-`aborted`    2      run was aborted
+`scheduled`  -3     The run is scheduled.
+`restarted`  -2     The run was restarted.
+`started`    -1     The run has started.
+`completed`  0      The run completed successfully.
+`errored`    1      The run ended with an error.
+`aborted`    2      The run was aborted.
 ===========  =====  ===========================
 
 The database stores the run status as an integer code in field `_status_code`.
