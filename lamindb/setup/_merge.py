@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 def merge(branch: str | Branch) -> None:
     """Merge a branch into the current branch.
 
-    All records with a `branch_id` equal to the source branch's id
+    All `SQLRecord` objects that have `branch_id` equal to the source branch's id
     are updated to the current branch's id.
 
     Find more info in the :class:`~lamindb.Branch` document.
@@ -30,7 +30,7 @@ def merge(branch: str | Branch) -> None:
     from lamindb import Branch, Q
     from lamindb.errors import ObjectDoesNotExist
 
-    from ..models import BaseSQLRecord
+    from ..models import SQLRecord
     from ..models._is_versioned import IsVersioned, reconcile_is_latest_within_branch
 
     if isinstance(branch, Branch):
@@ -47,13 +47,29 @@ def merge(branch: str | Branch) -> None:
         logger.important("already on branch, nothing to merge")
         return
 
-    models = [
+    sqlrecord_models = [
         m
         for m in apps.get_models()
-        if issubclass(m, BaseSQLRecord)
-        and not m._meta.abstract
-        and any(field.name == "branch" for field in m._meta.concrete_fields)
+        if issubclass(m, SQLRecord) and not m._meta.abstract
     ]
+    attached_block_names = (
+        "RecordBlock",
+        "ArtifactBlock",
+        "TransformBlock",
+        "CollectionBlock",
+        "RunBlock",
+        "SchemaBlock",
+        "FeatureBlock",
+        "ProjectBlock",
+        "ULabelBlock",
+        "SpaceBlock",
+    )
+    attached_block_models = [
+        model
+        for model_name in attached_block_names
+        if (model := apps.get_model("lamindb", model_name)) is not None
+    ]
+    models = list(dict.fromkeys([*sqlrecord_models, *attached_block_models]))
     if not models:
         return
 
