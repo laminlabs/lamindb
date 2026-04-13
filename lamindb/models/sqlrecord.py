@@ -102,6 +102,26 @@ UNIQUE_FIELD_NAMES = {
     "ensembl_gene_id",
     "uniprotkb_id",
 }
+BRANCH_SENSITIVE_BLOCK_MODEL_NAMES = frozenset(
+    {
+        "RecordBlock",
+        "ArtifactBlock",
+        "TransformBlock",
+        "CollectionBlock",
+        "RunBlock",
+        "SchemaBlock",
+        "FeatureBlock",
+        "ProjectBlock",
+        "ULabelBlock",
+        "SpaceBlock",
+    }
+)
+
+
+def _is_branch_sensitive_model(model: type[BaseSQLRecord]) -> bool:
+    return (
+        issubclass(model, SQLRecord) and model.__name__ not in {"Storage", "Source"}
+    ) or model.__name__ in BRANCH_SENSITIVE_BLOCK_MODEL_NAMES
 
 
 # -------------------------------------------------------------------------------------
@@ -955,9 +975,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                                 kwargs["space"] = current_space
                         else:
                             kwargs["space"] = current_space
-                if issubclass(
-                    self.__class__, SQLRecord
-                ) and self.__class__.__name__ not in {"Storage", "Source"}:
+                if _is_branch_sensitive_model(self.__class__):
                     from lamindb import context as run_context
 
                     if run_context.branch is not None:
