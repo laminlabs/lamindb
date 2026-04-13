@@ -32,6 +32,7 @@ def merge(branch: str | Branch) -> None:
 
     from ..models import SQLRecord
     from ..models._is_versioned import IsVersioned, reconcile_is_latest_within_branch
+    from ..models.sqlrecord import BRANCH_SENSITIVE_BLOCK_MODEL_NAMES
 
     if isinstance(branch, Branch):
         source = branch
@@ -52,21 +53,9 @@ def merge(branch: str | Branch) -> None:
         for m in apps.get_models()
         if issubclass(m, SQLRecord) and not m._meta.abstract
     ]
-    attached_block_names = (
-        "RecordBlock",
-        "ArtifactBlock",
-        "TransformBlock",
-        "CollectionBlock",
-        "RunBlock",
-        "SchemaBlock",
-        "FeatureBlock",
-        "ProjectBlock",
-        "ULabelBlock",
-        "SpaceBlock",
-    )
     attached_block_models = [
         model
-        for model_name in attached_block_names
+        for model_name in sorted(BRANCH_SENSITIVE_BLOCK_MODEL_NAMES)
         if (model := apps.get_model("lamindb", model_name)) is not None
     ]
     models = list(dict.fromkeys([*sqlrecord_models, *attached_block_models]))
