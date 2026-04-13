@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 def merge(branch: str | Branch) -> None:
     """Merge a branch into the current branch.
 
-    All `SQLRecord` objects that have `branch_id` equal to the source branch's id
+    All records with a `branch_id` equal to the source branch's id
     are updated to the current branch's id.
 
     Find more info in the :class:`~lamindb.Branch` document.
@@ -30,7 +30,7 @@ def merge(branch: str | Branch) -> None:
     from lamindb import Branch, Q
     from lamindb.errors import ObjectDoesNotExist
 
-    from ..models import SQLRecord
+    from ..models import BaseSQLRecord
     from ..models._is_versioned import IsVersioned, reconcile_is_latest_within_branch
 
     if isinstance(branch, Branch):
@@ -50,7 +50,9 @@ def merge(branch: str | Branch) -> None:
     models = [
         m
         for m in apps.get_models()
-        if issubclass(m, SQLRecord) and not m._meta.abstract
+        if issubclass(m, BaseSQLRecord)
+        and not m._meta.abstract
+        and any(field.name == "branch" for field in m._meta.concrete_fields)
     ]
     if not models:
         return

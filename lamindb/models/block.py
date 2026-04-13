@@ -68,7 +68,9 @@ def _init_versioned_attached_block(
     revises = kwargs.pop("revises", None)
     using = kwargs.pop("using", None)
     uid = kwargs.pop("uid", None) if "uid" in kwargs else None
-    extra_kwargs = {k: kwargs.pop(k) for k in allowed_extra if k in kwargs}
+    default_allowed_extra = ("branch", "branch_id", "created_on", "created_on_id")
+    all_allowed_extra = default_allowed_extra + allowed_extra
+    extra_kwargs = {k: kwargs.pop(k) for k in all_allowed_extra if k in kwargs}
     allowed = {
         fk_field_name,
         "content",
@@ -78,7 +80,7 @@ def _init_versioned_attached_block(
         "revises",
         "using",
         "uid",
-        *allowed_extra,
+        *all_allowed_extra,
     }
     if kwargs:
         raise ValueError(

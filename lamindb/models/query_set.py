@@ -302,7 +302,10 @@ def process_expressions(queryset: QuerySet, queries: tuple, expressions: dict) -
         queryset,
         expressions,
     )
-    if issubclass(queryset.model, SQLRecord):
+    model_has_branch = any(
+        field.name == "branch" for field in queryset.model._meta.concrete_fields
+    )
+    if issubclass(queryset.model, SQLRecord) or model_has_branch:
         # branch_id is set to 1 unless expressions contains id, uid or hash
         id_uid_hash = {"id", "uid", "hash", "id__in", "uid__in", "hash__in"}
         if not any(expression in id_uid_hash for expression in expressions):
