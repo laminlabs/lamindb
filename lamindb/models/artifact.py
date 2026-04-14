@@ -3188,8 +3188,7 @@ def _transfer_artifact_to_space(artifact: Artifact, space_id: int):
     logger.info(f"transferring artifact from {source_path} to {target_path}")
     fs.mv(str(source_path), str(target_path), recursive=True)
 
-    if artifact.storage_id != storage.id:
-        artifact.storage_id = storage.id
+    artifact.storage_id = storage.id
 
 
 # can't really just call .cache in .load because of double tracking
