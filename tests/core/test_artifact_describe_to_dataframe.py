@@ -135,6 +135,7 @@ def test_describe_to_dataframe_example_dataset():
     output = artifact.describe(return_str=True)
     assert "hash:" in output
     assert "size:" in output
+    assert "schema:" in output
     assert "n_observations: 3" in output
     assert "storage/path:" in output
     assert "created_by:" in output
