@@ -140,6 +140,7 @@ lamin init --storage ./quickstart-data --modules bionty
 ```
 
 On the terminal and in a Python session, LaminDB will now auto-connect.
+If you want to configure on-prem Postgres or cloud storage, read: [docs.lamin.ai/setup](https://docs.lamin.ai/setup).
 
 ### The CLI
 
