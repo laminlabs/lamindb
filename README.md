@@ -3,6 +3,8 @@
 LaminDB is an open-source data framework for biology to query, trace, and validate datasets and models at scale.
 You get context & memory through a lineage-native lakehouse that supports bio-formats, registries & ontologies.
 
+Agent? [llms.txt](https://docs.lamin.ai/llms.txt)
+
 <details>
 <summary>Why?</summary>
 
@@ -63,10 +65,6 @@ biosamples & species | 10⁵ & 10²
 ... | ...
 
 </details>
-
-## Docs
-
-Point an agent to [llms.txt](https://docs.lamin.ai/llms.txt) and let them do the work or read the [docs](https://docs.lamin.ai).
 
 ## Quickstart
 
