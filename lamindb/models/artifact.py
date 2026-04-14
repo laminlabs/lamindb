@@ -24,6 +24,7 @@ from lamindb_setup.core.upath import (
     extract_suffix_from_path,
     get_stat_dir_cloud,
     get_stat_file_cloud,
+    transfer_fs,
 )
 from lamindb_setup.types import UPathStr
 
@@ -3069,6 +3070,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 "Space cannot be changed because the artifact is in the storage location of another space."
             )
 
+        if self._field_changed("space_id") and self.storage.instance_uid is not None:
+            _transfer_artifact_to_space(self, self.space_id)
+
         if transfer not in {"record", "annotations"}:
             raise ValueError(
                 f"transfer should be either 'record' or 'annotations', not {transfer}"
@@ -3170,6 +3174,22 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         if hasattr(self, "_local_filepath"):
             del self._local_filepath
         return self
+
+
+def _transfer_artifact_to_space(artifact: Artifact, space_id: int):
+    storage = Storage.connect(artifact._state.db).get(space_id=space_id)
+    storage_key = _s().auto_storage_key_from_artifact(artifact)
+
+    source_path = artifact.path
+    target_path = storage.path / storage_key
+    assert source_path != target_path
+
+    fs = transfer_fs(source_path, target_path)
+    logger.info(f"transferring artifact from {source_path} to {target_path}")
+    fs.mv(str(source_path), str(target_path), recursive=True)
+
+    if artifact.storage_id != storage.id:
+        artifact.storage_id = storage.id
 
 
 # can't really just call .cache in .load because of double tracking
