@@ -232,6 +232,26 @@ def test_create_from_path_file_with_explicit_key_is_virtual(
     artifact.delete(permanent=True, storage=True)
 
 
+def test_create_from_empty_files_skips_hash_lookup(tmp_path):
+    path_1 = tmp_path / "empty-1.txt"
+    path_2 = tmp_path / "empty-2.txt"
+    path_1.write_text("")
+    path_2.write_text("")
+
+    artifact_1 = ln.Artifact(path_1, key=f"{tmp_path.name}/empty-1.txt").save()
+    artifact_2 = ln.Artifact(path_2, key=f"{tmp_path.name}/empty-2.txt")
+
+    assert artifact_2.uid != artifact_1.uid
+    assert artifact_2.key == f"{tmp_path.name}/empty-2.txt"
+    assert artifact_2.hash == artifact_1.hash
+
+    artifact_2.save()
+    assert artifact_2.id != artifact_1.id
+
+    artifact_2.delete(permanent=True)
+    artifact_1.delete(permanent=True)
+
+
 @pytest.mark.parametrize("key", [None, "my_new_folder"])
 def test_create_from_path_folder(get_test_filepaths, key):
     # get variables from fixture

@@ -373,6 +373,10 @@ def get_stat_or_artifact(
             size, hash, hash_type = hash_file(path)
     if not check_hash:
         return size, hash, hash_type, n_files, None
+    # Empty files all share the same content hash; skip cross-artifact hash
+    # lookup so creating a new empty file path yields a new artifact.
+    if n_files is None and size == 0:
+        skip_hash_lookup = True
     previous_artifact_version = None
     artifacts_qs = Artifact.objects.using(instance)
     if skip_hash_lookup:
