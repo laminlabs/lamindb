@@ -2359,7 +2359,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
                 artifact = ln.Artifact.from_spatialdata(sdata, key="my_dataset.zarr").save()
 
-            With validation and annotation.
+            With validation and annotation. First, define or query a schema:
 
             .. literalinclude:: scripts/define_schema_spatialdata.py
                 :language: python
