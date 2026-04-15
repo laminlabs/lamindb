@@ -373,6 +373,10 @@ def get_stat_or_artifact(
             size, hash, hash_type = hash_file(path)
     if not check_hash:
         return size, hash, hash_type, n_files, None
+    # Empty files all share the same content hash; skip cross-artifact hash
+    # lookup so creating a new empty file path yields a new artifact.
+    if n_files is None and size == 0:
+        skip_hash_lookup = True
     previous_artifact_version = None
     artifacts_qs = Artifact.objects.using(instance)
     if skip_hash_lookup:
@@ -1135,6 +1139,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         storage: `Storage | None = None` The storage location for the artifact. If `None`, uses the default storage location.
             You can see and set the default storage location in :attr:`~lamindb.core.Settings.storage`.
         skip_hash_lookup: `bool = False` Skip the hash lookup so that a new artifact is created even if an artifact with the same hash already exists.
+            Empty files are always treated as if this were `True` because empty content hashes are not used for deduplication.
 
     Examples:
 
@@ -1216,6 +1221,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         .. dropdown:: Will artifacts get duplicated?
 
             If an artifact with the exact same hash already exists, `Artifact()` returns the existing artifact.
+            Exception: empty files are not deduplicated by hash and create a new artifact.
 
             In concurrent workloads where the same artifact is created repeatedly at the exact same time, `.save()`
             detects the duplication and will return the existing artifact.
