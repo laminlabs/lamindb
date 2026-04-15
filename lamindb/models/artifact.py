@@ -3078,7 +3078,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 _transfer_artifact_to_storage(self, storage)
             else:
                 raise ValueError(
-                    "The target storage is not managed by an instance. Please select a different storage location."
+                    "The target storage is not managed by an instance. "
+                    "Please select a different storage location."
                 )
 
         if transfer not in {"record", "annotations"}:
