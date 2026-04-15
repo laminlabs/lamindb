@@ -2359,13 +2359,20 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
                 artifact = ln.Artifact.from_spatialdata(sdata, key="my_dataset.zarr").save()
 
-            With validation and annotation. First, define or query a schema:
+            With validation and annotation. First, find a `SpatialData` schema, e.g.:
+
+                ln.Schema.filter(otype="SpatialData").to_dataframe()
+                schema = ln.Schema.get(name="spatialdata_blobs_schema")
+
+            Then, pass the schema to the `from_spatialdata` method:
+
+                artifact = ln.Artifact.from_spatialdata(sdata, key="my_dataset.zarr", schema=schema).save()
+
+            You can also define a schema from scratch:
 
             .. literalinclude:: scripts/define_schema_spatialdata.py
                 :language: python
 
-            .. literalinclude:: scripts/curate_spatialdata.py
-                :language: python
         """
         if not data_is_scversedatastructure(sdata, "SpatialData"):
             raise ValueError(
