@@ -3071,16 +3071,31 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             )
 
         if self._field_changed("space_id") and self.storage.instance_uid is not None:
-            # todo: select from multiple storages if available
-            storage = Storage.connect(self._state.db).get(space_id=self.space_id)
-            if storage.instance_uid is not None:
-                # try to transfer if both storages are writable / managed by an instance
-                _transfer_artifact_to_storage(self, storage)
-            else:
+            storages = Storage.connect(self._state.db).filter(
+                space_id=self.space_id, instance_uid__isnull=False
+            )
+            n_storages = storages.count()
+            if n_storages == 0:
                 raise ValueError(
-                    "The target storage is not managed by an instance. "
-                    "Please select a different storage location."
+                    "No storage locations managed by an instance found for the space."
                 )
+            elif n_storages > 1:
+                storages = storages.order_by("id")
+                roots_str = "\n".join(
+                    f"{i}: {storage.root}" for i, storage in enumerate(storages)
+                )
+                storage_id: int = int(
+                    input(
+                        "Select a storage location from the following options:"
+                        f" \n{roots_str}\n"
+                        "Enter the number: "
+                    )
+                )
+                storage = storages[storage_id]
+            else:
+                storage = storages.one()
+            # try to transfer if both storages are writable / managed by an instance
+            _transfer_artifact_to_storage(self, storage)
 
         if transfer not in {"record", "annotations"}:
             raise ValueError(
