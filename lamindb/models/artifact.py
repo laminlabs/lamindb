@@ -1139,6 +1139,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         storage: `Storage | None = None` The storage location for the artifact. If `None`, uses the default storage location.
             You can see and set the default storage location in :attr:`~lamindb.core.Settings.storage`.
         skip_hash_lookup: `bool = False` Skip the hash lookup so that a new artifact is created even if an artifact with the same hash already exists.
+            Empty files are always treated as if this were `True` because empty content hashes are not used for deduplication.
 
     Examples:
 
@@ -1220,6 +1221,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         .. dropdown:: Will artifacts get duplicated?
 
             If an artifact with the exact same hash already exists, `Artifact()` returns the existing artifact.
+            Exception: empty files are not deduplicated by hash and create a new artifact.
 
             In concurrent workloads where the same artifact is created repeatedly at the exact same time, `.save()`
             detects the duplication and will return the existing artifact.
