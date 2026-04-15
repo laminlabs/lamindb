@@ -3071,7 +3071,15 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             )
 
         if self._field_changed("space_id") and self.storage.instance_uid is not None:
-            _transfer_artifact_to_space(self, self.space_id)
+            # todo: select from multiple storages if available
+            storage = Storage.connect(self._state.db).get(space_id=self.space_id)
+            if storage.instance_uid is not None:
+                # try to transfer if both storages are writable / managed by an instance
+                _transfer_artifact_to_storage(self, storage)
+            else:
+                raise ValueError(
+                    "The target storage is not managed by an instance. Please select a different storage location."
+                )
 
         if transfer not in {"record", "annotations"}:
             raise ValueError(
@@ -3176,8 +3184,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         return self
 
 
-def _transfer_artifact_to_space(artifact: Artifact, space_id: int):
-    storage = Storage.connect(artifact._state.db).get(space_id=space_id)
+def _transfer_artifact_to_storage(artifact: Artifact, storage: Storage):
     storage_key = _s().auto_storage_key_from_artifact(artifact)
 
     source_path = artifact.path
