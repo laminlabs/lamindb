@@ -44,6 +44,7 @@ if TYPE_CHECKING:
 
 _VERSIONED_ATTACHED_KINDS = ("readme",)  # only readme is versioned; comment is not
 _VALID_BLOCK_KINDS: tuple[str, ...] = ("readme", "comment")
+_BLOCK_ALLOWED_NON_REGISTRY_KEYS: tuple[str, ...] = ("README.md",)
 
 
 def _init_versioned_attached_block(
@@ -274,9 +275,12 @@ class Block(BaseBlock, SQLRecord):
         if kind != "readme":
             raise ValueError("Only kind = 'readme' is supported for block.")
         _registry_ids = get_args(RegistryId)
-        if key is not None and key not in _registry_ids:
+        allowed_keys = set(_registry_ids).union(_BLOCK_ALLOWED_NON_REGISTRY_KEYS)
+        if key is not None and key not in allowed_keys:
             raise ValueError(
-                f"key must be one of RegistryId: {', '.join(_registry_ids)}"
+                "key must be one of RegistryId or "
+                f"{', '.join(_BLOCK_ALLOWED_NON_REGISTRY_KEYS)}: "
+                f"{', '.join(_registry_ids)}"
             )
         if revises is not None and not isinstance(revises, Block):
             raise TypeError("`revises` has to be of type `Block`")
