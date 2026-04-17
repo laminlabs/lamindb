@@ -189,3 +189,20 @@ def test_folder_like_artifact_s3():
     assert study0_data._hash_type == "md5-d"
     assert study0_data.n_files == 51
     assert study0_data.size == 658465
+
+
+def test_single_file_directory_preserved(tmp_path):
+    local_dir = tmp_path / "single_file_dir"
+    local_dir.mkdir()
+    (local_dir / "only.txt").write_text("single file")
+
+    storage = ln.Storage.get(root="s3://lamindb-test/storage")
+    artifact = ln.Artifact(
+        local_dir, key="tests/single-file-directory", storage=storage
+    ).save()
+
+    assert artifact.n_files == 1
+    assert artifact.path.is_dir()
+    assert [file.name for file in artifact.path.iterdir()] == ["only.txt"]
+
+    artifact.delete(permanent=True)
