@@ -24,6 +24,7 @@ from lamindb_setup.core.upath import (
     extract_suffix_from_path,
     get_stat_dir_cloud,
     get_stat_file_cloud,
+    transfer_fs,
 )
 from lamindb_setup.types import UPathStr
 
@@ -3058,16 +3059,47 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             and self.branch_id != -1  # skip on soft deletion
         ):
             logger.warning("you are saving to a non-latest version of the artifact")
+
+        access_token = kwargs.pop("access_token", None)
         # when space is passed in init, storage is ignored, so space - storage consistency is enforced there
-        # note that storage is not editable after creation
         if (
             self._field_changed("space_id")
+            # here we check for storages managed by any instance
+            # not necessarily with managed credentials
+            # probbaly we should restrict to storages with managed credentials
             and (artifact_storage := self.storage).instance_uid is not None
-            and artifact_storage.space_id == self._original_values["space_id"]
         ):
-            raise ValueError(
-                "Space cannot be changed because the artifact is in the storage location of another space."
+            space = self.space
+            storage_type = artifact_storage.type
+            storages = Storage.connect(self._state.db).filter(
+                space=space, instance_uid__isnull=False, type=storage_type
             )
+            n_storages = storages.count()
+            if n_storages == 0:
+                raise ValueError(
+                    f"No {storage_type} storage locations managed by an instance found for the space '{space.name}'."
+                )
+            elif n_storages > 1:
+                storages = storages.order_by("id")
+                roots_str = "\n".join(
+                    f"{i}: {storage.root}" for i, storage in enumerate(storages)
+                )
+                choice = input(
+                    f"Select a storage location of type '{storage_type}' from the target space '{space.name}':"
+                    f" \n{roots_str}\n"
+                    "Enter the number or 'x' to cancel: "
+                )
+                if choice == "x":
+                    logger.warning("saving was cancelled")
+                    return None
+                storage = storages[int(choice)]
+            else:
+                storage = storages.one()
+            if artifact_storage != storage:
+                # try to transfer if both storages are writable / managed by an instance
+                _transfer_artifact_to_storage(self, storage, access_token=access_token)
+            else:
+                logger.important("artifact is already in the target storage location")
 
         if transfer not in {"record", "annotations"}:
             raise ValueError(
@@ -3080,7 +3112,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         store_kwargs = kwargs.pop(
             "store_kwargs", {}
         )  # kwargs for .upload_from in the end
-        access_token = kwargs.pop("access_token", None)
         local_path = None
         if upload and setup_settings.instance.keep_artifacts_local:
             # switch local storage location to cloud
@@ -3170,6 +3201,31 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         if hasattr(self, "_local_filepath"):
             del self._local_filepath
         return self
+
+
+def _transfer_artifact_to_storage(
+    artifact: Artifact, storage: Storage, access_token: str | None = None
+):
+    storage_key = _s().auto_storage_key_from_artifact(artifact)
+
+    source_path = artifact.path
+    target_path = storage.path / storage_key
+    assert source_path != target_path, "Cannot transfer to the same path."
+
+    fs = transfer_fs(source_path, target_path, access_token=access_token)
+
+    source_path_str = str(source_path)
+    target_path_str = str(target_path)
+    assert not fs.exists(target_path_str), (
+        f"Cannot transfer artifact to {target_path_str} because it already exists."
+    )
+
+    logger.important(
+        f"transferring artifact from '{source_path_str}' to '{target_path_str}'"
+    )
+    fs.mv(source_path_str, target_path_str, recursive=True)
+
+    artifact.storage_id = storage.id
 
 
 # can't really just call .cache in .load because of double tracking
