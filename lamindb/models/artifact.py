@@ -3064,15 +3064,19 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         # when space is passed in init, storage is ignored, so space - storage consistency is enforced there
         if (
             self._field_changed("space_id")
+            # here we check for storages managed by any instance
+            # not necessarily with managed credentials
+            # probbaly we should restrict to storages with managed credentials
             and (artifact_storage := self.storage).instance_uid is not None
         ):
+            storage_type = artifact_storage.type
             storages = Storage.connect(self._state.db).filter(
-                space_id=self.space_id, instance_uid__isnull=False
+                space_id=self.space_id, instance_uid__isnull=False, type=storage_type
             )
             n_storages = storages.count()
             if n_storages == 0:
                 raise ValueError(
-                    "No storage locations managed by an instance found for the space."
+                    f"No {storage_type} storage locations managed by an instance found for the space."
                 )
             elif n_storages > 1:
                 storages = storages.order_by("id")
