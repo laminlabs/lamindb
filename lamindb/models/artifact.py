@@ -3069,28 +3069,30 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             # probbaly we should restrict to storages with managed credentials
             and (artifact_storage := self.storage).instance_uid is not None
         ):
+            space = self.space
             storage_type = artifact_storage.type
             storages = Storage.connect(self._state.db).filter(
-                space_id=self.space_id, instance_uid__isnull=False, type=storage_type
+                space=space, instance_uid__isnull=False, type=storage_type
             )
             n_storages = storages.count()
             if n_storages == 0:
                 raise ValueError(
-                    f"No {storage_type} storage locations managed by an instance found for the space."
+                    f"No {storage_type} storage locations managed by an instance found for the space '{space.name}'."
                 )
             elif n_storages > 1:
                 storages = storages.order_by("id")
                 roots_str = "\n".join(
                     f"{i}: {storage.root}" for i, storage in enumerate(storages)
                 )
-                storage_id: int = int(
-                    input(
-                        "Select a storage location from the following options:"
-                        f" \n{roots_str}\n"
-                        "Enter the number: "
-                    )
+                choice = input(
+                    f"Select a storage location of type '{storage_type}' from the target space '{space.name}':"
+                    f" \n{roots_str}\n"
+                    "Enter the number or 'x' to cancel: "
                 )
-                storage = storages[storage_id]
+                if choice == "x":
+                    logger.warning("saving was cancelled")
+                    return None
+                storage = storages[int(choice)]
             else:
                 storage = storages.one()
             if artifact_storage != storage:

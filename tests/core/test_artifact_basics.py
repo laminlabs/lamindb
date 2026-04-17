@@ -1297,7 +1297,7 @@ def test_artifact_space_change(tsv_file):
     with pytest.raises(ValueError) as err:
         artifact.save()
     assert (
-        "No local storage locations managed by an instance found for the space."
+        "No local storage locations managed by an instance found for the space"
         in err.exconly()
     )
     # test after getting from the db
@@ -1306,7 +1306,7 @@ def test_artifact_space_change(tsv_file):
     with pytest.raises(ValueError) as err:
         artifact.save()
     assert (
-        "No local storage locations managed by an instance found for the space."
+        "No local storage locations managed by an instance found for the space"
         in err.exconly()
     )
 
