@@ -3062,7 +3062,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
         access_token = kwargs.pop("access_token", None)
         # when space is passed in init, storage is ignored, so space - storage consistency is enforced there
-        # note that storage is not editable after creation
         if (
             self._field_changed("space_id")
             and (artifact_storage := self.storage).instance_uid is not None
