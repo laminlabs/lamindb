@@ -3096,11 +3096,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             if artifact_storage != storage:
                 # try to transfer if both storages are writable / managed by an instance
                 _transfer_artifact_to_storage(self, storage, access_token=access_token)
-            else:
-                # this can happen if the space of the storage was changed before saving the artifact
-                logger.info(
-                    f"artifact is already in the storage location {storage.root}"
-                )
 
         if transfer not in {"record", "annotations"}:
             raise ValueError(
@@ -3214,7 +3209,7 @@ def _transfer_artifact_to_storage(
     assert source_path != target_path
 
     fs = transfer_fs(source_path, target_path, access_token=access_token)
-    logger.info(f"transferring artifact from {source_path} to {target_path}")
+    logger.important(f"transferring artifact from {source_path} to {target_path}")
     fs.mv(str(source_path), str(target_path), recursive=True)
 
     artifact.storage_id = storage.id
