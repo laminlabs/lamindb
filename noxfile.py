@@ -34,6 +34,8 @@ GROUPS["tutorial"] = [
 ]
 GROUPS["guide"] = [
     "track.ipynb",
+]
+GROUPS["tiledbsoma"] = [
     "curate.ipynb",
 ]
 GROUPS["biology"] = [
@@ -75,6 +77,7 @@ def install(session):
         "no-instance",
         "tutorial",
         "guide",
+        "tiledbsoma",
         "biology",
         "faq",
         "storage",
@@ -89,10 +92,7 @@ def install_ci(session, group):
     extras = ""
     if group in ["unit-core-sqlite", "unit-core-postgres"]:
         extras += "fcs"
-        # tiledbsoma dependency, specifying it here explicitly
-        # otherwise there are problems with uv resolver
         run(session, "uv pip install --system scanpy")
-        run(session, "uv pip install --system tiledbsoma")  # test TiledbsomaCatManager
         run(session, "uv pip install --system mudata")
         # spatialdata dependency, specifying it here explicitly
         # otherwise there are problems with uv resolver
@@ -104,15 +104,18 @@ def install_ci(session, group):
     elif group == "unit-storage":
         extras += "gcp"
         run(session, "uv pip install --system huggingface_hub")
-        # tiledbsoma dependency, specifying it here explicitly
-        # otherwise there are problems with uv resolver
         run(session, "uv pip install --system scanpy")
-        run(session, "uv pip install --system tiledbsoma")
         run(session, "uv pip install --system polars")
     elif group == "tutorial":
         # anndata here to prevent installing older version on release
         run(session, "uv pip install --system huggingface_hub polars anndata==0.12.2")
     elif group == "guide":
+        extras += "zarr_v2"
+        run(
+            session,
+            f"uv pip install --system scanpy mudata spatialdata {SPATIALDATA_OME_ZARR_CONSTRAINT}",
+        )
+    elif group == "tiledbsoma":
         extras += "zarr_v2"
         run(
             session,
@@ -142,7 +145,6 @@ def install_ci(session, group):
             session,
             f"uv pip install --system spatialdata {SPATIALDATA_OME_ZARR_CONSTRAINT}",
         )
-        run(session, "uv pip install --system tiledbsoma")
     elif group == "integrations":
         run(session, "uv pip install --system lightning")
     elif group == "docs":
@@ -199,7 +201,7 @@ def configure_coverage(session) -> None:
     # so that we don't change this away from string
     assert isinstance(groups_str, str)  # noqa: S101
 
-    if "curator" not in groups_str:
+    if "curator" not in groups_str and "tiledbsoma" not in groups_str:
         extra_omit_patterns = ["**/curators/*"]
     else:
         extra_omit_patterns = []
@@ -270,6 +272,7 @@ def prepare(session):
         "integrations",
         "tutorial",
         "guide",
+        "tiledbsoma",
         "biology",
         "faq",
         "storage",
@@ -318,6 +321,15 @@ def test(session, group):
             session,
             f"pytest -s {coverage_args} ./docs/test_notebooks.py::test_{group}",
         )
+    elif group == "tiledbsoma":
+        run(
+            session,
+            (
+                f"pytest {coverage_args} tests/tiledbsoma "
+                "./docs/test_notebooks.py::test_tiledbsoma "
+                f"{duration_args}"
+            ),
+        )
     elif group == "biology":
         run(
             session,
@@ -342,7 +354,7 @@ def test(session, group):
     elif group == "permissions":
         run(session, f"pytest {coverage_args} ./tests/permissions")
     # move artifacts into right place
-    if group in {"tutorial", "guide", "biology"}:
+    if group in {"tutorial", "guide", "tiledbsoma", "biology"}:
         target_dir = Path(f"./docs/{group}")
         target_dir.mkdir(exist_ok=True)
         for filename in GROUPS[group]:
@@ -439,13 +451,13 @@ def clidocs(session):
 def docs(session):
     # move artifacts into right place
     run(session, "lamin settings set private-django-api true")
-    for group in ["tutorial", "guide", "biology", "faq", "storage"]:
+    for group in ["tutorial", "guide", "tiledbsoma", "biology", "faq", "storage"]:
         if Path(f"./docs-{group}").exists():
             if Path(f"./docs/{group}").exists():
                 shutil.rmtree(f"./docs/{group}")
             Path(f"./docs-{group}").rename(f"./docs/{group}")
         # move back to root level
-        if group in {"tutorial", "guide", "biology"}:
+        if group in {"tutorial", "guide", "tiledbsoma", "biology"}:
             for path in Path(f"./docs/{group}").glob("*"):
                 path.rename(f"./docs/{path.name}")
     run(
