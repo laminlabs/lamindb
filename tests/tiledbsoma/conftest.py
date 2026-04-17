@@ -23,6 +23,9 @@ def pytest_sessionstart():
         name="lamindb-unit-tests-tiledbsoma",
     )
     ln.settings.creation.artifact_silence_missing_run_warning = True
+    # Pre-register remote roots used in tests so `ln.settings.storage = ...`
+    # doesn't prompt for interactive confirmation under pytest capture.
+    ln.Storage("s3://lamindb-test/storage").save()
     total_time_elapsed = perf_counter() - t_execute_start
     print(f"time to setup the instance: {total_time_elapsed:.1f}s")
 
