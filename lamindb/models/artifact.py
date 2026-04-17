@@ -3063,7 +3063,10 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         access_token = kwargs.pop("access_token", None)
         # when space is passed in init, storage is ignored, so space - storage consistency is enforced there
         # note that storage is not editable after creation
-        if self._field_changed("space_id") and self.storage.instance_uid is not None:
+        if (
+            self._field_changed("space_id")
+            and (artifact_storage := self.storage).instance_uid is not None
+        ):
             storages = Storage.connect(self._state.db).filter(
                 space_id=self.space_id, instance_uid__isnull=False
             )
@@ -3087,8 +3090,14 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 storage = storages[storage_id]
             else:
                 storage = storages.one()
-            # try to transfer if both storages are writable / managed by an instance
-            _transfer_artifact_to_storage(self, storage, access_token=access_token)
+            if artifact_storage != storage:
+                # try to transfer if both storages are writable / managed by an instance
+                _transfer_artifact_to_storage(self, storage, access_token=access_token)
+            else:
+                # this can happen if the space of the storage was changed before saving the artifact
+                logger.info(
+                    f"artifact is already in the storage location {storage.root}"
+                )
 
         if transfer not in {"record", "annotations"}:
             raise ValueError(
