@@ -3,6 +3,8 @@
 LaminDB is an open-source data framework for biology to query, trace, and validate datasets and models at scale.
 You get context & memory through a lineage-native lakehouse that supports bio-formats, registries & ontologies.
 
+Agent? [llms.txt](https://docs.lamin.ai/llms.txt)
+
 <details>
 <summary>Why?</summary>
 
@@ -64,10 +66,6 @@ biosamples & species | 10⁵ & 10²
 
 </details>
 
-## Docs
-
-Point an agent to [llms.txt](https://docs.lamin.ai/llms.txt) and let them do the work or read the [docs](https://docs.lamin.ai).
-
 ## Quickstart
 
 To install the Python package with recommended dependencies, use:
@@ -82,7 +80,7 @@ pip install lamindb
 To install the `lamindb` namespace with minimal dependencies, use:
 
 ```shell
-pip install lamindb-core==2.3a1
+pip install lamindb-core
 ```
 
 </details>
@@ -142,8 +140,9 @@ lamin init --storage ./quickstart-data --modules bionty
 ```
 
 On the terminal and in a Python session, LaminDB will now auto-connect.
+If you want to configure on-prem Postgres or cloud storage, read: [docs.lamin.ai/setup](https://docs.lamin.ai/setup).
 
-### CLI
+### The CLI
 
 To save a file or folder from the command line, run:
 
@@ -235,7 +234,7 @@ Pass a project/artifact to `ln.track()`, for example:
 ln.track(project="My project", plan="./plans/curate-dataset-x.md")
 ```
 
-Note that you have to create a project or save the agent plan in case it they don't yet exist:
+Note that you have to create a project or save the agent plan in case they don't yet exist:
 
 ```
 # create a project with the CLI
@@ -340,7 +339,7 @@ ln.Feature(name="experiment_date", dtype=date, coerce=True).save()  # accept dat
 During annotation, feature names and data types are validated against these definitions.
 
 ```python
-artifact.features.add_values({
+artifact.features.set_values({
     "gc_content": 0.55,
     "experiment_note": "Looks great",
     "experiment_date": "2025-10-24",
@@ -373,7 +372,7 @@ Define features and annotate an artifact with a sample:
 
 ```python
 ln.Feature(name="design_sample", dtype=sample).save()
-artifact.features.add_values({"design_sample": "P53mutant1"})
+artifact.features.set_values({"design_sample": "P53mutant1"})
 ```
 
 You can query & search the `Record` registry in the same way as `Artifact` or `Run`.
@@ -407,6 +406,18 @@ If you now query by `key`, you'll get the latest version of this artifact with t
 artifact = ln.Artifact.get(key="sample.fasta")  # get artifact by key
 artifact.versions.to_dataframe()                # see all versions of that artifact
 ```
+
+### Data sharing
+
+To share data in a lineage-aware way, sync objects from a source database to your default database:
+
+```python
+db = ln.DB("laminlabs/lamindata")
+artifact = db.Artifact.get(key="example_datasets/mini_immuno/dataset1.h5ad")
+artifact.save()
+```
+
+This is zero-copy for the artifact's data in storage. Read more: [docs.lamin.ai/sync](https://docs.lamin.ai/sync).
 
 ### Lakehouse ♾️ feature store
 
@@ -476,7 +487,7 @@ Plugin `bionty` gives you >20 public ontologies as `SQLRecord` registries. This 
 import bionty as bt
 
 bt.CellType.import_source()  # import the default ontology
-bt.CellType.to_dataframe()   # your extendable cell type ontology in a simple registry
+bt.CellType.to_dataframe()   # your extensible cell type ontology in a simple registry
 ```
 
 Read more: [docs.lamin.ai/manage-ontologies](https://docs.lamin.ai/manage-ontologies).

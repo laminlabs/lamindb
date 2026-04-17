@@ -5,16 +5,19 @@ Also see `test_artifact_folders.py` for tests of folder-like artifacts.
 
 # ruff: noqa: F811
 
+import shutil
 import sys
 from pathlib import Path, PurePosixPath
 from types import ModuleType
 
 import anndata as ad
+import h5py
 import lamindb as ln
 import lamindb_setup
 import mudata as md
 import pandas as pd
 import pytest
+import zarr
 from _dataset_fixtures import (  # noqa
     get_mini_csv,
     get_small_adata,
@@ -227,6 +230,26 @@ def test_create_from_path_file_with_explicit_key_is_virtual(
         assert artifact.path == root / f".lamindb/{artifact.uid}.tsv"
 
     artifact.delete(permanent=True, storage=True)
+
+
+def test_create_from_empty_files_skips_hash_lookup(tmp_path):
+    path_1 = tmp_path / "empty-1.txt"
+    path_2 = tmp_path / "empty-2.txt"
+    path_1.write_text("")
+    path_2.write_text("")
+
+    artifact_1 = ln.Artifact(path_1, key=f"{tmp_path.name}/empty-1.txt").save()
+    artifact_2 = ln.Artifact(path_2, key=f"{tmp_path.name}/empty-2.txt")
+
+    assert artifact_2.uid != artifact_1.uid
+    assert artifact_2.key == f"{tmp_path.name}/empty-2.txt"
+    assert artifact_2.hash == artifact_1.hash
+
+    artifact_2.save()
+    assert artifact_2.id != artifact_1.id
+
+    artifact_2.delete(permanent=True)
+    artifact_1.delete(permanent=True)
 
 
 @pytest.mark.parametrize("key", [None, "my_new_folder"])
@@ -513,6 +536,35 @@ def test_create_from_anndata(get_small_adata, adata_file, example_dataframe):
             # check that the local filepath has been cleared
             assert not hasattr(artifact, "_local_filepath")
             artifact.delete(permanent=True)
+
+
+def test_from_anndata_uses_h5ad_kwargs(get_small_adata):
+    artifact = ln.Artifact.from_anndata(
+        get_small_adata,
+        key="test_kwargs.h5ad",
+        h5ad_kwargs={"compression": "gzip"},
+    )
+
+    local_path = artifact._local_filepath
+    with h5py.File(local_path, mode="r") as store:
+        assert store["X"].compression == "gzip"
+
+    local_path.unlink(missing_ok=True)
+
+
+def test_from_anndata_uses_zarr_kwargs(get_small_adata):
+    chunks = (1, get_small_adata.n_vars)
+    artifact = ln.Artifact.from_anndata(
+        get_small_adata,
+        key="test_kwargs.zarr",
+        format="zarr",
+        zarr_kwargs={"chunks": chunks},
+    )
+
+    local_path = artifact._local_filepath
+    assert zarr.open(local_path, mode="r")["X"].chunks == chunks
+
+    shutil.rmtree(local_path)
 
 
 def test_from_anndata_validate_suffix(get_small_adata):
@@ -803,12 +855,31 @@ def test_revise_recreate_artifact(example_dataframe: pd.DataFrame, ccaplog):
     )  # version falls back to uid suffix
     assert new_artifact.description == artifact.description
 
-    artifact.delete()
+    new_artifact.save()
+    assert new_artifact.is_latest
 
-    artifact_from_trash = ln.Artifact.get(artifact.uid[:-4])  # query with stem uid
+    assert "you are saving to a non-latest version of the artifact" not in ccaplog.text
+
+    old_artifact = ln.Artifact.get(artifact.id)  # to update is_latest from the db
+    assert not old_artifact.is_latest
+    old_artifact.description = "change old version description"
+    old_artifact.save()
+
+    assert "you are saving to a non-latest version of the artifact" in ccaplog.text
+
+    old_artifact.delete()
+    new_artifact.delete()
+
+    artifact_from_trash = ln.Artifact.get(new_artifact.uid[:-4])  # query with stem uid
     assert artifact_from_trash.branch_id == -1
 
-    artifact.delete(permanent=True)  # permanent deletion
+    old_artifact.delete(permanent=True)
+    new_artifact.delete(permanent=True)
+    # check after cleanups
+    assert (
+        ccaplog.text.count("you are saving to a non-latest version of the artifact")
+        == 1
+    )
 
 
 def test_delete_and_restore_artifact(example_dataframe: pd.DataFrame):

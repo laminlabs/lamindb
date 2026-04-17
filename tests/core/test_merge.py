@@ -129,3 +129,31 @@ def test_merge_reconciles_is_latest_for_versioned_records():
     for record in family:
         record.delete(permanent=True)
     branch.delete(permanent=True)
+
+
+def test_merge_updates_recordblock_branch():
+    main_branch = ln.Branch.get(name="main")
+    ln.setup.switch(main_branch.name)
+
+    source_branch = ln.Branch(name="test_merge_recordblock_branch").save()
+    ln.setup.switch(source_branch.name)
+    record = ln.Record(name="recordblock-merge-record").save()
+    block = ln.models.RecordBlock(
+        record=record,
+        content="recordblock merge content",
+        kind="readme",
+        branch=source_branch,
+        created_on=source_branch,
+    ).save()
+    assert block.branch == source_branch
+    assert block.created_on == source_branch
+
+    ln.setup.switch(main_branch.name)
+    ln.setup.merge(source_branch.name)
+
+    block.refresh_from_db()
+    assert block.branch.name == "main"
+    assert block.created_on == source_branch
+
+    record.delete(permanent=True)
+    source_branch.delete(permanent=True)

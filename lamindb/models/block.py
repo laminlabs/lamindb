@@ -44,6 +44,7 @@ if TYPE_CHECKING:
 
 _VERSIONED_ATTACHED_KINDS = ("readme",)  # only readme is versioned; comment is not
 _VALID_BLOCK_KINDS: tuple[str, ...] = ("readme", "comment")
+_BLOCK_ALLOWED_NON_REGISTRY_KEYS: tuple[str, ...] = ("README.md",)
 
 
 def _init_versioned_attached_block(
@@ -68,7 +69,9 @@ def _init_versioned_attached_block(
     revises = kwargs.pop("revises", None)
     using = kwargs.pop("using", None)
     uid = kwargs.pop("uid", None) if "uid" in kwargs else None
-    extra_kwargs = {k: kwargs.pop(k) for k in allowed_extra if k in kwargs}
+    default_allowed_extra = ("branch", "branch_id", "created_on", "created_on_id")
+    all_allowed_extra = default_allowed_extra + allowed_extra
+    extra_kwargs = {k: kwargs.pop(k) for k in all_allowed_extra if k in kwargs}
     allowed = {
         fk_field_name,
         "content",
@@ -78,7 +81,7 @@ def _init_versioned_attached_block(
         "revises",
         "using",
         "uid",
-        *allowed_extra,
+        *all_allowed_extra,
     }
     if kwargs:
         raise ValueError(
@@ -184,12 +187,7 @@ class BaseBlock(IsVersioned):
     kind: str = CharField(
         max_length=22, db_index=True, default="readme", db_default="readme"
     )
-    """The kind of block.
-
-    See the type annotations of the actual classes.
-
-    The 'mdpage' default is a placeholder and might be changed or removed in the future.
-    """
+    """The kind of block."""
     created_at: datetime = DateTimeField(
         editable=False, db_default=models.functions.Now(), db_index=True
     )
@@ -277,9 +275,12 @@ class Block(BaseBlock, SQLRecord):
         if kind != "readme":
             raise ValueError("Only kind = 'readme' is supported for block.")
         _registry_ids = get_args(RegistryId)
-        if key is not None and key not in _registry_ids:
+        allowed_keys = set(_registry_ids).union(_BLOCK_ALLOWED_NON_REGISTRY_KEYS)
+        if key is not None and key not in allowed_keys:
             raise ValueError(
-                f"key must be one of RegistryId: {', '.join(_registry_ids)}"
+                "key must be one of RegistryId or "
+                f"{', '.join(_BLOCK_ALLOWED_NON_REGISTRY_KEYS)}: "
+                f"{', '.join(_registry_ids)}"
             )
         if revises is not None and not isinstance(revises, Block):
             raise TypeError("`revises` has to be of type `Block`")
@@ -363,7 +364,29 @@ class Block(BaseBlock, SQLRecord):
         )
 
 
-class RecordBlock(BaseBlock, BaseSQLRecord):
+class HasBranch(models.Model):
+    class Meta:
+        abstract = True
+
+    branch: Branch = ForeignKey(
+        Branch,
+        PROTECT,
+        default=1,
+        db_default=1,
+        related_name="+",
+    )
+    """The current branch of the object - changes e.g. on merge events."""
+    created_on: Branch = ForeignKey(
+        Branch,
+        PROTECT,
+        default=1,
+        db_default=1,
+        related_name="+",
+    )
+    """The branch on which this object was created - never changes."""
+
+
+class RecordBlock(BaseBlock, BaseSQLRecord, HasBranch):
     """An unstructured notes block that can be attached to a record."""
 
     class Meta:
@@ -376,7 +399,7 @@ class RecordBlock(BaseBlock, BaseSQLRecord):
         _init_versioned_attached_block(self, "record", *args, **kwargs)
 
 
-class ArtifactBlock(BaseBlock, BaseSQLRecord):
+class ArtifactBlock(BaseBlock, BaseSQLRecord, HasBranch):
     """An unstructured notes block that can be attached to an artifact."""
 
     class Meta:
@@ -389,7 +412,7 @@ class ArtifactBlock(BaseBlock, BaseSQLRecord):
         _init_versioned_attached_block(self, "artifact", *args, **kwargs)
 
 
-class TransformBlock(BaseBlock, BaseSQLRecord):
+class TransformBlock(BaseBlock, BaseSQLRecord, HasBranch):
     """An unstructured notes block that can be attached to a transform."""
 
     class Meta:
@@ -408,7 +431,7 @@ class TransformBlock(BaseBlock, BaseSQLRecord):
         )
 
 
-class RunBlock(BaseBlock, BaseSQLRecord):
+class RunBlock(BaseBlock, BaseSQLRecord, HasBranch):
     """An unstructured notes block that can be attached to a run."""
 
     class Meta:
@@ -421,7 +444,7 @@ class RunBlock(BaseBlock, BaseSQLRecord):
         _init_versioned_attached_block(self, "run", *args, **kwargs)
 
 
-class CollectionBlock(BaseBlock, BaseSQLRecord):
+class CollectionBlock(BaseBlock, BaseSQLRecord, HasBranch):
     """An unstructured notes block that can be attached to a collection."""
 
     class Meta:
@@ -436,7 +459,7 @@ class CollectionBlock(BaseBlock, BaseSQLRecord):
         _init_versioned_attached_block(self, "collection", *args, **kwargs)
 
 
-class SchemaBlock(BaseBlock, BaseSQLRecord):
+class SchemaBlock(BaseBlock, BaseSQLRecord, HasBranch):
     """An unstructured notes block that can be attached to a schema."""
 
     class Meta:
@@ -449,7 +472,7 @@ class SchemaBlock(BaseBlock, BaseSQLRecord):
         _init_versioned_attached_block(self, "schema", *args, **kwargs)
 
 
-class FeatureBlock(BaseBlock, BaseSQLRecord):
+class FeatureBlock(BaseBlock, BaseSQLRecord, HasBranch):
     """An unstructured notes block that can be attached to a feature."""
 
     class Meta:
@@ -462,7 +485,7 @@ class FeatureBlock(BaseBlock, BaseSQLRecord):
         _init_versioned_attached_block(self, "feature", *args, **kwargs)
 
 
-class ProjectBlock(BaseBlock, BaseSQLRecord):
+class ProjectBlock(BaseBlock, BaseSQLRecord, HasBranch):
     """An unstructured notes block that can be attached to a project."""
 
     class Meta:
@@ -475,7 +498,7 @@ class ProjectBlock(BaseBlock, BaseSQLRecord):
         _init_versioned_attached_block(self, "project", *args, **kwargs)
 
 
-class SpaceBlock(BaseBlock, BaseSQLRecord):
+class SpaceBlock(BaseBlock, BaseSQLRecord, HasBranch):
     """An unstructured notes block that can be attached to a space."""
 
     class Meta:
@@ -486,6 +509,19 @@ class SpaceBlock(BaseBlock, BaseSQLRecord):
 
     def __init__(self, *args, **kwargs):
         _init_versioned_attached_block(self, "space", *args, **kwargs)
+
+
+class ULabelBlock(BaseBlock, BaseSQLRecord, HasBranch):
+    """An unstructured notes block that can be attached to a ulabel."""
+
+    class Meta:
+        app_label = "lamindb"
+
+    ulabel = ForeignKey("ULabel", CASCADE, related_name="ablocks")
+    """The ulabel to which the block is attached."""
+
+    def __init__(self, *args, **kwargs):
+        _init_versioned_attached_block(self, "ulabel", *args, **kwargs)
 
 
 class BranchBlock(BaseBlock, BaseSQLRecord):
@@ -499,16 +535,3 @@ class BranchBlock(BaseBlock, BaseSQLRecord):
 
     def __init__(self, *args, **kwargs):
         _init_versioned_attached_block(self, "branch", *args, **kwargs)
-
-
-class ULabelBlock(BaseBlock, BaseSQLRecord):
-    """An unstructured notes block that can be attached to a ulabel."""
-
-    class Meta:
-        app_label = "lamindb"
-
-    ulabel = ForeignKey("ULabel", CASCADE, related_name="ablocks")
-    """The ulabel to which the block is attached."""
-
-    def __init__(self, *args, **kwargs):
-        _init_versioned_attached_block(self, "ulabel", *args, **kwargs)

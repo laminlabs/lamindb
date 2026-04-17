@@ -102,6 +102,26 @@ UNIQUE_FIELD_NAMES = {
     "ensembl_gene_id",
     "uniprotkb_id",
 }
+BRANCH_SENSITIVE_BLOCK_MODEL_NAMES = frozenset(
+    {
+        "RecordBlock",
+        "ArtifactBlock",
+        "TransformBlock",
+        "CollectionBlock",
+        "RunBlock",
+        "SchemaBlock",
+        "FeatureBlock",
+        "ProjectBlock",
+        "ULabelBlock",
+        "SpaceBlock",
+    }
+)
+
+
+def _is_branch_sensitive_model(model: type[BaseSQLRecord]) -> bool:
+    return (
+        issubclass(model, SQLRecord) and model.__name__ not in {"Storage", "Source"}
+    ) or model.__name__ in BRANCH_SENSITIVE_BLOCK_MODEL_NAMES
 
 
 # -------------------------------------------------------------------------------------
@@ -404,10 +424,6 @@ def validate_fields(record: SQLRecord, kwargs):
                 )
     # validate is_type
     if "is_type" in kwargs and "name" in kwargs and kwargs["is_type"]:
-        if kwargs["name"].endswith("s"):
-            logger.warning(
-                f"name '{kwargs['name']}' for type ends with 's', in case you're naming with plural, consider the singular for a type name"
-            )
         is_approx_pascal_case(kwargs["name"])
     if (
         "type" in kwargs
@@ -959,9 +975,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                                 kwargs["space"] = current_space
                         else:
                             kwargs["space"] = current_space
-                if issubclass(
-                    self.__class__, SQLRecord
-                ) and self.__class__.__name__ not in {"Storage", "Source"}:
+                if _is_branch_sensitive_model(self.__class__):
                     from lamindb import context as run_context
 
                     if run_context.branch is not None:
@@ -1344,6 +1358,12 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
         if "created_on" in field_names:
             field_names.remove("created_on")
             field_names.append("created_on")
+        if "version_tag" in field_names:
+            field_names.remove("version_tag")
+            field_names.append("version_tag")
+        if "is_latest" in field_names:
+            field_names.remove("is_latest")
+            field_names.append("is_latest")
         if field_names[0] != "uid" and "uid" in field_names:
             field_names.remove("uid")
             field_names.insert(0, "uid")
@@ -1531,7 +1551,7 @@ class Branch(BaseSQLRecord):
 
             sqlrecord.created_on.describe()
 
-        To open a Merge Request for a branch, run:
+        To open a Change Request for a branch, run:
 
         .. tab-set::
 
@@ -1575,6 +1595,27 @@ class Branch(BaseSQLRecord):
             lamin switch main
             lamin merge my_branch
             # after merge on main: v2.is_latest=True, v1.is_latest=False
+
+    .. dropdown:: Logical vs. physical branching
+
+        LaminDB uses **logical branching** via `SQLRecord`'s `.branch` field, treating `branch` like any other field during queries & tracing,
+        and keeping infrastructure simple and platform-agnostic.
+        However, it doesn't allow isolating SQL `UPDATE` statements on a branch (only their corresponding `DbWrite` events).
+        Here are some notable alternatives:
+
+        - Some Postgres platforms like Supabase or Neon, by contrast, provide physical branching through cloning entire databases.
+          This allows for isolated SQL `UPDATE` statements but creates separate, disconnected environments and much overhead.
+        - Project Nessie is a versioned catalog for data lakes that tracks file states.
+          LaminDB is analogous to Nessie in that it also treats branching on the metadata catalog level
+          (considering LaminDB's SQL database as the metadata catalog).
+        - Dolt is a specialized database engine that provides storage-level branching.
+          It allows branch isolation and merging at the engine level.
+          While powerful, it requires using the Dolt database itself.
+
+        Why logical branching? Data science and ML workflows are primarily append-only.
+        Because a "change" usually results in a new version of an artifact, transform, or collection or new runs or other new objects rather than an in-place modification,
+        the row-level `branch` field provides isolation for 99% of use cases.
+        This avoids the technical complexity of row duplication, preserves database integrity, and allows the `is_latest` logic to reconcile versions globally upon merge.
 
     """
 
@@ -1627,6 +1668,8 @@ class Branch(BaseSQLRecord):
     """Creator of branch."""
     _status_code: int = models.SmallIntegerField(default=0, db_default=0, db_index=True)
     """Status code. -2: closed; -1: merged; 0: standalone; 1: draft; 2: review."""
+    _aux: dict[str, Any] | None = JSONField(default=None, db_default=None, null=True)
+    """Auxiliary field for dictionary-like metadata."""
     ablocks: RelatedManager[BranchBlock]
     """Attached blocks ← :attr:`~lamindb.BranchBlock.branch`."""
     users: RelatedManager[User] = models.ManyToManyField(
@@ -1657,11 +1700,11 @@ class Branch(BaseSQLRecord):
         =============  =====  ==================================================
         status         code   description
         =============  =====  ==================================================
-        `closed`       -2     Merge Request was closed without merging
-        `merged`       -1     the branch was merged into another branch
-        `standalone`   0      a standalone branch without Merge Request
-        `draft`        1      Merge Request exists but is not ready for review
-        `review`       2      Merge Request is ready for review
+        `closed`       -2     Change Request was closed without merging.
+        `merged`       -1     The branch was merged into another branch.
+        `standalone`   0      A standalone branch without Change Request.
+        `draft`        1      Change Request exists but is not ready for review.
+        `review`       2      Change Request is ready for review.
         =============  =====  ==================================================
 
         The database stores the branch status as an integer code in field `_status_code`.
@@ -1673,12 +1716,12 @@ class Branch(BaseSQLRecord):
                 branch.status
                 #> 'standalone'
 
-            Open a Merge Request in draft state::
+            Open a Change Request in draft state::
 
                 branch.status = "draft"
                 branch.save()
 
-            Request review for the Merge Request::
+            Request review for the Change Request::
 
                 branch.status = "review"
                 branch.save()
@@ -2084,12 +2127,14 @@ def get_transfer_run(record) -> Run:
     if not cache_using_filepath.exists():
         raise SystemExit("Need to call .connect() before")
     instance_uid = cache_using_filepath.read_text().split("\n")[0]
+    # TODO: consider renaming to __lamindb_sync__
     key = f"__lamindb_transfer__/{instance_uid}"
     uid = instance_uid + "0000"
     transform = Transform.filter(uid=uid).one_or_none()
     if transform is None:
         search_names = settings.creation.search_names
         settings.creation.search_names = False
+        # TODO: consider renaming to "Sync from"
         transform = Transform(  # type: ignore
             uid=uid, description=f"Transfer from `{slug}`", key=key, kind="function"
         ).save()

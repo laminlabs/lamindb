@@ -84,7 +84,24 @@ def test_to_dataframe():
 def test_complex_df_with_features():
     # should not fail
     ln.Artifact.connect("laminlabs/lamindata").to_dataframe(include="features")
+    ln.Run.connect("laminlabs/lamindata").to_dataframe(include="features")
     ln.Artifact.connect("laminlabs/lamindata").to_dataframe(features="queryset")
+
+
+def test_run_to_dataframe_includes_json_features():
+    transform = ln.Transform(key="test_run_to_dataframe_includes_json_features").save()
+    run = ln.Run(transform=transform).save()
+    feature = ln.Feature(name="run_json_feature", dtype=str).save()
+
+    run.features.set_values({"run_json_feature": "hello"})
+    df = ln.Run.filter(id=run.id).to_dataframe(include="features")
+
+    assert "run_json_feature" in df.columns
+    assert df["run_json_feature"].iloc[0] == "hello"
+
+    run.delete(permanent=True)
+    transform.delete(permanent=True)
+    feature.delete(permanent=True)
 
 
 def test_one_first():

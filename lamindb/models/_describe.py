@@ -254,14 +254,25 @@ def describe_artifact(
         Text.assemble(("size: ", "dim"), f"{format_bytes(record.size)}")
     )
     append_branch_space_created_at_created_by(record, two_column_items, fk_data)
-    if record.n_files:
-        two_column_items.append(
-            Text.assemble(("n_files: ", "dim"), f"{record.n_files}")
-        )
     if record.n_observations:
         two_column_items.append(
             Text.assemble(("n_observations: ", "dim"), f"{record.n_observations}")
         )
+    if record.n_files:
+        two_column_items.append(
+            Text.assemble(("n_files: ", "dim"), f"{record.n_files}")
+        )
+    schema_name = None
+    if fk_data and "schema" in fk_data and fk_data["schema"]:
+        schema_name = fk_data["schema"]["name"]
+    elif record.schema_id is not None and record.schema is not None:
+        schema_name = (
+            record.schema.name
+            if record.schema.name is not None
+            else record.schema.uid[:7]
+        )
+    if schema_name is not None:
+        two_column_items.append(Text.assemble(("schema: ", "dim"), schema_name))
     add_two_column_items_to_tree(tree, two_column_items)
     storage_root = fk_data["storage"]["name"] if fk_data else record.storage.root
     storage_key = (
@@ -347,10 +358,15 @@ def describe_run(
         transform = SimpleNamespace(**fk_data["transform"], description="")
     else:
         transform = record.transform
+    transform_key = transform.key if transform and transform.key is not None else ""
+    transform_version = (
+        f" ({transform.version})" if transform and transform.version is not None else ""
+    )
     two_column_items.append(
         Text.assemble(
             ("transform: ", "dim"),
-            format_title_with_version(transform),
+            (transform_key, "cyan3"),
+            (transform_version, "dim"),
         )
     )
     two_column_items.append(

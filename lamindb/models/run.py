@@ -227,7 +227,7 @@ class Run(SQLRecord, TracksUpdates):
         In contrast to `.params`, features are indexed in the `Feature` registry and can reference relational categorical values.
         If you want to link feature values, use::
 
-            run.features.add_values({
+            run.features.set_values({
                 "experiment": "My experiment 1",
             })
 
@@ -443,12 +443,12 @@ class Run(SQLRecord, TracksUpdates):
         ===========  =====  ===========================
         status       code   description
         ===========  =====  ===========================
-        `scheduled`  -3     run is scheduled
-        `restarted`  -2     run was restarted
-        `started`    -1     run has started
-        `completed`  0      run completed successfully
-        `errored`    1      run ended with an error
-        `aborted`    2      run was aborted
+        `scheduled`  -3     The run is scheduled.
+        `restarted`  -2     The run was restarted.
+        `started`    -1     The run has started.
+        `completed`  0      The run completed successfully.
+        `errored`    1      The run ended with an error.
+        `aborted`    2      The run was aborted.
         ===========  =====  ===========================
 
         The database stores the run status as an integer code in field `_status_code`.
@@ -469,7 +469,10 @@ class Run(SQLRecord, TracksUpdates):
 
     @property
     def features(self) -> FeatureManager:
-        """Manage annotations with features."""
+        """Manage annotations with features.
+
+        For examples, see :class:`~lamindb.Run` or :class:`~lamindb.models.FeatureManager`.
+        """
         from ._feature_manager import FeatureManager
 
         return FeatureManager(self)

@@ -22,6 +22,20 @@ def test_block_recovery_based_on_key():
     block1.delete(permanent=True)
 
 
+def test_readme_md_key_is_allowed_and_revises():
+    block1 = ln.models.Block(
+        key="README.md", content="# v1\n\nhello", kind="readme"
+    ).save()
+    block2 = ln.models.Block(key="README.md", content="# v2\n\nhello", kind="readme")
+    assert block2.stem_uid == block1.stem_uid
+    assert block2.uid != block1.uid
+    block2.save()
+    block1.refresh_from_db()
+    assert not block1.is_latest
+    block2.delete()
+    block1.delete()
+
+
 def test_revise_blocks():
     # attempt to create a block with an invalid version
     with pytest.raises(ValueError) as error:
@@ -252,3 +266,44 @@ def test_revise_record_blocks():
     block_r2.delete()
     block.delete()
     record.delete(permanent=True)
+
+
+def test_record_block_filter_respects_default_branch_scope():
+    main_branch = ln.Branch.get(name="main")
+    ln.setup.switch(main_branch.name)
+
+    main_record = ln.Record(name="record-block-main").save()
+    ln.models.RecordBlock(
+        record=main_record,
+        content="record-block-main-content",
+        kind="readme",
+        branch=main_branch,
+        created_on=main_branch,
+    ).save()
+
+    contrib = ln.Branch(name="record_block_scope_branch").save()
+    ln.setup.switch(contrib.name)
+    contrib_record = ln.Record(name="record-block-contrib").save()
+    contrib_block = ln.models.RecordBlock(
+        record=contrib_record,
+        content="record-block-contrib-content",
+        kind="readme",
+        branch=contrib,
+        created_on=contrib,
+    ).save()
+
+    assert (
+        ln.models.RecordBlock.filter(content="record-block-contrib-content").count()
+        == 1
+    )
+
+    ln.setup.switch(main_branch.name)
+    assert (
+        ln.models.RecordBlock.filter(content="record-block-contrib-content").count()
+        == 0
+    )
+
+    contrib_block.delete()
+    contrib_record.delete(permanent=True)
+    main_record.delete(permanent=True)
+    contrib.delete(permanent=True)

@@ -13,9 +13,17 @@ README
 
 query-search
 track
+manage-changes
 curate
 manage-ontologies
-transfer
+sync
+```
+
+```{toctree}
+:hidden:
+:caption: Use cases
+
+lightning
 ```
 
 ```{toctree}

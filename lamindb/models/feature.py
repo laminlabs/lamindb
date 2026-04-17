@@ -926,7 +926,7 @@ END;
 
 
 class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
-    """Dimensions of measurement such as dataframe columns or dictionary keys.
+    """Measurable properties such as dataframe columns or record fields.
 
     Features represent *what* is measured in a dataset—the variables or dimensions along which data is organized.
     They enable you to query datasets based on their structure and corresponding label annotations.
@@ -945,7 +945,7 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         default_value: `Any | None = None` Default value for the feature.
         coerce: `bool | None = None` When `True`, attempts to coerce values to the specified dtype during validation, see :attr:`~lamindb.Feature.coerce`.
             Defaults to `False` unless `is_type` is `True`.
-        cat_filters: `dict[str, str] | None = None` Subset a registry by additional filters to define valid categories.
+        cat_filters: `dict[str, str | SQLRecord] | None = None` Subset a registry by additional filters to define valid categories.
 
     Note:
 
@@ -975,10 +975,25 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
 
             ln.Feature(name="sample", dtype=ln.ULabel).save()
 
-        The same for the `bt.CellType` registry::
+        Restrict a categorical feature to a specific `ULabel` type::
+
+            perturbation = ln.ULabel(name="Perturbation", is_type=True).save()
+            ln.Feature(name="perturbation", dtype=perturbation).save()
+
+        Restrict a categorical feature to a specific `Record` type::
+
+            experiment = ln.Record(name="Experiment", is_type=True).save()
+            ln.Feature(name="experiment", dtype=experiment).save()
+
+        Restrict a categorical feature to the `bt.CellType` registry::
 
             ln.Feature(name="cell_type_by_expert", dtype=bt.CellType).save()  # expert annotation
             ln.Feature(name="cell_type_by_model", dtype=bt.CellType).save()   # model annotation
+
+        .. admonition:: Categoricals define relationships.
+
+            In LaminDB, **categoricals** define **relationships**.
+            For example, with dtype set to a `ULabel` type, setting a feature value relates the object to a `ULabel` of that type.
 
         Scope a feature with a **feature type** to distinguish the same feature name across different contexts::
 
@@ -993,7 +1008,7 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
 
         Annotate an artifact with features (works identically for records and runs)::
 
-            artifact.features.add_values({
+            artifact.features.set_values({
                 "temperature_in_celsius": 37.5,
                 "sample_note": "Control sample",
             })
@@ -1519,7 +1534,7 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     #     However, when accessing an artifact annotation with a feature that's defined on the observation-level, say `"cell_type"`, you expect a set of values. So,
     #     `artifact.features.get_values(["cell_type_from_expert"])` should return a set: `{"T cell", "B cell"}`.
 
-    #     The value of `observational_unit` is currently auto-managed: if using `artifact.features.add_values()`,
+    #     The value of `observational_unit` is currently auto-managed: if using `artifact.features.set_values()`,
     #     it will be set to `Artifact`. In a curator, the value depends on whether it's an artifact- or observation-level slot
     #     (e.g. `.uns` is artifact-level in `AnnData` whereas `.obs` is observation-level).
 
