@@ -200,7 +200,7 @@ def test_single_file_directory_preserved(tmp_path):
     artifact = ln.Artifact(
         local_dir, key="tests/single-file-directory", storage=storage
     ).save()
-
+    assert artifact.path.as_posix().startswith("s3://lamindb-test/storage")
     assert artifact.n_files == 1
     assert artifact.path.is_dir()
     assert [file.name for file in artifact.path.iterdir()] == ["only.txt"]
