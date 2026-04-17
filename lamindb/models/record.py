@@ -53,6 +53,68 @@ IMPORTS_UID = "W3WdiFRZTvTJajNp"
 SCHEMA_IMPORTS_UID = "DGZkj4yhGWMJE5fu"
 
 
+class RecordBatch:
+    """DataFrame-backed batch created by :meth:`Record.from_dataframe`."""
+
+    def __init__(
+        self,
+        *,
+        cls: type[Record],
+        df: pd.DataFrame,
+        resolved_type: Record,
+        name_field: str,
+    ) -> None:
+        self._cls = cls
+        self._df = df
+        self._resolved_type = resolved_type
+        self._name_field = name_field
+        self._records: list[Record] | None = None
+
+    def __len__(self) -> int:
+        return len(self._df)
+
+    @property
+    def type(self) -> Record:
+        return self._resolved_type
+
+    def _build_records(self) -> list[Record]:
+        import pandas as pd
+
+        records: list[Record] = []
+        row_dicts = self._df.to_dict(orient="records")
+        for row in row_dicts:
+            if self._name_field in row:
+                name = row.pop(self._name_field)
+            elif "name" in row:
+                name = row.pop("name")
+            else:
+                name = None
+            if pd.api.types.is_scalar(name) and pd.isna(name):
+                name = None
+
+            features: dict[str, Any] = {}
+            for key, value in row.items():
+                if pd.api.types.is_scalar(value) and pd.isna(value):
+                    continue
+                features[key] = value
+
+            record_kwargs: dict[str, Any] = {"type": self._resolved_type}
+            if features:
+                record_kwargs["features"] = features
+            records.append(self._cls(name=name, **record_kwargs))
+        return records
+
+    def save(self) -> SQLRecordList[Record]:
+        """Persist all records and their feature values."""
+        from .query_set import SQLRecordList
+        from .save import save as ln_save
+
+        if self._records is None:
+            self._records = self._build_records()
+        ln_save(self._records)
+        return SQLRecordList(self._records)
+
+
 class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates):
     """Flexible records with sheets & markdown pages.
 
@@ -413,10 +475,10 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         *,
         type: Record | str,
         name_field: str = "__lamindb_record_name__",
-    ) -> SQLRecordList[Record]:
-        """Construct records from a dataframe for bulk saving.
+    ) -> RecordBatch:
+        """Construct a dataframe-backed batch of records for bulk saving.
 
-        Returns unsaved records. Follow with `records.save()` or `ln.save(records)`.
+        Returns a :class:`RecordBatch`. Follow with `records.save()`.
 
         Args:
             df: A dataframe where rows represent records.
@@ -443,7 +505,6 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         """
         import pandas as pd
 
-        from .query_set import SQLRecordList
         from .schema import Schema
 
         if not isinstance(df, pd.DataFrame):
@@ -488,29 +549,12 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         if resolved_type.name is None:
             raise ValueError("`type` needs to have a non-null `name`.")
 
-        records: list[Record] = []
-        row_dicts = df.to_dict(orient="records")
-        for row in row_dicts:
-            if name_field in row:
-                name = row.pop(name_field)
-            elif "name" in row:
-                name = row.pop("name")
-            else:
-                name = None
-            if pd.api.types.is_scalar(name) and pd.isna(name):
-                name = None
-
-            features: dict[str, Any] = {}
-            for key, value in row.items():
-                if pd.api.types.is_scalar(value) and pd.isna(value):
-                    continue
-                features[key] = value
-
-            record_kwargs: dict[str, Any] = {"type": resolved_type}
-            if features:
-                record_kwargs["features"] = features
-            records.append(cls(name=name, **record_kwargs))
-        return SQLRecordList(records)
+        return RecordBatch(
+            cls=cls,
+            df=df,
+            resolved_type=resolved_type,
+            name_field=name_field,
+        )
 
     @property
     def features(self) -> FeatureManager:
