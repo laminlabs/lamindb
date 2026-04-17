@@ -15,7 +15,7 @@ from lamindb.core.storage._tiledbsoma import (
 from lamindb.integrations import save_tiledbsoma_experiment
 
 
-@pytest.mark.parametrize("storage", [None, "s3://lamindb-test/storage"])
+@pytest.mark.parametrize("storage", [None, "s3://lamindb-test/tiledbsoma"])
 def test_write_read_tiledbsoma(storage):
     if storage is not None:
         previous_storage = ln.setup.settings.storage.root_as_str
