@@ -3059,17 +3059,10 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             and self.branch_id != -1  # skip on soft deletion
         ):
             logger.warning("you are saving to a non-latest version of the artifact")
+
+        access_token = kwargs.pop("access_token", None)
         # when space is passed in init, storage is ignored, so space - storage consistency is enforced there
         # note that storage is not editable after creation
-        if (
-            self._field_changed("space_id")
-            and (artifact_storage := self.storage).instance_uid is not None
-            and artifact_storage.space_id == self._original_values["space_id"]
-        ):
-            raise ValueError(
-                "Space cannot be changed because the artifact is in the storage location of another space."
-            )
-
         if self._field_changed("space_id") and self.storage.instance_uid is not None:
             storages = Storage.connect(self._state.db).filter(
                 space_id=self.space_id, instance_uid__isnull=False
@@ -3095,7 +3088,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             else:
                 storage = storages.one()
             # try to transfer if both storages are writable / managed by an instance
-            _transfer_artifact_to_storage(self, storage)
+            _transfer_artifact_to_storage(self, storage, access_token=access_token)
 
         if transfer not in {"record", "annotations"}:
             raise ValueError(
@@ -3108,7 +3101,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         store_kwargs = kwargs.pop(
             "store_kwargs", {}
         )  # kwargs for .upload_from in the end
-        access_token = kwargs.pop("access_token", None)
         local_path = None
         if upload and setup_settings.instance.keep_artifacts_local:
             # switch local storage location to cloud
@@ -3200,14 +3192,16 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         return self
 
 
-def _transfer_artifact_to_storage(artifact: Artifact, storage: Storage):
+def _transfer_artifact_to_storage(
+    artifact: Artifact, storage: Storage, access_token: str | None = None
+):
     storage_key = _s().auto_storage_key_from_artifact(artifact)
 
     source_path = artifact.path
     target_path = storage.path / storage_key
     assert source_path != target_path
 
-    fs = transfer_fs(source_path, target_path)
+    fs = transfer_fs(source_path, target_path, access_token=access_token)
     logger.info(f"transferring artifact from {source_path} to {target_path}")
     fs.mv(str(source_path), str(target_path), recursive=True)
 
