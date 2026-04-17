@@ -634,6 +634,7 @@ def test_create_from_spatialdata(
         # n_observations not defined
 
 
+@pytest.mark.tiledbsoma
 def test_create_from_soma_experiment(
     soma_experiment_file, clean_soma_files, adata_file
 ):

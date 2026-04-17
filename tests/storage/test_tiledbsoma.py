@@ -14,6 +14,8 @@ from lamindb.core.storage._tiledbsoma import (
 )
 from lamindb.integrations import save_tiledbsoma_experiment
 
+pytestmark = pytest.mark.tiledbsoma
+
 
 @pytest.mark.parametrize("storage", [None, "s3://lamindb-test/storage"])
 def test_write_read_tiledbsoma(storage):

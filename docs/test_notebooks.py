@@ -20,6 +20,11 @@ def test_guide():
         test.execute_notebooks(DOCS / artifactname, write=True)
 
 
+def test_tiledbsoma():
+    for artifactname in GROUPS["tiledbsoma"]:
+        test.execute_notebooks(DOCS / artifactname, write=True)
+
+
 def test_biology():
     for artifactname in GROUPS["biology"]:
         test.execute_notebooks(DOCS / artifactname, write=True)

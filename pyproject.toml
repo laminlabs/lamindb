@@ -225,7 +225,8 @@ filterwarnings = [
     "ignore:The 'train_dataloader' does not have many workers:UserWarning",
 ]
 markers = [
-    "pg_integration: tests that require an external PostgreSQL instance"
+    "pg_integration: tests that require an external PostgreSQL instance",
+    "tiledbsoma: tests that require tiledbsoma"
 ]
 
 [tool.coverage.report]

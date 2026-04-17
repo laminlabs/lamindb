@@ -10,8 +10,6 @@ import bionty as bt
 import lamindb as ln
 import pandas as pd
 import pytest
-import tiledbsoma
-import tiledbsoma.io
 from lamindb.core import datasets
 from lamindb.errors import InvalidArgument, ValidationError
 
@@ -962,8 +960,12 @@ def test_spatialdata_curator(
     artifact.delete(permanent=True)
 
 
+@pytest.mark.tiledbsoma
 def test_tiledbsoma_curator(clean_soma_files):
     """Test TiledbSomaExperimentCurator with schema."""
+    import tiledbsoma
+    import tiledbsoma.io
+
     obs_schema = ln.Schema(
         features=[
             ln.Feature(name="cell_type_by_expert", dtype=bt.CellType).save(),
