@@ -3210,11 +3210,20 @@ def _transfer_artifact_to_storage(
 
     source_path = artifact.path
     target_path = storage.path / storage_key
-    assert source_path != target_path
+    assert source_path != target_path, "Cannot transfer to the same path."
 
     fs = transfer_fs(source_path, target_path, access_token=access_token)
-    logger.important(f"transferring artifact from {source_path} to {target_path}")
-    fs.mv(str(source_path), str(target_path), recursive=True)
+
+    source_path_str = str(source_path)
+    target_path_str = str(target_path)
+    assert not fs.exists(target_path_str), (
+        f"Cannot transfer artifact to {target_path_str} because it already exists."
+    )
+
+    logger.important(
+        f"transferring artifact from '{source_path_str}' to '{target_path_str}'"
+    )
+    fs.mv(source_path_str, target_path_str, recursive=True)
 
     artifact.storage_id = storage.id
 
