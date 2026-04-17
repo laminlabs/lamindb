@@ -34,6 +34,9 @@ def pytest_sessionfinish(session: pytest.Session):
     logger.set_verbosity(1)
     if Path("./default_storage_tiledbsoma").exists():
         shutil.rmtree("./default_storage_tiledbsoma")
+    upath = ln_setup.core.upath.UPath("s3://lamindb-test/tiledbsoma")
+    if upath.exists():
+        upath.rmdir()
     ln.setup.delete("lamindb-unit-tests-tiledbsoma", force=True)
     del os.environ["LAMIN_TESTING"]
 
