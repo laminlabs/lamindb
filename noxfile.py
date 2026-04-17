@@ -295,26 +295,19 @@ def test(session, group):
         env["LAMINDB_TEST_DB_VENDOR"] = "sqlite"
         run(
             session,
-            f"pytest {coverage_args} -m 'not tiledbsoma' ./tests/core {duration_args}",
+            f"pytest {coverage_args} ./tests/core {duration_args}",
             env=env,
         )
     elif group == "unit-core-postgres":
         env["LAMINDB_TEST_DB_VENDOR"] = "postgresql"
         run(
             session,
-            f"pytest {coverage_args} -m 'not tiledbsoma' ./tests/core {duration_args}",
+            f"pytest {coverage_args} ./tests/core {duration_args}",
             env=env,
         )
     elif group == "unit-storage":
         login_testuser2(session)  # shouldn't be necessary but is for now
-        run(
-            session,
-            (
-                f"pytest {coverage_args} -m 'not tiledbsoma' ./tests/storage "
-                "--ignore=./tests/storage/test_tiledbsoma.py "
-                f"{duration_args}"
-            ),
-        )
+        run(session, f"pytest {coverage_args} ./tests/storage {duration_args}")
     elif group == "no-instance":
         run(session, "lamin disconnect")
         run(session, f"pytest {coverage_args} ./tests/no_instance {duration_args}")
@@ -332,8 +325,7 @@ def test(session, group):
         run(
             session,
             (
-                f"pytest {coverage_args} -m tiledbsoma "
-                "tests/core tests/storage tests/curators "
+                f"pytest {coverage_args} tests/tiledbsoma "
                 "./docs/test_notebooks.py::test_tiledbsoma "
                 f"{duration_args}"
             ),
@@ -350,7 +342,7 @@ def test(session, group):
     elif group == "curator":
         run(
             session,
-            f"pytest {coverage_args} -m 'not tiledbsoma' tests/curators {duration_args}",
+            f"pytest {coverage_args} tests/curators {duration_args}",
         )
     elif group == "integrations":
         run(session, f"pytest -s {coverage_args} tests/integrations")
