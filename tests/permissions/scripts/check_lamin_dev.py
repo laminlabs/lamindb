@@ -1,4 +1,5 @@
 import subprocess
+from unittest.mock import patch
 
 import lamindb as ln
 import pytest
@@ -67,6 +68,20 @@ try:
     assert artifact.storage in ln.Storage.filter(space=space)
     assert ln.context.transform.space == space
     assert ln.context.run.space == space
+
+    # move the artifact to another storage location
+    space_test_move = ln.Space.get(name="test-move")
+    artifact.space = space_test_move
+    # cancel save
+    with patch("builtins.input", return_value="x"):
+        artifact.save()
+    # save to the new storage location
+    with patch("builtins.input", return_value="1"):
+        artifact.save()
+    assert artifact.space == space_test_move
+    assert artifact.storage in ln.Storage.filter(space=space_test_move)
+    assert artifact.path.as_posix().startswith(artifact.storage.root)
+    assert artifact.path.exists()
 
     # update the space of the storage location
     space2 = ln.Space.get(name="Our test space for CI 2")
