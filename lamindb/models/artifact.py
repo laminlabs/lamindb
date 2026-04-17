@@ -3098,6 +3098,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             if artifact_storage != storage:
                 # try to transfer if both storages are writable / managed by an instance
                 _transfer_artifact_to_storage(self, storage, access_token=access_token)
+            else:
+                logger.important("artifact is already in the target storage location")
 
         if transfer not in {"record", "annotations"}:
             raise ValueError(
