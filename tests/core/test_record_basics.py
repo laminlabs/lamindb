@@ -119,7 +119,7 @@ def test_record_from_dataframe_bulk_save_paths():
         }
     )
     records_2 = ln.Record.from_dataframe(df2, type=sheet)
-    ln.save(records_2)
+    records_2.save()
     assert ln.Record.get(name="from-df-c").features.get_values()["from-df-score"] == 3.0
 
     ln.Record.filter(name__in=["from-df-a", "from-df-b", "from-df-c"]).delete(
@@ -165,13 +165,13 @@ def test_record_from_dataframe_with_string_type_creates_import_type():
         imports_type = ln.Record.get(uid=IMPORTS_UID)
 
         assert len(records) == 2
-        assert all(record.type_id == created_type.id for record in records)
+        assert records.type.id == created_type.id
         assert created_type.type_id == imports_type.id
         assert created_type.schema.type is not None
         assert created_type.schema.type.uid == SCHEMA_IMPORTS_UID
         assert created_type.schema_id is not None
 
-        ln.save(records)
+        records.save()
         assert (
             ln.Record.get(name="from-df-str-a").features.get_values()[
                 "from-df-str-score"

@@ -1359,6 +1359,8 @@ class FeatureManager:
         feature_json_values: list,
         links_by_model: dict,
         not_validated_values: dict[str, tuple[str, list[str]]],
+        resolved_records_by_feature_id: dict[int, dict[Any, list[SQLRecord]]]
+        | None = None,
     ) -> None:
         from ..base.dtypes import is_iterable_of_sqlrecord
         from .can_curate import CanCurate
@@ -1406,7 +1408,58 @@ class FeatureManager:
                     }
                 else:
                     result = parse_dtype(feature._dtype_str)[0]
-                if issubclass(result["registry"], CanCurate):  # type: ignore
+                # Fast path for dataframe-originated record batches:
+                # `bulk_set_features_in_records()` now runs a single `DataFrameCurator`
+                # pass and pre-resolves categorical values to label records.
+                #
+                # The cache key is feature.id and the nested key is the normalized
+                # raw value found in the dataframe. Using this cache here avoids
+                # running per-row `validate()` + `from_values()` calls, which used
+                # to duplicate work already done by the curator.
+                cached_records = None
+                if (
+                    resolved_records_by_feature_id is not None
+                    and feature.id in resolved_records_by_feature_id
+                ):
+                    cached_records = resolved_records_by_feature_id[feature.id]
+                if cached_records is not None:
+                    if isinstance(value, str):
+                        values_for_lookup = [value]
+                    else:
+                        values_for_lookup = value  # type: ignore
+                    if isinstance(values_for_lookup, (list, tuple, np.ndarray, set)):
+                        values_for_lookup = list(values_for_lookup)
+                    else:
+                        values_for_lookup = [values_for_lookup]
+                    label_records = []
+                    not_validated_for_feature = []
+                    for lookup_value in values_for_lookup:
+                        normalized_lookup = (
+                            lookup_value.item()
+                            if isinstance(lookup_value, np.generic)
+                            else lookup_value
+                        )
+                        mapped_records = cached_records.get(normalized_lookup)
+                        if mapped_records is None:
+                            # Keep the same error aggregation behavior as before:
+                            # unresolved categorical values are collected and raised
+                            # in one ValidationError after all records are processed.
+                            not_validated_for_feature.append(normalized_lookup)
+                        else:
+                            label_records.extend(mapped_records)
+                    if not_validated_for_feature:
+                        not_validated_values[result["registry_str"]] = (  # type: ignore
+                            result["field_str"],
+                            not_validated_for_feature,
+                        )
+                elif issubclass(result["registry"], CanCurate):  # type: ignore
+                    # Fallback path for non-batch callers (e.g. direct
+                    # `record.features.add_values()` on an individual record).
+                    #
+                    # Those flows do not build dataframe-level caches, so we keep
+                    # the original registry-backed validation and resolution logic.
+                    # This branch should not be hot for the dataframe batch import
+                    # path because that path provides `resolved_records_by_feature_id`.
                     validated = result["registry"].validate(  # type: ignore
                         values, field=result["field"], mute=True
                     )
@@ -2122,13 +2175,40 @@ def bulk_set_features_in_records(records: Iterable[Record]) -> None:
             and not feature.dtype_as_str.startswith("list[cat")
         ):
             dataframe[feature.name] = dataframe[feature.name].astype("category")
-    DataFrameCurator(dataframe, batch_schema).validate()
+    # Single-pass dataframe curation:
+    # validate schema and resolve categoricals once for the entire batch.
+    #
+    # The resolved label records are then reused below when creating per-record
+    # link rows, avoiding repeated registry calls for each row.
+    curator = DataFrameCurator(dataframe, batch_schema)
+    curator.validate()
 
     members_by_name: dict[str, list[Feature]] = defaultdict(list)
     schema_member_ids: set[int] = set()
+    resolved_records_by_feature_id: dict[int, dict[Any, list[SQLRecord]]] = {}
     for feature in schema_features:
         members_by_name[feature.name].append(feature)
         schema_member_ids.add(feature.id)
+        if not (
+            feature.dtype_as_str.startswith("cat")
+            or feature.dtype_as_str.startswith("list[cat")
+        ):
+            continue
+        cat_vector = curator.cat._cat_vectors.get(feature.name)
+        if cat_vector is None or cat_vector.records is None:
+            continue
+        # Build lookup cache:
+        #   feature.id -> raw value -> [resolved label records]
+        #
+        # We intentionally keep a list of records per value to support
+        # list-categorical and potential multi-match cases consistently with
+        # existing link creation semantics.
+        cache_for_feature: dict[Any, list[SQLRecord]] = defaultdict(list)
+        for label_record in cat_vector.records:
+            key = getattr(label_record, cat_vector._field_name)
+            normalized_key = key.item() if isinstance(key, np.generic) else key
+            cache_for_feature[normalized_key].append(label_record)
+        resolved_records_by_feature_id[feature.id] = dict(cache_for_feature)
 
     feature_json_values: list[SQLRecord] = []
     links_by_model: dict[type[SQLRecord], list[SQLRecord]] = defaultdict(list)
@@ -2165,6 +2245,7 @@ def bulk_set_features_in_records(records: Iterable[Record]) -> None:
             feature_json_values=feature_json_values,
             links_by_model=links_by_model,
             not_validated_values=not_validated_values,
+            resolved_records_by_feature_id=resolved_records_by_feature_id,
         )
     FeatureManager._raise_not_validated_values(not_validated_values)
     if feature_json_values:
