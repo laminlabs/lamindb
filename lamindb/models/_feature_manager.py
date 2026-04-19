@@ -1408,6 +1408,14 @@ class FeatureManager:
                     }
                 else:
                     result = parse_dtype(feature._dtype_str)[0]
+                # Fast path for dataframe-originated record batches:
+                # `bulk_set_features_in_records()` now runs a single `DataFrameCurator`
+                # pass and pre-resolves categorical values to label records.
+                #
+                # The cache key is feature.id and the nested key is the normalized
+                # raw value found in the dataframe. Using this cache here avoids
+                # running per-row `validate()` + `from_values()` calls, which used
+                # to duplicate work already done by the curator.
                 cached_records = None
                 if (
                     resolved_records_by_feature_id is not None
@@ -1433,6 +1441,9 @@ class FeatureManager:
                         )
                         mapped_records = cached_records.get(normalized_lookup)
                         if mapped_records is None:
+                            # Keep the same error aggregation behavior as before:
+                            # unresolved categorical values are collected and raised
+                            # in one ValidationError after all records are processed.
                             not_validated_for_feature.append(normalized_lookup)
                         else:
                             label_records.extend(mapped_records)
@@ -1442,6 +1453,13 @@ class FeatureManager:
                             not_validated_for_feature,
                         )
                 elif issubclass(result["registry"], CanCurate):  # type: ignore
+                    # Fallback path for non-batch callers (e.g. direct
+                    # `record.features.add_values()` on an individual record).
+                    #
+                    # Those flows do not build dataframe-level caches, so we keep
+                    # the original registry-backed validation and resolution logic.
+                    # This branch should not be hot for the dataframe batch import
+                    # path because that path provides `resolved_records_by_feature_id`.
                     validated = result["registry"].validate(  # type: ignore
                         values, field=result["field"], mute=True
                     )
@@ -2157,6 +2175,11 @@ def bulk_set_features_in_records(records: Iterable[Record]) -> None:
             and not feature.dtype_as_str.startswith("list[cat")
         ):
             dataframe[feature.name] = dataframe[feature.name].astype("category")
+    # Single-pass dataframe curation:
+    # validate schema and resolve categoricals once for the entire batch.
+    #
+    # The resolved label records are then reused below when creating per-record
+    # link rows, avoiding repeated registry calls for each row.
     curator = DataFrameCurator(dataframe, batch_schema)
     curator.validate()
 
@@ -2174,6 +2197,12 @@ def bulk_set_features_in_records(records: Iterable[Record]) -> None:
         cat_vector = curator.cat._cat_vectors.get(feature.name)
         if cat_vector is None or cat_vector.records is None:
             continue
+        # Build lookup cache:
+        #   feature.id -> raw value -> [resolved label records]
+        #
+        # We intentionally keep a list of records per value to support
+        # list-categorical and potential multi-match cases consistently with
+        # existing link creation semantics.
         cache_for_feature: dict[Any, list[SQLRecord]] = defaultdict(list)
         for label_record in cat_vector.records:
             key = getattr(label_record, cat_vector._field_name)
