@@ -214,7 +214,10 @@ def test_tiledbsoma_in_managed_storage():
         key="example_datasets/small_dataset1.tiledbsoma"
     )
     path = artifact.path
-    assert not path.fs.anon
+    fs = path.fs
+    assert not fs.anon
+    assert fs.key is None, fs.key
+    assert fs.secret is None, fs.secret
     assert "session" in path.storage_options
     credentials = path.storage_options["session"]._credentials
     assert isinstance(credentials, AioRefreshableCredentials), type(credentials)
