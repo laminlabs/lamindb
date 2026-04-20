@@ -29,8 +29,8 @@ Home = "https://github.com/laminlabs/lamindb"
 # If you change duplicated deps here, update pyproject.full.toml too, and vice versa.
 full = [
     # LaminDB optional modules, included to avoid users forgetting about extras
-    "bionty==2.3.1",  # 30kB pure python, no dependencies
-    "pertdb==2.2.0",  # 30kB pure python, no dependencies
+    "bionty>=2.3.1,<3",  # 30kB pure python, no dependencies
+    "pertdb>=2.2.0,<3",  # 30kB pure python, no dependencies
     # Jupyter -- small packages with few & small dependencies
     "jupytext",
     "nbconvert>=7.2.1",  # bound to avoid lxml[html_clean] dependency
