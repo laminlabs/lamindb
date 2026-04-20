@@ -27,8 +27,8 @@ SPATIALDATA_OME_ZARR_CONSTRAINT = "ome-zarr<0.14.0"
 
 GROUPS = {}
 GROUPS["tutorial"] = [
-    "sync.ipynb",
     "README.ipynb",
+    "sync.ipynb",
     "arrays.ipynb",
     "registries.ipynb",
 ]
@@ -313,6 +313,7 @@ def test(session, group):
         run(session, f"pytest {coverage_args} ./tests/no_instance {duration_args}")
     elif group == "tutorial":
         run(session, "lamin logout")
+        run(session, "lamin init --storage ./test-readme --modules bionty")
         run(
             session, f"pytest -s {coverage_args} ./docs/test_notebooks.py::test_{group}"
         )
