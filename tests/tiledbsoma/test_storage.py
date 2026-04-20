@@ -220,6 +220,7 @@ def test_tiledbsoma_in_managed_storage():
     assert fs.secret is None, fs.secret
     assert "session" in path.storage_options
     credentials = path.storage_options["session"]._credentials
+    assert credentials is fs.session._credentials
     assert isinstance(credentials, AioRefreshableCredentials), type(credentials)
 
     ctx_factory = SOMAS3ContextFactory(path)
