@@ -264,7 +264,7 @@ Beyond what you get for scripts & notebooks, this automatically tracks function 
 <details>
 <summary>A richer example.</summary>
 
-Here is a an automatically generated re-construction of the project of [Schmidt _el al._ (Science, 2022)](https://pubmed.ncbi.nlm.nih.gov/35113687/):
+Here is an automatically generated re-construction of the project of [Schmidt _el al._ (Science, 2022)](https://pubmed.ncbi.nlm.nih.gov/35113687/):
 
 <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/KQmzmmLOeBN0C8Yk0004.png" width="850">
 
@@ -364,7 +364,7 @@ ln.Record(name="Experiment 1", type=experiment_type).save()
 ln.Feature(name="experiment", dtype=experiment_type).save()
 
 # create a sample record that links the sample to `Experiment 1` via the `experiment` feature
-ln.Record(name="Sample 2", features={"gc_content": 0.5, "experiment": "Experiment 1"})
+ln.Record(name="Sample 2", features={"gc_content": 0.5, "experiment": "Experiment 1"}).save()
 ```
 
 <details>
@@ -382,11 +382,11 @@ import lamindb as ln
 
 ln.track()
 open("sample.fasta", "w").write(">seq1\nTGCA\n")  # a new sequence
-ln.Artifact("sample.fasta", key="sample.fasta", features={"design_sample": "P53mutant1"}).save()  # annotate with the new sample
+ln.Artifact("sample.fasta", key="sample.fasta", features={"experiment": "Experiment 1"}).save()  # annotate with the new experiment
 ln.finish()
 ```
 
-If you now query by `key`, you'll get the latest version of this artifact with the latest version of the source code linked with previous versions of artifact and source code are easily queryable:
+If you now query by `key`, you'll get the latest version of this artifact:
 
 ```python
 artifact = ln.Artifact.get(key="sample.fasta")  # get artifact by key
