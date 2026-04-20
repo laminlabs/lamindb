@@ -226,6 +226,8 @@ def test_tiledbsoma_in_managed_storage():
     assert isinstance(credentials, AioRefreshableCredentials), type(credentials)
 
     ctx_factory = SOMAS3ContextFactory(path)
+    assert session is ctx_factory._fs.session
+    assert credentials is ctx_factory._fs.session._credentials
     assert ctx_factory._refreshable_credentials is not None
 
     ctx = ctx_factory.get_context()
