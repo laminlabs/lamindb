@@ -355,13 +355,15 @@ You can create relationships of entities:
 
 ```python
 # create a flexible record type to track experiments
-ln.Record(name="Experiment", is_type=True).save()
+experiment_type = ln.Record(name="Experiment", is_type=True).save()
+
+# create a record of type `Experiment` for your first experiment
 ln.Record(name="Experiment 1", type=experiment_type).save()
 
-# create a feature to link experiments
+# create a feature to link experiments in records, dataframes, etc.
 ln.Feature(name="experiment", dtype=experiment_type).save()
 
-# create a sample record that links the sample to the experiment
+# create a sample record that links the sample to `Experiment 1` via the `experiment` feature
 ln.Record(name="Sample 2", features={"gc_content": 0.5, "experiment": "Experiment 1"})
 ```
 
