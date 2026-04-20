@@ -1,6 +1,8 @@
-# LaminDB [![docs](https://img.shields.io/badge/docs-yellow)](https://docs.lamin.ai) [![llms.txt](https://img.shields.io/badge/llms.txt-orange)](https://docs.lamin.ai/llms.txt) [![codecov](https://codecov.io/gh/laminlabs/lamindb/branch/main/graph/badge.svg?token=VKMRJ7OWR3)](https://codecov.io/gh/laminlabs/lamindb) [![pypi](https://img.shields.io/pypi/v/lamindb?color=blue&label=PyPI)](https://pypi.org/project/lamindb) [![cran](https://www.r-pkg.org/badges/version/laminr?color=green)](https://cran.r-project.org/package=laminr) [![stars](https://img.shields.io/github/stars/laminlabs/lamindb?style=flat&logo=GitHub&label=&color=gray)](https://github.com/laminlabs/lamindb) [![downloads](https://static.pepy.tech/personalized-badge/lamindb?period=total&units=INTERNATIONAL_SYSTEM&left_color=GRAY&right_color=GRAY&left_text=%E2%AC%87%EF%B8%8F)](https://pepy.tech/project/lamindb)
+[![docs](https://img.shields.io/badge/docs-yellow)](https://docs.lamin.ai) [![llms.txt](https://img.shields.io/badge/llms.txt-orange)](https://docs.lamin.ai/llms.txt) [![codecov](https://codecov.io/gh/laminlabs/lamindb/branch/main/graph/badge.svg?token=VKMRJ7OWR3)](https://codecov.io/gh/laminlabs/lamindb) [![pypi](https://img.shields.io/pypi/v/lamindb?color=blue&label=PyPI)](https://pypi.org/project/lamindb) [![cran](https://www.r-pkg.org/badges/version/laminr?color=green)](https://cran.r-project.org/package=laminr) [![stars](https://img.shields.io/github/stars/laminlabs/lamindb?style=flat&logo=GitHub&label=&color=gray)](https://github.com/laminlabs/lamindb) [![downloads](https://static.pepy.tech/personalized-badge/lamindb?period=total&units=INTERNATIONAL_SYSTEM&left_color=GRAY&right_color=GRAY&left_text=%E2%AC%87%EF%B8%8F)](https://pepy.tech/project/lamindb)
 
-LaminDB is an open-source data framework for biology to query, trace, and validate datasets and models at scale.
+# LaminDB - Open-source data framework for biology
+
+LaminDB allows you to query, trace, and validate datasets and models at scale.
 You get context & memory through a lineage-native lakehouse that supports bio-formats, registries & ontologies.
 
 Agent? [llms.txt](https://docs.lamin.ai/llms.txt)
@@ -77,11 +79,15 @@ pip install lamindb
 <details>
 <summary>Install with minimal dependencies.</summary>
 
-To install the `lamindb` namespace with minimal dependencies, use:
+The `lamindb` package adds data-science related dependencies, those that come with the `[full]` extra, see [here](https://github.com/laminlabs/lamindb/blob/2cc91adcf6077c5af69c1a098699085bb0844083/pyproject.toml#L30-L49).
+
+If you want a maximally lightweight install of the `lamindb` namespace, use:
 
 ```shell
 pip install lamindb-core
 ```
+
+This suffices to support the basic functionality but you will get an `ImportError` if you're e.g. trying to validate a `DataFrame` because that requires `pandera`.
 
 </details>
 
@@ -129,8 +135,12 @@ You can create a LaminDB instance at [lamin.ai](https://lamin.ai) and invite col
 To connect to a remote instance, run:
 
 ```shell
+# log into LaminHub
 lamin login
-lamin connect account/name
+# then either
+lamin connect account/name  # connect globally in your environment
+# or
+lamin connect --here account/name  # connect in your current development directory
 ```
 
 If you prefer to work with a local SQLite database (no login required), run this instead:
@@ -157,23 +167,6 @@ lamin load --key examples/myfile.txt
 ```
 
 Read more: [docs.lamin.ai/cli](https://docs.lamin.ai/cli).
-
-### Change management
-
-To create a contribution branch and switch to it, run:
-
-```shell
-lamin switch -c my_branch
-```
-
-To merge a contribution branch into `main`, run:
-
-```shell
-lamin switch main  # switch to the main branch
-lamin merge my_branch  # merge contribution branch into main
-```
-
-Read more: [docs.lamin.ai/lamindb.branch](https://docs.lamin.ai/lamindb.branch).
 
 ### Lineage: scripts & notebooks
 
@@ -279,7 +272,7 @@ Beyond what you get for scripts & notebooks, this automatically tracks function 
 <details>
 <summary>A richer example.</summary>
 
-Here is a an automatically generated re-construction of the project of [Schmidt _el al._ (Science, 2022)](https://pubmed.ncbi.nlm.nih.gov/35113687/):
+Here is an automatically generated re-construction of the project of [Schmidt _el al._ (Science, 2022)](https://pubmed.ncbi.nlm.nih.gov/35113687/):
 
 <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/KQmzmmLOeBN0C8Yk0004.png" width="850">
 
@@ -363,26 +356,33 @@ ln.Artifact.to_dataframe(include="features")  # include the feature annotations
 You can create records for the entities underlying your experiments: samples, perturbations, instruments, etc., for example:
 
 ```python
-sample = ln.Record(name="Sample", is_type=True).save()  # create entity type: Sample
-ln.Record(name="P53mutant1", type=sample).save()        # sample 1
-ln.Record(name="P53mutant2", type=sample).save()        # sample 2
+ln.Record(name="Sample 1", features={"gc_content": 0.5}).save()
 ```
 
-Define features and annotate an artifact with a sample:
+You can create relationships of entities:
 
 ```python
-ln.Feature(name="design_sample", dtype=sample).save()
-artifact.features.set_values({"design_sample": "P53mutant1"})
+# create a flexible record type to track experiments
+experiment_type = ln.Record(name="Experiment", is_type=True).save()
+
+# create a record of type `Experiment` for your first experiment
+ln.Record(name="Experiment 1", type=experiment_type).save()
+
+# create a feature to link experiments in records, dataframes, etc.
+ln.Feature(name="experiment", dtype=experiment_type).save()
+
+# create a sample record that links the sample to `Experiment 1` via the `experiment` feature
+ln.Record(name="Sample 2", features={"gc_content": 0.5, "experiment": "Experiment 1"}).save()
 ```
 
-You can query & search the `Record` registry in the same way as `Artifact` or `Run`.
+You can convert any record type to dataframe/sheet:
 
 ```python
-ln.Record.search("p53").to_dataframe()
+experiment_type.to_dataframe()
 ```
 
 <details>
-<summary>You can create relationships of entities and edit them like Excel sheets on LaminHub.</summary>
+<summary>You can edit records like Excel sheets on LaminHub.</summary>
 <img width="800px" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/XSzhWUb0EoHOejiw0001.png">
 </details>
 
@@ -396,16 +396,34 @@ import lamindb as ln
 
 ln.track()
 open("sample.fasta", "w").write(">seq1\nTGCA\n")  # a new sequence
-ln.Artifact("sample.fasta", key="sample.fasta", features={"design_sample": "P53mutant1"}).save()  # annotate with the new sample
+ln.Artifact("sample.fasta", key="sample.fasta", features={"experiment": "Experiment 1"}).save()  # annotate with the new experiment
 ln.finish()
 ```
 
-If you now query by `key`, you'll get the latest version of this artifact with the latest version of the source code linked with previous versions of artifact and source code are easily queryable:
+If you now query by `key`, you'll get the latest version of this artifact:
 
 ```python
 artifact = ln.Artifact.get(key="sample.fasta")  # get artifact by key
 artifact.versions.to_dataframe()                # see all versions of that artifact
 ```
+
+### Change management
+
+To create a contribution branch and switch to it, run:
+
+```shell
+lamin switch -c my_branch
+```
+
+To merge a contribution branch into `main`, run:
+
+```shell
+lamin switch main  # switch to the main branch
+lamin merge my_branch  # merge contribution branch into main
+```
+
+Read more: [docs.lamin.ai/lamindb.branch](https://docs.lamin.ai/lamindb.branch).
+
 
 ### Data sharing
 
@@ -498,3 +516,11 @@ Read more: [docs.lamin.ai/manage-ontologies](https://docs.lamin.ai/manage-ontolo
 [30 sec video](https://lamin-site-assets.s3.amazonaws.com/.lamindb/nUSeIxsaPcBKVuvK0000.mp4)
 
 </details>
+
+## Manage unstructured notes
+
+When in your development directory, you can save markdown files as records:
+
+```shell
+lamin save <topic>/<my-note.md>
+```
