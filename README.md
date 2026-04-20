@@ -367,6 +367,12 @@ ln.Feature(name="experiment", dtype=experiment_type).save()
 ln.Record(name="Sample 2", features={"gc_content": 0.5, "experiment": "Experiment 1"}).save()
 ```
 
+You can convert any record type to dataframe/sheet:
+
+```python
+experiment_type.to_dataframe()
+```
+
 <details>
 <summary>You can edit records like Excel sheets on LaminHub.</summary>
 <img width="800px" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/XSzhWUb0EoHOejiw0001.png">
