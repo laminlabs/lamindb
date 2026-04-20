@@ -348,26 +348,25 @@ ln.Artifact.to_dataframe(include="features")  # include the feature annotations
 You can create records for the entities underlying your experiments: samples, perturbations, instruments, etc., for example:
 
 ```python
-sample = ln.Record(name="Sample", is_type=True).save()  # create entity type: Sample
-ln.Record(name="P53mutant1", type=sample).save()        # sample 1
-ln.Record(name="P53mutant2", type=sample).save()        # sample 2
+ln.Record(name="Sample 1", features={"gc_content": 0.5}).save()
 ```
 
-Define features and annotate an artifact with a sample:
+You can create relationships of entities:
 
 ```python
-ln.Feature(name="design_sample", dtype=sample).save()
-artifact.features.set_values({"design_sample": "P53mutant1"})
-```
+# create a flexible record type to track experiments
+ln.Record(name="Experiment", is_type=True).save()
+ln.Record(name="Experiment 1", type=experiment_type).save()
 
-You can query & search the `Record` registry in the same way as `Artifact` or `Run`.
+# create a feature to link experiments
+ln.Feature(name="experiment", dtype=experiment_type).save()
 
-```python
-ln.Record.search("p53").to_dataframe()
+# create a sample record that links the sample to the experiment
+ln.Record(name="Sample 2", features={"gc_content": 0.5, "experiment": "Experiment 1"})
 ```
 
 <details>
-<summary>You can create relationships of entities and edit them like Excel sheets on LaminHub.</summary>
+<summary>You can edit records like Excel sheets on LaminHub.</summary>
 <img width="800px" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/XSzhWUb0EoHOejiw0001.png">
 </details>
 
