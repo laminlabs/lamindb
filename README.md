@@ -131,8 +131,12 @@ You can create a LaminDB instance at [lamin.ai](https://lamin.ai) and invite col
 To connect to a remote instance, run:
 
 ```shell
+# log into LaminHub
 lamin login
-lamin connect account/name
+# then either
+lamin connect account/name  # connect globally in your environment
+# or
+lamin connect --here account/name  # connect in your current development directory
 ```
 
 If you prefer to work with a local SQLite database (no login required), run this instead:
@@ -508,3 +512,11 @@ Read more: [docs.lamin.ai/manage-ontologies](https://docs.lamin.ai/manage-ontolo
 [30 sec video](https://lamin-site-assets.s3.amazonaws.com/.lamindb/nUSeIxsaPcBKVuvK0000.mp4)
 
 </details>
+
+## Manage unstructured notes
+
+When in your development directory, you can save markdown files as records:
+
+```shell
+lamin save <topic>/<my-note.md>
+```
