@@ -17,12 +17,7 @@ from lamin_utils._logger import logger
 from lamindb_setup.core.hashing import hash_file, hash_string
 
 from ..base.uids import base62_12
-from ..errors import (
-    FileNotInDevDir,
-    InvalidArgument,
-    TrackNotCalled,
-    UpdateContext,
-)
+from ..errors import InvalidArgument, TrackNotCalled, UpdateContext
 from ..models import Run, SQLRecord, Transform, format_field_value
 from ..models._feature_manager import infer_convert_dtype_key_value
 from ..models._is_versioned import bump_version as bump_version_function
@@ -958,13 +953,14 @@ class Context:
                     key = self._path.relative_to(ln_setup.settings.dev_dir).as_posix()
                 except ValueError as e:
                     if "subpath" in str(e):
-                        raise FileNotInDevDir(
+                        logger.warning(
                             f"Path {self._path} is not within the configured dev directory "
-                            f"({ln_setup.settings.dev_dir}).\n"
-                            "Hint: Set dev directory to None via:\n"
-                            "  lamin settings set dev-dir none"
-                        ) from e
-                    raise
+                            f"({ln_setup.settings.dev_dir}), falling back to using filename as transform key "
+                            f"('{self._path.name}')."
+                        )
+                        key = self._path.name
+                    else:
+                        raise
             else:
                 key = self._path.name
         # if the user did not pass a uid and there is no matching aux_transform
