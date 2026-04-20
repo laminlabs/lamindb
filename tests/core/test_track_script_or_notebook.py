@@ -345,6 +345,33 @@ def test_create_or_load_transform():
     ln.context._path = None
 
 
+def test_create_or_load_transform_warns_when_outside_dev_dir(
+    tmp_path, ccaplog: pytest.LogCaptureFixture
+):
+    previous_dev_dir = ln_setup.settings.dev_dir
+    path_outside_dev_dir = tmp_path / f"outside-{time.time_ns()}.py"
+    path_outside_dev_dir.write_text("print('track test')\n")
+    expected_key = path_outside_dev_dir.name
+    transform: ln.Transform | None = None
+    try:
+        ln_setup.settings.dev_dir = tmp_path / "configured-dev-dir"
+        ln_setup.settings.dev_dir.mkdir(exist_ok=True)
+        ccaplog.clear()
+        context._path = path_outside_dev_dir
+        context._create_or_load_transform(description="outside dev dir warning test")
+        transform = context._transform
+        assert "falling back to using filename as transform key" in ccaplog.text
+        assert transform.key == expected_key
+    finally:
+        ln_setup.settings.dev_dir = previous_dev_dir
+        ln.context._uid = None
+        ln.context._run = None
+        ln.context._transform = None
+        ln.context._path = None
+        if transform is not None:
+            transform.delete(permanent=True)
+
+
 def test_run_scripts():
     # regular execution
     result = subprocess.run(  # noqa: S602
