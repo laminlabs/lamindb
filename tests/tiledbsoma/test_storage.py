@@ -6,6 +6,7 @@ import numpy as np
 import pytest
 import tiledbsoma
 import tiledbsoma.io
+from aiobotocore.credentials import AioRefreshableCredentials
 from lamindb.core.loaders import load_h5ad
 from lamindb.core.storage._tiledbsoma import (
     SOMAS3ContextFactory,
@@ -214,6 +215,8 @@ def test_tiledbsoma_in_managed_storage():
     )
     path = artifact.path
     assert "session" in path.storage_options
+    credentials = path.storage_options["session"]._credentials
+    assert isinstance(credentials, AioRefreshableCredentials), type(credentials)
 
     ctx_factory = SOMAS3ContextFactory(path)
     assert ctx_factory._refreshable_credentials is not None
