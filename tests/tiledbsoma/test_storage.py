@@ -219,7 +219,9 @@ def test_tiledbsoma_in_managed_storage():
     assert fs.key is None, fs.key
     assert fs.secret is None, fs.secret
     assert "session" in path.storage_options
-    credentials = path.storage_options["session"]._credentials
+    session = path.storage_options["session"]
+    assert session is fs.session
+    credentials = session._credentials
     assert credentials is fs.session._credentials
     assert isinstance(credentials, AioRefreshableCredentials), type(credentials)
 
