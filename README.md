@@ -160,23 +160,6 @@ lamin load --key examples/myfile.txt
 
 Read more: [docs.lamin.ai/cli](https://docs.lamin.ai/cli).
 
-### Change management
-
-To create a contribution branch and switch to it, run:
-
-```shell
-lamin switch -c my_branch
-```
-
-To merge a contribution branch into `main`, run:
-
-```shell
-lamin switch main  # switch to the main branch
-lamin merge my_branch  # merge contribution branch into main
-```
-
-Read more: [docs.lamin.ai/lamindb.branch](https://docs.lamin.ai/lamindb.branch).
-
 ### Lineage: scripts & notebooks
 
 To create a dataset while tracking source code, inputs, outputs, logs, and environment:
@@ -408,6 +391,24 @@ If you now query by `key`, you'll get the latest version of this artifact with t
 artifact = ln.Artifact.get(key="sample.fasta")  # get artifact by key
 artifact.versions.to_dataframe()                # see all versions of that artifact
 ```
+
+### Change management
+
+To create a contribution branch and switch to it, run:
+
+```shell
+lamin switch -c my_branch
+```
+
+To merge a contribution branch into `main`, run:
+
+```shell
+lamin switch main  # switch to the main branch
+lamin merge my_branch  # merge contribution branch into main
+```
+
+Read more: [docs.lamin.ai/lamindb.branch](https://docs.lamin.ai/lamindb.branch).
+
 
 ### Data sharing
 
