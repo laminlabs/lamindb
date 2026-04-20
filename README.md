@@ -132,7 +132,7 @@ df = db.Artifact.filter(diseases=alzheimers).to_dataframe()
 ### Configure your database
 
 You can create a LaminDB instance at [lamin.ai](https://lamin.ai) and invite collaborators.
-To connect to a remote instance, run:
+To connect to an existing instance, run:
 
 ```shell
 # log into LaminHub
@@ -143,14 +143,15 @@ lamin connect account/name  # connect globally in your environment
 lamin connect --here account/name  # connect in your current development directory
 ```
 
-If you prefer to work with a local SQLite database (no login required), run this instead:
+If you prefer to init a new instance instead (no login required), run:
 
 ```shell
 lamin init --storage ./quickstart-data --modules bionty
 ```
 
+For more configuration, read: [docs.lamin.ai/setup](https://docs.lamin.ai/setup).
+
 On the terminal and in a Python session, LaminDB will now auto-connect.
-If you want to configure on-prem Postgres or cloud storage, read: [docs.lamin.ai/setup](https://docs.lamin.ai/setup).
 
 ### The CLI
 
@@ -517,7 +518,7 @@ Read more: [docs.lamin.ai/manage-ontologies](https://docs.lamin.ai/manage-ontolo
 
 </details>
 
-## Manage unstructured notes
+### Save unstructured notes
 
 When in your development directory, you can save markdown files as records:
 
