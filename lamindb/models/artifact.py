@@ -149,22 +149,21 @@ if TYPE_CHECKING:
     from tiledbsoma import Experiment as SOMAExperiment
     from tiledbsoma import Measurement as SOMAMeasurement
 
-    from lamindb.base.types import StrField
-    from lamindb.core.storage._backed_access import (
+    from ..base.types import (
+        ArtifactKind,
+        StrField,
+    )
+    from ..core.storage._backed_access import (
         AnnDataAccessor,
         BackedAccessor,
         SpatialDataAccessor,
     )
-    from lamindb.core.storage.types import ScverseDataStructures
-    from lamindb.models.query_manager import RelatedManager
-
-    from ..base.types import (
-        ArtifactKind,
-    )
+    from ..core.storage.types import ScverseDataStructures
     from ._label_manager import LabelManager
     from .block import ArtifactBlock
     from .collection import Collection
     from .project import Project, Reference
+    from .query_manager import RelatedManager
     from .record import Record
     from .transform import Transform
 
@@ -3204,9 +3203,18 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         return self
 
 
-def _sorted_sizes(fs: AbstractFileSystem, root: str) -> list[int]:
-    objects = fs.find(root, detail=True)
+def _sorted_sizes(fs: AbstractFileSystem, path: str) -> list[int]:
+    objects = fs.find(path, detail=True)
     return sorted(info["size"] for info in objects.values())
+
+
+def _rm_catch_error(fs: AbstractFileSystem, path: str) -> Exception | None:
+    if fs.exists(path):
+        try:
+            fs.rm(path, recursive=True)
+        except Exception as rm_exc:
+            return rm_exc
+    return None
 
 
 def _transfer_artifact_to_storage(
@@ -3229,15 +3237,18 @@ def _transfer_artifact_to_storage(
     logger.important(
         f"transferring artifact from '{source_path_str}' to '{target_path_str}'"
     )
-    fs.cp(source_path_str, target_path_str, recursive=True)
+    try:
+        fs.copy(source_path_str, target_path_str, recursive=True, on_error="raise")
+    except Exception as e:
+        message = "Failed to copy artifact to target storage during transfer."
+        cleanup_error = _rm_catch_error(fs, target_path_str)
+        if cleanup_error is not None:
+            message += f" Cleanup of copied target also failed: {cleanup_error}"
+        raise RuntimeError(message) from e
     # check that the sizes of the files are the same
     if _sorted_sizes(fs, source_path_str) != _sorted_sizes(fs, target_path_str):
-        if fs.exists(target_path_str):
-            try:
-                fs.rm(target_path_str, recursive=True)
-            except Exception as rm_exc:
-                cleanup_error = rm_exc
         message = "Transfer verification failed: copied artifact does not match source."
+        cleanup_error = _rm_catch_error(fs, target_path_str)
         if cleanup_error is not None:
             message += " Cleanup of copied target also failed."
         raise RuntimeError(message) from cleanup_error
