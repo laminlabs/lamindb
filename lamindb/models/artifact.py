@@ -139,6 +139,7 @@ if TYPE_CHECKING:
 
     import pandas as pd
     from anndata import AnnData
+    from fsspec import AbstractFileSystem
     from lamindb_setup.types import UPathStr
     from mudata import MuData  # noqa: TC004
     from polars import LazyFrame as PolarsLazyFrame
@@ -3203,6 +3204,11 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         return self
 
 
+def _sorted_sizes(fs: AbstractFileSystem, root: str) -> list[int]:
+    objects = fs.find(root, detail=True)
+    return sorted(info["size"] for info in objects.values())
+
+
 def _transfer_artifact_to_storage(
     artifact: Artifact, storage: Storage, access_token: str | None = None
 ):
@@ -3223,7 +3229,25 @@ def _transfer_artifact_to_storage(
     logger.important(
         f"transferring artifact from '{source_path_str}' to '{target_path_str}'"
     )
-    fs.mv(source_path_str, target_path_str, recursive=True)
+    fs.cp(source_path_str, target_path_str, recursive=True)
+    # check that the sizes of the files are the same
+    if _sorted_sizes(fs, source_path_str) != _sorted_sizes(fs, target_path_str):
+        if fs.exists(target_path_str):
+            try:
+                fs.rm(target_path_str, recursive=True)
+            except Exception as rm_exc:
+                cleanup_error = rm_exc
+        message = "Transfer verification failed: copied artifact does not match source."
+        if cleanup_error is not None:
+            message += " Cleanup of copied target also failed."
+        raise RuntimeError(message) from cleanup_error
+
+    try:
+        fs.rm(source_path_str, recursive=True)
+    except Exception as exc:
+        raise RuntimeError(
+            f"Transfer verification succeeded but failed to remove source '{source_path_str}'."
+        ) from exc
 
     artifact.storage_id = storage.id
 
