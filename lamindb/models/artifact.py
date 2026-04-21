@@ -3231,14 +3231,14 @@ def _transfer_artifact_to_storage(
     source_path_str = str(source_path)
     target_path_str = str(target_path)
     assert not fs.exists(target_path_str), (
-        f"Cannot transfer artifact to {target_path_str} because it already exists."
+        f"Cannot transfer artifact to '{target_path_str}' because it already exists."
     )
 
     logger.important(
         f"transferring artifact from '{source_path_str}' to '{target_path_str}'"
     )
     try:
-        fs.copy(source_path_str, target_path_str, recursive=True, on_error="raise")
+        fs.copy(source_path_str, target_path_str, recursive=True)
     except Exception as e:
         message = "Failed to copy artifact to target storage during transfer."
         cleanup_error = _rm_catch_error(fs, target_path_str)
@@ -3255,10 +3255,10 @@ def _transfer_artifact_to_storage(
 
     try:
         fs.rm(source_path_str, recursive=True)
-    except Exception as exc:
-        raise RuntimeError(
-            f"Transfer verification succeeded but failed to remove source '{source_path_str}'."
-        ) from exc
+    except Exception as e:
+        logger.error(
+            f"copying to '{target_path_str}' succeeded but failed to remove source '{source_path_str}': {e}"
+        )
 
     artifact.storage_id = storage.id
 
