@@ -95,6 +95,22 @@ provider_token = os.environ.get("PROVIDER_TOKEN")
     assert 'provider_token = os.environ.get("PROVIDER_TOKEN")' in redacted
 
 
+def test_redact_secrets_in_source_code_ignores_annotations_and_forwarding():
+    source_code = """
+def run(api_key: str) -> None:
+    raise RuntimeError("fail")
+
+run_agent(
+    api_key=api_key,
+)
+"""
+    redacted, redaction_count = redact_secrets_in_source_code(source_code)
+    # Do not treat Python type annotations or argument forwarding as hardcoded secrets.
+    assert redaction_count == 0
+    assert "def run(api_key: str) -> None:" in redacted
+    assert "api_key=api_key," in redacted
+
+
 def test_track_basic_invocation():
     project = "non-existing project"
     with pytest.raises(ln.errors.InvalidArgument) as error:
