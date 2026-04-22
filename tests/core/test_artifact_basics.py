@@ -8,7 +8,8 @@ Also see `test_artifact_folders.py` for tests of folder-like artifacts.
 import shutil
 import sys
 from pathlib import Path, PurePosixPath
-from types import ModuleType
+from types import ModuleType, SimpleNamespace
+from unittest.mock import patch
 
 import anndata as ad
 import h5py
@@ -915,6 +916,121 @@ def test_recreate_after_artifact_moved_in_storage(ccaplog):
 # -------------------------------------------------------------------------------------
 # Storage
 # -------------------------------------------------------------------------------------
+
+
+def test_transfer_artifact_exception_handling():
+    import lamindb.models.artifact as artifact_module
+
+    class FakeFS:
+        def __init__(
+            self,
+            copy_error: Exception | None = None,
+            exists: bool = False,
+            rm_error: Exception | None = None,
+        ):
+            self.copy_error = copy_error
+            self._exists = exists
+            self.rm_error = rm_error
+            self.rm_calls = 0
+
+        def exists(self, path: str) -> bool:
+            return self._exists
+
+        def copy(self, source: str, target: str, recursive: bool = True):
+            if self.copy_error is not None:
+                raise self.copy_error
+
+        def rm(self, path: str, recursive: bool = True):
+            self.rm_calls += 1
+            if self.rm_error is not None:
+                raise self.rm_error
+
+    source_path = UPath("s3://lamindb-ci/source-artifact")
+    storage = SimpleNamespace(path=UPath("s3://lamindb-ci"), id=42)
+
+    # _rm_catch_error helper branches
+    fs_missing = FakeFS(exists=False)
+    assert (
+        artifact_module._rm_catch_error(fs_missing, "s3://lamindb-ci/missing") is None
+    )
+    assert fs_missing.rm_calls == 0
+
+    fs_ok = FakeFS(exists=True)
+    assert artifact_module._rm_catch_error(fs_ok, "s3://lamindb-ci/target") is None
+    assert fs_ok.rm_calls == 1
+
+    rm_error = RuntimeError("rm failed")
+    fs_fail = FakeFS(exists=True, rm_error=rm_error)
+    returned_error = artifact_module._rm_catch_error(fs_fail, "s3://lamindb-ci/target")
+    assert returned_error is rm_error
+    assert fs_fail.rm_calls == 1
+
+    # copy branch: copy fails and cleanup helper is included in the message
+    artifact_copy = SimpleNamespace(path=source_path, storage_id=None)
+    with (
+        patch.object(
+            artifact_module,
+            "_s",
+            return_value=SimpleNamespace(
+                auto_storage_key_from_artifact=lambda _: "target-artifact"
+            ),
+        ),
+        patch.object(
+            artifact_module,
+            "transfer_fs",
+            return_value=FakeFS(copy_error=ValueError("copy failed")),
+        ),
+        patch.object(
+            artifact_module,
+            "_rm_catch_error",
+            return_value=RuntimeError("rm failed"),
+        ) as rm_mock,
+    ):
+        with pytest.raises(RuntimeError, match="Failed to copy artifact"):
+            artifact_module._transfer_artifact_to_storage(artifact_copy, storage)
+        assert rm_mock.call_count == 1
+
+    # verification branch: sorted sizes mismatch triggers cleanup helper
+    artifact_mismatch = SimpleNamespace(path=source_path, storage_id=None)
+    with (
+        patch.object(
+            artifact_module,
+            "_s",
+            return_value=SimpleNamespace(
+                auto_storage_key_from_artifact=lambda _: "target-artifact"
+            ),
+        ),
+        patch.object(artifact_module, "transfer_fs", return_value=FakeFS()),
+        patch.object(artifact_module, "_sorted_sizes", side_effect=[[1], [2]]),
+        patch.object(
+            artifact_module,
+            "_rm_catch_error",
+            return_value=RuntimeError("rm failed"),
+        ) as rm_mock,
+    ):
+        with pytest.raises(RuntimeError, match="Transfer verification failed"):
+            artifact_module._transfer_artifact_to_storage(artifact_mismatch, storage)
+        assert rm_mock.call_count == 1
+
+    # source-removal branch: transfer succeeds but rm(source) fails and is logged
+    artifact_rm_fail = SimpleNamespace(path=source_path, storage_id=None)
+    with (
+        patch.object(
+            artifact_module,
+            "_s",
+            return_value=SimpleNamespace(
+                auto_storage_key_from_artifact=lambda _: "target-artifact"
+            ),
+        ),
+        patch.object(
+            artifact_module, "transfer_fs", return_value=FakeFS(rm_error=RuntimeError())
+        ),
+        patch.object(artifact_module, "_sorted_sizes", side_effect=[[1], [1]]),
+        patch.object(artifact_module.logger, "error") as logger_error_mock,
+    ):
+        artifact_module._transfer_artifact_to_storage(artifact_rm_fail, storage)
+        assert artifact_rm_fail.storage_id == storage.id
+        assert logger_error_mock.call_count == 1
 
 
 @pytest.mark.parametrize("suffix", [".txt", "", None])

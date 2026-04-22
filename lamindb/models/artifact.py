@@ -139,6 +139,7 @@ if TYPE_CHECKING:
 
     import pandas as pd
     from anndata import AnnData
+    from fsspec import AbstractFileSystem
     from lamindb_setup.types import UPathStr
     from mudata import MuData  # noqa: TC004
     from polars import LazyFrame as PolarsLazyFrame
@@ -148,22 +149,21 @@ if TYPE_CHECKING:
     from tiledbsoma import Experiment as SOMAExperiment
     from tiledbsoma import Measurement as SOMAMeasurement
 
-    from lamindb.base.types import StrField
-    from lamindb.core.storage._backed_access import (
+    from ..base.types import (
+        ArtifactKind,
+        StrField,
+    )
+    from ..core.storage._backed_access import (
         AnnDataAccessor,
         BackedAccessor,
         SpatialDataAccessor,
     )
-    from lamindb.core.storage.types import ScverseDataStructures
-    from lamindb.models.query_manager import RelatedManager
-
-    from ..base.types import (
-        ArtifactKind,
-    )
+    from ..core.storage.types import ScverseDataStructures
     from ._label_manager import LabelManager
     from .block import ArtifactBlock
     from .collection import Collection
     from .project import Project, Reference
+    from .query_manager import RelatedManager
     from .record import Record
     from .transform import Transform
 
@@ -1863,7 +1863,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         return self.schemas
 
     @property
-    def path(self) -> Path:
+    def path(self) -> UPath:
         """Path.
 
         Example::
@@ -3203,6 +3203,20 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         return self
 
 
+def _sorted_sizes(fs: AbstractFileSystem, path: str) -> list[int]:
+    objects = fs.find(path, detail=True)
+    return sorted(info["size"] for info in objects.values())
+
+
+def _rm_catch_error(fs: AbstractFileSystem, path: str) -> Exception | None:
+    if fs.exists(path):
+        try:
+            fs.rm(path, recursive=True)
+        except Exception as rm_exc:
+            return rm_exc
+    return None
+
+
 def _transfer_artifact_to_storage(
     artifact: Artifact, storage: Storage, access_token: str | None = None
 ):
@@ -3217,13 +3231,34 @@ def _transfer_artifact_to_storage(
     source_path_str = str(source_path)
     target_path_str = str(target_path)
     assert not fs.exists(target_path_str), (
-        f"Cannot transfer artifact to {target_path_str} because it already exists."
+        f"Cannot transfer artifact to '{target_path_str}' because it already exists."
     )
 
     logger.important(
         f"transferring artifact from '{source_path_str}' to '{target_path_str}'"
     )
-    fs.mv(source_path_str, target_path_str, recursive=True)
+    try:
+        fs.copy(source_path_str, target_path_str, recursive=True)
+    except Exception as e:
+        message = "Failed to copy artifact to target storage during transfer."
+        cleanup_error = _rm_catch_error(fs, target_path_str)
+        if cleanup_error is not None:
+            message += f" Cleanup of copied target also failed: {cleanup_error}"
+        raise RuntimeError(message) from e
+    # check that the sizes of the files are the same
+    if _sorted_sizes(fs, source_path_str) != _sorted_sizes(fs, target_path_str):
+        message = "Transfer verification failed: copied artifact does not match source."
+        cleanup_error = _rm_catch_error(fs, target_path_str)
+        if cleanup_error is not None:
+            message += " Cleanup of copied target also failed."
+        raise RuntimeError(message) from cleanup_error
+
+    try:
+        fs.rm(source_path_str, recursive=True)
+    except Exception as e:
+        logger.error(
+            f"copying to '{target_path_str}' succeeded but failed to remove source '{source_path_str}': {e}"
+        )
 
     artifact.storage_id = storage.id
 

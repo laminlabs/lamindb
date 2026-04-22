@@ -80,6 +80,7 @@ try:
 
     # move the artifact to another storage location
     space_test_move = ln.Space.get(name="test-move")
+    original_path = artifact.path
     artifact.space = space_test_move
     # cancel save
     with patch("builtins.input", return_value="x"):
@@ -89,6 +90,7 @@ try:
         artifact.save()
     assert artifact.space == space_test_move
     assert artifact.storage in ln.Storage.filter(space=space_test_move)
+    assert not original_path.exists()
     assert artifact.path.as_posix().startswith(artifact.storage.root)
     assert artifact.path.exists()
 
@@ -96,6 +98,7 @@ try:
     assert artifact_dir.space == space
     assert artifact_dir.path.is_dir()
     assert artifact_dir.storage in ln.Storage.filter(space=space)
+    original_path_dir = artifact_dir.path
 
     artifact_dir.space = space_test_move
     # save to the new storage location
@@ -103,6 +106,8 @@ try:
         artifact_dir.save()
     assert artifact_dir.space == space_test_move
     assert artifact_dir.storage in ln.Storage.filter(space=space_test_move)
+    original_path_dir.fs.invalidate_cache()
+    assert not original_path_dir.exists()
     assert artifact_dir.path.as_posix().startswith(artifact_dir.storage.root)
     assert artifact_dir.path.is_dir()
 
