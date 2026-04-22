@@ -15,7 +15,7 @@ from lamindb.core._context import (
     detect_and_process_source_code_file,
     serialize_params_to_json,
 )
-from lamindb.errors import TrackNotCalled, ValidationError
+from lamindb.errors import InvalidArgument, TrackNotCalled, ValidationError
 from lamindb_setup.core.upath import UPath
 
 SCRIPTS_DIR = Path(__file__).parent.resolve() / "scripts"
@@ -135,6 +135,58 @@ Run: {ln.context.run.uid[:7]} ({ln.context.run.transform.key})
     feature4.delete(permanent=True)
     param4.delete(permanent=True)
     test_transform.delete(permanent=True)
+
+
+def test_track_accepts_initiated_by_run_uid():
+    unique = time.time_ns()
+    parent_transform = ln.Transform(key=f"parent-run-{unique}").save()
+    child_transform = ln.Transform(key=f"child-run-{unique}").save()
+    parent_run = ln.Run(transform=parent_transform).save()
+    try:
+        ln.track(
+            transform=child_transform,
+            initiated_by_run=parent_run.uid,
+            new_run=True,
+        )
+        assert ln.context.run is not None
+        assert ln.context.run.initiated_by_run is not None
+        assert ln.context.run.initiated_by_run.uid == parent_run.uid
+        ln.finish()
+        with pytest.raises(InvalidArgument) as error:
+            ln.track(
+                transform=child_transform,
+                initiated_by_run="does-not-exist",
+                new_run=True,
+            )
+        assert error.exconly().startswith(
+            "lamindb.errors.InvalidArgument: Run 'does-not-exist' not found"
+        )
+    finally:
+        ln.context._run = None
+        ln.Run.filter(transform=child_transform).delete(permanent=True)
+        parent_run.delete(permanent=True)
+        child_transform.delete(permanent=True)
+        parent_transform.delete(permanent=True)
+
+
+def test_track_uses_initiated_by_run_uid_from_env(monkeypatch: pytest.MonkeyPatch):
+    unique = time.time_ns()
+    parent_transform = ln.Transform(key=f"parent-run-env-{unique}").save()
+    child_transform = ln.Transform(key=f"child-run-env-{unique}").save()
+    parent_run = ln.Run(transform=parent_transform).save()
+    try:
+        monkeypatch.setenv("LAMIN_INITIATED_BY_RUN_UID", parent_run.uid)
+        ln.track(transform=child_transform, new_run=True)
+        assert ln.context.run is not None
+        assert ln.context.run.initiated_by_run is not None
+        assert ln.context.run.initiated_by_run.uid == parent_run.uid
+        ln.finish()
+    finally:
+        ln.context._run = None
+        ln.Run.filter(transform=child_transform).delete(permanent=True)
+        parent_run.delete(permanent=True)
+        child_transform.delete(permanent=True)
+        parent_transform.delete(permanent=True)
 
 
 @pytest.mark.parametrize("pass_plan_as_key", [False, True], ids=["artifact", "key"])
