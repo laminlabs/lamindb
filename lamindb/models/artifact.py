@@ -1863,7 +1863,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         return self.schemas
 
     @property
-    def path(self) -> Path:
+    def path(self) -> UPath:
         """Path.
 
         Example::
