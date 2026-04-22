@@ -1012,6 +1012,26 @@ def test_transfer_artifact_exception_handling():
             artifact_module._transfer_artifact_to_storage(artifact_mismatch, storage)
         assert rm_mock.call_count == 1
 
+    # source-removal branch: transfer succeeds but rm(source) fails and is logged
+    artifact_rm_fail = SimpleNamespace(path=source_path, storage_id=None)
+    with (
+        patch.object(
+            artifact_module,
+            "_s",
+            return_value=SimpleNamespace(
+                auto_storage_key_from_artifact=lambda _: "target-artifact"
+            ),
+        ),
+        patch.object(
+            artifact_module, "transfer_fs", return_value=FakeFS(rm_error=RuntimeError())
+        ),
+        patch.object(artifact_module, "_sorted_sizes", side_effect=[[1], [1]]),
+        patch.object(artifact_module.logger, "error") as logger_error_mock,
+    ):
+        artifact_module._transfer_artifact_to_storage(artifact_rm_fail, storage)
+        assert artifact_rm_fail.storage_id == storage.id
+        assert logger_error_mock.call_count == 1
+
 
 @pytest.mark.parametrize("suffix", [".txt", "", None])
 def test_auto_storage_key_from_artifact_uid(suffix):
