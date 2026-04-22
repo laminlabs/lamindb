@@ -8,7 +8,8 @@ Also see `test_artifact_folders.py` for tests of folder-like artifacts.
 import shutil
 import sys
 from pathlib import Path, PurePosixPath
-from types import ModuleType
+from types import ModuleType, SimpleNamespace
+from unittest.mock import patch
 
 import anndata as ad
 import h5py
@@ -915,6 +916,74 @@ def test_recreate_after_artifact_moved_in_storage(ccaplog):
 # -------------------------------------------------------------------------------------
 # Storage
 # -------------------------------------------------------------------------------------
+
+
+def test_transfer_artifact_exception_handling():
+    import lamindb.models.artifact as artifact_module
+
+    class FakeFS:
+        def __init__(self, copy_error: Exception | None = None):
+            self.copy_error = copy_error
+
+        def exists(self, path: str) -> bool:
+            return False
+
+        def copy(self, source: str, target: str, recursive: bool = True):
+            if self.copy_error is not None:
+                raise self.copy_error
+
+        def rm(self, path: str, recursive: bool = True):
+            return None
+
+    source_path = UPath("s3://lamindb-ci/source-artifact")
+    storage = SimpleNamespace(path=UPath("s3://lamindb-ci"), id=42)
+
+    # copy branch: copy fails and cleanup helper is included in the message
+    artifact_copy = SimpleNamespace(path=source_path, storage_id=None)
+    with (
+        patch.object(
+            artifact_module,
+            "_s",
+            return_value=SimpleNamespace(
+                auto_storage_key_from_artifact=lambda _: "target-artifact"
+            ),
+        ),
+        patch.object(
+            artifact_module,
+            "transfer_fs",
+            return_value=FakeFS(copy_error=ValueError("copy failed")),
+        ),
+        patch.object(
+            artifact_module,
+            "_rm_catch_error",
+            return_value=RuntimeError("rm failed"),
+        ) as rm_mock,
+    ):
+        with pytest.raises(RuntimeError, match="Failed to copy artifact"):
+            artifact_module._transfer_artifact_to_storage(artifact_copy, storage)
+        assert rm_mock.call_count == 1
+
+    # verification branch: sorted sizes mismatch triggers cleanup helper
+    artifact_mismatch = SimpleNamespace(path=source_path, storage_id=None)
+    with (
+        patch.object(
+            artifact_module,
+            "_s",
+            return_value=SimpleNamespace(
+                auto_storage_key_from_artifact=lambda _: "target-artifact"
+            ),
+        ),
+        patch.object(artifact_module, "transfer_fs", return_value=FakeFS()),
+        patch.object(artifact_module, "_sorted_sizes", side_effect=[[1], [2]]),
+        patch.object(
+            artifact_module,
+            "_rm_catch_error",
+            return_value=RuntimeError("rm failed"),
+        ) as rm_mock,
+    ):
+        with pytest.raises(RuntimeError, match="Transfer verification failed"):
+            artifact_module._transfer_artifact_to_storage(artifact_mismatch, storage)
+        assert rm_mock.call_count == 1
 
 
 @pytest.mark.parametrize("suffix", [".txt", "", None])
