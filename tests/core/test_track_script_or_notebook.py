@@ -9,7 +9,9 @@ import lamindb as ln
 import lamindb_setup as ln_setup
 import pytest
 from lamindb._finish import clean_r_notebook_html, get_shortcut
+from lamindb._secret_redaction import redact_secrets_in_source_code
 from lamindb.core._context import (
+    REDACTED_SECRET_VALUE,
     LogStreamTracker,
     context,
     detect_and_process_source_code_file,
@@ -32,6 +34,9 @@ def test_serialize_params_to_json():
         "list_str_key": ["string"],
         "upath_key": a_upath,
         "str_key": "plain",
+        "api_key": "test-api-key-value",
+        "openAIApiKey": "another-secret",
+        "database_url": "postgresql://db_user:db_password@db.example.com:5432/mydb",
     }
     result = serialize_params_to_json(params)
     # None is omitted
@@ -46,7 +51,102 @@ def test_serialize_params_to_json():
     assert result["list_str_key"] == ["string"]
     # Other values unchanged
     assert result["str_key"] == "plain"
-    assert set(result.keys()) == {"path_key", "upath_key", "str_key", "list_str_key"}
+    assert result["api_key"] == REDACTED_SECRET_VALUE
+    assert result["openAIApiKey"] == REDACTED_SECRET_VALUE
+    assert result["database_url"] == REDACTED_SECRET_VALUE
+    assert set(result.keys()) == {
+        "path_key",
+        "upath_key",
+        "str_key",
+        "list_str_key",
+        "api_key",
+        "openAIApiKey",
+        "database_url",
+    }
+
+
+def test_redact_secrets_in_source_code():
+    source_code = """
+api_key = "test-api-key-value"
+openAIApiKey = "another-secret"
+uid = "a6yhtobqTjQM6q8t"
+db_url = "postgresql://db_user:db_password@db.example.com:5432/mydb"
+os.environ["API_KEY"] = "sdk-key"
+config = {"client_secret": "client-secret-value", "id": "abc123"}
+"""
+    redacted, redaction_count = redact_secrets_in_source_code(source_code)
+    assert redaction_count == 5
+    assert 'api_key = "***REDACTED***"' in redacted
+    assert 'openAIApiKey = "***REDACTED***"' in redacted
+    assert 'db_url = "***REDACTED***"' in redacted
+    assert 'os.environ["API_KEY"] = "***REDACTED***"' in redacted
+    assert '"client_secret": "***REDACTED***"' in redacted
+    assert 'uid = "a6yhtobqTjQM6q8t"' in redacted
+
+
+def test_redact_secrets_in_source_code_keeps_env_references():
+    source_code = """
+api_key = os.getenv("OPENAI_API_KEY")
+openAIApiKey = getenv("OPENAI_API_KEY")
+model_api_key = os.environ["MODEL_API_KEY"]
+provider_token = os.environ.get("PROVIDER_TOKEN")
+"""
+    redacted, redaction_count = redact_secrets_in_source_code(source_code)
+    # Env lookups are references, not embedded literals. Keep them for rerunnable source code.
+    assert redaction_count == 0
+    assert 'api_key = os.getenv("OPENAI_API_KEY")' in redacted
+    assert 'openAIApiKey = getenv("OPENAI_API_KEY")' in redacted
+    assert 'model_api_key = os.environ["MODEL_API_KEY"]' in redacted
+    assert 'provider_token = os.environ.get("PROVIDER_TOKEN")' in redacted
+
+
+def test_redact_secrets_in_source_code_ignores_annotations_and_forwarding():
+    source_code = """
+def run(api_key: str) -> None:
+    raise RuntimeError("fail")
+
+run_agent(
+    api_key=api_key,
+)
+"""
+    redacted, redaction_count = redact_secrets_in_source_code(source_code)
+    # Do not treat Python type annotations or argument forwarding as hardcoded secrets.
+    assert redaction_count == 0
+    assert "def run(api_key: str) -> None:" in redacted
+    assert "api_key=api_key," in redacted
+
+
+def test_serialize_params_to_json_redacts_provider_api_key_names():
+    params = {
+        "LAMIN_API_KEY": "lamin-super-secret",
+        "OPENAI_API_KEY": "openai-super-secret",
+        "ANTHROPIC_API_KEY": "anthropic-super-secret",
+        "GEMINI_API_KEY": "gemini-super-secret",
+        "provider_name": "safe-value",
+    }
+    result = serialize_params_to_json(params)
+    assert result["LAMIN_API_KEY"] == REDACTED_SECRET_VALUE
+    assert result["OPENAI_API_KEY"] == REDACTED_SECRET_VALUE
+    assert result["ANTHROPIC_API_KEY"] == REDACTED_SECRET_VALUE
+    assert result["GEMINI_API_KEY"] == REDACTED_SECRET_VALUE
+    assert result["provider_name"] == "safe-value"
+
+
+def test_redact_secrets_in_source_code_redacts_provider_api_key_names():
+    source_code = """
+LAMIN_API_KEY = "lamin-super-secret"
+OPENAI_API_KEY = "openai-super-secret"
+ANTHROPIC_API_KEY = "anthropic-super-secret"
+GEMINI_API_KEY = "gemini-super-secret"
+provider = "openai"
+"""
+    redacted, redaction_count = redact_secrets_in_source_code(source_code)
+    assert redaction_count == 4
+    assert 'LAMIN_API_KEY = "***REDACTED***"' in redacted
+    assert 'OPENAI_API_KEY = "***REDACTED***"' in redacted
+    assert 'ANTHROPIC_API_KEY = "***REDACTED***"' in redacted
+    assert 'GEMINI_API_KEY = "***REDACTED***"' in redacted
+    assert 'provider = "openai"' in redacted
 
 
 def test_track_basic_invocation():
