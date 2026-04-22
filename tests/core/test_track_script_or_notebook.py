@@ -116,6 +116,39 @@ run_agent(
     assert "api_key=api_key," in redacted
 
 
+def test_serialize_params_to_json_redacts_provider_api_key_names():
+    params = {
+        "LAMIN_API_KEY": "lamin-super-secret",
+        "OPENAI_API_KEY": "openai-super-secret",
+        "ANTHROPIC_API_KEY": "anthropic-super-secret",
+        "GEMINI_API_KEY": "gemini-super-secret",
+        "provider_name": "safe-value",
+    }
+    result = serialize_params_to_json(params)
+    assert result["LAMIN_API_KEY"] == REDACTED_SECRET_VALUE
+    assert result["OPENAI_API_KEY"] == REDACTED_SECRET_VALUE
+    assert result["ANTHROPIC_API_KEY"] == REDACTED_SECRET_VALUE
+    assert result["GEMINI_API_KEY"] == REDACTED_SECRET_VALUE
+    assert result["provider_name"] == "safe-value"
+
+
+def test_redact_secrets_in_source_code_redacts_provider_api_key_names():
+    source_code = """
+LAMIN_API_KEY = "lamin-super-secret"
+OPENAI_API_KEY = "openai-super-secret"
+ANTHROPIC_API_KEY = "anthropic-super-secret"
+GEMINI_API_KEY = "gemini-super-secret"
+provider = "openai"
+"""
+    redacted, redaction_count = redact_secrets_in_source_code(source_code)
+    assert redaction_count == 4
+    assert 'LAMIN_API_KEY = "***REDACTED***"' in redacted
+    assert 'OPENAI_API_KEY = "***REDACTED***"' in redacted
+    assert 'ANTHROPIC_API_KEY = "***REDACTED***"' in redacted
+    assert 'GEMINI_API_KEY = "***REDACTED***"' in redacted
+    assert 'provider = "openai"' in redacted
+
+
 def test_track_basic_invocation():
     project = "non-existing project"
     with pytest.raises(ln.errors.InvalidArgument) as error:
