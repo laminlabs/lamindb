@@ -9,7 +9,7 @@ import lamindb as ln
 import lamindb_setup as ln_setup
 import pytest
 from lamindb._finish import clean_r_notebook_html, get_shortcut
-from lamindb._secrets import redact_secrets_in_source_code
+from lamindb._secret_redaction import redact_secrets_in_source_code
 from lamindb.core._context import (
     REDACTED_SECRET_VALUE,
     LogStreamTracker,

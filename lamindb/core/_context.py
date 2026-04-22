@@ -16,7 +16,7 @@ from django.db.models import Func, IntegerField, Q
 from lamin_utils._logger import logger
 from lamindb_setup.core.hashing import hash_file, hash_string
 
-from .._secrets import (
+from .._secret_redaction import (
     REDACTED_SECRET_VALUE,
     is_sensitive_param_key,
     redact_secrets_in_source_code,

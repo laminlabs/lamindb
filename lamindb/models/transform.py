@@ -17,7 +17,7 @@ from lamindb.base.fields import (
 )
 from lamindb.base.users import current_user_id
 
-from .._secrets import redact_secrets_in_source_code
+from .._secret_redaction import redact_secrets_in_source_code
 from ..models._is_versioned import process_revises
 from ._is_versioned import IsVersioned, _adjust_is_latest_when_deleting_is_versioned
 from .run import Run, User
