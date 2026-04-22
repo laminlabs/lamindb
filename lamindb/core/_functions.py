@@ -32,6 +32,7 @@ def _create_tracked_decorator(
     uid: str | None = None,
     is_flow: bool = True,
     global_run: Literal["memorize", "clear", "none"] = "none",
+    track_arg_aliases: bool = False,
 ) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """Internal helper to create tracked decorators.
 
@@ -61,6 +62,13 @@ def _create_tracked_decorator(
             params = dict(bound_args.arguments)
 
             initiated_by_run = get_current_tracked_run()
+            track_kwargs: dict = {}
+            if track_arg_aliases:
+                for key in ("project", "space", "branch", "plan", "initiated_by_run"):
+                    if key in params and params[key] is not None:
+                        track_kwargs[key] = params[key]
+                if "initiated_by_run" in track_kwargs:
+                    initiated_by_run = track_kwargs["initiated_by_run"]
             path_raw = inspect.getsourcefile(func)
             path = None
             # do not pass path when function is defined in an ipython cell
@@ -88,6 +96,10 @@ def _create_tracked_decorator(
                 entrypoint=func.__qualname__,
                 params=params,
                 new_run=True,
+                project=track_kwargs.get("project"),
+                space=track_kwargs.get("space"),
+                branch=track_kwargs.get("branch"),
+                plan=track_kwargs.get("plan"),
                 initiated_by_run=initiated_by_run,
                 stream_tracking=is_flow,
             )
@@ -120,6 +132,7 @@ def _create_tracked_decorator(
 def flow(
     uid: str | None = None,
     global_run: Literal["memorize", "clear", "none"] = "clear",
+    track_arg_aliases: bool = True,
 ) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """Use `@flow()` to track a function as a workflow.
 
@@ -138,6 +151,9 @@ def flow(
         global_run: If `"clear"`, set the global run context `ln.context.run` and clear after the function completes.
             If `"memorize"`, set the global run context and do not clear after the function completes.
             Set this to `"none"` if you want to track concurrent executions of a `flow()` in the same Python process.
+        track_arg_aliases: If `True` (default), maps function arguments with names `project`, `space`, `branch`,
+            `plan`, and `initiated_by_run` to matching `ln.track()` arguments while also keeping them in `run.params`
+            for reproducibility. Pass `False` to disable this mapping.
 
     Examples:
 
@@ -159,7 +175,12 @@ def flow(
 
 
     """
-    return _create_tracked_decorator(uid=uid, is_flow=True, global_run=global_run)
+    return _create_tracked_decorator(
+        uid=uid,
+        is_flow=True,
+        global_run=global_run,
+        track_arg_aliases=track_arg_aliases,
+    )
 
 
 def step(uid: str | None = None) -> Callable[[Callable[P, R]], Callable[P, R]]:

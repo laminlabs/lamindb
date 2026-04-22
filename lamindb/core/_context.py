@@ -483,7 +483,7 @@ class Context:
         source_code: str | None = None,
         kind: TransformKind | None = None,
         entrypoint: str | None = None,
-        initiated_by_run: Run | None = None,
+        initiated_by_run: Run | str | None = None,
         stream_tracking: bool | None = None,
     ) -> None:
         """Track a run of a notebook or script.
@@ -508,7 +508,8 @@ class Context:
             source_code: Source code.
             kind: Transform kind.
             entrypoint: Optional entrypoint name (e.g. function qualname) for the run.
-            initiated_by_run: Optional parent run that triggered this run.
+            initiated_by_run: Optional parent run (or its `uid`) that triggered this run.
+                If `None`, falls back to the `LAMIN_INITIATED_BY_RUN_UID` environment variable when set.
             stream_tracking: If set, override whether to capture stdout/stderr to run logs.
                 Used by the flow/step decorator: flows get logs (`True`), steps do not (`False`).
 
@@ -612,6 +613,21 @@ class Context:
                 if plan_record is None:
                     raise InvalidArgument(
                         f"Plan artifact '{plan}' not found, either create it or use a valid key/uid."
+                    )
+        if initiated_by_run is None:
+            initiated_by_run = os.environ.get("LAMIN_INITIATED_BY_RUN_UID")
+        initiated_by_run_record: Run | None = None
+        if initiated_by_run is not None:
+            if isinstance(initiated_by_run, Run):
+                assert initiated_by_run._state.adding is False, (  # noqa: S101
+                    "initiated_by_run must be saved before passing it to track()"
+                )
+                initiated_by_run_record = initiated_by_run
+            else:
+                initiated_by_run_record = Run.filter(uid=initiated_by_run).one_or_none()
+                if initiated_by_run_record is None:
+                    raise InvalidArgument(
+                        f"Run '{initiated_by_run}' not found, please pass a valid run uid."
                     )
         self._logging_message_track = ""
         self._logging_message_imports = ""
@@ -722,8 +738,8 @@ class Context:
             run = Run(transform=self._transform, plan=plan_record)
             if entrypoint is not None:
                 run.entrypoint = entrypoint
-            if initiated_by_run is not None:
-                run.initiated_by_run = initiated_by_run
+            if initiated_by_run_record is not None:
+                run.initiated_by_run = initiated_by_run_record
             run.started_at = datetime.now(timezone.utc)
             run._status_code = -1  # started
             entrypoint_str = (
