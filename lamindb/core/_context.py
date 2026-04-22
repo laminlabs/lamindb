@@ -19,6 +19,7 @@ from lamindb_setup.core.hashing import hash_file, hash_string
 from .._secret_redaction import (
     REDACTED_SECRET_VALUE,
     is_sensitive_param_key,
+    is_sensitive_param_value,
     redact_secrets_in_source_code,
 )
 from ..base.uids import base62_12
@@ -393,7 +394,9 @@ def serialize_params_to_json(params: dict) -> dict:
                 f"skipping param {key} with value {value} and dtype {dtype} not JSON serializable"
             )
             continue
-        if is_sensitive_param_key(key):
+        if is_sensitive_param_key(key) or is_sensitive_param_value(
+            serialized_params[key]
+        ):
             serialized_params[key] = REDACTED_SECRET_VALUE
     return serialized_params
 

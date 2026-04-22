@@ -36,6 +36,7 @@ def test_serialize_params_to_json():
         "str_key": "plain",
         "api_key": "test-api-key-value",
         "openAIApiKey": "another-secret",
+        "database_url": "postgresql://db_user:db_password@db.example.com:5432/mydb",
     }
     result = serialize_params_to_json(params)
     # None is omitted
@@ -52,6 +53,7 @@ def test_serialize_params_to_json():
     assert result["str_key"] == "plain"
     assert result["api_key"] == REDACTED_SECRET_VALUE
     assert result["openAIApiKey"] == REDACTED_SECRET_VALUE
+    assert result["database_url"] == REDACTED_SECRET_VALUE
     assert set(result.keys()) == {
         "path_key",
         "upath_key",
@@ -59,6 +61,7 @@ def test_serialize_params_to_json():
         "list_str_key",
         "api_key",
         "openAIApiKey",
+        "database_url",
     }
 
 
@@ -67,13 +70,15 @@ def test_redact_secrets_in_source_code():
 api_key = "test-api-key-value"
 openAIApiKey = "another-secret"
 uid = "a6yhtobqTjQM6q8t"
+db_url = "postgresql://db_user:db_password@db.example.com:5432/mydb"
 os.environ["API_KEY"] = "sdk-key"
 config = {"client_secret": "client-secret-value", "id": "abc123"}
 """
     redacted, redaction_count = redact_secrets_in_source_code(source_code)
-    assert redaction_count == 4
+    assert redaction_count == 5
     assert 'api_key = "***REDACTED***"' in redacted
     assert 'openAIApiKey = "***REDACTED***"' in redacted
+    assert 'db_url = "***REDACTED***"' in redacted
     assert 'os.environ["API_KEY"] = "***REDACTED***"' in redacted
     assert '"client_secret": "***REDACTED***"' in redacted
     assert 'uid = "a6yhtobqTjQM6q8t"' in redacted

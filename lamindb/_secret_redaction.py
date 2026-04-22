@@ -40,6 +40,14 @@ _ENV_REFERENCE_VALUE_PATTERN = re.compile(
     r"^(os\.getenv\(.+\)|getenv\(.+\)|os\.environ\[[^\]]+\]|os\.environ\.get\(.+\))$"
 )
 
+# Match PostgreSQL URLs that include inline credentials:
+# - postgresql://user:password@host:5432/dbname
+# - postgres://user:password@host/dbname?sslmode=require
+_POSTGRES_CREDENTIALS_URL_PATTERN = re.compile(
+    r"^postgres(?:ql)?://[^:@/\s]+:[^@/\s]+@[^/\s]+(?:/[^\s]*)?$",
+    re.IGNORECASE,
+)
+
 
 def normalize_sensitive_key_name(key: str) -> str:
     normalized_key = re.sub(r"([A-Z]+)([A-Z][a-z])", r"\1_\2", key)
@@ -51,9 +59,16 @@ def is_sensitive_param_key(key: str) -> bool:
     return bool(SENSITIVE_PARAM_KEY_PATTERN.search(normalize_sensitive_key_name(key)))
 
 
+def is_sensitive_param_value(value: object) -> bool:
+    if not isinstance(value, str):
+        return False
+    return bool(_POSTGRES_CREDENTIALS_URL_PATTERN.match(value.strip()))
+
+
 def _redact_assignment_match(match: re.Match[str]) -> str:
     key = match.group("key")
-    if not is_sensitive_param_key(key):
+    quoted_value = match.group("quoted")
+    if not is_sensitive_param_key(key) and not is_sensitive_param_value(quoted_value):
         return match.group(0)
     # Redact only hardcoded values, not environment-based references.
     # This preserves reproducibility for source code that reads secrets from env vars.
