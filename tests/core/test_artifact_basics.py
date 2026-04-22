@@ -922,21 +922,48 @@ def test_transfer_artifact_exception_handling():
     import lamindb.models.artifact as artifact_module
 
     class FakeFS:
-        def __init__(self, copy_error: Exception | None = None):
+        def __init__(
+            self,
+            copy_error: Exception | None = None,
+            exists: bool = False,
+            rm_error: Exception | None = None,
+        ):
             self.copy_error = copy_error
+            self._exists = exists
+            self.rm_error = rm_error
+            self.rm_calls = 0
 
         def exists(self, path: str) -> bool:
-            return False
+            return self._exists
 
         def copy(self, source: str, target: str, recursive: bool = True):
             if self.copy_error is not None:
                 raise self.copy_error
 
         def rm(self, path: str, recursive: bool = True):
-            return None
+            self.rm_calls += 1
+            if self.rm_error is not None:
+                raise self.rm_error
 
     source_path = UPath("s3://lamindb-ci/source-artifact")
     storage = SimpleNamespace(path=UPath("s3://lamindb-ci"), id=42)
+
+    # _rm_catch_error helper branches
+    fs_missing = FakeFS(exists=False)
+    assert (
+        artifact_module._rm_catch_error(fs_missing, "s3://lamindb-ci/missing") is None
+    )
+    assert fs_missing.rm_calls == 0
+
+    fs_ok = FakeFS(exists=True)
+    assert artifact_module._rm_catch_error(fs_ok, "s3://lamindb-ci/target") is None
+    assert fs_ok.rm_calls == 1
+
+    rm_error = RuntimeError("rm failed")
+    fs_fail = FakeFS(exists=True, rm_error=rm_error)
+    returned_error = artifact_module._rm_catch_error(fs_fail, "s3://lamindb-ci/target")
+    assert returned_error is rm_error
+    assert fs_fail.rm_calls == 1
 
     # copy branch: copy fails and cleanup helper is included in the message
     artifact_copy = SimpleNamespace(path=source_path, storage_id=None)
