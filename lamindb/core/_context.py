@@ -16,6 +16,11 @@ from django.db.models import Func, IntegerField, Q
 from lamin_utils._logger import logger
 from lamindb_setup.core.hashing import hash_file, hash_string
 
+from .._secrets import (
+    REDACTED_SECRET_VALUE,
+    is_sensitive_param_key,
+    redact_secrets_in_source_code,
+)
 from ..base.uids import base62_12
 from ..errors import InvalidArgument, TrackNotCalled, UpdateContext
 from ..models import Run, SQLRecord, Transform, format_field_value
@@ -357,7 +362,6 @@ class LogStreamTracker:
             self.original_excepthook(exc_type, exc_value, exc_traceback)
 
 
-# see test_tracked.py for tests
 def serialize_params_to_json(params: dict) -> dict:
     serialized_params = {}
     for key, value in params.items():
@@ -388,6 +392,9 @@ def serialize_params_to_json(params: dict) -> dict:
             logger.warning(
                 f"skipping param {key} with value {value} and dtype {dtype} not JSON serializable"
             )
+            continue
+        if is_sensitive_param_key(key):
+            serialized_params[key] = REDACTED_SECRET_VALUE
     return serialized_params
 
 
@@ -916,7 +923,15 @@ class Context:
         key: str | None = None,
         source_code: str | None = None,
     ):
+        source_code_to_store = source_code
         if source_code is not None:
+            source_code_to_store, redaction_count = redact_secrets_in_source_code(
+                source_code
+            )
+            if redaction_count > 0:
+                logger.warning(
+                    f"redacted {redaction_count} secret-looking assignment(s) before persisting transform source code"
+                )
             transform_hash = hash_string(source_code)
         else:
             from .._finish import notebook_to_script
@@ -1082,8 +1097,12 @@ class Context:
                 reference=transform_ref,
                 reference_type=transform_ref_type,
                 kind=transform_kind,
-                source_code=source_code,
-            ).save()
+                source_code=source_code_to_store,
+                skip_hash_lookup=source_code is not None,
+            )
+            if source_code is not None:
+                transform.hash = transform_hash
+            transform = transform.save()
             self._logging_message_track += (
                 f"created Transform('{transform.uid}', key='{transform.key}')"
             )

@@ -17,6 +17,7 @@ from lamindb.base.fields import (
 )
 from lamindb.base.users import current_user_id
 
+from .._secrets import redact_secrets_in_source_code
 from ..models._is_versioned import process_revises
 from ._is_versioned import IsVersioned, _adjust_is_latest_when_deleting_is_versioned
 from .run import Run, User
@@ -515,6 +516,14 @@ class Transform(SQLRecord, IsVersioned):
 
     def _update_source_code_from_path(self, source_code_path: Path) -> None | str:
         _, transform_hash, _ = hash_file(source_code_path)  # ignore hash_type for now
+        source_code = source_code_path.read_text()
+        source_code_to_store, redaction_count = redact_secrets_in_source_code(
+            source_code
+        )
+        if redaction_count > 0:
+            logger.warning(
+                f"redacted {redaction_count} secret-looking assignment(s) before persisting transform source code"
+            )
         if self.hash is not None:
             # check if the hash of the transform source code matches
             if transform_hash != self.hash:
@@ -523,7 +532,7 @@ class Transform(SQLRecord, IsVersioned):
                     f" Proceed? (y/n) "
                 )
                 if response == "y":
-                    self.source_code = source_code_path.read_text()
+                    self.source_code = source_code_to_store
                     self.hash = transform_hash
                 else:
                     logger.warning("Please re-run `ln.track()` to make a new version")
@@ -531,7 +540,7 @@ class Transform(SQLRecord, IsVersioned):
             else:
                 logger.debug("source code is already saved")
         else:
-            self.source_code = source_code_path.read_text()
+            self.source_code = source_code_to_store
             self.hash = transform_hash
         return None
 
