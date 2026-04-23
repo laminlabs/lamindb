@@ -519,6 +519,13 @@ bt.CellType.import_source()  # import the default ontology
 bt.CellType.to_dataframe()   # your extensible cell type ontology in a simple registry
 ```
 
+You can then create objects, e.g. for labeling, analogous to `ULabel`, `Project`, or `Record`:
+
+```
+t_cell = bt.CellType.get(name="T cell")
+artifact.cell_types.add(t_cell)
+```
+
 Read more: [docs.lamin.ai/manage-ontologies](https://docs.lamin.ai/manage-ontologies).
 
 <details>
