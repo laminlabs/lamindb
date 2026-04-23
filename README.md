@@ -521,7 +521,7 @@ bt.CellType.to_dataframe()   # your extensible cell type ontology in a simple re
 
 You can then create objects, e.g. for labeling, analogous to `ULabel`, `Project`, or `Record`:
 
-```
+```python
 t_cell = bt.CellType.get(name="T cell")
 artifact.cell_types.add(t_cell)
 ```
