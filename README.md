@@ -175,10 +175,8 @@ To save a file or folder as an artifact with the API:
 import lamindb as ln
 # → connected lamindb: account/instance
 
-ln.track()                                              # track code execution
 open("sample.fasta", "w").write(">seq1\nACGT\n")        # create dataset
 ln.Artifact("sample.fasta", key="sample.fasta").save()  # save dataset
-ln.finish()
 ```
 
 ### Lineage: scripts & notebooks
