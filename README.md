@@ -91,7 +91,7 @@ This suffices to support the basic functionality but you will get an `ImportErro
 
 </details>
 
-### Query databases
+### Query databases & load artifacts
 
 You can browse public databases at [lamin.ai/explore](https://lamin.ai/explore). To query [laminlabs/cellxgene](https://lamin.ai/laminlabs/cellxgene), run:
 
@@ -153,7 +153,7 @@ For more configuration, read: [docs.lamin.ai/setup](https://docs.lamin.ai/setup)
 
 On the terminal and in a Python session, LaminDB will now auto-connect.
 
-### The CLI
+### Save files & folders as artifacts
 
 To save a file or folder from the command line, run:
 
@@ -167,7 +167,19 @@ To sync a file into a local cache (artifacts) or development directory (transfor
 lamin load --key examples/myfile.txt
 ```
 
-Read more: [docs.lamin.ai/cli](https://docs.lamin.ai/cli).
+Read more about the CLI: [docs.lamin.ai/cli](https://docs.lamin.ai/cli).
+
+To save a file or folder as an artifact with the API:
+
+```python
+import lamindb as ln
+# → connected lamindb: account/instance
+
+ln.track()                                              # track code execution
+open("sample.fasta", "w").write(">seq1\nACGT\n")        # create dataset
+ln.Artifact("sample.fasta", key="sample.fasta").save()  # save dataset
+ln.finish()
+```
 
 ### Lineage: scripts & notebooks
 
