@@ -502,7 +502,7 @@ artifact = ln.Artifact.from_anndata(
     adata,
     key="my_datasets/scrna.h5ad",
     schema="ensembl_gene_ids_and_valid_features_in_obs"
-)
+).save()
 artifact.describe()
 ```
 
