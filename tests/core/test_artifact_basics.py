@@ -349,6 +349,26 @@ def test_create_from_path_overwrite_versions_false(get_test_filepaths):
     artifact3.delete(permanent=True, storage=False)
 
 
+def test_delete_permanently_from_trash_folder(tmp_path):
+    folder_path = tmp_path / "folder-overwrite-versions"
+    folder_path.mkdir()
+    (folder_path / "v1.txt").write_text("v1")
+    key = f"{tmp_path.name}/folder-overwrite-versions"
+
+    artifact = ln.Artifact(folder_path, key=key).save()
+    assert artifact.overwrite_versions
+
+    # First soft-delete (move to trash), then delete permanently.
+    artifact.delete()
+    artifact.refresh_from_db()
+    assert artifact.branch_id == -1
+
+    with patch("builtins.input", return_value="y"):
+        artifact.delete()
+
+    assert ln.Artifact.objects.filter(uid__startswith=artifact.stem_uid).count() == 0
+
+
 def test_create_from_path_set_branch():
     branch = ln.Branch(name="contrib1").save()
     artifact1 = ln.Artifact(".gitignore", key="test", branch=branch).save()

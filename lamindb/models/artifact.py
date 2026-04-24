@@ -985,7 +985,7 @@ def add_labels(
             )
 
 
-def delete_permanently(artifact: Artifact, storage: bool, using_key: str):
+def delete_permanently(artifact: Artifact, storage: bool | None, using_key: str):
     # need to grab file path before deletion
     try:
         path, _ = _s().filepath_from_artifact(artifact, using_key)
@@ -999,7 +999,12 @@ def delete_permanently(artifact: Artifact, storage: bool, using_key: str):
         logger.important(
             "deleting all versions of this artifact because they all share the same store"
         )
-        for version in artifact.versions.all():  # includes artifact
+        # artifact.versions pulls only versions that are not in trash
+        # this query set below contains all versions including those that are in trash
+        versions = Artifact.objects.using(artifact._state.db).filter(
+            uid__startswith=artifact.stem_uid
+        )
+        for version in versions:
             _delete_skip_storage(version)
     else:
         artifact._delete_skip_storage()
