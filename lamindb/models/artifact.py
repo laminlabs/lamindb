@@ -985,7 +985,7 @@ def add_labels(
             )
 
 
-def delete_permanently(artifact: Artifact, storage: bool, using_key: str):
+def delete_permanently(artifact: Artifact, storage: bool | None, using_key: str):
     # need to grab file path before deletion
     try:
         path, _ = _s().filepath_from_artifact(artifact, using_key)
