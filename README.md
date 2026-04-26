@@ -171,7 +171,7 @@ To save a file or folder via the CLI, run:
 lamin save sample.fasta --key sample.fasta
 ```
 
-To load an artifact into a local cache, run:
+To load an artifact via the CLI into a local cache, run:
 
 ```shell
 lamin load --key sample.fasta
