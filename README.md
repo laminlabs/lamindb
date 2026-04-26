@@ -155,21 +155,7 @@ On the terminal and in a Python session, LaminDB will now auto-connect.
 
 ### Save files & folders as artifacts
 
-To save a file or folder from the command line, run:
-
-```shell
-lamin save myfile.txt --key examples/myfile.txt
-```
-
-To sync a file into a local cache (artifacts) or development directory (transforms), run:
-
-```shell
-lamin load --key examples/myfile.txt
-```
-
-Read more about the CLI: [docs.lamin.ai/cli](https://docs.lamin.ai/cli).
-
-To save a file or folder as an artifact with the API:
+To save a file or folder via the API:
 
 ```python
 import lamindb as ln
@@ -178,6 +164,20 @@ import lamindb as ln
 open("sample.fasta", "w").write(">seq1\nACGT\n")        # create dataset
 ln.Artifact("sample.fasta", key="sample.fasta").save()  # save dataset
 ```
+
+To save a file or folder via the CLI, run:
+
+```shell
+lamin save sample.fasta --key sample.fasta
+```
+
+To load an artifact into a local cache, run:
+
+```shell
+lamin load --key sample.fasta
+```
+
+Read more about the CLI: [docs.lamin.ai/cli](https://docs.lamin.ai/cli).
 
 ### Lineage: scripts & notebooks
 
