@@ -2707,9 +2707,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         # no need to upload if new file is already in storage
         self._to_store = not check_path_in_storage
 
-        # update old suffix with the new one so that checks in record pass
+        # update old suffix with the new one so that the check in artifact save pass
         # replace() supports changing the suffix
-        self._old_suffix = self.suffix
+        self._original_values["suffix"] = self.suffix
 
     def open(
         self,
@@ -3089,6 +3089,13 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             logger.warning("you are saving to a non-latest version of the artifact")
 
         access_token = kwargs.pop("access_token", None)
+
+        if self._field_changed("suffix"):
+            old_suffix = self._original_values.get("suffix")
+            raise InvalidArgument(
+                f"Changing the `.suffix` of an artifact is not allowed! You tried to change it from '{old_suffix}' to '{self.suffix}'."
+            )
+
         # when space is passed in init, storage is ignored, so space - storage consistency is enforced there
         if (
             self._field_changed("space_id")
