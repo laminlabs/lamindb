@@ -16,7 +16,6 @@ from typing import (
     Literal,
     NamedTuple,
     TypeVar,
-    Union,
     overload,
 )
 
@@ -88,7 +87,6 @@ if TYPE_CHECKING:
     from .query_manager import RelatedManager
     from .query_set import SQLRecordList
     from .run import Run, User
-    from .transform import Transform
     from .ulabel import ULabel
 
 
@@ -2214,7 +2212,6 @@ def track_current_key_and_name_values(record: SQLRecord):
     # which can lead to a recursion
     if isinstance(record, Artifact):
         record._old_key = record.__dict__.get("key")  # type: ignore
-        record._old_suffix = record.__dict__.get("suffix")  # type: ignore
     elif hasattr(record, "_name_field"):
         record._old_name = record.__dict__.get(record._name_field)
 
@@ -2285,7 +2282,7 @@ def check_name_change(record: SQLRecord):
                 )
 
 
-def check_key_change(record: Union[Artifact, Transform]):
+def check_key_change(record: Artifact):
     """Errors if a record's key has falsely changed."""
     from .artifact import Artifact
 
@@ -2293,10 +2290,6 @@ def check_key_change(record: Union[Artifact, Transform]):
         return
     if hasattr(record, "_skip_key_change_check") and record._skip_key_change_check:
         return
-    if record._old_suffix != record.suffix:  # type: ignore
-        raise InvalidArgument(
-            f"Changing the `.suffix` of an artifact is not allowed! You tried to change it from '{record._old_suffix}' to '{record.suffix}'."  # type: ignore
-        )
 
     old_key = record._old_key  # type: ignore
     new_key = record.key

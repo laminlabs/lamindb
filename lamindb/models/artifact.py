@@ -1313,7 +1313,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             ),
         ]
 
-    _TRACK_FIELDS = ("space_id", "is_latest")
+    _TRACK_FIELDS = ("space_id", "is_latest", "suffix")
 
     _len_full_uid: int = 20
     _len_stem_uid: int = 16
