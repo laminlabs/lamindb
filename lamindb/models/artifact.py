@@ -3093,7 +3093,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         if self._field_changed("suffix"):
             old_suffix = self._original_values.get("suffix")
             raise InvalidArgument(
-                f"Changing the `.suffix` of an artifact is not allowed! You tried to change it from '{old_suffix}' to '{self.suffix}'."
+                "Changing the `.suffix` of an artifact is not allowed! "
+                f"You tried to change it from '{old_suffix}' to '{self.suffix}'."
             )
 
         # when space is passed in init, storage is ignored, so space - storage consistency is enforced there
