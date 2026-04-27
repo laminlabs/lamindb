@@ -91,7 +91,7 @@ This suffices to support the basic functionality but you will get an `ImportErro
 
 </details>
 
-### Query databases
+### Query databases & load artifacts
 
 You can browse public databases at [lamin.ai/explore](https://lamin.ai/explore). To query [laminlabs/cellxgene](https://lamin.ai/laminlabs/cellxgene), run:
 
@@ -153,21 +153,31 @@ For more configuration, read: [docs.lamin.ai/setup](https://docs.lamin.ai/setup)
 
 On the terminal and in a Python session, LaminDB will now auto-connect.
 
-### The CLI
+### Save files & folders as artifacts
 
-To save a file or folder from the command line, run:
+To save a file or folder via the API:
 
-```shell
-lamin save myfile.txt --key examples/myfile.txt
+```python
+import lamindb as ln
+# → connected lamindb: account/instance
+
+open("sample.fasta", "w").write(">seq1\nACGT\n")        # create dataset
+ln.Artifact("sample.fasta", key="sample.fasta").save()  # save dataset
 ```
 
-To sync a file into a local cache (artifacts) or development directory (transforms), run:
+To save a file or folder via the CLI, run:
 
 ```shell
-lamin load --key examples/myfile.txt
+lamin save sample.fasta --key sample.fasta
 ```
 
-Read more: [docs.lamin.ai/cli](https://docs.lamin.ai/cli).
+To load an artifact via the CLI into a local cache, run:
+
+```shell
+lamin load --key sample.fasta
+```
+
+Read more about the CLI: [docs.lamin.ai/cli](https://docs.lamin.ai/cli).
 
 ### Lineage: scripts & notebooks
 
@@ -492,7 +502,7 @@ artifact = ln.Artifact.from_anndata(
     adata,
     key="my_datasets/scrna.h5ad",
     schema="ensembl_gene_ids_and_valid_features_in_obs"
-)
+).save()
 artifact.describe()
 ```
 
@@ -507,6 +517,13 @@ import bionty as bt
 
 bt.CellType.import_source()  # import the default ontology
 bt.CellType.to_dataframe()   # your extensible cell type ontology in a simple registry
+```
+
+You can then create objects, e.g. for labeling, analogous to `ULabel`, `Project`, or `Record`:
+
+```python
+t_cell = bt.CellType.get(name="T cell")
+artifact.cell_types.add(t_cell)
 ```
 
 Read more: [docs.lamin.ai/manage-ontologies](https://docs.lamin.ai/manage-ontologies).
