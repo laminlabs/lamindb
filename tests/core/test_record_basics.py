@@ -297,6 +297,7 @@ def test_record_features_add_remove_values():
     feature_float = ln.Feature(name="feature_float", dtype=float).save()
     feature_list_float = ln.Feature(name="feature_list_float", dtype=list[float]).save()
     feature_num = ln.Feature(name="feature_num", dtype="num").save()
+    feature_url = ln.Feature(name="feature_url", dtype="url").save()
     feature_list_num = ln.Feature(name="feature_list_num", dtype="list[num]").save()
     feature_datetime = ln.Feature(name="feature_datetime", dtype=datetime).save()
     feature_date = ln.Feature(name="feature_date", dtype=datetime.date).save()
@@ -335,6 +336,7 @@ def test_record_features_add_remove_values():
     assert feature_float.dtype_as_object is float
     assert feature_list_float.dtype_as_object == list[float]
     assert feature_num.dtype_as_object is float
+    assert feature_url.dtype_as_object is str
     assert feature_list_num.dtype_as_object == list[float]
     assert feature_datetime.dtype_as_object == datetime
     assert feature_date.dtype_as_object == date
@@ -360,6 +362,7 @@ def test_record_features_add_remove_values():
         "feature_int": 42,
         "feature_list_int": [1, 2, 3],
         "feature_num": 3.14,
+        "feature_url": "https://lamin.ai/docs",
         "feature_list_num": [2.71, 3.14, 1.61],
         "feature_float": 3.14,
         "feature_list_float": [2.71, 3.14, 1.61],
@@ -389,6 +392,7 @@ def test_record_features_add_remove_values():
     assert ln.Record.filter(feature_int=42).one() == test_record
     assert ln.Record.filter(feature_type1="entity1").one() == test_record
     assert ln.Record.filter(feature_cell_line="HEK293").one() == test_record
+    assert ln.Record.filter(feature_url="https://lamin.ai/docs").one() == test_record
     assert (
         ln.Record.filter(feature_str=test_values["feature_str"], feature_int=42).one()
         == test_record
@@ -486,6 +490,7 @@ def test_record_features_add_remove_values():
             feature_list_str,
             feature_list_int,
             feature_num,
+            feature_url,
             feature_float,
             feature_list_float,
             feature_list_num,
@@ -521,6 +526,8 @@ def test_record_features_add_remove_values():
     assert df_empty["feature_float"].dtype.name == "float64"
     assert df_empty["feature_num"].isnull().all()
     assert df_empty["feature_num"].dtype.name == "float64"
+    assert df_empty["feature_url"].isnull().all()
+    assert df_empty["feature_url"].dtype.name == "string"
     assert df_empty["feature_list_str"].isnull().all()
     assert df_empty["feature_list_str"].dtype.name == "object"
     assert df_empty["feature_list_int"].isnull().all()
@@ -572,6 +579,7 @@ def test_record_features_add_remove_values():
         "feature_float": 3.14,
         "feature_list_float": [2.71, 3.14, 1.61],
         "feature_num": 3.14,
+        "feature_url": "https://lamin.ai/docs",
         "feature_list_num": [2.71, 3.14, 1.61],
         "feature_datetime": pd.Timestamp("2024-01-01 12:00:00"),
         "feature_date": date(2024, 1, 1),
@@ -789,6 +797,7 @@ def test_record_features_add_remove_values():
     run.delete(permanent=True)
     transform.delete(permanent=True)
     feature_num.delete(permanent=True)
+    feature_url.delete(permanent=True)
 
 
 def test_date_and_datetime_corruption():

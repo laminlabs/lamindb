@@ -245,6 +245,8 @@ def dtype_as_object(dtype_str: str, old_format: bool = False) -> type | None:
     def _dtype_as_object_simple(dtype_str: str) -> type | None:
         if dtype_str == "str":
             return str
+        elif dtype_str == "url":
+            return str
         elif dtype_str == "int":
             return int
         elif dtype_str in ("float", "num"):
@@ -690,6 +692,7 @@ def convert_to_pandas_dtype(lamin_dtype: str) -> str | pd.CategoricalDtype:
 
     dtype_map = {
         "str": "string",  # nullable string dtype
+        "url": "string",  # URLs are validated as strings
         "int": "Int64",  # Nullable integer to handle missing values
         "num": "float64",
         "float": "float64",
@@ -871,7 +874,7 @@ def process_init_feature_param(args, kwargs):
     if dtype is not None:
         if not isinstance(dtype, str):
             dtype_str = serialize_dtype(dtype)
-        elif dtype in {"num", "path"}:
+        elif dtype in {"num", "path", "url"}:
             dtype_str = dtype
         else:
             logger.warning(

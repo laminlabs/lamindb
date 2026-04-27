@@ -118,6 +118,7 @@ DtypeStr = Literal[
     "date",  # date
     "dict",  # dictionary
     "path",  # path, validated as str, but specially treated in the UI
+    "url",  # URL, validated as str, but specially treated in the UI
     "object",  # this is a pandas input dtype, we're only using it for complicated types, not for strings; consciously currently not documented
 ]
 """String-serialized representations of common data types.
@@ -134,6 +135,7 @@ datetime      `"datetime"`  `datetime`
 date          `"date"`      `object` (pandera requires an ISO-format string, convert with `df["date"] = df["date"].dt.date`)
 dictionary    `"dict"`      `object`
 path          `"path"`      `str` (pandas does not have a dedicated path type, validated as `str`)
+url           `"url"`       `str` (pandas does not have a dedicated url type, validated as `str`)
 ============  ============  =================================================
 
 .. admonition:: Categorical and relational data types

@@ -222,6 +222,12 @@ def test_empty_category():
     assert result == []
 
 
+def test_url_dtype_is_supported():
+    assert parse_dtype("url") == []
+    feature = ln.Feature(name="website", dtype="url")
+    assert feature._dtype_str == "url"
+
+
 def test_malformed_categorical():
     dtype_str = "cat ? str"
     with pytest.raises(ValueError) as err:
