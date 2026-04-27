@@ -51,6 +51,8 @@ def check_dtype(expected_type: Any, nullable: bool) -> Callable:
             return True
         elif expected_type == "path" and pd.api.types.is_string_dtype(series.dtype):
             return True
+        elif expected_type == "url" and pd.api.types.is_string_dtype(series.dtype):
+            return True
         elif expected_type == "bool" and pd.api.types.is_bool_dtype(series.dtype):
             return True
 
@@ -70,6 +72,7 @@ def check_dtype(expected_type: Any, nullable: bool) -> Callable:
             elif (
                 expected_type_member == "str"
                 or expected_type_member == "path"
+                or expected_type_member == "url"
                 or expected_type_member.startswith("cat[")
             ):
                 return series.apply(lambda x: is_list_of_type(x, str)).all()

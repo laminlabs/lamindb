@@ -15,9 +15,9 @@ Without context, humans & agents make mistakes and cannot close feedback loops a
 Without memory, compute & intelligence are wasted on fragmented, non-compounding tasks — LLM context windows are small.
 
 (2) Training & fine-tuning models with thousands of datasets — across LIMS, ELNs, orthogonal assays — is now a primary path to scaling R&D.
-But without queryable & validated data or with data locked in organizational & infrastructure siloes, it leads to garbage in, garbage out or is quite simply impossible.
+But without queryable & validated data or with data locked in organizational & infrastructure silos, it leads to garbage in, garbage out or is quite simply impossible.
 
-Imagine building software without git or pull requests: an agent's quality would be impossible to verify.
+Imagine building software without git or pull requests: an agent's actions would be impossible to verify.
 While code has git and tables have dbt/warehouses, biological data has lacked a framework for managing its unique complexity.
 
 LaminDB fills the gap.
@@ -240,7 +240,7 @@ ln.track(project="My project", plan="./plans/curate-dataset-x.md")
 
 Note that you have to create a project or save the agent plan in case they don't yet exist:
 
-```
+```shell
 # create a project with the CLI
 lamin create project "My project"
 
@@ -283,7 +283,7 @@ Beyond what you get for scripts & notebooks, this automatically tracks function 
 <details>
 <summary>A richer example.</summary>
 
-Here is an automatically generated re-construction of the project of [Schmidt _el al._ (Science, 2022)](https://pubmed.ncbi.nlm.nih.gov/35113687/):
+Here is an automatically generated re-construction of the project of [Schmidt _et al._ (Science, 2022)](https://pubmed.ncbi.nlm.nih.gov/35113687/):
 
 <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/KQmzmmLOeBN0C8Yk0004.png" width="850">
 
@@ -492,9 +492,10 @@ To validate an `AnnData` with built-in schema `ensembl_gene_ids_and_valid_featur
 ```python
 import anndata as ad
 import numpy as np
+import pandas as pd
 
 adata = ad.AnnData(
-    X=pd.DataFrame([[1]*10]*21).values,
+    X=np.ones((21, 10)),
     obs=pd.DataFrame({'cell_type_by_model': ['T cell', 'B cell', 'NK cell'] * 7}),
     var=pd.DataFrame(index=[f'ENSG{i:011d}' for i in range(10)])
 )
@@ -506,7 +507,7 @@ artifact = ln.Artifact.from_anndata(
 artifact.describe()
 ```
 
-To validate a `spatialdata` or any other array-like dataset, you need to construct a `Schema`. You can do this by composing simple `pandera`-style schemas: [docs.lamin.ai/curate](https://docs.lamin.ai/curate).
+To validate a `SpatialData` or any other array-like dataset, you need to construct a `Schema`. You can do this by composing simple `pandera`-style schemas: [docs.lamin.ai/curate](https://docs.lamin.ai/curate).
 
 ### Ontologies
 

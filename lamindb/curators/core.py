@@ -545,6 +545,7 @@ class ComponentCurator(Curator):
                     "bool",
                     "num",
                     "path",
+                    "url",
                 } or dtype_str.startswith("list"):
                     if isinstance(self._dataset, pd.DataFrame):
                         dtype = (

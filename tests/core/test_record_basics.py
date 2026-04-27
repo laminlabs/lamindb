@@ -221,6 +221,51 @@ def test_record_from_dataframe_with_string_type_duplicate_name_errors():
     score.delete(permanent=True)
 
 
+def test_record_feature_validation_with_url_dtype():
+    website_feature = ln.Feature(name="record-website", dtype="url").save()
+    schema = ln.Schema([website_feature], name="record-url-schema").save()
+    record_type = ln.Record(name="record-url-sheet", is_type=True, schema=schema).save()
+    record = ln.Record(name="record-with-url", type=record_type).save()
+    website = "https://lamin.ai/docs"
+
+    record.features.set_values({"record-website": website})
+
+    assert record.features.get_values()["record-website"] == website
+
+    record.delete(permanent=True)
+    record_type.delete(permanent=True)
+    schema.delete(permanent=True)
+    website_feature.delete(permanent=True)
+
+
+def test_record_from_dataframe_validates_url_column():
+    website_feature = ln.Feature(name="from-df-website", dtype="url").save()
+    schema = ln.Schema([website_feature], name="from-df-url-schema").save()
+    sheet = ln.Record(name="from-df-url-sheet", is_type=True, schema=schema).save()
+    df = pd.DataFrame(
+        {
+            "__lamindb_record_name__": ["from-df-url-a", "from-df-url-b"],
+            "from-df-website": [
+                "https://lamin.ai",
+                "https://lamin.ai/docs",
+            ],
+        }
+    )
+
+    records = ln.Record.from_dataframe(df, type=sheet)
+    assert len(records) == 2
+    records.save()
+    assert (
+        ln.Record.get(name="from-df-url-a").features.get_values()["from-df-website"]
+        == "https://lamin.ai"
+    )
+
+    ln.Record.filter(name__in=["from-df-url-a", "from-df-url-b"]).delete(permanent=True)
+    ln.Record.filter(name="from-df-url-sheet").delete(permanent=True)
+    schema.delete(permanent=True)
+    website_feature.delete(permanent=True)
+
+
 def test_feature_manager_raise_not_validated_values():
     from lamindb.models._feature_manager import FeatureManager
 
