@@ -20,6 +20,7 @@ def transactions_schema():
     # Features
     currency = ln.Feature(name="currency_name", dtype="cat[ULabel[Currency]]").save()
     date = ln.Feature(name="date", dtype="date").save()
+    receipt_url = ln.Feature(name="receipt_url", dtype="url").save()
 
     transaction_type = ln.Feature(name="Transaction", is_type=True).save()
     amount_usd = ln.Feature(
@@ -38,6 +39,7 @@ def transactions_schema():
             amount_usd,
             amount_eur,
             currency,
+            receipt_url,
         ],
         coerce=True,
     ).save()
@@ -55,6 +57,7 @@ def transactions_schema():
     amount_usd.delete(permanent=True)
     transaction_type.delete(permanent=True)
     date.delete(permanent=True)
+    receipt_url.delete(permanent=True)
     currency.delete(permanent=True)
     eur.delete(permanent=True)
     usd.delete(permanent=True)
@@ -75,6 +78,13 @@ def transactions_dataframe():
         "transaction_amount_usd_cent": [1000, 2000, 3000, 4000, 5000],
         "transaction_amount_eur_cent": [850, 1700, 2550, 3400, 4250],
         "currency_name": ["USD", "EUR", "USD", "EUR", "USD"],
+        "receipt_url": [
+            "https://bank.example/tx/1",
+            "https://bank.example/tx/2",
+            "https://bank.example/tx/3",
+            "https://bank.example/tx/4",
+            "https://bank.example/tx/5",
+        ],
     }
     return pd.DataFrame(data)
 
@@ -90,6 +100,7 @@ def test_schema_creation(transactions_schema):
         "transaction_amount_usd_cent",
         "transaction_amount_eur_cent",
         "currency_name",
+        "receipt_url",
     ]
 
 
@@ -99,6 +110,8 @@ def test_data_curation(
     """Test if data curation works properly"""
     curator = ln.curators.DataFrameCurator(transactions_dataframe, transactions_schema)
     assert curator.validate() is None
+    # URLs are currently validated as string values.
+    assert transactions_dataframe["receipt_url"].iloc[0] == "https://bank.example/tx/1"
     artifact = curator.save_artifact(key="test_transaction_dataset.csv")
     assert artifact.suffix == ".csv"
     artifact.delete(permanent=True)
@@ -110,6 +123,7 @@ def test_missing_required_feature(transactions_schema: ln.Schema):
         "date": [datetime.date(2024, 1, 1)],
         "transaction_amount_usd_cent": [1000],
         "currency_name": ["USD"],
+        "receipt_url": ["https://bank.example/tx/1"],
     }
     invalid_df = pd.DataFrame(data_missing_required_feature)
 
@@ -130,6 +144,7 @@ def test_invalid_label(transactions_schema: ln.Schema):
         "transaction_amount_usd_cent": [1000],
         "transaction_amount_eur_cent": [850],
         "currency_name": ["GBP"],  # Invalid currency not in our labels
+        "receipt_url": ["https://bank.example/tx/1"],
     }
     invalid_df = pd.DataFrame(invalid_data)
 
@@ -141,3 +156,22 @@ def test_invalid_label(transactions_schema: ln.Schema):
     # exconly = """lamindb.errors.ValidationError: 1 term is not validated: 'GBP'
     # → fix typos, remove non-existent values, or save terms via .add_new_from("currency_name")"""
     # assert err.exconly() == exconly
+
+
+def test_invalid_url_dtype(transactions_schema: ln.Schema):
+    """Test if validation fails for non-string URL values."""
+    invalid_data = {
+        "date": [datetime.date(2024, 1, 1)],
+        "transaction_amount_usd_cent": [1000],
+        "transaction_amount_eur_cent": [850],
+        "currency_name": ["USD"],
+        "receipt_url": [123],  # URL is currently validated as string dtype
+    }
+    invalid_df = pd.DataFrame(invalid_data)
+
+    schema = ln.Schema.get(name="transaction_dataframe")
+    curator = ln.curators.DataFrameCurator(invalid_df, schema)
+
+    with pytest.raises(ln.errors.ValidationError) as err:
+        curator.validate()
+    assert "receipt_url" in str(err.value)
