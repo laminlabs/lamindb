@@ -3099,17 +3099,13 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
         # when space is passed in init, storage is ignored, so space - storage consistency is enforced there
         if (
-            self._field_changed("space_id")
+            not self._state.adding
+            and self._field_changed("space_id")
             # here we check for storages managed by any instance
             # not necessarily with managed credentials
             # probbaly we should restrict to storages with managed credentials
             and (artifact_storage := self.storage).instance_uid is not None
         ):
-            if self._state.adding:
-                raise ValueError(
-                    "Changing `.space` of an artifact in a storage location managed by an instance "
-                    "is not allowed before saving."
-                )
             space = self.space
             storage_type = artifact_storage.type
             storages = Storage.connect(self._state.db).filter(
