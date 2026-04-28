@@ -23,6 +23,8 @@ ln.track()
 
 ## DataFrame
 
+### Streaming from a single artifact
+
 A dataframe stored as sharded `parquet`.
 
 ```python
@@ -34,37 +36,41 @@ artifact.path.view_tree()
 ```
 
 ```python
-backed = artifact.open()
+dataset = artifact.open()
 ```
 
 This returns a [pyarrow dataset](https://arrow.apache.org/docs/python/dataset.html).
 
 ```python
-backed
+dataset
 ```
 
 ```python
-backed.head(5).to_pandas()
+dataset.head(5).to_pandas()
 ```
 
-It is also possible to open a collection of cloud artifacts.
+### Streaming from a set of artifacts
+
+You can open several parquet files as a single dataset by calling `.open()` on the result of a query:
 
 ```python
-collection = ln.Collection.connect("laminlabs/lamindata").get(
+dataset = ln.Artifact.filter(suffix=".parquet").open()  # open an ArtifactSet for streaming
+dataset
+```
+
+The same is possible for the artifacts in a collection:
+
+```python
+dataset = ln.Collection.connect("laminlabs/lamindata").get(
     key="sharded_parquet_collection"
-)
+).open()
+dataset
 ```
 
-```python
-backed = collection.open()
-```
+Once you have a storage-backed dataset, you can query it like this:
 
 ```python
-backed
-```
-
-```python
-backed.to_table().to_pandas()
+dataset.to_table().to_pandas()
 ```
 
 By default `Artifact.open()` and `Collection.open()` use `pyarrow` to lazily open dataframes. `polars` can be also used by passing `engine="polars"`. Note also that `.open(engine="polars")` returns a context manager with [LazyFrame](https://docs.pola.rs/api/python/stable/reference/lazyframe/index.html).
@@ -72,16 +78,6 @@ By default `Artifact.open()` and `Collection.open()` use `pyarrow` to lazily ope
 ```python
 with collection.open(engine="polars", use_fsspec=True) as lazy_df:
     display(lazy_df.collect().to_pandas())
-```
-
-Yet another way to open several parquet files as a single dataset is via calling `.open()` directly for a query set.
-
-```python
-backed = ln.Artifact.filter(suffix=".parquet").open()
-```
-
-```python
-backed
 ```
 
 ## AnnData
@@ -104,67 +100,58 @@ artifact.path
 ```
 
 ```python
-access = artifact.open()
+adata = artifact.open()
 ```
 
 This object is an `AnnDataAccessor` object, an `AnnData` object backed in the cloud:
 
 ```python
-access
+adata
 ```
 
 Without subsetting, the `AnnDataAccessor` object references underlying lazy `h5` or `zarr` arrays:
 
 ```python
-access.X
+adata.X
 ```
 
 You can subset it like a normal `AnnData` object:
 
 ```python
-obs_idx = access.obs.cell_type.isin(["Dendritic cells", "CD14+ Monocytes"]) & (
-    access.obs.percent_mito <= 0.05
+obs_idx = adata.obs.cell_type.isin(["Dendritic cells", "CD14+ Monocytes"]) & (
+    adata.obs.percent_mito <= 0.05
 )
-access_subset = access[obs_idx]
-access_subset
+adata_subset = adata[obs_idx]
+adata_subset
 ```
 
 Subsets load arrays into memory upon direct access:
 
 ```python
-access_subset.X
+adata_subset.X
 ```
 
 To load the entire subset into memory as an actual `AnnData` object, use `to_memory()`:
 
 ```python
-adata_subset = access_subset.to_memory()
-
-adata_subset
+adata_subset.to_memory()
 ```
 
-It is also possible to add columns to `.obs` and `.var` of cloud AnnData objects without downloading them.
-
-Create a new `AnnData` `zarr` artifact.
+It is also possible to add columns to `.obs` and `.var` of cloud AnnData objects without downloading them. First, create a new `AnnData` `zarr` artifact:
 
 ```python
-adata_subset.write_zarr("adata_subset.zarr")
-```
-
-```python
+adata_subset.to_memory().write_zarr("adata_subset.zarr")
 artifact = ln.Artifact(
     "adata_subset.zarr", description="test add column to adata"
 ).save()
 ```
 
-```python
-artifact
-```
+This is how you add a column:
 
 ```python
-with artifact.open(mode="r+") as access:
-    access.add_column(where="obs", col_name="ones", col=np.ones(access.shape[0]))
-    display(access)
+with artifact.open(mode="r+") as adata_accessor:
+    adata_accessor.add_column(where="obs", col_name="ones", col=np.ones(adata_accessor.shape[0]))
+    display(adata_accessor)
 ```
 
 The version of the artifact is updated after the modification.
