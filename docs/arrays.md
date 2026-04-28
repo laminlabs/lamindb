@@ -19,6 +19,7 @@ import lamindb as ln
 import numpy as np
 
 ln.track()
+db = ln.Artifact.connect("laminlabs/lamindata")  # we'll pull dataset from there
 ```
 
 ## DataFrame
@@ -28,7 +29,7 @@ ln.track()
 A dataframe stored as sharded `parquet`.
 
 ```python
-artifact = ln.Artifact.connect("laminlabs/lamindata").get(key="sharded_parquet")
+artifact = db.Artifact.get(key="sharded_parquet")
 ```
 
 ```python
@@ -54,16 +55,15 @@ dataset.head(5).to_pandas()
 You can open several parquet files as a single dataset by calling `.open()` on the result of a query:
 
 ```python
-dataset = ln.Artifact.filter(suffix=".parquet").open()  # open an ArtifactSet for streaming
+dataset = db.Artifact.filter(key__startswith="example_datasets/small", suffix=".parquet").open()  # open an ArtifactSet for streaming
 dataset
 ```
 
 The same is possible for the artifacts in a collection:
 
 ```python
-dataset = ln.Collection.connect("laminlabs/lamindata").get(
-    key="sharded_parquet_collection"
-).open()
+collection = db.Collection.get(key="sharded_parquet_collection")
+dataset = collection.open()
 dataset
 ```
 
