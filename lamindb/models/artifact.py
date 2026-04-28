@@ -1224,6 +1224,28 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
             LaminDB makes some default choices (e.g., serialize a `DataFrame` as a `.parquet` file).
 
+        .. dropdown:: Virtual folders vs. :class:`~lamindb.Collection` objects
+
+            You can ingest & query 10k files with keys like `project_alpha/run_001/sample_001.fastq`::
+
+                # ingest from a directory
+                run_files = ln.Artifact.from_dir("project_alpha/run_001").save()
+                # query files in the corresponding virtual folder
+                run_files = ln.Artifact.filter(key__startswith="project_alpha/run_001/").all()
+
+            This is high-performance because it's an indexed SQL query. It's significantly more flexible than traditional data packaging (like Quilt) because:
+
+            1. **Multi-axis grouping**: You can group files by `key` prefix, but also by `run`, `scientist`, or `cell_type` simultaneously in the same query.
+            2. **No package overhead**: You don't have to "build" or "push" a package. As soon as the file is saved, it's part of the "virtual folder."
+            3. **Granular lineage**: Each of those 10,000 files still has its own independent lineage record.
+
+            **When would you use :class:`~lamindb.Collection`?**
+
+            Since you can use prefix-querying logic, you'd only use a `Collection` for one specific reason: **versioning immutable data releases**.
+
+            - **Prefix Query (Dynamic)**: If a colleague adds a new file to that S3 prefix tomorrow, your `filter(key__startswith=...)` result will change. This is great for "active" projects.
+            - **Collection (Static)**: A collection is a versioned collection of specific artifact versions with a dedicated `uid`.
+
         .. dropdown:: Will artifacts get duplicated?
 
             If an artifact with the exact same hash already exists, `Artifact()` returns the existing artifact.
