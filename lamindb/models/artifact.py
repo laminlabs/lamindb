@@ -3105,6 +3105,11 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             # probbaly we should restrict to storages with managed credentials
             and (artifact_storage := self.storage).instance_uid is not None
         ):
+            if self._state.adding:
+                raise ValueError(
+                    "Changing `.space` of an artifact in a storage location managed by an instance "
+                    "is not allowed before saving."
+                )
             space = self.space
             storage_type = artifact_storage.type
             storages = Storage.connect(self._state.db).filter(

@@ -1093,8 +1093,6 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
     def _field_changed(self, field_name: str) -> bool:
         """Check if the field has changed since the record was saved."""
         # use _id fields for foreign keys in field_name
-        if self._state.adding:
-            return False
         # check if the field is tracked for changes
         track_fields = self._TRACK_FIELDS
         assert track_fields is not None, (
