@@ -1134,7 +1134,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         key: `str | None = None` A key within the storage location, e.g., `"myfolder/myfile.fcs"`. Artifacts with the same key form a version family.
         description: `str | None = None` A description.
         kind: `Literal["dataset", "model"] | str | None = None` Distinguish models from datasets from other files & folders.
-        features: `dict | None = None` External features to annotate the artifact with via :class:`~lamindb.models.FeatureManager.set_values` (keys can be feature names or `Feature` objects).
+        features: `dict | None = None` External features to annotate via :class:`~lamindb.models.FeatureManager.set_values`.
         schema: `Schema | None = None` A schema to validate features.
         revises: `Artifact | None = None` Previous version of the artifact. An alternative to passing `key` when creating a new version.
         overwrite_versions: `bool | None = None` Whether to overwrite versions. Defaults to `True` for folders and `False` for files.
@@ -1142,8 +1142,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             If `None`, infer the run from the global run context.
         branch: `Branch | None = None` The branch of the artifact. If `None`, uses the current branch.
         space: `Space | None = None` The space of the artifact. If `None`, uses the current space.
-        storage: `Storage | None = None` The storage location for the artifact. If `None`, uses the default storage location.
-            You can see and set the default storage location in :attr:`~lamindb.core.Settings.storage`.
+        storage: `Storage | None = None` The storage location for the artifact. If `None`, uses the default (:attr:`~lamindb.core.Settings.storage`).
         skip_hash_lookup: `bool = False` Skip the hash lookup so that a new artifact is created even if an artifact with the same hash already exists.
             Empty files are always treated as if this were `True` because empty content hashes are not used for deduplication.
 
@@ -1169,6 +1168,20 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             df = artifact.load()               # load parquet file as DataFrame
             pyarrow_dataset = artifact.open()  # open a streaming file-like object
 
+        To bulk-create artifacts for every file in a directory and **group them in a folder**, use :meth:`~lamindb.Artifact.from_dir`::
+
+            artifacts = ln.Artifact.from_dir("project_alpha/run_001").save()  # create one artifact per file in the directory
+            artifacts = ln.Artifact.filter(key__startswith="project_alpha/run_001/")  # query ingested artifacts via the folder prefix
+
+        To create a **versioned immutable collection** of artifacts for a data release, use :class:`~lamindb.Collection`::
+
+            collection = ln.Collection(artifacts, key="project_alpha/run_001").save()
+
+        .. dropdown:: Virtual folders (key prefixes) vs. :class:`~lamindb.Collection` objects
+
+            - prefix query on `key`: If a colleague adds a new file to that prefix tomorrow, your `filter(key__startswith=...)` result will change.
+            - collection: A collection object provides a `uid` for every version and its content won't change.
+
         If you want to **validate & annotate** a dataframe or an array using the feature & label registries,
         pass `schema` to one of the `.from_dataframe()`, `.from_anndata()`, ... constructors::
 
@@ -1192,7 +1205,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             storage_loc = ln.Storage.get(root="s3://my_bucket")  # get storage location, or create via ln.Storage(root="s3://my_bucket").save()
             ln.Artifact("./my_file.parquet", key="examples/my_file.parquet", storage=storage_loc).save()  # upload to s3://my_bucket
 
-        Sometimes you want to **avoid mapping the artifact into a path hierarchy**, and you only pass `description`::
+        Somes you want to **avoid mapping the artifact into a path hierarchy**, and you only pass `description`::
 
             artifact = ln.Artifact("./my_folder", description="My folder").save()
             artifact_v2 = ln.Artifact("./my_folder", revises=old_artifact).save()  # need to version based on `revises`, a shared description does not trigger a new version
@@ -1258,10 +1271,20 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             Storage locations for artifacts.
         :class:`~lamindb.Collection`
             Collections of artifacts.
+        :meth:`~lamindb.Artifact.from_dir`
+            Bulk-create artifacts for each file in a directory.
         :meth:`~lamindb.Artifact.from_dataframe`
             Create an artifact from a `DataFrame`.
         :meth:`~lamindb.Artifact.from_anndata`
             Create an artifact from an `AnnData`.
+        :meth:`~lamindb.Artifact.from_spatialdata`
+            Create an artifact from a `SpatialData`.
+        :meth:`~lamindb.Artifact.from_mudata`
+            Create an artifact from a `MuData`.
+        :meth:`~lamindb.Artifact.from_tiledbsoma`
+            Create an artifact from a `tiledbsoma` store.
+        :meth:`~lamindb.Artifact.from_lazy`
+            Create a lazy artifact for streaming to auto-generated internal paths.
 
     """
 
