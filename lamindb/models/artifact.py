@@ -3253,6 +3253,36 @@ def _rm_catch_error(fs: AbstractFileSystem, path: str) -> Exception | None:
     return None
 
 
+def _safe_move(fs: AbstractFileSystem, source: str, target: str):
+    if fs.exists(target):
+        raise FileExistsError(
+            f"Cannot transfer artifact to '{target}' because it already exists."
+        )
+    logger.important(f"transferring artifact from '{source}' to '{target}'")
+    try:
+        fs.copy(source, target, recursive=True)
+    except Exception as e:
+        message = "Failed to copy artifact to target storage during transfer."
+        cleanup_error = _rm_catch_error(fs, target)
+        if cleanup_error is not None:
+            message += f" Cleanup of copied target also failed: {cleanup_error}"
+        raise RuntimeError(message) from e
+    # check that the sizes of the files are the same
+    if _sorted_sizes(fs, source) != _sorted_sizes(fs, target):
+        message = "Transfer verification failed: copied artifact does not match source."
+        cleanup_error = _rm_catch_error(fs, target)
+        if cleanup_error is not None:
+            message += " Cleanup of copied target also failed."
+        raise RuntimeError(message) from cleanup_error
+
+    try:
+        fs.rm(source, recursive=True)
+    except Exception as e:
+        logger.error(
+            f"copying to '{target}' succeeded but failed to remove source '{source}': {e}"
+        )
+
+
 def _transfer_artifact_to_storage(
     artifact: Artifact, storage: Storage, access_token: str | None = None
 ):
@@ -3260,41 +3290,15 @@ def _transfer_artifact_to_storage(
 
     source_path = artifact.path
     target_path = storage.path / storage_key
-    assert source_path != target_path, "Cannot transfer to the same path."
+    if source_path == target_path:
+        raise ValueError("Cannot transfer to the same path.")
 
     fs = transfer_fs(source_path, target_path, access_token=access_token)
 
     source_path_str = str(source_path)
     target_path_str = str(target_path)
-    assert not fs.exists(target_path_str), (
-        f"Cannot transfer artifact to '{target_path_str}' because it already exists."
-    )
 
-    logger.important(
-        f"transferring artifact from '{source_path_str}' to '{target_path_str}'"
-    )
-    try:
-        fs.copy(source_path_str, target_path_str, recursive=True)
-    except Exception as e:
-        message = "Failed to copy artifact to target storage during transfer."
-        cleanup_error = _rm_catch_error(fs, target_path_str)
-        if cleanup_error is not None:
-            message += f" Cleanup of copied target also failed: {cleanup_error}"
-        raise RuntimeError(message) from e
-    # check that the sizes of the files are the same
-    if _sorted_sizes(fs, source_path_str) != _sorted_sizes(fs, target_path_str):
-        message = "Transfer verification failed: copied artifact does not match source."
-        cleanup_error = _rm_catch_error(fs, target_path_str)
-        if cleanup_error is not None:
-            message += " Cleanup of copied target also failed."
-        raise RuntimeError(message) from cleanup_error
-
-    try:
-        fs.rm(source_path_str, recursive=True)
-    except Exception as e:
-        logger.error(
-            f"copying to '{target_path_str}' succeeded but failed to remove source '{source_path_str}': {e}"
-        )
+    _safe_move(fs, source_path_str, target_path_str)
 
     artifact.storage_id = storage.id
 
