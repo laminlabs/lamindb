@@ -1179,8 +1179,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
         .. dropdown:: Virtual folders (key prefixes) vs. :class:`~lamindb.Collection` objects
 
-            - **Key prefix query (dynamic)**: If a colleague adds a new file to that prefix tomorrow, your `filter(key__startswith=...)` result will change.
-            - **Collection (static)**: A collection object is immutable and versioned and provides a uid for the collection.
+            - prefix query on `key`: If a colleague adds a new file to that prefix tomorrow, your `filter(key__startswith=...)` result will change.
+            - collection: A collection object provides a `uid` for every version and its content won't change.
 
         If you want to **validate & annotate** a dataframe or an array using the feature & label registries,
         pass `schema` to one of the `.from_dataframe()`, `.from_anndata()`, ... constructors::
