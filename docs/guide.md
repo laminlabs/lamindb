@@ -13,8 +13,8 @@ README
 
 query-search
 track
+organize-section
 manage-changes
-curate
 manage-ontologies
 sync
 ```
