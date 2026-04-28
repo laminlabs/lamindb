@@ -1271,10 +1271,20 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             Storage locations for artifacts.
         :class:`~lamindb.Collection`
             Collections of artifacts.
+        :meth:`~lamindb.Artifact.from_dir`
+            Bulk-create artifacts for each file in a directory.
         :meth:`~lamindb.Artifact.from_dataframe`
             Create an artifact from a `DataFrame`.
         :meth:`~lamindb.Artifact.from_anndata`
             Create an artifact from an `AnnData`.
+        :meth:`~lamindb.Artifact.from_spatialdata`
+            Create an artifact from a `SpatialData`.
+        :meth:`~lamindb.Artifact.from_mudata`
+            Create an artifact from a `MuData`.
+        :meth:`~lamindb.Artifact.from_tiledbsoma`
+            Create an artifact from a `tiledbsoma` store.
+        :meth:`~lamindb.Artifact.from_lazy`
+            Create a lazy artifact for streaming to auto-generated internal paths.
 
     """
 
