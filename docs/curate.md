@@ -2,7 +2,7 @@
 execute_via: python
 ---
 
-# Curate datasets
+# Validate & standardize datasets
 
 Data curation with LaminDB ensures your datasets are **validated** and **queryable** through **annotation**.
 
