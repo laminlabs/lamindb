@@ -1440,6 +1440,62 @@ def test_get_by_path(example_dataframe: pd.DataFrame):
     storage.delete()
 
 
+def test_update_suffix_for_registered_storage_with_real_key(
+    registered_storage_file_and_folder,
+):
+    test_filepath, folder_path = registered_storage_file_and_folder
+    assert folder_path.exists() and folder_path.is_dir()
+
+    artifact = ln.Artifact(test_filepath, key="my_file.csv").save()
+    assert artifact._real_key is not None
+    assert artifact.path.suffix == ".csv"
+
+    source_path = artifact.path
+    artifact.suffix = ".tsv"
+    artifact.save()
+
+    target_path = artifact.path
+    assert artifact.suffix == ".tsv"
+    assert artifact.key is not None
+    assert artifact.key.endswith(".tsv")
+    assert artifact._real_key is not None
+    assert artifact._real_key.endswith(".tsv")
+    assert target_path.suffix == ".tsv"
+    assert target_path.exists()
+    assert not source_path.exists()
+
+    artifact.delete(permanent=True, storage=True)
+
+
+def test_update_suffix_for_registered_storage_folder_artifact(
+    registered_storage_file_and_folder,
+):
+    _, folder_path = registered_storage_file_and_folder
+    artifact = ln.Artifact(folder_path, key="dataset").save()
+
+    assert artifact._real_key is not None
+    assert artifact.suffix == ""
+    assert artifact.path.exists()
+    assert artifact.path.is_dir()
+
+    source_path = artifact.path
+    artifact.suffix = ".zarr"
+    artifact.save()
+
+    target_path = artifact.path
+    assert artifact.suffix == ".zarr"
+    assert artifact.key is not None
+    assert artifact.key.endswith(".zarr")
+    assert artifact._real_key is not None
+    assert artifact._real_key.endswith(".zarr")
+    assert target_path.exists()
+    assert target_path.is_dir()
+    assert target_path.suffix == ".zarr"
+    assert not source_path.exists()
+
+    artifact.delete(permanent=True, storage=True)
+
+
 def test_save_url_with_virtual_key_and_unmanaged_suffix_update_error():
     url = (
         "https://raw.githubusercontent.com/laminlabs/lamindb/refs/heads/main/README.md"
