@@ -1090,10 +1090,10 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
         else:
             self._original_values = None
 
-    def _field_changed(self, field_name: str) -> bool:
+    def _field_changed(self, field_name: str, check_is_saved: bool = True) -> bool:
         """Check if the field has changed since the record was saved."""
         # use _id fields for foreign keys in field_name
-        if self._state.adding:
+        if check_is_saved and self._state.adding:
             return False
         # check if the field is tracked for changes
         track_fields = self._TRACK_FIELDS

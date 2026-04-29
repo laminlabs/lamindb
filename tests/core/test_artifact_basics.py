@@ -424,13 +424,12 @@ def test_create_from_dataframe(example_dataframe: pd.DataFrame):
         == "lamindb.errors.InvalidArgument: The suffix '' of the provided key is incorrect, it should be '.parquet'."
     )
     artifact.key = None  # restore
-    artifact.suffix = ".whatever"  # try changing suffix
-    with pytest.raises(ln.errors.InvalidArgument) as error:
+    artifact.suffix = ".whatever"  # changing suffix before first save is invalid
+    with pytest.raises(
+        ln.errors.InvalidArgument,
+        match="Cannot update the suffix of an artifact before it is saved.",
+    ):
         artifact.save()
-    assert (
-        error.exconly()
-        == "lamindb.errors.InvalidArgument: Changing the `.suffix` of an artifact is not allowed! You tried to change it from '.parquet' to '.whatever'."
-    )
     artifact.suffix = ".parquet"
     artifact.save()
     # check that the local filepath has been cleared
@@ -439,15 +438,24 @@ def test_create_from_dataframe(example_dataframe: pd.DataFrame):
 
     # now get an artifact from the database
     artifact = ln.Artifact.get(description="test1")
+    parquet_path = artifact.path
+    assert parquet_path.exists()
+    assert parquet_path.suffix == ".parquet"
 
-    artifact.suffix = ".whatever"  # try changing suffix
-    with pytest.raises(ln.errors.InvalidArgument) as error:
-        artifact.save()
-    assert (
-        error.exconly()
-        == "lamindb.errors.InvalidArgument: Changing the `.suffix` of an artifact is not allowed! You tried to change it from '.parquet' to '.whatever'."
-    )
+    artifact.suffix = ".whatever"
+    artifact.save()
+    assert artifact.suffix == ".whatever"
+    whatever_path = artifact.path
+    assert whatever_path.exists()
+    assert whatever_path.suffix == ".whatever"
+    assert not parquet_path.exists()
     artifact.suffix = ".parquet"
+    artifact.save()
+    assert artifact.suffix == ".parquet"
+    parquet_path_restored = artifact.path
+    assert parquet_path_restored.exists()
+    assert parquet_path_restored.suffix == ".parquet"
+    assert not whatever_path.exists()
 
     # coming from `key is None` that setting a key with different suffix is not allowed
     artifact.key = "my-test-dataset.suffix"
@@ -467,19 +475,15 @@ def test_create_from_dataframe(example_dataframe: pd.DataFrame):
         == "lamindb.errors.InvalidArgument: The suffix '' of the provided key is incorrect, it should be '.parquet'."
     )
 
-    # try a joint update where both suffix and key are changed
+    # key and suffix can now be updated together
     artifact.key = "my-test-dataset"
     artifact.suffix = ""
-    with pytest.raises(ln.errors.InvalidArgument) as error:
-        artifact.save()
-    assert (
-        error.exconly()
-        == "lamindb.errors.InvalidArgument: Changing the `.suffix` of an artifact is not allowed! You tried to change it from '.parquet' to ''."
-    )
+    artifact.save()
+    assert artifact.suffix == ""
+    assert artifact.key == "my-test-dataset"
 
-    # because this is a parquet artifact, we can set a key with a .parquet suffix
-    artifact.suffix = ".parquet"  # restore proper suffix
-    artifact.key = "my-test-dataset.parquet"
+    # changing the suffix updates the key suffix as well
+    artifact.suffix = ".parquet"
     artifact.save()
     assert artifact.key == "my-test-dataset.parquet"
 
@@ -1009,6 +1013,33 @@ def test_transfer_artifact_exception_handling():
         with pytest.raises(RuntimeError, match="Failed to copy artifact"):
             artifact_module._transfer_artifact_to_storage(artifact_copy, storage)
         assert rm_mock.call_count == 1
+
+    # target exists branch: raises before attempting copy
+    artifact_exists = SimpleNamespace(path=source_path, storage_id=None)
+    with (
+        patch.object(
+            artifact_module,
+            "_s",
+            return_value=SimpleNamespace(
+                auto_storage_key_from_artifact=lambda _: "target-artifact"
+            ),
+        ),
+        patch.object(artifact_module, "transfer_fs", return_value=FakeFS(exists=True)),
+    ):
+        with pytest.raises(FileExistsError, match="already exists"):
+            artifact_module._transfer_artifact_to_storage(artifact_exists, storage)
+
+    # same source and target path is rejected early
+    artifact_same_path = SimpleNamespace(path=source_path, storage_id=None)
+    with patch.object(
+        artifact_module,
+        "_s",
+        return_value=SimpleNamespace(
+            auto_storage_key_from_artifact=lambda _: "source-artifact"
+        ),
+    ):
+        with pytest.raises(ValueError, match="Cannot transfer to the same path"):
+            artifact_module._transfer_artifact_to_storage(artifact_same_path, storage)
 
     # verification branch: sorted sizes mismatch triggers cleanup helper
     artifact_mismatch = SimpleNamespace(path=source_path, storage_id=None)

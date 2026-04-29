@@ -3090,7 +3090,11 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
         access_token = kwargs.pop("access_token", None)
 
-        if self._field_changed("suffix"):
+        if self._field_changed("suffix", check_is_saved=False):
+            if self._state.adding:
+                raise InvalidArgument(
+                    "Cannot update the suffix of an artifact before it is saved."
+                )
             if self.storage.instance_uid is None:
                 raise InvalidArgument(
                     "Cannot update the suffix of an artifact in a storage location that is not managed by an instance."
