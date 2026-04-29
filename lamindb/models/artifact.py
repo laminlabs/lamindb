@@ -3252,12 +3252,10 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 def _update_artifact_keys_with_suffix(artifact: Artifact, suffix: str):
     key = artifact.key
     real_key = artifact._real_key
-
     if key is not None:
         new_key = PurePosixPath(key).with_suffix(suffix).as_posix()
         artifact.key = new_key
         artifact._old_key = new_key
-
     if real_key is not None:
         artifact._real_key = PurePosixPath(real_key).with_suffix(suffix).as_posix()
 
