@@ -22,9 +22,9 @@ from lamindb_setup.core.upath import (
     UPath,
     create_path,
     extract_suffix_from_path,
+    fs_for_moving,
     get_stat_dir_cloud,
     get_stat_file_cloud,
-    transfer_fs,
 )
 from lamindb_setup.types import UPathStr
 
@@ -3335,7 +3335,7 @@ def _move_artifact_to_storage(
     if source_path == target_path:
         raise ValueError("Cannot move to the same path.")
 
-    fs = transfer_fs(source_path, target_path, access_token=access_token)
+    fs = fs_for_moving(source_path, target_path, access_token=access_token)
 
     source_path_str = str(source_path)
     target_path_str = str(target_path)

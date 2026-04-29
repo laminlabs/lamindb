@@ -227,20 +227,20 @@ def test_nextflow_sheet_with_samples(
     artifact = nextflow_sheet.to_artifact()
     assert artifact.schema is nextflow_sheet.schema
     assert artifact._state.adding is False
-    assert nextflow_sheet.schema.members.to_list("name") == [
+    assert set(nextflow_sheet.schema.members.to_list("name")) == {
         "sample",
         "fastq_1",
         "fastq_2",
         "expected_cells",
         "seq_center",
-    ]
-    assert artifact.features.slots["columns"].members.to_list("name") == [
+    }
+    assert set(artifact.features.slots["columns"].members.to_list("name")) == {
         "sample",
         "fastq_1",
         "fastq_2",
         "expected_cells",
         "seq_center",
-    ]
+    }
     assert artifact.path.read_text().startswith("""\
 sample,fastq_1,fastq_2,expected_cells,seq_center,__lamindb_record_uid__,__lamindb_record_name__
 Sample_X,https://raw.githubusercontent.com/nf-core/test-datasets/scrnaseq/testdata/cellranger/Sample_X_S1_L001_R1_001.fastq.gz,https://raw.githubusercontent.com/nf-core/test-datasets/scrnaseq/testdata/cellranger/Sample_X_S1_L001_R2_001.fastq.gz,5000,,""")

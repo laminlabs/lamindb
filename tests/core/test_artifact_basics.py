@@ -1012,7 +1012,7 @@ def test_move_artifact_exception_handling():
         ),
         patch.object(
             artifact_module,
-            "transfer_fs",
+            "fs_for_moving",
             return_value=FakeFS(copy_error=ValueError("copy failed")),
         ),
         patch.object(
@@ -1035,7 +1035,9 @@ def test_move_artifact_exception_handling():
                 auto_storage_key_from_artifact=lambda _: "target-artifact"
             ),
         ),
-        patch.object(artifact_module, "transfer_fs", return_value=FakeFS(exists=True)),
+        patch.object(
+            artifact_module, "fs_for_moving", return_value=FakeFS(exists=True)
+        ),
     ):
         with pytest.raises(FileExistsError, match="already exists"):
             artifact_module._move_artifact_to_storage(artifact_exists, storage)
@@ -1062,7 +1064,7 @@ def test_move_artifact_exception_handling():
                 auto_storage_key_from_artifact=lambda _: "target-artifact"
             ),
         ),
-        patch.object(artifact_module, "transfer_fs", return_value=FakeFS()),
+        patch.object(artifact_module, "fs_for_moving", return_value=FakeFS()),
         patch.object(artifact_module, "_sorted_sizes", side_effect=[[1], [2]]),
         patch.object(
             artifact_module,
@@ -1085,7 +1087,9 @@ def test_move_artifact_exception_handling():
             ),
         ),
         patch.object(
-            artifact_module, "transfer_fs", return_value=FakeFS(rm_error=RuntimeError())
+            artifact_module,
+            "fs_for_moving",
+            return_value=FakeFS(rm_error=RuntimeError()),
         ),
         patch.object(artifact_module, "_sorted_sizes", side_effect=[[1], [1]]),
         patch.object(artifact_module.logger, "error") as logger_error_mock,
