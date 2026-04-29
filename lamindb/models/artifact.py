@@ -3109,6 +3109,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             # source_path and target_path are on the same filesystem
             _safe_move(source_path.fs, source_path.as_posix(), target_path.as_posix())
             _update_artifact_keys_with_suffix(self, suffix)
+            # Keep tracked values in sync so consecutive suffix updates on the same
+            # in-memory instance trigger a move each time.
+            self._original_values["suffix"] = suffix
 
         # when space is passed in init, storage is ignored, so space - storage consistency is enforced there
         if (
@@ -3150,6 +3153,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 _transfer_artifact_to_storage(self, storage, access_token=access_token)
             else:
                 logger.important("artifact is already in the target storage location")
+            # Keep tracked values in sync after handling a space update so
+            # repeated saves don't keep re-running this branch.
+            self._original_values["space_id"] = self.space_id
 
         if transfer not in {"record", "annotations"}:
             raise ValueError(
