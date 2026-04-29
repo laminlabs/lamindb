@@ -1440,7 +1440,7 @@ def test_get_by_path(example_dataframe: pd.DataFrame):
     storage.delete()
 
 
-def test_save_url_with_virtual_key():
+def test_save_url_with_virtual_key_and_unmanaged_suffix_update_error():
     url = (
         "https://raw.githubusercontent.com/laminlabs/lamindb/refs/heads/main/README.md"
     )
@@ -1448,10 +1448,21 @@ def test_save_url_with_virtual_key():
     artifact = ln.Artifact(url, key=key).save()
 
     assert artifact._real_key == "laminlabs/lamindb/refs/heads/main/README.md"
+    assert artifact.storage.instance_uid is None
 
     cache_path_str = artifact._cache_path.as_posix()
     assert not cache_path_str.startswith("http")
     assert cache_path_str.endswith(key)
+
+    artifact.suffix = ".txt"
+    with pytest.raises(
+        InvalidArgument,
+        match=(
+            "Cannot update the suffix of an artifact in a storage location "
+            "that is not managed by an instance."
+        ),
+    ):
+        artifact.save()
 
     artifact.delete(permanent=True, storage=False)
 
