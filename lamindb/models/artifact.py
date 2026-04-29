@@ -3091,16 +3091,24 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         access_token = kwargs.pop("access_token", None)
 
         if self._field_changed("suffix"):
-            old_suffix = self._original_values.get("suffix")
-            raise InvalidArgument(
-                "Changing the `.suffix` of an artifact is not allowed! "
-                f"You tried to change it from '{old_suffix}' to '{self.suffix}'."
+            if self.storage.instance_uid is None:
+                raise InvalidArgument(
+                    "Cannot update the suffix of an artifact in a storage location that is not managed by an instance."
+                )
+            suffix = self.suffix
+            # depends on whether key is virtual or real key is present
+            source_or_target_path = self.path
+            source_path = source_or_target_path.with_suffix(
+                self._original_values["suffix"]
             )
+            target_path = source_or_target_path.with_suffix(suffix)
+            # source_path and target_path are on the same filesystem
+            _safe_move(source_path.fs, source_path.as_posix(), target_path.as_posix())
+            _update_artifact_keys_with_suffix(self, suffix)
 
         # when space is passed in init, storage is ignored, so space - storage consistency is enforced there
         if (
-            not self._state.adding
-            and self._field_changed("space_id")
+            self._field_changed("space_id")
             # here we check for storages managed by any instance
             # not necessarily with managed credentials
             # probbaly we should restrict to storages with managed credentials
@@ -3134,6 +3142,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 storage = storages.one()
             if artifact_storage != storage:
                 # try to transfer if both storages are writable / managed by an instance
+                # replaces artifact.storage with the new storage if successful
                 _transfer_artifact_to_storage(self, storage, access_token=access_token)
             else:
                 logger.important("artifact is already in the target storage location")
@@ -3238,6 +3247,19 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         if hasattr(self, "_local_filepath"):
             del self._local_filepath
         return self
+
+
+def _update_artifact_keys_with_suffix(artifact: Artifact, suffix: str):
+    key = artifact.key
+    real_key = artifact._real_key
+
+    if key is not None:
+        new_key = PurePosixPath(key).with_suffix(suffix).as_posix()
+        artifact.key = new_key
+        artifact._old_key = new_key
+
+    if real_key is not None:
+        artifact._real_key = PurePosixPath(real_key).with_suffix(suffix).as_posix()
 
 
 def _sorted_sizes(fs: AbstractFileSystem, path: str) -> list[int]:
