@@ -3082,7 +3082,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         """
         if (
             not self._state.adding
-            and not self._field_changed("is_latest")  # skip on is_latest change
+            # skip on is_latest change
+            # no need to check if saved because it is checked above
+            and not self._field_changed("is_latest", check_is_saved=False)
             and not self.is_latest
             and self.branch_id != -1  # skip on soft deletion
         ):
