@@ -441,16 +441,25 @@ def test_create_from_dataframe(example_dataframe: pd.DataFrame):
     parquet_path = artifact.path
     assert parquet_path.exists()
     assert parquet_path.suffix == ".parquet"
-
+    # test cancelling the move
     artifact.suffix = ".whatever"
-    artifact.save()
+    with patch("builtins.input", return_value="n"):
+        assert artifact.save() is None
+    assert parquet_path.exists()
+
+    artifact = ln.Artifact.get(description="test1")
+    assert artifact.suffix == ".parquet"
+    artifact.suffix = ".whatever"
+    with patch("builtins.input", return_value="y"):
+        artifact.save()
     assert artifact.suffix == ".whatever"
     whatever_path = artifact.path
     assert whatever_path.exists()
     assert whatever_path.suffix == ".whatever"
     assert not parquet_path.exists()
     artifact.suffix = ".parquet"
-    artifact.save()
+    with patch("builtins.input", return_value="y"):
+        artifact.save()
     assert artifact.suffix == ".parquet"
     parquet_path_restored = artifact.path
     assert parquet_path_restored.exists()
@@ -478,13 +487,15 @@ def test_create_from_dataframe(example_dataframe: pd.DataFrame):
     # virtual key and suffix can now be updated together
     artifact.key = "my-test-dataset"
     artifact.suffix = ""
-    artifact.save()
+    with patch("builtins.input", return_value="y"):
+        artifact.save()
     assert artifact.suffix == ""
     assert artifact.key == "my-test-dataset"
 
     # changing the suffix updates the key suffix as well
     artifact.suffix = ".parquet"
-    artifact.save()
+    with patch("builtins.input", return_value="y"):
+        artifact.save()
     assert artifact.key == "my-test-dataset.parquet"
 
     # coming from a .parquet key, test changing the key to no suffix
@@ -942,7 +953,7 @@ def test_recreate_after_artifact_moved_in_storage(ccaplog):
 # -------------------------------------------------------------------------------------
 
 
-def test_transfer_artifact_exception_handling():
+def test_move_artifact_exception_handling():
     import lamindb.models.artifact as artifact_module
 
     class FakeFS:
@@ -1011,7 +1022,7 @@ def test_transfer_artifact_exception_handling():
         ) as rm_mock,
     ):
         with pytest.raises(RuntimeError, match="Failed to copy artifact"):
-            artifact_module._transfer_artifact_to_storage(artifact_copy, storage)
+            artifact_module._move_artifact_to_storage(artifact_copy, storage)
         assert rm_mock.call_count == 1
 
     # target exists branch: raises before attempting copy
@@ -1027,7 +1038,7 @@ def test_transfer_artifact_exception_handling():
         patch.object(artifact_module, "transfer_fs", return_value=FakeFS(exists=True)),
     ):
         with pytest.raises(FileExistsError, match="already exists"):
-            artifact_module._transfer_artifact_to_storage(artifact_exists, storage)
+            artifact_module._move_artifact_to_storage(artifact_exists, storage)
 
     # same source and target path is rejected early
     artifact_same_path = SimpleNamespace(path=source_path, storage_id=None)
@@ -1038,8 +1049,8 @@ def test_transfer_artifact_exception_handling():
             auto_storage_key_from_artifact=lambda _: "source-artifact"
         ),
     ):
-        with pytest.raises(ValueError, match="Cannot transfer to the same path"):
-            artifact_module._transfer_artifact_to_storage(artifact_same_path, storage)
+        with pytest.raises(ValueError, match="Cannot move to the same path"):
+            artifact_module._move_artifact_to_storage(artifact_same_path, storage)
 
     # verification branch: sorted sizes mismatch triggers cleanup helper
     artifact_mismatch = SimpleNamespace(path=source_path, storage_id=None)
@@ -1059,11 +1070,11 @@ def test_transfer_artifact_exception_handling():
             return_value=RuntimeError("rm failed"),
         ) as rm_mock,
     ):
-        with pytest.raises(RuntimeError, match="Transfer verification failed"):
-            artifact_module._transfer_artifact_to_storage(artifact_mismatch, storage)
+        with pytest.raises(RuntimeError, match="Move verification failed"):
+            artifact_module._move_artifact_to_storage(artifact_mismatch, storage)
         assert rm_mock.call_count == 1
 
-    # source-removal branch: transfer succeeds but rm(source) fails and is logged
+    # source-removal branch: move succeeds but rm(source) fails and is logged
     artifact_rm_fail = SimpleNamespace(path=source_path, storage_id=None)
     with (
         patch.object(
@@ -1079,7 +1090,7 @@ def test_transfer_artifact_exception_handling():
         patch.object(artifact_module, "_sorted_sizes", side_effect=[[1], [1]]),
         patch.object(artifact_module.logger, "error") as logger_error_mock,
     ):
-        artifact_module._transfer_artifact_to_storage(artifact_rm_fail, storage)
+        artifact_module._move_artifact_to_storage(artifact_rm_fail, storage)
         assert artifact_rm_fail.storage_id == storage.id
         assert logger_error_mock.call_count == 1
 
@@ -1452,7 +1463,8 @@ def test_update_suffix_for_registered_storage_with_real_key(
 
     source_path = artifact.path
     artifact.suffix = ".tsv"
-    artifact.save()
+    with patch("builtins.input", return_value="y"):
+        artifact.save()
 
     target_path = artifact.path
     assert artifact.suffix == ".tsv"
@@ -1480,7 +1492,8 @@ def test_update_suffix_for_registered_storage_folder_artifact(
 
     source_path = artifact.path
     artifact.suffix = ".zarr"
-    artifact.save()
+    with patch("builtins.input", return_value="y"):
+        artifact.save()
 
     target_path = artifact.path
     assert artifact.suffix == ".zarr"

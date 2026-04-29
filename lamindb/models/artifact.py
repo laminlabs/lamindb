@@ -3104,12 +3104,21 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             suffix = self.suffix
             # depends on whether key is virtual or real key is present
             source_or_target_path = self.path
-            source_path = source_or_target_path.with_suffix(
+            source_path_str = source_or_target_path.with_suffix(
                 self._original_values["suffix"]
+            ).as_posix()
+            target_path_str = source_or_target_path.with_suffix(suffix).as_posix()
+            # ask for confirmation
+            # TODO: add a way to disable confirmation
+            response = input(
+                f"You are about to move artifact from '{source_path_str}' to '{target_path_str}'.\n"
+                "Continue? (y/n) "
             )
-            target_path = source_or_target_path.with_suffix(suffix)
+            if response != "y":
+                logger.warning("saving was cancelled")
+                return None
             # source_path and target_path are on the same filesystem
-            _safe_move(source_path.fs, source_path.as_posix(), target_path.as_posix())
+            _safe_move(source_or_target_path.fs, source_path_str, target_path_str)
             _update_artifact_keys_with_suffix(self, suffix)
             # Keep tracked values in sync so consecutive suffix updates on the same
             # in-memory instance trigger a move each time.
@@ -3152,7 +3161,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             if artifact_storage != storage:
                 # try to transfer if both storages are writable / managed by an instance
                 # replaces artifact.storage with the new storage if successful
-                _transfer_artifact_to_storage(self, storage, access_token=access_token)
+                _move_artifact_to_storage(self, storage, access_token=access_token)
             else:
                 logger.important("artifact is already in the target storage location")
             # Keep tracked values in sync after handling a space update so
@@ -3289,9 +3298,9 @@ def _rm_catch_error(fs: AbstractFileSystem, path: str) -> Exception | None:
 def _safe_move(fs: AbstractFileSystem, source: str, target: str):
     if fs.exists(target):
         raise FileExistsError(
-            f"Cannot transfer artifact to '{target}' because it already exists."
+            f"Cannot move artifact to '{target}' because it already exists."
         )
-    logger.important(f"transferring artifact from '{source}' to '{target}'")
+    logger.important(f"moving artifact from '{source}' to '{target}'")
     try:
         fs.copy(source, target, recursive=True)
     except Exception as e:
@@ -3302,7 +3311,7 @@ def _safe_move(fs: AbstractFileSystem, source: str, target: str):
         raise RuntimeError(message) from e
     # check that the sizes of the files are the same
     if _sorted_sizes(fs, source) != _sorted_sizes(fs, target):
-        message = "Transfer verification failed: copied artifact does not match source."
+        message = "Move verification failed: copied artifact does not match source."
         cleanup_error = _rm_catch_error(fs, target)
         if cleanup_error is not None:
             message += " Cleanup of copied target also failed."
@@ -3316,7 +3325,7 @@ def _safe_move(fs: AbstractFileSystem, source: str, target: str):
         )
 
 
-def _transfer_artifact_to_storage(
+def _move_artifact_to_storage(
     artifact: Artifact, storage: Storage, access_token: str | None = None
 ):
     storage_key = _s().auto_storage_key_from_artifact(artifact)
@@ -3324,7 +3333,7 @@ def _transfer_artifact_to_storage(
     source_path = artifact.path
     target_path = storage.path / storage_key
     if source_path == target_path:
-        raise ValueError("Cannot transfer to the same path.")
+        raise ValueError("Cannot move to the same path.")
 
     fs = transfer_fs(source_path, target_path, access_token=access_token)
 
