@@ -1313,7 +1313,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             ),
         ]
 
-    _TRACK_FIELDS = ("space_id", "is_latest")
+    _TRACK_FIELDS = ("space_id", "is_latest", "suffix")
 
     _len_full_uid: int = 20
     _len_stem_uid: int = 16
@@ -2707,9 +2707,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         # no need to upload if new file is already in storage
         self._to_store = not check_path_in_storage
 
-        # update old suffix with the new one so that checks in record pass
+        # update old suffix with the new one so that the check in artifact save pass
         # replace() supports changing the suffix
-        self._old_suffix = self.suffix
+        self._original_values["suffix"] = self.suffix
 
     def open(
         self,
@@ -3082,13 +3082,48 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         """
         if (
             not self._state.adding
-            and not self._field_changed("is_latest")  # skip on is_latest change
+            # skip on is_latest change
+            # no need to check if saved because it is checked above
+            and not self._field_changed("is_latest", check_is_saved=False)
             and not self.is_latest
             and self.branch_id != -1  # skip on soft deletion
         ):
             logger.warning("you are saving to a non-latest version of the artifact")
 
         access_token = kwargs.pop("access_token", None)
+
+        if self._field_changed("suffix", check_is_saved=False):
+            if self._state.adding:
+                raise InvalidArgument(
+                    "Cannot update the suffix of an artifact before it is saved."
+                )
+            if self.storage.instance_uid is None:
+                raise InvalidArgument(
+                    "Cannot update the suffix of an artifact in a storage location that is not managed by an instance."
+                )
+            suffix = self.suffix
+            # depends on whether key is virtual or real key is present
+            source_or_target_path = self.path
+            source_path_str = source_or_target_path.with_suffix(
+                self._original_values["suffix"]
+            ).as_posix()
+            target_path_str = source_or_target_path.with_suffix(suffix).as_posix()
+            # ask for confirmation
+            # TODO: add a way to disable confirmation
+            response = input(
+                f"You are about to move artifact from '{source_path_str}' to '{target_path_str}'.\n"
+                "Continue? (y/n) "
+            )
+            if response != "y":
+                logger.warning("saving was cancelled")
+                return None
+            # source_path and target_path are on the same filesystem
+            _safe_move(source_or_target_path.fs, source_path_str, target_path_str)
+            _update_artifact_keys_with_suffix(self, suffix)
+            # Keep tracked values in sync so consecutive suffix updates on the same
+            # in-memory instance trigger a move each time.
+            self._original_values["suffix"] = suffix
+
         # when space is passed in init, storage is ignored, so space - storage consistency is enforced there
         if (
             self._field_changed("space_id")
@@ -3125,9 +3160,13 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 storage = storages.one()
             if artifact_storage != storage:
                 # try to transfer if both storages are writable / managed by an instance
-                _transfer_artifact_to_storage(self, storage, access_token=access_token)
+                # replaces artifact.storage with the new storage if successful
+                _move_artifact_to_storage(self, storage, access_token=access_token)
             else:
                 logger.important("artifact is already in the target storage location")
+            # Keep tracked values in sync after handling a space update so
+            # repeated saves don't keep re-running this branch.
+            self._original_values["space_id"] = self.space_id
 
         if transfer not in {"record", "annotations"}:
             raise ValueError(
@@ -3231,6 +3270,17 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         return self
 
 
+def _update_artifact_keys_with_suffix(artifact: Artifact, suffix: str):
+    key = artifact.key
+    real_key = artifact._real_key
+    if key is not None:
+        new_key = PurePosixPath(key).with_suffix(suffix).as_posix()
+        artifact.key = new_key
+        artifact._old_key = new_key
+    if real_key is not None:
+        artifact._real_key = PurePosixPath(real_key).with_suffix(suffix).as_posix()
+
+
 def _sorted_sizes(fs: AbstractFileSystem, path: str) -> list[int]:
     objects = fs.find(path, detail=True)
     return sorted(info["size"] for info in objects.values())
@@ -3245,48 +3295,52 @@ def _rm_catch_error(fs: AbstractFileSystem, path: str) -> Exception | None:
     return None
 
 
-def _transfer_artifact_to_storage(
+def _safe_move(fs: AbstractFileSystem, source: str, target: str):
+    if fs.exists(target):
+        raise FileExistsError(
+            f"Cannot move artifact to '{target}' because it already exists."
+        )
+    logger.important(f"moving artifact from '{source}' to '{target}'")
+    try:
+        fs.copy(source, target, recursive=True)
+    except Exception as e:
+        message = "Failed to copy artifact to target storage during transfer."
+        cleanup_error = _rm_catch_error(fs, target)
+        if cleanup_error is not None:
+            message += f" Cleanup of copied target also failed: {cleanup_error}"
+        raise RuntimeError(message) from e
+    # check that the sizes of the files are the same
+    if _sorted_sizes(fs, source) != _sorted_sizes(fs, target):
+        message = "Move verification failed: copied artifact does not match source."
+        cleanup_error = _rm_catch_error(fs, target)
+        if cleanup_error is not None:
+            message += " Cleanup of copied target also failed."
+        raise RuntimeError(message) from cleanup_error
+
+    try:
+        fs.rm(source, recursive=True)
+    except Exception as e:
+        logger.error(
+            f"copying to '{target}' succeeded but failed to remove source '{source}': {e}"
+        )
+
+
+def _move_artifact_to_storage(
     artifact: Artifact, storage: Storage, access_token: str | None = None
 ):
     storage_key = _s().auto_storage_key_from_artifact(artifact)
 
     source_path = artifact.path
     target_path = storage.path / storage_key
-    assert source_path != target_path, "Cannot transfer to the same path."
+    if source_path == target_path:
+        raise ValueError("Cannot move to the same path.")
 
     fs = transfer_fs(source_path, target_path, access_token=access_token)
 
     source_path_str = str(source_path)
     target_path_str = str(target_path)
-    assert not fs.exists(target_path_str), (
-        f"Cannot transfer artifact to '{target_path_str}' because it already exists."
-    )
 
-    logger.important(
-        f"transferring artifact from '{source_path_str}' to '{target_path_str}'"
-    )
-    try:
-        fs.copy(source_path_str, target_path_str, recursive=True)
-    except Exception as e:
-        message = "Failed to copy artifact to target storage during transfer."
-        cleanup_error = _rm_catch_error(fs, target_path_str)
-        if cleanup_error is not None:
-            message += f" Cleanup of copied target also failed: {cleanup_error}"
-        raise RuntimeError(message) from e
-    # check that the sizes of the files are the same
-    if _sorted_sizes(fs, source_path_str) != _sorted_sizes(fs, target_path_str):
-        message = "Transfer verification failed: copied artifact does not match source."
-        cleanup_error = _rm_catch_error(fs, target_path_str)
-        if cleanup_error is not None:
-            message += " Cleanup of copied target also failed."
-        raise RuntimeError(message) from cleanup_error
-
-    try:
-        fs.rm(source_path_str, recursive=True)
-    except Exception as e:
-        logger.error(
-            f"copying to '{target_path_str}' succeeded but failed to remove source '{source_path_str}': {e}"
-        )
+    _safe_move(fs, source_path_str, target_path_str)
 
     artifact.storage_id = storage.id
 

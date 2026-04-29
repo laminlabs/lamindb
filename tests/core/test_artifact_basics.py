@@ -424,13 +424,12 @@ def test_create_from_dataframe(example_dataframe: pd.DataFrame):
         == "lamindb.errors.InvalidArgument: The suffix '' of the provided key is incorrect, it should be '.parquet'."
     )
     artifact.key = None  # restore
-    artifact.suffix = ".whatever"  # try changing suffix
-    with pytest.raises(ln.errors.InvalidArgument) as error:
+    artifact.suffix = ".whatever"  # changing suffix before first save is invalid
+    with pytest.raises(
+        ln.errors.InvalidArgument,
+        match="Cannot update the suffix of an artifact before it is saved.",
+    ):
         artifact.save()
-    assert (
-        error.exconly()
-        == "lamindb.errors.InvalidArgument: Changing the `.suffix` of an artifact is not allowed! You tried to change it from '.parquet' to '.whatever'."
-    )
     artifact.suffix = ".parquet"
     artifact.save()
     # check that the local filepath has been cleared
@@ -439,15 +438,33 @@ def test_create_from_dataframe(example_dataframe: pd.DataFrame):
 
     # now get an artifact from the database
     artifact = ln.Artifact.get(description="test1")
+    parquet_path = artifact.path
+    assert parquet_path.exists()
+    assert parquet_path.suffix == ".parquet"
+    # test cancelling the move
+    artifact.suffix = ".whatever"
+    with patch("builtins.input", return_value="n"):
+        assert artifact.save() is None
+    assert parquet_path.exists()
 
-    artifact.suffix = ".whatever"  # try changing suffix
-    with pytest.raises(ln.errors.InvalidArgument) as error:
+    artifact = ln.Artifact.get(description="test1")
+    assert artifact.suffix == ".parquet"
+    artifact.suffix = ".whatever"
+    with patch("builtins.input", return_value="y"):
         artifact.save()
-    assert (
-        error.exconly()
-        == "lamindb.errors.InvalidArgument: Changing the `.suffix` of an artifact is not allowed! You tried to change it from '.parquet' to '.whatever'."
-    )
+    assert artifact.suffix == ".whatever"
+    whatever_path = artifact.path
+    assert whatever_path.exists()
+    assert whatever_path.suffix == ".whatever"
+    assert not parquet_path.exists()
     artifact.suffix = ".parquet"
+    with patch("builtins.input", return_value="y"):
+        artifact.save()
+    assert artifact.suffix == ".parquet"
+    parquet_path_restored = artifact.path
+    assert parquet_path_restored.exists()
+    assert parquet_path_restored.suffix == ".parquet"
+    assert not whatever_path.exists()
 
     # coming from `key is None` that setting a key with different suffix is not allowed
     artifact.key = "my-test-dataset.suffix"
@@ -467,20 +484,18 @@ def test_create_from_dataframe(example_dataframe: pd.DataFrame):
         == "lamindb.errors.InvalidArgument: The suffix '' of the provided key is incorrect, it should be '.parquet'."
     )
 
-    # try a joint update where both suffix and key are changed
+    # virtual key and suffix can now be updated together
     artifact.key = "my-test-dataset"
     artifact.suffix = ""
-    with pytest.raises(ln.errors.InvalidArgument) as error:
+    with patch("builtins.input", return_value="y"):
         artifact.save()
-    assert (
-        error.exconly()
-        == "lamindb.errors.InvalidArgument: Changing the `.suffix` of an artifact is not allowed! You tried to change it from '.parquet' to ''."
-    )
+    assert artifact.suffix == ""
+    assert artifact.key == "my-test-dataset"
 
-    # because this is a parquet artifact, we can set a key with a .parquet suffix
-    artifact.suffix = ".parquet"  # restore proper suffix
-    artifact.key = "my-test-dataset.parquet"
-    artifact.save()
+    # changing the suffix updates the key suffix as well
+    artifact.suffix = ".parquet"
+    with patch("builtins.input", return_value="y"):
+        artifact.save()
     assert artifact.key == "my-test-dataset.parquet"
 
     # coming from a .parquet key, test changing the key to no suffix
@@ -938,7 +953,7 @@ def test_recreate_after_artifact_moved_in_storage(ccaplog):
 # -------------------------------------------------------------------------------------
 
 
-def test_transfer_artifact_exception_handling():
+def test_move_artifact_exception_handling():
     import lamindb.models.artifact as artifact_module
 
     class FakeFS:
@@ -1007,8 +1022,35 @@ def test_transfer_artifact_exception_handling():
         ) as rm_mock,
     ):
         with pytest.raises(RuntimeError, match="Failed to copy artifact"):
-            artifact_module._transfer_artifact_to_storage(artifact_copy, storage)
+            artifact_module._move_artifact_to_storage(artifact_copy, storage)
         assert rm_mock.call_count == 1
+
+    # target exists branch: raises before attempting copy
+    artifact_exists = SimpleNamespace(path=source_path, storage_id=None)
+    with (
+        patch.object(
+            artifact_module,
+            "_s",
+            return_value=SimpleNamespace(
+                auto_storage_key_from_artifact=lambda _: "target-artifact"
+            ),
+        ),
+        patch.object(artifact_module, "transfer_fs", return_value=FakeFS(exists=True)),
+    ):
+        with pytest.raises(FileExistsError, match="already exists"):
+            artifact_module._move_artifact_to_storage(artifact_exists, storage)
+
+    # same source and target path is rejected early
+    artifact_same_path = SimpleNamespace(path=source_path, storage_id=None)
+    with patch.object(
+        artifact_module,
+        "_s",
+        return_value=SimpleNamespace(
+            auto_storage_key_from_artifact=lambda _: "source-artifact"
+        ),
+    ):
+        with pytest.raises(ValueError, match="Cannot move to the same path"):
+            artifact_module._move_artifact_to_storage(artifact_same_path, storage)
 
     # verification branch: sorted sizes mismatch triggers cleanup helper
     artifact_mismatch = SimpleNamespace(path=source_path, storage_id=None)
@@ -1028,11 +1070,11 @@ def test_transfer_artifact_exception_handling():
             return_value=RuntimeError("rm failed"),
         ) as rm_mock,
     ):
-        with pytest.raises(RuntimeError, match="Transfer verification failed"):
-            artifact_module._transfer_artifact_to_storage(artifact_mismatch, storage)
+        with pytest.raises(RuntimeError, match="Move verification failed"):
+            artifact_module._move_artifact_to_storage(artifact_mismatch, storage)
         assert rm_mock.call_count == 1
 
-    # source-removal branch: transfer succeeds but rm(source) fails and is logged
+    # source-removal branch: move succeeds but rm(source) fails and is logged
     artifact_rm_fail = SimpleNamespace(path=source_path, storage_id=None)
     with (
         patch.object(
@@ -1048,7 +1090,7 @@ def test_transfer_artifact_exception_handling():
         patch.object(artifact_module, "_sorted_sizes", side_effect=[[1], [1]]),
         patch.object(artifact_module.logger, "error") as logger_error_mock,
     ):
-        artifact_module._transfer_artifact_to_storage(artifact_rm_fail, storage)
+        artifact_module._move_artifact_to_storage(artifact_rm_fail, storage)
         assert artifact_rm_fail.storage_id == storage.id
         assert logger_error_mock.call_count == 1
 
@@ -1409,7 +1451,65 @@ def test_get_by_path(example_dataframe: pd.DataFrame):
     storage.delete()
 
 
-def test_save_url_with_virtual_key():
+def test_update_suffix_for_registered_storage_with_real_key(
+    registered_storage_file_and_folder,
+):
+    test_filepath, folder_path = registered_storage_file_and_folder
+    assert folder_path.exists() and folder_path.is_dir()
+
+    artifact = ln.Artifact(test_filepath, key="my_file.csv").save()
+    assert artifact._real_key is not None
+    assert artifact.path.suffix == ".csv"
+
+    source_path = artifact.path
+    artifact.suffix = ".tsv"
+    with patch("builtins.input", return_value="y"):
+        artifact.save()
+
+    target_path = artifact.path
+    assert artifact.suffix == ".tsv"
+    assert artifact.key is not None
+    assert artifact.key.endswith(".tsv")
+    assert artifact._real_key is not None
+    assert artifact._real_key.endswith(".tsv")
+    assert target_path.suffix == ".tsv"
+    assert target_path.exists()
+    assert not source_path.exists()
+
+    artifact.delete(permanent=True, storage=True)
+
+
+def test_update_suffix_for_registered_storage_folder_artifact(
+    registered_storage_file_and_folder,
+):
+    _, folder_path = registered_storage_file_and_folder
+    artifact = ln.Artifact(folder_path, key="dataset").save()
+
+    assert artifact._real_key is not None
+    assert artifact.suffix == ""
+    assert artifact.path.exists()
+    assert artifact.path.is_dir()
+
+    source_path = artifact.path
+    artifact.suffix = ".zarr"
+    with patch("builtins.input", return_value="y"):
+        artifact.save()
+
+    target_path = artifact.path
+    assert artifact.suffix == ".zarr"
+    assert artifact.key is not None
+    assert artifact.key.endswith(".zarr")
+    assert artifact._real_key is not None
+    assert artifact._real_key.endswith(".zarr")
+    assert target_path.exists()
+    assert target_path.is_dir()
+    assert target_path.suffix == ".zarr"
+    assert not source_path.exists()
+
+    artifact.delete(permanent=True, storage=True)
+
+
+def test_save_url_with_virtual_key_and_unmanaged_suffix_update_error():
     url = (
         "https://raw.githubusercontent.com/laminlabs/lamindb/refs/heads/main/README.md"
     )
@@ -1417,10 +1517,21 @@ def test_save_url_with_virtual_key():
     artifact = ln.Artifact(url, key=key).save()
 
     assert artifact._real_key == "laminlabs/lamindb/refs/heads/main/README.md"
+    assert artifact.storage.instance_uid is None
 
     cache_path_str = artifact._cache_path.as_posix()
     assert not cache_path_str.startswith("http")
     assert cache_path_str.endswith(key)
+
+    artifact.suffix = ".txt"
+    with pytest.raises(
+        InvalidArgument,
+        match=(
+            "Cannot update the suffix of an artifact in a storage location "
+            "that is not managed by an instance."
+        ),
+    ):
+        artifact.save()
 
     artifact.delete(permanent=True, storage=False)
 

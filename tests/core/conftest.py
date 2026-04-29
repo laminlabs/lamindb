@@ -121,6 +121,28 @@ def get_test_filepaths(request):  # -> Tuple[bool, Path, Path, Path, str]
     shutil.rmtree(test_dirpath)
 
 
+@pytest.fixture(scope="function")
+def registered_storage_file_and_folder():
+    root_dir = Path("./registered_storage_suffix_fixture")
+    storage_root = root_dir.resolve().as_posix()
+    if ln.Storage.filter(root=storage_root).one_or_none() is None:
+        ln.Storage(root=storage_root, type="local").save()
+
+    test_dirpath = root_dir / "suffix_fixture_dir"
+    test_dirpath.mkdir(parents=True, exist_ok=True)
+    test_filepath = test_dirpath / "suffix_fixture_file.csv"
+    test_filepath.write_text("a,b\n1,2\n")
+
+    folder_path = root_dir / "suffix_fixture_folder"
+    folder_path.mkdir(parents=True, exist_ok=True)
+    (folder_path / "nested.txt").write_text("content")
+
+    yield test_filepath, folder_path
+
+    shutil.rmtree(test_dirpath, ignore_errors=True)
+    shutil.rmtree(folder_path, ignore_errors=True)
+
+
 @pytest.fixture(scope="session")
 def example_dataframe():
     return pd.DataFrame({"feat1": [1, 2], "feat2": [3, 4]})
