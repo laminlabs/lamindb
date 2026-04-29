@@ -1476,7 +1476,7 @@ def test_update_suffix_for_registered_storage_with_real_key(
     assert target_path.exists()
     assert not source_path.exists()
 
-    artifact.delete(permanent=True)
+    artifact.delete(permanent=True, storage=True)
 
 
 def test_update_suffix_for_registered_storage_folder_artifact(
@@ -1506,7 +1506,7 @@ def test_update_suffix_for_registered_storage_folder_artifact(
     assert target_path.suffix == ".zarr"
     assert not source_path.exists()
 
-    artifact.delete(permanent=True)
+    artifact.delete(permanent=True, storage=True)
 
 
 def test_save_url_with_virtual_key_and_unmanaged_suffix_update_error():
