@@ -475,7 +475,7 @@ def test_create_from_dataframe(example_dataframe: pd.DataFrame):
         == "lamindb.errors.InvalidArgument: The suffix '' of the provided key is incorrect, it should be '.parquet'."
     )
 
-    # key and suffix can now be updated together
+    # virtual key and suffix can now be updated together
     artifact.key = "my-test-dataset"
     artifact.suffix = ""
     artifact.save()
