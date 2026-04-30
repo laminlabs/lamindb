@@ -1205,11 +1205,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             storage_loc = ln.Storage.get(root="s3://my_bucket")  # get storage location, or create via ln.Storage(root="s3://my_bucket").save()
             ln.Artifact("./my_file.parquet", key="examples/my_file.parquet", storage=storage_loc).save()  # upload to s3://my_bucket
 
-        Somes you want to **avoid mapping the artifact into a path hierarchy**, and you only pass `description`::
-
-            artifact = ln.Artifact("./my_folder", description="My folder").save()
-            artifact_v2 = ln.Artifact("./my_folder", revises=old_artifact).save()  # need to version based on `revises`, a shared description does not trigger a new version
-
     Notes:
 
         .. _storage-formats-note:
@@ -1244,6 +1239,14 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
             In concurrent workloads where the same artifact is created repeatedly at the exact same time, `.save()`
             detects the duplication and will return the existing artifact.
+
+        .. dropdown:: I cannot come up with a good file name, can I avoid mapping artifacts into a hierarchy?
+
+            Sometimes you want to **avoid mapping the artifact into a path hierarchy**. You can do so by omitting the `key` argument and only passing `description`.
+            However, note that a shared `description` does not trigger mapping artifacts into the same version family.
+
+                artifact = ln.Artifact("./my_folder", description="My folder").save()
+                artifact_v2 = ln.Artifact("./my_folder", revises=old_artifact).save()  # need to version based on `revises`, a shared description does not trigger a new version
 
         .. dropdown:: Why does the constructor look the way it looks?
 
