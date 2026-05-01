@@ -65,7 +65,7 @@ def test_anndata_io():
 
 @pytest.mark.parametrize("adata_format", ["h5ad", "zarr"])
 def test_backed_access(adata_format):
-    fp = ln.examples.datasets.anndata_file_pbmc68k_test()
+    fp = ln.UPath(ln.examples.datasets.anndata_file_pbmc68k_test())
     if adata_format == "zarr":
         adata = load_h5ad(fp)
 

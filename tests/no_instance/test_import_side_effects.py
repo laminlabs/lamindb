@@ -57,13 +57,13 @@ PROBE_CASES = [
     ),
     (
         "backed_access pyarrow dataframe path stays anndata-free",
-        "from pathlib import Path\nimport pyarrow as pa\nimport pyarrow.parquet as pq\nfrom lamindb.core.storage._backed_access import backed_access\npath = Path('test_import_side_effects.parquet')\npq.write_table(pa.table({'col': [1]}), path)\ntry:\n    _ = backed_access(path, engine='pyarrow')\nfinally:\n    path.unlink(missing_ok=True)",
+        "from upath import UPath\nimport pyarrow as pa\nimport pyarrow.parquet as pq\nfrom lamindb.core.storage._backed_access import backed_access\npath = UPath('test_import_side_effects.parquet')\npq.write_table(pa.table({'col': [1]}), path.as_posix())\ntry:\n    _ = backed_access(path, engine='pyarrow')\nfinally:\n    if path.exists():\n        path.unlink()",
         {"anndata": False, "h5py": False, "pyarrow": True},
         ("pyarrow",),
     ),
     (
         "backed_access polars dataframe path stays light",
-        "from pathlib import Path\nfrom lamindb.core.storage._backed_access import backed_access\npath = Path('test_import_side_effects.csv')\npath.write_text('col\\n1\\n')\ntry:\n    _ = backed_access(path, engine='polars')\nfinally:\n    path.unlink(missing_ok=True)",
+        "from upath import UPath\nfrom lamindb.core.storage._backed_access import backed_access\npath = UPath('test_import_side_effects.csv')\nwith path.open('w') as f:\n    _ = f.write('col\\n1\\n')\ntry:\n    _ = backed_access(path, engine='polars')\nfinally:\n    if path.exists():\n        path.unlink()",
         LIGHT_IMPORTS,
         ("polars",),
     ),
