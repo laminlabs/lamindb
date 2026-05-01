@@ -50,10 +50,10 @@ def load_fcs(*args, **kwargs) -> AnnData:
 
 
 # for types below note that local UPaths are subclasses of Path
-# so Path(UPath(...)) properly coerces local UPaths and throws an error for cloud UPaths
+# Path(UPath(...)) properly coerces local UPaths and throws an error for cloud UPaths
 
 
-def load_csv(path: AnyPathStr, **kwargs) -> DataFrame:
+def load_csv(path: Path | str, **kwargs) -> DataFrame:
     """Load `.csv` file to `DataFrame`."""
     import pandas as pd
 
@@ -61,7 +61,7 @@ def load_csv(path: AnyPathStr, **kwargs) -> DataFrame:
     return pd.read_csv(path_sanitized, **kwargs)
 
 
-def load_parquet(path: AnyPathStr, **kwargs) -> DataFrame:
+def load_parquet(path: Path | str, **kwargs) -> DataFrame:
     """Load `.parquet` file to `DataFrame`."""
     import pandas as pd
 
@@ -69,7 +69,7 @@ def load_parquet(path: AnyPathStr, **kwargs) -> DataFrame:
     return pd.read_parquet(path_sanitized, **kwargs)
 
 
-def load_tsv(path: AnyPathStr, **kwargs) -> DataFrame:
+def load_tsv(path: Path | str, **kwargs) -> DataFrame:
     """Load `.tsv` file to `DataFrame`."""
     import pandas as pd
 
@@ -88,7 +88,7 @@ def load_h5ad(filepath: AnyPathStr, **kwargs) -> AnnData:
         return adata
 
 
-def load_h5mu(filepath: AnyPathStr, **kwargs) -> MuData:
+def load_h5mu(filepath: Path | str, **kwargs) -> MuData:
     """Load an `.h5mu` file to `MuData`."""
     import mudata as md
 
@@ -104,7 +104,7 @@ def load_zarr(storepath, **kwargs):  # type: ignore
     return _load_zarr(storepath, **kwargs)
 
 
-def load_html(path: AnyPathStr) -> None | AnyPathStr:
+def load_html(path: Path | str) -> None | Path | str:
     """Display `.html` in ipython, otherwise return path."""
     if is_run_from_ipython:
         path_sanitized = Path(path)
@@ -126,7 +126,7 @@ def load_html(path: AnyPathStr) -> None | AnyPathStr:
         return path
 
 
-def load_json(path: AnyPathStr) -> dict[str, Any] | list[Any]:
+def load_json(path: Path | str) -> dict[str, Any] | list[Any]:
     """Load `.json` to `dict`."""
     import json
 
@@ -136,7 +136,7 @@ def load_json(path: AnyPathStr) -> dict[str, Any] | list[Any]:
     return data
 
 
-def load_yaml(path: AnyPathStr) -> dict[str, Any] | list[Any]:
+def load_yaml(path: Path | str) -> dict[str, Any] | list[Any]:
     """Load `.yaml` to `dict`."""
     import yaml  # type: ignore
 
@@ -146,7 +146,7 @@ def load_yaml(path: AnyPathStr) -> dict[str, Any] | list[Any]:
     return data
 
 
-def load_image(path: AnyPathStr) -> None | AnyPathStr:
+def load_image(path: Path | str) -> None | Path | str:
     """Display `.jpg`, `.gif` or `.png` in ipython, otherwise return path."""
     if is_run_from_ipython:
         from IPython.display import Image, display
@@ -158,7 +158,7 @@ def load_image(path: AnyPathStr) -> None | AnyPathStr:
         return path
 
 
-def load_svg(path: AnyPathStr) -> None | AnyPathStr:
+def load_svg(path: Path | str) -> None | Path | str:
     """Display `.svg` in ipython, otherwise return path."""
     if is_run_from_ipython:
         from IPython.display import SVG, display
@@ -170,13 +170,13 @@ def load_svg(path: AnyPathStr) -> None | AnyPathStr:
         return path
 
 
-def load_txt(path: AnyPathStr) -> str:
+def load_txt(path: Path | str) -> str:
     """Load `.txt` file to `str`."""
     path_sanitized = Path(path)
     return path_sanitized.read_text(encoding="utf-8")
 
 
-def load_rds(path: AnyPathStr) -> AnyPathStr:
+def load_rds(path: Path | str) -> Path | str:
     """Just warn when trying to load `.rds`."""
     logger.warning("Please use `laminr` to load `.rds` files")
     return path
