@@ -29,7 +29,7 @@ from lamindb_setup.core.upath import (
 
 if TYPE_CHECKING:
     from anndata import AnnData
-    from lamindb_setup.types import UPathStr
+    from lamindb_setup.types import AnyPathStr
     from mudata import MuData
     from pandas import DataFrame
 
@@ -49,7 +49,7 @@ def load_fcs(*args, **kwargs) -> AnnData:
     return readfcs.read(*args, **kwargs)
 
 
-def load_csv(path: UPathStr, **kwargs) -> DataFrame:
+def load_csv(path: str | Path, **kwargs) -> DataFrame:
     """Load `.csv` file to `DataFrame`."""
     import pandas as pd
 
@@ -57,7 +57,7 @@ def load_csv(path: UPathStr, **kwargs) -> DataFrame:
     return pd.read_csv(path_sanitized, **kwargs)
 
 
-def load_parquet(path: UPathStr, **kwargs) -> DataFrame:
+def load_parquet(path: str | Path, **kwargs) -> DataFrame:
     """Load `.parquet` file to `DataFrame`."""
     import pandas as pd
 
@@ -65,7 +65,7 @@ def load_parquet(path: UPathStr, **kwargs) -> DataFrame:
     return pd.read_parquet(path_sanitized, **kwargs)
 
 
-def load_tsv(path: UPathStr, **kwargs) -> DataFrame:
+def load_tsv(path: str | Path, **kwargs) -> DataFrame:
     """Load `.tsv` file to `DataFrame`."""
     import pandas as pd
 
@@ -84,7 +84,7 @@ def load_h5ad(filepath, **kwargs) -> AnnData:
         return adata
 
 
-def load_h5mu(filepath: UPathStr, **kwargs) -> MuData:
+def load_h5mu(filepath: str | Path, **kwargs) -> MuData:
     """Load an `.h5mu` file to `MuData`."""
     import mudata as md
 
@@ -100,10 +100,11 @@ def load_zarr(storepath, **kwargs):  # type: ignore
     return _load_zarr(storepath, **kwargs)
 
 
-def load_html(path: UPathStr) -> None | UPathStr:
+def load_html(path: str | Path) -> None | str | Path:
     """Display `.html` in ipython, otherwise return path."""
     if is_run_from_ipython:
-        with open(path, encoding="utf-8") as f:
+        path_sanitized = Path(path)
+        with path_sanitized.open(encoding="utf-8") as f:
             html_content = f.read()
         # Extract the body content using regular expressions
         body_content = re.findall(
@@ -121,52 +122,57 @@ def load_html(path: UPathStr) -> None | UPathStr:
         return path
 
 
-def load_json(path: UPathStr) -> dict[str, Any] | list[Any]:
+def load_json(path: str | Path) -> dict[str, Any] | list[Any]:
     """Load `.json` to `dict`."""
     import json
 
-    with open(path) as f:
+    path_sanitized = Path(path)
+    with path_sanitized.open(encoding="utf-8") as f:
         data = json.load(f)
     return data
 
 
-def load_yaml(path: UPathStr) -> dict[str, Any] | list[Any]:
+def load_yaml(path: str | Path) -> dict[str, Any] | list[Any]:
     """Load `.yaml` to `dict`."""
     import yaml  # type: ignore
 
-    with open(path) as f:
+    path_sanitized = Path(path)
+    with path_sanitized.open(encoding="utf-8") as f:
         data = yaml.safe_load(f)
     return data
 
 
-def load_image(path: UPathStr) -> None | UPathStr:
+def load_image(path: str | Path) -> None | str | Path:
     """Display `.jpg`, `.gif` or `.png` in ipython, otherwise return path."""
     if is_run_from_ipython:
         from IPython.display import Image, display
 
-        display(Image(filename=path))
+        path_sanitized = Path(path)
+        display(Image(filename=path_sanitized.as_posix()))
         return None
     else:
         return path
 
 
-def load_svg(path: UPathStr) -> None | UPathStr:
+def load_svg(path: str | Path) -> None | str | Path:
     """Display `.svg` in ipython, otherwise return path."""
     if is_run_from_ipython:
         from IPython.display import SVG, display
 
-        display(SVG(filename=path))
+        path_sanitized = Path(path)
+        display(SVG(filename=path_sanitized.as_posix()))
         return None
     else:
         return path
 
 
-def load_txt(path: Path) -> str:
+def load_txt(path: str | Path) -> str:
     """Load `.txt` file to `str`."""
-    return path.read_text(encoding="utf-8")
+    path_sanitized = Path(path)
+    return path_sanitized.read_text(encoding="utf-8")
 
 
-def load_rds(path: UPathStr) -> UPathStr:
+def load_rds(path: str | Path) -> str | Path:
     """Just warn when trying to load `.rds`."""
     logger.warning("Please use `laminr` to load `.rds` files")
     return path
@@ -205,8 +211,8 @@ SUPPORTED_SUFFIXES = [sfx for sfx in FILE_LOADERS.keys() if sfx != ".rds"]
 
 
 def load_to_memory(
-    filepath: UPathStr, **kwargs
-) -> DataFrame | ScverseDataStructures | dict[str, Any] | list[Any] | UPathStr | None:
+    filepath: AnyPathStr, **kwargs
+) -> DataFrame | ScverseDataStructures | dict[str, Any] | list[Any] | AnyPathStr | None:
     """Load a file into memory.
 
     Returns the filepath if no in-memory form is found.

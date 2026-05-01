@@ -1142,6 +1142,14 @@ def test_get_relative_path_to_directory():
         "test-data/test.csv"
         == get_relative_path_to_directory(upath, directory=root).as_posix()
     )
+    local_upath_root = UPath(root.as_posix())
+    local_upath_file = UPath(upath.as_posix())
+    assert (
+        "test-data/test.csv"
+        == get_relative_path_to_directory(
+            local_upath_file, directory=local_upath_root
+        ).as_posix()
+    )
     with pytest.raises(TypeError) as error:
         get_relative_path_to_directory(upath, directory=".")
     assert error.exconly() == "TypeError: Directory not of type Path or UPath"

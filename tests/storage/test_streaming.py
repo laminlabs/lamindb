@@ -214,6 +214,10 @@ def test_infer_suffix():
 def test_write_to_disk():
     with pytest.raises(NotImplementedError):
         write_to_disk(ln.Artifact, "path")
+    df = pd.DataFrame({"x": [1, 2], "y": [3, 4]})
+    write_to_disk(df, "write_to_disk.csv")
+    assert Path("write_to_disk.csv").exists()
+    Path("write_to_disk.csv").unlink()
 
 
 def test_backed_bad_format(bad_adata_path):
@@ -399,6 +403,7 @@ def test_open_dataframe_collection():
     df[:2].to_parquet(shard1, engine="pyarrow")
     df[2:].to_parquet(shard2, engine="pyarrow")
     # test checking and opening local paths
+    assert _flat_suffixes(shard1) == {".parquet"}
     assert _flat_suffixes([shard1, ln.UPath("some.csv")]) == {".parquet", ".csv"}
     assert _open_pyarrow_dataset([shard1, shard2]).to_table().to_pandas().equals(df)
 

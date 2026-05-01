@@ -26,7 +26,6 @@ from lamindb_setup.core.upath import (
     get_stat_dir_cloud,
     get_stat_file_cloud,
 )
-from lamindb_setup.types import UPathStr
 
 from ..base.fields import (
     BigIntegerField,
@@ -140,7 +139,7 @@ if TYPE_CHECKING:
     import pandas as pd
     from anndata import AnnData
     from fsspec import AbstractFileSystem
-    from lamindb_setup.types import UPathStr
+    from lamindb_setup.types import AnyPathStr
     from mudata import MuData  # noqa: TC004
     from polars import LazyFrame as PolarsLazyFrame
     from pyarrow.dataset import Dataset as PyArrowDataset
@@ -257,7 +256,7 @@ def process_pathlike(
 
 def process_data(
     provisional_uid: str,
-    data: UPathStr | pd.DataFrame | AnnData,
+    data: AnyPathStr | pd.DataFrame | AnnData,
     format: str | None,
     key: str | None,
     storage: Storage,
@@ -273,7 +272,7 @@ def process_data(
     if with_package_obj(data, "AnnData", "anndata", lambda obj: True)[0]:
         is_anndata = True
         is_pathlike = False
-    elif isinstance(data, (str, Path, UPath)):  # UPathStr, spelled out
+    elif isinstance(data, (str, Path, UPath)):
         is_anndata = False
         is_pathlike = True
     else:
@@ -452,15 +451,13 @@ def check_path_in_existing_storage(
 
 def get_relative_path_to_directory(
     path: PurePath | Path | UPath, directory: PurePath | Path | UPath
-) -> PurePath | Path:
+) -> PurePath | Path | UPath:
     if isinstance(directory, UPath) and not isinstance(directory, LocalPathClasses):
-        # UPath.relative_to() is not behaving as it should (2023-04-07)
-        # need to lstrip otherwise inconsistent behavior across trailing slashes
-        # see test_artifact.py: test_get_relative_path_to_directory
+        # this is safer for cloud paths such as http paths
         relpath = PurePath(
             path.as_posix().replace(directory.as_posix(), "").lstrip("/")
         )
-    elif isinstance(directory, Path):
+    elif isinstance(directory, LocalPathClasses):
         relpath = path.resolve().relative_to(directory.resolve())  # type: ignore
     elif isinstance(directory, PurePath):
         relpath = path.relative_to(directory)
@@ -642,11 +639,11 @@ def data_is_dataframe(data: Any) -> bool:
 
 
 def data_is_scversedatastructure(
-    data: ScverseDataStructures | UPathStr,
+    data: ScverseDataStructures | AnyPathStr,
     structure_type: Literal["AnnData", "MuData", "SpatialData"] | None = None,
     cloud_warning: bool = True,
 ) -> bool:
-    """Determine whether a specific in-memory object or a UPathstr is any or a specific scverse data structure."""
+    """Determine whether a specific in-memory object or a path is any or a specific scverse data structure."""
     file_suffix = None
     if structure_type == "AnnData":
         file_suffix = ".h5ad"
@@ -699,17 +696,17 @@ def data_is_scversedatastructure(
     return False
 
 
-def data_is_soma_experiment(data: SOMAExperiment | UPathStr) -> bool:
+def data_is_soma_experiment(data: SOMAExperiment | AnyPathStr) -> bool:
     # We are not importing tiledbsoma here to keep loaded modules minimal
     if hasattr(data, "__class__") and data.__class__.__name__ == "Experiment":
         return True
-    if isinstance(data, (str, Path)):
+    if isinstance(data, (str, Path, UPath)):
         return UPath(data).suffix == ".tiledbsoma"
     return False
 
 
 def check_otype_artifact(
-    data: UPathStr | pd.DataFrame | ScverseDataStructures,
+    data: AnyPathStr | pd.DataFrame | ScverseDataStructures,
     otype: str | None = None,
     cloud_warning: bool = True,
 ) -> str:
@@ -741,7 +738,7 @@ def check_otype_artifact(
         if not is_pathlike:
             logger.warning("data is a SpatialData, please use .from_spatialdata()")
         otype = "SpatialData"
-    elif not is_pathlike:  # UPath is a subclass of Path
+    elif not is_pathlike:
         raise TypeError("data has to be a string, Path, UPath")
     return otype
 
@@ -1130,7 +1127,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     Some artifacts are table- or array-like, e.g., when stored as `.parquet`, `.h5ad`, `.zarr`, or `.tiledb`.
 
     Args:
-        path: `UPathStr` A path to a local or remote folder or file from which to create the artifact.
+        path: `AnyPathStr` A path to a local or remote folder or file from which to create the artifact.
         key: `str | None = None` A key within the storage location, e.g., `"myfolder/myfile.fcs"`. Artifacts with the same key form a version family.
         description: `str | None = None` A description.
         kind: `Literal["dataset", "model"] | str | None = None` Distinguish models from datasets from other files & folders.
@@ -1564,7 +1561,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     @overload
     def __init__(
         self,
-        path: UPathStr,
+        path: AnyPathStr,
         *,
         key: str | None = None,
         description: str | None = None,
@@ -1635,7 +1632,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             )
         # below is for internal calls that require defining the storage location
         # ahead of constructing the Artifact
-        if isinstance(path, (str, Path)) and _s().AUTO_KEY_PREFIX in str(path):
+        if isinstance(path, (str, Path, UPath)) and _s().AUTO_KEY_PREFIX in str(path):
             if _is_internal_call:
                 if _key_is_virtual is False:
                     raise ValueError(
@@ -1928,7 +1925,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         idlike: int | str | None = None,
         *,
         key: str | None = None,
-        path: UPathStr | None = None,
+        path: AnyPathStr | None = None,
         is_run_input: bool | Run = False,
         **expressions,
     ) -> Artifact:
@@ -2042,7 +2039,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     @classmethod
     def from_dataframe(
         cls,
-        df: pd.DataFrame | UPathStr,
+        df: pd.DataFrame | AnyPathStr,
         *,
         key: str | None = None,
         description: str | None = None,
@@ -2059,7 +2056,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         Sets `.otype` to `"DataFrame"` and populates `.n_observations`.
 
         Args:
-            df: A `DataFrame` object or a `UPathStr` pointing to a `DataFrame` in storage, e.g. a `.parquet` or `.csv` file.
+            df: A `DataFrame` object or an `AnyPathStr` pointing to a `DataFrame` in storage, e.g. a `.parquet` or `.csv` file.
             key: A relative path within default storage, e.g., `"myfolder/myfile.parquet"`.
             description: A description.
             revises: An old version of the artifact.
@@ -2171,7 +2168,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     @classmethod
     def from_anndata(
         cls,
-        adata: Union[AnnData, UPathStr],
+        adata: Union[AnnData, AnyPathStr],
         *,
         key: str | None = None,
         description: str | None = None,
@@ -2299,7 +2296,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     @classmethod
     def from_mudata(
         cls,
-        mdata: Union[MuData, UPathStr],
+        mdata: Union[MuData, AnyPathStr],
         *,
         key: str | None = None,
         description: str | None = None,
@@ -2345,7 +2342,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             kind="dataset",
             **kwargs,
         )
-        if not isinstance(mdata, UPathStr):
+        if not isinstance(mdata, (str, Path, UPath)):
             artifact.n_observations = mdata.n_obs
         if schema is not None:
             from ..curators import MuDataCurator
@@ -2359,7 +2356,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     @classmethod
     def from_spatialdata(
         cls,
-        sdata: SpatialData | UPathStr,
+        sdata: SpatialData | AnyPathStr,
         *,
         key: str | None = None,
         description: str | None = None,
@@ -2437,7 +2434,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     @classmethod
     def from_tiledbsoma(
         cls,
-        exp: SOMAExperiment | UPathStr,
+        exp: SOMAExperiment | AnyPathStr,
         *,
         key: str | None = None,
         description: str | None = None,
@@ -2469,7 +2466,11 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
         # SOMAExperiment.uri may have file:// prefix for local paths which needs stripping for filesystem access.
         # Other URI schemes (s3://, etc.) are preserved and supported.
-        exp = exp.uri.removeprefix("file://") if not isinstance(exp, UPathStr) else exp
+        exp = (
+            exp.uri.removeprefix("file://")
+            if not isinstance(exp, (str, Path, UPath))
+            else exp
+        )
 
         artifact = Artifact(  # type: ignore
             path=exp,
@@ -2489,7 +2490,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     @classmethod
     def from_dir(
         cls,
-        path: UPathStr,
+        path: AnyPathStr,
         *,
         key: str | None = None,
         run: Run | None = None,
@@ -2600,7 +2601,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
     def replace(
         self,
-        data: Union[UPathStr, pd.DataFrame, AnnData, MuData],
+        data: Union[AnyPathStr, pd.DataFrame, AnnData, MuData],
         run: Run | bool | None = None,
         format: str | None = None,
     ) -> None:
@@ -2909,7 +2910,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         | ScverseDataStructures
         | dict[str, Any]
         | list[Any]
-        | UPathStr
+        | AnyPathStr
         | None
     ):
         """Cache artifact in local cache and then load it into memory.
