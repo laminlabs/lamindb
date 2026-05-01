@@ -19,6 +19,7 @@ from .subsettings._creation_settings import CreationSettings, creation_settings
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
+    from pathlib import Path
 
     from lamindb_setup.types import AnyPathStr
     from upath import UPath
@@ -250,7 +251,7 @@ class Settings:
         return ln_setup.settings.instance.local_storage
 
     @local_storage.setter
-    def local_storage(self, local_root: AnyPathStr):
+    def local_storage(self, local_root: Path | str):
         import lamindb as ln
 
         # note duplication with storage setter!
