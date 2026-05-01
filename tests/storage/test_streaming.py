@@ -214,10 +214,14 @@ def test_infer_suffix():
 def test_write_to_disk():
     with pytest.raises(NotImplementedError):
         write_to_disk(ln.Artifact, "path")
+
     df = pd.DataFrame({"x": [1, 2], "y": [3, 4]})
     write_to_disk(df, "write_to_disk.csv")
-    assert Path("write_to_disk.csv").exists()
-    Path("write_to_disk.csv").unlink()
+
+    file_on_disk = Path("write_to_disk.csv")
+    assert file_on_disk.exists()
+
+    file_on_disk.unlink()
 
 
 def test_backed_bad_format(bad_adata_path):

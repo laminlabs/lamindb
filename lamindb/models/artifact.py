@@ -2982,7 +2982,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
     def cache(
         self, *, is_run_input: bool | None = None, mute: bool = False, **kwargs
-    ) -> Path:
+    ) -> UPath:
         """Download cloud artifact to local cache.
 
         Follows synching logic: only caches an artifact if it's outdated in the local cache.

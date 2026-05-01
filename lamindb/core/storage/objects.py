@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from pathlib import PurePosixPath
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, TypeAlias
 
 from lamindb.core._compat import (
@@ -129,9 +129,8 @@ def write_to_disk(dmem: SupportedDataTypes, filepath: AnyPathStr, **kwargs) -> N
 
 
 def _write_anndata(dmem: Any, filepath: AnyPathStr, **kwargs) -> None:
-    suffix = (
-        PurePosixPath(filepath).suffix if isinstance(filepath, str) else filepath.suffix
-    )
+    # Path(UPath(...)) properly coerces local UPaths and throws an error for cloud UPaths
+    suffix = Path(filepath).suffix
     if suffix == ".h5ad":
         dmem.write_h5ad(filepath, **kwargs)
         return
@@ -143,9 +142,8 @@ def _write_anndata(dmem: Any, filepath: AnyPathStr, **kwargs) -> None:
 
 
 def _write_dataframe(dmem: Any, filepath: AnyPathStr, **kwargs) -> None:
-    suffix = (
-        PurePosixPath(filepath).suffix if isinstance(filepath, str) else filepath.suffix
-    )
+    # Path(UPath(...)) properly coerces local UPaths and throws an error for cloud UPaths
+    suffix = Path(filepath).suffix
     if suffix == ".csv":
         dmem.to_csv(filepath, **kwargs)
         return

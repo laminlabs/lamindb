@@ -49,7 +49,11 @@ def load_fcs(*args, **kwargs) -> AnnData:
     return readfcs.read(*args, **kwargs)
 
 
-def load_csv(path: str | Path, **kwargs) -> DataFrame:
+# for types below note that local UPaths are subclasses of Path
+# so Path(UPath(...)) properly coerces local UPaths and throws an error for cloud UPaths
+
+
+def load_csv(path: AnyPathStr, **kwargs) -> DataFrame:
     """Load `.csv` file to `DataFrame`."""
     import pandas as pd
 
@@ -57,7 +61,7 @@ def load_csv(path: str | Path, **kwargs) -> DataFrame:
     return pd.read_csv(path_sanitized, **kwargs)
 
 
-def load_parquet(path: str | Path, **kwargs) -> DataFrame:
+def load_parquet(path: AnyPathStr, **kwargs) -> DataFrame:
     """Load `.parquet` file to `DataFrame`."""
     import pandas as pd
 
@@ -65,7 +69,7 @@ def load_parquet(path: str | Path, **kwargs) -> DataFrame:
     return pd.read_parquet(path_sanitized, **kwargs)
 
 
-def load_tsv(path: str | Path, **kwargs) -> DataFrame:
+def load_tsv(path: AnyPathStr, **kwargs) -> DataFrame:
     """Load `.tsv` file to `DataFrame`."""
     import pandas as pd
 
@@ -73,18 +77,18 @@ def load_tsv(path: str | Path, **kwargs) -> DataFrame:
     return pd.read_csv(path_sanitized, sep="\t", **kwargs)
 
 
-def load_h5ad(filepath, **kwargs) -> AnnData:
+def load_h5ad(filepath: AnyPathStr, **kwargs) -> AnnData:
     """Load an `.h5ad` file to `AnnData`."""
     from anndata import read_h5ad
 
-    fs, filepath = infer_filesystem(filepath)
+    fs, filepath_str = infer_filesystem(filepath)
     compression = kwargs.pop("compression", "infer")
-    with fs.open(filepath, mode="rb", compression=compression) as file:
+    with fs.open(filepath_str, mode="rb", compression=compression) as file:
         adata = read_h5ad(file, backed=False, **kwargs)
         return adata
 
 
-def load_h5mu(filepath: str | Path, **kwargs) -> MuData:
+def load_h5mu(filepath: AnyPathStr, **kwargs) -> MuData:
     """Load an `.h5mu` file to `MuData`."""
     import mudata as md
 
@@ -100,7 +104,7 @@ def load_zarr(storepath, **kwargs):  # type: ignore
     return _load_zarr(storepath, **kwargs)
 
 
-def load_html(path: str | Path) -> None | str | Path:
+def load_html(path: AnyPathStr) -> None | AnyPathStr:
     """Display `.html` in ipython, otherwise return path."""
     if is_run_from_ipython:
         path_sanitized = Path(path)
@@ -122,7 +126,7 @@ def load_html(path: str | Path) -> None | str | Path:
         return path
 
 
-def load_json(path: str | Path) -> dict[str, Any] | list[Any]:
+def load_json(path: AnyPathStr) -> dict[str, Any] | list[Any]:
     """Load `.json` to `dict`."""
     import json
 
@@ -132,7 +136,7 @@ def load_json(path: str | Path) -> dict[str, Any] | list[Any]:
     return data
 
 
-def load_yaml(path: str | Path) -> dict[str, Any] | list[Any]:
+def load_yaml(path: AnyPathStr) -> dict[str, Any] | list[Any]:
     """Load `.yaml` to `dict`."""
     import yaml  # type: ignore
 
@@ -142,7 +146,7 @@ def load_yaml(path: str | Path) -> dict[str, Any] | list[Any]:
     return data
 
 
-def load_image(path: str | Path) -> None | str | Path:
+def load_image(path: AnyPathStr) -> None | AnyPathStr:
     """Display `.jpg`, `.gif` or `.png` in ipython, otherwise return path."""
     if is_run_from_ipython:
         from IPython.display import Image, display
@@ -154,7 +158,7 @@ def load_image(path: str | Path) -> None | str | Path:
         return path
 
 
-def load_svg(path: str | Path) -> None | str | Path:
+def load_svg(path: AnyPathStr) -> None | AnyPathStr:
     """Display `.svg` in ipython, otherwise return path."""
     if is_run_from_ipython:
         from IPython.display import SVG, display
@@ -166,13 +170,13 @@ def load_svg(path: str | Path) -> None | str | Path:
         return path
 
 
-def load_txt(path: str | Path) -> str:
+def load_txt(path: AnyPathStr) -> str:
     """Load `.txt` file to `str`."""
     path_sanitized = Path(path)
     return path_sanitized.read_text(encoding="utf-8")
 
 
-def load_rds(path: str | Path) -> str | Path:
+def load_rds(path: AnyPathStr) -> AnyPathStr:
     """Just warn when trying to load `.rds`."""
     logger.warning("Please use `laminr` to load `.rds` files")
     return path
