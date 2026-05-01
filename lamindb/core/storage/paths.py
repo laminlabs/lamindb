@@ -13,9 +13,7 @@ from lamindb_setup.core.upath import (
 from lamindb.core._settings import settings
 
 if TYPE_CHECKING:
-    from pathlib import Path
-
-    from lamindb_setup.types import AnyPathStr
+    from lamindb_setup.types import AnyPath, AnyPathStr
 
     from lamindb.models.artifact import Artifact
 
@@ -195,15 +193,13 @@ def delete_storage_using_key(
 
 
 def delete_storage(
-    storagepath: Path, raise_file_not_found_error: bool = True
+    storagepath: AnyPath, raise_file_not_found_error: bool = True
 ) -> None | str:
     """Delete arbitrary artifact."""
     if storagepath.is_file():
         storagepath.unlink()
     elif storagepath.is_dir():
-        if isinstance(storagepath, LocalPathClasses) or not isinstance(
-            storagepath, UPath
-        ):
+        if isinstance(storagepath, LocalPathClasses):
             shutil.rmtree(storagepath)
         else:
             storagepath.rmdir()
