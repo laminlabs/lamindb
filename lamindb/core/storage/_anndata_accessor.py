@@ -31,7 +31,7 @@ if TYPE_CHECKING:
     from collections.abc import Mapping
 
     from fsspec.core import OpenFile
-    from lamindb_setup.types import UPathStr
+    from lamindb_setup.types import AnyPathStr
 
     from lamindb import Artifact
 
@@ -159,7 +159,7 @@ registry = AccessRegistry()
 
 
 @registry.register_open("h5py")
-def open(filepath: UPathStr, mode: str = "r", compression: str | None = "infer"):
+def open(filepath: AnyPathStr, mode: str = "r", compression: str | None = "infer"):
     fs, file_path_str = infer_filesystem(filepath)
     # we don't open compressed files directly because we need fsspec to uncompress on .open
     compression = (
@@ -301,7 +301,7 @@ if ZARR_INSTALLED:
     StorageTypes.append(zarr.Group)
 
     @registry.register_open("zarr")
-    def open(filepath: UPathStr, mode: Literal["r", "r+", "a", "w", "w-"] = "r"):
+    def open(filepath: AnyPathStr, mode: Literal["r", "r+", "a", "w", "w-"] = "r"):
         assert mode in {"r", "r+", "a", "w", "w-"}, f"Unknown mode {mode}!"  #  noqa: S101
 
         store = get_zarr_store(filepath)
@@ -856,7 +856,7 @@ class AnnDataAccessor(_AnnDataAttrsMixin):
 
 
 # get the number of observations in an anndata object or file fast and safely
-def _anndata_n_observations(object: UPathStr | AnnData) -> int | None:
+def _anndata_n_observations(object: AnyPathStr | AnnData) -> int | None:
     if isinstance(object, AnnData):
         return object.n_obs
 

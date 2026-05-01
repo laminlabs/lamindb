@@ -9,11 +9,13 @@ from lamin_utils import logger
 from lamindb_setup.core.upath import UPath
 
 if TYPE_CHECKING:
+    from lamindb_setup.types import AnyPathStr
+
     import lamindb as ln
 
 
 def curate_from_croissant(
-    croissant_data: str | Path | dict[str, Any],
+    croissant_data: AnyPathStr | dict[str, Any],
     run: ln.Run | None = None,
 ) -> ln.Artifact | ln.Collection:
     """Create annotated artifacts from a CroissantML file.
@@ -34,10 +36,11 @@ def curate_from_croissant(
     from ..models.artifact import check_path_in_existing_storage
 
     # Load CroissantML data
-    if isinstance(croissant_data, (str, Path)):
-        if not Path(croissant_data).exists():
+    if isinstance(croissant_data, (str, Path, UPath)):
+        croissant_path = UPath(croissant_data)
+        if not croissant_path.exists():
             raise FileNotFoundError(f"File not found: {croissant_data}")
-        with open(croissant_data, encoding="utf-8") as f:
+        with croissant_path.open(encoding="utf-8") as f:
             data = json.load(f)
     elif isinstance(croissant_data, dict):
         data = croissant_data
@@ -86,7 +89,7 @@ def curate_from_croissant(
         raise ValueError("No file distributions found in croissant data")
     for dist in file_distributions:
         file_id = dist.get("@id", "")
-        if Path(file_id).exists():
+        if UPath(file_id).exists():
             file_path = file_id
         else:
             content_url = dist.get("contentUrl", "")

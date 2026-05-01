@@ -20,6 +20,7 @@ def test_create_from_soma_experiment(soma_experiment_file, adata_file):
 
 def test_data_is_soma_experiment_paths():
     assert data_is_soma_experiment("something.tiledbsoma")
+    assert data_is_soma_experiment(ln.UPath("something.tiledbsoma"))
 
 
 def test_data_is_soma_experiment(soma_experiment_file):

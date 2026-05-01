@@ -21,6 +21,7 @@ if TYPE_CHECKING:
     from collections.abc import Mapping
     from pathlib import Path
 
+    from lamindb_setup.types import AnyPathStr
     from upath import UPath
 
 
@@ -195,7 +196,7 @@ class Settings:
         return self._storage_settings
 
     @storage.setter
-    def storage(self, path_kwargs: str | Path | UPath | tuple[str | UPath, Mapping]):
+    def storage(self, path_kwargs: AnyPathStr | tuple[AnyPathStr, Mapping]):
         from ..models import Storage
 
         if isinstance(path_kwargs, tuple):
@@ -250,7 +251,7 @@ class Settings:
         return ln_setup.settings.instance.local_storage
 
     @local_storage.setter
-    def local_storage(self, local_root: Path):
+    def local_storage(self, local_root: Path | str):
         import lamindb as ln
 
         # note duplication with storage setter!

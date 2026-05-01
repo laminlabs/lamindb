@@ -21,7 +21,7 @@ from .storage._anndata_accessor import (
 )
 
 if TYPE_CHECKING:
-    from lamindb_setup.types import UPathStr
+    from lamindb_setup.types import AnyPathStr
 
 
 class _Connect:
@@ -106,7 +106,7 @@ class MappedCollection:
 
     def __init__(
         self,
-        path_list: list[UPathStr],
+        path_list: list[AnyPathStr],
         layers_keys: str | list[str] | None = None,
         obs_keys: str | list[str] | None = None,
         obsm_keys: str | list[str] | None = None,
@@ -367,7 +367,7 @@ class MappedCollection:
         return [i for i, vrs in enumerate(self.var_list) if not vrs.equals(vars)]
 
     def _check_csc_raise_error(
-        self, elem: GroupType | ArrayType, key: str, path: UPathStr
+        self, elem: GroupType | ArrayType, key: str, path: AnyPathStr
     ):
         if isinstance(elem, ArrayTypes):  # type: ignore
             return

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from pathlib import PurePosixPath
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, TypeAlias
 
 from lamindb.core._compat import (
@@ -8,7 +8,6 @@ from lamindb.core._compat import (
 )
 
 if TYPE_CHECKING:
-    from lamindb_setup.types import UPathStr
     from pandas import DataFrame
 
     from .types import ScverseDataStructures
@@ -96,7 +95,11 @@ def _infer_spatialdata_suffix(format: str | dict[str, Any] | None) -> str:
     )
 
 
-def write_to_disk(dmem: SupportedDataTypes, filepath: UPathStr, **kwargs) -> None:
+# for types below note that local UPaths are subclasses of Path
+# Path(UPath(...)) properly coerces local UPaths and throws an error for cloud UPaths
+
+
+def write_to_disk(dmem: SupportedDataTypes, filepath: Path | str, **kwargs) -> None:
     """Writes the passed in memory data to disk to a specified path."""
     if with_package_obj(
         dmem,
@@ -128,8 +131,8 @@ def write_to_disk(dmem: SupportedDataTypes, filepath: UPathStr, **kwargs) -> Non
     raise NotImplementedError
 
 
-def _write_anndata(dmem: Any, filepath: UPathStr, **kwargs) -> None:
-    suffix = PurePosixPath(filepath).suffix
+def _write_anndata(dmem: Any, filepath: Path | str, **kwargs) -> None:
+    suffix = Path(filepath).suffix
     if suffix == ".h5ad":
         dmem.write_h5ad(filepath, **kwargs)
         return
@@ -140,8 +143,9 @@ def _write_anndata(dmem: Any, filepath: UPathStr, **kwargs) -> None:
         raise NotImplementedError
 
 
-def _write_dataframe(dmem: Any, filepath: UPathStr, **kwargs) -> None:
-    if filepath.suffix == ".csv":
+def _write_dataframe(dmem: Any, filepath: Path | str, **kwargs) -> None:
+    suffix = Path(filepath).suffix
+    if suffix == ".csv":
         dmem.to_csv(filepath, **kwargs)
         return
     dmem.to_parquet(filepath, **kwargs)

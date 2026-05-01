@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Literal
 
 PYARROW_SUFFIXES = (".parquet", ".csv", ".json", ".orc", ".arrow", ".feather", ".ipc")
@@ -164,11 +163,10 @@ def _flat_suffixes(paths: UPath | list[UPath]) -> set[str]:
     # we don't check here that the filesystem is the same
     # but this is a requirement for pyarrow.dataset.dataset
     path_list = []
-    if isinstance(paths, Path):
-        paths = [paths]
-    for path in paths:
+    paths_list = paths if isinstance(paths, list) else [paths]
+    for path in paths_list:
         # assume http is always a file
-        if getattr(path, "protocol", None) not in {"http", "https"} and path.is_dir():
+        if path.protocol not in {"http", "https"} and path.is_dir():
             path_list += [p for p in path.rglob("*") if p.suffix != ""]
         else:
             path_list.append(path)
@@ -214,13 +212,14 @@ def _open_dataframe(
         )
 
     polars_without_fsspec = engine == "polars" and not kwargs.get("use_fsspec", False)
-    if (engine == "pyarrow" or polars_without_fsspec) and not isinstance(paths, Path):
+    paths_list = paths if isinstance(paths, list) else [paths]
+    if (engine == "pyarrow" or polars_without_fsspec) and len(paths_list) > 1:
         # this checks that the filesystem is the same for all paths
         # this is a requirement of pyarrow.dataset.dataset
-        fs = getattr(paths[0], "fs", None)
-        for path in paths[1:]:
+        fs = paths_list[0].fs
+        for path in paths_list[1:]:
             # this assumes that the filesystems are cached by fsspec
-            if getattr(path, "fs", None) is not fs:
+            if path.fs is not fs:
                 engine_msg = (
                     "polars engine without passing `use_fsspec=True`"
                     if engine == "polars"
