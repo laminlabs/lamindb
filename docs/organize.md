@@ -1,6 +1,13 @@
-# Group, annotate, and version datasets
+# Organize datasets
 
-You can use `lamindb` like a file system, like a database, and like a publishing system for curated data products.
+```{toctree}
+:maxdepth: 1
+:hidden:
+
+curate
+```
+
+This guide walks through using `lamindb` like a file system, like a database, and like a publishing system for curated data products.
 
 ## Using artifacts like a file system
 

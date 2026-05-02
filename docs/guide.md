@@ -13,7 +13,7 @@ README
 
 query-search
 track
-organize-section
+organize
 manage-changes
 manage-ontologies
 sync
