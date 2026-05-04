@@ -14,19 +14,19 @@ This guide walks through organizing datasets using files & folders, database rel
 If a database seems daunting, you can use LaminDB as a versioned file system. Similar to AWS S3, you organize artifacts into virtual folders using `/`-separated keys. For a single file, you'd call:
 
 ```python
-artifact1 = ln.Artifact("./dataset.csv", key="project1/dataset1.csv").save()  # ingest the file in "folder" project1/
+artifact1 = ln.Artifact("./dataset.csv", key="project1/dataset1.csv").save()
 ```
 
 For convenience, if you want to create an artifact for every file in a directory, use {meth}`~lamindb.Artifact.from_dir`:
 
 ```python
-artifacts = ln.Artifact.from_dir("./project1/").save()  # create one artifact per file in the directory
+artifacts = ln.Artifact.from_dir("./project1/").save()
 ```
 
 You can then query for all artifacts in the `"./project1/"` folder via:
 
 ```python
-artifacts = ln.Artifact.filter(key__startswith="project1/")  # query artifacts via the folder prefix
+artifacts = ln.Artifact.filter(key__startswith="project1/")
 ```
 
 Every artifact is versioned and comes with rich metadata.
@@ -37,7 +37,7 @@ In some cases a folder _is_ the dataset and you don't need fine-grained informat
 In this scenario, save the entire directory as a single artifact:
 
 ```python
-ln.Artifact("./folder_abc", key="folder_abc").save()  # create a single artifact for the whole "folder_abc/" directory
+ln.Artifact("./folder_abc", key="folder_abc").save()
 ```
 
 :::
@@ -56,7 +56,7 @@ You can solve this problem by annotating the artifact with projects:
 ```python
 project1 = ln.Project(name="Project 1").save()  # create project 1
 project2 = ln.Project(name="Project 2").save()  # create project 2
-artifact1.projects.add(project1, project2)  # annotate artifact1
+artifact1.projects.add(project1, project2)      # annotate artifact1
 ```
 
 This allows you to retrieve `artifact1` by querying any project it belongs to. For example, `artifact1` will appear in the results of both queries:
@@ -114,13 +114,12 @@ The {class}`~lamindb.Artifact` registry has simple fields (such as `description`
 
 Conceptually, all other registries surround {class}`~lamindb.Artifact` to provide context to find, query, and validate artifacts.[^starsnowflake]
 
-:::{dropdown} What are simple fields that are auto-populated?
+:::{dropdown} Can you give me some example queries?
 
 Here are examples leveraging auto-populated fields.
 
 ```python
 artifacts = ln.Artifact.filter(
-    # examples for simple fields
     created_at__gt="2023-06-24",    # created after June 24th, 2023
     size__lt=1e9,                   # smaller than 1GB
     suffix=".parquet",              # with a .parquet suffix
@@ -128,7 +127,6 @@ artifacts = ln.Artifact.filter(
     n_files__gt=1000,               # folder-like artifacts with more than 1000 files
     otype="DataFrame",              # that are DataFrames
     created_on__name="my-branch",   # created on a specific branch or environment
-    # examples for related fields
     created_by__handle="falexwolf", # created by user with handle falexwolf
     run=run,                        # created by a specific run
     transform__name="my-script.py", # created by a specific script/notebook
