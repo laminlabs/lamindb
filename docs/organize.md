@@ -17,7 +17,7 @@ If a database seems daunting, you can think of and use lamindb like a versioned 
 artifact1 = ln.Artifact("./dataset.csv", key="project1/dataset1.csv").save()  # ingest the file in "folder" project/
 ```
 
-For convenience, if you want to create an artifact for every file in a directory, use {meth}~lamindb.Artifact.from_dir`:
+For convenience, if you want to create an artifact for every file in a directory, use {meth}`~lamindb.Artifact.from_dir`:
 
 ```python
 artifacts = ln.Artifact.from_dir("./project1/").save()  # create one artifact per file in the directory
@@ -28,6 +28,8 @@ You can then query for all artifacts in the folder `"./project1/"` folder via:
 ```python
 artifacts = ln.Artifact.filter(key__startswith="project1/")  # query artifacts via the folder prefix
 ```
+
+Every artifact is versioned and comes with rich metadata.
 
 :::{dropdown} What if I do not care about the metadata and version of every file in a folder?
 
