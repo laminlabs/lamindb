@@ -81,6 +81,7 @@ def install(session):
         "biology",
         "faq",
         "storage",
+        "transfer",
         "curator",
         "integrations",
         "docs",
@@ -276,6 +277,7 @@ def prepare(session):
         "biology",
         "faq",
         "storage",
+        "transfer",
         "cli",
         "permissions",
     ],
@@ -340,6 +342,8 @@ def test(session, group):
         run(session, f"pytest -s {coverage_args} ./docs/faq")
     elif group == "storage":
         run(session, f"pytest -s {coverage_args} ./docs/storage")
+    elif group == "transfer":
+        run(session, f"pytest {coverage_args} tests/transfer {duration_args}")
     elif group == "curator":
         run(
             session,
