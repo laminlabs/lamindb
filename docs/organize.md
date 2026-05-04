@@ -108,7 +108,7 @@ artifact.features.set_values({
 
 ### Auto-generated annotations
 
-The {class}`~lamindb.Artifact` registry has simple fields (`description`, `created_at`, `size`, ...) and related fields (`projects`, `created_by`, `storage`, ...). Many of these fields are automatically populated and you can use them to retrieve sets of artifacts.
+The {class}`~lamindb.Artifact` registry has simple fields (such as `description`, `created_at`, `size`) and related fields (such as `projects`, `created_by`, `storage`). Many of these fields are automatically populated and you can use them to retrieve sets of artifacts.
 
 <img width="800" alt="image" src="https://github.com/user-attachments/assets/222d3ed6-1850-4048-9b95-39765c756a1c" />
 
@@ -139,7 +139,7 @@ artifacts = ln.Artifact.filter(
 
 ### Auto-annotating based on parsed metadata
 
-When you work with structured data formats like `DataFrame`, `AnnData`, or similar, it often makes sense to validate their content. During validation, the parsed content is automatically used for annotation. This behavior is triggered if you pass a {class}`~lamindb.Schema` to {class}`~lamindb.Artifact`.
+When you work with structured data formats like `DataFrame` or `AnnData`, it often makes sense to validate their content. During validation, the parsed content is automatically used for annotation. This behavior is triggered if you pass a {class}`~lamindb.Schema` to {class}`~lamindb.Artifact`.
 
 ```python
 # validate columns in the dataframe and map them on features, auto-annotate with parsed metadata
