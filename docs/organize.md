@@ -7,9 +7,9 @@
 curate
 ```
 
-This guide walks through using `lamindb` like a file system, like a database, and like a publishing system for curated data products.
+This guide walks through organizing datasets with files & folders, with annotations in a database, and with versioned collections.
 
-## Using artifacts like a file system
+## Organize datasets as files and folders
 
 If a database seems daunting, you can think of and use lamindb like a versioned file system in which you organize artifacts into virtual folders by using `/`-seperated keys, similar to AWS S3. For a single file, you'd call:
 
@@ -40,7 +40,7 @@ ln.Artifact("./folder_abc", key="folder_abc").save()  # create a single artifact
 
 :::
 
-## Using artifacts as the central table of a database
+## Organize datasets with annotations in a database
 
 You can consider the {class}`~lamindb.Artifact` registry your central registry and all other registries as context that allow you to find & query artifacts based on different entities you care about.[^starsnowflake]
 
