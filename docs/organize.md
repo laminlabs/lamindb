@@ -11,7 +11,7 @@ This guide walks through organizing datasets via files & folders, via relationsh
 
 ## Organize via folders
 
-If a database seems daunting, you can think of and use lamindb like a versioned file system in which you organize artifacts into virtual folders by using `/`-seperated keys, similar to AWS S3. For a single file, you'd call:
+If a database seems daunting, you can think of and use lamindb like a versioned file system in which you organize artifacts into virtual folders by using `/`-separated keys, similar to AWS S3. For a single file, you'd call:
 
 ```python
 artifact1 = ln.Artifact("./dataset.csv", key="project1/dataset1.csv").save()  # ingest the file in "folder" project/
@@ -23,7 +23,7 @@ For convenience, if you want to create an artifact for every file in a directory
 artifacts = ln.Artifact.from_dir("./project1/").save()  # create one artifact per file in the directory
 ```
 
-You can then query for all artifacts in the folder `"./project1/"` folder via:
+You can then query for all artifacts in the `"./project1/"` folder via:
 
 ```python
 artifacts = ln.Artifact.filter(key__startswith="project1/")  # query artifacts via the folder prefix
@@ -105,7 +105,7 @@ artifacts = ln.Artifact.filter(
 
 ### Annotating with other label types
 
-Often times you also want to annotate with other entities, not just projects. LaminDB offers two main classes for this: {class}`~lamindb.Record` for metadata records and {class}`~lamindb.ULabel` for simple labels. You can use these together with entities in modules such as {mod}`bionty` in full analogy with `Project`. For example:
+Often, you also want to annotate with other entities, not just projects. LaminDB offers two main classes for this: {class}`~lamindb.Record` for metadata records and {class}`~lamindb.ULabel` for simple labels. You can use these together with entities in modules such as {mod}`bionty` in full analogy with `Project`. For example:
 
 ```python
 import bionty as bt
@@ -120,7 +120,7 @@ artifact1.cell_types.add(cell_type1)
 
 ### Annotating with features
 
-To annotate with non-categorical data types or to disambiguate categorical annotations, you might want consider annotations with features, using {class}`~lamindb.Feature` objects.
+To annotate with non-categorical data types or to disambiguate categorical annotations, you might want to consider annotations with features, using {class}`~lamindb.Feature` objects.
 
 ```python
 experiment_type = ln.Record.get(name="Experiments")
@@ -142,7 +142,7 @@ artifact.features.set_values({
 When you work with structured data formats like `DataFrame`, `AnnData`, or similar, it often makes sense to validate their content. During validation, the content is parsed and can hence be used for annotation. This behavior is triggered if you pass a {class}`~lamindb.Schema` to {class}`~lamindb.Artifact`.
 
 ```python
-# validate columns in the dataframe and map them on features, auto-annotate with parse metadata
+# validate columns in the dataframe and map them on features, auto-annotate with parsed metadata
 ln.Artifact.from_dataframe(df, schema="valid_features").save()
 ```
 
@@ -156,9 +156,7 @@ collection = ln.Collection([artifact1, artifact2], key="my_dataset_release").sav
 
 Unlike sets of artifacts defined through folders or through metadata annotations, where it's possible that artifacts are added or removed, a `collection` _guarantees_ that you get one exact immutable set of artifacts.
 
-Artifacts are versiond based on the hash of their content. Collections are versioned based on the top-level hash of its artifact hashes.
-
-[^fkprotect]: Its foreign key is protected in the `ArtifactProject` link model.
+Artifacts are versioned based on the hash of their content. Collections are versioned based on the top-level hash of their artifact hashes.
 
 [^starsnowflake]: You can consider the SQL table underlying {class}`~lamindb.Artifact` your _fact table_ and all other tables for other entities your _dimension tables_ in a star or Snowflake schema ([see Wikipedia](https://en.wikipedia.org/wiki/Fact_table)).
 
