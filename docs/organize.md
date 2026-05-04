@@ -7,11 +7,11 @@
 curate
 ```
 
-This guide walks through organizing datasets via files & folders, via relationships in a database, and via versioned collections.
+This guide walks through organizing datasets using files & folders, database relationships, and versioned collections.
 
 ## Organize via folders
 
-If a database seems daunting, you can think of and use lamindb like a versioned file system in which you organize artifacts into virtual folders by using `/`-separated keys, similar to AWS S3. For a single file, you'd call:
+If a database seems daunting, you can use LaminDB as a versioned file system. Similar to AWS S3, you organize artifacts into virtual folders using `/`-separated keys. For a single file, you'd call:
 
 ```python
 artifact1 = ln.Artifact("./dataset.csv", key="project1/dataset1.csv").save()  # ingest the file in "folder" project1/
@@ -33,8 +33,8 @@ Every artifact is versioned and comes with rich metadata.
 
 :::{dropdown} What if I do not care about the metadata and version of every file in a folder?
 
-In some cases a folder _is_ the dataset and you do not care about fine-grained information for every file in it.
-Consider then saving the whole directory as a single artifact:
+In some cases a folder _is_ the dataset and you don't need fine-grained information for every file.
+In this scenario, save the entire directory as a single artifact::
 
 ```python
 ln.Artifact("./folder_abc", key="folder_abc").save()  # create a single artifact for the whole "folder_abc/" directory
@@ -47,38 +47,38 @@ ln.Artifact("./folder_abc", key="folder_abc").save()  # create a single artifact
 ### Annotating with projects
 
 What if an artifact is relevant to **multiple projects**?
+
+<img width="400" alt="image" src="https://github.com/user-attachments/assets/d8642988-8559-4732-9242-2d464d7d4834" />
+
 A dataset that's in the `project1/` folder as in the example above cannot **also** be in a `project2/` folder.
 You can solve this problem by annotating the artifact with projects:
 
 ```python
 project1 = ln.Project(name="Project 1").save()  # create project 1
 project2 = ln.Project(name="Project 2").save()  # create project 2
-artifact1.projects.add(project1, project2)  # annotate dataset1
+artifact1.projects.add(project1, project2)  # annotate artifact1
 ```
 
-This allows you to find `artifact1` when you're querying for the datasets in any project that labels it.
-For example, `artifact1` will be in the query results of both of these queries:
+This allows you to retrieve `artifact1` by querying any project it belongs to. For example, `artifact1` will appear in the results of both queries:
 
 ```python
-artifacts_in_project1 = ln.Artifact.filter(projects=project1)  # all datasets in project1
-artifacts_in_project2 = ln.Artifact.filter(projects=project2)  # all datasets in project2
+artifacts_in_project1 = ln.Artifact.filter(projects=project1)  # all artifacts in project1
+artifacts_in_project2 = ln.Artifact.filter(projects=project2)  # all artifacts in project2
 ```
 
-There are three more big advantages of using related registries rather than folder structures.
+There are three additional advantages of using related registries rather than folder structures:
 
-<img width="400" alt="image" src="https://github.com/user-attachments/assets/d8642988-8559-4732-9242-2d464d7d4834" />
-
-First, project objects can themselves be richly annotated, e.g. by start date and end date, parent project, or users playing different roles in them.
-Second, you don't have to trust file paths anymore. A folder structure in a file path might be renamed, and then your retrieval logic breaks. A project query by `uid` will never break.[^protectproject]
-Third, you can run a constrained query or search against all projects in your database, rather than trying to narrow a search to folder names.
+1. Project objects can be richly annotated (e.g., with start/end dates, parent projects, or user roles).
+2. You no longer need to rely on fragile file paths. If a folder is renamed, path-based retrieval breaks, but a project query by `uid` will always work.[^protectproject]
+3. You can run a constrained query or search against all projects in your database, rather than trying to narrow a search to folder names.
 
 ### Auto-generated annotations
 
-The {class}`~lamindb.Artifact` registry has simple fields like `description: str`, `created_at: datetime`, `size: int`, etc. and related fields like `projects`, `created_by`, `storage`, `records`, `ulabels`, `branch`, etc. Many of these fields are automatically populated and you can use them to retrieve sets of artifacts.
+The {class}`~lamindb.Artifact` registry has simple fields (`description`, `created_at`, `size`, ...) and related fields (`projects`, `created_by`, `storage`, ...). Many of these fields are automatically populated and you can use them to retrieve sets of artifacts.
 
 <img width="800" alt="image" src="https://github.com/user-attachments/assets/222d3ed6-1850-4048-9b95-39765c756a1c" />
 
-If you will, all other registries surround {class}`~lamindb.Artifact` to provide context to find, query, and validate artifacts.[^starsnowflake]
+Conceptually, all other registries surround {class}`~lamindb.Artifact` to provide context to find, query, and validate artifacts.[^starsnowflake]
 
 :::{dropdown} What are simple fields that are auto-populated?
 
@@ -105,7 +105,7 @@ artifacts = ln.Artifact.filter(
 
 ### Annotating with other label types
 
-Often, you also want to annotate with other entities, not just projects. LaminDB offers two main classes for this: {class}`~lamindb.Record` for metadata records and {class}`~lamindb.ULabel` for simple labels. You can use these together with entities in modules such as {mod}`bionty` in full analogy with `Project`. For example:
+Often, you also want to annotate with other entities, not just projects. LaminDB offers two main classes for this: {class}`~lamindb.Record` for metadata records and {class}`~lamindb.ULabel` for simple labels. You can use these alongside entities in modules such as {mod}`bionty`, just as you would with `Project`:
 
 ```python
 import bionty as bt
@@ -139,7 +139,7 @@ artifact.features.set_values({
 
 ### Auto-annotating based on parsed metadata
 
-When you work with structured data formats like `DataFrame`, `AnnData`, or similar, it often makes sense to validate their content. During validation, the content is parsed and can hence be used for annotation. This behavior is triggered if you pass a {class}`~lamindb.Schema` to {class}`~lamindb.Artifact`.
+When you work with structured data formats like `DataFrame`, `AnnData`, or similar, it often makes sense to validate their content. During validation, the parsed content is automatically used for annotation. This behavior is triggered if you pass a {class}`~lamindb.Schema` to {class}`~lamindb.Artifact`.
 
 ```python
 # validate columns in the dataframe and map them on features, auto-annotate with parsed metadata
@@ -148,13 +148,13 @@ ln.Artifact.from_dataframe(df, schema="valid_features").save()
 
 ## Versioned collections of artifacts
 
-In some cases, you don't just want to group a set of artifacts by different dimensions of metadata, but you also want to version the set. For this, you can use {class}`~lamindb.Collection`:
+Sometimes, you need to both group artifacts by metadata and version the entire set. For this, you can use {class}`~lamindb.Collection`:
 
 ```python
 collection = ln.Collection([artifact1, artifact2], key="my_dataset_release").save()
 ```
 
-Unlike sets of artifacts defined through folders or through metadata annotations, where it's possible that artifacts are added or removed, a `collection` _guarantees_ that you get one exact immutable set of artifacts.
+Unlike folder-based or metadata-based sets — which can change as artifacts are added or removed — a collection guarantees an exact, immutable set of artifacts.
 
 Artifacts are versioned based on the hash of their content. Collections are versioned based on the top-level hash of their artifact hashes.
 
