@@ -34,7 +34,7 @@ Every artifact is versioned and comes with rich metadata.
 :::{dropdown} What if I do not care about the metadata and version of every file in a folder?
 
 In some cases a folder _is_ the dataset and you don't need fine-grained information for every file.
-In this scenario, save the entire directory as a single artifact::
+In this scenario, save the entire directory as a single artifact:
 
 ```python
 ln.Artifact("./folder_abc", key="folder_abc").save()  # create a single artifact for the whole "folder_abc/" directory
@@ -50,7 +50,7 @@ What if an artifact is relevant to **multiple projects**?
 
 <img width="400" alt="image" src="https://github.com/user-attachments/assets/d8642988-8559-4732-9242-2d464d7d4834" />
 
-A dataset that's in the `project1/` folder as in the example above cannot **also** be in a `project2/` folder.
+A dataset that's in the `project1/` folder cannot **also** reside in a `project2/` folder.
 You can solve this problem by annotating the artifact with projects:
 
 ```python
@@ -71,6 +71,40 @@ There are three additional advantages of using related registries rather than fo
 1. Project objects can be richly annotated (e.g., with start/end dates, parent projects, or user roles).
 2. You no longer need to rely on fragile file paths. If a folder is renamed, path-based retrieval breaks, but a project query by `uid` will always work.[^protectproject]
 3. You can run a constrained query or search against all projects in your database, rather than trying to narrow a search to folder names.
+
+### Annotating with other label types
+
+Often, you also want to annotate with other entities, not just projects. LaminDB offers two main classes for this: {class}`~lamindb.Record` for metadata records and {class}`~lamindb.ULabel` for simple labels. You can use these alongside entities in modules such as {mod}`bionty`, just as you would with `Project`:
+
+```python
+import bionty as bt
+
+ulabel1 = ln.ULabel(name="raw_data").save()
+record1 = ln.Record(name="My sample", features={"gc_content": 0.5}).save()
+cell_type1 = bt.CellType.from_source(name="T cell").save()
+artifact1.ulabels.add(ulabel1)
+artifact1.records.add(record1)
+artifact1.cell_types.add(cell_type1)
+```
+
+### Annotating with features
+
+To annotate with non-categorical data types or to disambiguate categorical annotations, use {class}`~lamindb.Feature` objects.
+
+```python
+experiment_type = ln.Record.get(name="Experiments")
+ln.Feature(name="gc_content", dtype=float).save()
+ln.Feature(name="experiment", dtype=experiment_type).save()
+```
+
+During annotation, feature names and data types are validated against these definitions.
+
+```python
+artifact.features.set_values({
+    "gc_content": 0.55,
+    "experiment": "Experiment 1",  # needs to exist under the "Experiments" record type
+})
+```
 
 ### Auto-generated annotations
 
@@ -103,40 +137,6 @@ artifacts = ln.Artifact.filter(
 
 :::
 
-### Annotating with other label types
-
-Often, you also want to annotate with other entities, not just projects. LaminDB offers two main classes for this: {class}`~lamindb.Record` for metadata records and {class}`~lamindb.ULabel` for simple labels. You can use these alongside entities in modules such as {mod}`bionty`, just as you would with `Project`:
-
-```python
-import bionty as bt
-
-ulabel1 = ln.ULabel(name="raw_data").save()
-record1 = ln.Record(name="My sample", features={"gc_content": 0.5}).save()
-cell_type1 = bt.CellType.from_source(name="T cell").save()
-artifact1.ulabels.add(ulabel1)
-artifact1.records.add(record1)
-artifact1.cell_types.add(cell_type1)
-```
-
-### Annotating with features
-
-To annotate with non-categorical data types or to disambiguate categorical annotations, you might want to consider annotations with features, using {class}`~lamindb.Feature` objects.
-
-```python
-experiment_type = ln.Record.get(name="Experiments")
-ln.Feature(name="gc_content", dtype=float).save()
-ln.Feature(name="experiment", dtype=experiment_type).save()
-```
-
-During annotation, feature names and data types are validated against these definitions.
-
-```python
-artifact.features.set_values({
-    "gc_content": 0.55,
-    "experiment": "Experiment 1",  # needs to exist under the "Experiments" record type
-})
-```
-
 ### Auto-annotating based on parsed metadata
 
 When you work with structured data formats like `DataFrame`, `AnnData`, or similar, it often makes sense to validate their content. During validation, the parsed content is automatically used for annotation. This behavior is triggered if you pass a {class}`~lamindb.Schema` to {class}`~lamindb.Artifact`.
@@ -148,7 +148,7 @@ ln.Artifact.from_dataframe(df, schema="valid_features").save()
 
 ## Versioned collections of artifacts
 
-Sometimes, you need to both group artifacts by metadata and version the entire set. For this, you can use {class}`~lamindb.Collection`:
+Sometimes, you need to both group artifacts by metadata and version the entire set. For this, use {class}`~lamindb.Collection`:
 
 ```python
 collection = ln.Collection([artifact1, artifact2], key="my_dataset_release").save()
