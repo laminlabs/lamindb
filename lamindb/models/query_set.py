@@ -1667,7 +1667,9 @@ class DB:
         self._cache: dict[str, NonInstantiableQuerySet | BiontyDB | PertdbDB] = {}
         self._available_registries: set[str] | None = None
 
-        owner, instance_name = instance.split("/")
+        owner, instance_name = (
+            ln_setup._connect_instance.get_owner_name_from_identifier(instance)
+        )
         instance_info = ln_setup._connect_instance._connect_instance(
             owner=owner, name=instance_name
         )
