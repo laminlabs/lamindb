@@ -14,7 +14,7 @@ This guide walks through organizing datasets via files & folders, via relationsh
 If a database seems daunting, you can think of and use lamindb like a versioned file system in which you organize artifacts into virtual folders by using `/`-separated keys, similar to AWS S3. For a single file, you'd call:
 
 ```python
-artifact1 = ln.Artifact("./dataset.csv", key="project1/dataset1.csv").save()  # ingest the file in "folder" project/
+artifact1 = ln.Artifact("./dataset.csv", key="project1/dataset1.csv").save()  # ingest the file in "folder" project1/
 ```
 
 For convenience, if you want to create an artifact for every file in a directory, use {meth}`~lamindb.Artifact.from_dir`:
@@ -66,7 +66,7 @@ artifacts_in_project2 = ln.Artifact.filter(projects=project2)  # all datasets in
 
 There are three more big advantages of using related registries rather than folder structures.
 
-<img width="571" height="84" alt="image" src="https://github.com/user-attachments/assets/d8642988-8559-4732-9242-2d464d7d4834" />
+<img width="400" alt="image" src="https://github.com/user-attachments/assets/d8642988-8559-4732-9242-2d464d7d4834" />
 
 First, project objects can themselves be richly annotated, e.g. by start date and end date, parent project, or users playing different roles in them.
 Second, you don't have to trust file paths anymore. A folder structure in a file path might be renamed, and then your retrieval logic breaks. A project query by `uid` will never break.[^protectproject]
@@ -76,7 +76,7 @@ Third, you can run a constrained query or search against all projects in your da
 
 The {class}`~lamindb.Artifact` registry has simple fields like `description: str`, `created_at: datetime`, `size: int`, etc. and related fields like `projects`, `created_by`, `storage`, `records`, `ulabels`, `branch`, etc. Many of these fields are automatically populated and you can use them to retrieve sets of artifacts.
 
-<img width="1051" height="614" alt="image" src="https://github.com/user-attachments/assets/222d3ed6-1850-4048-9b95-39765c756a1c" />
+<img width="800" alt="image" src="https://github.com/user-attachments/assets/222d3ed6-1850-4048-9b95-39765c756a1c" />
 
 If you will, all other registries surround {class}`~lamindb.Artifact` to provide context to find, query, and validate artifacts.[^starsnowflake]
 
