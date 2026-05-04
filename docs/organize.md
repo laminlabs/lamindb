@@ -17,7 +17,7 @@ If a database seems daunting, you can think of and use lamindb like a versioned 
 artifact1 = ln.Artifact("./dataset.csv", key="project1/dataset1.csv").save()  # ingest the file in "folder" project/
 ```
 
-For convenience, if you want to create an artifact for every file in a directory, use :meth:`~lamindb.Artifact.from_dir`:
+For convenience, if you want to create an artifact for every file in a directory, use {meth}~lamindb.Artifact.from_dir`:
 
 ```python
 artifacts = ln.Artifact.from_dir("./project1/").save()  # create one artifact per file in the directory
@@ -42,7 +42,7 @@ ln.Artifact("./folder_abc", key="folder_abc").save()  # create a single artifact
 
 ## Organize datasets with annotations in a database
 
-You can consider the {class}`~lamindb.Artifact` registry your central registry and all other registries as context that allow you to find & query artifacts based on different entities you care about.[^starsnowflake]
+Consider the {class}`~lamindb.Artifact` registry your central registry and all other registries context that allows you to find & query artifacts based on different entities you care about.[^starsnowflake]
 
 ### Auto-generated annotations
 
