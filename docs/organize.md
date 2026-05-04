@@ -9,7 +9,7 @@ curate
 
 This guide walks through organizing datasets with files & folders, with annotations in a database, and with versioned collections.
 
-## Organize datasets as files and folders
+## Organize via folders
 
 If a database seems daunting, you can think of and use lamindb like a versioned file system in which you organize artifacts into virtual folders by using `/`-seperated keys, similar to AWS S3. For a single file, you'd call:
 
@@ -40,31 +40,35 @@ ln.Artifact("./folder_abc", key="folder_abc").save()  # create a single artifact
 
 :::
 
-## Organize datasets with annotations in a database
+## Organize via annotations in a database
 
 Consider the {class}`~lamindb.Artifact` registry your central registry and all other registries context that allows you to find & query artifacts based on different entities you care about.[^starsnowflake]
 
 ### Auto-generated annotations
 
-Several {class}`~lamindb.Artifact` fields like `created_by`, `created_at`, `size`, etc. are automatically populated and you can use them to retrieve a set of artifacts:
+Several {class}`~lamindb.Artifact` fields like `created_by`, `created_at`, `size`, etc. are automatically populated and you can use them to retrieve sets of artifacts.
+
+:::{dropdown} What would such a query look like?
 
 ```python
 artifacts = ln.Artifact.filter(
-    created_by__handle="falexwolf",  # created by user with handle falexwolf
-    created_at__gt="2023-06-24",  # created after June 24th, 2023
-    size__lt=1e9,   # smaller than 1GB
-    description__icontains="scrnaseq",   # containing "scrnaseq" in description, case-insensitive
-    suffix=".parquet",   # with a .parquet suffix
-    n_observations__gt=1000,   # with more than 1000 observations
-    n_files__gt=1000,    # folder-like artifacts with more than 1000 files
-    otype="DataFrame",   # that are DataFrames
-    created_on__name="my-branch",   # created on a specific branch or environment
-    run=run,   # created by a specific run
-    transform__name="my-script.py",   # created by a specific script/notebook
+    created_by__handle="falexwolf",     # created by user with handle falexwolf
+    created_at__gt="2023-06-24",        # created after June 24th, 2023
+    size__lt=1e9,                       # smaller than 1GB
+    description__icontains="scrnaseq",  # containing "scrnaseq" in description, case-insensitive
+    suffix=".parquet",                  # with a .parquet suffix
+    n_observations__gt=1000,            # with more than 1000 observations
+    n_files__gt=1000,                   # folder-like artifacts with more than 1000 files
+    otype="DataFrame",                  # that are DataFrames
+    created_on__name="my-branch",       # created on a specific branch or environment
+    run=run,                            # created by a specific run
+    transform__name="my-script.py",     # created by a specific script/notebook
 )
 ```
 
-### Organizing artifacts with projects
+:::
+
+### Annotating with projects
 
 What if an artifact is relevant to **multiple projects**?
 A dataset that's in the `project1/` folder as in the example above cannot **also** be in a `project2/` folder.
@@ -88,7 +92,7 @@ Another advantage of this is that you don't have trust file paths anymore.
 A folder structure in a file path might be renamed, and then your retrieval logic breaks.
 A project that annotates an artifact or another object **cannot** be deleted[^fkprotect] so you can always trust that the query succeeds.
 
-## Organizing artifacts with other labels
+### Annotating with other label types
 
 Often times you also want to annotate with other entities, not just projects. LaminDB offers two main classes for this: {class}`~lamindb.Record` for metadata records and {class}`~lamindb.ULabel` for simple labels. You can use these together with entities in modules such as {mod}`bionty` in full analogy with `Project`. For example:
 
