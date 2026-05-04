@@ -42,32 +42,6 @@ ln.Artifact("./folder_abc", key="folder_abc").save()  # create a single artifact
 
 ## Organize via annotations in a database
 
-Consider the {class}`~lamindb.Artifact` registry your central registry and all other registries context that allows you to find & query artifacts based on different entities you care about.[^starsnowflake]
-
-### Auto-generated annotations
-
-Several {class}`~lamindb.Artifact` fields like `created_by`, `created_at`, `size`, etc. are automatically populated and you can use them to retrieve sets of artifacts.
-
-:::{dropdown} What would such a query look like?
-
-```python
-artifacts = ln.Artifact.filter(
-    created_by__handle="falexwolf",     # created by user with handle falexwolf
-    created_at__gt="2023-06-24",        # created after June 24th, 2023
-    size__lt=1e9,                       # smaller than 1GB
-    description__icontains="scrnaseq",  # containing "scrnaseq" in description, case-insensitive
-    suffix=".parquet",                  # with a .parquet suffix
-    n_observations__gt=1000,            # with more than 1000 observations
-    n_files__gt=1000,                   # folder-like artifacts with more than 1000 files
-    otype="DataFrame",                  # that are DataFrames
-    created_on__name="my-branch",       # created on a specific branch or environment
-    run=run,                            # created by a specific run
-    transform__name="my-script.py",     # created by a specific script/notebook
-)
-```
-
-:::
-
 ### Annotating with projects
 
 What if an artifact is relevant to **multiple projects**?
@@ -88,9 +62,44 @@ artifacts_in_project1 = ln.Artifact.filter(projects=project1)  # all datasets in
 artifacts_in_project2 = ln.Artifact.filter(projects=project2)  # all datasets in project2
 ```
 
-Another advantage of this is that you don't have trust file paths anymore.
-A folder structure in a file path might be renamed, and then your retrieval logic breaks.
-A project that annotates an artifact or another object **cannot** be deleted[^fkprotect] so you can always trust that the query succeeds.
+There are three more big advantages of using related registries rather than folder structures.
+
+<img width="571" height="84" alt="image" src="https://github.com/user-attachments/assets/d8642988-8559-4732-9242-2d464d7d4834" />
+
+First, project objects can themselves be richly annotated, e.g. by start date and end date, parent project, or users playing different roles in them.
+Second, you don't have to trust file paths anymore. A folder structure in a file path might be renamed, and then your retrieval logic breaks. A project query by `uid` will never break.[^protectproject]
+Third, you can run a constrained query or search against all projects in your database, rather than trying to narrow a search to folder names.
+
+### Auto-generated annotations
+
+The {class}`~lamindb.Artifact` registry has simple fields like `description: str`, `created_at: datetime`, `size: int`, etc. and related fields like `projects`, `created_by`, `storage`, `records`, `ulabels`, `branch`, etc. Many of these fields are automatically populated and you can use them to retrieve sets of artifacts.
+
+<img width="1051" height="614" alt="image" src="https://github.com/user-attachments/assets/222d3ed6-1850-4048-9b95-39765c756a1c" />
+
+If you will, all other registries surround {class}`~lamindb.Artifact` to provide context to find, query, and validate artifacts.[^starsnowflake]
+
+:::{dropdown} What are simple fields that are auto-populated?
+
+Here are examples leveraging auto-populated fields.
+
+```python
+artifacts = ln.Artifact.filter(
+    # examples for simple fields
+    created_at__gt="2023-06-24",    # created after June 24th, 2023
+    size__lt=1e9,                   # smaller than 1GB
+    suffix=".parquet",              # with a .parquet suffix
+    n_observations__gt=1000,        # with more than 1000 observations
+    n_files__gt=1000,               # folder-like artifacts with more than 1000 files
+    otype="DataFrame",              # that are DataFrames
+    created_on__name="my-branch",   # created on a specific branch or environment
+    # examples for related fields
+    created_by__handle="falexwolf", # created by user with handle falexwolf
+    run=run,                        # created by a specific run
+    transform__name="my-script.py", # created by a specific script/notebook
+)
+```
+
+:::
 
 ### Annotating with other label types
 
@@ -150,3 +159,5 @@ Artifacts are versiond based on the hash of their content. Collections are versi
 [^fkprotect]: Its foreign key is protected in the `ArtifactProject` link model.
 
 [^starsnowflake]: You can consider the SQL table underlying {class}`~lamindb.Artifact` your _fact table_ and all other tables for other entities your _dimension tables_ in a star or Snowflake schema ([see Wikipedia](https://en.wikipedia.org/wiki/Fact_table)).
+
+[^protectproject]: The project annotation of the artifact is protected against the deletion of the project. If a user with necessary rights attempts deleting the project, they will get an error.
