@@ -9,7 +9,7 @@ curate
 
 This guide walks through organizing datasets using files & folders, database relationships, and versioned collections.
 
-## Organize via folders
+## Via files & folders
 
 If a database seems daunting, you can use LaminDB as a versioned file system. Similar to AWS S3, you organize artifacts into virtual folders using `/`-separated keys. For a single file, you'd call:
 
@@ -42,11 +42,11 @@ ln.Artifact("./folder_abc", key="folder_abc").save()
 
 :::
 
-## Organize in a database
+## Via relationships in the database
 
 ### Annotating with projects
 
-What if an artifact is relevant to **multiple projects**?
+What if an artifact is relevant to multiple projects?
 
 <img width="400" alt="image" src="https://github.com/user-attachments/assets/d8642988-8559-4732-9242-2d464d7d4834" />
 
@@ -140,7 +140,8 @@ artifacts = ln.Artifact.filter(
 When you work with structured data formats like `DataFrame` or `AnnData`, it often makes sense to validate their content. During validation, the parsed content is automatically used for annotation. This behavior is triggered if you pass a {class}`~lamindb.Schema` to {class}`~lamindb.Artifact`.
 
 ```python
-# validate columns in the dataframe and map them on features, auto-annotate with parsed metadata
+# validate columns in the dataframe and map them on features
+# auto-annotate with parsed metadata
 ln.Artifact.from_dataframe(df, schema="valid_features").save()
 ```
 
