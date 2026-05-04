@@ -42,7 +42,7 @@ ln.Artifact("./folder_abc", key="folder_abc").save()  # create a single artifact
 
 :::
 
-## Organize via annotations in a database
+## Organize in a database
 
 ### Annotating with projects
 
@@ -146,7 +146,7 @@ When you work with structured data formats like `DataFrame`, `AnnData`, or simil
 ln.Artifact.from_dataframe(df, schema="valid_features").save()
 ```
 
-## Publishing versioned collections of artifacts
+## Versioned collections of artifacts
 
 In some cases, you don't just want to group a set of artifacts by different dimensions of metadata, but you also want to version the set. For this, you can use {class}`~lamindb.Collection`:
 
