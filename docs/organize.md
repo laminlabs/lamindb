@@ -81,14 +81,16 @@ You can also annotate with other entities, not just projects. LaminDB offers two
 You can use these alongside entities in modules such as {mod}`bionty`, just as you would with `Project`:
 
 ```python
-import bionty as bt
+ulabel1 = ln.ULabel(name="raw_data").save()  # create a ulabel
+artifact1.ulabels.add(ulabel1)               # annotate artifact1
 
-ulabel1 = ln.ULabel(name="raw_data").save()
-record1 = ln.Record(name="My sample", features={"gc_content": 0.5}).save()
-cell_type1 = bt.CellType.from_source(name="T cell").save()
-artifact1.ulabels.add(ulabel1)
-artifact1.records.add(record1)
-artifact1.cell_types.add(cell_type1)
+record1 = ln.Record(name="My sample", features={"gc_content": 0.5}).save()  # create a record
+artifact1.records.add(record1)               # annnotate artifact1
+
+import bionty as bt                          # import module bionty
+
+cell_type1 = bt.CellType.from_source(name="T cell").save()  # create a cell type from the default public ontology
+artifact1.cell_types.add(cell_type1)         # annotate artifact1
 ```
 
 ### Annotating with features
