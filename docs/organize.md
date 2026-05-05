@@ -59,18 +59,22 @@ project2 = ln.Project(name="Project 2").save()  # create project 2
 artifact1.projects.add(project1, project2)      # annotate artifact1
 ```
 
-This allows you to retrieve `artifact1` by querying any project it belongs to. For example, `artifact1` will appear in the results of both queries:
+This allows you to retrieve `artifact1` by querying any project it belongs to:
 
 ```python
 artifacts_in_project1 = ln.Artifact.filter(projects=project1)
 artifacts_in_project2 = ln.Artifact.filter(projects=project2)
 ```
 
-There are three additional advantages of using related registries rather than folder structures:
+Here, `artifact1` is part of both query results.
+
+:::{dropdown} Three additional advantages to using related registries rather than folder structures.
 
 1. Projects can be richly annotated (e.g., with start/end dates, parent projects, or member roles).
 2. You no longer need to rely on fragile file paths. If a folder is renamed, path-based retrieval breaks, but a project query by `uid` will always work.[^protectproject]
 3. You can run a constrained query or search against all projects in your database rather than trying to narrow a search to folder names.
+
+:::
 
 ### Annotating with other label types
 
