@@ -11,7 +11,7 @@ This guide walks through organizing datasets using files & folders, database rel
 
 ## Via files & folders
 
-You can use LaminDB as a file system. Similar to AWS S3, you organize artifacts into virtual folders using `/`-separated keys. To ingest a single file into a `project1/` folder, you'd call:
+You can use LaminDB like a file system. Similar to AWS S3, you organize artifacts into virtual folders using `/`-separated keys. To ingest a single file into a `project1/` folder, you'd call:
 
 ```python
 artifact1 = ln.Artifact("./dataset.csv", key="project1/dataset1.csv").save()
@@ -50,7 +50,7 @@ What if an artifact is relevant to multiple projects?
 A dataset that's in the `project1/` folder cannot **also** reside in a `project2/` folder.
 You can solve this problem with the `artifact.projects` relationship that links the {class}`~lamindb.Project` to {class}`~lamindb.Artifact`:
 
-<img width="400" alt="image" src="https://github.com/user-attachments/assets/0c3c5ed8-9087-4f15-ad11-b7b9c2f73bf7"/>
+<img width="400" alt="image" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/uVm5ptyqukPEKCix0000.png"/>
 
 Here is how to annotate one artifact with two projects:
 
@@ -77,11 +77,11 @@ Here, `artifact1` is part of both query results.
 
 :::
 
-### Annotating with other label types
+### Annotating with labels
 
 You can annotate with other entity types, not just projects. LaminDB offers two main classes for this: {class}`~lamindb.Record` for metadata records and {class}`~lamindb.ULabel` for simple labels, which are both link to artifacts:
 
-<img width="400" alt="image" src="https://github.com/user-attachments/assets/0b0aa905-eb3a-418f-80a6-8d24879a3036" />
+<img width="400" alt="image" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/qvhxt6UuoUO2Bd820000.png"/>
 
 Here is how to annotate with a ulabel and with a sample record:
 
@@ -89,7 +89,7 @@ Here is how to annotate with a ulabel and with a sample record:
 ulabel1 = ln.ULabel(name="raw_data").save()  # create a ulabel
 artifact1.ulabels.add(ulabel1)               # annotate artifact1
 
-sample_type = ln.Record(                     # create a sample entity type
+sample_type = ln.Record(                     # create a record type "Samples"
     name="Samples",
     is_type=True
 ).save()
@@ -105,7 +105,9 @@ You can use records and ulabels alongside entity types in modules such as {mod}`
 ```python
 import bionty as bt
 
-cell_type1 = bt.CellType.from_source(name="T cell").save()  # create a cell type from the default public ontology
+cell_type1 = bt.CellType.from_source(
+    name="T cell"                            # create a cell type from a public ontology
+).save()
 artifact1.cell_types.add(cell_type1)         # annotate artifact1
 ```
 
@@ -113,7 +115,7 @@ artifact1.cell_types.add(cell_type1)         # annotate artifact1
 
 To annotate with non-categorical data types or to disambiguate categorical annotations, use {class}`~lamindb.Feature` objects.
 
-<img width="400" alt="image" src="https://github.com/user-attachments/assets/814b95c3-ea4e-430a-b7b5-cca9b1f04083" />
+<img width="400" alt="image" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/eT6SEny5HpQQNgFl0000.png"/>
 
 Here is how to define features and annotate an artifact with feature values:
 
@@ -135,17 +137,32 @@ When you work with structured data formats like `DataFrame` or `AnnData`, it oft
 ln.Artifact.from_dataframe(df, schema="valid_features").save()
 ```
 
-Here is an example from the {doc}`docs:tutorial` illustrating how you get e.g. cell type, treatment, and assay annotations based on a dataframe's content.
+Below is an example from the {doc}`docs:tutorial` illustrating how you get e.g. cell type, treatment, and assay annotations based on a dataframe's content. You can read more on this in {doc}`/curate`.
 
 <img width="600px" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/6sofuDVvTANB0f480003.png">
 
-### More auto-generated annotations
+### Annotating with data-lineage
+
+When you call {func}`~lamindb.track` or decorate a function with {func}`~lamindb.flow`, you automatically annotate artifacts with {class}`~lamindb.Run` and {class}`~lamindb.Transform` objects.
+
+<img width="400" alt="image" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/Z1iliqp5mInQQ2iY0000.png"/>
+
+Here is how:
+
+```{eval-rst}
+.. literalinclude:: scripts/run_track_and_finish.py
+   :language: python
+```
+
+Note that you can pass `project` to {func}`~lamindb.track` to auto-annotate all objects that are created in a run with a project label. Read more in {doc}`/track`.
+
+### Overview of auto-generated annotations
 
 The {class}`~lamindb.Artifact` registry has simple fields (such as `description`, `created_at`, `size`) and related fields (such as `projects`, `created_by`, `storage`). Many of these fields are automatically populated and you can use them to retrieve sets of artifacts.
 
 <img width="800px" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/HMfWLa1rFkxcxQEN0000.svg">
 
-Conceptually, all other registries link to {class}`~lamindb.Artifact` to provide context for finding, querying, and validating artifacts.[^starsnowflake]
+All other registries link to {class}`~lamindb.Artifact` to provide context for finding, querying, validating, and managing artifacts.[^starsnowflake]
 
 :::{dropdown} Can you give me some example queries?
 
@@ -170,15 +187,25 @@ artifacts = ln.Artifact.filter(
 
 ## Versioned collections of artifacts
 
-Sometimes, you need to both group artifacts by metadata and version the entire set. For this, use {class}`~lamindb.Collection`:
+Sometimes, you need to both group artifacts by metadata and version the entire set. For this, use {class}`~lamindb.Collection`
+
+<img width="160" alt="image" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/QR0KuktVEnVL08K90000.png"/>
+
+Unlike during annotation, you have to pass an entire group of artifacts to a `Collection` constructor:
 
 ```python
-collection = ln.Collection([artifact1, artifact2], key="my_dataset_release").save()
+collection = ln.Collection([artifact1, artifact2], key="my_data_release").save()
 ```
 
-Unlike folder-based or metadata-based sets — which can change as artifacts are added or removed — a collection guarantees an exact, immutable set of artifacts.
+And unlike the folder-based or annotation-based sets of artifacts — which can change as artifacts are added or removed — a collection guarantees an exact, immutable set of artifacts.
 
-Artifacts are versioned based on the hash of their content. Collections are versioned based on the top-level hash of their artifact hashes.
+Artifacts are versioned based on the hash of their content. Collections are versioned based on the top-level hash of their artifact hashes. If you use the {meth}`~lamindb.Collection.append` method, a new version of the collection is created, and the old version is left unchanged:
+
+```python
+collection_v2 = collection.append(artifact3)
+```
+
+While collections are indirectly annotated through the annotations of the artifacts they contain, you can also add collection-level annotations. Like artifacts, collections link to projects, runs, ulabels, records, and most other registries.
 
 [^starsnowflake]: You can consider the SQL table underlying {class}`~lamindb.Artifact` your _fact table_ and all other tables for other entities your _dimension tables_ in a star or Snowflake schema ([see Wikipedia](https://en.wikipedia.org/wiki/Fact_table)).
 

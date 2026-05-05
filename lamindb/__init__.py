@@ -40,18 +40,18 @@ Track inputs, outputs, parameters, and environments of notebooks, scripts, and f
    flow
    step
 
-Artifacts & storage locations
-=============================
+Artifacts
+=========
 
-Files, folders & arrays and their storage locations.
+The central `Artifact` registry holds files, folders & arrays across any number of storage locations.
 
 .. autosummary::
    :toctree: .
 
    Artifact
-   Storage
 
-Here is an overview that illustrates how `Artifact` links to all other registries:
+All other registries link to `Artifact` to provide context for finding, querying, validating, and managing artifacts.
+Here is an overview of the core data model:
 
 .. image:: https://lamin-site-assets.s3.amazonaws.com/.lamindb/HMfWLa1rFkxcxQEN0000.svg
     :width: 800px
@@ -94,9 +94,10 @@ Managing operations
    :toctree: .
 
    Project
+   Storage
+   User
    Branch
    Space
-   User
    Collection
    Reference
 
