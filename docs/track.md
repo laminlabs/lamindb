@@ -7,7 +7,7 @@ execute_via: python
 This guide walks from tracking data lineage in a notebook to tracking parameters in workflows.
 
 ```{raw} html
-<iframe width="500" src="https://www.youtube.com/embed/jwnHu1PbA9Q?si=TfOizsjReE06gVjO" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+<iframe width="560" height="315" src="https://www.youtube.com/embed/jwnHu1PbA9Q?si=Eqn4dBZyFDrbcxvm" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
 ```
 
 **Note:** To run examples, if you don't have a `lamindb` instance, create one:
@@ -59,13 +59,14 @@ lamin load https://lamin.ai/laminlabs/lamindata/transform/F4L3oC6QsZvQ
 
 <!-- #endregion -->
 
+(sync-code-with-git)=
+
 ### Organize local development
 
 <!-- #region -->
 
 If no development directory is set, script & notebook keys equal their filenames.
 Otherwise, they represent the relative path in the development directory.
-
 The exception is packaged source code, whose keys have the form `pypackages/{package_name}/path/to/file.py`.
 
 To set the development directory to your current shell development directory, run:
@@ -78,6 +79,45 @@ You can see the current status by running:
 
 ```bash
 lamin info
+```
+
+When you `cd` into that directory, you will now auto-connect to the configured lamindb instance.
+
+To sync scripts or workflows with their correponding files in a git repo, either export an environment variable:
+
+```shell
+export LAMINDB_SYNC_GIT_REPO = <YOUR-GIT-REPO-URL>
+```
+
+Or set the following setting:
+
+```python
+ln.settings.sync_git_repo = <YOUR-GIT-REPO-URL>
+```
+
+If you work on a single project in your lamindb instance, it makes sense to set LaminDB's `dev-dir` to the root of the local git repo clone.
+
+```bash
+dbs/
+  project1/
+    .git/
+    .lamin/
+    script1.py
+    notebook1.ipynb
+  ...
+```
+
+If you work on multiple projects in your lamindb instance, you can use the `dev-dir` as the local root and nest git repositories in it.
+
+```bash
+dbs/
+  database1/
+    .lamin/
+    repo1/
+      .git/
+    repo2/
+      .git/
+  ...
 ```
 
 <!-- #endregion -->
@@ -117,49 +157,6 @@ You can write the entities created during a run into a space that you configure 
 
 ```python
 ln.track(space="Our team space")
-```
-
-<!-- #endregion -->
-
-<!-- #region -->
-
-(sync-code-with-git)=
-
-### Sync code with git
-
-To sync scripts or workflows with their correponding files in a git repo, either export an environment variable:
-
-```shell
-export LAMINDB_SYNC_GIT_REPO = <YOUR-GIT-REPO-URL>
-```
-
-Or set the following setting:
-
-```python
-ln.settings.sync_git_repo = <YOUR-GIT-REPO-URL>
-```
-
-If you work on a single project in your lamindb instance, it makes sense to set LaminDB's `dev-dir` to the root of the local git repo clone.
-
-```bash
-dbs/
-  project1/
-    .git/
-    script1.py
-    notebook1.ipynb
-  ...
-```
-
-If you work on multiple projects in your lamindb instance, you can use the `dev-dir` as the local root and nest git repositories in it.
-
-```bash
-dbs/
-  database1/
-    repo1/
-      .git/
-    repo2/
-      .git/
-  ...
 ```
 
 <!-- #endregion -->
