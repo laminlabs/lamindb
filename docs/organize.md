@@ -48,7 +48,7 @@ ln.Artifact("./folder_abc", key="folder_abc").save()
 
 What if an artifact is relevant to multiple projects?
 
-<img width="400" alt="image" src="https://github.com/user-attachments/assets/d8642988-8559-4732-9242-2d464d7d4834" />
+<img width="400" alt="image" src="https://github.com/user-attachments/assets/0c3c5ed8-9087-4f15-ad11-b7b9c2f73bf7" />
 
 A dataset that's in the `project1/` folder cannot **also** reside in a `project2/` folder.
 You can solve this problem by annotating the artifact with projects:
@@ -74,7 +74,11 @@ There are three additional advantages of using related registries rather than fo
 
 ### Annotating with other label types
 
-Often, you also want to annotate with other entities, not just projects. LaminDB offers two main classes for this: {class}`~lamindb.Record` for metadata records and {class}`~lamindb.ULabel` for simple labels. You can use these alongside entities in modules such as {mod}`bionty`, just as you would with `Project`:
+Often, you also want to annotate with other entities, not just projects. LaminDB offers two main classes for this: {class}`~lamindb.Record` for metadata records and {class}`~lamindb.ULabel` for simple labels. 
+
+<img width="400" alt="image" src="https://github.com/user-attachments/assets/0b0aa905-eb3a-418f-80a6-8d24879a3036" />
+
+You can use these alongside entities in modules such as {mod}`bionty`, just as you would with `Project`:
 
 ```python
 import bionty as bt
@@ -91,20 +95,29 @@ artifact1.cell_types.add(cell_type1)
 
 To annotate with non-categorical data types or to disambiguate categorical annotations, use {class}`~lamindb.Feature` objects.
 
-```python
-experiment_type = ln.Record.get(name="Experiments")
-ln.Feature(name="gc_content", dtype=float).save()
-ln.Feature(name="experiment", dtype=experiment_type).save()
-```
+<img width="400" alt="image" src="https://github.com/user-attachments/assets/814b95c3-ea4e-430a-b7b5-cca9b1f04083" />
 
-During annotation, feature names and data types are validated against these definitions.
+When annotating an artifact with feature values, feature names and data types are validated against feature definitions.
 
 ```python
+experiment_type = ln.Record.get(name="Experiments")          # query the entity type `Experiments`
+ln.Feature(name="gc_content", dtype=float).save()            # define a feature with dtype float
+ln.Feature(name="experiment", dtype=experiment_type).save()  # define a feature with dtype `Experiments`
 artifact.features.set_values({
     "gc_content": 0.55,
-    "experiment": "Experiment 1",  # needs to exist under the "Experiments" record type
+    "experiment": "Experiment 1",  # validated to exist under the `Experiments` record type
 })
 ```
+
+When you work with structured data formats like `DataFrame` or `AnnData`, it often makes sense to validate the content of their features. After validation, the parsed features values are automatically used for annotation if you pass a {class}`~lamindb.Schema` to {class}`~lamindb.Artifact`.
+
+```python
+# validate columns in the dataframe and map them on features
+# auto-annotate with parsed metadata
+ln.Artifact.from_dataframe(df, schema="valid_features").save()
+```
+
+This way, you get many annotations "for free".
 
 ### Auto-generated annotations
 
@@ -134,16 +147,6 @@ artifacts = ln.Artifact.filter(
 ```
 
 :::
-
-### Auto-annotating based on parsed metadata
-
-When you work with structured data formats like `DataFrame` or `AnnData`, it often makes sense to validate their content. During validation, the parsed content is automatically used for annotation. This behavior is triggered if you pass a {class}`~lamindb.Schema` to {class}`~lamindb.Artifact`.
-
-```python
-# validate columns in the dataframe and map them on features
-# auto-annotate with parsed metadata
-ln.Artifact.from_dataframe(df, schema="valid_features").save()
-```
 
 ## Versioned collections of artifacts
 
