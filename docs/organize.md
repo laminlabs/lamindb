@@ -82,7 +82,7 @@ You can also annotate with other entities, not just projects. LaminDB offers two
 
 <img width="400" alt="image" src="https://github.com/user-attachments/assets/0b0aa905-eb3a-418f-80a6-8d24879a3036" />
 
-You can use these alongside entities in modules such as {mod}`bionty`, just as you would with `Project`:
+You can use them alongside entity types in modules such as {mod}`bionty`:
 
 ```python
 ulabel1 = ln.ULabel(name="raw_data").save()  # create a ulabel
