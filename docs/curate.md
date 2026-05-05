@@ -2,15 +2,12 @@
 execute_via: python
 ---
 
-# Curate datasets
+# Validate & standardize datasets
 
 Data curation with LaminDB ensures your datasets are **validated** and **queryable** through **annotation**.
 
 ```{raw} html
-<video width="500" controls>
-  <source src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/lJBlG7wEbNgkl2Cy0000.mp4" type="video/mp4">
-  Your browser does not support the video tag.
-</video>
+<iframe width="560" height="315" src="https://www.youtube.com/embed/Ji6E7hTnReQ?si=K0OnU2MTGv4fIhFo" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
 ```
 
 Curating a dataset with LaminDB means three things:

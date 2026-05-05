@@ -5,13 +5,16 @@ execute_via: python
 # Query & search registries
 
 This guide walks through different ways of querying & searching LaminDB registries.
+To understand the underlying cross-linking of objects in the SQL database, read {doc}`organize`.
+
+If you already have a set of artifacts, e.g. in the form of parquet files, and you'd like to now query/stream their (validated) content, read {doc}`arrays`.
 
 ```python
 # initialize a test database to run examples
 !lamin init --storage ./test-registries --modules bionty
 ```
 
-Let's start by creating a few exemplary datasets and saving them into a LaminDB instance.
+Let's start by creating a few exemplary datasets:
 
 ```python
 import lamindb as ln

@@ -7,10 +7,7 @@ execute_via: python
 This guide shows how to manage ontologies for basic biological entities.
 
 ```{raw} html
-<video width="500" controls>
-  <source src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/nUSeIxsaPcBKVuvK0000.mp4" type="video/mp4">
-  Your browser does not support the video tag.
-</video>
+<iframe width="560" height="315" src="https://www.youtube.com/embed/3vpWjHj3Kw8?si=D0jxqL2zB4idh2QA" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
 ```
 
 If instead you're interested in

@@ -203,6 +203,8 @@ artifact.view_lineage()  # fine-grained lineage
 
 <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/BOTCBgHDAvwglN3U0004.png" width="550"> <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/EkQATsQL5wqC95Wj0006.png" width="140">
 
+Watch a mini video: [youtu.be/jwnHu1PbA9Q](https://youtu.be/jwnHu1PbA9Q)
+
 <details>
 <summary>Access run & transform.</summary>
 
@@ -219,13 +221,6 @@ transform.describe()  # context of the transform
 ```
 
 <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/JYwmHBbgf2MRCfgL0000.png" width="550" />
-
-</details>
-
-<details>
-<summary>15 sec video.</summary>
-
-[15 sec video](https://lamin-site-assets.s3.amazonaws.com/.lamindb/Xdiikc2c1tPtHcvF0000.mp4)
 
 </details>
 
@@ -327,6 +322,12 @@ ln.Artifact.to_dataframe(include=["created_by__name", "storage__root"])  # inclu
 ```
 
 Note: The query syntax for `DB` objects and for your default database is the same.
+
+### The core data model
+
+Here is an overview that illustrates how `Artifact` links to all other registries:
+
+<img width="800px" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/HMfWLa1rFkxcxQEN0000.svg">
 
 ### Queries by features
 
@@ -435,7 +436,6 @@ lamin merge my_branch  # merge contribution branch into main
 
 Read more: [docs.lamin.ai/lamindb.branch](https://docs.lamin.ai/lamindb.branch).
 
-
 ### Data sharing
 
 To share data in a lineage-aware way, sync objects from a source database to your default database:
@@ -476,12 +476,7 @@ artifact = ln.Artifact.from_dataframe(
 artifact.describe()
 ```
 
-<details>
-<summary>30 sec video.</summary>
-
-[30 sec video](https://lamin-site-assets.s3.amazonaws.com/.lamindb/lJBlG7wEbNgkl2Cy0000.mp4)
-
-</details>
+Watch a mini video: [youtu.be/Ji6E7hTnReQ](https://youtu.be/Ji6E7hTnReQ)
 
 You can filter for datasets by schema and then launch distributed queries and batch loading.
 
@@ -529,12 +524,7 @@ artifact.cell_types.add(t_cell)
 
 Read more: [docs.lamin.ai/manage-ontologies](https://docs.lamin.ai/manage-ontologies).
 
-<details>
-<summary>30 sec video.</summary>
-
-[30 sec video](https://lamin-site-assets.s3.amazonaws.com/.lamindb/nUSeIxsaPcBKVuvK0000.mp4)
-
-</details>
+Watch a mini video: [youtu.be/3vpWjHj3Kw8](https://youtu.be/3vpWjHj3Kw8)
 
 ### Save unstructured notes
 
