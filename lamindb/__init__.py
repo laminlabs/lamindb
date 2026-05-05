@@ -51,6 +51,12 @@ Files, folders & arrays and their storage locations.
    Artifact
    Storage
 
+Here is an overview that illustrates how `Artifact` links to all other registries:
+
+.. image:: https://lamin-site-assets.s3.amazonaws.com/.lamindb/HMfWLa1rFkxcxQEN0000.svg
+    :width: 800px
+
+
 Transforms & runs
 =================
 
