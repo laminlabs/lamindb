@@ -177,13 +177,6 @@ def test_create_from_path_file(get_test_filepaths, key_is_virtual, key, descript
     else:
         assert artifact.key == key
         assert artifact._key_is_virtual == key_is_virtual
-        # changing non-virtual key is not allowed
-        if not key_is_virtual:
-            with pytest.raises(InvalidArgument):
-                artifact.key = "new_key"
-                artifact.save()
-            # need to change the key back to the original key
-            artifact.key = key
         if is_in_registered_storage:
             # this would only hit if the key matches the correct key
             assert artifact.storage.root == root_dir.resolve().as_posix()
@@ -1488,7 +1481,7 @@ def test_update_suffix_for_registered_storage_with_real_key(
     assert target_path.exists()
     assert not source_path.exists()
 
-    artifact.delete(permanent=True, storage=True)
+    artifact.delete(permanent=True, storage=False)
 
 
 def test_update_suffix_for_registered_storage_folder_artifact(
@@ -1518,7 +1511,60 @@ def test_update_suffix_for_registered_storage_folder_artifact(
     assert target_path.suffix == ".zarr"
     assert not source_path.exists()
 
-    artifact.delete(permanent=True, storage=True)
+    artifact.delete(permanent=True, storage=False)
+
+
+def test_update_non_virtual_key_for_registered_storage_file(
+    registered_storage_file_and_folder,
+):
+    test_filepath, _ = registered_storage_file_and_folder
+    artifact = ln.Artifact(test_filepath).save()
+    assert not artifact._key_is_virtual
+    assert artifact._real_key is None
+    assert artifact.key is not None
+
+    source_path = artifact.path
+    source_key = artifact.key
+    target_key = (
+        PurePosixPath(source_key)
+        .with_name("suffix_fixture_file_renamed.csv")
+        .as_posix()
+    )
+    artifact.key = target_key
+    with patch("builtins.input", return_value="n"):
+        assert artifact.save() is None
+    assert source_path.exists()
+
+    artifact = ln.Artifact.get(uid=artifact.uid)
+    assert artifact.key == source_key
+    artifact.key = target_key
+    with patch("builtins.input", return_value="y"):
+        artifact.save()
+
+    target_path = artifact.path
+    assert artifact.key == target_key
+    assert target_path.exists()
+    assert not source_path.exists()
+
+    artifact.delete(permanent=True, storage=False)
+
+
+def test_update_non_virtual_key_for_registered_storage_file_invalid_suffix(
+    registered_storage_file_and_folder,
+):
+    test_filepath, _ = registered_storage_file_and_folder
+    artifact = ln.Artifact(test_filepath).save()
+    assert artifact.key is not None
+
+    artifact.key = PurePosixPath(artifact.key).with_suffix(".tsv").as_posix()
+    with pytest.raises(InvalidArgument) as error:
+        artifact.save()
+    assert (
+        error.exconly()
+        == "lamindb.errors.InvalidArgument: The suffix '.tsv' of the provided key is incorrect, it should be '.csv'."
+    )
+
+    artifact.delete(permanent=True, storage=False)
 
 
 def test_save_url_with_virtual_key_and_unmanaged_suffix_update_error():

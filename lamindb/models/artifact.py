@@ -1313,7 +1313,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             ),
         ]
 
-    _TRACK_FIELDS = ("space_id", "is_latest", "suffix")
+    _TRACK_FIELDS = ("space_id", "is_latest", "suffix", "key")
 
     _len_full_uid: int = 20
     _len_stem_uid: int = 16
@@ -1773,12 +1773,12 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 if not self.path.exists():
                     logger.warning(f"updating previous key {self.key} to new key {key}")
                     self.key = key
+                    # Keep tracked state aligned with this internal dedup-time key
+                    # normalization so save() doesn't treat it as a user key edit.
+                    self._original_values["key"] = key
                     assert self.path.exists(), (  # noqa: S101
                         f"The underlying file for artifact {self} does not exist anymore, clean up the artifact record."
                     )  # noqa: S101
-                    self._skip_key_change_check = (
-                        True  # otherwise not allowed to change real keys
-                    )
                 else:
                     logger.warning(
                         f"key {self.key} on existing artifact differs from passed key {key}, keeping original key; update manually if needed or pass skip_hash_lookup if you want to duplicate the artifact"
@@ -2683,8 +2683,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                     self._clear_storagekey = key
                     warn_msg = ""
                 self.key = new_key
-                # update old key with the new one so that checks in record pass
-                self._old_key = new_key
+                self._original_values["key"] = new_key
                 logger.warning(
                     f"replacing the file will replace key '{key}' with '{new_key}'{warn_msg}"
                     f" and delete '{self._clear_storagekey}' upon `save()`"
@@ -2694,8 +2693,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 self._clear_storagekey = _s().auto_storage_key_from_artifact(self)
                 # might replace None with None, not a big deal
                 self.key = new_key
-                # update the old key with the new one so that checks in record pass
-                self._old_key = new_key
+                self._original_values["key"] = new_key
 
         self.suffix = new_suffix
         self.size = kwargs["size"]
@@ -3096,6 +3094,40 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
         access_token = kwargs.pop("access_token", None)
 
+        if self._field_changed("key", check_is_saved=False):
+            new_key = self.key
+            if new_key is None:
+                raise InvalidArgument("Cannot update an artifact key to None.")
+            new_key_suffix = extract_suffix_from_path(
+                PurePosixPath(new_key), arg_name="key"
+            )
+            if new_key_suffix != self.suffix:
+                raise InvalidArgument(
+                    f"The suffix '{new_key_suffix}' of the provided key is incorrect, it should be '{self.suffix}'."
+                )
+            # Virtual key updates are metadata-only because physical storage keys are
+            # uid-based.
+            if self._key_is_virtual:
+                self._original_values["key"] = new_key
+            else:
+                if self._state.adding:
+                    raise InvalidArgument(
+                        "Cannot update the key of an artifact before it is saved."
+                    )
+                if self.storage.instance_uid is None:
+                    raise InvalidArgument(
+                        "Cannot update the key of an artifact in a storage location that is not managed by an instance."
+                    )
+                old_key = self._original_values["key"]
+                if old_key is None:
+                    raise InvalidArgument(
+                        "Cannot update a non-virtual artifact key from None."
+                    )
+                if not _handle_non_virtual_key_change_on_save(
+                    self, old_key=old_key, new_key=new_key
+                ):
+                    return None
+
         if self._field_changed("suffix", check_is_saved=False):
             if self._state.adding:
                 raise InvalidArgument(
@@ -3105,28 +3137,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 raise InvalidArgument(
                     "Cannot update the suffix of an artifact in a storage location that is not managed by an instance."
                 )
-            suffix = self.suffix
-            # depends on whether key is virtual or real key is present
-            source_or_target_path = self.path
-            source_path_str = source_or_target_path.with_suffix(
-                self._original_values["suffix"]
-            ).as_posix()
-            target_path_str = source_or_target_path.with_suffix(suffix).as_posix()
-            # ask for confirmation
-            # TODO: add a way to disable confirmation
-            response = input(
-                f"You are about to move artifact from '{source_path_str}' to '{target_path_str}'.\n"
-                "Continue? (y/n) "
-            )
-            if response != "y":
-                logger.warning("saving was cancelled")
+            if not _handle_suffix_change_on_save(self):
                 return None
-            # source_path and target_path are on the same filesystem
-            _safe_move(source_or_target_path.fs, source_path_str, target_path_str)
-            _update_artifact_keys_with_suffix(self, suffix)
-            # Keep tracked values in sync so consecutive suffix updates on the same
-            # in-memory instance trigger a move each time.
-            self._original_values["suffix"] = suffix
 
         # when space is passed in init, storage is ignored, so space - storage consistency is enforced there
         if (
@@ -3280,9 +3292,64 @@ def _update_artifact_keys_with_suffix(artifact: Artifact, suffix: str):
     if key is not None:
         new_key = PurePosixPath(key).with_suffix(suffix).as_posix()
         artifact.key = new_key
-        artifact._old_key = new_key
     if real_key is not None:
         artifact._real_key = PurePosixPath(real_key).with_suffix(suffix).as_posix()
+
+
+def _confirm_artifact_move(source_path_str: str, target_path_str: str) -> bool:
+    # ask for confirmation
+    # TODO: add a way to disable confirmation
+    response = input(
+        f"You are about to move artifact from '{source_path_str}' to '{target_path_str}'.\n"
+        "Continue? (y/n) "
+    )
+    if response != "y":
+        logger.warning("saving was cancelled")
+        return False
+    return True
+
+
+def _handle_non_virtual_key_change_on_save(
+    artifact: Artifact, *, old_key: str, new_key: str
+) -> bool:
+    # _real_key should actually be None here because it goes with virtual key
+    source_storage_key = (
+        artifact._real_key if artifact._real_key is not None else old_key
+    )
+    source_path = artifact.storage.path / source_storage_key
+    # key was updated, so artifact.path is the new path
+    target_path_str = artifact.path.as_posix()
+    source_path_str = source_path.as_posix()
+    if not _confirm_artifact_move(source_path_str, target_path_str):
+        return False
+    _safe_move(source_path.fs, source_path_str, target_path_str)
+    if artifact._real_key is not None:
+        artifact._real_key = new_key
+    # Keep tracked values in sync so repeated saves don't trigger another move.
+    artifact._original_values["key"] = new_key
+    # If key change already applied the suffix transition, skip suffix handling below.
+    artifact._original_values["suffix"] = artifact.suffix
+    return True
+
+
+def _handle_suffix_change_on_save(artifact: Artifact) -> bool:
+    suffix = artifact.suffix
+    # depends on whether key is virtual or real key is present
+    source_or_target_path = artifact.path
+    source_path_str = source_or_target_path.with_suffix(
+        artifact._original_values["suffix"]
+    ).as_posix()
+    target_path_str = source_or_target_path.with_suffix(suffix).as_posix()
+    if not _confirm_artifact_move(source_path_str, target_path_str):
+        return False
+    # source_path and target_path are on the same filesystem
+    _safe_move(source_or_target_path.fs, source_path_str, target_path_str)
+    _update_artifact_keys_with_suffix(artifact, suffix)
+    # Keep tracked values in sync so consecutive suffix updates on the same
+    # in-memory instance trigger a move each time.
+    artifact._original_values["suffix"] = suffix
+    artifact._original_values["key"] = artifact.key
+    return True
 
 
 def _sorted_sizes(fs: AbstractFileSystem, path: str) -> list[int]:
