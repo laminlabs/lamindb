@@ -74,7 +74,7 @@ There are three additional advantages of using related registries rather than fo
 
 ### Annotating with other label types
 
-Often, you also want to annotate with other entities, not just projects. LaminDB offers two main classes for this: {class}`~lamindb.Record` for metadata records and {class}`~lamindb.ULabel` for simple labels. 
+Often, you also want to annotate with other entities, not just projects. LaminDB offers two main classes for this: {class}`~lamindb.Record` for metadata records and {class}`~lamindb.ULabel` for simple labels.
 
 <img width="400" alt="image" src="https://github.com/user-attachments/assets/0b0aa905-eb3a-418f-80a6-8d24879a3036" />
 
@@ -109,7 +109,7 @@ artifact.features.set_values({
 })
 ```
 
-When you work with structured data formats like `DataFrame` or `AnnData`, it often makes sense to validate the content of their features. After validation, the parsed features values are automatically used for annotation if you pass a {class}`~lamindb.Schema` to {class}`~lamindb.Artifact`.
+When you work with structured data formats like `DataFrame` or `AnnData`, it often makes sense to validate the content of their features. After validation, the parsed features values are automatically used for annotation if you pass a {class}`~lamindb.Schema` to {class}`~lamindb.Artifact`. The easiest way is to use the built-in schema `"valid_features"`:
 
 ```python
 # validate columns in the dataframe and map them on features
@@ -117,9 +117,11 @@ When you work with structured data formats like `DataFrame` or `AnnData`, it oft
 ln.Artifact.from_dataframe(df, schema="valid_features").save()
 ```
 
-This way, you get many annotations "for free".
+Here is an example from the {doc}`tutorial` that illustrates that you get many annotations "for free" based on the content of the dataframe:
 
-### Auto-generated annotations
+<img width="600px" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/6sofuDVvTANB0f480003.png">
+
+### More auto-generated annotations
 
 The {class}`~lamindb.Artifact` registry has simple fields (such as `description`, `created_at`, `size`) and related fields (such as `projects`, `created_by`, `storage`). Many of these fields are automatically populated and you can use them to retrieve sets of artifacts.
 
