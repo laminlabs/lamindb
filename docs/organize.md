@@ -47,11 +47,12 @@ ln.Artifact("./folder_abc", key="folder_abc").save()
 ### Annotating with projects
 
 What if an artifact is relevant to multiple projects?
-
-<img width="400" alt="image" src="https://github.com/user-attachments/assets/0c3c5ed8-9087-4f15-ad11-b7b9c2f73bf7" />
-
 A dataset that's in the `project1/` folder cannot **also** reside in a `project2/` folder.
-You can solve this problem by annotating the artifact with projects:
+You can solve this problem with the `artifact.projects` relationship that links the {class}`~lamindb.Project` to {class}`~lamindb.Artifact`:
+
+<img width="400" alt="image" src="https://github.com/user-attachments/assets/0c3c5ed8-9087-4f15-ad11-b7b9c2f73bf7"/>
+
+Here is how to annotate one artifact with two projects:
 
 ```python
 project1 = ln.Project(name="Project 1").save()  # create project 1
@@ -78,20 +79,31 @@ Here, `artifact1` is part of both query results.
 
 ### Annotating with other label types
 
-You can also annotate with other entities, not just projects. LaminDB offers two main classes for this: {class}`~lamindb.Record` for metadata records and {class}`~lamindb.ULabel` for simple labels.
+You can annotate with other entity types, not just projects. LaminDB offers two main classes for this: {class}`~lamindb.Record` for metadata records and {class}`~lamindb.ULabel` for simple labels, which are both link to artifacts:
 
 <img width="400" alt="image" src="https://github.com/user-attachments/assets/0b0aa905-eb3a-418f-80a6-8d24879a3036" />
 
-You can use them alongside entity types in modules such as {mod}`bionty`:
+Here is how to annotate with a ulabel and with a sample record:
 
 ```python
 ulabel1 = ln.ULabel(name="raw_data").save()  # create a ulabel
 artifact1.ulabels.add(ulabel1)               # annotate artifact1
 
-record1 = ln.Record(name="My sample", features={"gc_content": 0.5}).save()  # create a record
+sample_type = ln.Record(                     # create a sample entity type
+    name="Samples",
+    is_type=True
+).save()
+record1 = ln.Record(                         # create a sample record
+    name="My sample",
+    features={"gc_content": 0.5}
+).save()
 artifact1.records.add(record1)               # annnotate artifact1
+```
 
-import bionty as bt                          # import module bionty
+You can use records and ulabels alongside entity types in modules such as {mod}`bionty`:
+
+```python
+import bionty as bt
 
 cell_type1 = bt.CellType.from_source(name="T cell").save()  # create a cell type from the default public ontology
 artifact1.cell_types.add(cell_type1)         # annotate artifact1
@@ -103,19 +115,19 @@ To annotate with non-categorical data types or to disambiguate categorical annot
 
 <img width="400" alt="image" src="https://github.com/user-attachments/assets/814b95c3-ea4e-430a-b7b5-cca9b1f04083" />
 
-When annotating an artifact with feature values, feature names and data types are validated against feature definitions.
+Here is how to define features and annotate an artifact with feature values:
 
 ```python
-experiment_type = ln.Record.get(name="Experiments")          # query the entity type `Experiments`
-ln.Feature(name="gc_content", dtype=float).save()            # define a feature with dtype float
-ln.Feature(name="experiment", dtype=experiment_type).save()  # define a feature with dtype `Experiments`
+exp_type = ln.Record.get(name="Experiments")          # query the entity type `Experiments`
+ln.Feature(name="gc_content", dtype=float).save()     # define a feature with dtype float
+ln.Feature(name="experiment", dtype=exp_type).save()  # define a feature with dtype `Experiments`
 artifact.features.set_values({
-    "gc_content": 0.55,
-    "experiment": "Experiment 1",  # validated to exist under the `Experiments` record type
+    "gc_content": 0.55,                               # validated to be a float
+    "experiment": "Experiment 1",                     # validated to exist under the `Experiments` record type
 })
 ```
 
-When you work with structured data formats like `DataFrame` or `AnnData`, it often makes sense to validate the content of their features. After validation, the parsed feature values are automatically used for annotation if you pass a {class}`~lamindb.Schema` to {class}`~lamindb.Artifact`. The easiest way is to use the built-in schema `"valid_features"`:
+When you work with structured data formats like `DataFrame` or `AnnData`, it often makes sense to validate the content of their features. After validation, the parsed feature values are automatically used for annotation. The easiest way is to use validation and auto-annotation is the built-in schema `"valid_features"`:
 
 ```python
 # validate columns in the dataframe and map them on features
@@ -123,7 +135,7 @@ When you work with structured data formats like `DataFrame` or `AnnData`, it oft
 ln.Artifact.from_dataframe(df, schema="valid_features").save()
 ```
 
-Here is an example from the {doc}`tutorial` illustrating how you get many annotations automatically based on a dataframe's content:
+Here is an example from the {doc}`docs:tutorial` illustrating how you get e.g. cell type, treatment, and assay annotations based on a dataframe's content.
 
 <img width="600px" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/6sofuDVvTANB0f480003.png">
 

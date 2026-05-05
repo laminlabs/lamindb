@@ -328,7 +328,7 @@ ln.Artifact.to_dataframe(include=["created_by__name", "storage__root"])  # inclu
 
 Note: The query syntax for `DB` objects and for your default database is the same.
 
-### What is the SQL data model of LaminDB?
+### The core data model
 
 Here is an overview that illustrates how `Artifact` links to all other registries:
 

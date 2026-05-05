@@ -87,15 +87,15 @@ Define features & schemas to validate artifacts & records.
    Feature
    Schema
 
-Project management
-==================
+Managing operations
+===================
 
 .. autosummary::
    :toctree: .
 
+   Project
    Branch
    Space
-   Project
    User
    Collection
    Reference
