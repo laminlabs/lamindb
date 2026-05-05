@@ -11,7 +11,7 @@ This guide walks through organizing datasets using files & folders, database rel
 
 ## Via files & folders
 
-If a database seems daunting, you can use LaminDB as a versioned file system. Similar to AWS S3, you organize artifacts into virtual folders using `/`-separated keys. To ingest a single file into a `project1/` folder, you'd call:
+You can use LaminDB as a file system. Similar to AWS S3, you organize artifacts into virtual folders using `/`-separated keys. To ingest a single file into a `project1/` folder, you'd call:
 
 ```python
 artifact1 = ln.Artifact("./dataset.csv", key="project1/dataset1.csv").save()
@@ -29,7 +29,7 @@ You can then query for all artifacts in the `"./project1/"` folder via:
 artifacts = ln.Artifact.filter(key__startswith="project1/")
 ```
 
-Every artifact in the folder is versioned and comes with rich metadata.
+Unlike a regular file system, every artifact is versioned and comes with rich metadata.
 
 :::{dropdown} What if I do not care about the metadata and version of every file in a folder?
 
@@ -74,7 +74,7 @@ There are three additional advantages of using related registries rather than fo
 
 ### Annotating with other label types
 
-Often, you also want to annotate with other entities, not just projects. LaminDB offers two main classes for this: {class}`~lamindb.Record` for metadata records and {class}`~lamindb.ULabel` for simple labels.
+You can also annotate with other entities, not just projects. LaminDB offers two main classes for this: {class}`~lamindb.Record` for metadata records and {class}`~lamindb.ULabel` for simple labels.
 
 <img width="400" alt="image" src="https://github.com/user-attachments/assets/0b0aa905-eb3a-418f-80a6-8d24879a3036" />
 
@@ -109,7 +109,7 @@ artifact.features.set_values({
 })
 ```
 
-When you work with structured data formats like `DataFrame` or `AnnData`, it often makes sense to validate the content of their features. After validation, the parsed features values are automatically used for annotation if you pass a {class}`~lamindb.Schema` to {class}`~lamindb.Artifact`. The easiest way is to use the built-in schema `"valid_features"`:
+When you work with structured data formats like `DataFrame` or `AnnData`, it often makes sense to validate the content of their features. After validation, the parsed feature values are automatically used for annotation if you pass a {class}`~lamindb.Schema` to {class}`~lamindb.Artifact`. The easiest way is to use the built-in schema `"valid_features"`:
 
 ```python
 # validate columns in the dataframe and map them on features
@@ -117,7 +117,7 @@ When you work with structured data formats like `DataFrame` or `AnnData`, it oft
 ln.Artifact.from_dataframe(df, schema="valid_features").save()
 ```
 
-Here is an example from the {doc}`tutorial` that illustrates that you get many annotations "for free" based on the content of the dataframe:
+Here is an example from the {doc}`tutorial` illustrating how you get many annotations automatically based on a dataframe's content:
 
 <img width="600px" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/6sofuDVvTANB0f480003.png">
 
@@ -127,7 +127,7 @@ The {class}`~lamindb.Artifact` registry has simple fields (such as `description`
 
 <img width="800px" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/HMfWLa1rFkxcxQEN0000.svg">
 
-Conceptually, all other registries surround {class}`~lamindb.Artifact` to provide context to find, query, and validate artifacts.[^starsnowflake]
+Conceptually, all other registries link to {class}`~lamindb.Artifact` to provide context for finding, querying, and validating artifacts.[^starsnowflake]
 
 :::{dropdown} Can you give me some example queries?
 
@@ -164,4 +164,4 @@ Artifacts are versioned based on the hash of their content. Collections are vers
 
 [^starsnowflake]: You can consider the SQL table underlying {class}`~lamindb.Artifact` your _fact table_ and all other tables for other entities your _dimension tables_ in a star or Snowflake schema ([see Wikipedia](https://en.wikipedia.org/wiki/Fact_table)).
 
-[^protectproject]: The project annotation of the artifact is protected against the deletion of the project. If a user with necessary rights attempts deleting the project, they will get an error.
+[^protectproject]: The project annotation of the artifact is protected against the deletion of the project. If a user with necessary rights attempts to delete the project, they will get an error.
