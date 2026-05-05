@@ -225,7 +225,7 @@ transform.describe()  # context of the transform
 <details>
 <summary>15 sec video.</summary>
 
-[15 sec video](https://lamin-site-assets.s3.amazonaws.com/.lamindb/Xdiikc2c1tPtHcvF0000.mp4)
+[Video](https://youtu.be/jwnHu1PbA9Q)
 
 </details>
 
@@ -485,7 +485,7 @@ artifact.describe()
 <details>
 <summary>30 sec video.</summary>
 
-[30 sec video](https://lamin-site-assets.s3.amazonaws.com/.lamindb/lJBlG7wEbNgkl2Cy0000.mp4)
+[Video](https://youtu.be/Ji6E7hTnReQ)
 
 </details>
 
@@ -538,7 +538,7 @@ Read more: [docs.lamin.ai/manage-ontologies](https://docs.lamin.ai/manage-ontolo
 <details>
 <summary>30 sec video.</summary>
 
-[30 sec video](https://lamin-site-assets.s3.amazonaws.com/.lamindb/nUSeIxsaPcBKVuvK0000.mp4)
+[Video](https://youtu.be/3vpWjHj3Kw8)
 
 </details>
 
