@@ -11,7 +11,7 @@ This guide walks through organizing datasets using files & folders, database rel
 
 ## Via files & folders
 
-If a database seems daunting, you can use LaminDB as a versioned file system. Similar to AWS S3, you organize artifacts into virtual folders using `/`-separated keys. For a single file, you'd call:
+If a database seems daunting, you can use LaminDB as a versioned file system. Similar to AWS S3, you organize artifacts into virtual folders using `/`-separated keys. To ingest a single file into a `project1/` folder, you'd call:
 
 ```python
 artifact1 = ln.Artifact("./dataset.csv", key="project1/dataset1.csv").save()
@@ -29,7 +29,7 @@ You can then query for all artifacts in the `"./project1/"` folder via:
 artifacts = ln.Artifact.filter(key__startswith="project1/")
 ```
 
-Every artifact is versioned and comes with rich metadata.
+Every artifact in the folder is versioned and comes with rich metadata.
 
 :::{dropdown} What if I do not care about the metadata and version of every file in a folder?
 
@@ -62,15 +62,15 @@ artifact1.projects.add(project1, project2)      # annotate artifact1
 This allows you to retrieve `artifact1` by querying any project it belongs to. For example, `artifact1` will appear in the results of both queries:
 
 ```python
-artifacts_in_project1 = ln.Artifact.filter(projects=project1)  # all artifacts in project1
-artifacts_in_project2 = ln.Artifact.filter(projects=project2)  # all artifacts in project2
+artifacts_in_project1 = ln.Artifact.filter(projects=project1)
+artifacts_in_project2 = ln.Artifact.filter(projects=project2)
 ```
 
 There are three additional advantages of using related registries rather than folder structures:
 
-1. Project objects can be richly annotated (e.g., with start/end dates, parent projects, or user roles).
+1. Projects can be richly annotated (e.g., with start/end dates, parent projects, or member roles).
 2. You no longer need to rely on fragile file paths. If a folder is renamed, path-based retrieval breaks, but a project query by `uid` will always work.[^protectproject]
-3. You can run a constrained query or search against all projects in your database, rather than trying to narrow a search to folder names.
+3. You can run a constrained query or search against all projects in your database rather than trying to narrow a search to folder names.
 
 ### Annotating with other label types
 
@@ -110,7 +110,7 @@ artifact.features.set_values({
 
 The {class}`~lamindb.Artifact` registry has simple fields (such as `description`, `created_at`, `size`) and related fields (such as `projects`, `created_by`, `storage`). Many of these fields are automatically populated and you can use them to retrieve sets of artifacts.
 
-<img width="800" alt="image" src="https://github.com/user-attachments/assets/222d3ed6-1850-4048-9b95-39765c756a1c" />
+<img width="800px" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/HMfWLa1rFkxcxQEN0000.svg">
 
 Conceptually, all other registries surround {class}`~lamindb.Artifact` to provide context to find, query, and validate artifacts.[^starsnowflake]
 
