@@ -2,7 +2,7 @@
 execute_via: python
 ---
 
-# Manage notebooks, scripts & workflows
+# Track notebooks, scripts & workflows
 
 This guide walks from tracking data lineage in a notebook to tracking parameters in workflows.
 
