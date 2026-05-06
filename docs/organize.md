@@ -187,7 +187,7 @@ artifacts = ln.Artifact.filter(
 
 ## Versioned collections of artifacts
 
-Sometimes, you need to both group artifacts by metadata and version the entire set. For this, use {class}`~lamindb.Collection`
+If you want to group artifacts by metadata and version the entire set, use {class}`~lamindb.Collection`.
 
 <img width="160" alt="image" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/QR0KuktVEnVL08K90000.png"/>
 
