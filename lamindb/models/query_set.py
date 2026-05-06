@@ -574,6 +574,22 @@ def get_feature_annotate_kwargs(
         logger.important(
             f"queried for all categorical features of dtypes Record or ULabel and non-categorical features: ({len(feature_qs)}) {feature_qs.to_list('name')}"
         )
+    # Duplicate feature names map to ambiguous dataframe columns. We keep a single
+    # feature per name for query annotation and warn loudly to surface this.
+    feature_name_to_ids: dict[str, list[int]] = defaultdict(list)
+    for feature in feature_qs.order_by("id"):
+        feature_name_to_ids[feature.name].append(feature.id)
+    duplicate_feature_names = {
+        name: ids for name, ids in feature_name_to_ids.items() if len(ids) > 1
+    }
+    if duplicate_feature_names:
+        logger.warning(
+            "detected duplicate feature names while building dataframe features; "
+            "keeping the first feature per name by ascending id. "
+            f"duplicates: {duplicate_feature_names}"
+        )
+        unique_feature_ids = [ids[0] for ids in feature_name_to_ids.values()]
+        feature_qs = feature_qs.filter(id__in=unique_feature_ids)
     # Get the categorical features
     cat_feature_types = {
         parse_dtype(feature._dtype_str)[0]["registry_str"]
