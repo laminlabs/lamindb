@@ -59,7 +59,7 @@ def install(session):
         ".[full,dev]",
     ]
     cmds = [
-        f"uv pip install {'--system' if CI else ''} --no-cache-dir {' '.join(base_deps)}",
+        f"uv pip install {'--system' if CI else ''} --no-cache-dir --no-deps {' '.join(base_deps)}",
     ] + [
         f"uv pip install {'--system' if CI else ''} --no-cache-dir -e {dep}"
         for dep in top_deps
