@@ -263,11 +263,11 @@ def test_schema_update(
     # add a feature -------------------------------------------
 
     feature_to_add = ln.Feature(name="sample_note", dtype=str).save()
-    assert mini_immuno_schema_flexible.n == 6
+    assert mini_immuno_schema_flexible.n_members == 6
     mini_immuno_schema_flexible.features.add(feature_to_add)
     mini_immuno_schema_flexible.save()
     assert mini_immuno_schema_flexible.hash != orig_hash
-    assert mini_immuno_schema_flexible.n == 7
+    assert mini_immuno_schema_flexible.n_members == 7
     assert ccaplog.text.count(warning_message) == 1
 
     # remove the feature again
@@ -275,7 +275,7 @@ def test_schema_update(
     mini_immuno_schema_flexible.save()
     assert mini_immuno_schema_flexible.hash == orig_hash
     assert ccaplog.text.count(warning_message) == 2
-    assert mini_immuno_schema_flexible.n == 6
+    assert mini_immuno_schema_flexible.n_members == 6
     feature_to_add.delete(permanent=True)
 
     # change is flexible (an auxiliary field) --------------------------------
@@ -312,13 +312,13 @@ def test_schema_update(
     mini_immuno_schema_flexible.index = index_feature
     mini_immuno_schema_flexible.save()
     assert mini_immuno_schema_flexible.hash != orig_hash
-    assert mini_immuno_schema_flexible.n == 7
+    assert mini_immuno_schema_flexible.n_members == 7
     assert ccaplog.text.count(warning_message) == 7
 
     # remove the index
     mini_immuno_schema_flexible.index = None
     mini_immuno_schema_flexible.save()
-    assert mini_immuno_schema_flexible.n == 6
+    assert mini_immuno_schema_flexible.n_members == 6
     assert mini_immuno_schema_flexible.hash == orig_hash
     assert ccaplog.text.count(warning_message) == 8
     index_feature.delete(permanent=True)
