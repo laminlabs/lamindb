@@ -1567,6 +1567,52 @@ def test_update_non_virtual_key_for_registered_storage_file_invalid_suffix(
     artifact.delete(permanent=True, storage=False)
 
 
+def test_update_key_to_none_raises_invalid_argument(
+    registered_storage_file_and_folder,
+):
+    test_filepath, _ = registered_storage_file_and_folder
+    artifact = ln.Artifact(test_filepath).save()
+    artifact.key = None
+
+    with pytest.raises(InvalidArgument) as error:
+        artifact.save()
+    assert (
+        error.exconly()
+        == "lamindb.errors.InvalidArgument: Cannot update an artifact key to None."
+    )
+
+    artifact.delete(permanent=True, storage=False)
+
+
+def test_update_non_virtual_key_before_save_raises_invalid_argument(tsv_file):
+    artifact = ln.Artifact(tsv_file, key="before-save.tsv", _key_is_virtual=False)
+    artifact.key = "after-edit.tsv"
+
+    with pytest.raises(InvalidArgument) as error:
+        artifact.save()
+    assert (
+        error.exconly()
+        == "lamindb.errors.InvalidArgument: Cannot update the key of an artifact before it is saved."
+    )
+
+
+def test_update_non_virtual_key_in_unmanaged_storage_raises_invalid_argument():
+    url = (
+        "https://raw.githubusercontent.com/laminlabs/lamindb/refs/heads/main/README.md"
+    )
+    artifact = ln.Artifact(url, description="test unmanaged key update").save()
+    assert not artifact._key_is_virtual
+    artifact.key = "laminlabs/lamindb/refs/heads/main/README-renamed.md"
+    with pytest.raises(InvalidArgument) as error:
+        artifact.save()
+    assert (
+        error.exconly()
+        == "lamindb.errors.InvalidArgument: Cannot update the key of an artifact in a storage location that is not managed by an instance."
+    )
+
+    artifact.delete(permanent=True, storage=False)
+
+
 def test_save_url_with_virtual_key_and_unmanaged_suffix_update_error():
     url = (
         "https://raw.githubusercontent.com/laminlabs/lamindb/refs/heads/main/README.md"
