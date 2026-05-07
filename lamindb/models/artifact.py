@@ -3102,11 +3102,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             logger.warning("you are saving to a non-latest version of the artifact")
 
         access_token = kwargs.pop("access_token", None)
-        if self.storage.instance_uid != ln_setup.settings.instance.uid:
-            root_as_str = self.storage.root
-            raise ValueError(
-                f"Storage {root_as_str} exists in another instance ({self.storage.instance_uid}), cannot write to it from here."
-            )
 
         if self._field_changed("key", check_is_saved=False):
             new_key = self.key
@@ -3132,6 +3127,11 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                     raise InvalidArgument(
                         "Cannot update the key of an artifact in a storage location that is not managed by an instance."
                     )
+                if self.storage.instance_uid != ln_setup.settings.instance.uid:
+                    root_as_str = self.storage.root
+                    raise ValueError(
+                        f"Storage {root_as_str} exists in another instance ({self.storage.instance_uid}), cannot write to it from here."
+                    )
                 old_key = self._original_values["key"]
                 if old_key is None:
                     raise InvalidArgument(
@@ -3150,6 +3150,11 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             if self.storage.instance_uid is None:
                 raise InvalidArgument(
                     "Cannot update the suffix of an artifact in a storage location that is not managed by an instance."
+                )
+            if self.storage.instance_uid != ln_setup.settings.instance.uid:
+                root_as_str = self.storage.root
+                raise ValueError(
+                    f"Storage {root_as_str} exists in another instance ({self.storage.instance_uid}), cannot write to it from here."
                 )
             if not _handle_suffix_change_on_save(self):
                 return None
@@ -3229,6 +3234,15 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             )
 
         flag_complete = has_local_filepath and getattr(self, "_to_store", False)
+        if (
+            flag_complete
+            and self.storage.instance_uid is not None
+            and self.storage.instance_uid != ln_setup.settings.instance.uid
+        ):
+            root_as_str = self.storage.root
+            raise ValueError(
+                f"Storage {root_as_str} exists in another instance ({self.storage.instance_uid}), cannot write to it from here."
+            )
         # _storage_ongoing indicates whether the storage saving / upload process is ongoing
         if flag_complete:
             self._storage_ongoing = True  # will be updated to False once complete
