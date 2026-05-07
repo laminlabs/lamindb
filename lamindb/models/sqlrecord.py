@@ -9,7 +9,7 @@ import shutil
 import sys
 from collections import defaultdict
 from itertools import chain
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -45,7 +45,6 @@ from lamindb_setup.core._docs import doc_args
 from lamindb_setup.core._hub_core import connect_instance_hub
 from lamindb_setup.core._settings_store import instance_settings_file
 from lamindb_setup.core.django import DBToken, db_token_manager
-from lamindb_setup.core.upath import extract_suffix_from_path
 from upath import UPath
 
 from lamindb.base.users import current_user_id
@@ -69,7 +68,6 @@ from ..base.types import (
 from ..base.uids import base62_12
 from ..errors import (
     FieldValidationError,
-    InvalidArgument,
     NoWriteAccess,
     ValidationError,
 )
@@ -81,7 +79,6 @@ if TYPE_CHECKING:
 
     import pandas as pd
 
-    from .artifact import Artifact
     from .block import BranchBlock, SpaceBlock
     from .project import Project
     from .query_manager import RelatedManager
@@ -1068,7 +1065,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
         # track original values of fields that are tracked for changes
         self._populate_tracked_fields()
         # TODO: refactor to use _TRACK_FIELDS
-        track_current_key_and_name_values(self)
+        track_current_name_value(self)
 
     # used in __init__
     # populates the _original_values dictionary with the original values of the tracked fields
@@ -1148,7 +1145,6 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
             init_self_from_db(self, pre_existing_record)
         else:
             # TODO: refactor to use _TRACK_FIELDS
-            check_key_change(self)
             check_name_change(self)
             try:
                 # save versioned record in presence of self._revises
@@ -1262,7 +1258,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                 else:
                     raise
             # call the below in case a user makes more updates to the record
-            track_current_key_and_name_values(self)
+            track_current_name_value(self)
         # perform transfer of many-to-many fields
         # only supported for Artifact and Collection records
         if db is not None and db != "default" and using_key is None:
@@ -2205,14 +2201,10 @@ def transfer_to_default_db(
     return None
 
 
-def track_current_key_and_name_values(record: SQLRecord):
-    from lamindb.models import Artifact
-
+def track_current_name_value(record: SQLRecord):
     # below, we're using __dict__ to avoid triggering the refresh from the database
     # which can lead to a recursion
-    if isinstance(record, Artifact):
-        record._old_key = record.__dict__.get("key")  # type: ignore
-    elif hasattr(record, "_name_field"):
+    if hasattr(record, "_name_field"):
         record._old_name = record.__dict__.get(record._name_field)
 
 
@@ -2234,7 +2226,7 @@ def check_name_change(record: SQLRecord):
     ):
         return
 
-    # checked in check_key_change or not checked at all
+    # key-like records are not checked here
     if isinstance(record, (Artifact, Collection, Transform)):
         return
 
@@ -2280,42 +2272,6 @@ def check_name_change(record: SQLRecord):
                     f"{n} artifact{s} no longer match{es} the feature name in storage: {artifact_uids}\n"
                     "  → consider re-curating"
                 )
-
-
-def check_key_change(record: Artifact):
-    """Errors if a record's key has falsely changed."""
-    from .artifact import Artifact
-
-    if not isinstance(record, Artifact) or not hasattr(record, "_old_key"):
-        return
-    if hasattr(record, "_skip_key_change_check") and record._skip_key_change_check:
-        return
-
-    old_key = record._old_key  # type: ignore
-    new_key = record.key
-
-    if old_key != new_key:
-        if not record._key_is_virtual:
-            raise InvalidArgument(
-                f"Changing a non-virtual key of an artifact is not allowed! You tried to change it from '{old_key}' to '{new_key}'."
-            )
-        if old_key is not None:
-            old_key_suffix = extract_suffix_from_path(
-                PurePosixPath(old_key), arg_name="key"
-            )
-            assert old_key_suffix == record.suffix, (  # noqa: S101
-                old_key_suffix,
-                record.suffix,
-            )
-        else:
-            old_key_suffix = record.suffix
-        new_key_suffix = extract_suffix_from_path(
-            PurePosixPath(new_key), arg_name="key"
-        )
-        if old_key_suffix != new_key_suffix:
-            raise InvalidArgument(
-                f"The suffix '{new_key_suffix}' of the provided key is incorrect, it should be '{old_key_suffix}'."
-            )
 
 
 def format_field_value(value: datetime | str | Any, none: str = "None") -> str:

@@ -32,8 +32,6 @@ from .run import TracksRun, TracksUpdates
 from .sqlrecord import Space, SQLRecord
 
 if TYPE_CHECKING:
-    from pathlib import Path
-
     from lamindb_setup.types import StorageType
     from upath import UPath
 
@@ -325,7 +323,7 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
         return self.region
 
     @property
-    def path(self) -> Path | UPath:
+    def path(self) -> UPath:
         """Path.
 
         Uses the `.root` field and converts it into a `Path` or `UPath`.
