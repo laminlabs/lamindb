@@ -1698,7 +1698,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 logger.warning(
                     "storage argument ignored as storage information from space takes precedence"
                 )
-            storage_locs_for_space = Storage.filter(space=space)
+            storage_locs_for_space = Storage.filter(
+                space=space, instance_uid=setup_settings.instance.uid
+            ).order_by("id")
             n_storage_locs_for_space = len(storage_locs_for_space)
             if n_storage_locs_for_space == 0:
                 raise NoStorageLocationForSpace(
@@ -1709,8 +1711,15 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             else:
                 storage = storage_locs_for_space.first()
                 if n_storage_locs_for_space > 1:
+                    other_storage_locs = ",".join(
+                        f"{s.root}" for s in storage_locs_for_space[1:]
+                    )
                     logger.warning(
-                        f"more than one storage location for space {space}, choosing {storage}"
+                        f"more than one storage location is managed by this instance for space {space},\n"
+                        f"choosing root={storage.root}\n"
+                    )
+                    logger.important_hint(
+                        f"to choose one of the other storage locations ({other_storage_locs}), pass `storage` to the Artifact constructor"
                     )
         otype = kwargs.pop("otype") if "otype" in kwargs else None
         if isinstance(path, str) and path.startswith("s3:///"):
@@ -3093,6 +3102,11 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             logger.warning("you are saving to a non-latest version of the artifact")
 
         access_token = kwargs.pop("access_token", None)
+        if self.storage.instance_uid != ln_setup.settings.instance.uid:
+            root_as_str = self.storage.root
+            raise ValueError(
+                f"Storage {root_as_str} exists in another instance ({self.storage.instance_uid}), cannot write to it from here."
+            )
 
         if self._field_changed("key", check_is_saved=False):
             new_key = self.key
