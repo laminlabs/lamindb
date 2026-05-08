@@ -538,6 +538,9 @@ def get_artifact_kwargs_from_data(
             returned_privates = privates  # re-upload necessary
         else:
             returned_privates = {"key": key}
+        returned_privates["is_artifact_storage_managed_by_current_instance"] = (
+            existing_artifact.storage.instance_uid == setup_settings.instance.uid
+        )
         return existing_artifact, returned_privates
     else:
         size, hash, hash_type, n_files, revises = stat_or_artifact
@@ -578,6 +581,11 @@ def get_artifact_kwargs_from_data(
             if key_is_virtual is None
             else key_is_virtual
         )
+
+    # needed to check if the artifact storage is managed by the current instance on artifact init
+    privates["is_artifact_storage_managed_by_current_instance"] = (
+        storage.instance_uid == setup_settings.instance.uid
+    )
 
     kwargs = {
         "uid": provisional_uid,
@@ -1767,7 +1775,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
                 if (
                     self._to_store
-                    and self.storage.instance_uid != setup_settings.instance.uid
+                    and not privates["is_artifact_storage_managed_by_current_instance"]
                 ):
                     raise ValueError(
                         "Cannot create an artifact in a storage location that is not managed by the current instance."
