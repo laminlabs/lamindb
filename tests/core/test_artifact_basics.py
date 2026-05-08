@@ -1612,17 +1612,15 @@ def test_update_non_virtual_key_in_unmanaged_storage_raises_invalid_argument():
     artifact.delete(permanent=True, storage=False)
 
 
-def test_create_artifact_in_foreign_managed_storage_raises_value_error(
-    tsv_file, monkeypatch
-):
-    foreign_instance_uid = "_not_exists_"
+def test_create_artifact_in_foreign_managed_storage_raises_value_error(tsv_file):
     storage = ln.settings.storage.record
-    monkeypatch.setattr(storage, "instance_uid", foreign_instance_uid)
-
-    with pytest.raises(
-        ValueError,
-        match=(
-            "Cannot create an artifact in a storage location that is not managed by the current instance."
+    with (
+        patch.object(storage, "instance_uid", "_not_exists_"),
+        pytest.raises(
+            ValueError,
+            match=(
+                "Cannot create an artifact in a storage location that is not managed by the current instance."
+            ),
         ),
     ):
         ln.Artifact(tsv_file, storage=storage)
@@ -1656,18 +1654,20 @@ def test_save_url_with_virtual_key_and_unmanaged_suffix_update_error():
 
 
 def test_change_space_for_artifact_in_foreign_managed_storage_raises_value_error(
-    tsv_file, monkeypatch
+    tsv_file,
 ):
     artifact = ln.Artifact(tsv_file, key="space-change-foreign-storage.tsv").save()
-    foreign_instance_uid = "_not_exists_"
-    monkeypatch.setattr(artifact.storage, "instance_uid", foreign_instance_uid)
-
-    space = ln.Space(name="test space foreign storage", uid="foreignspace").save()
+    space = ln.Space(
+        name="test space change in foreign storage", uid="foreignspace"
+    ).save()
     artifact.space = space
-    with pytest.raises(
-        ValueError,
-        match=(
-            "Cannot change the space of an artifact in a storage location that is not managed by the current instance."
+    with (
+        patch.object(artifact.storage, "instance_uid", "_not_exists_"),
+        pytest.raises(
+            ValueError,
+            match=(
+                "Cannot change the space of an artifact in a storage location that is not managed by the current instance."
+            ),
         ),
     ):
         artifact.save()
@@ -1676,17 +1676,15 @@ def test_change_space_for_artifact_in_foreign_managed_storage_raises_value_error
     space.delete(permanent=True)
 
 
-def test_save_artifact_to_foreign_managed_storage_raises_value_error(
-    tsv_file, monkeypatch
-):
+def test_save_artifact_to_foreign_managed_storage_raises_value_error(tsv_file):
     artifact = ln.Artifact(tsv_file, key="save-foreign-storage.tsv")
-    foreign_instance_uid = "_not_exists_"
-    monkeypatch.setattr(artifact.storage, "instance_uid", foreign_instance_uid)
-
-    with pytest.raises(
-        ValueError,
-        match=(
-            "Cannot save an artifact to a storage location that is not managed by the current instance."
+    with (
+        patch.object(artifact.storage, "instance_uid", "_not_exists_"),
+        pytest.raises(
+            ValueError,
+            match=(
+                "Cannot save an artifact to a storage location that is not managed by the current instance."
+            ),
         ),
     ):
         artifact.save()
