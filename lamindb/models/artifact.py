@@ -595,9 +595,6 @@ def get_artifact_kwargs_from_data(
         "key": key,
         "size": size,
         "storage_id": storage.id,
-        # passing both the id and the object
-        # to make them both available immediately
-        # after object creation
         "n_files": n_files,
         "_overwrite_versions": overwrite_versions,  # True for folder, False for file
         "n_observations": None,  # to implement
