@@ -2835,13 +2835,19 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         ) and mode == "w"
         is_zarr_w = suffix == ".zarr" and mode == "r+"
 
-        if mode != "r" and not (is_tiledbsoma_w or is_zarr_w):
-            raise ValueError(
-                f"It is not allowed to open a {suffix} object with mode='{mode}'. "
-                "You can open all supported formats with mode='r', "
-                "a tiledbsoma store with mode='w', "
-                "AnnData or SpatialData zarr store with mode='r+'."
-            )
+        if mode != "r":
+            if not (is_tiledbsoma_w or is_zarr_w):
+                raise ValueError(
+                    f"It is not allowed to open a {suffix} object with `mode='{mode}'`. "
+                    "You can open all supported formats with `mode='r'`, "
+                    "a tiledbsoma store with `mode='w'`, "
+                    "AnnData or SpatialData zarr store with `mode='r+'`."
+                )
+            elif not self.overwrite_versions:
+                raise ValueError(
+                    "It is not possible to open artifacts having `overwrite_versions=False` "
+                    "in non-read mode (other than `mode='r'`)."
+                )
         # consider the case where an object is already locally cached
         localpath = setup_settings.paths.cloud_to_local_no_update(
             filepath, cache_key=cache_key

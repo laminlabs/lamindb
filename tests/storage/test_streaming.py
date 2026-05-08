@@ -300,6 +300,20 @@ def test_from_lazy():
     artifact.delete(permanent=True, storage=True)
 
 
+def test_zarr_open_mode_overwrite_versions_false():
+    lazy = ln.Artifact.from_lazy(
+        suffix=".zarr", overwrite_versions=False, key="mydata_overwrite_false.zarr"
+    )
+    store = zarr.open(lazy.path, mode="w")
+    store["test"] = np.array(["test"])
+    artifact = lazy.save()
+
+    with pytest.raises(ValueError, match="overwrite_versions=False"):
+        artifact.open(mode="r+")
+
+    artifact.delete(permanent=True, storage=True)
+
+
 def test_from_lazy_cloud():
     previous_storage = ln.setup.settings.storage.root_as_str
     ln.settings.storage = "s3://lamindb-test/storage"
