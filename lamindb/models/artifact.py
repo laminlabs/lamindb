@@ -538,6 +538,9 @@ def get_artifact_kwargs_from_data(
             returned_privates = privates  # re-upload necessary
         else:
             returned_privates = {"key": key}
+        returned_privates["is_artifact_storage_managed_by_current_instance"] = (
+            existing_artifact.storage.instance_uid == setup_settings.instance.uid
+        )
         return existing_artifact, returned_privates
     else:
         size, hash, hash_type, n_files, revises = stat_or_artifact
@@ -579,6 +582,11 @@ def get_artifact_kwargs_from_data(
             else key_is_virtual
         )
 
+    # needed to check if the artifact storage is managed by the current instance on artifact init
+    privates["is_artifact_storage_managed_by_current_instance"] = (
+        storage.instance_uid == setup_settings.instance.uid
+    )
+
     kwargs = {
         "uid": provisional_uid,
         "suffix": suffix,
@@ -587,9 +595,6 @@ def get_artifact_kwargs_from_data(
         "key": key,
         "size": size,
         "storage_id": storage.id,
-        # passing both the id and the object
-        # to make them both available immediately
-        # after object creation
         "n_files": n_files,
         "_overwrite_versions": overwrite_versions,  # True for folder, False for file
         "n_observations": None,  # to implement
@@ -1698,8 +1703,10 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 logger.warning(
                     "storage argument ignored as storage information from space takes precedence"
                 )
-            storage_locs_for_space = Storage.filter(space=space)
-            n_storage_locs_for_space = len(storage_locs_for_space)
+            storage_locs_for_space = Storage.filter(
+                space=space, instance_uid=setup_settings.instance.uid
+            ).order_by("id")
+            n_storage_locs_for_space = storage_locs_for_space.count()
             if n_storage_locs_for_space == 0:
                 raise NoStorageLocationForSpace(
                     "No storage location found for space.\n"
@@ -1709,8 +1716,15 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             else:
                 storage = storage_locs_for_space.first()
                 if n_storage_locs_for_space > 1:
+                    other_storage_locs = ",".join(
+                        f"{s.root}" for s in storage_locs_for_space[1:]
+                    )
                     logger.warning(
-                        f"more than one storage location for space {space}, choosing {storage}"
+                        f"more than one storage location is managed by this instance for space {space},\n"
+                        f"choosing root={storage.root}\n"
+                    )
+                    logger.important_hint(
+                        f"to choose one of the other storage locations ({other_storage_locs}), pass `storage` to the Artifact constructor"
                     )
         otype = kwargs.pop("otype") if "otype" in kwargs else None
         if isinstance(path, str) and path.startswith("s3:///"):
@@ -1755,6 +1769,14 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 self._cloud_filepath = privates["cloud_filepath"]
                 self._memory_rep = privates["memory_rep"]
                 self._to_store = not privates["check_path_in_storage"]
+
+                if (
+                    self._to_store
+                    and not privates["is_artifact_storage_managed_by_current_instance"]
+                ):
+                    raise ValueError(
+                        "Cannot create an artifact in a storage location that is not managed by the current instance."
+                    )
 
         # an object with the same hash already exists
         if isinstance(kwargs_or_artifact, Artifact):
@@ -3100,6 +3122,14 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
         access_token = kwargs.pop("access_token", None)
 
+        current_instance_uid = setup_settings.instance.uid
+
+        artifact_storage = self.storage
+        artifact_storage_instance_uid = artifact_storage.instance_uid
+        is_not_artifact_storage_managed_by_current_instance = (
+            artifact_storage_instance_uid != current_instance_uid
+        )
+
         if self._field_changed("key", check_is_saved=False):
             new_key = self.key
             if new_key is None:
@@ -3120,9 +3150,10 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                     raise InvalidArgument(
                         "Cannot update the key of an artifact before it is saved."
                     )
-                if self.storage.instance_uid is None:
+                if is_not_artifact_storage_managed_by_current_instance:
                     raise InvalidArgument(
-                        "Cannot update the key of an artifact in a storage location that is not managed by an instance."
+                        "Cannot update a non-virtual key of an artifact"
+                        " in a storage location that is not managed by the current instance."
                     )
                 old_key = self._original_values["key"]
                 if old_key is None:
@@ -3139,9 +3170,10 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 raise InvalidArgument(
                     "Cannot update the suffix of an artifact before it is saved."
                 )
-            if self.storage.instance_uid is None:
+            if is_not_artifact_storage_managed_by_current_instance:
                 raise InvalidArgument(
-                    "Cannot update the suffix of an artifact in a storage location that is not managed by an instance."
+                    "Cannot update the suffix of an artifact"
+                    " in a storage location that is not managed by the current instance."
                 )
             if not _handle_suffix_change_on_save(self):
                 return None
@@ -3151,18 +3183,23 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             self._field_changed("space_id")
             # here we check for storages managed by any instance
             # not necessarily with managed credentials
-            # probbaly we should restrict to storages with managed credentials
-            and (artifact_storage := self.storage).instance_uid is not None
+            # we check if the artifact storage is managed by the current instance further
+            and artifact_storage_instance_uid is not None
         ):
+            if is_not_artifact_storage_managed_by_current_instance:
+                raise ValueError(
+                    "Cannot change the space of an artifact"
+                    " in a storage location that is not managed by the current instance."
+                )
             space = self.space
             storage_type = artifact_storage.type
             storages = Storage.connect(self._state.db).filter(
-                space=space, instance_uid__isnull=False, type=storage_type
+                space=space, instance_uid=current_instance_uid, type=storage_type
             )
             n_storages = storages.count()
             if n_storages == 0:
                 raise ValueError(
-                    f"No {storage_type} storage locations managed by an instance found for the space '{space.name}'."
+                    f"No {storage_type} storage locations managed by the current instance found for the space '{space.name}'."
                 )
             elif n_storages > 1:
                 storages = storages.order_by("id")
@@ -3221,8 +3258,12 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             )
 
         flag_complete = has_local_filepath and getattr(self, "_to_store", False)
-        # _storage_ongoing indicates whether the storage saving / upload process is ongoing
         if flag_complete:
+            if is_not_artifact_storage_managed_by_current_instance:
+                raise ValueError(
+                    "Cannot save an artifact to a storage location that is not managed by the current instance."
+                )
+            # _storage_ongoing indicates whether the storage saving / upload process is ongoing
             self._storage_ongoing = True  # will be updated to False once complete
 
         self._save_skip_storage(**kwargs)
