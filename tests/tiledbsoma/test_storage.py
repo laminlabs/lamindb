@@ -124,6 +124,15 @@ def test_write_read_tiledbsoma(storage):
         append_obsm_varm=True,
     )
     assert artifact_soma_append.uid.endswith("0002")
+    artifact_soma.refresh_from_db()
+    assert not artifact_soma.is_latest
+    match = "its files were overwritten and are no longer available"
+    with pytest.raises(ValueError, match=match):
+        artifact_soma.open()
+    with pytest.raises(ValueError, match=match):
+        artifact_soma.load()
+    with pytest.raises(ValueError, match=match):
+        artifact_soma.cache()
     # below is inherited from "scrna/my-big-dataset.tiledbsoma"
     assert artifact_soma_append.key == "scrna/my-big-dataset.tiledbsoma"
 
