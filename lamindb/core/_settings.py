@@ -38,6 +38,20 @@ VERBOSITY_TO_STR: dict[int, str] = dict(
 )
 
 
+def raise_if_storage_managed_by_other_instance(
+    *,
+    storage_root: str,
+    storage_instance_uid: str | None,
+) -> None:
+    if (
+        storage_instance_uid is not None
+        and storage_instance_uid != ln_setup.settings.instance.uid
+    ):
+        raise ValueError(
+            f"Storage {storage_root} exists in another instance ({storage_instance_uid}), cannot write to it from here."
+        )
+
+
 class Settings:
     """Settings.
 
@@ -216,10 +230,9 @@ class Settings:
                 return None
             set_managed_storage(path, **kwargs)
         else:
-            if exists.instance_uid != ln_setup.settings.instance.uid:
-                raise ValueError(
-                    f"Storage {root_as_str} exists in another instance ({exists.instance_uid}), cannot write to it from here."
-                )
+            raise_if_storage_managed_by_other_instance(
+                storage_root=root_as_str, storage_instance_uid=exists.instance_uid
+            )
             ssettings = StorageSettings(
                 root=exists.root,
                 region=exists.region,
@@ -265,10 +278,10 @@ class Settings:
             if response != "y":
                 return None
         else:
-            if exists.instance_uid != ln_setup.settings.instance.uid:
-                raise ValueError(
-                    f"Storage {ssettings.root_as_str} exists in another instance ({exists.instance_uid}), cannot write to it from here."
-                )
+            raise_if_storage_managed_by_other_instance(
+                storage_root=ssettings.root_as_str,
+                storage_instance_uid=exists.instance_uid,
+            )
         ln_setup.settings.instance.local_storage = local_root
 
     @property

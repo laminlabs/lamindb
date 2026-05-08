@@ -37,7 +37,7 @@ from ..base.fields import (
 from ..base.users import current_user_id
 from ..base.utils import deprecated, strict_classmethod
 from ..core._compat import with_package_obj
-from ..core._settings import settings
+from ..core._settings import raise_if_storage_managed_by_other_instance, settings
 from ..errors import (
     FieldValidationError,
     InvalidArgument,
@@ -1701,7 +1701,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             storage_locs_for_space = Storage.filter(
                 space=space, instance_uid=setup_settings.instance.uid
             ).order_by("id")
-            n_storage_locs_for_space = len(storage_locs_for_space)
+            n_storage_locs_for_space = storage_locs_for_space.count()
             if n_storage_locs_for_space == 0:
                 raise NoStorageLocationForSpace(
                     "No storage location found for space.\n"
@@ -3127,11 +3127,10 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                     raise InvalidArgument(
                         "Cannot update the key of an artifact in a storage location that is not managed by an instance."
                     )
-                if self.storage.instance_uid != ln_setup.settings.instance.uid:
-                    root_as_str = self.storage.root
-                    raise ValueError(
-                        f"Storage {root_as_str} exists in another instance ({self.storage.instance_uid}), cannot write to it from here."
-                    )
+                raise_if_storage_managed_by_other_instance(
+                    storage_root=self.storage.root,
+                    storage_instance_uid=self.storage.instance_uid,
+                )
                 old_key = self._original_values["key"]
                 if old_key is None:
                     raise InvalidArgument(
@@ -3151,11 +3150,10 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 raise InvalidArgument(
                     "Cannot update the suffix of an artifact in a storage location that is not managed by an instance."
                 )
-            if self.storage.instance_uid != ln_setup.settings.instance.uid:
-                root_as_str = self.storage.root
-                raise ValueError(
-                    f"Storage {root_as_str} exists in another instance ({self.storage.instance_uid}), cannot write to it from here."
-                )
+            raise_if_storage_managed_by_other_instance(
+                storage_root=self.storage.root,
+                storage_instance_uid=self.storage.instance_uid,
+            )
             if not _handle_suffix_change_on_save(self):
                 return None
 
@@ -3234,14 +3232,10 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             )
 
         flag_complete = has_local_filepath and getattr(self, "_to_store", False)
-        if (
-            flag_complete
-            and self.storage.instance_uid is not None
-            and self.storage.instance_uid != ln_setup.settings.instance.uid
-        ):
-            root_as_str = self.storage.root
-            raise ValueError(
-                f"Storage {root_as_str} exists in another instance ({self.storage.instance_uid}), cannot write to it from here."
+        if flag_complete:
+            raise_if_storage_managed_by_other_instance(
+                storage_root=self.storage.root,
+                storage_instance_uid=self.storage.instance_uid,
             )
         # _storage_ongoing indicates whether the storage saving / upload process is ongoing
         if flag_complete:
