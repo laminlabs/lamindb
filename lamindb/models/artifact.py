@@ -167,9 +167,9 @@ if TYPE_CHECKING:
     from .transform import Transform
 
 
-INCONSISTENT_STATE_MSG = (
-    "Trying to read a folder artifact from an outdated version, "
-    "this can result in an incosistent state.\n"
+OUTDATED_ARTIFACT_FILES_OVERWRITTEN_MSG = (
+    "Cannot read this outdated artifact version: "
+    "its files were overwritten and are no longer available.\n"
     "Read from the latest version: artifact.versions.get(is_latest=True)"
 )
 
@@ -2819,7 +2819,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         from ..core.storage._pyarrow_dataset import PYARROW_SUFFIXES
 
         if self._overwrite_versions and not self.is_latest:
-            raise ValueError(INCONSISTENT_STATE_MSG)
+            raise ValueError(OUTDATED_ARTIFACT_FILES_OVERWRITTEN_MSG)
         # all hdf5 suffixes including gzipped
         h5_suffixes = [".h5", ".hdf5", ".h5ad"]
         h5_gz_suffixes = []
@@ -2964,7 +2964,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         from ..core.loaders import load_to_memory
 
         if self._overwrite_versions and not self.is_latest:
-            raise ValueError(INCONSISTENT_STATE_MSG)
+            raise ValueError(OUTDATED_ARTIFACT_FILES_OVERWRITTEN_MSG)
 
         if hasattr(self, "_memory_rep") and self._memory_rep is not None:
             access_memory = self._memory_rep
@@ -3030,7 +3030,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 #> PosixPath('/home/runner/work/Caches/lamindb/lamindata/pbmc68k.h5ad')
         """
         if self._overwrite_versions and not self.is_latest:
-            raise ValueError(INCONSISTENT_STATE_MSG)
+            raise ValueError(OUTDATED_ARTIFACT_FILES_OVERWRITTEN_MSG)
 
         filepath, cache_key = _s().filepath_cache_key_from_artifact(
             self, using_key=settings._using_key
