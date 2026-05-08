@@ -1,6 +1,7 @@
 import concurrent.futures
 
 import lamindb as ln
+import pytest
 
 
 # we need this test both in the core and the storage/cloud tests
@@ -13,6 +14,36 @@ def test_reference_storage_location(ccaplog):
         "referenced read-only storage location at s3://lamindata, is managed by instance with uid 4XIuR0tvaiXM"
         in ccaplog.text
     )
+
+
+def test_storage_setter_raises_on_foreign_managed_storage(tmp_path):
+    storage = ln.Storage(root=(tmp_path / "foreign-managed-storage").as_posix()).save()
+    storage.instance_uid = "_not_exists_"
+    storage.save()
+
+    with pytest.raises(ValueError) as error:
+        ln.settings.storage = storage.root
+    assert (
+        error.exconly()
+        == f"ValueError: Storage '{storage.root}' exists in another instance (_not_exists_), cannot write to it from here."
+    )
+    storage.delete()
+
+
+def test_local_storage_setter_raises_on_foreign_managed_storage(tmp_path):
+    storage = ln.Storage(
+        root=(tmp_path / "foreign-managed-local-storage").as_posix()
+    ).save()
+    storage.instance_uid = "_not_exists_"
+    storage.save()
+
+    with pytest.raises(ValueError) as error:
+        ln.settings.local_storage = storage.root
+    assert (
+        error.exconly()
+        == f"ValueError: Storage '{storage.root}' exists in another instance (_not_exists_), cannot write to it from here."
+    )
+    storage.delete()
 
 
 def test_create_storage_locations_parallel():
