@@ -1607,7 +1607,7 @@ def test_update_non_virtual_key_in_unmanaged_storage_raises_invalid_argument():
         artifact.save()
     assert (
         error.exconly()
-        == "lamindb.errors.InvalidArgument: Cannot update the key of an artifact in a storage location that is not managed by an instance."
+        == "lamindb.errors.InvalidArgument: Cannot update a non-virtual key of an artifact in a storage location that is not managed by the current instance."
     )
 
     artifact.delete(permanent=True, storage=False)
@@ -1632,7 +1632,7 @@ def test_save_url_with_virtual_key_and_unmanaged_suffix_update_error():
         InvalidArgument,
         match=(
             "Cannot update the suffix of an artifact in a storage location "
-            "that is not managed by an instance."
+            "that is not managed by the current instance."
         ),
     ):
         artifact.save()
@@ -1648,7 +1648,7 @@ def test_artifact_space_change(tsv_file):
     with pytest.raises(ValueError) as err:
         artifact.save()
     assert (
-        "No local storage locations managed by an instance found for the space"
+        "No local storage locations managed by the current instance found for the space"
         in err.exconly()
     )
     # test after getting from the db
@@ -1657,7 +1657,7 @@ def test_artifact_space_change(tsv_file):
     with pytest.raises(ValueError) as err:
         artifact.save()
     assert (
-        "No local storage locations managed by an instance found for the space"
+        "No local storage locations managed by the current instance found for the space"
         in err.exconly()
     )
 

@@ -37,7 +37,7 @@ from ..base.fields import (
 from ..base.users import current_user_id
 from ..base.utils import deprecated, strict_classmethod
 from ..core._compat import with_package_obj
-from ..core._settings import raise_if_storage_managed_by_other_instance, settings
+from ..core._settings import settings
 from ..errors import (
     FieldValidationError,
     InvalidArgument,
@@ -1765,6 +1765,14 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 self._memory_rep = privates["memory_rep"]
                 self._to_store = not privates["check_path_in_storage"]
 
+                if (
+                    self._to_store
+                    and self.storage.instance_uid != setup_settings.instance.uid
+                ):
+                    raise ValueError(
+                        "Cannot create an artifact in a storage location that is not managed by the current instance."
+                    )
+
         # an object with the same hash already exists
         if isinstance(kwargs_or_artifact, Artifact):
             from .sqlrecord import init_self_from_db, update_attributes
@@ -3103,6 +3111,14 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
         access_token = kwargs.pop("access_token", None)
 
+        current_instance_uid = setup_settings.instance.uid
+
+        artifact_storage = self.storage
+        artifact_storage_instance_uid = artifact_storage.instance_uid
+        is_not_artifact_storage_managed_by_current_instance = (
+            artifact_storage_instance_uid != current_instance_uid
+        )
+
         if self._field_changed("key", check_is_saved=False):
             new_key = self.key
             if new_key is None:
@@ -3123,11 +3139,11 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                     raise InvalidArgument(
                         "Cannot update the key of an artifact before it is saved."
                     )
-                if self.storage.instance_uid is None:
+                if is_not_artifact_storage_managed_by_current_instance:
                     raise InvalidArgument(
-                        "Cannot update the key of an artifact in a storage location that is not managed by an instance."
+                        "Cannot update a non-virtual key of an artifact"
+                        " in a storage location that is not managed by the current instance."
                     )
-                raise_if_storage_managed_by_other_instance(self.storage)
                 old_key = self._original_values["key"]
                 if old_key is None:
                     raise InvalidArgument(
@@ -3143,11 +3159,11 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 raise InvalidArgument(
                     "Cannot update the suffix of an artifact before it is saved."
                 )
-            if self.storage.instance_uid is None:
+            if is_not_artifact_storage_managed_by_current_instance:
                 raise InvalidArgument(
-                    "Cannot update the suffix of an artifact in a storage location that is not managed by an instance."
+                    "Cannot update the suffix of an artifact"
+                    " in a storage location that is not managed by the current instance."
                 )
-            raise_if_storage_managed_by_other_instance(self.storage)
             if not _handle_suffix_change_on_save(self):
                 return None
 
@@ -3156,18 +3172,23 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             self._field_changed("space_id")
             # here we check for storages managed by any instance
             # not necessarily with managed credentials
-            # probbaly we should restrict to storages with managed credentials
-            and (artifact_storage := self.storage).instance_uid is not None
+            # we check if the artifact storage is managed by the current instance further
+            and artifact_storage_instance_uid is not None
         ):
+            if is_not_artifact_storage_managed_by_current_instance:
+                raise ValueError(
+                    "Cannot change the space of an artifact"
+                    " in a storage location that is not managed by the current instance."
+                )
             space = self.space
             storage_type = artifact_storage.type
             storages = Storage.connect(self._state.db).filter(
-                space=space, instance_uid__isnull=False, type=storage_type
+                space=space, instance_uid=current_instance_uid, type=storage_type
             )
             n_storages = storages.count()
             if n_storages == 0:
                 raise ValueError(
-                    f"No {storage_type} storage locations managed by an instance found for the space '{space.name}'."
+                    f"No {storage_type} storage locations managed by the current instance found for the space '{space.name}'."
                 )
             elif n_storages > 1:
                 storages = storages.order_by("id")
@@ -3227,9 +3248,11 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
         flag_complete = has_local_filepath and getattr(self, "_to_store", False)
         if flag_complete:
-            raise_if_storage_managed_by_other_instance(self.storage)
-        # _storage_ongoing indicates whether the storage saving / upload process is ongoing
-        if flag_complete:
+            if is_not_artifact_storage_managed_by_current_instance:
+                raise ValueError(
+                    "Cannot save an artifact to a storage location that is not managed by the current instance."
+                )
+            # _storage_ongoing indicates whether the storage saving / upload process is ongoing
             self._storage_ongoing = True  # will be updated to False once complete
 
         self._save_skip_storage(**kwargs)
