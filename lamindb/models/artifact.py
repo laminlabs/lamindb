@@ -3127,10 +3127,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                     raise InvalidArgument(
                         "Cannot update the key of an artifact in a storage location that is not managed by an instance."
                     )
-                raise_if_storage_managed_by_other_instance(
-                    storage_root=self.storage.root,
-                    storage_instance_uid=self.storage.instance_uid,
-                )
+                raise_if_storage_managed_by_other_instance(self.storage)
                 old_key = self._original_values["key"]
                 if old_key is None:
                     raise InvalidArgument(
@@ -3150,10 +3147,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 raise InvalidArgument(
                     "Cannot update the suffix of an artifact in a storage location that is not managed by an instance."
                 )
-            raise_if_storage_managed_by_other_instance(
-                storage_root=self.storage.root,
-                storage_instance_uid=self.storage.instance_uid,
-            )
+            raise_if_storage_managed_by_other_instance(self.storage)
             if not _handle_suffix_change_on_save(self):
                 return None
 
@@ -3233,10 +3227,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
         flag_complete = has_local_filepath and getattr(self, "_to_store", False)
         if flag_complete:
-            raise_if_storage_managed_by_other_instance(
-                storage_root=self.storage.root,
-                storage_instance_uid=self.storage.instance_uid,
-            )
+            raise_if_storage_managed_by_other_instance(self.storage)
         # _storage_ongoing indicates whether the storage saving / upload process is ongoing
         if flag_complete:
             self._storage_ongoing = True  # will be updated to False once complete
