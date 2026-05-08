@@ -39,12 +39,10 @@ VERBOSITY_TO_STR: dict[int, str] = dict(
 
 
 def raise_if_storage_managed_by_other_instance(storage) -> None:
-    if (
-        storage.instance_uid is not None
-        and storage.instance_uid != ln_setup.settings.instance.uid
-    ):
+    storage_instance_uid = storage.instance_uid
+    if storage_instance_uid != setup_settings.instance.uid:
         raise ValueError(
-            f"Storage {storage.root} exists in another instance ({storage.instance_uid}), cannot write to it from here."
+            f"Storage {storage.root} exists in another instance ({storage_instance_uid}), cannot write to it from here."
         )
 
 
