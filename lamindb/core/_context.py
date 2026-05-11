@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, Any, Callable, TextIO
 import lamindb_setup as ln_setup
 from django.db.models import Func, IntegerField, Q
 from lamin_utils._logger import logger
+from lamindb_setup.core.django import _is_running_in_marimo
 from lamindb_setup.core.hashing import hash_file, hash_string
 
 from .._secret_redaction import (
@@ -129,14 +130,29 @@ def get_uid_ext(version: str) -> str:
     return encodebytes(hashlib.md5(version.encode()).digest())[:4]  # noqa: S324
 
 
+def get_marimo_notebook_path() -> str | None:
+    if not _is_running_in_marimo():
+        return None
+    from marimo._runtime.context import safe_get_context
+
+    ctx = safe_get_context()
+    if ctx is None:
+        return None
+    return getattr(ctx, "filename", None)
+
+
 def get_notebook_path() -> tuple[Path, str]:
+    marimo_path = get_marimo_notebook_path()
+    if marimo_path is not None:
+        return Path(marimo_path), "marimo"
+
     from nbproject.dev._jupyter_communicate import (
-        notebook_path as get_notebook_path,
+        notebook_path as get_jupyter_notebook_path,
     )
 
     path = None
     try:
-        path, env = get_notebook_path(return_env=True)
+        path, env = get_jupyter_notebook_path(return_env=True)
     except ValueError as ve:
         raise ve
     except Exception as error:
@@ -663,7 +679,7 @@ class Context:
                     "`path` cannot be passed when `source_code` is passed to `track()`."
                 )
             else:
-                if is_run_from_ipython:
+                if is_run_from_ipython or _is_running_in_marimo():
                     self._path, description = self._track_notebook(
                         path_str=path, pypackages=pypackages
                     )
@@ -846,12 +862,19 @@ class Context:
         pypackages: bool | None = None,
     ) -> tuple[Path, str | None]:
         if path_str is None:
-            path, self._notebook_runner = get_notebook_path()
+            path, env = get_notebook_path()
+            self._notebook_runner = "marimo" if env == "marimo" else env
         else:
             path = Path(path_str)
+            if _is_running_in_marimo():
+                self._notebook_runner = "marimo"
         if pypackages is None:
             pypackages = True
         description = None
+
+        if self._notebook_runner == "marimo":
+            return path, description
+
         if path.suffix == ".ipynb" and path.stem.startswith("Untitled"):
             raise RuntimeError(
                 "Your notebook file name is 'Untitled.ipynb', please rename it before tracking. You might have to re-start your notebook kernel."
