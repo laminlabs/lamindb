@@ -38,8 +38,12 @@ VERBOSITY_TO_STR: dict[int, str] = dict(
 )
 
 
-def raise_if_storage_managed_by_other_instance(storage) -> None:
+def raise_if_storage_not_managed_by_current_instance(storage) -> None:
     storage_instance_uid = storage.instance_uid
+    if storage_instance_uid is None:
+        raise ValueError(
+            f"Storage '{storage.root}' is not managed by any instance, cannot write to it from here."
+        )
     if storage_instance_uid != setup_settings.instance.uid:
         raise ValueError(
             f"Storage '{storage.root}' exists in another instance ({storage_instance_uid}), cannot write to it from here."
@@ -224,7 +228,7 @@ class Settings:
                 return None
             set_managed_storage(path, **kwargs)
         else:
-            raise_if_storage_managed_by_other_instance(exists)
+            raise_if_storage_not_managed_by_current_instance(exists)
             ssettings = StorageSettings(
                 root=exists.root,
                 region=exists.region,
@@ -270,7 +274,7 @@ class Settings:
             if response != "y":
                 return None
         else:
-            raise_if_storage_managed_by_other_instance(exists)
+            raise_if_storage_not_managed_by_current_instance(exists)
         ln_setup.settings.instance.local_storage = local_root
 
     @property
