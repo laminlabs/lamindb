@@ -27,10 +27,10 @@ ln.examples.datasets.mini_immuno.save_mini_immuno_datasets()
 
 ## Get an overview
 
-The easiest way to get an overview over all artifacts is by typing {meth}`~lamindb.Artifact.to_dataframe`, which returns the 20 latest artifacts in the {class}`~lamindb.Artifact` registry.
+The easiest way to get an overview over all artifacts is by typing {meth}`~lamindb.Artifact.to_dataframe`, which returns the most recently created artifacts in the {class}`~lamindb.Artifact` registry.
 
 ```python
-ln.Artifact.to_dataframe()  # pass limit=100 to see the 100 latest artifacts
+ln.Artifact.to_dataframe()
 ```
 
 You can include features.
