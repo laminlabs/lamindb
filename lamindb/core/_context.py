@@ -17,13 +17,14 @@ from lamin_utils._logger import logger
 from lamindb_setup.core.django import _is_running_in_marimo
 from lamindb_setup.core.hashing import hash_file, hash_string
 
-from ..base.uids import base62_12
-from ..errors import (
-    FileNotInDevDir,
-    InvalidArgument,
-    TrackNotCalled,
-    UpdateContext,
+from .._secret_redaction import (
+    REDACTED_SECRET_VALUE,
+    is_sensitive_param_key,
+    is_sensitive_param_value,
+    redact_secrets_in_source_code,
 )
+from ..base.uids import base62_12
+from ..errors import InvalidArgument, TrackNotCalled, UpdateContext
 from ..models import Run, SQLRecord, Transform, format_field_value
 from ..models._feature_manager import infer_convert_dtype_key_value
 from ..models._is_versioned import bump_version as bump_version_function
@@ -36,8 +37,6 @@ from ._track_environment import track_python_environment
 
 if TYPE_CHECKING:
     from types import FrameType, TracebackType
-
-    from lamindb_setup.types import UPathStr
 
     from lamindb.base.types import TransformKind
     from lamindb.models import Artifact, Branch, Project, Space
@@ -58,7 +57,7 @@ def get_key_from_module(caller_module: str) -> str:
 
 def detect_and_process_source_code_file(
     *,
-    path: UPathStr | None,
+    path: str | Path | None,
     transform_kind: TransformKind | None = None,
 ) -> tuple[Path, TransformKind, str, str, str | None]:
     """Track source code file and determine transform metadata.
@@ -148,12 +147,12 @@ def get_notebook_path() -> tuple[Path, str]:
         return Path(marimo_path), "marimo"
 
     from nbproject.dev._jupyter_communicate import (
-        notebook_path as get_jupyter_notebook_path,
+        notebook_path as get_notebook_path,
     )
 
     path = None
     try:
-        path, env = get_jupyter_notebook_path(return_env=True)
+        path, env = get_notebook_path(return_env=True)
     except ValueError as ve:
         raise ve
     except Exception as error:
@@ -409,6 +408,11 @@ def serialize_params_to_json(params: dict) -> dict:
             logger.warning(
                 f"skipping param {key} with value {value} and dtype {dtype} not JSON serializable"
             )
+            continue
+        if is_sensitive_param_key(key) or is_sensitive_param_value(
+            serialized_params[key]
+        ):
+            serialized_params[key] = REDACTED_SECRET_VALUE
     return serialized_params
 
 
@@ -504,7 +508,7 @@ class Context:
         source_code: str | None = None,
         kind: TransformKind | None = None,
         entrypoint: str | None = None,
-        initiated_by_run: Run | None = None,
+        initiated_by_run: Run | str | None = None,
         stream_tracking: bool | None = None,
     ) -> None:
         """Track a run of a notebook or script.
@@ -529,7 +533,8 @@ class Context:
             source_code: Source code.
             kind: Transform kind.
             entrypoint: Optional entrypoint name (e.g. function qualname) for the run.
-            initiated_by_run: Optional parent run that triggered this run.
+            initiated_by_run: Optional parent run (or its `uid`) that triggered this run.
+                If `None`, falls back to the `LAMIN_INITIATED_BY_RUN_UID` environment variable when set.
             stream_tracking: If set, override whether to capture stdout/stderr to run logs.
                 Used by the flow/step decorator: flows get logs (`True`), steps do not (`False`).
 
@@ -633,6 +638,21 @@ class Context:
                 if plan_record is None:
                     raise InvalidArgument(
                         f"Plan artifact '{plan}' not found, either create it or use a valid key/uid."
+                    )
+        if initiated_by_run is None:
+            initiated_by_run = os.environ.get("LAMIN_INITIATED_BY_RUN_UID")
+        initiated_by_run_record: Run | None = None
+        if initiated_by_run is not None:
+            if isinstance(initiated_by_run, Run):
+                assert initiated_by_run._state.adding is False, (  # noqa: S101
+                    "initiated_by_run must be saved before passing it to track()"
+                )
+                initiated_by_run_record = initiated_by_run
+            else:
+                initiated_by_run_record = Run.filter(uid=initiated_by_run).one_or_none()
+                if initiated_by_run_record is None:
+                    raise InvalidArgument(
+                        f"Run '{initiated_by_run}' not found, please pass a valid run uid."
                     )
         self._logging_message_track = ""
         self._logging_message_imports = ""
@@ -743,8 +763,8 @@ class Context:
             run = Run(transform=self._transform, plan=plan_record)
             if entrypoint is not None:
                 run.entrypoint = entrypoint
-            if initiated_by_run is not None:
-                run.initiated_by_run = initiated_by_run
+            if initiated_by_run_record is not None:
+                run.initiated_by_run = initiated_by_run_record
             run.started_at = datetime.now(timezone.utc)
             run._status_code = -1  # started
             entrypoint_str = (
@@ -843,19 +863,15 @@ class Context:
         pypackages: bool | None = None,
     ) -> tuple[Path, str | None]:
         if path_str is None:
-            path, env = get_notebook_path()
-            self._notebook_runner = "marimo" if env == "marimo" else env
+            path, self._notebook_runner = get_notebook_path()
         else:
             path = Path(path_str)
-            if _is_running_in_marimo():
-                self._notebook_runner = "marimo"
+
         if pypackages is None:
             pypackages = True
         description = None
-
         if self._notebook_runner == "marimo":
             return path, description
-
         if path.suffix == ".ipynb" and path.stem.startswith("Untitled"):
             raise RuntimeError(
                 "Your notebook file name is 'Untitled.ipynb', please rename it before tracking. You might have to re-start your notebook kernel."
@@ -944,7 +960,15 @@ class Context:
         key: str | None = None,
         source_code: str | None = None,
     ):
+        source_code_to_store = source_code
         if source_code is not None:
+            source_code_to_store, redaction_count = redact_secrets_in_source_code(
+                source_code
+            )
+            if redaction_count > 0:
+                logger.warning(
+                    f"redacted {redaction_count} secret-looking assignment(s) before persisting transform source code"
+                )
             transform_hash = hash_string(source_code)
         else:
             from .._finish import notebook_to_script
@@ -981,13 +1005,14 @@ class Context:
                     key = self._path.relative_to(ln_setup.settings.dev_dir).as_posix()
                 except ValueError as e:
                     if "subpath" in str(e):
-                        raise FileNotInDevDir(
+                        logger.warning(
                             f"Path {self._path} is not within the configured dev directory "
-                            f"({ln_setup.settings.dev_dir}).\n"
-                            "Hint: Set dev directory to None via:\n"
-                            "  lamin settings set dev-dir none"
-                        ) from e
-                    raise
+                            f"({ln_setup.settings.dev_dir}), falling back to using filename as transform key "
+                            f"('{self._path.name}')."
+                        )
+                        key = self._path.name
+                    else:
+                        raise
             else:
                 key = self._path.name
         # if the user did not pass a uid and there is no matching aux_transform
@@ -1109,8 +1134,12 @@ class Context:
                 reference=transform_ref,
                 reference_type=transform_ref_type,
                 kind=transform_kind,
-                source_code=source_code,
-            ).save()
+                source_code=source_code_to_store,
+                skip_hash_lookup=source_code is not None,
+            )
+            if source_code is not None:
+                transform.hash = transform_hash
+            transform = transform.save()
             self._logging_message_track += (
                 f"created Transform('{transform.uid}', key='{transform.key}')"
             )
