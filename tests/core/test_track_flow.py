@@ -1,9 +1,11 @@
+import time
 from pathlib import Path
 from typing import Iterable
 
 import lamindb as ln
 import pandas as pd
 import pytest
+from lamindb.errors import InvalidArgument
 
 
 @ln.flow(global_run="clear")
@@ -60,7 +62,7 @@ def test_flow():
         process_chunk(1, param_artifact, records_params)
         ln.context._run = None
     assert str(error.exconly()).startswith(
-        "RuntimeError: Please clear the global run context before using @ln.flow(): no `ln.track()` or `@ln.flow(global_run='clear')`"
+        "RuntimeError: Please use @ln.step() or clear the global run context before using @ln.flow(): no `ln.track()` or `@ln.flow(global_run='clear')`"
     )
 
     # Clean up test artifacts
@@ -73,3 +75,40 @@ def test_flow():
     Path("file_with_same_hash.txt").unlink()
     for run in runs:
         run.delete(permanent=True)
+    ln.context._run = None
+
+
+def test_flow_track_arg_aliases_implicit():
+    unique = time.time_ns()
+    missing_project = f"missing-flow-project-{unique}"
+
+    @ln.flow(global_run="clear")
+    def flow_with_implicit_project_alias(project: str) -> None:
+        pass
+
+    with pytest.raises(InvalidArgument) as error:
+        flow_with_implicit_project_alias(project=missing_project)
+    assert error.exconly().startswith(
+        f"lamindb.errors.InvalidArgument: Project '{missing_project}' not found"
+    )
+
+
+def test_flow_track_arg_aliases_false():
+    unique = time.time_ns()
+    missing_project = f"missing-flow-project-{unique}"
+
+    @ln.flow(global_run="clear", track_arg_aliases=False)
+    def flow_without_project_alias(project: str) -> str:
+        assert ln.context.run is not None
+        return ln.context.run.uid
+
+    run = None
+    try:
+        run_uid = flow_without_project_alias(project=missing_project)
+        run = ln.Run.get(uid=run_uid)
+        assert run.params["project"] == missing_project
+    finally:
+        ln.context._run = None
+        if run is not None:
+            run.delete(permanent=True)
+            run.transform.delete(permanent=True)

@@ -1,0 +1,60 @@
+[build-system]
+requires = ["flit_core >=3.2,<4"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "lamindb"
+requires-python = ">=3.10,<=3.14"
+authors = [{name = "Lamin Labs", email = "open-source@lamin.ai"}]
+readme = "README.md"
+dynamic = ["version", "description"]
+classifiers = [
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+dependencies = [
+    "lamindb-core[full]==2.4.2",
+]
+
+[project.urls]
+Home = "https://github.com/laminlabs/lamindb"
+
+[project.optional-dependencies]
+gcp = [
+    "lamindb_setup[gcp]",
+]
+zarr_v2 = [
+    "numcodecs<0.16.0", # 0.16.0 breaks zarr<3.0.*
+    "zarr>=2.16.0,<3.0.0a0", # not yet compatible with 3.0.*
+]
+fcs = [
+    "readfcs>=2.0.1",
+]
+dev = [
+    # basic test
+    "tomlkit",
+    "line_profiler",
+    "pre-commit",
+    "nox",
+    "laminci>=0.3",
+    "pytest>=6.0",
+    "coverage",
+    "pytest-cov<7.0.0",  # v7 drops support for subprocess measurement
+    "mudata",
+    # others
+    "nbproject_test>=0.6.0",
+    # biology
+    "faker-biology",
+    # bionty
+    "pronto",
+]
+
+[tool.flit.module]
+name = "lamindb_full"
+
+[tool.flit.sdist]
+exclude = [
+    "sub/"
+]

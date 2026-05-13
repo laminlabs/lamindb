@@ -437,6 +437,71 @@ def test_features_name_duplicates_across_equal_levels():
     lab_b_type.delete(permanent=True)
 
 
+def test_feature_predicate_queries_safe_hybrid():
+    lab_a_type = ln.Feature(name="PredLabA", is_type=True).save()
+    feature_a = ln.Feature(name="pred_name", dtype=str, type=lab_a_type).save()
+    lab_b_type = ln.Feature(name="PredLabB", is_type=True).save()
+    feature_b = ln.Feature(name="pred_name", dtype=str, type=lab_b_type).save()
+    score_feature = ln.Feature(name="pred_score", dtype=int).save()
+    cell_type_feature = ln.Feature(name="pred_cell_type", dtype=bt.CellLine).save()
+
+    # safe hybrid behavior for model identity + hashability
+    assert feature_a == feature_a
+    assert feature_a != feature_b
+    assert len({feature_a, feature_b}) == 2
+
+    schema_a = ln.Schema([feature_a], name="pred schema a").save()
+    schema_b = ln.Schema([feature_b], name="pred schema b").save()
+
+    artifact_a = ln.Artifact(
+        ".gitignore",
+        key="pred-artifact-a",
+        skip_hash_lookup=True,
+    ).save()
+    artifact_b = ln.Artifact(
+        ".gitignore",
+        key="pred-artifact-b",
+        skip_hash_lookup=True,
+    ).save()
+    artifact_a.features.add_values({"pred_name": "hello"}, schema=schema_a)
+    artifact_b.features.add_values({"pred_name": "hello"}, schema=schema_b)
+    artifact_a.features.add_values({"pred_score": 5})
+    artifact_b.features.add_values({"pred_score": 1})
+    hek293 = bt.CellLine.from_source(name="HEK293").save()
+    artifact_a.features.add_values({"pred_cell_type": hek293})
+
+    # same feature name can be disambiguated by passing the Feature object
+    assert ln.Artifact.filter(feature_a == "hello").one() == artifact_a
+    assert ln.Artifact.filter(feature_b == "hello").one() == artifact_b
+    # Feature compared to another model should still generate a predicate
+    assert ln.Artifact.filter(cell_type_feature == hek293).one() == artifact_a
+
+    # comparator operators on non-categorical feature values
+    assert ln.Artifact.filter(score_feature > 2).one() == artifact_a
+    assert ln.Artifact.filter(score_feature <= 1).one() == artifact_b
+    neq_results = ln.Artifact.filter(score_feature != 5)
+    assert artifact_b in neq_results
+    assert artifact_a not in neq_results
+
+    # mixed predicate and regular kwargs filters
+    assert (
+        ln.Artifact.filter(feature_a == "hello", key="pred-artifact-a").one()
+        == artifact_a
+    )
+
+    artifact_a.delete(permanent=True)
+    artifact_b.delete(permanent=True)
+    schema_a.delete(permanent=True)
+    schema_b.delete(permanent=True)
+    feature_a.delete(permanent=True)
+    feature_b.delete(permanent=True)
+    score_feature.delete(permanent=True)
+    cell_type_feature.delete(permanent=True)
+    lab_a_type.delete(permanent=True)
+    lab_b_type.delete(permanent=True)
+    hek293.delete(permanent=True)
+
+
 def test_features_add_with_schema():
     df = mini_immuno.get_dataset1(otype="DataFrame")
     artifact = ln.Artifact.from_dataframe(df, description="test dataset").save()
@@ -457,6 +522,54 @@ def test_features_add_with_schema():
     artifact.delete(permanent=True)
     schema.delete(permanent=True)
     ln.Feature.filter().delete(permanent=True)
+
+
+def test_artifact_feature_cat_filters_schema_end_to_end():
+    schema_feature = ln.Feature(name="schema_filter_column_e2e", dtype=str).save()
+    required_schema = ln.Schema(
+        name="required_schema_for_artifact_filter",
+        features=[schema_feature],
+    ).save()
+    artifact_feature = ln.Feature(
+        name="input_artifact",
+        dtype=ln.Artifact,
+        cat_filters={"schema": required_schema},
+    ).save()
+    container_artifact = ln.Artifact(
+        ".gitignore",
+        key="container_for_artifact_schema_filter",
+        skip_hash_lookup=True,
+    ).save()
+    artifact_without_schema = ln.Artifact(
+        ".gitignore",
+        key="artifact_without_required_schema",
+        skip_hash_lookup=True,
+    ).save()
+    artifact_with_schema = ln.Artifact(
+        ".gitignore",
+        key="artifact_with_required_schema",
+        schema=required_schema,
+        skip_hash_lookup=True,
+    ).save()
+
+    try:
+        with pytest.raises(ln.errors.ValidationError) as error:
+            container_artifact.features.add_values(
+                {"input_artifact": artifact_without_schema.key}
+            )
+        assert "1 term not validated in feature 'input_artifact'" in error.exconly()
+
+        container_artifact.features.add_values(
+            {"input_artifact": artifact_with_schema.key}
+        )
+        assert container_artifact.features["input_artifact"] == artifact_with_schema
+    finally:
+        container_artifact.delete(permanent=True)
+        artifact_without_schema.delete(permanent=True)
+        artifact_with_schema.delete(permanent=True)
+        artifact_feature.delete(permanent=True)
+        required_schema.delete(permanent=True)
+        schema_feature.delete(permanent=True)
 
 
 def test_features_add_remove_error_behavior():
@@ -781,3 +894,33 @@ def test_add_list_of_cat_features():
     feat2.delete(permanent=True)
     type_1.records.all().delete(permanent=True)
     type_1.delete(permanent=True)
+
+
+def test_artifact_features_accept_feature_object_keys():
+    feature_score = ln.Feature(name="artifact_feature_object_score", dtype=int).save()
+    feature_tag = ln.Feature(name="artifact_feature_object_tag", dtype=str).save()
+    artifact = ln.Artifact(".gitignore", key="artifact_feature_object_test").save()
+
+    artifact.features.add_values({feature_score: 7, "artifact_feature_object_tag": "a"})
+    assert artifact.features.get_values() == {
+        "artifact_feature_object_score": 7,
+        "artifact_feature_object_tag": "a",
+    }
+
+    # set_values should also accept Feature objects as dictionary keys.
+    artifact.features.set_values({feature_score: 8})
+    assert artifact.features.get_values() == {"artifact_feature_object_score": 8}
+
+    artifact.features.add_values({feature_tag: "keep"})
+    assert artifact.features.get_values() == {
+        "artifact_feature_object_score": 8,
+        "artifact_feature_object_tag": "keep",
+    }
+
+    # remove_values supports dictionary inputs with Feature keys.
+    artifact.features.remove_values({feature_score: 8, feature_tag: None})
+    assert artifact.features.get_values() == {}
+
+    artifact.delete(permanent=True)
+    feature_score.delete(permanent=True)
+    feature_tag.delete(permanent=True)

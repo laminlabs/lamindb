@@ -1,19 +1,3 @@
-"""Models library.
-
-...
-
-Query sets & managers
----------------------
-.. autoclass:: BasicQuerySet
-.. autoclass:: QuerySet
-.. autoclass:: ArtifactSet
-.. autoclass:: QueryManager
-.. autoclass:: lamindb.models.query_set.BiontyDB
-.. autoclass:: lamindb.models.query_set.PertdbDB
-
-...
-"""
-
 from __future__ import annotations
 
 import ast
@@ -26,7 +10,6 @@ from importlib import import_module
 from typing import TYPE_CHECKING, Any, Generic, NamedTuple, TypeVar, final
 
 import lamindb_setup as ln_setup
-import pandas as pd
 from django.core.exceptions import FieldError
 from django.db import models
 from django.db.models import (
@@ -43,13 +26,15 @@ from lamindb_setup import settings as setup_settings
 from lamindb_setup.core import deprecated
 from lamindb_setup.core._docs import doc_args
 
+from ..base.types import BRANCH_STATUS_TO_CODE, RUN_STATUS_TO_CODE
 from ..errors import DoesNotExist, MultipleResultsFound
-from ._is_versioned import IsVersioned
+from ._is_versioned import IsVersioned, _adjust_is_latest_when_deleting_is_versioned
 from .can_curate import CanCurate, _inspect, _standardize, _validate
 from .query_manager import _lookup, _search
 from .sqlrecord import Registry, SQLRecord
 
 if TYPE_CHECKING:
+    import pandas as pd
     from bionty.models import (
         CellLine,
         CellMarker,
@@ -94,9 +79,6 @@ if TYPE_CHECKING:
     )
 
 T = TypeVar("T")
-
-
-pd.set_option("display.max_columns", 200)
 
 
 def get_keys_from_df(data: list, registry: SQLRecord) -> list[str]:
@@ -172,7 +154,10 @@ def one_helper(
 def get_backward_compat_filter_kwargs(queryset, expressions):
     from lamindb.models import (
         Artifact,
+        Branch,
         Feature,
+        Project,
+        Run,
     )
 
     if issubclass(queryset.model, IsVersioned):
@@ -196,6 +181,12 @@ def get_backward_compat_filter_kwargs(queryset, expressions):
                 "dtype_as_str": "_dtype_str",
             }
         )
+    if queryset.model in {Run, Branch, Project}:
+        name_mappings.update(
+            {
+                "status": "_status_code",
+            }
+        )
 
     # If no mappings to apply, return expressions as-is
     if not name_mappings:
@@ -205,6 +196,30 @@ def get_backward_compat_filter_kwargs(queryset, expressions):
         was_list = True
         expressions = {field: True for field in expressions}
     mapped = {}
+    status_mapping = None
+    if queryset.model is Run:
+        status_mapping = RUN_STATUS_TO_CODE
+    elif queryset.model is Branch:
+        status_mapping = BRANCH_STATUS_TO_CODE
+
+    def _map_status_value(value):
+        if status_mapping is None:
+            return value
+        if isinstance(value, str):
+            if value not in status_mapping:
+                expected = ", ".join(f"'{status}'" for status in status_mapping)
+                raise ValueError(
+                    f"Invalid {queryset.model.__name__} status '{value}'. "
+                    f"Expected one of: {expected}."
+                )
+            return status_mapping[value]
+        if isinstance(value, IterableType) and not isinstance(value, str):
+            return [
+                status_mapping[v] if isinstance(v, str) and v in status_mapping else v
+                for v in value
+            ]
+        return value
+
     for field, value in expressions.items():
         parts = field.split("__")
         if parts[0] in name_mappings:
@@ -225,7 +240,9 @@ def get_backward_compat_filter_kwargs(queryset, expressions):
             new_field = name_mappings[parts[0]] + (
                 "__" + "__".join(parts[1:]) if len(parts) > 1 else ""
             )
-            mapped[new_field] = value
+            mapped[new_field] = (
+                _map_status_value(value) if parts[0] == "status" else value
+            )
         else:
             mapped[field] = value
     return list(mapped.keys()) if was_list else mapped
@@ -285,7 +302,10 @@ def process_expressions(queryset: QuerySet, queries: tuple, expressions: dict) -
         queryset,
         expressions,
     )
-    if issubclass(queryset.model, SQLRecord):
+    model_has_branch = any(
+        field.name == "branch" for field in queryset.model._meta.concrete_fields
+    )
+    if issubclass(queryset.model, SQLRecord) or model_has_branch:
         # branch_id is set to 1 unless expressions contains id, uid or hash
         id_uid_hash = {"id", "uid", "hash", "id__in", "uid__in", "hash__in"}
         if not any(expression in id_uid_hash for expression in expressions):
@@ -391,6 +411,8 @@ class SQLRecordList(UserList, Generic[T]):
             super().__init__(records)  # Let UserList handle the conversion
 
     def to_dataframe(self) -> pd.DataFrame:
+        import pandas as pd
+
         keys = get_keys_from_df(self.data, self.data[0].__class__)
         values = [record.__dict__ for record in self.data]
         return pd.DataFrame(values, columns=keys)
@@ -441,6 +463,7 @@ def get_basic_field_names(
             )
         )
     ]
+    # TODO: harmonize with L1023 in sqlrecord.py
     for field_name in [
         "version_tag",
         "is_latest",
@@ -448,6 +471,7 @@ def get_basic_field_names(
         "is_type",
         "created_at",
         "updated_at",
+        "created_on",
     ]:
         if field_name in field_names:
             field_names.append(field_names.pop(field_names.index(field_name)))
@@ -484,13 +508,14 @@ def get_feature_annotate_kwargs(
         Feature,
         Record,
         RecordJson,
+        Run,
         ULabel,
     )
     from lamindb.models.feature import parse_dtype
 
-    if registry not in {Artifact, Record}:
+    if registry not in {Artifact, Record, Run}:
         raise ValueError(
-            f"features=True is only applicable for Artifact and Record, not {registry.__name__}"
+            f'include="features" is only applicable for Artifact, Record, and Run, not {registry.__name__}'
         )
 
     feature_ids = []
@@ -549,6 +574,22 @@ def get_feature_annotate_kwargs(
         logger.important(
             f"queried for all categorical features of dtypes Record or ULabel and non-categorical features: ({len(feature_qs)}) {feature_qs.to_list('name')}"
         )
+    # Duplicate feature names map to ambiguous dataframe columns. We keep a single
+    # feature per name for query annotation and warn loudly to surface this.
+    feature_name_to_ids: dict[str, list[int]] = defaultdict(list)
+    for feature in feature_qs.order_by("id"):
+        feature_name_to_ids[feature.name].append(feature.id)
+    duplicate_feature_names = {
+        name: ids for name, ids in feature_name_to_ids.items() if len(ids) > 1
+    }
+    if duplicate_feature_names:
+        logger.warning(
+            "detected duplicate feature names while building dataframe features; "
+            "keeping the first feature per name by ascending id. "
+            f"duplicates: {duplicate_feature_names}"
+        )
+        unique_feature_ids = [ids[0] for ids in feature_name_to_ids.values()]
+        feature_qs = feature_qs.filter(id__in=unique_feature_ids)
     # Get the categorical features
     cat_feature_types = {
         parse_dtype(feature._dtype_str)[0]["registry_str"]
@@ -577,7 +618,7 @@ def get_feature_annotate_kwargs(
     }
     if registry is Artifact:
         link_models_on_models["ArtifactULabel"] = ULabel
-    else:
+    elif registry is Record:
         link_models_on_models["RecordRecord"] = Record
     link_attributes_on_models = {
         obj.related_name: link_models_on_models[
@@ -604,7 +645,7 @@ def get_feature_annotate_kwargs(
             continue
 
         # Determine field name
-        if registry is Artifact:
+        if registry in {Artifact, Run}:
             field_name = (
                 feature_type.split(".")[1] if "." in feature_type else feature_type
             ).lower()
@@ -646,7 +687,9 @@ def get_feature_annotate_kwargs(
             )
 
     # Handle JSON values (no branch filtering needed)
-    json_values_attribute = "json_values" if registry is Artifact else "values_json"
+    json_values_attribute = (
+        "json_values" if registry in {Artifact, Run} else "values_json"
+    )
     annotate_kwargs[f"{json_values_attribute}__feature__name"] = F(
         f"{json_values_attribute}__feature__name"
     )
@@ -758,7 +801,9 @@ def reshape_annotate_result(
             ('one' or 'many'), e.g., {'ulabels__name': 'many', 'created_by__name': 'one'}
         feature_qs: QuerySet of features
     """
-    from lamindb.models import Artifact
+    import pandas as pd
+
+    from lamindb.models import Artifact, Run
 
     cols_from_include = cols_from_include or {}
 
@@ -781,7 +826,9 @@ def reshape_annotate_result(
     pk_name_encoded = fields_map.get(pk_name)  # type: ignore
 
     # --- Process JSON-stored feature values ---
-    json_values_attribute = "json_values" if registry is Artifact else "values_json"
+    json_values_attribute = (
+        "json_values" if registry in {Artifact, Run} else "values_json"
+    )
     feature_name_col = f"{json_values_attribute}__feature__name"
     feature_value_col = f"{json_values_attribute}__value"
 
@@ -815,7 +862,7 @@ def reshape_annotate_result(
             )
 
     # --- Process categorical/linked features ---
-    links_prefix = "links_" if registry is Artifact else ("links_", "values_")
+    links_prefix = "links_" if registry in {Artifact, Run} else ("links_", "values_")
     links_features = [
         col
         for col in df.columns
@@ -940,6 +987,8 @@ def process_links_features(
     pk_name: str = "id",
 ) -> pd.DataFrame:
     """Process links_XXX feature columns."""
+    import pandas as pd
+
     from lamindb.models.feature import parse_dtype
 
     # this loops over different entities that might be linked under a feature
@@ -1055,6 +1104,8 @@ class BasicQuerySet(models.QuerySet):
         order_by: str | None = "-id",
     ) -> pd.DataFrame:
         """{}"""  # noqa: D415
+        import pandas as pd
+
         if (
             self.model.__name__ == "Artifact"
             and "kind" not in str(self.query.where)
@@ -1071,8 +1122,10 @@ class BasicQuerySet(models.QuerySet):
         # Only apply order_by if not already ordered and order_by is specified
         if not is_ordered and order_by is not None:
             subset = subset.order_by(order_by)
+        is_truncated = False
         if limit is not None:
-            subset = subset[:limit]
+            # Fetch one extra row as a sentinel to detect truncation without count().
+            subset = subset[: limit + 1]
         if include is None:
             include_input = []
         elif isinstance(include, str):
@@ -1125,6 +1178,9 @@ class BasicQuerySet(models.QuerySet):
         # another refactoring effort
         # we have the correct ordering in `features.get_values()`, though
         df = pd.DataFrame(queryset.values(*field_names, *list(annotate_kwargs.keys())))
+        if limit is not None and len(df) > limit:
+            is_truncated = True
+            df = df.iloc[:limit].copy()
         if len(df) == 0:
             df = pd.DataFrame({}, columns=field_names)
             return df
@@ -1162,6 +1218,10 @@ class BasicQuerySet(models.QuerySet):
                         df_reshaped[feature.name] = df_reshaped[feature.name].astype(
                             float
                         )
+        if is_truncated:
+            logger.warning(
+                f"truncated query result to limit={limit} {self.model.__name__} objects"
+            )
         return df_reshaped
 
     @deprecated(new_name="to_dataframe")
@@ -1196,8 +1256,27 @@ class BasicQuerySet(models.QuerySet):
         """
         from lamindb.models import Artifact, Collection, Run, Storage, Transform
 
-        # all these models have non-trivial delete behavior, hence we need to handle in a loop
-        if self.model in {Artifact, Collection, Transform, Run}:
+        if self.model is Run:
+            if permanent is True:
+                from .run import _permanent_delete_runs
+
+                _permanent_delete_runs(self)
+                return
+            if permanent is not True:
+                self.update(branch_id=-1)
+                return
+        if self.model is Transform:
+            if permanent is True:
+                from .transform import _permanent_delete_transforms
+
+                _permanent_delete_transforms(self)
+                return
+            if permanent is not True:
+                _adjust_is_latest_when_deleting_is_versioned(self)
+                self.update(branch_id=-1, is_latest=False)
+                return
+        # Artifact, Collection: non-trivial delete behavior, handle in a loop
+        if self.model in {Artifact, Collection}:
             for record in self:
                 record.delete(*args, permanent=permanent, **kwargs)
         elif self.model is Storage:  # storage does not have soft delete
@@ -1366,12 +1445,24 @@ class QuerySet(BasicQuerySet):
         """Query a set of records."""
         from lamindb.models import Artifact, Record, Run
 
+        from .feature import FeaturePredicate
+
+        feature_predicates = [q for q in queries if isinstance(q, FeaturePredicate)]
+        queries = tuple(q for q in queries if not isinstance(q, FeaturePredicate))
         registry = self.model
-        if not expressions.pop("_skip_filter_with_features", False) and registry in {
+        is_status_filter_on_run = registry is Run and any(
+            key.split("__")[0] == "status" for key in expressions
+        )
+        can_filter_with_features = registry in {
             Artifact,
             Run,
             Record,
-        }:
+        }
+        if (
+            not expressions.pop("_skip_filter_with_features", False)
+            and can_filter_with_features
+            and not is_status_filter_on_run
+        ):
             from ._feature_manager import filter_with_features
 
             qs = filter_with_features(self, *queries, **expressions)
@@ -1393,10 +1484,27 @@ class QuerySet(BasicQuerySet):
             # need to run a query if queries or expressions are not empty
             if queries or expressions:
                 try:
-                    return super().filter(*queries, **expressions)
+                    qs = super().filter(*queries, **expressions)
                 except FieldError as e:
                     self._handle_unknown_field(e)
-            qs = self
+            else:
+                qs = self
+        if feature_predicates:
+            if not can_filter_with_features:
+                raise FieldError(
+                    f"Feature predicates are only supported for Artifact, Run, and Record, not {registry.__name__}."
+                )
+            from ._feature_manager import filter_with_feature_predicates
+
+            # Run predicate translation on a BasicQuerySet clone.
+            # - `copy=True` avoids mutating `qs.__class__` in place while we temporarily
+            #   switch query set type for this translation phase.
+            # - We intentionally do not use `_skip_filter_with_features` here: that flag
+            #   guards the QuerySet.filter() feature dispatcher path, while this code
+            #   bypasses that dispatcher and executes predicate translation directly.
+            qs = filter_with_feature_predicates(
+                qs._to_class(BasicQuerySet, copy=True), feature_predicates
+            )._to_class(type(qs), copy=False)
         return qs
 
 
@@ -1575,7 +1683,9 @@ class DB:
         self._cache: dict[str, NonInstantiableQuerySet | BiontyDB | PertdbDB] = {}
         self._available_registries: set[str] | None = None
 
-        owner, instance_name = instance.split("/")
+        owner, instance_name = (
+            ln_setup._connect_instance.get_owner_name_from_identifier(instance)
+        )
         instance_info = ln_setup._connect_instance._connect_instance(
             owner=owner, name=instance_name
         )

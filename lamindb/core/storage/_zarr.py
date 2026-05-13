@@ -24,13 +24,13 @@ else:
 
 if TYPE_CHECKING:
     from fsspec import FSMap
-    from lamindb_setup.types import UPathStr
+    from lamindb_setup.types import AnyPathStr
 
-    from lamindb.core.types import ScverseDataStructures
+    from lamindb.core.storage.types import ScverseDataStructures
 
 
 def get_zarr_store(
-    path: UPathStr, *, check: bool = False, create: bool = False
+    path: AnyPathStr, *, check: bool = False, create: bool = False
 ) -> str | S3FSMap | FSMap | Store:
     """Creates the correct object that can be used to open a zarr file depending on local or remote location."""
     storepath, storepath_str = UPath(path), str(path)
@@ -64,7 +64,7 @@ def _identify_zarr_type_from_storage(
 
 
 def identify_zarr_type(
-    storepath: UPathStr, *, check: bool = True
+    storepath: AnyPathStr, *, check: bool = True
 ) -> Literal["anndata", "mudata", "spatialdata", "unknown"]:
     """Identify whether a zarr store is AnnData, SpatialData, or unknown type."""
     suffixes = UPath(storepath).suffixes
@@ -87,7 +87,7 @@ def identify_zarr_type(
 
 
 def load_zarr(
-    storepath: UPathStr,
+    storepath: AnyPathStr,
     expected_type: Literal["anndata", "mudata", "spatialdata"] = None,
 ) -> ScverseDataStructures:
     """Loads a zarr store and returns the corresponding scverse data structure.

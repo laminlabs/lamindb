@@ -9,17 +9,17 @@ from lamin_utils import logger
 from lamindb_setup.core._docs import doc_args
 from upath import UPath
 
-from ..core._mapped_collection import MappedCollection
-from ..core.storage._backed_access import _open_dataframe
 from .artifact import Artifact, track_run_input
 from .collection import Collection, _load_concat_artifacts
 
 if TYPE_CHECKING:
     from anndata import AnnData
-    from lamindb_setup.types import UPathStr
+    from lamindb_setup.types import AnyPathStr
     from pandas import DataFrame
     from polars import LazyFrame as PolarsLazyFrame
     from pyarrow.dataset import Dataset as PyArrowDataset
+
+    from ..core._mapped_collection import MappedCollection
 
 
 UNORDERED_WARNING = (
@@ -66,6 +66,8 @@ class ArtifactSet(Iterable):
         **kwargs,
     ) -> PyArrowDataset | Iterator[PolarsLazyFrame]:
         """{}"""  # noqa: D415
+        from ..core.storage._backed_access import _open_dataframe
+
         if not self.ordered:  # type: ignore
             logger.warning(UNORDERED_WARNING)
 
@@ -94,6 +96,8 @@ class ArtifactSet(Iterable):
         is_run_input: bool | None = None,
     ) -> MappedCollection:
         """{}"""  # noqa: D415
+        from ..core._mapped_collection import MappedCollection
+
         if not self.ordered:  # type: ignore
             logger.warning(UNORDERED_WARNING)
 
@@ -126,7 +130,7 @@ class ArtifactSet(Iterable):
         return ds
 
 
-def artifacts_from_path(artifacts: ArtifactSet, path: UPathStr) -> ArtifactSet:
+def artifacts_from_path(artifacts: ArtifactSet, path: AnyPathStr) -> ArtifactSet:
     """Returns artifacts in the query set that are registered for the provided path."""
     from lamindb.models import BasicQuerySet, QuerySet
 

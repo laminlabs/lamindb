@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Iterable, Literal, Union
 
 import numpy as np
-import pandas as pd
 from django.core.exceptions import FieldDoesNotExist
 from django.db.models import Manager, QuerySet
 from lamin_utils import colors, logger
@@ -20,6 +19,7 @@ from .sqlrecord import SQLRecord, get_name_field
 
 if TYPE_CHECKING:
     from lamin_utils._inspect import InspectResult
+    from pandas import DataFrame
 
     from lamindb.base.types import ListLike, StrField
 
@@ -38,6 +38,8 @@ def _check_if_record_in_db(record: str | SQLRecord | None, using_key: str | None
 
 def _concat_lists(values: ListLike | str) -> list[str]:
     """Concatenate a list of lists of strings into a single list."""
+    import pandas as pd
+
     if isinstance(values, str):
         values = [values]
     if isinstance(values, (list, pd.Series)) and len(values) > 0:
@@ -61,7 +63,7 @@ def _inspect(
     source: SQLRecord | None = None,
     from_source: bool = True,
     strict_source: bool = False,
-) -> pd.DataFrame | dict[str, list[str]]:
+) -> DataFrame | dict[str, list[str]]:
     """{}"""  # noqa: D415
     from lamin_utils._inspect import inspect
 
@@ -165,6 +167,7 @@ def _validate(
     strict_source: bool = False,
 ) -> np.ndarray:
     """{}"""  # noqa: D415
+    import pandas as pd
     from lamin_utils._inspect import validate
 
     return_str = True if isinstance(values, str) else False
@@ -229,6 +232,7 @@ def _standardize(
     strict_source: bool = False,
 ) -> list[str] | dict[str, str]:
     """{}"""  # noqa: D415
+    import pandas as pd
     from lamin_utils._standardize import standardize as map_synonyms
 
     return_str = True if isinstance(values, str) else False

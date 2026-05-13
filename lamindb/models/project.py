@@ -37,6 +37,7 @@ if TYPE_CHECKING:
     from .block import Block, ProjectBlock
     from .query_manager import RelatedManager
     from .query_set import QuerySet
+    from .sqlrecord import Branch
 
 
 class Reference(
@@ -83,7 +84,7 @@ class Reference(
 
     Allows to group reference by type, e.g., internal studies vs. all papers etc.
     """
-    references: Reference
+    references: RelatedManager[Reference]
     """References of this type (can only be non-empty if `is_type` is `True`)."""
     abbr: str | None = CharField(
         max_length=32,
@@ -202,7 +203,7 @@ class Project(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, ValidateF
         "self", PROTECT, null=True, related_name="projects"
     )
     """Type of project (e.g., 'Program', 'Project', 'GithubIssue', 'Task') ← :attr:`~lamindb.Project.projects`."""
-    projects: Project
+    projects: RelatedManager[Project]
     """Projects of this type (can only be non-empty if `is_type` is `True`)."""
     abbr: str | None = CharField(max_length=32, db_index=True, null=True)
     """An abbreviation."""
@@ -274,10 +275,18 @@ class Project(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, ValidateF
         "Block", through="BlockProject", related_name="projects"
     )
     """Annotated blocks ← :attr:`~lamindb.Block.projects`."""
-    _status_code: int = models.SmallIntegerField(default=0, db_index=True)
+    users: RelatedManager[User] = models.ManyToManyField(
+        "User",
+        through="ProjectUser",
+        related_name="projects",
+    )
+    """Users participating in this project ← :attr:`~lamindb.ProjectUser.user`."""
+    branches: RelatedManager[Branch]
+    """Annotated branches ← :attr:`~lamindb.BranchProject.project`."""
+    _status_code: int = models.SmallIntegerField(default=0, db_default=0, db_index=True)
     """Status code."""
-    ablocks: ProjectBlock
-    """Blocks that annotate this project ← :attr:`~lamindb.ProjectBlock.project`."""
+    ablocks: RelatedManager[ProjectBlock]
+    """Attached blocks ← :attr:`~lamindb.ProjectBlock.project`."""
 
     @overload
     def __init__(
@@ -347,6 +356,28 @@ class RunProject(BaseSQLRecord, IsLink):
     class Meta:
         app_label = "lamindb"
         unique_together = ("run", "project")
+
+
+class BranchProject(BaseSQLRecord, IsLink):
+    id: int = models.BigAutoField(primary_key=True)
+    branch: Branch = ForeignKey("Branch", CASCADE, related_name="links_project")
+    project: Project = ForeignKey(Project, PROTECT, related_name="links_branch")
+
+    class Meta:
+        app_label = "lamindb"
+        unique_together = ("branch", "project")
+
+
+class ProjectUser(BaseSQLRecord, IsLink):
+    id: int = models.BigAutoField(primary_key=True)
+    project: Project = ForeignKey(Project, CASCADE, related_name="links_user")
+    user: User = ForeignKey("User", PROTECT, related_name="links_project")
+    role: str = CharField(max_length=32, db_index=True)
+    """Role (e.g. "responsible", "viewer")."""
+
+    class Meta:
+        app_label = "lamindb"
+        unique_together = ("project", "user", "role")
 
 
 class TransformProject(BaseSQLRecord, IsLink, TracksRun):

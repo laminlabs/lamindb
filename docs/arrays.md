@@ -2,11 +2,9 @@
 execute_via: python
 ---
 
-# Slice & stream arrays
+# Stream datasets from storage
 
-We saw how LaminDB allows to query & search across artifacts using registries: {doc}`registries`.
-
-Let us now query the datasets in storage themselves. Here, we show how to subset an `AnnData` and generic `HDF5` and `zarr` collections accessed in the cloud.
+This guide walks through streaming datasets from disk or cloud storage.
 
 ```python
 # replace with your username and S3 bucket
@@ -21,7 +19,70 @@ import lamindb as ln
 import numpy as np
 
 ln.track()
+db = ln.DB("laminlabs/lamindata")  # we'll pull dataset from there
 ```
+
+## DataFrame
+
+### Streaming from a single artifact
+
+A dataframe stored as sharded `parquet`.
+
+```python
+artifact = db.Artifact.get(key="sharded_parquet")
+```
+
+```python
+artifact.path.view_tree()
+```
+
+```python
+dataset = artifact.open()
+```
+
+This returns a [pyarrow dataset](https://arrow.apache.org/docs/python/dataset.html).
+
+```python
+dataset
+```
+
+```python
+dataset.head(5).to_pandas()
+```
+
+### Streaming from a set of artifacts
+
+You can open several parquet files as a single dataset by calling `.open()` on the result of a query:
+
+```python
+dataset = db.Artifact.filter(
+    key__startswith="example_datasets/small", suffix=".parquet", is_latest=True
+).open()  # open an ArtifactSet for streaming
+dataset
+```
+
+The same is possible for the artifacts in a collection:
+
+```python
+collection = db.Collection.get(key="sharded_parquet_collection")
+dataset = collection.open()
+dataset
+```
+
+Once you have a storage-backed dataset, you can query it like this:
+
+```python
+dataset.to_table().to_pandas()
+```
+
+By default `Artifact.open()` and `Collection.open()` use `pyarrow` to lazily open dataframes. `polars` can be also used by passing `engine="polars"`. Note also that `.open(engine="polars")` returns a context manager with [LazyFrame](https://docs.pola.rs/api/python/stable/reference/lazyframe/index.html).
+
+```python
+with collection.open(engine="polars", use_fsspec=True) as lazy_df:
+    display(lazy_df.collect().to_pandas())
+```
+
+## AnnData
 
 We'll need some test data:
 
@@ -29,8 +90,6 @@ We'll need some test data:
 ln.Artifact("s3://lamindb-ci/test-arrays/pbmc68k.h5ad").save()
 ln.Artifact("s3://lamindb-ci/test-arrays/testfile.hdf5").save()
 ```
-
-## AnnData
 
 An `h5ad` artifact stored on s3:
 
@@ -43,69 +102,58 @@ artifact.path
 ```
 
 ```python
-access = artifact.open()
+adata = artifact.open()
 ```
 
 This object is an `AnnDataAccessor` object, an `AnnData` object backed in the cloud:
 
 ```python
-access
+adata
 ```
 
 Without subsetting, the `AnnDataAccessor` object references underlying lazy `h5` or `zarr` arrays:
 
 ```python
-access.X
+adata.X
 ```
 
 You can subset it like a normal `AnnData` object:
 
 ```python
-obs_idx = access.obs.cell_type.isin(["Dendritic cells", "CD14+ Monocytes"]) & (
-    access.obs.percent_mito <= 0.05
+obs_idx = adata.obs.cell_type.isin(["Dendritic cells", "CD14+ Monocytes"]) & (
+    adata.obs.percent_mito <= 0.05
 )
-access_subset = access[obs_idx]
-access_subset
+adata_subset = adata[obs_idx]
+adata_subset
 ```
 
 Subsets load arrays into memory upon direct access:
 
 ```python
-access_subset.X
+adata_subset.X
 ```
 
 To load the entire subset into memory as an actual `AnnData` object, use `to_memory()`:
 
 ```python
-adata_subset = access_subset.to_memory()
-
-adata_subset
+adata_subset.to_memory()
 ```
 
-### Add a column to a cloud AnnData object
-
-It is also possible to add columns to `.obs` and `.var` of cloud AnnData objects without downloading them.
-
-Create a new `AnnData` `zarr` artifact.
+It is also possible to add columns to `.obs` and `.var` of cloud AnnData objects without downloading them. First, create a new `AnnData` `zarr` artifact:
 
 ```python
-adata_subset.write_zarr("adata_subset.zarr")
-```
-
-```python
+adata_subset.to_memory().write_zarr("adata_subset.zarr")
 artifact = ln.Artifact(
     "adata_subset.zarr", description="test add column to adata"
 ).save()
 ```
 
-```python
-artifact
-```
+This is how you add a column:
 
 ```python
-with artifact.open(mode="r+") as access:
-    access.add_column(where="obs", col_name="ones", col=np.ones(access.shape[0]))
-    display(access)
+with artifact.open(mode="r+") as adata_accessor:
+    adata_accessor.add_column(where="obs", col_name="ones", col=np.ones(adata_accessor.shape[0]))
+    display(adata_accessor)
 ```
 
 The version of the artifact is updated after the modification.
@@ -184,71 +232,6 @@ backed
 
 ```python
 backed.storage
-```
-
-## Parquet
-
-A dataframe stored as sharded `parquet`.
-
-Note that it is also possible to register and access Hugging Face paths. For this `huggingface_hub` package should be installed.
-
-```python
-artifact = ln.Artifact.connect("laminlabs/lamindata").get(key="sharded_parquet")
-```
-
-```python
-artifact.path.view_tree()
-```
-
-```python
-backed = artifact.open()
-```
-
-This returns a [pyarrow dataset](https://arrow.apache.org/docs/python/dataset.html).
-
-```python
-backed
-```
-
-```python
-backed.head(5).to_pandas()
-```
-
-It is also possible to open a collection of cloud artifacts.
-
-```python
-collection = ln.Collection.connect("laminlabs/lamindata").get(
-    key="sharded_parquet_collection"
-)
-```
-
-```python
-backed = collection.open()
-```
-
-```python
-backed
-```
-
-```python
-backed.to_table().to_pandas()
-```
-
-By default `Artifact.open()` and `Collection.open()` use `pyarrow` to lazily open dataframes. `polars` can be also used by passing `engine="polars"`. Note also that `.open(engine="polars")` returns a context manager with [LazyFrame](https://docs.pola.rs/api/python/stable/reference/lazyframe/index.html).
-
-```python
-with collection.open(engine="polars", use_fsspec=True) as lazy_df:
-    display(lazy_df.collect().to_pandas())
-```
-
-Yet another way to open several parquet files as a single dataset is via calling `.open()` directly for a query set.
-
-```python
-backed = ln.Artifact.filter(suffix=".parquet").open()
-```
-
-```python
-backed
 ```
 
 ```python

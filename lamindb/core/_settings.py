@@ -21,15 +21,8 @@ if TYPE_CHECKING:
     from collections.abc import Mapping
     from pathlib import Path
 
+    from lamindb_setup.types import AnyPathStr
     from upath import UPath
-
-
-def is_read_only_connection() -> bool:
-    instance = setup_settings.instance
-    if instance.dialect == "postgresql":
-        db_url = instance.db
-        return "read" in db_url or "public" in db_url
-    return False
 
 
 VERBOSITY_TO_INT = {
@@ -43,6 +36,18 @@ VERBOSITY_TO_INT = {
 VERBOSITY_TO_STR: dict[int, str] = dict(
     [reversed(i) for i in VERBOSITY_TO_INT.items()]  # type: ignore
 )
+
+
+def raise_if_storage_not_managed_by_current_instance(storage) -> None:
+    storage_instance_uid = storage.instance_uid
+    if storage_instance_uid is None:
+        raise ValueError(
+            f"Storage '{storage.root}' is not managed by any instance, cannot write to it from here."
+        )
+    if storage_instance_uid != setup_settings.instance.uid:
+        raise ValueError(
+            f"Storage '{storage.root}' exists in another instance ({storage_instance_uid}), cannot write to it from here."
+        )
 
 
 class Settings:
@@ -203,7 +208,7 @@ class Settings:
         return self._storage_settings
 
     @storage.setter
-    def storage(self, path_kwargs: str | Path | UPath | tuple[str | UPath, Mapping]):
+    def storage(self, path_kwargs: AnyPathStr | tuple[AnyPathStr, Mapping]):
         from ..models import Storage
 
         if isinstance(path_kwargs, tuple):
@@ -223,10 +228,7 @@ class Settings:
                 return None
             set_managed_storage(path, **kwargs)
         else:
-            if exists.instance_uid != ln_setup.settings.instance.uid:
-                raise ValueError(
-                    f"Storage {root_as_str} exists in another instance ({exists.instance_uid}), cannot write to it from here."
-                )
+            raise_if_storage_not_managed_by_current_instance(exists)
             ssettings = StorageSettings(
                 root=exists.root,
                 region=exists.region,
@@ -258,7 +260,7 @@ class Settings:
         return ln_setup.settings.instance.local_storage
 
     @local_storage.setter
-    def local_storage(self, local_root: Path):
+    def local_storage(self, local_root: Path | str):
         import lamindb as ln
 
         # note duplication with storage setter!
@@ -272,10 +274,7 @@ class Settings:
             if response != "y":
                 return None
         else:
-            if exists.instance_uid != ln_setup.settings.instance.uid:
-                raise ValueError(
-                    f"Storage {ssettings.root_as_str} exists in another instance ({exists.instance_uid}), cannot write to it from here."
-                )
+            raise_if_storage_not_managed_by_current_instance(exists)
         ln_setup.settings.instance.local_storage = local_root
 
     @property

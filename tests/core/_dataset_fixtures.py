@@ -1,4 +1,3 @@
-import shutil
 from pathlib import Path
 from typing import Generator
 
@@ -67,21 +66,6 @@ def get_small_sdata():
     )
 
     return sdata_obj
-
-
-@pytest.fixture(scope="session")
-def get_small_soma_experiment():
-    # shouldn't need tilebdomsa installed to run tests
-    import tiledbsoma
-    import tiledbsoma.io
-
-    adata = ln.examples.datasets.mini_immuno.get_dataset1(otype="AnnData")
-    tiledbsoma.io.from_anndata("test.tiledbsoma", adata, measurement_name="RNA")
-
-    exp = tiledbsoma.Experiment.open("test.tiledbsoma")
-    yield exp
-
-    shutil.rmtree("test.tiledbsoma")
 
 
 @pytest.fixture(scope="session")

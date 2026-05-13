@@ -1,4 +1,5 @@
 import subprocess
+from unittest.mock import patch
 
 import lamindb as ln
 import pytest
@@ -53,11 +54,20 @@ try:
     ) is not None:
         artifact_cleanup.delete(permanent=True)
 
+    # cleanup if the directory artifact already exists
+    artifact_dir = ln.Artifact("./scripts", key="mytest-dir")
+    if (
+        artifact_cleanup := ln.Artifact.filter(hash=artifact_dir.hash).one_or_none()
+    ) is not None:
+        artifact_cleanup.delete(permanent=True)
+
     artifact = ln.Artifact(".gitignore", key="mytest").save()
+    artifact_dir = ln.Artifact("./scripts", key="mytest-dir").save()
 
     # check that exist
     ln.ULabel.get(name="My test ulabel in test space")
     ln.Artifact.get(key="mytest")
+    ln.Artifact.get(key="mytest-dir")
 
     assert ulabel.space == space  # ulabel should end up in the restricted space
     assert artifact.space == space
@@ -67,6 +77,39 @@ try:
     assert artifact.storage in ln.Storage.filter(space=space)
     assert ln.context.transform.space == space
     assert ln.context.run.space == space
+
+    # move the artifact to another storage location
+    space_test_move = ln.Space.get(name="test-move")
+    original_path = artifact.path
+    artifact.space = space_test_move
+    # cancel save
+    with patch("builtins.input", return_value="x"):
+        artifact.save()
+    # save to the new storage location
+    with patch("builtins.input", return_value="1"):
+        artifact.save()
+    assert artifact.space == space_test_move
+    assert artifact.storage in ln.Storage.filter(space=space_test_move)
+    assert not original_path.exists()
+    assert artifact.path.as_posix().startswith(artifact.storage.root)
+    assert artifact.path.exists()
+
+    # move the directory artifact to another storage location
+    assert artifact_dir.space == space
+    assert artifact_dir.path.is_dir()
+    assert artifact_dir.storage in ln.Storage.filter(space=space)
+    original_path_dir = artifact_dir.path
+
+    artifact_dir.space = space_test_move
+    # save to the new storage location
+    with patch("builtins.input", return_value="0"):
+        artifact_dir.save()
+    assert artifact_dir.space == space_test_move
+    assert artifact_dir.storage in ln.Storage.filter(space=space_test_move)
+    original_path_dir.fs.invalidate_cache()
+    assert not original_path_dir.exists()
+    assert artifact_dir.path.as_posix().startswith(artifact_dir.storage.root)
+    assert artifact_dir.path.is_dir()
 
     # update the space of the storage location
     space2 = ln.Space.get(name="Our test space for CI 2")
@@ -93,10 +136,16 @@ try:
     assert result.returncode == 0
 
 finally:
+    try:
+        storage_loc.run = None
+        storage_loc.save()
+    except:  # noqa
+        pass
     cleanup(
         (
             ulabel,
             artifact,
+            artifact_dir,
             ln.context.transform.latest_run,
             ln.context.transform,
             storage_loc,

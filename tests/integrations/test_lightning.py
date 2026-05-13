@@ -1,12 +1,17 @@
+import json
 import shutil
 from pathlib import Path
-from typing import Generator
+from typing import Any, Generator, cast
+from unittest.mock import MagicMock
 
 import lamindb as ln
 import lightning as pl
 import pytest
 import torch
+from django.db import connection
+from django.test.utils import CaptureQueriesContext
 from lamindb.integrations import lightning as ll
+from lamindb.models._feature_manager import FeatureManager
 from torch import nn
 from torch.utils.data import DataLoader, TensorDataset
 
@@ -24,7 +29,7 @@ def cleanup_checkpoints() -> Generator[None, None, None]:
 def cleanup_test_dir() -> Generator[None, None, None]:
     """Clean up test directory after all tests."""
     yield
-    for dirname in ("lightning_checkpoints", "test_lightning"):
+    for dirname in ("lightning_checkpoints", "test_lightning", "lightning_logs"):
         dirpath = Path(dirname)
         if dirpath.exists():
             shutil.rmtree(dirpath)
@@ -62,11 +67,10 @@ def dataloader() -> DataLoader:
 @pytest.fixture
 def dirpath(request: pytest.FixtureRequest) -> Generator[str, None, None]:
     prefix = f"lightning_checkpoints/{request.node.name}/"
-    resolved = str(Path(prefix).resolve()) + "/"
 
     yield prefix
 
-    for af in ln.Artifact.filter(key__startswith=resolved):
+    for af in ln.Artifact.filter(key__startswith=prefix):
         af.delete(permanent=True, storage=True)
     dirpath_path = Path(prefix)
     if dirpath_path.exists():
@@ -106,12 +110,12 @@ def test_checkpoint_basic(
     )
     trainer.fit(simple_model, dataloader)
 
-    resolved = callback.dirpath.rstrip("/") + "/"
-    artifacts = ln.Artifact.filter(key__startswith=resolved)
+    prefix = callback.checkpoint_key_prefix + "/"
+    artifacts = ln.Artifact.filter(key__startswith=prefix)
     assert len(artifacts) >= 1
     for af in artifacts:
         assert af.kind == "model"
-        assert af.key.startswith(resolved)
+        assert af.key.startswith(prefix)
 
 
 def test_checkpoint_with_features(
@@ -140,8 +144,8 @@ def test_checkpoint_with_features(
     )
     trainer.fit(simple_model, dataloader)
 
-    resolved = callback.dirpath.rstrip("/") + "/"
-    artifacts = ln.Artifact.filter(key__startswith=resolved)
+    prefix = callback.checkpoint_key_prefix + "/"
+    artifacts = ln.Artifact.filter(key__startswith=prefix)
     assert len(artifacts) >= 1
     for af in artifacts:
         values = af.features.get_values()
@@ -192,15 +196,161 @@ def test_checkpoint_auto_features(
     )
     trainer.fit(simple_model, dataloader)
 
-    resolved = callback.dirpath.rstrip("/") + "/"
-    artifacts = ln.Artifact.filter(key__startswith=resolved)
+    prefix = callback.checkpoint_key_prefix + "/"
+    artifacts = ln.Artifact.filter(key__startswith=prefix)
     assert len(artifacts) >= 1
 
     for af in artifacts:
         values = af.features.get_values()
         assert "is_best_model" in values
+        assert "is_last_model" in values
         assert "score" in values
         assert "model_rank" in values
+
+
+def test_checkpoint_auto_features_with_duplicate_score_name(
+    simple_model: pl.LightningModule,
+    dataloader: DataLoader,
+    dirpath: str,
+    lightning_features: None,
+):
+    """Auto-tracking should work if a generic 'score' feature also exists."""
+    ln.Feature(name="score", dtype=float).save()
+
+    callback = ll.Checkpoint(
+        dirpath=dirpath,
+        monitor="train_loss",
+        save_top_k=2,
+    )
+    trainer = pl.Trainer(
+        max_epochs=1,
+        callbacks=[callback],
+        logger=False,
+    )
+    trainer.fit(simple_model, dataloader)
+
+    prefix = callback.checkpoint_key_prefix + "/"
+    artifacts = ln.Artifact.filter(key__startswith=prefix)
+    assert len(artifacts) >= 1
+
+
+def test_checkpoint_best_model_with_duplicate_feature_names(
+    simple_model: pl.LightningModule,
+    dataloader: DataLoader,
+    dirpath: str,
+    lightning_features: None,
+):
+    """Clearing best-model flags should work when duplicate feature names exist.
+
+    Regression test: when a Feature named 'is_best_model' exists both under the
+    lamindb.lightning type and without a type (or under a different type),
+    remove_values used to call Feature.get(name=...) which raised
+    MultipleObjectsReturned. The fix uses type-scoped Feature lookups.
+    """
+    # Create a duplicate 'is_best_model' feature without the lightning type
+    ln.Feature(name="is_best_model", dtype=bool).save()
+
+    callback = ll.Checkpoint(
+        dirpath=dirpath,
+        monitor="train_loss",
+        save_top_k=2,
+        mode="min",
+    )
+    trainer = pl.Trainer(
+        max_epochs=3,
+        callbacks=[callback],
+        logger=False,
+    )
+    # This would raise MultipleObjectsReturned before the fix
+    trainer.fit(simple_model, dataloader)
+
+    prefix = callback.checkpoint_key_prefix + "/"
+    artifacts = ln.Artifact.filter(key__startswith=prefix)
+    assert len(artifacts) >= 1
+
+    best_count = sum(
+        1 for af in artifacts if af.features.get_values().get("is_best_model") is True
+    )
+    assert best_count == 1
+    last_count = sum(
+        1 for af in artifacts if af.features.get_values().get("is_last_model") is True
+    )
+    assert last_count == 1
+
+
+def test_checkpoint_query_budget_scales_sublinearly_with_hparams(
+    dataloader: DataLoader, dirpath: str, lightning_features: None
+):
+    """DB queries should not scale linearly with hparam count."""
+
+    class ModelWithManyHparams(pl.LightningModule):
+        def __init__(self, n_hparams: int):
+            super().__init__()
+            self.layer = nn.Linear(10, 1)
+            self.save_hyperparameters({f"hp_{i}": i for i in range(n_hparams)})
+
+        def forward(self, x):
+            return self.layer(x)
+
+        def training_step(self, batch, batch_idx):
+            x, y = batch
+            loss = nn.functional.mse_loss(self(x), y)
+            self.log("train_loss", loss)
+            return loss
+
+        def configure_optimizers(self):
+            return torch.optim.Adam(self.parameters())
+
+    def count_fit_queries(n_hparams: int) -> int:
+        model = ModelWithManyHparams(n_hparams)
+        callback = ll.Checkpoint(
+            dirpath=f"{dirpath.rstrip('/')}/{n_hparams}/", monitor="train_loss"
+        )
+        trainer = pl.Trainer(max_epochs=1, callbacks=[callback], logger=False)
+        with CaptureQueriesContext(connection) as ctx:
+            trainer.fit(model, dataloader)
+        return len(ctx.captured_queries)
+
+    low_hparams_queries = count_fit_queries(2)
+    high_hparams_queries = count_fit_queries(40)
+    assert high_hparams_queries <= low_hparams_queries + 10
+
+
+def test_model_rank_update_query_budget(
+    dirpath: str,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    lightning_features: None,
+):
+    """Ranking should use batched feature reads."""
+    callback = ll.Checkpoint(dirpath=dirpath, monitor="train_loss", mode="min")
+    # Provide a stub trainer so checkpoint_key_prefix can compute on-the-fly.
+    # Only _original_dirpath matters for key derivation here.
+    stub_trainer = MagicMock(spec=pl.Trainer)
+    stub_trainer.loggers = []
+    callback._trainer = stub_trainer
+    key_prefix = callback.checkpoint_key_prefix
+    created_artifacts = []
+
+    for i in range(8):
+        model_file = tmp_path / f"model_{i}.ckpt"
+        model_file.write_bytes(f"checkpoint-{i}".encode())
+        artifact = ln.Artifact(
+            model_file, key=f"{key_prefix}/model_{i}.ckpt", kind="model"
+        )
+        artifact.save()
+        artifact.features.add_values({"score": float(i), "model_rank": i})
+        created_artifacts.append(artifact)
+
+    monkeypatch.setattr(FeatureManager, "remove_values", lambda *args, **kwargs: None)
+    monkeypatch.setattr(FeatureManager, "add_values", lambda *args, **kwargs: None)
+
+    with CaptureQueriesContext(connection) as ctx:
+        callback._feature_annotator.update_model_ranks(key_prefix, mode="min")
+    assert len(ctx.captured_queries) <= 6
+
+    for artifact in created_artifacts:
+        artifact.delete(permanent=True, storage=True)
 
 
 def test_checkpoint_best_model_tracking(
@@ -223,8 +373,8 @@ def test_checkpoint_best_model_tracking(
     )
     trainer.fit(simple_model, dataloader)
 
-    resolved = callback.dirpath.rstrip("/") + "/"
-    artifacts = ln.Artifact.filter(key__startswith=resolved)
+    prefix = callback.checkpoint_key_prefix + "/"
+    artifacts = ln.Artifact.filter(key__startswith=prefix)
     best_count = sum(
         1 for af in artifacts if af.features.get_values().get("is_best_model") is True
     )
@@ -251,10 +401,47 @@ def test_checkpoint_model_rank(
     )
     trainer.fit(simple_model, dataloader)
 
-    resolved = callback.dirpath.rstrip("/") + "/"
-    artifacts = ln.Artifact.filter(key__startswith=resolved)
+    prefix = callback.checkpoint_key_prefix + "/"
+    artifacts = ln.Artifact.filter(key__startswith=prefix)
     ranks = [af.features.get_values().get("model_rank") for af in artifacts]
     assert 0 in ranks  # best model has rank 0
+    last_count = sum(
+        1 for af in artifacts if af.features.get_values().get("is_last_model") is True
+    )
+    assert last_count == 1
+
+
+def test_checkpoint_last_model_points_to_last_saved_artifact(
+    simple_model: pl.LightningModule,
+    dataloader: DataLoader,
+    dirpath: str,
+    lightning_features: None,
+):
+    """The artifact flagged as last model should be the last saved checkpoint artifact."""
+    checkpoint = ll.Checkpoint(
+        dirpath=dirpath,
+        monitor="train_loss",
+        save_top_k=3,
+        mode="min",
+    )
+    trainer = pl.Trainer(
+        max_epochs=3,
+        callbacks=[checkpoint],
+        logger=False,
+    )
+    trainer.fit(simple_model, dataloader)
+
+    prefix = checkpoint.checkpoint_key_prefix + "/"
+    artifacts = list(ln.Artifact.filter(key__startswith=prefix))
+    last_artifacts = [
+        artifact
+        for artifact in artifacts
+        if artifact.features.get_values().get("is_last_model") is True
+    ]
+
+    assert len(last_artifacts) == 1
+    assert checkpoint.last_checkpoint_artifact is not None
+    assert last_artifacts[0].id == checkpoint.last_checkpoint_artifact.id
 
 
 def test_checkpoint_semantic_paths(
@@ -276,12 +463,12 @@ def test_checkpoint_semantic_paths(
     )
     trainer.fit(simple_model, dataloader)
 
-    resolved = callback.dirpath.rstrip("/") + "/"
-    artifacts = ln.Artifact.filter(key__startswith=resolved)
+    prefix = callback.checkpoint_key_prefix + "/"
+    artifacts = ln.Artifact.filter(key__startswith=prefix)
     assert len(artifacts) >= 1
 
     for af in artifacts:
-        assert af.key.startswith(resolved)
+        assert af.key.startswith(prefix)
         values = af.features.get_values()
         assert "is_best_model" in values
         assert "score" in values
@@ -315,34 +502,27 @@ def test_callback_deprecated(
         af.delete(permanent=True, storage=True)
 
 
-@pytest.mark.parametrize(
-    "overwrite_versions,should_raise", [(False, True), (True, False)]
-)
-def test_checkpoint_overwrite(
+def test_checkpoint_overwrites_existing_artifact(
     simple_model: pl.LightningModule,
     dataloader: DataLoader,
     dirpath: str,
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
-    overwrite_versions: bool,
-    should_raise: bool,
 ):
-    """Checkpoint should raise when artifact exists unless overwrite_versions=True."""
+    """Checkpoint with same key should transparently replace the existing artifact."""
     dummy = tmp_path / "dummy.ckpt"
     dummy.write_bytes(b"dummy")
     fixed_key = f"{dirpath.rstrip('/')}/fixed.ckpt"
     ln.Artifact(dummy, key=fixed_key).save()
+    old_uid = ln.Artifact.filter(key=fixed_key).one().uid
 
-    callback = ll.Checkpoint(dirpath=dirpath, overwrite_versions=overwrite_versions)
-    monkeypatch.setattr(callback, "_get_artifact_key", lambda _: fixed_key)
+    callback = ll.Checkpoint(dirpath=dirpath)
+    monkeypatch.setattr(callback, "resolve_artifact_key", lambda **kwargs: fixed_key)
     trainer = pl.Trainer(max_epochs=1, callbacks=[callback], logger=False)
+    trainer.fit(simple_model, dataloader)
 
-    if should_raise:
-        with pytest.raises(ValueError, match="already exists"):
-            trainer.fit(simple_model, dataloader)
-
-    else:
-        trainer.fit(simple_model, dataloader)
+    new_artifact = ln.Artifact.filter(key=fixed_key).one()
+    assert new_artifact.uid != old_uid
 
     for af in ln.Artifact.filter(key=fixed_key):
         af.delete(permanent=True, storage=True)
@@ -435,6 +615,7 @@ def test_checkpoint_trainer_config(
     simple_model: pl.LightningModule,
     dataloader: DataLoader,
     dirpath: str,
+    lightning_features: None,
 ):
     """Checkpoint should auto-capture trainer config if features exist."""
     ln.track()
@@ -457,14 +638,22 @@ def test_checkpoint_trainer_config(
     trainer.fit(simple_model, dataloader)
 
     run_features = ln.context.run.features.get_values()
+    artifacts = ln.Artifact.filter(key__startswith=callback.checkpoint_key_prefix + "/")
     assert run_features["max_epochs"] == 5
     assert run_features["max_steps"] == 100
     assert run_features["precision"] == "32-true"
     assert run_features["accumulate_grad_batches"] == 2
     assert run_features["gradient_clip_val"] == 0.5
     assert run_features["monitor"] == "train_loss"
-    assert run_features["save_weights_only"] is True
     assert run_features["mode"] == "min"
+    assert "save_weights_only" not in run_features
+
+    assert len(artifacts) >= 1
+    for artifact in artifacts:
+        artifact_features = artifact.features.get_values()
+        assert artifact_features["save_weights_only"] is True
+        assert artifact_features["monitor"] == "train_loss"
+        assert artifact_features["mode"] == "min"
 
     ln.finish()
 
@@ -507,7 +696,7 @@ def test_checkpoint_hparams_yaml_with_hparams(
     )
     trainer.fit(model, dataloader)
 
-    resolved_dirpath = callback.dirpath.rstrip("/")
+    resolved_dirpath = callback.checkpoint_key_prefix
     hparams_key = f"{resolved_dirpath}/hparams.yaml"
     hparams_artifact = ln.Artifact.filter(key=hparams_key).one_or_none()
 
@@ -517,3 +706,632 @@ def test_checkpoint_hparams_yaml_with_hparams(
     # cleanup
     hparams_artifact.delete(permanent=True)
     shutil.rmtree(tmp_path / "test_logs", ignore_errors=True)
+
+
+@pytest.mark.parametrize(
+    ("use_dirpath", "use_logger"),
+    [
+        (True, True),
+        (False, True),
+        (True, False),
+        (False, False),
+    ],
+    ids=[
+        "dirpath-logger",
+        "no-dirpath-logger",
+        "dirpath-no-logger",
+        "no-dirpath-no-logger",
+    ],
+)
+def test_key_layout_matrix(
+    simple_model: pl.LightningModule,
+    dataloader: DataLoader,
+    tmp_path: Path,
+    use_dirpath: bool,
+    use_logger: bool,
+):
+    """Artifact keys must follow the base-prefix layout across all 4 configurations.
+
+    With ``run_uid_is_version=True`` and an active Lamin run, the expected
+    key layout is::
+
+        {base}/checkpoints/{ckpt_filename}
+        {base}/config.yaml              (when SaveConfigCallback is used)
+        {base}/checkpoints/hparams.yaml (when model has hyperparameters)
+
+    Where ``base`` is determined by:
+
+    ==============================  ==================================
+    Scenario                        Base prefix
+    ==============================  ==================================
+    dirpath set (± logger)          ``{dirpath}/{run_uid}``
+    no dirpath + logger             ``{save_dir_name}/{name}/{run_uid}``
+    no dirpath + no logger          ``{run_uid}``
+    ==============================  ==================================
+    """
+    from lightning.pytorch.loggers import CSVLogger
+
+    class ParserStub:
+        def save(self, config, path, skip_none, overwrite, multifile):
+            del skip_none, overwrite, multifile
+            Path(path).write_text(json.dumps(config, indent=2))
+
+    dirpath = str(tmp_path / "layout_test")
+
+    ln.track()
+    run_uid = ln.context.run.uid
+
+    logger: CSVLogger | bool
+    logger_name = "layout_exp"
+    if use_logger:
+        logger = CSVLogger(save_dir=tmp_path, name=logger_name)
+    else:
+        logger = False
+
+    checkpoint = ll.Checkpoint(
+        dirpath=dirpath if use_dirpath else None,
+        monitor="train_loss",
+        run_uid_is_version=True,
+    )
+    config = {"trainer": {"max_epochs": 1}}
+    save_config = ll.SaveConfigCallback(
+        parser=cast(Any, ParserStub()),
+        config=config,
+        config_filename="config.yaml",
+    )
+
+    trainer = pl.Trainer(
+        max_epochs=1,
+        callbacks=[checkpoint, save_config],
+        logger=logger,
+        default_root_dir=tmp_path,
+    )
+    trainer.fit(simple_model, dataloader)
+
+    # Determine expected base prefix
+    if use_dirpath:
+        expected_base = f"{dirpath.rstrip('/')}/{run_uid}"
+    elif use_logger:
+        expected_base = f"{tmp_path.name}/{logger_name}/{run_uid}"
+    else:
+        expected_base = run_uid
+
+    # Verify base_prefix
+    assert checkpoint.base_prefix == expected_base
+
+    # Verify checkpoint key prefix
+    expected_ckpt_prefix = f"{expected_base}/checkpoints"
+    assert checkpoint.checkpoint_key_prefix == expected_ckpt_prefix
+
+    # Verify checkpoint artifacts exist under the correct prefix
+    ckpt_artifacts = ln.Artifact.filter(key__startswith=expected_ckpt_prefix + "/")
+    assert len(ckpt_artifacts) >= 1
+    for af in ckpt_artifacts:
+        assert af.key.startswith(expected_ckpt_prefix + "/")
+
+    # Verify config artifact sits directly under the base prefix
+    expected_config_key = f"{expected_base}/config.yaml"
+    config_artifact = ln.Artifact.filter(key=expected_config_key).one_or_none()
+    assert config_artifact is not None, f"Expected config at {expected_config_key}"
+
+    # Cleanup
+    json_values = ln.models.JsonValue.filter(links_artifact__artifact=config_artifact)
+    ln.models.ArtifactJsonValue.filter(artifact=config_artifact).delete()
+    config_artifact.delete(permanent=True, storage=True)
+    json_values.delete(permanent=True)
+    for af in ckpt_artifacts:
+        af.delete(permanent=True, storage=True)
+    ln.finish()
+    if use_logger:
+        shutil.rmtree(tmp_path / logger_name, ignore_errors=True)
+
+
+def test_run_uid_not_in_key_when_disabled(
+    simple_model: pl.LightningModule,
+    dataloader: DataLoader,
+    tmp_path: Path,
+):
+    """With run_uid_is_version=False, the key should use the logger version as before."""
+    from lightning.pytorch.loggers import CSVLogger
+
+    ln.track()
+
+    logger = CSVLogger(save_dir=tmp_path, name="no_uid_test")
+    callback = ll.Checkpoint(monitor="train_loss", run_uid_is_version=False)
+    trainer = pl.Trainer(max_epochs=1, callbacks=[callback], logger=logger)
+    trainer.fit(simple_model, dataloader)
+
+    prefix = callback.checkpoint_key_prefix
+    assert "version_0" in prefix
+    assert prefix == f"{tmp_path.name}/no_uid_test/version_0/checkpoints"
+
+    artifacts = ln.Artifact.filter(key__startswith=prefix + "/")
+    assert len(artifacts) >= 1
+
+    for af in artifacts:
+        af.delete(permanent=True, storage=True)
+    ln.finish()
+    shutil.rmtree(tmp_path / "no_uid_test", ignore_errors=True)
+
+
+def test_two_runs_same_logger_produce_different_keys(
+    simple_model: pl.LightningModule,
+    dataloader: DataLoader,
+    tmp_path: Path,
+):
+    """Two tracked runs with the same logger config should not collide on keys."""
+    from lightning.pytorch.loggers import CSVLogger
+
+    prefixes = []
+    for _ in range(2):
+        ln.track()
+        logger = CSVLogger(save_dir=tmp_path, name="collision_test")
+        callback = ll.Checkpoint(monitor="train_loss", run_uid_is_version=True)
+        trainer = pl.Trainer(max_epochs=1, callbacks=[callback], logger=logger)
+        trainer.fit(simple_model, dataloader)
+        prefixes.append(callback.checkpoint_key_prefix)
+        ln.finish()
+
+    assert prefixes[0] != prefixes[1], "Two runs should produce different key prefixes"
+
+    for prefix in prefixes:
+        for af in ln.Artifact.filter(key__startswith=prefix + "/"):
+            af.delete(permanent=True, storage=True)
+    shutil.rmtree(tmp_path / "collision_test", ignore_errors=True)
+
+
+@pytest.mark.parametrize(
+    ("use_dirpath", "logger_name", "key_source"),
+    [
+        (False, "my_experiment", "logger"),
+        (False, None, "checkpoints"),
+        (True, "should_not_appear", "dirpath"),
+        (True, None, "dirpath"),
+    ],
+    ids=[
+        "without-dirpath-with-logger",
+        "without-dirpath-without-logger",
+        "with-dirpath-with-logger",
+        "with-dirpath-without-logger",
+    ],
+)
+def test_checkpoint_artifact_key_prefix_matrix(
+    simple_model: pl.LightningModule,
+    dataloader: DataLoader,
+    dirpath: str,
+    tmp_path: Path,
+    use_dirpath: bool,
+    logger_name: str | None,
+    key_source: str,
+):
+    """Checkpoint artifact keys should match the dirpath/logger configuration matrix."""
+    from lightning.pytorch.loggers import CSVLogger
+
+    logger: CSVLogger | bool
+    if logger_name is None:
+        logger = False
+    else:
+        logger = CSVLogger(save_dir=tmp_path, name=logger_name)
+
+    callback = ll.Checkpoint(
+        dirpath=dirpath if use_dirpath else None,
+        monitor="train_loss",
+    )
+    trainer = pl.Trainer(
+        max_epochs=2,
+        callbacks=[callback],
+        logger=logger,
+    )
+    trainer.fit(simple_model, dataloader)
+
+    prefix = callback.checkpoint_key_prefix
+    if key_source == "logger":
+        assert prefix == f"{tmp_path.name}/{logger_name}/version_0/checkpoints"
+    elif key_source == "checkpoints":
+        assert prefix == "checkpoints"
+    else:
+        assert prefix == f"{dirpath.rstrip('/')}/checkpoints"
+        if logger_name is not None:
+            assert logger_name not in prefix
+
+    artifacts = ln.Artifact.filter(key__startswith=prefix + "/")
+    assert len(artifacts) >= 1
+    for af in artifacts:
+        assert af.kind == "model"
+        assert af.key.startswith(prefix + "/")
+
+    if not use_dirpath:
+        for af in artifacts:
+            af.delete(permanent=True, storage=True)
+
+    if logger_name is not None:
+        shutil.rmtree(tmp_path / logger_name, ignore_errors=True)
+
+
+def test_checkpoint_auto_features_without_dirpath(
+    simple_model: pl.LightningModule,
+    dataloader: DataLoader,
+    tmp_path: Path,
+    lightning_features: None,
+):
+    """Auto-features (best model, score, rank) should work without dirpath."""
+    from lightning.pytorch.loggers import CSVLogger
+
+    logger = CSVLogger(save_dir=tmp_path, name="auto_feat")
+
+    callback = ll.Checkpoint(
+        monitor="train_loss",
+        save_top_k=2,
+        mode="min",
+    )
+    trainer = pl.Trainer(
+        max_epochs=3,
+        callbacks=[callback],
+        logger=logger,
+    )
+    trainer.fit(simple_model, dataloader)
+
+    prefix = callback.checkpoint_key_prefix
+    artifacts = ln.Artifact.filter(key__startswith=prefix + "/")
+    assert len(artifacts) >= 1
+
+    for af in artifacts:
+        values = af.features.get_values()
+        assert "is_best_model" in values
+        assert "score" in values
+        assert "model_rank" in values
+
+    best_count = sum(
+        1 for af in artifacts if af.features.get_values().get("is_best_model") is True
+    )
+    assert best_count == 1
+
+    ranks = [af.features.get_values().get("model_rank") for af in artifacts]
+    assert 0 in ranks
+
+    # cleanup
+    for af in artifacts:
+        af.delete(permanent=True, storage=True)
+    shutil.rmtree(tmp_path / "auto_feat", ignore_errors=True)
+
+
+@pytest.mark.parametrize(
+    ("use_dirpath", "logger_name", "key_source"),
+    [
+        (False, "cli_logs", "logger"),
+        (False, None, "filename"),
+        (True, "cli_logs", "dirpath"),
+        (True, None, "dirpath"),
+    ],
+    ids=[
+        "without-dirpath-with-logger",
+        "without-dirpath-without-logger",
+        "with-dirpath-with-logger",
+        "with-dirpath-without-logger",
+    ],
+)
+def test_save_config_artifact_key_matrix(
+    simple_model: pl.LightningModule,
+    dataloader: DataLoader,
+    dirpath: str,
+    tmp_path: Path,
+    use_dirpath: bool,
+    logger_name: str | None,
+    key_source: str,
+):
+    """Config artifacts should be stored under the base prefix (dirpath > logger > empty)."""
+    from lightning.pytorch.loggers import CSVLogger
+
+    class ParserStub:
+        def save(
+            self,
+            config,
+            path,
+            skip_none: bool,
+            overwrite: bool,
+            multifile: bool,
+        ) -> None:
+            del skip_none, overwrite, multifile
+            Path(path).write_text(json.dumps(config, indent=2))
+
+    logger: CSVLogger | bool
+    if logger_name is None:
+        logger = False
+    else:
+        logger = CSVLogger(save_dir=tmp_path, name=logger_name)
+
+    checkpoint = ll.Checkpoint(
+        dirpath=dirpath if use_dirpath else None,
+        monitor="train_loss",
+    )
+    config = {"trainer": {"max_epochs": 1}, "model": {"hidden_size": 1}}
+    save_config = ll.SaveConfigCallback(
+        parser=cast(Any, ParserStub()),
+        config=config,
+        config_filename="config.yaml",
+    )
+
+    trainer = pl.Trainer(
+        max_epochs=1,
+        callbacks=[checkpoint, save_config],
+        logger=logger,
+        default_root_dir=tmp_path,
+    )
+    trainer.fit(simple_model, dataloader)
+
+    assert trainer.log_dir is not None
+    local_config_path = Path(trainer.log_dir) / "config.yaml"
+    assert local_config_path.exists()
+    assert "max_epochs" in local_config_path.read_text()
+    if use_dirpath:
+        assert dirpath.rstrip("/") not in str(local_config_path)
+
+    if key_source == "logger":
+        assert logger_name is not None
+        config_key = f"{tmp_path.name}/{logger_name}/version_0/config.yaml"
+    elif key_source == "dirpath":
+        config_key = f"{dirpath.rstrip('/')}/config.yaml"
+    else:
+        config_key = "config.yaml"
+    config_artifact = ln.Artifact.filter(key=config_key).one_or_none()
+    assert config_artifact is not None
+    assert config_artifact.description == "Lightning CLI config"
+
+    checkpoint_artifacts = ln.Artifact.filter(
+        key__startswith=checkpoint.checkpoint_key_prefix + "/"
+    )
+    assert len(checkpoint_artifacts) >= 1
+
+    json_values = ln.models.JsonValue.filter(links_artifact__artifact=config_artifact)
+    ln.models.ArtifactJsonValue.filter(artifact=config_artifact).delete()
+    config_artifact.delete(permanent=True, storage=True)
+    json_values.delete(permanent=True)
+    for artifact in checkpoint_artifacts:
+        artifact.delete(permanent=True, storage=True)
+    shutil.rmtree(tmp_path / "cli_logs", ignore_errors=True)
+
+
+def test_save_config_artifact_tracked_as_run_input(
+    simple_model: pl.LightningModule,
+    dataloader: DataLoader,
+    dirpath: str,
+    tmp_path: Path,
+):
+    """Config artifacts should be tracked as run inputs while checkpoints stay outputs."""
+
+    class ParserStub:
+        def save(
+            self,
+            config,
+            path,
+            skip_none: bool,
+            overwrite: bool,
+            multifile: bool,
+        ) -> None:
+            del skip_none, overwrite, multifile
+            Path(path).write_text(json.dumps(config, indent=2))
+
+    ln.track()
+
+    checkpoint = ll.Checkpoint(dirpath=dirpath, monitor="train_loss")
+    save_config = ll.SaveConfigCallback(
+        parser=cast(Any, ParserStub()),
+        config={"trainer": {"max_epochs": 1}},
+        config_filename="config.yaml",
+    )
+    trainer = pl.Trainer(
+        max_epochs=1,
+        callbacks=[checkpoint, save_config],
+        logger=False,
+        default_root_dir=tmp_path,
+    )
+    trainer.fit(simple_model, dataloader)
+
+    run = ln.context.run
+    assert run is not None
+    assert checkpoint.last_config_artifact is not None
+    assert checkpoint.last_checkpoint_artifact is not None
+
+    config_artifact = checkpoint.last_config_artifact
+    checkpoint_artifact = checkpoint.last_checkpoint_artifact
+
+    assert config_artifact.run is None
+    assert run in config_artifact.input_of_runs.all()
+
+    assert checkpoint_artifact.run == run
+    assert checkpoint_artifact.input_of_runs.count() == 0
+
+    config_artifact.delete(permanent=True, storage=True)
+    checkpoint_artifact.delete(permanent=True, storage=True)
+    ln.finish()
+
+
+def test_checkpoint_subclass_receives_artifact_events(
+    dataloader: DataLoader,
+    dirpath: str,
+    tmp_path: Path,
+):
+    """Subclass hooks should receive checkpoint, config, and hparams artifacts."""
+    from lightning.pytorch.loggers import CSVLogger
+
+    class ModelWithHparams(pl.LightningModule):
+        def __init__(self, hidden_size: int = 32):
+            super().__init__()
+            self.save_hyperparameters()
+            self.layer = nn.Linear(10, hidden_size)
+            self.out = nn.Linear(hidden_size, 1)
+
+        def forward(self, x):
+            return self.out(torch.relu(self.layer(x)))
+
+        def training_step(self, batch, batch_idx):
+            x, y = batch
+            loss = nn.functional.mse_loss(self(x), y)
+            self.log("train_loss", loss)
+            return loss
+
+        def configure_optimizers(self):
+            return torch.optim.Adam(self.parameters())
+
+    class ParserStub:
+        def save(
+            self,
+            config,
+            path,
+            skip_none: bool,
+            overwrite: bool,
+            multifile: bool,
+        ) -> None:
+            del skip_none, overwrite, multifile
+            Path(path).write_text(json.dumps(config, indent=2))
+
+    class RecordingCheckpoint(ll.Checkpoint):
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
+            self.saved_events: list[ll.ArtifactSavedEvent] = []
+
+        def on_artifact_saved(self, event: ll.ArtifactSavedEvent) -> None:
+            self.saved_events.append(event)
+
+    logger = CSVLogger(save_dir=tmp_path, name="recording_logs")
+    checkpoint = RecordingCheckpoint(dirpath=dirpath, monitor="train_loss")
+    save_config = ll.SaveConfigCallback(
+        parser=cast(Any, ParserStub()),
+        config={"trainer": {"max_epochs": 1}},
+        config_filename="config.yaml",
+    )
+    trainer = pl.Trainer(
+        max_epochs=1,
+        callbacks=[checkpoint, save_config],
+        logger=logger,
+        default_root_dir=tmp_path,
+    )
+    trainer.fit(ModelWithHparams(), dataloader)
+
+    assert {event.kind for event in checkpoint.saved_events} >= {
+        "checkpoint",
+        "config",
+        "hparams",
+    }
+    assert checkpoint.last_checkpoint_artifact is not None
+    assert checkpoint.last_config_artifact is not None
+    assert checkpoint.last_hparams_artifact is not None
+    assert checkpoint.last_checkpoint_artifact.key.startswith(
+        checkpoint.checkpoint_key_prefix + "/"
+    )
+    assert checkpoint.last_config_artifact.key.endswith("/config.yaml")
+    assert checkpoint.last_hparams_artifact.key == (
+        f"{checkpoint.checkpoint_key_prefix}/hparams.yaml"
+    )
+    checkpoint_event = next(
+        event for event in checkpoint.saved_events if event.kind == "checkpoint"
+    )
+    assert checkpoint_event.key.startswith(checkpoint.checkpoint_key_prefix + "/")
+    assert checkpoint_event.storage_uri == checkpoint.resolve_artifact_storage_uri(
+        checkpoint_event.artifact
+    )
+    assert checkpoint_event.storage_uri.endswith(".ckpt")
+
+    artifacts_by_key = {event.key: event.artifact for event in checkpoint.saved_events}
+    for artifact in artifacts_by_key.values():
+        ln.models.ArtifactJsonValue.filter(artifact=artifact).delete()
+        ln.models.JsonValue.filter(links_artifact__artifact=artifact).delete(
+            permanent=True
+        )
+        artifact.delete(permanent=True, storage=True)
+    shutil.rmtree(tmp_path / "recording_logs", ignore_errors=True)
+
+
+def test_checkpoint_artifact_observers_receive_shared_events(
+    dataloader: DataLoader,
+    dirpath: str,
+    tmp_path: Path,
+):
+    """Observers should see the same checkpoint/config/hparams events as subclasses."""
+    from lightning.pytorch.loggers import CSVLogger
+
+    class ModelWithHparams(pl.LightningModule):
+        def __init__(self, hidden_size: int = 32):
+            super().__init__()
+            self.save_hyperparameters()
+            self.layer = nn.Linear(10, hidden_size)
+            self.out = nn.Linear(hidden_size, 1)
+
+        def forward(self, x):
+            return self.out(torch.relu(self.layer(x)))
+
+        def training_step(self, batch, batch_idx):
+            x, y = batch
+            loss = nn.functional.mse_loss(self(x), y)
+            self.log("train_loss", loss)
+            return loss
+
+        def configure_optimizers(self):
+            return torch.optim.Adam(self.parameters())
+
+    class ParserStub:
+        def save(
+            self,
+            config,
+            path,
+            skip_none: bool,
+            overwrite: bool,
+            multifile: bool,
+        ) -> None:
+            del skip_none, overwrite, multifile
+            Path(path).write_text(json.dumps(config, indent=2))
+
+    class RecordingObserver:
+        def __init__(self):
+            self.saved_events: list[ll.ArtifactSavedEvent] = []
+
+        def on_artifact_saved(self, event: ll.ArtifactSavedEvent) -> None:
+            self.saved_events.append(event)
+
+        def on_artifact_removed(self, event: ll.ArtifactRemovedEvent) -> None:
+            del event
+
+    observer = RecordingObserver()
+    logger = CSVLogger(save_dir=tmp_path, name="observer_logs")
+    checkpoint = ll.Checkpoint(
+        dirpath=dirpath,
+        monitor="train_loss",
+        artifact_observers=[observer],
+    )
+    save_config = ll.SaveConfigCallback(
+        parser=cast(Any, ParserStub()),
+        config={"trainer": {"max_epochs": 1}},
+        config_filename="config.yaml",
+    )
+    trainer = pl.Trainer(
+        max_epochs=1,
+        callbacks=[checkpoint, save_config],
+        logger=logger,
+        default_root_dir=tmp_path,
+    )
+    trainer.fit(ModelWithHparams(), dataloader)
+
+    assert {event.kind for event in observer.saved_events} >= {
+        "checkpoint",
+        "config",
+        "hparams",
+    }
+    checkpoint_event = next(
+        event for event in observer.saved_events if event.kind == "checkpoint"
+    )
+    assert checkpoint_event.key.startswith(checkpoint.checkpoint_key_prefix + "/")
+    assert checkpoint_event.local_path.name.endswith(".ckpt")
+    assert checkpoint_event.storage_uri == checkpoint.resolve_artifact_storage_uri(
+        checkpoint_event.artifact
+    )
+    assert checkpoint.last_artifact_event is not None
+    assert checkpoint.get_last_artifact("config") == checkpoint.last_config_artifact
+
+    artifacts_by_key = {event.key: event.artifact for event in observer.saved_events}
+    for artifact in artifacts_by_key.values():
+        ln.models.ArtifactJsonValue.filter(artifact=artifact).delete()
+        ln.models.JsonValue.filter(links_artifact__artifact=artifact).delete(
+            permanent=True
+        )
+        artifact.delete(permanent=True, storage=True)
+    shutil.rmtree(tmp_path / "observer_logs", ignore_errors=True)

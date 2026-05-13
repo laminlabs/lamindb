@@ -1,17 +1,152 @@
+import signal
 import subprocess
 import sys
 import time
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 import lamindb as ln
 import lamindb_setup as ln_setup
 import pytest
 from lamindb._finish import clean_r_notebook_html, get_shortcut
-from lamindb.core._context import LogStreamTracker, context
-from lamindb.errors import TrackNotCalled, ValidationError
+from lamindb._secret_redaction import redact_secrets_in_source_code
+from lamindb.core._context import (
+    REDACTED_SECRET_VALUE,
+    LogStreamTracker,
+    context,
+    detect_and_process_source_code_file,
+    serialize_params_to_json,
+)
+from lamindb.errors import InvalidArgument, TrackNotCalled, ValidationError
+from lamindb_setup.core.upath import UPath
 
 SCRIPTS_DIR = Path(__file__).parent.resolve() / "scripts"
 NOTEBOOKS_DIR = Path(__file__).parent.resolve() / "notebooks"
+
+
+def test_serialize_params_to_json():
+    a_path = Path("/some/local/folder")
+    a_upath = UPath("s3://bucket/key")
+    params = {
+        "path_key": a_path,
+        "none_key": None,
+        "empty_list_key": [],
+        "list_str_key": ["string"],
+        "upath_key": a_upath,
+        "str_key": "plain",
+        "api_key": "test-api-key-value",
+        "openAIApiKey": "another-secret",
+        "database_url": "postgresql://db_user:db_password@db.example.com:5432/mydb",
+    }
+    result = serialize_params_to_json(params)
+    # None is omitted
+    assert "none_key" not in result
+    # Empty list is omitted (same as None)
+    assert "empty_list_key" not in result
+    # Path is serialized to posix string
+    assert result["path_key"] == "/some/local/folder"
+    # UPath is serialized to posix string
+    assert result["upath_key"] == "s3://bucket/key"
+    # List of strings is JSON-serialized as-is (list[cat ? str])
+    assert result["list_str_key"] == ["string"]
+    # Other values unchanged
+    assert result["str_key"] == "plain"
+    assert result["api_key"] == REDACTED_SECRET_VALUE
+    assert result["openAIApiKey"] == REDACTED_SECRET_VALUE
+    assert result["database_url"] == REDACTED_SECRET_VALUE
+    assert set(result.keys()) == {
+        "path_key",
+        "upath_key",
+        "str_key",
+        "list_str_key",
+        "api_key",
+        "openAIApiKey",
+        "database_url",
+    }
+
+
+def test_redact_secrets_in_source_code():
+    source_code = """
+api_key = "test-api-key-value"
+openAIApiKey = "another-secret"
+uid = "a6yhtobqTjQM6q8t"
+db_url = "postgresql://db_user:db_password@db.example.com:5432/mydb"
+os.environ["API_KEY"] = "sdk-key"
+config = {"client_secret": "client-secret-value", "id": "abc123"}
+"""
+    redacted, redaction_count = redact_secrets_in_source_code(source_code)
+    assert redaction_count == 5
+    assert 'api_key = "***REDACTED***"' in redacted
+    assert 'openAIApiKey = "***REDACTED***"' in redacted
+    assert 'db_url = "***REDACTED***"' in redacted
+    assert 'os.environ["API_KEY"] = "***REDACTED***"' in redacted
+    assert '"client_secret": "***REDACTED***"' in redacted
+    assert 'uid = "a6yhtobqTjQM6q8t"' in redacted
+
+
+def test_redact_secrets_in_source_code_keeps_env_references():
+    source_code = """
+api_key = os.getenv("OPENAI_API_KEY")
+openAIApiKey = getenv("OPENAI_API_KEY")
+model_api_key = os.environ["MODEL_API_KEY"]
+provider_token = os.environ.get("PROVIDER_TOKEN")
+"""
+    redacted, redaction_count = redact_secrets_in_source_code(source_code)
+    # Env lookups are references, not embedded literals. Keep them for rerunnable source code.
+    assert redaction_count == 0
+    assert 'api_key = os.getenv("OPENAI_API_KEY")' in redacted
+    assert 'openAIApiKey = getenv("OPENAI_API_KEY")' in redacted
+    assert 'model_api_key = os.environ["MODEL_API_KEY"]' in redacted
+    assert 'provider_token = os.environ.get("PROVIDER_TOKEN")' in redacted
+
+
+def test_redact_secrets_in_source_code_ignores_annotations_and_forwarding():
+    source_code = """
+def run(api_key: str) -> None:
+    raise RuntimeError("fail")
+
+run_agent(
+    api_key=api_key,
+)
+"""
+    redacted, redaction_count = redact_secrets_in_source_code(source_code)
+    # Do not treat Python type annotations or argument forwarding as hardcoded secrets.
+    assert redaction_count == 0
+    assert "def run(api_key: str) -> None:" in redacted
+    assert "api_key=api_key," in redacted
+
+
+def test_serialize_params_to_json_redacts_provider_api_key_names():
+    params = {
+        "LAMIN_API_KEY": "lamin-super-secret",
+        "OPENAI_API_KEY": "openai-super-secret",
+        "ANTHROPIC_API_KEY": "anthropic-super-secret",
+        "GEMINI_API_KEY": "gemini-super-secret",
+        "provider_name": "safe-value",
+    }
+    result = serialize_params_to_json(params)
+    assert result["LAMIN_API_KEY"] == REDACTED_SECRET_VALUE
+    assert result["OPENAI_API_KEY"] == REDACTED_SECRET_VALUE
+    assert result["ANTHROPIC_API_KEY"] == REDACTED_SECRET_VALUE
+    assert result["GEMINI_API_KEY"] == REDACTED_SECRET_VALUE
+    assert result["provider_name"] == "safe-value"
+
+
+def test_redact_secrets_in_source_code_redacts_provider_api_key_names():
+    source_code = """
+LAMIN_API_KEY = "lamin-super-secret"
+OPENAI_API_KEY = "openai-super-secret"
+ANTHROPIC_API_KEY = "anthropic-super-secret"
+GEMINI_API_KEY = "gemini-super-secret"
+provider = "openai"
+"""
+    redacted, redaction_count = redact_secrets_in_source_code(source_code)
+    assert redaction_count == 4
+    assert 'LAMIN_API_KEY = "***REDACTED***"' in redacted
+    assert 'OPENAI_API_KEY = "***REDACTED***"' in redacted
+    assert 'ANTHROPIC_API_KEY = "***REDACTED***"' in redacted
+    assert 'GEMINI_API_KEY = "***REDACTED***"' in redacted
+    assert 'provider = "openai"' in redacted
 
 
 def test_track_basic_invocation():
@@ -83,21 +218,103 @@ Run: {ln.context.run.uid[:7]} ({ln.context.run.transform.key})
     assert record.run == ln.context.run
 
     # test that we can call ln.finish() also for pipeline-like transforms
-    assert ln.context.run.finished_at is None
+    run = ln.context.run
+    assert run.finished_at is None
     ln.finish()
-    assert ln.context.run.finished_at is not None
+    assert (
+        run.finished_at is not None
+    )  # context is cleared after finish(); use captured run
 
     # clean up
-    ln.context.run.delete(permanent=True)
+    run.delete(permanent=True)
     ln.models.RunJsonValue.filter(run__transform=test_transform).delete(permanent=True)
     ln.models.RunRecord.filter(run__transform=test_transform).delete(permanent=True)
-    ln.context._run = None
     feature1.delete(permanent=True)
     feature2.delete(permanent=True)
     feature3.delete(permanent=True)
     feature4.delete(permanent=True)
     param4.delete(permanent=True)
     test_transform.delete(permanent=True)
+
+
+def test_track_accepts_initiated_by_run_uid():
+    unique = time.time_ns()
+    parent_transform = ln.Transform(key=f"parent-run-{unique}").save()
+    child_transform = ln.Transform(key=f"child-run-{unique}").save()
+    parent_run = ln.Run(transform=parent_transform).save()
+    try:
+        ln.track(
+            transform=child_transform,
+            initiated_by_run=parent_run.uid,
+            new_run=True,
+        )
+        assert ln.context.run is not None
+        assert ln.context.run.initiated_by_run is not None
+        assert ln.context.run.initiated_by_run.uid == parent_run.uid
+        ln.finish()
+        with pytest.raises(InvalidArgument) as error:
+            ln.track(
+                transform=child_transform,
+                initiated_by_run="does-not-exist",
+                new_run=True,
+            )
+        assert error.exconly().startswith(
+            "lamindb.errors.InvalidArgument: Run 'does-not-exist' not found"
+        )
+    finally:
+        ln.context._run = None
+        ln.Run.filter(transform=child_transform).delete(permanent=True)
+        parent_run.delete(permanent=True)
+        child_transform.delete(permanent=True)
+        parent_transform.delete(permanent=True)
+
+
+def test_track_uses_initiated_by_run_uid_from_env(monkeypatch: pytest.MonkeyPatch):
+    unique = time.time_ns()
+    parent_transform = ln.Transform(key=f"parent-run-env-{unique}").save()
+    child_transform = ln.Transform(key=f"child-run-env-{unique}").save()
+    parent_run = ln.Run(transform=parent_transform).save()
+    try:
+        monkeypatch.setenv("LAMIN_INITIATED_BY_RUN_UID", parent_run.uid)
+        ln.track(transform=child_transform, new_run=True)
+        assert ln.context.run is not None
+        assert ln.context.run.initiated_by_run is not None
+        assert ln.context.run.initiated_by_run.uid == parent_run.uid
+        ln.finish()
+    finally:
+        ln.context._run = None
+        ln.Run.filter(transform=child_transform).delete(permanent=True)
+        parent_run.delete(permanent=True)
+        child_transform.delete(permanent=True)
+        parent_transform.delete(permanent=True)
+
+
+@pytest.mark.parametrize("pass_plan_as_key", [False, True], ids=["artifact", "key"])
+def test_track_with_plan_links_run(tmp_path, pass_plan_as_key):
+    unique = time.time_ns()
+    plan_path = tmp_path / f"my-agent-plan-{unique}.md"
+    plan_path.write_text("# Agent plan\n\n- Step 1\n")
+    plan_artifact = ln.Artifact(
+        plan_path,
+        key=f".plans/my-agent-plan-{unique}.md",
+        kind="plan",
+    ).save()
+    transform = ln.Transform(key=f"test-track-with-plan-{unique}").save()
+    try:
+        plan = plan_artifact.key if pass_plan_as_key else plan_artifact
+        ln.track(transform=transform, plan=plan)
+        run = ln.context.run
+        assert run.plan is not None
+        assert run.plan.uid == plan_artifact.uid
+        run_from_db = ln.Run.get(uid=run.uid)
+        assert run_from_db.plan is not None
+        assert run_from_db.plan.uid == plan_artifact.uid
+        ln.finish()
+    finally:
+        ln.context._run = None
+        ln.Run.filter(transform=transform).delete(permanent=True)
+        plan_artifact.delete(permanent=True)
+        transform.delete(permanent=True)
 
 
 @pytest.fixture
@@ -173,6 +390,55 @@ def test_track_notebook_untitled():
     )
 
 
+def test_detect_and_process_source_code_file_returns_key_from_module_for_package():
+    """When path is inferred from stack and caller __name__ has '.', key_from_module is module path."""
+    script_path = str(SCRIPTS_DIR / "script-to-test-versioning.py")
+    mock_frame = MagicMock()
+    mock_frame.f_globals = {"__name__": "mypackage.mymodule"}
+    with patch("inspect.stack") as mock_stack:
+        mock_stack.return_value = [
+            MagicMock(),
+            MagicMock(),
+            (
+                mock_frame,
+                script_path,
+                MagicMock(),
+                MagicMock(),
+                MagicMock(),
+                MagicMock(),
+            ),
+        ]
+        path, kind, ref, ref_type, key_from_module = (
+            detect_and_process_source_code_file(path=None)
+        )
+    assert key_from_module == "pypackages/mypackage/mymodule.py"
+    assert path == Path(script_path)
+
+
+def test_detect_and_process_source_code_file_returns_none_key_for_script():
+    """When path is inferred from stack and caller __name__ has no '.', key_from_module is None."""
+    script_path = str(SCRIPTS_DIR / "script-to-test-versioning.py")
+    mock_frame = MagicMock()
+    mock_frame.f_globals = {"__name__": "__main__"}
+    with patch("inspect.stack") as mock_stack:
+        mock_stack.return_value = [
+            MagicMock(),
+            MagicMock(),
+            (
+                mock_frame,
+                script_path,
+                MagicMock(),
+                MagicMock(),
+                MagicMock(),
+                MagicMock(),
+            ),
+        ]
+        path, kind, ref, ref_type, key_from_module = (
+            detect_and_process_source_code_file(path=None)
+        )
+    assert key_from_module is None
+
+
 def test_finish_before_track():
     ln.context._run = None
     with pytest.raises(TrackNotCalled) as error:
@@ -180,7 +446,7 @@ def test_finish_before_track():
     assert "Please run `ln.track()` before `ln.finish()" in error.exconly()
 
 
-def test_invalid_transform_type():
+def test_invalid_transform_kind():
     transform = ln.Transform(key="test transform")
     ln.track(transform=transform)
     ln.context._path = None
@@ -203,7 +469,7 @@ def test_create_or_load_transform():
     context._path.touch(exist_ok=True)
     context._create_or_load_transform(
         description=title,
-        transform_type="notebook",
+        transform_kind="notebook",
     )
     assert context._transform.uid == uid
     assert context._transform.version_tag == version
@@ -229,6 +495,33 @@ def test_create_or_load_transform():
     ln.context._transform = None
     ln.context._path.unlink()
     ln.context._path = None
+
+
+def test_create_or_load_transform_warns_when_outside_dev_dir(
+    tmp_path, ccaplog: pytest.LogCaptureFixture
+):
+    previous_dev_dir = ln_setup.settings.dev_dir
+    path_outside_dev_dir = tmp_path / f"outside-{time.time_ns()}.py"
+    path_outside_dev_dir.write_text("print('track test')\n")
+    expected_key = path_outside_dev_dir.name
+    transform: ln.Transform | None = None
+    try:
+        ln_setup.settings.dev_dir = tmp_path / "configured-dev-dir"
+        ln_setup.settings.dev_dir.mkdir(exist_ok=True)
+        ccaplog.clear()
+        context._path = path_outside_dev_dir
+        context._create_or_load_transform(description="outside dev dir warning test")
+        transform = context._transform
+        assert "falling back to using filename as transform key" in ccaplog.text
+        assert transform.key == expected_key
+    finally:
+        ln_setup.settings.dev_dir = previous_dev_dir
+        ln.context._uid = None
+        ln.context._run = None
+        ln.context._transform = None
+        ln.context._path = None
+        if transform is not None:
+            transform.delete(permanent=True)
 
 
 def test_run_scripts():
@@ -502,4 +795,36 @@ def test_logstream_tracker_exception_handling():
         assert "Traceback" in content
 
     finally:
+        tracker.finish()
         sys.excepthook = original_excepthook
+        log_path = Path(ln_setup.settings.cache_dir / f"run_logs_{run.uid}.txt")
+        if log_path.exists():
+            log_path.unlink()
+
+
+def test_logstream_tracker_cleanup_sigint_chains_to_keyboard_interrupt():
+    tracker = LogStreamTracker()
+    run = MockRun("sigint")
+    original_excepthook = sys.excepthook
+
+    def raising_sigint_handler(signum, frame):
+        raise KeyboardInterrupt
+
+    try:
+        with (
+            patch(
+                "signal.getsignal",
+                side_effect=[signal.SIG_DFL, raising_sigint_handler],
+            ),
+            patch("signal.signal"),
+            patch("lamindb._finish.save_run_logs"),
+        ):
+            tracker.start(run)
+            with pytest.raises(KeyboardInterrupt):
+                tracker.cleanup(signo=signal.SIGINT, frame=None)
+    finally:
+        tracker.finish()
+        sys.excepthook = original_excepthook
+        log_path = Path(ln_setup.settings.cache_dir / f"run_logs_{run.uid}.txt")
+        if log_path.exists():
+            log_path.unlink()

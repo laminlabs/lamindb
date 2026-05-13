@@ -99,7 +99,9 @@ def test_record_example_compound_treatment(
         ],
     }
 
+    assert sample_sheet1.input_of_runs.count() == 0
     df = sample_sheet1.to_dataframe()
+    assert sample_sheet1.input_of_runs.count() == 1
     assert df.index.name == "__lamindb_record_id__"
     dictionary = df[
         [
@@ -146,6 +148,7 @@ def test_record_example_compound_treatment(
     ]
     assert artifact.run.input_records.count() == 1
     assert artifact.transform.kind == "function"
+    assert artifact.transform.key == "__lamindb_record_export__"
     # looks something like this:
     # id,uid,name,treatment,cell_line,preparation_date,__lamindb_record_uid__,__lamindb_record_name__
     # 1,S1,Sample 1,treatment1,HEK293T,2025-06-01 05:00:00,iCwgKgZELoLtIoGy,sample1
@@ -224,20 +227,20 @@ def test_nextflow_sheet_with_samples(
     artifact = nextflow_sheet.to_artifact()
     assert artifact.schema is nextflow_sheet.schema
     assert artifact._state.adding is False
-    assert nextflow_sheet.schema.members.to_list("name") == [
+    assert set(nextflow_sheet.schema.members.to_list("name")) == {
         "sample",
         "fastq_1",
         "fastq_2",
         "expected_cells",
         "seq_center",
-    ]
-    assert artifact.features.slots["columns"].members.to_list("name") == [
+    }
+    assert set(artifact.features.slots["columns"].members.to_list("name")) == {
         "sample",
         "fastq_1",
         "fastq_2",
         "expected_cells",
         "seq_center",
-    ]
+    }
     assert artifact.path.read_text().startswith("""\
 sample,fastq_1,fastq_2,expected_cells,seq_center,__lamindb_record_uid__,__lamindb_record_name__
 Sample_X,https://raw.githubusercontent.com/nf-core/test-datasets/scrnaseq/testdata/cellranger/Sample_X_S1_L001_R1_001.fastq.gz,https://raw.githubusercontent.com/nf-core/test-datasets/scrnaseq/testdata/cellranger/Sample_X_S1_L001_R2_001.fastq.gz,5000,,""")
@@ -317,3 +320,30 @@ def test_to_artifact_exports_all_records():
     assert len(df) == 101, f"Expected 101 records, got {len(df)}"
     sheet.records.all().delete(permanent=True)
     sheet.delete(permanent=True)
+
+
+def test_to_artifact_with_required_non_nullable_data_id_maximal_set_true():
+    feature_data_id = ln.Feature(name="data_id", dtype=str, nullable=False).save()
+    schema = ln.Schema(
+        [feature_data_id],
+        name="schema_with_required_data_id",
+        maximal_set=True,
+    ).save()
+    sheet = ln.Record(name="SheetWithDataId", is_type=True, schema=schema).save()
+    # Name is intentionally omitted to mirror sheet records in real-world pipelines.
+    record = ln.Record(type=sheet).save()
+    record.features.add_values({"data_id": "D1"})
+
+    artifact = sheet.to_artifact()
+    df = artifact.load()
+    assert "data_id" in df.columns
+    assert df["data_id"].to_list() == ["D1"]
+    assert "__lamindb_record_name__" in df.columns
+    assert df["__lamindb_record_name__"].isna().all()
+
+    # clean up
+    record.delete(permanent=True)
+    sheet.delete(permanent=True)
+    artifact.delete(permanent=True)
+    schema.delete(permanent=True)
+    feature_data_id.delete(permanent=True)

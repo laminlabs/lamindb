@@ -2,9 +2,13 @@
 execute_via: python
 ---
 
-# Curate datasets
+# Validate & standardize datasets
 
-Data curation with LaminDB ensures your datasets are **validated** and **queryable**. This guide shows you how to transform data into clean, annotated datasets.
+Data curation with LaminDB ensures your datasets are **validated** and **queryable** through **annotation**.
+
+```{raw} html
+<iframe width="560" height="315" src="https://www.youtube.com/embed/Ji6E7hTnReQ?si=K0OnU2MTGv4fIhFo" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+```
 
 Curating a dataset with LaminDB means three things:
 
@@ -12,7 +16,8 @@ Curating a dataset with LaminDB means three things:
 - **Standardize** the dataset (e.g., by fixing typos, mapping synonyms) or update registries if validation fails.
 - **Annotate** the dataset by linking it against metadata entities so that it becomes queryable.
 
-In this guide we'll curate common data structures. Here is a [guide](/faq/curate-any) for the underlying low-level API.
+In this guide we'll curate common data structures.
+Here is a [guide](/faq/curate-any) for the underlying low-level API.
 
 Note: If you know either `pydantic` or `pandera`, here is an [FAQ](/faq/pydantic-pandera) that compares LaminDB with both of these tools.
 
@@ -318,7 +323,7 @@ curator.cat.add_new_from("cell_type")
 
 <!-- #region -->
 
-<cell_type>markdown</cell_type>**Issue**: "Expected categorical data, got object"
+**Issue**: "Expected categorical data, got object"
 
 ```
 TypeError: Expected categorical data for cell_type, got object
@@ -336,6 +341,41 @@ ln.Feature(name="cell_type", dtype=bt.CellType, coerce=True).save()
 
 <!-- #endregion -->
 
+### Organism-specific ontology issues
+
+<!-- #region -->
+
+**Issue**: "Terms not validated" for organism-specific ontologies like developmental stages
+
+```
+2 terms not validated in feature 'developmental_stage_ontology_id': 'MmusDv:0000142', 'MmusDv:0000022'
+```
+
+**Solution**: Specify organism-specific source in feature definition using `cat_filters`:
+
+```python
+# When defining the schema, specify the organism-specific source
+mouse_source = bt.Source.filter(
+    entity="bionty.DevelopmentalStage",
+    organism="mouse"
+).one()
+
+schema = ln.Schema(
+    features=[
+        ln.Feature(
+            name="developmental_stage_ontology_id",
+            dtype=bt.DevelopmentalStage.ontology_id,
+            cat_filters={"source": mouse_source}  # Specify organism-specific source
+        )
+    ],
+    ...
+)
+```
+
+This pattern applies to any ontology where the same registry serves multiple organisms (e.g., `DevelopmentalStage`, `Phenotype`, ...).
+
+<!-- #endregion -->
+
 ## External data validation
 
 Since not all metadata is always stored within the dataset itself, it is also possible to validate external metadata.
@@ -348,6 +388,20 @@ Since not all metadata is always stored within the dataset itself, it is also po
 
 ```python
 !python scripts/curate_dataframe_external_features.py
+```
+
+## Union dtypes
+
+Some metadata columns might validate against several registries.
+
+```{eval-rst}
+.. literalinclude:: scripts/curate_dataframe_union_features.py
+   :language: python
+   :caption: curate_dataframe_union_features.py
+```
+
+```python
+!python scripts/curate_dataframe_union_features.py
 ```
 
 ## AnnData

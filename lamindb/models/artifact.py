@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import shutil
+import types
 import warnings
 from collections import defaultdict
 from pathlib import Path, PurePath, PurePosixPath
@@ -9,8 +10,6 @@ from typing import TYPE_CHECKING, Any, Iterator, Literal, TypeVar, Union, overlo
 
 import fsspec
 import lamindb_setup as ln_setup
-import pandas as pd
-from anndata import AnnData
 from django.db import ProgrammingError, models
 from django.db.models import CASCADE, PROTECT, Q
 from django.db.models.functions import Length
@@ -19,65 +18,49 @@ from lamindb_setup import settings as setup_settings
 from lamindb_setup.core._hub_core import select_storage_or_parent
 from lamindb_setup.core.hashing import HASH_LENGTH, hash_dir, hash_file
 from lamindb_setup.core.upath import (
+    LocalPathClasses,
+    UPath,
     create_path,
     extract_suffix_from_path,
+    fs_for_moving,
     get_stat_dir_cloud,
     get_stat_file_cloud,
 )
-from lamindb_setup.types import UPathStr
 
-from lamindb.base.fields import (
+from ..base.fields import (
     BigIntegerField,
     BooleanField,
     CharField,
     ForeignKey,
     TextField,
 )
-from lamindb.base.utils import deprecated, strict_classmethod
-from lamindb.errors import FieldValidationError, NoWriteAccess, UnknownStorageLocation
-from lamindb.models.query_set import QuerySet, SQLRecordList
-
 from ..base.users import current_user_id
-from ..core._settings import is_read_only_connection, settings
-from ..core.loaders import load_to_memory
-from ..core.storage import (
-    LocalPathClasses,
-    UPath,
-    delete_storage,
-    infer_suffix,
-    write_to_disk,
-)
-from ..core.storage._anndata_accessor import _anndata_n_observations
-from ..core.storage._backed_access import (
-    _track_writes_factory,
-    backed_access,
-)
-from ..core.storage._polars_lazy_df import POLARS_SUFFIXES
-from ..core.storage._pyarrow_dataset import PYARROW_SUFFIXES
-from ..core.storage._tiledbsoma import _soma_n_observations
-from ..core.storage.paths import (
-    AUTO_KEY_PREFIX,
-    auto_storage_key_from_artifact,
-    auto_storage_key_from_artifact_uid,
-    check_path_is_child_of_root,
-    filepath_cache_key_from_artifact,
-    filepath_from_artifact,
-)
-from ..errors import InvalidArgument, NoStorageLocationForSpace, ValidationError
-from ..models._is_versioned import (
-    create_uid,
+from ..base.utils import deprecated, strict_classmethod
+from ..core._compat import with_package_obj
+from ..core._settings import settings
+from ..errors import (
+    FieldValidationError,
+    InvalidArgument,
+    NoStorageLocationForSpace,
+    NoWriteAccess,
+    UnknownStorageLocation,
+    ValidationError,
 )
 from ._feature_manager import (
     FeatureManager,
     get_label_links,
 )
-from ._is_versioned import IsVersioned
+from ._is_versioned import (
+    IsVersioned,
+    create_uid,
+)
 from ._relations import (
     dict_module_name_to_model_name,
     dict_related_model_to_related_name,
 )
 from .feature import Feature, JsonValue
 from .has_parents import view_lineage
+from .query_set import QuerySet, SQLRecordList
 from .run import Run, TracksRun, TracksUpdates, User
 from .save import check_and_attempt_clearing, check_and_attempt_upload
 from .schema import Schema
@@ -92,21 +75,71 @@ from .sqlrecord import (
 from .storage import Storage
 from .ulabel import ULabel
 
+
+def _lazy_load_storage_module():
+    """Lazy-import storage to avoid loading pandas/anndata at package import."""
+    from ..core.storage import (
+        delete_storage,
+        infer_suffix,
+        write_to_disk,
+    )
+    from ..core.storage.paths import (
+        AUTO_KEY_PREFIX,
+        auto_storage_key_from_artifact,
+        auto_storage_key_from_artifact_uid,
+        check_path_is_child_of_root,
+        filepath_cache_key_from_artifact,
+        filepath_from_artifact,
+    )
+
+    return types.SimpleNamespace(
+        delete_storage=delete_storage,
+        infer_suffix=infer_suffix,
+        write_to_disk=write_to_disk,
+        AUTO_KEY_PREFIX=AUTO_KEY_PREFIX,
+        auto_storage_key_from_artifact=auto_storage_key_from_artifact,
+        auto_storage_key_from_artifact_uid=auto_storage_key_from_artifact_uid,
+        check_path_is_child_of_root=check_path_is_child_of_root,
+        filepath_cache_key_from_artifact=filepath_cache_key_from_artifact,
+        filepath_from_artifact=filepath_from_artifact,
+    )
+
+
+# Cache the storage utils on first use
+_storage_cache: object | None = None
+
+
+# refactor this module to group logic that needs storage access in a class
+# in the future; then we don't need _s() anymore
+def _s():
+    global _storage_cache
+    if _storage_cache is None:
+        _storage_cache = _lazy_load_storage_module()
+    return _storage_cache
+
+
 WARNING_RUN_TRANSFORM = "no run & transform got linked, call `ln.track()` & re-run"
 
 WARNING_NO_INPUT = "run input wasn't tracked, call `ln.track()` and re-run"
 
-try:
-    from ..core.storage._zarr import identify_zarr_type
-except ImportError:
 
-    def identify_zarr_type(storepath):  # type: ignore
-        raise ImportError("Please install zarr: pip install 'lamindb[zarr]'")
+def _identify_zarr_type(storepath, *, check: bool = True):
+    """Lazy-import to avoid loading storage at package import."""
+    try:
+        from ..core.storage._zarr import identify_zarr_type
+
+        return identify_zarr_type(storepath, check=check)
+    except ImportError:
+        raise ImportError("Please install zarr: pip install 'lamindb[zarr]'") from None
 
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
+    import pandas as pd
+    from anndata import AnnData
+    from fsspec import AbstractFileSystem
+    from lamindb_setup.types import AnyPathStr
     from mudata import MuData  # noqa: TC004
     from polars import LazyFrame as PolarsLazyFrame
     from pyarrow.dataset import Dataset as PyArrowDataset
@@ -115,29 +148,28 @@ if TYPE_CHECKING:
     from tiledbsoma import Experiment as SOMAExperiment
     from tiledbsoma import Measurement as SOMAMeasurement
 
-    from lamindb.base.types import StrField
-    from lamindb.core.storage._backed_access import (
+    from ..base.types import (
+        ArtifactKind,
+        StrField,
+    )
+    from ..core.storage._backed_access import (
         AnnDataAccessor,
         BackedAccessor,
         SpatialDataAccessor,
     )
-    from lamindb.core.types import ScverseDataStructures
-    from lamindb.models.query_manager import RelatedManager
-
-    from ..base.types import (
-        ArtifactKind,
-    )
+    from ..core.storage.types import ScverseDataStructures
     from ._label_manager import LabelManager
     from .block import ArtifactBlock
     from .collection import Collection
     from .project import Project, Reference
+    from .query_manager import RelatedManager
     from .record import Record
     from .transform import Transform
 
 
-INCONSISTENT_STATE_MSG = (
-    "Trying to read a folder artifact from an outdated version, "
-    "this can result in an incosistent state.\n"
+OUTDATED_ARTIFACT_FILES_OVERWRITTEN_MSG = (
+    "Cannot read this outdated artifact version: "
+    "its files were overwritten and are no longer available.\n"
     "Read from the latest version: artifact.versions.get(is_latest=True)"
 )
 
@@ -155,7 +187,7 @@ def process_pathlike(
                 raise FileNotFoundError(filepath)
         except PermissionError:
             pass
-    if check_path_is_child_of_root(filepath, storage.root):
+    if _s().check_path_is_child_of_root(filepath, storage.root):
         use_existing_storage_key = True
         return storage, use_existing_storage_key
     else:
@@ -177,8 +209,11 @@ def process_pathlike(
                 # for a cloud path, new_root is always the bucket name
                 if filepath.protocol == "hf":
                     hf_path = filepath.fs.resolve_path(filepath.as_posix())
-                    hf_path.path_in_repo = ""
-                    new_root = "hf://" + hf_path.unresolve().rstrip("/")
+                    if hasattr(hf_path, "root"):
+                        new_root = "hf://" + hf_path.root
+                    else:
+                        hf_path.path_in_repo = ""
+                        new_root = "hf://" + hf_path.unresolve().rstrip("/")
                 else:
                     if filepath.protocol == "s3":
                         # check that endpoint_url didn't propagate here
@@ -221,7 +256,7 @@ def process_pathlike(
 
 def process_data(
     provisional_uid: str,
-    data: UPathStr | pd.DataFrame | AnnData,
+    data: AnyPathStr | pd.DataFrame | AnnData,
     format: str | None,
     key: str | None,
     storage: Storage,
@@ -234,15 +269,25 @@ def process_data(
 
     if not overwritten, data gets stored in default storage
     """
+    if with_package_obj(data, "AnnData", "anndata", lambda obj: True)[0]:
+        is_anndata = True
+        is_pathlike = False
+    elif isinstance(data, (str, Path, UPath)):
+        is_anndata = False
+        is_pathlike = True
+    else:
+        is_anndata = False
+        is_pathlike = False
+
     if key is not None:
         key_suffix = extract_suffix_from_path(PurePosixPath(key), arg_name="key")
         # use suffix as the (adata) format if the format is not provided
-        if isinstance(data, AnnData) and format is None and len(key_suffix) > 0:
+        if is_anndata and format is None and len(key_suffix) > 0:
             format = key_suffix[1:]
     else:
         key_suffix = None
 
-    if isinstance(data, (str, Path, UPath)):
+    if is_pathlike:
         access_token = (
             storage._access_token if hasattr(storage, "_access_token") else None
         )
@@ -261,14 +306,14 @@ def process_data(
         suffix = extract_suffix_from_path(path)
         memory_rep = None
     elif (
-        isinstance(data, pd.DataFrame)
-        or isinstance(data, AnnData)
+        is_anndata
+        or data_is_dataframe(data)
         or data_is_scversedatastructure(data, "MuData")
         or data_is_scversedatastructure(data, "SpatialData")
     ):
         storage = storage
         memory_rep = data
-        suffix = infer_suffix(data, format)
+        suffix = _s().infer_suffix(data, format)
     else:
         raise NotImplementedError(
             f"Do not know how to create an Artifact from {data}, pass a path instead."
@@ -277,7 +322,7 @@ def process_data(
     # Check for suffix consistency
     if key_suffix is not None and key_suffix != suffix and not is_replace:
         # consciously omitting a trailing period
-        if isinstance(data, (str, Path, UPath)):  # UPathStr, spelled out
+        if is_pathlike:
             message = f"The passed path's suffix '{suffix}' must match the passed key's suffix '{key_suffix}'."
         else:
             message = f"The passed key's suffix '{key_suffix}' must match the passed path's suffix '{suffix}'."
@@ -286,10 +331,10 @@ def process_data(
     # in case we have an in-memory representation, we need to write it to disk
     if memory_rep is not None:
         path = settings.cache_dir / f"{provisional_uid}{suffix}"
-        logger.important("writing the in-memory object into cache")
+        logger.info("writing the in-memory object into cache")
         if to_disk_kwargs is None:
             to_disk_kwargs = {}
-        write_to_disk(data, path, **to_disk_kwargs)
+        _s().write_to_disk(data, path, **to_disk_kwargs)
         use_existing_storage_key = False
 
     return memory_rep, path, suffix, storage, use_existing_storage_key
@@ -328,6 +373,10 @@ def get_stat_or_artifact(
             size, hash, hash_type = hash_file(path)
     if not check_hash:
         return size, hash, hash_type, n_files, None
+    # Empty files all share the same content hash; skip cross-artifact hash
+    # lookup so creating a new empty file path yields a new artifact.
+    if n_files is None and size == 0:
+        skip_hash_lookup = True
     previous_artifact_version = None
     artifacts_qs = Artifact.objects.using(instance)
     if skip_hash_lookup:
@@ -389,7 +438,7 @@ def check_path_in_existing_storage(
 ) -> Storage | None:
     for storage in Storage.objects.using(using_key).order_by(Length("root").desc()):
         # if path is part of storage, return it
-        if check_path_is_child_of_root(path, root=storage.root):
+        if _s().check_path_is_child_of_root(path, root=storage.root):
             return storage
     # we don't see parents registered in the db, so checking the hub
     # just check for 2 writable cloud protocols, maybe change in the future
@@ -402,15 +451,13 @@ def check_path_in_existing_storage(
 
 def get_relative_path_to_directory(
     path: PurePath | Path | UPath, directory: PurePath | Path | UPath
-) -> PurePath | Path:
+) -> PurePath | Path | UPath:
     if isinstance(directory, UPath) and not isinstance(directory, LocalPathClasses):
-        # UPath.relative_to() is not behaving as it should (2023-04-07)
-        # need to lstrip otherwise inconsistent behavior across trailing slashes
-        # see test_artifact.py: test_get_relative_path_to_directory
+        # this is safer for cloud paths such as http paths
         relpath = PurePath(
             path.as_posix().replace(directory.as_posix(), "").lstrip("/")
         )
-    elif isinstance(directory, Path):
+    elif isinstance(directory, LocalPathClasses):
         relpath = path.resolve().relative_to(directory.resolve())  # type: ignore
     elif isinstance(directory, PurePath):
         relpath = path.relative_to(directory)
@@ -491,6 +538,9 @@ def get_artifact_kwargs_from_data(
             returned_privates = privates  # re-upload necessary
         else:
             returned_privates = {"key": key}
+        returned_privates["is_artifact_storage_managed_by_current_instance"] = (
+            existing_artifact.storage.instance_uid == setup_settings.instance.uid
+        )
         return existing_artifact, returned_privates
     else:
         size, hash, hash_type, n_files, revises = stat_or_artifact
@@ -532,6 +582,11 @@ def get_artifact_kwargs_from_data(
             else key_is_virtual
         )
 
+    # needed to check if the artifact storage is managed by the current instance on artifact init
+    privates["is_artifact_storage_managed_by_current_instance"] = (
+        storage.instance_uid == setup_settings.instance.uid
+    )
+
     kwargs = {
         "uid": provisional_uid,
         "suffix": suffix,
@@ -540,9 +595,6 @@ def get_artifact_kwargs_from_data(
         "key": key,
         "size": size,
         "storage_id": storage.id,
-        # passing both the id and the object
-        # to make them both available immediately
-        # after object creation
         "n_files": n_files,
         "_overwrite_versions": overwrite_versions,  # True for folder, False for file
         "n_observations": None,  # to implement
@@ -571,26 +623,32 @@ def log_storage_hint(
         if fsspec.utils.get_protocol(storage.root) == "file":  # type: ignore
             # if it's a local path, check whether it's in the current working directory
             root_path = Path(storage.root)  # type: ignore
-            if check_path_is_child_of_root(root_path, Path.cwd()):
+            if _s().check_path_is_child_of_root(root_path, Path.cwd()):
                 # only display the relative path, not the fully resolved path
                 display_root = root_path.relative_to(Path.cwd())  # type: ignore
         hint += f"path in storage '{display_root}'"  # type: ignore
     else:
         hint += "path content will be copied to default storage upon `save()`"
     if key is None:
-        storage_key = auto_storage_key_from_artifact_uid(uid, suffix, is_dir)
+        storage_key = _s().auto_storage_key_from_artifact_uid(uid, suffix, is_dir)
         hint += f" with key `None` ('{storage_key}')"
     else:
         hint += f" with key '{key}'"
     logger.hint(hint)
 
 
+def data_is_dataframe(data: Any) -> bool:
+    # TODO: maybe check also for pandas.DataFrame subclasses,
+    # but in this case also infer_suffix should be updated
+    return with_package_obj(data, "DataFrame", "pandas", lambda obj: True)[0]
+
+
 def data_is_scversedatastructure(
-    data: ScverseDataStructures | UPathStr,
+    data: ScverseDataStructures | AnyPathStr,
     structure_type: Literal["AnnData", "MuData", "SpatialData"] | None = None,
     cloud_warning: bool = True,
 ) -> bool:
-    """Determine whether a specific in-memory object or a UPathstr is any or a specific scverse data structure."""
+    """Determine whether a specific in-memory object or a path is any or a specific scverse data structure."""
     file_suffix = None
     if structure_type == "AnnData":
         file_suffix = ".h5ad"
@@ -628,7 +686,7 @@ def data_is_scversedatastructure(
             # check only for local, expensive for cloud
             if fsspec.utils.get_protocol(data_path.as_posix()) == "file":
                 return (
-                    identify_zarr_type(
+                    _identify_zarr_type(
                         data_path if structure_type == "AnnData" else data,
                         check=True if structure_type == "AnnData" else False,
                     )
@@ -643,48 +701,50 @@ def data_is_scversedatastructure(
     return False
 
 
-def data_is_soma_experiment(data: SOMAExperiment | UPathStr) -> bool:
+def data_is_soma_experiment(data: SOMAExperiment | AnyPathStr) -> bool:
     # We are not importing tiledbsoma here to keep loaded modules minimal
     if hasattr(data, "__class__") and data.__class__.__name__ == "Experiment":
         return True
-    if isinstance(data, (str, Path)):
+    if isinstance(data, (str, Path, UPath)):
         return UPath(data).suffix == ".tiledbsoma"
     return False
 
 
 def check_otype_artifact(
-    data: UPathStr | pd.DataFrame | ScverseDataStructures,
+    data: AnyPathStr | pd.DataFrame | ScverseDataStructures,
     otype: str | None = None,
     cloud_warning: bool = True,
 ) -> str:
-    if otype is None:
-        if isinstance(data, UPathStr):
-            is_path = True
-            suffix = UPath(data).suffix
-        else:
-            is_path = False
-            suffix = None
-        if isinstance(data, pd.DataFrame) or (
-            is_path and suffix in {".parquet", ".csv", ".ipc"}
-        ):
-            logger.warning("data is a DataFrame, please use .from_dataframe()")
-            otype = "DataFrame"
-            return otype
-        data_is_path = isinstance(data, (str, Path))
-        if data_is_scversedatastructure(data, "AnnData", cloud_warning):
-            if not data_is_path:
-                logger.warning("data is an AnnData, please use .from_anndata()")
-            otype = "AnnData"
-        elif data_is_scversedatastructure(data, "MuData", cloud_warning):
-            if not data_is_path:
-                logger.warning("data is a MuData, please use .from_mudata()")
-            otype = "MuData"
-        elif data_is_scversedatastructure(data, "SpatialData", cloud_warning):
-            if not data_is_path:
-                logger.warning("data is a SpatialData, please use .from_spatialdata()")
-            otype = "SpatialData"
-        elif not data_is_path:  # UPath is a subclass of Path
-            raise TypeError("data has to be a string, Path, UPath")
+    if otype is not None:
+        return otype
+
+    if isinstance(data, (str, Path, UPath)):
+        is_pathlike = True
+        suffix = UPath(data).suffix
+    else:
+        is_pathlike = False
+        suffix = None
+
+    if (is_pathlike and suffix in {".parquet", ".csv", ".ipc"}) or data_is_dataframe(
+        data
+    ):
+        logger.warning("data is a DataFrame, please use .from_dataframe()")
+        otype = "DataFrame"
+        return otype
+    if data_is_scversedatastructure(data, "AnnData", cloud_warning):
+        if not is_pathlike:
+            logger.warning("data is an AnnData, please use .from_anndata()")
+        otype = "AnnData"
+    elif data_is_scversedatastructure(data, "MuData", cloud_warning):
+        if not is_pathlike:
+            logger.warning("data is a MuData, please use .from_mudata()")
+        otype = "MuData"
+    elif data_is_scversedatastructure(data, "SpatialData", cloud_warning):
+        if not is_pathlike:
+            logger.warning("data is a SpatialData, please use .from_spatialdata()")
+        otype = "SpatialData"
+    elif not is_pathlike:
+        raise TypeError("data has to be a string, Path, UPath")
     return otype
 
 
@@ -708,7 +768,8 @@ def get_run(run: Run | None) -> Run | None:
         if run is None:
             run = context.run
         if run is None and not settings.creation.artifact_silence_missing_run_warning:
-            if not is_read_only_connection():
+            isettings = setup_settings.instance
+            if not (isettings._is_clone or isettings.is_read_only_connection):
                 logger.warning(WARNING_RUN_TRANSFORM)
     # suppress run by passing False
     elif not run:
@@ -926,10 +987,10 @@ def add_labels(
             )
 
 
-def delete_permanently(artifact: Artifact, storage: bool, using_key: str):
+def delete_permanently(artifact: Artifact, storage: bool | None, using_key: str):
     # need to grab file path before deletion
     try:
-        path, _ = filepath_from_artifact(artifact, using_key)
+        path, _ = _s().filepath_from_artifact(artifact, using_key)
     except OSError:
         # we can still delete the record
         logger.warning("Could not get path")
@@ -940,7 +1001,12 @@ def delete_permanently(artifact: Artifact, storage: bool, using_key: str):
         logger.important(
             "deleting all versions of this artifact because they all share the same store"
         )
-        for version in artifact.versions.all():  # includes artifact
+        # artifact.versions pulls only versions that are not in trash
+        # this query set below contains all versions including those that are in trash
+        versions = Artifact.objects.using(artifact._state.db).filter(
+            uid__startswith=artifact.stem_uid
+        )
+        for version in versions:
             _delete_skip_storage(version)
     else:
         artifact._delete_skip_storage()
@@ -974,7 +1040,7 @@ def delete_permanently(artifact: Artifact, storage: bool, using_key: str):
     # we don't yet have logic to bring back the deleted metadata record
     # in case storage deletion fails - this is important for ACID down the road
     if delete_in_storage:
-        delete_msg = delete_storage(path, raise_file_not_found_error=False)
+        delete_msg = _s().delete_storage(path, raise_file_not_found_error=False)
         if delete_msg != "did-not-delete":
             logger.success(f"deleted {colors.yellow(f'{path}')}")
 
@@ -1013,7 +1079,7 @@ class LazyArtifact:
             )
 
         uid, _ = create_uid(n_full_id=20)
-        storage_key = auto_storage_key_from_artifact_uid(
+        storage_key = _s().auto_storage_key_from_artifact_uid(
             uid, suffix, overwrite_versions=overwrite_versions
         )
         storepath = setup_settings.storage.root / storage_key
@@ -1066,11 +1132,11 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     Some artifacts are table- or array-like, e.g., when stored as `.parquet`, `.h5ad`, `.zarr`, or `.tiledb`.
 
     Args:
-        path: `UPathStr` A path to a local or remote folder or file from which to create the artifact.
+        path: `AnyPathStr` A path to a local or remote folder or file from which to create the artifact.
         key: `str | None = None` A key within the storage location, e.g., `"myfolder/myfile.fcs"`. Artifacts with the same key form a version family.
         description: `str | None = None` A description.
         kind: `Literal["dataset", "model"] | str | None = None` Distinguish models from datasets from other files & folders.
-        features: `dict | None = None` External features to annotate the artifact with via :class:`~lamindb.models.FeatureManager.set_values`.
+        features: `dict | None = None` External features to annotate via :class:`~lamindb.models.FeatureManager.set_values`.
         schema: `Schema | None = None` A schema to validate features.
         revises: `Artifact | None = None` Previous version of the artifact. An alternative to passing `key` when creating a new version.
         overwrite_versions: `bool | None = None` Whether to overwrite versions. Defaults to `True` for folders and `False` for files.
@@ -1078,9 +1144,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             If `None`, infer the run from the global run context.
         branch: `Branch | None = None` The branch of the artifact. If `None`, uses the current branch.
         space: `Space | None = None` The space of the artifact. If `None`, uses the current space.
-        storage: `Storage | None = None` The storage location for the artifact. If `None`, uses the default storage location.
-            You can see and set the default storage location in :attr:`~lamindb.core.Settings.storage`.
+        storage: `Storage | None = None` The storage location for the artifact. If `None`, uses the default (:attr:`~lamindb.core.Settings.storage`).
         skip_hash_lookup: `bool = False` Skip the hash lookup so that a new artifact is created even if an artifact with the same hash already exists.
+            Empty files are always treated as if this were `True` because empty content hashes are not used for deduplication.
 
     Examples:
 
@@ -1092,7 +1158,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         Calling `.save()` copies or uploads the file to the default storage location of your lamindb instance.
         If you create an artifact **from a remote file or folder**, lamindb registers the S3 `key` and avoids copying the data::
 
-            artifact = ln.Artifact("s3://my_bucket/my_folder/my_file.csv").save()
+            artifact = ln.Artifact("s3://my_bucket/my_folder/my_file.csv").save()  # can omit key/description because file is remote
 
         If you then want to query & access the artifact later on, this is how you do it::
 
@@ -1103,6 +1169,20 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
             df = artifact.load()               # load parquet file as DataFrame
             pyarrow_dataset = artifact.open()  # open a streaming file-like object
+
+        To bulk-create artifacts for every file in a directory and **group them in a folder**, use :meth:`~lamindb.Artifact.from_dir`::
+
+            artifacts = ln.Artifact.from_dir("project_alpha/run_001").save()  # create one artifact per file in the directory
+            artifacts = ln.Artifact.filter(key__startswith="project_alpha/run_001/")  # query ingested artifacts via the folder prefix
+
+        To create a **versioned immutable collection** of artifacts for a data release, use :class:`~lamindb.Collection`::
+
+            collection = ln.Collection(artifacts, key="project_alpha/run_001").save()
+
+        .. dropdown:: Virtual folders (key prefixes) vs. :class:`~lamindb.Collection` objects
+
+            - prefix query on `key`: If a colleague adds a new file to that prefix tomorrow, your `filter(key__startswith=...)` result will change.
+            - collection: A collection object provides a `uid` for every version and its content won't change.
 
         If you want to **validate & annotate** a dataframe or an array using the feature & label registries,
         pass `schema` to one of the `.from_dataframe()`, `.from_anndata()`, ... constructors::
@@ -1126,11 +1206,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
             storage_loc = ln.Storage.get(root="s3://my_bucket")  # get storage location, or create via ln.Storage(root="s3://my_bucket").save()
             ln.Artifact("./my_file.parquet", key="examples/my_file.parquet", storage=storage_loc).save()  # upload to s3://my_bucket
-
-        Sometimes you want to **avoid mapping the artifact into a path hierarchy**, and you only pass `description`::
-
-            artifact = ln.Artifact("./my_folder", description="My folder").save()
-            artifact_v2 = ln.Artifact("./my_folder", revises=old_artifact).save()  # need to version based on `revises`, a shared description does not trigger a new version
 
     Notes:
 
@@ -1162,9 +1237,18 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         .. dropdown:: Will artifacts get duplicated?
 
             If an artifact with the exact same hash already exists, `Artifact()` returns the existing artifact.
+            Exception: empty files are not deduplicated by hash and create a new artifact.
 
             In concurrent workloads where the same artifact is created repeatedly at the exact same time, `.save()`
             detects the duplication and will return the existing artifact.
+
+        .. dropdown:: I cannot come up with a good file name, can I avoid mapping artifacts into a hierarchy?
+
+            Sometimes you want to **avoid mapping the artifact into a path hierarchy**. You can do so by omitting the `key` argument and only passing `description`.
+            However, note that a shared `description` does not trigger mapping artifacts into the same version family.
+
+                artifact = ln.Artifact("./my_folder", description="My folder").save()
+                artifact_v2 = ln.Artifact("./my_folder", revises=old_artifact).save()  # need to version based on `revises`, a shared description does not trigger a new version
 
         .. dropdown:: Why does the constructor look the way it looks?
 
@@ -1192,10 +1276,20 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             Storage locations for artifacts.
         :class:`~lamindb.Collection`
             Collections of artifacts.
+        :meth:`~lamindb.Artifact.from_dir`
+            Bulk-create artifacts for each file in a directory.
         :meth:`~lamindb.Artifact.from_dataframe`
             Create an artifact from a `DataFrame`.
         :meth:`~lamindb.Artifact.from_anndata`
             Create an artifact from an `AnnData`.
+        :meth:`~lamindb.Artifact.from_spatialdata`
+            Create an artifact from a `SpatialData`.
+        :meth:`~lamindb.Artifact.from_mudata`
+            Create an artifact from a `MuData`.
+        :meth:`~lamindb.Artifact.from_tiledbsoma`
+            Create an artifact from a `tiledbsoma` store.
+        :meth:`~lamindb.Artifact.from_lazy`
+            Create a lazy artifact for streaming to auto-generated internal paths.
 
     """
 
@@ -1224,7 +1318,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             ),
         ]
 
-    _TRACK_FIELDS = ("space_id",)
+    _TRACK_FIELDS = ("space_id", "is_latest", "suffix", "key")
 
     _len_full_uid: int = 20
     _len_stem_uid: int = 16
@@ -1234,11 +1328,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     def features(self) -> FeatureManager:
         """Feature manager.
 
-        Typically, you annotate a dataset with features by defining a `Schema` and passing it to the `Artifact` constructor.
+        Annotate an artifact with features::
 
-        Here is how to do annotate an artifact ad hoc::
-
-            artifact.features.add_values({
+            artifact.features.set_values({
                 "species": "human",
                 "scientist": ['Barbara McClintock', 'Edgar Anderson'],
                 "temperature": 27.6,
@@ -1249,25 +1341,25 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
             ln.Artifact.filter(scientist="Barbara McClintock")
 
-        Note: Features may or may not be part of the dataset, i.e., the artifact content in storage.
-        For instance, the :class:`~lamindb.curators.DataFrameCurator` flow validates the columns of a
-        `DataFrame`-like artifact and annotates it with features corresponding to these columns.
-        `artifact.features.add_values`, by contrast, does not validate the content of the artifact.
+        Get all feature annotations as a dictionary::
 
-        To get all feature values::
+            d = artifact.features.get_values()
 
-            dictionary_of_values = artifact.features.get_values()
-
-        The dicationary above uses identifiers, like the string "human" for an `Organism` object.
-        The below, by contrast, returns a Python object for categorical features::
+        Get a value for a single feature::
 
             organism = artifact.features["species"]  # returns an Organism object, not "human"
             temperature = artifact.features["temperature"]  # returns a temperature value, a float
 
-        You can also validate external feature annotations with a `schema`::
+        Note that `get_values()` returns identifiers for categorical values (for example, the string
+        "human" for an `Organism`), while the `[]` accessor returns the corresponding Python object.
+        See also :meth:`~lamindb.models.FeatureManager.set_values`.
 
-            schema = ln.Schema([ln.Feature(name="species", dtype=str).save()]).save()
-            artifact.features.add_values({"species": "bird"}, schema=schema)
+        .. dropdown:: Dataset features vs. external features
+
+            Features may or may not be stored in the dataset, i.e., the artifact content in storage.
+            If you pass a schema to :class:`~lamindb.Artifact.from_dataframe` you validate the columns of the
+            `DataFrame` and annotate with values parsed from these columns.
+            `artifact.features.set_values()`, by contrast, does **not** validate the content of the artifact.
 
         """
         from ._feature_manager import FeatureManager
@@ -1456,6 +1548,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     """The records annotating this artifact ← :attr:`~lamindb.Record.artifacts`."""
     runs: RelatedManager[Run]
     """The runs annotating this artifact ← :attr:`~lamindb.Run.artifacts`."""
+    linked_by_runs: RelatedManager[Run]
+    """The runs linking this artifact ← :attr:`~lamindb.Run.linked_by_artifacts`."""
     artifacts: RelatedManager[Artifact] = models.ManyToManyField(
         "Artifact",
         through="ArtifactArtifact",
@@ -1469,13 +1563,13 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         "Record", through="RecordArtifact", related_name="linked_artifacts"
     )
     """The records linking this artifact as a feature value ← :attr:`~lamindb.Record.linked_artifacts`."""
-    ablocks: ArtifactBlock
-    """The blocks that annotate this artifact ← :attr:`~lamindb.ArtifactBlock.artifact`."""
+    ablocks: RelatedManager[ArtifactBlock]
+    """Attached blocks ← :attr:`~lamindb.ArtifactBlock.artifact`."""
 
     @overload
     def __init__(
         self,
-        path: UPathStr,
+        path: AnyPathStr,
         *,
         key: str | None = None,
         description: str | None = None,
@@ -1540,13 +1634,13 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         _is_internal_call = kwargs.pop("_is_internal_call", False)
         skip_check_exists = kwargs.pop("skip_check_exists", False)
 
-        if key is not None and AUTO_KEY_PREFIX in key:
+        if key is not None and _s().AUTO_KEY_PREFIX in key:
             raise ValueError(
-                f"Do not pass key that contains a managed storage path in `{AUTO_KEY_PREFIX}`"
+                f"Do not pass key that contains a managed storage path in `{_s().AUTO_KEY_PREFIX}`"
             )
         # below is for internal calls that require defining the storage location
         # ahead of constructing the Artifact
-        if isinstance(path, (str, Path)) and AUTO_KEY_PREFIX in str(path):
+        if isinstance(path, (str, Path, UPath)) and _s().AUTO_KEY_PREFIX in str(path):
             if _is_internal_call:
                 if _key_is_virtual is False:
                     raise ValueError(
@@ -1557,7 +1651,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 key = None
             else:
                 raise ValueError(
-                    f"Do not pass path inside the `{AUTO_KEY_PREFIX}` directory."
+                    f"Do not pass path inside the `{_s().AUTO_KEY_PREFIX}` directory."
                 )
         else:
             is_automanaged_path = False
@@ -1609,8 +1703,10 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 logger.warning(
                     "storage argument ignored as storage information from space takes precedence"
                 )
-            storage_locs_for_space = Storage.filter(space=space)
-            n_storage_locs_for_space = len(storage_locs_for_space)
+            storage_locs_for_space = Storage.filter(
+                space=space, instance_uid=setup_settings.instance.uid
+            ).order_by("id")
+            n_storage_locs_for_space = storage_locs_for_space.count()
             if n_storage_locs_for_space == 0:
                 raise NoStorageLocationForSpace(
                     "No storage location found for space.\n"
@@ -1620,8 +1716,15 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             else:
                 storage = storage_locs_for_space.first()
                 if n_storage_locs_for_space > 1:
+                    other_storage_locs = ",".join(
+                        f"{s.root}" for s in storage_locs_for_space[1:]
+                    )
                     logger.warning(
-                        f"more than one storage location for space {space}, choosing {storage}"
+                        f"more than one storage location is managed by this instance for space {space},\n"
+                        f"choosing root={storage.root}\n"
+                    )
+                    logger.important_hint(
+                        f"to choose one of the other storage locations ({other_storage_locs}), pass `storage` to the Artifact constructor"
                     )
         otype = kwargs.pop("otype") if "otype" in kwargs else None
         if isinstance(path, str) and path.startswith("s3:///"):
@@ -1667,6 +1770,14 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 self._memory_rep = privates["memory_rep"]
                 self._to_store = not privates["check_path_in_storage"]
 
+                if (
+                    self._to_store
+                    and not privates["is_artifact_storage_managed_by_current_instance"]
+                ):
+                    raise ValueError(
+                        "Cannot create an artifact in a storage location that is not managed by the current instance."
+                    )
+
         # an object with the same hash already exists
         if isinstance(kwargs_or_artifact, Artifact):
             from .sqlrecord import init_self_from_db, update_attributes
@@ -1684,12 +1795,12 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 if not self.path.exists():
                     logger.warning(f"updating previous key {self.key} to new key {key}")
                     self.key = key
+                    # Keep tracked state aligned with this internal dedup-time key
+                    # normalization so save() doesn't treat it as a user key edit.
+                    self._original_values["key"] = key
                     assert self.path.exists(), (  # noqa: S101
                         f"The underlying file for artifact {self} does not exist anymore, clean up the artifact record."
                     )  # noqa: S101
-                    self._skip_key_change_check = (
-                        True  # otherwise not allowed to change real keys
-                    )
                 else:
                     logger.warning(
                         f"key {self.key} on existing artifact differs from passed key {key}, keeping original key; update manually if needed or pass skip_hash_lookup if you want to duplicate the artifact"
@@ -1711,9 +1822,11 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
         if is_automanaged_path and _is_internal_call:
             kwargs["_key_is_virtual"] = True
-            assert AUTO_KEY_PREFIX in kwargs["key"]  # noqa: S101
+            assert _s().AUTO_KEY_PREFIX in kwargs["key"]  # noqa: S101
             uid = (
-                kwargs["key"].replace(AUTO_KEY_PREFIX, "").replace(kwargs["suffix"], "")
+                kwargs["key"]
+                .replace(_s().AUTO_KEY_PREFIX, "")
+                .replace(kwargs["suffix"], "")
             )
             kwargs["key"] = user_provided_key
             if revises is not None:
@@ -1800,7 +1913,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         return self.schemas
 
     @property
-    def path(self) -> Path:
+    def path(self) -> UPath:
         """Path.
 
         Example::
@@ -1817,12 +1930,12 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             artifact.path
             #> PosixPath('/home/runner/work/lamindb/lamindb/docs/guide/mydata/myfile.csv')
         """
-        filepath, _ = filepath_from_artifact(self, using_key=settings._using_key)
+        filepath, _ = _s().filepath_from_artifact(self, using_key=settings._using_key)
         return filepath
 
     @property
     def _cache_path(self) -> UPath:
-        filepath, cache_key = filepath_cache_key_from_artifact(
+        filepath, cache_key = _s().filepath_cache_key_from_artifact(
             self, using_key=settings._using_key
         )
         if isinstance(filepath, LocalPathClasses):
@@ -1837,7 +1950,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         idlike: int | str | None = None,
         *,
         key: str | None = None,
-        path: UPathStr | None = None,
+        path: AnyPathStr | None = None,
         is_run_input: bool | Run = False,
         **expressions,
     ) -> Artifact:
@@ -1951,7 +2064,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     @classmethod
     def from_dataframe(
         cls,
-        df: pd.DataFrame | UPathStr,
+        df: pd.DataFrame | AnyPathStr,
         *,
         key: str | None = None,
         description: str | None = None,
@@ -1968,13 +2081,13 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         Sets `.otype` to `"DataFrame"` and populates `.n_observations`.
 
         Args:
-            df: A `DataFrame` object or a `UPathStr` pointing to a `DataFrame` in storage, e.g. a `.parquet` or `.csv` file.
+            df: A `DataFrame` object or an `AnyPathStr` pointing to a `DataFrame` in storage, e.g. a `.parquet` or `.csv` file.
             key: A relative path within default storage, e.g., `"myfolder/myfile.parquet"`.
             description: A description.
             revises: An old version of the artifact.
             run: The run that creates the artifact.
             schema: A schema that defines how to validate & annotate.
-            features: Additional external features to annotate the artifact via :class:`~lamindb.models.FeatureManager.set_values`.
+            features: Additional external features to annotate the artifact via :class:`~lamindb.models.FeatureManager.set_values` (keys can be feature names or `Feature` objects).
             parquet_kwargs: Additional keyword arguments passed to the
                 `pandas.DataFrame.to_parquet` method, which are passed
                 on to `pyarrow.parquet.ParquetWriter`.
@@ -2004,11 +2117,11 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             .. literalinclude:: scripts/test_artifact_parquet.py
                :language: python
         """
-        from lamindb import examples
-
         if "format" not in kwargs and key is not None and key.endswith(".csv"):
             kwargs["format"] = ".csv"
         if schema == "valid_features":
+            from lamindb import examples
+
             schema = examples.schemas.valid_features()
 
         to_disk_kwargs: dict[str, Any] = parquet_kwargs or csv_kwargs
@@ -2023,7 +2136,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             to_disk_kwargs=to_disk_kwargs,
             **kwargs,
         )
-        if isinstance(df, pd.DataFrame):
+        if data_is_dataframe(df):
             artifact.n_observations = len(df)
         else:
             # must be a str or path
@@ -2080,7 +2193,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     @classmethod
     def from_anndata(
         cls,
-        adata: Union[AnnData, UPathStr],
+        adata: Union[AnnData, AnyPathStr],
         *,
         key: str | None = None,
         description: str | None = None,
@@ -2089,6 +2202,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         schema: Schema
         | Literal["ensembl_gene_ids_and_valid_features_in_obs"]
         | None = None,
+        format: Literal["h5ad", "zarr", "anndata.zarr"] | None = None,
+        h5ad_kwargs: dict[str, Any] | None = None,
+        zarr_kwargs: dict[str, Any] | None = None,
         **kwargs,
     ) -> Artifact:
         """Create from `AnnData`, optionally validate & annotate.
@@ -2102,6 +2218,14 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             revises: An old version of the artifact.
             run: The run that creates the artifact.
             schema: A schema that defines how to validate & annotate.
+            format: Storage format used when writing in-memory `AnnData`.
+                In-memory `AnnData` is first written to cache in this format, then saved to instance storage when calling `.save()`.
+                If `None`, infer from `key` suffix when available, otherwise default to `"h5ad"`.
+                If provided, suffix is formed as `"." + format` (e.g., `"zarr"` -> `".zarr"`).
+            h5ad_kwargs: Additional keyword arguments passed to the `anndata.AnnData.write_h5ad` method
+                when writing in-memory `AnnData` to cache.
+            zarr_kwargs: Additional keyword arguments passed to the `anndata.AnnData.write_zarr` method.
+                when writing in-memory `AnnData` to cache. Use `key` with suffix `.zarr` or pass `format="zarr"` for this to work.
 
         See Also:
             :meth:`~lamindb.Collection`
@@ -2110,6 +2234,23 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 Track features.
 
         Example:
+
+            Write H5AD with custom serialization settings::
+
+                ln.Artifact.from_anndata(
+                    adata,
+                    key="examples/dataset1.h5ad",
+                    h5ad_kwargs={"compression": "gzip"},
+                ).save()
+
+            Write Zarr with custom chunking settings::
+
+                ln.Artifact.from_anndata(
+                    adata,
+                    key="examples/dataset1.zarr",
+                    format="zarr",
+                    zarr_kwargs={"chunks": [1024, 1024]},
+                ).save()
 
             No validation and annotation::
 
@@ -2130,17 +2271,19 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             .. image:: https://lamin-site-assets.s3.amazonaws.com/.lamindb/gLyfToATM7WUzkWW0001.png
                :width: 800px
         """
-        from lamindb import examples
-
         if not data_is_scversedatastructure(adata, "AnnData"):
             raise ValueError(
                 "data has to be an AnnData object or a path to AnnData-like"
             )
+
         if schema == "ensembl_gene_ids_and_valid_features_in_obs":
+            from lamindb import examples
+
             schema = (
                 examples.schemas.anndata_ensembl_gene_ids_and_valid_features_in_obs()
             )
-        _anndata_n_observations(adata)
+
+        to_disk_kwargs: dict[str, Any] = h5ad_kwargs or zarr_kwargs
         artifact = Artifact(  # type: ignore
             path=adata,
             key=key,
@@ -2149,6 +2292,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             revises=revises,
             otype="AnnData",
             kind="dataset",
+            format=format,
+            to_disk_kwargs=to_disk_kwargs,
             **kwargs,
         )
         # this is done instead of _anndata_n_observations(adata)
@@ -2161,6 +2306,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             # returns ._local_filepath for local files
             # and the proper path through create_path for cloud paths
             obj_for_obs = artifact.path
+        from ..core.storage._anndata_accessor import _anndata_n_observations
+
         artifact.n_observations = _anndata_n_observations(obj_for_obs)
         if schema is not None:
             from ..curators import AnnDataCurator
@@ -2174,7 +2321,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     @classmethod
     def from_mudata(
         cls,
-        mdata: Union[MuData, UPathStr],
+        mdata: Union[MuData, AnyPathStr],
         *,
         key: str | None = None,
         description: str | None = None,
@@ -2220,7 +2367,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             kind="dataset",
             **kwargs,
         )
-        if not isinstance(mdata, UPathStr):
+        if not isinstance(mdata, (str, Path, UPath)):
             artifact.n_observations = mdata.n_obs
         if schema is not None:
             from ..curators import MuDataCurator
@@ -2234,7 +2381,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     @classmethod
     def from_spatialdata(
         cls,
-        sdata: SpatialData | UPathStr,
+        sdata: SpatialData | AnyPathStr,
         *,
         key: str | None = None,
         description: str | None = None,
@@ -2269,13 +2416,20 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
                 artifact = ln.Artifact.from_spatialdata(sdata, key="my_dataset.zarr").save()
 
-            With validation and annotation.
+            With validation and annotation. First, find a `SpatialData` schema, e.g.::
+
+                ln.Schema.filter(otype="SpatialData").to_dataframe()
+                schema = ln.Schema.get(name="spatialdata_blobs_schema")
+
+            Then, pass the schema to the `from_spatialdata` method::
+
+                artifact = ln.Artifact.from_spatialdata(sdata, key="my_dataset.zarr", schema=schema).save()
+
+            You can also define a schema from scratch:
 
             .. literalinclude:: scripts/define_schema_spatialdata.py
                 :language: python
 
-            .. literalinclude:: scripts/curate_spatialdata.py
-                :language: python
         """
         if not data_is_scversedatastructure(sdata, "SpatialData"):
             raise ValueError(
@@ -2305,7 +2459,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     @classmethod
     def from_tiledbsoma(
         cls,
-        exp: SOMAExperiment | UPathStr,
+        exp: SOMAExperiment | AnyPathStr,
         *,
         key: str | None = None,
         description: str | None = None,
@@ -2337,7 +2491,11 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
         # SOMAExperiment.uri may have file:// prefix for local paths which needs stripping for filesystem access.
         # Other URI schemes (s3://, etc.) are preserved and supported.
-        exp = exp.uri.removeprefix("file://") if not isinstance(exp, UPathStr) else exp
+        exp = (
+            exp.uri.removeprefix("file://")
+            if not isinstance(exp, (str, Path, UPath))
+            else exp
+        )
 
         artifact = Artifact(  # type: ignore
             path=exp,
@@ -2349,13 +2507,15 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             kind="dataset",
             **kwargs,
         )
+        from ..core.storage._tiledbsoma import _soma_n_observations
+
         artifact.n_observations = _soma_n_observations(artifact.path)
         return artifact
 
     @classmethod
     def from_dir(
         cls,
-        path: UPathStr,
+        path: AnyPathStr,
         *,
         key: str | None = None,
         run: Run | None = None,
@@ -2466,7 +2626,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
     def replace(
         self,
-        data: Union[UPathStr, pd.DataFrame, AnnData, MuData],
+        data: Union[AnyPathStr, pd.DataFrame, AnnData, MuData],
         run: Run | bool | None = None,
         format: str | None = None,
     ) -> None:
@@ -2545,19 +2705,17 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                     self._clear_storagekey = key
                     warn_msg = ""
                 self.key = new_key
-                # update old key with the new one so that checks in record pass
-                self._old_key = new_key
+                self._original_values["key"] = new_key
                 logger.warning(
                     f"replacing the file will replace key '{key}' with '{new_key}'{warn_msg}"
                     f" and delete '{self._clear_storagekey}' upon `save()`"
                 )
             else:
                 # purely virtual key case
-                self._clear_storagekey = auto_storage_key_from_artifact(self)
+                self._clear_storagekey = _s().auto_storage_key_from_artifact(self)
                 # might replace None with None, not a big deal
                 self.key = new_key
-                # update the old key with the new one so that checks in record pass
-                self._old_key = new_key
+                self._original_values["key"] = new_key
 
         self.suffix = new_suffix
         self.size = kwargs["size"]
@@ -2573,9 +2731,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         # no need to upload if new file is already in storage
         self._to_store = not check_path_in_storage
 
-        # update old suffix with the new one so that checks in record pass
+        # update old suffix with the new one so that the check in artifact save pass
         # replace() supports changing the suffix
-        self._old_suffix = self.suffix
+        self._original_values["suffix"] = self.suffix
 
     def open(
         self,
@@ -2625,6 +2783,12 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             and objects of type :class:`~lamindb.core.storage.AnnDataAccessor`, :class:`~lamindb.core.storage.SpatialDataAccessor`, :class:`~lamindb.core.storage.BackedAccessor`,
             :class:`tiledbsoma:tiledbsoma.Collection`, :class:`tiledbsoma.Experiment`, :class:`tiledbsoma.Measurement`.
 
+        Note:
+            For TileDB-SOMA stores on S3 with federated credentials,
+            credentials are updated only when the storage is opened, not while the
+            store handle is held open. If credentials expire during a long-lived
+            session, close the store and open it again to refresh.
+
         Examples:
 
             Open a `DataFrame`-like artifact via :class:`pyarrow:pyarrow.dataset.Dataset`::
@@ -2650,8 +2814,12 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             For more examples and background, see guide: :doc:`/arrays`.
 
         """
+        from ..core.storage._backed_access import _track_writes_factory, backed_access
+        from ..core.storage._polars_lazy_df import POLARS_SUFFIXES
+        from ..core.storage._pyarrow_dataset import PYARROW_SUFFIXES
+
         if self._overwrite_versions and not self.is_latest:
-            raise ValueError(INCONSISTENT_STATE_MSG)
+            raise ValueError(OUTDATED_ARTIFACT_FILES_OVERWRITTEN_MSG)
         # all hdf5 suffixes including gzipped
         h5_suffixes = [".h5", ".hdf5", ".h5ad"]
         h5_gz_suffixes = []
@@ -2680,7 +2848,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 " (no mixing allowed)."
             )
         using_key = settings._using_key
-        filepath, cache_key = filepath_cache_key_from_artifact(
+        filepath, cache_key = _s().filepath_cache_key_from_artifact(
             self, using_key=using_key
         )
 
@@ -2689,13 +2857,19 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         ) and mode == "w"
         is_zarr_w = suffix == ".zarr" and mode == "r+"
 
-        if mode != "r" and not (is_tiledbsoma_w or is_zarr_w):
-            raise ValueError(
-                f"It is not allowed to open a {suffix} object with mode='{mode}'. "
-                "You can open all supported formats with mode='r', "
-                "a tiledbsoma store with mode='w', "
-                "AnnData or SpatialData zarr store with mode='r+'."
-            )
+        if mode != "r":
+            if not (is_tiledbsoma_w or is_zarr_w):
+                raise ValueError(
+                    f"It is not allowed to open a {suffix} object with `mode='{mode}'`. "
+                    "You can open all supported formats with `mode='r'`, "
+                    "a tiledbsoma store with `mode='w'`, "
+                    "AnnData or SpatialData zarr store with `mode='r+'`."
+                )
+            elif not self.overwrite_versions:
+                raise ValueError(
+                    "It is not possible to open artifacts having `overwrite_versions=False` "
+                    "in non-read mode (other than `mode='r'`)."
+                )
         # consider the case where an object is already locally cached
         localpath = setup_settings.paths.cloud_to_local_no_update(
             filepath, cache_key=cache_key
@@ -2760,7 +2934,14 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
     def load(
         self, *, is_run_input: bool | None = None, mute: bool = False, **kwargs
-    ) -> Any:
+    ) -> (
+        pd.DataFrame
+        | ScverseDataStructures
+        | dict[str, Any]
+        | list[Any]
+        | AnyPathStr
+        | None
+    ):
         """Cache artifact in local cache and then load it into memory.
 
         See: :mod:`~lamindb.core.loaders`.
@@ -2780,8 +2961,10 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
                 adata = artifact.load()
         """
+        from ..core.loaders import load_to_memory
+
         if self._overwrite_versions and not self.is_latest:
-            raise ValueError(INCONSISTENT_STATE_MSG)
+            raise ValueError(OUTDATED_ARTIFACT_FILES_OVERWRITTEN_MSG)
 
         if hasattr(self, "_memory_rep") and self._memory_rep is not None:
             access_memory = self._memory_rep
@@ -2791,7 +2974,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             if access_memory.__class__.__name__ == "SpatialData":
                 access_memory.path = self._cache_path
         else:
-            filepath, cache_key = filepath_cache_key_from_artifact(
+            filepath, cache_key = _s().filepath_cache_key_from_artifact(
                 self, using_key=settings._using_key
             )
             cache_path = _synchronize_cleanup_on_error(
@@ -2828,7 +3011,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
     def cache(
         self, *, is_run_input: bool | None = None, mute: bool = False, **kwargs
-    ) -> Path:
+    ) -> UPath:
         """Download cloud artifact to local cache.
 
         Follows synching logic: only caches an artifact if it's outdated in the local cache.
@@ -2847,9 +3030,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 #> PosixPath('/home/runner/work/Caches/lamindb/lamindata/pbmc68k.h5ad')
         """
         if self._overwrite_versions and not self.is_latest:
-            raise ValueError(INCONSISTENT_STATE_MSG)
+            raise ValueError(OUTDATED_ARTIFACT_FILES_OVERWRITTEN_MSG)
 
-        filepath, cache_key = filepath_cache_key_from_artifact(
+        filepath, cache_key = _s().filepath_cache_key_from_artifact(
             self, using_key=settings._using_key
         )
         if mute:
@@ -2901,6 +3084,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         """
         super().delete(permanent=permanent, storage=storage, using_key=using_key)
 
+    # TODO: consider renaming the transfer argument to sync
     def save(
         self,
         upload: bool | None = None,
@@ -2911,12 +3095,12 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
         Args:
             upload: Trigger upload to cloud storage in instances with hybrid storage mode.
-            transfer: In case artifact was queried on a different instance, dictates behavior of transfer.
-                If "record", only the artifact record is transferred to the current instance.
-                If "annotations", also the annotations linked in the source instance are transferred.
+            transfer: In case artifact was queried on a different instance, dictates behavior of sync.
+                If "record", only the artifact record is synced to the current instance.
+                If "annotations", also the annotations linked in the source instance are synced.
 
         See Also:
-            :doc:`transfer`
+            :doc:`sync`
 
         Example:
 
@@ -2926,16 +3110,122 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
                 artifact = ln.Artifact("./myfile.csv", key="myfile.parquet").save()
         """
+        if (
+            not self._state.adding
+            # skip on is_latest change
+            # no need to check if saved because it is checked above
+            and not self._field_changed("is_latest", check_is_saved=False)
+            and not self.is_latest
+            and self.branch_id != -1  # skip on soft deletion
+        ):
+            logger.warning("you are saving to a non-latest version of the artifact")
+
+        access_token = kwargs.pop("access_token", None)
+
+        current_instance_uid = setup_settings.instance.uid
+
+        artifact_storage = self.storage
+        artifact_storage_instance_uid = artifact_storage.instance_uid
+        is_not_artifact_storage_managed_by_current_instance = (
+            artifact_storage_instance_uid != current_instance_uid
+        )
+
+        if self._field_changed("key", check_is_saved=False):
+            new_key = self.key
+            if new_key is None:
+                raise InvalidArgument("Cannot update an artifact key to None.")
+            new_key_suffix = extract_suffix_from_path(
+                PurePosixPath(new_key), arg_name="key"
+            )
+            if new_key_suffix != self.suffix:
+                raise InvalidArgument(
+                    f"The suffix '{new_key_suffix}' of the provided key is incorrect, it should be '{self.suffix}'."
+                )
+            # Virtual key updates are metadata-only because physical storage keys are
+            # uid-based.
+            if self._key_is_virtual:
+                self._original_values["key"] = new_key
+            else:
+                if self._state.adding:
+                    raise InvalidArgument(
+                        "Cannot update the key of an artifact before it is saved."
+                    )
+                if is_not_artifact_storage_managed_by_current_instance:
+                    raise InvalidArgument(
+                        "Cannot update a non-virtual key of an artifact"
+                        " in a storage location that is not managed by the current instance."
+                    )
+                old_key = self._original_values["key"]
+                if old_key is None:
+                    raise InvalidArgument(
+                        "Cannot update a non-virtual artifact key from None."
+                    )
+                if not _handle_non_virtual_key_change_on_save(
+                    self, old_key=old_key, new_key=new_key
+                ):
+                    return None
+
+        if self._field_changed("suffix", check_is_saved=False):
+            if self._state.adding:
+                raise InvalidArgument(
+                    "Cannot update the suffix of an artifact before it is saved."
+                )
+            if is_not_artifact_storage_managed_by_current_instance:
+                raise InvalidArgument(
+                    "Cannot update the suffix of an artifact"
+                    " in a storage location that is not managed by the current instance."
+                )
+            if not _handle_suffix_change_on_save(self):
+                return None
+
         # when space is passed in init, storage is ignored, so space - storage consistency is enforced there
-        # note that storage is not editable after creation
         if (
             self._field_changed("space_id")
-            and (artifact_storage := self.storage).instance_uid is not None
-            and artifact_storage.space_id == self._original_values["space_id"]
+            # here we check for storages managed by any instance
+            # not necessarily with managed credentials
+            # we check if the artifact storage is managed by the current instance further
+            and artifact_storage_instance_uid is not None
         ):
-            raise ValueError(
-                "Space cannot be changed because the artifact is in the storage location of another space."
+            if is_not_artifact_storage_managed_by_current_instance:
+                raise ValueError(
+                    "Cannot change the space of an artifact"
+                    " in a storage location that is not managed by the current instance."
+                )
+            space = self.space
+            storage_type = artifact_storage.type
+            storages = Storage.connect(self._state.db).filter(
+                space=space, instance_uid=current_instance_uid, type=storage_type
             )
+            n_storages = storages.count()
+            if n_storages == 0:
+                raise ValueError(
+                    f"No {storage_type} storage locations managed by the current instance found for the space '{space.name}'."
+                )
+            elif n_storages > 1:
+                storages = storages.order_by("id")
+                roots_str = "\n".join(
+                    f"{i}: {storage.root}" for i, storage in enumerate(storages)
+                )
+                choice = input(
+                    f"Select a storage location of type '{storage_type}' from the target space '{space.name}':"
+                    f" \n{roots_str}\n"
+                    "Enter the number or 'x' to cancel: "
+                )
+                if choice == "x":
+                    logger.warning("saving was cancelled")
+                    return None
+                storage = storages[int(choice)]
+            else:
+                storage = storages.one()
+            if artifact_storage != storage:
+                # try to transfer if both storages are writable / managed by an instance
+                # replaces artifact.storage with the new storage if successful
+                _move_artifact_to_storage(self, storage, access_token=access_token)
+            else:
+                logger.important("artifact is already in the target storage location")
+            # Keep tracked values in sync after handling a space update so
+            # repeated saves don't keep re-running this branch.
+            self._original_values["space_id"] = self.space_id
 
         if transfer not in {"record", "annotations"}:
             raise ValueError(
@@ -2948,7 +3238,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         store_kwargs = kwargs.pop(
             "store_kwargs", {}
         )  # kwargs for .upload_from in the end
-        access_token = kwargs.pop("access_token", None)
         local_path = None
         if upload and setup_settings.instance.keep_artifacts_local:
             # switch local storage location to cloud
@@ -2969,8 +3258,12 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             )
 
         flag_complete = has_local_filepath and getattr(self, "_to_store", False)
-        # _storage_ongoing indicates whether the storage saving / upload process is ongoing
         if flag_complete:
+            if is_not_artifact_storage_managed_by_current_instance:
+                raise ValueError(
+                    "Cannot save an artifact to a storage location that is not managed by the current instance."
+                )
+            # _storage_ongoing indicates whether the storage saving / upload process is ongoing
             self._storage_ongoing = True  # will be updated to False once complete
 
         self._save_skip_storage(**kwargs)
@@ -3038,6 +3331,136 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         if hasattr(self, "_local_filepath"):
             del self._local_filepath
         return self
+
+
+def _update_artifact_keys_with_suffix(artifact: Artifact, suffix: str):
+    key = artifact.key
+    real_key = artifact._real_key
+    if key is not None:
+        new_key = PurePosixPath(key).with_suffix(suffix).as_posix()
+        artifact.key = new_key
+    if real_key is not None:
+        artifact._real_key = PurePosixPath(real_key).with_suffix(suffix).as_posix()
+
+
+def _confirm_artifact_move(source_path_str: str, target_path_str: str) -> bool:
+    # ask for confirmation
+    # TODO: add a way to disable confirmation
+    response = input(
+        f"You are about to move artifact from '{source_path_str}' to '{target_path_str}'.\n"
+        "Continue? (y/n) "
+    )
+    if response != "y":
+        logger.warning("saving was cancelled")
+        return False
+    return True
+
+
+def _handle_non_virtual_key_change_on_save(
+    artifact: Artifact, *, old_key: str, new_key: str
+) -> bool:
+    # _real_key should actually be None here because it goes with virtual key
+    source_storage_key = (
+        artifact._real_key if artifact._real_key is not None else old_key
+    )
+    source_path = artifact.storage.path / source_storage_key
+    # key was updated, so artifact.path is the new path
+    target_path_str = artifact.path.as_posix()
+    source_path_str = source_path.as_posix()
+    if not _confirm_artifact_move(source_path_str, target_path_str):
+        return False
+    _safe_move(source_path.fs, source_path_str, target_path_str)
+    if artifact._real_key is not None:
+        artifact._real_key = new_key
+    # Keep tracked values in sync so repeated saves don't trigger another move.
+    artifact._original_values["key"] = new_key
+    # If key change already applied the suffix transition, skip suffix handling below.
+    artifact._original_values["suffix"] = artifact.suffix
+    return True
+
+
+def _handle_suffix_change_on_save(artifact: Artifact) -> bool:
+    suffix = artifact.suffix
+    # depends on whether key is virtual or real key is present
+    source_or_target_path = artifact.path
+    source_path_str = source_or_target_path.with_suffix(
+        artifact._original_values["suffix"]
+    ).as_posix()
+    target_path_str = source_or_target_path.with_suffix(suffix).as_posix()
+    if not _confirm_artifact_move(source_path_str, target_path_str):
+        return False
+    # source_path and target_path are on the same filesystem
+    _safe_move(source_or_target_path.fs, source_path_str, target_path_str)
+    _update_artifact_keys_with_suffix(artifact, suffix)
+    # Keep tracked values in sync so consecutive suffix updates on the same
+    # in-memory instance trigger a move each time.
+    artifact._original_values["suffix"] = suffix
+    artifact._original_values["key"] = artifact.key
+    return True
+
+
+def _sorted_sizes(fs: AbstractFileSystem, path: str) -> list[int]:
+    objects = fs.find(path, detail=True)
+    return sorted(info["size"] for info in objects.values())
+
+
+def _rm_catch_error(fs: AbstractFileSystem, path: str) -> Exception | None:
+    if fs.exists(path):
+        try:
+            fs.rm(path, recursive=True)
+        except Exception as rm_exc:
+            return rm_exc
+    return None
+
+
+def _safe_move(fs: AbstractFileSystem, source: str, target: str):
+    if fs.exists(target):
+        raise FileExistsError(
+            f"Cannot move artifact to '{target}' because it already exists."
+        )
+    logger.important(f"moving artifact from '{source}' to '{target}'")
+    try:
+        fs.copy(source, target, recursive=True)
+    except Exception as e:
+        message = "Failed to copy artifact to target storage during transfer."
+        cleanup_error = _rm_catch_error(fs, target)
+        if cleanup_error is not None:
+            message += f" Cleanup of copied target also failed: {cleanup_error}"
+        raise RuntimeError(message) from e
+    # check that the sizes of the files are the same
+    if _sorted_sizes(fs, source) != _sorted_sizes(fs, target):
+        message = "Move verification failed: copied artifact does not match source."
+        cleanup_error = _rm_catch_error(fs, target)
+        if cleanup_error is not None:
+            message += " Cleanup of copied target also failed."
+        raise RuntimeError(message) from cleanup_error
+
+    try:
+        fs.rm(source, recursive=True)
+    except Exception as e:
+        logger.error(
+            f"copying to '{target}' succeeded but failed to remove source '{source}': {e}"
+        )
+
+
+def _move_artifact_to_storage(
+    artifact: Artifact, storage: Storage, access_token: str | None = None
+):
+    storage_key = _s().auto_storage_key_from_artifact(artifact)
+
+    source_path = artifact.path
+    target_path = storage.path / storage_key
+    if source_path == target_path:
+        raise ValueError("Cannot move to the same path.")
+
+    fs = fs_for_moving(source_path, target_path, access_token=access_token)
+
+    source_path_str = str(source_path)
+    target_path_str = str(target_path)
+
+    _safe_move(fs, source_path_str, target_path_str)
+
+    artifact.storage_id = storage.id
 
 
 # can't really just call .cache in .load because of double tracking
@@ -3208,7 +3631,8 @@ def track_run_input(
     is_run_input = settings.track_run_inputs if is_run_input is None else is_run_input
     if is_run_input:
         if run is None:
-            if not is_read_only_connection():
+            isettings = setup_settings.instance
+            if not (isettings._is_clone or isettings.is_read_only_connection):
                 logger.warning(WARNING_NO_INPUT)
         elif input_records:
             logger.debug(

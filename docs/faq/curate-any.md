@@ -103,7 +103,7 @@ Annotate with features:
 ln.Feature(name="experiment", dtype=ln.Record).save()
 ln.Feature(name="disease", dtype=bt.Disease.ontology_id).save()
 ln.Feature(name="knockout_gene", dtype=bt.Gene.ensembl_gene_id).save()
-artifact.features.add_values(
+artifact.features.set_values(
     {"experiment": experiments, "knockout_gene": genes, "disease": diseases}
 )
 artifact.describe()

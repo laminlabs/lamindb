@@ -33,14 +33,13 @@ if TYPE_CHECKING:
     from .query_manager import RelatedManager
     from .query_set import QuerySet
     from .record import Record
+    from .sqlrecord import Branch
 
 
 class ULabel(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates):
     """Universal labels.
 
-    In some cases you may just want to create a simple label, then `ULabel` is for you.
-
-    It behaves like `Record`, just without the ability to store features.
+    It behaves like `Record`, just without the ability to link features.
 
     Args:
         name: `str` A name.
@@ -49,29 +48,36 @@ class ULabel(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         reference_type: `str | None = None` For instance, `"url"`.
 
     See Also:
-        :meth:`~lamindb.Feature`
-            Dimensions of measurement (e.g. column of a sheet, attribute of a record).
-        :meth:`~lamindb.ULabel`
-            Like `ULabel`, but with the ability to store features.
+        :class:`~lamindb.Record`
+            Like `ULabel`, but with the ability to link features.
 
     Examples:
 
-        Create a label::
+        Create a label and annotate an :class:`~lamindb.Artifact`::
 
             train_split = ln.ULabel(name="train").save()
-
-        Organize ulabels in a hierarchy::
-
-            split_type = ln.ULabel(name="Split", is_type=True).save()
-            train_split = ln.ULabel(name="train", type="split_type").save()
-
-        Label an artifact::
-
             artifact.ulabels.add(train_split)
 
         Query artifacts by label::
 
             ln.Artifact.filter(ulabels=train_split).to_dataframe()
+
+        Organize ulabels in a type hierarchy, based on the `type` field::
+
+            split_type = ln.ULabel(name="Split", is_type=True).save()
+            train_split = ln.ULabel(name="train", type="split_type").save()
+
+        The `type` hierarchy gives rise to a tree. If you need to model a full DAG-like **ontology**, use the `parents`/`children` fields::
+
+            cell_type = ln.Record(name="CellType", is_type=True).save()
+            t_cell = ln.Record(name="T Cell", type=cell_type).save()
+            cd4_t_cell = ln.Record(name="CD4+ T Cell", type=cell_type).save()
+            t_cell.children.add(cd4_t_cell)
+
+        If you work with basic biological entities like cell lines, cell types, tissues,
+        consider building on the public biological ontologies in :mod:`bionty`,
+        which work in the same way.
+
     """
 
     class Meta(SQLRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
@@ -133,7 +139,7 @@ class ULabel(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
 
     Allows to group ulabels by type, e.g., all donors, all split ulabels, etc.
     """
-    ulabels: ULabel
+    ulabels: RelatedManager[ULabel]
     """ULabels of this type (can only be non-empty if `is_type` is `True`)."""
     description: str | None = TextField(null=True)
     """A description."""
@@ -167,14 +173,16 @@ class ULabel(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
     """The collections annotated by this ulabel ← :attr:`~lamindb.Collection.ulabels`."""
     projects: RelatedManager[Project]
     """The projects annotating this ulabel ← :attr:`~lamindb.Project.ulabels`."""
+    branches: RelatedManager[Branch]
+    """The branches annotated by this ulabel ← :attr:`~lamindb.Branch.ulabels`."""
     linked_in_records: RelatedManager[Record] = models.ManyToManyField(
         "Record",
         through="RecordULabel",
         related_name="linked_ulabels",
     )
     """Records linking this ulabel as a value ← :attr:`~lamindb.Record.linked_ulabels`."""
-    ablocks: ULabelBlock
-    """Blocks that annotate this ulabel ← :attr:`~lamindb.ULabelBlock.ulabel`."""
+    ablocks: RelatedManager[ULabelBlock]
+    """Attached blocks ← :attr:`~lamindb.ULabelBlock.ulabel`."""
 
     @overload
     def __init__(
@@ -285,6 +293,18 @@ class RunULabel(BaseSQLRecord, IsLink):
     class Meta:
         app_label = "lamindb"
         unique_together = ("run", "ulabel")
+
+
+class BranchULabel(BaseSQLRecord, IsLink):
+    """Link model for branch–ulabel association."""
+
+    id: int = models.BigAutoField(primary_key=True)
+    branch: Branch = ForeignKey("Branch", CASCADE, related_name="links_ulabel")
+    ulabel: ULabel = ForeignKey(ULabel, PROTECT, related_name="links_branch")
+
+    class Meta:
+        app_label = "lamindb"
+        unique_together = ("branch", "ulabel")
 
 
 class CollectionULabel(BaseSQLRecord, IsLink, TracksRun):

@@ -1,4 +1,5 @@
 from pathlib import Path
+from unittest.mock import patch
 
 import lamindb as ln
 import pytest
@@ -177,12 +178,17 @@ def test_delete():
     run.save()
     assert report_path.exists()
     assert environment_path.exists()
-    # now delete everything
+    # now delete everything (run artifacts are cleaned up in background subprocess)
     transform.delete(permanent=True)
+    assert len(ln.Run.filter(id=run.id)) == 0
+    # Clean up orphan report/env artifacts if subprocess has not run yet
+    for art in [report, environment]:
+        a = ln.Artifact.filter(id=art.id).first()
+        if a is not None:
+            a.delete(permanent=True, storage=True)
     assert not report_path.exists()
     assert not environment_path.exists()
     assert len(ln.Artifact.filter(id__in=[report.id, environment.id])) == 0
-    assert len(ln.Run.filter(id=run.id)) == 0
 
 
 # see test_composite_component in test_schema.py
@@ -217,3 +223,114 @@ def test_successor_predecessor():
     successor2.delete(permanent=True)
 
     assert ln.models.transform.TransformTransform.filter().count() == 0
+
+
+def test_bulk_transform_permanent_delete(tmp_path):
+    """Bulk Transform permanent delete deletes TransformProject, runs (and artifacts), then transforms."""
+    transform = ln.Transform(key="Bulk transform delete").save()
+    runs = [ln.Run(transform).save() for _ in range(2)]
+    report_files = [tmp_path / f"bulk_report_{i}.txt" for i in range(2)]
+    for f in report_files:
+        f.write_text("report content")
+    report_artifacts = [
+        ln.Artifact(str(f), description=f"report {i}").save()
+        for i, f in enumerate(report_files)
+    ]
+    for run, art in zip(runs, report_artifacts):
+        run.report = art
+        run.save()
+    transform_id = transform.id
+    run_ids = [r.id for r in runs]
+    artifact_ids = [r.report_id for r in runs]
+
+    with patch("lamindb.models.run.subprocess.Popen") as mock_popen:
+        ln.Transform.filter(id=transform_id).delete(permanent=True)
+        mock_popen.assert_called_once()
+        args = mock_popen.call_args[0][0]
+        ids_str = args[args.index("--ids") + 1]
+        assert {int(x) for x in ids_str.split(",")} == set(artifact_ids)
+
+    assert ln.Transform.filter(id=transform_id).count() == 0
+    for rid in run_ids:
+        assert ln.Run.filter(id=rid).count() == 0
+    # With mock, cleanup subprocess did not run; clean up orphan report artifacts
+    for aid in artifact_ids:
+        art = ln.Artifact.filter(id=aid).first()
+        if art is not None:
+            art.delete(permanent=True, storage=False)
+
+
+def test_single_transform_permanent_delete_delegates_to_queryset(tmp_path):
+    """Single Transform permanent delete delegates to QuerySet and removes runs and artifacts."""
+    transform = ln.Transform(key="Single transform delete").save()
+    run = ln.Run(transform).save()
+    report_file = tmp_path / "single_report.txt"
+    report_file.write_text("report")
+    report = ln.Artifact(str(report_file), description="report").save()
+    run.report = report
+    run.save()
+    transform_id = transform.id
+    run_id = run.id
+    artifact_id = report.id
+
+    with patch("lamindb.models.run.subprocess.Popen") as mock_popen:
+        transform.delete(permanent=True)
+        mock_popen.assert_called_once()
+        args = mock_popen.call_args[0][0]
+        ids_str = args[args.index("--ids") + 1]
+        assert artifact_id in {int(x) for x in ids_str.split(",")}
+
+    assert ln.Transform.filter(id=transform_id).count() == 0
+    assert ln.Run.filter(id=run_id).count() == 0
+    # With mock, cleanup subprocess did not run; clean up orphan report artifact
+    art = ln.Artifact.filter(id=artifact_id).first()
+    if art is not None:
+        art.delete(permanent=True, storage=False)
+
+
+def test_bulk_transform_soft_delete():
+    """Bulk Transform soft delete sets branch_id=-1."""
+    transform = ln.Transform(key="Bulk transform soft delete").save()
+    ln.Run(transform).save()
+    transform_id = transform.id
+    ln.Transform.filter(id=transform_id).delete(permanent=False)
+    t = ln.Transform.filter(id=transform_id).one()
+    assert t.branch_id == -1
+    ln.Transform.filter(id=transform_id).delete(permanent=True)
+
+
+def test_bulk_transform_permanent_delete_promotes_previous_version():
+    """Bulk permanent delete of latest in a version family promotes the previous version."""
+    v1 = ln.Transform(key="Bulk permanent delete version family").save()
+    v2 = ln.Transform(revises=v1, key="Bulk permanent delete version family").save()
+    assert v2.is_latest
+    stem_uid = v1.stem_uid
+
+    ln.Transform.filter(id=v2.id).delete(permanent=True)
+
+    assert ln.Transform.filter(id=v2.id).count() == 0
+    v1_after = ln.Transform.filter(uid__startswith=stem_uid).one()
+    assert v1_after.pk == v1.pk
+    assert v1_after.is_latest
+    v1.delete(permanent=True)
+
+
+def test_bulk_transform_soft_delete_promotes_previous_version():
+    """Bulk soft delete of latest in a version family promotes the previous version."""
+    v1 = ln.Transform(key="Bulk soft delete version family").save()
+    v2 = ln.Transform(revises=v1, key="Bulk soft delete version family").save()
+    assert v2.is_latest
+    v2_id = v2.id
+    stem_uid = v1.stem_uid
+
+    ln.Transform.filter(id=v2_id).delete(permanent=False)
+
+    v2_after = ln.Transform.filter(id=v2_id).one()
+    assert v2_after.branch_id == -1
+    assert not v2_after.is_latest
+    v1.refresh_from_db()
+    assert v1.is_latest
+    assert ln.Transform.filter(uid__startswith=stem_uid).get(is_latest=True) == v1
+    # Clean up
+    v2_after.delete(permanent=True)
+    v1.delete(permanent=True)

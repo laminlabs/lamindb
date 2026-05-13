@@ -40,16 +40,22 @@ Track inputs, outputs, parameters, and environments of notebooks, scripts, and f
    flow
    step
 
-Artifacts & storage locations
-=============================
+Artifacts
+=========
 
-Files, folders & arrays and their storage locations.
+The central `Artifact` registry holds files, folders & arrays across any number of storage locations.
 
 .. autosummary::
    :toctree: .
 
    Artifact
-   Storage
+
+All other registries link to `Artifact` to provide context for finding, querying, validating, and managing artifacts.
+Here is an overview of the core data model:
+
+.. image:: https://lamin-site-assets.s3.amazonaws.com/.lamindb/HMfWLa1rFkxcxQEN0000.svg
+    :width: 800px
+
 
 Transforms & runs
 =================
@@ -81,17 +87,18 @@ Define features & schemas to validate artifacts & records.
    Feature
    Schema
 
-Project management
-==================
+Managing operations
+===================
 
 .. autosummary::
    :toctree: .
 
-   User
-   Collection
    Project
-   Space
+   Storage
+   User
    Branch
+   Space
+   Collection
    Reference
 
 Basic utilities
@@ -143,7 +150,7 @@ Developer API
 
 # ruff: noqa: I001
 # denote a release candidate for 0.1.0 with 0.1rc1, 0.1a1, 0.1b1, etc.
-__version__ = "2.0.1"
+__version__ = "2.4.2"
 
 import warnings as _warnings
 

@@ -347,7 +347,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
 
     Here are a few more examples for type names: `'ExpressionPanel'`, `'ProteinPanel'`, `'Multimodal'`, `'Metadata'`, `'Embedding'`.
     """
-    schemas: Schema
+    schemas: RelatedManager[Schema]
     """Schemas of this type (can only be non-empty if `is_type` is `True`)."""
     itype: str | None = CharField(
         max_length=120, db_index=True, null=True, editable=False
@@ -389,24 +389,24 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     components: RelatedManager[Schema] = ManyToManyField(
         "self", through="SchemaComponent", symmetrical=False, related_name="composites"
     )
-    """Components of this schema."""
+    """Components of this schema ← :attr:`~lamindb.Schema.composites`."""
     composites: RelatedManager[Schema]
-    """The composite schemas that contains this schema as a component.
+    """The composite schemas that contains this schema as a component ← :attr:`~lamindb.Schema.components`.
 
     For example, an `AnnData` composes multiple schemas: `var[DataFrameT]`, `obs[DataFrame]`, `obsm[Array]`, `uns[dict]`, etc.
     """
     features: RelatedManager[Feature]
-    """The features contained in the schema."""
+    """The features contained in the schema ← :attr:`~lamindb.Feature.schemas`."""
     artifacts: RelatedManager[Artifact]
-    """The artifacts that measure a feature set that matches this schema."""
+    """The artifacts with an inferred schema that matches this schema ← :attr:`~lamindb.Artifact.schemas`."""
     validated_artifacts: Artifact
-    """The artifacts that were validated against this schema with a :class:`~lamindb.curators.core.Curator`."""
+    """The artifacts that were validated against this schema ← :attr:`~lamindb.Artifact.schema`."""
     projects: RelatedManager[Project]
-    """Linked projects."""
-    records: Record
-    """Records that were annotated with this schema."""
-    ablocks: SchemaBlock
-    """Blocks that annotate this schema."""
+    """Linked projects ← :attr:`~lamindb.Project.schemas`."""
+    records: RelatedManager[Record]
+    """Records that were annotated with this schema ← :attr:`~lamindb.Record.schema`."""
+    ablocks: RelatedManager[SchemaBlock]
+    """Attached blocks ← :attr:`~lamindb.SchemaBlock.schema`."""
 
     @overload
     def __init__(
@@ -890,8 +890,13 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             else:
                 features = existing_features
             index_feature = self.index
+            index_feature_id = None if index_feature is None else index_feature.id
             _, validated_kwargs, _, _, _ = self._validate_kwargs_calculate_hash(
-                features=[f for f in features if f != index_feature],  # type: ignore
+                features=[  # type: ignore
+                    f
+                    for f in features
+                    if index_feature_id is None or f.id != index_feature_id
+                ],
                 index=index_feature,
                 slots=self.slots,
                 name=self.name,
@@ -982,14 +987,45 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             # this should return a queryset and not a list...
             # need to fix this
             return SQLRecordList(self._features[1])  # type: ignore
-        if len(self.features.all()) > 0:
-            return self.features.order_by("links_schema__id")
         if self.itype == "Composite" or self.is_type:
             return Feature.objects.none()
         related_name = self._get_related_name()
         if related_name is None:
             related_name = "features"
-        return self.__getattribute__(related_name).order_by("links_schema__id")
+        related_manager = self.__getattribute__(related_name)
+        through_model = related_manager.through
+        using = self._state.db
+        related_fk_name = next(
+            field.name
+            for field in through_model._meta.fields
+            if isinstance(field, models.ForeignKey) and field.name != "schema"
+        )
+        # Avoid the previous simple `order_by("links_schema__id")` on the related
+        # manager: a member can be linked to many schemas, and reverse-join ordering
+        # can become ambiguous across DB backends (SQLite vs Postgres). Instead, we
+        # order through rows constrained to this schema and preserve that exact order.
+        member_ids = list(
+            through_model.objects.using(using)
+            .filter(schema_id=self.id)
+            .order_by("id")
+            .values_list(f"{related_fk_name}_id", flat=True)
+        )
+        if not member_ids:
+            return related_manager.model.objects.using(using).none()
+        preserved_order = models.Case(
+            *[
+                models.When(id=member_id, then=models.Value(idx))
+                for idx, member_id in enumerate(member_ids)
+            ],
+            output_field=models.IntegerField(),
+        )
+        # Order by ids from the through table constrained to this schema to avoid
+        # ambiguous reverse-join ordering when a member is linked to many schemas.
+        return (
+            related_manager.model.objects.using(using)
+            .filter(id__in=member_ids)
+            .order_by(preserved_order)
+        )
 
     @property
     def dtype(self) -> str | None:

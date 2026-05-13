@@ -2,9 +2,15 @@
 execute_via: python
 ---
 
-# Manage notebooks, scripts & workflows
+# Track notebooks, scripts & workflows
 
-If you don't have a `lamindb` instance, here's how to create one:
+This guide walks from tracking data lineage in a notebook to tracking parameters in workflows.
+
+```{raw} html
+<iframe width="560" height="315" src="https://www.youtube.com/embed/jwnHu1PbA9Q?si=Eqn4dBZyFDrbcxvm" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+```
+
+**Note:** To run examples, if you don't have a `lamindb` instance, create one:
 
 ```python
 !lamin init --storage ./test-track
@@ -43,15 +49,6 @@ lamin load --key my_analyses/my_notebook.ipynb
 
 <!-- #endregion -->
 
-If your instance is connected to LaminHub, you can search or filter the `transform` page and explore data lineage:
-
-```{raw} html
-<video width="500" controls>
-  <source src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/Xdiikc2c1tPtHcvF0000.mp4" type="video/mp4">
-  Your browser does not support the video tag.
-</video>
-```
-
 <!-- #region -->
 
 Here is how you'd load the [notebook from the video](https://lamin.ai/laminlabs/lamindata/transform/F4L3oC6QsZvQ) into your local directory:
@@ -62,12 +59,15 @@ lamin load https://lamin.ai/laminlabs/lamindata/transform/F4L3oC6QsZvQ
 
 <!-- #endregion -->
 
+(sync-code-with-git)=
+
 ### Organize local development
 
 <!-- #region -->
 
-If no development directory is set, script & notebooks keys equal their filenames.
-Otherwise, script & notebooks keys equal the relative path in the development directory.
+If no development directory is set, script & notebook keys equal their filenames.
+Otherwise, they represent the relative path in the development directory.
+The exception is packaged source code, whose keys have the form `pypackages/{package_name}/path/to/file.py`.
 
 To set the development directory to your current shell development directory, run:
 
@@ -79,6 +79,45 @@ You can see the current status by running:
 
 ```bash
 lamin info
+```
+
+When you `cd` into that directory, you will now auto-connect to the configured lamindb instance.
+
+To sync scripts or workflows with their correponding files in a git repo, either export an environment variable:
+
+```shell
+export LAMINDB_SYNC_GIT_REPO = <YOUR-GIT-REPO-URL>
+```
+
+Or set the following setting:
+
+```python
+ln.settings.sync_git_repo = <YOUR-GIT-REPO-URL>
+```
+
+If you work on a single project in your lamindb instance, it makes sense to set LaminDB's `dev-dir` to the root of the local git repo clone.
+
+```bash
+dbs/
+  project1/
+    .git/
+    .lamin/
+    script1.py
+    notebook1.ipynb
+  ...
+```
+
+If you work on multiple projects in your lamindb instance, you can use the `dev-dir` as the local root and nest git repositories in it.
+
+```bash
+dbs/
+  database1/
+    .lamin/
+    repo1/
+      .git/
+    repo2/
+      .git/
+  ...
 ```
 
 <!-- #endregion -->
@@ -122,46 +161,26 @@ ln.track(space="Our team space")
 
 <!-- #endregion -->
 
+### Track agent plans
+
 <!-- #region -->
 
-(sync-code-with-git)=
+Saving an agent plan automatically tags with `artifact.kind = "plan"` and infers a `key` starting with `.plans/`:
 
-### Sync code with git
-
-To sync scripts or workflows with their correponding files in a git repo, either export an environment variable:
-
-```shell
-export LAMINDB_SYNC_GIT_REPO = <YOUR-GIT-REPO-URL>
+```bash
+lamin save /path/to/.cursor/plans/my_task.plan.md
+lamin save /path/to/.claude/plans/my_task.md
 ```
 
-Or set the following setting:
+Link an agent plan against a run:
 
 ```python
-ln.settings.sync_git_repo = <YOUR-GIT-REPO-URL>
+ln.track(plan=".plans/my-agent-plan.md")
 ```
 
-If you work on a single project in your lamindb instance, it makes sense to set LaminDB's `dev-dir` to the root of the local git repo clone.
+This links the `plan` artifact to a run in the same way as `transform`, an initiating run (`initiated_by_run`), and `report` / `environment` artifacts are linked to the run.
 
-```bash
-dbs/
-  project1/
-    .git/
-    script1.py
-    notebook1.ipynb
-  ...
-```
-
-If you work on multiple projects in your lamindb instance, you can use the `dev-dir` as the local root and nest git repositories in it.
-
-```bash
-dbs/
-  database1/
-    repo1/
-      .git/
-    repo2/
-      .git/
-  ...
-```
+While `transform` acts as the deterministic source code for the run and `initiated_by_run` enables higher-level runs in workflow orchestration, the agent `plan` complements these by linking a plan that steers a non-deterministic agent.
 
 <!-- #endregion -->
 
@@ -479,17 +498,17 @@ See the state of the database after we ran these different examples:
 ln.view()
 ```
 
-## Manage notebook templates
+## Using transform versions as templates
 
 <!-- #region -->
 
-A notebook acts like a template upon using `lamin load` to load it. Consider you run:
+A transform acts like a template upon using `lamin load` to load it. Consider you run:
 
 ```bash
 lamin load https://lamin.ai/account/instance/transform/Akd7gx7Y9oVO0000
 ```
 
-Upon running the returned notebook, you'll automatically create a new version and be able to browse it via the version dropdown on the UI.
+Upon running the returned notebook or script, you'll automatically create a new version and be able to browse it via the version dropdown on the UI.
 
 Additionally, you can:
 

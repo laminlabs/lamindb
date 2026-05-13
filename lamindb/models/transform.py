@@ -17,9 +17,10 @@ from lamindb.base.fields import (
 )
 from lamindb.base.users import current_user_id
 
+from .._secret_redaction import redact_secrets_in_source_code
 from ..models._is_versioned import process_revises
-from ._is_versioned import IsVersioned
-from .run import Run, User, delete_run_artifacts
+from ._is_versioned import IsVersioned, _adjust_is_latest_when_deleting_is_versioned
+from .run import Run, User
 from .sqlrecord import (
     BaseSQLRecord,
     IsLink,
@@ -38,24 +39,9 @@ if TYPE_CHECKING:
     from .block import TransformBlock
     from .project import Project, Reference
     from .query_manager import RelatedManager
+    from .query_set import QuerySet
     from .record import Record
     from .ulabel import ULabel
-
-
-def delete_transform_relations(transform: Transform):
-    from .project import TransformProject
-
-    # query all runs and delete their associated report and env artifacts
-    runs = Run.filter(transform=transform)
-    for run in runs:
-        delete_run_artifacts(run)
-    # CASCADE doesn't do the job below because run_id might be protected through run__transform=self
-    # hence, proactively delete the label links
-    qs = TransformProject.filter(transform=transform)
-    if qs.exists():
-        qs.delete()
-    # at this point, all artifacts have been taken care of
-    # and one can now leverage CASCADE delete
 
 
 # does not inherit from TracksRun because the Transform
@@ -187,7 +173,15 @@ class Transform(SQLRecord, IsVersioned):
         "Artifact", CASCADE, null=True, related_name="_environment_of_transforms"
     )
     """An environment for executing the transform."""
-    runs: Run
+    plan: Artifact | None = models.ForeignKey(
+        "Artifact",
+        CASCADE,
+        null=True,
+        related_name="_plan_for_transforms",
+        default=None,
+    )
+    """An optional plan for executing this transform."""
+    runs: RelatedManager[Run]
     """Runs of this transform ← :attr:`~lamindb.Run.transform`."""
     ulabels: RelatedManager[ULabel] = models.ManyToManyField(
         "ULabel", through="TransformULabel", related_name="transforms"
@@ -228,8 +222,8 @@ class Transform(SQLRecord, IsVersioned):
         User, PROTECT, default=current_user_id, related_name="created_transforms"
     )
     """Creator of record ← :attr:`~lamindb.User.created_transforms`."""
-    ablocks: TransformBlock
-    """Blocks that annotate this transform ← :attr:`~lamindb.TransformBlock.transform`."""
+    ablocks: RelatedManager[TransformBlock]
+    """Attached blocks ← :attr:`~lamindb.TransformBlock.transform`."""
 
     @overload
     def __init__(
@@ -522,6 +516,14 @@ class Transform(SQLRecord, IsVersioned):
 
     def _update_source_code_from_path(self, source_code_path: Path) -> None | str:
         _, transform_hash, _ = hash_file(source_code_path)  # ignore hash_type for now
+        source_code = source_code_path.read_text()
+        source_code_to_store, redaction_count = redact_secrets_in_source_code(
+            source_code
+        )
+        if redaction_count > 0:
+            logger.warning(
+                f"redacted {redaction_count} secret-looking assignment(s) before persisting transform source code"
+            )
         if self.hash is not None:
             # check if the hash of the transform source code matches
             if transform_hash != self.hash:
@@ -530,7 +532,7 @@ class Transform(SQLRecord, IsVersioned):
                     f" Proceed? (y/n) "
                 )
                 if response == "y":
-                    self.source_code = source_code_path.read_text()
+                    self.source_code = source_code_to_store
                     self.hash = transform_hash
                 else:
                     logger.warning("Please re-run `ln.track()` to make a new version")
@@ -538,9 +540,31 @@ class Transform(SQLRecord, IsVersioned):
             else:
                 logger.debug("source code is already saved")
         else:
-            self.source_code = source_code_path.read_text()
+            self.source_code = source_code_to_store
             self.hash = transform_hash
         return None
+
+
+def _permanent_delete_transforms(transforms: Transform | QuerySet) -> None:
+    """Execute bulk DELETE on transforms (runs, then transforms). Used by QuerySet and single-transform paths."""
+    from django.db.models import QuerySet as DjangoQuerySet
+
+    from .project import TransformProject
+
+    if isinstance(transforms, Transform):
+        db = transforms._state.db or "default"
+        qs = Transform.objects.using(db).filter(pk=transforms.pk)
+    else:
+        db = transforms.db or "default"
+        qs = transforms
+    objects = list(qs)
+    if not objects:
+        return
+    _adjust_is_latest_when_deleting_is_versioned(objects)
+    transform_ids = [o.pk for o in objects]
+    TransformProject.objects.using(db).filter(transform_id__in=transform_ids).delete()
+    Run.objects.using(db).filter(transform_id__in=transform_ids).delete(permanent=True)
+    DjangoQuerySet.delete(qs)
 
 
 class TransformTransform(BaseSQLRecord, IsLink):

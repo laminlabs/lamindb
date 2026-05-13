@@ -13,9 +13,7 @@ from lamindb_setup.core.upath import (
 from lamindb.core._settings import settings
 
 if TYPE_CHECKING:
-    from pathlib import Path
-
-    from lamindb_setup.types import UPathStr
+    from lamindb_setup.types import AnyPath, AnyPathStr
 
     from lamindb.models.artifact import Artifact
 
@@ -47,7 +45,7 @@ def auto_storage_key_from_artifact_uid(
     return storage_key
 
 
-def check_path_is_child_of_root(path: UPathStr, root: UPathStr) -> bool:
+def check_path_is_child_of_root(path: AnyPathStr, root: AnyPathStr) -> bool:
     if fsspec.utils.get_protocol(str(path)) != fsspec.utils.get_protocol(str(root)):
         return False
     path_upath = UPath(path)
@@ -144,7 +142,7 @@ def filepath_cache_key_from_artifact(
 
 
 def store_file_or_folder(
-    local_path: UPathStr, storage_path: UPath, print_progress: bool = True, **kwargs
+    local_path: AnyPathStr, storage_path: UPath, print_progress: bool = True, **kwargs
 ) -> None:
     """Store file or folder (localpath) at storagepath."""
     local_path = UPath(local_path)
@@ -195,15 +193,13 @@ def delete_storage_using_key(
 
 
 def delete_storage(
-    storagepath: Path, raise_file_not_found_error: bool = True
+    storagepath: AnyPath, raise_file_not_found_error: bool = True
 ) -> None | str:
     """Delete arbitrary artifact."""
     if storagepath.is_file():
         storagepath.unlink()
     elif storagepath.is_dir():
-        if isinstance(storagepath, LocalPathClasses) or not isinstance(
-            storagepath, UPath
-        ):
+        if isinstance(storagepath, LocalPathClasses):
             shutil.rmtree(storagepath)
         else:
             storagepath.rmdir()

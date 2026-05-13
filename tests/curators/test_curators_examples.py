@@ -1,16 +1,14 @@
-import shutil
 import sys
 from pathlib import Path
 
 docs_path = Path.cwd() / "docs" / "scripts"
 sys.path.append(str(docs_path))
 
+import anndata as ad
 import bionty as bt
 import lamindb as ln
 import pandas as pd
 import pytest
-import tiledbsoma
-import tiledbsoma.io
 from lamindb.core import datasets
 from lamindb.errors import InvalidArgument, ValidationError
 
@@ -107,7 +105,7 @@ def mudata_papalexi21_subset_schema():
     obs_schema_hto = ln.Schema(
         name="mudata_papalexi21_subset_hto_obs_schema",
         features=[
-            ln.Feature(name="nCount_HTO", dtype=float).save(),
+            ln.Feature(name="nCount_HTO", dtype=int).save(),
             ln.Feature(name="nFeature_HTO", dtype=int).save(),
             ln.Feature(name="technique", dtype=bt.ExperimentalFactor).save(),
         ],
@@ -247,7 +245,7 @@ def test_dataframe_curator(mini_immuno_schema: ln.Schema):
     artifact = curator.save_artifact(key="examples/dataset1.parquet")
 
     assert artifact.schema == mini_immuno_schema
-    assert artifact.features.slots["columns"].n == 5
+    assert artifact.features.slots["columns"].n_members == 5
     assert (
         artifact.features.describe(return_str=True)
         == """\
@@ -331,6 +329,39 @@ def test_dataframe_curator_validate_all_annotate_cat(mini_immuno_schema):
 
     artifact.delete(permanent=True)
     schema.delete(permanent=True)
+
+
+def test_same_name_different_type():
+    """The same feature names are allowed as long as they have different feature types."""
+    type_a = ln.Feature(
+        name="TypeA", is_type=True, description="Type A features"
+    ).save()
+    type_b = ln.Feature(
+        name="TypeB", is_type=True, description="Type B features"
+    ).save()
+
+    assay_a = ln.Feature(name="assay name", type=type_a, dtype=str).save()
+    assay_b = ln.Feature(name="assay name", type=type_b, dtype=str).save()
+
+    schema = ln.Schema(
+        name="schema_a",
+        features=[ln.Feature.get(name="assay name", type=type_a)],
+        flexible=True,
+        otype="DataFrame",
+    ).save()
+
+    df = pd.DataFrame({"assay name": ["exp1", "exp2"]})
+
+    artifact = ln.Artifact.from_dataframe(df, description="testdata").save()
+
+    curator = ln.curators.DataFrameCurator(artifact, schema)
+    curator.save_artifact()
+
+    artifact.delete(permanent=True)
+    ln.Schema.filter(features__name="assay name").delete(permanent=True)
+    schema.delete(permanent=True)
+    for feat in [assay_a, assay_b, type_a, type_b]:
+        feat.delete(permanent=True)
 
 
 def test_dataframe_curator_validate_all_annotate_cat2(mini_immuno_schema):
@@ -488,7 +519,7 @@ def test_schema_mixed_ensembl_symbols(ccaplog):
     """Quite some datasets have mixed ensembl gene IDs and symbols.
 
     The expected behavior is that an error is raised when such a dataset is encountered because
-    currently lamindb does not support validating values against a union of Fields.
+    currently LaminDB does not support validating values against a union of Fields.
 
     The current behavior is that these cases automatically pass.
     """
@@ -516,6 +547,33 @@ def test_schema_mixed_ensembl_symbols(ccaplog):
     assert "2 terms not validated in feature 'index': 'BRCA2', 'TP53'" in ccaplog.text
 
     schema.delete(permanent=True)
+
+
+def test_schema_mixed_features(ccaplog):
+    """Test that union dtype features validate against multiple registries."""
+
+    mixed_feature = ln.Feature(
+        name="mixed_feature",
+        dtype="cat[bionty.Tissue.ontology_id|bionty.CellType.ontology_id]",
+    ).save()
+
+    df_mixed = pd.DataFrame({"mixed_feature": ["UBERON:0000178", "CL:0000540"]})
+    mixed_schema = ln.Schema(features=[mixed_feature], coerce=True).save()
+
+    mixed_curator = ln.curators.DataFrameCurator(df_mixed, mixed_schema)
+    mixed_curator.validate()
+    assert mixed_curator._is_validated
+
+    assert bt.CellType.filter(ontology_id="CL:0000540").exists()
+    assert bt.Tissue.filter(ontology_id="UBERON:0000178").exists()
+
+    df_invalid = pd.DataFrame({"mixed_feature": ["INVALID:0000000"]})
+    invalid_curator = ln.curators.DataFrameCurator(df_invalid, mixed_schema)
+    with pytest.raises(ln.errors.ValidationError):
+        invalid_curator.validate()
+
+    mixed_schema.delete(permanent=True)
+    mixed_feature.delete(permanent=True)
 
 
 def test_anndata_curator_different_components(mini_immuno_schema: ln.Schema):
@@ -574,7 +632,7 @@ def test_anndata_curator_different_components(mini_immuno_schema: ln.Schema):
         artifact.save()
         assert not hasattr(artifact, "_curator")  # test that curator is deleted
         assert artifact.schema == anndata_schema
-        assert artifact.features.slots["var.T"].n == 3  # 3 genes get linked
+        assert artifact.features.slots["var.T"].n_members == 3  # 3 genes get linked
         if add_comp == "obs":
             assert artifact.features.slots["obs"] == obs_schema
             assert set(artifact.features.get_values()["cell_type_by_expert"]) == {
@@ -623,20 +681,24 @@ def test_anndata_curator_varT_curation():
                 artifact = ln.Artifact.from_anndata(
                     adata, key="examples/dataset1.h5ad", schema=anndata_schema
                 ).save()
-                assert artifact.features.slots[slot].n == 3  # 3 genes get linked
+                assert (
+                    artifact.features.slots[slot].n_members == 3
+                )  # 3 genes get linked
                 assert (
                     artifact.features.slots[slot].itype == "bionty.Gene.ensembl_gene_id"
                 )
                 if n_max_records == 2:
                     assert not artifact.features.slots[slot].members.exists()
                 else:
-                    assert artifact.features.slots[slot].members.to_dataframe()[
-                        "ensembl_gene_id"
-                    ].tolist() == [
+                    assert set(
+                        artifact.features.slots[slot]
+                        .members.to_dataframe()["ensembl_gene_id"]
+                        .tolist()
+                    ) == {
                         "ENSG00000153563",
                         "ENSG00000010610",
                         "ENSG00000170458",
-                    ]
+                    }
 
                 artifact.delete(permanent=True)
 
@@ -673,7 +735,7 @@ def test_anndata_curator_varT_curation_legacy(ccaplog):
                 "auto-transposed `var` for backward compat, please indicate transposition in the schema definition by calling out `.T`: slots={'var.T': itype=bt.Gene.ensembl_gene_id}"
                 in ccaplog.text
             )
-            assert artifact.features.slots[slot].n == 3  # 3 genes get linked
+            assert artifact.features.slots[slot].n_members == 3  # 3 genes get linked
             assert set(
                 artifact.features.slots[slot].members.to_dataframe()["ensembl_gene_id"]
             ) == {
@@ -897,93 +959,41 @@ def test_spatialdata_curator(
     artifact.delete(permanent=True)
 
 
-def test_tiledbsoma_curator(clean_soma_files):
-    """Test TiledbSomaExperimentCurator with schema."""
+def test_specific_source():
+    """Test validation of ontology terms using cat_filters to specify organism-specific source."""
     obs_schema = ln.Schema(
         features=[
-            ln.Feature(name="cell_type_by_expert", dtype=bt.CellType).save(),
-            ln.Feature(name="cell_type_by_model", dtype=bt.CellType).save(),
-        ],
-    ).save()
-
-    var_schema = ln.Schema(
-        features=[
-            ln.Feature(name="var_id", dtype=bt.Gene.ensembl_gene_id).save(),
+            ln.Feature(
+                name="developmental_stage_ontology_id",
+                dtype=bt.DevelopmentalStage.ontology_id,
+                cat_filters={
+                    "source": bt.Source.filter(
+                        entity="bionty.DevelopmentalStage", organism="mouse"
+                    ).one()
+                },
+            ).save()
         ],
         coerce=True,
+        minimal_set=False,
     ).save()
 
-    soma_schema = ln.Schema(
-        otype="tiledbsoma",
-        slots={
-            "obs": obs_schema,
-            "ms:RNA": var_schema,
-        },
+    schema = ln.Schema(
+        slots={"obs": obs_schema}, otype="AnnData", minimal_set=True, coerce=True
     ).save()
 
-    # Convert AnnData to SOMA format
-    adata = ln.examples.datasets.mini_immuno.get_dataset1(otype="AnnData")
-    tiledbsoma.io.from_anndata(
-        "small_dataset.tiledbsoma", adata, measurement_name="RNA"
+    adata = ad.AnnData(
+        obs=pd.DataFrame(
+            {
+                "developmental_stage_ontology_id": [
+                    "MmusDv:0000142",
+                    "MmusDv:0000022",
+                ]
+            }
+        ),
+        var=pd.DataFrame(index=["ENSMUSG00000022391", "ENSMUSG00000018569"]),
     )
 
-    # Test with invalid dataset
-    with pytest.raises(ln.errors.InvalidArgument) as e:
-        ln.curators.TiledbsomaExperimentCurator(adata, soma_schema)
-    assert "dataset must be SOMAExperiment-like." in str(e.value)
+    curator = ln.curators.AnnDataCurator(adata, schema)
+    curator.validate()
 
-    # Test with invalid schema
-    with tiledbsoma.Experiment.open("small_dataset.tiledbsoma") as experiment:
-        with pytest.raises(ln.errors.InvalidArgument) as e:
-            ln.curators.TiledbsomaExperimentCurator(experiment, schema=var_schema)
-        assert "Schema otype must be 'tiledbsoma'." in str(e.value)
-
-    with tiledbsoma.Experiment.open("small_dataset.tiledbsoma") as experiment:
-        curator = ln.curators.TiledbsomaExperimentCurator(experiment, soma_schema)
-
-        assert "obs" in curator.slots
-        assert "ms:RNA" in curator.slots
-
-        curator.validate()
-
-        artifact = curator.save_artifact(
-            key="examples/soma_experiment.tiledbsoma",
-            description="SOMA experiment with schema validation",
-        )
-
-        assert artifact.schema == soma_schema
-        assert "obs" in artifact.features.slots
-        assert "ms:RNA" in artifact.features.slots
-
-        # Check feature values are properly annotated
-        assert set(artifact.features.get_values()["cell_type_by_expert"]) == {
-            "CD8-positive, alpha-beta T cell",
-            "B cell",
-        }
-        assert set(artifact.features.get_values()["cell_type_by_model"]) == {
-            "T cell",
-            "B cell",
-        }
-
-    # Altered data (gene typo)
-    adata_typo = ln.examples.datasets.mini_immuno.get_dataset1(
-        otype="AnnData", with_gene_typo=True
-    )
-    typo_soma_path = "./mini_immuno_dataset1_typo.tiledbsoma"
-    tiledbsoma.io.from_anndata(typo_soma_path, adata_typo, measurement_name="RNA")
-    with tiledbsoma.Experiment.open(typo_soma_path) as experiment_typo:
-        curator_typo = ln.curators.TiledbsomaExperimentCurator(
-            experiment_typo, soma_schema
-        )
-
-        # Validation should fail due to typo
-        with pytest.raises(ln.errors.ValidationError) as error:
-            curator_typo.validate()
-        assert "GeneTypo" in str(error.value)
-
-    # Clean up
-    shutil.rmtree(typo_soma_path)
-    artifact.delete(permanent=True)
-    soma_schema.delete(permanent=True)
-    var_schema.delete(permanent=True)
-    obs_schema.delete(permanent=True)
+    schema.delete(permanent=True)

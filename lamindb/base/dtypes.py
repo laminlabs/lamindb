@@ -8,7 +8,6 @@ from datetime import datetime
 from typing import Any, Callable, Iterable
 
 import numpy as np
-import pandas as pd
 
 
 def is_list_of_type(value: Any, expected_type: Any) -> bool:
@@ -31,6 +30,8 @@ def check_dtype(expected_type: Any, nullable: bool) -> Callable:
     Returns:
         A function that checks if a series has the expected dtype or contains mixed types
     """
+    import pandas as pd
+
     from lamindb.models.query_set import SQLRecordList
 
     def check_function(series):
@@ -49,6 +50,8 @@ def check_dtype(expected_type: Any, nullable: bool) -> Callable:
         elif expected_type == "str" and pd.api.types.is_string_dtype(series.dtype):
             return True
         elif expected_type == "path" and pd.api.types.is_string_dtype(series.dtype):
+            return True
+        elif expected_type == "url" and pd.api.types.is_string_dtype(series.dtype):
             return True
         elif expected_type == "bool" and pd.api.types.is_bool_dtype(series.dtype):
             return True
@@ -69,6 +72,7 @@ def check_dtype(expected_type: Any, nullable: bool) -> Callable:
             elif (
                 expected_type_member == "str"
                 or expected_type_member == "path"
+                or expected_type_member == "url"
                 or expected_type_member.startswith("cat[")
             ):
                 return series.apply(lambda x: is_list_of_type(x, str)).all()

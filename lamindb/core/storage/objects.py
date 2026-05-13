@@ -1,45 +1,43 @@
 from __future__ import annotations
 
-from pathlib import PurePosixPath
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, TypeAlias
-
-from anndata import AnnData
-from pandas import DataFrame
 
 from lamindb.core._compat import (
     with_package_obj,
 )
-from lamindb.core.types import ScverseDataStructures
 
 if TYPE_CHECKING:
-    from lamindb_setup.types import UPathStr
+    from pandas import DataFrame
 
-SupportedDataTypes: TypeAlias = DataFrame | ScverseDataStructures
+    from .types import ScverseDataStructures
+
+    SupportedDataTypes: TypeAlias = DataFrame | ScverseDataStructures
+else:
+    SupportedDataTypes: TypeAlias = Any
 
 
-def infer_suffix(dmem: SupportedDataTypes, format: str | dict[str, Any] | None = None):
+def infer_suffix(
+    dmem: SupportedDataTypes, format: str | dict[str, Any] | None = None
+) -> str:
     """Infer LaminDB storage file suffix from a data object."""
-    if isinstance(dmem, AnnData):
-        assert not isinstance(format, dict)  # noqa: S101
-        if format is not None:
-            # should be `.h5ad`, `.`zarr`, or `.anndata.zarr`
-            if format not in {"h5ad", "zarr", "anndata.zarr"}:
-                raise ValueError(
-                    "Error when specifying AnnData storage format, it should be"
-                    f" 'h5ad', 'zarr', not '{format}'. Check 'format'"
-                    " or the suffix of 'key'."
-                )
-            return "." + format
-        return ".h5ad"
+    has_anndata, anndata_suffix = with_package_obj(
+        dmem,
+        "AnnData",
+        "anndata",
+        lambda obj: _infer_anndata_suffix(format),
+    )
+    if has_anndata:
+        return anndata_suffix
 
-    if isinstance(dmem, DataFrame):
-        if isinstance(format, str):
-            if format == ".csv":
-                return ".csv"
-        elif isinstance(format, dict):
-            if format.get("suffix") == ".csv":
-                return ".csv"
-        return ".parquet"
+    has_dataframe, dataframe_suffix = with_package_obj(
+        dmem,
+        "DataFrame",
+        "pandas",
+        lambda obj: _infer_dataframe_suffix(format),
+    )
+    if has_dataframe:
+        return dataframe_suffix
 
     if with_package_obj(
         dmem,
@@ -53,19 +51,7 @@ def infer_suffix(dmem: SupportedDataTypes, format: str | dict[str, Any] | None =
         dmem,
         "SpatialData",
         "spatialdata",
-        lambda obj: (
-            format
-            if format is not None and format in {"spatialdata.zarr", "zarr"}
-            else ".zarr"
-            if format is None
-            else (_ for _ in ()).throw(
-                ValueError(
-                    "Error when specifying SpatialData storage format, it should be"
-                    f" 'zarr', 'spatialdata.zarr', not '{format}'. Check 'format'"
-                    " or the suffix of 'key'."
-                )
-            )
-        ),
+        lambda obj: _infer_spatialdata_suffix(format),
     )
     if has_spatialdata:
         return spatialdata_suffix
@@ -73,24 +59,62 @@ def infer_suffix(dmem: SupportedDataTypes, format: str | dict[str, Any] | None =
         raise NotImplementedError
 
 
-def write_to_disk(dmem: SupportedDataTypes, filepath: UPathStr, **kwargs) -> None:
-    """Writes the passed in memory data to disk to a specified path."""
-    if isinstance(dmem, AnnData):
-        suffix = PurePosixPath(filepath).suffix
-        if suffix == ".h5ad":
-            dmem.write_h5ad(filepath)
-            return
-        elif suffix == ".zarr":
-            dmem.write_zarr(filepath)
-            return
-        else:
-            raise NotImplementedError
+def _infer_anndata_suffix(format: str | dict[str, Any] | None) -> str:
+    assert not isinstance(format, dict)  # noqa: S101
+    if format is not None:
+        # should be `.h5ad`, `.`zarr`, or `.anndata.zarr`
+        if format not in {"h5ad", "zarr", "anndata.zarr"}:
+            raise ValueError(
+                "Error when specifying AnnData storage format, it should be"
+                f" 'h5ad', 'zarr', not '{format}'. Check 'format'"
+                " or the suffix of 'key'."
+            )
+        return "." + format
+    return ".h5ad"
 
-    if isinstance(dmem, DataFrame):
-        if filepath.suffix == ".csv":
-            dmem.to_csv(filepath, **kwargs)
-            return
-        dmem.to_parquet(filepath, **kwargs)
+
+def _infer_dataframe_suffix(format: str | dict[str, Any] | None) -> str:
+    if isinstance(format, str):
+        if format == ".csv":
+            return ".csv"
+    elif isinstance(format, dict):
+        if format.get("suffix") == ".csv":
+            return ".csv"
+    return ".parquet"
+
+
+def _infer_spatialdata_suffix(format: str | dict[str, Any] | None) -> str:
+    if format is None:
+        return ".zarr"
+    if isinstance(format, str) and format in {"spatialdata.zarr", "zarr"}:
+        return format
+    raise ValueError(
+        "Error when specifying SpatialData storage format, it should be"
+        f" 'zarr', 'spatialdata.zarr', not '{format}'. Check 'format'"
+        " or the suffix of 'key'."
+    )
+
+
+# for types below note that local UPaths are subclasses of Path
+# Path(UPath(...)) properly coerces local UPaths and throws an error for cloud UPaths
+
+
+def write_to_disk(dmem: SupportedDataTypes, filepath: Path | str, **kwargs) -> None:
+    """Writes the passed in memory data to disk to a specified path."""
+    if with_package_obj(
+        dmem,
+        "AnnData",
+        "anndata",
+        lambda obj: _write_anndata(obj, filepath, **kwargs),
+    )[0]:
+        return
+
+    if with_package_obj(
+        dmem,
+        "DataFrame",
+        "pandas",
+        lambda obj: _write_dataframe(obj, filepath, **kwargs),
+    )[0]:
         return
 
     if with_package_obj(dmem, "MuData", "mudata", lambda obj: obj.write(filepath))[0]:
@@ -105,3 +129,23 @@ def write_to_disk(dmem: SupportedDataTypes, filepath: UPathStr, **kwargs) -> Non
         return
 
     raise NotImplementedError
+
+
+def _write_anndata(dmem: Any, filepath: Path | str, **kwargs) -> None:
+    suffix = Path(filepath).suffix
+    if suffix == ".h5ad":
+        dmem.write_h5ad(filepath, **kwargs)
+        return
+    elif suffix == ".zarr":
+        dmem.write_zarr(filepath, **kwargs)
+        return
+    else:
+        raise NotImplementedError
+
+
+def _write_dataframe(dmem: Any, filepath: Path | str, **kwargs) -> None:
+    suffix = Path(filepath).suffix
+    if suffix == ".csv":
+        dmem.to_csv(filepath, **kwargs)
+        return
+    dmem.to_parquet(filepath, **kwargs)

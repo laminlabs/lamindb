@@ -20,17 +20,22 @@ nox.options.default_venv_backend = "none"
 
 IS_PR = os.getenv("GITHUB_EVENT_NAME") != "push"
 CI = os.environ.get("CI")
+# SpatialData.write() regression with ome-zarr>=0.14:
+# https://github.com/scverse/spatialdata/issues/1090
+SPATIALDATA_OME_ZARR_CONSTRAINT = "ome-zarr<0.14.0"
 
 
 GROUPS = {}
 GROUPS["tutorial"] = [
-    "transfer.ipynb",
     "README.ipynb",
+    "sync.ipynb",
     "arrays.ipynb",
     "registries.ipynb",
 ]
 GROUPS["guide"] = [
     "track.ipynb",
+]
+GROUPS["tiledbsoma"] = [
     "curate.ipynb",
 ]
 GROUPS["biology"] = [
@@ -51,10 +56,10 @@ def install(session):
         "./sub/bionty",
     ]
     top_deps = [
-        ".[dev]",
+        ".[full,dev]",
     ]
     cmds = [
-        f"uv pip install {'--system' if CI else ''} --no-cache-dir {' '.join(base_deps)}",
+        f"uv pip install {'--system' if CI else ''} --no-cache-dir --no-deps {' '.join(base_deps)}",
     ] + [
         f"uv pip install {'--system' if CI else ''} --no-cache-dir -e {dep}"
         for dep in top_deps
@@ -72,9 +77,11 @@ def install(session):
         "no-instance",
         "tutorial",
         "guide",
+        "tiledbsoma",
         "biology",
         "faq",
         "storage",
+        "transfer",
         "curator",
         "integrations",
         "docs",
@@ -86,29 +93,35 @@ def install_ci(session, group):
     extras = ""
     if group in ["unit-core-sqlite", "unit-core-postgres"]:
         extras += "fcs"
-        # tiledbsoma dependency, specifying it here explicitly
-        # otherwise there are problems with uv resolver
         run(session, "uv pip install --system scanpy")
-        run(session, "uv pip install --system tiledbsoma")  # test TiledbsomaCatManager
         run(session, "uv pip install --system mudata")
         # spatialdata dependency, specifying it here explicitly
         # otherwise there are problems with uv resolver
         run(session, "uv pip install --system xarray-dataclasses")
-        run(session, "uv pip install --system spatialdata")
+        run(
+            session,
+            f"uv pip install --system spatialdata {SPATIALDATA_OME_ZARR_CONSTRAINT}",
+        )
     elif group == "unit-storage":
         extras += "gcp"
         run(session, "uv pip install --system huggingface_hub")
-        # tiledbsoma dependency, specifying it here explicitly
-        # otherwise there are problems with uv resolver
         run(session, "uv pip install --system scanpy")
-        run(session, "uv pip install --system tiledbsoma")
         run(session, "uv pip install --system polars")
     elif group == "tutorial":
         # anndata here to prevent installing older version on release
         run(session, "uv pip install --system huggingface_hub polars anndata==0.12.2")
     elif group == "guide":
         extras += "zarr_v2"
-        run(session, "uv pip install --system scanpy mudata spatialdata tiledbsoma")
+        run(
+            session,
+            f"uv pip install --system scanpy mudata spatialdata {SPATIALDATA_OME_ZARR_CONSTRAINT}",
+        )
+    elif group == "tiledbsoma":
+        extras += "zarr_v2"
+        run(
+            session,
+            f"uv pip install --system scanpy mudata spatialdata {SPATIALDATA_OME_ZARR_CONSTRAINT} tiledbsoma",
+        )
     elif group == "biology":
         extras += "fcs"
         run(session, "uv pip install --system ipywidgets")
@@ -131,9 +144,8 @@ def install_ci(session, group):
         run(session, "uv pip install --system xarray-dataclasses")
         run(
             session,
-            "uv pip install --system spatialdata",
+            f"uv pip install --system spatialdata {SPATIALDATA_OME_ZARR_CONSTRAINT}",
         )
-        run(session, "uv pip install --system tiledbsoma")
     elif group == "integrations":
         run(session, "uv pip install --system lightning")
     elif group == "docs":
@@ -143,7 +155,7 @@ def install_ci(session, group):
         run(session, "uv pip install --system xarray-dataclasses")
         run(
             session,
-            "uv pip install --system mudata spatialdata lightning",
+            f"uv pip install --system mudata spatialdata {SPATIALDATA_OME_ZARR_CONSTRAINT} lightning",
         )
         run(
             session,
@@ -155,7 +167,7 @@ def install_ci(session, group):
         pass
 
     extras = "," + extras if extras != "" else extras
-    run(session, f"uv pip install --system -e .[dev{extras}]")
+    run(session, f"uv pip install --system -e .[full,dev{extras}]")
 
     # on the release branch, do not use submodules but run with pypi install
     # only exception is the docs group which should always use the submodule
@@ -170,8 +182,7 @@ def install_ci(session, group):
     if group == "permissions":
         # have to install after lamindb installation
         # because lamindb downgrades django required by laminhub_rest
-        cmds = "uv pip install --system sentry_sdk line_profiler setuptools wheel==0.45.1 flit"
-        cmds += "\nuv pip install --system --no-build-isolation ./laminhub/backend"
+        cmds = "uv pip install --system ./laminhub/backend"
         cmds += "\nuv pip install --system ./laminhub/backend/utils"
         cmds += "\nuv pip install --system ./laminhub/backend/services/central"
         cmds += "\nuv pip install --system ./laminhub/backend/services/instancedb"
@@ -191,7 +202,7 @@ def configure_coverage(session) -> None:
     # so that we don't change this away from string
     assert isinstance(groups_str, str)  # noqa: S101
 
-    if "curator" not in groups_str:
+    if "curator" not in groups_str and "tiledbsoma" not in groups_str:
         extra_omit_patterns = ["**/curators/*"]
     else:
         extra_omit_patterns = []
@@ -220,13 +231,18 @@ def prepare(session):
     Is not needed for unit tests!
     """
     content = open("README.md").read()
+    # cannot execute the flow after ln.track() was called
+    content = content.replace("    create_fasta()", "    pass")
     open("README_stripped.md", "w").write(
         "\n".join(
             line
             for line in content.split("\n")
-            if not line.strip().startswith("accessor = artifact.open()")
+            if not line.strip().startswith(
+                ("accessor = artifact.open()", "ln.track(project=", "ln.Project(name=")
+            )
         )
     )
+
     os.system("jupytext README_stripped.md --to notebook --output ./docs/README.ipynb")
     convert_executable_md_files()
     os.system("cp ./tests/core/test_artifact_parquet.py ./docs/scripts/")
@@ -257,9 +273,11 @@ def prepare(session):
         "integrations",
         "tutorial",
         "guide",
+        "tiledbsoma",
         "biology",
         "faq",
         "storage",
+        "transfer",
         "cli",
         "permissions",
     ],
@@ -297,6 +315,7 @@ def test(session, group):
         run(session, f"pytest {coverage_args} ./tests/no_instance {duration_args}")
     elif group == "tutorial":
         run(session, "lamin logout")
+        run(session, "lamin init --storage ./test-readme --modules bionty")
         run(
             session, f"pytest -s {coverage_args} ./docs/test_notebooks.py::test_{group}"
         )
@@ -304,6 +323,15 @@ def test(session, group):
         run(
             session,
             f"pytest -s {coverage_args} ./docs/test_notebooks.py::test_{group}",
+        )
+    elif group == "tiledbsoma":
+        run(
+            session,
+            (
+                f"pytest {coverage_args} tests/tiledbsoma "
+                "./docs/test_notebooks.py::test_tiledbsoma "
+                f"{duration_args}"
+            ),
         )
     elif group == "biology":
         run(
@@ -314,6 +342,8 @@ def test(session, group):
         run(session, f"pytest -s {coverage_args} ./docs/faq")
     elif group == "storage":
         run(session, f"pytest -s {coverage_args} ./docs/storage")
+    elif group == "transfer":
+        run(session, f"pytest {coverage_args} tests/transfer {duration_args}")
     elif group == "curator":
         run(
             session,
@@ -329,7 +359,7 @@ def test(session, group):
     elif group == "permissions":
         run(session, f"pytest {coverage_args} ./tests/permissions")
     # move artifacts into right place
-    if group in {"tutorial", "guide", "biology"}:
+    if group in {"tutorial", "guide", "tiledbsoma", "biology"}:
         target_dir = Path(f"./docs/{group}")
         target_dir.mkdir(exist_ok=True)
         for filename in GROUPS[group]:
@@ -426,13 +456,13 @@ def clidocs(session):
 def docs(session):
     # move artifacts into right place
     run(session, "lamin settings set private-django-api true")
-    for group in ["tutorial", "guide", "biology", "faq", "storage"]:
+    for group in ["tutorial", "guide", "tiledbsoma", "biology", "faq", "storage"]:
         if Path(f"./docs-{group}").exists():
             if Path(f"./docs/{group}").exists():
                 shutil.rmtree(f"./docs/{group}")
             Path(f"./docs-{group}").rename(f"./docs/{group}")
         # move back to root level
-        if group in {"tutorial", "guide", "biology"}:
+        if group in {"tutorial", "guide", "tiledbsoma", "biology"}:
             for path in Path(f"./docs/{group}").glob("*"):
                 path.rename(f"./docs/{path.name}")
     run(

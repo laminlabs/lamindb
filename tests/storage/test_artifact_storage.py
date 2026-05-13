@@ -59,11 +59,12 @@ def test_create_small_file_from_remote_path(
     ln.settings.creation.artifact_skip_size_hash = False
 
 
-def test_versioning_arifact_from_existing_path():
+def test_versioning_arifact_from_existing_path(ccaplog):
     artifact1 = ln.Artifact("s3://lamindb-ci/test-data/test.parquet").save()
     artifact2 = ln.Artifact(
         "s3://lamindb-ci/test-data/test.csv", revises=artifact1
     ).save()
+    assert "you are saving to a non-latest version of the artifact" not in ccaplog.text
     assert artifact1.stem_uid == artifact2.stem_uid
     assert artifact1.uid != artifact2.uid
     artifact1.delete(permanent=True, storage=False)
@@ -119,6 +120,7 @@ def test_huggingface_paths():
         description="hf adata",
     )
     artifact_adata.save()
+    assert artifact_adata.key == "anndata/pbmc68k_test.h5ad"
     assert artifact_adata.hash is not None
     assert isinstance(artifact_adata.load(), ad.AnnData)
     assert artifact_adata._cache_path.exists()
@@ -187,3 +189,20 @@ def test_folder_like_artifact_s3():
     assert study0_data._hash_type == "md5-d"
     assert study0_data.n_files == 51
     assert study0_data.size == 658465
+
+
+def test_single_file_directory_preserved(tmp_path):
+    local_dir = tmp_path / "single_file_dir"
+    local_dir.mkdir()
+    (local_dir / "only.txt").write_text("single file")
+
+    storage = ln.Storage.get(root="s3://lamindb-test/storage")
+    artifact = ln.Artifact(
+        local_dir, key="tests/single-file-directory", storage=storage
+    ).save()
+    assert artifact.path.as_posix().startswith("s3://lamindb-test/storage")
+    assert artifact.n_files == 1
+    assert artifact.path.is_dir()
+    assert [file.name for file in artifact.path.iterdir()] == ["only.txt"]
+
+    artifact.delete(permanent=True)

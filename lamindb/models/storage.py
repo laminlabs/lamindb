@@ -32,8 +32,6 @@ from .run import TracksRun, TracksUpdates
 from .sqlrecord import Space, SQLRecord
 
 if TYPE_CHECKING:
-    from pathlib import Path
-
     from lamindb_setup.types import StorageType
     from upath import UPath
 
@@ -46,12 +44,12 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
     A storage location is either a directory (local or a folder in the cloud) or
     an entire S3/GCP bucket.
 
-    A storage location is written to by at most one LaminDB instance: the location’s *writing instance*.
-    Some locations are not managed with LaminDB and, hence, do not have a writing instance.
+    A storage location is written to by at most one LaminDB instance: the location’s *managing instance*.
+    Some locations are not managed with LaminDB and, hence, do not have a managing instance.
 
     .. dropdown:: Writable vs. read-only storage locations
 
-        The `instance_uid` field of `Storage` defines its *writing instance*.
+        The `instance_uid` field of `Storage` defines its *managing instance*.
         Only if a storage location's `instance_uid` matches your current instance's `uid` (`ln.settings.instance_uid`),
         you can write to it.
         All other storage locations are read-only in your current instance.
@@ -61,7 +59,7 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
         .. image:: https://lamin-site-assets.s3.amazonaws.com/.lamindb/eHDmIOAxLEoqZ2oK0000.png
            :width: 400px
 
-        Some storage locations are not written to by any LaminDB instance, hence, their `instance_uid` is `None`.
+        Some storage locations are not managed by any LaminDB instance, hence, their `instance_uid` is `None`.
 
     .. dropdown:: Managing access to storage locations across instances
 
@@ -325,7 +323,7 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
         return self.region
 
     @property
-    def path(self) -> Path | UPath:
+    def path(self) -> UPath:
         """Path.
 
         Uses the `.root` field and converts it into a `Path` or `UPath`.

@@ -84,7 +84,24 @@ def test_to_dataframe():
 def test_complex_df_with_features():
     # should not fail
     ln.Artifact.connect("laminlabs/lamindata").to_dataframe(include="features")
+    ln.Run.connect("laminlabs/lamindata").to_dataframe(include="features")
     ln.Artifact.connect("laminlabs/lamindata").to_dataframe(features="queryset")
+
+
+def test_run_to_dataframe_includes_json_features():
+    transform = ln.Transform(key="test_run_to_dataframe_includes_json_features").save()
+    run = ln.Run(transform=transform).save()
+    feature = ln.Feature(name="run_json_feature", dtype=str).save()
+
+    run.features.set_values({"run_json_feature": "hello"})
+    df = ln.Run.filter(id=run.id).to_dataframe(include="features")
+
+    assert "run_json_feature" in df.columns
+    assert df["run_json_feature"].iloc[0] == "hello"
+
+    run.delete(permanent=True)
+    transform.delete(permanent=True)
+    feature.delete(permanent=True)
 
 
 def test_one_first():
@@ -123,6 +140,29 @@ def test_filter_unknown_field():
     with pytest.raises(InvalidArgument) as e:
         ln.Artifact.filter(nonexistent="value")
     assert "You can query either by available fields" in str(e)
+
+
+def test_filter_status_field():
+    transform = ln.Transform(key="test_filter_status_field").save()
+    run = ln.Run(transform).save()
+    run._status_code = 0
+    run.save(update_fields=["_status_code"])
+    assert ln.Run.filter(status="completed").count() >= 1
+
+    branch = ln.Branch(name="test_filter_status_branch").save()
+    branch.status = "review"
+    branch.save()
+    assert ln.Branch.filter(status="review").count() >= 1
+
+    project = ln.Project(name="test_filter_status_project").save()
+    project._status_code = 2
+    project.save(update_fields=["_status_code"])
+    assert ln.Project.filter(status=2).count() >= 1
+
+    run.delete(permanent=True)
+    transform.delete(permanent=True)
+    project.delete(permanent=True)
+    branch.delete()
 
 
 def test_get_id_type_error():

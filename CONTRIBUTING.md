@@ -14,9 +14,9 @@ For installation from GitHub, call:
 
 ```bash
 git clone --recursive https://github.com/laminlabs/lamindb
-pip install laminci
 python -m venv .venv
 source .venv/bin/activate
+pip install git+https://github.com/laminlabs/laminci
 nox -s install
 ```
 
@@ -94,6 +94,16 @@ If the `docs` job succeeds, a preview URL will be posted automatically as a comm
 ## Releases
 
 Currently only lamin employees have release rights.
+
+Release publishing is managed via `laminci release --pypi`. For `lamindb`, the
+release flow now publishes two distributions in sequence:
+
+- `lamindb-core` (contains the `lamindb/` namespace package)
+- `lamindb` (meta-package that depends on `lamindb-core`)
+
+Before first production publish of a version, run a TestPyPI dry run by
+building both wheels from `pyproject.toml` and `pyproject.full.toml`, then
+uploading with `twine` to TestPyPI for verification.
 
 [Docker daemon]: https://docs.docker.com/engine/install/
 [gitmoji]: https://gitmoji.dev/

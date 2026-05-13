@@ -3,8 +3,8 @@ requires = ["flit_core >=3.2,<4"]
 build-backend = "flit_core.buildapi"
 
 [project]
-name = "lamindb"
-requires-python = ">=3.10,<3.14"
+name = "lamindb-core"
+requires-python = ">=3.10,<=3.14"
 authors = [{name = "Lamin Labs", email = "open-source@lamin.ai"}]
 readme = "README.md"
 dynamic = ["version", "description"]
@@ -15,29 +15,9 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
 ]
 dependencies = [
-    # LaminDB core modules
-    "lamin_utils==0.16.3",  # 30kB pure python, no dependencies
-    "lamin_cli==1.11.0",     # 30kB pure python, no dependencies
-    "lamindb_setup[aws]==1.18.2",  # dependencies like Django & fsspec
-    # LaminDB optional modules, included to avoid users forgetting about extras
-    "bionty==2.1.0", # 30kB pure python, no dependencies
-    "pertdb==2.0.2",  # 30kB pure python, no dependencies
-    "wetlab>=2.0.0,<2.1.0",  # backward compat with pertdb
-    # Jupyter -- small packages with few & small dependencies
-    "jupytext",
-    "nbconvert>=7.2.1",  # bound to avoid lxml[html_clean] dependency
-    "nbproject==0.11.1",  # lamin module, adds orjson
-    # Others
-    "pyyaml",
-    "pyarrow",
-    "pandera>=0.24.0",
-    "typing_extensions!=4.6.0",
-    "python-dateutil",
-    "pandas>=2.0.0,<3.0.0",  # for .infer_objects(copy=False) in lamin-utils; not yet compatible with Pandas 3.0.0
-    "anndata>=0.8.0,<=0.12.7",  # backed sparse is incompatible with scipy 1.15.0 for anndata 1.11.1
-    "scipy<1.17.0", # 1.17.0 is incompatible with anndata<0.12.7
-    "fsspec",
-    "graphviz",
+    "lamin_utils==0.16.4",  # no dependencies
+    "lamin_cli==1.16.0",  # no dependencies
+    "lamindb_setup[aws]==1.25a1",  # dependencies like Django & fsspec
     "psycopg2-binary",
 ]
 
@@ -45,6 +25,28 @@ dependencies = [
 Home = "https://github.com/laminlabs/lamindb"
 
 [project.optional-dependencies]
+# full: keep in sync with pyproject.full.toml dependencies (excluding lamindb-core).
+# If you change duplicated deps here, update pyproject.full.toml too, and vice versa.
+full = [
+    # LaminDB optional modules, included to avoid users forgetting about extras
+    "bionty>=2.3.1,<3",  # 30kB pure python, no dependencies
+    "pertdb>=2.2.0,<3",  # 30kB pure python, no dependencies
+    # Jupyter -- small packages with few & small dependencies
+    "jupytext",
+    "nbconvert>=7.2.1",  # bound to avoid lxml[html_clean] dependency
+    "nbproject==0.11.1",  # adds orjson
+    # Data & validation dependencies (heavier)
+    "pyarrow",
+    "pandera>=0.24.0",
+    "pandas>=2.0.0,<3.0.0",  # for .infer_objects(copy=False) in lamin-utils; not yet compatible with Pandas 3.0.0
+    "anndata>=0.10.0,<=0.12.10",  # backed sparse is incompatible with scipy 1.15.0 for anndata 1.11.1
+    # Runtime utilities
+    "graphviz",
+    "scipy<1.17.0",  # 1.17.0 is incompatible with anndata<0.12.7
+    "pyyaml",
+    "typing_extensions!=4.6.0",
+    "python-dateutil",
+]
 gcp = [
     "lamindb_setup[gcp]",
 ]
@@ -73,6 +75,9 @@ dev = [
     # bionty
     "pronto",
 ]
+
+[tool.flit.module]
+name = "lamindb"
 
 [tool.ruff]
 src = ["src"]
@@ -175,6 +180,7 @@ lint.ignore = [
     # Possible SQL injection vector through string-based query construction
     "S608",
     # All of the below TODO 3.10 refactor, temporarily disable
+    "S602",
     "UP007",
     "UP038",
     "B905",
@@ -230,7 +236,7 @@ exclude_lines = [
 ]
 
 [tool.coverage.run]
-omit = ["**/core/datasets/*", "**/migrations/*", "**/curators/_legacy.py", "**/core/_compat.py", "**/core/types.py"]
+omit = ["**/examples/datasets/*", "**/migrations/*", "**/curators/_legacy.py", "**/core/_compat.py", "**/core/types.py"]
 
 [tool.flit.sdist]
 exclude = [

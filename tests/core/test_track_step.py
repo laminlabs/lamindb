@@ -25,6 +25,8 @@ def process_chunk(
 
 
 def test_step_parallel():
+    # Ensure no global run from a previous test (e.g. test_flow)
+    ln.context._run = None
     with pytest.raises(RuntimeError) as err:
         process_chunk(4)
     assert (

@@ -1,9 +1,17 @@
+import time
+
 import lamindb as ln
 import pytest
 
 
 def test_run():
-    transform = ln.Transform(key="My transform")
+    with pytest.raises(ValueError) as error:
+        ln.Run(1, 2)
+    assert error.exconly() == "ValueError: Only one non-keyword arg allowed: transform"
+    with pytest.raises(TypeError) as error:
+        ln.Run()
+    assert error.exconly() == "TypeError: Pass transform parameter"
+    transform = ln.Transform(key="my_transform")
     with pytest.raises(ValueError) as error:
         ln.Run(transform)
     assert (
@@ -19,27 +27,54 @@ def test_run():
     assert run2.reference == "test1"
     assert run2.reference_type == "test2"
     assert run.uid != run2.uid
+    run.delete(permanent=True)
 
-    report_artifact = ln.Artifact("README.md", description="report of run2").save()
+    report_artifact = ln.Artifact(
+        "README.md", kind="__lamindb_run__", description="report of run2"
+    ).save()
     run2.report = report_artifact
-    environment = ln.Artifact("CONTRIBUTING.md", description="env of run2").save()
+    environment = ln.Artifact(
+        "CONTRIBUTING.md", kind="__lamindb_run__", description="requirements.txt"
+    ).save()
     run2.environment = environment
+    run2.save()
 
+    # report/env artifacts will be cleaned up in background subprocess
     run2.delete(permanent=True)
-
-    # test deletion of run including attached artifacts
-    assert ln.Artifact.objects.filter(uid=report_artifact.uid).exists() is False
-    assert ln.Artifact.objects.filter(uid=environment.uid).exists() is False
+    assert ln.Run.filter(uid=run2.uid).count() == 0
+    # report/env are still present in the database
+    assert ln.Artifact.filter(uid=report_artifact.uid).count() == 1
+    assert ln.Artifact.filter(uid=environment.uid).count() == 1
 
     transform.delete(permanent=True)
-
     assert ln.Run.filter(uid=run.uid).count() == 0
 
+    # wait for background cleanup subprocess to delete artifacts
+    time.sleep(4)
+    assert ln.Artifact.filter(uid=report_artifact.uid).count() == 0
+    assert ln.Artifact.filter(uid=environment.uid).count() == 0
 
-def test_edge_cases():
-    with pytest.raises(ValueError) as error:
-        ln.Run(1, 2)
-    assert error.exconly() == "ValueError: Only one non-keyword arg allowed: transform"
-    with pytest.raises(TypeError) as error:
-        ln.Run()
-    assert error.exconly() == "TypeError: Pass transform parameter"
+
+def test_bulk_permanent_run_delete(tmp_path):
+    transform = ln.Transform(key="Bulk run delete transform").save()
+    n_runs = 2
+    report_files = [tmp_path / f"report_{i}.txt" for i in range(n_runs)]
+    for i, path in enumerate(report_files):
+        path.write_text(f"content {i}")
+    report_artifacts = [
+        ln.Artifact(path, kind="__lamindb_run__", description=f"report {i}").save()
+        for i, path in enumerate(report_files)
+    ]
+    runs = [ln.Run(transform, report=af).save() for af in report_artifacts]
+    run_ids = [r.id for r in runs]
+    ln.settings.verbosity = "debug"
+    ln.Run.filter(id__in=run_ids).order_by("created_at").delete(permanent=True)
+    assert ln.Run.filter(id__in=run_ids).count() == 0
+    assert ln.Artifact.filter(uid=report_artifacts[0].uid).count() == 1
+    transform.delete(permanent=True)
+
+    # wait for background cleanup subprocess to delete artifacts
+    time.sleep(4)
+    assert ln.Artifact.filter(uid=report_artifacts[0].uid).count() == 0
+    clean_up_logs = ln.setup.settings.cache_dir / f"run_cleanup_logs_{runs[0].uid}.txt"
+    assert f"deleted artifact {report_artifacts[0].id}" in clean_up_logs.read_text()

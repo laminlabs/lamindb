@@ -4,12 +4,16 @@ execute_via: python
 
 # Manage biological ontologies
 
-This guide shows how to manage ontologies for basic biological entities based on plugin {mod}`bionty`.
+This guide shows how to manage ontologies for basic biological entities.
+
+```{raw} html
+<iframe width="560" height="315" src="https://www.youtube.com/embed/3vpWjHj3Kw8?si=D0jxqL2zB4idh2QA" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+```
 
 If instead you're interested in
 
 - accessing public ontologies, see {doc}`docs:public-ontologies`
-- flexible bio registries for the wetlab (a LIMS), see {class}`~lamindb.Record` and {doc}`docs:sheets`
+- flexible bio registries for the wetlab (a LIMS), see {class}`~lamindb.Record` and {doc}`docs:records`
 
 ```python
 # pip install lamindb
