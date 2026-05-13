@@ -36,6 +36,7 @@ def _search(
     string: str,
     *,
     field: StrField | list[StrField] | None = None,
+    # TODO: factor into SEARCH_QUERY_DEFAULT_LIMIT in 2.6 once consistent.
     limit: int | None = 20,
     case_sensitive: bool = False,
     truncate_string: bool = False,

@@ -1100,6 +1100,7 @@ class BasicQuerySet(models.QuerySet):
         *,
         include: str | list[str] | None = None,
         features: str | list[str] | None = None,
+        # TODO: factor into SEARCH_QUERY_DEFAULT_LIMIT in 2.6 once consistent.
         limit: int | None = 100,
         order_by: str | None = "-id",
     ) -> pd.DataFrame:
@@ -1181,6 +1182,16 @@ class BasicQuerySet(models.QuerySet):
         if limit is not None and len(df) > limit:
             is_truncated = True
             df = df.iloc[:limit].copy()
+        # Keep the default limit at 100 until 2.6.0 while preparing users
+        # for the upcoming switch to 20.
+        if limit == 100 and 20 < len(df) < 100:
+            warnings.warn(
+                "The default `to_dataframe(limit=...)` will change from 100 to 20 in"
+                " lamindb 2.6.0. Pass `limit=100` to keep the current behavior or"
+                " `limit=20` to adopt the future default now.",
+                FutureWarning,
+                stacklevel=2,
+            )
         if len(df) == 0:
             df = pd.DataFrame({}, columns=field_names)
             return df

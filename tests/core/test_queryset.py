@@ -81,6 +81,22 @@ def test_to_dataframe():
     assert qs.to_dataframe().iloc[0]["handle"] == ln.setup.settings.user.handle
 
 
+def test_to_dataframe_future_warning_before_default_switch():
+    records = [ln.ULabel(name=f"to-df-limit-warning-{i}") for i in range(25)]
+    ln.save(records)
+    queryset = ln.ULabel.filter(name__startswith="to-df-limit-warning-")
+
+    with pytest.warns(
+        FutureWarning,
+        match=r"default `to_dataframe\(limit=\.\.\.\)` will change from 100 to 20",
+    ):
+        df_default = queryset.to_dataframe(order_by="name")
+    assert len(df_default) == 25
+
+    for record in records:
+        record.delete(permanent=True)
+
+
 def test_complex_df_with_features():
     # should not fail
     ln.Artifact.connect("laminlabs/lamindata").to_dataframe(include="features")
