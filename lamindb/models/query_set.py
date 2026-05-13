@@ -1100,6 +1100,7 @@ class BasicQuerySet(models.QuerySet):
         *,
         include: str | list[str] | None = None,
         features: str | list[str] | None = None,
+        # TODO: factor into SEARCH_QUERY_DEFAULT_LIMIT in 2.6 once consistent.
         limit: int | None = 100,
         order_by: str | None = "-id",
     ) -> pd.DataFrame:
