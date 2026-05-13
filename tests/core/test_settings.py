@@ -43,3 +43,31 @@ def test_local_storage_setter_raises_on_foreign_managed_storage(tmp_path):
         == f"ValueError: Storage '{storage.root}' exists in another instance (_not_exists_), cannot write to it from here."
     )
     storage.delete()
+
+
+def test_storage_setter_raises_on_unmanaged_storage(tmp_path):
+    storage = ln.Storage(root=(tmp_path / "unmanaged-storage").as_posix()).save()
+    storage.instance_uid = None
+    storage.save()
+
+    with pytest.raises(ValueError) as error:
+        ln.settings.storage = storage.root
+    assert (
+        error.exconly()
+        == f"ValueError: Storage '{storage.root}' is not managed by any instance, cannot write to it from here."
+    )
+    storage.delete()
+
+
+def test_local_storage_setter_raises_on_unmanaged_storage(tmp_path):
+    storage = ln.Storage(root=(tmp_path / "unmanaged-local-storage").as_posix()).save()
+    storage.instance_uid = None
+    storage.save()
+
+    with pytest.raises(ValueError) as error:
+        ln.settings.local_storage = storage.root
+    assert (
+        error.exconly()
+        == f"ValueError: Storage '{storage.root}' is not managed by any instance, cannot write to it from here."
+    )
+    storage.delete()

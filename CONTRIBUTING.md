@@ -14,9 +14,9 @@ For installation from GitHub, call:
 
 ```bash
 git clone --recursive https://github.com/laminlabs/lamindb
-pip install laminci
 python -m venv .venv
 source .venv/bin/activate
+pip install git+https://github.com/laminlabs/laminci
 nox -s install
 ```
 
