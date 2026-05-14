@@ -24,6 +24,8 @@ While code has git and tables have dbt/warehouses, biological data has lacked a 
 LaminDB is a lineage-native lakehouse that understands the biological feature space and models it through bio-registries and formats (`AnnData`, `.zarr`, …) based on the established open data stack:
 Postgres/SQLite for metadata and cross-platform storage for datasets.
 
+Read more: [blog.lamin.ai/sparse-measurements](https://blog.lamin.ai/sparse-measurements).
+
 </details>
 
 <img width="800px" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/BunYmHkyFLITlM5M000D.svg">
