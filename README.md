@@ -10,25 +10,25 @@ Agent? [llms.txt](https://docs.lamin.ai/llms.txt)
 <details>
 <summary>Why?</summary>
 
-(1) Without context for how to trace how data comes about,
-feedback loops across data generation & analysis can't be closed and wrong assumptions are made.
-Without the memory provided by lineage, compute & intelligence get wasted on fragmented, non-compounding tasks.
+(1) Without context on how data comes about,
+analysts easily make wrong assumptions and feedback loops with data generation can't be closed.
+Without the memory provided by data lineage, compute & intelligence often get wasted on fragmented, non-compounding tasks.
 
 (2) Applying models to thousands of datasets — across LIMS, ELNs, orthogonal assays — is a path to more informed R&D.
-But without queryable & validated data or with data locked in organizational & infrastructure silos, it leads to garbage in, garbage out or is quite simply impossible.
+But if data is unqueryable, unvalidated, or locked in infrastructure silos, this leads to 'garbage in, garbage out' — or makes the process entirely impossible.
 
 While code has git and tables have dbt/warehouses, biological data has lacked a framework for managing its unique complexity:
 
-<img width="800" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/VFFgFdAlJnssyOdk0001.svg">
+<img width="800" alt="sparse-measurements" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/VFFgFdAlJnssyOdk0001.svg">
 
-LaminDB is a lineage-native lakehouse that understands the biological feature space and models it through bio-registries and formats (`AnnData`, `.zarr`, …) based on the established open data stack:
+LaminDB is a lineage-native lakehouse that understands the biological feature space and models it through bio-registries and formats (`AnnData`, `.zarr`, etc.) based on the established open data stack:
 Postgres/SQLite for metadata and cross-platform storage for datasets.
 
 Read more: [blog.lamin.ai/sparse-measurements](https://blog.lamin.ai/sparse-measurements).
 
 </details>
 
-<img width="800px" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/BunYmHkyFLITlM5M000D.svg">
+<img width="800px" alt="lamindb-schematic" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/BunYmHkyFLITlM5M000D.svg">
 
 How?
 
