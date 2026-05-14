@@ -79,15 +79,13 @@ pip install lamindb
 <details>
 <summary>Install with minimal dependencies.</summary>
 
-The `lamindb` package adds data-science related dependencies, those that come with the `[full]` extra, see [here](https://github.com/laminlabs/lamindb/blob/2cc91adcf6077c5af69c1a098699085bb0844083/pyproject.toml#L30-L49).
+The `lamindb` package adds data-science related dependencies through the `[full]` extra, see [here](https://github.com/laminlabs/lamindb/blob/2cc91adcf6077c5af69c1a098699085bb0844083/pyproject.toml#L30-L49).
 
-If you want a maximally lightweight install of the `lamindb` namespace, use:
+For a minimal install of the `lamindb` namespace, use:
 
 ```shell
 pip install lamindb-core
 ```
-
-This suffices to support the basic functionality but you will get an `ImportError` if you're e.g. trying to validate a `DataFrame` because that requires `pandera`.
 
 </details>
 
