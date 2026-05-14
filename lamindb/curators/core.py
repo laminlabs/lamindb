@@ -1153,6 +1153,8 @@ class SpatialDataCurator(SlotsCurator):
 
     {}
 
+    Background: `blog.lamin.ai/spatialdata <https://blog.lamin.ai/spatialdata>`__.
+
     Args:
         dataset: The SpatialData-like object to validate & annotate.
         schema: A :class:`~lamindb.Schema` object that defines the validation constraints.

@@ -1,4 +1,4 @@
-"""A data framework for biology.
+"""A data lakehouse for biology.
 
 Installation::
 

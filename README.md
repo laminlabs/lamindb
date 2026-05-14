@@ -1,6 +1,6 @@
 [![docs](https://img.shields.io/badge/docs-yellow)](https://docs.lamin.ai) [![llms.txt](https://img.shields.io/badge/llms.txt-orange)](https://docs.lamin.ai/llms.txt) [![codecov](https://codecov.io/gh/laminlabs/lamindb/branch/main/graph/badge.svg?token=VKMRJ7OWR3)](https://codecov.io/gh/laminlabs/lamindb) [![pypi](https://img.shields.io/pypi/v/lamindb?color=blue&label=PyPI)](https://pypi.org/project/lamindb) [![cran](https://www.r-pkg.org/badges/version/laminr?color=green)](https://cran.r-project.org/package=laminr) [![stars](https://img.shields.io/github/stars/laminlabs/lamindb?style=flat&logo=GitHub&label=&color=gray)](https://github.com/laminlabs/lamindb) [![downloads](https://static.pepy.tech/personalized-badge/lamindb?period=total&units=INTERNATIONAL_SYSTEM&left_color=GRAY&right_color=GRAY&left_text=%E2%AC%87%EF%B8%8F)](https://pepy.tech/project/lamindb)
 
-# LaminDB - Open-source data framework for biology
+# LaminDB - Open-source data lakehouse for biology
 
 LaminDB allows you to query, trace, and validate datasets and models at scale.
 You get context & memory through a lineage-native lakehouse that supports bio-formats, registries & ontologies while feeling as simple as a file system.
@@ -10,24 +10,25 @@ Agent? [llms.txt](https://docs.lamin.ai/llms.txt)
 <details>
 <summary>Why?</summary>
 
-(1) Reproducing, tracing & understanding how datasets, models & results are created is critical to quality R&D.
-Without context, humans & agents make mistakes and cannot close feedback loops across data generation & analysis.
-Without memory, compute & intelligence are wasted on fragmented, non-compounding tasks — LLM context windows are small.
+(1) Without context on how data comes about,
+analysts easily make wrong assumptions and feedback loops with data generation can't be closed.
+Without the memory provided by data lineage, compute & intelligence often get wasted on fragmented, non-compounding tasks.
 
-(2) Training & fine-tuning models with thousands of datasets — across LIMS, ELNs, orthogonal assays — is now a primary path to scaling R&D.
-But without queryable & validated data or with data locked in organizational & infrastructure silos, it leads to garbage in, garbage out or is quite simply impossible.
+(2) Applying models to thousands of datasets — across LIMS, ELNs, orthogonal assays — is a path to more informed R&D.
+But if data is unqueryable, unvalidated, or locked in infrastructure silos, this leads to 'garbage in, garbage out' — or makes the process entirely impossible.
 
-Imagine building software without git or pull requests: an agent's actions would be impossible to verify.
-While code has git and tables have dbt/warehouses, biological data has lacked a framework for managing its unique complexity.
+While code has git and tables have dbt/warehouses, biological data has lacked a framework for managing its unique complexity:
 
-LaminDB fills the gap.
-It is a lineage-native lakehouse that understands bio-registries and formats (`AnnData`, `.zarr`, …) based on the established open data stack:
+<img width="800" alt="sparse-measurements" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/VFFgFdAlJnssyOdk0001.svg">
+
+LaminDB is a lineage-native lakehouse that understands the biological feature space and models it through bio-registries and formats (`AnnData`, `.zarr`, etc.) based on the established open data stack:
 Postgres/SQLite for metadata and cross-platform storage for datasets.
-By offering queries, tracing & validation in a single API, LaminDB provides the context & memory to turn messy, agentic biological R&D into a scalable process.
+
+Read more: [blog.lamin.ai/sparse-measurements](https://blog.lamin.ai/sparse-measurements).
 
 </details>
 
-<img width="800px" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/BunYmHkyFLITlM5M000D.svg">
+<img width="800px" alt="lamindb-schematic" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/BunYmHkyFLITlM5M000D.svg">
 
 How?
 
@@ -41,6 +42,7 @@ How?
 - **zero lock-in** → runs anywhere on open standards (Postgres, SQLite, `parquet`, `zarr`, etc.)
 - **scalable** → you hit storage & database directly through your `pydata` or R stack, no REST API involved
 - **simple** → just `pip install` from PyPI or `install.packages('laminr')` from CRAN
+- **idempotent** → re-run logic without worries about duplications or overwrites
 - **distributed** → zero-copy & lineage-aware data sharing across infrastructure (databases & storage locations)
 - **integrations** → [git](https://docs.lamin.ai/track#sync-code-with-git), [nextflow](https://docs.lamin.ai/nextflow), [vitessce](https://docs.lamin.ai/vitessce), [redun](https://docs.lamin.ai/redun), and [more](https://docs.lamin.ai/integrations)
 - **extensible** → create custom plug-ins based on the Django ORM, the basis for LaminDB's registries
@@ -79,15 +81,13 @@ pip install lamindb
 <details>
 <summary>Install with minimal dependencies.</summary>
 
-The `lamindb` package adds data-science related dependencies, those that come with the `[full]` extra, see [here](https://github.com/laminlabs/lamindb/blob/2cc91adcf6077c5af69c1a098699085bb0844083/pyproject.toml#L30-L49).
+The `lamindb` package adds data-science related dependencies through the `[full]` extra, see [here](https://github.com/laminlabs/lamindb/blob/2cc91adcf6077c5af69c1a098699085bb0844083/pyproject.toml#L30-L49).
 
-If you want a maximally lightweight install of the `lamindb` namespace, use:
+For a minimal install of the `lamindb` namespace, use:
 
 ```shell
 pip install lamindb-core
 ```
-
-This suffices to support the basic functionality but you will get an `ImportError` if you're e.g. trying to validate a `DataFrame` because that requires `pandera`.
 
 </details>
 
@@ -328,6 +328,8 @@ Note: The query syntax for `DB` objects and for your default database is the sam
 Here is an overview that illustrates how `Artifact` links to all other registries:
 
 <img width="800px" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/HMfWLa1rFkxcxQEN0000.svg">
+
+Read more: [docs.lamin.ai/organize](https://docs.lamin.ai/organize).
 
 ### Queries by features
 
