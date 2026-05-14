@@ -10,20 +10,21 @@ Agent? [llms.txt](https://docs.lamin.ai/llms.txt)
 <details>
 <summary>Why?</summary>
 
-(1) Reproducing, tracing & understanding how datasets, models & results are created is critical to quality R&D.
-Without context, humans & agents make mistakes and cannot close feedback loops across data generation & analysis.
-Without memory, compute & intelligence are wasted on fragmented, non-compounding tasks — LLM context windows are small.
+(1) Without context for how to trace how data comes about,
+feedback loops across data generation & analysis can't be closed and wrong assumptions are made.
+Without the memory provided by lineage, compute & intelligence get wasted on fragmented, non-compounding tasks.
 
-(2) Training & fine-tuning models with thousands of datasets — across LIMS, ELNs, orthogonal assays — is now a primary path to scaling R&D.
+(2) Applying models to thousands of datasets — across LIMS, ELNs, orthogonal assays — is a path to more informed R&D.
 But without queryable & validated data or with data locked in organizational & infrastructure silos, it leads to garbage in, garbage out or is quite simply impossible.
 
-Imagine building software without git or pull requests: an agent's actions would be impossible to verify.
-While code has git and tables have dbt/warehouses, biological data has lacked a framework for managing its unique complexity.
+While code has git and tables have dbt/warehouses, biological data has lacked a framework for managing its unique complexity:
 
-LaminDB fills the gap.
-It is a lineage-native lakehouse that understands bio-registries and formats (`AnnData`, `.zarr`, …) based on the established open data stack:
+<div style="text-align: center">
+<img width="800" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/VFFgFdAlJnssyOdk0001.svg">
+</div>
+
+LaminDB is a lineage-native lakehouse that understands the biological feature space and models it through bio-registries and formats (`AnnData`, `.zarr`, …) based on the established open data stack:
 Postgres/SQLite for metadata and cross-platform storage for datasets.
-By offering queries, tracing & validation in a single API, LaminDB provides the context & memory to turn messy, agentic biological R&D into a scalable process.
 
 </details>
 
@@ -41,6 +42,7 @@ How?
 - **zero lock-in** → runs anywhere on open standards (Postgres, SQLite, `parquet`, `zarr`, etc.)
 - **scalable** → you hit storage & database directly through your `pydata` or R stack, no REST API involved
 - **simple** → just `pip install` from PyPI or `install.packages('laminr')` from CRAN
+- **idempotent** → re-run logic without worries about duplications or overwrites
 - **distributed** → zero-copy & lineage-aware data sharing across infrastructure (databases & storage locations)
 - **integrations** → [git](https://docs.lamin.ai/track#sync-code-with-git), [nextflow](https://docs.lamin.ai/nextflow), [vitessce](https://docs.lamin.ai/vitessce), [redun](https://docs.lamin.ai/redun), and [more](https://docs.lamin.ai/integrations)
 - **extensible** → create custom plug-ins based on the Django ORM, the basis for LaminDB's registries
