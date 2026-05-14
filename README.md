@@ -19,9 +19,7 @@ But without queryable & validated data or with data locked in organizational & i
 
 While code has git and tables have dbt/warehouses, biological data has lacked a framework for managing its unique complexity:
 
-<div style="text-align: center">
 <img width="800" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/VFFgFdAlJnssyOdk0001.svg">
-</div>
 
 LaminDB is a lineage-native lakehouse that understands the biological feature space and models it through bio-registries and formats (`AnnData`, `.zarr`, …) based on the established open data stack:
 Postgres/SQLite for metadata and cross-platform storage for datasets.
