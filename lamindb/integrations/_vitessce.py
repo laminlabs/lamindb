@@ -33,6 +33,8 @@ def save_vitessce_config(
 
     Guide: :doc:`docs:vitessce`.
 
+    Background: `blog.lamin.ai/vitessce <https://blog.lamin.ai/vitessce>`__.
+
     Args:
         vitessce_config: A `VitessceConfig` object.
         key: A `key` for the `VitessceConfig` artifact.

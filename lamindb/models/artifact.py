@@ -2394,6 +2394,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
         Sets `.otype` to `"SpatialData"`.
 
+        Background: `blog.lamin.ai/spatialdata <https://blog.lamin.ai/spatialdata>`__.
+
         Args:
             sdata: A `SpatialData` object.
             key: A relative path within default storage, e.g., `"myfolder/myfile.zarr"`.
