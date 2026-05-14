@@ -327,6 +327,8 @@ Here is an overview that illustrates how `Artifact` links to all other registrie
 
 <img width="800px" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/HMfWLa1rFkxcxQEN0000.svg">
 
+Read more: [docs.lamin.ai/organize](https://docs.lamin.ai/organize).
+
 ### Queries by features
 
 You can annotate datasets and samples with features. Let's define some:
