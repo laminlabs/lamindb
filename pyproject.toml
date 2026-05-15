@@ -35,6 +35,7 @@ full = [
     "jupytext",
     "nbconvert>=7.2.1",  # bound to avoid lxml[html_clean] dependency
     "nbproject==0.11.1",  # adds orjson
+    "marimo",
     # Data & validation dependencies (heavier)
     "pyarrow",
     "pandera>=0.24.0",
