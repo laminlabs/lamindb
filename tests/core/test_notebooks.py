@@ -4,6 +4,7 @@ from pathlib import Path
 
 import lamindb as ln
 import nbproject_test
+import pytest
 
 notebook_dir = Path(__file__).parent / "notebooks/"
 notebook_dir_duplicate = Path(__file__).parent / "notebooks/duplicate/"
@@ -47,3 +48,24 @@ def test_run_after_rename_no_uid():
     assert ln.Transform.get(key="no-uid-renamed.ipynb").uid == uid
 
     # new_path.unlink()
+
+
+@pytest.fixture
+def test_run_in_marimo(monkeypatch):
+    """Pretend we're inside a marimo notebook with filename='/tmp/test.py'."""
+    from types import SimpleNamespace
+
+    monkeypatch.setattr(
+        "lamindb.core._context._is_running_in_marimo",
+        lambda: True,
+    )
+    monkeypatch.setattr(
+        "marimo._runtime.context.safe_get_context",
+        lambda: SimpleNamespace(filename="test.py"),
+    )
+
+
+def test_helper_returns_filename(test_run_in_marimo):
+    from lamindb.core._context import get_marimo_notebook_path
+
+    assert get_marimo_notebook_path() == "test.py"
