@@ -133,13 +133,13 @@ def get_uid_ext(version: str) -> str:
 def get_marimo_notebook_path() -> str | None:
     if not _is_running_in_marimo():
         return None
-
     import marimo
 
     if not hasattr(marimo, "_runtime"):
-        logger.warning(
-            "marimo version doesn't expose `_runtime`; cannot auto-detect "
-            "notebook path. Pass `path=` to ln.track() manually."
+        raise RuntimeError(
+            f"Your marimo version ({marimo.__version__}) doesn't expose "
+            f"`_runtime`, which lamindb needs to auto-detect the notebook path. "
+            f"Upgrade marimo, or pass `path=` to ln.track() manually."
         )
         return None
 
