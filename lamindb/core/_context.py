@@ -137,11 +137,8 @@ def get_marimo_notebook_path() -> str | None:
 
     if not hasattr(marimo, "_runtime"):
         raise RuntimeError(
-            f"Your marimo version ({marimo.__version__}) doesn't expose "
-            f"`_runtime`, which lamindb needs to auto-detect the notebook path. "
-            f"Upgrade marimo, or pass `path=` to ln.track() manually."
+            "marimo version is incompatible with lamindb, downgrade to 0.23.6"
         )
-        return None
 
     try:
         from marimo._runtime.context import safe_get_context
