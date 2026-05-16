@@ -133,26 +133,25 @@ def get_uid_ext(version: str) -> str:
 def get_marimo_notebook_path() -> str | None:
     if not _is_running_in_marimo():
         return None
-    try:
-        from marimo._runtime.context import safe_get_context
 
-    except (ImportError, AttributeError):
-        import warnings
+    import marimo
 
-        warnings.warn(
-            "Your marimo version is incompatible with lamindb's "
-            "notebook auto-detection. Please pass `path=` to ln.track() "
-            "or downgrade marimo.",
-            stacklevel=2,
+    if not hasattr(marimo, "_runtime"):
+        logger.warning(
+            "marimo version doesn't expose `_runtime`; cannot auto-detect "
+            "notebook path. Pass `path=` to ln.track() manually."
         )
         return None
 
-    ctx = safe_get_context()
-    fn = getattr(ctx, "filename", None)
-    if fn:
-        return fn
+    try:
+        from marimo._runtime.context import safe_get_context
+    except (ImportError, AttributeError):
+        return None
 
-    return None
+    ctx = safe_get_context()
+    if ctx is None:
+        return None
+    return getattr(ctx, "filename", None)
 
 
 def get_notebook_path() -> tuple[Path, str]:
