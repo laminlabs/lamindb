@@ -119,6 +119,18 @@ def _is_branch_sensitive_model(model: type[BaseSQLRecord]) -> bool:
     ) or model.__name__ in BRANCH_SENSITIVE_BLOCK_MODEL_NAMES
 
 
+def _format_versioned_record(record: IsVersioned) -> str:
+    details: list[str] = []
+    for field_name in ("uid", "key", "version", "branch_id"):
+        value = getattr(record, field_name, None)
+        if value is not None:
+            details.append(f"{field_name}={value}")
+    class_name = record.__class__.__name__
+    if not details:
+        return class_name
+    return f"{class_name}({', '.join(details)})"
+
+
 # -------------------------------------------------------------------------------------
 # A note on required fields at the SQLRecord level
 #
@@ -1161,25 +1173,6 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                             should_demote = revises.branch_id == self.branch_id
                         if should_demote:
                             if not revises.is_latest:
-
-                                def _format_versioned_record(
-                                    record: IsVersioned,
-                                ) -> str:
-                                    details: list[str] = []
-                                    for field_name in (
-                                        "uid",
-                                        "key",
-                                        "version",
-                                        "branch_id",
-                                    ):
-                                        value = getattr(record, field_name, None)
-                                        if value is not None:
-                                            details.append(f"{field_name}={value}")
-                                    class_name = record.__class__.__name__
-                                    if not details:
-                                        return class_name
-                                    return f"{class_name}({', '.join(details)})"
-
                                 raise ValidationError(
                                     "Cannot revise a non-latest record: "
                                     f"revises={_format_versioned_record(revises)} (is_latest=False), "
