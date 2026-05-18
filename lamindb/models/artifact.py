@@ -1151,6 +1151,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             If `None`, uses the current default via :attr:`~lamindb.core.CreationSettings._artifact_use_virtual_keys`.
             Inspect the current default via `ln.settings.creation._artifact_use_virtual_keys`
             and change it globally, e.g., `ln.settings.creation._artifact_use_virtual_keys = False`.
+            If `True`, `key` is treated as metadata for versioning/querying and the on-storage path is auto-generated from the artifact `uid`.
+            If `False`, `key` is treated as the concrete relative storage path for writes in managed storage.
 
     Examples:
 
