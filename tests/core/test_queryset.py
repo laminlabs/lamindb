@@ -120,6 +120,65 @@ def test_run_to_dataframe_includes_json_features():
     feature.delete(permanent=True)
 
 
+def test_to_dataframe_features_list_raises_on_ambiguous_duplicate_names():
+    feature_name = "to_dataframe_duplicate_name_ambiguous"
+    feature_type_a = ln.Feature(
+        name="to_dataframe_duplicate_type_a", is_type=True
+    ).save()
+    feature_type_b = ln.Feature(
+        name="to_dataframe_duplicate_type_b", is_type=True
+    ).save()
+    feature_str = ln.Feature(name=feature_name, dtype=str, type=feature_type_a).save()
+    feature_cat = ln.Feature(
+        name=feature_name, dtype=ln.ULabel, type=feature_type_b
+    ).save()
+    transform = ln.Transform(
+        key="test_to_dataframe_features_list_raises_on_ambiguous_duplicate_names"
+    ).save()
+    run = ln.Run(transform=transform).save()
+
+    with pytest.raises(ValueError, match="Ambiguous feature names passed"):
+        ln.Run.filter(id=run.id).to_dataframe(features=[feature_name])
+
+    run.delete(permanent=True)
+    transform.delete(permanent=True)
+    feature_str.delete(permanent=True)
+    feature_cat.delete(permanent=True)
+    feature_type_a.delete(permanent=True)
+    feature_type_b.delete(permanent=True)
+
+
+def test_to_dataframe_include_features_prefers_relational_duplicates():
+    feature_name = "to_dataframe_duplicate_name_relational_priority"
+    feature_type_a = ln.Feature(
+        name="to_dataframe_relational_priority_type_a", is_type=True
+    ).save()
+    feature_type_b = ln.Feature(
+        name="to_dataframe_relational_priority_type_b", is_type=True
+    ).save()
+    feature_str = ln.Feature(name=feature_name, dtype=str, type=feature_type_a).save()
+    feature_cat = ln.Feature(
+        name=feature_name, dtype=ln.ULabel, type=feature_type_b
+    ).save()
+    artifact = ln.Artifact(
+        ".gitignore", key="test_to_dataframe_relational_priority"
+    ).save()
+    label = ln.ULabel(name="to_dataframe_duplicate_relational_label").save()
+
+    artifact.features.set_values({feature_cat: label.name})
+    df = ln.Artifact.filter(id=artifact.id).to_dataframe(include="features")
+
+    assert feature_name in df.columns
+    assert df[feature_name].iloc[0] == label.name
+
+    artifact.delete(permanent=True)
+    feature_str.delete(permanent=True)
+    feature_cat.delete(permanent=True)
+    feature_type_a.delete(permanent=True)
+    feature_type_b.delete(permanent=True)
+    label.delete(permanent=True)
+
+
 def test_one_first():
     qs = ln.User.objects.all()
     assert qs.one().handle == ln.setup.settings.user.handle
