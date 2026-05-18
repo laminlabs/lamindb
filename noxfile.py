@@ -95,6 +95,7 @@ def install_ci(session, group):
         extras += "fcs"
         run(session, "uv pip install --system scanpy")
         run(session, "uv pip install --system mudata")
+        run(session, "uv pip install marimo")
         # spatialdata dependency, specifying it here explicitly
         # otherwise there are problems with uv resolver
         run(session, "uv pip install --system xarray-dataclasses")
