@@ -893,9 +893,7 @@ class Context:
                         1,
                     )
                     path.write_text(source, encoding="utf-8")
-                    logger.warning(
-                        'configured marimo HTML auto-export; restart marimo for auto_download=["html"] to take effect'
-                    )
+                    logger.warning("configured marimo HTML auto-export")
                 elif "app = marimo.App()" in source:
                     source = source.replace(
                         "app = marimo.App()",
