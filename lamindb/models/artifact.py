@@ -570,7 +570,7 @@ def get_artifact_kwargs_from_data(
         if key_is_virtual is not None and key_is_virtual != real_key_is_set:
             raise ValueError(
                 f"Passing a path in an existing storage {'with' if real_key_is_set else 'without'} "
-                f"a virtual key and _key_is_virtual={key_is_virtual} is incompatible."
+                f"a virtual key and key_is_virtual={key_is_virtual} is incompatible."
             )
         # we use an actual storage key if key is not provided explicitly
         set_key_is_virtual = real_key_is_set
@@ -1583,6 +1583,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         branch: Branch | None = None,
         space: Space | None = None,
         skip_hash_lookup: bool = False,
+        key_is_virtual: bool | None = None,
     ): ...
 
     @overload
@@ -1630,7 +1631,14 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         skip_hash_lookup: bool = kwargs.pop("skip_hash_lookup", False)
         to_disk_kwargs: dict[str, Any] | None = kwargs.pop("to_disk_kwargs", None)
         format = kwargs.pop("format", None)
+
+        key_is_virtual = kwargs.pop("key_is_virtual", None)
         _key_is_virtual = kwargs.pop("_key_is_virtual", None)
+        if key_is_virtual is not None:
+            if _key_is_virtual is not None:
+                raise ValueError("Do not pass both key_is_virtual and _key_is_virtual.")
+            _key_is_virtual = key_is_virtual
+
         _is_internal_call = kwargs.pop("_is_internal_call", False)
         skip_check_exists = kwargs.pop("skip_check_exists", False)
 
@@ -1644,7 +1652,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             if _is_internal_call:
                 if _key_is_virtual is False:
                     raise ValueError(
-                        "Do not pass _key_is_virtual=False with _is_internal_call=True."
+                        "Do not pass key_is_virtual=False with _is_internal_call=True."
                     )
                 is_automanaged_path = True
                 user_provided_key = key
