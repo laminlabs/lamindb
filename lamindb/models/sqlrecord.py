@@ -1180,7 +1180,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                                         return class_name
                                     return f"{class_name}({', '.join(details)})"
 
-                                raise AssertionError(
+                                raise ValidationError(
                                     "Cannot revise a non-latest record: "
                                     f"revises={_format_versioned_record(revises)} (is_latest=False), "
                                     f"new={_format_versioned_record(self)}. "

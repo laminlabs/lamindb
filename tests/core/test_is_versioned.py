@@ -1,6 +1,7 @@
 import lamindb as ln
 import pandas as pd
 import pytest
+from lamindb.errors import ValidationError
 from lamindb.models._is_versioned import (
     _adjust_is_latest_when_deleting_is_versioned,
     bump_version,
@@ -223,6 +224,47 @@ def test_transform_versioning_across_branches_preserves_main_latest():
             for record in ln.Transform.objects.filter(uid__startswith=uid):
                 record.delete(permanent=True)
         branch.delete(permanent=True)
+
+
+def test_stale_revises_raises_validation_error():
+    transform_v1 = ln.Transform(
+        key="stale-revises-validation-error",
+        source_code="v1",
+        kind="pipeline",
+    ).save()
+    transform_v2 = ln.Transform(
+        key="stale-revises-validation-error",
+        revises=transform_v1,
+        source_code="v2",
+        kind="pipeline",
+    ).save()
+    try:
+        transform_pending = ln.Transform(
+            key="stale-revises-validation-error",
+            revises=transform_v2,
+            source_code="v3",
+            kind="pipeline",
+        )
+        # Simulate a concurrent writer demoting transform_v2 after init but before save.
+        ln.Transform(
+            key="stale-revises-validation-error",
+            revises=transform_v2,
+            source_code="v4",
+            kind="pipeline",
+        ).save()
+
+        with pytest.raises(ValidationError) as error:
+            transform_pending.save()
+        message = str(error.value)
+        assert "Cannot revise a non-latest record" in message
+        assert f"revises=Transform(uid={transform_v2.uid}" in message
+        assert "key=stale-revises-validation-error" in message
+        assert "new=Transform(uid=" in message
+    finally:
+        for record in ln.Transform.objects.filter(
+            uid__startswith=transform_v1.uid[:-4]
+        ):
+            record.delete(permanent=True)
 
 
 def test_path_rename():
