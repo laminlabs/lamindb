@@ -1160,7 +1160,33 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                         if hasattr(revises, "branch_id") and hasattr(self, "branch_id"):
                             should_demote = revises.branch_id == self.branch_id
                         if should_demote:
-                            assert revises.is_latest  # noqa: S101
+                            if not revises.is_latest:
+
+                                def _format_versioned_record(
+                                    record: IsVersioned,
+                                ) -> str:
+                                    details: list[str] = []
+                                    for field_name in (
+                                        "uid",
+                                        "key",
+                                        "version",
+                                        "branch_id",
+                                    ):
+                                        value = getattr(record, field_name, None)
+                                        if value is not None:
+                                            details.append(f"{field_name}={value}")
+                                    class_name = record.__class__.__name__
+                                    if not details:
+                                        return class_name
+                                    return f"{class_name}({', '.join(details)})"
+
+                                raise AssertionError(
+                                    "Cannot revise a non-latest record: "
+                                    f"revises={_format_versioned_record(revises)} (is_latest=False), "
+                                    f"new={_format_versioned_record(self)}. "
+                                    "This usually means a newer revision was created concurrently "
+                                    "or an older record was selected for `revises`."
+                                )
                             revises.is_latest = False
                             revises._revises = None  # ensure we don't start a recursion
                             revises.save()
