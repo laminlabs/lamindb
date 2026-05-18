@@ -294,8 +294,15 @@ def test_inferred_revises_refreshes_and_requeries_latest():
         ln.Transform.objects.filter(id=transform_v2.id).update(is_latest=False)
         ln.Transform.objects.filter(id=transform_v1.id).update(is_latest=True)
 
-        # Inferred revises should refresh and re-query latest instead of failing early.
+        # If refresh/requery is disabled, save should fail on stale revises.
+        transform_pending._refresh_revises_if_stale = False
+        with pytest.raises(ValidationError):
+            transform_pending.save()
+
+        # Re-enable behavior and verify save now succeeds.
+        transform_pending._refresh_revises_if_stale = True
         transform_pending.save()
+        assert transform_pending.is_latest
         transform_pending.refresh_from_db()
         assert transform_pending.is_latest
     finally:
