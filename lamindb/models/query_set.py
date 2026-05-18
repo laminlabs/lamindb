@@ -574,21 +574,56 @@ def get_feature_annotate_kwargs(
         logger.important(
             f"queried for all categorical features of dtypes Record or ULabel and non-categorical features: ({len(feature_qs)}) {feature_qs.to_list('name')}"
         )
-    # Duplicate feature names map to ambiguous dataframe columns. We keep a single
-    # feature per name for query annotation and warn loudly to surface this.
-    feature_name_to_ids: dict[str, list[int]] = defaultdict(list)
+
+    def _is_relational_feature_dtype(dtype_str: str | None) -> bool:
+        if dtype_str is None:
+            return False
+        return dtype_str.startswith("cat[") or dtype_str.startswith("list[cat[")
+
+    # Duplicate feature names map to ambiguous dataframe columns.
+    # - for explicit user-provided lists, fail fast and ask for disambiguation
+    # - for implicit feature inclusion, choose deterministically and warn
+    feature_name_to_features: dict[str, list[Feature]] = defaultdict(list)
     for feature in feature_qs.order_by("id"):
-        feature_name_to_ids[feature.name].append(feature.id)
+        feature_name_to_features[feature.name].append(feature)
     duplicate_feature_names = {
-        name: ids for name, ids in feature_name_to_ids.items() if len(ids) > 1
+        name: [feature.id for feature in records]
+        for name, records in feature_name_to_features.items()
+        if len(records) > 1
     }
     if duplicate_feature_names:
+        if isinstance(features, list):
+            duplicate_features_requested = {
+                name: ids
+                for name, ids in duplicate_feature_names.items()
+                if name in features
+            }
+            if duplicate_features_requested:
+                raise ValueError(
+                    "Ambiguous feature names passed in `features`: "
+                    f"{duplicate_features_requested}. "
+                    "Pass disambiguated feature names or avoid duplicate feature names."
+                )
         logger.warning(
             "detected duplicate feature names while building dataframe features; "
-            "keeping the first feature per name by ascending id. "
+            "keeping one feature per name (preferring relational dtypes, then "
+            "the first by ascending id). "
             f"duplicates: {duplicate_feature_names}"
         )
-        unique_feature_ids = [ids[0] for ids in feature_name_to_ids.values()]
+        unique_feature_ids = []
+        for records in feature_name_to_features.values():
+            if len(records) == 1:
+                unique_feature_ids.append(records[0].id)
+                continue
+            relational_records = [
+                record
+                for record in records
+                if _is_relational_feature_dtype(record._dtype_str)
+            ]
+            selected_record = (
+                relational_records[0] if relational_records else records[0]
+            )
+            unique_feature_ids.append(selected_record.id)
         feature_qs = feature_qs.filter(id__in=unique_feature_ids)
     # Get the categorical features
     cat_feature_types = {
@@ -1016,8 +1051,19 @@ def process_links_features(
                 continue
             if feature.name in result.columns:
                 continue
-            field_name = parse_dtype(feature._dtype_str)[0]["field_str"]
-            value_col = [c for c in value_cols if c.endswith(f"__{field_name}")][0]
+            dtype_str = feature._dtype_str or ""
+            if not (dtype_str.startswith("cat[") or dtype_str.startswith("list[cat[")):
+                continue
+            dtype_info = parse_dtype(dtype_str)
+            if not dtype_info:
+                continue
+            field_name = dtype_info[0]["field_str"]
+            matching_value_cols = [
+                c for c in value_cols if c.endswith(f"__{field_name}")
+            ]
+            if not matching_value_cols:
+                continue
+            value_col = matching_value_cols[0]
             mask = (df[feature_col] == feature.name) & df[value_col].notna()
             feature_values = df[mask].groupby(pk_name)[value_col].agg(set)
             result.insert(3, feature.name, result[pk_name].map(feature_values))
