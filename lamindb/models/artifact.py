@@ -1149,6 +1149,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             Empty files are always treated as if this were `True` because empty content hashes are not used for deduplication.
         key_is_virtual: `bool | None = None` Whether to use a virtual key for managed storage paths.
             If `None`, use :attr:`~lamindb.core.CreationSettings._artifact_use_virtual_keys`.
+            Inspect the current default via `ln.settings.creation._artifact_use_virtual_keys`
+            (default is `True`) and change it globally, e.g.,
+            `ln.settings.creation._artifact_use_virtual_keys = False`.
 
     Examples:
 
