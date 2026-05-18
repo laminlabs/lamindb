@@ -1175,28 +1175,27 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                         if has_branch_id:
                             should_demote = revises.branch_id == self.branch_id
                         if should_demote:
-                            if not revises.is_latest:
-                                if getattr(self, "_refresh_revises_if_stale", False):
-                                    revises.refresh_from_db(fields=["is_latest"])
-                                    if not revises.is_latest:
-                                        latest_revises_qs = (
-                                            revises.__class__.objects.filter(
-                                                uid__startswith=revises.stem_uid,
-                                                is_latest=True,
-                                            )
+                            if not revises.is_latest and getattr(
+                                self, "_revises_was_passed_explicitly", False
+                            ):
+                                revises.refresh_from_db(fields=["is_latest"])
+                                if not revises.is_latest:
+                                    latest_revises_qs = (
+                                        revises.__class__.objects.filter(
+                                            uid__startswith=revises.stem_uid,
+                                            is_latest=True,
                                         )
-                                        if has_branch_id:
-                                            latest_revises_qs = (
-                                                latest_revises_qs.filter(
-                                                    branch_id=self.branch_id
-                                                )
-                                            )
-                                        latest_revises = latest_revises_qs.order_by(
-                                            "-created_at", "-id"
-                                        ).first()
-                                        if latest_revises is not None:
-                                            revises = latest_revises
-                                            self._revises = latest_revises
+                                    )
+                                    if has_branch_id:
+                                        latest_revises_qs = latest_revises_qs.filter(
+                                            branch_id=self.branch_id
+                                        )
+                                    latest_revises = latest_revises_qs.order_by(
+                                        "-created_at", "-id"
+                                    ).first()
+                                    if latest_revises is not None:
+                                        revises = latest_revises
+                                        self._revises = latest_revises
                             if not revises.is_latest:
                                 raise ValidationError(
                                     "Cannot revise a non-latest record: "
