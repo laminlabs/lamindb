@@ -1148,10 +1148,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         skip_hash_lookup: `bool = False` Skip the hash lookup so that a new artifact is created even if an artifact with the same hash already exists.
             Empty files are always treated as if this were `True` because empty content hashes are not used for deduplication.
         key_is_virtual: `bool | None = None` Whether to use a virtual key for managed storage paths.
-            If `None`, use :attr:`~lamindb.core.CreationSettings._artifact_use_virtual_keys`.
+            If `None`, uses the current default via :attr:`~lamindb.core.CreationSettings._artifact_use_virtual_keys`.
             Inspect the current default via `ln.settings.creation._artifact_use_virtual_keys`
-            (default is `True`) and change it globally, e.g.,
-            `ln.settings.creation._artifact_use_virtual_keys = False`.
+            and change it globally, e.g., `ln.settings.creation._artifact_use_virtual_keys = False`.
 
     Examples:
 
