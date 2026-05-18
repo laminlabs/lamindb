@@ -267,6 +267,42 @@ def test_stale_revises_raises_validation_error():
             record.delete(permanent=True)
 
 
+def test_inferred_revises_refreshes_and_requeries_latest():
+    transform_v1 = ln.Transform(
+        key="stale-inferred-revises-requery",
+        source_code="v1",
+        kind="pipeline",
+    ).save()
+    transform_v2 = ln.Transform(
+        key="stale-inferred-revises-requery",
+        revises=transform_v1,
+        source_code="v2",
+        kind="pipeline",
+    ).save()
+    try:
+        transform_pending = ln.Transform(
+            key="stale-inferred-revises-requery",
+            source_code="v3",
+            kind="pipeline",
+        )
+        assert transform_pending._revises is not None
+        assert transform_pending._revises.uid == transform_v2.uid
+
+        # Simulate stale latest flags without creating a new version.
+        ln.Transform.objects.filter(id=transform_v2.id).update(is_latest=False)
+        ln.Transform.objects.filter(id=transform_v1.id).update(is_latest=True)
+
+        # Inferred revises should refresh and re-query latest instead of failing early.
+        transform_pending.save()
+        transform_pending.refresh_from_db()
+        assert transform_pending.is_latest
+    finally:
+        for record in ln.Transform.objects.filter(
+            uid__startswith=transform_v1.uid[:-4]
+        ):
+            record.delete(permanent=True)
+
+
 def test_path_rename():
     # this is related to renames inside _add_to_version_family
     with open("test_new_path.txt", "w") as f:

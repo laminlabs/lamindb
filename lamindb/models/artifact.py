@@ -1644,6 +1644,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         using_key = kwargs.pop("using_key", None)
         description: str | None = kwargs.pop("description", None)
         revises: Artifact | None = kwargs.pop("revises", None)
+        refresh_revises_if_stale = revises is None
         if revises is not None:
             if not isinstance(revises, Artifact):
                 raise TypeError("`revises` has to be of type `Artifact`")
@@ -1882,6 +1883,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         kwargs["space"] = space
         kwargs["otype"] = otype
         kwargs["revises"] = revises
+        kwargs["_refresh_revises_if_stale"] = refresh_revises_if_stale
         # this check needs to come down here because key might be populated from an
         # existing file path during get_artifact_kwargs_from_data()
         if (

@@ -41,6 +41,7 @@ class IsVersioned(models.Model):
         **kwargs,
     ):
         self._revises = kwargs.pop("revises", None)
+        self._refresh_revises_if_stale = kwargs.pop("_refresh_revises_if_stale", False)
         super().__init__(*args, **kwargs)
 
     @property
