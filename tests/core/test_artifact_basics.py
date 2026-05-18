@@ -207,7 +207,7 @@ def test_create_from_path_file_with_explicit_key_is_virtual(
         tsv_file,
         description="test explicit key is virtual",
         key=key,
-        _key_is_virtual=key_is_virtual,
+        key_is_virtual=key_is_virtual,
     )
     assert artifact.key == key
     assert artifact._key_is_virtual == key_is_virtual
@@ -221,6 +221,20 @@ def test_create_from_path_file_with_explicit_key_is_virtual(
         assert artifact.path == root / f".lamindb/{artifact.uid}.tsv"
 
     artifact.delete(permanent=True, storage=True)
+
+
+def test_create_from_path_file_with_both_key_is_virtual_args_raises(tsv_file):
+    with pytest.raises(ValueError) as error:
+        ln.Artifact(
+            tsv_file,
+            key="my_new_file.tsv",
+            key_is_virtual=True,
+            _key_is_virtual=False,
+        )
+    assert (
+        error.exconly()
+        == "ValueError: Do not pass both key_is_virtual and _key_is_virtual."
+    )
 
 
 def test_create_from_empty_files_skips_hash_lookup(tmp_path):
@@ -261,18 +275,18 @@ def test_create_from_path_folder(get_test_filepaths, key):
         assert artifact1._real_key is not None
         # should fail because we are passing a path in an existing storage with a virtual key
         with pytest.raises(ValueError) as error:
-            ln.Artifact(test_dirpath, key=key, _key_is_virtual=False)
+            ln.Artifact(test_dirpath, key=key, key_is_virtual=False)
         assert error.exconly().startswith(
-            "ValueError: Passing a path in an existing storage with a virtual key and _key_is_virtual=False is incompatible."
+            "ValueError: Passing a path in an existing storage with a virtual key and key_is_virtual=False is incompatible."
         )
     else:
         assert artifact1._real_key is None
-    # check that passing _key_is_virtual=True is incompatible with a path in an existing storage without a virtual key
+    # check that passing key_is_virtual=True is incompatible with a path in an existing storage without a virtual key
     if key is None and is_in_registered_storage:
         with pytest.raises(ValueError) as error:
-            ln.Artifact(test_dirpath, key=key, _key_is_virtual=True)
+            ln.Artifact(test_dirpath, key=key, key_is_virtual=True)
         assert error.exconly().startswith(
-            "ValueError: Passing a path in an existing storage without a virtual key and _key_is_virtual=True is incompatible."
+            "ValueError: Passing a path in an existing storage without a virtual key and key_is_virtual=True is incompatible."
         )
     assert artifact1.n_files == 3
     assert artifact1.hash == hash_test_dir
@@ -1584,7 +1598,7 @@ def test_update_key_to_none_raises_invalid_argument(
 
 
 def test_update_non_virtual_key_before_save_raises_invalid_argument(tsv_file):
-    artifact = ln.Artifact(tsv_file, key="before-save.tsv", _key_is_virtual=False)
+    artifact = ln.Artifact(tsv_file, key="before-save.tsv", key_is_virtual=False)
     artifact.key = "after-edit.tsv"
 
     with pytest.raises(InvalidArgument) as error:

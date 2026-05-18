@@ -570,7 +570,7 @@ def get_artifact_kwargs_from_data(
         if key_is_virtual is not None and key_is_virtual != real_key_is_set:
             raise ValueError(
                 f"Passing a path in an existing storage {'with' if real_key_is_set else 'without'} "
-                f"a virtual key and _key_is_virtual={key_is_virtual} is incompatible."
+                f"a virtual key and key_is_virtual={key_is_virtual} is incompatible."
             )
         # we use an actual storage key if key is not provided explicitly
         set_key_is_virtual = real_key_is_set
@@ -1147,6 +1147,12 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         storage: `Storage | None = None` The storage location for the artifact. If `None`, uses the default (:attr:`~lamindb.core.Settings.storage`).
         skip_hash_lookup: `bool = False` Skip the hash lookup so that a new artifact is created even if an artifact with the same hash already exists.
             Empty files are always treated as if this were `True` because empty content hashes are not used for deduplication.
+        key_is_virtual: `bool | None = None` Whether to use a virtual key for managed storage paths.
+            If `None`, uses the current default via :attr:`~lamindb.core.CreationSettings._artifact_use_virtual_keys`.
+            Inspect the current default via `ln.settings.creation._artifact_use_virtual_keys`
+            and change it globally, e.g., `ln.settings.creation._artifact_use_virtual_keys = False`.
+            If `True`, `key` is treated as metadata for versioning/querying and the on-storage path is auto-generated from the artifact `uid`.
+            If `False`, `key` is treated as the concrete relative storage path for writes in managed storage.
 
     Examples:
 
@@ -1583,6 +1589,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         branch: Branch | None = None,
         space: Space | None = None,
         skip_hash_lookup: bool = False,
+        key_is_virtual: bool | None = None,
     ): ...
 
     @overload
@@ -1630,7 +1637,14 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         skip_hash_lookup: bool = kwargs.pop("skip_hash_lookup", False)
         to_disk_kwargs: dict[str, Any] | None = kwargs.pop("to_disk_kwargs", None)
         format = kwargs.pop("format", None)
+
+        key_is_virtual = kwargs.pop("key_is_virtual", None)
         _key_is_virtual = kwargs.pop("_key_is_virtual", None)
+        if key_is_virtual is not None:
+            if _key_is_virtual is not None:
+                raise ValueError("Do not pass both key_is_virtual and _key_is_virtual.")
+            _key_is_virtual = key_is_virtual
+
         _is_internal_call = kwargs.pop("_is_internal_call", False)
         skip_check_exists = kwargs.pop("skip_check_exists", False)
 
@@ -1644,7 +1658,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             if _is_internal_call:
                 if _key_is_virtual is False:
                     raise ValueError(
-                        "Do not pass _key_is_virtual=False with _is_internal_call=True."
+                        "Do not pass key_is_virtual=False with _is_internal_call=True."
                     )
                 is_automanaged_path = True
                 user_provided_key = key
