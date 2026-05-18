@@ -35,6 +35,7 @@ from lamindb.core.storage.paths import (
 from lamindb.errors import (
     FieldValidationError,
     InvalidArgument,
+    ValidationError,
 )
 from lamindb.models.artifact import (
     data_is_scversedatastructure,
@@ -903,6 +904,42 @@ def test_revise_recreate_artifact(example_dataframe: pd.DataFrame, ccaplog):
         ccaplog.text.count("you are saving to a non-latest version of the artifact")
         == 1
     )
+
+
+def test_explicit_revises_skips_key_lineage_latest_check(
+    example_dataframe: pd.DataFrame,
+):
+    df = example_dataframe.copy()
+    key = "skip-key-lineage-latest-check.parquet"
+    artifact_v1 = ln.Artifact.from_dataframe(df, key=key, description="v1").save()
+    df.iloc[0, 0] = 101
+    artifact_v2 = ln.Artifact.from_dataframe(df, key=key, description="v2").save()
+    try:
+        stem_uid = artifact_v1.stem_uid
+        ln.Artifact.objects.filter(uid__startswith=stem_uid).update(is_latest=False)
+        artifact_v1.refresh_from_db()
+        artifact_v2.refresh_from_db()
+        assert not artifact_v1.is_latest
+        assert not artifact_v2.is_latest
+
+        # Key-based revises inference should now fail because no matching latest exists.
+        df.iloc[0, 0] = 202
+        with pytest.raises(
+            ValidationError,
+            match="matching non-trashed artifacts exist",
+        ):
+            ln.Artifact.from_dataframe(df, key=key, description="v3-inferred")
+
+        # Explicit revises should bypass key-lineage inference during init.
+        artifact_v3 = ln.Artifact.from_dataframe(
+            df, key=key, description="v3-explicit", revises=artifact_v2
+        )
+        assert artifact_v3._revises is not None
+    finally:
+        for artifact in ln.Artifact.objects.filter(
+            uid__startswith=artifact_v1.stem_uid
+        ):
+            artifact.delete(permanent=True)
 
 
 def test_delete_and_restore_artifact(example_dataframe: pd.DataFrame):
