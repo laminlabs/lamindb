@@ -881,6 +881,35 @@ class Context:
             pypackages = True
         description = None
         if self._notebook_runner == "marimo":
+            source = path.read_text(encoding="utf-8")
+            if (
+                'auto_download=["html"]' not in source
+                and "auto_download=['html']" not in source
+            ):
+                if 'app = marimo.App(width="medium")' in source:
+                    source = source.replace(
+                        'app = marimo.App(width="medium")',
+                        'app = marimo.App(width="medium", auto_download=["html"])',
+                        1,
+                    )
+                    path.write_text(source, encoding="utf-8")
+                    logger.warning(
+                        'configured marimo HTML auto-export; restart marimo for auto_download=["html"] to take effect'
+                    )
+                elif "app = marimo.App()" in source:
+                    source = source.replace(
+                        "app = marimo.App()",
+                        'app = marimo.App(auto_download=["html"])',
+                        1,
+                    )
+                    path.write_text(source, encoding="utf-8")
+                    logger.warning(
+                        'configured marimo HTML auto-export; restart marimo for auto_download=["html"] to take effect'
+                    )
+                else:
+                    logger.warning(
+                        'could not configure marimo HTML auto-export; add auto_download=["html"] to marimo.App()'
+                    )
             return path, description
         if path.suffix == ".ipynb" and path.stem.startswith("Untitled"):
             raise RuntimeError(

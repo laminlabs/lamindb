@@ -330,6 +330,16 @@ def save_context_core(
             logger.warning(
                 f"no html report found; to attach one, create an .html export for your {filepath.suffix} file and then run: lamin save {filepath}"
             )
+    elif notebook_runner == "marimo":
+        report_path = (
+            filepath.parent / "__marimo__" / filepath.with_suffix(".html").name
+        )
+        if not report_path.exists():
+            logger.warning(
+                'no html report found; add auto_download=["html"] to marimo.App() '
+                "and re-run finish()"
+            )
+            report_path = None
     if report_path is not None and is_r_notebook and not from_cli:  # R notebooks
         # see comment above in check_filepath_recently_saved
         recently_saved_time = 0.3 if not is_retry else 20
