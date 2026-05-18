@@ -1176,7 +1176,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                             should_demote = revises.branch_id == self.branch_id
                         if should_demote:
                             if not revises.is_latest and getattr(
-                                self, "_revises_was_passed_explicitly", False
+                                self, "_refresh_revises_if_stale", False
                             ):
                                 revises.refresh_from_db(fields=["is_latest"])
                                 if not revises.is_latest:
