@@ -245,6 +245,7 @@ def test_stale_revises_raises_validation_error():
             source_code="v3",
             kind="pipeline",
         )
+        assert not transform_pending._refresh_revises_if_stale
         # Simulate a concurrent writer demoting transform_v2 after init but before save.
         ln.Transform(
             key="stale-revises-validation-error",
@@ -287,6 +288,7 @@ def test_inferred_revises_refreshes_and_requeries_latest():
         )
         assert transform_pending._revises is not None
         assert transform_pending._revises.uid == transform_v2.uid
+        assert transform_pending._refresh_revises_if_stale
 
         # Simulate stale latest flags without creating a new version.
         ln.Transform.objects.filter(id=transform_v2.id).update(is_latest=False)
