@@ -381,17 +381,17 @@ def get_stat_or_artifact(
         skip_hash_lookup = True
     previous_artifact_version = None
     artifacts_qs = Artifact.objects.using(instance)
-    # Only run key-based lineage inference when creating a new artifact version from key.
+    # Only run key-based latest version lookup when creating a new artifact version from key.
     # If explicit `revises` was passed in the constructor, this flag is False so that we
-    # do not override/validate lineage from key lookup during init.
+    # do not override/validate version from key lookup during init.
     # Also skip on replace(): replacement updates content in-place and must not create
-    # a new version lineage from key.
-    should_lookup_key_lineage = (
+    # a new version from key.
+    should_lookup_key_version = (
         key is not None and not is_replace and not skip_key_revises_lookup
     )
     if skip_hash_lookup:
         artifact_with_same_hash_exists = False
-        if should_lookup_key_lineage:
+        if should_lookup_key_version:
             # only search for a previous version of the artifact
             # ignoring hash
             queryset_same_hash_or_same_key = artifacts_qs.filter(
@@ -419,9 +419,9 @@ def get_stat_or_artifact(
             queryset_same_hash_or_same_key = artifacts_qs.filter(
                 ~Q(branch_id=-1),
                 (Q(hash=hash) | Q(key=key, storage=storage))
-                # Key lookup is conditionally included only for inferred lineage. For
-                # explicit `revises`, we only need hash dedup and should skip key lineage.
-                if should_lookup_key_lineage
+                # Key lookup is conditionally included only for inferred latest version. For
+                # explicit `revises`, we only need hash dedup and should skip key latest version lookup.
+                if should_lookup_key_version
                 else Q(hash=hash),
             ).order_by("-created_at", "-id")
             queryset_same_hash = queryset_same_hash_or_same_key.filter(hash=hash)
@@ -429,7 +429,7 @@ def get_stat_or_artifact(
     if key is not None and not is_replace:
         if (
             not artifact_with_same_hash_exists
-            and should_lookup_key_lineage
+            and should_lookup_key_version
             and queryset_same_hash_or_same_key.exists()
         ):
             queryset_same_key = queryset_same_hash_or_same_key.filter(is_latest=True)
