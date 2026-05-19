@@ -226,7 +226,7 @@ def test_dataframe_curator(mini_immuno_schema: ln.Schema):
         == """lamindb.errors.ValidationError: 1 term not validated in feature 'perturbation': 'ulabel_but_not_perturbation'
     → fix typos, remove non-existent values, or create objects via:
 
-  records = ULabel.from_values(['ulabel_but_not_perturbation'], field='name', create=True).save()
+  objects = ULabel.from_values(['ulabel_but_not_perturbation'], field='name', create=True).save()
     → a valid label for subtype 'Perturbation' has to be one of ['DMSO', 'IFNG']"""
     )
 
@@ -240,7 +240,7 @@ def test_dataframe_curator(mini_immuno_schema: ln.Schema):
         == """lamindb.errors.ValidationError: 1 term not validated in feature 'perturbation': 'IFNJ'
     → fix typos, remove non-existent values, or create objects via:
 
-  records = ULabel.from_values(['IFNJ'], field='name', create=True).save()
+  objects = ULabel.from_values(['IFNJ'], field='name', create=True).save()
     → a valid label for subtype 'Perturbation' has to be one of ['DMSO', 'IFNG']"""
     )
 
@@ -510,7 +510,7 @@ def test_schema_no_match_ensembl():
         == """lamindb.errors.ValidationError: 2 terms not validated in feature 'index': 'ENSG99999999998', 'ENSG99999999999'
     → fix typos, remove non-existent values, or create objects via:
 
-  records = bionty.Gene.from_values(['ENSG99999999998', 'ENSG99999999999'], field='ensembl_gene_id').save()"""
+  objects = bionty.Gene.from_values(['ENSG99999999998', 'ENSG99999999999'], field='ensembl_gene_id').save()"""
     )
 
     schema.delete(permanent=True)
@@ -674,7 +674,7 @@ def test_anndata_curator_varT_curation():
                 f"lamindb.errors.ValidationError: 1 term not validated in columns in slot '{slot}': 'GeneTypo'\n"
                 f"    → fix typos, remove non-existent values, or create objects via:\n"
                 "\n"
-                "  records = bionty.Gene.from_values(['GeneTypo'], field='ensembl_gene_id').save()"
+                "  objects = bionty.Gene.from_values(['GeneTypo'], field='ensembl_gene_id').save()"
             )
         else:
             for n_max_records in [2, 4]:
@@ -728,7 +728,7 @@ def test_anndata_curator_varT_curation_legacy(ccaplog):
                 f"lamindb.errors.ValidationError: 1 term not validated in feature 'var_index' in slot '{slot}': 'GeneTypo'\n"
                 f"    → fix typos, remove non-existent values, or create objects via:\n"
                 "\n"
-                "  records = bionty.Gene.from_values(['GeneTypo'], field='ensembl_gene_id').save()"
+                "  objects = bionty.Gene.from_values(['GeneTypo'], field='ensembl_gene_id').save()"
             )
         else:
             artifact = ln.Artifact.from_anndata(

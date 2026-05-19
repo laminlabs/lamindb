@@ -27,7 +27,7 @@ def build_create_records_hint(
             value.item() if hasattr(value, "item") else value for value in values_list
         ]
         hint += (
-            f"  records = {key_str}.from_values({normalized_values},"
+            f"  objects = {key_str}.from_values({normalized_values},"
             f" field='{field}'{create_true}).save()\n"
         )
     if title is None:
