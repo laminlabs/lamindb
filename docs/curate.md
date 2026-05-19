@@ -59,7 +59,7 @@ schema = ln.Schema(
 ```{dropdown} What are slots?
 
 For composite data structures, you need to specify which component contains which schema, for example, to validate both cell metadata in `.obs` and gene metadata in `.var` within the same schema.
-Each slot is a key like `"obs"` for AnnData observations,`"rna:var"` for MuData modalities, or `"attrs:nested:key"` for SpatialData annotations.
+Each slot is a key like `"obs"` for AnnData observations, `"rna:var"` for MuData modalities, or `"attrs:nested:key"` for SpatialData annotations.
 ```
 
 Before diving into curation, let's understand the different schema approaches and when to use each one.
@@ -191,7 +191,7 @@ curator.cat.standardize("cell_type_by_expert")
 curator.cat.non_validated
 ```
 
-For "CD8-pos alpha-beta T cell", let's understand which cell type in the public ontology might be the actual match:
+For "CD8-pos alpha-beta T cell", let's find out which cell type in the public ontology might be the actual match:
 
 ```python
 # to check the correct spelling of categories, pass `public=True` to get a lookup object from public ontologies
@@ -422,7 +422,7 @@ Let's run the script.
 !python scripts/curate_anndata_flexible.py
 ```
 
-Under-the-hood, this uses the following built-in schema ({func}`~lamindb.examples.schemas.anndata_ensembl_gene_ids_and_valid_features_in_obs`):
+Under the hood, this uses the following built-in schema ({func}`~lamindb.examples.schemas.anndata_ensembl_gene_ids_and_valid_features_in_obs`):
 
 ```{eval-rst}
 .. literalinclude:: scripts/define_schema_anndata_ensembl_gene_ids_and_valid_features_in_obs.py
@@ -465,7 +465,7 @@ except ln.errors.ValidationError as error:
     print(error)
 ```
 
-As above, we leverage a lookup object with valid cell types to find the correct name.
+As above, we leverage a lookup object with valid cell types to find the correct name:
 
 ```python
 valid_cell_types = curator.slots["obs"].cat.lookup(public=True)["cell_type_by_expert"]
@@ -500,7 +500,7 @@ artifact.describe()
 
 ## Unstructured dictionaries
 
-Most datastructures support unstructured metadata stored as dictionaries:
+Most data structures support unstructured metadata stored as dictionaries:
 
 - Pandas DataFrames: `.attrs`
 - AnnData: `.uns`
