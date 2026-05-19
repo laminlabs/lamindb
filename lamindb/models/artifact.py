@@ -40,6 +40,7 @@ from ..core._compat import with_package_obj
 from ..core._settings import settings
 from ..errors import (
     FieldValidationError,
+    IntegrityError,
     InvalidArgument,
     NoStorageLocationForSpace,
     NoWriteAccess,
@@ -433,7 +434,7 @@ def get_stat_or_artifact(
         ):
             queryset_same_key = queryset_same_hash_or_same_key.filter(is_latest=True)
             if not queryset_same_key.exists():
-                raise ValidationError(
+                raise IntegrityError(
                     "Cannot create a new artifact version: matching non-trashed artifacts "
                     f"exist for key '{key}' in storage '{storage.root}', but none has "
                     "`is_latest=True`."

@@ -34,8 +34,8 @@ from lamindb.core.storage.paths import (
 )
 from lamindb.errors import (
     FieldValidationError,
+    IntegrityError,
     InvalidArgument,
-    ValidationError,
 )
 from lamindb.models.artifact import (
     data_is_scversedatastructure,
@@ -925,7 +925,7 @@ def test_explicit_revises_skips_key_lineage_latest_check(
         # Key-based revises inference should now fail because no matching latest exists.
         df.iloc[0, 0] = 202
         with pytest.raises(
-            ValidationError,
+            IntegrityError,
             match="matching non-trashed artifacts exist",
         ):
             ln.Artifact.from_dataframe(df, key=key, description="v3-inferred")
