@@ -71,6 +71,9 @@ from ..errors import (
     NoWriteAccess,
     ValidationError,
 )
+from ..errors import (
+    IntegrityError as LaminIntegrityError,
+)
 from ._is_versioned import IsVersioned, _adjust_is_latest_when_deleting_is_versioned
 from .query_manager import QueryManager, _lookup, _search
 
@@ -117,6 +120,34 @@ def _is_branch_sensitive_model(model: type[BaseSQLRecord]) -> bool:
     return (
         issubclass(model, SQLRecord) and model.__name__ not in {"Storage", "Source"}
     ) or model.__name__ in BRANCH_SENSITIVE_BLOCK_MODEL_NAMES
+
+
+def _format_versioned_record(record: IsVersioned) -> str:
+    details: list[str] = []
+    for field_name in ("uid", "key", "version", "branch_id"):
+        value = getattr(record, field_name, None)
+        if value is not None:
+            details.append(f"{field_name}={value}")
+    class_name = record.__class__.__name__
+    if not details:
+        return class_name
+    return f"{class_name}({', '.join(details)})"
+
+
+def _pull_latest_version_if_stale(
+    record: IsVersioned, branch_id: int | None = None
+) -> IsVersioned:
+    if not record.is_latest:
+        latest_version_qs = record.__class__.objects.filter(
+            uid__startswith=record.stem_uid,
+            is_latest=True,
+        )
+        if branch_id is not None:
+            latest_version_qs = latest_version_qs.filter(branch_id=branch_id)
+        latest_version = latest_version_qs.order_by("-created_at", "-id").first()
+        if latest_version is not None:
+            return latest_version
+    return record
 
 
 # -------------------------------------------------------------------------------------
@@ -1152,15 +1183,31 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                 # save versioned record in presence of self._revises
                 if isinstance(self, IsVersioned) and self._revises is not None:
                     revises = self._revises
+                    # For branch-aware models (SQLRecord), keep source-branch latest
+                    # intact and only demote within the same branch. For other
+                    # versioned models (e.g. blocks), keep previous behavior.
+                    should_demote = True
+                    has_branch_id = hasattr(revises, "branch_id") and hasattr(
+                        self, "branch_id"
+                    )
+                    if has_branch_id:
+                        should_demote = revises.branch_id == self.branch_id
                     with transaction.atomic():
-                        # For branch-aware models (SQLRecord), keep source-branch latest
-                        # intact and only demote within the same branch. For other
-                        # versioned models (e.g. blocks), keep previous behavior.
-                        should_demote = True
-                        if hasattr(revises, "branch_id") and hasattr(self, "branch_id"):
-                            should_demote = revises.branch_id == self.branch_id
                         if should_demote:
-                            assert revises.is_latest  # noqa: S101
+                            revises.refresh_from_db(fields=["is_latest"])
+                            if getattr(self, "_refresh_revises_if_stale", False):
+                                revises = _pull_latest_version_if_stale(
+                                    revises, self.branch_id if has_branch_id else None
+                                )
+                                self._revises = revises
+                            if not revises.is_latest:
+                                raise LaminIntegrityError(
+                                    "Cannot revise a non-latest record: "
+                                    f"revises={_format_versioned_record(revises)} (is_latest=False), "
+                                    f"new={_format_versioned_record(self)}. "
+                                    "This usually means a newer revision was created concurrently "
+                                    "or an older record was selected for `revises`."
+                                )
                             revises.is_latest = False
                             revises._revises = None  # ensure we don't start a recursion
                             revises.save()

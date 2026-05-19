@@ -40,6 +40,7 @@ from ..core._compat import with_package_obj
 from ..core._settings import settings
 from ..errors import (
     FieldValidationError,
+    IntegrityError,
     InvalidArgument,
     NoStorageLocationForSpace,
     NoWriteAccess,
@@ -348,6 +349,7 @@ def get_stat_or_artifact(
     is_replace: bool = False,
     instance: str | None = None,
     skip_hash_lookup: bool = False,
+    skip_key_revises_lookup: bool = False,
 ) -> Union[tuple[int, str | None, str | None, int | None, Artifact | None], Artifact]:
     """Retrieves file statistics or an existing artifact based on the path, hash, and key."""
     n_files = None
@@ -379,18 +381,26 @@ def get_stat_or_artifact(
         skip_hash_lookup = True
     previous_artifact_version = None
     artifacts_qs = Artifact.objects.using(instance)
+    # Only run key-based latest version lookup when creating a new artifact version from key.
+    # If explicit `revises` was passed in the constructor, this flag is False so that we
+    # do not override/validate version from key lookup during init.
+    # Also skip on replace(): replacement updates content in-place and must not create
+    # a new version from key.
+    should_lookup_key_version = (
+        key is not None and not is_replace and not skip_key_revises_lookup
+    )
     if skip_hash_lookup:
         artifact_with_same_hash_exists = False
-        if key is not None and not is_replace:
+        if should_lookup_key_version:
             # only search for a previous version of the artifact
             # ignoring hash
             queryset_same_hash_or_same_key = artifacts_qs.filter(
                 ~Q(branch_id=-1),
                 key=key,
                 storage=storage,
-            ).order_by("-created_at")
+            ).order_by("-created_at", "-id")
         else:
-            queryset_same_hash_or_same_key = []
+            queryset_same_hash_or_same_key = artifacts_qs.none()
     else:
         # this purposefully leaves out the storage location and key that we have
         # in the hard database unique constraints
@@ -399,7 +409,7 @@ def get_stat_or_artifact(
         # if this is not desired, set skip_hash_lookup=True
         if key is None or is_replace:
             queryset_same_hash = artifacts_qs.filter(~Q(branch_id=-1), hash=hash)
-            artifact_with_same_hash_exists = queryset_same_hash.count() > 0
+            artifact_with_same_hash_exists = queryset_same_hash.exists()
         else:
             # the following query achieves one more thing beyond hash lookup
             # it allows us to find a previous version of the artifact based on
@@ -408,21 +418,33 @@ def get_stat_or_artifact(
             # see the `previous_artifact_version` variable below
             queryset_same_hash_or_same_key = artifacts_qs.filter(
                 ~Q(branch_id=-1),
-                Q(hash=hash) | Q(key=key, storage=storage),
-            ).order_by("-created_at")
+                (Q(hash=hash) | Q(key=key, storage=storage))
+                # Key lookup is conditionally included only for inferred latest version. For
+                # explicit `revises`, we only need hash dedup and should skip key latest version lookup.
+                if should_lookup_key_version
+                else Q(hash=hash),
+            ).order_by("-created_at", "-id")
             queryset_same_hash = queryset_same_hash_or_same_key.filter(hash=hash)
-            artifact_with_same_hash_exists = queryset_same_hash.count() > 0
+            artifact_with_same_hash_exists = queryset_same_hash.exists()
     if key is not None and not is_replace:
         if (
             not artifact_with_same_hash_exists
-            and queryset_same_hash_or_same_key.count() > 0
+            and should_lookup_key_version
+            and queryset_same_hash_or_same_key.exists()
         ):
+            queryset_same_key = queryset_same_hash_or_same_key.filter(is_latest=True)
+            if not queryset_same_key.exists():
+                raise IntegrityError(
+                    "Cannot create a new artifact version: matching non-trashed artifacts "
+                    f"exist for key '{key}' in storage '{storage.root}', but none has "
+                    "`is_latest=True`."
+                )
             logger.important(
                 f"creating new artifact version for key '{key}' in storage '{storage.root}'"
             )
-            previous_artifact_version = queryset_same_hash_or_same_key[0]
+            previous_artifact_version = queryset_same_key.first()
     if artifact_with_same_hash_exists:
-        artifact_with_same_hash = queryset_same_hash[0]
+        artifact_with_same_hash = queryset_same_hash.first()
         logger.important(
             f"returning artifact with same hash: {artifact_with_same_hash}; to track this artifact as an input, use: ln.Artifact.get()"
         )
@@ -482,6 +504,7 @@ def get_artifact_kwargs_from_data(
     skip_hash_lookup: bool = False,
     to_disk_kwargs: dict[str, Any] | None = None,
     key_is_virtual: bool | None = None,
+    skip_key_revises_lookup: bool = False,
 ):
     memory_rep, path, suffix, storage, use_existing_storage_key = process_data(
         provisional_uid,
@@ -515,6 +538,7 @@ def get_artifact_kwargs_from_data(
         instance=using_key,
         is_replace=is_replace,
         skip_hash_lookup=skip_hash_lookup,
+        skip_key_revises_lookup=skip_key_revises_lookup,
     )
     if not isinstance(path, LocalPathClasses):
         local_filepath = None
@@ -1626,6 +1650,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         using_key = kwargs.pop("using_key", None)
         description: str | None = kwargs.pop("description", None)
         revises: Artifact | None = kwargs.pop("revises", None)
+        refresh_revises_if_stale = revises is None
         if revises is not None:
             if not isinstance(revises, Artifact):
                 raise TypeError("`revises` has to be of type `Artifact`")
@@ -1775,6 +1800,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             skip_hash_lookup=skip_hash_lookup,
             to_disk_kwargs=to_disk_kwargs,
             key_is_virtual=_key_is_virtual,
+            skip_key_revises_lookup=revises is not None,
         )
 
         def set_private_attributes():
@@ -1863,6 +1889,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         kwargs["space"] = space
         kwargs["otype"] = otype
         kwargs["revises"] = revises
+        kwargs["_refresh_revises_if_stale"] = refresh_revises_if_stale
         # this check needs to come down here because key might be populated from an
         # existing file path during get_artifact_kwargs_from_data()
         if (

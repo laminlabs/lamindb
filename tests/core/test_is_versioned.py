@@ -1,6 +1,7 @@
 import lamindb as ln
 import pandas as pd
 import pytest
+from lamindb.errors import IntegrityError
 from lamindb.models._is_versioned import (
     _adjust_is_latest_when_deleting_is_versioned,
     bump_version,
@@ -223,6 +224,89 @@ def test_transform_versioning_across_branches_preserves_main_latest():
             for record in ln.Transform.objects.filter(uid__startswith=uid):
                 record.delete(permanent=True)
         branch.delete(permanent=True)
+
+
+def test_stale_revises_raises_integrity_error():
+    transform_v1 = ln.Transform(
+        key="stale-revises-validation-error",
+        source_code="v1",
+        kind="pipeline",
+    ).save()
+    transform_v2 = ln.Transform(
+        key="stale-revises-validation-error",
+        revises=transform_v1,
+        source_code="v2",
+        kind="pipeline",
+    ).save()
+    try:
+        transform_pending = ln.Transform(
+            key="stale-revises-validation-error",
+            revises=transform_v2,
+            source_code="v3",
+            kind="pipeline",
+        )
+        assert not transform_pending._refresh_revises_if_stale
+        # Simulate a concurrent writer demoting transform_v2 after init but before save.
+        ln.Transform(
+            key="stale-revises-validation-error",
+            revises=transform_v2,
+            source_code="v4",
+            kind="pipeline",
+        ).save()
+
+        with pytest.raises(IntegrityError) as error:
+            transform_pending.save()
+        message = str(error.value)
+        assert "Cannot revise a non-latest record" in message
+        assert f"revises=Transform(uid={transform_v2.uid}" in message
+        assert "key=stale-revises-validation-error" in message
+        assert "new=Transform(uid=" in message
+    finally:
+        for record in ln.Transform.filter(uid__startswith=transform_v1.stem_uid):
+            record.delete(permanent=True)
+
+
+def test_inferred_revises_refreshes_and_requeries_latest():
+    transform_v1 = ln.Transform(
+        key="stale-inferred-revises-requery",
+        source_code="v1",
+        kind="pipeline",
+    ).save()
+    transform_v2 = ln.Transform(
+        key="stale-inferred-revises-requery",
+        revises=transform_v1,
+        source_code="v2",
+        kind="pipeline",
+    ).save()
+    try:
+        transform_pending = ln.Transform(
+            key="stale-inferred-revises-requery",
+            source_code="v3",
+            kind="pipeline",
+        )
+        assert transform_pending._revises is not None
+        assert transform_pending._revises.uid == transform_v2.uid
+        assert transform_pending._refresh_revises_if_stale
+
+        # Simulate stale latest flags without creating a new version.
+        ln.Transform.filter(id=transform_v2.id).update(is_latest=False)
+        ln.Transform.filter(id=transform_v1.id).update(is_latest=True)
+
+        # If refresh/requery is disabled, save should fail on stale revises.
+        transform_pending._refresh_revises_if_stale = False
+        with pytest.raises(IntegrityError) as error:
+            transform_pending.save()
+        assert "Cannot revise a non-latest record" in str(error.value)
+
+        # Re-enable behavior and verify save now succeeds.
+        transform_pending._refresh_revises_if_stale = True
+        transform_pending.save()
+        assert transform_pending.is_latest
+        transform_pending.refresh_from_db()
+        assert transform_pending.is_latest
+    finally:
+        for record in ln.Transform.filter(uid__startswith=transform_v1.stem_uid):
+            record.delete(permanent=True)
 
 
 def test_path_rename():

@@ -260,6 +260,7 @@ class Transform(SQLRecord, IsVersioned):
         key: str | None = kwargs.pop("key", None)
         description: str | None = kwargs.pop("description", None)
         revises: Transform | None = kwargs.pop("revises", None)
+        refresh_revises_if_stale = revises is None
         version_tag: str | None = kwargs.pop("version_tag", kwargs.pop("version", None))
         kind: TransformKind | None = kwargs.pop("kind", None)
         type: TransformKind | None = kwargs.pop("type", None)
@@ -358,6 +359,7 @@ class Transform(SQLRecord, IsVersioned):
             hash=hash,
             _has_consciously_provided_uid=has_consciously_provided_uid,
             revises=revises,
+            _refresh_revises_if_stale=refresh_revises_if_stale,
             branch=branch,
             branch_id=branch_id,
             space=space,
