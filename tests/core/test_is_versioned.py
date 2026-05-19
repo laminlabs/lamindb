@@ -262,9 +262,7 @@ def test_stale_revises_raises_integrity_error():
         assert "key=stale-revises-validation-error" in message
         assert "new=Transform(uid=" in message
     finally:
-        for record in ln.Transform.objects.filter(
-            uid__startswith=transform_v1.uid[:-4]
-        ):
+        for record in ln.Transform.filter(uid__startswith=transform_v1.stem_uid):
             record.delete(permanent=True)
 
 
@@ -291,8 +289,8 @@ def test_inferred_revises_refreshes_and_requeries_latest():
         assert transform_pending._refresh_revises_if_stale
 
         # Simulate stale latest flags without creating a new version.
-        ln.Transform.objects.filter(id=transform_v2.id).update(is_latest=False)
-        ln.Transform.objects.filter(id=transform_v1.id).update(is_latest=True)
+        ln.Transform.filter(id=transform_v2.id).update(is_latest=False)
+        ln.Transform.filter(id=transform_v1.id).update(is_latest=True)
 
         # If refresh/requery is disabled, save should fail on stale revises.
         transform_pending._refresh_revises_if_stale = False
@@ -307,9 +305,7 @@ def test_inferred_revises_refreshes_and_requeries_latest():
         transform_pending.refresh_from_db()
         assert transform_pending.is_latest
     finally:
-        for record in ln.Transform.objects.filter(
-            uid__startswith=transform_v1.uid[:-4]
-        ):
+        for record in ln.Transform.filter(uid__startswith=transform_v1.stem_uid):
             record.delete(permanent=True)
 
 
