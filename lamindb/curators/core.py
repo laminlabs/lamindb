@@ -33,7 +33,11 @@ from lamindb.models import (
     Schema,
     SQLRecord,
 )
-from lamindb.models._from_values import _format_values, _from_values
+from lamindb.models._from_values import (
+    _format_values,
+    _from_values,
+    build_create_records_hint,
+)
 from lamindb.models.artifact import (
     data_is_scversedatastructure,
     data_is_soma_experiment,
@@ -1716,26 +1720,27 @@ class CatVector:
             slot = None
         in_slot = f" in slot '{slot}'" if slot is not None else ""
         slot_prefix = f".slots['{slot}']" if slot is not None else ""
-        non_validated_hint_print = (
-            f"curator{slot_prefix}.cat.add_new_from('{self._key}')"
-        )
+        cat_prefix = f"curator{slot_prefix}.cat"
         n_non_validated = len(non_validated)
         if n_non_validated == 0:
-            logger.success(
+            logger.debug(
                 f'"{self._key}" is validated against {colors.italic(model_field)}'
             )
             return [], {}
         else:
             s = "" if n_non_validated == 1 else "s"
             print_values = _format_values(non_validated)
-            warning_message = f"{colors.red(f'{n_non_validated} term{s}')} not validated in feature '{self._key}'{in_slot}: {colors.red(print_values)}\n"
+            key_label = (
+                "columns" if self._key == "columns" else f"feature '{self._key}'"
+            )
+            warning_message = f"{colors.red(f'{n_non_validated} term{s}')} not validated in {key_label}{in_slot}: {colors.red(print_values)}\n"
             # log synonyms if any
             if syn_mapper:
                 s = "" if len(syn_mapper) == 1 else "s"
                 syn_mapper_print = _format_values(
                     [f'"{k}" → "{v}"' for k, v in syn_mapper.items()], sep=""
                 )
-                hint_msg = f'.standardize("{self._key}")'
+                hint_msg = f'{cat_prefix}.standardize("{self._key}")'
                 warning_message += f"    {colors.yellow(f'{len(syn_mapper)} synonym{s}')} found: {colors.yellow(syn_mapper_print)}\n    → curate synonyms via: {colors.cyan(hint_msg)}"
             if n_non_validated > len(syn_mapper):
                 if syn_mapper:
@@ -1747,11 +1752,20 @@ class CatVector:
                 ):
                     organism = self._filter_kwargs.get("organism", None)
                     check_organism = f"fix organism '{organism}', "
-                warning_message += f"    → {check_organism}fix typos, remove non-existent values, or save terms via: {colors.cyan(non_validated_hint_print)}"
+                registry_str = self._registry.__get_name_with_module__()
+                create_hint = build_create_records_hint(
+                    {registry_str: (self._field_name, non_validated)},
+                    title=None,
+                )
+                warning_message += (
+                    f"    → {check_organism}fix typos, remove non-existent values, "
+                    "or create objects via:\n\n"
+                    f"{colors.cyan(create_hint)}"
+                )
                 if self._subtype_query_set is not None and self._type_record:
                     warning_message += f"\n    → a valid label for subtype '{self._type_record.name}' has to be one of {self._subtype_query_set.to_list('name')}"
-            logger.info(f'mapping "{self._key}" on {colors.italic(model_field)}')
-            logger.warning(warning_message)
+            logger.debug(f'mapping "{self._key}" on {colors.italic(model_field)}')
+            logger.debug(warning_message)
             if self._cat_manager is not None:
                 self._cat_manager._validate_category_error_messages = strip_ansi_codes(
                     warning_message

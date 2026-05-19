@@ -707,7 +707,7 @@ Here is how to create a feature:
             "lamindb.errors.ValidationError: These values could not be validated:"
             in error_msg
         )
-        assert "Here is how to create records for them:" in error_msg
+        assert "Here is how to create objects for them:" in error_msg
 
         expected_values = {
             "Record": ["project_1", "U0123", "Experiment 2"],

@@ -236,11 +236,11 @@ def test_feature_manager_raise_not_validated_values():
     message = str(error.value)
     assert "These values could not be validated" in message
     assert (
-        "records = ln.Record.from_values(['missing-record'], field='name', create=True).save()"
+        "objects = ln.Record.from_values(['missing-record'], field='name', create=True).save()"
         in message
     )
     assert (
-        "records = bionty.Gene.from_values(['missing-gene'], field='symbol').save()"
+        "objects = bionty.Gene.from_values(['missing-gene'], field='symbol').save()"
         in message
     )
 
