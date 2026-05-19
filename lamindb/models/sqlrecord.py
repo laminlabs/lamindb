@@ -1453,9 +1453,12 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
 
 
 class Space(BaseSQLRecord):
-    """Spaces with managed access for specific users or teams.
+    """Spaces for access management.
 
-    If not setting a space, a :class:`~lamindb.models.SQLRecord` object is accessible to all collaborators of the LaminDB instance because its :attr:`~lamindb.models.SQLRecord.space` field defaults to the built-in `all` space.
+    Every :class:`~lamindb.models.SQLRecord` object lives in a space.
+
+    If not configuring a restricted space, a :class:`~lamindb.models.SQLRecord` object is accessible to all collaborators
+    of the LaminDB instance because its :attr:`~lamindb.models.SQLRecord.space` field defaults to the built-in `all` space.
     You can create a restricted space through LaminHub either on the instance settings page or the *Spaces* tab of your account page.
 
     Examples:
@@ -1548,6 +1551,8 @@ class Space(BaseSQLRecord):
 
 class Branch(BaseSQLRecord):
     """Branches for change management with archive and trash states.
+
+    Every :class:`~lamindb.models.SQLRecord` object lives on a branch.
 
     .. dropdown:: The 3 built-in branches: `main`, `trash` & `archive`
 
