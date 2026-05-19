@@ -443,10 +443,8 @@ def get_stat_or_artifact(
                 f"creating new artifact version for key '{key}' in storage '{storage.root}'"
             )
             previous_artifact_version = queryset_same_key.first()
-            assert previous_artifact_version is not None  # noqa: S101
     if artifact_with_same_hash_exists:
         artifact_with_same_hash = queryset_same_hash.first()
-        assert artifact_with_same_hash is not None  # noqa: S101
         logger.important(
             f"returning artifact with same hash: {artifact_with_same_hash}; to track this artifact as an input, use: ln.Artifact.get()"
         )
