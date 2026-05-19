@@ -1,7 +1,7 @@
 import lamindb as ln
 import pandas as pd
 import pytest
-from lamindb.errors import ValidationError
+from lamindb.errors import IntegrityError
 from lamindb.models._is_versioned import (
     _adjust_is_latest_when_deleting_is_versioned,
     bump_version,
@@ -226,7 +226,7 @@ def test_transform_versioning_across_branches_preserves_main_latest():
         branch.delete(permanent=True)
 
 
-def test_stale_revises_raises_validation_error():
+def test_stale_revises_raises_integrity_error():
     transform_v1 = ln.Transform(
         key="stale-revises-validation-error",
         source_code="v1",
@@ -254,7 +254,7 @@ def test_stale_revises_raises_validation_error():
             kind="pipeline",
         ).save()
 
-        with pytest.raises(ValidationError) as error:
+        with pytest.raises(IntegrityError) as error:
             transform_pending.save()
         message = str(error.value)
         assert "Cannot revise a non-latest record" in message
@@ -296,7 +296,7 @@ def test_inferred_revises_refreshes_and_requeries_latest():
 
         # If refresh/requery is disabled, save should fail on stale revises.
         transform_pending._refresh_revises_if_stale = False
-        with pytest.raises(ValidationError):
+        with pytest.raises(IntegrityError):
             transform_pending.save()
 
         # Re-enable behavior and verify save now succeeds.

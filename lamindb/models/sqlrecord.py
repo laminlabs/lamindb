@@ -71,6 +71,9 @@ from ..errors import (
     NoWriteAccess,
     ValidationError,
 )
+from ..errors import (
+    IntegrityError as LaminIntegrityError,
+)
 from ._is_versioned import IsVersioned, _adjust_is_latest_when_deleting_is_versioned
 from .query_manager import QueryManager, _lookup, _search
 
@@ -1194,7 +1197,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                                     revises = latest_revises
                                     self._revises = latest_revises
                             if not revises.is_latest:
-                                raise ValidationError(
+                                raise LaminIntegrityError(
                                     "Cannot revise a non-latest record: "
                                     f"revises={_format_versioned_record(revises)} (is_latest=False), "
                                     f"new={_format_versioned_record(self)}. "
