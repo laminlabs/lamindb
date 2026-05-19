@@ -183,27 +183,22 @@ First, let's standardize synonym "B-cell" as suggested
 
 ```python
 curator.cat.standardize("cell_type_by_expert")
-```
-
-```python
 # now we have only one non-validated cell type left
 curator.cat.non_validated
 ```
 
-For "CD8-pos alpha-beta T cell", let's understand which cell type in the public ontology might be the actual match.
+For "CD8-pos alpha-beta T cell", let's understand which cell type in the public ontology might be the actual match:
 
 ```python
 # to check the correct spelling of categories, pass `public=True` to get a lookup object from public ontologies
 # use `lookup = curator.cat.lookup()` to get a lookup object of existing records in your instance
 lookup = curator.cat.lookup(public=True)
-lookup
-```
-
-```python
-# here is an example for the "cell_type" column
+# here is an example for the "cell_type_by_expert" feature
 cell_types = lookup["cell_type_by_expert"]
 cell_types.cd8_positive_alpha_beta_t_cell
 ```
+
+Now that we have a match, let's fix it:
 
 ```python
 # fix the cell type name
@@ -212,7 +207,7 @@ df["cell_type_by_expert"] = df["cell_type_by_expert"].cat.rename_categories(
 )
 ```
 
-Let's re-run validation:
+Re-run validation:
 
 ```python
 try:
