@@ -23,12 +23,15 @@ def build_create_records_hint(
     for key, (field, values_list) in not_validated_values.items():
         key_str = "ln.Record" if key == "Record" else key
         create_true = ", create=True" if "bionty." not in key else ""
+        normalized_values = [
+            value.item() if hasattr(value, "item") else value for value in values_list
+        ]
         hint += (
-            f"  records = {key_str}.from_values({values_list},"
+            f"  records = {key_str}.from_values({normalized_values},"
             f" field='{field}'{create_true}).save()\n"
         )
     if title is None:
-        return hint
+        return hint.rstrip("\n")
     return f"{title}\n\n{hint}"
 
 
