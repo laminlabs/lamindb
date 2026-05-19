@@ -118,10 +118,6 @@ import lamindb as ln
 ln.track()
 ```
 
-We'll not be walking through the steps of curating a dataset.
-
-### (1) Load and examine your dataset
-
 We'll be working with the mini immuno dataset:
 
 ```python
@@ -131,7 +127,9 @@ df = ln.examples.datasets.mini_immuno.get_dataset1(
 df
 ```
 
-### (2) Set up your registries
+We'll now be walking through a sequence of steps to curate it.
+
+### (1) Set up your registries
 
 Before creating a schema, ensure your registries have the right features and labels:
 
@@ -140,7 +138,7 @@ Before creating a schema, ensure your registries have the right features and lab
    :language: python
 ```
 
-### (3) Create your schema
+### (2) Create your schema
 
 Let's instantiate the flexible schema we discussed earlier (available in our examples module):
 
@@ -151,7 +149,7 @@ schema.describe()
 
 <!-- #region -->
 
-### (4) Validate the dataset
+### (3) Validate the dataset
 
 :::{admonition} Shortcut
 If you expect the validation to pass, you can directly ingest a validated artifact via:
@@ -175,7 +173,7 @@ except ln.errors.ValidationError as error:
     print(error)
 ```
 
-### (5) Fix validation errors
+### (4) Fix validation errors
 
 Check the non-validated terms:
 
@@ -228,7 +226,7 @@ For the `perturbation` feature, we need to register new perturbations:
 ln.Record.from_values(["DMSO", "IFNG"], create=True).save()
 ```
 
-### (6) Save a validated & annotated dataset
+### (5) Save the dataset
 
 ```python
 artifact = curator.save_artifact(key="examples/my_curated_dataset.parquet")
