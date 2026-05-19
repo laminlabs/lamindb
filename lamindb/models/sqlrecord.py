@@ -137,7 +137,6 @@ def _format_versioned_record(record: IsVersioned) -> str:
 def _pull_latest_version_if_stale(
     record: IsVersioned, branch_id: int | None = None
 ) -> IsVersioned:
-    record.refresh_from_db(fields=["is_latest"])
     if not record.is_latest:
         latest_version_qs = record.__class__.objects.filter(
             uid__startswith=record.stem_uid,
@@ -1195,6 +1194,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                         should_demote = revises.branch_id == self.branch_id
                     with transaction.atomic():
                         if should_demote:
+                            revises.refresh_from_db(fields=["is_latest"])
                             if getattr(self, "_refresh_revises_if_stale", False):
                                 revises = _pull_latest_version_if_stale(
                                     revises, self.branch_id if has_branch_id else None
