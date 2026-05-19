@@ -696,7 +696,7 @@ def test_schema_maximal_set_var():
     with pytest.raises(ValidationError) as error:
         curator.validate()
     assert error.exconly() == (
-        "lamindb.errors.ValidationError: 1 term not validated in feature 'columns' in slot 'var.T': 'NOT_VALID_ENSEMBL'\n"
+        "lamindb.errors.ValidationError: 1 term not validated in columns in slot 'var.T': 'NOT_VALID_ENSEMBL'\n"
         "    → fix typos, remove non-existent values, or create objects via:\n"
         "\n"
         "  records = bionty.Gene.from_values(['NOT_VALID_ENSEMBL'], field='ensembl_gene_id').save()"

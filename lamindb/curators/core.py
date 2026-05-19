@@ -1728,7 +1728,10 @@ class CatVector:
         else:
             s = "" if n_non_validated == 1 else "s"
             print_values = _format_values(non_validated)
-            warning_message = f"{colors.red(f'{n_non_validated} term{s}')} not validated in feature '{self._key}'{in_slot}: {colors.red(print_values)}\n"
+            key_label = (
+                "columns" if self._key == "columns" else f"feature '{self._key}'"
+            )
+            warning_message = f"{colors.red(f'{n_non_validated} term{s}')} not validated in {key_label}{in_slot}: {colors.red(print_values)}\n"
             # log synonyms if any
             if syn_mapper:
                 s = "" if len(syn_mapper) == 1 else "s"

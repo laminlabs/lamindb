@@ -671,7 +671,7 @@ def test_anndata_curator_varT_curation():
                     adata, key="examples/dataset1.h5ad", schema=anndata_schema
                 ).save()
             assert error.exconly() == (
-                f"lamindb.errors.ValidationError: 1 term not validated in feature 'columns' in slot '{slot}': 'GeneTypo'\n"
+                f"lamindb.errors.ValidationError: 1 term not validated in columns in slot '{slot}': 'GeneTypo'\n"
                 f"    → fix typos, remove non-existent values, or create objects via:\n"
                 "\n"
                 "  records = bionty.Gene.from_values(['GeneTypo'], field='ensembl_gene_id').save()"
