@@ -171,8 +171,9 @@ except ln.errors.ValidationError as error:
 
 ### Step 5: Fix validation issues
 
+Check the non-validated terms:
+
 ```python
-# check the non-validated terms
 curator.cat.non_validated
 ```
 
@@ -211,16 +212,19 @@ df["cell_type_by_expert"] = df["cell_type_by_expert"].cat.rename_categories(
 )
 ```
 
-For the `perturbation` feature, we want to add the new values: `"DMSO"`, `"IFNG"`
+Let's re-run validation:
+
+```python
+try:
+    curator.validate()
+except ln.errors.ValidationError as error:
+    print(error)
+```
+
+For the `perturbation` feature, we need to register new perturbations:
 
 ```python
 ln.Record.from_values(["DMSO", "IFNG"], create=True).save()
-```
-
-Validate again:
-
-```python
-curator.validate()
 ```
 
 ### Step 6: Save your curated dataset
