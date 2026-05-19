@@ -1719,6 +1719,8 @@ class CatVector:
         else:
             slot = None
         in_slot = f" in slot '{slot}'" if slot is not None else ""
+        slot_prefix = f".slots['{slot}']" if slot is not None else ""
+        cat_prefix = f"curator{slot_prefix}.cat"
         n_non_validated = len(non_validated)
         if n_non_validated == 0:
             logger.debug(
@@ -1738,7 +1740,7 @@ class CatVector:
                 syn_mapper_print = _format_values(
                     [f'"{k}" → "{v}"' for k, v in syn_mapper.items()], sep=""
                 )
-                hint_msg = f'.standardize("{self._key}")'
+                hint_msg = f'{cat_prefix}.standardize("{self._key}")'
                 warning_message += f"    {colors.yellow(f'{len(syn_mapper)} synonym{s}')} found: {colors.yellow(syn_mapper_print)}\n    → curate synonyms via: {colors.cyan(hint_msg)}"
             if n_non_validated > len(syn_mapper):
                 if syn_mapper:
