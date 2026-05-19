@@ -21,7 +21,7 @@ In other guides, we've mostly covered annotation. In this guide we'll curate com
 ## Schema design patterns
 
 A {class}`~lamindb.Schema` is a specification that defines the expected structure, data types, and validation rules for a dataset.
-Other than `pydantic.Model` for dictionaries or `pandera.Schema` / `pyarrow.lib.Schema` for tables, a `lamindb` schema enables queries in a database and supports complex data structures.
+Unlike `pydantic.Model` for dictionaries or `pandera.Schema` / `pyarrow.lib.Schema` for tables, a `lamindb` schema enables queries in a database and supports complex data structures.
 Here is an [FAQ](/faq/pydantic-pandera) that compares it with `pydantic` and `pandera`.
 
 Schemas ensure data consistency by defining:
@@ -181,9 +181,9 @@ Check the non-validated terms:
 curator.cat.non_validated
 ```
 
-For `cell_type_by_expert`, we saw 2 terms are not validated.
+For `cell_type_by_expert`, we see 2 terms are not validated.
 
-First, let's standardize synonym "B-cell" as suggested
+First, let's standardize the synonym "B-cell" as suggested:
 
 ```python
 curator.cat.standardize("cell_type_by_expert")
@@ -292,7 +292,7 @@ schema = ln.Schema(
 **Solutions**:
 
 ```python
-# Solution 1: Use automatic standardization if given hint (handles synonyms))
+# Solution 1: Use automatic standardization if given hint (handles synonyms)
 curator.cat.standardize('cell_type')
 
 # Solution 2: Manual mapping for complex cases
@@ -404,7 +404,7 @@ This script demonstrates how to configure a feature that accepts values from mul
 
 ## AnnData
 
-`AnnData` like all other data structures that follow is a composite structure that stores different arrays in different `slots`.
+`AnnData`, like all other data structures that follow, is a composite structure that stores different arrays in different `slots`.
 
 ### Allow a flexible schema
 
@@ -422,7 +422,7 @@ Let's run the script.
 !python scripts/curate_anndata_flexible.py
 ```
 
-Under-the-hood, this uses the following build-in schema ({func}`~lamindb.examples.schemas.anndata_ensembl_gene_ids_and_valid_features_in_obs`):
+Under-the-hood, this uses the following built-in schema ({func}`~lamindb.examples.schemas.anndata_ensembl_gene_ids_and_valid_features_in_obs`):
 
 ```{eval-rst}
 .. literalinclude:: scripts/define_schema_anndata_ensembl_gene_ids_and_valid_features_in_obs.py
@@ -507,7 +507,7 @@ Most datastructures support unstructured metadata stored as dictionaries:
 - MuData: `.uns` and `modality:uns`
 - SpatialData: `.attrs`
 
-Here, we exemplary show how to curate such metadata for AnnData:
+Here, we demonstrate how to curate such metadata for AnnData:
 
 ```{eval-rst}
 .. literalinclude:: scripts/define_schema_anndata_uns.py
