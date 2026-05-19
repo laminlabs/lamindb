@@ -134,6 +134,23 @@ def _format_versioned_record(record: IsVersioned) -> str:
     return f"{class_name}({', '.join(details)})"
 
 
+def _pull_latest_version_if_stale(
+    record: IsVersioned, branch_id: int | None = None
+) -> IsVersioned:
+    record.refresh_from_db(fields=["is_latest"])
+    if not record.is_latest:
+        latest_version_qs = record.__class__.objects.filter(
+            uid__startswith=record.stem_uid,
+            is_latest=True,
+        )
+        if branch_id is not None:
+            latest_version_qs = latest_version_qs.filter(branch_id=branch_id)
+        latest_version = latest_version_qs.order_by("-created_at", "-id").first()
+        if latest_version is not None:
+            return latest_version
+    return record
+
+
 # -------------------------------------------------------------------------------------
 # A note on required fields at the SQLRecord level
 #
@@ -1167,35 +1184,22 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                 # save versioned record in presence of self._revises
                 if isinstance(self, IsVersioned) and self._revises is not None:
                     revises = self._revises
+                    # For branch-aware models (SQLRecord), keep source-branch latest
+                    # intact and only demote within the same branch. For other
+                    # versioned models (e.g. blocks), keep previous behavior.
+                    should_demote = True
+                    has_branch_id = hasattr(revises, "branch_id") and hasattr(
+                        self, "branch_id"
+                    )
+                    if has_branch_id:
+                        should_demote = revises.branch_id == self.branch_id
                     with transaction.atomic():
-                        # For branch-aware models (SQLRecord), keep source-branch latest
-                        # intact and only demote within the same branch. For other
-                        # versioned models (e.g. blocks), keep previous behavior.
-                        has_branch_id = hasattr(revises, "branch_id") and hasattr(
-                            self, "branch_id"
-                        )
-                        should_demote = True
-                        if has_branch_id:
-                            should_demote = revises.branch_id == self.branch_id
                         if should_demote:
-                            revises.refresh_from_db(fields=["is_latest"])
-                            if not revises.is_latest and getattr(
-                                self, "_refresh_revises_if_stale", False
-                            ):
-                                latest_revises_qs = revises.__class__.objects.filter(
-                                    uid__startswith=revises.stem_uid,
-                                    is_latest=True,
+                            if getattr(self, "_refresh_revises_if_stale", False):
+                                revises = _pull_latest_version_if_stale(
+                                    revises, self.branch_id if has_branch_id else None
                                 )
-                                if has_branch_id:
-                                    latest_revises_qs = latest_revises_qs.filter(
-                                        branch_id=self.branch_id
-                                    )
-                                latest_revises = latest_revises_qs.order_by(
-                                    "-created_at", "-id"
-                                ).first()
-                                if latest_revises is not None:
-                                    revises = latest_revises
-                                    self._revises = latest_revises
+                                self._revises = revises
                             if not revises.is_latest:
                                 raise LaminIntegrityError(
                                     "Cannot revise a non-latest record: "
