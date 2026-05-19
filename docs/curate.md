@@ -211,19 +211,10 @@ df["cell_type_by_expert"] = df["cell_type_by_expert"].cat.rename_categories(
 )
 ```
 
-Re-run validation:
+Validation now passes:
 
 ```python
-try:
-    curator.validate()
-except ln.errors.ValidationError as error:
-    print(error)
-```
-
-For the `perturbation` feature, we need to register new perturbations:
-
-```python
-ln.Record.from_values(["DMSO", "IFNG"], create=True).save()
+curator.validate()
 ```
 
 ### (5) Save the dataset
