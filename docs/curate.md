@@ -11,13 +11,10 @@ execute_via: python
 Curating a dataset means three things:
 
 - **Validate** that the dataset matches a desired schema.
-- **Standardize** the dataset (e.g., by fixing typos, mapping synonyms) or update registries if validation fails.
+- If validation fails, **standardize** the dataset (e.g., by fixing typos, mapping synonyms) or update registries.
 - **Annotate** the dataset by linking it against metadata entities so that it becomes queryable.
 
-In this guide we'll curate common data structures.
-Here is a [guide](/faq/curate-any) for the underlying low-level API.
-
-Note: If you know either `pydantic` or `pandera`, here is an [FAQ](/faq/pydantic-pandera) that compares LaminDB with both of these tools.
+In other guides, we've mostly covered annotation. In this guide we'll curate common data structures focusing on validation and standardization.
 
 ```python
 !lamin init --storage ./test-curate --modules bionty
@@ -33,8 +30,9 @@ ln.track()
 
 ## Schema design patterns
 
-A {class}`~lamindb.Schema` in LaminDB is a specification that defines the expected structure, data types, and validation rules for a dataset.
-It is similar to `pydantic.Model` for dictionaries, and `pandera.Schema`, and `pyarrow.lib.Schema` for tables, but supporting more complicated data structures.
+A {class}`~lamindb.Schema` is a specification that defines the expected structure, data types, and validation rules for a dataset.
+It is similar to a `pydantic.Model` for dictionaries, or a `pandera.Schema` & `pyarrow.lib.Schema` for tables, but supports more complicated data structures.
+Here is an [FAQ](/faq/pydantic-pandera) that compares LaminDB with `pydantic` and `pandera`.
 
 Schemas ensure data consistency by defining:
 
