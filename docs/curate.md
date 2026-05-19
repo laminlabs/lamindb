@@ -21,8 +21,8 @@ In other guides, we've mostly covered annotation. In this guide we'll curate com
 ## Schema design patterns
 
 A {class}`~lamindb.Schema` is a specification that defines the expected structure, data types, and validation rules for a dataset.
-It is similar to a `pydantic.Model` for dictionaries, or a `pandera.Schema` & `pyarrow.lib.Schema` for tables, but supports more complicated data structures.
-Here is an [FAQ](/faq/pydantic-pandera) that compares LaminDB with `pydantic` and `pandera`.
+Other than `pydantic.Model` for dictionaries or `pandera.Schema` / `pyarrow.lib.Schema` for tables, a `lamindb` schema enables queries in a database and supports complex data structures.
+Here is an [FAQ](/faq/pydantic-pandera) that compares it with `pydantic` and `pandera`.
 
 Schemas ensure data consistency by defining:
 
@@ -50,8 +50,8 @@ Or for a composite data structure, like an `AnnData`:
 schema = ln.Schema(
     otype="AnnData",
     slots={
-        "obs": cell_metadata_schema,     # cell annotations
-        "var.T": gene_id_schema          # gene-derived features
+        "obs": cell_metadata_schema,     # (pseudocode) cell annotations
+        "var.T": gene_id_schema          # (pseudocode) gene-derived features
     }
 )
 ```
@@ -94,7 +94,7 @@ Use when: You need complete control over data structure and values.
 ```python
 # Only allows specified columns
 schema = ln.Schema(
-    features=[...],
+    features=[...],    # (pseudocode)
     minimal_set=True,  # whether all passed features are required
     maximal_set=False  # whether additional features are allowed
 )
@@ -140,6 +140,8 @@ Before creating a schema, ensure your registries have the right features and lab
 
 ### Step 3: Create your schema
 
+Let's instantiate the flexible schema we discussed earlier (available in our examples module):
+
 ```python
 schema = ln.examples.datasets.mini_immuno.define_mini_immuno_schema_flexible()
 schema.describe()
@@ -149,16 +151,18 @@ schema.describe()
 
 ### Step 4: Initialize Curator and first validation
 
-If you expect the validation to pass, you can directly register an artifact by providing the schema:
+:::{admonition} Shortcut
+If you expect the validation to pass, you can directly ingest a validated artifact via:
 
 ```python
-
 artifact = ln.Artifact.from_dataframe(df, key="examples/my_curated_dataset.parquet", schema=schema).save()
 ```
 
+:::
+
 <!-- #endregion -->
 
-The {meth}`~lamindb.curators.core.Curator.validate` method validates that your dataset adheres to the criteria defined by the `schema`.
+If you want full control over the validation process with access to standardization helpers, you can instantiate a `Curator` object. Its {meth}`~lamindb.curators.core.Curator.validate` method validates that your dataset adheres to the criteria defined by the `schema`.
 It identifies which values are already validated (exist in the registries) and which are potentially problematic (do not yet exist in our registries).
 
 ```python
@@ -273,7 +277,7 @@ schema = ln.Schema(
 
 <!-- #region -->
 
-**Issue**: "Terms not validated in feature 'perturbation'"
+**Issue**: "Terms not validated in feature 'cell_type'"
 
 ```
 2 terms not validated in feature 'cell_type': 'B-cell', 'CD8-pos alpha-beta T cell'
@@ -371,6 +375,7 @@ This pattern applies to any ontology where the same registry serves multiple org
 ## External data validation
 
 Since not all metadata is always stored within the dataset itself, it is also possible to validate external metadata.
+For instance, you might want to validate a separate metadata dictionary or JSON file against a schema before attaching it to your data.
 
 ```{eval-rst}
 .. literalinclude:: scripts/curate_dataframe_external_features.py
@@ -385,6 +390,7 @@ Since not all metadata is always stored within the dataset itself, it is also po
 ## Union dtypes
 
 Some metadata columns might validate against several registries.
+This script demonstrates how to configure a feature that accepts values from multiple sources, such as allowing either a gene symbol or an Ensembl ID.
 
 ```{eval-rst}
 .. literalinclude:: scripts/curate_dataframe_union_features.py
@@ -423,7 +429,7 @@ Under-the-hood, this uses the following build-in schema ({func}`~lamindb.example
    :language: python
 ```
 
-This schema tranposes the `var` DataFrame during curation, so that one validates and annotates the columns of `var.T`, i.e., `[ENSG00000153563, ENSG00000010610, ENSG00000170458]`.
+This schema transposes the `var` DataFrame during curation, so that one validates and annotates the columns of `var.T`, i.e., `[ENSG00000153563, ENSG00000010610, ENSG00000170458]`.
 If one doesn't transpose, one would annotate the columns of `var`, i.e., `[gene_symbol, gene_type]`.
 
 ```{eval-rst}
@@ -462,7 +468,7 @@ except ln.errors.ValidationError as error:
 As above, we leverage a lookup object with valid cell types to find the correct name.
 
 ```python
-valid_cell_types = curator.slots["obs"].cat.lookup()["cell_type_by_expert"]
+valid_cell_types = curator.slots["obs"].cat.lookup(public=True)["cell_type_by_expert"]
 adata.obs["cell_type_by_expert"] = adata.obs[
     "cell_type_by_expert"
 ].cat.rename_categories(
@@ -525,6 +531,9 @@ Here, we exemplary show how to curate such metadata for AnnData:
 
 ## MuData
 
+MuData objects contain multiple modalities, each with its own structure.
+The following script shows how to define and validate schemas across different modalities (e.g., RNA and ATAC) simultaneously.
+
 ```{eval-rst}
 .. literalinclude:: scripts/curate_mudata.py
    :language: python
@@ -536,6 +545,9 @@ Here, we exemplary show how to curate such metadata for AnnData:
 ```
 
 ## SpatialData
+
+For SpatialData, we need to validate annotations nested deep within the `.attrs` dictionary.
+This script illustrates how to target and curate these nested metadata fields.
 
 ```{eval-rst}
 .. literalinclude:: scripts/define_schema_spatialdata.py
@@ -558,6 +570,9 @@ Here, we exemplary show how to curate such metadata for AnnData:
 ```
 
 ## TiledbsomaExperiment
+
+TileDB-SOMA experiments store large-scale single-cell data on disk.
+Here we show how to validate the `obs` and `var` dataframes of a SOMA experiment without loading the entire dataset into memory.
 
 ```{eval-rst}
 .. literalinclude:: scripts/curate_soma_experiment.py
