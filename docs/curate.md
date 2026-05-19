@@ -4,13 +4,11 @@ execute_via: python
 
 # Validate & standardize datasets
 
-Data curation with LaminDB ensures your datasets are **validated** and **queryable** through **annotation**.
-
 ```{raw} html
 <iframe width="560" height="315" src="https://www.youtube.com/embed/Ji6E7hTnReQ?si=K0OnU2MTGv4fIhFo" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
 ```
 
-Curating a dataset with LaminDB means three things:
+Curating a dataset means three things:
 
 - **Validate** that the dataset matches a desired schema.
 - **Standardize** the dataset (e.g., by fixing typos, mapping synonyms) or update registries if validation fails.
@@ -22,7 +20,6 @@ Here is a [guide](/faq/curate-any) for the underlying low-level API.
 Note: If you know either `pydantic` or `pandera`, here is an [FAQ](/faq/pydantic-pandera) that compares LaminDB with both of these tools.
 
 ```python
-# pip install lamindb
 !lamin init --storage ./test-curate --modules bionty
 ```
 
@@ -213,19 +210,15 @@ df["cell_type_by_expert"] = df["cell_type_by_expert"].cat.rename_categories(
 )
 ```
 
-For perturbation, we want to add the new values: "DMSO", "IFNG"
+For the `perturbation` feature, we want to add the new values: `"DMSO"`, `"IFNG"`
 
 ```python
-# this adds perturbations that were _not_ validated
-curator.cat.add_new_from("perturbation")
+ln.Record.from_values(["DMSO", "IFNG"], create=True).save()
 ```
 
-```python
-ln.Feature.get(name="perturbation")
-```
+Validate again:
 
 ```python
-# validate again
 curator.validate()
 ```
 
@@ -233,9 +226,6 @@ curator.validate()
 
 ```python
 artifact = curator.save_artifact(key="examples/my_curated_dataset.parquet")
-```
-
-```python
 artifact.describe()
 ```
 
@@ -288,9 +278,11 @@ schema = ln.Schema(
 ```
 2 terms not validated in feature 'cell_type': 'B-cell', 'CD8-pos alpha-beta T cell'
     1 synonym found: "B-cell" → "B cell"
-    → curate synonyms via: .standardize("cell_type")
+    → curate synonyms via: curator.cat.standardize("cell_type")
     for remaining terms:
-    → fix typos, remove non-existent values, or save terms via: curator.cat.add_new_from('cell_type')
+    → fix typos, remove non-existent values, or create objects via:
+
+  objects = bionty.CellType.from_values(['CD8-pos alpha-beta T cell'], field='name').save()
 ```
 
 **Solutions**:
@@ -313,8 +305,8 @@ df['cell_type'] = df['cell_type'].cat.rename_categories({
     'CD8-pos T cell': cell_types.cd8_positive_alpha_beta_t_cell.name
 })
 
-# Solution 4: Add new legitimate terms
-curator.cat.add_new_from("cell_type")
+# Solution 4: Create new legitimate objects
+objects = bt.CellType.from_values(["my_new_cell_type"]).save()
 ```
 
 <!-- #endregion -->
@@ -482,14 +474,6 @@ The validated `AnnData` can be subsequently saved as an {class}`~lamindb.Artifac
 
 ```python
 adata.obs.columns
-```
-
-```python
-curator.slots["var.T"].cat.add_new_from("columns")
-```
-
-```python
-curator.validate()
 ```
 
 ```python
