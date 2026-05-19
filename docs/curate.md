@@ -240,7 +240,7 @@ artifact.describe()
 This section covers the most frequent curation issues and their solutions.
 Use this as a reference when validation fails.
 
-### Feature validation issues
+### Feature validation errors
 
 <!-- #region -->
 
@@ -275,7 +275,7 @@ schema = ln.Schema(
 
 <!-- #endregion -->
 
-### Value validation issues
+### Value validation errors
 
 <!-- #region -->
 
@@ -317,7 +317,7 @@ objects = bt.CellType.from_values(["my_new_cell_type"]).save()
 
 <!-- #endregion -->
 
-### Data type issues
+### Data type errors
 
 <!-- #region -->
 
@@ -339,7 +339,7 @@ ln.Feature(name="cell_type", dtype=bt.CellType, coerce=True).save()
 
 <!-- #endregion -->
 
-### Organism-specific ontology issues
+### Organism-specific ontology errors
 
 <!-- #region -->
 
