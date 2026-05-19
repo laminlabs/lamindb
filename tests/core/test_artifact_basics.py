@@ -924,13 +924,11 @@ def test_explicit_revises_skips_key_lineage_latest_check(
 
         # Key-based revises inference should now fail because no matching latest exists.
         df.iloc[0, 0] = 202
-        with pytest.raises(
-            IntegrityError,
-            match="matching non-trashed artifacts exist",
-        ):
+        with pytest.raises(IntegrityError) as error:
             ln.Artifact.from_dataframe(df, key=key, description="v3-inferred")
+        assert "matching non-trashed artifacts exist" in str(error.value)
 
-        # Explicit revises should bypass key-lineage inference during init.
+        # Explicit revises should bypass selecting a previous version by key during init.
         artifact_v3 = ln.Artifact.from_dataframe(
             df, key=key, description="v3-explicit", revises=artifact_v2
         )

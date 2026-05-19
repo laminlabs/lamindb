@@ -296,8 +296,9 @@ def test_inferred_revises_refreshes_and_requeries_latest():
 
         # If refresh/requery is disabled, save should fail on stale revises.
         transform_pending._refresh_revises_if_stale = False
-        with pytest.raises(IntegrityError):
+        with pytest.raises(IntegrityError) as error:
             transform_pending.save()
+        assert "Cannot revise a non-latest record" in str(error.value)
 
         # Re-enable behavior and verify save now succeeds.
         transform_pending._refresh_revises_if_stale = True
