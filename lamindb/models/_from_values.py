@@ -13,6 +13,34 @@ if TYPE_CHECKING:
     from .sqlrecord import SQLRecord
 
 
+def build_create_records_hint(
+    not_validated_values: dict[str, tuple[str, list[str]]],
+    *,
+    title: str = "Here is how to create records for them:",
+) -> str:
+    """Build a creation hint for non-validated values grouped by registry."""
+    hint = ""
+    for key, (field, values_list) in not_validated_values.items():
+        key_str = "ln.Record" if key == "Record" else key
+        create_true = ", create=True" if "bionty." not in key else ""
+        hint += (
+            f"  records = {key_str}.from_values({values_list},"
+            f" field='{field}'{create_true}).save()\n"
+        )
+    return f"{title}\n\n{hint}"
+
+
+def build_not_validated_values_message(
+    not_validated_values: dict[str, tuple[str, list[str]]],
+) -> str:
+    """Build validation error message including record creation hints."""
+    create_hint = build_create_records_hint(not_validated_values)
+    return (
+        f"These values could not be validated: {dict(not_validated_values)}\n"
+        f"{create_hint}"
+    )
+
+
 # The base function for `from_values`
 def _from_values(
     iterable: ListLike,

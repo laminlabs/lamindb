@@ -22,7 +22,10 @@ from rich.text import Text
 from rich.tree import Tree
 
 from lamindb.errors import DoesNotExist, InvalidArgument, ValidationError
-from lamindb.models._from_values import _format_values
+from lamindb.models._from_values import (
+    _format_values,
+    build_not_validated_values_message,
+)
 from lamindb.models.feature import (
     serialize_pandas_dtype,
     suggest_categorical_for_str_iterable,
@@ -1338,15 +1341,7 @@ class FeatureManager:
     ) -> None:
         if not not_validated_values:
             return None
-        hint = ""
-        for key, (field, values_list) in not_validated_values.items():
-            key_str = "ln.Record" if key == "Record" else key
-            create_true = ", create=True" if "bionty." not in key else ""
-            hint += f"  records = {key_str}.from_values({values_list}, field='{field}'{create_true}).save()\n"
-        msg = (
-            f"These values could not be validated: {dict(not_validated_values)}\n"
-            f"Here is how to create records for them:\n\n{hint}"
-        )
+        msg = build_not_validated_values_message(not_validated_values)
         raise ValidationError(msg)
 
     def _collect_record_feature_writes(
