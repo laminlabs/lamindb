@@ -16,16 +16,6 @@ Curating a dataset means three things:
 
 In other guides, we've mostly covered annotation. In this guide we'll curate common data structures focusing on validation and standardization.
 
-```python
-!lamin init --storage ./test-curate --modules bionty
-```
-
-```python
-import lamindb as ln
-
-ln.track()
-```
-
 <!-- #region -->
 
 ## Schema design patterns
@@ -36,12 +26,12 @@ Here is an [FAQ](/faq/pydantic-pandera) that compares LaminDB with `pydantic` an
 
 Schemas ensure data consistency by defining:
 
-- What {class}`~lamindb.Feature`s (dimensions) exist in your dataset
+- Which features exist in your dataset
 - What data types those features should have
 - What values are valid for categorical features
-- Which {class}`~lamindb.Feature`s are required vs optional
+- Which features are required vs optional
 
-An exemplary schema:
+An exemplary schema that leverages {class}`~lamindb.Feature` objects to define features:
 
 ```python
 schema = ln.Schema(
@@ -54,23 +44,22 @@ schema = ln.Schema(
 )
 ```
 
-For composite data structures using slots:
-
-```{dropdown} What are slots?
-
-For composite data structures, you need to specify which component contains which schema, for example, to validate both cell metadata in `.obs` and gene metadata in `.var` within the same schema.
-Each slot is a key like `"obs"` for AnnData observations,`"rna:var"` for MuData modalities, or `"attrs:nested:key"` for SpatialData annotations.
-```
+Or for a composite data structure, like an `AnnData`:
 
 ```python
-# AnnData with multiple "slots"
-adata_schema = ln.Schema(
+schema = ln.Schema(
     otype="AnnData",
     slots={
         "obs": cell_metadata_schema,     # cell annotations
         "var.T": gene_id_schema          # gene-derived features
     }
 )
+```
+
+```{dropdown} What are slots?
+
+For composite data structures, you need to specify which component contains which schema, for example, to validate both cell metadata in `.obs` and gene metadata in `.var` within the same schema.
+Each slot is a key like `"obs"` for AnnData observations,`"rna:var"` for MuData modalities, or `"attrs:nested:key"` for SpatialData annotations.
 ```
 
 Before diving into curation, let's understand the different schema approaches and when to use each one.
@@ -114,6 +103,20 @@ schema = ln.Schema(
 <!-- #endregion -->
 
 ## DataFrame
+
+If you're not connected to a database, create one:
+
+```python
+!lamin init --storage ./test-curate --modules bionty
+```
+
+Let's import `lamindb` and optionally track this run:
+
+```python
+import lamindb as ln
+
+ln.track()
+```
 
 ### Step 1: Load and examine your data
 
