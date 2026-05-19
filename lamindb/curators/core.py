@@ -1748,17 +1748,13 @@ class CatVector:
                     organism = self._filter_kwargs.get("organism", None)
                     check_organism = f"fix organism '{organism}', "
                 registry_str = self._registry.__get_name_with_module__()
-                slot_context = f" for slot '{slot}'" if slot is not None else ""
                 create_hint = build_create_records_hint(
                     {registry_str: (self._field_name, non_validated)},
-                    title=(
-                        "Here is how to create records for non-validated values"
-                        f"{slot_context}:"
-                    ),
+                    title=None,
                 )
                 warning_message += (
                     f"    → {check_organism}fix typos, remove non-existent values, "
-                    "or create records via:\n\n"
+                    "or create objects via:\n\n"
                     f"{colors.cyan(create_hint)}"
                 )
                 if self._subtype_query_set is not None and self._type_record:

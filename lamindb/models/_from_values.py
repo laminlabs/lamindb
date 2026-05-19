@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 def build_create_records_hint(
     not_validated_values: dict[str, tuple[str, list[str]]],
     *,
-    title: str = "Here is how to create records for them:",
+    title: str | None = "Here is how to create objects for them:",
 ) -> str:
     """Build a creation hint for non-validated values grouped by registry."""
     hint = ""
@@ -27,6 +27,8 @@ def build_create_records_hint(
             f"  records = {key_str}.from_values({values_list},"
             f" field='{field}'{create_true}).save()\n"
         )
+    if title is None:
+        return hint
     return f"{title}\n\n{hint}"
 
 

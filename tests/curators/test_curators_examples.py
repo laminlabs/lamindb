@@ -224,9 +224,7 @@ def test_dataframe_curator(mini_immuno_schema: ln.Schema):
     assert (
         error.exconly()
         == """lamindb.errors.ValidationError: 1 term not validated in feature 'perturbation': 'ulabel_but_not_perturbation'
-    → fix typos, remove non-existent values, or create records via:
-
-Here is how to create records for non-validated values:
+    → fix typos, remove non-existent values, or create objects via:
 
   records = ULabel.from_values(['ulabel_but_not_perturbation'], field='name', create=True).save()
     → a valid label for subtype 'Perturbation' has to be one of ['DMSO', 'IFNG']"""
@@ -240,9 +238,7 @@ Here is how to create records for non-validated values:
     assert (
         error.exconly()
         == """lamindb.errors.ValidationError: 1 term not validated in feature 'perturbation': 'IFNJ'
-    → fix typos, remove non-existent values, or create records via:
-
-Here is how to create records for non-validated values:
+    → fix typos, remove non-existent values, or create objects via:
 
   records = ULabel.from_values(['IFNJ'], field='name', create=True).save()
     → a valid label for subtype 'Perturbation' has to be one of ['DMSO', 'IFNG']"""
@@ -512,9 +508,7 @@ def test_schema_no_match_ensembl():
     assert (
         error.exconly()
         == """lamindb.errors.ValidationError: 2 terms not validated in feature 'index': 'ENSG99999999998', 'ENSG99999999999'
-    → fix typos, remove non-existent values, or create records via:
-
-Here is how to create records for non-validated values:
+    → fix typos, remove non-existent values, or create objects via:
 
   records = bionty.Gene.from_values(['ENSG99999999998', 'ENSG99999999999'], field='ensembl_gene_id').save()"""
     )
@@ -678,9 +672,7 @@ def test_anndata_curator_varT_curation():
                 ).save()
             assert error.exconly() == (
                 f"lamindb.errors.ValidationError: 1 term not validated in feature 'columns' in slot '{slot}': 'GeneTypo'\n"
-                f"    → fix typos, remove non-existent values, or create records via:\n"
-                "\n"
-                f"Here is how to create records for non-validated values for slot '{slot}':\n"
+                f"    → fix typos, remove non-existent values, or create objects via:\n"
                 "\n"
                 "  records = bionty.Gene.from_values(['GeneTypo'], field='ensembl_gene_id').save()"
             )
@@ -734,9 +726,7 @@ def test_anndata_curator_varT_curation_legacy(ccaplog):
                 ).save()
             assert error.exconly() == (
                 f"lamindb.errors.ValidationError: 1 term not validated in feature 'var_index' in slot '{slot}': 'GeneTypo'\n"
-                f"    → fix typos, remove non-existent values, or create records via:\n"
-                "\n"
-                f"Here is how to create records for non-validated values for slot '{slot}':\n"
+                f"    → fix typos, remove non-existent values, or create objects via:\n"
                 "\n"
                 "  records = bionty.Gene.from_values(['GeneTypo'], field='ensembl_gene_id').save()"
             )
