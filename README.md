@@ -2,8 +2,8 @@
 
 # LaminDB - Open-source data lakehouse for biology
 
-LaminDB allows you to query, trace, and validate datasets and models at scale.
-You get context & memory through a lineage-native lakehouse that supports bio-formats, registries & ontologies while feeling as simple as a file system.
+LaminDB allows you to query, trace, and validate datasets and models at scale while feeling as simple as a file system.
+You get context & memory through data lineage and support for bio-formats, registries & ontologies.
 
 Agent? [llms.txt](https://docs.lamin.ai/llms.txt)
 
