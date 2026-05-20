@@ -41,7 +41,7 @@ How?
 - **change management** → branching & merging similar to git, plan management for agents
 - **zero lock-in** → runs anywhere on open standards (Postgres, SQLite, `parquet`, `zarr`, etc.)
 - **scalable** → you hit storage & database directly through your `pydata` or R stack, no REST API involved
-- **simple** → just `pip install` from PyPI or `install.packages('laminr')` from CRAN
+- **simple** → just `pip install` or `install.packages('laminr')` - no docker required, no separate backend to deploy
 - **idempotent** → re-run logic without worries about duplications or overwrites
 - **distributed** → zero-copy & lineage-aware data sharing across infrastructure (databases & storage locations)
 - **integrations** → [git](https://docs.lamin.ai/track#sync-code-with-git), [nextflow](https://docs.lamin.ai/nextflow), [vitessce](https://docs.lamin.ai/vitessce), [redun](https://docs.lamin.ai/redun), and [more](https://docs.lamin.ai/integrations)
