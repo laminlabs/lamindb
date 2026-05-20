@@ -11,7 +11,6 @@ from lamin_utils import logger
 from lamindb_setup import settings as setup_settings
 from lamindb_setup.core._hub_core import (
     delete_storage_record,
-    get_storage_records_for_instance,
     select_space,
     update_storage_with_space,
 )
@@ -351,8 +350,6 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
         Args:
             permanent: `False` raises an error, as soft delete is impossible.
         """
-        from .. import settings
-
         if permanent is False:
             raise ValueError(
                 "Soft delete is not possible for Storage, "
@@ -366,22 +363,21 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
             super(SQLRecord, self).delete()
             return None
         # now the complicated case of a written/managed storage location
-        check_storage_is_empty(self.path)
-        assert settings.storage.root_as_str != self.root, (  # noqa: S101
+        root_path = self.path
+        check_storage_is_empty(root_path)
+        assert setup_settings.storage.root_as_str != self.root, (  # noqa: S101
             "Cannot delete the current storage location, switch to another."
         )
-        if setup_settings.user.handle != "anonymous":  # only attempt if authenticated
-            storage_records = get_storage_records_for_instance(
-                # only query those storage records on the hub that are managed by the current instance
-                setup_settings.instance._id
+        ssettings = StorageSettings(root_path)
+        if (
+            setup_settings.user.handle != "anonymous"
+            and (storage_record := ssettings.hub_record) is not None
+        ):
+            assert storage_record["is_default"] in {False, None}, (  # noqa: S101
+                "Cannot delete default storage of instance."
             )
-            for storage_record in storage_records:
-                if storage_record["lnid"] == self.uid:
-                    assert storage_record["is_default"] in {False, None}, (  # noqa: S101
-                        "Cannot delete default storage of instance."
-                    )
-                    delete_storage_record(storage_record)
-        ssettings = StorageSettings(self.root)
+            delete_storage_record(storage_record)
+
         if ssettings._mark_storage_root.exists():
             ssettings._mark_storage_root.unlink(
                 missing_ok=True  # this is totally weird, but needed on Py3.11
