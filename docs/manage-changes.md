@@ -25,9 +25,11 @@ This works because {class}`~lamindb.Artifact`, {class}`~lamindb.Transform`, and 
 
 All primary objects like artifacts, records, transforms, etc. (any that inherit from {class}`~lamindb.models.SQLRecord`) have a {attr}`~lamindb.models.SQLRecord.branch` field that determines their life cycle.
 
+There are three built-in branches: `main`, `trash`, and `archive`. By default, objects are created on the `main` branch and visible in queries and searches.
+
 ### Archive & trash
 
-There are three built-in branches: `main`, `trash`, and `archive`. By default, objects are created on the `main` branch and visible in queries and searches. If you delete an object, it gets moved into the `trash`. There, it's hidden from queries & search and scheduled for deletion.
+If you delete an object, it gets moved into the `trash`. There, it's hidden from queries & search and scheduled for deletion.
 
 ```python
 artifact.delete()
