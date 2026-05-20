@@ -339,16 +339,15 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
         super().save(*args, **kwargs)
         return self
 
-    def delete(self, permanent: bool | None = None) -> None:  # type: ignore
-        # type ignore is there because we don't use a trash here unlike everywhere else
+    def delete(self, permanent: bool | None = None, enforce_empty: bool = True) -> None:  # type: ignore
+        # type ignore is there because we don't have kwargs as in the superclass
         """Delete the storage location.
-
-        This errors in case the storage location is not empty.
 
         Unlike other `SQLRecord`-based registries, this does *not* move the storage record into the trash.
 
         Args:
             permanent: `False` raises an error, as soft delete is impossible.
+            enforce_empty: `True` raises an error if the storage location is not empty.
         """
         if permanent is False:
             raise ValueError(
@@ -363,11 +362,10 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
             super(SQLRecord, self).delete()
             return None
         # now the complicated case of a written/managed storage location
-        root_path = self.path
-        check_storage_is_empty(root_path)
         assert setup_settings.storage.root_as_str != self.root, (  # noqa: S101
             "Cannot delete the current storage location, switch to another."
         )
+        root_path = self.path
         ssettings = StorageSettings(root_path)
         if (
             setup_settings.user.handle != "anonymous"
@@ -376,10 +374,10 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
             assert storage_record["is_default"] in {False, None}, (  # noqa: S101
                 "Cannot delete default storage of instance."
             )
+            check_storage_is_empty(root_path, raise_error=enforce_empty)
+            if ssettings._mark_storage_root.exists():
+                ssettings._mark_storage_root.unlink(
+                    missing_ok=True  # this is totally weird, but needed on Py3.11
+                )
             delete_storage_record(storage_record)
-
-        if ssettings._mark_storage_root.exists():
-            ssettings._mark_storage_root.unlink(
-                missing_ok=True  # this is totally weird, but needed on Py3.11
-            )
         super(SQLRecord, self).delete()
