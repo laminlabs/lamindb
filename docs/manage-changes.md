@@ -8,13 +8,13 @@ You can make a new version of an object by passing an existing `key`.
 
 ```python
 import lamindb as ln
-import pandas as pd
+from pathlib import Path
 
-df = pd.DataFrame({"a": [1, 2]})
-artifact = ln.Artifact.from_dataframe(df, key="dataset.parquet").save()
+Path("my_file.txt").write_text("v1")
+artifact = ln.Artifact("my_file.txt", key="my_file.txt").save()
 
-df_v2 = pd.DataFrame({"a": [1, 2, 3]})
-artifact_v2 = ln.Artifact.from_dataframe(df_v2, key="dataset.parquet").save()
+Path("my_file.txt").write_text("v2")
+artifact_v2 = ln.Artifact("my_file.txt", key="my_file.txt").save()
 
 artifact_v2.versions.to_dataframe()  # see all versions
 ```
@@ -34,10 +34,10 @@ artifact.delete()
 assert artifact.branch.name == "trash"
 
 # the artifact does not show up in default queries
-assert len(ln.Artifact.filter(key="dataset.parquet").all()) == 1
+assert len(ln.Artifact.filter(key="my_file.txt").all()) == 1
 
 # you can still query for it by adding the trash branch to the filter
-ln.Artifact.filter(key="dataset.parquet", branch__name="trash").to_dataframe()
+ln.Artifact.filter(key="my_file.txt", branch__name="trash").to_dataframe()
 
 # you can restore it from trash
 artifact.restore()
