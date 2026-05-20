@@ -436,7 +436,7 @@ lamin switch main  # switch to the main branch
 lamin merge my_branch  # merge contribution branch into main
 ```
 
-Read more: [docs.lamin.ai/lamindb.branch](https://docs.lamin.ai/lamindb.branch).
+Read more: [docs.lamin.ai/lamindb.branch](https://docs.lamin.ai/manage-changes).
 
 ### Data sharing
 
