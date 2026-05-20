@@ -21,9 +21,11 @@ artifact_v2.versions.to_dataframe()  # see all versions of this artifact
 
 This works because {class}`~lamindb.Artifact`, {class}`~lamindb.Transform`, and {class}`~lamindb.Collection` inherit from {class}`~lamindb.models.IsVersioned`.
 
-## Archive & trash
+## Branching
 
-All primary objects -- any that inherit from {class}`~lamindb.models.SQLRecord` -- have a {attr}`~lamindb.models.SQLRecord.branch` field that determines their life cycle.
+All primary objects like artifacts, records, transforms, etc. (any that inherit from {class}`~lamindb.models.SQLRecord`) have a {attr}`~lamindb.models.SQLRecord.branch` field that determines their life cycle.
+
+### Archive & trash
 
 There are three built-in branches: `main`, `trash`, and `archive`. By default, objects are created on the `main` branch and visible in queries and searches. If you delete an object, it gets moved into the `trash`. There, it's hidden from queries & search and scheduled for deletion.
 
@@ -50,7 +52,7 @@ artifact.save()
 
 Objects in the archive are hidden from queries & search like objects in the trash, but they are not scheduled for deletion. You can query for them by adding `branch__name="archive"` to the filter.
 
-## Contribution branches
+### Contribution branches
 
 To create a contribution branch and switch to it, run:
 
