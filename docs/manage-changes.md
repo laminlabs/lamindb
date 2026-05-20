@@ -4,7 +4,7 @@ You can manage updates to objects through versioning, and safely remove obsolete
 
 ## Versioning
 
-You can make a new version of an object by passing an existing `key`.
+You can make a new version of an artifact, transform, or collection by passing an existing `key`. For example, for an artifact:
 
 ```python
 import lamindb as ln
@@ -16,32 +16,39 @@ artifact = ln.Artifact("my_file.txt", key="my_file.txt").save()
 Path("my_file.txt").write_text("v2")
 artifact_v2 = ln.Artifact("my_file.txt", key="my_file.txt").save()
 
-artifact_v2.versions.to_dataframe()  # see all versions
+artifact_v2.versions.to_dataframe()  # see all versions of this artifact
 ```
+
+This works because {class}`~lamindb.Artifact`, {class}`~lamindb.Transform`, and {class}`~lamindb.Collection` inherit from {class}`~lamindb.models.IsVersioned`.
 
 ## Archive & trash
 
-LaminDB comes with 3 default branches:
+All primary objects -- any that inherit from {class}`~lamindb.models.SQLRecord` -- have a {attr}`~lamindb.models.SQLRecord.branch` field that determines their life cycle.
 
-- `main`: visible
-- `archive`: excluded from query & search
-- `trash`: excluded from query & search, scheduled for deletion
-
-By default, objects are created on the `main` branch. If you delete an object, it gets moved onto the `trash` branch.
+There are three built-in branches: `main`, `trash`, and `archive`. By default, objects are created on the `main` branch and visible in queries and searches. If you delete an object, it gets moved into the `trash`. There, it's hidden from queries & search and scheduled for deletion.
 
 ```python
 artifact.delete()
 assert artifact.branch.name == "trash"
 
-# the artifact does not show up in default queries
-assert len(ln.Artifact.filter(key="my_file.txt").all()) == 1
+# the artifact does not show up in a default query
+ln.Artifact.filter(key="my_file.txt")
 
 # you can still query for it by adding the trash branch to the filter
-ln.Artifact.filter(key="my_file.txt", branch__name="trash").to_dataframe()
+ln.Artifact.filter(key="my_file.txt", branch__name="trash")
 
 # you can restore it from trash
 artifact.restore()
 ```
+
+To move an object into the archive, run:
+
+```python
+artifact.branch_id = 0
+artifact.save()
+```
+
+Objects in the archive are hidden from queries & search like objects in the trash, but they are not scheduled for deletion. You can query for them by adding `branch__name="archive"` to the filter.
 
 ## Contribution branches
 
