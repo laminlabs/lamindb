@@ -61,7 +61,10 @@ def test_run_in_marimo(monkeypatch):
     )
     monkeypatch.setattr(
         "marimo._runtime.context.safe_get_context",
-        lambda: SimpleNamespace(filename="test.py"),
+        lambda: SimpleNamespace(
+            filename="test.py",
+            marimo_config={"display": {"dataframes": "plain"}},
+        ),
     )
 
 
