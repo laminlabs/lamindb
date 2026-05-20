@@ -10,7 +10,6 @@ faq/track-run-inputs
 faq/curate-any
 faq/import-modules
 faq/reference-field
-faq/trash-archive
 faq/keep-artifacts-local
 faq/validate-fields
 faq/symbol-mapping

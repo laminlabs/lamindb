@@ -4,59 +4,43 @@ You can manage updates to objects through versioning, and safely remove obsolete
 
 ## Versioning
 
-## Archive & trash
-
-Any object in LaminDB has the following 3 levels of visibility through 3 default branches:
-
-- `main`: visible
-- `archive`: excluded from query & search
-- `trash`: excluded from query & search, scheduled for deletion
-
-Let's look at an example for an `Artifact` object while noting that the same applies to any other `SQLRecord`.
+You can make a new version of an object by passing an existing `key`.
 
 ```python
 import lamindb as ln
 import pandas as pd
 
-df = pd.DataFrame({"a": [1, 2], "b": [3, 4]})
+df = pd.DataFrame({"a": [1, 2]})
 artifact = ln.Artifact.from_dataframe(df, key="dataset.parquet").save()
+
+df_v2 = pd.DataFrame({"a": [1, 2, 3]})
+artifact_v2 = ln.Artifact.from_dataframe(df_v2, key="dataset.parquet").save()
+
+artifact_v2.versions.to_dataframe()  # see all versions
 ```
 
-An artifact is by default created on the `main` branch.
+## Archive & trash
 
-```python
-assert artifact.branch.name == "main"
-ln.Artifact.filter(key="dataset.parquet").to_dataframe()
-# the artifact shows up
-```
+LaminDB comes with 3 default branches:
 
-If you delete an artifact, it gets moved onto the `trash` branch.
+- `main`: visible
+- `archive`: excluded from query & search
+- `trash`: excluded from query & search, scheduled for deletion
+
+By default, objects are created on the `main` branch. If you delete an object, it gets moved onto the `trash` branch.
 
 ```python
 artifact.delete()
 assert artifact.branch.name == "trash"
-```
 
-Artifacts in trash won't show up in queries with default arguments:
+# the artifact does not show up in default queries
+assert len(ln.Artifact.filter(key="dataset.parquet").all()) == 1
 
-```python
-ln.Artifact.filter(key="dataset.parquet").to_dataframe()
-# the artifact does not show up
-```
-
-You can query for them by adding the `trash` branch to the filter.
-
-```python
+# you can still query for it by adding the trash branch to the filter
 ln.Artifact.filter(key="dataset.parquet", branch__name="trash").to_dataframe()
-# the artifact shows up
-```
 
-You can restore an artifact from trash:
-
-```python
+# you can restore it from trash
 artifact.restore()
-ln.Artifact.filter(key="dataset.parquet").to_dataframe()
-# the artifact shows up
 ```
 
 ## Contribution branches

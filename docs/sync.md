@@ -2,7 +2,7 @@
 execute_via: python
 ---
 
-# Sync data across databases
+# Sync & transfer data across databases
 
 This guide shows how to sync objects from a source database to your default database.
 
