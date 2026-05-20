@@ -1,12 +1,42 @@
 # Manage changes
 
-Managing changes in LaminDB is largely analogous to managing code changes via branching in git and Pull Requests in GitHub.
+Managing changes works largely analogously to managing code changes in git and Pull Requests in GitHub.
 
 To create a contribution {class}`~lamindb.Branch` and switch to it, run:
 
 ```bash
 lamin switch -c my_branch
 ```
+
+This configures a default branch in your environment that takes effect in shell, Python, and R sessions. All objects that you create will then be created on that branch. Alternatively, you can directly configure a branch via the API:
+
+::::{tab-set}
+
+:::{tab-item} Via settings
+
+```python
+ln.setup.settings.branch = "my_branch"  # globally switch the default branch
+```
+
+:::
+
+:::{tab-item} Via `ln.track()`
+
+```python
+ln.track(branch="my_branch")  # default branch for all objects created in a run to my_branch
+```
+
+:::
+
+:::{tab-item} Via object constructor
+
+```python
+ln.Artifact(..., branch="my_branch")  # add an artifact on my_branch
+ln.ULabel(..., branch="my_branch")  # add a ULabel on my_branch
+```
+
+:::
+::::
 
 To merge a contribution branch into `main`, run:
 
