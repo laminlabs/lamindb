@@ -362,11 +362,11 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
             super(SQLRecord, self).delete()
             return None
         # now the complicated case of a written/managed storage location
-        assert setup_settings.storage.root_as_str != self.root, (  # noqa: S101
+        root = self.root
+        assert setup_settings.storage.root_as_str != root, (  # noqa: S101
             "Cannot delete the current storage location, switch to another."
         )
-        root_path = self.path
-        ssettings = StorageSettings(root_path)
+        ssettings = StorageSettings(root)
         if (
             setup_settings.user.handle != "anonymous"
             and (storage_record := ssettings.hub_record) is not None
@@ -374,10 +374,18 @@ class Storage(SQLRecord, TracksRun, TracksUpdates):
             assert storage_record["is_default"] in {False, None}, (  # noqa: S101
                 "Cannot delete default storage of instance."
             )
-            check_storage_is_empty(root_path, raise_error=enforce_empty)
-            if ssettings._mark_storage_root.exists():
-                ssettings._mark_storage_root.unlink(
-                    missing_ok=True  # this is totally weird, but needed on Py3.11
-                )
+            # cleanup storage before deleting the storage record
+            # in case credentials refresh is required
+            _check_cleanup_storage(ssettings, enforce_empty)
             delete_storage_record(storage_record)
+        else:
+            _check_cleanup_storage(ssettings, enforce_empty)
         super(SQLRecord, self).delete()
+
+
+def _check_cleanup_storage(ssettings: StorageSettings, enforce_empty: bool = True):
+    check_storage_is_empty(ssettings.root, raise_error=enforce_empty)
+    if ssettings._mark_storage_root.exists():
+        ssettings._mark_storage_root.unlink(
+            missing_ok=True  # this is totally weird, but needed on Py3.11
+        )
