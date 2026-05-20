@@ -15,7 +15,10 @@ from django.db.models import CASCADE, PROTECT, Q
 from django.db.models.functions import Length
 from lamin_utils import colors, logger
 from lamindb_setup import settings as setup_settings
-from lamindb_setup.core._hub_core import select_storage_or_parent
+from lamindb_setup.core._hub_core import (
+    get_instance_slug_by_uid,
+    select_storage_or_parent,
+)
 from lamindb_setup.core.hashing import HASH_LENGTH, hash_dir, hash_file
 from lamindb_setup.core.upath import (
     LocalPathClasses,
@@ -1677,10 +1680,42 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             raise ValueError(
                 f"Do not pass key that contains a managed storage path in `{_s().AUTO_KEY_PREFIX}`"
             )
-        # below is for internal calls that require defining the storage location
-        # ahead of constructing the Artifact
-        if isinstance(path, (str, Path, UPath)) and _s().AUTO_KEY_PREFIX in str(path):
-            if _is_internal_call:
+
+        if isinstance(path, (str, Path, UPath)) and _s().AUTO_KEY_PREFIX in (
+            path_str := path if isinstance(path, str) else path.as_posix()
+        ):
+            if not _is_internal_call:
+                # just check for 2 writable cloud protocols, maybe change in the future
+                if path_str.startswith(("s3://", "gs://")):
+                    storage_record = select_storage_or_parent(path_str)
+                    if storage_record is None:
+                        raise ValueError(
+                            f"Registered storage location for path '{path_str}' not found."
+                        )
+                    slug = get_instance_slug_by_uid(storage_record["instance_uid"])
+                    if slug is None:
+                        raise ValueError(
+                            f"Managing instance for storage location '{storage_record['root']}' not found."
+                        )
+                    try:
+                        # exclude trash?
+                        existing_artifact = Artifact.connect(slug).get(path=path_str)
+                    except Artifact.DoesNotExist as e:
+                        raise ValueError(
+                            f"Artifact for path '{path_str}' not found."
+                        ) from e
+
+                    from .sqlrecord import init_self_from_db
+
+                    init_self_from_db(self, existing_artifact)
+                    return None
+                else:
+                    raise ValueError(
+                        f"Do not pass path inside the `{_s().AUTO_KEY_PREFIX}` directory for non-s3/gs paths."
+                    )
+            # below is for internal calls that require defining the storage location
+            # ahead of constructing the Artifact
+            else:
                 if _key_is_virtual is False:
                     raise ValueError(
                         "Do not pass key_is_virtual=False with _is_internal_call=True."
@@ -1688,10 +1723,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                 is_automanaged_path = True
                 user_provided_key = key
                 key = None
-            else:
-                raise ValueError(
-                    f"Do not pass path inside the `{_s().AUTO_KEY_PREFIX}` directory."
-                )
         else:
             is_automanaged_path = False
 
