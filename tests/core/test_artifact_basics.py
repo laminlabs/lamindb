@@ -91,7 +91,7 @@ def test_basic_validation():
         ln.Artifact(".lamindb/test_df.parquet", description="Test")
     assert (
         error.exconly()
-        == f"ValueError: Do not pass path inside the `{AUTO_KEY_PREFIX}` directory."
+        == f"ValueError: Do not pass path inside the `{AUTO_KEY_PREFIX}` directory for non-s3/gs paths."
     )
 
 
