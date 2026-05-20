@@ -56,16 +56,7 @@ def test_switch_delete_storage_location():
     assert "Cannot delete storage with artifacts in current instance." in err.exconly()
 
     artifact.delete(permanent=True, storage=False)
-    # still some files in there
-    with pytest.raises(ln.setup.errors.StorageNotEmpty) as err:
-        new_storage.delete()
-    assert (
-        "'s3://lamindb-ci/test-settings-switch-storage/.lamindb' contains 1 objects"
-        in err.exconly()
-    )
 
-    # now delete the artifact so that the storage location is empty
-    artifact.path.unlink()
     with pytest.raises(AssertionError) as err:
         new_storage.delete()
     assert (
@@ -73,13 +64,22 @@ def test_switch_delete_storage_location():
         in err.exconly()
     )
 
-    # check all attempts unsuccessful so far
-    assert check_storage_location_on_hub_exists(new_storage.uid)
-
     # switch back to default storage
     ln.settings.storage = "./default_storage_unit_storage"
+
+    # still some files in there
+    with pytest.raises(ln.setup.errors.StorageNotEmpty) as err:
+        new_storage.delete()
+    assert (
+        "'s3://lamindb-ci/test-settings-switch-storage/.lamindb' contains 1 objects"
+        in err.exconly()
+    )
     storage_marker = ln.UPath(new_storage_location) / ".lamindb/storage_uid.txt"
     assert storage_marker.exists()
+    assert check_storage_location_on_hub_exists(new_storage.uid)
+
+    # now delete the artifact so that the storage location is empty
+    artifact.path.unlink()
     new_storage.delete()
     assert not check_storage_location_on_hub_exists(new_storage.uid)
     assert not storage_marker.exists()
