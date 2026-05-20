@@ -133,21 +133,26 @@ def get_uid_ext(version: str) -> str:
 def get_marimo_notebook_path() -> str | None:
     if not _is_running_in_marimo():
         return None
-    import marimo
 
-    if not hasattr(marimo, "_runtime"):
+    from marimo._runtime import context as marimo_runtime_context
+
+    if not hasattr(marimo_runtime_context, "safe_get_context"):
         raise RuntimeError(
-            "marimo version is incompatible with lamindb, downgrade to 0.23.6"
+            "marimo version is incompatible with lamindb: "
+            "marimo._runtime.context lacks safe_get_context"
         )
 
-    try:
-        from marimo._runtime.context import safe_get_context
-    except (ImportError, AttributeError):
-        return None
-
-    ctx = safe_get_context()
+    ctx = marimo_runtime_context.safe_get_context()
     if ctx is None:
         return None
+    df_mode = ctx.marimo_config.get("display", {}).get("dataframes")
+    if df_mode != "plain":
+        logger.warning(
+            "marimo's 'Dataframe viewer' is set to 'rich'; tables in your "
+            "HTML report will appear as truncated PNG screenshots. "
+            "For a clean report, set 'Dataframe viewer' to 'plain' "
+            "(Settings → Packages & Data → Data) and restart marimo."
+        )
     return getattr(ctx, "filename", None)
 
 
@@ -880,34 +885,28 @@ class Context:
         if pypackages is None:
             pypackages = True
         description = None
+
         if self._notebook_runner == "marimo":
+            import re
+
             source = path.read_text(encoding="utf-8")
-            if (
-                'auto_download=["html"]' not in source
-                and "auto_download=['html']" not in source
-            ):
-                if 'app = marimo.App(width="medium")' in source:
-                    source = source.replace(
-                        'app = marimo.App(width="medium")',
-                        'app = marimo.App(width="medium", auto_download=["html"])',
-                        1,
-                    )
-                    path.write_text(source, encoding="utf-8")
-                    logger.warning("configured marimo HTML auto-export")
-                elif "app = marimo.App()" in source:
-                    source = source.replace(
-                        "app = marimo.App()",
-                        'app = marimo.App(auto_download=["html"])',
-                        1,
-                    )
-                    path.write_text(source, encoding="utf-8")
-                    logger.warning(
-                        'configured marimo HTML auto-export; restart marimo for auto_download=["html"] to take effect'
-                    )
-                else:
-                    logger.warning(
-                        'could not configure marimo HTML auto-export; add auto_download=["html"] to marimo.App()'
-                    )
+            auto_download_ipynb_re = re.compile(
+                r"""
+                            auto_download
+                            \s*=\s*
+                            \[
+                            [^\]]*
+                            ["']ipynb["']
+                            [^\]]*
+                            \]
+                            """,
+                re.VERBOSE,
+            )
+            if not auto_download_ipynb_re.search(source):
+                raise ValueError(
+                    'Add auto_download=["ipynb"] to marimo.App() and restart Marimo, then call ln.track() again.'
+                )
+
             return path, description
         if path.suffix == ".ipynb" and path.stem.startswith("Untitled"):
             raise RuntimeError(
