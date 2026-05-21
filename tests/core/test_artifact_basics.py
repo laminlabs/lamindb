@@ -95,7 +95,7 @@ def test_basic_validation():
     )
 
 
-def test_cloud_autokey_path_missing_storage_raises(monkeypatch):
+def test_cloud_path_init_missing_storage_raises(monkeypatch):
     path = "s3://missing-storage/.lamindb/test_df.parquet"
     monkeypatch.setattr(
         "lamindb.models.artifact.select_storage_or_parent", lambda _: None
@@ -108,7 +108,7 @@ def test_cloud_autokey_path_missing_storage_raises(monkeypatch):
     )
 
 
-def test_cloud_autokey_path_missing_instance_slug_raises(monkeypatch):
+def test_cloud_path_init_missing_instance_slug_raises(monkeypatch):
     path = "s3://my-storage/.lamindb/test_df.parquet"
     storage_record = {"instance_uid": "missing-instance", "root": "s3://my-storage"}
     monkeypatch.setattr(
@@ -125,7 +125,7 @@ def test_cloud_autokey_path_missing_instance_slug_raises(monkeypatch):
     )
 
 
-def test_cloud_autokey_path_missing_artifact_raises(monkeypatch):
+def test_cloud_path_init_missing_artifact_raises(monkeypatch):
     path = "s3://my-storage/.lamindb/test_df.parquet"
     monkeypatch.setattr(
         "lamindb.models.artifact.select_storage_or_parent",
@@ -148,6 +148,29 @@ def test_cloud_autokey_path_missing_artifact_raises(monkeypatch):
     with pytest.raises(ValueError) as error:
         ln.Artifact(path, description="test")
     assert error.exconly() == f"ValueError: Artifact for path '{path}' not found."
+
+
+def test_path_init_existing_artifact():
+    # any artifact on s3 fits this test
+    artifact = (
+        ln.Artifact.connect("laminlabs/lamindata")
+        .filter(storage__root__startswith="s3://")
+        .first()
+    )
+    assert artifact is not None
+
+    artifact_transfer = ln.Artifact(artifact.path)
+    assert artifact_transfer.uid == artifact.uid
+    assert artifact_transfer._state.db == "laminlabs/lamindata"
+
+    artifact_transfer.save()
+    assert artifact_transfer._state.db == "default"
+    # repeated init pulls the transfered artifact from the current instance
+    artifact_transfer = ln.Artifact(artifact.path)
+    assert artifact_transfer.uid == artifact.uid
+    assert artifact_transfer._state.db == "default"
+
+    artifact_transfer.delete(permanent=True, storage=False)
 
 
 @pytest.mark.parametrize("key_is_virtual", [True, False])
