@@ -1707,7 +1707,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
                     from .sqlrecord import init_self_from_db
 
-                    init_self_from_db(self, existing_artifact, db=None)
+                    init_self_from_db(
+                        self, existing_artifact, db=existing_artifact._state.db
+                    )
                     return None
                 else:
                     raise ValueError(
