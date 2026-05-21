@@ -164,7 +164,9 @@ def _inject_responsive_table_css(html: str) -> str:
     return _RESPONSIVE_TABLE_CSS + html
 
 
-def notebook_to_report(notebook_path: Path, output_path: Path) -> None:
+def notebook_to_report(
+    notebook_path: Path, output_path: Path, inject_responsive_table_css: bool = False
+) -> None:
     import nbformat
     import traitlets.config as config
     from nbconvert import HTMLExporter
@@ -184,7 +186,8 @@ def notebook_to_report(notebook_path: Path, output_path: Path) -> None:
     c.HTMLExporter.anchor_link_text = " "
     html_exporter = HTMLExporter(config=c)
     html, _ = html_exporter.from_notebook_node(notebook)
-    html = _inject_responsive_table_css(html)
+    if inject_responsive_table_css:
+        html = _inject_responsive_table_css(html)
     output_path.write_text(html, encoding="utf-8")
 
 
@@ -364,16 +367,15 @@ def save_context_core(
             filepath.parent / "__marimo__" / filepath.with_suffix(".ipynb").name
         )
         if not ipynb_path.exists():
-            logger.warning(
-                'no ipynb report found; add auto_download=["ipynb"] to marimo.App() '
-                "and re-run finish()"
-            )
+            logger.warning(f"no html found, to save notebook do lamin save {filepath}")
             report_path = None
         else:
             report_path = (
                 ln_setup.settings.cache_dir / filepath.with_suffix(".html").name
             )
-            notebook_to_report(ipynb_path, report_path)
+            notebook_to_report(
+                ipynb_path, report_path, inject_responsive_table_css=True
+            )
     if report_path is not None and is_r_notebook and not from_cli:  # R notebooks
         # see comment above in check_filepath_recently_saved
         recently_saved_time = 0.3 if not is_retry else 20

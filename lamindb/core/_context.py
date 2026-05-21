@@ -903,10 +903,9 @@ class Context:
                 re.VERBOSE,
             )
             if not auto_download_ipynb_re.search(source):
-                raise ValueError(
-                    'Add auto_download=["ipynb"] to marimo.App() and restart Marimo, then call ln.track() again.'
+                raise SystemExit(
+                    "Change to Settings → ipynb, then restart Marimo and call `ln.track()` again."
                 )
-
             return path, description
         if path.suffix == ".ipynb" and path.stem.startswith("Untitled"):
             raise RuntimeError(
