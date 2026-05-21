@@ -95,6 +95,61 @@ def test_basic_validation():
     )
 
 
+def test_cloud_autokey_path_missing_storage_raises(monkeypatch):
+    path = "s3://missing-storage/.lamindb/test_df.parquet"
+    monkeypatch.setattr(
+        "lamindb.models.artifact.select_storage_or_parent", lambda _: None
+    )
+    with pytest.raises(ValueError) as error:
+        ln.Artifact(path, description="test")
+    assert (
+        error.exconly()
+        == f"ValueError: Registered storage location for path '{path}' not found."
+    )
+
+
+def test_cloud_autokey_path_missing_instance_slug_raises(monkeypatch):
+    path = "s3://my-storage/.lamindb/test_df.parquet"
+    storage_record = {"instance_uid": "missing-instance", "root": "s3://my-storage"}
+    monkeypatch.setattr(
+        "lamindb.models.artifact.select_storage_or_parent", lambda _: storage_record
+    )
+    monkeypatch.setattr(
+        "lamindb.models.artifact.get_instance_slug_by_uid", lambda _: None
+    )
+    with pytest.raises(ValueError) as error:
+        ln.Artifact(path, description="test")
+    assert (
+        error.exconly()
+        == f"ValueError: Managing instance for storage location '{storage_record['root']}' not found."
+    )
+
+
+def test_cloud_autokey_path_missing_artifact_raises(monkeypatch):
+    path = "s3://my-storage/.lamindb/test_df.parquet"
+    monkeypatch.setattr(
+        "lamindb.models.artifact.select_storage_or_parent",
+        lambda _: {"instance_uid": "instance-uid", "root": "s3://my-storage"},
+    )
+    monkeypatch.setattr(
+        "lamindb.models.artifact.get_instance_slug_by_uid",
+        lambda _: "owner/instance",
+    )
+
+    class DummyConnection:
+        def get(self, **_kwargs):
+            raise ln.Artifact.DoesNotExist
+
+    monkeypatch.setattr(
+        ln.Artifact,
+        "connect",
+        classmethod(lambda cls, instance: DummyConnection()),
+    )
+    with pytest.raises(ValueError) as error:
+        ln.Artifact(path, description="test")
+    assert error.exconly() == f"ValueError: Artifact for path '{path}' not found."
+
+
 @pytest.mark.parametrize("key_is_virtual", [True, False])
 @pytest.mark.parametrize("key", [None, "my_new_dir/my_artifact.csv", "nosuffix"])
 @pytest.mark.parametrize("description", [None, "my description"])
