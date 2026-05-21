@@ -171,6 +171,8 @@ def test_path_init_existing_artifact():
     assert artifact_transfer._state.db == "default"
 
     storage = artifact_transfer.storage
+    assert storage.instance_uid != ln.settings.instance_uid
+
     artifact_transfer.delete(permanent=True, storage=False)
     storage.delete()
 
