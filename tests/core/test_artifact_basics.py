@@ -91,8 +91,90 @@ def test_basic_validation():
         ln.Artifact(".lamindb/test_df.parquet", description="Test")
     assert (
         error.exconly()
-        == f"ValueError: Do not pass path inside the `{AUTO_KEY_PREFIX}` directory."
+        == f"ValueError: Do not pass path inside the `{AUTO_KEY_PREFIX}` directory for non-s3/gs paths."
     )
+
+
+def test_cloud_path_init_missing_storage_raises(monkeypatch):
+    path = "s3://missing-storage/.lamindb/test_df.parquet"
+    monkeypatch.setattr(
+        "lamindb.models.artifact.select_storage_or_parent", lambda _: None
+    )
+    with pytest.raises(ValueError) as error:
+        ln.Artifact(path, description="test")
+    assert (
+        error.exconly()
+        == f"ValueError: Registered storage location for path '{path}' not found."
+    )
+
+
+def test_cloud_path_init_missing_instance_slug_raises(monkeypatch):
+    path = "s3://my-storage/.lamindb/test_df.parquet"
+    storage_record = {"instance_uid": "missing-instance", "root": "s3://my-storage"}
+    monkeypatch.setattr(
+        "lamindb.models.artifact.select_storage_or_parent", lambda _: storage_record
+    )
+    monkeypatch.setattr(
+        "lamindb.models.artifact.get_instance_slug_by_uid", lambda _: None
+    )
+    with pytest.raises(ValueError) as error:
+        ln.Artifact(path, description="test")
+    assert (
+        error.exconly()
+        == f"ValueError: Managing instance for storage location '{storage_record['root']}' not found."
+    )
+
+
+def test_cloud_path_init_missing_artifact_raises(monkeypatch):
+    path = "s3://my-storage/.lamindb/test_df.parquet"
+    monkeypatch.setattr(
+        "lamindb.models.artifact.select_storage_or_parent",
+        lambda _: {"instance_uid": "instance-uid", "root": "s3://my-storage"},
+    )
+    monkeypatch.setattr(
+        "lamindb.models.artifact.get_instance_slug_by_uid",
+        lambda _: "owner/instance",
+    )
+
+    class DummyConnection:
+        def get(self, **_kwargs):
+            raise ln.Artifact.DoesNotExist
+
+    monkeypatch.setattr(
+        ln.Artifact,
+        "connect",
+        classmethod(lambda cls, instance: DummyConnection()),
+    )
+    with pytest.raises(ValueError) as error:
+        ln.Artifact(path, description="test")
+    assert error.exconly() == f"ValueError: Artifact for path '{path}' not found."
+
+
+def test_path_init_existing_artifact():
+    # any artifact on s3 fits this test
+    artifact = (
+        ln.Artifact.connect("laminlabs/lamindata")
+        .filter(storage__root__startswith="s3://")
+        .first()
+    )
+    assert artifact is not None
+
+    artifact_transfer = ln.Artifact(artifact.path)
+    assert artifact_transfer.uid == artifact.uid
+    assert artifact_transfer._state.db == "laminlabs/lamindata"
+
+    artifact_transfer.save()
+    assert artifact_transfer._state.db == "default"
+    # repeated init pulls the transfered artifact from the current instance
+    artifact_transfer = ln.Artifact(artifact.path)
+    assert artifact_transfer.uid == artifact.uid
+    assert artifact_transfer._state.db == "default"
+
+    storage = artifact_transfer.storage
+    assert storage.instance_uid != ln.settings.instance_uid
+
+    artifact_transfer.delete(permanent=True, storage=False)
+    storage.delete()
 
 
 @pytest.mark.parametrize("key_is_virtual", [True, False])
