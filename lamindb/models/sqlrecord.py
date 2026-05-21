@@ -337,8 +337,7 @@ def init_self_from_db(
     ]
     super(self.__class__, self).__init__(*new_args)
     self._state.adding = False  # mimic from_db
-    if db is not None:
-        self._state.db = db
+    self._state.db = db
     # if run was not set on the existing record, set it to the current_run
     if hasattr(self, "run_id") and self.run_id is None and current_run() is not None:
         logger.warning(f"run was not set on {self}, setting to current run")

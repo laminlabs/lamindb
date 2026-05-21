@@ -1687,6 +1687,22 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             if not _is_internal_call:
                 # just check for 2 writable cloud protocols, maybe change in the future
                 if path_str.startswith(("s3://", "gs://")):
+                    from .sqlrecord import init_self_from_db
+
+                    # might be in the current instance already
+                    # doing it here first because if the artifact was transferred already,
+                    # the query further will still search in the instance managing the storage of the artifact
+                    try:
+                        # exclude trash?
+                        existing_artifact = Artifact.get(path=path_str)
+                        logger.important(
+                            f"initializing from existing artifact with uid={existing_artifact.uid}"
+                        )
+                        init_self_from_db(self, existing_artifact)
+                        return None
+                    except Artifact.DoesNotExist:
+                        pass
+
                     storage_record = select_storage_or_parent(path_str)
                     if storage_record is None:
                         raise ValueError(
@@ -1705,8 +1721,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
                             f"Artifact for path '{path_str}' not found."
                         ) from e
 
-                    from .sqlrecord import init_self_from_db
-
+                    logger.important(
+                        f"initializing from existing artifact with uid={existing_artifact.uid} on {slug}"
+                    )
                     init_self_from_db(
                         self, existing_artifact, db=existing_artifact._state.db
                     )
