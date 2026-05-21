@@ -367,12 +367,15 @@ def save_context_core(
             filepath.parent / "__marimo__" / filepath.with_suffix(".ipynb").name
         )
         if not ipynb_path.exists():
-            logger.warning(f"no html found, to save notebook do lamin save {filepath}")
+            logger.warning(
+                f"no html found, to save notebook run: lamin save {filepath}"
+            )
             report_path = None
         else:
             report_path = (
                 ln_setup.settings.cache_dir / filepath.with_suffix(".html").name
             )
+            check_filepath_recently_saved(ipynb_path, is_retry)
             notebook_to_report(
                 ipynb_path, report_path, inject_responsive_table_css=True
             )
