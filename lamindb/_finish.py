@@ -136,7 +136,37 @@ def prepare_notebook(
     return None
 
 
-def notebook_to_report(notebook_path: Path, output_path: Path) -> None:
+# injected into every notebook HTML report so wide tables (e.g. with long-text
+# columns like Transform.source_code) don't blow out the page layout; full
+# content remains accessible via horizontal scroll or hover-to-expand
+_RESPONSIVE_TABLE_CSS = """<style>
+.jp-OutputArea-output { overflow-x: auto; max-width: 100%; }
+.jp-RenderedHTMLCommon table { display: block; max-width: 100%; overflow-x: auto; border-collapse: collapse; }
+.jp-RenderedHTMLCommon table td, .jp-RenderedHTMLCommon table th {
+    max-width: 300px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    vertical-align: top;
+}
+.jp-RenderedHTMLCommon table td:hover, .jp-RenderedHTMLCommon table th:hover {
+    overflow: visible;
+    white-space: normal;
+    word-wrap: break-word;
+    background: #f7f7f7;
+}
+</style>"""
+
+
+def _inject_responsive_table_css(html: str) -> str:
+    if "</head>" in html:
+        return html.replace("</head>", _RESPONSIVE_TABLE_CSS + "</head>", 1)
+    return _RESPONSIVE_TABLE_CSS + html
+
+
+def notebook_to_report(
+    notebook_path: Path, output_path: Path, inject_responsive_table_css: bool = False
+) -> None:
     import nbformat
     import traitlets.config as config
     from nbconvert import HTMLExporter
@@ -156,6 +186,8 @@ def notebook_to_report(notebook_path: Path, output_path: Path) -> None:
     c.HTMLExporter.anchor_link_text = " "
     html_exporter = HTMLExporter(config=c)
     html, _ = html_exporter.from_notebook_node(notebook)
+    if inject_responsive_table_css:
+        html = _inject_responsive_table_css(html)
     output_path.write_text(html, encoding="utf-8")
 
 
@@ -329,6 +361,23 @@ def save_context_core(
         else:
             logger.warning(
                 f"no html report found; to attach one, create an .html export for your {filepath.suffix} file and then run: lamin save {filepath}"
+            )
+    elif notebook_runner == "marimo":
+        ipynb_path = (
+            filepath.parent / "__marimo__" / filepath.with_suffix(".ipynb").name
+        )
+        if not ipynb_path.exists():
+            logger.warning(
+                f"no html found, to save notebook run: lamin save {filepath}"
+            )
+            report_path = None
+        else:
+            report_path = (
+                ln_setup.settings.cache_dir / filepath.with_suffix(".html").name
+            )
+            check_filepath_recently_saved(ipynb_path, is_retry)
+            notebook_to_report(
+                ipynb_path, report_path, inject_responsive_table_css=True
             )
     if report_path is not None and is_r_notebook and not from_cli:  # R notebooks
         # see comment above in check_filepath_recently_saved

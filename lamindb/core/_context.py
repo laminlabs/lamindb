@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, Any, Callable, TextIO
 import lamindb_setup as ln_setup
 from django.db.models import Func, IntegerField, Q
 from lamin_utils._logger import logger
+from lamindb_setup.core.django import _is_running_in_marimo
 from lamindb_setup.core.hashing import hash_file, hash_string
 
 from .._secret_redaction import (
@@ -129,7 +130,36 @@ def get_uid_ext(version: str) -> str:
     return encodebytes(hashlib.md5(version.encode()).digest())[:4]  # noqa: S324
 
 
+def get_marimo_notebook_path() -> str | None:
+    if not _is_running_in_marimo():
+        return None
+
+    from marimo._runtime import context as marimo_runtime_context
+
+    if not hasattr(marimo_runtime_context, "safe_get_context"):
+        raise RuntimeError(
+            "marimo version is incompatible with lamindb: "
+            "marimo._runtime.context lacks safe_get_context"
+        )
+
+    ctx = marimo_runtime_context.safe_get_context()
+    if ctx is None:
+        return None
+    df_mode = ctx.marimo_config.get("display", {}).get("dataframes")
+    if df_mode != "plain":
+        logger.warning(
+            "marimo's `Dataframe viewer` will make tables in your "
+            "run report appear as truncated pngs - fix: "
+            "in the top left corner of the UI, go to Settings → User settings → Packages & Data → Data and set `Dataframe viewer` to `plain`"
+        )
+    return getattr(ctx, "filename", None)
+
+
 def get_notebook_path() -> tuple[Path, str]:
+    marimo_path = get_marimo_notebook_path()
+    if marimo_path is not None:
+        return Path(marimo_path), "marimo"
+
     from nbproject.dev._jupyter_communicate import (
         notebook_path as get_notebook_path,
     )
@@ -361,6 +391,7 @@ class LogStreamTracker:
             self.original_excepthook(exc_type, exc_value, exc_traceback)
 
 
+# see test_tracked.py for tests
 def serialize_params_to_json(params: dict) -> dict:
     serialized_params = {}
     for key, value in params.items():
@@ -663,7 +694,7 @@ class Context:
                     "`path` cannot be passed when `source_code` is passed to `track()`."
                 )
             else:
-                if is_run_from_ipython:
+                if is_run_from_ipython or _is_running_in_marimo():
                     self._path, description = self._track_notebook(
                         path_str=path, pypackages=pypackages
                     )
@@ -849,9 +880,33 @@ class Context:
             path, self._notebook_runner = get_notebook_path()
         else:
             path = Path(path_str)
+
         if pypackages is None:
             pypackages = True
         description = None
+
+        if self._notebook_runner == "marimo":
+            import re
+
+            source = path.read_text(encoding="utf-8")
+            auto_download_ipynb_re = re.compile(
+                r"""
+                            auto_download
+                            \s*=\s*
+                            \[
+                            [^\]]*
+                            ["']ipynb["']
+                            [^\]]*
+                            \]
+                            """,
+                re.VERBOSE,
+            )
+            if not auto_download_ipynb_re.search(source):
+                raise SystemExit(
+                    "Tracking marimo run reports requires auto-export of ipynb files.\n"
+                    "In the top left corner of the UI, go to Settings → Exporting outputs and then select `ipynb`."
+                )
+            return path, description
         if path.suffix == ".ipynb" and path.stem.startswith("Untitled"):
             raise RuntimeError(
                 "Your notebook file name is 'Untitled.ipynb', please rename it before tracking. You might have to re-start your notebook kernel."
@@ -986,9 +1041,9 @@ class Context:
                 except ValueError as e:
                     if "subpath" in str(e):
                         logger.warning(
-                            f"Path {self._path} is not within the configured dev directory "
+                            f"path {self._path} is not within the configured dev directory "
                             f"({ln_setup.settings.dev_dir}), falling back to using filename as transform key "
-                            f"('{self._path.name}')."
+                            f"('{self._path.name}')"
                         )
                         key = self._path.name
                     else:
