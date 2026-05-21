@@ -148,10 +148,9 @@ def get_marimo_notebook_path() -> str | None:
     df_mode = ctx.marimo_config.get("display", {}).get("dataframes")
     if df_mode != "plain":
         logger.warning(
-            "marimo's 'Dataframe viewer' is set to 'rich'; tables in your "
-            "HTML report will appear as truncated PNG screenshots. "
-            "For a clean report, set 'Dataframe viewer' to 'plain' "
-            "(Settings → Packages & Data → Data) and restart marimo."
+            "marimo's `Dataframe viewer` will make tables in your "
+            "run report appear as truncated pngs - fix: "
+            "in the top left corner of the UI, go to Settings → User settings → Packages & Data → Data and set `Dataframe viewer` to `plain`"
         )
     return getattr(ctx, "filename", None)
 
@@ -904,7 +903,8 @@ class Context:
             )
             if not auto_download_ipynb_re.search(source):
                 raise SystemExit(
-                    "Change to Settings → ipynb, then restart Marimo and call `ln.track()` again."
+                    "Tracking marimo run reports requires auto-export of ipynb files.\n"
+                    "In the top left corner of the UI, go to Settings → Exporting outputs and then select `ipynb`."
                 )
             return path, description
         if path.suffix == ".ipynb" and path.stem.startswith("Untitled"):
@@ -1041,9 +1041,9 @@ class Context:
                 except ValueError as e:
                     if "subpath" in str(e):
                         logger.warning(
-                            f"Path {self._path} is not within the configured dev directory "
+                            f"path {self._path} is not within the configured dev directory "
                             f"({ln_setup.settings.dev_dir}), falling back to using filename as transform key "
-                            f"('{self._path.name}')."
+                            f"('{self._path.name}')"
                         )
                         key = self._path.name
                     else:
