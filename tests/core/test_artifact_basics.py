@@ -170,7 +170,9 @@ def test_path_init_existing_artifact():
     assert artifact_transfer.uid == artifact.uid
     assert artifact_transfer._state.db == "default"
 
+    storage = artifact_transfer.storage
     artifact_transfer.delete(permanent=True, storage=False)
+    storage.delete()
 
 
 @pytest.mark.parametrize("key_is_virtual", [True, False])
