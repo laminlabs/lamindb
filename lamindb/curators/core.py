@@ -23,6 +23,7 @@ from django.db.models import Q
 from lamin_utils import colors, logger
 from lamindb_setup.core._docs import doc_args
 from lamindb_setup.core.upath import LocalPathClasses
+from pandera.engines import pandas_engine
 
 from lamindb.base.dtypes import check_dtype
 from lamindb.base.types import FieldAttr  # noqa
@@ -584,9 +585,15 @@ class ComponentCurator(Curator):
                         ),
                     )
                 else:
-                    pandera_dtype = (
-                        dtype_str if not dtype_str.startswith("cat") else "category"
-                    )
+                    if dtype_str == "datetime64[ns, UTC]":
+                        pandera_dtype = pandas_engine.DateTime(
+                            time_zone_agnostic=True,
+                            tz="UTC" if feature.coerce else None,
+                        )
+                    else:
+                        pandera_dtype = (
+                            dtype_str if not dtype_str.startswith("cat") else "category"
+                        )
                     pandera_columns[feature.name] = pandera.Column(
                         pandera_dtype,
                         nullable=feature.nullable,

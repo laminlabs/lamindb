@@ -261,6 +261,10 @@ def dtype_as_object(dtype_str: str, old_format: bool = False) -> type | None:
             from datetime import datetime
 
             return datetime
+        elif dtype_str == "datetime64[ns, UTC]":
+            from datetime import datetime
+
+            return datetime
         elif dtype_str.startswith("dict"):
             return dict
         return None
@@ -674,12 +678,14 @@ def serialize_pandas_dtype(pandas_dtype: ExtensionDtype) -> str:
     # there are string-like categoricals and "pure" categoricals (pd.Categorical)
     elif isinstance(pandas_dtype, CategoricalDtype):
         dtype = "cat[ULabel]"
+    elif hasattr(pandas_dtype, "tz") and pandas_dtype.tz is not None:
+        dtype = "datetime64[ns, UTC]"
     else:
         # strip precision qualifiers
         dtype = "".join(dt for dt in pandas_dtype.name if not dt.isdigit())
         if dtype == "uint":
             dtype = "int"
-    if dtype.startswith("datetime"):
+    if dtype.startswith("datetime") and dtype != "datetime64[ns, UTC]":
         dtype = dtype.split("[")[0]
     if dtype != "cat[ULabel]":
         assert dtype in FEATURE_DTYPES  # noqa: S101
@@ -698,6 +704,7 @@ def convert_to_pandas_dtype(lamin_dtype: str) -> str | pd.CategoricalDtype:
         "float": "float64",
         "bool": "boolean",  # Nullable boolean
         "datetime": "datetime64[ns]",
+        "datetime64[ns, UTC]": "datetime64[ns, UTC]",
         "date": "object",  # preserve Date objects
         "dict": "object",  # dicts are stored as object dtype in pandas
     }
@@ -1251,25 +1258,25 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
                     f"cat_filters are incompatible with nested dtypes: '{dtype_str}'"
                 )
 
-            # Validate filter values and SQLRecord attributes
+            # Validate filter values and BaseSQLRecord attributes
             for filter_key, filter_value in cat_filters.items():
                 if not filter_value or (
                     isinstance(filter_value, str) and not filter_value.strip()
                 ):
                     raise ValidationError(f"Empty value in filter {filter_key}")
-                # Check SQLRecord attributes for relation lookups
-                if isinstance(filter_value, SQLRecord) and "__" in filter_key:
+                # Check record attributes for relation lookups
+                if isinstance(filter_value, BaseSQLRecord) and "__" in filter_key:
                     field_name = filter_key.split("__", 1)[1]
                     if not hasattr(filter_value, field_name):
                         raise ValidationError(
                             f"SQLRecord {filter_value.__class__.__name__} has no attribute '{field_name}' in filter {filter_key}"
                         )
 
-            # If a SQLRecord is passed, we access its uid to apply a standard filter
+            # If a BaseSQLRecord is passed, use uid-based filter serialization.
             cat_filters = {
                 f"{key}__uid"
                 if (
-                    is_sqlrecord := isinstance(filter, SQLRecord)
+                    is_sqlrecord := isinstance(filter, BaseSQLRecord)
                     and hasattr(filter, "uid")
                 )
                 else key: filter.uid if is_sqlrecord else filter

@@ -354,7 +354,24 @@ def test_nested_cat_with_filter():
 # -----------------------------------------------------------------------------
 
 
-def test_feature_dtype():
+def test_cat_filters_artifact_schema_filter():
+    schema_feature = ln.Feature(name="schema_filter_column", dtype=str).save()
+    schema = ln.Schema(name="schema_filter_schema", features=[schema_feature]).save()
+    created_by = ln.User.get(ln.setup.settings.user.id)
+    feature = ln.Feature(
+        name="artifact_input",
+        dtype=ln.Artifact,
+        cat_filters={"schema": schema, "created_by": created_by},
+    )
+    assert (
+        feature._dtype_str
+        == f"cat[Artifact[schema__uid='{schema.uid}', created_by__uid='{created_by.uid}']]"
+    )
+    schema.delete(permanent=True)
+    schema_feature.delete(permanent=True)
+
+
+def test_cat_filters_bionty_disease_filter():
     feature = ln.Feature(
         name="disease",
         dtype=bt.Disease,
@@ -362,8 +379,8 @@ def test_feature_dtype():
             "source__uid": "4a3ejKuf"
         },  # uid corresponds to disease_ontology_old.uid
     ).save()
-
     result = parse_dtype(feature._dtype_str)
+    assert feature._dtype_str == "cat[bionty.Disease[source__uid='4a3ejKuf']]"
     assert len(result) == 1
     assert result[0] == {
         "registry_str": "bionty.Disease",
@@ -372,7 +389,6 @@ def test_feature_dtype():
         "registry": bt.Disease,
         "field": bt.Disease.name,
     }
-
     feature.delete(permanent=True)
 
 

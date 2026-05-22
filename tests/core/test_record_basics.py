@@ -1,6 +1,6 @@
 import os
 import re
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 
 import bionty as bt
 import lamindb as ln
@@ -842,6 +842,32 @@ def test_date_and_datetime_corruption():
     schema.delete(permanent=True)
     feature_datetime.delete(permanent=True)
     feature_date.delete(permanent=True)
+
+
+def test_timezone_aware_datetime_feature():
+    feature_datetime_tz = ln.Feature(
+        name="feature_datetime_tz", dtype="datetime64[ns, UTC]"
+    ).save()
+    schema = ln.Schema([feature_datetime_tz], name="test_schema_datetime_tz").save()
+    test_sheet = ln.Record(
+        name="TestSheetDatetimeTZ", is_type=True, schema=schema
+    ).save()
+    record = ln.Record(name="test_record_datetime_tz", type=test_sheet).save()
+    timestamp = datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+
+    record.features.add_values({"feature_datetime_tz": timestamp})
+    assert record.features.get_values() == {"feature_datetime_tz": timestamp}
+
+    df = test_sheet.to_dataframe()
+    assert str(df["feature_datetime_tz"].dtype) == "datetime64[ns, UTC]"
+    assert df.to_dict(orient="records")[0]["feature_datetime_tz"] == pd.Timestamp(
+        "2024-01-01 12:00:00+00:00"
+    )
+
+    record.delete(permanent=True)
+    test_sheet.delete(permanent=True)
+    schema.delete(permanent=True)
+    feature_datetime_tz.delete(permanent=True)
 
 
 def test_only_list_type_features_and_field_qualifiers():

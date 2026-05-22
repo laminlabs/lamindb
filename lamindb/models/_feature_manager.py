@@ -414,7 +414,7 @@ def get_non_categoricals(
                     pass
 
             # Handle special datetime types
-            if feature_dtype == "datetime":
+            if feature_dtype in {"datetime", "datetime64[ns, UTC]"}:
                 values = {datetime.fromisoformat(value) for value in values}
             if feature_dtype == "date":
                 # date.fromisoformat() cannot handle cases like 2025-01-17T00:00:00.000Z
@@ -734,15 +734,28 @@ def infer_convert_dtype_key_value(
     elif isinstance(value, float):
         return "float", value, message
     elif isinstance(value, datetime):
-        return "datetime", value.isoformat(), message
+        return (
+            "datetime64[ns, UTC]" if value.tzinfo is not None else "datetime",
+            value.isoformat(),
+            message,
+        )
     elif isinstance(value, date):
         return "date", value.isoformat(), message
     elif isinstance(value, str):
-        if dtype_str in {None, "datetime", "date"} and (
-            datetime_str := is_valid_datetime_str(value)
-        ):
+        if dtype_str in {
+            None,
+            "datetime",
+            "datetime64[ns, UTC]",
+            "date",
+        } and (datetime_str := is_valid_datetime_str(value)):
             dt_type = (
-                "date" if len(value) == 10 else "datetime"
+                "date"
+                if len(value) == 10
+                else (
+                    "datetime64[ns, UTC]"
+                    if dtype_str == "datetime64[ns, UTC]"
+                    else "datetime"
+                )
             )  # YYYY-MM-DD is exactly 10 characters
             sanitized_value = datetime_str[:10] if dt_type == "date" else datetime_str  # type: ignore
             return dt_type, sanitized_value, message  # type: ignore
@@ -1129,7 +1142,7 @@ class FeatureManager:
                 for dtype, value in dtype_values:
                     if dtype == "date":
                         value = pd.to_datetime(value, format="ISO8601").date()
-                    elif dtype == "datetime":
+                    elif dtype in {"datetime", "datetime64[ns, UTC]"}:
                         value = datetime.fromisoformat(value)
                     feature_values_qs.append(value)
             else:
