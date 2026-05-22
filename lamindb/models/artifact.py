@@ -365,7 +365,9 @@ def get_stat_or_artifact(
             # convert UPathStatResult to fsspec info dict
             stat = stat.as_info()
             if (store_type := stat["type"]) == "file":
-                size, hash, hash_type = get_stat_file_cloud(stat)
+                size, hash, hash_type = get_stat_file_cloud(
+                    stat, protocol=path.protocol
+                )
             elif store_type == "directory":
                 size, hash, hash_type, n_files = get_stat_dir_cloud(path)
         if hash is None:

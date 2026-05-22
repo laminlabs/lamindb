@@ -143,7 +143,7 @@ def test_gcp_paths():
     artifact_folder = ln.Artifact(
         "gs://rxrx1-europe-west4/images/test/HEPG2-08", description="Test GCP folder"
     ).save()
-    assert artifact_folder.hash == "6r5Hkce0UTy7X6gLeaqzBA"
+    assert artifact_folder.hash == "91wp4sNOCUyeK7kOEz3MiQ"
     assert artifact_folder.n_files == 14772
 
     artifact_file = ln.Artifact(
@@ -185,7 +185,7 @@ def test_http_paths():
 # there is also a test for GCP there
 def test_folder_like_artifact_s3():
     study0_data = ln.Artifact("s3://lamindata/iris_studies/study0_raw_images")
-    assert study0_data.hash == "IVKGMfNwi8zKvnpaD_gG7w"
+    assert study0_data.hash == "b4mOx8qRVGKmI2-4tw2WCw"
     assert study0_data._hash_type == "md5-d"
     assert study0_data.n_files == 51
     assert study0_data.size == 658465
