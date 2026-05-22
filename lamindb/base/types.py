@@ -132,7 +132,7 @@ integer       `"int"`       `int64 | int32 | int16 | int8 | uint | ...`
 float         `"float"`     `float64 | float32 | float16 | float8 | ...`
 string        `"str"`       `object`
 boolean       `"bool"`      `boolean | bool`
-datetime      `"datetime"`  `datetime`
+datetime (naive)     `"datetime"`  `datetime`
 datetime (tz) `"datetime64[ns, UTC]"` `datetime64[ns, UTC]`
 date          `"date"`      `object` (pandera requires an ISO-format string, convert with `df["date"] = df["date"].dt.date`)
 dictionary    `"dict"`      `object`
