@@ -552,38 +552,39 @@ class Context:
             stream_tracking: If set, override whether to capture stdout/stderr to run logs.
                 Used by the flow/step decorator: flows get logs (`True`), steps do not (`False`).
 
-        Examples:
+        Examples
+        --------
 
-            To track the run of a notebook or script:
+        To track the run of a notebook or script:
 
-            .. literalinclude:: scripts/run_track_and_finish.py
-               :language: python
+        .. literalinclude:: scripts/run_track_and_finish.py
+            :language: python
 
-            To ensure one version history across file renames::
+        To ensure one version history across file renames::
 
-                ln.track("Onv04I53OgtT")
+            ln.track("Onv04I53OgtT")
 
-            To track a project or an agent plan: pass a project/artifact to `ln.track()`, for example::
+        To track a project or an agent plan: pass a project/artifact to `ln.track()`, for example::
 
-                ln.track(project="My project", plan="./plans/curate-dataset-x.md")
+            ln.track(project="My project", plan="./plans/curate-dataset-x.md")
 
-            Note that you have to create a project or save the agent plan in case it they don't yet exist::
+        Note that you have to create a project or save the agent plan in case it they don't yet exist::
 
-                # create a project in Python
-                ln.Project(name="My project").save()
+            # create a project in Python
+            ln.Project(name="My project").save()
 
-                # create a project with the CLI
-                lamin create project "My project"
+            # create a project with the CLI
+            lamin create project "My project"
 
-                # save an agent plan with the CLI
-                lamin save /path/to/.cursor/plans/curate-dataset-x.plan.md
-                lamin save /path/to/.claude/plans/curate-dataset-x.md
+            # save an agent plan with the CLI
+            lamin save /path/to/.cursor/plans/curate-dataset-x.plan.md
+            lamin save /path/to/.claude/plans/curate-dataset-x.md
 
-            To sync code with a git repo, see: :ref:`sync-code-with-git`.
+        To sync code with a git repo, see: :ref:`sync-code-with-git`.
 
-            To track parameters and features, see: :ref:`track-run-parameters`.
+        To track parameters and features, see: :ref:`track-run-parameters`.
 
-            To browse more examples, see: :doc:`/track`.
+        To browse more examples, see: :doc:`/track`.
         """
         from lamindb.models import Artifact, Branch, Project, Space
 
@@ -1257,12 +1258,13 @@ class Context:
         Args:
             ignore_non_consecutive: Whether to ignore if a notebook was non-consecutively executed.
 
-        Examples:
-
-            See :doc:`/track`.
-
         See Also:
             `lamin save script.py` or `lamin save notebook.ipynb` → `docs </cli#lamin-save>`__
+
+        Examples
+        --------
+
+        See :doc:`/track`.
 
         """
         from .._finish import save_context_core, save_run_logs

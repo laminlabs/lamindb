@@ -1465,25 +1465,27 @@ class Space(BaseSQLRecord):
 
     Guide: :doc:`docs:permissions`.
 
-    Examples:
+    Examples
+    --------
 
-        After creating a restricted space through LaminHub, create an artifact in the space::
+    After creating a restricted space through LaminHub, create an artifact in the space::
 
-            space = ln.Space.get(name="Our space")  # get a space
-            ln.Artifact("./test.txt", key="test.txt", space=space).save()  # save artifact in space
+        space = ln.Space.get(name="Our space")  # get a space
+        ln.Artifact("./test.txt", key="test.txt", space=space).save()  # save artifact in space
 
-        You can also move an existing object into a space::
+    You can also move an existing object into a space::
 
-            space = ln.Space.get(name="Our space")  # select a space
-            record = ln.Record.get(name="existing label")
-            record.space = space
-            record.save()  # saved in space "Our space"
+        space = ln.Space.get(name="Our space")  # select a space
+        record = ln.Record.get(name="existing label")
+        record.space = space
+        record.save()  # saved in space "Our space"
 
-        For more examples and background, see :doc:`docs:permissions`, in particular, section :ref:`docs:use-a-restricted-space`.
+    For more examples and background, see :doc:`docs:permissions`, in particular, section :ref:`docs:use-a-restricted-space`.
 
-    Notes:
+    Notes
+    -----
 
-        All data in this registry is synchronized from LaminHub so that spaces can be shared and reused across multiple LaminDB instances.
+    All data in this registry is synchronized from LaminHub so that spaces can be shared and reused across multiple LaminDB instances.
     """
 
     class Meta:
@@ -1575,61 +1577,65 @@ class Branch(BaseSQLRecord):
         name: A unique name. When lower-cased, is constrained to be unique across all branches.
         description: A description.
 
-    Examples:
+    Examples
+    --------
 
-        To create a contribution branch and switch to it, run::
+    To create a contribution branch and switch to it, run::
 
-            lamin switch -c my_branch
+        lamin switch -c my_branch
 
-        To merge a contribution branch into `main`, run::
+    To merge a contribution branch into `main`, run::
 
-            lamin switch main  # switch to the main branch
-            lamin merge my_branch  # merge contribution branch into main
+        lamin switch main  # switch to the main branch
+        lamin merge my_branch  # merge contribution branch into main
 
-        To see the current branch along with other information, run::
+    To see the current branch along with other information, run::
 
-            lamin info
+        lamin info
 
-        To annotate the current branch with a `README.md`, run::
+    To annotate the current branch with a `README.md`, run::
 
-            lamin annotate branch --readme README.md
+        lamin annotate branch --readme README.md
 
-        To comment on the current branch, run::
+    To comment on the current branch, run::
 
-            lamin annotate branch --comment "I think we should revisit this, tomorrow, WDYT?"
+        lamin annotate branch --comment "I think we should revisit this, tomorrow, WDYT?"
 
-        To describe the current branch (optionally include comments), run::
+    To describe the current branch (optionally include comments), run::
 
-            lamin describe branch --include comments
+        lamin describe branch --include comments
 
-        To trace on which branch a `SQLRecord` object was created, run::
+    To trace on which branch a `SQLRecord` object was created, run::
 
-            sqlrecord.created_on.describe()
+        sqlrecord.created_on.describe()
 
-        To open a Change Request for a branch, run:
+    To open a Change Request for a branch, run:
 
-        .. tab-set::
+    .. tab-set::
 
-            .. tab-item:: CLI
+        .. tab-item:: CLI
 
-                .. code-block:: bash
+            .. code-block:: bash
 
-                    lamin update branch --status draft  # for current branch
-                    lamin update branch --name my_branch --status review  # for any branch
+                lamin update branch --status draft  # for current branch
+                lamin update branch --name my_branch --status review  # for any branch
 
-            .. tab-item:: Python
+        .. tab-item:: Python
 
-                .. code-block:: python
+            .. code-block:: python
 
-                    branch = ln.Branch.get(name="my_branch")
-                    branch.status = "draft"
-                    branch.save()
+                branch = ln.Branch.get(name="my_branch")
+                branch.status = "draft"
+                branch.save()
 
-                    branch.status = "review"
-                    branch.save()
+                branch.status = "review"
+                branch.save()
 
-        Just like Pull Requests on GitHub, branches are never deleted
-        so that the provenance of a change stays traceable.
+    Just like Pull Requests on GitHub, branches are never deleted
+    so that the provenance of a change stays traceable.
+
+    Notes
+    -----
 
     .. dropdown:: Managing `is_latest` during branching
 

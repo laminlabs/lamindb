@@ -111,11 +111,12 @@ class User(BaseSQLRecord, CanCurate):
 
     This registry is automatically populated with user identities from LaminHub in case the user authenticates.
 
-    Examples:
+    Examples
+    --------
 
-        Query a user by handle::
+    Get a user by handle::
 
-            user = ln.User.get(handle="testuser1")
+        user = ln.User.get(handle="testuser1")
     """
 
     class Meta:

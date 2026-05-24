@@ -31,16 +31,16 @@ def save(
     ignore_conflicts: bool | None = False,
     batch_size: int = 10000,
 ) -> None:
-    """Bulk save records.
+    """Bulk save objects.
 
     Note:
 
-        This is a much faster than saving records using ``record.save()``.
+        This is a much faster than saving objects using `object.save()`.
 
     Warning:
 
-        Bulk saving neither automatically creates related records nor updates
-        existing records! Use ``record.save()`` for these use cases.
+        Bulk saving neither automatically creates related objects nor updates
+        existing records! Use `record.save()` for these use cases.
 
     Args:
         records: Multiple :class:`~lamindb.models.SQLRecord` objects.
@@ -50,23 +50,24 @@ def save(
         batch_size: Number of records to process in each batch.
             Large batch sizes can improve performance but may lead to memory issues.
 
-    Examples:
+    Examples
+    --------
 
-        Save a list of records:
+    Save a list of :class:`~lamindb.models.SQLRecord` objects::
 
-        >>> labels = [ln.ULabel(f"Label {i}") for i in range(10)]
-        >>> ln.save(projects)
+        labels = [ln.ULabel(f"Label {i}") for i in range(10)]
+        ln.save(labels)
 
-        For a single record, use ``record.save()``:
+    For a single object, use `object.save()`::
 
-        >>> transform = ln.Transform(key="My pipeline")
-        >>> transform.save()
+        transform = ln.Transform(key="My pipeline")
+        transform.save()
 
-        Update a single existing record:
+    Update a single existing object::
 
-        >>> transform = ln.Transform.get("0Cb86EZj")
-        >>> transform.description = "New description"
-        >>> transform.save()
+        transform = ln.Transform.get("0Cb86EZj")
+        transform.description = "New description"
+        transform.save()
 
     """
     from .artifact import Artifact
