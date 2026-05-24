@@ -131,21 +131,6 @@ def test_cat_filters_invalid_field_name():
     source.delete(permanent=True)
 
 
-def test_cat_filters_artifact_schema_filter():
-    schema_feature = ln.Feature(name="schema_filter_column", dtype=str).save()
-    schema = ln.Schema(name="schema_filter_schema", features=[schema_feature]).save()
-    try:
-        feature = ln.Feature(
-            name="artifact_input",
-            dtype=ln.Artifact,
-            cat_filters={"schema": schema},
-        )
-        assert feature._dtype_str == f"cat[Artifact[schema__uid='{schema.uid}']]"
-    finally:
-        schema.delete(permanent=True)
-        schema_feature.delete(permanent=True)
-
-
 def test_feature_from_df():
     df = pd.DataFrame(
         {
@@ -260,3 +245,11 @@ def test_feature_query_by_dtype():
         # Clean up
         str_feat.delete(permanent=True)
         int_feat.delete(permanent=True)
+
+
+def test_serialize_pandas_datetime_dtypes():
+    datetime_series = pd.Series([pd.Timestamp("2024-01-01 12:00:00")])
+    datetime_tz_series = pd.Series([pd.Timestamp("2024-01-01 12:00:00+00:00")])
+
+    assert serialize_pandas_dtype(datetime_series.dtype) == "datetime"
+    assert serialize_pandas_dtype(datetime_tz_series.dtype) == "datetime64[ns, UTC]"

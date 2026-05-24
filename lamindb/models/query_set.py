@@ -948,6 +948,11 @@ def reshape_annotate_result(
                 result_encoded[feature.name] = pd.to_datetime(
                     result_encoded[feature.name], format="ISO8601", utc=True
                 ).dt.tz_localize(None)
+            if dtype_str == "datetime64[ns, UTC]":
+                # store timezone-aware datetimes normalized to UTC
+                result_encoded[feature.name] = pd.to_datetime(
+                    result_encoded[feature.name], format="ISO8601", utc=True
+                )
             if dtype_str == "date":
                 # see comments for datetime
                 result_encoded[feature.name] = (

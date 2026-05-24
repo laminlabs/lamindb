@@ -115,6 +115,7 @@ DtypeStr = Literal[
     "str",  # string
     "bool",  # boolean
     "datetime",  # datetime
+    "datetime64[ns, UTC]",  # timezone-aware datetime
     "date",  # date
     "dict",  # dictionary
     "path",  # path, validated as str, but specially treated in the UI
@@ -123,20 +124,21 @@ DtypeStr = Literal[
 ]
 """String-serialized representations of common data types.
 
-============  ============  =================================================
-description   lamindb       pandas
-============  ============  =================================================
-numerical     `"num"`       `int | float`
-integer       `"int"`       `int64 | int32 | int16 | int8 | uint | ...`
-float         `"float"`     `float64 | float32 | float16 | float8 | ...`
-string        `"str"`       `object`
-boolean       `"bool"`      `boolean | bool`
-datetime      `"datetime"`  `datetime`
-date          `"date"`      `object` (pandera requires an ISO-format string, convert with `df["date"] = df["date"].dt.date`)
-dictionary    `"dict"`      `object`
-path          `"path"`      `str` (pandas does not have a dedicated path type, validated as `str`)
-url           `"url"`       `str` (pandas does not have a dedicated url type, validated as `str`)
-============  ============  =================================================
+===============  ====================  =================================================
+description      lamindb (str)         pandas
+===============  ====================  =================================================
+numerical        `num`                 `int | float`
+integer          `int`                 `int64 | int32 | int16 | int8 | uint | ...`
+float            `float`               `float64 | float32 | float16 | float8 | ...`
+string           `str`                 `object`
+boolean          `bool`                `boolean | bool`
+datetime (naive) `datetime`            `datetime`
+datetime (tz)    `datetime64[ns, UTC]` `datetime64[ns, UTC]`
+date             `date`                `object` (pandera requires an ISO-format string, convert with `df["date"] = df["date"].dt.date`)
+dictionary       `dict`                `object`
+path             `path`                `str` (pandas does not have a dedicated path type, validated as `str`)
+url              `url`                 `str` (pandas does not have a dedicated url type, validated as `str`)
+===============  ====================  =================================================
 
 .. admonition:: Categorical and relational data types
 
