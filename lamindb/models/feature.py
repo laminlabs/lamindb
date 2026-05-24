@@ -1146,12 +1146,12 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
 
     If you need even more control, you can arbitrarily restrict the permissible values to the values defined in a registry by filtering the categorical.
 
-    ==================================================  ==================================================  ==========================================
-    dtype                                               string serialization                                example in docstring
-    ==================================================  ==================================================  ==========================================
-    `perturbation` (`ln.ULabel` type instance)          `"cat[ULabel[<uid>]]"`                            restricted `ULabel` type
-    `experiment` (`ln.Record` type instance)            `"cat[Record[<uid>]]"`                            restricted `Record` type
-    ==================================================  ==================================================  ==========================================
+    ===============================  ============================  ============================  ==========================================
+    dtype                            string serialization          cat_filters                   example in docstring
+    ===============================  ============================  ============================  ==========================================
+    `bt.Disease`                     `"cat[bionty.Disease]"`      `{"source": source}`          restricted diseases by ontology source
+    `ln.Artifact`                    `"cat[Artifact]"`            `{"schema": schema}`          restricted artifacts by schema
+    ===============================  ============================  ============================  ==========================================
 
 
     ### List data types
