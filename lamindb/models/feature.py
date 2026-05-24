@@ -1113,8 +1113,8 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         sample_schema = ln.Schema.get(name="sampleschema")
         ln.Feature(
             name="samplesheet",
-            dtype=sample_type,
-            cat_filters={"is_type": True, "schema": sample_schema},  # indicates sheet under sample_type
+            dtype=sample_type,  # sheet needs to be under sample type
+            cat_filters={"is_type": True, "schema": sample_schema},  # indicates sheet
         ).save()
 
     A feature accepting multiple categorical types - a union type::
