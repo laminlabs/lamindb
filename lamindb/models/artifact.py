@@ -1366,15 +1366,15 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         Annotate an artifact with features::
 
             artifact.features.set_values({
-                "species": "human",
-                "scientist": ['Barbara McClintock', 'Edgar Anderson'],
-                "temperature": 27.6,
+                "species_name": "human",
+                "scientist_name": ["Barbara McClintock", "Edgar Anderson"],
+                "temperature_in_celsius": 27.6,
                 "experiment": "Experiment 1"
             })
 
         Query artifacts by features::
 
-            ln.Artifact.filter(scientist="Barbara McClintock")
+            ln.Artifact.filter(scientist_name="Barbara McClintock")
 
         Get all feature annotations as a dictionary::
 
@@ -1382,8 +1382,8 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
         Get a value for a single feature::
 
-            organism = artifact.features["species"]  # returns an Organism object, not "human"
-            temperature = artifact.features["temperature"]  # returns a temperature value, a float
+            organism = artifact.features["species_name"]  # returns an Organism object, not "human"
+            temperature = artifact.features["temperature_in_celsius"]  # returns a temperature value, a float
 
         Note that `get_values()` returns identifiers for categorical values (for example, the string
         "human" for an `Organism`), while the `[]` accessor returns the corresponding Python object.
