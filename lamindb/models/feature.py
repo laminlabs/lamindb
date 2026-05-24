@@ -1261,7 +1261,7 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
 
     Allows to group features by type, e.g., all read outs, all metrics, etc.
     """
-    features: Feature
+    features: RelatedManager[Feature]
     """Features of this type (can only be non-empty if `is_type` is `True`)."""
     unit: str | None = CharField(max_length=30, db_index=True, null=True)
     """Unit of measure, ideally SI (`m`, `s`, `kg`, etc.) or 'normalized' etc. (optional)."""
