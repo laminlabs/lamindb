@@ -1152,35 +1152,26 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
 
         * - dtype
           - string serialization
-          - example in docstring
         * - `ln.ULabel`
           - `"cat[ULabel]"`
-          - categorical feature managed in `ULabel`
         * - `bt.CellType`
           - `"cat[bionty.CellType]"`
-          - categorical feature in `bt.CellType`
         * - `bt.Disease`
           - `"cat[bionty.Disease]"`
-          - categorical feature with `cat_filters`
         * - `ln.Artifact`
           - `"cat[Artifact]"`
-          - relational feature with `cat_filters`
 
     You can restrict categoricals to types defined in registries via the `type` field.
-    For example, `"cat[ULabel[123456ABCDEFG]]"` indicates that values must be of the type with `uid="123456ABCDEFG"` within the `ULabel` registry.
 
     .. list-table::
         :header-rows: 1
 
         * - dtype
           - string serialization
-          - example in docstring
-        * - `perturbation` (a `ULabel` with `is_type=True`)
-          - `"cat[ULabel[<uid>]]"`
-          - restricted `ULabel` type
-        * - `experiment` (a `Record` with `is_type=True`)
-          - `"cat[Record[<uid>]]"`
-          - restricted `Record` type
+        * - `ulabel_type` (a `ULabel` with `is_type=True`)
+          - `"cat[ULabel[<uid_of_ulabel_type>]]"`
+        * - `record_type` (a `Record` with `is_type=True`)
+          - `"cat[Record[<uid_of_record_type>]]"`
 
     If you need even more control, you can arbitrarily restrict the permissible values to the values defined in a registry by filtering the categorical.
 
