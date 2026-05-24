@@ -936,10 +936,39 @@ END;
 
 
 class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
-    """Measurable properties such as dataframe columns or record fields.
+    """Measurable properties such as dataframe columns.
 
-    Features represent *what* is measured in a dataset—the variables or dimensions along which data is organized.
-    They enable you to query datasets based on their structure and corresponding label annotations.
+    Features represent *what* is measured in a dataset — the variables or dimensions along which observed values are organized.
+    You can query datasets and records by features similar to how you query registries by fields.
+
+    .. dropdown:: What if my dataset has 40k or many more dimensions, e.g., as in gene expression datasets?
+
+        You don't bother defining an individual feature for each dimension but instead
+        define a common `dtype` for a set of features along with a constraint for the feature identifier type.
+
+        For example::
+
+            ln.Schema(itype=ln.Feature, dtype=float).save()  # use Feature.name as feature identifier type
+            ln.Schema(itype=bt.Gene.ensembl_gene_id, dtype=int).save()  # use Gene.ensembl_gene_id as feature identifier type
+            ln.Schema(itype=bt.Protein.uniprot_id, dtype=float).save()  # use Protein.uniprot_id as feature identifier type
+            ln.Schema(itype=bt.CellMarker, dtype=float).save()  # use CellMarker.name as feature identifier type
+
+        In these examples, :mod:`bionty` registries are used to leverage biological entities as feature identifiers.
+        If you pass a dataset for validation with this schema, feature identifiers will be validated accordingly.
+
+    .. dropdown:: What is the difference between features and labels?
+
+        1. A feature qualifies what is measured, i.e., a numerical or categorical random variable
+        2. A label *is* a measured value of a categorical variable, i.e., a category
+
+        Example: When annotating a dataset that measures expression of 30k genes,
+        the gene identifiers serve as feature identifiers, and the features are expression measurements for these genes.
+        When annotating a dataset whose experiment knocked out 3 specific genes, those genes serve as labels of the dataset.
+
+        Re-shaping data can introduce ambiguity among features & labels. If this
+        happened, ask yourself what the joint measurement was: a feature
+        qualifies variables in a joint measurement. The canonical data matrix
+        lists jointly measured variables in the columns.
 
     Args:
         name: `str` Name of the feature, typically a column name.
@@ -956,11 +985,6 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         coerce: `bool | None = None` When `True`, attempts to coerce values to the specified dtype during validation, see :attr:`~lamindb.Feature.coerce`.
             Defaults to `False` unless `is_type` is `True`.
         cat_filters: `dict[str, str | SQLRecord] | None = None` Subset a registry by additional filters to define valid categories.
-
-    Note:
-
-        You can use :mod:`bionty` registries to manage leverage
-        biological entities like genes, proteins & cell markers as features.
 
     See Also:
         :meth:`~lamindb.Feature.from_dataframe`
@@ -1072,19 +1096,34 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             dtype="cat[bionty.Tissue.ontology_id|bionty.CellType.ontology_id]"
         ).save()
 
-    .. dropdown:: What is the difference between features and labels?
+    ## Data types
 
-        1. A feature qualifies what is measured, i.e., a numerical or categorical random variable
-        2. A label *is* a measured value of a categorical variable, i.e., a category
+    ===============  ====================  =================================================
+    description      lamindb (str)         pandas
+    ===============  ====================  =================================================
+    numerical        `num`                 `int | float`
+    integer          `int`                 `int64 | int32 | int16 | int8 | uint | ...`
+    float            `float`               `float64 | float32 | float16 | float8 | ...`
+    string           `str`                 `object`
+    boolean          `bool`                `boolean | bool`
+    datetime (naive) `datetime`            `datetime`
+    datetime (tz)    `datetime64[ns, UTC]` `datetime64[ns, UTC]`
+    date             `date`                `object` (pandera requires an ISO-format string, convert with `df["date"] = df["date"].dt.date`)
+    dictionary       `dict`                `object`
+    path             `path`                `str` (pandas does not have a dedicated path type, validated as `str`)
+    url              `url`                 `str` (pandas does not have a dedicated url type, validated as `str`)
+    ===============  ====================  =================================================
 
-        Example: When annotating a dataset that measures expression of 30k genes,
-        the gene identifiers serve as feature identifiers, and the features are expression measurements for these genes.
-        When annotating a dataset whose experiment knocked out 3 specific genes, those genes serve as labels of the dataset.
+    .. admonition:: Categorical and relational data types
 
-        Re-shaping data can introduce ambiguity among features & labels. If this
-        happened, ask yourself what the joint measurement was: a feature
-        qualifies variables in a joint measurement. The canonical data matrix
-        lists jointly measured variables in the columns.
+        These are **not** contained in the `DTypeStr` `Literal`.
+
+        For any categorical, you can restrict the permissible values to the values defined in a registry.
+        When serializing this to a string, then `'cat[ULabel]'` or `'cat[bionty.CellType]'` indicate that permissible values are stored in the `name` field of the `ULabel` or `CellType` registry, respectively.
+        You can also restrict to sub-types defined in registries via the `type` field, e.g., `'cat[ULabel[123456ABCDEFG]]'` indicates that values must be of the type with `uid="123456ABCDEFG"` within the `ULabel` registry.
+
+        In LaminDB, categoricals define relationships with registries. See :class:`~lamindb.Feature` for more details.
+
     """
 
     class Meta(SQLRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
