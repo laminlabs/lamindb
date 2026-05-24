@@ -1340,7 +1340,7 @@ class CatVector:
         feature: Feature | None = None,
         cat_manager: DataFrameCatManager | None = None,
         filter_str: str = "",
-        record_uid: str | None = None,
+        object_uid: str | None = None,
         maximal_set: bool = True,  # whether unvalidated categoricals cause validation failure.
         schema: Schema = None,
     ) -> None:
@@ -1352,7 +1352,7 @@ class CatVector:
         self._validated: None | list[str] = None
         self._non_validated: None | list[str] = None
         self._synonyms: None | dict[str, str] = None
-        self._record_uid = record_uid
+        self._object_uid = object_uid
         self._subtype_query_set = None
         self._cat_manager = cat_manager
         self.feature = feature
@@ -1383,11 +1383,11 @@ class CatVector:
             self._registry, self._filter_kwargs
         )
 
-        # get the dtype associated record based on the record_uid
-        if self._record_uid:
+        # get the dtype associated record based on the object_uid
+        if self._object_uid:
             self._type_record = get_record_type_from_uid(
                 self._registry,
-                self._record_uid,
+                self._object_uid,
             )
 
         if hasattr(self._registry, "_name_field"):
@@ -1899,7 +1899,7 @@ class DataFrameCatManager:
                     feature=feature,
                     cat_manager=self,
                     filter_str=result["filter_str"],
-                    record_uid=result.get("record_uid"),
+                    object_uid=result.get("object_uid"),
                 )
         if index is not None and index._dtype_str.startswith("cat"):
             result = parse_dtype(index._dtype_str)[0]
@@ -1914,7 +1914,7 @@ class DataFrameCatManager:
                 feature=index,
                 cat_manager=self,
                 filter_str=result["filter_str"],
-                record_uid=result.get("record_uid"),
+                object_uid=result.get("object_uid"),
             )
 
     @property
