@@ -105,19 +105,19 @@ class Collection(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
         revises: `Collection | None = None` An old version of the collection.
         skip_hash_lookup: `bool = False` Skip the hash lookup so that a new collection is created even if a collection with the same hash already exists.
 
-
     See Also:
         :class:`~lamindb.Artifact`
 
-    Examples:
+    Examples
+    --------
 
-        Create a collection from a list of :class:`~lamindb.Artifact` objects::
+    Create a collection from a list of :class:`~lamindb.Artifact` objects::
 
-            collection = ln.Collection([artifact1, artifact2], key="my_project/my_collection")
+        collection = ln.Collection([artifact1, artifact2], key="my_project/my_collection")
 
-        Create a collection that groups a data & a metadata artifact (e.g., here :doc:`docs:rxrx`)::
+    Create a collection that groups a data & a metadata artifact (e.g., here :doc:`docs:rxrx`)::
 
-            collection = ln.Collection(data_artifact, key="my_project/my_collection", meta=metadata_artifact)
+        collection = ln.Collection(data_artifact, key="my_project/my_collection", meta=metadata_artifact)
 
     """
 
