@@ -122,17 +122,17 @@ def parse_dtype(dtype_str: str, check_exists: bool = False) -> list[dict[str, An
 
 def get_record_type_from_uid(
     registry: Registry,
-    object_uid: str,
+    type_uid: str,
 ) -> SQLRecord:
-    type_record: SQLRecord = registry.get(object_uid)
+    type_record: SQLRecord = registry.get(type_uid)
 
     if type_record.branch_id == -1:
-        warning_msg = f"retrieving {registry.__name__} type '{type_record.name}' (uid='{object_uid}') from trash"
+        warning_msg = f"retrieving {registry.__name__} type '{type_record.name}' (uid='{type_uid}') from trash"
         logger.warning(warning_msg)
 
     if not type_record.is_type:
         raise InvalidArgument(
-            f"The resolved {type_record.__class__.__name__} '{type_record.name}' (uid='{object_uid}') is not a type: is_type is False."
+            f"The resolved {type_record.__class__.__name__} '{type_record.name}' (uid='{type_uid}') is not a type: is_type is False."
         )
     return type_record
 
@@ -172,14 +172,14 @@ def dtype_as_object(dtype_str: str) -> type | None:
     if len(parsed_dtypes) > 0:
         dtype_objects = []
         for parsed_dtype in parsed_dtypes:
-            if parsed_dtype.get("object_uid"):
-                # return the subtype record for dtypes with object_uid
+            if parsed_dtype.get("type_uid"):
+                # return the subtype record for dtypes with type_uid
                 dtype_object = get_record_type_from_uid(
                     parsed_dtype["registry"],
-                    parsed_dtype["object_uid"],
+                    parsed_dtype["type_uid"],
                 )
             else:
-                # return field for dtypes without object_uid, e.g. bt.CellType.ontology_id
+                # return field for dtypes without type_uid, e.g. bt.CellType.ontology_id
                 dtype_object = parsed_dtype["field"]
             # for list, returns list[SQLRecord]
             dtype_objects.append(
@@ -248,9 +248,9 @@ def parse_cat_dtype(
         field_str = registry._name_field if hasattr(registry, "_name_field") else "name"
     assert hasattr(registry, field_str), f"{registry} has no field {field_str}"
 
-    object_uid = parsed.get("object_uid")
-    if object_uid and check_exists:
-        get_record_type_from_uid(registry, object_uid)
+    type_uid = parsed.get("type_uid")
+    if type_uid and check_exists:
+        get_record_type_from_uid(registry, type_uid)
 
     if filter_str != "":
         # TODO: validate or process filter string
@@ -263,9 +263,9 @@ def parse_cat_dtype(
         "field": getattr(registry, field_str),
     }
 
-    # Add object_uid if it exists (new format)
-    if object_uid:
-        result["object_uid"] = object_uid
+    # Add type_uid if it exists (new format)
+    if type_uid:
+        result["type_uid"] = type_uid
 
     return result
 
@@ -276,8 +276,8 @@ def parse_nested_brackets(dtype_str: str) -> dict[str, Any]:
     Examples:
         "A" -> {"registry": "A", "filter_str": "", "field": ""}
         "A.field" -> {"registry": "A", "filter_str": "", "field": "field"}
-        "Record[abcdefg123456]" -> {"registry": "Record", "filter_str": "", "field": "", "object_uid": "abcdefg123456"}
-        "Record[abcdefg123456].name" -> {"registry": "Record", "filter_str": "", "field": "name", "object_uid": "abcdefg123456"}
+        "Record[abcdefg123456]" -> {"registry": "Record", "filter_str": "", "field": "", "type_uid": "abcdefg123456"}
+        "Record[abcdefg123456].name" -> {"registry": "Record", "filter_str": "", "field": "name", "type_uid": "abcdefg123456"}
         "bionty.Gene.ensembl_gene_id[source__id='abcd']" -> {"registry": "bionty.Gene", "filter_str": "source__id='abcd'", "field": "ensembl_gene_id"}
 
     Args:
@@ -353,9 +353,9 @@ def parse_nested_brackets(dtype_str: str) -> dict[str, Any]:
         field_part = pre_bracket_field
 
     # Extract UID or filter from bracket content
-    # For UID-based format: Record[uid] or ULabel[uid] -> object_uid
+    # For UID-based format: Record[uid] or ULabel[uid] -> type_uid
     # For filter format: registry.field[filter] -> filter_str
-    object_uid = None
+    type_uid = None
     filter_str = ""
 
     # If registry is Record or ULabel, bracket content could be UID or name(s)
@@ -372,14 +372,14 @@ def parse_nested_brackets(dtype_str: str) -> dict[str, Any]:
                 first_item, sep, remaining_items = bracket_content.partition(",")
                 first_item = first_item.strip()
                 # Support shorthand typed filters by interpreting a leading bare
-                # token as object uid and the remaining payload as filter string.
+                # token as type uid and the remaining payload as filter string.
                 if first_item and "=" not in first_item:
-                    object_uid = first_item
+                    type_uid = first_item
                     filter_str = remaining_items.strip() if sep else ""
                 else:
                     filter_str = bracket_content
             else:
-                object_uid = bracket_content
+                type_uid = bracket_content
     else:
         # For other registries, bracket content is a filter
         filter_str = bracket_content if bracket_content else ""
@@ -390,9 +390,9 @@ def parse_nested_brackets(dtype_str: str) -> dict[str, Any]:
         "field": field_part,
     }
 
-    # Add object_uid if it exists (new format)
-    if object_uid:
-        result["object_uid"] = object_uid
+    # Add type_uid if it exists (new format)
+    if type_uid:
+        result["type_uid"] = type_uid
 
     return result
 
@@ -1144,15 +1144,15 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
                 )
             parsed_dtype = parse_dtype(dtype_str)
             typed_registry: str | None = None
-            typed_object_uid: str | None = None
+            typed_type_uid: str | None = None
             if (
                 len(parsed_dtype) == 1
-                and parsed_dtype[0].get("object_uid") is not None
+                and parsed_dtype[0].get("type_uid") is not None
                 and parsed_dtype[0].get("filter_str") == ""
                 and not parsed_dtype[0].get("list", False)
             ):
                 typed_registry = parsed_dtype[0]["registry_str"]
-                typed_object_uid = parsed_dtype[0]["object_uid"]
+                typed_type_uid = parsed_dtype[0]["type_uid"]
                 dtype_str = f"cat[{typed_registry}]"
             elif "]]" in dtype_str:
                 raise ValidationError(
@@ -1194,15 +1194,15 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
                     )
                 cat_filters["type__uid"] = cat_filters.pop("type")
 
-            if typed_object_uid is not None:
+            if typed_type_uid is not None:
                 explicit_type_uid = cat_filters.get("type__uid")
                 if explicit_type_uid is not None and str(explicit_type_uid) != str(
-                    typed_object_uid
+                    typed_type_uid
                 ):
                     raise ValidationError(
-                        f"Conflicting typed dtype and cat_filters type selector: dtype uses uid '{typed_object_uid}', cat_filters uses uid '{explicit_type_uid}'"
+                        f"Conflicting typed dtype and cat_filters type selector: dtype uses uid '{typed_type_uid}', cat_filters uses uid '{explicit_type_uid}'"
                     )
-                cat_filters["type__uid"] = typed_object_uid
+                cat_filters["type__uid"] = typed_type_uid
 
             shorthand_type_uid = None
             if (

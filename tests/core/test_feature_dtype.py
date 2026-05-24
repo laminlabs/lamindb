@@ -135,7 +135,7 @@ def test_simple_record_with_subtype_and_field():
         "field_str": "name",
         "registry": Record,
         "field": Record.name,
-        "object_uid": customer_type.uid,
+        "type_uid": customer_type.uid,
     }
     customer_type.delete(permanent=True)
 
@@ -155,7 +155,7 @@ def test_multiple_records_with_subtypes_and_fields():
         "field_str": "name",
         "registry": Record,
         "field": Record.name,
-        "object_uid": customer_type.uid,
+        "type_uid": customer_type.uid,
     }
     assert result[1] == {
         "registry_str": "Record",
@@ -163,7 +163,7 @@ def test_multiple_records_with_subtypes_and_fields():
         "field_str": "name",
         "registry": Record,
         "field": Record.name,
-        "object_uid": supplier_type.uid,
+        "type_uid": supplier_type.uid,
     }
     customer_type.delete(permanent=True)
     supplier_type.delete(permanent=True)
@@ -261,7 +261,7 @@ def test_registry_with_subtype_no_field():
         "field_str": "name",
         "registry": Record,
         "field": Record.name,
-        "object_uid": customer_type.uid,
+        "type_uid": customer_type.uid,
     }
     customer_type.delete(permanent=True)
 
@@ -278,7 +278,7 @@ def test_list_of_dtypes():
         "field_str": "name",
         "registry": Record,
         "field": Record.name,
-        "object_uid": customer_type.uid,
+        "type_uid": customer_type.uid,
         "list": True,
     }
     assert serialize_dtype(list[bt.CellLine]) == "list[cat[bionty.CellLine]]"
@@ -313,7 +313,7 @@ def test_nested_cat_dtypes():
         "field_str": "name",
         "registry": Record,
         "field": Record.name,
-        "object_uid": uscustomer_type.uid,
+        "type_uid": uscustomer_type.uid,
     }
     uscustomer_type.delete(permanent=True)
     customer_type.delete(permanent=True)
@@ -336,7 +336,7 @@ def test_nested_cat_with_filter():
         "field_str": "description",
         "registry": Record,
         "field": Record.description,
-        "object_uid": uscustomer_type.uid,
+        "type_uid": uscustomer_type.uid,
     }
     uscustomer_type.delete(permanent=True)
     customer_type.delete(permanent=True)
@@ -380,7 +380,7 @@ def test_cat_filters_record_type_is_type_and_schema_filters():
         == f"cat[Record[{sample_type.uid}, is_type='True', schema__uid='{schema.uid}']]"
     )
     result = parse_dtype(feature._dtype_str)
-    assert result[0]["object_uid"] == sample_type.uid
+    assert result[0]["type_uid"] == sample_type.uid
     assert result[0]["filter_str"] == f"is_type='True', schema__uid='{schema.uid}'"
     schema.delete(permanent=True)
     schema_feature.delete(permanent=True)
