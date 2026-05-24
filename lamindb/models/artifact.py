@@ -1183,6 +1183,26 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             If `True`, `key` is treated as metadata for versioning/querying and the on-storage path is auto-generated from the artifact `uid`.
             If `False`, `key` is treated as the concrete relative storage path for writes in managed storage.
 
+    See Also:
+        :class:`~lamindb.Storage`
+            Storage locations for artifacts.
+        :class:`~lamindb.Collection`
+            Collections of artifacts.
+        :meth:`~lamindb.Artifact.from_dir`
+            Bulk-create artifacts for each file in a directory.
+        :meth:`~lamindb.Artifact.from_dataframe`
+            Create an artifact from a `DataFrame`.
+        :meth:`~lamindb.Artifact.from_anndata`
+            Create an artifact from an `AnnData`.
+        :meth:`~lamindb.Artifact.from_spatialdata`
+            Create an artifact from a `SpatialData`.
+        :meth:`~lamindb.Artifact.from_mudata`
+            Create an artifact from a `MuData`.
+        :meth:`~lamindb.Artifact.from_tiledbsoma`
+            Create an artifact from a `tiledbsoma` store.
+        :meth:`~lamindb.Artifact.from_lazy`
+            Create a lazy artifact for streaming to auto-generated internal paths.
+
     Examples
     --------
 
@@ -1307,26 +1327,6 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             import quilt3
             bucket = quilt3.Bucket('mybucket')
             bucket.put_file('hello.txt', '/tmp/hello.txt')
-
-    See Also:
-        :class:`~lamindb.Storage`
-            Storage locations for artifacts.
-        :class:`~lamindb.Collection`
-            Collections of artifacts.
-        :meth:`~lamindb.Artifact.from_dir`
-            Bulk-create artifacts for each file in a directory.
-        :meth:`~lamindb.Artifact.from_dataframe`
-            Create an artifact from a `DataFrame`.
-        :meth:`~lamindb.Artifact.from_anndata`
-            Create an artifact from an `AnnData`.
-        :meth:`~lamindb.Artifact.from_spatialdata`
-            Create an artifact from a `SpatialData`.
-        :meth:`~lamindb.Artifact.from_mudata`
-            Create an artifact from a `MuData`.
-        :meth:`~lamindb.Artifact.from_tiledbsoma`
-            Create an artifact from a `tiledbsoma` store.
-        :meth:`~lamindb.Artifact.from_lazy`
-            Create a lazy artifact for streaming to auto-generated internal paths.
 
     """
 

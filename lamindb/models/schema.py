@@ -215,6 +215,16 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             during validation, see :attr:`~lamindb.Schema.coerce`.
         n_members: `int | None = None` A manual way of specifying the number of features in the schema. Is inferred from `features` if passed.
 
+    See Also:
+        :meth:`~lamindb.Artifact.from_dataframe`
+            Validate & annotate a `DataFrame` with a schema.
+        :meth:`~lamindb.Artifact.from_anndata`
+            Validate & annotate an `AnnData` with a schema.
+        :meth:`~lamindb.Artifact.from_mudata`
+            Validate & annotate an `MuData` with a schema.
+        :meth:`~lamindb.Artifact.from_spatialdata`
+            Validate & annotate a `SpatialData` with a schema.
+
     Examples
     --------
 
@@ -274,15 +284,6 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         df = pd.DataFrame({"feat1": [1, 2], "feat2": [3.1, 4.2], "feat3": ["cond1", "cond2"]})
         schema = ln.Schema.from_dataframe(df)
 
-    See Also:
-        :meth:`~lamindb.Artifact.from_dataframe`
-            Validate & annotate a `DataFrame` with a schema.
-        :meth:`~lamindb.Artifact.from_anndata`
-            Validate & annotate an `AnnData` with a schema.
-        :meth:`~lamindb.Artifact.from_mudata`
-            Validate & annotate an `MuData` with a schema.
-        :meth:`~lamindb.Artifact.from_spatialdata`
-            Validate & annotate a `SpatialData` with a schema.
     """
 
     class Meta(SQLRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
