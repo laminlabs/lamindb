@@ -1100,10 +1100,9 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     Data types
     ----------
 
-    Simple data types
-    ^^^^^^^^^^^^^^^^^
-
-    The first column shows the object that can be passed to the `dtype` argument of `Feature()` or `Schema()`.
+    **Simple data types.** In  the table below, the first column shows the object that
+    can be passed to the `dtype` argument of `Feature()` or `Schema()` and the second the string serialization
+    that's used in the `_dtype_str` field of the `lamindb_feature` table in the database.
 
     ======================  ====================  =================================================
     dtype                   string serialization  pandas
@@ -1121,13 +1120,8 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     `"url"`                 `"url"`               `str` (pandas does not have a dedicated url type, validated as `str`)
     ======================  ====================  =================================================
 
-    Categorical and relational data types
-    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-    For any categorical, you can restrict the permissible values to the values defined in a registry.
-    You can also restrict to sub-types defined in registries via the `type` field, e.g., `'cat[ULabel[123456ABCDEFG]]'` indicates that values must be of the type with `uid="123456ABCDEFG"` within the `ULabel` registry.
-
-    In LaminDB, categoricals define relationships with registries.
+    **Categorical and relational data types.** For any categorical, you can restrict permissible
+    values to the values defined in a registry. This establishes a relationship.
 
     ==================================================  ==================================================  ==========================================
     dtype                                               string serialization                                example in docstring
@@ -1138,13 +1132,14 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     `ln.Artifact`                                       `"cat[Artifact]"`                                  relational feature with `cat_filters`
     ==================================================  ==================================================  ==========================================
 
-    You can restrict to types defined in registries via the `type` field. For the examples above, this looks like this.
+    You can restrict categoricals to types defined in registries via the `type` field.
+    For example, `"cat[ULabel[123456ABCDEFG]]"` indicates that values must be of the type with `uid="123456ABCDEFG"` within the `ULabel` registry.
 
     ==================================================  ==================================================  ==========================================
     dtype                                               string serialization                                example in docstring
     ==================================================  ==================================================  ==========================================
-    `perturbation` (`ln.ULabel` type instance)          `"cat[ULabel[<uid>]]"`                            restricted `ULabel` type
-    `experiment` (`ln.Record` type instance)            `"cat[Record[<uid>]]"`                            restricted `Record` type
+    `perturbation` (a `ULabel` with `is_type=True`)     `"cat[ULabel[<uid>]]"`                            restricted `ULabel` type
+    `experiment` (a `Record` with `is_type=True`)       `"cat[Record[<uid>]]"`                            restricted `Record` type
     ==================================================  ==================================================  ==========================================
 
     If you need even more control, you can arbitrarily restrict the permissible values to the values defined in a registry by filtering the categorical.
@@ -1156,8 +1151,7 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     `ln.Artifact`                    `{"schema": schema}`          `"cat[Artifact]"`            restricted artifacts by schema
     ===============================  ============================  ============================  ==========================================
 
-    List data types
-    ^^^^^^^^^^^^^^^
+    **List data types.**
 
     ==================================================  ==================================================  ==========================================
     dtype                                               string serialization                                example in docstring
@@ -1165,8 +1159,7 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     `list[bt.CellType]`                                 `"list[cat[bionty.CellType]]"`                     list dtype of relational categories
     ==================================================  ==================================================  ==========================================
 
-    Union data types
-    ^^^^^^^^^^^^^^^^
+    **Union data types.**
 
     ==================================================  ==================================================  ==========================================
     dtype                                               string serialization                                example in docstring
