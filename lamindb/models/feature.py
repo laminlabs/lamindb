@@ -1097,9 +1097,11 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             dtype="cat[bionty.Tissue.ontology_id|bionty.CellType.ontology_id]"
         ).save()
 
-    ## Data types
+    Data types
+    ----------
 
-    ### Simple data types
+    Simple data types
+    ^^^^^^^^^^^^^^^^^
 
     The first column shows the object that can be passed to the `dtype` argument of `Feature()` or `Schema()`.
 
@@ -1119,7 +1121,8 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     `"url"`                 `"url"`               `str` (pandas does not have a dedicated url type, validated as `str`)
     ======================  ====================  =================================================
 
-    ### Categorical and relational data types
+    Categorical and relational data types
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
     For any categorical, you can restrict the permissible values to the values defined in a registry.
     You can also restrict to sub-types defined in registries via the `type` field, e.g., `'cat[ULabel[123456ABCDEFG]]'` indicates that values must be of the type with `uid="123456ABCDEFG"` within the `ULabel` registry.
@@ -1153,8 +1156,8 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     `ln.Artifact`                    `{"schema": schema}`          `"cat[Artifact]"`            restricted artifacts by schema
     ===============================  ============================  ============================  ==========================================
 
-
-    ### List data types
+    List data types
+    ^^^^^^^^^^^^^^^
 
     ==================================================  ==================================================  ==========================================
     dtype                                               string serialization                                example in docstring
@@ -1162,7 +1165,8 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     `list[bt.CellType]`                                 `"list[cat[bionty.CellType]]"`                     list dtype of relational categories
     ==================================================  ==================================================  ==========================================
 
-    ### Union data types
+    Union data types
+    ^^^^^^^^^^^^^^^^
 
     ==================================================  ==================================================  ==========================================
     dtype                                               string serialization                                example in docstring
