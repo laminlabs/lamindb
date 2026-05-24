@@ -1101,8 +1101,10 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
 
     ### Simple data types
 
+    The first column shows the object that can be passed to the `dtype` argument of `Feature()` or `Schema()`.
+
     ===============  ====================  =================================================
-    dtype            string serialization        pandas
+    dtype            string serialization  pandas
     ===============  ====================  =================================================
     numerical        `'num'`               `int | float`
     integer          `'int'`               `int64 | int32 | int16 | int8 | uint | ...`
