@@ -37,7 +37,7 @@ if TYPE_CHECKING:
 
 
 class ULabel(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates):
-    """Universal labels.
+    """Simple universal labels.
 
     It behaves like `Record`, just without the ability to link features.
 
@@ -51,32 +51,33 @@ class ULabel(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         :class:`~lamindb.Record`
             Like `ULabel`, but with the ability to link features.
 
-    Examples:
+    Examples
+    --------
 
-        Create a label and annotate an :class:`~lamindb.Artifact`::
+    Create a label and annotate an :class:`~lamindb.Artifact`::
 
-            train_split = ln.ULabel(name="train").save()
-            artifact.ulabels.add(train_split)
+        train_split = ln.ULabel(name="train").save()
+        artifact.ulabels.add(train_split)
 
-        Query artifacts by label::
+    Query artifacts by label::
 
-            ln.Artifact.filter(ulabels=train_split).to_dataframe()
+        ln.Artifact.filter(ulabels=train_split).to_dataframe()
 
-        Organize ulabels in a type hierarchy, based on the `type` field::
+    Organize ulabels in a type hierarchy, based on the `type` field::
 
-            split_type = ln.ULabel(name="Split", is_type=True).save()
-            train_split = ln.ULabel(name="train", type="split_type").save()
+        split_type = ln.ULabel(name="Split", is_type=True).save()
+        train_split = ln.ULabel(name="train", type="split_type").save()
 
-        The `type` hierarchy gives rise to a tree. If you need to model a full DAG-like **ontology**, use the `parents`/`children` fields::
+    The `type` hierarchy gives rise to a tree. If you need to model a full DAG-like **ontology**, use the `parents`/`children` fields::
 
-            cell_type = ln.Record(name="CellType", is_type=True).save()
-            t_cell = ln.Record(name="T Cell", type=cell_type).save()
-            cd4_t_cell = ln.Record(name="CD4+ T Cell", type=cell_type).save()
-            t_cell.children.add(cd4_t_cell)
+        cell_type = ln.Record(name="CellType", is_type=True).save()
+        t_cell = ln.Record(name="T Cell", type=cell_type).save()
+        cd4_t_cell = ln.Record(name="CD4+ T Cell", type=cell_type).save()
+        t_cell.children.add(cd4_t_cell)
 
-        If you work with basic biological entities like cell lines, cell types, tissues,
-        consider building on the public biological ontologies in :mod:`bionty`,
-        which work in the same way.
+    If you work with basic biological entities like cell lines, cell types, tissues,
+    consider building on the public biological ontologies in :mod:`bionty`,
+    which work in the same way.
 
     """
 

@@ -685,7 +685,7 @@ END;
 
 
 class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
-    """Measurable properties of datasets such as dataframe columns.
+    """Measurable properties such as columns of a sheet.
 
     Features index variables across datasets to enable querying by dimensions (:doc:`registries`).
 
