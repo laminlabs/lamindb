@@ -1147,10 +1147,10 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     If you need even more control, you can arbitrarily restrict the permissible values to the values defined in a registry by filtering the categorical.
 
     ===============================  ============================  ============================  ==========================================
-    dtype                            string serialization          cat_filters                   example in docstring
+    dtype                            cat_filters                   string serialization          example in docstring
     ===============================  ============================  ============================  ==========================================
-    `bt.Disease`                     `"cat[bionty.Disease]"`      `{"source": source}`          restricted diseases by ontology source
-    `ln.Artifact`                    `"cat[Artifact]"`            `{"schema": schema}`          restricted artifacts by schema
+    `bt.Disease`                     `{"source": source}`          `"cat[bionty.Disease]"`      restricted diseases by ontology source
+    `ln.Artifact`                    `{"schema": schema}`          `"cat[Artifact]"`            restricted artifacts by schema
     ===============================  ============================  ============================  ==========================================
 
 
