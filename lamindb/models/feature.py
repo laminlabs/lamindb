@@ -851,7 +851,7 @@ def process_init_feature_param(args, kwargs):
     if len(args) != 0:
         raise ValueError("Only keyword args allowed")
     name: str = kwargs.pop("name", None)
-    dtype: SimpleDtype | type | str | None = kwargs.pop("dtype", None)
+    dtype: SimpleDtype | SimpleDtypeStr | str | None = kwargs.pop("dtype", None)
     is_type: bool = kwargs.pop("is_type", False)
     type_: Feature | str | None = kwargs.pop("type", None)
     description: str | None = kwargs.pop("description", None)
