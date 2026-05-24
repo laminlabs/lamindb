@@ -688,17 +688,53 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     """Measurable properties of datasets such as dataframe columns.
 
     Features index variables across datasets to enable querying by dimensions independent
-    of the storage format:
+    of their format.
 
     .. image:: https://lamin-site-assets.s3.amazonaws.com/.lamindb/VFFgFdAlJnssyOdk0001.svg
         :width: 800px
 
-    Features also define the validation constraints for individual dataset dimensions.
+    Args:
+        name: `str` Name of the feature, typically a column name.
+        dtype: `SimpleDtype | ULabel | Record | Registry | list[Registry] | FieldAttr`
+            Types or `ULabel` or `Record` objects representing types.
+            See :class:`~lamindb.base.types.SimpleDtypeStr`.
+        type: `Feature | None = None` A feature type, see :attr:`~lamindb.Feature.type`.
+        is_type: `bool = False` Whether this feature is a type, see :attr:`~lamindb.Feature.is_type`.
+        unit: `str | None = None` Unit of measure, ideally SI (`"m"`, `"s"`, `"kg"`, etc.) or `"normalized"` etc.
+        description: `str | None = None` A description.
+        synonyms: `str | None = None` Bar-separated synonyms.
+        nullable: `bool = True` Whether the feature can have null-like values (`None`, `pd.NA`, `NaN`, etc.), see :attr:`~lamindb.Feature.nullable`.
+        default_value: `Any | None = None` Default value for the feature.
+        coerce: `bool | None = None` When `True`, attempts to coerce values to the specified dtype during validation, see :attr:`~lamindb.Feature.coerce`.
+            Defaults to `False` unless `is_type` is `True`.
+        cat_filters: `dict[str, str | SQLRecord] | None = None` Subset a registry by additional filters to define valid categories.
+
+    See Also:
+        :meth:`~lamindb.Feature.from_dataframe`
+            Create feature records from DataFrame.
+        :attr:`~lamindb.Artifact.features`
+            The `features` attribute of an artifact.
+        :class:`~lamindb.ULabel`
+            Universal labels.
+        :class:`~lamindb.Schema`
+            Sets of features.
+
+    Notes
+    -----
+
+    Features can define validation constraints for individual dataset dimensions.
     Here is an example where two flow cytometry datasets measure cell markers like `CD4` and `CD8A` and
     metadata like `sample` and `cell_type`:
 
     .. image:: https://lamin-site-assets.s3.amazonaws.com/.lamindb/Duc60Ut5oykXThEL0001.svg
         :width: 800px
+
+    .. dropdown:: Features work across artifacts, records, and runs.
+
+        Here is how records indexed by the features of a sheet look like on the hub UI:
+
+        .. image:: https://lamin-site-assets.s3.amazonaws.com/.lamindb/XSzhWUb0EoHOejiw0002.png
+            :width: 800px
 
     .. dropdown:: What if my dataset has 40k or more dimensions as in a gene expression dataset?
 
@@ -728,32 +764,6 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         happened, ask yourself what the joint measurement was: a feature
         qualifies variables in a joint measurement. The canonical data matrix
         lists jointly measured variables in the columns.
-
-    Args:
-        name: `str` Name of the feature, typically a column name.
-        dtype: `SimpleDtype | ULabel | Record | Registry | list[Registry] | FieldAttr`
-            Types or `ULabel` or `Record` objects representing types.
-            See :class:`~lamindb.base.types.SimpleDtypeStr`.
-        type: `Feature | None = None` A feature type, see :attr:`~lamindb.Feature.type`.
-        is_type: `bool = False` Whether this feature is a type, see :attr:`~lamindb.Feature.is_type`.
-        unit: `str | None = None` Unit of measure, ideally SI (`"m"`, `"s"`, `"kg"`, etc.) or `"normalized"` etc.
-        description: `str | None = None` A description.
-        synonyms: `str | None = None` Bar-separated synonyms.
-        nullable: `bool = True` Whether the feature can have null-like values (`None`, `pd.NA`, `NaN`, etc.), see :attr:`~lamindb.Feature.nullable`.
-        default_value: `Any | None = None` Default value for the feature.
-        coerce: `bool | None = None` When `True`, attempts to coerce values to the specified dtype during validation, see :attr:`~lamindb.Feature.coerce`.
-            Defaults to `False` unless `is_type` is `True`.
-        cat_filters: `dict[str, str | SQLRecord] | None = None` Subset a registry by additional filters to define valid categories.
-
-    See Also:
-        :meth:`~lamindb.Feature.from_dataframe`
-            Create feature records from DataFrame.
-        :attr:`~lamindb.Artifact.features`
-            The `features` attribute of an artifact.
-        :class:`~lamindb.ULabel`
-            Universal labels.
-        :class:`~lamindb.Schema`
-            Sets of features.
 
     Examples
     --------

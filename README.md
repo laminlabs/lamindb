@@ -397,7 +397,7 @@ experiment_type.to_dataframe()
 
 <details>
 <summary>You can edit records like Excel sheets on LaminHub.</summary>
-<img width="800px" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/XSzhWUb0EoHOejiw0001.png">
+<img width="800px" src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/XSzhWUb0EoHOejiw0002.png">
 </details>
 
 ### Data versioning
