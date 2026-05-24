@@ -938,8 +938,9 @@ END;
 class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     """Measurable properties such as dataframe columns.
 
-    Features represent *what* is measured in a dataset — the variables or dimensions along which observed values are organized.
-    You can query datasets and records by features similar to how you query registries by fields.
+    Features represent the variables or dimensions along which observed values in a dataset are measured.
+    You can query datasets by features similar to how you query registries by fields.
+    Features also define the validation constraints for individual dataset dimensions.
 
     .. dropdown:: What if my dataset has 40k or many more dimensions, e.g., as in gene expression datasets?
 
