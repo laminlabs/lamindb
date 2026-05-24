@@ -991,7 +991,7 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         :meth:`~lamindb.Feature.from_dataframe`
             Create feature records from DataFrame.
         :attr:`~lamindb.Artifact.features`
-            Feature manager of an artifact or collection.
+            The `features` attribute of an artifact.
         :class:`~lamindb.ULabel`
             Universal labels.
         :class:`~lamindb.Schema`
@@ -1233,7 +1233,8 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     def __init__(
         self,
         name: str,
-        dtype: SimpleDtype  # one can also pass a SimpleDtypeStr
+        dtype: SimpleDtype
+        | SimpleDtypeStr
         | ULabel
         | Record
         | Registry
