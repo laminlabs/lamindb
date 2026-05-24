@@ -1108,7 +1108,7 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             cat_filters={"schema": schema},
         ).save()
 
-        # restrict records to a specific sheet
+        # restrict records to sheet objects with a shared sample_schema
         sample_type = ln.Record.get(name="Samples")
         sample_schema = ln.Schema.get(name="sampleschema")
         ln.Feature(
