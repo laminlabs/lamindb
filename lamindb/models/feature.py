@@ -1138,6 +1138,10 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     `ln.Artifact`                                       `"cat[Artifact]"`                                  relational feature with `cat_filters`
     ==================================================  ==================================================  ==========================================
 
+    You can arbitrarily restrict the permissible values to the values defined in a registry by filtering the categorical.
+
+
+
     ### List data types
 
     ==================================================  ==================================================  ==========================================
