@@ -1,3 +1,5 @@
+from types import SimpleNamespace
+
 import lamindb as ln
 import pytest
 
@@ -82,3 +84,53 @@ def test_DB_dir():
     assert "Collection" in dir_result
     assert "Gene" not in dir_result
     assert "bionty" in dir_result
+
+
+def test_DB_warns_for_missing_local_modules(monkeypatch):
+    warning_calls: list[str] = []
+    monkeypatch.setattr(
+        "lamindb.models.query_set.logger.warning",
+        lambda message: warning_calls.append(message),
+    )
+    monkeypatch.setattr(
+        "lamindb.models.query_set.ln_setup._connect_instance.get_owner_name_from_identifier",
+        lambda identifier: ("owner", "name"),
+    )
+    monkeypatch.setattr(
+        "lamindb.models.query_set.ln_setup._connect_instance._connect_instance",
+        lambda owner, name: SimpleNamespace(modules={"bionty", "pertdb"}),
+    )
+    monkeypatch.setattr(
+        "lamindb.models.query_set.setup_settings",
+        SimpleNamespace(modules={"bionty"}),
+    )
+
+    ln.DB("owner/name")
+
+    assert len(warning_calls) == 1
+    assert "non-configured modules: pertdb" in warning_calls[0]
+    assert "lamin settings modules set bionty,pertdb" in warning_calls[0]
+
+
+def test_DB_skips_warning_for_surplus_local_modules(monkeypatch):
+    warning_calls: list[str] = []
+    monkeypatch.setattr(
+        "lamindb.models.query_set.logger.warning",
+        lambda message: warning_calls.append(message),
+    )
+    monkeypatch.setattr(
+        "lamindb.models.query_set.ln_setup._connect_instance.get_owner_name_from_identifier",
+        lambda identifier: ("owner", "name"),
+    )
+    monkeypatch.setattr(
+        "lamindb.models.query_set.ln_setup._connect_instance._connect_instance",
+        lambda owner, name: SimpleNamespace(modules={"bionty"}),
+    )
+    monkeypatch.setattr(
+        "lamindb.models.query_set.setup_settings",
+        SimpleNamespace(modules={"bionty", "pertdb"}),
+    )
+
+    ln.DB("owner/name")
+
+    assert warning_calls == []
