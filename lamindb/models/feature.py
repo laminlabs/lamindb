@@ -687,7 +687,7 @@ END;
 class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     """Measurable properties such as columns of a sheet.
 
-    Features index variables across datasets to enable querying by dimensions (:doc:`registries`).
+    Features index variables across datasets to enable querying by dimensions (:doc:`query-search`).
 
     .. image:: https://lamin-site-assets.s3.amazonaws.com/.lamindb/VFFgFdAlJnssyOdk0001.svg
         :width: 800px

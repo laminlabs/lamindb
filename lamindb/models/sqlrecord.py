@@ -678,7 +678,7 @@ class Registry(ModelBase):
             expressions: Fields and values passed as Django query expressions.
 
         See Also:
-            - Guide: :doc:`docs:registries`
+            - Guide: :doc:`docs:query-search`
             - Django documentation: `Queries <https://docs.djangoproject.com/en/stable/topics/db/queries/>`__
 
         Examples:
@@ -708,7 +708,7 @@ class Registry(ModelBase):
             :exc:`lamindb.errors.ObjectDoesNotExist`: In case no matching record is found.
 
         See Also:
-            - Guide: :doc:`registries`
+            - Guide: :doc:`query-search`
             - Django documentation: `Queries <https://docs.djangoproject.com/en/stable/topics/db/queries/>`__
 
         Examples:
@@ -738,7 +738,7 @@ class Registry(ModelBase):
 
         By default, maps simple fields and foreign keys onto `DataFrame` columns.
 
-        Guide: :doc:`docs:registries`
+        Guide: :doc:`docs:query-search`
 
         Args:
             include: Related data to include as columns. Takes strings of

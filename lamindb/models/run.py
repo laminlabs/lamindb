@@ -522,7 +522,7 @@ class Run(SQLRecord, TracksUpdates):
             **expressions: Params, fields, and values passed via the Django query syntax.
 
         See Also:
-            - Guide: :doc:`docs:registries`
+            - Guide: :doc:`docs:query-search`
 
         Examples:
 

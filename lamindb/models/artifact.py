@@ -2064,7 +2064,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             :exc:`lamindb.errors.DoesNotExist`: In case no matching record is found.
 
         See Also:
-            - Guide: :doc:`registries`
+            - Guide: :doc:`query-search`
             - Method in `SQLRecord` base class: :meth:`~lamindb.models.SQLRecord.get`
 
         Examples:
@@ -2096,7 +2096,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             **expressions: Features & fields via the Django query syntax.
 
         See Also:
-            - Guide: :doc:`docs:registries`
+            - Guide: :doc:`docs:query-search`
 
         Examples:
 
