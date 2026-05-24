@@ -1121,6 +1121,19 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
 
     ### Categorical and relational data types
 
+    ==================================================  ==================================================  ==========================================
+    dtype                                               string serialization                                example in docstring
+    ==================================================  ==================================================  ==========================================
+    `ln.ULabel`                                         `"cat[ULabel]"`                                    categorical feature managed in `ULabel`
+    `perturbation` (`ln.ULabel` type instance)          `"cat[ULabel[<uid>]]"`                            restricted `ULabel` type
+    `experiment` (`ln.Record` type instance)            `"cat[Record[<uid>]]"`                            restricted `Record` type
+    `bt.CellType`                                       `"cat[bionty.CellType]"`                           categorical feature in `bt.CellType`
+    `list[bt.CellType]`                                 `"list[cat[bionty.CellType]]"`                     list dtype of relational categories
+    `bt.Disease`                                        `"cat[bionty.Disease]"`                            categorical feature with `cat_filters`
+    `ln.Artifact`                                       `"cat[Artifact]"`                                  relational feature with `cat_filters`
+    union categorical dtype string                       `"cat[bionty.Tissue.ontology_id|bionty.CellType.ontology_id]"` categorical union dtype
+    ==================================================  ==================================================  ==========================================
+
     For any categorical, you can restrict the permissible values to the values defined in a registry.
     When serializing this to a string, then `'cat[ULabel]'` or `'cat[bionty.CellType]'` indicate that permissible values are stored in the `name` field of the `ULabel` or `CellType` registry, respectively.
     You can also restrict to sub-types defined in registries via the `type` field, e.g., `'cat[ULabel[123456ABCDEFG]]'` indicates that values must be of the type with `uid="123456ABCDEFG"` within the `ULabel` registry.
