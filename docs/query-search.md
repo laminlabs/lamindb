@@ -10,7 +10,7 @@ execute_via: python
 arrays
 ```
 
-This guide walks through different ways of querying & searching LaminDB registries.
+This guide walks through different ways of querying & searching registries.
 To understand the underlying cross-linking of objects in the SQL database, read {doc}`organize`.
 
 If you already have a set of artifacts, e.g. in the form of parquet files, and you'd like to now query/stream their (validated) content, read {doc}`arrays`.
