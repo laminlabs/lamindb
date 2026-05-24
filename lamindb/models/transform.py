@@ -49,31 +49,9 @@ if TYPE_CHECKING:
 class Transform(SQLRecord, IsVersioned):
     """Data transformations such as scripts, notebooks, functions, or pipelines.
 
-    A `transform` can be a function, a script, a notebook, or a
-    pipeline. If you execute a transform, you generate a run
-    (:class:`~lamindb.Run`). A run has inputs and outputs.
+    If you execute a transform, you generate a run
+    (:class:`~lamindb.Run`).
 
-    Pipelines are typically created with a workflow manager (Nextflow, Snakemake,
-    Prefect, Flyte, Dagster, redun, Airflow, ...).
-
-    Transforms are versioned so that a given transform version maps on a given
-    source code version.
-
-    .. dropdown:: Can I sync transforms to git?
-
-        If you set the environment variable `LAMINDB_SYNC_GIT_REPO` or set
-        `ln.settings.sync_git_repo`, a script-like transform is
-        synced to its hashed state in a git repository upon calling `ln.track()`::
-
-            ln.settings.sync_git_repo = "https://github.com/laminlabs/lamindb"
-            ln.track()
-
-        If the hash isn't found in the git repository, an error is thrown.
-
-        You can also create transforms that map pipelines via `Transform.from_git()`.
-
-    The definition of transforms and runs is consistent with the OpenLineage
-    specification where a `transform` would be called a "job" and a `run` a "run".
 
     Args:
         key: `str | None = None` A short name or path-like semantic key.
@@ -91,40 +69,65 @@ class Transform(SQLRecord, IsVersioned):
             Track a script or notebook run.
         :class:`~lamindb.Run`
             Executions of transforms.
+        :meth:`~lamindb.Transform.from_git`
+            Create a transform from a git repository, e.g., for a Nextflow pipeline.
 
-    Notes:
-        - :doc:`docs:track`
-        - :doc:`docs:redun`
-        - :doc:`docs:nextflow`
-        - :doc:`docs:snakemake`
+    Examples
+    --------
 
-    Examples:
+    Create a transform by running `ln.track()` in a notebook or a script::
 
-        Create a transform by running `ln.track()` in a notebook or a script::
+        ln.track()
 
+    Create a transform for a standalone function that acts as its own workflow::
+
+        @ln.flow()
+        def my_workflow():
+            print("Hello, world!")
+
+    Create a transform for a step in a workflow::
+
+        @ln.step()
+        def my_step():
+            print("One step!")
+
+    Create a transform for a pipeline::
+
+        transform = ln.Transform(key="Cell Ranger", version="7.2.0", kind="pipeline").save()
+
+    Create a transform by saving a Python or shell script or a notebook via the CLI::
+
+        lamin save my_script.py
+        lamin save my_script.sh
+        lamin save my_notebook.ipynb
+
+    Notes
+    -----
+
+    .. dropdown:: Can I sync transforms to git?
+
+        If you set the environment variable `LAMINDB_SYNC_GIT_REPO` or set
+        `ln.settings.sync_git_repo`, a script-like transform is
+        synced to its hashed state in a git repository upon calling `ln.track()`::
+
+            ln.settings.sync_git_repo = "https://github.com/laminlabs/lamindb"
             ln.track()
 
-        Create a transform for a standalone function that acts as its own workflow::
+        If the hash isn't found in the git repository, an error is thrown.
 
-            @ln.flow()
-            def my_workflow():
-                print("Hello, world!")
+        You can also create transforms that map pipelines via `Transform.from_git()`.
 
-        Create a transform for a step in a workflow::
+    .. dropdown:: Is this consistent with the OpenLineage specification?
 
-            @ln.step()
-            def my_step():
-                print("One step!")
+        Yes. In OpenLineage a `transform` would be called a "job" and a `run` a "run".
 
-        Create a transform for a pipeline::
+    Guides
+    ------
 
-            transform = ln.Transform(key="Cell Ranger", version="7.2.0", kind="pipeline").save()
-
-        Create a transform by saving a Python or shell script or a notebook via the CLI::
-
-            lamin save my_script.py
-            lamin save my_script.sh
-            lamin save my_notebook.ipynb
+    - :doc:`docs:track`
+    - :doc:`docs:redun`
+    - :doc:`docs:nextflow`
+    - :doc:`docs:snakemake`
 
     """
 
