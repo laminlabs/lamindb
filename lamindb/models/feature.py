@@ -687,8 +687,7 @@ END;
 class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     """Measurable properties of datasets such as dataframe columns.
 
-    Features index variables across datasets to enable querying by dimensions independent
-    of their format.
+    Features index variables across datasets to enable querying by dimensions (:doc:`registries`).
 
     .. image:: https://lamin-site-assets.s3.amazonaws.com/.lamindb/VFFgFdAlJnssyOdk0001.svg
         :width: 800px
@@ -710,14 +709,10 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         cat_filters: `dict[str, str | SQLRecord] | None = None` Subset a registry by additional filters to define valid categories.
 
     See Also:
-        :meth:`~lamindb.Feature.from_dataframe`
-            Create feature records from DataFrame.
-        :attr:`~lamindb.Artifact.features`
-            The `features` attribute of an artifact.
-        :class:`~lamindb.ULabel`
-            Universal labels.
         :class:`~lamindb.Schema`
-            Sets of features.
+            Schemas of datasets such as column sets of dataframes.
+        :attr:`~lamindb.Artifact.features`
+            The features of an artifact.
 
     Notes
     -----
@@ -728,6 +723,8 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
 
     .. image:: https://lamin-site-assets.s3.amazonaws.com/.lamindb/Duc60Ut5oykXThEL0001.svg
         :width: 800px
+
+    For more, read :doc:`curate` or :doc:`arrays`.
 
     .. dropdown:: Features work across artifacts, records, and runs.
 

@@ -1393,8 +1393,9 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
             Features may or may not be stored in the dataset, i.e., the artifact content in storage.
             If you pass a schema to :class:`~lamindb.Artifact.from_dataframe` you validate the columns of the
-            `DataFrame` and annotate with values parsed from these columns.
-            `artifact.features.set_values()`, by contrast, does **not** validate the content of the artifact.
+            `DataFrame` and annotate it with values parsed from these columns.
+            `artifact.features.set_values()`, by contrast, does **not** validate the content of the artifact
+            but annotates it with external features.
 
         """
         from ._feature_manager import FeatureManager
