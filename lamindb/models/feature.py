@@ -973,7 +973,7 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         :class:`~lamindb.Schema`
             Sets of features.
 
-    Example:
+    Examples:
 
         Features with simple data types::
 
