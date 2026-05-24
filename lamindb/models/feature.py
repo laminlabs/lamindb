@@ -708,6 +708,12 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             Defaults to `False` unless `is_type` is `True`.
         cat_filters: `dict[str, str | SQLRecord] | None = None` Subset a registry by additional filters to define valid categories.
 
+    See Also:
+        :class:`~lamindb.Schema`
+            Schemas of datasets such as column sets of dataframes.
+        :attr:`~lamindb.Artifact.features`
+            The features of an artifact.
+
     Examples
     --------
 
@@ -864,12 +870,6 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         happened, ask yourself what the joint measurement was: a feature
         qualifies variables in a joint measurement. The canonical data matrix
         lists jointly measured variables in the columns.
-
-    See Also:
-        :class:`~lamindb.Schema`
-            Schemas of datasets such as column sets of dataframes.
-        :attr:`~lamindb.Artifact.features`
-            The features of an artifact.
 
     Data types
     ----------
