@@ -1122,24 +1122,36 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     ### Categorical and relational data types
 
     For any categorical, you can restrict the permissible values to the values defined in a registry.
-    When serializing this to a string, then `'cat[ULabel]'` or `'cat[bionty.CellType]'` indicate that permissible values are stored in the `name` field of the `ULabel` or `CellType` registry, respectively.
     You can also restrict to sub-types defined in registries via the `type` field, e.g., `'cat[ULabel[123456ABCDEFG]]'` indicates that values must be of the type with `uid="123456ABCDEFG"` within the `ULabel` registry.
 
-    In LaminDB, categoricals define relationships with registries. See :class:`~lamindb.Feature` for more details.
+    In LaminDB, categoricals define relationships with registries.
 
     ==================================================  ==================================================  ==========================================
     dtype                                               string serialization                                example in docstring
     ==================================================  ==================================================  ==========================================
     `ln.ULabel`                                         `"cat[ULabel]"`                                    categorical feature managed in `ULabel`
-    `perturbation` (`ln.ULabel` type instance)          `"cat[ULabel[<uid>]]"`                            restricted `ULabel` type
-    `experiment` (`ln.Record` type instance)            `"cat[Record[<uid>]]"`                            restricted `Record` type
     `bt.CellType`                                       `"cat[bionty.CellType]"`                           categorical feature in `bt.CellType`
     `bt.Disease`                                        `"cat[bionty.Disease]"`                            categorical feature with `cat_filters`
     `ln.Artifact`                                       `"cat[Artifact]"`                                  relational feature with `cat_filters`
     ==================================================  ==================================================  ==========================================
 
-    You can arbitrarily restrict the permissible values to the values defined in a registry by filtering the categorical.
+    You can restrict to types defined in registries via the `type` field. For the examples above, this looks like this.
 
+    ==================================================  ==================================================  ==========================================
+    dtype                                               string serialization                                example in docstring
+    ==================================================  ==================================================  ==========================================
+    `perturbation` (`ln.ULabel` type instance)          `"cat[ULabel[<uid>]]"`                            restricted `ULabel` type
+    `experiment` (`ln.Record` type instance)            `"cat[Record[<uid>]]"`                            restricted `Record` type
+    ==================================================  ==================================================  ==========================================
+
+    If you need even more control, you can arbitrarily restrict the permissible values to the values defined in a registry by filtering the categorical.
+
+    ==================================================  ==================================================  ==========================================
+    dtype                                               string serialization                                example in docstring
+    ==================================================  ==================================================  ==========================================
+    `perturbation` (`ln.ULabel` type instance)          `"cat[ULabel[<uid>]]"`                            restricted `ULabel` type
+    `experiment` (`ln.Record` type instance)            `"cat[Record[<uid>]]"`                            restricted `Record` type
+    ==================================================  ==================================================  ==========================================
 
 
     ### List data types
