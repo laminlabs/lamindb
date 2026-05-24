@@ -1099,6 +1099,8 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
 
     ## Data types
 
+    ### Simple data types
+
     ===============  ====================  =================================================
     description      lamindb (str)         pandas
     ===============  ====================  =================================================
@@ -1115,15 +1117,13 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     url              `url`                 `str` (pandas does not have a dedicated url type, validated as `str`)
     ===============  ====================  =================================================
 
-    .. admonition:: Categorical and relational data types
+    ### Categorical and relational data types
 
-        These are **not** contained in the `DTypeStr` `Literal`.
+    For any categorical, you can restrict the permissible values to the values defined in a registry.
+    When serializing this to a string, then `'cat[ULabel]'` or `'cat[bionty.CellType]'` indicate that permissible values are stored in the `name` field of the `ULabel` or `CellType` registry, respectively.
+    You can also restrict to sub-types defined in registries via the `type` field, e.g., `'cat[ULabel[123456ABCDEFG]]'` indicates that values must be of the type with `uid="123456ABCDEFG"` within the `ULabel` registry.
 
-        For any categorical, you can restrict the permissible values to the values defined in a registry.
-        When serializing this to a string, then `'cat[ULabel]'` or `'cat[bionty.CellType]'` indicate that permissible values are stored in the `name` field of the `ULabel` or `CellType` registry, respectively.
-        You can also restrict to sub-types defined in registries via the `type` field, e.g., `'cat[ULabel[123456ABCDEFG]]'` indicates that values must be of the type with `uid="123456ABCDEFG"` within the `ULabel` registry.
-
-        In LaminDB, categoricals define relationships with registries. See :class:`~lamindb.Feature` for more details.
+    In LaminDB, categoricals define relationships with registries. See :class:`~lamindb.Feature` for more details.
 
     """
 
