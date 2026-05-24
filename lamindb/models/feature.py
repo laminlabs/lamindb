@@ -1027,8 +1027,8 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
 
     .. admonition:: Categoricals define relationships.
 
-        In LaminDB, **categoricals** define **relationships**.
-        For example, with dtype set to a `ULabel` type, setting a feature value relates the object to a `ULabel` of that type.
+        For example, when passing `ULabel` to `dtype` in `Feature()`,
+        one relates the new feature to the `ULabel` registry.
 
     Scope a feature with a **feature type** to distinguish the same feature name across different contexts::
 
