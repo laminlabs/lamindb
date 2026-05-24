@@ -2,7 +2,7 @@
 execute_via: python
 ---
 
-# Query & search registries
+# Query & search
 
 ```{toctree}
 :maxdepth: 1
@@ -12,9 +12,9 @@ arrays
 ```
 
 This guide walks through different ways of querying & searching registries.
-To understand the underlying cross-linking of objects in the SQL database, read {doc}`organize`.
+To understand the underlying cross-linking of objects in the SQL database, see {doc}`organize`.
 
-If you already have a set of artifacts, e.g. in the form of parquet files, and you'd like to now query/stream their (validated) content, read {doc}`arrays`.
+If you already have a set of artifacts and you'd like to stream their content, see {doc}`arrays`.
 
 ```python
 # initialize a test database to run examples
