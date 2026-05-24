@@ -1363,36 +1363,38 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
     def features(self) -> FeatureManager:
         """Feature manager.
 
-        Annotate an artifact with features::
+        Annotate an artifact with features via :meth:`~lamindb.models.FeatureManager.set_values`::
 
             artifact.features.set_values({
                 "species_name": "human",
-                "scientist_name": ["Barbara McClintock", "Edgar Anderson"],
+                "scientist_names": ["Barbara McClintock", "Edgar Anderson"],
                 "temperature_in_celsius": 27.6,
                 "experiment": "Experiment 1"
             })
 
         Query artifacts by features::
 
-            ln.Artifact.filter(scientist_name="Barbara McClintock")
+            ln.Artifact.filter(scientist_names="Barbara McClintock")
 
         Get all feature annotations as a dictionary::
 
             d = artifact.features.get_values()
+            #> {
+            #>    "species_name": "human",
+            #>    "scientist_names": ["Barbara McClintock", "Edgar Anderson"],
+            #>    "temperature_in_celsius": 27.6,
+            #>    "experiment": "Experiment 1"
+            #> }
 
-        Get a value for a single feature::
+        Get a value for a single feature, return categoricals as Python objects::
 
             organism = artifact.features["species_name"]  # returns an Organism object, not "human"
             temperature = artifact.features["temperature_in_celsius"]  # returns a temperature value, a float
 
-        Note that `get_values()` returns identifiers for categorical values (for example, the string
-        "human" for an `Organism`), while the `[]` accessor returns the corresponding Python object.
-        See also :meth:`~lamindb.models.FeatureManager.set_values`.
-
         .. dropdown:: Dataset features vs. external features
 
             Features may or may not be stored in the dataset, i.e., the artifact content in storage.
-            If you pass a schema to :class:`~lamindb.Artifact.from_dataframe` you validate the columns of the
+            If you pass a schema to :meth:`~lamindb.Artifact.from_dataframe` you validate the columns of the
             `DataFrame` and annotate it with values parsed from these columns.
             `artifact.features.set_values()`, by contrast, does **not** validate the content of the artifact
             but annotates it with external features.
