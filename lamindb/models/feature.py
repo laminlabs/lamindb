@@ -1197,6 +1197,8 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
           - string serialization
         * - `list[bt.CellType]`
           - `"list[cat[bionty.CellType]]"`
+        * - `list[float]`
+          - `"list[float]"`
 
     **Union data types.**
 
