@@ -1738,7 +1738,7 @@ class DB:
             owner=owner, name=instance_name
         )
         self._modules = ["lamindb"] + list(instance_info.modules)
-        warning = import_module("lamindb_setup.core.django")._warn_module_mismatch(
+        warning = ln_setup.core.django._warn_module_mismatch(
             target_apps={"lamindb"} | instance_info.modules,
             # Read-only DB querying should only warn when instance modules are missing
             # from the local environment, not when local modules are additional.
