@@ -1094,7 +1094,7 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
 
         ln.Feature(
             name="cell_types",
-            dtype="cat[bionty.Tissue.ontology_id|bionty.CellType.ontology_id]"
+            dtype=[bt.Tissue.ontology_id, bt.CellType.ontology_id]
         ).save()
 
     Data types
@@ -1110,9 +1110,6 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         * - dtype
           - string serialization
           - pandas
-        * - `"num"`
-          - `"num"`
-          - `int | float`
         * - `int`
           - `"int"`
           - `int64 | int32 | int16 | int8 | uint | ...`
@@ -1137,6 +1134,9 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         * - `dict`
           - `"dict"`
           - `object`
+        * - `"num"`
+          - `"num"`
+          - `int | float` ("num" is a convenience type for `int | float`)
         * - `"path"`
           - `"path"`
           - `str` (pandas does not have a dedicated path type, validated as `str`)
@@ -1207,7 +1207,7 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
 
         * - dtype
           - string serialization
-        * - `"cat[bionty.Tissue.ontology_id|bionty.CellType.ontology_id]"`
+        * - `[bt.Tissue.ontology_id, bt.CellType.ontology_id]`
           - `"cat[bionty.Tissue.ontology_id|bionty.CellType.ontology_id]"`
 
     """

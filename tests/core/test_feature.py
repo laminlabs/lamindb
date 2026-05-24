@@ -67,6 +67,15 @@ def test_feature_init():
     feature = ln.Feature(name="feat1", dtype=[ln.Record, bt.Gene])
     assert feature._dtype_str == "cat[Record|bionty.Gene]"
 
+    # categorical dtype with union of registry fields using objects must be valid
+    feature = ln.Feature(
+        name="feat1", dtype=[bt.Tissue.ontology_id, bt.CellType.ontology_id]
+    )
+    assert (
+        feature._dtype_str
+        == "cat[bionty.Tissue.ontology_id|bionty.CellType.ontology_id]"
+    )
+
     # dtype with field name before bracket filters must be valid
     feature = ln.Feature(
         name="gene_feature", dtype="cat[bionty.Gene.ensembl_gene_id[organism='human']]"
