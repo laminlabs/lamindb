@@ -371,6 +371,26 @@ def test_cat_filters_artifact_schema_filter():
     schema_feature.delete(permanent=True)
 
 
+def test_cat_filters_record_type_is_type_and_schema_filters():
+    schema_feature = ln.Feature(name="record_schema_filter_column", dtype=str).save()
+    schema = ln.Schema(
+        name="record_schema_filter_schema", features=[schema_feature]
+    ).save()
+    sample_type = ln.Record(name="Samples", is_type=True).save()
+    feature = ln.Feature(
+        name="samplesheet",
+        dtype=ln.Record,
+        cat_filters={"type": sample_type, "is_type": True, "schema": schema},
+    )
+    assert (
+        feature._dtype_str
+        == f"cat[Record[type__uid='{sample_type.uid}', is_type='True', schema__uid='{schema.uid}']]"
+    )
+    schema.delete(permanent=True)
+    schema_feature.delete(permanent=True)
+    sample_type.delete(permanent=True)
+
+
 def test_cat_filters_bionty_disease_filter():
     feature = ln.Feature(
         name="disease",
