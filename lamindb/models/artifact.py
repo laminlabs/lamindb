@@ -1183,128 +1183,130 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             If `True`, `key` is treated as metadata for versioning/querying and the on-storage path is auto-generated from the artifact `uid`.
             If `False`, `key` is treated as the concrete relative storage path for writes in managed storage.
 
-    Examples:
+    Examples
+    --------
 
-        Create an artifact **from a local file or folder**::
+    Create an artifact **from a local file or folder**::
 
-            artifact = ln.Artifact("./my_file.parquet", key="examples/my_file.parquet").save()
-            artifact = ln.Artifact("./my_folder", key="project1/my_folder").save()
+        artifact = ln.Artifact("./my_file.parquet", key="examples/my_file.parquet").save()
+        artifact = ln.Artifact("./my_folder", key="project1/my_folder").save()
 
-        Calling `.save()` copies or uploads the file to the default storage location of your lamindb instance.
-        If you create an artifact **from a remote file or folder**, lamindb registers the S3 `key` and avoids copying the data::
+    Calling `.save()` copies or uploads the file to the default storage location of your lamindb instance.
+    If you create an artifact **from a remote file or folder**, lamindb registers the S3 `key` and avoids copying the data::
 
-            artifact = ln.Artifact("s3://my_bucket/my_folder/my_file.csv").save()  # can omit key/description because file is remote
+        artifact = ln.Artifact("s3://my_bucket/my_folder/my_file.csv").save()  # can omit key/description because file is remote
 
-        If you then want to query & access the artifact later on, this is how you do it::
+    If you then want to query & access the artifact later on, this is how you do it::
 
-            artifact = ln.Artifact.get(key="examples/my_file.parquet")
-            cached_path = artifact.cache()  # sync to local cache & get local path
+        artifact = ln.Artifact.get(key="examples/my_file.parquet")
+        cached_path = artifact.cache()  # sync to local cache & get local path
 
-        If the storage format supports it, you can load the artifact directly into memory or query it through a streaming interface, e.g., for parquet files::
+    If the storage format supports it, you can load the artifact directly into memory or query it through a streaming interface, e.g., for parquet files::
 
-            df = artifact.load()               # load parquet file as DataFrame
-            pyarrow_dataset = artifact.open()  # open a streaming file-like object
+        df = artifact.load()               # load parquet file as DataFrame
+        pyarrow_dataset = artifact.open()  # open a streaming file-like object
 
-        To bulk-create artifacts for every file in a directory and **group them in a folder**, use :meth:`~lamindb.Artifact.from_dir`::
+    To bulk-create artifacts for every file in a directory and **group them in a folder**, use :meth:`~lamindb.Artifact.from_dir`::
 
-            artifacts = ln.Artifact.from_dir("project_alpha/run_001").save()  # create one artifact per file in the directory
-            artifacts = ln.Artifact.filter(key__startswith="project_alpha/run_001/")  # query ingested artifacts via the folder prefix
+        artifacts = ln.Artifact.from_dir("project_alpha/run_001").save()  # create one artifact per file in the directory
+        artifacts = ln.Artifact.filter(key__startswith="project_alpha/run_001/")  # query ingested artifacts via the folder prefix
 
-        To create a **versioned immutable collection** of artifacts for a data release, use :class:`~lamindb.Collection`::
+    To create a **versioned immutable collection** of artifacts for a data release, use :class:`~lamindb.Collection`::
 
-            collection = ln.Collection(artifacts, key="project_alpha/run_001").save()
+        collection = ln.Collection(artifacts, key="project_alpha/run_001").save()
 
-        .. dropdown:: Virtual folders (key prefixes) vs. :class:`~lamindb.Collection` objects
+    .. dropdown:: Virtual folders (key prefixes) vs. :class:`~lamindb.Collection` objects
 
-            - prefix query on `key`: If a colleague adds a new file to that prefix tomorrow, your `filter(key__startswith=...)` result will change.
-            - collection: A collection object provides a `uid` for every version and its content won't change.
+        - prefix query on `key`: If a colleague adds a new file to that prefix tomorrow, your `filter(key__startswith=...)` result will change.
+        - collection: A collection object provides a `uid` for every version and its content won't change.
 
-        If you want to **validate & annotate** a dataframe or an array using the feature & label registries,
-        pass `schema` to one of the `.from_dataframe()`, `.from_anndata()`, ... constructors::
+    If you want to **validate & annotate** a dataframe or an array using the feature & label registries,
+    pass `schema` to one of the `.from_dataframe()`, `.from_anndata()`, ... constructors::
 
-            artifact = ln.Artifact.from_dataframe(
-                "./my_file.parquet",
-                key="my_dataset.parquet",
-                schema="valid_features"
-            ).save()
+        artifact = ln.Artifact.from_dataframe(
+            "./my_file.parquet",
+            key="my_dataset.parquet",
+            schema="valid_features"
+        ).save()
 
-        To annotate by **external features**::
+    To annotate by **external features**::
 
-            artifact = ln.Artifact("./my_file.parquet", features={"cell_type_by_model": "T cell"}).save()
+        artifact = ln.Artifact("./my_file.parquet", features={"cell_type_by_model": "T cell"}).save()
 
-        You can make a **new version** of an artifact by passing an existing `key`::
+    You can make a **new version** of an artifact by passing an existing `key`::
 
-            artifact_v2 = ln.Artifact("./my_file.parquet", key="examples/my_file.parquet").save()
-            artifact_v2.versions.to_dataframe()  # see all versions
+        artifact_v2 = ln.Artifact("./my_file.parquet", key="examples/my_file.parquet").save()
+        artifact_v2.versions.to_dataframe()  # see all versions
 
-        You can write artifacts to **non-default storage locations** by passing the `storage` argument::
+    You can write artifacts to **non-default storage locations** by passing the `storage` argument::
 
-            storage_loc = ln.Storage.get(root="s3://my_bucket")  # get storage location, or create via ln.Storage(root="s3://my_bucket").save()
-            ln.Artifact("./my_file.parquet", key="examples/my_file.parquet", storage=storage_loc).save()  # upload to s3://my_bucket
+        storage_loc = ln.Storage.get(root="s3://my_bucket")  # get storage location, or create via ln.Storage(root="s3://my_bucket").save()
+        ln.Artifact("./my_file.parquet", key="examples/my_file.parquet", storage=storage_loc).save()  # upload to s3://my_bucket
 
-    Notes:
+    Notes
+    -----
 
-        .. _storage-formats-note:
+    .. _storage-formats-note:
 
-        .. dropdown:: Storage formats & object types
+    .. dropdown:: Storage formats & object types
 
-            The `Artifact` registry tracks the storage format via :attr:`suffix` and an abstract object type via :attr:`otype`.
+        The `Artifact` registry tracks the storage format via :attr:`suffix` and an abstract object type via :attr:`otype`.
 
-            ================  ======================================  ================  ====================================================================
-            description       :attr:`suffix`                          :attr:`otype`     Python type examples
-            ================  ======================================  ================  ====================================================================
-            table             `.csv`, `.tsv`, `.parquet`, `.ipc`      `"DataFrame"`     `pandas.DataFrame`, `polars.DataFrame`, `pyarrow.Table`
-            annotated matrix  `.h5ad`, `.zarr`, `.h5mu`               `"AnnData"`       `anndata.AnnData`
-            stacked matrix    `.zarr`                                 `"MuData"`        `mudata.MuData`
-                              `.tiledbsoma`                           `"tiledbsoma"`    `tiledbsoma.Experiment`
-            spatial data      `.zarr`                                 `"SpatialData"`   `spatialdata.SpatialData`
-            generic arrays    `.h5`, `.zarr`, `.tiledb`               ---               `h5py.Dataset`, `zarr.Array`, `tiledb.Array`
-            unstructured      `.fastq`, `.pdf`, `.vcf`, `.html`       ---               ---
-            ================  ======================================  ================  ====================================================================
+        ================  ======================================  ================  ====================================================================
+        description       :attr:`suffix`                          :attr:`otype`     Python type examples
+        ================  ======================================  ================  ====================================================================
+        table             `.csv`, `.tsv`, `.parquet`, `.ipc`      `"DataFrame"`     `pandas.DataFrame`, `polars.DataFrame`, `pyarrow.Table`
+        annotated matrix  `.h5ad`, `.zarr`, `.h5mu`               `"AnnData"`       `anndata.AnnData`
+        stacked matrix    `.zarr`                                 `"MuData"`        `mudata.MuData`
+                            `.tiledbsoma`                           `"tiledbsoma"`    `tiledbsoma.Experiment`
+        spatial data      `.zarr`                                 `"SpatialData"`   `spatialdata.SpatialData`
+        generic arrays    `.h5`, `.zarr`, `.tiledb`               ---               `h5py.Dataset`, `zarr.Array`, `tiledb.Array`
+        unstructured      `.fastq`, `.pdf`, `.vcf`, `.html`       ---               ---
+        ================  ======================================  ================  ====================================================================
 
-            You can map storage formats onto **R types**, e.g., an `AnnData` might be accessed via `anndataR`.
+        You can map storage formats onto **R types**, e.g., an `AnnData` might be accessed via `anndataR`.
 
-            Because `otype` accepts any `str`, you can define custom object types that enable queries & logic
-            that you need, e.g., `"SingleCellExperiment"` or `"MyCustomZarrDataStructure"`.
+        Because `otype` accepts any `str`, you can define custom object types that enable queries & logic
+        that you need, e.g., `"SingleCellExperiment"` or `"MyCustomZarrDataStructure"`.
 
-            LaminDB makes some default choices (e.g., serialize a `DataFrame` as a `.parquet` file).
+        LaminDB makes some default choices (e.g., serialize a `DataFrame` as a `.parquet` file).
 
-        .. dropdown:: Will artifacts get duplicated?
+    .. dropdown:: Will artifacts get duplicated?
 
-            If an artifact with the exact same hash already exists, `Artifact()` returns the existing artifact.
-            Exception: empty files are not deduplicated by hash and create a new artifact.
+        If an artifact with the exact same hash already exists, `Artifact()` returns the existing artifact.
+        Exception: empty files are not deduplicated by hash and create a new artifact.
 
-            In concurrent workloads where the same artifact is created repeatedly at the exact same time, `.save()`
-            detects the duplication and will return the existing artifact.
+        In concurrent workloads where the same artifact is created repeatedly at the exact same time, `.save()`
+        detects the duplication and will return the existing artifact.
 
-        .. dropdown:: I cannot come up with a good file name, can I avoid mapping artifacts into a hierarchy?
+    .. dropdown:: I cannot come up with a good file name, can I avoid mapping artifacts into a hierarchy?
 
-            Sometimes you want to **avoid mapping the artifact into a path hierarchy**. You can do so by omitting the `key` argument and only passing `description`.
-            However, note that a shared `description` does not trigger mapping artifacts into the same version family.
+        Sometimes you want to **avoid mapping the artifact into a path hierarchy**. You can do so by omitting the `key` argument and only passing `description`.
+        However, note that a shared `description` does not trigger mapping artifacts into the same version family.
 
-                artifact = ln.Artifact("./my_folder", description="My folder").save()
-                artifact_v2 = ln.Artifact("./my_folder", revises=old_artifact).save()  # need to version based on `revises`, a shared description does not trigger a new version
+            artifact = ln.Artifact("./my_folder", description="My folder").save()
+            artifact_v2 = ln.Artifact("./my_folder", revises=old_artifact).save()  # need to version based on `revises`, a shared description does not trigger a new version
 
-        .. dropdown:: Why does the constructor look the way it looks?
+    .. dropdown:: Why does the constructor look the way it looks?
 
-            It's inspired by APIs building on AWS S3.
+        It's inspired by APIs building on AWS S3.
 
-            Both boto3 and quilt select a bucket (a storage location in LaminDB) and define a target path through a `key` argument.
+        Both boto3 and quilt select a bucket (a storage location in LaminDB) and define a target path through a `key` argument.
 
-            In `boto3 <https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/bucket/upload_file.html>`__::
+        In `boto3 <https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/bucket/upload_file.html>`__::
 
-                # signature: S3.Bucket.upload_file(filepath, key)
-                import boto3
-                s3 = boto3.resource('s3')
-                bucket = s3.Bucket('mybucket')
-                bucket.upload_file('/tmp/hello.txt', 'hello.txt')
+            # signature: S3.Bucket.upload_file(filepath, key)
+            import boto3
+            s3 = boto3.resource('s3')
+            bucket = s3.Bucket('mybucket')
+            bucket.upload_file('/tmp/hello.txt', 'hello.txt')
 
-            In `quilt3 <https://docs.quiltdata.com/api-reference/bucket>`__::
+        In `quilt3 <https://docs.quiltdata.com/api-reference/bucket>`__::
 
-                # signature: quilt3.Bucket.put_file(key, filepath)
-                import quilt3
-                bucket = quilt3.Bucket('mybucket')
-                bucket.put_file('hello.txt', '/tmp/hello.txt')
+            # signature: quilt3.Bucket.put_file(key, filepath)
+            import quilt3
+            bucket = quilt3.Bucket('mybucket')
+            bucket.put_file('hello.txt', '/tmp/hello.txt')
 
     See Also:
         :class:`~lamindb.Storage`
