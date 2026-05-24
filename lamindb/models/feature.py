@@ -1058,14 +1058,14 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         feature = ln.Feature.get(name="my_ambig_name", type__name="my_feature_type")
         ln.Artifact.filter(feature == "hello")  # instead of my_ambig_name="hello"
 
-    A list dtype::
+    A list `dtype`::
 
         ln.Feature(
             name="cell_types",
             dtype=list[bt.CellType],  # or list[str] for a list of strings
         ).save()
 
-    A path feature::
+    A path `dtype`::
 
         ln.Feature(
             name="image_path",
