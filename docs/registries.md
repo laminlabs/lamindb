@@ -4,6 +4,12 @@ execute_via: python
 
 # Query & search registries
 
+```{toctree}
+:maxdepth: 1
+
+arrays
+```
+
 This guide walks through different ways of querying & searching LaminDB registries.
 To understand the underlying cross-linking of objects in the SQL database, read {doc}`organize`.
 
