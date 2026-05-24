@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any, cast, get_args, overload
 import numpy as np
 import pgtrigger
 from django.conf import settings as django_settings
-from django.db import connection, models
+from django.db import models
 from django.db.models import CASCADE, PROTECT
 from django.db.models.query_utils import DeferredAttribute
 from django.db.utils import IntegrityError as DjangoIntegrityError
@@ -31,7 +31,6 @@ from lamindb.base.fields import (
 from lamindb.base.types import FieldAttr, SimpleDtype, SimpleDtypeStr
 from lamindb.errors import (
     FieldValidationError,
-    IntegrityError,
     InvalidArgument,
     ValidationError,
 )
@@ -80,9 +79,7 @@ class FeaturePredicate:
         )
 
 
-def parse_dtype(
-    dtype_str: str, check_exists: bool = False, old_format: bool = False
-) -> list[dict[str, Any]]:
+def parse_dtype(dtype_str: str, check_exists: bool = False) -> list[dict[str, Any]]:
     """Parses feature data type string into a structured list of components."""
     from .artifact import Artifact
 
@@ -92,7 +89,7 @@ def parse_dtype(
     if dtype_str.startswith("list[") and dtype_str.endswith("]"):
         inner_dtype_str = dtype_str[5:-1]  # Remove "list[" and "]"
         # Recursively parse the inner type
-        inner_result = parse_dtype(inner_dtype_str, old_format=old_format)
+        inner_result = parse_dtype(inner_dtype_str)
         # Add "list": True to each component
         for component in inner_result:
             if isinstance(component, dict):
@@ -114,7 +111,6 @@ def parse_dtype(
                     cat_single_dtype_str,
                     related_registries=related_registries,
                     check_exists=check_exists,
-                    old_format=old_format,
                 )
                 result.append(single_result)
     elif dtype_str not in allowed_dtypes:
@@ -141,107 +137,7 @@ def get_record_type_from_uid(
     return type_record
 
 
-def get_record_type_from_nested_subtypes(
-    registry: Registry, subtypes_list: list[str], field_str: str
-) -> SQLRecord:
-    """Get a record type by querying nested subtypes using raw SQL.
-
-    This function only works with Record or ULabel registries.
-    """
-    table_name = registry._meta.db_table
-    final_name = subtypes_list[-1]
-
-    # Build the SQL query with nested joins
-    # For subtypes_list = ["A", "B", "C"], we want:
-    # - Record with name="C"
-    # - Its type has name="B"
-    # - That type's type has name="A"
-
-    params: list[str | bool]
-    if len(subtypes_list) > 1:
-        # Build nested joins for parent types
-        parent_types = list(reversed(subtypes_list[:-1]))
-        joins = []
-        where_clauses = ["t0.name = %s"]  # Final record name
-        params = [final_name]
-
-        for i, parent_type_name in enumerate(parent_types):
-            alias = f"t{i + 1}"
-            prev_alias = f"t{i}"
-            joins.append(
-                f"INNER JOIN {table_name} {alias} ON {prev_alias}.type_id = {alias}.id"
-            )
-            where_clauses.append(f"{alias}.name = %s")
-            where_clauses.append(f"{alias}.is_type = %s")
-            params.extend([parent_type_name, True])
-
-        join_clause = " ".join(joins)
-        where_clause = " AND ".join(where_clauses)
-
-        query = f"""
-            SELECT t0.*
-            FROM {table_name} t0
-            {join_clause}
-            WHERE {where_clause}
-            LIMIT 1
-        """
-    else:
-        # Single type, no parent - type must be NULL
-        query = f"""
-            SELECT *
-            FROM {table_name}
-            WHERE name = %s AND type_id IS NULL
-            LIMIT 1
-        """
-        params = [final_name]
-
-    try:
-        with connection.cursor() as cursor:
-            cursor.execute(query, params)
-            columns = [col[0] for col in cursor.description]
-            rows = cursor.fetchall()
-
-            if not rows:
-                raise IntegrityError(
-                    f"No {registry.__name__} type found matching subtypes {subtypes_list} for field `.{field_str}`"
-                )
-
-            if len(rows) > 1:
-                raise IntegrityError(
-                    f"Multiple {registry.__name__} types found matching subtypes {subtypes_list} for field `.{field_str}`"
-                )
-
-            # Create a dictionary from the row data
-            row_dict = dict(zip(columns, rows[0]))
-
-            # Create a minimal mock object with only the fields we need
-            # This avoids querying the database which may not have all columns during migrations
-            # We create a simple object and set its class to the registry for proper error messages
-            type_record: SQLRecord = object.__new__(registry)
-            type_record.id = row_dict.get("id")
-            type_record.uid = row_dict.get("uid")
-            type_record.name = row_dict.get("name")
-            type_record.is_type = row_dict.get("is_type", False)
-            # Initialize _state attribute needed by Django models
-            # Create a minimal state object with the required attributes
-            state = type("ModelState", (), {"adding": False, "db": "default"})()
-            type_record._state = state
-
-    except IntegrityError:
-        raise
-    except Exception as e:
-        raise IntegrityError(
-            f"Error retrieving {registry.__name__} type with subtypes {subtypes_list} for field `.{field_str}`: {e}"
-        ) from e
-
-    if not type_record.is_type:
-        raise InvalidArgument(
-            f"The resolved {type_record.__class__.__name__} '{type_record.name}' for field `.{field_str}` is not a type: is_type is False."
-        )
-    return type_record
-
-
-def dtype_as_object(dtype_str: str, old_format: bool = False) -> type | None:
+def dtype_as_object(dtype_str: str) -> type | None:
     def _dtype_as_object_simple(dtype_str: str) -> type | None:
         if dtype_str == "str":
             return str
@@ -272,7 +168,7 @@ def dtype_as_object(dtype_str: str, old_format: bool = False) -> type | None:
     if dtype_str is None:
         return None
 
-    parsed_dtypes = parse_dtype(dtype_str, check_exists=True, old_format=old_format)
+    parsed_dtypes = parse_dtype(dtype_str, check_exists=True)
     if len(parsed_dtypes) > 0:
         dtype_objects = []
         for parsed_dtype in parsed_dtypes:
@@ -281,12 +177,6 @@ def dtype_as_object(dtype_str: str, old_format: bool = False) -> type | None:
                 dtype_object = get_record_type_from_uid(
                     parsed_dtype["registry"],
                     parsed_dtype["record_uid"],
-                )
-            elif parsed_dtype.get("subtypes_list"):
-                dtype_object = get_record_type_from_nested_subtypes(
-                    parsed_dtype["registry"],
-                    parsed_dtype["subtypes_list"],
-                    parsed_dtype["field"],
                 )
             else:
                 # return field for dtypes without record_uid, e.g. bt.CellType.ontology_id
@@ -315,7 +205,6 @@ def parse_cat_dtype(
     related_registries: dict[str, SQLRecord] | None = None,
     is_itype: bool = False,
     check_exists: bool = False,
-    old_format: bool = False,
 ) -> dict[str, Any]:
     """Parses a categorical dtype string into its components (registry, field, subtypes)."""
     from .artifact import Artifact
@@ -325,7 +214,7 @@ def parse_cat_dtype(
         related_registries = dict_module_name_to_model_name(Artifact)
 
     # Parse the string considering nested brackets
-    parsed = parse_nested_brackets(dtype_str, old_format=old_format)
+    parsed = parse_nested_brackets(dtype_str)
     registry_str = parsed["registry"]
     filter_str = parsed["filter_str"]
     field_str = parsed["field"]
@@ -360,17 +249,7 @@ def parse_cat_dtype(
     assert hasattr(registry, field_str), f"{registry} has no field {field_str}"
 
     record_uid = parsed.get("record_uid")
-    subtypes_list = parsed.get("subtypes_list")
-
-    # Handle old format (subtypes_list) or new format (record_uid)
-    if subtypes_list and check_exists:
-        # Old format: validate that the Record exists using nested subtypes
-        # subtypes_list is guaranteed to be list[str] when present
-        if isinstance(subtypes_list, list):
-            get_record_type_from_nested_subtypes(
-                registry, cast(list[str], subtypes_list), field_str
-            )
-    elif record_uid and check_exists:
+    if record_uid and check_exists:
         get_record_type_from_uid(registry, record_uid)
 
     if filter_str != "":
@@ -388,14 +267,10 @@ def parse_cat_dtype(
     if record_uid:
         result["record_uid"] = record_uid
 
-    # Add subtypes_list if it exists (old format)
-    if subtypes_list:
-        result["subtypes_list"] = subtypes_list
-
     return result
 
 
-def parse_nested_brackets(dtype_str: str, old_format: bool = False) -> dict[str, Any]:
+def parse_nested_brackets(dtype_str: str) -> dict[str, Any]:
     """Parse dtype string with potentially nested brackets.
 
     Examples:
@@ -477,42 +352,34 @@ def parse_nested_brackets(dtype_str: str, old_format: bool = False) -> dict[str,
     if not field_part and pre_bracket_field:
         field_part = pre_bracket_field
 
-    # Extract UID, subtypes_list, or filter from bracket content
+    # Extract UID or filter from bracket content
     # For UID-based format: Record[uid] or ULabel[uid] -> record_uid
-    # For old name-based format: Record[Name] or Record[Parent[Child]] -> subtypes_list
     # For filter format: registry.field[filter] -> filter_str
     record_uid = None
-    subtypes_list = None
     filter_str = ""
 
     # If registry is Record or ULabel, bracket content could be UID or name(s)
     if registry_part in ("Record", "ULabel"):
         if bracket_content:
-            if old_format:
-                # Old format with nested brackets like Record[Parent[Child]]
-                extracted = extract_subtypes_and_filter(bracket_content)
-                subtypes_list = extracted["subtypes_list"]
-                filter_str = extracted["filter_str"]
-            else:
-                # In current format, Record/ULabel brackets can contain either:
-                # - a type uid, e.g. Record[Ab12Cd34Ef56Gh78]
-                # - relation filters injected from cat_filters, e.g.
-                #   Record[type__uid='...', is_type='True', schema__uid='...']
-                # - shorthand typed filters, e.g.
-                #   Record[Ab12Cd34Ef56Gh78, is_type='True', schema__uid='...']
-                # Distinguish them by presence of '=' in the bracket payload.
-                if "=" in bracket_content:
-                    first_item, sep, remaining_items = bracket_content.partition(",")
-                    first_item = first_item.strip()
-                    # Support shorthand typed filters by interpreting a leading bare
-                    # token as record uid and the remaining payload as filter string.
-                    if first_item and "=" not in first_item:
-                        record_uid = first_item
-                        filter_str = remaining_items.strip() if sep else ""
-                    else:
-                        filter_str = bracket_content
+            # In current format, Record/ULabel brackets can contain either:
+            # - a type uid, e.g. Record[Ab12Cd34Ef56Gh78]
+            # - relation filters injected from cat_filters, e.g.
+            #   Record[type__uid='...', is_type='True', schema__uid='...']
+            # - shorthand typed filters, e.g.
+            #   Record[Ab12Cd34Ef56Gh78, is_type='True', schema__uid='...']
+            # Distinguish them by presence of '=' in the bracket payload.
+            if "=" in bracket_content:
+                first_item, sep, remaining_items = bracket_content.partition(",")
+                first_item = first_item.strip()
+                # Support shorthand typed filters by interpreting a leading bare
+                # token as record uid and the remaining payload as filter string.
+                if first_item and "=" not in first_item:
+                    record_uid = first_item
+                    filter_str = remaining_items.strip() if sep else ""
                 else:
-                    record_uid = bracket_content
+                    filter_str = bracket_content
+            else:
+                record_uid = bracket_content
     else:
         # For other registries, bracket content is a filter
         filter_str = bracket_content if bracket_content else ""
@@ -527,74 +394,7 @@ def parse_nested_brackets(dtype_str: str, old_format: bool = False) -> dict[str,
     if record_uid:
         result["record_uid"] = record_uid
 
-    # Add subtypes_list if it exists (old format)
-    if subtypes_list:
-        result["subtypes_list"] = subtypes_list
-
     return result
-
-
-def extract_subtypes_and_filter(subtype_str: str) -> dict[str, Any]:
-    """Extract nested subtypes and optional filter from a nested subtype string.
-
-    Examples:
-        "B" -> {"subtypes_list": ["B"], "filter_str": ""}
-        "B[C]" -> {"subtypes_list": ["B", "C"], "filter_str": ""}
-        "B[C[filter='<value>']]" -> {"subtypes_list": ["B", "C"], "filter_str": "filter='<value>'"}
-        "B[C[D]]" -> {"subtypes_list": ["B", "C", "D"], "filter_str": ""}
-        "B[C[D[E]]]" -> {"subtypes_list": ["B", "C", "D", "E"], "filter_str": ""}
-        "B[filter='value']" -> {"subtypes_list": ["B"], "filter_str": "filter='value'"}
-        "Customer[UScustomer[region='US']]" -> {"subtypes_list": ["Customer", "UScustomer"], "filter_str": "region='US'"}
-
-    Args:
-        subtype_str: The subtype string with potential nesting
-
-    Returns:
-        Dictionary with subtypes_list and filter_str
-    """
-    subtypes: list[str] = []
-    filter_str = ""
-    current = subtype_str
-
-    while current:
-        if "[" not in current:
-            # No more brackets
-            if current and "=" not in current:
-                # It's a subtype name
-                subtypes.append(current)
-            elif current and "=" in current:
-                # It's a filter
-                filter_str = current
-            break
-
-        # Find the first part before the bracket
-        bracket_pos = current.index("[")
-        part = current[:bracket_pos]
-
-        # Add the part (it's a subtype name)
-        if part:
-            subtypes.append(part)
-
-        # Find the matching closing bracket
-        bracket_count = 0
-        closing_pos = -1
-
-        for i in range(bracket_pos, len(current)):
-            if current[i] == "[":
-                bracket_count += 1
-            elif current[i] == "]":
-                bracket_count -= 1
-                if bracket_count == 0:
-                    closing_pos = i
-                    break
-
-        if closing_pos == -1:
-            break
-
-        # Move to the content inside the brackets
-        current = current[bracket_pos + 1 : closing_pos]
-
-    return {"subtypes_list": subtypes, "filter_str": filter_str}
 
 
 def serialize_dtype(
@@ -800,70 +600,6 @@ def resolve_relation_filters(
     return resolved
 
 
-def migrate_dtype_to_uid_format(connection, input_field: str = "_dtype_str") -> None:
-    """Update _dtype_str for nested Record/ULabel types to uid format.
-
-    Converts old format (name-based) dtype strings to new UID-based format.
-    This function is used in migrations to update existing feature records.
-
-    Args:
-        connection: Database connection (from schema_editor.connection)
-        input_field: Field name to read from ("_dtype_str" or "dtype")
-
-    Returns:
-        None. Updates are performed directly in the database.
-    """
-    # Patterns to look for old format (name-based)
-    patterns = [
-        "cat[Record[",
-        "cat[ULabel[",
-        "list[cat[Record[",
-        "list[cat[ULabel[",
-    ]
-
-    # Build SQL query to fetch features matching any pattern
-    # Using OR conditions for each pattern
-    pattern_conditions = " OR ".join(
-        [f"{input_field} LIKE '{pattern}%'" for pattern in patterns]
-    )
-
-    query = f"""
-        SELECT id, uid, name, {input_field}
-        FROM lamindb_feature
-        WHERE {pattern_conditions}
-    """
-
-    # Fetch matching features
-    with connection.cursor() as cursor:
-        cursor.execute(query)
-        columns = [col[0] for col in cursor.description]
-        features = [dict(zip(columns, row)) for row in cursor.fetchall()]
-
-    # Convert each feature
-    for feature in features:
-        try:
-            # Convert old format string to objects, then serialize to UID format
-            dtype_objects = dtype_as_object(feature[input_field], old_format=True)
-            new_dtype_str = serialize_dtype(dtype_objects)
-
-            if new_dtype_str != feature[input_field]:
-                # Update using raw SQL
-                update_query = """
-                    UPDATE lamindb_feature
-                    SET _dtype_str = %s
-                    WHERE id = %s
-                """
-                with connection.cursor() as cursor:
-                    cursor.execute(update_query, [new_dtype_str, feature["id"]])
-
-        except Exception as e:
-            # If conversion fails, keep the original value
-            print(
-                f"Warning: Could not convert dtype for feature {feature['name']} ({feature['uid']}) because of error: {e}"
-            )
-            continue
-
-
 def process_init_feature_param(args, kwargs):
     # now we proceed with the user-facing constructor
     if len(args) != 0:
@@ -906,12 +642,7 @@ def process_init_feature_param(args, kwargs):
                 f"rather than passing a string '{dtype}' to dtype, consider passing a Python object"
             )
             dtype_str = dtype
-            parse_dtype(dtype_str, check_exists=True, old_format=True)
-            if dtype_str.startswith(
-                ("cat[Record[", "cat[ULabel[", "list[cat[Record[", "list[cat[ULabel[")
-            ):
-                # need to convert from old semantic format to new uid-based format
-                dtype_str = serialize_dtype(dtype_as_object(dtype_str, old_format=True))
+            parse_dtype(dtype_str, check_exists=True)
         kwargs["_dtype_str"] = dtype_str
     return kwargs
 
