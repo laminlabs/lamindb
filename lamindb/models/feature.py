@@ -687,13 +687,14 @@ END;
 class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     """Measurable properties of datasets such as dataframe columns.
 
-    Features index the variables measured in datasets to enable queries by dimension.
+    Features index variables across datasets to enable querying by dimensions independent
+    of the storage format:
 
     .. image:: https://lamin-site-assets.s3.amazonaws.com/.lamindb/VFFgFdAlJnssyOdk0001.svg
         :width: 800px
 
     Features also define the validation constraints for individual dataset dimensions.
-    Here is an example in which two flow cytometry datasets measure cell markers like `CD4` and `CD8A` and
+    Here is an example where two flow cytometry datasets measure cell markers like `CD4` and `CD8A` and
     metadata like `sample` and `cell_type`:
 
     .. image:: https://lamin-site-assets.s3.amazonaws.com/.lamindb/Duc60Ut5oykXThEL0001.svg
