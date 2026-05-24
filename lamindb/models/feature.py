@@ -494,7 +494,15 @@ def parse_nested_brackets(dtype_str: str, old_format: bool = False) -> dict[str,
                 subtypes_list = extracted["subtypes_list"]
                 filter_str = extracted["filter_str"]
             else:
-                record_uid = bracket_content
+                # In current format, Record/ULabel brackets can contain either:
+                # - a type uid, e.g. Record[Ab12Cd34Ef56Gh78]
+                # - relation filters injected from cat_filters, e.g.
+                #   Record[type__uid='...', is_type='True', schema__uid='...']
+                # Distinguish them by presence of '=' in the bracket payload.
+                if "=" in bracket_content:
+                    filter_str = bracket_content
+                else:
+                    record_uid = bracket_content
     else:
         # For other registries, bracket content is a filter
         filter_str = bracket_content if bracket_content else ""
