@@ -136,82 +136,86 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
 
     See Also:
         :class:`~lamindb.Feature`
-            Dimensions of measurement (e.g. column of a sheet, attribute of a record).
+            Measurable properties such as columns of a sheet.
         :class:`~lamindb.ULabel`
-            Like `Record`, just without the ability to store features.
+            Simple universal labels.
 
-    Examples:
+    Examples
+    --------
 
-        Create a **record** with a single feature::
+    Create a **record** with a single feature::
 
-            # create a feature if you don't yet have one
-            gc_content = ln.Feature(name="gc_content", dtype=float).save()
+        # create a feature if you don't yet have one
+        gc_content = ln.Feature(name="gc_content", dtype=float).save()
 
-            # create a record to track a sample
-            sample1 = ln.Record(name="Sample 1", features={"gc_content": 0.5}).save()
+        # create a record to track a sample
+        sample1 = ln.Record(name="Sample 1", features={"gc_content": 0.5}).save()
 
-            # describe the record
-            sample1.describe()
+        # describe the record
+        sample1.describe()
 
-        Group several records under a **record type**, optionally constrained with a :class:`~lamindb.Schema`::
+    Group several records under a **record type**, optionally constrained with a :class:`~lamindb.Schema`::
 
-            # create a flexible record type to track experiments
-            experiment_type = ln.Record(name="Experiment", is_type=True).save()
-            experiment1 = ln.Record(name="Experiment 1", type=experiment_type).save()
+        # create a flexible record type to track experiments
+        experiment_type = ln.Record(name="Experiment", is_type=True).save()
+        experiment1 = ln.Record(name="Experiment 1", type=experiment_type).save()
 
-            # create a feature to link experiments
-            experiment = ln.Feature(name="experiment", dtype=experiment_type).save()
+        # create a feature to link experiments
+        experiment = ln.Feature(name="experiment", dtype=experiment_type).save()
 
-            # create a record type to track samples -- constrain it with a schema
-            schema = ln.Schema([experiment, gc_content.with_config(optional=True)], name="sample_schema").save()
-            sample_sheet = ln.Record(name="Sample Sheet", is_type=True, schema=schema).save()
+        # create a record type to track samples -- constrain it with a schema
+        schema = ln.Schema([experiment, gc_content.with_config(optional=True)], name="sample_schema").save()
+        sample_sheet = ln.Record(name="Sample Sheet", is_type=True, schema=schema).save()
 
-            # group the sample1 record under the sample sheet
-            sample1.type = sample_sheet
-            sample1.save()
+        # group the sample1 record under the sample sheet
+        sample1.type = sample_sheet
+        sample1.save()
 
-            # reset the feature values for the record including the experiment
-            sample1.features.set_values({
-                "gc_content": 0.5,
-                "experiment": "Experiment 1",  # automatically resolves by name, also accepts the experiment1 object
-            })
+        # reset the feature values for the record including the experiment
+        sample1.features.set_values({
+            "gc_content": 0.5,
+            "experiment": "Experiment 1",  # automatically resolves by name, also accepts the experiment1 object
+        })
 
-        Export all records under a type to a dataframe::
+    Export all records under a type to a dataframe::
 
-            experiment_type.to_dataframe()
-            #> __lamindb_record_name__   ...
-            #>            Experiment 1   ...
-            #>            Experiment 2   ...
+        experiment_type.to_dataframe()
+        #> __lamindb_record_name__   ...
+        #>            Experiment 1   ...
+        #>            Experiment 2   ...
 
-        Import records from a dataframe :meth:`~lamindb.Record.from_dataframe`::
+    Import records from a dataframe :meth:`~lamindb.Record.from_dataframe`::
 
-            records = ln.Record.from_dataframe(df, type="my_df").save()  # creates a type my_df with inferred schema
+        records = ln.Record.from_dataframe(df, type="my_df").save()  # creates a type my_df with inferred schema
 
-        If you try to set incomplete features in a record in a sheet, you'll get a validation error::
+    If you try to set incomplete features in a record in a sheet, you'll get a validation error::
 
-            sample2 = ln.Record(name="Sample 2", type=sample_sheet).save()
-            sample2.features.set_values({"gc_content": 0.6})  # raises ValidationError because experiment is missing
+        sample2 = ln.Record(name="Sample 2", type=sample_sheet).save()
+        sample2.features.set_values({"gc_content": 0.6})  # raises ValidationError because experiment is missing
 
-        Query records by features::
+    Query records by features::
 
-            ln.Record.filter(gc_content=0.55)     # exact match
-            ln.Record.filter(gc_content__gt=0.5)  # greater than
-            ln.Record.filter(type=sample_sheet)   # just the record on the sheet
+        ln.Record.filter(gc_content=0.55)     # exact match
+        ln.Record.filter(gc_content__gt=0.5)  # greater than
+        ln.Record.filter(type=sample_sheet)   # just the record on the sheet
 
-        If your feature names are ambiguous, you can use a `Feature` object to disambiguate::
+    If your feature names are ambiguous, you can use a `Feature` object to disambiguate::
 
-            # to set feature values
-            sample1.features.set_values({gc_content: 0.5})  # gc_content is the feature object
+        # to set feature values
+        sample1.features.set_values({gc_content: 0.5})  # gc_content is the feature object
 
-            # to query by feature values
-            ln.Record.filter(gc_content == 0.5)  # instead of gc_content=0.5
+        # to query by feature values
+        ln.Record.filter(gc_content == 0.5)  # instead of gc_content=0.5
 
-        You can edit records like spreadsheets on the hub:
+    Notes
+    -----
 
-        .. image:: https://lamin-site-assets.s3.amazonaws.com/.lamindb/XSzhWUb0EoHOejiw0001.png
-            :width: 800px
+    You can edit records like spreadsheets on the hub:
 
-        Just like for :class:`~lamindb.ULabel`, you can also model **ontologies** through the `parents`/`children` attributes.
+    .. image:: https://lamin-site-assets.s3.amazonaws.com/.lamindb/XSzhWUb0EoHOejiw0002.png
+        :width: 800px
+
+    Just like for :class:`~lamindb.ULabel`, you can also model **ontologies** through the `parents`/`children` attributes.
 
     .. dropdown:: What is the difference between `Record` and `SQLRecord`?
 

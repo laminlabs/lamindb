@@ -1669,42 +1669,43 @@ class DB:
     Args:
         instance: Instance identifier in format "account/instance".
 
-    Examples:
+    Examples
+    --------
 
-        Query objects from an instance::
+    Query objects from an instance::
 
-            db = ln.DB("laminlabs/cellxgene")
+        db = ln.DB("laminlabs/cellxgene")
 
-        Query artifacts and filter by `suffix`::
+    Query artifacts and filter by `suffix`::
 
-            db.Artifact.filter(suffix=".h5ad").to_dataframe()
+        db.Artifact.filter(suffix=".h5ad").to_dataframe()
 
-        Get a single artifact by uid::
+    Get a single artifact by uid::
 
-            artifact = db.Artifact.get("abcDEF123456")
+        artifact = db.Artifact.get("abcDEF123456")
 
-        Query records and filter by name::
+    Query records and filter by name::
 
-            db.Record.filter(name__startswith="sample").to_dataframe()
+        db.Record.filter(name__startswith="sample").to_dataframe()
 
-        Get a cell type object::
+    Get a cell type object::
 
-            t_cell = db.bionty.CellType.get(name="T cell")
+        t_cell = db.bionty.CellType.get(name="T cell")
 
-        Create a lookup object to auto-complete all cell types in the database::
+    Create a lookup object to auto-complete all cell types in the database::
 
-            cell_types = db.bionty.CellType.lookup()
+        cell_types = db.bionty.CellType.lookup()
 
-        Return a `DataFrame` with additional info::
+    Return a `DataFrame` with additional info::
 
-            db.Artifact.filter(
-                suffix=".h5ad",
-                description__contains="immune",
-                size__gt=1e9,  # size > 1GB
-                cell_types__name__in=["B cell", "T cell"],
-            ).order_by("created_at").to_dataframe(
-                include=["cell_types__name", "created_by__handle"]  # include additional info
-            ).head()
+        db.Artifact.filter(
+            suffix=".h5ad",
+            description__contains="immune",
+            size__gt=1e9,  # size > 1GB
+            cell_types__name__in=["B cell", "T cell"],
+        ).order_by("created_at").to_dataframe(
+            include=["cell_types__name", "created_by__handle"]  # include additional info
+        ).head()
     """
 
     Artifact: QuerySet[Artifact]  # type: ignore[type-arg]

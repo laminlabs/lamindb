@@ -111,11 +111,12 @@ class User(BaseSQLRecord, CanCurate):
 
     This registry is automatically populated with user identities from LaminHub in case the user authenticates.
 
-    Examples:
+    Examples
+    --------
 
-        Query a user by handle::
+    Get a user by handle::
 
-            user = ln.User.get(handle="testuser1")
+        user = ln.User.get(handle="testuser1")
     """
 
     class Meta:
@@ -195,43 +196,45 @@ class Run(SQLRecord, TracksUpdates):
     See Also:
         :func:`~lamindb.track`
             Globally track a script or notebook run.
-        :func:`~lamindb.step`
-            Track a function executionwith this decorator.
+        :func:`~lamindb.flow`
+            Track a function execution with this decorator.
 
-    Examples:
+    Examples
+    --------
 
-        Create a run record::
+    Track a global run of a notebook or script::
 
-            ln.Transform(key="Cell Ranger", version="7.2.0", kind="pipeline").save()
-            transform = ln.Transform.get(key="Cell Ranger", version="7.2.0")
-            run = ln.Run(transform)
+        ln.track()
+        ln.context.run  # global run object
 
-        Track a global run of a notebook or script::
+    You can pass parameters to `Run(transform, params=params)` or add them later::
 
-            ln.track()
-            ln.context.run  # global run object
+        run.params = {
+            "learning_rate": 0.01,
+            "input_dir": "s3://my-bucket/mydataset",
+            "downsample": True,
+            "preprocess_params": {
+                "normalization_type": "cool",
+                "subset_highlyvariable": True,
+            },
+        }
+        run.save()
 
-        You can pass parameters to `Run(transform, params=params)` or add them later::
+    In contrast to `.params`, features are indexed in the `Feature` registry and can reference relational categorical values.
+    If you want to link feature values, use::
 
-            run.params = {
-                "learning_rate": 0.01,
-                "input_dir": "s3://my-bucket/mydataset",
-                "downsample": True,
-                "preprocess_params": {
-                    "normalization_type": "cool",
-                    "subset_highlyvariable": True,
-                },
-            }
-            run.save()
+        run.features.set_values({
+            "experiment": "My experiment 1",
+        })
 
-        In contrast to `.params`, features are indexed in the `Feature` registry and can reference relational categorical values.
-        If you want to link feature values, use::
+    Read more: :ref:`track-run-parameters`.
 
-            run.features.set_values({
-                "experiment": "My experiment 1",
-            })
+    Manually create a run object::
 
-        Guide: :ref:`track-run-parameters`
+        ln.Transform(key="Cell Ranger", version="7.2.0", kind="pipeline").save()
+        transform = ln.Transform.get(key="Cell Ranger", version="7.2.0")
+        run = ln.Run(transform)
+
     """
 
     class Meta:
@@ -520,7 +523,7 @@ class Run(SQLRecord, TracksUpdates):
             **expressions: Params, fields, and values passed via the Django query syntax.
 
         See Also:
-            - Guide: :doc:`docs:registries`
+            - Guide: :doc:`docs:query-search`
 
         Examples:
 

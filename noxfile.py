@@ -30,7 +30,7 @@ GROUPS["tutorial"] = [
     "README.ipynb",
     "sync.ipynb",
     "arrays.ipynb",
-    "registries.ipynb",
+    "query-search.ipynb",
 ]
 GROUPS["guide"] = [
     "track.ipynb",

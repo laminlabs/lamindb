@@ -45,20 +45,21 @@ class Reference(
 ):
     """References such as internal studies, papers, documents, or URLs.
 
-    Example:
+    Examples
+    --------
 
-        Create a reference object::
+    Create a reference object::
 
-            reference = Reference(
-                name="A Paper Title",
-                abbr="APT",
-                url="https://doi.org/10.1000/xyz123",
-                pubmed_id=12345678,
-                doi="10.1000/xyz123",
-                description="Good paper.",
-                text="Some text I want to be searchable.",
-                date=date(2023, 11, 21),
-            ).save()
+        reference = Reference(
+            name="A Paper Title",
+            abbr="APT",
+            url="https://doi.org/10.1000/xyz123",
+            pubmed_id=12345678,
+            doi="10.1000/xyz123",
+            description="Good paper.",
+            text="Some text I want to be searchable.",
+            date=date(2023, 11, 21),
+        ).save()
 
     """
 
@@ -170,17 +171,18 @@ class Reference(
 class Project(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates, ValidateFields):
     """Projects to label artifacts, transforms, records, and runs.
 
-    Example:
+    Examples
+    --------
 
-        Create a project and annotate an artifact with it::
+    Create a project and annotate an artifact with it::
 
-            project = Project(
-                name="My Project Name",
-                abbr="MPN",
-                url="https://example.com/my_project",
-            ).save()
-            artifact.projects.add(project)  # <-- labels the artifact with the project
-            ln.track(project=project)       # <-- automtically labels entities during the run
+        project = Project(
+            name="My Project Name",
+            abbr="MPN",
+            url="https://example.com/my_project",
+        ).save()
+        artifact.projects.add(project)  # <-- labels the artifact with the project
+        ln.track(project=project)       # <-- automtically labels entities during the run
 
     """
 

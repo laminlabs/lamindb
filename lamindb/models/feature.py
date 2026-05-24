@@ -685,40 +685,12 @@ END;
 
 
 class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
-    """Measurable properties of datasets such as dataframe columns.
+    """Measurable properties such as columns of a sheet.
 
-    Features represent the variables or dimensions along which observed values in a dataset are measured.
-    You can query datasets by features similar to how you query registries by fields.
-    Features also define the validation constraints for individual dataset dimensions.
+    Features index variables across datasets to enable querying by dimensions (:doc:`query-search`).
 
-    .. dropdown:: What if my dataset has 40k or more dimensions as in a gene expression dataset?
-
-        You don't bother defining an individual feature for each dimension but instead
-        define a common `dtype` for a set of features along with a constraint for the feature identifier type.
-
-        For example::
-
-            ln.Schema(itype=ln.Feature, dtype=float).save()  # use Feature.name as feature identifier type
-            ln.Schema(itype=bt.Gene.ensembl_gene_id, dtype=int).save()  # use Gene.ensembl_gene_id as feature identifier type
-            ln.Schema(itype=bt.Protein.uniprot_id, dtype=float).save()  # use Protein.uniprot_id as feature identifier type
-            ln.Schema(itype=bt.CellMarker, dtype=float).save()  # use CellMarker.name as feature identifier type
-
-        In these examples, :mod:`bionty` registries are used to leverage biological entities as feature identifiers.
-        If you pass a dataset for validation with this schema, feature identifiers will be validated accordingly.
-
-    .. dropdown:: What is the difference between features and labels?
-
-        1. A feature qualifies what is measured, i.e., a numerical or categorical random variable
-        2. A label *is* a measured value of a categorical variable, i.e., a category
-
-        Example: When annotating a dataset that measures expression of 30k genes,
-        the gene identifiers serve as feature identifiers, and the features are expression measurements for these genes.
-        When annotating a dataset whose experiment knocked out 3 specific genes, those genes serve as labels of the dataset.
-
-        Re-shaping data can introduce ambiguity among features & labels. If this
-        happened, ask yourself what the joint measurement was: a feature
-        qualifies variables in a joint measurement. The canonical data matrix
-        lists jointly measured variables in the columns.
+    .. image:: https://lamin-site-assets.s3.amazonaws.com/.lamindb/VFFgFdAlJnssyOdk0001.svg
+        :width: 800px
 
     Args:
         name: `str` Name of the feature, typically a column name.
@@ -737,14 +709,10 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         cat_filters: `dict[str, str | SQLRecord] | None = None` Subset a registry by additional filters to define valid categories.
 
     See Also:
-        :meth:`~lamindb.Feature.from_dataframe`
-            Create feature records from DataFrame.
-        :attr:`~lamindb.Artifact.features`
-            The `features` attribute of an artifact.
-        :class:`~lamindb.ULabel`
-            Universal labels.
         :class:`~lamindb.Schema`
-            Sets of features.
+            Schemas of datasets such as column sets of dataframes.
+        :attr:`~lamindb.Artifact.features`
+            The features of an artifact.
 
     Examples
     --------
@@ -854,6 +822,54 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             name="cell_types",
             dtype=[bt.Tissue.ontology_id, bt.CellType.ontology_id]
         ).save()
+
+    Notes
+    -----
+
+    Features can define validation constraints for individual dataset dimensions.
+    Here is an example where two flow cytometry datasets measure cell markers like `CD4` and `CD8A` and
+    metadata like `sample` and `cell_type`:
+
+    .. image:: https://lamin-site-assets.s3.amazonaws.com/.lamindb/Duc60Ut5oykXThEL0001.svg
+        :width: 800px
+
+    For more, read :doc:`curate` or :doc:`arrays`.
+
+    .. dropdown:: Features work across artifacts, records, and runs.
+
+        Here is how records indexed by the features of a sheet look like on the hub UI:
+
+        .. image:: https://lamin-site-assets.s3.amazonaws.com/.lamindb/XSzhWUb0EoHOejiw0002.png
+            :width: 800px
+
+    .. dropdown:: What if my dataset has 40k or more dimensions as in a gene expression dataset?
+
+        You don't bother defining an individual feature for each dimension but instead
+        define a common `dtype` for a set of features along with a constraint for the feature identifier type.
+
+        For example::
+
+            ln.Schema(itype=ln.Feature, dtype=float).save()  # use Feature.name as feature identifier type
+            ln.Schema(itype=bt.Gene.ensembl_gene_id, dtype=int).save()  # use Gene.ensembl_gene_id as feature identifier type
+            ln.Schema(itype=bt.Protein.uniprot_id, dtype=float).save()  # use Protein.uniprot_id as feature identifier type
+            ln.Schema(itype=bt.CellMarker, dtype=float).save()  # use CellMarker.name as feature identifier type
+
+        In these examples, :mod:`bionty` registries are used to leverage biological entities as feature identifiers.
+        If you pass a dataset for validation with this schema, feature identifiers will be validated accordingly.
+
+    .. dropdown:: What is the difference between features and labels?
+
+        1. A feature qualifies what is measured, i.e., a numerical or categorical random variable
+        2. A label *is* a measured value of a categorical variable, i.e., a category
+
+        Example: When annotating a dataset that measures expression of 30k genes,
+        the gene identifiers serve as feature identifiers, and the features are expression measurements for these genes.
+        When annotating a dataset whose experiment knocked out 3 specific genes, those genes serve as labels of the dataset.
+
+        Re-shaping data can introduce ambiguity among features & labels. If this
+        happened, ask yourself what the joint measurement was: a feature
+        qualifies variables in a joint measurement. The canonical data matrix
+        lists jointly measured variables in the columns.
 
     Data types
     ----------

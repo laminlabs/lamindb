@@ -155,24 +155,24 @@ def flow(
             `plan`, and `initiated_by_run` to matching `ln.track()` arguments while also keeping them in `run.params`
             for reproducibility. Pass `False` to disable this mapping.
 
-    Examples:
+    Examples
+    --------
 
-        To sync a workflow with a file in a git repo, see: :ref:`sync-code-with-git`.
+    To sync a workflow with a file in a git repo, see: :ref:`sync-code-with-git`.
 
-        For an extensive guide, see: :ref:`manage-workflows`. Here follow some examples.
+    For an extensive guide, see: :ref:`manage-workflows`. Here follow some examples.
 
-        .. literalinclude:: scripts/my_workflow.py
-            :language: python
-            :caption: my_workflow.py
+    .. literalinclude:: scripts/my_workflow.py
+        :language: python
+        :caption: my_workflow.py
 
-        .. literalinclude:: scripts/my_workflow_with_step.py
-            :language: python
-            :caption: my_workflow_with_step.py
+    .. literalinclude:: scripts/my_workflow_with_step.py
+        :language: python
+        :caption: my_workflow_with_step.py
 
-        .. literalinclude:: scripts/my_workflow_with_click.py
-            :language: python
-            :caption: my_workflow_with_click.py
-
+    .. literalinclude:: scripts/my_workflow_with_click.py
+        :language: python
+        :caption: my_workflow_with_click.py
 
     """
     return _create_tracked_decorator(
