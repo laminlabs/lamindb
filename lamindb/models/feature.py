@@ -687,9 +687,17 @@ END;
 class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     """Measurable properties of datasets such as dataframe columns.
 
-    Features represent the variables or dimensions along which observed values in a dataset are measured.
-    You can query datasets by features similar to how you query registries by fields.
+    Features index the variables measured in datasets to enable queries by dimension.
+
+    .. image:: https://lamin-site-assets.s3.amazonaws.com/.lamindb/VFFgFdAlJnssyOdk0001.svg
+        :width: 800px
+
     Features also define the validation constraints for individual dataset dimensions.
+    Here is an example in which two flow cytometry datasets measure cell markers like `CD4` and `CD8A` and
+    metadata like `sample` and `cell_type`:
+
+    .. image:: https://lamin-site-assets.s3.amazonaws.com/.lamindb/Duc60Ut5oykXThEL0001.svg
+        :width: 800px
 
     .. dropdown:: What if my dataset has 40k or more dimensions as in a gene expression dataset?
 
