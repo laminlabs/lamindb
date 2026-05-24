@@ -1106,17 +1106,17 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     ===============  ====================  =================================================
     dtype            string serialization  pandas
     ===============  ====================  =================================================
-    numerical        `'num'`               `int | float`
-    integer          `'int'`               `int64 | int32 | int16 | int8 | uint | ...`
-    float            `'float'`             `float64 | float32 | float16 | float8 | ...`
-    string           `'str'`               `object`
-    boolean          `'bool'`              `boolean | bool`
-    datetime (naive) `'datetime'`          `datetime`
+    `"num"`          `"num"`               `int | float`
+    `int`          `'int'`               `int64 | int32 | int16 | int8 | uint | ...`
+    `float`            `'float'`             `float64 | float32 | float16 | float8 | ...`
+    `str`           `'str'`               `object`
+    `bool`          `'bool'`              `boolean | bool`
+    `datetime`       `'datetime'`          `datetime`
     datetime (tz)    `'datetime64[ns, UTC]'` `datetime64[ns, UTC]`
-    date             `'date'`              `object` (pandera requires an ISO-format string, convert with `df["date"] = df["date"].dt.date`)
-    dictionary       `'dict'`              `object`
-    path             `'path'`              `str` (pandas does not have a dedicated path type, validated as `str`)
-    url              `'url'`               `str` (pandas does not have a dedicated url type, validated as `str`)
+    `date`             `'date'`              `object` (pandera requires an ISO-format string, convert with `df["date"] = df["date"].dt.date`)
+    `dict`       `'dict'`              `object`
+    `"path"`             `'path'`              `str` (pandas does not have a dedicated path type, validated as `str`)
+    `"url"`              `'url'`               `str` (pandas does not have a dedicated url type, validated as `str`)
     ===============  ====================  =================================================
 
     ### Categorical and relational data types
