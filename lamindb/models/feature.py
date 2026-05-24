@@ -498,9 +498,19 @@ def parse_nested_brackets(dtype_str: str, old_format: bool = False) -> dict[str,
                 # - a type uid, e.g. Record[Ab12Cd34Ef56Gh78]
                 # - relation filters injected from cat_filters, e.g.
                 #   Record[type__uid='...', is_type='True', schema__uid='...']
+                # - shorthand typed filters, e.g.
+                #   Record[Ab12Cd34Ef56Gh78, is_type='True', schema__uid='...']
                 # Distinguish them by presence of '=' in the bracket payload.
                 if "=" in bracket_content:
-                    filter_str = bracket_content
+                    first_item, sep, remaining_items = bracket_content.partition(",")
+                    first_item = first_item.strip()
+                    # Support shorthand typed filters by interpreting a leading bare
+                    # token as record uid and the remaining payload as filter string.
+                    if first_item and "=" not in first_item:
+                        record_uid = first_item
+                        filter_str = remaining_items.strip() if sep else ""
+                    else:
+                        filter_str = bracket_content
                 else:
                     record_uid = bracket_content
     else:
@@ -1107,6 +1117,13 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             cat_filters={"type": sample_type, "is_type": True, "schema": sample_schema},
         ).save()
 
+        # equivalent shorthand: pass the type as dtype directly
+        ln.Feature(
+            name="samplesheet",
+            dtype=sample_type,
+            cat_filters={"is_type": True, "schema": sample_schema},
+        ).save()
+
     A feature accepting multiple categorical types - a union type::
 
         ln.Feature(
@@ -1401,7 +1418,19 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
                 raise ValidationError(
                     f"cat_filters are incompatible with union dtypes: '{dtype_str}'"
                 )
-            if "]]" in dtype_str:
+            parsed_dtype = parse_dtype(dtype_str)
+            typed_registry: str | None = None
+            typed_record_uid: str | None = None
+            if (
+                len(parsed_dtype) == 1
+                and parsed_dtype[0].get("record_uid") is not None
+                and parsed_dtype[0].get("filter_str") == ""
+                and not parsed_dtype[0].get("list", False)
+            ):
+                typed_registry = parsed_dtype[0]["registry_str"]
+                typed_record_uid = parsed_dtype[0]["record_uid"]
+                dtype_str = f"cat[{typed_registry}]"
+            elif "]]" in dtype_str:
                 raise ValidationError(
                     f"cat_filters are incompatible with nested dtypes: '{dtype_str}'"
                 )
@@ -1431,10 +1460,45 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
                 for key, filter in cat_filters.items()
             }
 
+            # Normalize shorthand and explicit type selectors.
+            if "type" in cat_filters:
+                if "type__uid" in cat_filters and str(cat_filters["type"]) != str(
+                    cat_filters["type__uid"]
+                ):
+                    raise ValidationError(
+                        "Conflicting type selectors in cat_filters: 'type' and 'type__uid'"
+                    )
+                cat_filters["type__uid"] = cat_filters.pop("type")
+
+            if typed_record_uid is not None:
+                explicit_type_uid = cat_filters.get("type__uid")
+                if explicit_type_uid is not None and str(explicit_type_uid) != str(
+                    typed_record_uid
+                ):
+                    raise ValidationError(
+                        f"Conflicting typed dtype and cat_filters type selector: dtype uses uid '{typed_record_uid}', cat_filters uses uid '{explicit_type_uid}'"
+                    )
+                cat_filters["type__uid"] = typed_record_uid
+
+            shorthand_type_uid = None
+            if (
+                dtype_str in ("cat[Record]", "cat[ULabel]")
+                and "type__uid" in cat_filters
+            ):
+                shorthand_type_uid = str(cat_filters.pop("type__uid"))
+
             fill_in = ", ".join(
                 f"{key}='{value}'" for (key, value) in cat_filters.items()
             )
-            dtype_str = dtype_str.replace("]", f"[{fill_in}]]")
+            if shorthand_type_uid is not None:
+                bracket_payload = (
+                    shorthand_type_uid
+                    if fill_in == ""
+                    else f"{shorthand_type_uid}, {fill_in}"
+                )
+            else:
+                bracket_payload = fill_in
+            dtype_str = dtype_str.replace("]", f"[{bracket_payload}]]")
             self._dtype_str = dtype_str
         if not self._state.adding:
             if self._dtype_str != dtype_str:

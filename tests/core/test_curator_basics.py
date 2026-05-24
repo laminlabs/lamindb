@@ -881,7 +881,7 @@ def test_cat_filters_record_schema_validation():
     ).save()
     feature = ln.Feature(
         name="samplesheet",
-        dtype=ln.Record,
+        dtype=parent_type,
         cat_filters={"type": parent_type, "is_type": True, "schema": sampleschema},
     ).save()
     schema = ln.Schema([feature], name="samplesheet validation schema").save()
@@ -899,10 +899,10 @@ def test_cat_filters_record_schema_validation():
     curator = ln.curators.DataFrameCurator(df, schema)
     with pytest.raises(ln.errors.ValidationError) as error:
         curator.validate()
-    assert (
-        "2 terms not validated in feature 'samplesheet': 'samplesheet-wrong-parent', 'samplesheet-wrong-schema'"
-        in str(error.value)
-    )
+    error_message = str(error.value)
+    assert "2 terms not validated in feature 'samplesheet':" in error_message
+    assert "'samplesheet-wrong-schema'" in error_message
+    assert "'samplesheet-wrong-parent'" in error_message
 
     schema.delete(permanent=True)
     feature.delete(permanent=True)
