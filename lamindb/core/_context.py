@@ -1251,6 +1251,9 @@ class Context:
 
         When called in a notebook, will prompt to save the notebook in your editor.
 
+        In a Jupyter notebook, call `ln.finish()` in its own cell as the output of the cell in which
+        `ln.finish()` is called is stripped from the run report.
+
         Args:
             ignore_non_consecutive: Whether to ignore if a notebook was non-consecutively executed.
 
