@@ -1190,15 +1190,12 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         * - dtype
           - cat_filters
           - string serialization
-          - example in docstring
         * - `bt.Disease`
           - `{"source": source}`
           - `"cat[bionty.Disease]"`
-          - restricted diseases by ontology source
         * - `ln.Artifact`
           - `{"schema": schema}`
           - `"cat[Artifact]"`
-          - restricted artifacts by schema
 
     **List data types.**
 
@@ -1207,10 +1204,8 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
 
         * - dtype
           - string serialization
-          - example in docstring
         * - `list[bt.CellType]`
           - `"list[cat[bionty.CellType]]"`
-          - list dtype of relational categories
 
     **Union data types.**
 
@@ -1219,10 +1214,8 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
 
         * - dtype
           - string serialization
-          - example in docstring
         * - `"cat[bionty.Tissue.ontology_id|bionty.CellType.ontology_id]"`
           - `"cat[bionty.Tissue.ontology_id|bionty.CellType.ontology_id]"`
-          - categorical union dtype
 
     """
 
