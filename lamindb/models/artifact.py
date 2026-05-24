@@ -1378,7 +1378,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
 
         Get all feature annotations as a dictionary::
 
-            d = artifact.features.get_values()
+            artifact.features.get_values()
             #> {
             #>    "species_name": "human",
             #>    "scientist_names": ["Barbara McClintock", "Edgar Anderson"],
@@ -1386,7 +1386,7 @@ class Artifact(SQLRecord, IsVersioned, TracksRun, TracksUpdates):
             #>    "experiment": "Experiment 1"
             #> }
 
-        Get a value for a single feature, return categoricals as Python objects::
+        Get a value for a single feature, returning categoricals as Python objects::
 
             organism = artifact.features["species_name"]  # returns an Organism object, not "human"
             temperature = artifact.features["temperature_in_celsius"]  # returns a temperature value, a float
